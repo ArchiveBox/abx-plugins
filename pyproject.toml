@@ -1,0 +1,36 @@
+[project]
+name = "abx-plugins"
+version = "0.1.0"
+description = "ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)"
+authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
+requires-python = ">=3.10"
+license = {text = "MIT"}
+readme = "README.md"
+keywords = ["archivebox", "plugins", "web-archiving", "hooks", "scraping"]
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Developers",
+    "Environment :: Console",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+include = ["abx_plugins/**"]
+
+[tool.hatch.build.targets.sdist]
+include = ["abx_plugins/**", "README.md", "LICENSE", "pyproject.toml"]
+
+[project.urls]
+Homepage = "https://github.com/ArchiveBox/ArchiveBox"
+Source = "https://github.com/ArchiveBox/ArchiveBox"
+Documentation = "https://github.com/ArchiveBox/ArchiveBox"
+"Bug Tracker" = "https://github.com/ArchiveBox/ArchiveBox/issues"
