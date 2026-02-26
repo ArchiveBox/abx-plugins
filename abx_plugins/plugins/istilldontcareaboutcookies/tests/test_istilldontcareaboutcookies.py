@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     setup_test_env,
     launch_chromium_session,
