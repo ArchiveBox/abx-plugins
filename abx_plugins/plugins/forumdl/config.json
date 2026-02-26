@@ -27,12 +27,6 @@
       "enum": ["jsonl", "warc", "mbox", "maildir", "mh", "mmdf", "babyl"],
       "description": "Output format for forum downloads"
     },
-    "FORUMDL_CHECK_SSL_VALIDITY": {
-      "type": "boolean",
-      "default": true,
-      "x-fallback": "CHECK_SSL_VALIDITY",
-      "description": "Whether to verify SSL certificates"
-    },
     "FORUMDL_ARGS": {
       "type": "array",
       "items": {"type": "string"},

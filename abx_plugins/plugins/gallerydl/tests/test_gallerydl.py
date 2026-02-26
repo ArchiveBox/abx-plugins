@@ -186,16 +186,20 @@ def test_real_gallery_url():
         assert result_json, f"Should have ArchiveResult JSONL output. stdout: {result.stdout}"
         assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
-        # Check that some files were downloaded
-        output_files = list(tmpdir.glob('**/*'))
-        image_files = [f for f in output_files if f.is_file() and f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif', '.webp')]
+        output_str = (result_json.get('output_str') or '').strip()
+        assert output_str, f"ArchiveResult must include output path for real gallery download: {result_json}"
 
-        # Remote gallery hosts can throttle or remove content over time. Treat
-        # a clean extractor run as success even if no media is currently returned.
-        if not image_files:
-            assert 'Traceback' not in result.stderr, f"gallery-dl crashed: {result.stderr}"
-        else:
-            assert len(image_files) > 0, f"Should have downloaded at least one image. Files: {output_files}"
+        output_path = Path(output_str)
+        assert output_path.is_file(), f"Downloaded media path missing: {output_path}"
+        assert output_path.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'), (
+            f"Downloaded media must be an image file: {output_path}"
+        )
+        assert output_path.stat().st_size > 0, f"Downloaded image is empty: {output_path}"
+
+        # Ensure the extractor really downloaded gallery media, not just metadata.
+        output_files = list(tmpdir.glob('**/*'))
+        image_files = [f for f in output_files if f.is_file() and f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp')]
+        assert len(image_files) > 0, f"Should have downloaded at least one image. Files: {output_files}"
 
         print(f"Successfully extracted {len(image_files)} image(s) in {elapsed_time:.2f}s")
 
