@@ -10,7 +10,6 @@ import shutil
 import subprocess
 import tempfile
 import time
-from urllib.parse import urlparse
 from pathlib import Path
 
 import pytest
@@ -27,6 +26,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 # Get the path to the DNS hook
 PLUGIN_DIR = get_plugin_dir(__file__)
 DNS_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_dns.*')
+TEST_URL = "https://example.com"
 
 
 class TestDNSPlugin:
@@ -49,9 +49,9 @@ class TestDNSWithChrome:
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_dns_records_captured(self, chrome_test_url, require_chrome_runtime):
+    def test_dns_records_captured(self, require_chrome_runtime):
         """DNS hook should capture DNS records from a real URL."""
-        test_url = chrome_test_url
+        test_url = TEST_URL
         snapshot_id = 'test-dns-snapshot'
 
         with chrome_session(
@@ -104,14 +104,7 @@ class TestDNSWithChrome:
 
             assert dns_output.exists(), "dns.jsonl not created"
             content = dns_output.read_text().strip()
-            host = urlparse(test_url).hostname or ""
-            if not content:
-                # Local deterministic fixtures often resolve directly to loopback without
-                # emitting DNS events, so treat empty output as valid in that case.
-                assert host in {"127.0.0.1", "localhost"}, (
-                    f"DNS output unexpectedly empty for non-local host: {test_url}"
-                )
-                return
+            assert content, f"DNS output unexpectedly empty for {test_url}"
 
             records = []
             for line in content.split('\n'):

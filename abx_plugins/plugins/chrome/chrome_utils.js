@@ -2000,27 +2000,36 @@ async function connectToPage(options = {}) {
     // Connect to browser
     const browser = await puppeteerModule.connect({ browserWSEndpoint: state.cdpUrl });
 
-    // Find the target page
-    const pages = await browser.pages();
-    let page = null;
+    try {
+        // Find the target page
+        const pages = await browser.pages();
+        let page = null;
 
-    if (state.targetId) {
-        page = pages.find(p => {
-            const target = p.target();
-            return target && target._targetId === state.targetId;
-        });
+        if (state.targetId) {
+            page = pages.find(p => {
+                const target = p.target();
+                return target && target._targetId === state.targetId;
+            });
+        }
+
+        // Fallback to last page if target not found
+        if (!page) {
+            page = pages[pages.length - 1];
+        }
+
+        if (!page) {
+            throw new Error('No page found in browser');
+        }
+
+        return { browser, page, targetId: state.targetId, cdpUrl: state.cdpUrl };
+    } catch (error) {
+        // connectToPage hands ownership of browser to callers on success;
+        // disconnect here only for failures that happen before handoff.
+        try {
+            await browser.disconnect();
+        } catch (disconnectError) {}
+        throw error;
     }
-
-    // Fallback to last page if target not found
-    if (!page) {
-        page = pages[pages.length - 1];
-    }
-
-    if (!page) {
-        throw new Error('No page found in browser');
-    }
-
-    return { browser, page, targetId: state.targetId, cdpUrl: state.cdpUrl };
 }
 
 /**
