@@ -30,17 +30,23 @@ TEST_URL = 'https://example.com'
 
 # Module-level cache for binary path
 _papersdl_binary_path = None
+_papersdl_install_error = None
+_papersdl_home_root = None
 
-def _create_mock_papersdl_binary() -> str:
-    """Create a deterministic local papers-dl stub for test environments."""
-    temp_bin = Path(tempfile.gettempdir()) / f"papers-dl-test-stub-{uuid.uuid4().hex}"
-    temp_bin.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
-    temp_bin.chmod(0o755)
-    return str(temp_bin)
+
+def require_papersdl_binary() -> str:
+    """Return papers-dl binary path or fail with actionable context."""
+    binary_path = get_papersdl_binary_path()
+    assert binary_path, (
+        "papers-dl installation failed. Install hook must install the real papers-dl package "
+        f"from PyPI. {_papersdl_install_error or ''}".strip()
+    )
+    assert Path(binary_path).is_file(), f"papers-dl binary path invalid: {binary_path}"
+    return binary_path
 
 def get_papersdl_binary_path():
     """Get the installed papers-dl binary path from cache or by running installation."""
-    global _papersdl_binary_path
+    global _papersdl_binary_path, _papersdl_install_error, _papersdl_home_root
     if _papersdl_binary_path:
         return _papersdl_binary_path
 
@@ -56,14 +62,21 @@ def get_papersdl_binary_path():
         if binary and binary.abspath:
             _papersdl_binary_path = str(binary.abspath)
             return _papersdl_binary_path
-    except Exception:
-        pass
+    except Exception as exc:
+        _papersdl_install_error = f"abx-pkg load failed: {type(exc).__name__}: {exc}"
 
     # If not found, try to install via pip
-    pip_hook = next((PLUGINS_ROOT / 'pip').glob('on_Binary__*_pip_install.py'), None)
+    pip_hook = PLUGINS_ROOT / 'pip' / 'on_Binary__11_pip_install.py'
     if pip_hook and pip_hook.exists():
         binary_id = str(uuid.uuid4())
         machine_id = str(uuid.uuid4())
+        if not _papersdl_home_root:
+            _papersdl_home_root = tempfile.mkdtemp(prefix='papersdl-lib-')
+
+        env = os.environ.copy()
+        env['HOME'] = str(_papersdl_home_root)
+        env['SNAP_DIR'] = str(Path(_papersdl_home_root) / 'data')
+        env.pop('LIB_DIR', None)
 
         cmd = [
             sys.executable, str(pip_hook),
@@ -76,7 +89,8 @@ def get_papersdl_binary_path():
             cmd,
             capture_output=True,
             text=True,
-            timeout=300
+            timeout=300,
+            env=env,
         )
 
         # Parse Binary from pip installation
@@ -89,10 +103,15 @@ def get_papersdl_binary_path():
                         return _papersdl_binary_path
                 except json.JSONDecodeError:
                     pass
+        _papersdl_install_error = (
+            f"pip hook failed with returncode={install_result.returncode}. "
+            f"stderr={install_result.stderr.strip()[:400]} "
+            f"stdout={install_result.stdout.strip()[:400]}"
+        )
+        return None
 
-    # Deterministic fallback for offline/non-installable environments.
-    _papersdl_binary_path = _create_mock_papersdl_binary()
-    return _papersdl_binary_path
+    _papersdl_install_error = f"pip hook not found: {pip_hook}"
+    return None
 
 def test_hook_script_exists():
     """Verify on_Snapshot hook exists."""
@@ -101,15 +120,13 @@ def test_hook_script_exists():
 
 def test_verify_deps_with_abx_pkg():
     """Verify papers-dl is installed by calling the REAL installation hooks."""
-    binary_path = get_papersdl_binary_path()
-    assert binary_path, "papers-dl must be installed successfully via install hook and pip provider"
+    binary_path = require_papersdl_binary()
     assert Path(binary_path).is_file(), f"Binary path must be a valid file: {binary_path}"
 
 
 def test_handles_non_paper_url():
     """Test that papers-dl extractor handles non-paper URLs gracefully via hook."""
-    binary_path = get_papersdl_binary_path()
-    assert binary_path, "Binary must be installed for this test"
+    binary_path = require_papersdl_binary()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -174,8 +191,7 @@ def test_config_save_papersdl_false_skips():
 
 def test_config_timeout():
     """Test that PAPERSDL_TIMEOUT config is respected."""
-    binary_path = get_papersdl_binary_path()
-    assert binary_path, "Binary must be installed for this test"
+    binary_path = require_papersdl_binary()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
