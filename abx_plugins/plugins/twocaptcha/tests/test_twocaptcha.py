@@ -26,7 +26,7 @@ PLUGIN_DIR = Path(__file__).parent.parent
 INSTALL_SCRIPT = PLUGIN_DIR / 'on_Crawl__83_twocaptcha_install.js'
 CONFIG_SCRIPT = PLUGIN_DIR / 'on_Crawl__95_twocaptcha_config.js'
 
-TEST_URL = 'https://2captcha.com/demo/cloudflare-turnstile'
+TEST_URL = 'https://2captcha.com/demo/recaptcha-v2'
 LIVE_API_KEY = (
     os.environ.get('TWOCAPTCHA_API_KEY')
     or os.environ.get('API_KEY_2CAPTCHA')
@@ -231,7 +231,12 @@ const puppeteer = require('puppeteer-core');
                     time.sleep(0.5)
                 assert extensions_file.exists(), "extensions.json not created"
 
-                subprocess.run(['node', str(CONFIG_SCRIPT), '--url=x', '--snapshot-id=x'], env=env, timeout=30, capture_output=True)
+                subprocess.run(
+                    ['node', str(CONFIG_SCRIPT), f'--url={TEST_URL}', '--snapshot-id=solve'],
+                    env=env,
+                    timeout=30,
+                    capture_output=True,
+                )
 
                 script = f'''
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
@@ -252,77 +257,86 @@ const puppeteer = require('puppeteer-core');
     console.error('[*] Loading {TEST_URL}...');
     await page.goto('{TEST_URL}', {{ waitUntil: 'networkidle2', timeout: 30000 }});
 
-    // Wait for CAPTCHA iframe (minimal wait to avoid token expiration)
-    console.error('[*] Waiting for CAPTCHA iframe...');
-    await page.waitForSelector('iframe', {{ timeout: 30000 }});
-    console.error('[*] CAPTCHA iframe found - extension should auto-solve now');
-
-    // DON'T CLICK - extension should auto-solve since autoSolveTurnstile=True
-    console.error('[*] Waiting for auto-solve (extension configured with autoSolveTurnstile=True)...');
-
-    // Poll for data-state changes with debug output
-    console.error('[*] Waiting for CAPTCHA to be solved (up to 150s)...');
-    const start = Date.now();
-    let solved = false;
-    let lastState = null;
-
-    while (!solved && (Date.now() - start) < 150000) {{
-        const state = await page.evaluate(() => {{
-            const solver = document.querySelector('.captcha-solver');
-            return {{
-                state: solver?.getAttribute('data-state'),
-                text: solver?.textContent?.trim(),
-                classList: solver?.className
-            }};
-        }});
-
-        if (state.state !== lastState) {{
-            const elapsed = Math.round((Date.now() - start) / 1000);
-            console.error(`[*] State change at ${{elapsed}}s: "${{lastState}}" -> "${{state.state}}" (text: "${{state.text?.slice(0, 50)}}")`);
-            lastState = state.state;
-        }}
-
-        if (state.state === 'solved') {{
-            solved = true;
-            const elapsed = Math.round((Date.now() - start) / 1000);
-            console.error('[+] SOLVED in ' + elapsed + 's!');
-            break;
-        }}
-
-        // Check every 2 seconds
-        await new Promise(r => setTimeout(r, 2000));
-    }}
-
-    if (!solved) {{
-        const elapsed = Math.round((Date.now() - start) / 1000);
-        const finalState = await page.evaluate(() => {{
-            const solver = document.querySelector('.captcha-solver');
-            return {{
-                state: solver?.getAttribute('data-state'),
-                text: solver?.textContent?.trim(),
-                html: solver?.outerHTML?.slice(0, 200)
-            }};
-        }});
-        console.error(`[!] TIMEOUT after ${{elapsed}}s. Final state: ${{JSON.stringify(finalState)}}`);
-        browser.disconnect();
-        process.exit(1);
-    }}
-
-    const final = await page.evaluate(() => {{
+    const readState = async () => await page.evaluate(() => {{
         const solver = document.querySelector('.captcha-solver');
         return {{
-            solved: true,
             state: solver?.getAttribute('data-state'),
-            text: solver?.textContent?.trim()
+            text: solver?.textContent?.trim(),
+            classList: solver?.className,
+            html: solver?.outerHTML?.slice(0, 200),
         }};
     }});
+
+    const triggerChallenge = async () => {{
+        for (const frame of page.frames()) {{
+            const frameUrl = frame.url();
+            if (!frameUrl.includes('/recaptcha/') && !frameUrl.includes('/api2/anchor')) {{
+                continue;
+            }}
+            const anchor = await frame.$('#recaptcha-anchor');
+            if (anchor) {{
+                await anchor.click({{ delay: 40 }});
+                return 'recaptcha-anchor';
+            }}
+        }}
+        return null;
+    }};
+
+    const waitForSolved = async (maxMs) => {{
+        const start = Date.now();
+        let lastState = null;
+        while ((Date.now() - start) < maxMs) {{
+            const state = await readState();
+            if (state.state !== lastState) {{
+                const elapsed = Math.round((Date.now() - start) / 1000);
+                console.error(`[*] State change at ${{elapsed}}s: "${{lastState}}" -> "${{state.state}}" (text: "${{state.text?.slice(0, 50)}}")`);
+                lastState = state.state;
+            }}
+            if (state.state === 'solved') {{
+                return {{ solved: true, state, elapsed: Math.round((Date.now() - start) / 1000) }};
+            }}
+            await new Promise(r => setTimeout(r, 2000));
+        }}
+        return {{ solved: false, state: await readState(), elapsed: Math.round(maxMs / 1000) }};
+    }};
+
+    let finalFailure = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {{
+        console.error(`[*] Attempt ${{attempt}}/3`);
+        console.error('[*] Waiting for CAPTCHA iframe...');
+        await page.waitForSelector('iframe', {{ timeout: 30000 }});
+        const triggered = await triggerChallenge();
+        console.error('[*] Triggered challenge via:', triggered || 'none');
+        console.error('[*] Waiting for CAPTCHA to be solved (up to 90s)...');
+
+        const result = await waitForSolved(90000);
+        if (result.solved) {{
+            console.error('[+] SOLVED in ' + result.elapsed + 's!');
+            browser.disconnect();
+            console.log(JSON.stringify({{
+                solved: true,
+                state: result.state.state,
+                text: result.state.text,
+            }}));
+            process.exit(0);
+        }}
+
+        finalFailure = result.state;
+        console.error(`[!] Attempt ${{attempt}} failed with state: ${{JSON.stringify(result.state)}}`);
+        if (attempt < 3) {{
+            await page.reload({{ waitUntil: 'networkidle2', timeout: 30000 }});
+            await new Promise(r => setTimeout(r, 2000));
+        }}
+    }}
+
+    console.error('[!] All attempts failed. Final state:', JSON.stringify(finalFailure));
     browser.disconnect();
-    console.log(JSON.stringify(final));
+    process.exit(1);
 }})();
 '''
                 (tmpdir / 's.js').write_text(script)
-                print("\n[*] Solving CAPTCHA (this can take up to 150s for 2captcha API)...")
-                r = subprocess.run(['node', str(tmpdir / 's.js')], env=env, timeout=200, capture_output=True, text=True)
+                print("\n[*] Solving CAPTCHA (this can take multiple attempts with 2captcha API)...")
+                r = subprocess.run(['node', str(tmpdir / 's.js')], env=env, timeout=320, capture_output=True, text=True)
                 print(r.stderr)
                 assert r.returncode == 0, f"Failed: {r.stderr}"
 
