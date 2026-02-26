@@ -39,15 +39,8 @@ def test_hook_script_exists():
 
 def test_verify_deps_with_abx_pkg():
     """Verify postlight-parser is available via abx-pkg."""
-    from abx_pkg import Binary, NpmProvider, EnvProvider, BinProviderOverrides, BinaryOverrides
+    from abx_pkg import Binary, NpmProvider, EnvProvider
     from pydantic.errors import PydanticUserError
-
-    NpmProvider.model_rebuild(
-        _types_namespace={
-            'BinProviderOverrides': BinProviderOverrides,
-            'BinaryOverrides': BinaryOverrides,
-        }
-    )
 
     try:
         npm_provider = NpmProvider()

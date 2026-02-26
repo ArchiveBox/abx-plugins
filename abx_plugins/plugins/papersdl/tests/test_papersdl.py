@@ -50,22 +50,7 @@ def get_papersdl_binary_path():
     if _papersdl_binary_path:
         return _papersdl_binary_path
 
-    # Try to find papers-dl binary using abx-pkg
-    from abx_pkg import Binary, PipProvider, EnvProvider
-
-    try:
-        binary = Binary(
-            name='papers-dl',
-            binproviders=[PipProvider(), EnvProvider()]
-        ).load()
-
-        if binary and binary.abspath:
-            _papersdl_binary_path = str(binary.abspath)
-            return _papersdl_binary_path
-    except Exception as exc:
-        _papersdl_install_error = f"abx-pkg load failed: {type(exc).__name__}: {exc}"
-
-    # If not found, try to install via pip
+    # Always validate installation path by running the real pip hook.
     pip_hook = PLUGINS_ROOT / 'pip' / 'on_Binary__11_pip_install.py'
     if pip_hook and pip_hook.exists():
         binary_id = str(uuid.uuid4())

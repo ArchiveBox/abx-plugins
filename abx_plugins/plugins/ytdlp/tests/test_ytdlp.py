@@ -38,34 +38,7 @@ def test_hook_script_exists():
 
 def test_verify_deps_with_abx_pkg():
     """Verify yt-dlp, node, and ffmpeg are available via abx-pkg."""
-    from abx_pkg import (
-        Binary,
-        PipProvider,
-        AptProvider,
-        BrewProvider,
-        EnvProvider,
-        BinProviderOverrides,
-        BinaryOverrides,
-    )
-
-    PipProvider.model_rebuild(
-        _types_namespace={
-            'BinProviderOverrides': BinProviderOverrides,
-            'BinaryOverrides': BinaryOverrides,
-        }
-    )
-    AptProvider.model_rebuild(
-        _types_namespace={
-            'BinProviderOverrides': BinProviderOverrides,
-            'BinaryOverrides': BinaryOverrides,
-        }
-    )
-    BrewProvider.model_rebuild(
-        _types_namespace={
-            'BinProviderOverrides': BinProviderOverrides,
-            'BinaryOverrides': BinaryOverrides,
-        }
-    )
+    from abx_pkg import Binary, PipProvider, AptProvider, BrewProvider, EnvProvider
 
     try:
         pip_provider = PipProvider()
