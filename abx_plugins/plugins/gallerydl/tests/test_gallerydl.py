@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import os
 from pathlib import Path
 import pytest
 
@@ -145,63 +146,79 @@ def test_config_timeout():
 
 def test_real_gallery_url():
     """Test that gallery-dl can extract images from a real Flickr gallery URL."""
-    import os
+    # Real public gallery URL that currently yields downloadable media.
+    gallery_url = 'https://www.flickr.com/photos/gregorydolivet/55002388567/in/explore-2025-12-25/'
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
+    max_attempts = 3
+    last_error = ''
 
-        # Use a real Flickr photo page
-        gallery_url = 'https://www.flickr.com/photos/gregorydolivet/55002388567/in/explore-2025-12-25/'
+    for attempt in range(1, max_attempts + 1):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = Path(tmpdir)
+            env = os.environ.copy()
+            env['GALLERY_DL_TIMEOUT'] = '60'
+            env['SNAP_DIR'] = str(tmpdir)
 
-        env = os.environ.copy()
-        env['GALLERY_DL_TIMEOUT'] = '60'  # Give it time to download
+            start_time = time.time()
+            result = subprocess.run(
+                [sys.executable, str(GALLERYDL_HOOK), '--url', gallery_url, '--snapshot-id', f'testflickr{attempt}'],
+                cwd=tmpdir,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=90
+            )
+            elapsed_time = time.time() - start_time
 
-        start_time = time.time()
-        result = subprocess.run(
-            [sys.executable, str(GALLERYDL_HOOK), '--url', gallery_url, '--snapshot-id', 'testflickr'],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=90
-        )
-        elapsed_time = time.time() - start_time
+            if result.returncode != 0:
+                last_error = f"attempt={attempt} returncode={result.returncode} stderr={result.stderr}"
+                continue
 
-        # Should succeed
-        assert result.returncode == 0, f"Should extract gallery successfully: {result.stderr}"
+            result_json = None
+            for line in result.stdout.strip().split('\n'):
+                line = line.strip()
+                if line.startswith('{'):
+                    try:
+                        record = json.loads(line)
+                        if record.get('type') == 'ArchiveResult':
+                            result_json = record
+                            break
+                    except json.JSONDecodeError:
+                        pass
 
-        # Parse JSONL output
-        result_json = None
-        for line in result.stdout.strip().split('\n'):
-            line = line.strip()
-            if line.startswith('{'):
-                try:
-                    record = json.loads(line)
-                    if record.get('type') == 'ArchiveResult':
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+            if not result_json or result_json.get('status') != 'succeeded':
+                last_error = f"attempt={attempt} invalid ArchiveResult stdout={result.stdout} stderr={result.stderr}"
+                continue
 
-        assert result_json, f"Should have ArchiveResult JSONL output. stdout: {result.stdout}"
-        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
+            output_str = (result_json.get('output_str') or '').strip()
+            if not output_str:
+                last_error = f"attempt={attempt} empty output_str stdout={result.stdout} stderr={result.stderr}"
+                continue
 
-        output_str = (result_json.get('output_str') or '').strip()
-        assert output_str, f"ArchiveResult must include output path for real gallery download: {result_json}"
+            output_path = Path(output_str)
+            if not output_path.is_file():
+                last_error = f"attempt={attempt} output missing path={output_path}"
+                continue
 
-        output_path = Path(output_str)
-        assert output_path.is_file(), f"Downloaded media path missing: {output_path}"
-        assert output_path.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'), (
-            f"Downloaded media must be an image file: {output_path}"
-        )
-        assert output_path.stat().st_size > 0, f"Downloaded image is empty: {output_path}"
+            if output_path.suffix.lower() not in ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'):
+                last_error = f"attempt={attempt} output is not image path={output_path}"
+                continue
 
-        # Ensure the extractor really downloaded gallery media, not just metadata.
-        output_files = list(tmpdir.glob('**/*'))
-        image_files = [f for f in output_files if f.is_file() and f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp')]
-        assert len(image_files) > 0, f"Should have downloaded at least one image. Files: {output_files}"
+            if output_path.stat().st_size <= 0:
+                last_error = f"attempt={attempt} output file empty path={output_path}"
+                continue
 
-        print(f"Successfully extracted {len(image_files)} image(s) in {elapsed_time:.2f}s")
+            # Ensure the extractor really downloaded image media, not just metadata.
+            output_files = list(tmpdir.rglob('*'))
+            image_files = [f for f in output_files if f.is_file() and f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp')]
+            if not image_files:
+                last_error = f"attempt={attempt} no image files under SNAP_DIR={tmpdir}"
+                continue
+
+            print(f"Successfully extracted {len(image_files)} image(s) in {elapsed_time:.2f}s")
+            return
+
+    pytest.fail(f"Real gallery download did not yield an image after {max_attempts} attempts. Last error: {last_error}")
 
 
 if __name__ == '__main__':

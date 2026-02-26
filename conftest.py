@@ -50,6 +50,10 @@ def local_http_base_url(httpserver) -> str:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def ensure_chrome_test_prereqs(ensure_chromium_and_puppeteer_installed):
-    """Install shared Chromium/Puppeteer deps once so hook-only tests can run in isolation."""
-    return ensure_chromium_and_puppeteer_installed
+def ensure_chrome_test_prereqs(request: pytest.FixtureRequest):
+    """Install shared Chromium/Puppeteer deps once unless every collected test opts out."""
+    for item in request.session.items:
+        if item.get_closest_marker("no_chrome_prereqs"):
+            continue
+        return request.getfixturevalue("ensure_chromium_and_puppeteer_installed")
+    return None

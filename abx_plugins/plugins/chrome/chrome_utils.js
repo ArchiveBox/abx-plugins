@@ -1000,6 +1000,45 @@ async function loadOrInstallExtension(ext, extensions_dir = null) {
  * @param {Object} target - Puppeteer target object
  * @returns {Promise<Object>} - Object with target_is_bg, extension_id, manifest_version, etc.
  */
+const CHROME_EXTENSION_URL_PREFIX = 'chrome-extension://';
+const EXTENSION_BACKGROUND_TARGET_TYPES = new Set(['service_worker', 'background_page']);
+
+/**
+ * Parse extension ID from a target URL.
+ *
+ * @param {string|null|undefined} targetUrl - URL from Puppeteer target
+ * @returns {string|null} - Extension ID if URL is a chrome-extension URL
+ */
+function getExtensionIdFromUrl(targetUrl) {
+    if (!targetUrl || !targetUrl.startsWith(CHROME_EXTENSION_URL_PREFIX)) return null;
+    return targetUrl.slice(CHROME_EXTENSION_URL_PREFIX.length).split('/')[0] || null;
+}
+
+/**
+ * Filter extension list to entries with unpacked paths.
+ *
+ * @param {Array} extensions - Extension metadata list
+ * @returns {Array} - Extensions with unpacked_path
+ */
+function getValidInstalledExtensions(extensions) {
+    if (!Array.isArray(extensions) || extensions.length === 0) return [];
+    return extensions.filter(ext => ext?.unpacked_path);
+}
+
+async function tryGetExtensionContext(target, targetType) {
+    if (targetType === 'service_worker') return await target.worker();
+    return await target.page();
+}
+
+async function waitForExtensionTargetType(browser, extensionId, targetType, timeout) {
+    const target = await browser.waitForTarget(
+        candidate => candidate.type() === targetType &&
+            getExtensionIdFromUrl(candidate.url()) === extensionId,
+        { timeout }
+    );
+    return await tryGetExtensionContext(target, targetType);
+}
+
 async function isTargetExtension(target) {
     let target_type;
     let target_ctx;
@@ -1021,12 +1060,12 @@ async function isTargetExtension(target) {
     }
 
     // Check if this is an extension background page or service worker
-    const is_chrome_extension = target_url?.startsWith('chrome-extension://');
+    const extension_id = getExtensionIdFromUrl(target_url);
+    const is_chrome_extension = Boolean(extension_id);
     const is_background_page = target_type === 'background_page';
     const is_service_worker = target_type === 'service_worker';
     const target_is_bg = is_chrome_extension && (is_background_page || is_service_worker);
 
-    let extension_id = null;
     let manifest_version = null;
     let manifest = null;
     let manifest_name = null;
@@ -1034,8 +1073,6 @@ async function isTargetExtension(target) {
 
     if (target_is_extension) {
         try {
-            extension_id = target_url?.split('://')[1]?.split('/')[0] || null;
-
             if (target_ctx) {
                 manifest = await target_ctx.evaluate(() => chrome.runtime.getManifest());
                 manifest_version = manifest?.manifest_version || null;
@@ -1227,12 +1264,8 @@ function loadExtensionManifest(unpacked_path) {
  */
 function getExtensionLaunchArgs(extensions) {
     console.warn('[DEPRECATED] getExtensionLaunchArgs is deprecated. Use puppeteer enableExtensions option instead.');
-    if (!extensions || extensions.length === 0) {
-        return [];
-    }
-
-    // Filter out extensions without unpacked_path first
-    const validExtensions = extensions.filter(ext => ext.unpacked_path);
+    const validExtensions = getValidInstalledExtensions(extensions);
+    if (validExtensions.length === 0) return [];
 
     const unpacked_paths = validExtensions.map(ext => ext.unpacked_path);
     // Use computed id (from path hash) for allowlisting, as that's what Chrome uses for unpacked extensions
@@ -1255,12 +1288,7 @@ function getExtensionLaunchArgs(extensions) {
  * @returns {Array<string>} - Array of extension unpacked paths
  */
 function getExtensionPaths(extensions) {
-    if (!extensions || extensions.length === 0) {
-        return [];
-    }
-    return extensions
-        .filter(ext => ext.unpacked_path)
-        .map(ext => ext.unpacked_path);
+    return getValidInstalledExtensions(extensions).map(ext => ext.unpacked_path);
 }
 
 /**
@@ -1281,43 +1309,23 @@ function getExtensionPaths(extensions) {
  * @returns {Promise<Object>} - Worker or Page context for the extension
  */
 async function waitForExtensionTarget(browser, extensionId, timeout = 30000) {
-    // Try to find service worker first (Manifest V3)
-    try {
-        const workerTarget = await browser.waitForTarget(
-            target => target.type() === 'service_worker' &&
-                target.url().includes(`chrome-extension://${extensionId}`),
-            { timeout }
-        );
-        const worker = await workerTarget.worker();
-        if (worker) return worker;
-    } catch (err) {
-        // No service worker found, try background page
-    }
-
-    // Try background page (Manifest V2)
-    try {
-        const backgroundTarget = await browser.waitForTarget(
-            target => target.type() === 'background_page' &&
-                target.url().includes(`chrome-extension://${extensionId}`),
-            { timeout }
-        );
-        const page = await backgroundTarget.page();
-        if (page) return page;
-    } catch (err) {
-        // No background page found
+    for (const targetType of EXTENSION_BACKGROUND_TARGET_TYPES) {
+        try {
+            const context = await waitForExtensionTargetType(browser, extensionId, targetType, timeout);
+            if (context) return context;
+        } catch (err) {
+            // Continue to next extension target type
+        }
     }
 
     // Try any extension page as fallback
     const extTarget = await browser.waitForTarget(
-        target => target.url().startsWith(`chrome-extension://${extensionId}`),
+        target => getExtensionIdFromUrl(target.url()) === extensionId,
         { timeout }
     );
 
     // Return worker or page depending on target type
-    if (extTarget.type() === 'service_worker') {
-        return await extTarget.worker();
-    }
-    return await extTarget.page();
+    return await tryGetExtensionContext(extTarget, extTarget.type());
 }
 
 /**
@@ -1329,16 +1337,13 @@ async function waitForExtensionTarget(browser, extensionId, timeout = 30000) {
 function getExtensionTargets(browser) {
     return browser.targets()
         .filter(target =>
-            target.url().startsWith('chrome-extension://') ||
-            target.type() === 'service_worker' ||
-            target.type() === 'background_page'
+            getExtensionIdFromUrl(target.url()) ||
+            EXTENSION_BACKGROUND_TARGET_TYPES.has(target.type())
         )
         .map(target => ({
             type: target.type(),
             url: target.url(),
-            extensionId: target.url().includes('chrome-extension://')
-                ? target.url().split('chrome-extension://')[1]?.split('/')[0]
-                : null,
+            extensionId: getExtensionIdFromUrl(target.url()),
         }));
 }
 
