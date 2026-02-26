@@ -88,6 +88,14 @@ def extract_doi_from_url(url: str) -> str | None:
     return None
 
 
+def extract_arxiv_id_from_doi(doi: str) -> str | None:
+    """Extract arXiv identifier from arXiv DOI format."""
+    match = re.search(r'10\.48550/arXiv\.(\d{4}\.\d{4,5}(?:v\d+)?)', doi, re.IGNORECASE)
+    if not match:
+        return None
+    return match.group(1)
+
+
 def save_paper(url: str, binary: str) -> tuple[bool, str | None, str]:
     """
     Download paper using papers-dl.
@@ -108,7 +116,9 @@ def save_paper(url: str, binary: str) -> tuple[bool, str | None, str]:
         # If no DOI found, papers-dl might handle the URL directly
         identifier = url
     else:
-        identifier = doi
+        # papers-dl's arxiv provider resolves arXiv IDs more reliably than DOI backends.
+        arxiv_id = extract_arxiv_id_from_doi(doi)
+        identifier = f'arXiv:{arxiv_id}' if arxiv_id else doi
 
     # Build command - papers-dl <args> <identifier> -o <output_dir>
     cmd = [binary, *papersdl_args, identifier, '-o', str(output_dir)]

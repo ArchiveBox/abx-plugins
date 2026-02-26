@@ -60,6 +60,7 @@ import os
 import platform
 import signal
 import ssl
+import fcntl
 import subprocess
 import sys
 import threading
@@ -758,103 +759,141 @@ def apply_machine_updates(records: List[Dict[str, Any]], env: dict) -> None:
         env.update(config)
 
 
+@contextmanager
+def _chromium_install_lock(env: dict):
+    """Serialize shared Chromium/Puppeteer installs across parallel test processes."""
+    lib_dir = Path(env.get('LIB_DIR') or get_lib_dir())
+    lib_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = lib_dir / '.chromium_install.lock'
+    with lock_path.open('w') as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def _resolve_existing_chromium(env: dict) -> Optional[str]:
+    """Return an existing Chromium path if already installed and valid."""
+    from_env = env.get('CHROME_BINARY')
+    if from_env and Path(from_env).exists():
+        return from_env
+    returncode, stdout, _stderr = _call_chrome_utils('findChromium', env=env)
+    if returncode == 0 and stdout.strip():
+        candidate = stdout.strip()
+        if Path(candidate).exists():
+            return candidate
+    return None
+
+
 def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
     """Install Chromium via chrome crawl hook + puppeteer/npm hooks.
 
     Returns absolute path to Chromium binary.
     """
-    puppeteer_result = subprocess.run(
-        [sys.executable, str(PUPPETEER_CRAWL_HOOK)],
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        env=env,
-    )
-    if puppeteer_result.returncode != 0:
-        raise RuntimeError(f"Puppeteer crawl hook failed: {puppeteer_result.stderr}")
+    existing = _resolve_existing_chromium(env)
+    if existing:
+        env['CHROME_BINARY'] = existing
+        return existing
 
-    puppeteer_record = parse_jsonl_output(puppeteer_result.stdout, record_type='Binary') or {}
-    if not puppeteer_record or puppeteer_record.get('name') != 'puppeteer':
-        raise RuntimeError("Puppeteer Binary record not emitted by crawl hook")
+    with _chromium_install_lock(env):
+        existing = _resolve_existing_chromium(env)
+        if existing:
+            env['CHROME_BINARY'] = existing
+            return existing
 
-    npm_cmd = [
-        sys.executable,
-        str(NPM_BINARY_HOOK),
-        '--machine-id=test-machine',
-        '--binary-id=test-puppeteer',
-        '--name=puppeteer',
-        f"--binproviders={puppeteer_record.get('binproviders', '*')}",
-    ]
-    puppeteer_overrides = puppeteer_record.get('overrides')
-    if puppeteer_overrides:
-        npm_cmd.append(f'--overrides={json.dumps(puppeteer_overrides)}')
+        puppeteer_result = subprocess.run(
+            [sys.executable, str(PUPPETEER_CRAWL_HOOK)],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=env,
+        )
+        if puppeteer_result.returncode != 0:
+            raise RuntimeError(f"Puppeteer crawl hook failed: {puppeteer_result.stderr}")
 
-    npm_result = subprocess.run(
-        npm_cmd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        env=env,
-    )
-    if npm_result.returncode != 0:
-        raise RuntimeError(f"Npm install failed: {npm_result.stderr}")
+        puppeteer_record = parse_jsonl_output(puppeteer_result.stdout, record_type='Binary') or {}
+        if not puppeteer_record or puppeteer_record.get('name') != 'puppeteer':
+            raise RuntimeError("Puppeteer Binary record not emitted by crawl hook")
 
-    apply_machine_updates(parse_jsonl_records(npm_result.stdout), env)
+        npm_cmd = [
+            sys.executable,
+            str(NPM_BINARY_HOOK),
+            '--machine-id=test-machine',
+            '--binary-id=test-puppeteer',
+            '--name=puppeteer',
+            f"--binproviders={puppeteer_record.get('binproviders', '*')}",
+        ]
+        puppeteer_overrides = puppeteer_record.get('overrides')
+        if puppeteer_overrides:
+            npm_cmd.append(f'--overrides={json.dumps(puppeteer_overrides)}')
 
-    chrome_result = subprocess.run(
-        [sys.executable, str(CHROME_INSTALL_HOOK)],
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        env=env,
-    )
-    if chrome_result.returncode != 0:
-        raise RuntimeError(f"Chrome install hook failed: {chrome_result.stderr}")
+        npm_result = subprocess.run(
+            npm_cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=env,
+        )
+        if npm_result.returncode != 0:
+            raise RuntimeError(f"Npm install failed: {npm_result.stderr}")
 
-    chrome_record = parse_jsonl_output(chrome_result.stdout, record_type='Binary') or {}
-    if not chrome_record or chrome_record.get('name') not in ('chromium', 'chrome'):
-        raise RuntimeError("Chrome Binary record not emitted by crawl hook")
+        apply_machine_updates(parse_jsonl_records(npm_result.stdout), env)
 
-    chromium_cmd = [
-        sys.executable,
-        str(PUPPETEER_BINARY_HOOK),
-        '--machine-id=test-machine',
-        '--binary-id=test-chromium',
-        f"--name={chrome_record.get('name', 'chromium')}",
-        f"--binproviders={chrome_record.get('binproviders', '*')}",
-    ]
-    chrome_overrides = chrome_record.get('overrides')
-    if chrome_overrides:
-        chromium_cmd.append(f'--overrides={json.dumps(chrome_overrides)}')
+        chrome_result = subprocess.run(
+            [sys.executable, str(CHROME_INSTALL_HOOK)],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=env,
+        )
+        if chrome_result.returncode != 0:
+            raise RuntimeError(f"Chrome install hook failed: {chrome_result.stderr}")
 
-    result = subprocess.run(
-        chromium_cmd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        env=env,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"Puppeteer chromium install failed: {result.stderr}")
+        chrome_record = parse_jsonl_output(chrome_result.stdout, record_type='Binary') or {}
+        if not chrome_record or chrome_record.get('name') not in ('chromium', 'chrome'):
+            raise RuntimeError("Chrome Binary record not emitted by crawl hook")
 
-    records = parse_jsonl_records(result.stdout)
-    chromium_record = None
-    for record in records:
-        if record.get('type') == 'Binary' and record.get('name') in ('chromium', 'chrome'):
-            chromium_record = record
-            break
-    if not chromium_record:
-        chromium_record = parse_jsonl_output(result.stdout, record_type='Binary')
-    if not chromium_record:
-        raise RuntimeError('Chromium Binary record not found after install')
+        chromium_cmd = [
+            sys.executable,
+            str(PUPPETEER_BINARY_HOOK),
+            '--machine-id=test-machine',
+            '--binary-id=test-chromium',
+            f"--name={chrome_record.get('name', 'chromium')}",
+            f"--binproviders={chrome_record.get('binproviders', '*')}",
+        ]
+        chrome_overrides = chrome_record.get('overrides')
+        if chrome_overrides:
+            chromium_cmd.append(f'--overrides={json.dumps(chrome_overrides)}')
 
-    chromium_path = chromium_record.get('abspath')
-    if not isinstance(chromium_path, str) or not Path(chromium_path).exists():
-        raise RuntimeError(f"Chromium binary not found after install: {chromium_path}")
+        result = subprocess.run(
+            chromium_cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=env,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"Puppeteer chromium install failed: {result.stderr}")
 
-    env['CHROME_BINARY'] = chromium_path
-    apply_machine_updates(records, env)
-    return chromium_path
+        records = parse_jsonl_records(result.stdout)
+        chromium_record = None
+        for record in records:
+            if record.get('type') == 'Binary' and record.get('name') in ('chromium', 'chrome'):
+                chromium_record = record
+                break
+        if not chromium_record:
+            chromium_record = parse_jsonl_output(result.stdout, record_type='Binary')
+        if not chromium_record:
+            raise RuntimeError('Chromium Binary record not found after install')
+
+        chromium_path = chromium_record.get('abspath')
+        if not isinstance(chromium_path, str) or not Path(chromium_path).exists():
+            raise RuntimeError(f"Chromium binary not found after install: {chromium_path}")
+
+        env['CHROME_BINARY'] = chromium_path
+        apply_machine_updates(records, env)
+        return chromium_path
 
 
 def run_hook_and_parse(

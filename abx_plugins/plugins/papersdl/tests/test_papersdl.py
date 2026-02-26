@@ -194,5 +194,55 @@ def test_config_timeout():
 
         assert result.returncode == 0, "Should complete without hanging"
 
+
+def test_real_doi_download():
+    """Test that papers-dl downloads a real paper PDF from a DOI URL."""
+    binary_path = require_papersdl_binary()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        # Public DOI for an open-access arXiv paper.
+        doi_url = 'https://doi.org/10.48550/arXiv.1706.03762'
+
+        env = os.environ.copy()
+        env['PAPERSDL_BINARY'] = binary_path
+        env['PAPERSDL_TIMEOUT'] = '120'
+        env['SNAP_DIR'] = str(tmpdir)
+
+        result = subprocess.run(
+            [sys.executable, str(PAPERSDL_HOOK), '--url', doi_url, '--snapshot-id', 'testrealdoi'],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=180,
+        )
+
+        assert result.returncode == 0, f"DOI download should succeed: {result.stderr}"
+
+        result_json = None
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('{'):
+                try:
+                    record = json.loads(line)
+                    if record.get('type') == 'ArchiveResult':
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
+
+        assert result_json, f"Should emit ArchiveResult JSONL. stdout: {result.stdout}"
+        assert result_json.get('status') == 'succeeded', f"DOI download should succeed: {result_json}"
+
+        output_str = (result_json.get('output_str') or '').strip()
+        assert output_str, f"ArchiveResult must include output path for DOI download: {result_json}"
+
+        output_path = Path(output_str)
+        assert output_path.is_file(), f"Downloaded paper path missing: {output_path}"
+        assert output_path.suffix.lower() == '.pdf', f"Downloaded paper must be a PDF: {output_path}"
+        assert output_path.stat().st_size > 0, f"Downloaded PDF is empty: {output_path}"
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
