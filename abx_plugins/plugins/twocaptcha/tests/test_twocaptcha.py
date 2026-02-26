@@ -30,7 +30,6 @@ TEST_URL = 'https://2captcha.com/demo/cloudflare-turnstile'
 LIVE_API_KEY = (
     os.environ.get('TWOCAPTCHA_API_KEY')
     or os.environ.get('API_KEY_2CAPTCHA')
-    or '60ce5e7335ffaeb0f08927784c7e8e65'
 )
 
 
@@ -45,7 +44,7 @@ class TestTwoCaptcha:
     @pytest.fixture(autouse=True)
     def setup(self):
         self.api_key = LIVE_API_KEY
-        assert self.api_key, 'TWOCAPTCHA_API_KEY required'
+        assert self.api_key, 'TWOCAPTCHA_API_KEY or API_KEY_2CAPTCHA must be set in shell env'
 
     def test_install_and_load(self):
         """Extension installs and loads in Chromium."""

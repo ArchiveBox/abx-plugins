@@ -29,7 +29,27 @@ def test_hook_script_exists():
 
 def test_verify_deps_with_abx_pkg():
     """Verify git is available via abx-pkg."""
-    from abx_pkg import Binary, AptProvider, BrewProvider, EnvProvider
+    from abx_pkg import (
+        Binary,
+        AptProvider,
+        BrewProvider,
+        EnvProvider,
+        BinProviderOverrides,
+        BinaryOverrides,
+    )
+
+    AptProvider.model_rebuild(
+        _types_namespace={
+            'BinProviderOverrides': BinProviderOverrides,
+            'BinaryOverrides': BinaryOverrides,
+        }
+    )
+    BrewProvider.model_rebuild(
+        _types_namespace={
+            'BinProviderOverrides': BinProviderOverrides,
+            'BinaryOverrides': BinaryOverrides,
+        }
+    )
 
     try:
         apt_provider = AptProvider()

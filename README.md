@@ -45,103 +45,75 @@ Hooks run with:
 
 ### Install hook contract (concise)
 
-Install hooks run in two phases:
+Lifecycle:
 
-1. `on_Crawl__*install*` declares dependencies for the crawl.
-2. `on_Binary__*install*` resolves/installs one binary via a provider.
+1. `on_Crawl__*install*` declares crawl dependencies.
+2. `on_Binary__*install*` resolves/installs one binary with one provider.
 
-`on_Crawl` install hooks should emit `Binary` records like:
-
-```json
-{
-  "type": "Binary",
-  "name": "yt-dlp",
-  "binproviders": "pip,brew,apt,env",
-  "overrides": {"pip": {"packages": ["yt-dlp[default]"]}},
-  "machine_id": "<optional>"
-}
-```
-
-`on_Binary` install hooks should accept `--binary-id`, `--machine-id`, `--name` and emit installed facts like:
+`on_Crawl` output (dependency declaration):
 
 ```json
-{
-  "type": "Binary",
-  "name": "yt-dlp",
-  "abspath": "/abs/path",
-  "version": "2025.01.01",
-  "sha256": "<optional>",
-  "binprovider": "pip",
-  "machine_id": "<recommended>",
-  "binary_id": "<recommended>"
-}
+{"type":"Binary","name":"yt-dlp","binproviders":"pip,brew,apt,env","overrides":{"pip":{"packages":["yt-dlp[default]"]}},"machine_id":"<optional>"}
 ```
 
-Hooks may also emit `Machine` patches (e.g. `PATH`, `NODE_MODULES_DIR`, `CHROME_BINARY`).
+`on_Binary` input/output:
 
-Install hook semantics:
+- CLI input should accept `--binary-id`, `--machine-id`, `--name` (plus optional provider args).
+- Output should emit installed facts like:
 
-- `stdout` = JSONL records only
-- `stderr` = human logs/debug
-- exit `0` = success or intentional skip
-- non-zero = hard failure
+```json
+{"type":"Binary","name":"yt-dlp","abspath":"/abs/path","version":"2025.01.01","sha256":"<optional>","binprovider":"pip","machine_id":"<recommended>","binary_id":"<recommended>"}
+```
 
-Typical state dirs:
+Optional machine patch record:
 
-- `CRAWL_DIR/<plugin>/` for per-hook working state
-- `LIB_DIR` for durable installs (`npm`, `pip/venv`, puppeteer cache)
+```json
+{"type":"Machine","config":{"PATH":"...","NODE_MODULES_DIR":"...","CHROME_BINARY":"..."}}
+```
 
-OS notes:
+Semantics:
 
-- `apt`: Debian/Ubuntu Linux
-- `brew`: macOS/Linux
-- many hooks currently assume POSIX path semantics
+- `stdout`: JSONL records only
+- `stderr`: human logs/debug
+- exit `0`: success or intentional skip
+- exit non-zero: hard failure
+
+State/OS:
+
+- working dir: `CRAWL_DIR/<plugin>/`
+- durable install root: `LIB_DIR` (e.g. npm prefix, pip venv, puppeteer cache)
+- providers: `apt` (Debian/Ubuntu), `brew` (macOS/Linux), many hooks currently assume POSIX paths
 
 ### Snapshot hook contract (concise)
 
-`on_Snapshot__*` hooks run per snapshot, usually after crawl-level setup.
+Lifecycle:
 
-For Chrome-dependent pipelines:
+- runs once per snapshot, typically after crawl setup
+- common Chrome flow: crawl browser/session -> `chrome_tab` -> `chrome_navigate` -> downstream extractors
 
-1. crawl hooks create browser/session
-2. `chrome_tab` creates snapshot tab state
-3. `chrome_navigate` loads page
-4. downstream snapshot extractors consume session/output files
+State:
 
-Snapshot hooks conventionally:
+- output cwd is usually `SNAP_DIR/<plugin>/`
+- hooks may read sibling outputs via `../<plugin>/...`
 
-- use `SNAP_DIR/<plugin>/` as output cwd
-- read sibling plugin outputs via `../<plugin>/...` when chaining
+Output records:
 
-Most snapshot hooks emit terminal:
+- terminal record is usually:
 
 ```json
-{
-  "type": "ArchiveResult",
-  "status": "succeeded|skipped|failed",
-  "output_str": "path-or-message"
-}
+{"type":"ArchiveResult","status":"succeeded|skipped|failed","output_str":"path-or-message"}
 ```
 
-Some snapshot hooks also emit:
+- discovery hooks may also emit `Snapshot` and `Tag` records before `ArchiveResult`
+- search indexing hooks are a known exception and may use exit code + stderr without `ArchiveResult`
 
-- `Snapshot` and `Tag` records (URL discovery/fanout hooks)
+Semantics:
 
-Known exception:
-
-- search indexing hooks may use exit code + stderr only, without `ArchiveResult`
-
-Snapshot hook semantics:
-
-- `stdout` = JSONL output records
-- `stderr` = diagnostics/logging
-- exit `0` = succeeded or skipped
-- non-zero = failure
-
-Current nuance in existing hooks:
-
-- some skip paths emit `ArchiveResult(status='skipped')`
-- some transient/disabled paths intentionally emit no JSONL and rely on exit code
+- `stdout`: JSONL records
+- `stderr`: diagnostics/logging
+- exit `0`: succeeded or skipped
+- exit non-zero: failed
+- current nuance: some skip/transient paths emit no JSONL and rely only on exit code
 
 ### Event JSONL interface (bbus-style, no dependency)
 

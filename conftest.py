@@ -31,7 +31,7 @@ def isolated_test_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[s
     if "PERSONAS_DIR" not in os.environ:
         monkeypatch.setenv("PERSONAS_DIR", str(personas_dir))
     if "TWOCAPTCHA_API_KEY" not in os.environ and "API_KEY_2CAPTCHA" not in os.environ:
-        monkeypatch.setenv("TWOCAPTCHA_API_KEY", DEFAULT_TWOCAPTCHA_API_KEY)
+        print('WARNING: TWOCAPTCHA_API_KEY not found in env, 2captcha tests will fail')
 
     return {
         "root": test_root,
