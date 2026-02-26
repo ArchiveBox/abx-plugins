@@ -16,15 +16,7 @@ import json
 import sys
 
 import rich_click as click
-from abx_pkg import AptProvider, Binary, BinProviderOverrides, BinaryOverrides
-
-# Fix pydantic forward reference issue
-AptProvider.model_rebuild(
-    _types_namespace={
-        'BinProviderOverrides': BinProviderOverrides,
-        'BinaryOverrides': BinaryOverrides,
-    }
-)
+from abx_pkg import AptProvider, Binary
 
 
 @click.command()

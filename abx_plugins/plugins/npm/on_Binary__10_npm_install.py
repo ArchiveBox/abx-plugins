@@ -18,15 +18,7 @@ import sys
 from pathlib import Path
 
 import rich_click as click
-from abx_pkg import Binary, BinProviderOverrides, BinaryOverrides, NpmProvider
-
-# Fix pydantic forward reference issue
-NpmProvider.model_rebuild(
-    _types_namespace={
-        'BinProviderOverrides': BinProviderOverrides,
-        'BinaryOverrides': BinaryOverrides,
-    }
-)
+from abx_pkg import Binary, NpmProvider
 
 
 @click.command()

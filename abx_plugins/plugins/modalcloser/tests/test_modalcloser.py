@@ -44,8 +44,6 @@ def test_verify_deps_with_abx_pkg():
     """Verify dependencies are available via abx-pkg after hook installation."""
     from abx_pkg import Binary, EnvProvider
 
-    EnvProvider.model_rebuild()
-
     # Verify node is available
     node_binary = Binary(name='node', binproviders=[EnvProvider()])
     node_loaded = node_binary.load()
