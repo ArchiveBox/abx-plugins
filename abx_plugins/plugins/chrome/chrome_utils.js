@@ -1689,6 +1689,145 @@ function readTargetId(chromeSessionDir) {
 }
 
 /**
+ * Read Chrome PID from chrome session directory.
+ *
+ * @param {string} chromeSessionDir - Path to chrome session directory
+ * @returns {number|null} - PID or null if invalid/missing
+ */
+function readChromePid(chromeSessionDir) {
+    const pidFile = path.join(chromeSessionDir, 'chrome.pid');
+    if (!fs.existsSync(pidFile)) {
+        return null;
+    }
+    const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
+    if (!pid || Number.isNaN(pid)) {
+        return null;
+    }
+    return pid;
+}
+
+/**
+ * Resolve the active crawl-level Chrome session.
+ *
+ * @param {string} [crawlBaseDir='.'] - Crawl root directory
+ * @returns {{cdpUrl: string, pid: number, crawlChromeDir: string}}
+ * @throws {Error} - If session files are missing/invalid or process is dead
+ */
+function getCrawlChromeSession(crawlBaseDir = '.') {
+    const crawlChromeDir = path.join(path.resolve(crawlBaseDir), 'chrome');
+    const cdpUrl = readCdpUrl(crawlChromeDir);
+    const pid = readChromePid(crawlChromeDir);
+
+    if (!cdpUrl || !pid) {
+        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
+    }
+
+    try {
+        process.kill(pid, 0);
+    } catch (e) {
+        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
+    }
+
+    return { cdpUrl, pid, crawlChromeDir };
+}
+
+/**
+ * Wait for an active crawl-level Chrome session.
+ *
+ * @param {number} timeoutMs - Timeout in milliseconds
+ * @param {Object} [options={}] - Optional settings
+ * @param {number} [options.intervalMs=250] - Poll interval in ms
+ * @param {string} [options.crawlBaseDir='.'] - Crawl root directory
+ * @returns {Promise<{cdpUrl: string, pid: number, crawlChromeDir: string}>}
+ * @throws {Error} - If timeout reached
+ */
+async function waitForCrawlChromeSession(timeoutMs, options = {}) {
+    const intervalMs = options.intervalMs || 250;
+    const crawlBaseDir = options.crawlBaseDir || '.';
+    const startTime = Date.now();
+    let lastError = null;
+
+    while (Date.now() - startTime < timeoutMs) {
+        try {
+            return getCrawlChromeSession(crawlBaseDir);
+        } catch (e) {
+            lastError = e;
+        }
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
+    }
+
+    if (lastError) {
+        throw lastError;
+    }
+    throw new Error(CHROME_SESSION_REQUIRED_ERROR);
+}
+
+/**
+ * Open a new tab in an existing Chrome session.
+ *
+ * @param {Object} options - Tab open options
+ * @param {string} options.cdpUrl - Browser CDP websocket URL
+ * @param {Object} options.puppeteer - Puppeteer module
+ * @returns {Promise<{targetId: string}>}
+ */
+async function openTabInChromeSession(options = {}) {
+    const { cdpUrl, puppeteer } = options;
+    if (!cdpUrl) {
+        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
+    }
+    if (!puppeteer) {
+        throw new Error('puppeteer module must be passed to openTabInChromeSession()');
+    }
+
+    const browser = await puppeteer.connect({
+        browserWSEndpoint: cdpUrl,
+        defaultViewport: null,
+    });
+    try {
+        const page = await browser.newPage();
+        const targetId = page?.target()?._targetId;
+        if (!targetId) {
+            throw new Error('Failed to resolve target ID for new tab');
+        }
+        return { targetId };
+    } finally {
+        await browser.disconnect();
+    }
+}
+
+/**
+ * Close a tab by target ID in an existing Chrome session.
+ *
+ * @param {Object} options - Tab close options
+ * @param {string} options.cdpUrl - Browser CDP websocket URL
+ * @param {string} options.targetId - Target ID to close
+ * @param {Object} options.puppeteer - Puppeteer module
+ * @returns {Promise<boolean>} - True if a tab was found and closed
+ */
+async function closeTabInChromeSession(options = {}) {
+    const { cdpUrl, targetId, puppeteer } = options;
+    if (!cdpUrl || !targetId) {
+        return false;
+    }
+    if (!puppeteer) {
+        throw new Error('puppeteer module must be passed to closeTabInChromeSession()');
+    }
+
+    const browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl });
+    try {
+        const pages = await browser.pages();
+        const page = pages.find(p => p.target()?._targetId === targetId);
+        if (!page) {
+            return false;
+        }
+        await page.close();
+        return true;
+    } finally {
+        await browser.disconnect();
+    }
+}
+
+/**
  * Connect to Chrome browser and find the target page.
  * This is a high-level utility that handles all the connection logic:
  * 1. Wait for chrome session files
@@ -1882,6 +2021,11 @@ module.exports = {
     waitForChromeSession,
     readCdpUrl,
     readTargetId,
+    readChromePid,
+    getCrawlChromeSession,
+    waitForCrawlChromeSession,
+    openTabInChromeSession,
+    closeTabInChromeSession,
     connectToPage,
     waitForPageLoaded,
     getCookiesViaCdp,
@@ -1900,6 +2044,7 @@ if (require.main === module) {
         console.log('  installPuppeteerCore      Install puppeteer-core npm package');
         console.log('  launchChromium            Launch Chrome with CDP debugging');
         console.log('  getCookiesViaCdp <port>  Read browser cookies via CDP port');
+        console.log('  getCrawlChromeSession    Resolve active crawl chrome session');
         console.log('  killChrome <pid>          Kill Chrome process by PID');
         console.log('  killZombieChrome          Clean up zombie Chrome processes');
         console.log('');
@@ -1997,6 +2142,13 @@ if (require.main === module) {
                     }
                     const cookies = await getCookiesViaCdp(port);
                     console.log(JSON.stringify(cookies));
+                    break;
+                }
+
+                case 'getCrawlChromeSession': {
+                    const [crawlBaseDir] = commandArgs;
+                    const session = getCrawlChromeSession(crawlBaseDir || getEnv('CRAWL_DIR', '.'));
+                    console.log(JSON.stringify(session));
                     break;
                 }
 
