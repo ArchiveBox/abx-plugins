@@ -20,7 +20,6 @@ import json
 import os
 import signal
 import subprocess
-import sys
 import time
 from pathlib import Path
 import pytest
@@ -29,86 +28,19 @@ import tempfile
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
     find_chromium_binary,
-    ensure_chromium_and_puppeteer_installed,
-    chrome_test_url,
-    chrome_test_urls,
-    CHROME_PLUGIN_DIR as PLUGIN_DIR,
     CHROME_LAUNCH_HOOK,
     CHROME_TAB_HOOK,
     CHROME_NAVIGATE_HOOK,
+    CHROME_UTILS,
 )
 
 def _get_cookies_via_cdp(port: int, env: dict) -> list[dict]:
-    node_script = r"""
-const http = require('http');
-const WebSocket = require('ws');
-const port = process.env.CDP_PORT;
-
-function getTargets() {
-  return new Promise((resolve, reject) => {
-    const req = http.get(`http://chrome-cdp.localhost:${port}/json/list`, (res) => {
-      let data = '';
-      res.on('data', (chunk) => (data += chunk));
-      res.on('end', () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch (e) {
-          reject(e);
-        }
-      });
-    });
-    req.on('error', reject);
-  });
-}
-
-(async () => {
-  const targets = await getTargets();
-  const pageTarget = targets.find(t => t.type === 'page') || targets[0];
-  if (!pageTarget) {
-    console.error('No page target found');
-    process.exit(2);
-  }
-
-  const ws = new WebSocket(pageTarget.webSocketDebuggerUrl);
-  const timer = setTimeout(() => {
-    console.error('Timeout waiting for cookies');
-    process.exit(3);
-  }, 10000);
-
-  ws.on('open', () => {
-    ws.send(JSON.stringify({ id: 1, method: 'Network.getAllCookies' }));
-  });
-
-  ws.on('message', (data) => {
-    const msg = JSON.parse(data);
-    if (msg.id === 1) {
-      clearTimeout(timer);
-      ws.close();
-      if (!msg.result || !msg.result.cookies) {
-        console.error('No cookies in response');
-        process.exit(4);
-      }
-      process.stdout.write(JSON.stringify(msg.result.cookies));
-      process.exit(0);
-    }
-  });
-
-  ws.on('error', (err) => {
-    console.error(String(err));
-    process.exit(5);
-  });
-})().catch((err) => {
-  console.error(String(err));
-  process.exit(1);
-});
-"""
-
     result = subprocess.run(
-        ['node', '-e', node_script],
+        ['node', str(CHROME_UTILS), 'getCookiesViaCdp', str(port)],
         capture_output=True,
         text=True,
         timeout=30,
-        env=env | {'CDP_PORT': str(port)},
+        env=env,
     )
     assert result.returncode == 0, f"Failed to read cookies via CDP: {result.stderr}\nStdout: {result.stdout}"
     return json.loads(result.stdout or '[]')
@@ -252,7 +184,7 @@ def test_chrome_launch_and_tab_creation(chrome_test_url):
         try:
             chrome_launch_process.send_signal(signal.SIGTERM)
             chrome_launch_process.wait(timeout=5)
-        except:
+        except Exception:
             pass
         try:
             os.kill(chrome_pid, signal.SIGKILL)
@@ -324,7 +256,7 @@ def test_cookies_imported_on_launch():
         try:
             chrome_launch_process.send_signal(signal.SIGTERM)
             chrome_launch_process.wait(timeout=5)
-        except:
+        except Exception:
             pass
         try:
             os.kill(chrome_pid, signal.SIGKILL)
@@ -406,7 +338,7 @@ def test_chrome_navigation(chrome_test_url):
         try:
             chrome_launch_process.send_signal(signal.SIGTERM)
             chrome_launch_process.wait(timeout=5)
-        except:
+        except Exception:
             pass
         try:
             os.kill(chrome_pid, signal.SIGKILL)
@@ -477,7 +409,7 @@ def test_tab_cleanup_on_sigterm(chrome_test_url):
         try:
             chrome_launch_process.send_signal(signal.SIGTERM)
             chrome_launch_process.wait(timeout=5)
-        except:
+        except Exception:
             pass
         try:
             os.kill(chrome_pid, signal.SIGKILL)
@@ -570,7 +502,7 @@ def test_multiple_snapshots_share_chrome(chrome_test_urls):
         try:
             chrome_launch_process.send_signal(signal.SIGTERM)
             chrome_launch_process.wait(timeout=5)
-        except:
+        except Exception:
             pass
         try:
             os.kill(chrome_pid, signal.SIGKILL)
@@ -597,8 +529,14 @@ def test_chrome_cleanup_on_crawl_end():
             env=launch_env
         )
 
-        # Wait for Chrome to launch
-        time.sleep(3)
+        # Wait for Chrome launch state files and fail fast on early hook exit.
+        for _ in range(15):
+            if chrome_launch_process.poll() is not None:
+                stdout, stderr = chrome_launch_process.communicate()
+                pytest.fail(f"Chrome launch process exited early:\nStdout: {stdout}\nStderr: {stderr}")
+            if (chrome_dir / 'cdp_url.txt').exists() and (chrome_dir / 'chrome.pid').exists():
+                break
+            time.sleep(1)
 
         # Verify Chrome is running
         assert (chrome_dir / 'chrome.pid').exists(), "Chrome PID file should exist"

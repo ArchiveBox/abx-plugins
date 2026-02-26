@@ -19,7 +19,6 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
     get_plugin_dir,
     get_hook_script,
-    chrome_test_url,
 )
 
 
@@ -48,7 +47,7 @@ class TestDNSWithChrome:
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_dns_records_captured(self, chrome_test_url):
+    def test_dns_records_captured(self, chrome_test_url, require_chrome_runtime):
         """DNS hook should capture DNS records from a real URL."""
         test_url = chrome_test_url
         snapshot_id = 'test-dns-snapshot'

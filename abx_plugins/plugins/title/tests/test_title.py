@@ -21,7 +21,6 @@ import pytest
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,
     get_hook_script,
-    parse_jsonl_output,
     get_test_env,
     chrome_session,
     CHROME_NAVIGATE_HOOK,
@@ -29,7 +28,10 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
-TITLE_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_title.*')
+_TITLE_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_title.*')
+if _TITLE_HOOK is None:
+    raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
+TITLE_HOOK = _TITLE_HOOK
 TEST_URL = 'https://example.com'
 
 def run_title_capture(title_dir, snapshot_chrome_dir, env, url, snapshot_id):
@@ -149,9 +151,7 @@ def test_config_timeout_honored():
         tmpdir = Path(tmpdir)
 
         # Set very short timeout (but example.com should still succeed)
-        import os
-        env_override = os.environ.copy()
-        env_override['TITLE_TIMEOUT'] = '5'
+        env_override = {'TITLE_TIMEOUT': '5'}
 
         with chrome_session(tmpdir, test_url=TEST_URL, navigate=False) as (_process, _pid, snapshot_chrome_dir, env):
             title_dir = snapshot_chrome_dir.parent / 'title'

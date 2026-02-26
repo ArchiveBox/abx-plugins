@@ -84,7 +84,7 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
         result = subprocess.run(cmd, timeout=timeout)
 
         if result.returncode == 0 and Path(OUTPUT_DIR).is_dir():
-            return True, OUTPUT_DIR, ''
+            return True, str(OUTPUT_DIR), ''
         else:
             return False, None, f'git clone failed (exit={result.returncode})'
 

@@ -26,7 +26,6 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 from urllib.parse import urlparse
 

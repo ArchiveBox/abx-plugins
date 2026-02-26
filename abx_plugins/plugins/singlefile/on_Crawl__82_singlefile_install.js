@@ -118,7 +118,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     );
 
     // Output directory is current directory (hook already runs in output dir)
-    const out_path = path.join(OUTPUT_DIR, OUTPUT_FILE);
+    const out_path = options.outputPath || path.join(OUTPUT_DIR, OUTPUT_FILE);
 
     console.error(`[singlefile] Saving via extension (${extension.id})...`);
 

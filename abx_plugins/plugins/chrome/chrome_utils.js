@@ -1638,19 +1638,20 @@ function parseArgs() {
 
 /**
  * Wait for Chrome session files to be ready.
- * Polls for cdp_url.txt and target_id.txt in the chrome session directory.
+ * Polls for cdp_url.txt and optionally target_id.txt in the chrome session directory.
  *
  * @param {string} chromeSessionDir - Path to chrome session directory (e.g., '../chrome')
  * @param {number} [timeoutMs=60000] - Timeout in milliseconds
+ * @param {boolean} [requireTargetId=true] - Whether target_id.txt must exist
  * @returns {Promise<boolean>} - True if files are ready, false if timeout
  */
-async function waitForChromeSession(chromeSessionDir, timeoutMs = 60000) {
+async function waitForChromeSession(chromeSessionDir, timeoutMs = 60000, requireTargetId = true) {
     const cdpFile = path.join(chromeSessionDir, 'cdp_url.txt');
     const targetIdFile = path.join(chromeSessionDir, 'target_id.txt');
     const startTime = Date.now();
 
     while (Date.now() - startTime < timeoutMs) {
-        if (fs.existsSync(cdpFile) && fs.existsSync(targetIdFile)) {
+        if (fs.existsSync(cdpFile) && (!requireTargetId || fs.existsSync(targetIdFile))) {
             return true;
         }
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -1697,6 +1698,7 @@ function readTargetId(chromeSessionDir) {
  * @param {Object} options - Connection options
  * @param {string} [options.chromeSessionDir='../chrome'] - Path to chrome session directory
  * @param {number} [options.timeoutMs=60000] - Timeout for waiting
+ * @param {boolean} [options.requireTargetId=true] - Require target_id.txt in session dir
  * @param {Object} [options.puppeteer] - Puppeteer module (must be passed in)
  * @returns {Promise<Object>} - { browser, page, targetId, cdpUrl }
  * @throws {Error} - If connection fails or page not found
@@ -1705,6 +1707,7 @@ async function connectToPage(options = {}) {
     const {
         chromeSessionDir = '../chrome',
         timeoutMs = 60000,
+        requireTargetId = true,
         puppeteer,
     } = options;
 
@@ -1713,7 +1716,7 @@ async function connectToPage(options = {}) {
     }
 
     // Wait for chrome session to be ready
-    const sessionReady = await waitForChromeSession(chromeSessionDir, timeoutMs);
+    const sessionReady = await waitForChromeSession(chromeSessionDir, timeoutMs, requireTargetId);
     if (!sessionReady) {
         throw new Error(CHROME_SESSION_REQUIRED_ERROR);
     }
@@ -1725,6 +1728,9 @@ async function connectToPage(options = {}) {
     }
 
     const targetId = readTargetId(chromeSessionDir);
+    if (requireTargetId && !targetId) {
+        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
+    }
 
     // Connect to browser
     const browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl });
@@ -1779,6 +1785,47 @@ async function waitForPageLoaded(chromeSessionDir, timeoutMs = 120000, postLoadD
     // Optional post-load delay for late responses
     if (postLoadDelayMs > 0) {
         await new Promise(resolve => setTimeout(resolve, postLoadDelayMs));
+    }
+}
+
+/**
+ * Read all browser cookies from a running Chrome CDP debug port.
+ * Uses existing CDP bootstrap helpers and puppeteer connection logic.
+ *
+ * @param {number} port - Chrome remote debugging port
+ * @param {Object} [options={}] - Optional settings
+ * @param {number} [options.timeoutMs=10000] - Timeout waiting for debug port
+ * @returns {Promise<Array<Object>>} - Array of cookie objects
+ */
+async function getCookiesViaCdp(port, options = {}) {
+    const timeoutMs = options.timeoutMs || getEnvInt('CDP_COOKIE_TIMEOUT_MS', 10000);
+    const versionInfo = await waitForDebugPort(port, timeoutMs);
+    const browserWSEndpoint = versionInfo?.webSocketDebuggerUrl;
+    if (!browserWSEndpoint) {
+        throw new Error(`No webSocketDebuggerUrl from Chrome debug port ${port}`);
+    }
+
+    let puppeteer = null;
+    for (const moduleName of ['puppeteer-core', 'puppeteer']) {
+        try {
+            puppeteer = require(moduleName);
+            break;
+        } catch (e) {}
+    }
+    if (!puppeteer) {
+        throw new Error('Missing puppeteer dependency (need puppeteer-core or puppeteer)');
+    }
+
+    const browser = await puppeteer.connect({ browserWSEndpoint });
+    try {
+        const pages = await browser.pages();
+        const page = pages[pages.length - 1] || await browser.newPage();
+        const session = await page.target().createCDPSession();
+        await session.send('Network.enable');
+        const result = await session.send('Network.getAllCookies');
+        return result?.cookies || [];
+    } finally {
+        await browser.disconnect();
     }
 }
 
@@ -1837,6 +1884,7 @@ module.exports = {
     readTargetId,
     connectToPage,
     waitForPageLoaded,
+    getCookiesViaCdp,
 };
 
 // CLI usage
@@ -1851,6 +1899,7 @@ if (require.main === module) {
         console.log('  installChromium           Install Chromium via @puppeteer/browsers');
         console.log('  installPuppeteerCore      Install puppeteer-core npm package');
         console.log('  launchChromium            Launch Chrome with CDP debugging');
+        console.log('  getCookiesViaCdp <port>  Read browser cookies via CDP port');
         console.log('  killChrome <pid>          Kill Chrome process by PID');
         console.log('  killZombieChrome          Clean up zombie Chrome processes');
         console.log('');
@@ -1936,6 +1985,18 @@ if (require.main === module) {
                         console.error(result.error);
                         process.exit(1);
                     }
+                    break;
+                }
+
+                case 'getCookiesViaCdp': {
+                    const [portStr] = commandArgs;
+                    const port = parseInt(portStr, 10);
+                    if (isNaN(port) || port <= 0) {
+                        console.error('Invalid port');
+                        process.exit(1);
+                    }
+                    const cookies = await getCookiesViaCdp(port);
+                    console.log(JSON.stringify(cookies));
                     break;
                 }
 

@@ -60,7 +60,7 @@ def search(query: str) -> List[str]:
     rg_binary = get_env('RIPGREP_BINARY', 'rg')
     rg_binary = shutil.which(rg_binary) or rg_binary
     if not rg_binary or not Path(rg_binary).exists():
-        raise RuntimeError(f'ripgrep binary not found. Install with: apt install ripgrep')
+        raise RuntimeError('ripgrep binary not found. Install with: apt install ripgrep')
 
     timeout = get_env_int('RIPGREP_TIMEOUT', 90)
     ripgrep_args = get_env_array('RIPGREP_ARGS', [])

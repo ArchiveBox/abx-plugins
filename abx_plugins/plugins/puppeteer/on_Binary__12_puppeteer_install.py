@@ -16,14 +16,20 @@ Output: Binary JSONL record to stdout after installation
 import json
 import os
 import re
+import shutil
 import sys
 from pathlib import Path
 
 import rich_click as click
-from abx_pkg import Binary, EnvProvider, NpmProvider, BinProviderOverrides
+from abx_pkg import Binary, BinProviderOverrides, BinaryOverrides, EnvProvider, NpmProvider
 
 # Fix pydantic forward reference issue
-NpmProvider.model_rebuild()
+NpmProvider.model_rebuild(
+    _types_namespace={
+        'BinProviderOverrides': BinProviderOverrides,
+        'BinaryOverrides': BinaryOverrides,
+    }
+)
 
 
 @click.command()
@@ -50,6 +56,26 @@ def main(machine_id: str, binary_id: str, name: str, binproviders: str, override
     cache_dir.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault('PUPPETEER_CACHE_DIR', str(cache_dir))
 
+    # Fast-path: if CHROME_BINARY is already available in env, reuse it and avoid
+    # a full `puppeteer browsers install` call for this invocation.
+    existing_chrome_binary = os.environ.get('CHROME_BINARY', '').strip()
+    if existing_chrome_binary:
+        existing_binary = _load_binary_from_path(existing_chrome_binary)
+        if existing_binary and existing_binary.abspath:
+            _emit_chromium_binary_record(
+                binary=existing_binary,
+                machine_id=machine_id,
+                binary_id=binary_id,
+            )
+            print(json.dumps({
+                'type': 'Machine',
+                'config': {
+                    'CHROME_BINARY': str(existing_binary.abspath),
+                    'CHROMIUM_VERSION': str(existing_binary.version) if existing_binary.version else '',
+                },
+            }))
+            sys.exit(0)
+
     puppeteer_binary = Binary(
         name='puppeteer',
         binproviders=[npm_provider, EnvProvider()],
@@ -61,8 +87,7 @@ def main(machine_id: str, binary_id: str, name: str, binproviders: str, override
         sys.exit(1)
 
     install_args = _parse_override_packages(overrides, default=['chromium@latest', '--install-deps'])
-    cmd = ['browsers', 'install', *install_args]
-    proc = puppeteer_binary.exec(cmd=cmd, timeout=300)
+    proc = _run_puppeteer_install(binary=puppeteer_binary, install_args=install_args, cache_dir=cache_dir)
     if proc.returncode != 0:
         click.echo(proc.stdout.strip(), err=True)
         click.echo(proc.stderr.strip(), err=True)
@@ -115,6 +140,53 @@ def _parse_override_packages(overrides: str | None, default: list[str]) -> list[
     return default
 
 
+def _run_puppeteer_install(binary: Binary, install_args: list[str], cache_dir: Path):
+    cmd = ['browsers', 'install', *install_args]
+    proc = binary.exec(cmd=cmd, timeout=300)
+    if proc.returncode == 0:
+        return proc
+
+    install_output = f'{proc.stdout}\n{proc.stderr}'
+    if not _cleanup_partial_chromium_cache(install_output, cache_dir):
+        return proc
+
+    return binary.exec(cmd=cmd, timeout=300)
+
+
+def _cleanup_partial_chromium_cache(install_output: str, cache_dir: Path) -> bool:
+    targets: set[Path] = set()
+    chromium_cache_dir = cache_dir / 'chromium'
+
+    missing_dir_match = re.search(r'browser folder \(([^)]+)\) exists but the executable', install_output)
+    if missing_dir_match:
+        targets.add(Path(missing_dir_match.group(1)))
+
+    missing_zip_match = re.search(r"open '([^']+\.zip)'", install_output)
+    if missing_zip_match:
+        targets.add(Path(missing_zip_match.group(1)))
+
+    build_id_match = re.search(r'All providers failed for chromium (\d+)', install_output)
+    if build_id_match and chromium_cache_dir.exists():
+        build_id = build_id_match.group(1)
+        targets.update(chromium_cache_dir.glob(f'*{build_id}*'))
+
+    removed_any = False
+    for target in targets:
+        resolved_target = target.resolve(strict=False)
+        resolved_cache = cache_dir.resolve(strict=False)
+        if not (resolved_target == resolved_cache or resolved_cache in resolved_target.parents):
+            continue
+        if target.is_dir():
+            shutil.rmtree(target, ignore_errors=True)
+            removed_any = True
+            continue
+        if target.exists():
+            target.unlink(missing_ok=True)
+            removed_any = True
+
+    return removed_any
+
+
 def _emit_chromium_binary_record(binary: Binary, machine_id: str, binary_id: str) -> None:
     record = {
         'type': 'Binary',
@@ -127,6 +199,20 @@ def _emit_chromium_binary_record(binary: Binary, machine_id: str, binary_id: str
         'binary_id': binary_id,
     }
     print(json.dumps(record))
+
+
+def _load_binary_from_path(path: str) -> Binary | None:
+    try:
+        binary = Binary(
+            name='chromium',
+            binproviders=[EnvProvider()],
+            overrides={'env': {'abspath': str(path)}},
+        ).load()
+    except Exception:
+        return None
+    if binary and binary.abspath:
+        return binary
+    return None
 
 
 def _load_chromium_binary(output: str) -> Binary | None:

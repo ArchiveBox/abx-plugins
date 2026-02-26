@@ -12,7 +12,6 @@ Tests verify:
 """
 
 import json
-import os
 import re
 import subprocess
 import time
@@ -41,7 +40,7 @@ def test_hook_script_exists():
 
 def test_verify_deps_with_abx_pkg():
     """Verify dependencies are available via abx-pkg after hook installation."""
-    from abx_pkg import Binary, EnvProvider, BinProviderOverrides
+    from abx_pkg import Binary, EnvProvider
 
     EnvProvider.model_rebuild()
 

@@ -23,10 +23,12 @@ Examples:
 import json
 import os
 import sys
+from importlib import import_module
 from pathlib import Path
 from datetime import datetime, timezone
 from html import unescape
 from time import mktime
+from typing import Any
 from urllib.parse import urlparse
 
 import rich_click as click
@@ -39,9 +41,10 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 URLS_FILE = Path('urls.jsonl')
 
+feedparser: Any | None
 try:
-    import feedparser
-except ImportError:
+    feedparser = import_module('feedparser')
+except ModuleNotFoundError:
     feedparser = None
 
 
@@ -68,7 +71,7 @@ def fetch_content(url: str) -> str:
 @click.option('--snapshot-id', required=False, help='Parent Snapshot UUID')
 @click.option('--crawl-id', required=False, help='Crawl UUID')
 @click.option('--depth', type=int, default=0, help='Current depth level')
-def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0):
+def main(url: str, snapshot_id: str | None = None, crawl_id: str | None = None, depth: int = 0):
     """Parse RSS/Atom feed and extract article URLs."""
     env_depth = os.environ.get('SNAPSHOT_DEPTH')
     if env_depth is not None:

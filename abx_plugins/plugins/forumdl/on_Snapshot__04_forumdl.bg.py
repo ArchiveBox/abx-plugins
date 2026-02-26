@@ -19,31 +19,11 @@ import os
 import shutil
 import subprocess
 import sys
+import textwrap
 import threading
 from pathlib import Path
 
 import rich_click as click
-
-
-# Monkey patch forum-dl for Pydantic v2 compatibility
-# forum-dl 0.3.0 uses deprecated json(models_as_dict=False) which doesn't work in Pydantic v2
-try:
-    from forum_dl.writers.jsonl import JsonlWriter
-    from pydantic import BaseModel
-
-    # Check if we're using Pydantic v2 (has model_dump_json)
-    if hasattr(BaseModel, 'model_dump_json'):
-        # Patch JsonlWriter to use Pydantic v2 API
-        original_serialize = JsonlWriter._serialize_entry
-
-        def _patched_serialize_entry(self, entry):
-            # Use Pydantic v2's model_dump_json() instead of deprecated json(models_as_dict=False)
-            return entry.model_dump_json()
-
-        JsonlWriter._serialize_entry = _patched_serialize_entry
-except (ImportError, AttributeError):
-    # forum-dl not installed or already compatible
-    pass
 
 
 # Extractor metadata
@@ -119,7 +99,6 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
     """
     # Get config from env (with FORUMDL_ prefix, x-fallback handled by config loader)
     timeout = get_env_int('FORUMDL_TIMEOUT') or get_env_int('TIMEOUT', 3600)
-    check_ssl = get_env_bool('FORUMDL_CHECK_SSL_VALIDITY', True) if get_env('FORUMDL_CHECK_SSL_VALIDITY') else get_env_bool('CHECK_SSL_VALIDITY', True)
     forumdl_args = get_env_array('FORUMDL_ARGS', [])
     forumdl_args_extra = get_env_array('FORUMDL_ARGS_EXTRA', [])
     output_format = get_env('FORUMDL_OUTPUT_FORMAT', 'jsonl')
@@ -139,17 +118,29 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
     else:
         output_file = output_dir / f'forum.{output_format}'
 
-    # Use our Pydantic v2 compatible wrapper if available, otherwise fall back to binary
-    wrapper_path = Path(__file__).parent / 'forum-dl-wrapper.py'
     resolved_binary = resolve_binary_path(binary) or binary
-    if wrapper_path.exists():
-        forumdl_python = get_binary_shebang(resolved_binary) or sys.executable
-        cmd = [forumdl_python, str(wrapper_path), *forumdl_args, '-f', output_format, '-o', str(output_file)]
+    forumdl_python = get_binary_shebang(resolved_binary)
+    if forumdl_python:
+        # Inline compatibility shim so this hook stays self-contained.
+        inline_entrypoint = textwrap.dedent(
+            """
+            import sys
+            try:
+                from forum_dl.writers.jsonl import JsonlWriter
+                from pydantic import BaseModel
+                if hasattr(BaseModel, "model_dump_json"):
+                    def _patched_serialize_entry(self, entry):
+                        return entry.model_dump_json()
+                    JsonlWriter._serialize_entry = _patched_serialize_entry
+            except Exception:
+                pass
+            from forum_dl import main
+            raise SystemExit(main())
+            """
+        ).strip()
+        cmd = [forumdl_python, '-c', inline_entrypoint, *forumdl_args, '-f', output_format, '-o', str(output_file)]
     else:
         cmd = [resolved_binary, *forumdl_args, '-f', output_format, '-o', str(output_file)]
-
-    if not check_ssl:
-        cmd.append('--no-check-certificate')
 
     if forumdl_args_extra:
         cmd.extend(forumdl_args_extra)
@@ -227,7 +218,6 @@ def main(url: str, snapshot_id: str):
     """Download forum content from a URL using forum-dl."""
 
     output = None
-    status = 'failed'
     error = ''
 
     try:

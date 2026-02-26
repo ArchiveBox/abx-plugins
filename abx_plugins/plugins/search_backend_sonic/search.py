@@ -11,7 +11,8 @@
 # This module provides the search interface for the Sonic backend.
 
 import os
-from typing import List, Iterable
+from importlib import import_module
+from typing import Any, Iterable, List
 
 
 def get_sonic_config() -> dict:
@@ -28,13 +29,14 @@ def get_sonic_config() -> dict:
 def search(query: str) -> List[str]:
     """Search for snapshots in Sonic."""
     try:
-        from sonic import SearchClient
-    except ImportError:
+        sonic = import_module('sonic')
+    except ModuleNotFoundError:
         raise RuntimeError('sonic-client not installed. Run: pip install sonic-client')
+    search_client_cls: Any = sonic.SearchClient
 
     config = get_sonic_config()
 
-    with SearchClient(config['host'], config['port'], config['password']) as search_client:
+    with search_client_cls(config['host'], config['port'], config['password']) as search_client:
         results = search_client.query(config['collection'], config['bucket'], query, limit=100)
         return results
 
@@ -42,13 +44,14 @@ def search(query: str) -> List[str]:
 def flush(snapshot_ids: Iterable[str]) -> None:
     """Remove snapshots from Sonic index."""
     try:
-        from sonic import IngestClient
-    except ImportError:
+        sonic = import_module('sonic')
+    except ModuleNotFoundError:
         raise RuntimeError('sonic-client not installed. Run: pip install sonic-client')
+    ingest_client_cls: Any = sonic.IngestClient
 
     config = get_sonic_config()
 
-    with IngestClient(config['host'], config['port'], config['password']) as ingest:
+    with ingest_client_cls(config['host'], config['port'], config['password']) as ingest:
         for snapshot_id in snapshot_ids:
             try:
                 ingest.flush_object(config['collection'], config['bucket'], snapshot_id)

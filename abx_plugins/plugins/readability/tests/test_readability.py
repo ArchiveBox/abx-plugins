@@ -9,7 +9,7 @@ Tests verify:
 """
 
 import json
-import shutil
+import os
 import subprocess
 import sys
 import tempfile
@@ -20,12 +20,14 @@ import pytest
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,
     get_hook_script,
-    PLUGINS_ROOT,
 )
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
-READABILITY_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_readability.*')
+_READABILITY_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_readability.*')
+if _READABILITY_HOOK is None:
+    raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
+READABILITY_HOOK = _READABILITY_HOOK
 TEST_URL = 'https://example.com'
 
 
@@ -115,11 +117,17 @@ def test_reports_missing_dependency_when_not_installed():
 
 def test_verify_deps_with_abx_pkg():
     """Verify readability-extractor is available via abx-pkg."""
-    from abx_pkg import Binary, NpmProvider, EnvProvider, BinProviderOverrides
+    from abx_pkg import Binary, NpmProvider, EnvProvider
+    from pydantic.errors import PydanticUserError
+
+    try:
+        npm_provider = NpmProvider()
+    except PydanticUserError as exc:
+        pytest.fail(f"NpmProvider unavailable in this runtime: {exc}")
 
     readability_binary = Binary(
         name='readability-extractor',
-        binproviders=[NpmProvider(), EnvProvider()],
+        binproviders=[npm_provider, EnvProvider()],
         overrides={'npm': {'packages': ['github:ArchiveBox/readability-extractor']}}
     )
     readability_loaded = readability_binary.load()

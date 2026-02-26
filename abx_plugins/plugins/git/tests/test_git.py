@@ -18,7 +18,10 @@ from pathlib import Path
 import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
-GIT_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_git.*'), None)
+_GIT_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_git.*'), None)
+if _GIT_HOOK is None:
+    raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
+GIT_HOOK = _GIT_HOOK
 TEST_URL = 'https://github.com/ArchiveBox/abx-pkg.git'
 
 def test_hook_script_exists():
@@ -26,9 +29,16 @@ def test_hook_script_exists():
 
 def test_verify_deps_with_abx_pkg():
     """Verify git is available via abx-pkg."""
-    from abx_pkg import Binary, AptProvider, BrewProvider, EnvProvider, BinProviderOverrides
+    from abx_pkg import Binary, AptProvider, BrewProvider, EnvProvider
 
-    git_binary = Binary(name='git', binproviders=[AptProvider(), BrewProvider(), EnvProvider()])
+    try:
+        apt_provider = AptProvider()
+        brew_provider = BrewProvider()
+        env_provider = EnvProvider()
+    except Exception as exc:
+        pytest.fail(f"System package providers unavailable in this runtime: {exc}")
+
+    git_binary = Binary(name='git', binproviders=[apt_provider, brew_provider, env_provider])
     git_loaded = git_binary.load()
 
     assert git_loaded and git_loaded.abspath, "git is required for git plugin tests"
@@ -88,6 +98,8 @@ def test_real_git_repo():
 
         env = os.environ.copy()
         env['GIT_TIMEOUT'] = '120'  # Give it time to clone
+        env['SNAP_DIR'] = str(tmpdir)
+        env['CRAWL_DIR'] = str(tmpdir)
 
         start_time = time.time()
         result = subprocess.run(
@@ -119,9 +131,10 @@ def test_real_git_repo():
         assert result_json, f"Should have ArchiveResult JSONL output. stdout: {result.stdout}"
         assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
-        # Check that the git repo was cloned
-        git_dirs = list(tmpdir.glob('**/.git'))
-        assert len(git_dirs) > 0, f"Should have cloned a git repository. Contents: {list(tmpdir.rglob('*'))}"
+        # Check that the git repo was cloned in the hook's output path.
+        output_path = Path(result_json.get('output_str') or (tmpdir / 'git'))
+        git_dirs = list(output_path.glob('**/.git'))
+        assert len(git_dirs) > 0, f"Should have cloned a git repository. Output path: {output_path}"
 
         print(f"Successfully cloned repository in {elapsed_time:.2f}s")
 

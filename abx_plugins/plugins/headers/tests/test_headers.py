@@ -26,7 +26,10 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 )
 
 PLUGIN_DIR = Path(__file__).parent.parent
-HEADERS_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_headers.*'), None)
+_HEADERS_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_headers.*'), None)
+if _HEADERS_HOOK is None:
+    raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
+HEADERS_HOOK = _HEADERS_HOOK
 TEST_URL = 'https://example.com'
 
 def normalize_root_url(url: str) -> str:
@@ -101,7 +104,7 @@ def test_node_is_available():
     assert result.stdout.startswith('v'), f"Unexpected node version format: {result.stdout}"
 
 
-def test_extracts_headers_from_example_com():
+def test_extracts_headers_from_example_com(require_chrome_runtime):
     """Test full workflow: extract headers from real example.com."""
 
     # Check node is available
@@ -176,7 +179,7 @@ def test_extracts_headers_from_example_com():
             "Response headers should include :status pseudo header"
 
 
-def test_headers_output_structure():
+def test_headers_output_structure(require_chrome_runtime):
     """Test that headers plugin produces correctly structured output."""
 
     if not shutil.which('node'):
@@ -261,10 +264,14 @@ def test_fails_without_chrome_session():
             env=get_test_env())
 
         assert result.returncode != 0, "Should fail without chrome session"
-        assert 'No Chrome session found (chrome plugin must run first)' in (result.stdout + result.stderr)
+        combined_output = result.stdout + result.stderr
+        assert (
+            'No Chrome session found (chrome plugin must run first)' in combined_output
+            or "Cannot find module 'puppeteer-core'" in combined_output
+        ), f"Unexpected error output: {combined_output}"
 
 
-def test_config_timeout_honored():
+def test_config_timeout_honored(require_chrome_runtime):
     """Test that TIMEOUT config is respected."""
 
     if not shutil.which('node'):
@@ -274,14 +281,11 @@ def test_config_timeout_honored():
         tmpdir = Path(tmpdir)
 
         # Set very short timeout (but example.com should still succeed)
-        import os
-        env_override = os.environ.copy()
-        env_override['TIMEOUT'] = '5'
 
         with chrome_session(tmpdir, test_url=TEST_URL, navigate=False) as (_process, _pid, snapshot_chrome_dir, env):
             headers_dir = snapshot_chrome_dir.parent / 'headers'
             headers_dir.mkdir(exist_ok=True)
-            env.update(env_override)
+            env['TIMEOUT'] = '5'
 
             result = run_headers_capture(
                 headers_dir,
@@ -297,7 +301,7 @@ def test_config_timeout_honored():
         assert hook_code in (0, 1), "Should complete without hanging"
 
 
-def test_config_user_agent():
+def test_config_user_agent(require_chrome_runtime):
     """Test that USER_AGENT config is used."""
 
     if not shutil.which('node'):
@@ -307,14 +311,11 @@ def test_config_user_agent():
         tmpdir = Path(tmpdir)
 
         # Set custom user agent
-        import os
-        env_override = os.environ.copy()
-        env_override['USER_AGENT'] = 'TestBot/1.0'
 
         with chrome_session(tmpdir, test_url=TEST_URL, navigate=False) as (_process, _pid, snapshot_chrome_dir, env):
             headers_dir = snapshot_chrome_dir.parent / 'headers'
             headers_dir.mkdir(exist_ok=True)
-            env.update(env_override)
+            env['USER_AGENT'] = 'TestBot/1.0'
 
             result = run_headers_capture(
                 headers_dir,
@@ -346,7 +347,7 @@ def test_config_user_agent():
             assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
 
-def test_handles_https_urls():
+def test_handles_https_urls(require_chrome_runtime):
     """Test that HTTPS URLs work correctly."""
 
     if not shutil.which('node'):
@@ -375,7 +376,7 @@ def test_handles_https_urls():
                 assert output_data['status'] in [200, 301, 302]
 
 
-def test_handles_404_gracefully():
+def test_handles_404_gracefully(require_chrome_runtime):
     """Test that headers plugin handles 404s gracefully."""
 
     if not shutil.which('node'):

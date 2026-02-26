@@ -12,6 +12,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get('CRAWL_DIR', '.')).resolve()
@@ -32,11 +33,11 @@ def get_env_bool(name: str, default: bool = False) -> bool:
     return default
 
 
-def output_binary(name: str, binproviders: str, overrides: dict | None = None):
+def output_binary(name: str, binproviders: str, overrides: dict[str, Any] | None = None) -> None:
     """Output Binary JSONL record for a dependency."""
     machine_id = os.environ.get('MACHINE_ID', '')
 
-    record = {
+    record: dict[str, Any] = {
         'type': 'Binary',
         'name': name,
         'binproviders': binproviders,

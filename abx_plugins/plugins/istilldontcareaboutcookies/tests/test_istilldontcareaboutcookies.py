@@ -16,16 +16,17 @@ import pytest
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     setup_test_env,
-    get_test_env,
     launch_chromium_session,
     kill_chromium_session,
     CHROME_LAUNCH_HOOK,
-    PLUGINS_ROOT,
 )
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_SCRIPT = next(PLUGIN_DIR.glob('on_Crawl__*_install_istilldontcareaboutcookies_extension.*'), None)
+_INSTALL_SCRIPT = next(PLUGIN_DIR.glob('on_Crawl__*_install_istilldontcareaboutcookies_extension.*'), None)
+if _INSTALL_SCRIPT is None:
+    raise FileNotFoundError(f"Install script not found in {PLUGIN_DIR}")
+INSTALL_SCRIPT = _INSTALL_SCRIPT
 
 
 def test_install_script_exists():
@@ -304,7 +305,7 @@ const puppeteer = require('puppeteer-core');
 
             assert result.returncode == 0, f"Test failed: {result.stderr}"
 
-            output_lines = [l for l in result.stdout.strip().split('\n') if l.startswith('{')]
+            output_lines = [line for line in result.stdout.strip().split('\n') if line.startswith('{')]
             assert output_lines, f"No JSON output: {result.stdout}"
 
             test_result = json.loads(output_lines[-1])
@@ -317,7 +318,7 @@ const puppeteer = require('puppeteer-core');
             try:
                 chrome_launch_process.send_signal(signal.SIGTERM)
                 chrome_launch_process.wait(timeout=5)
-            except:
+            except Exception:
                 pass
             chrome_pid_file = chrome_dir / 'chrome.pid'
             if chrome_pid_file.exists():
@@ -454,7 +455,7 @@ const puppeteer = require('puppeteer-core');
     if result.returncode != 0:
         raise RuntimeError(f"Cookie check script failed: {result.stderr}")
 
-    output_lines = [l for l in result.stdout.strip().split('\n') if l.startswith('{')]
+    output_lines = [line for line in result.stdout.strip().split('\n') if line.startswith('{')]
     if not output_lines:
         raise RuntimeError(f"No JSON output from cookie check: {result.stdout}\nstderr: {result.stderr}")
 
@@ -638,4 +639,4 @@ def test_hides_cookie_consent_on_filmin():
 
         print("\n✓ SUCCESS: Extension correctly hides cookie consent!")
         print(f"  - Baseline showed consent at: {baseline_result['selector']}")
-        print(f"  - Extension successfully hid it")
+        print("  - Extension successfully hid it")

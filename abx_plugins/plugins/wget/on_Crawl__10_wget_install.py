@@ -70,7 +70,6 @@ def main():
 
     # Get config values
     wget_enabled = get_env_bool('WGET_ENABLED', True)
-    wget_save_warc = get_env_bool('WGET_SAVE_WARC', True)
     wget_timeout = get_env_int('WGET_TIMEOUT') or get_env_int('TIMEOUT', 60)
     wget_binary = get_env('WGET_BINARY', 'wget')
 

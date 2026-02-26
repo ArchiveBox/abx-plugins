@@ -24,12 +24,27 @@ import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
-FORUMDL_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_forumdl.*'), None)
-TEST_URL = 'https://example.com'
+_FORUMDL_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_forumdl.*'), None)
+if _FORUMDL_HOOK is None:
+    raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
+FORUMDL_HOOK = _FORUMDL_HOOK
+TEST_URL = 'http://example.com'
 
 # Module-level cache for binary path
 _forumdl_binary_path = None
 _forumdl_lib_root = None
+
+
+def require_forumdl_binary() -> str:
+    """Return forum-dl binary path or fail with actionable context."""
+    binary_path = get_forumdl_binary_path()
+    assert binary_path, (
+        "forum-dl installation failed. Install hook should install forum-dl automatically "
+        "with macOS-compatible dependencies."
+    )
+    assert Path(binary_path).is_file(), f"forum-dl binary path invalid: {binary_path}"
+    return binary_path
+
 
 def get_forumdl_binary_path():
     """Get the installed forum-dl binary path from cache or by running installation."""
@@ -38,7 +53,7 @@ def get_forumdl_binary_path():
         return _forumdl_binary_path
 
     # Try to find forum-dl binary using abx-pkg
-    from abx_pkg import Binary, PipProvider, EnvProvider, BinProviderOverrides
+    from abx_pkg import Binary, PipProvider, EnvProvider
 
     try:
         binary = Binary(
@@ -124,24 +139,15 @@ def test_hook_script_exists():
 
 def test_verify_deps_with_abx_pkg():
     """Verify forum-dl is installed by calling the REAL installation hooks."""
-    binary_path = get_forumdl_binary_path()
-    if not binary_path:
-        assert False, (
-            "forum-dl installation failed. Install hook should install forum-dl automatically. "
-            "Note: forum-dl has a dependency on cchardet which may not compile on Python 3.14+ "
-            "due to removed longintrepr.h header."
-        )
+    binary_path = require_forumdl_binary()
     assert Path(binary_path).is_file(), f"Binary path must be a valid file: {binary_path}"
 
 
-def test_handles_non_forum_url():
+def test_handles_non_forum_url(local_http_base_url):
     """Test that forum-dl extractor handles non-forum URLs gracefully via hook."""
     import os
 
-    binary_path = get_forumdl_binary_path()
-    if not binary_path:
-        pass
-    assert Path(binary_path).is_file(), f"Binary must be a valid file: {binary_path}"
+    binary_path = require_forumdl_binary()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -153,7 +159,7 @@ def test_handles_non_forum_url():
 
         # Run forum-dl extraction hook on non-forum URL
         result = subprocess.run(
-            [sys.executable, str(FORUMDL_HOOK), '--url', 'https://example.com', '--snapshot-id', 'test789'],
+            [sys.executable, str(FORUMDL_HOOK), '--url', local_http_base_url, '--snapshot-id', 'test789'],
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -215,10 +221,7 @@ def test_config_timeout():
     """Test that FORUMDL_TIMEOUT config is respected."""
     import os
 
-    binary_path = get_forumdl_binary_path()
-    if not binary_path:
-        pass
-    assert Path(binary_path).is_file(), f"Binary must be a valid file: {binary_path}"
+    binary_path = require_forumdl_binary()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
@@ -229,7 +232,7 @@ def test_config_timeout():
 
         start_time = time.time()
         result = subprocess.run(
-            [sys.executable, str(FORUMDL_HOOK), '--url', 'https://example.com', '--snapshot-id', 'testtimeout'],
+            [sys.executable, str(FORUMDL_HOOK), '--url', TEST_URL, '--snapshot-id', 'testtimeout'],
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -250,9 +253,7 @@ def test_real_forum_url():
     """
     import os
 
-    binary_path = get_forumdl_binary_path()
-    assert binary_path, "forum-dl binary not available"
-    assert Path(binary_path).is_file(), f"Binary must be a valid file: {binary_path}"
+    binary_path = require_forumdl_binary()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)

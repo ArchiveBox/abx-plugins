@@ -13,7 +13,6 @@ Tests verify:
 """
 
 import json
-import os
 import signal
 import subprocess
 import time
@@ -438,7 +437,7 @@ main().catch(e => {
         assert result.returncode == 0, f"Test script failed: {result.stderr}"
 
         # Parse the JSON output
-        output_lines = [l for l in result.stdout.strip().split('\n') if l.startswith('{')]
+        output_lines = [line for line in result.stdout.strip().split('\n') if line.startswith('{')]
         assert len(output_lines) > 0, f"No JSON output from test script. stdout: {result.stdout}"
 
         test_result = json.loads(output_lines[-1])

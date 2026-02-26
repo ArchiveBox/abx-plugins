@@ -12,6 +12,7 @@ Tests verify:
 """
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -21,12 +22,14 @@ import pytest
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,
     get_hook_script,
-    PLUGINS_ROOT,
 )
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
-MERCURY_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_mercury.*')
+_MERCURY_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_mercury.*')
+if _MERCURY_HOOK is None:
+    raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
+MERCURY_HOOK = _MERCURY_HOOK
 TEST_URL = 'https://example.com'
 
 def test_hook_script_exists():
@@ -36,12 +39,18 @@ def test_hook_script_exists():
 
 def test_verify_deps_with_abx_pkg():
     """Verify postlight-parser is available via abx-pkg."""
-    from abx_pkg import Binary, NpmProvider, EnvProvider, BinProviderOverrides
+    from abx_pkg import Binary, NpmProvider, EnvProvider
+    from pydantic.errors import PydanticUserError
+
+    try:
+        npm_provider = NpmProvider()
+    except PydanticUserError as exc:
+        pytest.fail(f"NpmProvider unavailable in this runtime: {exc}")
 
     # Verify postlight-parser is available
     mercury_binary = Binary(
         name='postlight-parser',
-        binproviders=[NpmProvider(), EnvProvider()],
+        binproviders=[npm_provider, EnvProvider()],
         overrides={'npm': {'packages': ['@postlight/parser']}}
     )
     mercury_loaded = mercury_binary.load()

@@ -22,7 +22,6 @@ Environment variables:
     SNAP_DIR: Snapshot directory (default: cwd)
 """
 
-import json
 import os
 import re
 import sqlite3
@@ -149,10 +148,8 @@ def index_in_sqlite(snapshot_id: str, texts: list[str]) -> None:
 def main(url: str, snapshot_id: str):
     """Index snapshot content in SQLite FTS5."""
 
-    output = None
     status = 'failed'
     error = ''
-    indexed_sources = []
 
     try:
         # Check if this backend is enabled (permanent skips - don't retry)
@@ -165,7 +162,6 @@ def main(url: str, snapshot_id: str):
             sys.exit(0)  # Permanent skip - indexing disabled
         else:
             contents = find_indexable_content()
-            indexed_sources = [source for source, _ in contents]
 
             if not contents:
                 status = 'skipped'
@@ -174,7 +170,6 @@ def main(url: str, snapshot_id: str):
                 texts = [content for _, content in contents]
                 index_in_sqlite(snapshot_id, texts)
                 status = 'succeeded'
-                output = OUTPUT_DIR
 
     except Exception as e:
         error = f'{type(e).__name__}: {e}'

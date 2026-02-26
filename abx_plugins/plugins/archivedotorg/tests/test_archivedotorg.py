@@ -12,7 +12,10 @@ from pathlib import Path
 import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
-ARCHIVEDOTORG_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_archivedotorg.*'), None)
+_ARCHIVEDOTORG_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_archivedotorg.*'), None)
+if _ARCHIVEDOTORG_HOOK is None:
+    raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
+ARCHIVEDOTORG_HOOK = _ARCHIVEDOTORG_HOOK
 TEST_URL = 'https://example.com'
 
 def test_hook_script_exists():

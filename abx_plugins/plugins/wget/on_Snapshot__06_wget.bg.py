@@ -175,11 +175,6 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
         ]
         output_path = str(html_files[0]) if html_files else str(downloaded_files[0])
 
-        # Parse download stats from wget output
-        stderr_text = (result.stderr or '')
-        output_tail = stderr_text.strip().split('\n')[-3:] if stderr_text else []
-        files_count = len(downloaded_files)
-
         return True, output_path, ''
 
     except subprocess.TimeoutExpired:
@@ -195,7 +190,6 @@ def main(url: str, snapshot_id: str):
     """Archive a URL using wget."""
 
     output = None
-    status = 'failed'
     error = ''
 
     try:

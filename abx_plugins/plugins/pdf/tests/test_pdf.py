@@ -13,9 +13,7 @@ Tests verify:
 """
 
 import json
-import os
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
@@ -25,16 +23,16 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
     get_plugin_dir,
     get_hook_script,
-    run_hook_and_parse,
-    LIB_DIR,
-    NODE_MODULES_DIR,
     PLUGINS_ROOT,
     chrome_session,
 )
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
-PDF_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_pdf.*')
+_PDF_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_pdf.*')
+if _PDF_HOOK is None:
+    raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
+PDF_HOOK = _PDF_HOOK
 NPM_PROVIDER_HOOK = PLUGINS_ROOT / 'npm' / 'on_Binary__install_using_npm_provider.py'
 TEST_URL = 'https://example.com'
 
@@ -46,7 +44,7 @@ def test_hook_script_exists():
 
 def test_verify_deps_with_abx_pkg():
     """Verify dependencies are available via abx-pkg after hook installation."""
-    from abx_pkg import Binary, EnvProvider, BinProviderOverrides
+    from abx_pkg import Binary, EnvProvider
 
     EnvProvider.model_rebuild()
 
@@ -118,7 +116,6 @@ def test_extracts_pdf_from_example_com():
 
 def test_config_save_pdf_false_skips():
     """Test that PDF_ENABLED=False exits without emitting JSONL."""
-    import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -148,7 +145,6 @@ def test_config_save_pdf_false_skips():
 
 def test_reports_missing_chrome():
     """Test that script reports error when Chrome session is missing."""
-    import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)

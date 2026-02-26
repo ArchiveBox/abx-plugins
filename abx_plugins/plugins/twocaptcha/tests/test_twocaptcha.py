@@ -8,7 +8,6 @@ NOTE: Chrome 137+ removed --load-extension support, so these tests MUST use Chro
 
 import json
 import os
-import signal
 import subprocess
 import tempfile
 import time
@@ -20,8 +19,6 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     setup_test_env,
     launch_chromium_session,
     kill_chromium_session,
-    CHROME_LAUNCH_HOOK,
-    PLUGINS_ROOT,
 )
 
 
@@ -30,6 +27,11 @@ INSTALL_SCRIPT = PLUGIN_DIR / 'on_Crawl__83_twocaptcha_install.js'
 CONFIG_SCRIPT = PLUGIN_DIR / 'on_Crawl__95_twocaptcha_config.js'
 
 TEST_URL = 'https://2captcha.com/demo/cloudflare-turnstile'
+LIVE_API_KEY = (
+    os.environ.get('TWOCAPTCHA_API_KEY')
+    or os.environ.get('API_KEY_2CAPTCHA')
+    or '60ce5e7335ffaeb0f08927784c7e8e65'
+)
 
 
 # Alias for backward compatibility with existing test names
@@ -38,13 +40,12 @@ kill_chrome = kill_chromium_session
 
 
 class TestTwoCaptcha:
-    """Integration tests requiring TWOCAPTCHA_API_KEY."""
+    """Integration tests for twocaptcha plugin."""
 
     @pytest.fixture(autouse=True)
     def setup(self):
-        self.api_key = os.environ.get('TWOCAPTCHA_API_KEY') or os.environ.get('API_KEY_2CAPTCHA')
-        if not self.api_key:
-            pytest.fail("TWOCAPTCHA_API_KEY required")
+        self.api_key = LIVE_API_KEY
+        assert self.api_key, 'TWOCAPTCHA_API_KEY required'
 
     def test_install_and_load(self):
         """Extension installs and loads in Chromium."""
@@ -110,7 +111,7 @@ class TestTwoCaptcha:
                     if extensions_file.exists():
                         break
                     time.sleep(0.5)
-                assert extensions_file.exists(), f"extensions.json not created"
+                assert extensions_file.exists(), "extensions.json not created"
 
                 result = subprocess.run(
                     ['node', str(CONFIG_SCRIPT), '--url=https://example.com', '--snapshot-id=test'],
@@ -167,15 +168,15 @@ const puppeteer = require('puppeteer-core');
 
                 # Verify all the fields we care about
                 assert cfg.get('apiKey') == self.api_key or cfg.get('api_key') == self.api_key, f"API key not set: {cfg}"
-                assert cfg.get('isPluginEnabled') == True, f"Plugin not enabled: {cfg}"
+                assert cfg.get('isPluginEnabled'), f"Plugin not enabled: {cfg}"
                 assert cfg.get('repeatOnErrorTimes') == 5, f"Retry count wrong: {cfg}"
                 assert cfg.get('repeatOnErrorDelay') == 10, f"Retry delay wrong: {cfg}"
-                assert cfg.get('autoSolveRecaptchaV2') == True, f"autoSolveRecaptchaV2 not enabled: {cfg}"
-                assert cfg.get('autoSolveRecaptchaV3') == True, f"autoSolveRecaptchaV3 not enabled: {cfg}"
-                assert cfg.get('autoSolveTurnstile') == True, f"autoSolveTurnstile not enabled: {cfg}"
-                assert cfg.get('enabledForRecaptchaV2') == True, f"enabledForRecaptchaV2 not enabled: {cfg}"
+                assert cfg.get('autoSolveRecaptchaV2'), f"autoSolveRecaptchaV2 not enabled: {cfg}"
+                assert cfg.get('autoSolveRecaptchaV3'), f"autoSolveRecaptchaV3 not enabled: {cfg}"
+                assert cfg.get('autoSolveTurnstile'), f"autoSolveTurnstile not enabled: {cfg}"
+                assert cfg.get('enabledForRecaptchaV2'), f"enabledForRecaptchaV2 not enabled: {cfg}"
 
-                print(f"[+] Config verified via Config.getAll()!")
+                print("[+] Config verified via Config.getAll()!")
             finally:
                 kill_chrome(process, chrome_dir)
 
@@ -229,7 +230,7 @@ const puppeteer = require('puppeteer-core');
                     if extensions_file.exists():
                         break
                     time.sleep(0.5)
-                assert extensions_file.exists(), f"extensions.json not created"
+                assert extensions_file.exists(), "extensions.json not created"
 
                 subprocess.run(['node', str(CONFIG_SCRIPT), '--url=x', '--snapshot-id=x'], env=env, timeout=30, capture_output=True)
 
@@ -326,7 +327,7 @@ const puppeteer = require('puppeteer-core');
                 print(r.stderr)
                 assert r.returncode == 0, f"Failed: {r.stderr}"
 
-                final = json.loads([l for l in r.stdout.strip().split('\n') if l.startswith('{')][-1])
+                final = json.loads([line for line in r.stdout.strip().split('\n') if line.startswith('{')][-1])
                 assert final.get('solved'), f"Not solved: {final}"
                 assert final.get('state') == 'solved', f"State not 'solved': {final}"
                 print(f"[+] SUCCESS! CAPTCHA solved: {final.get('text','')[:50]}")

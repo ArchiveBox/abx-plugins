@@ -15,7 +15,9 @@
 import json
 import os
 import sys
+from importlib import import_module
 from pathlib import Path
+from typing import Any
 
 import rich_click as click
 
@@ -51,8 +53,8 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
         print(f'[archivedotorg] {message}', file=sys.stderr)
 
     try:
-        import requests
-    except ImportError:
+        requests: Any = import_module('requests')
+    except ModuleNotFoundError:
         return False, None, 'requests library not installed'
 
     timeout = get_env_int('ARCHIVEDOTORG_TIMEOUT') or get_env_int('TIMEOUT', 60)

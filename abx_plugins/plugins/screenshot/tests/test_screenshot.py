@@ -14,7 +14,6 @@ Tests verify:
 import json
 import os
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
@@ -24,22 +23,29 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
     get_plugin_dir,
     get_hook_script,
-    run_hook_and_parse,
     chrome_session,
-    ensure_chromium_and_puppeteer_installed,
-    chrome_test_url,
-    LIB_DIR,
-    NODE_MODULES_DIR,
     CHROME_PLUGIN_DIR,
 )
 
 PLUGIN_DIR = get_plugin_dir(__file__)
-SCREENSHOT_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_screenshot.*')
+_SCREENSHOT_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_screenshot.*')
+if _SCREENSHOT_HOOK is None:
+    raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
+SCREENSHOT_HOOK = _SCREENSHOT_HOOK
 
 # Get Chrome hooks for setting up sessions
-CHROME_LAUNCH_HOOK = get_hook_script(CHROME_PLUGIN_DIR, 'on_Crawl__*_chrome_launch.*')
-CHROME_TAB_HOOK = get_hook_script(CHROME_PLUGIN_DIR, 'on_Snapshot__*_chrome_tab.*')
-CHROME_NAVIGATE_HOOK = get_hook_script(CHROME_PLUGIN_DIR, 'on_Snapshot__*_chrome_navigate.*')
+_CHROME_LAUNCH_HOOK = get_hook_script(CHROME_PLUGIN_DIR, 'on_Crawl__*_chrome_launch.*')
+if _CHROME_LAUNCH_HOOK is None:
+    raise FileNotFoundError(f"Chrome launch hook not found in {CHROME_PLUGIN_DIR}")
+CHROME_LAUNCH_HOOK = _CHROME_LAUNCH_HOOK
+_CHROME_TAB_HOOK = get_hook_script(CHROME_PLUGIN_DIR, 'on_Snapshot__*_chrome_tab.*')
+if _CHROME_TAB_HOOK is None:
+    raise FileNotFoundError(f"Chrome tab hook not found in {CHROME_PLUGIN_DIR}")
+CHROME_TAB_HOOK = _CHROME_TAB_HOOK
+_CHROME_NAVIGATE_HOOK = get_hook_script(CHROME_PLUGIN_DIR, 'on_Snapshot__*_chrome_navigate.*')
+if _CHROME_NAVIGATE_HOOK is None:
+    raise FileNotFoundError(f"Chrome navigate hook not found in {CHROME_PLUGIN_DIR}")
+CHROME_NAVIGATE_HOOK = _CHROME_NAVIGATE_HOOK
 
 @pytest.fixture(scope='module', autouse=True)
 def _ensure_chrome_prereqs(ensure_chromium_and_puppeteer_installed):
@@ -53,7 +59,7 @@ def test_hook_script_exists():
 
 def test_verify_deps_with_abx_pkg():
     """Verify dependencies are available via abx-pkg after hook installation."""
-    from abx_pkg import Binary, EnvProvider, BinProviderOverrides
+    from abx_pkg import Binary, EnvProvider
 
     EnvProvider.model_rebuild()
 
@@ -83,14 +89,20 @@ def test_screenshot_with_chrome_session(chrome_test_url):
                 screenshot_dir = snapshot_chrome_dir.parent / 'screenshot'
                 screenshot_dir.mkdir()
 
-                result = subprocess.run(
-                    ['node', str(SCREENSHOT_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
-                    cwd=str(screenshot_dir),
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                    env=env
-                )
+                try:
+                    result = subprocess.run(
+                        ['node', str(SCREENSHOT_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
+                        cwd=str(screenshot_dir),
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                        env=env
+                    )
+                except subprocess.TimeoutExpired:
+                    pytest.fail('Screenshot capture timed out')
+
+                if result.returncode != 0 and 'Screenshot capture timed out' in result.stderr:
+                    pytest.fail(f"Screenshot capture timed out: {result.stderr}")
 
                 assert result.returncode == 0, f"Screenshot extraction failed:\nStderr: {result.stderr}"
 
@@ -178,7 +190,6 @@ def test_skips_when_staticfile_exists(chrome_test_url):
 
 def test_config_save_screenshot_false_skips(chrome_test_url):
     """Test that SCREENSHOT_ENABLED=False exits without emitting JSONL."""
-    import os
 
     # FIRST check what Python sees
     print(f"\n[DEBUG PYTHON] NODE_V8_COVERAGE in os.environ: {'NODE_V8_COVERAGE' in os.environ}")
@@ -286,7 +297,6 @@ def test_waits_for_navigation_timeout(chrome_test_url):
 
 def test_config_timeout_honored(chrome_test_url):
     """Test that CHROME_TIMEOUT config is respected."""
-    import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)

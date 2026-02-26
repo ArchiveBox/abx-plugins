@@ -13,7 +13,10 @@ from pathlib import Path
 import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
-HTMLTOTEXT_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_htmltotext.*'), None)
+_HTMLTOTEXT_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_htmltotext.*'), None)
+if _HTMLTOTEXT_HOOK is None:
+    raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
+HTMLTOTEXT_HOOK = _HTMLTOTEXT_HOOK
 TEST_URL = 'https://example.com'
 
 def test_hook_script_exists():

@@ -24,11 +24,12 @@ Environment variables:
     SONIC_BUCKET: Bucket name (default: snapshots)
 """
 
-import json
 import os
 import re
 import sys
+from importlib import import_module
 from pathlib import Path
+from typing import Any
 
 import rich_click as click
 
@@ -131,13 +132,14 @@ def get_sonic_config() -> dict:
 def index_in_sonic(snapshot_id: str, texts: list[str]) -> None:
     """Index texts in Sonic."""
     try:
-        from sonic import IngestClient
-    except ImportError:
+        sonic = import_module('sonic')
+    except ModuleNotFoundError:
         raise RuntimeError('sonic-client not installed. Run: pip install sonic-client')
+    ingest_client: Any = sonic.IngestClient
 
     config = get_sonic_config()
 
-    with IngestClient(config['host'], config['port'], config['password']) as ingest:
+    with ingest_client(config['host'], config['port'], config['password']) as ingest:
         # Flush existing content
         try:
             ingest.flush_object(config['collection'], config['bucket'], snapshot_id)
@@ -158,10 +160,8 @@ def index_in_sonic(snapshot_id: str, texts: list[str]) -> None:
 def main(url: str, snapshot_id: str):
     """Index snapshot content in Sonic."""
 
-    output = None
     status = 'failed'
     error = ''
-    indexed_sources = []
 
     try:
         # Check if this backend is enabled (permanent skips - don't retry)
@@ -174,7 +174,6 @@ def main(url: str, snapshot_id: str):
             sys.exit(0)  # Permanent skip - indexing disabled
         else:
             contents = find_indexable_content()
-            indexed_sources = [source for source, _ in contents]
 
             if not contents:
                 status = 'skipped'
@@ -183,7 +182,6 @@ def main(url: str, snapshot_id: str):
                 texts = [content for _, content in contents]
                 index_in_sonic(snapshot_id, texts)
                 status = 'succeeded'
-                output = OUTPUT_DIR
 
     except Exception as e:
         error = f'{type(e).__name__}: {e}'

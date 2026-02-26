@@ -20,7 +20,6 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
     get_plugin_dir,
     get_hook_script,
-    chrome_test_https_url,
 )
 
 

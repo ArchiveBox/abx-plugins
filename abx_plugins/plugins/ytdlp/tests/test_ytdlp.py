@@ -20,8 +20,16 @@ import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
-YTDLP_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_ytdlp.*'), None)
+_YTDLP_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_ytdlp.*'), None)
+if _YTDLP_HOOK is None:
+    raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
+YTDLP_HOOK = _YTDLP_HOOK
 TEST_URL = 'https://example.com/video.mp4'
+
+
+def _has_ssl_cert_error(result: subprocess.CompletedProcess[str]) -> bool:
+    combined = f"{result.stdout}\n{result.stderr}"
+    return 'CERTIFICATE_VERIFY_FAILED' in combined
 
 def test_hook_script_exists():
     """Verify on_Snapshot hook exists."""
@@ -30,12 +38,20 @@ def test_hook_script_exists():
 
 def test_verify_deps_with_abx_pkg():
     """Verify yt-dlp, node, and ffmpeg are available via abx-pkg."""
-    from abx_pkg import Binary, PipProvider, AptProvider, BrewProvider, EnvProvider, BinProviderOverrides
+    from abx_pkg import Binary, PipProvider, AptProvider, BrewProvider, EnvProvider
+
+    try:
+        pip_provider = PipProvider()
+        apt_provider = AptProvider()
+        brew_provider = BrewProvider()
+        env_provider = EnvProvider()
+    except Exception as exc:
+        pytest.fail(f"Binary providers unavailable in this runtime: {exc}")
 
     missing_binaries = []
 
     # Verify yt-dlp is available
-    ytdlp_binary = Binary(name='yt-dlp', binproviders=[PipProvider(), EnvProvider()])
+    ytdlp_binary = Binary(name='yt-dlp', binproviders=[pip_provider, env_provider])
     ytdlp_loaded = ytdlp_binary.load()
     if not (ytdlp_loaded and ytdlp_loaded.abspath):
         missing_binaries.append('yt-dlp')
@@ -43,14 +59,14 @@ def test_verify_deps_with_abx_pkg():
     # Verify node is available (yt-dlp needs it for JS extraction)
     node_binary = Binary(
         name='node',
-        binproviders=[AptProvider(), BrewProvider(), EnvProvider()]
+        binproviders=[apt_provider, brew_provider, env_provider]
     )
     node_loaded = node_binary.load()
     if not (node_loaded and node_loaded.abspath):
         missing_binaries.append('node')
 
     # Verify ffmpeg is available (yt-dlp needs it for video conversion)
-    ffmpeg_binary = Binary(name='ffmpeg', binproviders=[AptProvider(), BrewProvider(), EnvProvider()])
+    ffmpeg_binary = Binary(name='ffmpeg', binproviders=[apt_provider, brew_provider, env_provider])
     ffmpeg_loaded = ffmpeg_binary.load()
     if not (ffmpeg_loaded and ffmpeg_loaded.abspath):
         missing_binaries.append('ffmpeg')
@@ -72,6 +88,10 @@ def test_handles_non_video_url():
             capture_output=True,
             text=True,
             timeout=60
+        )
+
+        assert not _has_ssl_cert_error(result), (
+            'Local SSL certificate trust issue for outbound HTTPS must be fixed'
         )
 
         # Should exit 0 even for non-media URL
@@ -141,6 +161,10 @@ def test_config_timeout():
         )
         elapsed_time = time.time() - start_time
 
+        assert not _has_ssl_cert_error(result), (
+            'Local SSL certificate trust issue for outbound HTTPS must be fixed'
+        )
+
         assert result.returncode == 0, f"Should complete without hanging: {result.stderr}"
         # Allow 1 second overhead for subprocess startup and Python interpreter
         assert elapsed_time <= 6.0, f"Should complete within 6 seconds (5s timeout + 1s overhead), took {elapsed_time:.2f}s"
@@ -158,6 +182,7 @@ def test_real_youtube_url():
 
         env = os.environ.copy()
         env['YTDLP_TIMEOUT'] = '120'  # Give it time to download
+        env['SNAP_DIR'] = str(tmpdir)
 
         start_time = time.time()
         result = subprocess.run(
@@ -169,6 +194,10 @@ def test_real_youtube_url():
             timeout=180
         )
         elapsed_time = time.time() - start_time
+
+        assert not _has_ssl_cert_error(result), (
+            'Local SSL certificate trust issue for outbound HTTPS must be fixed'
+        )
 
         # Should succeed
         assert result.returncode == 0, f"Should extract video/audio successfully: {result.stderr}"

@@ -17,6 +17,8 @@ import json
 import os
 import re
 import sys
+import requests
+
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
@@ -50,10 +52,6 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
 
     Returns: (success, output_path, error_message)
     """
-    try:
-        import requests
-    except ImportError:
-        return False, None, 'requests library not installed'
 
     timeout = get_env_int('FAVICON_TIMEOUT') or get_env_int('TIMEOUT', 30)
     user_agent = get_env('USER_AGENT', 'Mozilla/5.0 (compatible; ArchiveBox/1.0)')

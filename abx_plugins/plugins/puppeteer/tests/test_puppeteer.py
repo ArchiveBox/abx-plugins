@@ -8,7 +8,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-import pytest
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,

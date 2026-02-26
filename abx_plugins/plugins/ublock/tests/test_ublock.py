@@ -14,16 +14,17 @@ import pytest
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     setup_test_env,
-    get_test_env,
     launch_chromium_session,
     kill_chromium_session,
     CHROME_LAUNCH_HOOK,
-    PLUGINS_ROOT,
 )
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_SCRIPT = next(PLUGIN_DIR.glob('on_Crawl__*_install_ublock_extension.*'), None)
+_INSTALL_SCRIPT = next(PLUGIN_DIR.glob('on_Crawl__*_install_ublock_extension.*'), None)
+if _INSTALL_SCRIPT is None:
+    raise FileNotFoundError(f"Install script not found in {PLUGIN_DIR}")
+INSTALL_SCRIPT = _INSTALL_SCRIPT
 
 
 def test_install_script_exists():
@@ -128,17 +129,18 @@ def test_no_configuration_required():
         env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
         # No API keys needed - works with default filter lists
 
-        result = subprocess.run(
+        install_result = subprocess.run(
             ["node", str(INSTALL_SCRIPT)],
             capture_output=True,
             text=True,
             env=env,
             timeout=120
         )
+        assert install_result.returncode == 0, f"Install failed: {install_result.stderr}"
 
         # Should not require any API keys
-        combined_output = result.stdout + result.stderr
-        assert "API" not in combined_output or result.returncode == 0
+        combined_output = install_result.stdout + install_result.stderr
+        assert "API" not in combined_output or install_result.returncode == 0
 
 
 def test_large_extension_size():
@@ -157,6 +159,7 @@ def test_large_extension_size():
             env=env,
             timeout=120
         )
+        assert result.returncode == 0, f"Install failed: {result.stderr}"
 
         # If extension was downloaded, verify it's substantial size
         crx_file = ext_dir / "cjpalhdlnbpafiamejdnhcphjbkeiagm__ublock.crx"
@@ -294,7 +297,7 @@ const puppeteer = require('puppeteer-core');
     if result.returncode != 0:
         raise RuntimeError(f"Ad check script failed: {result.stderr}")
 
-    output_lines = [l for l in result.stdout.strip().split('\n') if l.startswith('{')]
+    output_lines = [line for line in result.stdout.strip().split('\n') if line.startswith('{')]
     if not output_lines:
         raise RuntimeError(f"No JSON output from ad check: {result.stdout}\nstderr: {result.stderr}")
 
@@ -367,6 +370,7 @@ def test_extension_loads_in_chromium():
             text=True,
             env=env
         )
+        assert chrome_launch_process.stderr is not None, "Expected stderr pipe to be available"
         print("[test] Chrome hook started, waiting for CDP...", flush=True)
 
         # Wait for Chromium to launch and CDP URL to be available
@@ -494,7 +498,7 @@ const puppeteer = require('puppeteer-core');
 
             assert result.returncode == 0, f"Test failed: {result.stderr}"
 
-            output_lines = [l for l in result.stdout.strip().split('\n') if l.startswith('{')]
+            output_lines = [line for line in result.stdout.strip().split('\n') if line.startswith('{')]
             assert output_lines, f"No JSON output: {result.stdout}"
 
             test_result = json.loads(output_lines[-1])
@@ -507,7 +511,7 @@ const puppeteer = require('puppeteer-core');
             try:
                 chrome_launch_process.send_signal(signal.SIGTERM)
                 chrome_launch_process.wait(timeout=5)
-            except:
+            except Exception:
                 pass
             chrome_pid_file = chrome_dir / 'chrome.pid'
             if chrome_pid_file.exists():
@@ -719,7 +723,7 @@ const puppeteer = require('{env_base['NODE_MODULES_DIR']}/puppeteer-core');
             f"Reduction: only {reduction_percent:.0f}% (expected at least 20%)\n" \
             f"Note: Filter lists must be downloaded on first run (takes ~15s)"
 
-        print(f"\n✓ SUCCESS: uBlock correctly blocks ads!")
+        print("\n✓ SUCCESS: uBlock correctly blocks ads!")
         print(f"  - Baseline: {baseline_result['adElementsVisible']} visible ads")
         print(f"  - With extension: {ext_result['adElementsVisible']} visible ads")
         print(f"  - Blocked: {ads_blocked} ads ({reduction_percent:.0f}% reduction)")

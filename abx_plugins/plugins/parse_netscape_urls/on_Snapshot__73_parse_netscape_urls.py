@@ -78,7 +78,6 @@ def parse_timestamp(timestamp_str: str) -> datetime | None:
         return None
 
     # Detect sign and work with absolute value
-    is_negative = timestamp_num < 0
     abs_timestamp = abs(timestamp_num)
 
     # Determine number of digits to guess the unit
@@ -179,7 +178,7 @@ def fetch_content(url: str) -> str:
 @click.option('--snapshot-id', required=False, help='Parent Snapshot UUID')
 @click.option('--crawl-id', required=False, help='Crawl UUID')
 @click.option('--depth', type=int, default=0, help='Current depth level')
-def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0):
+def main(url: str, snapshot_id: str | None = None, crawl_id: str | None = None, depth: int = 0):
     """Parse Netscape bookmark HTML and extract URLs."""
     env_depth = os.environ.get('SNAPSHOT_DEPTH')
     if env_depth is not None:

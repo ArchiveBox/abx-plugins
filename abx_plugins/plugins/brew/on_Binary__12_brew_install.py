@@ -18,10 +18,15 @@ import os
 import sys
 
 import rich_click as click
-from abx_pkg import Binary, BrewProvider, BinProviderOverrides
+from abx_pkg import Binary, BinProviderOverrides, BinaryOverrides, BrewProvider
 
 # Fix pydantic forward reference issue
-BrewProvider.model_rebuild()
+BrewProvider.model_rebuild(
+    _types_namespace={
+        'BinProviderOverrides': BinProviderOverrides,
+        'BinaryOverrides': BinaryOverrides,
+    }
+)
 
 
 @click.command()

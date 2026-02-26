@@ -95,8 +95,8 @@ def save_paper(url: str, binary: str) -> tuple[bool, str | None, str]:
     Returns: (success, output_path, error_message)
     """
     # Get config from env
-    timeout = get_env_int('TIMEOUT', 300)
-    papersdl_args = get_env_array('PAPERSDL_ARGS', [])
+    timeout = get_env_int('PAPERSDL_TIMEOUT', get_env_int('TIMEOUT', 300))
+    papersdl_args = get_env_array('PAPERSDL_ARGS', ['fetch'])
     papersdl_args_extra = get_env_array('PAPERSDL_ARGS_EXTRA', [])
 
     # Output directory is current directory (hook already runs in output dir)
@@ -188,7 +188,6 @@ def main(url: str, snapshot_id: str):
     """Download scientific paper from a URL using papers-dl."""
 
     output = None
-    status = 'failed'
     error = ''
 
     try:

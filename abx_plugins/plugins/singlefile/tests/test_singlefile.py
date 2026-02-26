@@ -10,7 +10,6 @@ Tests verify:
 6. Works with extensions loaded (ublock, etc.)
 """
 
-import json
 import os
 import subprocess
 import sys
@@ -24,12 +23,14 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,
     get_hook_script,
     chrome_session,
-    cleanup_chrome,
 )
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
-SNAPSHOT_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_singlefile.py')
+_SNAPSHOT_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_singlefile.py')
+if _SNAPSHOT_HOOK is None:
+    raise FileNotFoundError(f"Snapshot hook not found in {PLUGIN_DIR}")
+SNAPSHOT_HOOK = _SNAPSHOT_HOOK
 INSTALL_SCRIPT = PLUGIN_DIR / 'on_Crawl__82_singlefile_install.js'
 TEST_URL = "https://example.com"
 

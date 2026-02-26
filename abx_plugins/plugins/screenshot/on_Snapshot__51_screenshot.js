@@ -85,14 +85,6 @@ async function takeScreenshot(url) {
     // Output directory is current directory (hook already runs in output dir)
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
 
-    // Wait for chrome_navigate to complete (writes navigation.json)
-    const timeoutSeconds = parseInt(getEnv('SCREENSHOT_TIMEOUT', '10'), 10);
-    const timeoutMs = timeoutSeconds * 1000;
-    const navigationFile = path.join(CHROME_SESSION_DIR, 'navigation.json');
-    if (!fs.existsSync(navigationFile)) {
-        await waitForPageLoaded(CHROME_SESSION_DIR, timeoutMs);
-    }
-
     const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
     const targetFile = path.join(CHROME_SESSION_DIR, 'target_id.txt');
     if (!fs.existsSync(cdpFile)) {
@@ -100,6 +92,15 @@ async function takeScreenshot(url) {
     }
     if (!fs.existsSync(targetFile)) {
         throw new Error('No target_id.txt found (chrome_tab must run first)');
+    }
+
+    // Wait for chrome_navigate to complete (writes navigation.json)
+    // Keep runtime default aligned with config.json (default: 60s).
+    const timeoutSeconds = parseInt(getEnv('SCREENSHOT_TIMEOUT', '60'), 10);
+    const timeoutMs = timeoutSeconds * 1000;
+    const navigationFile = path.join(CHROME_SESSION_DIR, 'navigation.json');
+    if (!fs.existsSync(navigationFile)) {
+        await waitForPageLoaded(CHROME_SESSION_DIR, timeoutMs);
     }
     const cdpUrl = fs.readFileSync(cdpFile, 'utf8').trim();
     if (!cdpUrl.startsWith('ws://') && !cdpUrl.startsWith('wss://')) {

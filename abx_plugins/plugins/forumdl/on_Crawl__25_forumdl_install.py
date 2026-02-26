@@ -13,6 +13,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get('CRAWL_DIR', '.')).resolve()
@@ -33,11 +34,11 @@ def get_env_bool(name: str, default: bool = False) -> bool:
     return default
 
 
-def output_binary(name: str, binproviders: str, overrides: dict | None = None):
+def output_binary(name: str, binproviders: str, overrides: dict[str, Any] | None = None) -> None:
     """Output Binary JSONL record for a dependency."""
     machine_id = os.environ.get('MACHINE_ID', '')
 
-    record = {
+    record: dict[str, Any] = {
         'type': 'Binary',
         'name': name,
         'binproviders': binproviders,
@@ -64,11 +65,11 @@ def main():
                     '--prefer-binary',
                     'forum-dl',
                     'chardet==5.2.0',
-                    'pydantic',
-                    'pydantic-core',
-                    'typing-extensions',
-                    'annotated-types',
-                    'typing-inspection',
+                    'pydantic==2.12.3',
+                    'pydantic-core==2.41.4',
+                    'typing-extensions>=4.14.1',
+                    'annotated-types>=0.6.0',
+                    'typing-inspection>=0.4.2',
                     'beautifulsoup4',
                     'soupsieve',
                     'lxml',

@@ -66,7 +66,6 @@ import threading
 import time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from datetime import datetime
 from pathlib import Path
 from typing import Tuple, Optional, List, Dict, Any
 from contextlib import contextmanager
@@ -84,7 +83,10 @@ PLUGINS_ROOT = CHROME_PLUGIN_DIR.parent
 CHROME_INSTALL_HOOK = CHROME_PLUGIN_DIR / 'on_Crawl__70_chrome_install.py'
 CHROME_LAUNCH_HOOK = CHROME_PLUGIN_DIR / 'on_Crawl__90_chrome_launch.bg.js'
 CHROME_TAB_HOOK = CHROME_PLUGIN_DIR / 'on_Snapshot__10_chrome_tab.bg.js'
-CHROME_NAVIGATE_HOOK = next(CHROME_PLUGIN_DIR.glob('on_Snapshot__*_chrome_navigate.*'), None)
+_CHROME_NAVIGATE_HOOK = next(CHROME_PLUGIN_DIR.glob('on_Snapshot__*_chrome_navigate.*'), None)
+if _CHROME_NAVIGATE_HOOK is None:
+    raise FileNotFoundError(f'Could not find chrome navigate hook in {CHROME_PLUGIN_DIR}')
+CHROME_NAVIGATE_HOOK = _CHROME_NAVIGATE_HOOK
 CHROME_UTILS = CHROME_PLUGIN_DIR / 'chrome_utils.js'
 PUPPETEER_BINARY_HOOK = PLUGINS_ROOT / 'puppeteer' / 'on_Binary__12_puppeteer_install.py'
 PUPPETEER_CRAWL_HOOK = PLUGINS_ROOT / 'puppeteer' / 'on_Crawl__60_puppeteer_install.py'
@@ -325,8 +327,7 @@ def chrome_test_url(chrome_test_urls):
 @pytest.fixture(scope='session')
 def chrome_test_https_url(chrome_test_urls):
     https_url = chrome_test_urls.get('https_base_url')
-    if not https_url:
-        pytest.skip('Local HTTPS fixture unavailable (openssl required)')
+    assert https_url, 'Local HTTPS fixture unavailable (openssl required)'
     return https_url
 
 
@@ -844,9 +845,11 @@ def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
             break
     if not chromium_record:
         chromium_record = parse_jsonl_output(result.stdout, record_type='Binary')
+    if not chromium_record:
+        raise RuntimeError('Chromium Binary record not found after install')
 
     chromium_path = chromium_record.get('abspath')
-    if not chromium_path or not Path(chromium_path).exists():
+    if not isinstance(chromium_path, str) or not Path(chromium_path).exists():
         raise RuntimeError(f"Chromium binary not found after install: {chromium_path}")
 
     env['CHROME_BINARY'] = chromium_path
@@ -1148,9 +1151,19 @@ def chrome_session(
         crawl_dir = tmpdir / 'crawl' / crawl_id
         snap_dir = tmpdir / 'snap' / snapshot_id
         personas_dir = get_personas_dir()
-        lib_dir = get_lib_dir()
-        npm_dir = lib_dir / 'npm'
-        node_modules_dir = npm_dir / 'node_modules'
+        env = os.environ.copy()
+
+        # Prefer an already-provisioned NODE_MODULES_DIR (set by session-level chrome fixture)
+        # so we don't force per-test reinstall under tmp LIB_DIR paths.
+        existing_node_modules = env.get('NODE_MODULES_DIR')
+        if existing_node_modules and Path(existing_node_modules).exists():
+            node_modules_dir = Path(existing_node_modules).resolve()
+            npm_dir = node_modules_dir.parent
+            lib_dir = npm_dir.parent
+        else:
+            lib_dir = get_lib_dir()
+            npm_dir = lib_dir / 'npm'
+            node_modules_dir = npm_dir / 'node_modules'
         puppeteer_cache_dir = lib_dir / 'puppeteer'
 
         # Create lib structure for puppeteer installation
@@ -1162,7 +1175,6 @@ def chrome_session(
         chrome_dir.mkdir(parents=True, exist_ok=True)
 
         # Build env with tmpdir-specific paths
-        env = os.environ.copy()
         snap_dir.mkdir(parents=True, exist_ok=True)
         personas_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1182,8 +1194,12 @@ def chrome_session(
         # Reuse system Puppeteer cache to avoid redundant Chromium downloads
         link_puppeteer_cache(lib_dir)
 
-        # Install Chromium via npm + puppeteer hooks using normal Binary flow
-        install_chromium_with_hooks(env)
+        # Reuse already-provisioned Chromium when available (session fixture sets CHROME_BINARY).
+        # Falling back to hook-based install on each test is slow and can hang on flaky networks.
+        chrome_binary = env.get('CHROME_BINARY')
+        if not chrome_binary or not Path(chrome_binary).exists():
+            chrome_binary = install_chromium_with_hooks(env)
+            env['CHROME_BINARY'] = chrome_binary
 
         # Launch Chrome at crawl level
         chrome_launch_process = subprocess.Popen(

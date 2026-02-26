@@ -210,7 +210,6 @@ def main(url: str, snapshot_id: str):
     """Download image gallery from a URL using gallery-dl."""
 
     output = None
-    status = 'failed'
     error = ''
 
     try:
@@ -222,7 +221,7 @@ def main(url: str, snapshot_id: str):
 
         # Check if staticfile extractor already handled this (permanent skip)
         if has_staticfile_output():
-            print(f'Skipping gallery-dl - staticfile extractor already downloaded this', file=sys.stderr)
+            print('Skipping gallery-dl - staticfile extractor already downloaded this', file=sys.stderr)
             print(json.dumps({
                 'type': 'ArchiveResult',
                 'status': 'skipped',

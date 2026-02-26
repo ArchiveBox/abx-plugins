@@ -10,7 +10,8 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const CHROME_SESSION_DIR = '../chrome';
+const SNAPSHOT_OUTPUT_DIR = process.cwd();
+const CHROME_SESSION_DIR = path.resolve(SNAPSHOT_OUTPUT_DIR, '..', 'chrome');
 const DOWNLOADS_DIR = process.env.CHROME_DOWNLOADS_DIR ||
     path.join(process.env.PERSONAS_DIR || path.join(os.homedir(), '.config', 'abx', 'personas'),
         process.env.ACTIVE_PERSONA || 'Default',
@@ -73,6 +74,9 @@ async function main() {
             EXTENSION,
             saveSinglefileWithExtension,
         } = require('./on_Crawl__82_singlefile_install.js');
+        if (process.cwd() !== SNAPSHOT_OUTPUT_DIR) {
+            process.chdir(SNAPSHOT_OUTPUT_DIR);
+        }
         console.error('[singlefile] dependencies loaded');
 
         // Ensure extension is installed and metadata is cached
@@ -98,11 +102,22 @@ async function main() {
         const { browser, page } = await chromeUtils.connectToPage({
             chromeSessionDir: CHROME_SESSION_DIR,
             timeoutMs: 60000,
+            requireTargetId: false,
             puppeteer,
         });
         console.error('[singlefile] connected to chrome');
 
         try {
+            const currentUrl = await page.url();
+            const norm = (value) => (value || '').replace(/\/+$/, '');
+            if (!currentUrl || currentUrl.startsWith('about:') || norm(currentUrl) !== norm(url)) {
+                console.error(`[singlefile] navigating page from ${currentUrl || '<empty>'} to ${url}`);
+                await page.goto(url, {
+                    waitUntil: 'networkidle2',
+                    timeout: 60000,
+                });
+            }
+
             // Ensure CDP target discovery is enabled so service_worker targets appear
             try {
                 const client = await page.createCDPSession();
@@ -184,7 +199,10 @@ async function main() {
             await setDownloadDir(page, DOWNLOADS_DIR);
 
             console.error('[singlefile] triggering save via extension...');
-            const output = await saveSinglefileWithExtension(page, extension, { downloadsDir: DOWNLOADS_DIR });
+            const output = await saveSinglefileWithExtension(page, extension, {
+                downloadsDir: DOWNLOADS_DIR,
+                outputPath: path.join(SNAPSHOT_OUTPUT_DIR, 'singlefile.html'),
+            });
             if (output && fs.existsSync(output)) {
                 console.error(`[singlefile] saved: ${output}`);
                 console.log(output);

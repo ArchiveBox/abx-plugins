@@ -15,10 +15,8 @@ import pytest
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     chrome_session,
-    get_test_env,
     get_plugin_dir,
     get_hook_script,
-    chrome_test_url,
 )
 
 

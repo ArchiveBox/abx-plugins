@@ -664,7 +664,7 @@ class TestEdgeCases:
 
         # Should only have the entry with a link
         assert entry['url'] == 'https://example.com/haslink'
-        assert '1 URL' in result.stdout
+        assert len(lines) == 1
 
     def test_html_entities_in_title(self, tmp_path):
         """Test HTML entities in titles are properly decoded."""

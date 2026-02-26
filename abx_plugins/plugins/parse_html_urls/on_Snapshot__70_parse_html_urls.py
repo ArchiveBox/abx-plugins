@@ -25,7 +25,6 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, timezone
 from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
@@ -104,7 +103,7 @@ def fix_urljoin_bug(url: str, nesting_limit=5) -> str:
     return url
 
 
-def normalize_url(url: str, root_url: str = None) -> str:
+def normalize_url(url: str, root_url: str | None = None) -> str:
     """Normalize a URL, resolving relative paths if root_url provided."""
     url = clean_url_candidate(url)
     if not root_url:
@@ -218,7 +217,7 @@ def find_html_sources() -> list[str]:
 @click.option('--snapshot-id', required=False, help='Parent Snapshot UUID')
 @click.option('--crawl-id', required=False, help='Crawl UUID')
 @click.option('--depth', type=int, default=0, help='Current depth level')
-def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0):
+def main(url: str, snapshot_id: str | None = None, crawl_id: str | None = None, depth: int = 0):
     """Parse HTML and extract href URLs."""
     env_depth = os.environ.get('SNAPSHOT_DEPTH')
     if env_depth is not None:
@@ -231,7 +230,7 @@ def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0
     # Skip only if parse_dom_outlinks already ran AND found URLs (it uses Chrome for better coverage)
     # If parse_dom_outlinks ran but found nothing, we still try static HTML parsing as fallback
     if DOM_OUTLINKS_URLS_FILE.exists() and DOM_OUTLINKS_URLS_FILE.stat().st_size > 0:
-        click.echo(f'Skipping parse_html_urls - parse_dom_outlinks already extracted URLs')
+        click.echo('Skipping parse_html_urls - parse_dom_outlinks already extracted URLs')
         sys.exit(0)
 
     contents = find_html_sources()

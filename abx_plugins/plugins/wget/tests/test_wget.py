@@ -27,9 +27,18 @@ import pytest
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
 WGET_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_wget.*'))
-BREW_HOOK = PLUGINS_ROOT / 'brew' / 'on_Binary__install_using_brew_provider.py'
-APT_HOOK = PLUGINS_ROOT / 'apt' / 'on_Binary__install_using_apt_provider.py'
+BREW_HOOK = next((PLUGINS_ROOT / 'brew').glob('on_Binary__*_brew_install.py'), None)
+APT_HOOK = next((PLUGINS_ROOT / 'apt').glob('on_Binary__*_apt_install.py'), None)
 TEST_URL = 'https://example.com'
+
+
+def _provider_runtime_unavailable(proc: subprocess.CompletedProcess[str]) -> bool:
+    combined = f"{proc.stdout}\n{proc.stderr}"
+    return (
+        'BinProviderOverrides' in combined
+        or 'PydanticUndefinedAnnotation' in combined
+        or 'not fully defined' in combined
+    )
 
 
 def test_hook_script_exists():
@@ -39,9 +48,16 @@ def test_hook_script_exists():
 
 def test_verify_deps_with_abx_pkg():
     """Verify wget is available via abx-pkg."""
-    from abx_pkg import Binary, AptProvider, BrewProvider, EnvProvider, BinProviderOverrides
+    from abx_pkg import Binary, AptProvider, BrewProvider, EnvProvider
 
-    wget_binary = Binary(name='wget', binproviders=[AptProvider(), BrewProvider(), EnvProvider()])
+    try:
+        apt_provider = AptProvider()
+        brew_provider = BrewProvider()
+        env_provider = EnvProvider()
+    except Exception as exc:
+        pytest.fail(f"System package providers unavailable in this runtime: {exc}")
+
+    wget_binary = Binary(name='wget', binproviders=[apt_provider, brew_provider, env_provider])
     wget_loaded = wget_binary.load()
 
     if wget_loaded and wget_loaded.abspath:
@@ -90,9 +106,9 @@ def test_can_install_wget_via_provider():
         provider_hook = APT_HOOK
         provider_name = 'apt'
     else:
-        pass
+        pytest.fail('Neither brew nor apt-get is available on this system')
 
-    assert provider_hook.exists(), f"Provider hook not found: {provider_hook}"
+    assert provider_hook and provider_hook.exists(), f"Provider hook not found: {provider_hook}"
 
     # Test installation via provider hook
     binary_id = str(uuid.uuid4())
@@ -111,6 +127,9 @@ def test_can_install_wget_via_provider():
         text=True,
         timeout=300  # Installation can take time
     )
+
+    if result.returncode != 0 and _provider_runtime_unavailable(result):
+        pytest.fail("Provider hook runtime unavailable in this environment")
 
     # Should succeed (wget installs successfully or is already installed)
     assert result.returncode == 0, f"{provider_name} install failed: {result.stderr}"
@@ -149,16 +168,19 @@ def test_archives_example_com():
     elif shutil.which('apt-get'):
         provider_hook = APT_HOOK
     else:
-        pass
+        pytest.fail('Neither brew nor apt-get is available on this system')
+
+    assert provider_hook and provider_hook.exists(), f"Provider hook not found: {provider_hook}"
 
     # Run installation (idempotent - will succeed if already installed)
     install_result = subprocess.run(
         [
             sys.executable,
             str(provider_hook),
-            '--dependency-id', str(uuid.uuid4()),
-            '--bin-name', 'wget',
-            '--bin-providers', 'apt,brew,env'
+            '--binary-id', str(uuid.uuid4()),
+            '--machine-id', str(uuid.uuid4()),
+            '--name', 'wget',
+            '--binproviders', 'apt,brew,env'
         ],
         capture_output=True,
         text=True,
@@ -171,6 +193,8 @@ def test_archives_example_com():
     # Now test archiving
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
+        env = os.environ.copy()
+        env['SNAP_DIR'] = str(tmpdir)
 
         # Run wget extraction
         result = subprocess.run(
@@ -178,6 +202,7 @@ def test_archives_example_com():
             cwd=tmpdir,
             capture_output=True,
             text=True,
+            env=env,
             timeout=120
         )
 
@@ -200,21 +225,28 @@ def test_archives_example_com():
         assert result_json, "Should have ArchiveResult JSONL output"
         assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
-        # Verify files were downloaded
-        downloaded_files = list(tmpdir.rglob('*.html')) + list(tmpdir.rglob('*.htm'))
-        assert len(downloaded_files) > 0, "No HTML files downloaded"
+        # Verify files were downloaded to wget output directory.
+        output_root = tmpdir / 'wget'
+        assert output_root.exists(), "wget output directory was not created"
 
-        # Find main HTML file (should contain example.com)
+        downloaded_files = [f for f in output_root.rglob('*') if f.is_file()]
+        assert downloaded_files, "No files downloaded"
+
+        # Try the emitted output path first, then fallback to downloaded files.
+        output_path = (output_root / result_json.get('output_str', '')).resolve()
+        candidate_files = [output_path] if output_path.is_file() else []
+        candidate_files.extend(downloaded_files)
+
         main_html = None
-        for html_file in downloaded_files:
-            content = html_file.read_text(errors='ignore')
+        for candidate in candidate_files:
+            content = candidate.read_text(errors='ignore')
             if 'example domain' in content.lower():
-                main_html = html_file
+                main_html = candidate
                 break
 
-        assert main_html is not None, "Could not find main HTML file with example.com content"
+        assert main_html is not None, "Could not find downloaded file containing example.com content"
 
-        # Verify HTML content contains REAL example.com text
+        # Verify page content contains REAL example.com text.
         html_content = main_html.read_text(errors='ignore')
         assert len(html_content) > 200, f"HTML content too short: {len(html_content)} bytes"
         assert 'example domain' in html_content.lower(), "Missing 'Example Domain' in HTML"
@@ -360,7 +392,7 @@ def test_handles_404_gracefully():
         # Should fail
         assert result.returncode != 0, "Should fail on 404"
         combined = result.stdout + result.stderr
-        assert '404' in combined or 'Not Found' in combined or 'No files downloaded' in combined, \
+        assert '404' in combined or 'Not Found' in combined or 'No files downloaded' in combined or 'exit=8' in combined, \
             "Should report 404 or no files downloaded"
 
 
