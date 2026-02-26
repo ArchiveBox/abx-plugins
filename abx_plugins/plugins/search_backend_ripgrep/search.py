@@ -1,24 +1,26 @@
-"""
-Ripgrep search backend - searches files directly without indexing.
-
-This backend doesn't maintain an index - it searches archived files directly
-using ripgrep (rg). This is simpler but slower for large archives.
-
-Environment variables:
-    RIPGREP_BINARY: Path to ripgrep binary (default: rg)
-    RIPGREP_ARGS: Default ripgrep arguments (JSON array)
-    RIPGREP_ARGS_EXTRA: Extra arguments to append (JSON array)
-    RIPGREP_TIMEOUT: Search timeout in seconds (default: 90)
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = []
+# ///
+#
+# Ripgrep search backend - searches files directly without indexing.
+#
+# This backend doesn't maintain an index - it searches archived files directly
+# using ripgrep (rg). This is simpler but slower for large archives.
+#
+# Environment variables:
+#     RIPGREP_BINARY: Path to ripgrep binary (default: rg)
+#     RIPGREP_ARGS: Default ripgrep arguments (JSON array)
+#     RIPGREP_ARGS_EXTRA: Extra arguments to append (JSON array)
+#     RIPGREP_TIMEOUT: Search timeout in seconds (default: 90)
 
 import json
 import os
 import subprocess
 import shutil
 from pathlib import Path
-from typing import List, Iterable
-
-from django.conf import settings
+from typing import Iterable, List
 
 
 def get_env(name: str, default: str = '') -> str:
@@ -47,19 +49,10 @@ def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
 
 
 def _get_archive_dir() -> Path:
-    archive_dir = os.environ.get('ARCHIVE_DIR', '').strip()
-    if archive_dir:
-        return Path(archive_dir)
-    data_dir = os.environ.get('DATA_DIR', '').strip()
-    if data_dir:
-        return Path(data_dir) / 'archive'
-    settings_archive_dir = getattr(settings, 'ARCHIVE_DIR', None)
-    if settings_archive_dir:
-        return Path(settings_archive_dir)
-    settings_data_dir = getattr(settings, 'DATA_DIR', None)
-    if settings_data_dir:
-        return Path(settings_data_dir) / 'archive'
-    return Path.cwd() / 'archive'
+    snap_dir = os.environ.get('SNAP_DIR', '').strip()
+    if snap_dir:
+        return Path(snap_dir)
+    return Path.cwd()
 
 
 def search(query: str) -> List[str]:

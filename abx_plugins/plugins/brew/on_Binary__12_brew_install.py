@@ -1,13 +1,17 @@
-#!/usr/bin/env python3
-"""
-Install a binary using Homebrew package manager.
-
-Usage: on_Binary__install_using_brew_provider.py --binary-id=<uuid> --machine-id=<uuid> --name=<name> [--custom-cmd=<cmd>]
-Output: Binary JSONL record to stdout after installation
-
-Environment variables:
-    MACHINE_ID: Machine UUID (set by orchestrator)
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "click",
+#   "abx-pkg",
+# ]
+# ///
+#
+# Install a binary using Homebrew package manager and output a Binary JSONL record.
+#
+# Usage:
+#     ./on_Binary__12_brew_install.py [...] > events.jsonl
+#
 
 import json
 import os

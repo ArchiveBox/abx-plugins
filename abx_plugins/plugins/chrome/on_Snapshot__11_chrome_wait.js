@@ -13,6 +13,14 @@ const path = require('path');
 // Add NODE_MODULES_DIR to module resolution paths if set
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 
+const PLUGIN_DIR = path.basename(__dirname);
+const SNAP_DIR = path.resolve((process.env.SNAP_DIR || '.').trim());
+const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
+if (!fs.existsSync(OUTPUT_DIR)) {
+    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+}
+process.chdir(OUTPUT_DIR);
+
 const {
     getEnvInt,
     waitForChromeSession,
@@ -20,7 +28,7 @@ const {
     readTargetId,
 } = require('./chrome_utils.js');
 
-const CHROME_SESSION_DIR = '.';
+const CHROME_SESSION_DIR = path.join(SNAP_DIR, 'chrome');
 const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
 
 function parseArgs() {

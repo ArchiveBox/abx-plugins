@@ -1,3 +1,8 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = []
+# ///
 """
 SQLite FTS5 search backend - search and flush operations.
 
@@ -22,10 +27,10 @@ FTS_TOKENIZERS = os.environ.get('FTS_TOKENIZERS', 'porter unicode61 remove_diacr
 
 
 def _get_data_dir() -> Path:
-    data_dir = os.environ.get('DATA_DIR', '').strip()
+    data_dir = os.environ.get('SNAP_DIR', '').strip()
     if data_dir:
         return Path(data_dir)
-    return Path.cwd() / 'data'
+    return Path.cwd()
 
 
 def get_db_path() -> Path:

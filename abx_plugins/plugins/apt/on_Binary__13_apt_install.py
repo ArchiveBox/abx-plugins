@@ -1,10 +1,16 @@
-#!/usr/bin/env python3
-"""
-Install a binary using apt package manager.
-
-Usage: on_Binary__install_using_apt_provider.py --binary-id=<uuid> --machine-id=<uuid> --name=<name>
-Output: Binary JSONL record to stdout after installation
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "click",
+#   "abx-pkg",
+# ]
+# ///
+#
+# Install a binary using apt package manager. Outputs a Binary JSONL record to stdout after installation.
+#
+# Usage:
+#     ./on_Binary__13_apt_install.py [...] > events.jsonl
 
 import json
 import sys

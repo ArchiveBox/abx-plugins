@@ -8,20 +8,18 @@ network response capture.
 import json
 import shutil
 import subprocess
-import sys
 import tempfile
 import time
 from pathlib import Path
 
-from django.test import TestCase
+import pytest
 
-# Import chrome test helpers
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'chrome' / 'tests'))
-from chrome_test_helpers import (
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     chrome_session,
     CHROME_NAVIGATE_HOOK,
     get_plugin_dir,
     get_hook_script,
+    chrome_test_url,
 )
 
 
@@ -30,29 +28,29 @@ PLUGIN_DIR = get_plugin_dir(__file__)
 RESPONSES_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_responses.*')
 
 
-class TestResponsesPlugin(TestCase):
+class TestResponsesPlugin:
     """Test the responses plugin."""
 
     def test_responses_hook_exists(self):
         """Responses hook script should exist."""
-        self.assertIsNotNone(RESPONSES_HOOK, "Responses hook not found in plugin directory")
-        self.assertTrue(RESPONSES_HOOK.exists(), f"Hook not found: {RESPONSES_HOOK}")
+        assert RESPONSES_HOOK is not None, "Responses hook not found in plugin directory"
+        assert RESPONSES_HOOK.exists(), f"Hook not found: {RESPONSES_HOOK}"
 
 
-class TestResponsesWithChrome(TestCase):
+class TestResponsesWithChrome:
     """Integration tests for responses plugin with Chrome."""
 
-    def setUp(self):
+    def setup_method(self, _method=None):
         """Set up test environment."""
         self.temp_dir = Path(tempfile.mkdtemp())
 
-    def tearDown(self):
+    def teardown_method(self, _method=None):
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_responses_captures_network_responses(self):
+    def test_responses_captures_network_responses(self, chrome_test_url):
         """Responses hook should capture network responses from page load."""
-        test_url = 'https://example.com'
+        test_url = chrome_test_url
         snapshot_id = 'test-responses-snapshot'
 
         with chrome_session(
@@ -84,7 +82,7 @@ class TestResponsesWithChrome(TestCase):
                 timeout=120,
                 env=env
             )
-            self.assertEqual(nav_result.returncode, 0, f"Navigation failed: {nav_result.stderr}")
+            assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
             # Check for output directory and index file
             index_output = responses_dir / 'index.jsonl'
@@ -105,20 +103,20 @@ class TestResponsesWithChrome(TestCase):
                     stdout, stderr = result.communicate()
             else:
                 stdout, stderr = result.communicate()
-            self.assertNotIn('Traceback', stderr)
+            assert 'Traceback' not in stderr
 
             # If index file exists, verify it's valid JSONL
             if index_output.exists():
                 with open(index_output) as f:
                     content = f.read().strip()
-                    self.assertTrue(content, "Responses output should not be empty")
+                    assert content, "Responses output should not be empty"
                     for line in content.split('\n'):
                         if line.strip():
                             try:
                                 record = json.loads(line)
                                 # Verify structure
-                                self.assertIn('url', record)
-                                self.assertIn('resourceType', record)
+                                assert 'url' in record
+                                assert 'resourceType' in record
                             except json.JSONDecodeError:
                                 pass  # Some lines may be incomplete
 

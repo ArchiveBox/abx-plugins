@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     setup_test_env,
     launch_chromium_session,
     kill_chromium_session,
@@ -64,9 +64,9 @@ class TestTwoCaptcha:
 
             # Launch Chromium in crawls directory
             crawl_id = 'test'
-            crawl_dir = Path(env['CRAWLS_DIR']) / crawl_id
+            crawl_dir = Path(env['CRAWL_DIR']) / crawl_id
             chrome_dir = crawl_dir / 'chrome'
-            env['CRAWL_OUTPUT_DIR'] = str(crawl_dir)
+            env['CRAWL_DIR'] = str(crawl_dir)
             process, cdp_url = launch_chrome(env, chrome_dir, crawl_id)
 
             try:
@@ -98,9 +98,9 @@ class TestTwoCaptcha:
 
             # Launch Chromium in crawls directory
             crawl_id = 'cfg'
-            crawl_dir = Path(env['CRAWLS_DIR']) / crawl_id
+            crawl_dir = Path(env['CRAWL_DIR']) / crawl_id
             chrome_dir = crawl_dir / 'chrome'
-            env['CRAWL_OUTPUT_DIR'] = str(crawl_dir)
+            env['CRAWL_DIR'] = str(crawl_dir)
             process, cdp_url = launch_chrome(env, chrome_dir, crawl_id)
 
             try:
@@ -217,9 +217,9 @@ const puppeteer = require('puppeteer-core');
 
             # Launch Chromium in crawls directory
             crawl_id = 'solve'
-            crawl_dir = Path(env['CRAWLS_DIR']) / crawl_id
+            crawl_dir = Path(env['CRAWL_DIR']) / crawl_id
             chrome_dir = crawl_dir / 'chrome'
-            env['CRAWL_OUTPUT_DIR'] = str(crawl_dir)
+            env['CRAWL_DIR'] = str(crawl_dir)
             process, cdp_url = launch_chrome(env, chrome_dir, crawl_id)
 
             try:

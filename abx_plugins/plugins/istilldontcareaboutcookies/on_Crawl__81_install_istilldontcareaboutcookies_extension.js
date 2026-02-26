@@ -19,6 +19,15 @@
 
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
+
+const PLUGIN_DIR = path.basename(__dirname);
+const CRAWL_DIR = path.resolve((process.env.CRAWL_DIR || '.').trim());
+const OUTPUT_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
+if (!fs.existsSync(OUTPUT_DIR)) {
+    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+}
+process.chdir(OUTPUT_DIR);
 
 // Import extension utilities
 const extensionUtils = require('../chrome/chrome_utils.js');
@@ -31,7 +40,9 @@ const EXTENSION = {
 
 // Get extensions directory from environment or use default
 const EXTENSIONS_DIR = process.env.CHROME_EXTENSIONS_DIR ||
-    path.join(process.env.DATA_DIR || './data', 'personas', process.env.ACTIVE_PERSONA || 'Default', 'chrome_extensions');
+    path.join(process.env.PERSONAS_DIR || path.join(os.homedir(), '.config', 'abx', 'personas'),
+        process.env.ACTIVE_PERSONA || 'Default',
+        'chrome_extensions');
 
 /**
  * Install the I Still Don't Care About Cookies extension

@@ -1,19 +1,18 @@
-#!/usr/bin/env python3
-"""
-Download forum content from a URL using forum-dl.
-
-Usage: on_Snapshot__04_forumdl.bg.py --url=<url> --snapshot-id=<uuid>
-Output: Downloads forum content to $PWD/
-
-Environment variables:
-    FORUMDL_ENABLED: Enable forum downloading (default: True)
-    FORUMDL_BINARY: Path to forum-dl binary (default: forum-dl)
-    FORUMDL_TIMEOUT: Timeout in seconds (x-fallback: TIMEOUT)
-    FORUMDL_OUTPUT_FORMAT: Output format (default: jsonl)
-    FORUMDL_CHECK_SSL_VALIDITY: Whether to verify SSL certs (x-fallback: CHECK_SSL_VALIDITY)
-    FORUMDL_ARGS: Default forum-dl arguments (JSON array)
-    FORUMDL_ARGS_EXTRA: Extra arguments to append (JSON array)
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "click",
+#   "forum-dl",
+#   "pydantic",
+# ]
+# ///
+#
+# Download forum content from a URL using forum-dl with Pydantic v2 compatibility.
+# Outputs forum data to $PWD/ and emits ArchiveResult events to stdout.
+#
+# Usage:
+#     ./on_Snapshot__04_forumdl.bg.py --url=<url> --snapshot-id=<snapshot-id>
 
 import json
 import os
@@ -51,9 +50,11 @@ except (ImportError, AttributeError):
 PLUGIN_NAME = 'forumdl'
 BIN_NAME = 'forum-dl'
 BIN_PROVIDERS = 'pip,env'
-OUTPUT_DIR = '.'
-
-
+PLUGIN_DIR = Path(__file__).resolve().parent.name
+SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 def get_env(name: str, default: str = '') -> str:
     return os.environ.get(name, default).strip()
 

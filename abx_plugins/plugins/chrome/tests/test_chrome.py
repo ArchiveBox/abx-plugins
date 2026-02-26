@@ -25,13 +25,13 @@ import time
 from pathlib import Path
 import pytest
 import tempfile
-import shutil
-import platform
 
-from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
     find_chromium_binary,
-    install_chromium_with_hooks,
+    ensure_chromium_and_puppeteer_installed,
+    chrome_test_url,
+    chrome_test_urls,
     CHROME_PLUGIN_DIR as PLUGIN_DIR,
     CHROME_LAUNCH_HOOK,
     CHROME_TAB_HOOK,
@@ -46,7 +46,7 @@ const port = process.env.CDP_PORT;
 
 function getTargets() {
   return new Promise((resolve, reject) => {
-    const req = http.get(`http://127.0.0.1:${port}/json/list`, (res) => {
+    const req = http.get(`http://chrome-cdp.localhost:${port}/json/list`, (res) => {
       let data = '';
       res.on('data', (chunk) => (data += chunk));
       res.on('end', () => {
@@ -115,25 +115,9 @@ function getTargets() {
 
 
 @pytest.fixture(scope="session", autouse=True)
-def ensure_chromium_and_puppeteer_installed(tmp_path_factory):
-    """Ensure Chromium and puppeteer are installed before running tests."""
-    if not os.environ.get('DATA_DIR'):
-        test_data_dir = tmp_path_factory.mktemp('chrome_test_data')
-        os.environ['DATA_DIR'] = str(test_data_dir)
-    env = get_test_env()
-
-    try:
-        chromium_binary = install_chromium_with_hooks(env)
-    except RuntimeError as e:
-        raise RuntimeError(str(e))
-
-    if not chromium_binary:
-        raise RuntimeError("Chromium not found after install")
-
-    os.environ['CHROME_BINARY'] = chromium_binary
-    for key in ('NODE_MODULES_DIR', 'NODE_PATH', 'PATH'):
-        if env.get(key):
-            os.environ[key] = env[key]
+def _ensure_chrome_prereqs(ensure_chromium_and_puppeteer_installed):
+    """Make the shared chromium install fixture autouse for this module."""
+    return ensure_chromium_and_puppeteer_installed
 
 
 def test_hook_scripts_exist():
@@ -161,7 +145,7 @@ def test_verify_chromium_available():
     assert 'Chromium' in result.stdout or 'Chrome' in result.stdout, f"Unexpected version output: {result.stdout}"
 
 
-def test_chrome_launch_and_tab_creation():
+def test_chrome_launch_and_tab_creation(chrome_test_url):
     """Integration test: Launch Chrome at crawl level and create tab at snapshot level."""
     with tempfile.TemporaryDirectory() as tmpdir:
         crawl_dir = Path(tmpdir) / 'crawl'
@@ -172,6 +156,8 @@ def test_chrome_launch_and_tab_creation():
         # Get test environment with NODE_MODULES_DIR set
         env = get_test_env()
         env['CHROME_HEADLESS'] = 'true'
+        # chrome_launch writes to <CRAWL_DIR>/chrome, not cwd.
+        env['CRAWL_DIR'] = str(crawl_dir)
 
         # Launch Chrome at crawl level (background process)
         chrome_launch_process = subprocess.Popen(
@@ -241,9 +227,10 @@ def test_chrome_launch_and_tab_creation():
         snapshot_chrome_dir.mkdir()
 
         # Launch tab at snapshot level
-        env['CRAWL_OUTPUT_DIR'] = str(crawl_dir)
+        env['CRAWL_DIR'] = str(crawl_dir)
+        env['SNAP_DIR'] = str(snapshot_dir)
         result = subprocess.run(
-            ['node', str(CHROME_TAB_HOOK), '--url=https://example.com', '--snapshot-id=snap-123', '--crawl-id=test-crawl-123'],
+            ['node', str(CHROME_TAB_HOOK), f'--url={chrome_test_url}', '--snapshot-id=snap-123', '--crawl-id=test-crawl-123'],
             cwd=str(snapshot_chrome_dir),
             capture_output=True,
             text=True,
@@ -299,6 +286,7 @@ def test_cookies_imported_on_launch():
             'CHROME_HEADLESS': 'true',
             'CHROME_USER_DATA_DIR': str(profile_dir),
             'COOKIES_TXT_FILE': str(cookies_file),
+            'CRAWL_DIR': str(crawl_dir),
         })
 
         chrome_launch_process = subprocess.Popen(
@@ -344,7 +332,7 @@ def test_cookies_imported_on_launch():
             pass
 
 
-def test_chrome_navigation():
+def test_chrome_navigation(chrome_test_url):
     """Integration test: Navigate to a URL."""
     with tempfile.TemporaryDirectory() as tmpdir:
         crawl_dir = Path(tmpdir) / 'crawl'
@@ -352,6 +340,7 @@ def test_chrome_navigation():
         chrome_dir = crawl_dir / 'chrome'
         chrome_dir.mkdir()
 
+        launch_env = get_test_env() | {'CRAWL_DIR': str(crawl_dir), 'CHROME_HEADLESS': 'true'}
         # Launch Chrome (background process)
         chrome_launch_process = subprocess.Popen(
             ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-crawl-nav'],
@@ -359,7 +348,7 @@ def test_chrome_navigation():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env=get_test_env() | {'CHROME_HEADLESS': 'true'}
+            env=launch_env
         )
 
         # Wait for Chrome to launch
@@ -373,24 +362,34 @@ def test_chrome_navigation():
         snapshot_chrome_dir = snapshot_dir / 'chrome'
         snapshot_chrome_dir.mkdir()
 
+        tab_env = get_test_env() | {
+            'CRAWL_DIR': str(crawl_dir),
+            'SNAP_DIR': str(snapshot_dir),
+            'CHROME_HEADLESS': 'true',
+        }
         result = subprocess.run(
-            ['node', str(CHROME_TAB_HOOK), '--url=https://example.com', '--snapshot-id=snap-nav-123', '--crawl-id=test-crawl-nav'],
+            ['node', str(CHROME_TAB_HOOK), f'--url={chrome_test_url}', '--snapshot-id=snap-nav-123', '--crawl-id=test-crawl-nav'],
             cwd=str(snapshot_chrome_dir),
             capture_output=True,
             text=True,
             timeout=60,
-            env=get_test_env() | {'CRAWL_OUTPUT_DIR': str(crawl_dir), 'CHROME_HEADLESS': 'true'}
+            env=tab_env
         )
         assert result.returncode == 0, f"Tab creation failed: {result.stderr}"
 
         # Navigate to URL
+        nav_env = get_test_env() | {
+            'SNAP_DIR': str(snapshot_dir),
+            'CHROME_PAGELOAD_TIMEOUT': '30',
+            'CHROME_WAIT_FOR': 'load',
+        }
         result = subprocess.run(
-            ['node', str(CHROME_NAVIGATE_HOOK), '--url=https://example.com', '--snapshot-id=snap-nav-123'],
+            ['node', str(CHROME_NAVIGATE_HOOK), f'--url={chrome_test_url}', '--snapshot-id=snap-nav-123'],
             cwd=str(snapshot_chrome_dir),
             capture_output=True,
             text=True,
             timeout=120,
-            env=get_test_env() | {'CHROME_PAGELOAD_TIMEOUT': '30', 'CHROME_WAIT_FOR': 'load'}
+            env=nav_env
         )
 
         assert result.returncode == 0, f"Navigation failed: {result.stderr}\nStdout: {result.stdout}"
@@ -415,7 +414,7 @@ def test_chrome_navigation():
             pass
 
 
-def test_tab_cleanup_on_sigterm():
+def test_tab_cleanup_on_sigterm(chrome_test_url):
     """Integration test: Tab cleanup when receiving SIGTERM."""
     with tempfile.TemporaryDirectory() as tmpdir:
         crawl_dir = Path(tmpdir) / 'crawl'
@@ -423,6 +422,7 @@ def test_tab_cleanup_on_sigterm():
         chrome_dir = crawl_dir / 'chrome'
         chrome_dir.mkdir()
 
+        launch_env = get_test_env() | {'CRAWL_DIR': str(crawl_dir), 'CHROME_HEADLESS': 'true'}
         # Launch Chrome (background process)
         chrome_launch_process = subprocess.Popen(
             ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-cleanup'],
@@ -430,7 +430,7 @@ def test_tab_cleanup_on_sigterm():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env=get_test_env() | {'CHROME_HEADLESS': 'true'}
+            env=launch_env
         )
 
         # Wait for Chrome to launch
@@ -444,13 +444,18 @@ def test_tab_cleanup_on_sigterm():
         snapshot_chrome_dir = snapshot_dir / 'chrome'
         snapshot_chrome_dir.mkdir()
 
+        tab_env = get_test_env() | {
+            'CRAWL_DIR': str(crawl_dir),
+            'SNAP_DIR': str(snapshot_dir),
+            'CHROME_HEADLESS': 'true',
+        }
         tab_process = subprocess.Popen(
-            ['node', str(CHROME_TAB_HOOK), '--url=https://example.com', '--snapshot-id=snap-cleanup', '--crawl-id=test-cleanup'],
+            ['node', str(CHROME_TAB_HOOK), f'--url={chrome_test_url}', '--snapshot-id=snap-cleanup', '--crawl-id=test-cleanup'],
             cwd=str(snapshot_chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env=get_test_env() | {'CRAWL_OUTPUT_DIR': str(crawl_dir), 'CHROME_HEADLESS': 'true'}
+            env=tab_env
         )
 
         # Wait for tab to be created
@@ -480,7 +485,7 @@ def test_tab_cleanup_on_sigterm():
             pass
 
 
-def test_multiple_snapshots_share_chrome():
+def test_multiple_snapshots_share_chrome(chrome_test_urls):
     """Integration test: Multiple snapshots share one Chrome instance."""
     with tempfile.TemporaryDirectory() as tmpdir:
         crawl_dir = Path(tmpdir) / 'crawl'
@@ -488,6 +493,7 @@ def test_multiple_snapshots_share_chrome():
         chrome_dir = crawl_dir / 'chrome'
         chrome_dir.mkdir()
 
+        launch_env = get_test_env() | {'CRAWL_DIR': str(crawl_dir), 'CHROME_HEADLESS': 'true'}
         # Launch Chrome at crawl level
         chrome_launch_process = subprocess.Popen(
             ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-multi-crawl'],
@@ -495,7 +501,7 @@ def test_multiple_snapshots_share_chrome():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env=get_test_env() | {'CHROME_HEADLESS': 'true'}
+            env=launch_env
         )
 
         # Wait for Chrome to launch
@@ -519,13 +525,19 @@ def test_multiple_snapshots_share_chrome():
             snapshot_dirs.append(snapshot_chrome_dir)
 
             # Create tab for this snapshot
+            tab_url = f"{chrome_test_urls['origin']}/snapshot-{snap_num}"
+            tab_env = get_test_env() | {
+                'CRAWL_DIR': str(crawl_dir),
+                'SNAP_DIR': str(snapshot_dir),
+                'CHROME_HEADLESS': 'true',
+            }
             result = subprocess.run(
-                ['node', str(CHROME_TAB_HOOK), f'--url=https://example.com/{snap_num}', f'--snapshot-id=snap-{snap_num}', '--crawl-id=test-multi-crawl'],
+                ['node', str(CHROME_TAB_HOOK), f'--url={tab_url}', f'--snapshot-id=snap-{snap_num}', '--crawl-id=test-multi-crawl'],
                 cwd=str(snapshot_chrome_dir),
                 capture_output=True,
                 text=True,
                 timeout=60,
-                env=get_test_env() | {'CRAWL_OUTPUT_DIR': str(crawl_dir), 'CHROME_HEADLESS': 'true'}
+                env=tab_env
             )
 
             assert result.returncode == 0, f"Tab {snap_num} creation failed: {result.stderr}"
@@ -574,6 +586,7 @@ def test_chrome_cleanup_on_crawl_end():
         chrome_dir = crawl_dir / 'chrome'
         chrome_dir.mkdir()
 
+        launch_env = get_test_env() | {'CRAWL_DIR': str(crawl_dir), 'CHROME_HEADLESS': 'true'}
         # Launch Chrome in background
         chrome_launch_process = subprocess.Popen(
             ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-crawl-end'],
@@ -581,7 +594,7 @@ def test_chrome_cleanup_on_crawl_end():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env=get_test_env() | {'CHROME_HEADLESS': 'true'}
+            env=launch_env
         )
 
         # Wait for Chrome to launch
@@ -620,6 +633,7 @@ def test_zombie_prevention_hook_killed():
         chrome_dir = crawl_dir / 'chrome'
         chrome_dir.mkdir()
 
+        launch_env = get_test_env() | {'CRAWL_DIR': str(crawl_dir), 'CHROME_HEADLESS': 'true'}
         # Launch Chrome
         chrome_launch_process = subprocess.Popen(
             ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-zombie'],
@@ -627,7 +641,7 @@ def test_zombie_prevention_hook_killed():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env=get_test_env() | {'CHROME_HEADLESS': 'true'}
+            env=launch_env
         )
 
         # Wait for Chrome to launch

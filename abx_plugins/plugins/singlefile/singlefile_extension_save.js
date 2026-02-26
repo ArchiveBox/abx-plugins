@@ -8,10 +8,13 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 const CHROME_SESSION_DIR = '../chrome';
 const DOWNLOADS_DIR = process.env.CHROME_DOWNLOADS_DIR ||
-    path.join(process.env.DATA_DIR || './data', 'personas', process.env.ACTIVE_PERSONA || 'Default', 'chrome_downloads');
+    path.join(process.env.PERSONAS_DIR || path.join(os.homedir(), '.config', 'abx', 'personas'),
+        process.env.ACTIVE_PERSONA || 'Default',
+        'chrome_downloads');
 
 process.env.CHROME_DOWNLOADS_DIR = DOWNLOADS_DIR;
 

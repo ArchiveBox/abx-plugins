@@ -1,8 +1,14 @@
-"""
-Sonic search backend - search and flush operations.
-
-This module provides the search interface for the Sonic backend.
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "sonic-client",
+# ]
+# ///
+#
+# Sonic search backend - search and flush operations.
+#
+# This module provides the search interface for the Sonic backend.
 
 import os
 from typing import List, Iterable

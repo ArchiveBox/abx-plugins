@@ -18,6 +18,17 @@
  * - Uses efficient blocking with filter lists
  */
 
+const fs = require('fs');
+const path = require('path');
+
+const PLUGIN_DIR = path.basename(__dirname);
+const CRAWL_DIR = path.resolve((process.env.CRAWL_DIR || '.').trim());
+const OUTPUT_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
+if (!fs.existsSync(OUTPUT_DIR)) {
+    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+}
+process.chdir(OUTPUT_DIR);
+
 // Import extension utilities
 const { installExtensionWithCache } = require('../chrome/chrome_utils.js');
 

@@ -1,4 +1,10 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "rich-click",
+# ]
+# ///
 """
 Download scientific papers from a URL using papers-dl.
 
@@ -33,9 +39,11 @@ import rich_click as click
 PLUGIN_NAME = 'papersdl'
 BIN_NAME = 'papers-dl'
 BIN_PROVIDERS = 'pip,env'
-OUTPUT_DIR = '.'
-
-
+PLUGIN_DIR = Path(__file__).resolve().parent.name
+SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 def get_env(name: str, default: str = '') -> str:
     return os.environ.get(name, default).strip()
 

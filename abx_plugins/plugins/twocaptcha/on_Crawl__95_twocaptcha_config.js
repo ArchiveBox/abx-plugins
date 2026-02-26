@@ -26,16 +26,20 @@ const fs = require('fs');
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 const puppeteer = require('puppeteer-core');
 
-// Get crawl's chrome directory from environment variable set by hooks.py
+const PLUGIN_DIR = path.basename(__dirname);
+const CRAWL_DIR = path.resolve((process.env.CRAWL_DIR || '.').trim());
+const OUTPUT_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
+if (!fs.existsSync(OUTPUT_DIR)) {
+    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+}
+process.chdir(OUTPUT_DIR);
+
 function getCrawlChromeSessionDir() {
-    const crawlOutputDir = process.env.CRAWL_OUTPUT_DIR || '';
-    if (!crawlOutputDir) {
-        return null;
-    }
-    return path.join(crawlOutputDir, 'chrome');
+    const crawlDir = process.env.CRAWL_DIR || '.';
+    return path.join(path.resolve(crawlDir), 'chrome');
 }
 
-const CHROME_SESSION_DIR = getCrawlChromeSessionDir() || '../chrome';
+const CHROME_SESSION_DIR = getCrawlChromeSessionDir();
 const CONFIG_MARKER = path.join(CHROME_SESSION_DIR, '.twocaptcha_configured');
 
 // Get environment variable with default

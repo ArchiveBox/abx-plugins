@@ -1,4 +1,11 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "rich-click",
+#     "abx-pkg",
+# ]
+# ///
 """
 Install Chromium via the Puppeteer CLI.
 
@@ -34,8 +41,7 @@ def main(machine_id: str, binary_id: str, name: str, binproviders: str, override
 
     lib_dir = os.environ.get('LIB_DIR', '').strip()
     if not lib_dir:
-        click.echo('ERROR: LIB_DIR environment variable not set', err=True)
-        sys.exit(1)
+        lib_dir = str(Path.home() / '.config' / 'abx' / 'lib')
 
     npm_prefix = Path(lib_dir) / 'npm'
     npm_prefix.mkdir(parents=True, exist_ok=True)

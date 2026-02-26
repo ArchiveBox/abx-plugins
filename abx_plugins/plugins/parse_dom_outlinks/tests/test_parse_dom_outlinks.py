@@ -8,20 +8,17 @@ link extraction and categorization.
 import json
 import shutil
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
 import pytest
-from django.test import TestCase
 
-# Import chrome test helpers
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'chrome' / 'tests'))
-from chrome_test_helpers import (
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     chrome_session,
     get_test_env,
     get_plugin_dir,
     get_hook_script,
+    chrome_test_url,
 )
 
 
@@ -38,29 +35,29 @@ PLUGIN_DIR = get_plugin_dir(__file__)
 OUTLINKS_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_parse_dom_outlinks.*')
 
 
-class TestParseDomOutlinksPlugin(TestCase):
+class TestParseDomOutlinksPlugin:
     """Test the parse_dom_outlinks plugin."""
 
     def test_outlinks_hook_exists(self):
         """DOM outlinks hook script should exist."""
-        self.assertIsNotNone(OUTLINKS_HOOK, "DOM outlinks hook not found in plugin directory")
-        self.assertTrue(OUTLINKS_HOOK.exists(), f"Hook not found: {OUTLINKS_HOOK}")
+        assert OUTLINKS_HOOK is not None, "DOM outlinks hook not found in plugin directory"
+        assert OUTLINKS_HOOK.exists(), f"Hook not found: {OUTLINKS_HOOK}"
 
 
-class TestParseDomOutlinksWithChrome(TestCase):
+class TestParseDomOutlinksWithChrome:
     """Integration tests for parse_dom_outlinks plugin with Chrome."""
 
-    def setUp(self):
+    def setup_method(self, _method=None):
         """Set up test environment."""
         self.temp_dir = Path(tempfile.mkdtemp())
 
-    def tearDown(self):
+    def teardown_method(self, _method=None):
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_outlinks_extracts_links_from_page(self):
+    def test_outlinks_extracts_links_from_page(self, chrome_test_url):
         """DOM outlinks hook should extract and categorize links from page."""
-        test_url = 'https://example.com'
+        test_url = chrome_test_url
         snapshot_id = 'test-outlinks-snapshot'
 
         try:
@@ -86,7 +83,8 @@ class TestParseDomOutlinksWithChrome(TestCase):
                 )
 
                 # Check for output file
-                outlinks_output = snapshot_chrome_dir / 'outlinks.json'
+                snap_dir = Path(env['SNAP_DIR'])
+                outlinks_output = snap_dir / 'parse_dom_outlinks' / 'outlinks.json'
 
                 outlinks_data = None
                 json_error = None
@@ -100,16 +98,18 @@ class TestParseDomOutlinksWithChrome(TestCase):
                             json_error = str(e)
 
                 # Verify hook ran successfully
-                self.assertEqual(result.returncode, 0, f"Hook failed: {result.stderr}")
-                self.assertNotIn('Traceback', result.stderr)
+                assert result.returncode == 0, f"Hook failed: {result.stderr}"
+                assert 'Traceback' not in result.stderr
 
                 # Verify we got outlinks data with expected categories
-                self.assertIsNotNone(outlinks_data, f"No outlinks data found - file missing or invalid JSON: {json_error}")
+                assert outlinks_data is not None, (
+                    f"No outlinks data found - file missing or invalid JSON: {json_error}"
+                )
 
-                self.assertIn('url', outlinks_data, f"Missing url: {outlinks_data}")
-                self.assertIn('hrefs', outlinks_data, f"Missing hrefs: {outlinks_data}")
+                assert 'url' in outlinks_data, f"Missing url: {outlinks_data}"
+                assert 'hrefs' in outlinks_data, f"Missing hrefs: {outlinks_data}"
                 # example.com has at least one link (to iana.org)
-                self.assertIsInstance(outlinks_data['hrefs'], list)
+                assert isinstance(outlinks_data['hrefs'], list)
 
         except RuntimeError:
             raise

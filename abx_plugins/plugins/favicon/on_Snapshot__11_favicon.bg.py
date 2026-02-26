@@ -1,20 +1,17 @@
-#!/usr/bin/env python3
-"""
-Extract favicon from a URL.
-
-Usage: on_Snapshot__favicon.bg.py --url=<url> --snapshot-id=<uuid>
-Output: Writes favicon.ico to $PWD
-
-Environment variables:
-    FAVICON_TIMEOUT: Timeout in seconds (default: 30)
-    USER_AGENT: User agent string
-
-    # Fallback to ARCHIVING_CONFIG values if FAVICON_* not set:
-    TIMEOUT: Fallback timeout
-
-Note: This extractor uses the 'requests' library which is bundled with ArchiveBox.
-      It can run standalone if requests is installed: pip install requests
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "rich-click",
+#   "requests",
+# ]
+# ///
+#
+# Extract favicon from a URL and save it to the local filesystem.
+# Supports multiple favicon sources including HTML link tags and Google's favicon service.
+#
+# Usage:
+#     ./on_Snapshot__11_favicon.bg.py --url=<url> --snapshot-id=<snapshot-id>
 
 import json
 import os
@@ -28,7 +25,11 @@ import rich_click as click
 
 # Extractor metadata
 PLUGIN_NAME = 'favicon'
-OUTPUT_DIR = '.'
+PLUGIN_DIR = Path(__file__).resolve().parent.name
+SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 OUTPUT_FILE = 'favicon.ico'
 
 

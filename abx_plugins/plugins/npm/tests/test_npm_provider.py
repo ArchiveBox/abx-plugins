@@ -17,7 +17,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from django.test import TestCase
 
 
 # Get the path to the npm provider hook
@@ -30,27 +29,26 @@ def npm_available() -> bool:
     return shutil.which('npm') is not None
 
 
-class TestNpmProviderHook(TestCase):
+class TestNpmProviderHook:
     """Test the npm binary provider installation hook."""
 
-    def setUp(self):
+    def setup_method(self, _method=None):
         """Set up test environment."""
         self.temp_dir = tempfile.mkdtemp()
-        self.lib_dir = Path(self.temp_dir) / 'lib' / 'x86_64-linux'
-        self.lib_dir.mkdir(parents=True)
 
-    def tearDown(self):
+    def teardown_method(self, _method=None):
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_hook_script_exists(self):
         """Hook script should exist."""
-        self.assertTrue(INSTALL_HOOK and INSTALL_HOOK.exists(), f"Hook not found: {INSTALL_HOOK}")
+        assert INSTALL_HOOK and INSTALL_HOOK.exists(), f"Hook not found: {INSTALL_HOOK}"
 
-    def test_hook_requires_lib_dir(self):
-        """Hook should fail when LIB_DIR is not set."""
+    def test_hook_uses_default_lib_dir(self):
+        """Hook should fall back to default LIB_DIR when not set."""
         env = os.environ.copy()
-        env.pop('LIB_DIR', None)  # Remove LIB_DIR
+        env.pop('LIB_DIR', None)
+        env['HOME'] = self.temp_dir
 
         result = subprocess.run(
             [
@@ -65,13 +63,15 @@ class TestNpmProviderHook(TestCase):
             timeout=30
         )
 
-        self.assertIn('LIB_DIR environment variable not set', result.stderr)
-        self.assertEqual(result.returncode, 1)
+        assert 'LIB_DIR environment variable not set' not in result.stderr
+        default_prefix = Path(self.temp_dir) / '.config' / 'abx' / 'lib' / 'npm'
+        assert default_prefix.exists()
 
     def test_hook_skips_when_npm_not_allowed(self):
         """Hook should skip when npm not in allowed binproviders."""
         env = os.environ.copy()
-        env['LIB_DIR'] = str(self.lib_dir)
+        env['HOME'] = self.temp_dir
+        env.pop('LIB_DIR', None)
 
         result = subprocess.run(
             [
@@ -88,14 +88,14 @@ class TestNpmProviderHook(TestCase):
         )
 
         # Should exit cleanly (code 0) when npm not allowed
-        self.assertIn('npm provider not allowed', result.stderr)
-        self.assertEqual(result.returncode, 0)
+        assert 'npm provider not allowed' in result.stderr
+        assert result.returncode == 0
 
     def test_hook_creates_npm_prefix(self):
         """Hook should create npm prefix directory."""
-        assert npm_available(), "npm not installed"
         env = os.environ.copy()
-        env['LIB_DIR'] = str(self.lib_dir)
+        env['HOME'] = self.temp_dir
+        env.pop('LIB_DIR', None)
 
         # Even if installation fails, the npm prefix should be created
         subprocess.run(
@@ -111,13 +111,14 @@ class TestNpmProviderHook(TestCase):
             timeout=60
         )
 
-        npm_prefix = self.lib_dir / 'npm'
-        self.assertTrue(npm_prefix.exists())
+        npm_prefix = Path(self.temp_dir) / '.config' / 'abx' / 'lib' / 'npm'
+        assert npm_prefix.exists()
 
     def test_hook_handles_overrides(self):
         """Hook should accept overrides JSON."""
         env = os.environ.copy()
-        env['LIB_DIR'] = str(self.lib_dir)
+        env['HOME'] = self.temp_dir
+        env.pop('LIB_DIR', None)
 
         overrides = json.dumps({'npm': {'packages': ['custom-pkg']}})
 
@@ -137,7 +138,7 @@ class TestNpmProviderHook(TestCase):
         )
 
         # May fail to install, but should not crash parsing overrides
-        self.assertNotIn('Failed to parse overrides JSON', result.stderr)
+        assert 'Failed to parse overrides JSON' not in result.stderr
 
 
 if __name__ == '__main__':

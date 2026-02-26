@@ -1,19 +1,16 @@
-#!/usr/bin/env python3
-"""
-Create a hashed Merkle tree of all archived outputs.
-
-This plugin runs after all extractors complete (priority 93) and generates
-a cryptographic Merkle hash tree of all files in the snapshot directory.
-
-Output: hashes.json containing root_hash, tree structure, file list, metadata
-
-Usage: on_Snapshot__93_hashes.py --url=<url> --snapshot-id=<uuid>
-
-Environment variables:
-    SAVE_HASHES: Enable hash merkle tree generation (default: true)
-    DATA_DIR: ArchiveBox data directory
-    ARCHIVE_DIR: Archive output directory
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "click",
+# ]
+# ///
+#
+# Generate a cryptographic Merkle hash tree of all files in a snapshot directory.
+# Outputs hashes.json containing root_hash, tree structure, file list, and metadata.
+#
+# Usage:
+#     ./on_Snapshot__93_hashes.py [...] > events.jsonl
 
 import os
 import sys
@@ -25,6 +22,12 @@ from typing import Dict, List, Optional, Tuple, Any
 
 import click
 
+
+PLUGIN_DIR = Path(__file__).resolve().parent.name
+SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 
 def sha256_file(filepath: Path) -> str:
     """Compute SHA256 hash of a file."""

@@ -19,6 +19,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { promisify } = require('util');
 const { exec } = require('child_process');
 
@@ -35,12 +36,22 @@ const EXTENSION = {
 
 // Get extensions directory from environment or use default
 const EXTENSIONS_DIR = process.env.CHROME_EXTENSIONS_DIR ||
-    path.join(process.env.DATA_DIR || './data', 'personas', process.env.ACTIVE_PERSONA || 'Default', 'chrome_extensions');
+    path.join(process.env.PERSONAS_DIR || path.join(os.homedir(), '.config', 'abx', 'personas'),
+        process.env.ACTIVE_PERSONA || 'Default',
+        'chrome_extensions');
 
 const CHROME_DOWNLOADS_DIR = process.env.CHROME_DOWNLOADS_DIR ||
-    path.join(process.env.DATA_DIR || './data', 'personas', process.env.ACTIVE_PERSONA || 'Default', 'chrome_downloads');
+    path.join(process.env.PERSONAS_DIR || path.join(os.homedir(), '.config', 'abx', 'personas'),
+        process.env.ACTIVE_PERSONA || 'Default',
+        'chrome_downloads');
 
-const OUTPUT_DIR = '.';
+const PLUGIN_DIR = path.basename(__dirname);
+const CRAWL_DIR = path.resolve((process.env.CRAWL_DIR || '.').trim());
+const OUTPUT_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
+if (!fs.existsSync(OUTPUT_DIR)) {
+    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+}
+process.chdir(OUTPUT_DIR);
 const OUTPUT_FILE = 'singlefile.html';
 
 /**

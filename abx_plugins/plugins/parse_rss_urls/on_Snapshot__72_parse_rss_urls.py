@@ -1,16 +1,23 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "feedparser",
+#   "rich-click",
+# ]
+# ///
 """
 Parse RSS/Atom feeds and extract URLs.
 
 This is a standalone extractor that can run without ArchiveBox.
 It reads feed content from a URL and extracts article URLs.
 
-Usage: ./on_Snapshot__51_parse_rss_urls.py --url=<url>
-Output: Appends discovered URLs to urls.jsonl in current directory
+Usage: ./on_Snapshot__72_parse_rss_urls.py --url=<url>
+Output: Appends discovered URLs to SNAP_DIR/parse_rss_urls/urls.jsonl
 
 Examples:
-    ./on_Snapshot__51_parse_rss_urls.py --url=https://example.com/feed.rss
-    ./on_Snapshot__51_parse_rss_urls.py --url=file:///path/to/feed.xml
+    ./on_Snapshot__72_parse_rss_urls.py --url=https://example.com/feed.rss
+    ./on_Snapshot__72_parse_rss_urls.py --url=file:///path/to/feed.xml
 """
 
 import json
@@ -25,6 +32,11 @@ from urllib.parse import urlparse
 import rich_click as click
 
 PLUGIN_NAME = 'parse_rss_urls'
+PLUGIN_DIR = Path(__file__).resolve().parent.name
+SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 URLS_FILE = Path('urls.jsonl')
 
 try:

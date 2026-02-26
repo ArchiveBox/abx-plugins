@@ -1,0 +1,6 @@
+.DS_Store
+
+data/
+*.sqlite3*
+__pycache__/
+*.pyc

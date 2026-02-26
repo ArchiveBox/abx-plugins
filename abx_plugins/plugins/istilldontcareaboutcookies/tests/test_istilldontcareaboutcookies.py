@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     setup_test_env,
     get_test_env,
     launch_chromium_session,
@@ -171,11 +171,11 @@ def test_extension_loads_in_chromium():
 
         # Step 2: Launch Chromium using the chrome hook (loads extensions automatically)
         crawl_id = 'test-cookies'
-        crawl_dir = Path(env['CRAWLS_DIR']) / crawl_id
+        crawl_dir = Path(env['CRAWL_DIR']) / crawl_id
         crawl_dir.mkdir(parents=True, exist_ok=True)
         chrome_dir = crawl_dir / 'chrome'
         chrome_dir.mkdir(parents=True, exist_ok=True)
-        env['CRAWL_OUTPUT_DIR'] = str(crawl_dir)
+        env['CRAWL_DIR'] = str(crawl_dir)
 
         chrome_launch_process = subprocess.Popen(
             ['node', str(CHROME_LAUNCH_HOOK), f'--crawl-id={crawl_id}'],
@@ -487,18 +487,18 @@ def test_hides_cookie_consent_on_filmin():
         print("STEP 1: BASELINE TEST (no extension)")
         print("="*60)
 
-        data_dir = Path(env_base['DATA_DIR'])
+        personas_dir = Path(env_base['PERSONAS_DIR'])
 
         env_no_ext = env_base.copy()
-        env_no_ext['CHROME_EXTENSIONS_DIR'] = str(data_dir / 'personas' / 'Default' / 'empty_extensions')
-        (data_dir / 'personas' / 'Default' / 'empty_extensions').mkdir(parents=True, exist_ok=True)
+        env_no_ext['CHROME_EXTENSIONS_DIR'] = str(personas_dir / 'Default' / 'empty_extensions')
+        (personas_dir / 'Default' / 'empty_extensions').mkdir(parents=True, exist_ok=True)
 
         # Launch baseline Chromium in crawls directory
         baseline_crawl_id = 'baseline-no-ext'
-        baseline_crawl_dir = Path(env_base['CRAWLS_DIR']) / baseline_crawl_id
+        baseline_crawl_dir = Path(env_base['CRAWL_DIR']) / baseline_crawl_id
         baseline_crawl_dir.mkdir(parents=True, exist_ok=True)
         baseline_chrome_dir = baseline_crawl_dir / 'chrome'
-        env_no_ext['CRAWL_OUTPUT_DIR'] = str(baseline_crawl_dir)
+        env_no_ext['CRAWL_DIR'] = str(baseline_crawl_dir)
         baseline_process = None
 
         try:
@@ -580,10 +580,10 @@ def test_hides_cookie_consent_on_filmin():
 
         # Launch extension test Chromium in crawls directory
         ext_crawl_id = 'test-with-ext'
-        ext_crawl_dir = Path(env_base['CRAWLS_DIR']) / ext_crawl_id
+        ext_crawl_dir = Path(env_base['CRAWL_DIR']) / ext_crawl_id
         ext_crawl_dir.mkdir(parents=True, exist_ok=True)
         ext_chrome_dir = ext_crawl_dir / 'chrome'
-        env_with_ext['CRAWL_OUTPUT_DIR'] = str(ext_crawl_dir)
+        env_with_ext['CRAWL_DIR'] = str(ext_crawl_dir)
         ext_process = None
 
         try:

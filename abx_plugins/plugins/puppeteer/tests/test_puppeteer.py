@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,
     get_hook_script,
 )
@@ -50,11 +50,10 @@ def test_puppeteer_installs_chromium():
     assert shutil.which('npm'), "npm is required for puppeteer installation"
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        lib_dir = tmpdir / 'lib' / 'arm64-darwin'
-        lib_dir.mkdir(parents=True, exist_ok=True)
 
         env = os.environ.copy()
-        env['LIB_DIR'] = str(lib_dir)
+        env['HOME'] = str(tmpdir)
+        env.pop('LIB_DIR', None)
 
         crawl_result = subprocess.run(
             [sys.executable, str(CRAWL_HOOK)],

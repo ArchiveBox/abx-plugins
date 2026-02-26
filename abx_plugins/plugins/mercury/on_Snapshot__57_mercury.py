@@ -1,19 +1,16 @@
-#!/usr/bin/env python3
-"""
-Extract article content using Postlight's Mercury Parser.
-
-Usage: on_Snapshot__mercury.py --url=<url> --snapshot-id=<uuid>
-Output: Creates mercury/ directory with content.html, content.txt, article.json
-
-Environment variables:
-    MERCURY_BINARY: Path to postlight-parser binary
-    MERCURY_TIMEOUT: Timeout in seconds (default: 60)
-    MERCURY_ARGS: Default Mercury arguments (JSON array)
-    MERCURY_ARGS_EXTRA: Extra arguments to append (JSON array)
-    TIMEOUT: Fallback timeout
-
-Note: Requires postlight-parser: npm install -g @postlight/parser
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "click",
+# ]
+# ///
+#
+# Extract article content using Postlight's Mercury Parser.
+# Creates content.html, content.txt, and article.json files from the extracted article.
+#
+# Usage:
+#     ./on_Snapshot__57_mercury.py [...] > events.jsonl
 
 import html
 import json
@@ -30,9 +27,11 @@ import rich_click as click
 PLUGIN_NAME = 'mercury'
 BIN_NAME = 'postlight-parser'
 BIN_PROVIDERS = 'npm,env'
-OUTPUT_DIR = '.'
-
-
+PLUGIN_DIR = Path(__file__).resolve().parent.name
+SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 def get_env(name: str, default: str = '') -> str:
     return os.environ.get(name, default).strip()
 

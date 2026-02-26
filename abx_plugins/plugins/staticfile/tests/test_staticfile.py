@@ -8,21 +8,18 @@ static file detection and download.
 import json
 import shutil
 import subprocess
-import sys
 import tempfile
 import time
 from pathlib import Path
 
 import pytest
-from django.test import TestCase
 
-# Import chrome test helpers
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'chrome' / 'tests'))
-from chrome_test_helpers import (
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     chrome_session,
     get_test_env,
     get_plugin_dir,
     get_hook_script,
+    chrome_test_url,
 )
 
 
@@ -39,29 +36,29 @@ PLUGIN_DIR = get_plugin_dir(__file__)
 STATICFILE_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_staticfile.*')
 
 
-class TestStaticfilePlugin(TestCase):
+class TestStaticfilePlugin:
     """Test the staticfile plugin."""
 
     def test_staticfile_hook_exists(self):
         """Staticfile hook script should exist."""
-        self.assertIsNotNone(STATICFILE_HOOK, "Staticfile hook not found in plugin directory")
-        self.assertTrue(STATICFILE_HOOK.exists(), f"Hook not found: {STATICFILE_HOOK}")
+        assert STATICFILE_HOOK is not None, "Staticfile hook not found in plugin directory"
+        assert STATICFILE_HOOK.exists(), f"Hook not found: {STATICFILE_HOOK}"
 
 
-class TestStaticfileWithChrome(TestCase):
+class TestStaticfileWithChrome:
     """Integration tests for staticfile plugin with Chrome."""
 
-    def setUp(self):
+    def setup_method(self, _method=None):
         """Set up test environment."""
         self.temp_dir = Path(tempfile.mkdtemp())
 
-    def tearDown(self):
+    def teardown_method(self, _method=None):
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_staticfile_skips_html_pages(self):
+    def test_staticfile_skips_html_pages(self, chrome_test_url):
         """Staticfile hook should skip HTML pages (not static files)."""
-        test_url = 'https://example.com'  # HTML page, not a static file
+        test_url = chrome_test_url  # HTML page, not a static file
         snapshot_id = 'test-staticfile-snapshot'
 
         try:
@@ -99,7 +96,7 @@ class TestStaticfileWithChrome(TestCase):
                     stdout, stderr = result.communicate()
 
                 # Verify hook ran without crash
-                self.assertNotIn('Traceback', stderr)
+                assert 'Traceback' not in stderr
 
                 # Parse JSONL output to verify it recognized HTML as non-static
                 for line in stdout.split('\n'):
@@ -110,7 +107,7 @@ class TestStaticfileWithChrome(TestCase):
                             if record.get('type') == 'ArchiveResult':
                                 # HTML pages should be skipped
                                 if record.get('status') == 'skipped':
-                                    self.assertIn('Not a static file', record.get('output_str', ''))
+                                    assert 'Not a static file' in record.get('output_str', '')
                                 break
                         except json.JSONDecodeError:
                             continue

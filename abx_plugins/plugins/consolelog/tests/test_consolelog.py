@@ -8,16 +8,12 @@ console output capture.
 import json
 import shutil
 import subprocess
-import sys
 import tempfile
 import time
 from pathlib import Path
 
-from django.test import TestCase
-
-# Import chrome test helpers
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'chrome' / 'tests'))
-from chrome_test_helpers import (
+import pytest
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     chrome_session,
     CHROME_NAVIGATE_HOOK,
     get_plugin_dir,
@@ -30,23 +26,23 @@ PLUGIN_DIR = get_plugin_dir(__file__)
 CONSOLELOG_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_consolelog.*')
 
 
-class TestConsolelogPlugin(TestCase):
+class TestConsolelogPlugin:
     """Test the consolelog plugin."""
 
     def test_consolelog_hook_exists(self):
         """Consolelog hook script should exist."""
-        self.assertIsNotNone(CONSOLELOG_HOOK, "Consolelog hook not found in plugin directory")
-        self.assertTrue(CONSOLELOG_HOOK.exists(), f"Hook not found: {CONSOLELOG_HOOK}")
+        assert CONSOLELOG_HOOK is not None, "Consolelog hook not found in plugin directory"
+        assert CONSOLELOG_HOOK.exists(), f"Hook not found: {CONSOLELOG_HOOK}"
 
 
-class TestConsolelogWithChrome(TestCase):
+class TestConsolelogWithChrome:
     """Integration tests for consolelog plugin with Chrome."""
 
-    def setUp(self):
+    def setup_method(self, _method=None):
         """Set up test environment."""
         self.temp_dir = Path(tempfile.mkdtemp())
 
-    def tearDown(self):
+    def teardown_method(self, _method=None):
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
@@ -84,7 +80,7 @@ class TestConsolelogWithChrome(TestCase):
                 timeout=120,
                 env=env
             )
-            self.assertEqual(nav_result.returncode, 0, f"Navigation failed: {nav_result.stderr}")
+            assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
             # Check for output file
             console_output = console_dir / 'console.jsonl'
@@ -105,20 +101,20 @@ class TestConsolelogWithChrome(TestCase):
                 stdout, stderr = result.communicate()
 
             # At minimum, verify no crash
-            self.assertNotIn('Traceback', stderr)
+            assert 'Traceback' not in stderr
 
             # If output file exists, verify it's valid JSONL and has output
             if console_output.exists():
                 with open(console_output) as f:
                     content = f.read().strip()
-                    self.assertTrue(content, "Console output should not be empty")
+                    assert content, "Console output should not be empty"
                     for line in content.split('\n'):
                         if line.strip():
                             try:
                                 record = json.loads(line)
                                 # Verify structure
-                                self.assertIn('timestamp', record)
-                                self.assertIn('type', record)
+                                assert 'timestamp' in record
+                                assert 'type' in record
                             except json.JSONDecodeError:
                                 pass  # Some lines may be incomplete
 

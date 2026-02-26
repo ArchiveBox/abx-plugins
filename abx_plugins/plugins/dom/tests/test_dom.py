@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
     get_plugin_dir,
     get_hook_script,
@@ -140,6 +140,8 @@ def test_staticfile_present_skips():
     """Test that dom skips when staticfile already downloaded."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
+        snap_dir = tmpdir
+        env = get_test_env() | {'SNAP_DIR': str(snap_dir)}
 
         # Create directory structure like real ArchiveBox:
         # tmpdir/
@@ -159,7 +161,7 @@ def test_staticfile_present_skips():
             text=True,
             timeout=30
         ,
-            env=get_test_env())
+            env=env)
 
         assert result.returncode == 0, "Should exit 0 when permanently skipping"
 

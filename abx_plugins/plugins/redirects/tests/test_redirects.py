@@ -8,21 +8,18 @@ redirect chain capture.
 import json
 import shutil
 import subprocess
-import sys
 import tempfile
 import time
 from pathlib import Path
 
 import pytest
-from django.test import TestCase
 
-# Import chrome test helpers
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'chrome' / 'tests'))
-from chrome_test_helpers import (
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     chrome_session,
     get_test_env,
     get_plugin_dir,
     get_hook_script,
+    chrome_test_urls,
 )
 
 
@@ -39,30 +36,29 @@ PLUGIN_DIR = get_plugin_dir(__file__)
 REDIRECTS_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_redirects.*')
 
 
-class TestRedirectsPlugin(TestCase):
+class TestRedirectsPlugin:
     """Test the redirects plugin."""
 
     def test_redirects_hook_exists(self):
         """Redirects hook script should exist."""
-        self.assertIsNotNone(REDIRECTS_HOOK, "Redirects hook not found in plugin directory")
-        self.assertTrue(REDIRECTS_HOOK.exists(), f"Hook not found: {REDIRECTS_HOOK}")
+        assert REDIRECTS_HOOK is not None, "Redirects hook not found in plugin directory"
+        assert REDIRECTS_HOOK.exists(), f"Hook not found: {REDIRECTS_HOOK}"
 
 
-class TestRedirectsWithChrome(TestCase):
+class TestRedirectsWithChrome:
     """Integration tests for redirects plugin with Chrome."""
 
-    def setUp(self):
+    def setup_method(self, _method=None):
         """Set up test environment."""
         self.temp_dir = Path(tempfile.mkdtemp())
 
-    def tearDown(self):
+    def teardown_method(self, _method=None):
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_redirects_captures_navigation(self):
+    def test_redirects_captures_navigation(self, chrome_test_urls):
         """Redirects hook should capture URL navigation without errors."""
-        # Use a URL that doesn't redirect (simple case)
-        test_url = 'https://example.com'
+        test_url = chrome_test_urls['redirect_url']
         snapshot_id = 'test-redirects-snapshot'
 
         try:
@@ -88,7 +84,8 @@ class TestRedirectsWithChrome(TestCase):
                 )
 
                 # Check for output file
-                redirects_output = snapshot_chrome_dir / 'redirects.jsonl'
+                snap_dir = Path(env['SNAP_DIR'])
+                redirects_output = snap_dir / 'redirects' / 'redirects.jsonl'
 
                 redirects_data = None
 
@@ -138,8 +135,8 @@ class TestRedirectsWithChrome(TestCase):
                         stdout, stderr = result.communicate()
                 else:
                     stdout, stderr = result.communicate()
-                self.assertNotIn('Traceback', stderr)
-                self.assertNotIn('Error:', stderr)
+                assert 'Traceback' not in stderr
+                assert 'Error:' not in stderr
 
         except RuntimeError:
             raise

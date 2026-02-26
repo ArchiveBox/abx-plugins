@@ -1,16 +1,17 @@
-#!/usr/bin/env python3
-"""
-Check if a binary is already available in the system PATH.
-
-This is the simplest "provider" - it doesn't install anything,
-it just discovers binaries that are already installed.
-
-Usage: on_Binary__install_using_env_provider.py --binary-id=<uuid> --machine-id=<uuid> --name=<name>
-Output: Binary JSONL record to stdout if binary found in PATH
-
-Environment variables:
-    MACHINE_ID: Machine UUID (set by orchestrator)
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "rich-click",
+#   "abx-pkg",
+# ]
+# ///
+#
+# Check if a binary is available in the system PATH and output its Binary record.
+# This simple provider discovers binaries that are already installed without installing anything.
+#
+# Usage:
+#     ./on_Binary__15_env_install.py --binary-id=<uuid> --machine-id=<uuid> --name=<name> > events.jsonl
 
 import json
 import os

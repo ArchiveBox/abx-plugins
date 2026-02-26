@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 
 # Import shared Chrome test helpers
-from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
     chrome_session,
 )
@@ -57,7 +57,9 @@ def test_config_modalcloser_disabled_skips():
     """Test that MODALCLOSER_ENABLED=False exits without emitting JSONL."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        env = get_test_env()
+        snap_dir = tmpdir / 'snap'
+        snap_dir.mkdir(parents=True, exist_ok=True)
+        env = get_test_env() | {'SNAP_DIR': str(snap_dir)}
         env['MODALCLOSER_ENABLED'] = 'False'
 
         result = subprocess.run(
@@ -81,7 +83,8 @@ def test_fails_gracefully_without_chrome_session():
     """Test that hook fails gracefully when no chrome session exists."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        modalcloser_dir = tmpdir / 'snapshot' / 'modalcloser'
+        snap_dir = tmpdir / 'snap'
+        modalcloser_dir = snap_dir / 'modalcloser'
         modalcloser_dir.mkdir(parents=True, exist_ok=True)
 
         result = subprocess.run(
@@ -89,7 +92,7 @@ def test_fails_gracefully_without_chrome_session():
             cwd=modalcloser_dir,
             capture_output=True,
             text=True,
-            env=get_test_env(),
+            env=get_test_env() | {'SNAP_DIR': str(snap_dir)},
             timeout=30
         )
 
@@ -416,7 +419,9 @@ main().catch(e => {
         script_path = tmpdir / 'test_cookie_consent.js'
         script_path.write_text(test_script)
 
-        env = get_test_env()
+        snap_dir = tmpdir / 'snap'
+        snap_dir.mkdir(parents=True, exist_ok=True)
+        env = get_test_env() | {'SNAP_DIR': str(snap_dir)}
 
         result = subprocess.run(
             ['node', str(script_path)],

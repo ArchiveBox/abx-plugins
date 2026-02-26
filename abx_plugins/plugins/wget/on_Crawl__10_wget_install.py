@@ -1,11 +1,24 @@
-#!/usr/bin/env python3
-"""
-Emit wget Binary dependency for the crawl.
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = []
+# ///
+#
+# Emit wget Binary dependency for the crawl.
+#
+# Usage:
+#     ./on_Crawl__10_wget_install.py > events.jsonl
 
 import json
 import os
 import sys
+from pathlib import Path
+
+PLUGIN_DIR = Path(__file__).parent.name
+CRAWL_DIR = Path(os.environ.get('CRAWL_DIR', '.')).resolve()
+OUTPUT_DIR = CRAWL_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 
 
 # Read config from environment (already validated by JSONSchema)

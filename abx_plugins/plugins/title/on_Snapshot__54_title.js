@@ -26,7 +26,13 @@ const {
 
 // Extractor metadata
 const PLUGIN_NAME = 'title';
-const OUTPUT_DIR = '.';
+const PLUGIN_DIR = path.basename(__dirname);
+const SNAP_DIR = path.resolve((process.env.SNAP_DIR || '.').trim());
+const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
+if (!fs.existsSync(OUTPUT_DIR)) {
+    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+}
+process.chdir(OUTPUT_DIR);
 const OUTPUT_FILE = 'title.txt';
 const CHROME_SESSION_DIR = '../chrome';
 

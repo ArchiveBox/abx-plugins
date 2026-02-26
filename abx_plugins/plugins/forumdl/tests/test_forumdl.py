@@ -77,23 +77,14 @@ def get_forumdl_binary_path():
                     except json.JSONDecodeError:
                         continue
 
-        # Create a persistent temp LIB_DIR for the pip provider
-        import platform
+        # Create a persistent temp HOME for default LIB_DIR usage
         global _forumdl_lib_root
         if not _forumdl_lib_root:
             _forumdl_lib_root = tempfile.mkdtemp(prefix='forumdl-lib-')
-        machine = platform.machine().lower()
-        system = platform.system().lower()
-        if machine in ('arm64', 'aarch64'):
-            machine = 'arm64'
-        elif machine in ('x86_64', 'amd64'):
-            machine = 'x86_64'
-        machine_type = f"{machine}-{system}"
-        lib_dir = Path(_forumdl_lib_root) / 'lib' / machine_type
-        lib_dir.mkdir(parents=True, exist_ok=True)
         env = os.environ.copy()
-        env['LIB_DIR'] = str(lib_dir)
-        env['DATA_DIR'] = str(Path(_forumdl_lib_root) / 'data')
+        env['HOME'] = str(_forumdl_lib_root)
+        env['SNAP_DIR'] = str(Path(_forumdl_lib_root) / 'data')
+        env.pop('LIB_DIR', None)
 
         cmd = [
             sys.executable, str(pip_hook),
@@ -157,6 +148,8 @@ def test_handles_non_forum_url():
 
         env = os.environ.copy()
         env['FORUMDL_BINARY'] = binary_path
+        env['SNAP_DIR'] = str(tmpdir)
+        env.pop('LIB_DIR', None)
 
         # Run forum-dl extraction hook on non-forum URL
         result = subprocess.run(
@@ -196,6 +189,8 @@ def test_config_save_forumdl_false_skips():
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
         env['FORUMDL_ENABLED'] = 'False'
+        env['SNAP_DIR'] = str(tmpdir)
+        env.pop('LIB_DIR', None)
 
         result = subprocess.run(
             [sys.executable, str(FORUMDL_HOOK), '--url', TEST_URL, '--snapshot-id', 'test999'],
@@ -229,6 +224,8 @@ def test_config_timeout():
         env = os.environ.copy()
         env['FORUMDL_BINARY'] = binary_path
         env['FORUMDL_TIMEOUT'] = '5'
+        env['SNAP_DIR'] = str(tmpdir)
+        env.pop('LIB_DIR', None)
 
         start_time = time.time()
         result = subprocess.run(
@@ -267,6 +264,8 @@ def test_real_forum_url():
         env['FORUMDL_BINARY'] = binary_path
         env['FORUMDL_TIMEOUT'] = '60'
         env['FORUMDL_OUTPUT_FORMAT'] = 'jsonl'  # Use jsonl format
+        env['SNAP_DIR'] = str(tmpdir)
+        env.pop('LIB_DIR', None)
         # HTML output could be added via: env['FORUMDL_ARGS_EXTRA'] = json.dumps(['--files-output', './files'])
 
         start_time = time.time()
@@ -306,7 +305,7 @@ def test_real_forum_url():
         assert len(forum_files) > 0, f"Should have downloaded at least one forum file. Files: {output_files}"
 
         # Verify the JSONL file has content
-        jsonl_file = tmpdir / 'forum.jsonl'
+        jsonl_file = tmpdir / 'forumdl' / 'forum.jsonl'
         assert jsonl_file.exists(), "Should have created forum.jsonl"
         assert jsonl_file.stat().st_size > 0, "forum.jsonl should not be empty"
 

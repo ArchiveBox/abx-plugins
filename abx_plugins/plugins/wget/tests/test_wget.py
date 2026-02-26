@@ -269,6 +269,7 @@ def test_config_save_warc():
         # Set WGET_SAVE_WARC=True explicitly
         env = os.environ.copy()
         env['WGET_SAVE_WARC'] = 'True'
+        env['SNAP_DIR'] = str(tmpdir)
 
         result = subprocess.run(
             [sys.executable, str(WGET_HOOK), '--url', TEST_URL, '--snapshot-id', 'testwarc'],
@@ -281,7 +282,7 @@ def test_config_save_warc():
 
         if result.returncode == 0:
             # Look for WARC files in warc/ subdirectory
-            warc_dir = tmpdir / 'warc'
+            warc_dir = tmpdir / 'wget' / 'warc'
             if warc_dir.exists():
                 warc_files = list(warc_dir.rglob('*'))
                 warc_files = [f for f in warc_files if f.is_file()]
@@ -293,6 +294,8 @@ def test_staticfile_present_skips():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
+        env = os.environ.copy()
+        env['SNAP_DIR'] = str(tmpdir)
 
         # Create directory structure like real ArchiveBox:
         # tmpdir/
@@ -310,7 +313,8 @@ def test_staticfile_present_skips():
             cwd=wget_dir,  # Run from wget subdirectory
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
+            env=env
         )
 
         # Should skip with permanent skip JSONL

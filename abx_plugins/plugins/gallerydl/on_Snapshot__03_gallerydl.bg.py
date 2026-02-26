@@ -1,19 +1,16 @@
-#!/usr/bin/env python3
-"""
-Download image galleries from a URL using gallery-dl.
-
-Usage: on_Snapshot__03_gallerydl.bg.py --url=<url> --snapshot-id=<uuid>
-Output: Downloads gallery images to $PWD/gallerydl/
-
-Environment variables:
-    GALLERYDL_ENABLED: Enable gallery-dl gallery extraction (default: True)
-    GALLERYDL_BINARY: Path to gallery-dl binary (default: gallery-dl)
-    GALLERYDL_TIMEOUT: Timeout in seconds (x-fallback: TIMEOUT)
-    GALLERYDL_COOKIES_FILE: Path to cookies file (x-fallback: COOKIES_FILE)
-    GALLERYDL_CHECK_SSL_VALIDITY: Whether to verify SSL certs (x-fallback: CHECK_SSL_VALIDITY)
-    GALLERYDL_ARGS: Default gallery-dl arguments (JSON array)
-    GALLERYDL_ARGS_EXTRA: Extra arguments to append (JSON array)
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "click",
+# ]
+# ///
+#
+# Download image galleries from a URL using gallery-dl binary, handling SSL verification,
+# cookies, and timeout configurations via environment variables.
+#
+# Usage:
+#     ./on_Snapshot__03_gallerydl.bg.py --url=<url> --snapshot-id=<uuid> > events.jsonl
 
 import json
 import os
@@ -29,9 +26,11 @@ import rich_click as click
 PLUGIN_NAME = 'gallerydl'
 BIN_NAME = 'gallery-dl'
 BIN_PROVIDERS = 'pip,env'
-OUTPUT_DIR = '.'
-
-
+PLUGIN_DIR = Path(__file__).resolve().parent.name
+SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 def get_env(name: str, default: str = '') -> str:
     return os.environ.get(name, default).strip()
 

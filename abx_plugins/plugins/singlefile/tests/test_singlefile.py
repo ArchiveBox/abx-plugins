@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
     get_plugin_dir,
     get_hook_script,
@@ -63,17 +63,20 @@ def test_singlefile_cli_archives_example_com():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        data_dir = tmpdir / 'data'
-        extensions_dir = data_dir / 'personas' / 'Default' / 'chrome_extensions'
-        downloads_dir = data_dir / 'personas' / 'Default' / 'chrome_downloads'
-        user_data_dir = data_dir / 'personas' / 'Default' / 'chrome_user_data'
+        snap_dir = tmpdir / 'snap'
+        personas_dir = tmpdir / 'personas'
+        extensions_dir = personas_dir / 'Default' / 'chrome_extensions'
+        downloads_dir = personas_dir / 'Default' / 'chrome_downloads'
+        user_data_dir = personas_dir / 'Default' / 'chrome_user_data'
         extensions_dir.mkdir(parents=True, exist_ok=True)
         downloads_dir.mkdir(parents=True, exist_ok=True)
+        snap_dir.mkdir(parents=True, exist_ok=True)
         user_data_dir.mkdir(parents=True, exist_ok=True)
 
         env_install = os.environ.copy()
         env_install.update({
-            'DATA_DIR': str(data_dir),
+            'SNAP_DIR': str(snap_dir),
+            'PERSONAS_DIR': str(personas_dir),
             'CHROME_EXTENSIONS_DIR': str(extensions_dir),
             'CHROME_DOWNLOADS_DIR': str(downloads_dir),
         })
@@ -151,15 +154,9 @@ def test_singlefile_with_chrome_session():
             navigate=False,  # Don't navigate, singlefile will do that
             timeout=20,
         ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
-            # singlefile looks for ../chrome/cdp_url.txt relative to cwd
-            # So we need to run from a directory that has ../chrome pointing to our chrome dir
-            singlefile_output_dir = tmpdir / 'snapshot' / 'singlefile'
+            snap_dir = Path(env['SNAP_DIR'])
+            singlefile_output_dir = snap_dir / 'singlefile'
             singlefile_output_dir.mkdir(parents=True, exist_ok=True)
-
-            # Create symlink so singlefile can find the chrome session
-            chrome_link = singlefile_output_dir.parent / 'chrome'
-            if not chrome_link.exists():
-                chrome_link.symlink_to(tmpdir / 'crawl' / 'chrome')
 
             # Use env from chrome_session
             env['SINGLEFILE_ENABLED'] = 'true'
@@ -192,17 +189,20 @@ def test_singlefile_with_extension_uses_existing_chrome():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        data_dir = tmpdir / 'data'
-        extensions_dir = data_dir / 'personas' / 'Default' / 'chrome_extensions'
-        downloads_dir = data_dir / 'personas' / 'Default' / 'chrome_downloads'
-        user_data_dir = data_dir / 'personas' / 'Default' / 'chrome_user_data'
+        snap_dir = tmpdir / 'snap'
+        personas_dir = tmpdir / 'personas'
+        extensions_dir = personas_dir / 'Default' / 'chrome_extensions'
+        downloads_dir = personas_dir / 'Default' / 'chrome_downloads'
+        user_data_dir = personas_dir / 'Default' / 'chrome_user_data'
         extensions_dir.mkdir(parents=True, exist_ok=True)
         downloads_dir.mkdir(parents=True, exist_ok=True)
+        snap_dir.mkdir(parents=True, exist_ok=True)
         user_data_dir.mkdir(parents=True, exist_ok=True)
 
         env_install = os.environ.copy()
         env_install.update({
-            'DATA_DIR': str(data_dir),
+            'SNAP_DIR': str(snap_dir),
+            'PERSONAS_DIR': str(personas_dir),
             'CHROME_EXTENSIONS_DIR': str(extensions_dir),
             'CHROME_DOWNLOADS_DIR': str(downloads_dir),
         })

@@ -1,9 +1,15 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "rich-click",
+# ]
+# ///
 """
 Download video/audio from a URL using yt-dlp.
 
 Usage: on_Snapshot__02_ytdlp.bg.py --url=<url> --snapshot-id=<uuid>
-Output: Downloads video/audio files to $PWD
+Output: Downloads video/audio files to SNAP_DIR/ytdlp/
 
 Environment variables:
     YTDLP_ENABLED: Enable yt-dlp extraction (default: True)
@@ -27,6 +33,11 @@ from pathlib import Path
 import rich_click as click
 
 
+PLUGIN_DIR = Path(__file__).resolve().parent.name
+SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 
 
 def get_env(name: str, default: str = '') -> str:

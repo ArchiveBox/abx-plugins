@@ -1,4 +1,11 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "click>=8.0",
+#     "rich-click>=1.6",
+# ]
+# ///
 """
 SQLite FTS5 search backend - indexes snapshot content for full-text search.
 
@@ -12,6 +19,7 @@ Environment variables:
     USE_INDEXING_BACKEND: Enable search indexing (default: true)
     SQLITEFTS_DB: Database filename (default: search.sqlite3)
     FTS_TOKENIZERS: FTS5 tokenizer config (default: porter unicode61 remove_diacritics 2)
+    SNAP_DIR: Snapshot directory (default: cwd)
 """
 
 import json
@@ -26,8 +34,11 @@ import rich_click as click
 
 # Extractor metadata
 PLUGIN_NAME = 'index_sqlite'
-OUTPUT_DIR = '.'
-
+PLUGIN_DIR = Path(__file__).resolve().parent.name
+SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 # Text file patterns to index, in priority order
 INDEXABLE_FILES = [
     ('readability', 'content.txt'),
@@ -100,9 +111,9 @@ def find_indexable_content() -> list[tuple[str, str]]:
 
 def get_db_path() -> Path:
     """Get path to the search index database."""
-    data_dir = get_env('DATA_DIR', str(Path.cwd().parent.parent))
+    snap_dir = get_env('SNAP_DIR', str(Path.cwd().parent))
     db_name = get_env('SQLITEFTS_DB', 'search.sqlite3')
-    return Path(data_dir) / db_name
+    return Path(snap_dir) / db_name
 
 
 def index_in_sqlite(snapshot_id: str, texts: list[str]) -> None:

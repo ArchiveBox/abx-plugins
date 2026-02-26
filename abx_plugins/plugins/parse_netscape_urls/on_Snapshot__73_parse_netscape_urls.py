@@ -1,16 +1,22 @@
-#!/usr/bin/env python3
-"""
-Parse Netscape bookmark HTML files and extract URLs.
-
-This is a standalone extractor that can run without ArchiveBox.
-It reads Netscape-format bookmark exports (produced by all major browsers).
-
-Usage: ./on_Snapshot__53_parse_netscape_urls.py --url=<url>
-Output: Appends discovered URLs to urls.jsonl in current directory
-
-Examples:
-    ./on_Snapshot__53_parse_netscape_urls.py --url=file:///path/to/bookmarks.html
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "click",
+# ]
+# ///
+#
+# Parse Netscape bookmark HTML files and extract URLs.
+#
+# This is a standalone extractor that can run without ArchiveBox.
+# It reads Netscape-format bookmark exports (produced by all major browsers).
+#
+# Usage:
+#     ./on_Snapshot__73_parse_netscape_urls.py --url=<url>
+# Output: Appends discovered URLs to SNAP_DIR/parse_netscape_urls/urls.jsonl
+#
+# Examples:
+#     ./on_Snapshot__73_parse_netscape_urls.py --url=file:///path/to/bookmarks.html
 
 import json
 import os
@@ -24,6 +30,11 @@ from urllib.parse import urlparse
 import rich_click as click
 
 PLUGIN_NAME = 'parse_netscape_urls'
+PLUGIN_DIR = Path(__file__).resolve().parent.name
+SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 URLS_FILE = Path('urls.jsonl')
 
 # Constants for timestamp epoch detection

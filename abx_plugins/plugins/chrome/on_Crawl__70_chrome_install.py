@@ -1,15 +1,27 @@
-#!/usr/bin/env python3
-"""
-Emit Chromium Binary dependency for the crawl.
-
-NOTE: We use Chromium instead of Chrome because Chrome 137+ removed support for
---load-extension and --disable-extensions-except flags, which are needed for
-loading unpacked extensions in headless mode.
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = []
+# ///
+#
+# Emit Chromium Binary dependency for the crawl.
+# NOTE: We use Chromium instead of Chrome because Chrome 137+ removed support for
+# --load-extension and --disable-extensions-except flags, which are needed for
+# loading unpacked extensions in headless mode.
+#
+# Usage:
+#     ./on_Crawl__70_chrome_install.py > events.jsonl
 
 import json
 import os
 import sys
+from pathlib import Path
+
+PLUGIN_DIR = Path(__file__).parent.name
+CRAWL_DIR = Path(os.environ.get('CRAWL_DIR', '.')).resolve()
+OUTPUT_DIR = CRAWL_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 
 
 def main():

@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = []
+# ///
 """
 Emit ripgrep Binary dependency for the crawl.
 """
@@ -6,6 +10,13 @@ Emit ripgrep Binary dependency for the crawl.
 import os
 import sys
 import json
+from pathlib import Path
+
+PLUGIN_DIR = Path(__file__).parent.name
+CRAWL_DIR = Path(os.environ.get('CRAWL_DIR', '.')).resolve()
+OUTPUT_DIR = CRAWL_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 
 
 def main():

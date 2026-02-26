@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
     get_plugin_dir,
     get_hook_script,
@@ -122,7 +122,9 @@ def test_config_save_pdf_false_skips():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        env = get_test_env()
+        snap_dir = tmpdir / 'snap'
+        snap_dir.mkdir(parents=True, exist_ok=True)
+        env = get_test_env() | {'SNAP_DIR': str(snap_dir)}
         env['PDF_ENABLED'] = 'False'
 
         result = subprocess.run(
@@ -150,9 +152,10 @@ def test_reports_missing_chrome():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        env = get_test_env()
-        pdf_dir = tmpdir / 'snapshot' / 'pdf'
+        snap_dir = tmpdir / 'snap'
+        pdf_dir = snap_dir / 'pdf'
         pdf_dir.mkdir(parents=True, exist_ok=True)
+        env = get_test_env() | {'SNAP_DIR': str(snap_dir)}
 
         result = subprocess.run(
             ['node', str(PDF_HOOK), f'--url={TEST_URL}', '--snapshot-id=test123'],

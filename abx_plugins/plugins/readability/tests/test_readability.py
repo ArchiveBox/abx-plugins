@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,
     get_hook_script,
     PLUGINS_ROOT,
@@ -83,12 +83,14 @@ def test_reports_missing_dependency_when_not_installed():
     """Test that script reports DEPENDENCY_NEEDED when readability-extractor is not found."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
+        snap_dir = tmpdir / 'snap'
+        snap_dir.mkdir(parents=True, exist_ok=True)
 
         # Create HTML source so it doesn't fail on missing HTML
-        create_example_html(tmpdir)
+        create_example_html(snap_dir)
 
         # Run with empty PATH so binary won't be found
-        env = {'PATH': '/nonexistent', 'HOME': str(tmpdir)}
+        env = {'PATH': '/nonexistent', 'HOME': str(tmpdir), 'SNAP_DIR': str(snap_dir)}
 
         result = subprocess.run(
             [sys.executable, str(READABILITY_HOOK), '--url', TEST_URL, '--snapshot-id', 'test123'],
@@ -134,17 +136,22 @@ def test_extracts_article_after_installation():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
+        snap_dir = tmpdir / 'snap'
+        snap_dir.mkdir(parents=True, exist_ok=True)
 
         # Create example.com HTML for readability to process
-        create_example_html(tmpdir)
+        create_example_html(snap_dir)
 
         # Run readability extraction (should find the binary)
+        env = os.environ.copy()
+        env['SNAP_DIR'] = str(snap_dir)
         result = subprocess.run(
             [sys.executable, str(READABILITY_HOOK), '--url', TEST_URL, '--snapshot-id', 'test789'],
             cwd=tmpdir,
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
+            env=env
         )
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
@@ -167,9 +174,9 @@ def test_extracts_article_after_installation():
         assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
         # Verify output files exist (hook writes to current directory)
-        html_file = tmpdir / 'content.html'
-        txt_file = tmpdir / 'content.txt'
-        json_file = tmpdir / 'article.json'
+        html_file = snap_dir / 'readability' / 'content.html'
+        txt_file = snap_dir / 'readability' / 'content.txt'
+        json_file = snap_dir / 'readability' / 'article.json'
 
         assert html_file.exists(), "content.html not created"
         assert txt_file.exists(), "content.txt not created"
@@ -200,15 +207,20 @@ def test_fails_gracefully_without_html_source():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
+        snap_dir = tmpdir / 'snap'
+        snap_dir.mkdir(parents=True, exist_ok=True)
 
         # Don't create any HTML source files
 
+        env = os.environ.copy()
+        env['SNAP_DIR'] = str(snap_dir)
         result = subprocess.run(
             [sys.executable, str(READABILITY_HOOK), '--url', TEST_URL, '--snapshot-id', 'test999'],
             cwd=tmpdir,
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
+            env=env
         )
 
         assert result.returncode != 0, "Should fail without HTML source"

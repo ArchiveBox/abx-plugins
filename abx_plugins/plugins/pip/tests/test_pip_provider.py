@@ -17,7 +17,6 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
-from django.test import TestCase
 
 
 # Get the path to the pip provider hook
@@ -25,27 +24,23 @@ PLUGIN_DIR = Path(__file__).parent.parent
 INSTALL_HOOK = next(PLUGIN_DIR.glob('on_Binary__*_pip_install.py'), None)
 
 
-class TestPipProviderHook(TestCase):
+class TestPipProviderHook:
     """Test the pip binary provider installation hook."""
 
-    def setUp(self):
+    def setup_method(self, _method=None):
         """Set up test environment."""
         self.temp_dir = tempfile.mkdtemp()
         self.output_dir = Path(self.temp_dir) / 'output'
         self.output_dir.mkdir()
-        self.lib_dir = Path(self.temp_dir) / 'lib' / 'x86_64-linux'
-        self.lib_dir.mkdir(parents=True, exist_ok=True)
-        self.lib_dir = Path(self.temp_dir) / 'lib' / 'x86_64-linux'
-        self.lib_dir.mkdir(parents=True, exist_ok=True)
 
-    def tearDown(self):
+    def teardown_method(self, _method=None):
         """Clean up."""
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_hook_script_exists(self):
         """Hook script should exist."""
-        self.assertTrue(INSTALL_HOOK and INSTALL_HOOK.exists(), f"Hook not found: {INSTALL_HOOK}")
+        assert INSTALL_HOOK and INSTALL_HOOK.exists(), f"Hook not found: {INSTALL_HOOK}"
 
     def test_hook_help(self):
         """Hook should accept --help without error."""
@@ -57,13 +52,14 @@ class TestPipProviderHook(TestCase):
         )
         # May succeed or fail depending on implementation
         # At minimum should not crash with Python error
-        self.assertNotIn('Traceback', result.stderr)
+        assert 'Traceback' not in result.stderr
 
     def test_hook_finds_pip(self):
         """Hook should find pip binary."""
         env = os.environ.copy()
-        env['DATA_DIR'] = self.temp_dir
-        env['LIB_DIR'] = str(self.lib_dir)
+        env['SNAP_DIR'] = self.temp_dir
+        env['HOME'] = self.temp_dir
+        env.pop('LIB_DIR', None)
 
         result = subprocess.run(
             [
@@ -90,23 +86,24 @@ class TestPipProviderHook(TestCase):
                     if record.get('type') == 'Binary' and record.get('name') == 'pip':
                         jsonl_found = True
                         # Verify structure
-                        self.assertIn('abspath', record)
-                        self.assertIn('version', record)
+                        assert 'abspath' in record
+                        assert 'version' in record
                         break
                 except json.JSONDecodeError:
                     continue
 
         # Should not crash
-        self.assertNotIn('Traceback', result.stderr)
+        assert 'Traceback' not in result.stderr
 
         # Should find pip via pip provider
-        self.assertTrue(jsonl_found, "Expected to find pip binary in JSONL output")
+        assert jsonl_found, "Expected to find pip binary in JSONL output"
 
     def test_hook_unknown_package(self):
         """Hook should handle unknown packages gracefully."""
         env = os.environ.copy()
-        env['DATA_DIR'] = self.temp_dir
-        env['LIB_DIR'] = str(self.lib_dir)
+        env['SNAP_DIR'] = self.temp_dir
+        env['HOME'] = self.temp_dir
+        env.pop('LIB_DIR', None)
 
         result = subprocess.run(
             [
@@ -124,20 +121,20 @@ class TestPipProviderHook(TestCase):
         )
 
         # Should not crash
-        self.assertNotIn('Traceback', result.stderr)
+        assert 'Traceback' not in result.stderr
         # May have non-zero exit code for missing package
 
 
-class TestPipProviderIntegration(TestCase):
+class TestPipProviderIntegration:
     """Integration tests for pip provider with real packages."""
 
-    def setUp(self):
+    def setup_method(self, _method=None):
         """Set up test environment."""
         self.temp_dir = tempfile.mkdtemp()
         self.output_dir = Path(self.temp_dir) / 'output'
         self.output_dir.mkdir()
 
-    def tearDown(self):
+    def teardown_method(self, _method=None):
         """Clean up."""
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
@@ -151,7 +148,9 @@ class TestPipProviderIntegration(TestCase):
         )
         assert pip_check.returncode == 0, "pip not available"
         env = os.environ.copy()
-        env['DATA_DIR'] = self.temp_dir
+        env['SNAP_DIR'] = self.temp_dir
+        env['HOME'] = self.temp_dir
+        env.pop('LIB_DIR', None)
 
         # Try to find 'pip' itself which should be available
         result = subprocess.run(
@@ -177,14 +176,14 @@ class TestPipProviderIntegration(TestCase):
                     record = json.loads(line)
                     if record.get('type') == 'Binary' and 'pip' in record.get('name', ''):
                         # Found pip binary
-                        self.assertTrue(record.get('abspath'))
+                        assert record.get('abspath')
                         return
                 except json.JSONDecodeError:
                     continue
 
         # If we get here without finding pip, that's acceptable
         # as long as the hook didn't crash
-        self.assertNotIn('Traceback', result.stderr)
+        assert 'Traceback' not in result.stderr
 
 
 if __name__ == '__main__':

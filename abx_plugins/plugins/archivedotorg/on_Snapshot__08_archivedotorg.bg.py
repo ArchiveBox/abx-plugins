@@ -1,20 +1,16 @@
-#!/usr/bin/env python3
-"""
-Submit a URL to archive.org for archiving.
-
-Usage: on_Snapshot__archivedotorg.bg.py --url=<url> --snapshot-id=<uuid>
-Output: Writes archive.org.txt to $PWD with the archived URL
-
-Environment variables:
-    ARCHIVEDOTORG_TIMEOUT: Timeout in seconds (default: 60)
-    USER_AGENT: User agent string
-
-    # Fallback to ARCHIVING_CONFIG values if ARCHIVEDOTORG_* not set:
-    TIMEOUT: Fallback timeout
-
-Note: This extractor uses the 'requests' library which is bundled with ArchiveBox.
-      It can run standalone if requests is installed: pip install requests
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "click",
+#   "requests",
+# ]
+# ///
+#
+# Submit a URL to archive.org for archiving and save the resulting archive.org link.
+#
+# Usage:
+#     ./on_Snapshot__08_archivedotorg.bg.py --url=<url> --snapshot-id=<uuid> > events.jsonl
 
 import json
 import os
@@ -26,7 +22,11 @@ import rich_click as click
 
 # Extractor metadata
 PLUGIN_NAME = 'archivedotorg'
-OUTPUT_DIR = '.'
+PLUGIN_DIR = Path(__file__).resolve().parent.name
+SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 OUTPUT_FILE = 'archive.org.txt'
 
 

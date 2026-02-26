@@ -18,7 +18,7 @@ import tempfile
 from pathlib import Path
 import pytest
 
-from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,
     get_hook_script,
     PLUGINS_ROOT,
@@ -59,10 +59,13 @@ def test_extracts_with_mercury_parser():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
+        snap_dir = tmpdir
+        env = os.environ.copy()
+        env['SNAP_DIR'] = str(snap_dir)
 
         # Create HTML source that mercury can parse
-        (tmpdir / 'singlefile').mkdir()
-        (tmpdir / 'singlefile' / 'singlefile.html').write_text(
+        (snap_dir / 'singlefile').mkdir()
+        (snap_dir / 'singlefile' / 'singlefile.html').write_text(
             '<html><head><title>Test Article</title></head><body>'
             '<article><h1>Example Article</h1><p>This is test content for mercury parser.</p></article>'
             '</body></html>'
@@ -74,7 +77,8 @@ def test_extracts_with_mercury_parser():
             cwd=tmpdir,
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=60,
+            env=env
         )
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
@@ -97,7 +101,7 @@ def test_extracts_with_mercury_parser():
         assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
 
         # Verify filesystem output (hook writes to current directory)
-        output_file = tmpdir / 'content.html'
+        output_file = snap_dir / 'mercury' / 'content.html'
         assert output_file.exists(), "content.html not created"
 
         content = output_file.read_text()
@@ -108,8 +112,10 @@ def test_config_save_mercury_false_skips():
     import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
+        snap_dir = Path(tmpdir)
         env = os.environ.copy()
         env['MERCURY_ENABLED'] = 'False'
+        env['SNAP_DIR'] = str(snap_dir)
 
         result = subprocess.run(
             [sys.executable, str(MERCURY_HOOK), '--url', TEST_URL, '--snapshot-id', 'test999'],

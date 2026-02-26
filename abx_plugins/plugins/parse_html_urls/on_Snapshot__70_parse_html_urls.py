@@ -1,20 +1,25 @@
-#!/usr/bin/env python3
-"""
-Parse HTML files and extract href URLs.
-
-This is a standalone extractor that can run without ArchiveBox.
-It reads HTML content and extracts all <a href="..."> URLs.
-
-NOTE: If parse_dom_outlinks already ran (parse_dom_outlinks/urls.jsonl exists),
-this extractor will skip since parse_dom_outlinks provides better coverage via Chrome.
-
-Usage: ./on_Snapshot__60_parse_html_urls.py --url=<url>
-Output: Appends discovered URLs to urls.jsonl in current directory
-
-Examples:
-    ./on_Snapshot__60_parse_html_urls.py --url=file:///path/to/page.html
-    ./on_Snapshot__60_parse_html_urls.py --url=https://example.com/page.html
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "rich-click",
+# ]
+# ///
+#
+# Parse HTML files and extract href URLs.
+#
+# This is a standalone extractor that can run without ArchiveBox.
+# It reads HTML content and extracts all <a href="..."> URLs.
+#
+# NOTE: If parse_dom_outlinks already ran (parse_dom_outlinks/urls.jsonl exists),
+# this extractor will skip since parse_dom_outlinks provides better coverage via Chrome.
+#
+# Usage: ./on_Snapshot__70_parse_html_urls.py --url=<url>
+# Output: Appends discovered URLs to SNAP_DIR/parse_html_urls/urls.jsonl
+#
+# Examples:
+#     ./on_Snapshot__70_parse_html_urls.py --url=file:///path/to/page.html
+#     ./on_Snapshot__70_parse_html_urls.py --url=https://example.com/page.html
 
 import json
 import os
@@ -29,6 +34,11 @@ from urllib.parse import urljoin, urlparse, urlunparse
 import rich_click as click
 
 PLUGIN_NAME = 'parse_html_urls'
+PLUGIN_DIR = Path(__file__).resolve().parent.name
+SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 
 # Check if parse_dom_outlinks extractor already ran (sibling plugin output dir)
 DOM_OUTLINKS_URLS_FILE = Path('..') / 'parse_dom_outlinks' / 'urls.jsonl'

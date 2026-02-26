@@ -14,12 +14,11 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
-from django.test import TestCase
 
-from archivebox.plugins.search_backend_ripgrep.search import (
+from abx_plugins.plugins.search_backend_ripgrep.search import (
     search,
     flush,
     get_env,
@@ -28,68 +27,68 @@ from archivebox.plugins.search_backend_ripgrep.search import (
 )
 
 
-class TestEnvHelpers(TestCase):
+class TestEnvHelpers:
     """Test environment variable helper functions."""
 
     def test_get_env_default(self):
         """get_env should return default for unset vars."""
         result = get_env('NONEXISTENT_VAR_12345', 'default')
-        self.assertEqual(result, 'default')
+        assert result == 'default'
 
     def test_get_env_set(self):
         """get_env should return value for set vars."""
         with patch.dict(os.environ, {'TEST_VAR': 'value'}):
             result = get_env('TEST_VAR', 'default')
-            self.assertEqual(result, 'value')
+            assert result == 'value'
 
     def test_get_env_strips_whitespace(self):
         """get_env should strip whitespace."""
         with patch.dict(os.environ, {'TEST_VAR': '  value  '}):
             result = get_env('TEST_VAR', '')
-            self.assertEqual(result, 'value')
+            assert result == 'value'
 
     def test_get_env_int_default(self):
         """get_env_int should return default for unset vars."""
         result = get_env_int('NONEXISTENT_VAR_12345', 42)
-        self.assertEqual(result, 42)
+        assert result == 42
 
     def test_get_env_int_valid(self):
         """get_env_int should parse integer values."""
         with patch.dict(os.environ, {'TEST_INT': '100'}):
             result = get_env_int('TEST_INT', 0)
-            self.assertEqual(result, 100)
+            assert result == 100
 
     def test_get_env_int_invalid(self):
         """get_env_int should return default for invalid integers."""
         with patch.dict(os.environ, {'TEST_INT': 'not a number'}):
             result = get_env_int('TEST_INT', 42)
-            self.assertEqual(result, 42)
+            assert result == 42
 
     def test_get_env_array_default(self):
         """get_env_array should return default for unset vars."""
         result = get_env_array('NONEXISTENT_VAR_12345', ['default'])
-        self.assertEqual(result, ['default'])
+        assert result == ['default']
 
     def test_get_env_array_valid(self):
         """get_env_array should parse JSON arrays."""
         with patch.dict(os.environ, {'TEST_ARRAY': '["a", "b", "c"]'}):
             result = get_env_array('TEST_ARRAY', [])
-            self.assertEqual(result, ['a', 'b', 'c'])
+            assert result == ['a', 'b', 'c']
 
     def test_get_env_array_invalid_json(self):
         """get_env_array should return default for invalid JSON."""
         with patch.dict(os.environ, {'TEST_ARRAY': 'not json'}):
             result = get_env_array('TEST_ARRAY', ['default'])
-            self.assertEqual(result, ['default'])
+            assert result == ['default']
 
     def test_get_env_array_not_array(self):
         """get_env_array should return default for non-array JSON."""
         with patch.dict(os.environ, {'TEST_ARRAY': '{"key": "value"}'}):
             result = get_env_array('TEST_ARRAY', ['default'])
-            self.assertEqual(result, ['default'])
+            assert result == ['default']
 
 
-class TestRipgrepFlush(TestCase):
+class TestRipgrepFlush:
     """Test the flush function."""
 
     def test_flush_is_noop(self):
@@ -98,10 +97,10 @@ class TestRipgrepFlush(TestCase):
         flush(['snap-001', 'snap-002'])
 
 
-class TestRipgrepSearch(TestCase):
+class TestRipgrepSearch:
     """Test the ripgrep search function."""
 
-    def setUp(self):
+    def setup_method(self, _method=None):
         """Create temporary archive directory with test files."""
         self.temp_dir = tempfile.mkdtemp()
         self.archive_dir = Path(self.temp_dir) / 'archive'
@@ -121,16 +120,15 @@ class TestRipgrepSearch(TestCase):
             'title/title.txt': 'Web Archiving guide',
         })
 
-        # Patch settings
-        self.settings_patch = patch(
-            'archivebox.plugins.search_backend_ripgrep.search.settings'
-        )
-        self.mock_settings = self.settings_patch.start()
-        self.mock_settings.ARCHIVE_DIR = str(self.archive_dir)
+        self._orig_snap_dir = os.environ.get('SNAP_DIR')
+        os.environ['SNAP_DIR'] = str(self.archive_dir)
 
-    def tearDown(self):
+    def teardown_method(self, _method=None):
         """Clean up temporary directory."""
-        self.settings_patch.stop()
+        if self._orig_snap_dir is None:
+            os.environ.pop('SNAP_DIR', None)
+        else:
+            os.environ['SNAP_DIR'] = self._orig_snap_dir
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def _create_snapshot(self, snapshot_id: str, files: dict):
@@ -147,26 +145,26 @@ class TestRipgrepSearch(TestCase):
 
     def test_search_no_archive_dir(self):
         """search should return empty list when archive dir doesn't exist."""
-        self.mock_settings.ARCHIVE_DIR = '/nonexistent/path'
+        os.environ['SNAP_DIR'] = '/nonexistent/path'
         results = search('test')
-        self.assertEqual(results, [])
+        assert results == []
 
     def test_search_single_match(self):
         """search should find matching snapshot."""
         results = search('Python programming')
 
-        self.assertIn('snap-001', results)
-        self.assertNotIn('snap-002', results)
-        self.assertNotIn('snap-003', results)
+        assert 'snap-001' in results
+        assert 'snap-002' not in results
+        assert 'snap-003' not in results
 
     def test_search_multiple_matches(self):
         """search should find all matching snapshots."""
         # 'guide' appears in snap-002 (JavaScript guide) and snap-003 (Archiving Guide)
         results = search('guide')
 
-        self.assertIn('snap-002', results)
-        self.assertIn('snap-003', results)
-        self.assertNotIn('snap-001', results)
+        assert 'snap-002' in results
+        assert 'snap-003' in results
+        assert 'snap-001' not in results
 
     def test_search_case_insensitive_by_default(self):
         """search should be case-sensitive (ripgrep default)."""
@@ -175,20 +173,20 @@ class TestRipgrepSearch(TestCase):
         results_lower = search('python')
 
         # Depending on ripgrep config, results may differ
-        self.assertIsInstance(results_upper, list)
-        self.assertIsInstance(results_lower, list)
+        assert isinstance(results_upper, list)
+        assert isinstance(results_lower, list)
 
     def test_search_no_results(self):
         """search should return empty list for no matches."""
         results = search('xyznonexistent123')
-        self.assertEqual(results, [])
+        assert results == []
 
     def test_search_regex(self):
         """search should support regex patterns."""
         results = search('(Python|JavaScript)')
 
-        self.assertIn('snap-001', results)
-        self.assertIn('snap-002', results)
+        assert 'snap-001' in results
+        assert 'snap-002' in results
 
     def test_search_distinct_snapshots(self):
         """search should return distinct snapshot IDs."""
@@ -196,35 +194,35 @@ class TestRipgrepSearch(TestCase):
         results = search('Python')
 
         # Should only appear once
-        self.assertEqual(results.count('snap-001'), 1)
+        assert results.count('snap-001') == 1
 
     def test_search_missing_binary(self):
         """search should raise when ripgrep binary not found."""
         with patch.dict(os.environ, {'RIPGREP_BINARY': '/nonexistent/rg'}):
             with patch('shutil.which', return_value=None):
-                with self.assertRaises(RuntimeError) as context:
+                with pytest.raises(RuntimeError) as context:
                     search('test')
-                self.assertIn('ripgrep binary not found', str(context.exception))
+                assert 'ripgrep binary not found' in str(context.value)
 
     def test_search_with_custom_args(self):
         """search should use custom RIPGREP_ARGS."""
         with patch.dict(os.environ, {'RIPGREP_ARGS': '["-i"]'}):  # Case insensitive
             results = search('PYTHON')
             # With -i flag, should find regardless of case
-            self.assertIn('snap-001', results)
+            assert 'snap-001' in results
 
     def test_search_timeout(self):
         """search should handle timeout gracefully."""
         with patch.dict(os.environ, {'RIPGREP_TIMEOUT': '1'}):
             # Short timeout, should still complete for small archive
             results = search('Python')
-            self.assertIsInstance(results, list)
+            assert isinstance(results, list)
 
 
-class TestRipgrepSearchIntegration(TestCase):
+class TestRipgrepSearchIntegration:
     """Integration tests with realistic archive structure."""
 
-    def setUp(self):
+    def setup_method(self, _method=None):
         """Create archive with realistic structure."""
         self.temp_dir = tempfile.mkdtemp()
         self.archive_dir = Path(self.temp_dir) / 'archive'
@@ -255,15 +253,15 @@ class TestRipgrepSearchIntegration(TestCase):
             'readability/content.html': '<p>Python 3.12 has been released with exciting new features.</p>',
         })
 
-        self.settings_patch = patch(
-            'archivebox.plugins.search_backend_ripgrep.search.settings'
-        )
-        self.mock_settings = self.settings_patch.start()
-        self.mock_settings.ARCHIVE_DIR = str(self.archive_dir)
+        self._orig_snap_dir = os.environ.get('SNAP_DIR')
+        os.environ['SNAP_DIR'] = str(self.archive_dir)
 
-    def tearDown(self):
+    def teardown_method(self, _method=None):
         """Clean up."""
-        self.settings_patch.stop()
+        if self._orig_snap_dir is None:
+            os.environ.pop('SNAP_DIR', None)
+        else:
+            os.environ['SNAP_DIR'] = self._orig_snap_dir
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def _create_snapshot(self, timestamp: str, files: dict):
@@ -280,17 +278,17 @@ class TestRipgrepSearchIntegration(TestCase):
     def test_search_archivebox(self):
         """Search for archivebox should find documentation snapshot."""
         results = search('archivebox')
-        self.assertIn('1704067200.123456', results)
+        assert '1704067200.123456' in results
 
     def test_search_python(self):
         """Search for python should find Python news snapshot."""
         results = search('Python')
-        self.assertIn('1704153600.654321', results)
+        assert '1704153600.654321' in results
 
     def test_search_pip_install(self):
         """Search for installation command."""
         results = search('pip install')
-        self.assertIn('1704067200.123456', results)
+        assert '1704067200.123456' in results
 
 
 if __name__ == '__main__':

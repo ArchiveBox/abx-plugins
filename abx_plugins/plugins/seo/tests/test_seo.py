@@ -7,20 +7,18 @@ meta tag extraction.
 
 import json
 import subprocess
-import sys
 import tempfile
 import shutil
 from pathlib import Path
 
-from django.test import TestCase
+import pytest
 
-# Import chrome test helpers
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'chrome' / 'tests'))
-from chrome_test_helpers import (
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     chrome_session,
     CHROME_NAVIGATE_HOOK,
     get_plugin_dir,
     get_hook_script,
+    chrome_test_url,
 )
 
 
@@ -29,29 +27,29 @@ PLUGIN_DIR = get_plugin_dir(__file__)
 SEO_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_seo.*')
 
 
-class TestSEOPlugin(TestCase):
+class TestSEOPlugin:
     """Test the SEO plugin."""
 
     def test_seo_hook_exists(self):
         """SEO hook script should exist."""
-        self.assertIsNotNone(SEO_HOOK, "SEO hook not found in plugin directory")
-        self.assertTrue(SEO_HOOK.exists(), f"Hook not found: {SEO_HOOK}")
+        assert SEO_HOOK is not None, "SEO hook not found in plugin directory"
+        assert SEO_HOOK.exists(), f"Hook not found: {SEO_HOOK}"
 
 
-class TestSEOWithChrome(TestCase):
+class TestSEOWithChrome:
     """Integration tests for SEO plugin with Chrome."""
 
-    def setUp(self):
+    def setup_method(self, _method=None):
         """Set up test environment."""
         self.temp_dir = Path(tempfile.mkdtemp())
 
-    def tearDown(self):
+    def teardown_method(self, _method=None):
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_seo_extracts_meta_tags(self):
+    def test_seo_extracts_meta_tags(self, chrome_test_url):
         """SEO hook should extract meta tags from a real URL."""
-        test_url = 'https://example.com'
+        test_url = chrome_test_url
         snapshot_id = 'test-seo-snapshot'
 
         with chrome_session(
@@ -73,7 +71,7 @@ class TestSEOWithChrome(TestCase):
                 timeout=120,
                 env=env
             )
-            self.assertEqual(nav_result.returncode, 0, f"Navigation failed: {nav_result.stderr}")
+            assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
             # Run SEO hook with the active Chrome session
             result = subprocess.run(
@@ -113,16 +111,16 @@ class TestSEOWithChrome(TestCase):
                             continue
 
             # Verify hook ran successfully
-            self.assertEqual(result.returncode, 0, f"Hook failed: {result.stderr}")
-            self.assertNotIn('Traceback', result.stderr)
-            self.assertNotIn('Error:', result.stderr)
+            assert result.returncode == 0, f"Hook failed: {result.stderr}"
+            assert 'Traceback' not in result.stderr
+            assert 'Error:' not in result.stderr
 
             # example.com has a title, so we MUST get SEO data
-            self.assertIsNotNone(seo_data, "No SEO data extracted from file or stdout")
+            assert seo_data is not None, "No SEO data extracted from file or stdout"
 
             # Verify we got some SEO data
             has_seo_data = any(key in seo_data for key in ['title', 'description', 'og:title', 'canonical', 'meta'])
-            self.assertTrue(has_seo_data, f"No SEO data extracted: {seo_data}")
+            assert has_seo_data, f"No SEO data extracted: {seo_data}"
 
 
 if __name__ == '__main__':

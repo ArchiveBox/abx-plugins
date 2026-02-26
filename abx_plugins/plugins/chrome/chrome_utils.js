@@ -10,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const http = require('http');
+const os = require('os');
 const net = require('net');
 const { exec, spawn } = require('child_process');
 const { promisify } = require('util');
@@ -90,6 +91,42 @@ function getEnvArray(name, defaultValue = []) {
 
     // Parse as comma-separated values
     return val.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+/**
+ * Get the current snapshot directory.
+ * Priority: SNAP_DIR, or cwd.
+ *
+ * @returns {string} - Absolute path to snapshot directory
+ */
+function getSnapDir() {
+    const snapDir = getEnv('SNAP_DIR');
+    if (snapDir) return path.resolve(snapDir);
+    return path.resolve(process.cwd());
+}
+
+/**
+ * Get the current crawl directory.
+ * Priority: CRAWL_DIR, or cwd.
+ *
+ * @returns {string} - Absolute path to crawl directory
+ */
+function getCrawlDir() {
+    const crawlDir = getEnv('CRAWL_DIR');
+    if (crawlDir) return path.resolve(crawlDir);
+    return path.resolve(process.cwd());
+}
+
+/**
+ * Get the personas directory.
+ * Priority: PERSONAS_DIR, or ~/.config/abx/personas
+ *
+ * @returns {string} - Absolute path to personas directory
+ */
+function getPersonasDir() {
+    const personasDir = getEnv('PERSONAS_DIR');
+    if (personasDir) return path.resolve(personasDir);
+    return path.resolve(path.join(os.homedir(), '.config', 'abx', 'personas'));
 }
 
 /**
@@ -205,21 +242,21 @@ function waitForDebugPort(port, timeout = 30000) {
 
 /**
  * Kill zombie Chrome processes from stale crawls.
- * Recursively scans DATA_DIR for any .../chrome/...pid files from stale crawls.
+ * Recursively scans SNAP_DIR for any .../chrome/...pid files from stale crawls.
  * Does not assume specific directory structure - works with nested paths.
- * @param {string} [dataDir] - Data directory (defaults to DATA_DIR env or '.')
+ * @param {string} [snapDir] - Snapshot directory (defaults to SNAP_DIR env or cwd)
  * @returns {number} - Number of zombies killed
  */
-function killZombieChrome(dataDir = null) {
-    dataDir = dataDir || getEnv('DATA_DIR', '.');
+function killZombieChrome(snapDir = null) {
+    snapDir = snapDir || getSnapDir();
     const now = Date.now();
     const fiveMinutesAgo = now - 300000;
     let killed = 0;
 
     console.error('[*] Checking for zombie Chrome processes...');
 
-    if (!fs.existsSync(dataDir)) {
-        console.error('[+] No data directory found');
+    if (!fs.existsSync(snapDir)) {
+        console.error('[+] No snapshot directory found');
         return 0;
     }
 
@@ -270,7 +307,7 @@ function killZombieChrome(dataDir = null) {
     }
 
     try {
-        const chromePids = findChromePidFiles(dataDir);
+        const chromePids = findChromePidFiles(snapDir);
 
         for (const {pidFile, crawlDir} of chromePids) {
             // Check if crawl was modified recently (still active)
@@ -323,7 +360,7 @@ function killZombieChrome(dataDir = null) {
     }
 
     // Clean up stale SingletonLock files from persona chrome_user_data directories
-    const personasDir = path.join(dataDir, 'personas');
+    const personasDir = getPersonasDir();
     if (fs.existsSync(personasDir)) {
         try {
             const personas = fs.readdirSync(personasDir, { withFileTypes: true });
@@ -747,13 +784,13 @@ async function installChromium(options = {}) {
  * Install puppeteer-core npm package.
  *
  * @param {Object} options - Install options
- * @param {string} [options.npmPrefix] - npm prefix directory (default: DATA_DIR/lib/<arch>/npm or ./node_modules parent)
+ * @param {string} [options.npmPrefix] - npm prefix directory (default: LIB_DIR/npm)
  * @param {number} [options.timeout=60000] - Timeout in milliseconds
  * @returns {Promise<Object>} - {success, path, error}
  */
 async function installPuppeteerCore(options = {}) {
     const arch = `${process.arch}-${process.platform}`;
-    const defaultPrefix = path.join(getEnv('LIB_DIR', getEnv('DATA_DIR', '.')), 'npm');
+    const defaultPrefix = path.join(getLibDir(), 'npm');
     const {
         npmPrefix = defaultPrefix,
         timeout = 60000,
@@ -1415,15 +1452,15 @@ function findAnyChromiumBinary() {
  *
  * Path is derived from environment variables in this priority:
  * 1. CHROME_EXTENSIONS_DIR (explicit override)
- * 2. DATA_DIR/personas/ACTIVE_PERSONA/chrome_extensions (default)
+ * 2. PERSONAS_DIR/ACTIVE_PERSONA/chrome_extensions (default)
  *
  * @returns {string} - Absolute path to extensions directory
  */
 function getExtensionsDir() {
-    const dataDir = getEnv('DATA_DIR', '.');
+    const personasDir = getPersonasDir();
     const persona = getEnv('ACTIVE_PERSONA', 'Default');
     return getEnv('CHROME_EXTENSIONS_DIR') ||
-        path.join(dataDir, 'personas', persona, 'chrome_extensions');
+        path.join(personasDir, persona, 'chrome_extensions');
 }
 
 /**
@@ -1453,8 +1490,8 @@ function getMachineType() {
 }
 
 /**
- * Get LIB_DIR path for platform-specific binaries.
- * Returns DATA_DIR/lib/MACHINE_TYPE/
+ * Get LIB_DIR path for shared binaries and caches.
+ * Returns ~/.config/abx/lib by default.
  *
  * @returns {string} - Absolute path to lib directory
  */
@@ -1462,9 +1499,8 @@ function getLibDir() {
     if (process.env.LIB_DIR) {
         return path.resolve(process.env.LIB_DIR);
     }
-    const dataDir = getEnv('DATA_DIR', './data');
-    const machineType = getMachineType();
-    return path.resolve(path.join(dataDir, 'lib', machineType));
+    const defaultRoot = path.join(os.homedir(), '.config', 'abx', 'lib');
+    return path.resolve(defaultRoot);
 }
 
 /**
@@ -1488,13 +1524,16 @@ function getNodeModulesDir() {
  * @returns {Object} - Object with all test environment paths
  */
 function getTestEnv() {
-    const dataDir = getEnv('DATA_DIR', './data');
+    const snapDir = getSnapDir();
+    const crawlDir = getCrawlDir();
     const machineType = getMachineType();
     const libDir = getLibDir();
     const nodeModulesDir = getNodeModulesDir();
 
     return {
-        DATA_DIR: dataDir,
+        SNAP_DIR: snapDir,
+        CRAWL_DIR: crawlDir,
+        PERSONAS_DIR: getPersonasDir(),
         MACHINE_TYPE: machineType,
         LIB_DIR: libDir,
         NODE_MODULES_DIR: nodeModulesDir,
@@ -1827,7 +1866,9 @@ if (require.main === module) {
         console.log('  installExtensionWithCache Install extension with caching');
         console.log('');
         console.log('Environment variables:');
-        console.log('  DATA_DIR                  Base data directory');
+        console.log('  SNAP_DIR                  Base snapshot directory');
+        console.log('  CRAWL_DIR                 Base crawl directory');
+        console.log('  PERSONAS_DIR              Personas directory');
         console.log('  LIB_DIR                   Library directory (computed if not set)');
         console.log('  MACHINE_TYPE              Machine type override');
         console.log('  NODE_MODULES_DIR          Node modules directory');
@@ -1910,8 +1951,8 @@ if (require.main === module) {
                 }
 
                 case 'killZombieChrome': {
-                    const [dataDir] = commandArgs;
-                    const killed = killZombieChrome(dataDir);
+                    const [snapDir] = commandArgs;
+                    const killed = killZombieChrome(snapDir);
                     console.log(killed);
                     break;
                 }

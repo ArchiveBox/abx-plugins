@@ -1,21 +1,27 @@
-#!/usr/bin/env python3
-"""
-Archive a URL using wget.
-
-Usage: on_Snapshot__06_wget.bg.py --url=<url> --snapshot-id=<uuid>
-Output: Downloads files to $PWD
-
-Environment variables:
-    WGET_ENABLED: Enable wget archiving (default: True)
-    WGET_WARC_ENABLED: Save WARC file (default: True)
-    WGET_BINARY: Path to wget binary (default: wget)
-    WGET_TIMEOUT: Timeout in seconds (x-fallback: TIMEOUT)
-    WGET_USER_AGENT: User agent string (x-fallback: USER_AGENT)
-    WGET_COOKIES_FILE: Path to cookies file (x-fallback: COOKIES_FILE)
-    WGET_CHECK_SSL_VALIDITY: Whether to check SSL certificates (x-fallback: CHECK_SSL_VALIDITY)
-    WGET_ARGS: Default wget arguments (JSON array)
-    WGET_ARGS_EXTRA: Extra arguments to append (JSON array)
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "rich-click",
+# ]
+# ///
+#
+# Archive a URL using wget.
+#
+# Usage: on_Snapshot__06_wget.bg.py --url=<url> --snapshot-id=<uuid>
+# Output: Downloads files to $PWD
+#
+# Environment variables:
+#     WGET_ENABLED: Enable wget archiving (default: True)
+#     WGET_WARC_ENABLED: Save WARC file (default: True)
+#     WGET_BINARY: Path to wget binary (default: wget)
+#     WGET_TIMEOUT: Timeout in seconds (x-fallback: TIMEOUT)
+#     WGET_USER_AGENT: User agent string (x-fallback: USER_AGENT)
+#     WGET_COOKIES_FILE: Path to cookies file (x-fallback: COOKIES_FILE)
+#     WGET_CHECK_SSL_VALIDITY: Whether to check SSL certificates (x-fallback: CHECK_SSL_VALIDITY)
+#     WGET_ARGS: Default wget arguments (JSON array)
+#     WGET_ARGS_EXTRA: Extra arguments to append (JSON array)
+#
 
 import json
 import os
@@ -32,9 +38,11 @@ import rich_click as click
 PLUGIN_NAME = 'wget'
 BIN_NAME = 'wget'
 BIN_PROVIDERS = 'apt,brew,env'
-OUTPUT_DIR = '.'
-
-
+PLUGIN_DIR = Path(__file__).resolve().parent.name
+SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 def get_env(name: str, default: str = '') -> str:
     return os.environ.get(name, default).strip()
 

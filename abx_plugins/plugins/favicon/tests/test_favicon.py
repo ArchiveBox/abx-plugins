@@ -13,6 +13,7 @@ Tests verify:
 """
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -20,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,
     get_hook_script,
     parse_jsonl_output,
@@ -68,6 +69,10 @@ def test_extracts_favicon_from_example_com():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
+        snap_dir = tmpdir / 'snap'
+        snap_dir.mkdir(parents=True, exist_ok=True)
+        env = os.environ.copy()
+        env['SNAP_DIR'] = str(snap_dir)
 
         # Run favicon extraction
         result = subprocess.run(
@@ -75,7 +80,8 @@ def test_extracts_favicon_from_example_com():
             cwd=tmpdir,
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=60,
+            env=env
         )
 
         # May succeed (if Google service works) or fail (if no favicon)
@@ -99,7 +105,7 @@ def test_extracts_favicon_from_example_com():
 
         # If it succeeded, verify the favicon file
         if result_json['status'] == 'succeeded':
-            favicon_file = tmpdir / 'favicon.ico'
+            favicon_file = snap_dir / 'favicon' / 'favicon.ico'
             assert favicon_file.exists(), "favicon.ico not created"
 
             # Verify file is not empty and contains actual image data
@@ -140,6 +146,7 @@ def test_config_timeout_honored():
         import os
         env = os.environ.copy()
         env['TIMEOUT'] = '5'
+        env['SNAP_DIR'] = str(tmpdir)
 
         result = subprocess.run(
             [sys.executable, str(FAVICON_HOOK), '--url', TEST_URL, '--snapshot-id', 'testtimeout'],
@@ -171,6 +178,7 @@ def test_config_user_agent():
         import os
         env = os.environ.copy()
         env['USER_AGENT'] = 'TestBot/1.0'
+        env['SNAP_DIR'] = str(tmpdir)
 
         result = subprocess.run(
             [sys.executable, str(FAVICON_HOOK), '--url', TEST_URL, '--snapshot-id', 'testua'],
@@ -214,16 +222,19 @@ def test_handles_https_urls():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
+        env = os.environ.copy()
+        env['SNAP_DIR'] = str(tmpdir)
         result = subprocess.run(
             [sys.executable, str(FAVICON_HOOK), '--url', 'https://example.org', '--snapshot-id', 'testhttps'],
             cwd=tmpdir,
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=60,
+            env=env,
         )
 
         if result.returncode == 0:
-            favicon_file = tmpdir / 'favicon.ico'
+            favicon_file = tmpdir / 'favicon' / 'favicon.ico'
             if favicon_file.exists():
                 assert favicon_file.stat().st_size > 0
 
@@ -246,12 +257,15 @@ def test_handles_missing_favicon_gracefully():
         tmpdir = Path(tmpdir)
 
         # Try a URL that likely doesn't have a favicon
+        env = os.environ.copy()
+        env['SNAP_DIR'] = str(tmpdir)
         result = subprocess.run(
             [sys.executable, str(FAVICON_HOOK), '--url', 'https://example.com/nonexistent', '--snapshot-id', 'test404'],
             cwd=tmpdir,
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=60,
+            env=env,
         )
 
         # May succeed (Google fallback) or fail gracefully
@@ -273,6 +287,7 @@ def test_reports_missing_requests_library():
         env = os.environ.copy()
         # Keep only minimal PATH, clear PYTHONPATH
         env['PYTHONPATH'] = '/nonexistent'
+        env['SNAP_DIR'] = str(tmpdir)
 
         result = subprocess.run(
             [sys.executable, '-S', str(FAVICON_HOOK), '--url', TEST_URL, '--snapshot-id', 'test123'],

@@ -1,16 +1,17 @@
-#!/usr/bin/env python3
-"""
-Install a binary using a custom bash command.
-
-This provider runs arbitrary shell commands to install binaries
-that don't fit into standard package managers.
-
-Usage: on_Binary__install_using_custom_bash.py --binary-id=<uuid> --machine-id=<uuid> --name=<name> --custom-cmd=<cmd>
-Output: Binary JSONL record to stdout after installation
-
-Environment variables:
-    MACHINE_ID: Machine UUID (set by orchestrator)
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "rich-click",
+#   "abx-pkg",
+# ]
+# ///
+#
+# Install a binary using a custom bash command. This provider runs arbitrary shell commands
+# to install binaries that don't fit into standard package managers, outputting a Binary JSONL record to stdout.
+#
+# Usage:
+#     ./on_Binary__14_custom_install.py [...] > events.jsonl
 
 import json
 import os

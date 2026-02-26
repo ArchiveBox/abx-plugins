@@ -1,16 +1,22 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "rich-click",
+# ]
+# ///
 """
 Parse plain text files and extract URLs.
 
 This is a standalone extractor that can run without ArchiveBox.
 It reads text content from a URL (file:// or https://) and extracts all URLs found.
 
-Usage: ./on_Snapshot__52_parse_txt_urls.py --url=<url>
-Output: Appends discovered URLs to urls.jsonl in current directory
+Usage: ./on_Snapshot__71_parse_txt_urls.py --url=<url>
+Output: Appends discovered URLs to SNAP_DIR/parse_txt_urls/urls.jsonl
 
 Examples:
-    ./on_Snapshot__52_parse_txt_urls.py --url=file:///path/to/urls.txt
-    ./on_Snapshot__52_parse_txt_urls.py --url=https://example.com/urls.txt
+    ./on_Snapshot__71_parse_txt_urls.py --url=file:///path/to/urls.txt
+    ./on_Snapshot__71_parse_txt_urls.py --url=https://example.com/urls.txt
 """
 
 import json
@@ -26,6 +32,11 @@ from urllib.request import urlopen
 import rich_click as click
 
 PLUGIN_NAME = 'parse_txt_urls'
+PLUGIN_DIR = Path(__file__).resolve().parent.name
+SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 URLS_FILE = Path('urls.jsonl')
 
 # URL regex from archivebox/misc/util.py

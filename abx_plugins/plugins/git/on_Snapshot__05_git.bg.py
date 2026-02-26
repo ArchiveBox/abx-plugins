@@ -1,19 +1,16 @@
-#!/usr/bin/env python3
-"""
-Clone a git repository from a URL.
-
-Usage: on_Snapshot__05_git.bg.py --url=<url> --snapshot-id=<uuid>
-Output: Clones repository to $PWD/repo
-
-Environment variables:
-    GIT_BINARY: Path to git binary
-    GIT_TIMEOUT: Timeout in seconds (default: 120)
-    GIT_ARGS: Default git arguments (JSON array, default: ["clone", "--depth=1", "--recursive"])
-    GIT_ARGS_EXTRA: Extra arguments to append (JSON array, default: [])
-
-    # Fallback to ARCHIVING_CONFIG values if GIT_* not set:
-    TIMEOUT: Fallback timeout
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "rich-click",
+# ]
+# ///
+#
+# Clones a git repository from a provided URL into the current working directory.
+# Supports configurable git arguments and timeout via environment variables.
+#
+# Usage:
+#     ./on_Snapshot__05_git.bg.py --url=<url> --snapshot-id=<uuid> > events.jsonl
 
 import json
 import os
@@ -28,9 +25,11 @@ import rich_click as click
 PLUGIN_NAME = 'git'
 BIN_NAME = 'git'
 BIN_PROVIDERS = 'apt,brew,env'
-OUTPUT_DIR = '.'
-
-
+PLUGIN_DIR = Path(__file__).resolve().parent.name
+SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 def get_env(name: str, default: str = '') -> str:
     return os.environ.get(name, default).strip()
 

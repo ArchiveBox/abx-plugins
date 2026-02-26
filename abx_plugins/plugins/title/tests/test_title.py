@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,
     get_hook_script,
     parse_jsonl_output,
@@ -120,8 +120,10 @@ def test_fails_without_chrome_session():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        title_dir = tmpdir / 'snapshot' / 'title'
+        snap_dir = tmpdir / 'snap'
+        title_dir = snap_dir / 'title'
         title_dir.mkdir(parents=True, exist_ok=True)
+        env = get_test_env() | {'SNAP_DIR': str(snap_dir)}
 
         # Run title extraction
         result = subprocess.run(
@@ -130,7 +132,7 @@ def test_fails_without_chrome_session():
             capture_output=True,
             text=True,
             timeout=60,
-            env=get_test_env(),
+            env=env,
         )
 
         assert result.returncode != 0, f"Should fail without chrome session: {result.stderr}"

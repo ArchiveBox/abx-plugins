@@ -16,7 +16,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from django.test import TestCase
 
 
 # Get the path to the apt provider hook
@@ -35,20 +34,20 @@ def is_linux() -> bool:
     return platform.system().lower() == 'linux'
 
 
-class TestAptProviderHook(TestCase):
+class TestAptProviderHook:
     """Test the apt binary provider installation hook."""
 
-    def setUp(self):
+    def setup_method(self, _method=None):
         """Set up test environment."""
         self.temp_dir = tempfile.mkdtemp()
 
-    def tearDown(self):
+    def teardown_method(self, _method=None):
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_hook_script_exists(self):
         """Hook script should exist."""
-        self.assertTrue(INSTALL_HOOK and INSTALL_HOOK.exists(), f"Hook not found: {INSTALL_HOOK}")
+        assert INSTALL_HOOK and INSTALL_HOOK.exists(), f"Hook not found: {INSTALL_HOOK}"
 
     def test_hook_skips_when_apt_not_allowed(self):
         """Hook should skip when apt not in allowed binproviders."""
@@ -66,8 +65,8 @@ class TestAptProviderHook(TestCase):
         )
 
         # Should exit cleanly (code 0) when apt not allowed
-        self.assertIn('apt provider not allowed', result.stderr)
-        self.assertEqual(result.returncode, 0)
+        assert 'apt provider not allowed' in result.stderr
+        assert result.returncode == 0
 
     @pytest.mark.skipif(not is_linux(), reason="apt only available on Linux")
     def test_hook_detects_apt(self):
@@ -86,7 +85,7 @@ class TestAptProviderHook(TestCase):
         )
 
         # Should not say apt is not available
-        self.assertNotIn('apt not available', result.stderr)
+        assert 'apt not available' not in result.stderr
 
     def test_hook_handles_overrides(self):
         """Hook should accept overrides JSON."""
@@ -108,11 +107,11 @@ class TestAptProviderHook(TestCase):
         )
 
         # Should not crash parsing overrides
-        self.assertNotIn('Traceback', result.stderr)
+        assert 'Traceback' not in result.stderr
 
 
 @pytest.mark.skipif(not is_linux(), reason="apt only available on Linux")
-class TestAptProviderSystemBinaries(TestCase):
+class TestAptProviderSystemBinaries:
     """Test apt provider with system binaries."""
 
     def test_detect_existing_binary(self):
@@ -139,15 +138,15 @@ class TestAptProviderSystemBinaries(TestCase):
                     record = json.loads(line)
                     if record.get('type') == 'Binary' and record.get('name') == 'bash':
                         # Found bash
-                        self.assertTrue(record.get('abspath'))
-                        self.assertTrue(Path(record['abspath']).exists())
+                        assert record.get('abspath')
+                        assert Path(record['abspath']).exists()
                         return
                 except json.JSONDecodeError:
                     continue
 
         # apt may not be able to "install" bash (already installed)
         # Just verify no crash
-        self.assertNotIn('Traceback', result.stderr)
+        assert 'Traceback' not in result.stderr
 
 
 if __name__ == '__main__':

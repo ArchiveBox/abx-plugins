@@ -1,19 +1,16 @@
-#!/usr/bin/env python3
-"""
-Convert HTML to plain text for search indexing.
-
-This extractor reads HTML from other extractors (wget, singlefile, dom)
-and converts it to plain text for full-text search.
-
-Usage: on_Snapshot__htmltotext.py --url=<url> --snapshot-id=<uuid>
-Output: Writes htmltotext.txt to $PWD
-
-Environment variables:
-    TIMEOUT: Timeout in seconds (not used, but kept for consistency)
-
-Note: This extractor does not require any external binaries.
-      It uses Python's built-in html.parser module.
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "rich-click",
+# ]
+# ///
+#
+# Convert HTML to plain text for search indexing.
+# Reads HTML from other extractors (wget, singlefile, dom) and converts to plain text for full-text search.
+#
+# Usage:
+#     ./on_Snapshot__58_htmltotext.py --url=<url> --snapshot-id=<snapshot-id> > events.jsonl
 
 import json
 import os
@@ -27,7 +24,11 @@ import rich_click as click
 
 # Extractor metadata
 PLUGIN_NAME = 'htmltotext'
-OUTPUT_DIR = '.'
+PLUGIN_DIR = Path(__file__).resolve().parent.name
+SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 OUTPUT_FILE = 'htmltotext.txt'
 
 

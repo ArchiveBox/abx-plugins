@@ -1,10 +1,17 @@
-#!/usr/bin/env python3
-"""
-Wrapper for forum-dl that applies Pydantic v2 compatibility patches.
-
-This wrapper fixes forum-dl 0.3.0's incompatibility with Pydantic v2 by monkey-patching
-the JsonlWriter class to use model_dump_json() instead of the deprecated json(models_as_dict=False).
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "forum-dl",
+#   "pydantic",
+# ]
+# ///
+#
+# Wrapper for forum-dl that applies Pydantic v2 compatibility patches.
+# Fixes forum-dl 0.3.0's incompatibility with Pydantic v2 by monkey-patching the JsonlWriter class.
+#
+# Usage:
+#     ./forum-dl-wrapper.py [...] > events.jsonl
 
 import sys
 

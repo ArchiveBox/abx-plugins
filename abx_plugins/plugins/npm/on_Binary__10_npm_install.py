@@ -1,14 +1,16 @@
-#!/usr/bin/env python3
-"""
-Install a binary using npm package manager.
-
-Usage: on_Binary__install_using_npm_provider.py --binary-id=<uuid> --machine-id=<uuid> --name=<name> [--custom-cmd=<cmd>]
-Output: Binary JSONL record to stdout after installation
-
-Environment variables:
-    MACHINE_ID: Machine UUID (set by orchestrator)
-    LIB_DIR: Library directory including machine type (e.g., data/lib/arm64-darwin) (required)
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "rich-click",
+#   "abx-pkg",
+# ]
+# ///
+#
+# Install a binary using npm package manager and configure PATH and NODE_MODULES_DIR environment variables.
+#
+# Usage:
+#     ./on_Binary__10_npm_install.py --machine-id=<uuid> --binary-id=<uuid> --name=<name> [...] > events.jsonl
 
 import json
 import os
@@ -36,13 +38,10 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, custom_c
         click.echo(f"npm provider not allowed for {name}", err=True)
         sys.exit(0)
 
-    # Get LIB_DIR from environment (required)
-    # Note: LIB_DIR already includes machine type (e.g., data/lib/arm64-darwin)
-    lib_dir = os.environ.get('LIB_DIR')
-
+    # Get LIB_DIR from environment (optional)
+    lib_dir = os.environ.get('LIB_DIR', '').strip()
     if not lib_dir:
-        click.echo("ERROR: LIB_DIR environment variable not set", err=True)
-        sys.exit(1)
+        lib_dir = str(Path.home() / '.config' / 'abx' / 'lib')
 
     # Structure: lib/arm64-darwin/npm (npm will create node_modules inside this)
     npm_prefix = Path(lib_dir) / 'npm'

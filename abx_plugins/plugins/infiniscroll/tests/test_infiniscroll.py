@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 # Import shared Chrome test helpers
-from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
     chrome_session,
 )
@@ -55,7 +55,9 @@ def test_config_infiniscroll_disabled_skips():
     """Test that INFINISCROLL_ENABLED=False exits without emitting JSONL."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        env = get_test_env()
+        snap_dir = tmpdir / 'snap'
+        snap_dir.mkdir(parents=True, exist_ok=True)
+        env = get_test_env() | {'SNAP_DIR': str(snap_dir)}
         env['INFINISCROLL_ENABLED'] = 'False'
 
         result = subprocess.run(
@@ -79,7 +81,8 @@ def test_fails_gracefully_without_chrome_session():
     """Test that hook fails gracefully when no chrome session exists."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        infiniscroll_dir = tmpdir / 'snapshot' / 'infiniscroll'
+        snap_dir = tmpdir / 'snap'
+        infiniscroll_dir = snap_dir / 'infiniscroll'
         infiniscroll_dir.mkdir(parents=True, exist_ok=True)
 
         result = subprocess.run(
@@ -87,7 +90,7 @@ def test_fails_gracefully_without_chrome_session():
             cwd=infiniscroll_dir,
             capture_output=True,
             text=True,
-            env=get_test_env(),
+            env=get_test_env() | {'SNAP_DIR': str(snap_dir)},
             timeout=30
         )
 

@@ -13,7 +13,7 @@
  *   - url.txt: The URL to be navigated to
  *
  * Environment variables:
- *     CRAWL_OUTPUT_DIR: Crawl output directory (to find crawl's Chrome session)
+ *     CRAWL_DIR: Crawl output directory (to find crawl's Chrome session)
  *     CHROME_BINARY: Path to Chromium binary (optional, for version info)
  *
  * This is a background hook that stays alive until SIGTERM so the tab
@@ -31,7 +31,13 @@ const { getEnv, getEnvInt } = require('./chrome_utils.js');
 
 // Extractor metadata
 const PLUGIN_NAME = 'chrome_tab';
-const OUTPUT_DIR = '.';  // Hook already runs in chrome/ output directory
+const PLUGIN_DIR = path.basename(__dirname);
+const SNAP_DIR = path.resolve((process.env.SNAP_DIR || '.').trim());
+const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
+if (!fs.existsSync(OUTPUT_DIR)) {
+    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+}
+process.chdir(OUTPUT_DIR);
 const CHROME_SESSION_DIR = '.';
 const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
 
@@ -108,13 +114,8 @@ process.on('SIGINT', () => cleanup('SIGINT'));
 
 // Try to find the crawl's Chrome session
 function getCrawlChromeSession() {
-    // Use CRAWL_OUTPUT_DIR env var set by get_config() in configset.py
-    const crawlOutputDir = getEnv('CRAWL_OUTPUT_DIR', '');
-    if (!crawlOutputDir) {
-        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
-    }
-
-    const crawlChromeDir = path.join(crawlOutputDir, 'chrome');
+    const crawlBaseDir = getEnv('CRAWL_DIR', '.');
+    const crawlChromeDir = path.join(path.resolve(crawlBaseDir), 'chrome');
     const cdpFile = path.join(crawlChromeDir, 'cdp_url.txt');
     const pidFile = path.join(crawlChromeDir, 'chrome.pid');
 

@@ -1,13 +1,20 @@
-#!/usr/bin/env python3
-"""
-Install a binary using pip package manager.
-
-Usage: on_Binary__install_using_pip_provider.py --binary-id=<uuid> --machine-id=<uuid> --name=<name>
-Output: Binary JSONL record to stdout after installation
-
-Environment variables:
-    LIB_DIR: Library directory including machine type (e.g., data/lib/arm64-darwin) (required)
-"""
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "click",
+#   "rich-click",
+#   "abx-pkg",
+# ]
+# ///
+#
+# Install a binary using pip package manager.
+#
+# Usage: on_Binary__11_pip_install.py --binary-id=<uuid> --machine-id=<uuid> --name=<name>
+# Output: Binary JSONL record to stdout after installation
+#
+# Environment variables:
+#     LIB_DIR: Library directory (default: ~/.config/abx/lib)
 
 import json
 import os
@@ -37,13 +44,10 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, override
         click.echo(f"pip provider not allowed for {name}", err=True)
         sys.exit(0)
 
-    # Get LIB_DIR from environment (required)
-    # Note: LIB_DIR already includes machine type (e.g., data/lib/arm64-darwin)
-    lib_dir = os.environ.get('LIB_DIR')
-
+    # Get LIB_DIR from environment (optional)
+    lib_dir = os.environ.get('LIB_DIR', '').strip()
     if not lib_dir:
-        click.echo("ERROR: LIB_DIR environment variable not set", err=True)
-        sys.exit(1)
+        lib_dir = str(Path.home() / '.config' / 'abx' / 'lib')
 
     # Structure: lib/arm64-darwin/pip/venv (PipProvider will create venv automatically)
     pip_venv_path = Path(lib_dir) / 'pip' / 'venv'

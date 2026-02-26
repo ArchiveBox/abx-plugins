@@ -9,7 +9,7 @@ import pytest
 import tempfile
 from pathlib import Path
 
-from archivebox.plugins.chrome.tests.chrome_test_helpers import (
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
     get_machine_type,
     get_lib_dir,
@@ -79,22 +79,22 @@ def test_get_extensions_dir_default():
 def test_get_extensions_dir_with_custom_persona():
     """Test get_extensions_dir() respects ACTIVE_PERSONA env var."""
     old_persona = os.environ.get('ACTIVE_PERSONA')
-    old_data_dir = os.environ.get('DATA_DIR')
+    old_personas_dir = os.environ.get('PERSONAS_DIR')
     try:
         os.environ['ACTIVE_PERSONA'] = 'TestPersona'
-        os.environ['DATA_DIR'] = '/tmp/test'
+        os.environ['PERSONAS_DIR'] = '/tmp/test-personas'
         ext_dir = get_extensions_dir()
         assert 'TestPersona' in ext_dir
-        assert '/tmp/test' in ext_dir
+        assert '/tmp/test-personas' in ext_dir
     finally:
         if old_persona:
             os.environ['ACTIVE_PERSONA'] = old_persona
         else:
             os.environ.pop('ACTIVE_PERSONA', None)
-        if old_data_dir:
-            os.environ['DATA_DIR'] = old_data_dir
+        if old_personas_dir:
+            os.environ['PERSONAS_DIR'] = old_personas_dir
         else:
-            os.environ.pop('DATA_DIR', None)
+            os.environ.pop('PERSONAS_DIR', None)
 
 
 def test_get_test_env_returns_dict():
@@ -148,7 +148,7 @@ def test_get_plugin_dir():
 
 def test_get_hook_script_finds_existing_hook():
     """Test get_hook_script() can find an existing hook."""
-    from archivebox.plugins.chrome.tests.chrome_test_helpers import CHROME_PLUGIN_DIR
+    from abx_plugins.plugins.chrome.tests.chrome_test_helpers import CHROME_PLUGIN_DIR
 
     # Try to find the chrome launch hook
     hook = get_hook_script(CHROME_PLUGIN_DIR, 'on_Crawl__*_chrome_launch.*')
@@ -161,7 +161,7 @@ def test_get_hook_script_finds_existing_hook():
 
 def test_get_hook_script_returns_none_for_missing():
     """Test get_hook_script() returns None for non-existent hooks."""
-    from archivebox.plugins.chrome.tests.chrome_test_helpers import CHROME_PLUGIN_DIR
+    from abx_plugins.plugins.chrome.tests.chrome_test_helpers import CHROME_PLUGIN_DIR
 
     hook = get_hook_script(CHROME_PLUGIN_DIR, 'nonexistent_hook_*_pattern.*')
     assert hook is None
@@ -236,24 +236,21 @@ def test_machine_type_consistency():
 
 
 def test_lib_dir_is_directory():
-    """Test that lib_dir points to an actual directory when DATA_DIR is set."""
+    """Test that lib_dir points to an actual directory when HOME is set."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        old_data_dir = os.environ.get('DATA_DIR')
+        old_home = os.environ.get('HOME')
         try:
-            os.environ['DATA_DIR'] = tmpdir
-            # Create the expected directory structure
-            machine_type = get_machine_type()
-            lib_dir = Path(tmpdir) / 'lib' / machine_type
+            os.environ['HOME'] = tmpdir
+            lib_dir = Path(tmpdir) / '.config' / 'abx' / 'lib'
             lib_dir.mkdir(parents=True, exist_ok=True)
 
             result = get_lib_dir()
-            # Should return a Path object
             assert isinstance(result, Path)
         finally:
-            if old_data_dir:
-                os.environ['DATA_DIR'] = old_data_dir
+            if old_home:
+                os.environ['HOME'] = old_home
             else:
-                os.environ.pop('DATA_DIR', None)
+                os.environ.pop('HOME', None)
 
 
 if __name__ == '__main__':

@@ -1,4 +1,10 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "rich-click",
+# ]
+# ///
 """
 Extract article content using Mozilla's Readability.
 
@@ -31,7 +37,11 @@ import rich_click as click
 PLUGIN_NAME = 'readability'
 BIN_NAME = 'readability-extractor'
 BIN_PROVIDERS = 'npm,env'
-OUTPUT_DIR = '.'
+PLUGIN_DIR = Path(__file__).resolve().parent.name
+SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 OUTPUT_FILE = 'content.html'
 
 

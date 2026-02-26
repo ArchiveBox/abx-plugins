@@ -2,6 +2,7 @@
 """Unit tests for parse_html_urls extractor."""
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -17,12 +18,15 @@ class TestParseHtmlUrls:
 
     def test_parses_real_example_com(self, tmp_path):
         """Test parsing real https://example.com and extracting its links."""
+        env = os.environ.copy()
+        env['SNAP_DIR'] = str(tmp_path)
         result = subprocess.run(
             [sys.executable, str(SCRIPT_PATH), '--url', 'https://example.com'],
             cwd=tmp_path,
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
+            env=env,
         )
 
         assert result.returncode == 0, f"Failed to parse example.com: {result.stderr}"
@@ -49,11 +53,14 @@ class TestParseHtmlUrls:
 </html>
         ''')
 
+        env = os.environ.copy()
+        env['SNAP_DIR'] = str(tmp_path)
         result = subprocess.run(
             [sys.executable, str(SCRIPT_PATH), '--url', f'file://{input_file}'],
             cwd=tmp_path,
             capture_output=True,
             text=True,
+            env=env,
         )
 
         assert result.returncode == 0
@@ -78,7 +85,7 @@ class TestParseHtmlUrls:
         assert '"type": "ArchiveResult"' in result.stdout
         assert '"status": "succeeded"' in result.stdout
 
-        urls_file = tmp_path / 'urls.jsonl'
+        urls_file = tmp_path / 'parse_html_urls' / 'urls.jsonl'
         assert urls_file.exists(), "urls.jsonl not created"
         file_lines = [line for line in urls_file.read_text().splitlines() if line.strip()]
         assert len(file_lines) == 3, f"Expected 3 urls.jsonl entries, got {len(file_lines)}"
@@ -97,11 +104,14 @@ class TestParseHtmlUrls:
 </html>
         ''')
 
+        env = os.environ.copy()
+        env['SNAP_DIR'] = str(tmp_path)
         result = subprocess.run(
             [sys.executable, str(SCRIPT_PATH), '--url', f'file://{input_file}'],
             cwd=tmp_path,
             capture_output=True,
             text=True,
+            env=env,
         )
 
         assert result.returncode == 0
@@ -124,11 +134,14 @@ class TestParseHtmlUrls:
 </html>
         ''')
 
+        env = os.environ.copy()
+        env['SNAP_DIR'] = str(tmp_path)
         result = subprocess.run(
             [sys.executable, str(SCRIPT_PATH), '--url', f'file://{input_file}'],
             cwd=tmp_path,
             capture_output=True,
             text=True,
+            env=env,
         )
 
         assert result.returncode == 0
@@ -149,11 +162,14 @@ class TestParseHtmlUrls:
 </html>
         ''')
 
+        env = os.environ.copy()
+        env['SNAP_DIR'] = str(tmp_path)
         result = subprocess.run(
             [sys.executable, str(SCRIPT_PATH), '--url', f'file://{input_file}'],
             cwd=tmp_path,
             capture_output=True,
             text=True,
+            env=env,
         )
 
         assert result.returncode == 0
@@ -191,11 +207,14 @@ class TestParseHtmlUrls:
         input_file = tmp_path / 'page.html'
         input_file.write_text('<html><body>No links here</body></html>')
 
+        env = os.environ.copy()
+        env['SNAP_DIR'] = str(tmp_path)
         result = subprocess.run(
             [sys.executable, str(SCRIPT_PATH), '--url', f'file://{input_file}'],
             cwd=tmp_path,
             capture_output=True,
             text=True,
+            env=env,
         )
 
         assert result.returncode == 0
