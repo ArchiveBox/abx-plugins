@@ -3,7 +3,6 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #   "rich-click",
-#   "requests",
 # ]
 # ///
 #
@@ -17,10 +16,10 @@ import json
 import os
 import re
 import sys
-import requests
 
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
+from urllib.request import Request, urlopen
 
 import rich_click as click
 
@@ -46,6 +45,12 @@ def get_env_int(name: str, default: int = 0) -> int:
         return default
 
 
+def http_get(url: str, headers: dict[str, str], timeout: int) -> tuple[int, bytes]:
+    req = Request(url, headers=headers)
+    with urlopen(req, timeout=timeout) as response:
+        return response.getcode() or 0, response.read()
+
+
 def get_favicon(url: str) -> tuple[bool, str | None, str]:
     """
     Fetch favicon from URL.
@@ -69,12 +74,13 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
 
     # Try to extract favicon URL from HTML link tags
     try:
-        response = requests.get(url, timeout=timeout, headers=headers)
-        if response.ok:
+        status_code, body = http_get(url, headers=headers, timeout=timeout)
+        if 200 <= status_code < 300 and body:
+            html = body.decode("utf-8", errors="replace")
             # Look for <link rel="icon" href="...">
             for match in re.finditer(
                 r'<link[^>]+rel=["\'](?:shortcut )?icon["\'][^>]+href=["\']([^"\']+)["\']',
-                response.text,
+                html,
                 re.I,
             ):
                 favicon_urls.insert(0, urljoin(url, match.group(1)))
@@ -82,7 +88,7 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
             # Also check reverse order: href before rel
             for match in re.finditer(
                 r'<link[^>]+href=["\']([^"\']+)["\'][^>]+rel=["\'](?:shortcut )?icon["\']',
-                response.text,
+                html,
                 re.I,
             ):
                 favicon_urls.insert(0, urljoin(url, match.group(1)))
@@ -92,9 +98,9 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
     # Try each URL until we find one that works
     for favicon_url in favicon_urls:
         try:
-            response = requests.get(favicon_url, timeout=15, headers=headers)
-            if response.ok and len(response.content) > 0:
-                Path(OUTPUT_FILE).write_bytes(response.content)
+            status_code, body = http_get(favicon_url, headers=headers, timeout=15)
+            if 200 <= status_code < 300 and body:
+                Path(OUTPUT_FILE).write_bytes(body)
                 return True, OUTPUT_FILE, ""
         except Exception:
             continue
@@ -102,9 +108,9 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
     # Try Google's favicon service as fallback
     try:
         google_url = f"https://www.google.com/s2/favicons?domain={parsed.netloc}"
-        response = requests.get(google_url, timeout=15, headers=headers)
-        if response.ok and len(response.content) > 0:
-            Path(OUTPUT_FILE).write_bytes(response.content)
+        status_code, body = http_get(google_url, headers=headers, timeout=15)
+        if 200 <= status_code < 300 and body:
+            Path(OUTPUT_FILE).write_bytes(body)
             return True, OUTPUT_FILE, ""
     except Exception:
         pass

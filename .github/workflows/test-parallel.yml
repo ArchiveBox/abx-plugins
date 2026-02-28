@@ -104,4 +104,4 @@ jobs:
 
       - name: Run test - ${{ matrix.test.name }}
         run: |
-          uv run pytest -xvs "${{ matrix.test.path }}" --basetemp=tests/out
+          uv run pytest -xvs "${{ matrix.test.path }}" --basetemp="$RUNNER_TEMP/pytest-out"
