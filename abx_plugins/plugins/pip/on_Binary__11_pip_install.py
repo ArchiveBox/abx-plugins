@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run --script
 # /// script
-# requires-python = ">=3.12"
+# requires-python = ">=3.11"
 # dependencies = [
 #   "click",
 #   "rich-click",
@@ -56,7 +56,7 @@ def main(
     # Prefer a stable system python for venv creation if provided/available
     preferred_python = os.environ.get("PIP_VENV_PYTHON", "").strip()
     if not preferred_python:
-        for candidate in ("python3.12", "python3.11", "python3.10"):
+        for candidate in ("python3.14", "python3.13", "python3.12", "python3.11", "python3.10"):
             if shutil.which(candidate):
                 preferred_python = candidate
                 break
