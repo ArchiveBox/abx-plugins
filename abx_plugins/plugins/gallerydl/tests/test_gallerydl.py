@@ -196,7 +196,7 @@ def test_real_gallery_url():
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
             env = os.environ.copy()
-            env["GALLERY_DL_TIMEOUT"] = "60"
+            env["GALLERYDL_TIMEOUT"] = "60"
             env["SNAP_DIR"] = str(tmpdir)
 
             start_time = time.time()
