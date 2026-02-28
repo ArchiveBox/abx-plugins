@@ -103,7 +103,7 @@ async function main() {
             chromeSessionDir: CHROME_SESSION_DIR,
             timeoutMs: 60000,
             requireTargetId: false,
-            puppeteer,
+            requireTargetId: true,
         });
         console.error('[singlefile] connected to chrome');
 
