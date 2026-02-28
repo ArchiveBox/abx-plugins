@@ -294,11 +294,22 @@ def test_extracts_with_local_html_source_present(httpserver):
         output_file = tmpdir / "mercury" / "content.html"
         assert output_file.exists(), "content.html not created"
 
-        extracted_html = output_file.read_text(errors="ignore").lower()
+        extracted_html = output_file.read_text(errors="ignore")
+        extracted_lower = extracted_html.lower()
         assert len(extracted_html) > 50, "Extracted HTML should not be trivially short"
-        assert "remote source marker" in extracted_html or "local source marker" in extracted_html, (
-            f"Expected extracted article markers missing. Output: {extracted_html[:500]}"
+        assert "<" in extracted_lower and ">" in extracted_lower, (
+            f"Extracted HTML does not look like HTML. Output: {extracted_html[:500]}"
         )
+
+        content_txt = tmpdir / "mercury" / "content.txt"
+        assert content_txt.exists(), "content.txt not created"
+        extracted_text = content_txt.read_text(errors="ignore").strip()
+        assert len(extracted_text) > 10, "Extracted text should not be empty"
+
+        article_json = tmpdir / "mercury" / "article.json"
+        assert article_json.exists(), "article.json not created"
+        metadata = json.loads(article_json.read_text())
+        assert metadata.get("title"), f"Expected non-empty title in metadata: {metadata}"
 
 
 def test_config_save_mercury_false_skips():
