@@ -43,8 +43,10 @@ PLUGIN_NAME = "singlefile"
 BIN_NAME = "single-file"
 BIN_PROVIDERS = "npm,env"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-OUTPUT_DIR = Path.cwd().resolve()
+SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
 OUTPUT_FILE = "singlefile.html"
 EXTENSION_SAVE_SCRIPT = Path(__file__).parent / "singlefile_extension_save.js"
 
