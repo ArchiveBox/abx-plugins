@@ -5,7 +5,7 @@ Tests verify:
 1. Hook script exists
 2. Dependencies installed via validation hooks
 3. Verify deps with abx-pkg
-4. Mercury extraction works on https://example.com
+4. Mercury extraction works on deterministic local fixture HTML
 5. JSONL output is correct
 6. Filesystem output contains extracted content
 7. Config options work
@@ -166,9 +166,10 @@ def test_verify_deps_with_abx_pkg():
     )
 
 
-def test_extracts_with_mercury_parser():
-    """Test full workflow: extract with postlight-parser from real HTML via hook."""
+def test_extracts_with_mercury_parser(httpserver):
+    """Test full workflow: extract with postlight-parser from local fixture HTML."""
     binary_path = require_mercury_binary()
+    test_url = httpserver.url_for("/mercury-article")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -177,12 +178,12 @@ def test_extracts_with_mercury_parser():
         env["SNAP_DIR"] = str(snap_dir)
         env["MERCURY_BINARY"] = binary_path
 
-        # Create HTML source that mercury can parse
-        (snap_dir / "singlefile").mkdir()
-        (snap_dir / "singlefile" / "singlefile.html").write_text(
+        # Serve deterministic HTML source that mercury can parse.
+        httpserver.expect_request("/mercury-article").respond_with_data(
             "<html><head><title>Test Article</title></head><body>"
             "<article><h1>Example Article</h1><p>This is test content for mercury parser.</p></article>"
-            "</body></html>"
+            "</body></html>",
+            content_type="text/html; charset=utf-8",
         )
 
         # Run mercury extraction hook
@@ -191,7 +192,7 @@ def test_extracts_with_mercury_parser():
                 sys.executable,
                 str(MERCURY_HOOK),
                 "--url",
-                TEST_URL,
+                test_url,
                 "--snapshot-id",
                 "test789",
             ],

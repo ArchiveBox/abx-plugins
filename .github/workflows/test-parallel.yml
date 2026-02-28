@@ -106,6 +106,7 @@ jobs:
         run: |
           uv run pytest -xvs "${{ matrix.test.path }}" --basetemp="$RUNNER_TEMP/pytest-out"
         env:
-          TWOCAPCHA_API_KEY: ${{ secrets.TWOCAPCHA_API_KEY }}
+          TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           CHROME_ARGS_EXTRA: '["--no-sandbox"]'
           CHROME_HEADLESS: "True"
+          CHROME_BINARY: "/usr/bin/chromium"

@@ -31,8 +31,88 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 
 PLUGIN_DIR = Path(__file__).parent.parent
 INFINISCROLL_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_infiniscroll.*"), None)
-TEST_URL = "https://www.singsing.movie/"
+TEST_URL = "https://example.com/"
 CHROME_STARTUP_TIMEOUT_SECONDS = 45
+INFINISCROLL_TEST_PAGE_HTML = """
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Infinite Scroll Test Page</title>
+  <style>
+    body { margin: 0; font-family: sans-serif; }
+    #feed { max-width: 860px; margin: 0 auto; padding: 12px; }
+    .card {
+      margin: 12px 0;
+      padding: 16px;
+      min-height: 220px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #f8f8f8;
+    }
+    #status {
+      position: fixed;
+      top: 0;
+      right: 0;
+      background: #111;
+      color: #fff;
+      padding: 8px 10px;
+      font-size: 12px;
+      border-bottom-left-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div id="status">loads: 0</div>
+  <main id="feed"></main>
+  <script>
+    const feed = document.getElementById('feed');
+    const status = document.getElementById('status');
+    let loadCount = 0;
+    const maxLoads = 5;
+    let inFlight = false;
+
+    function addCards(prefix, count) {
+      for (let i = 0; i < count; i++) {
+        const card = document.createElement('article');
+        card.className = 'card';
+        card.textContent = `${prefix} item ${i + 1}`;
+        feed.appendChild(card);
+      }
+      status.textContent = `loads: ${loadCount}`;
+    }
+
+    function maybeLoadMore() {
+      if (inFlight || loadCount >= maxLoads) return;
+      const nearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 120;
+      if (!nearBottom) return;
+
+      inFlight = true;
+      const nextLoad = loadCount + 1;
+      setTimeout(() => {
+        loadCount = nextLoad;
+        addCards(`batch-${loadCount}`, 8);
+        inFlight = false;
+      }, 120);
+    }
+
+    addCards('initial', 8);
+    window.addEventListener('scroll', maybeLoadMore, { passive: true });
+    window.addEventListener('load', maybeLoadMore);
+  </script>
+</body>
+</html>
+""".strip()
+
+
+@pytest.fixture
+def infiniscroll_test_url(httpserver):
+    """Serve a deterministic page that appends DOM content while scrolling."""
+    httpserver.expect_request("/").respond_with_data(
+        INFINISCROLL_TEST_PAGE_HTML,
+        content_type="text/html",
+    )
+    return httpserver.url_for("/")
 
 
 def test_hook_script_exists():
@@ -125,14 +205,14 @@ def test_fails_gracefully_without_chrome_session():
         )
 
 
-def test_scrolls_page_and_outputs_stats():
+def test_scrolls_page_and_outputs_stats(infiniscroll_test_url):
     """Integration test: scroll page and verify JSONL output format."""
     with tempfile.TemporaryDirectory() as tmpdir:
         with chrome_session(
             Path(tmpdir),
             crawl_id="test-infiniscroll",
             snapshot_id="snap-infiniscroll",
-            test_url=TEST_URL,
+            test_url=infiniscroll_test_url,
             timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
         ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
             # Create infiniscroll output directory (sibling to chrome)
@@ -148,7 +228,7 @@ def test_scrolls_page_and_outputs_stats():
                 [
                     "node",
                     str(INFINISCROLL_HOOK),
-                    f"--url={TEST_URL}",
+                    f"--url={infiniscroll_test_url}",
                     "--snapshot-id=snap-infiniscroll",
                 ],
                 cwd=str(infiniscroll_dir),
@@ -201,14 +281,14 @@ def test_scrolls_page_and_outputs_stats():
             )
 
 
-def test_config_scroll_limit_honored():
+def test_config_scroll_limit_honored(infiniscroll_test_url):
     """Test that INFINISCROLL_SCROLL_LIMIT config is respected."""
     with tempfile.TemporaryDirectory() as tmpdir:
         with chrome_session(
             Path(tmpdir),
             crawl_id="test-scroll-limit",
             snapshot_id="snap-limit",
-            test_url=TEST_URL,
+            test_url=infiniscroll_test_url,
             timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
         ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
             infiniscroll_dir = snapshot_chrome_dir.parent / "infiniscroll"
@@ -225,7 +305,7 @@ def test_config_scroll_limit_honored():
                 [
                     "node",
                     str(INFINISCROLL_HOOK),
-                    f"--url={TEST_URL}",
+                    f"--url={infiniscroll_test_url}",
                     "--snapshot-id=snap-limit",
                 ],
                 cwd=str(infiniscroll_dir),
@@ -261,14 +341,15 @@ def test_config_scroll_limit_honored():
             )
 
 
-def test_config_timeout_honored():
+def test_config_timeout_honored(infiniscroll_test_url):
     """Test that INFINISCROLL_TIMEOUT config is respected."""
     with tempfile.TemporaryDirectory() as tmpdir:
         with chrome_session(
             Path(tmpdir),
             crawl_id="test-timeout",
             snapshot_id="snap-timeout",
-            test_url=TEST_URL,
+            test_url=infiniscroll_test_url,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
         ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
             infiniscroll_dir = snapshot_chrome_dir.parent / "infiniscroll"
             infiniscroll_dir.mkdir()
@@ -286,7 +367,7 @@ def test_config_timeout_honored():
                 [
                     "node",
                     str(INFINISCROLL_HOOK),
-                    f"--url={TEST_URL}",
+                    f"--url={infiniscroll_test_url}",
                     "--snapshot-id=snap-timeout",
                 ],
                 cwd=str(infiniscroll_dir),
