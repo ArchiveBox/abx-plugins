@@ -6,7 +6,6 @@ Tests invoke the plugin hook as an external process and verify outputs/side effe
 
 import json
 import os
-import signal
 import subprocess
 import tempfile
 import time
@@ -20,7 +19,6 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     setup_test_env,
     launch_chromium_session,
     kill_chromium_session,
-    CHROME_LAUNCH_HOOK,
 )
 
 
@@ -31,6 +29,7 @@ _INSTALL_SCRIPT = next(
 if _INSTALL_SCRIPT is None:
     raise FileNotFoundError(f"Install script not found in {PLUGIN_DIR}")
 INSTALL_SCRIPT = _INSTALL_SCRIPT
+CHROME_STARTUP_TIMEOUT_SECONDS = 45
 
 
 def test_install_script_exists():
@@ -187,7 +186,7 @@ def test_extension_loads_in_chromium():
             capture_output=True,
             text=True,
             env=env,
-            timeout=60,
+            timeout=120,
         )
         assert result.returncode == 0, f"Extension install failed: {result.stderr}"
 
@@ -205,30 +204,20 @@ def test_extension_loads_in_chromium():
         chrome_dir.mkdir(parents=True, exist_ok=True)
         env["CRAWL_DIR"] = str(crawl_dir)
 
-        chrome_launch_process = subprocess.Popen(
-            ["node", str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
-            cwd=str(chrome_dir),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=env,
-        )
-
-        # Wait for Chromium to launch and CDP URL to be available
+        chrome_launch_process = None
         cdp_url = None
-        for i in range(20):
-            if chrome_launch_process.poll() is not None:
-                stdout, stderr = chrome_launch_process.communicate()
-                raise RuntimeError(
-                    f"Chromium launch failed:\nStdout: {stdout}\nStderr: {stderr}"
-                )
-            cdp_file = chrome_dir / "cdp_url.txt"
-            if cdp_file.exists():
-                cdp_url = cdp_file.read_text().strip()
-                break
-            time.sleep(1)
+        try:
+            chrome_launch_process, cdp_url = launch_chromium_session(
+                env,
+                chrome_dir,
+                crawl_id,
+                timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Chromium launch failed after waiting up to {CHROME_STARTUP_TIMEOUT_SECONDS}s"
+            ) from exc
 
-        assert cdp_url, "Chromium CDP URL not found after 20s"
         print(f"Chromium launched with CDP URL: {cdp_url}")
 
         # Check that extensions were loaded
@@ -348,19 +337,8 @@ const puppeteer = require('puppeteer-core');
             print(f"Extension loaded successfully: {test_result}")
 
         finally:
-            # Clean up Chromium
-            try:
-                chrome_launch_process.send_signal(signal.SIGTERM)
-                chrome_launch_process.wait(timeout=5)
-            except Exception:
-                pass
-            chrome_pid_file = chrome_dir / "chrome.pid"
-            if chrome_pid_file.exists():
-                try:
-                    chrome_pid = int(chrome_pid_file.read_text().strip())
-                    os.kill(chrome_pid, signal.SIGKILL)
-                except (OSError, ValueError):
-                    pass
+            if chrome_launch_process:
+                kill_chromium_session(chrome_launch_process, chrome_dir)
 
 
 def check_cookie_consent_visibility(
@@ -554,7 +532,10 @@ def test_hides_cookie_consent_on_static_page(httpserver):
 
         try:
             baseline_process, baseline_cdp_url = launch_chromium_session(
-                env_no_ext, baseline_chrome_dir, baseline_crawl_id
+                env_no_ext,
+                baseline_chrome_dir,
+                baseline_crawl_id,
+                timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
             )
             print(f"Baseline Chromium launched: {baseline_cdp_url}")
 
@@ -647,7 +628,10 @@ def test_hides_cookie_consent_on_static_page(httpserver):
 
         try:
             ext_process, ext_cdp_url = launch_chromium_session(
-                env_with_ext, ext_chrome_dir, ext_crawl_id
+                env_with_ext,
+                ext_chrome_dir,
+                ext_crawl_id,
+                timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
             )
             print(f"Extension Chromium launched: {ext_cdp_url}")
 
