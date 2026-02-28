@@ -14,7 +14,6 @@
 #
 
 import json
-import os
 import sys
 
 import rich_click as click
@@ -74,8 +73,6 @@ def main(
     if not binary.abspath:
         click.echo(f"{name} not found after brew install", err=True)
         sys.exit(1)
-
-    machine_id = os.environ.get("MACHINE_ID", "")
 
     # Output Binary JSONL record to stdout
     record = {

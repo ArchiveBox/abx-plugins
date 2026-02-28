@@ -120,44 +120,36 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
         output_file = output_dir / f"forum.{output_format}"
 
     resolved_binary = resolve_binary_path(binary) or binary
-    forumdl_python = get_binary_shebang(resolved_binary)
-    if forumdl_python:
-        # Inline compatibility shim so this hook stays self-contained.
-        inline_entrypoint = textwrap.dedent(
-            """
-            import sys
-            try:
-                from forum_dl.writers.jsonl import JsonlWriter
-                from pydantic import BaseModel
-                if hasattr(BaseModel, "model_dump_json"):
-                    def _patched_serialize_entry(self, entry):
-                        return entry.model_dump_json()
-                    JsonlWriter._serialize_entry = _patched_serialize_entry
-            except Exception:
-                pass
-            from forum_dl import main
-            raise SystemExit(main())
-            """
-        ).strip()
-        cmd = [
-            forumdl_python,
-            "-c",
-            inline_entrypoint,
-            *forumdl_args,
-            "-f",
-            output_format,
-            "-o",
-            str(output_file),
-        ]
-    else:
-        cmd = [
-            resolved_binary,
-            *forumdl_args,
-            "-f",
-            output_format,
-            "-o",
-            str(output_file),
-        ]
+    forumdl_python = get_binary_shebang(resolved_binary) or sys.executable
+    # Inline compatibility shim so this hook stays self-contained.
+    # Always run through this shim so forum-dl serialization stays compatible
+    # with Pydantic v2 even when binary shebang detection fails.
+    inline_entrypoint = textwrap.dedent(
+        """
+        import sys
+        try:
+            from forum_dl.writers.jsonl import JsonlWriter
+            from pydantic import BaseModel
+            if hasattr(BaseModel, "model_dump_json"):
+                def _patched_serialize_entry(self, entry):
+                    return entry.model_dump_json()
+                JsonlWriter._serialize_entry = _patched_serialize_entry
+        except Exception:
+            pass
+        from forum_dl import main
+        raise SystemExit(main())
+        """
+    ).strip()
+    cmd = [
+        forumdl_python,
+        "-c",
+        inline_entrypoint,
+        *forumdl_args,
+        "-f",
+        output_format,
+        "-o",
+        str(output_file),
+    ]
 
     if forumdl_args_extra:
         cmd.extend(forumdl_args_extra)

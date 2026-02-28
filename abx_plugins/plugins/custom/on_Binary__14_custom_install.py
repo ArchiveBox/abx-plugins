@@ -14,7 +14,6 @@
 #     ./on_Binary__14_custom_install.py [...] > events.jsonl
 
 import json
-import os
 import subprocess
 import sys
 
@@ -74,8 +73,6 @@ def main(
     if not binary.abspath:
         click.echo(f"{name} not found after custom install", err=True)
         sys.exit(1)
-
-    machine_id = os.environ.get("MACHINE_ID", "")
 
     # Output Binary JSONL record to stdout
     record = {

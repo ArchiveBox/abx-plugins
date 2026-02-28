@@ -18,6 +18,7 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     chrome_session,
+    CHROME_NAVIGATE_HOOK,
     get_plugin_dir,
     get_hook_script,
 )
@@ -59,7 +60,7 @@ class TestRedirectsWithChrome:
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_redirects_captures_navigation(self, chrome_test_urls):
-        """Redirects hook should capture URL navigation without errors."""
+        """Redirects hook should capture redirect-chain records from navigation."""
         test_url = chrome_test_urls["redirect_url"]
         snapshot_id = "test-redirects-snapshot"
 
@@ -69,7 +70,7 @@ class TestRedirectsWithChrome:
                 crawl_id="test-redirects-crawl",
                 snapshot_id=snapshot_id,
                 test_url=test_url,
-                navigate=True,
+                navigate=False,
                 timeout=30,
             ) as (chrome_process, chrome_pid, snapshot_chrome_dir, env):
                 # Use the environment from chrome_session (already has CHROME_HEADLESS=true)
@@ -89,14 +90,29 @@ class TestRedirectsWithChrome:
                     env=env,
                 )
 
+                nav_result = subprocess.run(
+                    [
+                        "node",
+                        str(CHROME_NAVIGATE_HOOK),
+                        f"--url={test_url}",
+                        f"--snapshot-id={snapshot_id}",
+                    ],
+                    cwd=str(snapshot_chrome_dir),
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    env=env,
+                )
+                assert nav_result.returncode == 0, (
+                    f"Navigation failed: {nav_result.stderr}\nStdout: {nav_result.stdout}"
+                )
+
                 # Check for output file
                 snap_dir = Path(env["SNAP_DIR"])
                 redirects_output = snap_dir / "redirects" / "redirects.jsonl"
 
-                redirects_data = None
-
                 # Wait briefly for background hook to write output
-                for _ in range(10):
+                for _ in range(30):
                     if (
                         redirects_output.exists()
                         and redirects_output.stat().st_size > 0
@@ -104,41 +120,7 @@ class TestRedirectsWithChrome:
                         break
                     time.sleep(1)
 
-                # Try parsing from file first
-                if redirects_output.exists():
-                    with open(redirects_output) as f:
-                        for line in f:
-                            line = line.strip()
-                            if line.startswith("{"):
-                                try:
-                                    redirects_data = json.loads(line)
-                                    break
-                                except json.JSONDecodeError:
-                                    continue
-
-                # Try parsing from stdout if not in file
-                if not redirects_data:
-                    try:
-                        stdout, stderr = result.communicate(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        stdout, stderr = "", ""
-                    for line in stdout.split("\n"):
-                        line = line.strip()
-                        if line.startswith("{"):
-                            try:
-                                record = json.loads(line)
-                                if (
-                                    "chain" in record
-                                    or "redirects" in record
-                                    or record.get("type") == "Redirects"
-                                ):
-                                    redirects_data = record
-                                    break
-                            except json.JSONDecodeError:
-                                continue
-
                 # Verify hook ran successfully
-                # example.com typically doesn't redirect, so we just verify no errors
                 if result.poll() is None:
                     result.terminate()
                     try:
@@ -150,6 +132,49 @@ class TestRedirectsWithChrome:
                     stdout, stderr = result.communicate()
                 assert "Traceback" not in stderr
                 assert "Error:" not in stderr
+
+                assert redirects_output.exists(), (
+                    f"redirects.jsonl not created in {redirects_output.parent}"
+                )
+                content = redirects_output.read_text().strip()
+                assert content, "redirects.jsonl should not be empty"
+
+                redirects_records = []
+                for line in content.split("\n"):
+                    line = line.strip()
+                    if not line.startswith("{"):
+                        continue
+                    try:
+                        redirects_records.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        continue
+
+                assert redirects_records, "No redirect records captured"
+                assert any(record.get("to_url") for record in redirects_records), (
+                    f"Redirect records missing to_url: {redirects_records}"
+                )
+                assert any(
+                    record.get("type") == "http"
+                    and str(record.get("status")) in {"301", "302", "303", "307", "308"}
+                    for record in redirects_records
+                ), f"No HTTP redirect captured: {redirects_records}"
+
+                archive_result = None
+                for line in stdout.split("\n"):
+                    line = line.strip()
+                    if not line.startswith("{"):
+                        continue
+                    try:
+                        record = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if record.get("type") == "ArchiveResult":
+                        archive_result = record
+                        break
+                assert archive_result is not None, "Missing ArchiveResult from redirects hook"
+                assert archive_result.get("status") == "succeeded", (
+                    f"Redirects hook did not report success: {archive_result}"
+                )
 
         except RuntimeError:
             raise

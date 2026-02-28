@@ -21,8 +21,6 @@ const path = require('path');
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 const puppeteer = require('puppeteer');
 const {
-    waitForChromeSession,
-    readCdpUrl,
     connectToPage,
 } = require('./chrome_utils.js');
 
@@ -35,7 +33,6 @@ if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 process.chdir(OUTPUT_DIR);
-const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
 
 function parseArgs() {
     const args = {};
@@ -144,19 +141,6 @@ async function main() {
     let status = 'failed';
     let output = null;
     let error = '';
-
-    // Wait for chrome tab to be open (up to 60s)
-    const tabOpen = await waitForChromeSession(CHROME_SESSION_DIR, 60000, true);
-    if (!tabOpen) {
-        console.error(`ERROR: ${CHROME_SESSION_REQUIRED_ERROR}`);
-        process.exit(1);
-    }
-
-    const cdpUrl = readCdpUrl(CHROME_SESSION_DIR);
-    if (!cdpUrl) {
-        console.error(`ERROR: ${CHROME_SESSION_REQUIRED_ERROR}`);
-        process.exit(1);
-    }
 
     const result = await navigate(url);
 

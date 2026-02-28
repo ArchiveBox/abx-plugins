@@ -118,9 +118,8 @@ def test_fails_gracefully_without_html():
                     pass
 
         if result_json:
-            # Should report failure or skip since no HTML source
-            assert result_json["status"] in ["failed", "skipped"], (
-                f"Should fail or skip without HTML: {result_json}"
+            assert result_json["status"] == "failed", (
+                f"Should fail without HTML source: {result_json}"
             )
 
 
