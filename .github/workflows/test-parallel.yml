@@ -105,3 +105,7 @@ jobs:
       - name: Run test - ${{ matrix.test.name }}
         run: |
           uv run pytest -xvs "${{ matrix.test.path }}" --basetemp="$RUNNER_TEMP/pytest-out"
+        env:
+          TWOCAPCHA_API_KEY: ${{ secrets.TWOCAPCHA_API_KEY }}
+          CHROME_ARGS_EXTRA: '["--no-sandbox"]'
+          CHROME_HEADLESS: "True"
