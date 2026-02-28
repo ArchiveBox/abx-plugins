@@ -38,6 +38,10 @@ const {
     getEnv,
     getEnvBool,
     getEnvInt,
+    parseArgs,
+    readCdpUrl,
+    connectToPage,
+    waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
 
 // Check if infiniscroll is enabled BEFORE requiring puppeteer
@@ -49,48 +53,7 @@ if (!getEnvBool('INFINISCROLL_ENABLED', true)) {
 const puppeteer = require('puppeteer-core');
 
 const PLUGIN_NAME = 'infiniscroll';
-const CHROME_SESSION_DIR = path.join(SNAP_DIR, 'chrome');
-const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
-
-function parseArgs() {
-    const args = {};
-    process.argv.slice(2).forEach(arg => {
-        if (arg.startsWith('--')) {
-            const [key, ...valueParts] = arg.slice(2).split('=');
-            args[key.replace(/-/g, '_')] = valueParts.join('=') || true;
-        }
-    });
-    return args;
-}
-
-function getCdpUrl() {
-    const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
-    if (fs.existsSync(cdpFile)) {
-        return fs.readFileSync(cdpFile, 'utf8').trim();
-    }
-    return null;
-}
-
-function getPageId() {
-    const targetIdFile = path.join(CHROME_SESSION_DIR, 'target_id.txt');
-    if (fs.existsSync(targetIdFile)) {
-        return fs.readFileSync(targetIdFile, 'utf8').trim();
-    }
-    return null;
-}
-
-async function waitForChromeTabLoaded(timeoutMs = 60000) {
-    const navigationFile = path.join(CHROME_SESSION_DIR, 'navigation.json');
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < timeoutMs) {
-        if (fs.existsSync(navigationFile)) {
-            return true;
-        }
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    return false;
-}
+const CHROME_SESSION_DIR = '../chrome';
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -337,40 +300,24 @@ async function main() {
     const minHeight = getEnvInt('INFINISCROLL_MIN_HEIGHT', 16000);
     const expandDetailsEnabled = getEnvBool('INFINISCROLL_EXPAND_DETAILS', true);
 
-    const cdpUrl = getCdpUrl();
-    if (!cdpUrl) {
-        console.error(CHROME_SESSION_REQUIRED_ERROR);
-        process.exit(1);
-    }
-
-    // Wait for page to be loaded
-    const pageLoaded = await waitForChromeTabLoaded(60000);
-    if (!pageLoaded) {
-        console.error('ERROR: Page not loaded after 60s (chrome_navigate must complete first)');
-        process.exit(1);
-    }
-
     let browser = null;
     try {
-        browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl });
-
-        const pages = await browser.pages();
-        if (pages.length === 0) {
-            throw new Error('No pages found in browser');
+        if (!readCdpUrl(CHROME_SESSION_DIR)) {
+            throw new Error('No Chrome session found (chrome plugin must run first)');
         }
 
-        // Find the right page by target ID
-        const targetId = getPageId();
-        let page = null;
-        if (targetId) {
-            page = pages.find(p => {
-                const target = p.target();
-                return target && target._targetId === targetId;
-            });
-        }
-        if (!page) {
-            page = pages[pages.length - 1];
-        }
+        const connectTimeoutMs = Math.min(
+            timeout,
+            getEnvInt('TIMEOUT', 30) * 1000
+        );
+        const connection = await connectToPage({
+            chromeSessionDir: CHROME_SESSION_DIR,
+            timeoutMs: connectTimeoutMs,
+            puppeteer,
+        });
+        browser = connection.browser;
+        const page = connection.page;
+        await waitForPageLoaded(CHROME_SESSION_DIR, connectTimeoutMs * 4, 200);
 
         console.error(`Starting infinite scroll on ${url}`);
 

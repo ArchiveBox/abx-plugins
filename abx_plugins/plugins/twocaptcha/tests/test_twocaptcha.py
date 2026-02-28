@@ -28,6 +28,8 @@ INSTALL_SCRIPT = PLUGIN_DIR / "on_Crawl__83_twocaptcha_install.js"
 CONFIG_SCRIPT = PLUGIN_DIR / "on_Crawl__95_twocaptcha_config.js"
 
 TEST_URL = "https://www.google.com/recaptcha/api2/demo"
+CHROME_STARTUP_TIMEOUT_SECONDS = 45
+EXTENSIONS_READY_TIMEOUT_SECONDS = 10
 LIVE_API_KEY = os.environ.get("TWOCAPTCHA_API_KEY") or os.environ.get(
     "API_KEY_2CAPTCHA"
 )
@@ -36,6 +38,20 @@ LIVE_API_KEY = os.environ.get("TWOCAPTCHA_API_KEY") or os.environ.get(
 # Alias for backward compatibility with existing test names
 launch_chrome = launch_chromium_session
 kill_chrome = kill_chromium_session
+
+
+def wait_for_extensions_json(chrome_dir: Path) -> list[dict]:
+    """Wait until Chrome writes extensions.json and return parsed entries."""
+    extensions_file = chrome_dir / "extensions.json"
+    deadline = time.monotonic() + EXTENSIONS_READY_TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
+        if extensions_file.exists() and extensions_file.stat().st_size > 0:
+            return json.loads(extensions_file.read_text())
+        time.sleep(0.5)
+    raise AssertionError(
+        f"extensions.json not created after {EXTENSIONS_READY_TIMEOUT_SECONDS}s. "
+        f"Chrome dir files: {list(chrome_dir.iterdir())}"
+    )
 
 
 class TestTwoCaptcha:
@@ -75,21 +91,12 @@ class TestTwoCaptcha:
             crawl_dir = Path(env["CRAWL_DIR"]) / crawl_id
             chrome_dir = crawl_dir / "chrome"
             env["CRAWL_DIR"] = str(crawl_dir)
-            process, cdp_url = launch_chrome(env, chrome_dir, crawl_id)
+            process, cdp_url = launch_chrome(
+                env, chrome_dir, crawl_id, timeout=CHROME_STARTUP_TIMEOUT_SECONDS
+            )
 
             try:
-                # Wait for extensions.json to be written
-                extensions_file = chrome_dir / "extensions.json"
-                for i in range(20):
-                    if extensions_file.exists():
-                        break
-                    time.sleep(0.5)
-
-                assert extensions_file.exists(), (
-                    f"extensions.json not created. Chrome dir files: {list(chrome_dir.iterdir())}"
-                )
-
-                exts = json.loads(extensions_file.read_text())
+                exts = wait_for_extensions_json(chrome_dir)
                 assert any(e["name"] == "twocaptcha" for e in exts), (
                     f"twocaptcha not loaded: {exts}"
                 )
@@ -117,16 +124,12 @@ class TestTwoCaptcha:
             crawl_dir = Path(env["CRAWL_DIR"]) / crawl_id
             chrome_dir = crawl_dir / "chrome"
             env["CRAWL_DIR"] = str(crawl_dir)
-            process, cdp_url = launch_chrome(env, chrome_dir, crawl_id)
+            process, cdp_url = launch_chrome(
+                env, chrome_dir, crawl_id, timeout=CHROME_STARTUP_TIMEOUT_SECONDS
+            )
 
             try:
-                # Wait for extensions.json to be written
-                extensions_file = chrome_dir / "extensions.json"
-                for i in range(20):
-                    if extensions_file.exists():
-                        break
-                    time.sleep(0.5)
-                assert extensions_file.exists(), "extensions.json not created"
+                wait_for_extensions_json(chrome_dir)
 
                 result = subprocess.run(
                     [
@@ -268,16 +271,12 @@ const puppeteer = require('puppeteer-core');
             crawl_dir = Path(env["CRAWL_DIR"]) / crawl_id
             chrome_dir = crawl_dir / "chrome"
             env["CRAWL_DIR"] = str(crawl_dir)
-            process, cdp_url = launch_chrome(env, chrome_dir, crawl_id)
+            process, cdp_url = launch_chrome(
+                env, chrome_dir, crawl_id, timeout=CHROME_STARTUP_TIMEOUT_SECONDS
+            )
 
             try:
-                # Wait for extensions.json to be written
-                extensions_file = chrome_dir / "extensions.json"
-                for i in range(20):
-                    if extensions_file.exists():
-                        break
-                    time.sleep(0.5)
-                assert extensions_file.exists(), "extensions.json not created"
+                wait_for_extensions_json(chrome_dir)
 
                 config_result = subprocess.run(
                     [

@@ -18,8 +18,11 @@ if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_
 
 const {
     getEnvBool,
+    getEnvInt,
     parseArgs,
     readCdpUrl,
+    connectToPage,
+    waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
 
 // Check if PDF is enabled BEFORE requiring puppeteer
@@ -64,48 +67,26 @@ function hasStaticFileOutput() {
     return false;
 }
 
-// Wait for chrome tab to be fully loaded
-async function waitForChromeTabLoaded(timeoutMs = 60000) {
-    const navigationFile = path.join(CHROME_SESSION_DIR, 'navigation.json');
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < timeoutMs) {
-        if (fs.existsSync(navigationFile)) {
-            return true;
-        }
-        // Wait 100ms before checking again
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
-
-    return false;
-}
-
-async function printToPdf(url) {
+async function printToPdf(url, timeoutMs) {
     // Output directory is current directory (hook already runs in output dir)
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
 
     let browser = null;
-    let page = null;
 
     try {
-        // Connect to existing Chrome session (required)
-        const cdpUrl = readCdpUrl(CHROME_SESSION_DIR);
-        if (!cdpUrl) {
+        if (!readCdpUrl(CHROME_SESSION_DIR)) {
             return { success: false, error: 'No Chrome session found (chrome plugin must run first)' };
         }
 
-        browser = await puppeteer.connect({
-            browserWSEndpoint: cdpUrl,
-            defaultViewport: null,
+        const connection = await connectToPage({
+            chromeSessionDir: CHROME_SESSION_DIR,
+            timeoutMs,
+            puppeteer,
         });
+        browser = connection.browser;
+        const page = connection.page;
 
-        // Get existing pages or create new one
-        const pages = await browser.pages();
-        page = pages.find(p => p.url().startsWith('http')) || pages[0];
-
-        if (!page) {
-            page = await browser.newPage();
-        }
+        await waitForPageLoaded(CHROME_SESSION_DIR, timeoutMs * 4, 200);
 
         // Print to PDF
         await page.pdf({
@@ -158,18 +139,9 @@ async function main() {
             process.exit(0);
         }
 
-        const cdpUrl = readCdpUrl(CHROME_SESSION_DIR);
-        if (!cdpUrl) {
-            throw new Error('No Chrome session found (chrome plugin must run first)');
-        }
+        const timeoutMs = getEnvInt('PDF_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
 
-        // Wait for page to be fully loaded
-        const pageLoaded = await waitForChromeTabLoaded(60000);
-        if (!pageLoaded) {
-            throw new Error('Page not loaded after 60s (chrome_navigate must complete first)');
-        }
-
-        const result = await printToPdf(url);
+        const result = await printToPdf(url, timeoutMs);
 
         if (result.success) {
             // Success - emit ArchiveResult

@@ -20,6 +20,14 @@ const path = require('path');
 // Add NODE_MODULES_DIR to module resolution paths if set
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 const puppeteer = require('puppeteer-core');
+const {
+    getEnvBool,
+    getEnvInt,
+    parseArgs,
+    readCdpUrl,
+    connectToPage,
+    waitForPageLoaded,
+} = require('../chrome/chrome_utils.js');
 
 // Extractor metadata
 const PLUGIN_NAME = 'accessibility';
@@ -32,100 +40,27 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 process.chdir(OUTPUT_DIR);
 const OUTPUT_FILE = 'accessibility.json';
 const CHROME_SESSION_DIR = '../chrome';
-const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
-
-// Parse command line arguments
-function parseArgs() {
-    const args = {};
-    process.argv.slice(2).forEach(arg => {
-        if (arg.startsWith('--')) {
-            const [key, ...valueParts] = arg.slice(2).split('=');
-            args[key.replace(/-/g, '_')] = valueParts.join('=') || true;
-        }
-    });
-    return args;
-}
-
-// Get environment variable with default
-function getEnv(name, defaultValue = '') {
-    return (process.env[name] || defaultValue).trim();
-}
-
-function getEnvBool(name, defaultValue = false) {
-    const val = getEnv(name, '').toLowerCase();
-    if (['true', '1', 'yes', 'on'].includes(val)) return true;
-    if (['false', '0', 'no', 'off'].includes(val)) return false;
-    return defaultValue;
-}
-
-// Wait for chrome tab to be fully loaded
-async function waitForChromeTabLoaded(timeoutMs = 60000) {
-    const navigationFile = path.join(CHROME_SESSION_DIR, 'navigation.json');
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < timeoutMs) {
-        if (fs.existsSync(navigationFile)) {
-            return true;
-        }
-        // Wait 100ms before checking again
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
-
-    return false;
-}
-
-// Get CDP URL from chrome plugin
-function getCdpUrl() {
-    const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
-    if (fs.existsSync(cdpFile)) {
-        return fs.readFileSync(cdpFile, 'utf8').trim();
-    }
-    return null;
-}
-
-function assertChromeSession() {
-    const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
-    const targetIdFile = path.join(CHROME_SESSION_DIR, 'target_id.txt');
-    const pidFile = path.join(CHROME_SESSION_DIR, 'chrome.pid');
-    if (!fs.existsSync(cdpFile) || !fs.existsSync(targetIdFile) || !fs.existsSync(pidFile)) {
-        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
-    }
-    try {
-        const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
-        if (!pid || Number.isNaN(pid)) throw new Error('Invalid pid');
-        process.kill(pid, 0);
-    } catch (e) {
-        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
-    }
-    const cdpUrl = getCdpUrl();
-    if (!cdpUrl) {
-        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
-    }
-    return cdpUrl;
-}
 
 // Extract accessibility info
-async function extractAccessibility(url) {
+async function extractAccessibility(url, timeoutMs) {
     // Output directory is current directory (hook already runs in output dir)
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
 
     let browser = null;
 
     try {
-        // Connect to existing Chrome session
-        const cdpUrl = assertChromeSession();
-
-        browser = await puppeteer.connect({
-            browserWSEndpoint: cdpUrl,
-        });
-
-        // Get the page
-        const pages = await browser.pages();
-        const page = pages.find(p => p.url().startsWith('http')) || pages[0];
-
-        if (!page) {
-            return { success: false, error: 'No page found in Chrome session' };
+        if (!readCdpUrl(CHROME_SESSION_DIR)) {
+            return { success: false, error: 'No Chrome session found (chrome plugin must run first)' };
         }
+
+        const connection = await connectToPage({
+            chromeSessionDir: CHROME_SESSION_DIR,
+            timeoutMs,
+            puppeteer,
+        });
+        browser = connection.browser;
+        const page = connection.page;
+        await waitForPageLoaded(CHROME_SESSION_DIR, timeoutMs * 4, 200);
 
         // Get accessibility snapshot
         const accessibilityTree = await page.accessibility.snapshot({ interestingOnly: true });
@@ -250,14 +185,8 @@ async function main() {
             process.exit(0);
         }
 
-        // Check if Chrome session exists, then wait for page load
-        assertChromeSession();
-        const pageLoaded = await waitForChromeTabLoaded(60000);
-        if (!pageLoaded) {
-            throw new Error('Page not loaded after 60s (chrome_navigate must complete first)');
-        }
-
-        const result = await extractAccessibility(url);
+        const timeoutMs = getEnvInt('ACCESSIBILITY_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
+        const result = await extractAccessibility(url, timeoutMs);
 
         if (result.success) {
             status = 'succeeded';
