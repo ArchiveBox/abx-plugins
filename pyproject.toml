@@ -19,7 +19,7 @@ classifiers = [
     "Environment :: Console",
 ]
 dependencies = [
-    "abx-pkg>=0.6.0",
+    "abx-pkg>=0.6.2",
     "feedparser>=6.0.0",
     "pyright>=1.1.408",
     "pytest>=9.0.2",

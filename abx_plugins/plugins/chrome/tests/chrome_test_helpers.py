@@ -852,63 +852,93 @@ def _resolve_existing_chromium(env: dict) -> Optional[str]:
     return None
 
 
+def _has_puppeteer_module(env: dict) -> bool:
+    """Return True if Node can resolve the puppeteer package in this env."""
+    probe_env = env.copy()
+    node_modules_dir = probe_env.get("NODE_MODULES_DIR", "").strip()
+    if node_modules_dir and not probe_env.get("NODE_PATH"):
+        probe_env["NODE_PATH"] = node_modules_dir
+    result = subprocess.run(
+        ["node", "-e", "require.resolve('puppeteer')"],
+        capture_output=True,
+        text=True,
+        timeout=20,
+        env=probe_env,
+    )
+    return result.returncode == 0
+
+
+def _ensure_puppeteer_with_hooks(env: dict, timeout: int) -> None:
+    """Install puppeteer npm package using plugin hooks if not already available."""
+    if _has_puppeteer_module(env):
+        return
+
+    puppeteer_result = subprocess.run(
+        [sys.executable, str(PUPPETEER_CRAWL_HOOK)],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        env=env,
+    )
+    if puppeteer_result.returncode != 0:
+        raise RuntimeError(
+            f"Puppeteer crawl hook failed: {puppeteer_result.stderr or puppeteer_result.stdout}"
+        )
+
+    puppeteer_record = (
+        parse_jsonl_output(puppeteer_result.stdout, record_type="Binary") or {}
+    )
+    if not puppeteer_record or puppeteer_record.get("name") != "puppeteer":
+        raise RuntimeError("Puppeteer Binary record not emitted by crawl hook")
+
+    npm_cmd = [
+        sys.executable,
+        str(NPM_BINARY_HOOK),
+        "--machine-id=test-machine",
+        "--binary-id=test-puppeteer",
+        "--name=puppeteer",
+        f"--binproviders={puppeteer_record.get('binproviders', '*')}",
+    ]
+    puppeteer_overrides = puppeteer_record.get("overrides")
+    if puppeteer_overrides:
+        npm_cmd.append(f"--overrides={json.dumps(puppeteer_overrides)}")
+
+    npm_result = subprocess.run(
+        npm_cmd,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        env=env,
+    )
+    if npm_result.returncode != 0:
+        raise RuntimeError(
+            f"Npm puppeteer install failed:\nstdout: {npm_result.stdout}\nstderr: {npm_result.stderr}"
+        )
+
+    apply_machine_updates(parse_jsonl_records(npm_result.stdout), env)
+    if env.get("NODE_MODULES_DIR") and not env.get("NODE_PATH"):
+        env["NODE_PATH"] = env["NODE_MODULES_DIR"]
+
+    if not _has_puppeteer_module(env):
+        raise RuntimeError(
+            "Puppeteer install hook completed but require.resolve('puppeteer') still fails"
+        )
+
+
 def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
     """Install Chromium via chrome crawl hook + puppeteer/npm hooks.
 
     Returns absolute path to Chromium binary.
     """
-    existing = _resolve_existing_chromium(env)
-    if existing:
-        env["CHROME_BINARY"] = existing
-        return existing
-
     with _chromium_install_lock(env):
+        # Always ensure JS dependency exists, even if Chromium already exists
+        # on the host. chrome_launch requires `require('puppeteer')`.
+        _ensure_puppeteer_with_hooks(env, timeout=timeout)
+
         existing = _resolve_existing_chromium(env)
         if existing:
             env["CHROME_BINARY"] = existing
             return existing
-
-        puppeteer_result = subprocess.run(
-            [sys.executable, str(PUPPETEER_CRAWL_HOOK)],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=env,
-        )
-        if puppeteer_result.returncode != 0:
-            raise RuntimeError(
-                f"Puppeteer crawl hook failed: {puppeteer_result.stderr}"
-            )
-
-        puppeteer_record = (
-            parse_jsonl_output(puppeteer_result.stdout, record_type="Binary") or {}
-        )
-        if not puppeteer_record or puppeteer_record.get("name") != "puppeteer":
-            raise RuntimeError("Puppeteer Binary record not emitted by crawl hook")
-
-        npm_cmd = [
-            sys.executable,
-            str(NPM_BINARY_HOOK),
-            "--machine-id=test-machine",
-            "--binary-id=test-puppeteer",
-            "--name=puppeteer",
-            f"--binproviders={puppeteer_record.get('binproviders', '*')}",
-        ]
-        puppeteer_overrides = puppeteer_record.get("overrides")
-        if puppeteer_overrides:
-            npm_cmd.append(f"--overrides={json.dumps(puppeteer_overrides)}")
-
-        npm_result = subprocess.run(
-            npm_cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=env,
-        )
-        if npm_result.returncode != 0:
-            raise RuntimeError(f"Npm install failed: {npm_result.stderr}")
-
-        apply_machine_updates(parse_jsonl_records(npm_result.stdout), env)
 
         chrome_result = subprocess.run(
             [sys.executable, str(CHROME_INSTALL_HOOK)],
