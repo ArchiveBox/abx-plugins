@@ -143,10 +143,7 @@ def get_mercury_binary_path():
             record = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if (
-            record.get("type") == "Binary"
-            and record.get("name") == "postlight-parser"
-        ):
+        if record.get("type") == "Binary" and record.get("name") == "postlight-parser":
             _mercury_binary_path = record.get("abspath")
             return _mercury_binary_path
 
@@ -309,7 +306,9 @@ def test_extracts_with_local_html_source_present(httpserver):
         article_json = tmpdir / "mercury" / "article.json"
         assert article_json.exists(), "article.json not created"
         metadata = json.loads(article_json.read_text())
-        assert metadata.get("title"), f"Expected non-empty title in metadata: {metadata}"
+        assert metadata.get("title"), (
+            f"Expected non-empty title in metadata: {metadata}"
+        )
 
 
 def test_config_save_mercury_false_skips():
@@ -419,9 +418,9 @@ def test_extracts_without_local_html_source(httpserver):
         extracted_html = output_file.read_text(errors="ignore")
         extracted_lower = extracted_html.lower()
         assert len(extracted_html) > 50, "Extracted HTML should not be trivially short"
-        assert "remote article" in extracted_lower or "fetched directly" in extracted_lower, (
-            f"Expected extracted article content missing. Output: {extracted_html[:500]}"
-        )
+        assert (
+            "remote article" in extracted_lower or "fetched directly" in extracted_lower
+        ), f"Expected extracted article content missing. Output: {extracted_html[:500]}"
 
 
 if __name__ == "__main__":

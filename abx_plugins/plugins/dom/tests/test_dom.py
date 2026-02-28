@@ -119,9 +119,7 @@ def test_extracts_dom_from_example_com(require_chrome_runtime, chrome_test_url):
         )
         html_lower = html_content.lower()
         assert "<html" in html_lower, "Missing <html> tag"
-        assert "example domain" in html_lower, (
-            "Missing 'Example Domain' in HTML"
-        )
+        assert "example domain" in html_lower, "Missing 'Example Domain' in HTML"
         assert (
             "this domain" in html_lower
             or "illustrative examples" in html_lower

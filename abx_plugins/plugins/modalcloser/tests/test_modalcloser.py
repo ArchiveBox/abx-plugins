@@ -360,9 +360,9 @@ def test_config_poll_interval(httpserver):
                     f"Should succeed: {result_json}"
                 )
                 output_str = result_json.get("output_str", "").lower()
-                assert "closed" in output_str and "no modals detected" not in output_str, (
-                    f"Should report closing modals/dialogs: {result_json}"
-                )
+                assert (
+                    "closed" in output_str and "no modals detected" not in output_str
+                ), f"Should report closing modals/dialogs: {result_json}"
 
         finally:
             if modalcloser_process and modalcloser_process.poll() is None:

@@ -42,9 +42,7 @@ def require_gallerydl_binary() -> str:
         "gallery-dl installation failed. Install hook should install gallery-dl "
         "automatically in this test environment."
     )
-    assert Path(binary_path).is_file(), (
-        f"gallery-dl binary path invalid: {binary_path}"
-    )
+    assert Path(binary_path).is_file(), f"gallery-dl binary path invalid: {binary_path}"
     return binary_path
 
 

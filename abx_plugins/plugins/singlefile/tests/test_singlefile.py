@@ -51,7 +51,10 @@ def ensure_singlefile_extension_installed() -> dict[str, Path]:
             try:
                 payload = json.loads(cache_file.read_text())
                 unpacked_path = Path(payload.get("unpacked_path", ""))
-                if unpacked_path.exists() and (unpacked_path / "manifest.json").exists():
+                if (
+                    unpacked_path.exists()
+                    and (unpacked_path / "manifest.json").exists()
+                ):
                     return _singlefile_install_state
             except Exception:
                 pass
@@ -146,7 +149,9 @@ def test_verify_deps_with_abx_pkg():
     node_loaded = node_binary.load()
     assert node_loaded and node_loaded.abspath, "Node.js required for singlefile plugin"
     state = ensure_singlefile_extension_installed()
-    assert state["cache_file"].exists(), "SingleFile extension cache should be installed"
+    assert state["cache_file"].exists(), (
+        "SingleFile extension cache should be installed"
+    )
 
 
 def test_singlefile_cli_archives_example_com():
@@ -306,7 +311,9 @@ def test_singlefile_with_chrome_session():
                         result.returncode == 0
                         or "browser-server" in result.stderr
                         or "cdp" in result.stderr.lower()
-                    ), f"Singlefile should attempt CDP connection. stderr: {result.stderr}"
+                    ), (
+                        f"Singlefile should attempt CDP connection. stderr: {result.stderr}"
+                    )
         finally:
             os.environ.clear()
             os.environ.update(old_env)

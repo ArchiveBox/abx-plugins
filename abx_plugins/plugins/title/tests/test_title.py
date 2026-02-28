@@ -280,8 +280,7 @@ def test_handles_https_urls(chrome_test_https_url):
 
 
 def test_handles_404_gracefully(title_test_urls):
-    """Test that title plugin handles 404 pages.
-    """
+    """Test that title plugin handles 404 pages."""
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)

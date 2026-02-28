@@ -274,7 +274,9 @@ def test_install_chromium_with_hooks_ensures_puppeteer_when_chromium_exists(
         called["ensure_puppeteer"] += 1
 
     monkeypatch.setattr(helpers, "_ensure_puppeteer_with_hooks", _fake_ensure)
-    monkeypatch.setattr(helpers, "_resolve_existing_chromium", lambda env: str(chromium_path))
+    monkeypatch.setattr(
+        helpers, "_resolve_existing_chromium", lambda env: str(chromium_path)
+    )
 
     env = {
         "LIB_DIR": str(tmp_path / "lib"),

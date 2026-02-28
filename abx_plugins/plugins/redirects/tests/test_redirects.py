@@ -171,7 +171,9 @@ class TestRedirectsWithChrome:
                     if record.get("type") == "ArchiveResult":
                         archive_result = record
                         break
-                assert archive_result is not None, "Missing ArchiveResult from redirects hook"
+                assert archive_result is not None, (
+                    "Missing ArchiveResult from redirects hook"
+                )
                 assert archive_result.get("status") == "succeeded", (
                     f"Redirects hook did not report success: {archive_result}"
                 )
