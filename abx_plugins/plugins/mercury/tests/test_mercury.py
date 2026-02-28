@@ -230,6 +230,77 @@ def test_extracts_with_mercury_parser(httpserver):
         assert len(content) > 0, "Output should not be empty"
 
 
+def test_extracts_with_local_html_source_present(httpserver):
+    """Test real mercury extraction when local singlefile source is present."""
+    binary_path = require_mercury_binary()
+    test_url = httpserver.url_for("/mercury-with-local-source")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        httpserver.expect_request("/mercury-with-local-source").respond_with_data(
+            "<html><head><title>Remote Source</title></head><body>"
+            "<article><h1>Remote Source Marker</h1><p>Fetched URL content for mercury parser.</p></article>"
+            "</body></html>",
+            content_type="text/html; charset=utf-8",
+        )
+
+        # Create local singlefile source to cover the 'local source exists' path.
+        singlefile_dir = tmpdir / "singlefile"
+        singlefile_dir.mkdir(parents=True, exist_ok=True)
+        (singlefile_dir / "singlefile.html").write_text(
+            "<html><head><title>Local Source</title></head><body>"
+            "<article><h1>Local Source Marker</h1><p>Local singlefile fixture content.</p></article>"
+            "</body></html>",
+            encoding="utf-8",
+        )
+
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(tmpdir)
+        env["MERCURY_BINARY"] = binary_path
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(MERCURY_HOOK),
+                "--url",
+                test_url,
+                "--snapshot-id",
+                "test-local-source",
+            ],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+        )
+
+        assert result.returncode == 0, f"Extraction failed: {result.stderr}"
+
+        result_json = None
+        for line in result.stdout.strip().split("\n"):
+            line = line.strip()
+            if line.startswith("{"):
+                try:
+                    record = json.loads(line)
+                    if record.get("type") == "ArchiveResult":
+                        result_json = record
+                        break
+                except json.JSONDecodeError:
+                    pass
+
+        assert result_json, "Should have ArchiveResult JSONL output"
+        assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
+
+        output_file = tmpdir / "mercury" / "content.html"
+        assert output_file.exists(), "content.html not created"
+
+        extracted_html = output_file.read_text(errors="ignore").lower()
+        assert len(extracted_html) > 50, "Extracted HTML should not be trivially short"
+        assert "remote source marker" in extracted_html or "local source marker" in extracted_html, (
+            f"Expected extracted article markers missing. Output: {extracted_html[:500]}"
+        )
+
+
 def test_config_save_mercury_false_skips():
     """Test that MERCURY_ENABLED=False exits without emitting JSONL."""
     import os
@@ -276,11 +347,23 @@ def test_config_save_mercury_false_skips():
         )
 
 
-def test_fails_gracefully_without_html():
-    """Test that mercury works even without HTML source (fetches URL directly)."""
+def test_extracts_without_local_html_source(httpserver):
+    """Test real mercury extraction from fetched HTML when no local source file exists."""
     binary_path = require_mercury_binary()
+    test_url = httpserver.url_for("/mercury-no-html-source")
 
     with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        httpserver.expect_request("/mercury-no-html-source").respond_with_data(
+            "<html><head><title>No Local HTML Source</title></head><body>"
+            "<article><h1>Remote Article</h1><p>Fetched directly by mercury parser.</p></article>"
+            "</body></html>",
+            content_type="text/html; charset=utf-8",
+        )
+
+        # Ensure this path tests remote fetch extraction (no local singlefile source exists).
+        assert not (tmpdir / "singlefile" / "singlefile.html").exists()
+
         env = os.environ.copy()
         env["MERCURY_BINARY"] = binary_path
         env["SNAP_DIR"] = str(tmpdir)
@@ -289,7 +372,7 @@ def test_fails_gracefully_without_html():
                 sys.executable,
                 str(MERCURY_HOOK),
                 "--url",
-                TEST_URL,
+                test_url,
                 "--snapshot-id",
                 "test999",
             ],
@@ -297,10 +380,12 @@ def test_fails_gracefully_without_html():
             capture_output=True,
             text=True,
             env=env,
-            timeout=30,
+            timeout=60,
         )
 
-        # Mercury fetches URL directly with postlight-parser, doesn't need HTML source
+        assert result.returncode == 0, f"Mercury fetch/parse failed: {result.stderr}"
+
+        # Mercury fetches URL directly with postlight-parser, doesn't need local HTML source
         # Parse clean JSONL output
         result_json = None
         for line in result.stdout.strip().split("\n"):
@@ -314,10 +399,17 @@ def test_fails_gracefully_without_html():
                 except json.JSONDecodeError:
                     pass
 
-        # Mercury should succeed or fail based on network, not based on HTML source
         assert result_json, "Should emit ArchiveResult"
-        assert result_json["status"] in ["succeeded", "failed"], (
-            f"Should succeed or fail: {result_json}"
+        assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
+
+        output_file = tmpdir / "mercury" / "content.html"
+        assert output_file.exists(), "content.html not created"
+
+        extracted_html = output_file.read_text(errors="ignore")
+        extracted_lower = extracted_html.lower()
+        assert len(extracted_html) > 50, "Extracted HTML should not be trivially short"
+        assert "remote article" in extracted_lower or "fetched directly" in extracted_lower, (
+            f"Expected extracted article content missing. Output: {extracted_html[:500]}"
         )
 
 

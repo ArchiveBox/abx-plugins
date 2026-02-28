@@ -26,7 +26,7 @@ _YTDLP_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_ytdlp.*"), None)
 if _YTDLP_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 YTDLP_HOOK = _YTDLP_HOOK
-TEST_URL = "https://example.com/video.mp4"
+TEST_URL = "https://www.youtube.com/watch?v=jNQXAC9IVRw"
 
 # Module-level cache for binary path
 _ytdlp_binary_path = None
@@ -36,6 +36,22 @@ _ytdlp_lib_root = None
 def _has_ssl_cert_error(result: subprocess.CompletedProcess[str]) -> bool:
     combined = f"{result.stdout}\n{result.stderr}"
     return "CERTIFICATE_VERIFY_FAILED" in combined
+
+
+@pytest.fixture
+def non_video_test_url(httpserver):
+    """Serve deterministic non-media content for failure-path ytdlp tests."""
+    httpserver.expect_request("/").respond_with_data(
+        """
+        <!doctype html>
+        <html>
+          <head><title>Not a media URL</title></head>
+          <body><h1>No downloadable media here</h1></body>
+        </html>
+        """.strip(),
+        content_type="text/html; charset=utf-8",
+    )
+    return httpserver.url_for("/")
 
 
 def require_ytdlp_binary() -> str:
@@ -157,7 +173,7 @@ def test_verify_deps_with_abx_pkg():
     )
 
 
-def test_handles_non_video_url():
+def test_handles_non_video_url(non_video_test_url):
     """Test that ytdlp extractor handles non-video URLs gracefully via hook."""
     binary_path = require_ytdlp_binary()
 
@@ -173,7 +189,7 @@ def test_handles_non_video_url():
                 sys.executable,
                 str(YTDLP_HOOK),
                 "--url",
-                "https://example.com",
+                non_video_test_url,
                 "--snapshot-id",
                 "test789",
             ],
@@ -182,10 +198,6 @@ def test_handles_non_video_url():
             text=True,
             env=env,
             timeout=60,
-        )
-
-        assert not _has_ssl_cert_error(result), (
-            "Local SSL certificate trust issue for outbound HTTPS must be fixed"
         )
 
         # Should exit 0 even for non-media URL
@@ -255,7 +267,7 @@ def test_config_ytdlp_enabled_false_skips():
         )
 
 
-def test_config_timeout():
+def test_config_timeout(non_video_test_url):
     """Test that YTDLP_TIMEOUT config is respected (also via MEDIA_TIMEOUT alias)."""
     binary_path = require_ytdlp_binary()
 
@@ -271,7 +283,7 @@ def test_config_timeout():
                 sys.executable,
                 str(YTDLP_HOOK),
                 "--url",
-                "https://example.com",
+                non_video_test_url,
                 "--snapshot-id",
                 "testtimeout",
             ],
@@ -282,10 +294,6 @@ def test_config_timeout():
             timeout=10,  # Should complete in 5s, use 10s as safety margin
         )
         elapsed_time = time.time() - start_time
-
-        assert not _has_ssl_cert_error(result), (
-            "Local SSL certificate trust issue for outbound HTTPS must be fixed"
-        )
 
         assert result.returncode == 0, (
             f"Should complete without hanging: {result.stderr}"
