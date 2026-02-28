@@ -23,9 +23,9 @@ without symlinks or environment-variable tricks.
 
 Each plugin lives under `plugins/<name>/` and may include:
 
-- `config.json` (optional) - config schema
-- `on_Crawl*install*` hooks (optional) - dependency/binary install records
-- `on_*` hook scripts (required to do work)
+- `config.json` config schema
+- `on_Crawl__...` per-crawl hook scripts (optional) - install dependencies / set up shared resources
+- `on_Snapshot__...` per-snapshot hooks - for each URL: do xyz...
 
 Hooks run with:
 
