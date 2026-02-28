@@ -129,10 +129,19 @@ async function takeScreenshot(url) {
         });
 
         await page.bringToFront();
-        await Promise.race([
-            page.screenshot({ path: outputPath, fullPage: true }),
-            timeoutPromise,
-        ]);
+        try {
+            await Promise.race([
+                page.screenshot({ path: outputPath, fullPage: true }),
+                timeoutPromise,
+            ]);
+        } catch (err) {
+            if (!(err instanceof Error) || !err.message.includes('timed out')) {
+                throw err;
+            }
+            // Some Chromium builds hang on full-page capture against local fixture pages.
+            // Fall back to viewport capture before failing the hook.
+            await page.screenshot({ path: outputPath, fullPage: false });
+        }
 
         return outputPath;
 

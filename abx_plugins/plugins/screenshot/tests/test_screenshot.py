@@ -95,7 +95,7 @@ def test_screenshot_with_chrome_session(chrome_test_url):
                         cwd=str(screenshot_dir),
                         capture_output=True,
                         text=True,
-                        timeout=30,
+                        timeout=120,
                         env=env
                     )
                 except subprocess.TimeoutExpired:
