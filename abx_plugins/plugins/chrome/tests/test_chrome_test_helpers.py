@@ -19,6 +19,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,
     get_hook_script,
     parse_jsonl_output,
+    install_chromium_with_hooks,
 )
 
 
@@ -255,6 +256,35 @@ def test_lib_dir_is_directory():
                 os.environ["HOME"] = old_home
             else:
                 os.environ.pop("HOME", None)
+
+
+def test_install_chromium_with_hooks_ensures_puppeteer_when_chromium_exists(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    """Even with existing Chromium, puppeteer npm package must still be ensured."""
+    from abx_plugins.plugins.chrome.tests import chrome_test_helpers as helpers
+
+    chromium_path = tmp_path / "chromium"
+    chromium_path.write_text("#!/bin/sh\nexit 0\n")
+    chromium_path.chmod(0o755)
+
+    called = {"ensure_puppeteer": 0}
+
+    def _fake_ensure(env: dict, timeout: int) -> None:
+        called["ensure_puppeteer"] += 1
+
+    monkeypatch.setattr(helpers, "_ensure_puppeteer_with_hooks", _fake_ensure)
+    monkeypatch.setattr(helpers, "_resolve_existing_chromium", lambda env: str(chromium_path))
+
+    env = {
+        "LIB_DIR": str(tmp_path / "lib"),
+        "NODE_MODULES_DIR": str(tmp_path / "lib" / "npm" / "node_modules"),
+    }
+    resolved = install_chromium_with_hooks(env, timeout=1)
+
+    assert called["ensure_puppeteer"] == 1, "Puppeteer install hook path must run"
+    assert resolved == str(chromium_path)
+    assert env["CHROME_BINARY"] == str(chromium_path)
 
 
 if __name__ == "__main__":
