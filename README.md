@@ -24,7 +24,6 @@ without symlinks or environment-variable tricks.
 Each plugin lives under `plugins/<name>/` and may include:
 
 - `config.json` (optional) - config schema
-- `binaries.jsonl` (optional) - binary manifests
 - `on_*` hook scripts (required to do work)
 
 Hooks run with:
