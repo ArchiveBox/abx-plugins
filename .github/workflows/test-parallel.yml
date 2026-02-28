@@ -40,7 +40,7 @@ jobs:
 
             plugin=$(echo $test_file | sed 's|abx_plugins/plugins/\([^/]*\)/.*|\1|')
             test_name=$(basename $test_file .py | sed 's/^test_//')
-            name="plugin/$plugin/$test_name"
+            name="$test_name"
 
             json_array+="{\"path\":\"$test_file\",\"name\":\"$name\"}"
           done
@@ -98,6 +98,8 @@ jobs:
 
       - name: Install dependencies with uv
         run: |
+          uv venv
+          uv sync --dev --all-extras
           uv pip install -e ".[dev]"
 
       - name: Run test - ${{ matrix.test.name }}
