@@ -150,7 +150,18 @@ def test_no_configuration_required():
         assert "API" not in (result.stdout + result.stderr) or result.returncode == 0
 
 
-TEST_URL = "https://www.filmin.es/"
+COOKIE_TEST_PATH = "/cookie-consent-test"
+COOKIE_TEST_HTML_STUB = """<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Cookie Consent Test Fixture</title>
+</head>
+<body>
+  <div class="cky-consent-container cky-popup-center" tabindex="-1" aria-label="Consentimiento de cookies" role="region"><div class="cky-consent-bar" data-cky-tag="notice" style="border-color: #151527; background-color: #151527;"><div class="cky-notice"><p class="cky-title" aria-level="2" data-cky-tag="title" role="heading" style="color: #FFFFFF;">Consentimiento de cookies</p><div class="cky-notice-group"><div class="cky-notice-des" data-cky-tag="description" style="color: #FFFFFF;"><p>En Filmin usamos cookies para el funcionamiento del sitio web, para mejorar y personalizar la experiencia de usuario y para recopilar información sobre las actividades de navegación que nos ayudan a mejorar. Puedes aceptar todo, rechazar o administrar las preferencias de cookies.&nbsp;<a href="https://www.filmin.es/aviso-legal#politica-de-cookies" class="cky-policy" aria-label="Aviso legal" target="_blank" rel="noopener" style="color: #FFFFFF; border-color: transparent; background-color: transparent;" data-cky-tag="readmore-button">Aviso legal</a></p></div><div class="cky-notice-btn-wrapper" data-cky-tag="notice-buttons"><button class="cky-btn cky-btn-customize" aria-label="Preferencias" aria-haspopup="dialog" aria-controls="ckyPreferenceCenter" data-cky-tag="settings-button" style="color: #FFFFFF; border-color: #FFFFFF; background-color: RGBA(0, 0, 0, 0);">Preferencias</button> <button class="cky-btn cky-btn-reject" aria-label="Rechazar todo" data-cky-tag="reject-button" style="color: #141426; border-color: #02FFA1; background-color: #02FFA1;">Rechazar todo</button> <button class="cky-btn cky-btn-accept" aria-label="Aceptar todo" data-cky-tag="accept-button" style="color: #141426; border-color: #02FFA1; background-color: #02FFA1;">Aceptar todo</button></div></div></div></div></div>
+</body>
+</html>
+"""
 
 
 def test_extension_loads_in_chromium():
@@ -491,8 +502,8 @@ const puppeteer = require('puppeteer-core');
     return json.loads(output_lines[-1])
 
 
-def test_hides_cookie_consent_on_filmin():
-    """Live test: verify extension hides cookie consent popup on filmin.es.
+def test_hides_cookie_consent_on_static_page(httpserver):
+    """Verify extension hides cookie consent popup on a deterministic local page.
 
     This test runs TWO browser sessions:
     1. WITHOUT extension - verifies cookie consent IS visible (baseline)
@@ -501,6 +512,12 @@ def test_hides_cookie_consent_on_filmin():
     This ensures we're actually testing the extension's effect, not just
     that a page happens to not have cookie consent.
     """
+    httpserver.expect_request(COOKIE_TEST_PATH).respond_with_data(
+        COOKIE_TEST_HTML_STUB,
+        content_type="text/html; charset=utf-8",
+    )
+    test_url = httpserver.url_for(COOKIE_TEST_PATH)
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
@@ -545,7 +562,7 @@ def test_hides_cookie_consent_on_filmin():
             time.sleep(2)
 
             baseline_result = check_cookie_consent_visibility(
-                baseline_cdp_url, TEST_URL, env_no_ext, tmpdir
+                baseline_cdp_url, test_url, env_no_ext, tmpdir
             )
 
             print(
@@ -579,9 +596,9 @@ def test_hides_cookie_consent_on_filmin():
             print(f"HTML snippet: {baseline_result.get('html_snippet', '')[:200]}")
 
             pytest.fail(
-                f"Cannot test extension: no cookie consent visible in baseline on {TEST_URL}. "
+                f"Cannot test extension: no cookie consent visible in baseline on {test_url}. "
                 f"Elements found: {len(baseline_result['elements_found'])}. "
-                f"The site may have changed or cookie consent may be region-specific."
+                "The fixture HTML may need to be updated."
             )
 
         print(
@@ -644,7 +661,7 @@ def test_hides_cookie_consent_on_filmin():
             time.sleep(3)
 
             ext_result = check_cookie_consent_visibility(
-                ext_cdp_url, TEST_URL, env_with_ext, tmpdir
+                ext_cdp_url, test_url, env_with_ext, tmpdir
             )
 
             print(
