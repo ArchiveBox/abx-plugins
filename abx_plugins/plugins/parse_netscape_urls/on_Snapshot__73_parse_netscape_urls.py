@@ -29,13 +29,13 @@ from urllib.parse import urlparse
 
 import rich_click as click
 
-PLUGIN_NAME = 'parse_netscape_urls'
+PLUGIN_NAME = "parse_netscape_urls"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
-URLS_FILE = Path('urls.jsonl')
+URLS_FILE = Path("urls.jsonl")
 
 # Constants for timestamp epoch detection
 UNIX_EPOCH = 0  # 1970-01-01 00:00:00 UTC
@@ -50,7 +50,7 @@ MAX_REASONABLE_YEAR = 2035  # Far enough in future
 # Make ADD_DATE optional and allow negative numbers
 NETSCAPE_PATTERN = re.compile(
     r'<a\s+href="([^"]+)"(?:\s+add_date="([^"]*)")?(?:\s+[^>]*?tags="([^"]*)")?[^>]*>([^<]+)</a>',
-    re.UNICODE | re.IGNORECASE
+    re.UNICODE | re.IGNORECASE,
 )
 
 
@@ -69,7 +69,7 @@ def parse_timestamp(timestamp_str: str) -> datetime | None:
     2. Pick the one that yields a reasonable date (1995-2035)
     3. Prioritize more common formats (Unix seconds, then Mac seconds, etc.)
     """
-    if not timestamp_str or timestamp_str == '':
+    if not timestamp_str or timestamp_str == "":
         return None
 
     try:
@@ -94,7 +94,7 @@ def parse_timestamp(timestamp_str: str) -> datetime | None:
         try:
             dt = datetime.fromtimestamp(timestamp_num, tz=timezone.utc)
             if MIN_REASONABLE_YEAR <= dt.year <= MAX_REASONABLE_YEAR:
-                candidates.append((dt, 'unix_seconds', 100))  # Highest priority
+                candidates.append((dt, "unix_seconds", 100))  # Highest priority
         except (ValueError, OSError, OverflowError):
             pass
 
@@ -102,9 +102,11 @@ def parse_timestamp(timestamp_str: str) -> datetime | None:
     # Only consider if Unix seconds didn't work or gave unreasonable date
     if 8 <= num_digits <= 11:
         try:
-            dt = datetime.fromtimestamp(timestamp_num + MAC_COCOA_EPOCH, tz=timezone.utc)
+            dt = datetime.fromtimestamp(
+                timestamp_num + MAC_COCOA_EPOCH, tz=timezone.utc
+            )
             if MIN_REASONABLE_YEAR <= dt.year <= MAX_REASONABLE_YEAR:
-                candidates.append((dt, 'mac_seconds', 90))
+                candidates.append((dt, "mac_seconds", 90))
         except (ValueError, OSError, OverflowError):
             pass
 
@@ -113,16 +115,18 @@ def parse_timestamp(timestamp_str: str) -> datetime | None:
         try:
             dt = datetime.fromtimestamp(timestamp_num / 1000, tz=timezone.utc)
             if MIN_REASONABLE_YEAR <= dt.year <= MAX_REASONABLE_YEAR:
-                candidates.append((dt, 'unix_milliseconds', 95))
+                candidates.append((dt, "unix_milliseconds", 95))
         except (ValueError, OSError, OverflowError):
             pass
 
     # Mac/Cocoa epoch milliseconds (12-13 digits) - Rare
     if 11 <= num_digits <= 14:
         try:
-            dt = datetime.fromtimestamp((timestamp_num / 1000) + MAC_COCOA_EPOCH, tz=timezone.utc)
+            dt = datetime.fromtimestamp(
+                (timestamp_num / 1000) + MAC_COCOA_EPOCH, tz=timezone.utc
+            )
             if MIN_REASONABLE_YEAR <= dt.year <= MAX_REASONABLE_YEAR:
-                candidates.append((dt, 'mac_milliseconds', 85))
+                candidates.append((dt, "mac_milliseconds", 85))
         except (ValueError, OSError, OverflowError):
             pass
 
@@ -131,16 +135,18 @@ def parse_timestamp(timestamp_str: str) -> datetime | None:
         try:
             dt = datetime.fromtimestamp(timestamp_num / 1_000_000, tz=timezone.utc)
             if MIN_REASONABLE_YEAR <= dt.year <= MAX_REASONABLE_YEAR:
-                candidates.append((dt, 'unix_microseconds', 98))
+                candidates.append((dt, "unix_microseconds", 98))
         except (ValueError, OSError, OverflowError):
             pass
 
     # Mac/Cocoa epoch microseconds (15-16 digits) - Very rare
     if 14 <= num_digits <= 18:
         try:
-            dt = datetime.fromtimestamp((timestamp_num / 1_000_000) + MAC_COCOA_EPOCH, tz=timezone.utc)
+            dt = datetime.fromtimestamp(
+                (timestamp_num / 1_000_000) + MAC_COCOA_EPOCH, tz=timezone.utc
+            )
             if MIN_REASONABLE_YEAR <= dt.year <= MAX_REASONABLE_YEAR:
-                candidates.append((dt, 'mac_microseconds', 80))
+                candidates.append((dt, "mac_microseconds", 80))
         except (ValueError, OSError, OverflowError):
             pass
 
@@ -159,39 +165,47 @@ def fetch_content(url: str) -> str:
     """Fetch content from a URL (supports file:// and https://)."""
     parsed = urlparse(url)
 
-    if parsed.scheme == 'file':
+    if parsed.scheme == "file":
         file_path = parsed.path
-        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
             return f.read()
     else:
-        timeout = int(os.environ.get('TIMEOUT', '60'))
-        user_agent = os.environ.get('USER_AGENT', 'Mozilla/5.0 (compatible; ArchiveBox/1.0)')
+        timeout = int(os.environ.get("TIMEOUT", "60"))
+        user_agent = os.environ.get(
+            "USER_AGENT", "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
+        )
 
         import urllib.request
-        req = urllib.request.Request(url, headers={'User-Agent': user_agent})
+
+        req = urllib.request.Request(url, headers={"User-Agent": user_agent})
         with urllib.request.urlopen(req, timeout=timeout) as response:
-            return response.read().decode('utf-8', errors='replace')
+            return response.read().decode("utf-8", errors="replace")
 
 
 @click.command()
-@click.option('--url', required=True, help='Netscape bookmark file URL to parse')
-@click.option('--snapshot-id', required=False, help='Parent Snapshot UUID')
-@click.option('--crawl-id', required=False, help='Crawl UUID')
-@click.option('--depth', type=int, default=0, help='Current depth level')
-def main(url: str, snapshot_id: str | None = None, crawl_id: str | None = None, depth: int = 0):
+@click.option("--url", required=True, help="Netscape bookmark file URL to parse")
+@click.option("--snapshot-id", required=False, help="Parent Snapshot UUID")
+@click.option("--crawl-id", required=False, help="Crawl UUID")
+@click.option("--depth", type=int, default=0, help="Current depth level")
+def main(
+    url: str,
+    snapshot_id: str | None = None,
+    crawl_id: str | None = None,
+    depth: int = 0,
+):
     """Parse Netscape bookmark HTML and extract URLs."""
-    env_depth = os.environ.get('SNAPSHOT_DEPTH')
+    env_depth = os.environ.get("SNAPSHOT_DEPTH")
     if env_depth is not None:
         try:
             depth = int(env_depth)
         except Exception:
             pass
-    crawl_id = crawl_id or os.environ.get('CRAWL_ID')
+    crawl_id = crawl_id or os.environ.get("CRAWL_ID")
 
     try:
         content = fetch_content(url)
     except Exception as e:
-        click.echo(f'Failed to fetch {url}: {e}', err=True)
+        click.echo(f"Failed to fetch {url}: {e}", err=True)
         sys.exit(1)
 
     urls_found = []
@@ -202,25 +216,25 @@ def main(url: str, snapshot_id: str | None = None, crawl_id: str | None = None, 
         if match:
             bookmark_url = match.group(1)
             timestamp_str = match.group(2)
-            tags_str = match.group(3) or ''
+            tags_str = match.group(3) or ""
             title = match.group(4).strip()
 
             entry = {
-                'type': 'Snapshot',
-                'url': unescape(bookmark_url),
-                'plugin': PLUGIN_NAME,
-                'depth': depth + 1,
+                "type": "Snapshot",
+                "url": unescape(bookmark_url),
+                "plugin": PLUGIN_NAME,
+                "depth": depth + 1,
             }
             if snapshot_id:
-                entry['parent_snapshot_id'] = snapshot_id
+                entry["parent_snapshot_id"] = snapshot_id
             if crawl_id:
-                entry['crawl_id'] = crawl_id
+                entry["crawl_id"] = crawl_id
             if title:
-                entry['title'] = unescape(title)
+                entry["title"] = unescape(title)
             if tags_str:
-                entry['tags'] = tags_str
+                entry["tags"] = tags_str
                 # Collect unique tags
-                for tag in tags_str.split(','):
+                for tag in tags_str.split(","):
                     tag = tag.strip()
                     if tag:
                         all_tags.add(tag)
@@ -229,31 +243,37 @@ def main(url: str, snapshot_id: str | None = None, crawl_id: str | None = None, 
             if timestamp_str:
                 dt = parse_timestamp(timestamp_str)
                 if dt:
-                    entry['bookmarked_at'] = dt.isoformat()
+                    entry["bookmarked_at"] = dt.isoformat()
 
             urls_found.append(entry)
 
     # Emit Tag records first (to stdout as JSONL)
     for tag_name in sorted(all_tags):
-        print(json.dumps({
-            'type': 'Tag',
-            'name': tag_name,
-        }))
+        print(
+            json.dumps(
+                {
+                    "type": "Tag",
+                    "name": tag_name,
+                }
+            )
+        )
 
     # Emit Snapshot records (to stdout as JSONL)
     for entry in urls_found:
         print(json.dumps(entry))
 
     # Write urls.jsonl to disk for crawl system
-    URLS_FILE.write_text('\n'.join(json.dumps(r) for r in urls_found) + ('\n' if urls_found else ''))
+    URLS_FILE.write_text(
+        "\n".join(json.dumps(r) for r in urls_found) + ("\n" if urls_found else "")
+    )
 
     # Emit ArchiveResult record to mark completion
-    status = 'succeeded' if urls_found else 'skipped'
+    status = "succeeded" if urls_found else "skipped"
     output_str = URLS_FILE.name
     ar_record = {
-        'type': 'ArchiveResult',
-        'status': status,
-        'output_str': output_str,
+        "type": "ArchiveResult",
+        "status": status,
+        "output_str": output_str,
     }
     print(json.dumps(ar_record))
 
@@ -261,5 +281,5 @@ def main(url: str, snapshot_id: str | None = None, crawl_id: str | None = None, 
     sys.exit(0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

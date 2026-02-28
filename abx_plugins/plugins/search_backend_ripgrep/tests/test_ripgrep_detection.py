@@ -19,14 +19,14 @@ import pytest
 
 def test_ripgrep_hook_detects_binary_from_path():
     """Test that ripgrep hook finds binary using abx-pkg when env var is just a name."""
-    hook_path = Path(__file__).parent.parent / 'on_Crawl__50_ripgrep_install.py'
+    hook_path = Path(__file__).parent.parent / "on_Crawl__50_ripgrep_install.py"
 
-    assert shutil.which('rg'), "ripgrep not installed"
+    assert shutil.which("rg"), "ripgrep not installed"
 
     # Set SEARCH_BACKEND_ENGINE to enable the hook
     env = os.environ.copy()
-    env['SEARCH_BACKEND_ENGINE'] = 'ripgrep'
-    env['RIPGREP_BINARY'] = 'rg'  # Just the name, not the full path (this was the bug)
+    env["SEARCH_BACKEND_ENGINE"] = "ripgrep"
+    env["RIPGREP_BINARY"] = "rg"  # Just the name, not the full path (this was the bug)
 
     result = subprocess.run(
         [sys.executable, str(hook_path)],
@@ -39,21 +39,25 @@ def test_ripgrep_hook_detects_binary_from_path():
     assert result.returncode == 0, f"Hook failed: {result.stderr}"
 
     # Parse JSONL output (filter out non-JSON lines)
-    lines = [line for line in result.stdout.strip().split('\n') if line.strip() and line.strip().startswith('{')]
+    lines = [
+        line
+        for line in result.stdout.strip().split("\n")
+        if line.strip() and line.strip().startswith("{")
+    ]
     assert len(lines) >= 1, "Expected at least 1 JSONL line (Binary)"
 
     binary = json.loads(lines[0])
-    assert binary['type'] == 'Binary'
-    assert binary['name'] == 'rg'
-    assert 'binproviders' in binary, "Expected binproviders declaration"
+    assert binary["type"] == "Binary"
+    assert binary["name"] == "rg"
+    assert "binproviders" in binary, "Expected binproviders declaration"
 
 
 def test_ripgrep_hook_skips_when_backend_not_ripgrep():
     """Test that ripgrep hook exits silently when search backend is not ripgrep."""
-    hook_path = Path(__file__).parent.parent / 'on_Crawl__50_ripgrep_install.py'
+    hook_path = Path(__file__).parent.parent / "on_Crawl__50_ripgrep_install.py"
 
     env = os.environ.copy()
-    env['SEARCH_BACKEND_ENGINE'] = 'sqlite'  # Different backend
+    env["SEARCH_BACKEND_ENGINE"] = "sqlite"  # Different backend
 
     result = subprocess.run(
         [sys.executable, str(hook_path)],
@@ -63,20 +67,24 @@ def test_ripgrep_hook_skips_when_backend_not_ripgrep():
         timeout=10,
     )
 
-    assert result.returncode == 0, "Hook should exit successfully when backend is not ripgrep"
-    assert result.stdout.strip() == '', "Hook should produce no output when backend is not ripgrep"
+    assert result.returncode == 0, (
+        "Hook should exit successfully when backend is not ripgrep"
+    )
+    assert result.stdout.strip() == "", (
+        "Hook should produce no output when backend is not ripgrep"
+    )
 
 
 def test_ripgrep_hook_handles_absolute_path():
     """Test that ripgrep hook exits successfully when RIPGREP_BINARY is a valid absolute path."""
-    hook_path = Path(__file__).parent.parent / 'on_Crawl__50_ripgrep_install.py'
+    hook_path = Path(__file__).parent.parent / "on_Crawl__50_ripgrep_install.py"
 
-    rg_path = shutil.which('rg')
+    rg_path = shutil.which("rg")
     assert rg_path, "ripgrep not installed"
 
     env = os.environ.copy()
-    env['SEARCH_BACKEND_ENGINE'] = 'ripgrep'
-    env['RIPGREP_BINARY'] = rg_path  # Full absolute path
+    env["SEARCH_BACKEND_ENGINE"] = "ripgrep"
+    env["RIPGREP_BINARY"] = rg_path  # Full absolute path
 
     result = subprocess.run(
         [sys.executable, str(hook_path)],
@@ -86,8 +94,14 @@ def test_ripgrep_hook_handles_absolute_path():
         timeout=10,
     )
 
-    assert result.returncode == 0, f"Hook should exit successfully when binary already configured: {result.stderr}"
-    lines = [line for line in result.stdout.strip().split('\n') if line.strip().startswith('{')]
+    assert result.returncode == 0, (
+        f"Hook should exit successfully when binary already configured: {result.stderr}"
+    )
+    lines = [
+        line
+        for line in result.stdout.strip().split("\n")
+        if line.strip().startswith("{")
+    ]
     assert lines, "Expected Binary JSONL output when backend is ripgrep"
 
 
@@ -101,14 +115,14 @@ def test_ripgrep_only_detected_when_backend_enabled():
     import sys
     from pathlib import Path
 
-    assert shutil.which('rg'), "ripgrep not installed"
+    assert shutil.which("rg"), "ripgrep not installed"
 
-    hook_path = Path(__file__).parent.parent / 'on_Crawl__50_ripgrep_install.py'
+    hook_path = Path(__file__).parent.parent / "on_Crawl__50_ripgrep_install.py"
 
     # Test 1: With ripgrep backend - should output Binary record
     env1 = os.environ.copy()
-    env1['SEARCH_BACKEND_ENGINE'] = 'ripgrep'
-    env1['RIPGREP_BINARY'] = 'rg'
+    env1["SEARCH_BACKEND_ENGINE"] = "ripgrep"
+    env1["RIPGREP_BINARY"] = "rg"
 
     result1 = subprocess.run(
         [sys.executable, str(hook_path)],
@@ -118,14 +132,16 @@ def test_ripgrep_only_detected_when_backend_enabled():
         timeout=10,
     )
 
-    assert result1.returncode == 0, f"Hook should succeed with ripgrep backend: {result1.stderr}"
+    assert result1.returncode == 0, (
+        f"Hook should succeed with ripgrep backend: {result1.stderr}"
+    )
     # Should output Binary JSONL when backend is ripgrep
-    assert 'Binary' in result1.stdout, "Should output Binary when backend=ripgrep"
+    assert "Binary" in result1.stdout, "Should output Binary when backend=ripgrep"
 
     # Test 2: With different backend - should output nothing
     env2 = os.environ.copy()
-    env2['SEARCH_BACKEND_ENGINE'] = 'sqlite'
-    env2['RIPGREP_BINARY'] = 'rg'
+    env2["SEARCH_BACKEND_ENGINE"] = "sqlite"
+    env2["RIPGREP_BINARY"] = "rg"
 
     result2 = subprocess.run(
         [sys.executable, str(hook_path)],
@@ -135,9 +151,13 @@ def test_ripgrep_only_detected_when_backend_enabled():
         timeout=10,
     )
 
-    assert result2.returncode == 0, "Hook should exit successfully when backend is not ripgrep"
-    assert result2.stdout.strip() == '', "Hook should produce no output when backend is not ripgrep"
+    assert result2.returncode == 0, (
+        "Hook should exit successfully when backend is not ripgrep"
+    )
+    assert result2.stdout.strip() == "", (
+        "Hook should produce no output when backend is not ripgrep"
+    )
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

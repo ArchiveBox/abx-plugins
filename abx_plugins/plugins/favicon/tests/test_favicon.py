@@ -28,11 +28,11 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
-_FAVICON_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_favicon.*')
+_FAVICON_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_favicon.*")
 if _FAVICON_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 FAVICON_HOOK = _FAVICON_HOOK
-TEST_URL = 'https://example.com'
+TEST_URL = "https://example.com"
 
 
 def test_hook_script_exists():
@@ -43,9 +43,9 @@ def test_hook_script_exists():
 def test_requests_library_available():
     """Test that requests library is available."""
     result = subprocess.run(
-        [sys.executable, '-c', 'import requests; print(requests.__version__)'],
+        [sys.executable, "-c", "import requests; print(requests.__version__)"],
         capture_output=True,
-        text=True
+        text=True,
     )
 
     if result.returncode != 0:
@@ -63,27 +63,33 @@ def test_extracts_favicon_from_example_com():
 
     # Check requests is available
     check_result = subprocess.run(
-        [sys.executable, '-c', 'import requests'],
-        capture_output=True
+        [sys.executable, "-c", "import requests"], capture_output=True
     )
     if check_result.returncode != 0:
         pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        snap_dir = tmpdir / 'snap'
+        snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
         env = os.environ.copy()
-        env['SNAP_DIR'] = str(snap_dir)
+        env["SNAP_DIR"] = str(snap_dir)
 
         # Run favicon extraction
         result = subprocess.run(
-            [sys.executable, str(FAVICON_HOOK), '--url', TEST_URL, '--snapshot-id', 'test789'],
+            [
+                sys.executable,
+                str(FAVICON_HOOK),
+                "--url",
+                TEST_URL,
+                "--snapshot-id",
+                "test789",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             timeout=60,
-            env=env
+            env=env,
         )
 
         # May succeed (if Google service works) or fail (if no favicon)
@@ -91,13 +97,13 @@ def test_extracts_favicon_from_example_com():
 
         # Parse clean JSONL output
         result_json = None
-        for line in result.stdout.strip().split('\n'):
+        for line in result.stdout.strip().split("\n"):
             line = line.strip()
-            if line.startswith('{'):
+            if line.startswith("{"):
                 pass
                 try:
                     record = json.loads(line)
-                    if record.get('type') == 'ArchiveResult':
+                    if record.get("type") == "ArchiveResult":
                         result_json = record
                         break
                 except json.JSONDecodeError:
@@ -106,37 +112,40 @@ def test_extracts_favicon_from_example_com():
         assert result_json, "Should have ArchiveResult JSONL output"
 
         # If it succeeded, verify the favicon file
-        if result_json['status'] == 'succeeded':
-            favicon_file = snap_dir / 'favicon' / 'favicon.ico'
+        if result_json["status"] == "succeeded":
+            favicon_file = snap_dir / "favicon" / "favicon.ico"
             assert favicon_file.exists(), "favicon.ico not created"
 
             # Verify file is not empty and contains actual image data
             file_size = favicon_file.stat().st_size
             assert file_size > 0, "Favicon file should not be empty"
-            assert file_size < 1024 * 1024, f"Favicon file suspiciously large: {file_size} bytes"
+            assert file_size < 1024 * 1024, (
+                f"Favicon file suspiciously large: {file_size} bytes"
+            )
 
             # Check for common image magic bytes
             favicon_data = favicon_file.read_bytes()
             # ICO, PNG, GIF, JPEG, or WebP
             is_image = (
-                favicon_data[:4] == b'\x00\x00\x01\x00' or  # ICO
-                favicon_data[:8] == b'\x89PNG\r\n\x1a\n' or  # PNG
-                favicon_data[:3] == b'GIF' or  # GIF
-                favicon_data[:2] == b'\xff\xd8' or  # JPEG
-                favicon_data[8:12] == b'WEBP'  # WebP
+                favicon_data[:4] == b"\x00\x00\x01\x00"  # ICO
+                or favicon_data[:8] == b"\x89PNG\r\n\x1a\n"  # PNG
+                or favicon_data[:3] == b"GIF"  # GIF
+                or favicon_data[:2] == b"\xff\xd8"  # JPEG
+                or favicon_data[8:12] == b"WEBP"  # WebP
             )
             assert is_image, "Favicon file should be a valid image format"
         else:
             # Failed as expected
-            assert result_json['status'] == 'failed', f"Should report failure: {result_json}"
+            assert result_json["status"] == "failed", (
+                f"Should report failure: {result_json}"
+            )
 
 
 def test_config_timeout_honored():
     """Test that TIMEOUT config is respected."""
 
     check_result = subprocess.run(
-        [sys.executable, '-c', 'import requests'],
-        capture_output=True
+        [sys.executable, "-c", "import requests"], capture_output=True
     )
     if check_result.returncode != 0:
         pass
@@ -146,17 +155,25 @@ def test_config_timeout_honored():
 
         # Set very short timeout (but example.com should still succeed)
         import os
+
         env = os.environ.copy()
-        env['TIMEOUT'] = '5'
-        env['SNAP_DIR'] = str(tmpdir)
+        env["TIMEOUT"] = "5"
+        env["SNAP_DIR"] = str(tmpdir)
 
         result = subprocess.run(
-            [sys.executable, str(FAVICON_HOOK), '--url', TEST_URL, '--snapshot-id', 'testtimeout'],
+            [
+                sys.executable,
+                str(FAVICON_HOOK),
+                "--url",
+                TEST_URL,
+                "--snapshot-id",
+                "testtimeout",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             env=env,
-            timeout=30
+            timeout=30,
         )
 
         # Should complete (success or fail, but not hang)
@@ -167,8 +184,7 @@ def test_config_user_agent():
     """Test that USER_AGENT config is used."""
 
     check_result = subprocess.run(
-        [sys.executable, '-c', 'import requests'],
-        capture_output=True
+        [sys.executable, "-c", "import requests"], capture_output=True
     )
     if check_result.returncode != 0:
         pass
@@ -178,45 +194,54 @@ def test_config_user_agent():
 
         # Set custom user agent
         import os
+
         env = os.environ.copy()
-        env['USER_AGENT'] = 'TestBot/1.0'
-        env['SNAP_DIR'] = str(tmpdir)
+        env["USER_AGENT"] = "TestBot/1.0"
+        env["SNAP_DIR"] = str(tmpdir)
 
         result = subprocess.run(
-            [sys.executable, str(FAVICON_HOOK), '--url', TEST_URL, '--snapshot-id', 'testua'],
+            [
+                sys.executable,
+                str(FAVICON_HOOK),
+                "--url",
+                TEST_URL,
+                "--snapshot-id",
+                "testua",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             env=env,
-            timeout=60
+            timeout=60,
         )
 
         # Should succeed (example.com doesn't block)
         if result.returncode == 0:
             # Parse clean JSONL output
             result_json = None
-            for line in result.stdout.strip().split('\n'):
+            for line in result.stdout.strip().split("\n"):
                 line = line.strip()
-                if line.startswith('{'):
+                if line.startswith("{"):
                     pass
                     try:
                         record = json.loads(line)
-                        if record.get('type') == 'ArchiveResult':
+                        if record.get("type") == "ArchiveResult":
                             result_json = record
                             break
                     except json.JSONDecodeError:
                         pass
 
             if result_json:
-                assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
+                assert result_json["status"] == "succeeded", (
+                    f"Should succeed: {result_json}"
+                )
 
 
 def test_handles_https_urls():
     """Test that HTTPS URLs work correctly."""
 
     check_result = subprocess.run(
-        [sys.executable, '-c', 'import requests'],
-        capture_output=True
+        [sys.executable, "-c", "import requests"], capture_output=True
     )
     if check_result.returncode != 0:
         pass
@@ -225,9 +250,16 @@ def test_handles_https_urls():
         tmpdir = Path(tmpdir)
 
         env = os.environ.copy()
-        env['SNAP_DIR'] = str(tmpdir)
+        env["SNAP_DIR"] = str(tmpdir)
         result = subprocess.run(
-            [sys.executable, str(FAVICON_HOOK), '--url', 'https://example.org', '--snapshot-id', 'testhttps'],
+            [
+                sys.executable,
+                str(FAVICON_HOOK),
+                "--url",
+                "https://example.org",
+                "--snapshot-id",
+                "testhttps",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -236,7 +268,7 @@ def test_handles_https_urls():
         )
 
         if result.returncode == 0:
-            favicon_file = tmpdir / 'favicon' / 'favicon.ico'
+            favicon_file = tmpdir / "favicon" / "favicon.ico"
             if favicon_file.exists():
                 assert favicon_file.stat().st_size > 0
 
@@ -249,8 +281,7 @@ def test_handles_missing_favicon_gracefully():
     """
 
     check_result = subprocess.run(
-        [sys.executable, '-c', 'import requests'],
-        capture_output=True
+        [sys.executable, "-c", "import requests"], capture_output=True
     )
     if check_result.returncode != 0:
         pass
@@ -260,9 +291,16 @@ def test_handles_missing_favicon_gracefully():
 
         # Try a URL that likely doesn't have a favicon
         env = os.environ.copy()
-        env['SNAP_DIR'] = str(tmpdir)
+        env["SNAP_DIR"] = str(tmpdir)
         result = subprocess.run(
-            [sys.executable, str(FAVICON_HOOK), '--url', 'https://example.com/nonexistent', '--snapshot-id', 'test404'],
+            [
+                sys.executable,
+                str(FAVICON_HOOK),
+                "--url",
+                "https://example.com/nonexistent",
+                "--snapshot-id",
+                "test404",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -275,7 +313,7 @@ def test_handles_missing_favicon_gracefully():
 
         if result.returncode != 0:
             combined = result.stdout + result.stderr
-            assert 'No favicon found' in combined or 'ERROR=' in combined
+            assert "No favicon found" in combined or "ERROR=" in combined
 
 
 def test_reports_missing_requests_library():
@@ -286,25 +324,38 @@ def test_reports_missing_requests_library():
 
         # Run with PYTHONPATH cleared to simulate missing requests
         import os
+
         env = os.environ.copy()
         # Keep only minimal PATH, clear PYTHONPATH
-        env['PYTHONPATH'] = '/nonexistent'
-        env['SNAP_DIR'] = str(tmpdir)
+        env["PYTHONPATH"] = "/nonexistent"
+        env["SNAP_DIR"] = str(tmpdir)
 
         result = subprocess.run(
-            [sys.executable, '-S', str(FAVICON_HOOK), '--url', TEST_URL, '--snapshot-id', 'test123'],
+            [
+                sys.executable,
+                "-S",
+                str(FAVICON_HOOK),
+                "--url",
+                TEST_URL,
+                "--snapshot-id",
+                "test123",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
-            env=env
+            env=env,
         )
 
         # Should fail and report missing requests
         if result.returncode != 0:
             combined = result.stdout + result.stderr
             # May report missing requests or other import errors
-            assert 'requests' in combined.lower() or 'import' in combined.lower() or 'ERROR=' in combined
+            assert (
+                "requests" in combined.lower()
+                or "import" in combined.lower()
+                or "ERROR=" in combined
+            )
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

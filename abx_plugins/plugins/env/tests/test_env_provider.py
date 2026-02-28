@@ -16,7 +16,7 @@ import pytest
 
 # Get the path to the env provider hook
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_HOOK = next(PLUGIN_DIR.glob('on_Binary__*_env_install.py'), None)
+INSTALL_HOOK = next(PLUGIN_DIR.glob("on_Binary__*_env_install.py"), None)
 
 
 class TestEnvProviderHook:
@@ -29,6 +29,7 @@ class TestEnvProviderHook:
     def teardown_method(self, _method=None):
         """Clean up."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_hook_script_exists(self):
@@ -38,34 +39,38 @@ class TestEnvProviderHook:
     def test_hook_finds_python(self):
         """Hook should find python3 binary in PATH."""
         env = os.environ.copy()
-        env['SNAP_DIR'] = self.temp_dir
+        env["SNAP_DIR"] = self.temp_dir
 
         result = subprocess.run(
             [
-                sys.executable, str(INSTALL_HOOK),
-                '--name=python3',
-                '--binary-id=test-uuid',
-                '--machine-id=test-machine',
+                sys.executable,
+                str(INSTALL_HOOK),
+                "--name=python3",
+                "--binary-id=test-uuid",
+                "--machine-id=test-machine",
             ],
             capture_output=True,
             text=True,
             timeout=30,
-            env=env
+            env=env,
         )
 
         # Should succeed and output JSONL
         assert result.returncode == 0, f"Hook failed: {result.stderr}"
 
         # Parse JSONL output
-        for line in result.stdout.split('\n'):
+        for line in result.stdout.split("\n"):
             line = line.strip()
-            if line.startswith('{'):
+            if line.startswith("{"):
                 try:
                     record = json.loads(line)
-                    if record.get('type') == 'Binary' and record.get('name') == 'python3':
-                        assert record['binprovider'] == 'env'
-                        assert record['abspath']
-                        assert Path(record['abspath']).exists()
+                    if (
+                        record.get("type") == "Binary"
+                        and record.get("name") == "python3"
+                    ):
+                        assert record["binprovider"] == "env"
+                        assert record["abspath"]
+                        assert Path(record["abspath"]).exists()
                         return
                 except json.JSONDecodeError:
                     continue
@@ -75,33 +80,34 @@ class TestEnvProviderHook:
     def test_hook_finds_bash(self):
         """Hook should find bash binary in PATH."""
         env = os.environ.copy()
-        env['SNAP_DIR'] = self.temp_dir
+        env["SNAP_DIR"] = self.temp_dir
 
         result = subprocess.run(
             [
-                sys.executable, str(INSTALL_HOOK),
-                '--name=bash',
-                '--binary-id=test-uuid',
-                '--machine-id=test-machine',
+                sys.executable,
+                str(INSTALL_HOOK),
+                "--name=bash",
+                "--binary-id=test-uuid",
+                "--machine-id=test-machine",
             ],
             capture_output=True,
             text=True,
             timeout=30,
-            env=env
+            env=env,
         )
 
         # Should succeed and output JSONL
         assert result.returncode == 0, f"Hook failed: {result.stderr}"
 
         # Parse JSONL output
-        for line in result.stdout.split('\n'):
+        for line in result.stdout.split("\n"):
             line = line.strip()
-            if line.startswith('{'):
+            if line.startswith("{"):
                 try:
                     record = json.loads(line)
-                    if record.get('type') == 'Binary' and record.get('name') == 'bash':
-                        assert record['binprovider'] == 'env'
-                        assert record['abspath']
+                    if record.get("type") == "Binary" and record.get("name") == "bash":
+                        assert record["binprovider"] == "env"
+                        assert record["abspath"]
                         return
                 except json.JSONDecodeError:
                     continue
@@ -111,48 +117,50 @@ class TestEnvProviderHook:
     def test_hook_fails_for_missing_binary(self):
         """Hook should fail for binary not in PATH."""
         env = os.environ.copy()
-        env['SNAP_DIR'] = self.temp_dir
+        env["SNAP_DIR"] = self.temp_dir
 
         result = subprocess.run(
             [
-                sys.executable, str(INSTALL_HOOK),
-                '--name=nonexistent_binary_xyz123',
-                '--binary-id=test-uuid',
-                '--machine-id=test-machine',
+                sys.executable,
+                str(INSTALL_HOOK),
+                "--name=nonexistent_binary_xyz123",
+                "--binary-id=test-uuid",
+                "--machine-id=test-machine",
             ],
             capture_output=True,
             text=True,
             timeout=30,
-            env=env
+            env=env,
         )
 
         # Should fail with exit code 1
         assert result.returncode == 1
-        assert 'not found' in result.stderr.lower()
+        assert "not found" in result.stderr.lower()
 
     def test_hook_skips_when_env_not_allowed(self):
         """Hook should skip when env not in allowed binproviders."""
         env = os.environ.copy()
-        env['SNAP_DIR'] = self.temp_dir
+        env["SNAP_DIR"] = self.temp_dir
 
         result = subprocess.run(
             [
-                sys.executable, str(INSTALL_HOOK),
-                '--name=python3',
-                '--binary-id=test-uuid',
-                '--machine-id=test-machine',
-                '--binproviders=pip,apt',  # env not allowed
+                sys.executable,
+                str(INSTALL_HOOK),
+                "--name=python3",
+                "--binary-id=test-uuid",
+                "--machine-id=test-machine",
+                "--binproviders=pip,apt",  # env not allowed
             ],
             capture_output=True,
             text=True,
             timeout=30,
-            env=env
+            env=env,
         )
 
         # Should exit cleanly (code 0) when env not allowed
         assert result.returncode == 0
-        assert 'env provider not allowed' in result.stderr
+        assert "env provider not allowed" in result.stderr
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

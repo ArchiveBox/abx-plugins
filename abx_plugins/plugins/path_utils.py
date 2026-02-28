@@ -13,10 +13,10 @@ def get_lib_dir() -> Path:
 
     Priority: LIB_DIR env var, otherwise ~/.config/abx/lib.
     """
-    lib_dir = os.environ.get('LIB_DIR', '').strip()
+    lib_dir = os.environ.get("LIB_DIR", "").strip()
     if lib_dir:
         return _resolve_path(lib_dir)
-    return _resolve_path(str(Path.home() / '.config' / 'abx' / 'lib'))
+    return _resolve_path(str(Path.home() / ".config" / "abx" / "lib"))
 
 
 def get_personas_dir() -> Path:
@@ -24,7 +24,7 @@ def get_personas_dir() -> Path:
 
     Priority: PERSONAS_DIR env var, otherwise ~/.config/abx/personas.
     """
-    personas_dir = os.environ.get('PERSONAS_DIR', '').strip()
+    personas_dir = os.environ.get("PERSONAS_DIR", "").strip()
     if personas_dir:
         return _resolve_path(personas_dir)
-    return _resolve_path(str(Path.home() / '.config' / 'abx' / 'personas'))
+    return _resolve_path(str(Path.home() / ".config" / "abx" / "personas"))

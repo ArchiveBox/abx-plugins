@@ -30,15 +30,21 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
-_TITLE_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_title.*')
+_TITLE_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_title.*")
 if _TITLE_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 TITLE_HOOK = _TITLE_HOOK
-TEST_URL = 'https://example.com'
+TEST_URL = "https://example.com"
+
 
 def run_title_capture(title_dir, snapshot_chrome_dir, env, url, snapshot_id):
     nav_result = subprocess.run(
-        ['node', str(CHROME_NAVIGATE_HOOK), f'--url={url}', f'--snapshot-id={snapshot_id}'],
+        [
+            "node",
+            str(CHROME_NAVIGATE_HOOK),
+            f"--url={url}",
+            f"--snapshot-id={snapshot_id}",
+        ],
         cwd=str(snapshot_chrome_dir),
         capture_output=True,
         text=True,
@@ -46,7 +52,7 @@ def run_title_capture(title_dir, snapshot_chrome_dir, env, url, snapshot_id):
         env=env,
     )
     result = subprocess.run(
-        ['node', str(TITLE_HOOK), f'--url={url}', f'--snapshot-id={snapshot_id}'],
+        ["node", str(TITLE_HOOK), f"--url={url}", f"--snapshot-id={snapshot_id}"],
         cwd=title_dir,
         capture_output=True,
         text=True,
@@ -65,14 +71,19 @@ def test_extracts_title_from_example_com():
     """Test full workflow: extract title from real example.com."""
 
     # Check node is available
-    if not shutil.which('node'):
+    if not shutil.which("node"):
         pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        with chrome_session(tmpdir, test_url=TEST_URL, navigate=False) as (_process, _pid, snapshot_chrome_dir, env):
-            title_dir = snapshot_chrome_dir.parent / 'title'
+        with chrome_session(tmpdir, test_url=TEST_URL, navigate=False) as (
+            _process,
+            _pid,
+            snapshot_chrome_dir,
+            env,
+        ):
+            title_dir = snapshot_chrome_dir.parent / "title"
             title_dir.mkdir(exist_ok=True)
 
             nav_result, result = run_title_capture(
@@ -80,7 +91,7 @@ def test_extracts_title_from_example_com():
                 snapshot_chrome_dir,
                 env,
                 TEST_URL,
-                'test789',
+                "test789",
             )
             assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
@@ -88,50 +99,52 @@ def test_extracts_title_from_example_com():
 
         # Parse clean JSONL output
         result_json = None
-        for line in result.stdout.strip().split('\n'):
+        for line in result.stdout.strip().split("\n"):
             line = line.strip()
-            if line.startswith('{'):
+            if line.startswith("{"):
                 pass
                 try:
                     record = json.loads(line)
-                    if record.get('type') == 'ArchiveResult':
+                    if record.get("type") == "ArchiveResult":
                         result_json = record
                         break
                 except json.JSONDecodeError:
                     pass
 
         assert result_json, "Should have ArchiveResult JSONL output"
-        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
+        assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
 
         # Verify output file exists (hook writes to current directory)
-        title_file = title_dir / 'title.txt'
+        title_file = title_dir / "title.txt"
         assert title_file.exists(), "title.txt not created"
 
         # Verify title contains REAL example.com title
         title_text = title_file.read_text().strip()
         assert len(title_text) > 0, "Title should not be empty"
-        assert 'example' in title_text.lower(), "Title should contain 'example'"
+        assert "example" in title_text.lower(), "Title should contain 'example'"
 
         # example.com has title "Example Domain"
-        assert 'example domain' in title_text.lower(), f"Expected 'Example Domain', got: {title_text}"
+        assert "example domain" in title_text.lower(), (
+            f"Expected 'Example Domain', got: {title_text}"
+        )
 
 
 def test_fails_without_chrome_session():
     """Test that title plugin fails when chrome session is missing."""
 
-    if not shutil.which('node'):
+    if not shutil.which("node"):
         pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        snap_dir = tmpdir / 'snap'
-        title_dir = snap_dir / 'title'
+        snap_dir = tmpdir / "snap"
+        title_dir = snap_dir / "title"
         title_dir.mkdir(parents=True, exist_ok=True)
-        env = get_test_env() | {'SNAP_DIR': str(snap_dir)}
+        env = get_test_env() | {"SNAP_DIR": str(snap_dir)}
 
         # Run title extraction
         result = subprocess.run(
-            ['node', str(TITLE_HOOK), f'--url={TEST_URL}', '--snapshot-id=testhttp'],
+            ["node", str(TITLE_HOOK), f"--url={TEST_URL}", "--snapshot-id=testhttp"],
             cwd=title_dir,
             capture_output=True,
             text=True,
@@ -139,24 +152,33 @@ def test_fails_without_chrome_session():
             env=env,
         )
 
-        assert result.returncode != 0, f"Should fail without chrome session: {result.stderr}"
-        assert 'No Chrome session found (chrome plugin must run first)' in (result.stdout + result.stderr)
+        assert result.returncode != 0, (
+            f"Should fail without chrome session: {result.stderr}"
+        )
+        assert "No Chrome session found (chrome plugin must run first)" in (
+            result.stdout + result.stderr
+        )
 
 
 def test_config_timeout_honored():
     """Test that TITLE_TIMEOUT config is respected."""
 
-    if not shutil.which('node'):
+    if not shutil.which("node"):
         pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
         # Set very short timeout (but example.com should still succeed)
-        env_override = {'TITLE_TIMEOUT': '5'}
+        env_override = {"TITLE_TIMEOUT": "5"}
 
-        with chrome_session(tmpdir, test_url=TEST_URL, navigate=False) as (_process, _pid, snapshot_chrome_dir, env):
-            title_dir = snapshot_chrome_dir.parent / 'title'
+        with chrome_session(tmpdir, test_url=TEST_URL, navigate=False) as (
+            _process,
+            _pid,
+            snapshot_chrome_dir,
+            env,
+        ):
+            title_dir = snapshot_chrome_dir.parent / "title"
             title_dir.mkdir(exist_ok=True)
             env.update(env_override)
 
@@ -165,7 +187,7 @@ def test_config_timeout_honored():
                 snapshot_chrome_dir,
                 env,
                 TEST_URL,
-                'testtimeout',
+                "testtimeout",
             )
             assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
@@ -176,32 +198,37 @@ def test_config_timeout_honored():
 def test_handles_https_urls():
     """Test that HTTPS URLs work correctly."""
 
-    if not shutil.which('node'):
+    if not shutil.which("node"):
         pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        with chrome_session(tmpdir, test_url='https://example.org', navigate=False) as (_process, _pid, snapshot_chrome_dir, env):
-            title_dir = snapshot_chrome_dir.parent / 'title'
+        with chrome_session(tmpdir, test_url="https://example.org", navigate=False) as (
+            _process,
+            _pid,
+            snapshot_chrome_dir,
+            env,
+        ):
+            title_dir = snapshot_chrome_dir.parent / "title"
             title_dir.mkdir(exist_ok=True)
 
             nav_result, result = run_title_capture(
                 title_dir,
                 snapshot_chrome_dir,
                 env,
-                'https://example.org',
-                'testhttps',
+                "https://example.org",
+                "testhttps",
             )
             assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
         if result.returncode == 0:
             # Hook writes to current directory
-            output_title_file = title_dir / 'title.txt'
+            output_title_file = title_dir / "title.txt"
             if output_title_file.exists():
                 title_text = output_title_file.read_text().strip()
                 assert len(title_text) > 0, "Title should not be empty"
-                assert 'example' in title_text.lower()
+                assert "example" in title_text.lower()
 
 
 def test_handles_404_gracefully():
@@ -211,27 +238,29 @@ def test_handles_404_gracefully():
     with the generic "Example Domain" title.
     """
 
-    if not shutil.which('node'):
+    if not shutil.which("node"):
         pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        with chrome_session(tmpdir, test_url='https://example.com/nonexistent-page-404', navigate=False) as (
+        with chrome_session(
+            tmpdir, test_url="https://example.com/nonexistent-page-404", navigate=False
+        ) as (
             _process,
             _pid,
             snapshot_chrome_dir,
             env,
         ):
-            title_dir = snapshot_chrome_dir.parent / 'title'
+            title_dir = snapshot_chrome_dir.parent / "title"
             title_dir.mkdir(exist_ok=True)
 
             nav_result, result = run_title_capture(
                 title_dir,
                 snapshot_chrome_dir,
                 env,
-                'https://example.com/nonexistent-page-404',
-                'test404',
+                "https://example.com/nonexistent-page-404",
+                "test404",
             )
             assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
@@ -243,19 +272,19 @@ def test_handles_404_gracefully():
 def test_handles_redirects():
     """Test that title plugin handles redirects correctly."""
 
-    if not shutil.which('node'):
+    if not shutil.which("node"):
         pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        with chrome_session(tmpdir, test_url='http://example.com', navigate=False) as (
+        with chrome_session(tmpdir, test_url="http://example.com", navigate=False) as (
             _process,
             _pid,
             snapshot_chrome_dir,
             env,
         ):
-            title_dir = snapshot_chrome_dir.parent / 'title'
+            title_dir = snapshot_chrome_dir.parent / "title"
             title_dir.mkdir(exist_ok=True)
 
             # http://example.com redirects to https://example.com
@@ -263,19 +292,19 @@ def test_handles_redirects():
                 title_dir,
                 snapshot_chrome_dir,
                 env,
-                'http://example.com',
-                'testredirect',
+                "http://example.com",
+                "testredirect",
             )
             assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
         # Should succeed and follow redirect
         if result.returncode == 0:
             # Hook writes to current directory
-            output_title_file = title_dir / 'title.txt'
+            output_title_file = title_dir / "title.txt"
             if output_title_file.exists():
                 title_text = output_title_file.read_text().strip()
-                assert 'example' in title_text.lower()
+                assert "example" in title_text.lower()
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

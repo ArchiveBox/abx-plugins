@@ -36,16 +36,19 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_UTILS,
 )
 
+
 def _get_cookies_via_cdp(port: int, env: dict) -> list[dict]:
     result = subprocess.run(
-        ['node', str(CHROME_UTILS), 'getCookiesViaCdp', str(port)],
+        ["node", str(CHROME_UTILS), "getCookiesViaCdp", str(port)],
         capture_output=True,
         text=True,
         timeout=30,
         env=env,
     )
-    assert result.returncode == 0, f"Failed to read cookies via CDP: {result.stderr}\nStdout: {result.stdout}"
-    return json.loads(result.stdout or '[]')
+    assert result.returncode == 0, (
+        f"Failed to read cookies via CDP: {result.stderr}\nStdout: {result.stdout}"
+    )
+    return json.loads(result.stdout or "[]")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -63,57 +66,62 @@ def test_hook_scripts_exist():
 
 def test_verify_chromium_available():
     """Verify Chromium is available via CHROME_BINARY env var."""
-    chromium_binary = os.environ.get('CHROME_BINARY') or find_chromium_binary()
+    chromium_binary = os.environ.get("CHROME_BINARY") or find_chromium_binary()
 
-    assert chromium_binary, "Chromium binary should be available (set by fixture or found)"
-    assert Path(chromium_binary).exists(), f"Chromium binary should exist at {chromium_binary}"
+    assert chromium_binary, (
+        "Chromium binary should be available (set by fixture or found)"
+    )
+    assert Path(chromium_binary).exists(), (
+        f"Chromium binary should exist at {chromium_binary}"
+    )
 
     # Verify it's actually Chromium by checking version
     result = subprocess.run(
-        [chromium_binary, '--version'],
-        capture_output=True,
-        text=True,
-        timeout=10
+        [chromium_binary, "--version"], capture_output=True, text=True, timeout=10
     )
     assert result.returncode == 0, f"Failed to get Chromium version: {result.stderr}"
-    assert 'Chromium' in result.stdout or 'Chrome' in result.stdout, f"Unexpected version output: {result.stdout}"
+    assert "Chromium" in result.stdout or "Chrome" in result.stdout, (
+        f"Unexpected version output: {result.stdout}"
+    )
 
 
 def test_chrome_launch_and_tab_creation(chrome_test_url):
     """Integration test: Launch Chrome at crawl level and create tab at snapshot level."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        crawl_dir = Path(tmpdir) / 'crawl'
+        crawl_dir = Path(tmpdir) / "crawl"
         crawl_dir.mkdir()
-        chrome_dir = crawl_dir / 'chrome'
+        chrome_dir = crawl_dir / "chrome"
         chrome_dir.mkdir()
 
         # Get test environment with NODE_MODULES_DIR set
         env = get_test_env()
-        env['CHROME_HEADLESS'] = 'true'
+        env["CHROME_HEADLESS"] = "true"
         # chrome_launch writes to <CRAWL_DIR>/chrome, not cwd.
-        env['CRAWL_DIR'] = str(crawl_dir)
+        env["CRAWL_DIR"] = str(crawl_dir)
 
         # Launch Chrome at crawl level (background process)
         chrome_launch_process = subprocess.Popen(
-            ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-crawl-123'],
+            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-crawl-123"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env=env
+            env=env,
         )
 
         # Wait for Chrome to launch (check process isn't dead and files exist)
         for i in range(15):  # Wait up to 15 seconds for Chrome to start
             if chrome_launch_process.poll() is not None:
                 stdout, stderr = chrome_launch_process.communicate()
-                pytest.fail(f"Chrome launch process exited early:\nStdout: {stdout}\nStderr: {stderr}")
-            if (chrome_dir / 'cdp_url.txt').exists():
+                pytest.fail(
+                    f"Chrome launch process exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                )
+            if (chrome_dir / "cdp_url.txt").exists():
                 break
             time.sleep(1)
 
         # Verify Chrome launch outputs - if it failed, get the error from the process
-        if not (chrome_dir / 'cdp_url.txt').exists():
+        if not (chrome_dir / "cdp_url.txt").exists():
             # Try to get output from the process
             try:
                 stdout, stderr = chrome_launch_process.communicate(timeout=1)
@@ -125,27 +133,35 @@ def test_chrome_launch_and_tab_creation(chrome_test_url):
             if chrome_dir.exists():
                 files = list(chrome_dir.iterdir())
                 # Check if Chrome process is still alive
-                if (chrome_dir / 'chrome.pid').exists():
-                    chrome_pid = int((chrome_dir / 'chrome.pid').read_text().strip())
+                if (chrome_dir / "chrome.pid").exists():
+                    chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
                     try:
                         os.kill(chrome_pid, 0)
                         chrome_alive = "yes"
                     except OSError:
                         chrome_alive = "no"
-                    pytest.fail(f"cdp_url.txt missing after 15s. Chrome dir files: {files}. Chrome process {chrome_pid} alive: {chrome_alive}\nLaunch stdout: {stdout}\nLaunch stderr: {stderr}")
+                    pytest.fail(
+                        f"cdp_url.txt missing after 15s. Chrome dir files: {files}. Chrome process {chrome_pid} alive: {chrome_alive}\nLaunch stdout: {stdout}\nLaunch stderr: {stderr}"
+                    )
                 else:
-                    pytest.fail(f"cdp_url.txt missing. Chrome dir exists with files: {files}\nLaunch stdout: {stdout}\nLaunch stderr: {stderr}")
+                    pytest.fail(
+                        f"cdp_url.txt missing. Chrome dir exists with files: {files}\nLaunch stdout: {stdout}\nLaunch stderr: {stderr}"
+                    )
             else:
-                pytest.fail(f"Chrome dir {chrome_dir} doesn't exist\nLaunch stdout: {stdout}\nLaunch stderr: {stderr}")
+                pytest.fail(
+                    f"Chrome dir {chrome_dir} doesn't exist\nLaunch stdout: {stdout}\nLaunch stderr: {stderr}"
+                )
 
-        assert (chrome_dir / 'cdp_url.txt').exists(), "cdp_url.txt should exist"
-        assert (chrome_dir / 'chrome.pid').exists(), "chrome.pid should exist"
-        assert (chrome_dir / 'port.txt').exists(), "port.txt should exist"
+        assert (chrome_dir / "cdp_url.txt").exists(), "cdp_url.txt should exist"
+        assert (chrome_dir / "chrome.pid").exists(), "chrome.pid should exist"
+        assert (chrome_dir / "port.txt").exists(), "port.txt should exist"
 
-        cdp_url = (chrome_dir / 'cdp_url.txt').read_text().strip()
-        chrome_pid = int((chrome_dir / 'chrome.pid').read_text().strip())
+        cdp_url = (chrome_dir / "cdp_url.txt").read_text().strip()
+        chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
 
-        assert cdp_url.startswith('ws://'), f"CDP URL should be WebSocket URL: {cdp_url}"
+        assert cdp_url.startswith("ws://"), (
+            f"CDP URL should be WebSocket URL: {cdp_url}"
+        )
         assert chrome_pid > 0, "Chrome PID should be valid"
 
         # Verify Chrome process is running
@@ -155,31 +171,43 @@ def test_chrome_launch_and_tab_creation(chrome_test_url):
             pytest.fail(f"Chrome process {chrome_pid} is not running")
 
         # Create snapshot directory and tab
-        snapshot_dir = Path(tmpdir) / 'snapshot1'
+        snapshot_dir = Path(tmpdir) / "snapshot1"
         snapshot_dir.mkdir()
-        snapshot_chrome_dir = snapshot_dir / 'chrome'
+        snapshot_chrome_dir = snapshot_dir / "chrome"
         snapshot_chrome_dir.mkdir()
 
         # Launch tab at snapshot level
-        env['CRAWL_DIR'] = str(crawl_dir)
-        env['SNAP_DIR'] = str(snapshot_dir)
+        env["CRAWL_DIR"] = str(crawl_dir)
+        env["SNAP_DIR"] = str(snapshot_dir)
         result = subprocess.run(
-            ['node', str(CHROME_TAB_HOOK), f'--url={chrome_test_url}', '--snapshot-id=snap-123', '--crawl-id=test-crawl-123'],
+            [
+                "node",
+                str(CHROME_TAB_HOOK),
+                f"--url={chrome_test_url}",
+                "--snapshot-id=snap-123",
+                "--crawl-id=test-crawl-123",
+            ],
             cwd=str(snapshot_chrome_dir),
             capture_output=True,
             text=True,
             timeout=60,
-            env=env
+            env=env,
         )
 
-        assert result.returncode == 0, f"Tab creation failed: {result.stderr}\nStdout: {result.stdout}"
+        assert result.returncode == 0, (
+            f"Tab creation failed: {result.stderr}\nStdout: {result.stdout}"
+        )
 
         # Verify tab creation outputs
-        assert (snapshot_chrome_dir / 'cdp_url.txt').exists(), "Snapshot cdp_url.txt should exist"
-        assert (snapshot_chrome_dir / 'target_id.txt').exists(), "target_id.txt should exist"
-        assert (snapshot_chrome_dir / 'url.txt').exists(), "url.txt should exist"
+        assert (snapshot_chrome_dir / "cdp_url.txt").exists(), (
+            "Snapshot cdp_url.txt should exist"
+        )
+        assert (snapshot_chrome_dir / "target_id.txt").exists(), (
+            "target_id.txt should exist"
+        )
+        assert (snapshot_chrome_dir / "url.txt").exists(), "url.txt should exist"
 
-        target_id = (snapshot_chrome_dir / 'target_id.txt').read_text().strip()
+        target_id = (snapshot_chrome_dir / "target_id.txt").read_text().strip()
         assert len(target_id) > 0, "Target ID should not be empty"
 
         # Cleanup: Kill Chrome and launch process
@@ -197,55 +225,59 @@ def test_chrome_launch_and_tab_creation(chrome_test_url):
 def test_cookies_imported_on_launch():
     """Integration test: COOKIES_TXT_FILE is imported at crawl start."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        crawl_dir = Path(tmpdir) / 'crawl'
+        crawl_dir = Path(tmpdir) / "crawl"
         crawl_dir.mkdir()
-        chrome_dir = crawl_dir / 'chrome'
+        chrome_dir = crawl_dir / "chrome"
         chrome_dir.mkdir()
 
-        cookies_file = Path(tmpdir) / 'cookies.txt'
+        cookies_file = Path(tmpdir) / "cookies.txt"
         cookies_file.write_text(
-            '\n'.join([
-                '# Netscape HTTP Cookie File',
-                '# https://curl.se/docs/http-cookies.html',
-                '# This file was generated by a test',
-                '',
-                'example.com\tTRUE\t/\tFALSE\t2147483647\tabx_test_cookie\thello',
-                '',
-            ])
+            "\n".join(
+                [
+                    "# Netscape HTTP Cookie File",
+                    "# https://curl.se/docs/http-cookies.html",
+                    "# This file was generated by a test",
+                    "",
+                    "example.com\tTRUE\t/\tFALSE\t2147483647\tabx_test_cookie\thello",
+                    "",
+                ]
+            )
         )
 
-        profile_dir = Path(tmpdir) / 'profile'
+        profile_dir = Path(tmpdir) / "profile"
         env = get_test_env()
-        env.update({
-            'CHROME_HEADLESS': 'true',
-            'CHROME_USER_DATA_DIR': str(profile_dir),
-            'COOKIES_TXT_FILE': str(cookies_file),
-            'CRAWL_DIR': str(crawl_dir),
-        })
+        env.update(
+            {
+                "CHROME_HEADLESS": "true",
+                "CHROME_USER_DATA_DIR": str(profile_dir),
+                "COOKIES_TXT_FILE": str(cookies_file),
+                "CRAWL_DIR": str(crawl_dir),
+            }
+        )
 
         chrome_launch_process = subprocess.Popen(
-            ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-crawl-cookies'],
+            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-crawl-cookies"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env=env
+            env=env,
         )
 
         for _ in range(15):
-            if (chrome_dir / 'port.txt').exists():
+            if (chrome_dir / "port.txt").exists():
                 break
             time.sleep(1)
 
-        assert (chrome_dir / 'port.txt').exists(), "port.txt should exist"
-        chrome_pid = int((chrome_dir / 'chrome.pid').read_text().strip())
-        port = int((chrome_dir / 'port.txt').read_text().strip())
+        assert (chrome_dir / "port.txt").exists(), "port.txt should exist"
+        chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
+        port = int((chrome_dir / "port.txt").read_text().strip())
 
         cookie_found = False
         for _ in range(15):
             cookies = _get_cookies_via_cdp(port, env)
             cookie_found = any(
-                c.get('name') == 'abx_test_cookie' and c.get('value') == 'hello'
+                c.get("name") == "abx_test_cookie" and c.get("value") == "hello"
                 for c in cookies
             )
             if cookie_found:
@@ -269,72 +301,94 @@ def test_cookies_imported_on_launch():
 def test_chrome_navigation(chrome_test_url):
     """Integration test: Navigate to a URL."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        crawl_dir = Path(tmpdir) / 'crawl'
+        crawl_dir = Path(tmpdir) / "crawl"
         crawl_dir.mkdir()
-        chrome_dir = crawl_dir / 'chrome'
+        chrome_dir = crawl_dir / "chrome"
         chrome_dir.mkdir()
 
-        launch_env = get_test_env() | {'CRAWL_DIR': str(crawl_dir), 'CHROME_HEADLESS': 'true'}
+        launch_env = get_test_env() | {
+            "CRAWL_DIR": str(crawl_dir),
+            "CHROME_HEADLESS": "true",
+        }
         # Launch Chrome (background process)
         chrome_launch_process = subprocess.Popen(
-            ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-crawl-nav'],
+            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-crawl-nav"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env=launch_env
+            env=launch_env,
         )
 
         # Wait for Chrome to launch
         time.sleep(3)
 
-        chrome_pid = int((chrome_dir / 'chrome.pid').read_text().strip())
+        chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
 
         # Create snapshot and tab
-        snapshot_dir = Path(tmpdir) / 'snapshot1'
+        snapshot_dir = Path(tmpdir) / "snapshot1"
         snapshot_dir.mkdir()
-        snapshot_chrome_dir = snapshot_dir / 'chrome'
+        snapshot_chrome_dir = snapshot_dir / "chrome"
         snapshot_chrome_dir.mkdir()
 
         tab_env = get_test_env() | {
-            'CRAWL_DIR': str(crawl_dir),
-            'SNAP_DIR': str(snapshot_dir),
-            'CHROME_HEADLESS': 'true',
+            "CRAWL_DIR": str(crawl_dir),
+            "SNAP_DIR": str(snapshot_dir),
+            "CHROME_HEADLESS": "true",
         }
         result = subprocess.run(
-            ['node', str(CHROME_TAB_HOOK), f'--url={chrome_test_url}', '--snapshot-id=snap-nav-123', '--crawl-id=test-crawl-nav'],
+            [
+                "node",
+                str(CHROME_TAB_HOOK),
+                f"--url={chrome_test_url}",
+                "--snapshot-id=snap-nav-123",
+                "--crawl-id=test-crawl-nav",
+            ],
             cwd=str(snapshot_chrome_dir),
             capture_output=True,
             text=True,
             timeout=60,
-            env=tab_env
+            env=tab_env,
         )
         assert result.returncode == 0, f"Tab creation failed: {result.stderr}"
 
         # Navigate to URL
         nav_env = get_test_env() | {
-            'SNAP_DIR': str(snapshot_dir),
-            'CHROME_PAGELOAD_TIMEOUT': '30',
-            'CHROME_WAIT_FOR': 'load',
+            "SNAP_DIR": str(snapshot_dir),
+            "CHROME_PAGELOAD_TIMEOUT": "30",
+            "CHROME_WAIT_FOR": "load",
         }
         result = subprocess.run(
-            ['node', str(CHROME_NAVIGATE_HOOK), f'--url={chrome_test_url}', '--snapshot-id=snap-nav-123'],
+            [
+                "node",
+                str(CHROME_NAVIGATE_HOOK),
+                f"--url={chrome_test_url}",
+                "--snapshot-id=snap-nav-123",
+            ],
             cwd=str(snapshot_chrome_dir),
             capture_output=True,
             text=True,
             timeout=120,
-            env=nav_env
+            env=nav_env,
         )
 
-        assert result.returncode == 0, f"Navigation failed: {result.stderr}\nStdout: {result.stdout}"
+        assert result.returncode == 0, (
+            f"Navigation failed: {result.stderr}\nStdout: {result.stdout}"
+        )
 
         # Verify navigation outputs
-        assert (snapshot_chrome_dir / 'navigation.json').exists(), "navigation.json should exist"
-        assert (snapshot_chrome_dir / 'page_loaded.txt').exists(), "page_loaded.txt should exist"
+        assert (snapshot_chrome_dir / "navigation.json").exists(), (
+            "navigation.json should exist"
+        )
+        assert (snapshot_chrome_dir / "page_loaded.txt").exists(), (
+            "page_loaded.txt should exist"
+        )
 
-        nav_data = json.loads((snapshot_chrome_dir / 'navigation.json').read_text())
-        assert nav_data.get('status') in [200, 301, 302], f"Should get valid HTTP status: {nav_data}"
-        assert nav_data.get('finalUrl'), "Should have final URL"
+        nav_data = json.loads((snapshot_chrome_dir / "navigation.json").read_text())
+        assert nav_data.get("status") in [200, 301, 302], (
+            f"Should get valid HTTP status: {nav_data}"
+        )
+        assert nav_data.get("finalUrl"), "Should have final URL"
 
         # Cleanup
         try:
@@ -351,45 +405,54 @@ def test_chrome_navigation(chrome_test_url):
 def test_tab_cleanup_on_sigterm(chrome_test_url):
     """Integration test: Tab cleanup when receiving SIGTERM."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        crawl_dir = Path(tmpdir) / 'crawl'
+        crawl_dir = Path(tmpdir) / "crawl"
         crawl_dir.mkdir()
-        chrome_dir = crawl_dir / 'chrome'
+        chrome_dir = crawl_dir / "chrome"
         chrome_dir.mkdir()
 
-        launch_env = get_test_env() | {'CRAWL_DIR': str(crawl_dir), 'CHROME_HEADLESS': 'true'}
+        launch_env = get_test_env() | {
+            "CRAWL_DIR": str(crawl_dir),
+            "CHROME_HEADLESS": "true",
+        }
         # Launch Chrome (background process)
         chrome_launch_process = subprocess.Popen(
-            ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-cleanup'],
+            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-cleanup"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env=launch_env
+            env=launch_env,
         )
 
         # Wait for Chrome to launch
         time.sleep(3)
 
-        chrome_pid = int((chrome_dir / 'chrome.pid').read_text().strip())
+        chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
 
         # Create snapshot and tab - run in background
-        snapshot_dir = Path(tmpdir) / 'snapshot1'
+        snapshot_dir = Path(tmpdir) / "snapshot1"
         snapshot_dir.mkdir()
-        snapshot_chrome_dir = snapshot_dir / 'chrome'
+        snapshot_chrome_dir = snapshot_dir / "chrome"
         snapshot_chrome_dir.mkdir()
 
         tab_env = get_test_env() | {
-            'CRAWL_DIR': str(crawl_dir),
-            'SNAP_DIR': str(snapshot_dir),
-            'CHROME_HEADLESS': 'true',
+            "CRAWL_DIR": str(crawl_dir),
+            "SNAP_DIR": str(snapshot_dir),
+            "CHROME_HEADLESS": "true",
         }
         tab_process = subprocess.Popen(
-            ['node', str(CHROME_TAB_HOOK), f'--url={chrome_test_url}', '--snapshot-id=snap-cleanup', '--crawl-id=test-cleanup'],
+            [
+                "node",
+                str(CHROME_TAB_HOOK),
+                f"--url={chrome_test_url}",
+                "--snapshot-id=snap-cleanup",
+                "--crawl-id=test-cleanup",
+            ],
             cwd=str(snapshot_chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env=tab_env
+            env=tab_env,
         )
 
         # Wait for tab to be created
@@ -422,77 +485,94 @@ def test_tab_cleanup_on_sigterm(chrome_test_url):
 def test_multiple_snapshots_share_chrome(chrome_test_urls):
     """Integration test: Multiple snapshots share one Chrome instance."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        crawl_dir = Path(tmpdir) / 'crawl'
+        crawl_dir = Path(tmpdir) / "crawl"
         crawl_dir.mkdir()
-        chrome_dir = crawl_dir / 'chrome'
+        chrome_dir = crawl_dir / "chrome"
         chrome_dir.mkdir()
 
-        launch_env = get_test_env() | {'CRAWL_DIR': str(crawl_dir), 'CHROME_HEADLESS': 'true'}
+        launch_env = get_test_env() | {
+            "CRAWL_DIR": str(crawl_dir),
+            "CHROME_HEADLESS": "true",
+        }
         # Launch Chrome at crawl level
         chrome_launch_process = subprocess.Popen(
-            ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-multi-crawl'],
+            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-multi-crawl"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env=launch_env
+            env=launch_env,
         )
 
         # Wait for Chrome to launch
         for i in range(15):
-            if (chrome_dir / 'cdp_url.txt').exists():
+            if (chrome_dir / "cdp_url.txt").exists():
                 break
             time.sleep(1)
 
-        chrome_pid = int((chrome_dir / 'chrome.pid').read_text().strip())
-        crawl_cdp_url = (chrome_dir / 'cdp_url.txt').read_text().strip()
+        chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
+        crawl_cdp_url = (chrome_dir / "cdp_url.txt").read_text().strip()
 
         # Create multiple snapshots that share this Chrome
         snapshot_dirs = []
         target_ids = []
 
         for snap_num in range(3):
-            snapshot_dir = Path(tmpdir) / f'snapshot{snap_num}'
+            snapshot_dir = Path(tmpdir) / f"snapshot{snap_num}"
             snapshot_dir.mkdir()
-            snapshot_chrome_dir = snapshot_dir / 'chrome'
+            snapshot_chrome_dir = snapshot_dir / "chrome"
             snapshot_chrome_dir.mkdir()
             snapshot_dirs.append(snapshot_chrome_dir)
 
             # Create tab for this snapshot
             tab_url = f"{chrome_test_urls['origin']}/snapshot-{snap_num}"
             tab_env = get_test_env() | {
-                'CRAWL_DIR': str(crawl_dir),
-                'SNAP_DIR': str(snapshot_dir),
-                'CHROME_HEADLESS': 'true',
+                "CRAWL_DIR": str(crawl_dir),
+                "SNAP_DIR": str(snapshot_dir),
+                "CHROME_HEADLESS": "true",
             }
             result = subprocess.run(
-                ['node', str(CHROME_TAB_HOOK), f'--url={tab_url}', f'--snapshot-id=snap-{snap_num}', '--crawl-id=test-multi-crawl'],
+                [
+                    "node",
+                    str(CHROME_TAB_HOOK),
+                    f"--url={tab_url}",
+                    f"--snapshot-id=snap-{snap_num}",
+                    "--crawl-id=test-multi-crawl",
+                ],
                 cwd=str(snapshot_chrome_dir),
                 capture_output=True,
                 text=True,
                 timeout=60,
-                env=tab_env
+                env=tab_env,
             )
 
-            assert result.returncode == 0, f"Tab {snap_num} creation failed: {result.stderr}"
+            assert result.returncode == 0, (
+                f"Tab {snap_num} creation failed: {result.stderr}"
+            )
 
             # Verify each snapshot has its own target_id but same Chrome PID
-            assert (snapshot_chrome_dir / 'target_id.txt').exists()
-            assert (snapshot_chrome_dir / 'cdp_url.txt').exists()
-            assert (snapshot_chrome_dir / 'chrome.pid').exists()
+            assert (snapshot_chrome_dir / "target_id.txt").exists()
+            assert (snapshot_chrome_dir / "cdp_url.txt").exists()
+            assert (snapshot_chrome_dir / "chrome.pid").exists()
 
-            target_id = (snapshot_chrome_dir / 'target_id.txt').read_text().strip()
-            snapshot_cdp_url = (snapshot_chrome_dir / 'cdp_url.txt').read_text().strip()
-            snapshot_pid = int((snapshot_chrome_dir / 'chrome.pid').read_text().strip())
+            target_id = (snapshot_chrome_dir / "target_id.txt").read_text().strip()
+            snapshot_cdp_url = (snapshot_chrome_dir / "cdp_url.txt").read_text().strip()
+            snapshot_pid = int((snapshot_chrome_dir / "chrome.pid").read_text().strip())
 
             target_ids.append(target_id)
 
             # All snapshots should share same Chrome
-            assert snapshot_pid == chrome_pid, f"Snapshot {snap_num} should use crawl Chrome PID"
-            assert snapshot_cdp_url == crawl_cdp_url, f"Snapshot {snap_num} should use crawl CDP URL"
+            assert snapshot_pid == chrome_pid, (
+                f"Snapshot {snap_num} should use crawl Chrome PID"
+            )
+            assert snapshot_cdp_url == crawl_cdp_url, (
+                f"Snapshot {snap_num} should use crawl CDP URL"
+            )
 
         # All target IDs should be unique (different tabs)
-        assert len(set(target_ids)) == 3, f"All snapshots should have unique tabs: {target_ids}"
+        assert len(set(target_ids)) == 3, (
+            f"All snapshots should have unique tabs: {target_ids}"
+        )
 
         # Chrome should still be running with all 3 tabs
         try:
@@ -515,34 +595,41 @@ def test_multiple_snapshots_share_chrome(chrome_test_urls):
 def test_chrome_cleanup_on_crawl_end():
     """Integration test: Chrome cleanup at end of crawl."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        crawl_dir = Path(tmpdir) / 'crawl'
+        crawl_dir = Path(tmpdir) / "crawl"
         crawl_dir.mkdir()
-        chrome_dir = crawl_dir / 'chrome'
+        chrome_dir = crawl_dir / "chrome"
         chrome_dir.mkdir()
 
-        launch_env = get_test_env() | {'CRAWL_DIR': str(crawl_dir), 'CHROME_HEADLESS': 'true'}
+        launch_env = get_test_env() | {
+            "CRAWL_DIR": str(crawl_dir),
+            "CHROME_HEADLESS": "true",
+        }
         # Launch Chrome in background
         chrome_launch_process = subprocess.Popen(
-            ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-crawl-end'],
+            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-crawl-end"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env=launch_env
+            env=launch_env,
         )
 
         # Wait for Chrome launch state files and fail fast on early hook exit.
         for _ in range(15):
             if chrome_launch_process.poll() is not None:
                 stdout, stderr = chrome_launch_process.communicate()
-                pytest.fail(f"Chrome launch process exited early:\nStdout: {stdout}\nStderr: {stderr}")
-            if (chrome_dir / 'cdp_url.txt').exists() and (chrome_dir / 'chrome.pid').exists():
+                pytest.fail(
+                    f"Chrome launch process exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                )
+            if (chrome_dir / "cdp_url.txt").exists() and (
+                chrome_dir / "chrome.pid"
+            ).exists():
                 break
             time.sleep(1)
 
         # Verify Chrome is running
-        assert (chrome_dir / 'chrome.pid').exists(), "Chrome PID file should exist"
-        chrome_pid = int((chrome_dir / 'chrome.pid').read_text().strip())
+        assert (chrome_dir / "chrome.pid").exists(), "Chrome PID file should exist"
+        chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
 
         try:
             os.kill(chrome_pid, 0)
@@ -568,32 +655,37 @@ def test_chrome_cleanup_on_crawl_end():
 def test_zombie_prevention_hook_killed():
     """Integration test: Chrome is killed even if hook process is SIGKILL'd."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        crawl_dir = Path(tmpdir) / 'crawl'
+        crawl_dir = Path(tmpdir) / "crawl"
         crawl_dir.mkdir()
-        chrome_dir = crawl_dir / 'chrome'
+        chrome_dir = crawl_dir / "chrome"
         chrome_dir.mkdir()
 
-        launch_env = get_test_env() | {'CRAWL_DIR': str(crawl_dir), 'CHROME_HEADLESS': 'true'}
+        launch_env = get_test_env() | {
+            "CRAWL_DIR": str(crawl_dir),
+            "CHROME_HEADLESS": "true",
+        }
         # Launch Chrome
         chrome_launch_process = subprocess.Popen(
-            ['node', str(CHROME_LAUNCH_HOOK), '--crawl-id=test-zombie'],
+            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-zombie"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env=launch_env
+            env=launch_env,
         )
 
         # Wait for Chrome to launch
         for i in range(15):
-            if (chrome_dir / 'chrome.pid').exists():
+            if (chrome_dir / "chrome.pid").exists():
                 break
             time.sleep(1)
 
-        assert (chrome_dir / 'chrome.pid').exists(), "Chrome PID file should exist"
+        assert (chrome_dir / "chrome.pid").exists(), "Chrome PID file should exist"
 
-        chrome_pid = int((chrome_dir / 'chrome.pid').read_text().strip())
-        hook_pid = chrome_launch_process.pid  # Use the Popen process PID instead of hook.pid file
+        chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
+        hook_pid = (
+            chrome_launch_process.pid
+        )  # Use the Popen process PID instead of hook.pid file
 
         # Verify both Chrome and hook are running
         try:
@@ -621,7 +713,7 @@ def test_zombie_prevention_hook_killed():
             except (OSError, ProcessLookupError):
                 return False
 
-        for pid_file in chrome_dir.glob('**/*.pid'):
+        for pid_file in chrome_dir.glob("**/*.pid"):
             try:
                 pid = int(pid_file.read_text().strip())
 
@@ -672,5 +764,5 @@ def test_zombie_prevention_hook_killed():
             pass
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

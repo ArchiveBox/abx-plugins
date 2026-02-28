@@ -33,18 +33,18 @@ import rich_click as click
 
 
 # Extractor metadata
-PLUGIN_NAME = 'readability'
-BIN_NAME = 'readability-extractor'
-BIN_PROVIDERS = 'npm,env'
+PLUGIN_NAME = "readability"
+BIN_NAME = "readability-extractor"
+BIN_PROVIDERS = "npm,env"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
-OUTPUT_FILE = 'content.html'
+OUTPUT_FILE = "content.html"
 
 
-def get_env(name: str, default: str = '') -> str:
+def get_env(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
 
 
@@ -57,7 +57,7 @@ def get_env_int(name: str, default: int = 0) -> int:
 
 def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
     """Parse a JSON array from environment variable."""
-    val = get_env(name, '')
+    val = get_env(name, "")
     if not val:
         return default if default is not None else []
     try:
@@ -73,18 +73,18 @@ def find_html_source() -> str | None:
     """Find HTML content from other extractors in the snapshot directory."""
     # Hooks run in snapshot_dir, sibling extractor outputs are in subdirectories
     search_patterns = [
-        'singlefile/singlefile.html',
-        '*_singlefile/singlefile.html',
-        'singlefile/*.html',
-        '*_singlefile/*.html',
-        'dom/output.html',
-        '*_dom/output.html',
-        'dom/*.html',
-        '*_dom/*.html',
-        'wget/**/*.html',
-        '*_wget/**/*.html',
-        'wget/**/*.htm',
-        '*_wget/**/*.htm',
+        "singlefile/singlefile.html",
+        "*_singlefile/singlefile.html",
+        "singlefile/*.html",
+        "*_singlefile/*.html",
+        "dom/output.html",
+        "*_dom/output.html",
+        "dom/*.html",
+        "*_dom/*.html",
+        "wget/**/*.html",
+        "*_wget/**/*.html",
+        "wget/**/*.htm",
+        "*_wget/**/*.htm",
     ]
 
     for base in (Path.cwd(), Path.cwd().parent):
@@ -103,14 +103,14 @@ def extract_readability(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     Returns: (success, output_path, error_message)
     """
-    timeout = get_env_int('READABILITY_TIMEOUT') or get_env_int('TIMEOUT', 60)
-    readability_args = get_env_array('READABILITY_ARGS', [])
-    readability_args_extra = get_env_array('READABILITY_ARGS_EXTRA', [])
+    timeout = get_env_int("READABILITY_TIMEOUT") or get_env_int("TIMEOUT", 60)
+    readability_args = get_env_array("READABILITY_ARGS", [])
+    readability_args_extra = get_env_array("READABILITY_ARGS_EXTRA", [])
 
     # Find HTML source
     html_source = find_html_source()
     if not html_source:
-        return False, None, 'No HTML source found (run singlefile, dom, or wget first)'
+        return False, None, "No HTML source found (run singlefile, dom, or wget first)"
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
@@ -125,32 +125,42 @@ def extract_readability(url: str, binary: str) -> tuple[bool, str | None, str]:
             sys.stderr.flush()
 
         if result.returncode != 0:
-            return False, None, f'readability-extractor failed (exit={result.returncode})'
+            return (
+                False,
+                None,
+                f"readability-extractor failed (exit={result.returncode})",
+            )
 
         # Parse JSON output
         try:
             result_json = json.loads(result.stdout)
         except json.JSONDecodeError:
-            return False, None, 'readability-extractor returned invalid JSON'
+            return False, None, "readability-extractor returned invalid JSON"
 
         # Extract and save content
         # readability-extractor uses camelCase field names (textContent, content)
-        text_content = result_json.pop('textContent', result_json.pop('text-content', ''))
-        html_content = result_json.pop('content', result_json.pop('html-content', ''))
+        text_content = result_json.pop(
+            "textContent", result_json.pop("text-content", "")
+        )
+        html_content = result_json.pop("content", result_json.pop("html-content", ""))
 
         if not text_content and not html_content:
-            return False, None, 'No content extracted'
+            return False, None, "No content extracted"
 
-        (output_dir / OUTPUT_FILE).write_text(html_content, encoding='utf-8')
-        (output_dir / 'content.txt').write_text(text_content, encoding='utf-8')
-        (output_dir / 'article.json').write_text(json.dumps(result_json, indent=2), encoding='utf-8')
+        (output_dir / OUTPUT_FILE).write_text(html_content, encoding="utf-8")
+        (output_dir / "content.txt").write_text(text_content, encoding="utf-8")
+        (output_dir / "article.json").write_text(
+            json.dumps(result_json, indent=2), encoding="utf-8"
+        )
 
         # Link images/ to responses capture (if available)
         try:
-            hostname = urlparse(url).hostname or ''
+            hostname = urlparse(url).hostname or ""
             if hostname:
-                responses_images = (output_dir / '..' / 'responses' / 'image' / hostname / 'images').resolve()
-                link_path = output_dir / 'images'
+                responses_images = (
+                    output_dir / ".." / "responses" / "image" / hostname / "images"
+                ).resolve()
+                link_path = output_dir / "images"
                 if responses_images.exists() and responses_images.is_dir():
                     if link_path.exists() or link_path.is_symlink():
                         if link_path.is_symlink() or link_path.is_file():
@@ -158,28 +168,30 @@ def extract_readability(url: str, binary: str) -> tuple[bool, str | None, str]:
                         else:
                             responses_images = None
                     if responses_images:
-                        rel_target = os.path.relpath(str(responses_images), str(output_dir))
+                        rel_target = os.path.relpath(
+                            str(responses_images), str(output_dir)
+                        )
                         link_path.symlink_to(rel_target)
         except Exception:
             pass
 
-        return True, OUTPUT_FILE, ''
+        return True, OUTPUT_FILE, ""
 
     except subprocess.TimeoutExpired:
-        return False, None, f'Timed out after {timeout} seconds'
+        return False, None, f"Timed out after {timeout} seconds"
     except Exception as e:
-        return False, None, f'{type(e).__name__}: {e}'
+        return False, None, f"{type(e).__name__}: {e}"
 
 
 @click.command()
-@click.option('--url', required=True, help='URL to extract article from')
-@click.option('--snapshot-id', required=True, help='Snapshot UUID')
+@click.option("--url", required=True, help="URL to extract article from")
+@click.option("--snapshot-id", required=True, help="Snapshot UUID")
 def main(url: str, snapshot_id: str):
     """Extract article content using Mozilla's Readability."""
 
     try:
         # Get binary from environment
-        binary = get_env('READABILITY_BINARY', 'readability-extractor')
+        binary = get_env("READABILITY_BINARY", "readability-extractor")
 
         # Run extraction
         success, output, error = extract_readability(url, binary)
@@ -187,22 +199,22 @@ def main(url: str, snapshot_id: str):
         if success:
             # Success - emit ArchiveResult
             result = {
-                'type': 'ArchiveResult',
-                'status': 'succeeded',
-                'output_str': output or ''
+                "type": "ArchiveResult",
+                "status": "succeeded",
+                "output_str": output or "",
             }
             print(json.dumps(result))
             sys.exit(0)
         else:
             # Transient error - emit NO JSONL
-            print(f'ERROR: {error}', file=sys.stderr)
+            print(f"ERROR: {error}", file=sys.stderr)
             sys.exit(1)
 
     except Exception as e:
         # Transient error - emit NO JSONL
-        print(f'ERROR: {type(e).__name__}: {e}', file=sys.stderr)
+        print(f"ERROR: {type(e).__name__}: {e}", file=sys.stderr)
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

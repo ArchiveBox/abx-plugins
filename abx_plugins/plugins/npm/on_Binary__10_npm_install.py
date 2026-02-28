@@ -22,26 +22,33 @@ from abx_pkg import Binary, NpmProvider
 
 
 @click.command()
-@click.option('--machine-id', required=True, help="Machine UUID")
-@click.option('--binary-id', required=True, help="Dependency UUID")
-@click.option('--name', required=True, help="Binary name to install")
-@click.option('--binproviders', default='*', help="Allowed providers (comma-separated)")
-@click.option('--custom-cmd', default=None, help="Custom install command")
-@click.option('--overrides', default=None, help="JSON-encoded overrides dict")
-def main(binary_id: str, machine_id: str, name: str, binproviders: str, custom_cmd: str | None, overrides: str | None):
+@click.option("--machine-id", required=True, help="Machine UUID")
+@click.option("--binary-id", required=True, help="Dependency UUID")
+@click.option("--name", required=True, help="Binary name to install")
+@click.option("--binproviders", default="*", help="Allowed providers (comma-separated)")
+@click.option("--custom-cmd", default=None, help="Custom install command")
+@click.option("--overrides", default=None, help="JSON-encoded overrides dict")
+def main(
+    binary_id: str,
+    machine_id: str,
+    name: str,
+    binproviders: str,
+    custom_cmd: str | None,
+    overrides: str | None,
+):
     """Install binary using npm."""
 
-    if binproviders != '*' and 'npm' not in binproviders.split(','):
+    if binproviders != "*" and "npm" not in binproviders.split(","):
         click.echo(f"npm provider not allowed for {name}", err=True)
         sys.exit(0)
 
     # Get LIB_DIR from environment (optional)
-    lib_dir = os.environ.get('LIB_DIR', '').strip()
+    lib_dir = os.environ.get("LIB_DIR", "").strip()
     if not lib_dir:
-        lib_dir = str(Path.home() / '.config' / 'abx' / 'lib')
+        lib_dir = str(Path.home() / ".config" / "abx" / "lib")
 
     # Structure: lib/arm64-darwin/npm (npm will create node_modules inside this)
-    npm_prefix = Path(lib_dir) / 'npm'
+    npm_prefix = Path(lib_dir) / "npm"
     npm_prefix.mkdir(parents=True, exist_ok=True)
 
     # Use abx-pkg NpmProvider to install binary with custom prefix
@@ -58,11 +65,17 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, custom_c
         if overrides:
             try:
                 overrides_dict = json.loads(overrides)
-                click.echo(f"Using custom install overrides: {overrides_dict}", err=True)
+                click.echo(
+                    f"Using custom install overrides: {overrides_dict}", err=True
+                )
             except json.JSONDecodeError:
-                click.echo(f"Warning: Failed to parse overrides JSON: {overrides}", err=True)
+                click.echo(
+                    f"Warning: Failed to parse overrides JSON: {overrides}", err=True
+                )
 
-        binary = Binary(name=name, binproviders=[provider], overrides=overrides_dict or {}).install()
+        binary = Binary(
+            name=name, binproviders=[provider], overrides=overrides_dict or {}
+        ).install()
     except Exception as e:
         click.echo(f"npm install failed: {e}", err=True)
         sys.exit(1)
@@ -71,28 +84,28 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, custom_c
         click.echo(f"{name} not found after npm install", err=True)
         sys.exit(1)
 
-    machine_id = os.environ.get('MACHINE_ID', '')
+    machine_id = os.environ.get("MACHINE_ID", "")
 
     # Output Binary JSONL record to stdout
     record = {
-        'type': 'Binary',
-        'name': name,
-        'abspath': str(binary.abspath),
-        'version': str(binary.version) if binary.version else '',
-        'sha256': binary.sha256 or '',
-        'binprovider': 'npm',
-        'machine_id': machine_id,
-        'binary_id': binary_id,
+        "type": "Binary",
+        "name": name,
+        "abspath": str(binary.abspath),
+        "version": str(binary.version) if binary.version else "",
+        "sha256": binary.sha256 or "",
+        "binprovider": "npm",
+        "machine_id": machine_id,
+        "binary_id": binary_id,
     }
     print(json.dumps(record))
 
     # Emit PATH update for npm bin dirs (node_modules/.bin preferred)
     npm_bin_dirs = [
-        str(npm_prefix / 'node_modules' / '.bin'),
-        str(npm_prefix / 'bin'),
+        str(npm_prefix / "node_modules" / ".bin"),
+        str(npm_prefix / "bin"),
     ]
-    current_path = os.environ.get('PATH', '')
-    path_dirs = current_path.split(':') if current_path else []
+    current_path = os.environ.get("PATH", "")
+    path_dirs = current_path.split(":") if current_path else []
     new_path = current_path
 
     for npm_bin_dir in npm_bin_dirs:
@@ -100,21 +113,29 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, custom_c
             new_path = f"{npm_bin_dir}:{new_path}" if new_path else npm_bin_dir
             path_dirs.insert(0, npm_bin_dir)
 
-    print(json.dumps({
-        'type': 'Machine',
-        'config': {
-            'PATH': new_path,
-        },
-    }))
+    print(
+        json.dumps(
+            {
+                "type": "Machine",
+                "config": {
+                    "PATH": new_path,
+                },
+            }
+        )
+    )
 
     # Also emit NODE_MODULES_DIR for JS module resolution
-    node_modules_dir = str(npm_prefix / 'node_modules')
-    print(json.dumps({
-        'type': 'Machine',
-        'config': {
-            'NODE_MODULES_DIR': node_modules_dir,
-        },
-    }))
+    node_modules_dir = str(npm_prefix / "node_modules")
+    print(
+        json.dumps(
+            {
+                "type": "Machine",
+                "config": {
+                    "NODE_MODULES_DIR": node_modules_dir,
+                },
+            }
+        )
+    )
 
     # Log human-readable info to stderr
     click.echo(f"Installed {name} at {binary.abspath}", err=True)
@@ -123,5 +144,5 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, custom_c
     sys.exit(0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

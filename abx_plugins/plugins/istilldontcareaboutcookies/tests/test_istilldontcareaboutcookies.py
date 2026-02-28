@@ -25,7 +25,9 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
-_INSTALL_SCRIPT = next(PLUGIN_DIR.glob('on_Crawl__*_install_istilldontcareaboutcookies_extension.*'), None)
+_INSTALL_SCRIPT = next(
+    PLUGIN_DIR.glob("on_Crawl__*_install_istilldontcareaboutcookies_extension.*"), None
+)
 if _INSTALL_SCRIPT is None:
     raise FileNotFoundError(f"Install script not found in {PLUGIN_DIR}")
 INSTALL_SCRIPT = _INSTALL_SCRIPT
@@ -43,13 +45,19 @@ def test_extension_metadata():
         env["CHROME_EXTENSIONS_DIR"] = str(Path(tmpdir) / "chrome_extensions")
 
         result = subprocess.run(
-            ["node", "-e", f"const ext = require('{INSTALL_SCRIPT}'); console.log(JSON.stringify(ext.EXTENSION))"],
+            [
+                "node",
+                "-e",
+                f"const ext = require('{INSTALL_SCRIPT}'); console.log(JSON.stringify(ext.EXTENSION))",
+            ],
             capture_output=True,
             text=True,
-            env=env
+            env=env,
         )
 
-        assert result.returncode == 0, f"Failed to load extension metadata: {result.stderr}"
+        assert result.returncode == 0, (
+            f"Failed to load extension metadata: {result.stderr}"
+        )
 
         metadata = json.loads(result.stdout)
         assert metadata["webstore_id"] == "edibdbjcniadpccecjdfdjjppcpchdlm"
@@ -70,11 +78,15 @@ def test_install_creates_cache():
             capture_output=True,
             text=True,
             env=env,
-            timeout=60
+            timeout=60,
         )
 
         # Check output mentions installation
-        assert "Installing" in result.stdout or "installed" in result.stdout or "istilldontcareaboutcookies" in result.stdout
+        assert (
+            "Installing" in result.stdout
+            or "installed" in result.stdout
+            or "istilldontcareaboutcookies" in result.stdout
+        )
 
         # Check cache file was created
         cache_file = ext_dir / "istilldontcareaboutcookies.extension.json"
@@ -93,7 +105,9 @@ def test_install_uses_existing_cache():
         ext_dir.mkdir(parents=True)
 
         # Create fake cache
-        fake_extension_dir = ext_dir / "edibdbjcniadpccecjdfdjjppcpchdlm__istilldontcareaboutcookies"
+        fake_extension_dir = (
+            ext_dir / "edibdbjcniadpccecjdfdjjppcpchdlm__istilldontcareaboutcookies"
+        )
         fake_extension_dir.mkdir(parents=True)
 
         manifest = {"version": "1.1.8", "name": "I still don't care about cookies"}
@@ -107,7 +121,7 @@ def test_install_uses_existing_cache():
             capture_output=True,
             text=True,
             env=env,
-            timeout=30
+            timeout=30,
         )
 
         # Should use cache or install successfully
@@ -129,14 +143,14 @@ def test_no_configuration_required():
             capture_output=True,
             text=True,
             env=env,
-            timeout=60
+            timeout=60,
         )
 
         # Should not require any API keys or configuration
         assert "API" not in (result.stdout + result.stderr) or result.returncode == 0
 
 
-TEST_URL = 'https://www.filmin.es/'
+TEST_URL = "https://www.filmin.es/"
 
 
 def test_extension_loads_in_chromium():
@@ -151,42 +165,42 @@ def test_extension_loads_in_chromium():
 
         # Set up isolated env with proper directory structure
         env = setup_test_env(tmpdir)
-        env.setdefault('CHROME_HEADLESS', 'true')
+        env.setdefault("CHROME_HEADLESS", "true")
 
-        ext_dir = Path(env['CHROME_EXTENSIONS_DIR'])
+        ext_dir = Path(env["CHROME_EXTENSIONS_DIR"])
 
         # Step 1: Install the extension
         result = subprocess.run(
-            ['node', str(INSTALL_SCRIPT)],
+            ["node", str(INSTALL_SCRIPT)],
             cwd=str(tmpdir),
             capture_output=True,
             text=True,
             env=env,
-            timeout=60
+            timeout=60,
         )
         assert result.returncode == 0, f"Extension install failed: {result.stderr}"
 
         # Verify extension cache was created
-        cache_file = ext_dir / 'istilldontcareaboutcookies.extension.json'
+        cache_file = ext_dir / "istilldontcareaboutcookies.extension.json"
         assert cache_file.exists(), "Extension cache not created"
         ext_data = json.loads(cache_file.read_text())
         print(f"Extension installed: {ext_data.get('name')} v{ext_data.get('version')}")
 
         # Step 2: Launch Chromium using the chrome hook (loads extensions automatically)
-        crawl_id = 'test-cookies'
-        crawl_dir = Path(env['CRAWL_DIR']) / crawl_id
+        crawl_id = "test-cookies"
+        crawl_dir = Path(env["CRAWL_DIR"]) / crawl_id
         crawl_dir.mkdir(parents=True, exist_ok=True)
-        chrome_dir = crawl_dir / 'chrome'
+        chrome_dir = crawl_dir / "chrome"
         chrome_dir.mkdir(parents=True, exist_ok=True)
-        env['CRAWL_DIR'] = str(crawl_dir)
+        env["CRAWL_DIR"] = str(crawl_dir)
 
         chrome_launch_process = subprocess.Popen(
-            ['node', str(CHROME_LAUNCH_HOOK), f'--crawl-id={crawl_id}'],
+            ["node", str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env=env
+            env=env,
         )
 
         # Wait for Chromium to launch and CDP URL to be available
@@ -194,8 +208,10 @@ def test_extension_loads_in_chromium():
         for i in range(20):
             if chrome_launch_process.poll() is not None:
                 stdout, stderr = chrome_launch_process.communicate()
-                raise RuntimeError(f"Chromium launch failed:\nStdout: {stdout}\nStderr: {stderr}")
-            cdp_file = chrome_dir / 'cdp_url.txt'
+                raise RuntimeError(
+                    f"Chromium launch failed:\nStdout: {stdout}\nStderr: {stderr}"
+                )
+            cdp_file = chrome_dir / "cdp_url.txt"
             if cdp_file.exists():
                 cdp_url = cdp_file.read_text().strip()
                 break
@@ -205,14 +221,14 @@ def test_extension_loads_in_chromium():
         print(f"Chromium launched with CDP URL: {cdp_url}")
 
         # Check that extensions were loaded
-        extensions_file = chrome_dir / 'extensions.json'
+        extensions_file = chrome_dir / "extensions.json"
         if extensions_file.exists():
             loaded_exts = json.loads(extensions_file.read_text())
             print(f"Extensions loaded: {[e.get('name') for e in loaded_exts]}")
 
         try:
             # Step 3: Connect to Chromium and verify extension loaded via options page
-            test_script = f'''
+            test_script = f"""
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 const puppeteer = require('puppeteer-core');
 
@@ -289,17 +305,17 @@ const puppeteer = require('puppeteer-core');
 
     browser.disconnect();
 }})();
-'''
-            script_path = tmpdir / 'test_extension.js'
+"""
+            script_path = tmpdir / "test_extension.js"
             script_path.write_text(test_script)
 
             result = subprocess.run(
-                ['node', str(script_path)],
+                ["node", str(script_path)],
                 cwd=str(tmpdir),
                 capture_output=True,
                 text=True,
                 env=env,
-                timeout=90
+                timeout=90,
             )
 
             print(f"stderr: {result.stderr}")
@@ -307,12 +323,17 @@ const puppeteer = require('puppeteer-core');
 
             assert result.returncode == 0, f"Test failed: {result.stderr}"
 
-            output_lines = [line for line in result.stdout.strip().split('\n') if line.startswith('{')]
+            output_lines = [
+                line
+                for line in result.stdout.strip().split("\n")
+                if line.startswith("{")
+            ]
             assert output_lines, f"No JSON output: {result.stdout}"
 
             test_result = json.loads(output_lines[-1])
-            assert test_result.get('loaded'), \
+            assert test_result.get("loaded"), (
                 f"Extension should be loaded in Chromium. Result: {test_result}"
+            )
             print(f"Extension loaded successfully: {test_result}")
 
         finally:
@@ -322,7 +343,7 @@ const puppeteer = require('puppeteer-core');
                 chrome_launch_process.wait(timeout=5)
             except Exception:
                 pass
-            chrome_pid_file = chrome_dir / 'chrome.pid'
+            chrome_pid_file = chrome_dir / "chrome.pid"
             if chrome_pid_file.exists():
                 try:
                     chrome_pid = int(chrome_pid_file.read_text().strip())
@@ -331,7 +352,9 @@ const puppeteer = require('puppeteer-core');
                     pass
 
 
-def check_cookie_consent_visibility(cdp_url: str, test_url: str, env: dict, script_dir: Path) -> dict:
+def check_cookie_consent_visibility(
+    cdp_url: str, test_url: str, env: dict, script_dir: Path
+) -> dict:
     """Check if cookie consent elements are visible on a page.
 
     Returns dict with:
@@ -340,7 +363,7 @@ def check_cookie_consent_visibility(cdp_url: str, test_url: str, env: dict, scri
         - elements_found: list - all cookie-related elements found in DOM
         - html_snippet: str - snippet of the page HTML for debugging
     """
-    test_script = f'''
+    test_script = f"""
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 const puppeteer = require('puppeteer-core');
 
@@ -441,25 +464,29 @@ const puppeteer = require('puppeteer-core');
     browser.disconnect();
     console.log(JSON.stringify(result));
 }})();
-'''
-    script_path = script_dir / 'check_cookies.js'
+"""
+    script_path = script_dir / "check_cookies.js"
     script_path.write_text(test_script)
 
     result = subprocess.run(
-        ['node', str(script_path)],
+        ["node", str(script_path)],
         cwd=str(script_dir),
         capture_output=True,
         text=True,
         env=env,
-        timeout=90
+        timeout=90,
     )
 
     if result.returncode != 0:
         raise RuntimeError(f"Cookie check script failed: {result.stderr}")
 
-    output_lines = [line for line in result.stdout.strip().split('\n') if line.startswith('{')]
+    output_lines = [
+        line for line in result.stdout.strip().split("\n") if line.startswith("{")
+    ]
     if not output_lines:
-        raise RuntimeError(f"No JSON output from cookie check: {result.stdout}\nstderr: {result.stderr}")
+        raise RuntimeError(
+            f"No JSON output from cookie check: {result.stdout}\nstderr: {result.stderr}"
+        )
 
     return json.loads(output_lines[-1])
 
@@ -479,29 +506,33 @@ def test_hides_cookie_consent_on_filmin():
 
         # Set up isolated env with proper directory structure
         env_base = setup_test_env(tmpdir)
-        env_base['CHROME_HEADLESS'] = 'true'
+        env_base["CHROME_HEADLESS"] = "true"
 
-        ext_dir = Path(env_base['CHROME_EXTENSIONS_DIR'])
+        ext_dir = Path(env_base["CHROME_EXTENSIONS_DIR"])
 
         # ============================================================
         # STEP 1: BASELINE - Run WITHOUT extension, verify cookie consent IS visible
         # ============================================================
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("STEP 1: BASELINE TEST (no extension)")
-        print("="*60)
+        print("=" * 60)
 
-        personas_dir = Path(env_base['PERSONAS_DIR'])
+        personas_dir = Path(env_base["PERSONAS_DIR"])
 
         env_no_ext = env_base.copy()
-        env_no_ext['CHROME_EXTENSIONS_DIR'] = str(personas_dir / 'Default' / 'empty_extensions')
-        (personas_dir / 'Default' / 'empty_extensions').mkdir(parents=True, exist_ok=True)
+        env_no_ext["CHROME_EXTENSIONS_DIR"] = str(
+            personas_dir / "Default" / "empty_extensions"
+        )
+        (personas_dir / "Default" / "empty_extensions").mkdir(
+            parents=True, exist_ok=True
+        )
 
         # Launch baseline Chromium in crawls directory
-        baseline_crawl_id = 'baseline-no-ext'
-        baseline_crawl_dir = Path(env_base['CRAWL_DIR']) / baseline_crawl_id
+        baseline_crawl_id = "baseline-no-ext"
+        baseline_crawl_dir = Path(env_base["CRAWL_DIR"]) / baseline_crawl_id
         baseline_crawl_dir.mkdir(parents=True, exist_ok=True)
-        baseline_chrome_dir = baseline_crawl_dir / 'chrome'
-        env_no_ext['CRAWL_DIR'] = str(baseline_crawl_dir)
+        baseline_chrome_dir = baseline_crawl_dir / "chrome"
+        env_no_ext["CRAWL_DIR"] = str(baseline_crawl_dir)
         baseline_process = None
 
         try:
@@ -517,28 +548,34 @@ def test_hides_cookie_consent_on_filmin():
                 baseline_cdp_url, TEST_URL, env_no_ext, tmpdir
             )
 
-            print(f"Baseline result: visible={baseline_result['visible']}, "
-                  f"elements_found={len(baseline_result['elements_found'])}")
+            print(
+                f"Baseline result: visible={baseline_result['visible']}, "
+                f"elements_found={len(baseline_result['elements_found'])}"
+            )
 
-            if baseline_result['elements_found']:
+            if baseline_result["elements_found"]:
                 print("Elements found in baseline:")
-                for el in baseline_result['elements_found'][:5]:  # Show first 5
-                    print(f"  - {el['selector']}: visible={el['visible']}, "
-                          f"display={el['display']}, size={el['width']}x{el['height']}")
+                for el in baseline_result["elements_found"][:5]:  # Show first 5
+                    print(
+                        f"  - {el['selector']}: visible={el['visible']}, "
+                        f"display={el['display']}, size={el['width']}x{el['height']}"
+                    )
 
         finally:
             if baseline_process:
                 kill_chromium_session(baseline_process, baseline_chrome_dir)
 
         # Verify baseline shows cookie consent
-        if not baseline_result['visible']:
+        if not baseline_result["visible"]:
             # If no cookie consent visible in baseline, we can't test the extension
             # This could happen if:
             # - The site changed and no longer shows cookie consent
             # - Cookie consent is region-specific
             # - Our selectors don't match this site
             print("\nWARNING: No cookie consent visible in baseline!")
-            print(f"HTML has cookie keywords: {baseline_result.get('has_cookie_keyword_in_html')}")
+            print(
+                f"HTML has cookie keywords: {baseline_result.get('has_cookie_keyword_in_html')}"
+            )
             print(f"HTML snippet: {baseline_result.get('html_snippet', '')[:200]}")
 
             pytest.fail(
@@ -547,29 +584,31 @@ def test_hides_cookie_consent_on_filmin():
                 f"The site may have changed or cookie consent may be region-specific."
             )
 
-        print(f"\n✓ Baseline confirmed: Cookie consent IS visible (selector: {baseline_result['selector']})")
+        print(
+            f"\n✓ Baseline confirmed: Cookie consent IS visible (selector: {baseline_result['selector']})"
+        )
 
         # ============================================================
         # STEP 2: Install the extension
         # ============================================================
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("STEP 2: INSTALLING EXTENSION")
-        print("="*60)
+        print("=" * 60)
 
         env_with_ext = env_base.copy()
-        env_with_ext['CHROME_EXTENSIONS_DIR'] = str(ext_dir)
+        env_with_ext["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
 
         result = subprocess.run(
-            ['node', str(INSTALL_SCRIPT)],
+            ["node", str(INSTALL_SCRIPT)],
             cwd=str(tmpdir),
             capture_output=True,
             text=True,
             env=env_with_ext,
-            timeout=60
+            timeout=60,
         )
         assert result.returncode == 0, f"Extension install failed: {result.stderr}"
 
-        cache_file = ext_dir / 'istilldontcareaboutcookies.extension.json'
+        cache_file = ext_dir / "istilldontcareaboutcookies.extension.json"
         assert cache_file.exists(), "Extension cache not created"
         ext_data = json.loads(cache_file.read_text())
         print(f"Extension installed: {ext_data.get('name')} v{ext_data.get('version')}")
@@ -577,16 +616,16 @@ def test_hides_cookie_consent_on_filmin():
         # ============================================================
         # STEP 3: Run WITH extension, verify cookie consent is HIDDEN
         # ============================================================
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("STEP 3: TEST WITH EXTENSION")
-        print("="*60)
+        print("=" * 60)
 
         # Launch extension test Chromium in crawls directory
-        ext_crawl_id = 'test-with-ext'
-        ext_crawl_dir = Path(env_base['CRAWL_DIR']) / ext_crawl_id
+        ext_crawl_id = "test-with-ext"
+        ext_crawl_dir = Path(env_base["CRAWL_DIR"]) / ext_crawl_id
         ext_crawl_dir.mkdir(parents=True, exist_ok=True)
-        ext_chrome_dir = ext_crawl_dir / 'chrome'
-        env_with_ext['CRAWL_DIR'] = str(ext_crawl_dir)
+        ext_chrome_dir = ext_crawl_dir / "chrome"
+        env_with_ext["CRAWL_DIR"] = str(ext_crawl_dir)
         ext_process = None
 
         try:
@@ -596,7 +635,7 @@ def test_hides_cookie_consent_on_filmin():
             print(f"Extension Chromium launched: {ext_cdp_url}")
 
             # Check that extension was loaded
-            extensions_file = ext_chrome_dir / 'extensions.json'
+            extensions_file = ext_chrome_dir / "extensions.json"
             if extensions_file.exists():
                 loaded_exts = json.loads(extensions_file.read_text())
                 print(f"Extensions loaded: {[e.get('name') for e in loaded_exts]}")
@@ -608,14 +647,18 @@ def test_hides_cookie_consent_on_filmin():
                 ext_cdp_url, TEST_URL, env_with_ext, tmpdir
             )
 
-            print(f"Extension result: visible={ext_result['visible']}, "
-                  f"elements_found={len(ext_result['elements_found'])}")
+            print(
+                f"Extension result: visible={ext_result['visible']}, "
+                f"elements_found={len(ext_result['elements_found'])}"
+            )
 
-            if ext_result['elements_found']:
+            if ext_result["elements_found"]:
                 print("Elements found with extension:")
-                for el in ext_result['elements_found'][:5]:
-                    print(f"  - {el['selector']}: visible={el['visible']}, "
-                          f"display={el['display']}, size={el['width']}x{el['height']}")
+                for el in ext_result["elements_found"][:5]:
+                    print(
+                        f"  - {el['selector']}: visible={el['visible']}, "
+                        f"display={el['display']}, size={el['width']}x{el['height']}"
+                    )
 
         finally:
             if ext_process:
@@ -624,20 +667,24 @@ def test_hides_cookie_consent_on_filmin():
         # ============================================================
         # STEP 4: Compare results
         # ============================================================
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("STEP 4: COMPARISON")
-        print("="*60)
-        print(f"Baseline (no extension): cookie consent visible = {baseline_result['visible']}")
+        print("=" * 60)
+        print(
+            f"Baseline (no extension): cookie consent visible = {baseline_result['visible']}"
+        )
         print(f"With extension: cookie consent visible = {ext_result['visible']}")
 
-        assert baseline_result['visible'], \
+        assert baseline_result["visible"], (
             "Baseline should show cookie consent (this shouldn't happen, we checked above)"
+        )
 
-        assert not ext_result['visible'], \
-            f"Cookie consent should be HIDDEN by extension.\n" \
-            f"Baseline showed consent at: {baseline_result['selector']}\n" \
-            f"But with extension, consent is still visible.\n" \
+        assert not ext_result["visible"], (
+            f"Cookie consent should be HIDDEN by extension.\n"
+            f"Baseline showed consent at: {baseline_result['selector']}\n"
+            f"But with extension, consent is still visible.\n"
             f"Elements still visible: {[e for e in ext_result['elements_found'] if e['visible']]}"
+        )
 
         print("\n✓ SUCCESS: Extension correctly hides cookie consent!")
         print(f"  - Baseline showed consent at: {baseline_result['selector']}")

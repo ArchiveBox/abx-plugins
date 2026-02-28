@@ -22,15 +22,17 @@ import rich_click as click
 
 
 # Extractor metadata
-PLUGIN_NAME = 'git'
-BIN_NAME = 'git'
-BIN_PROVIDERS = 'apt,brew,env'
+PLUGIN_NAME = "git"
+BIN_NAME = "git"
+BIN_PROVIDERS = "apt,brew,env"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
-def get_env(name: str, default: str = '') -> str:
+
+
+def get_env(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
 
 
@@ -43,7 +45,7 @@ def get_env_int(name: str, default: int = 0) -> int:
 
 def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
     """Parse a JSON array from environment variable."""
-    val = get_env(name, '')
+    val = get_env(name, "")
     if not val:
         return default if default is not None else []
     try:
@@ -58,12 +60,12 @@ def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
 def is_git_url(url: str) -> bool:
     """Check if URL looks like a git repository."""
     git_patterns = [
-        '.git',
-        'github.com',
-        'gitlab.com',
-        'bitbucket.org',
-        'git://',
-        'ssh://git@',
+        ".git",
+        "github.com",
+        "gitlab.com",
+        "bitbucket.org",
+        "git://",
+        "ssh://git@",
     ]
     return any(p in url.lower() for p in git_patterns)
 
@@ -74,9 +76,9 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     Returns: (success, output_path, error_message)
     """
-    timeout = get_env_int('GIT_TIMEOUT') or get_env_int('TIMEOUT', 120)
-    git_args = get_env_array('GIT_ARGS', ["clone", "--depth=1", "--recursive"])
-    git_args_extra = get_env_array('GIT_ARGS_EXTRA', [])
+    timeout = get_env_int("GIT_TIMEOUT") or get_env_int("TIMEOUT", 120)
+    git_args = get_env_array("GIT_ARGS", ["clone", "--depth=1", "--recursive"])
+    git_args_extra = get_env_array("GIT_ARGS_EXTRA", [])
 
     cmd = [binary, *git_args, *git_args_extra, url, OUTPUT_DIR]
 
@@ -84,61 +86,65 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
         result = subprocess.run(cmd, timeout=timeout)
 
         if result.returncode == 0 and Path(OUTPUT_DIR).is_dir():
-            return True, str(OUTPUT_DIR), ''
+            return True, str(OUTPUT_DIR), ""
         else:
-            return False, None, f'git clone failed (exit={result.returncode})'
+            return False, None, f"git clone failed (exit={result.returncode})"
 
     except subprocess.TimeoutExpired:
-        return False, None, f'Timed out after {timeout} seconds'
+        return False, None, f"Timed out after {timeout} seconds"
     except Exception as e:
-        return False, None, f'{type(e).__name__}: {e}'
+        return False, None, f"{type(e).__name__}: {e}"
 
 
 @click.command()
-@click.option('--url', required=True, help='Git repository URL')
-@click.option('--snapshot-id', required=True, help='Snapshot UUID')
+@click.option("--url", required=True, help="Git repository URL")
+@click.option("--snapshot-id", required=True, help="Snapshot UUID")
 def main(url: str, snapshot_id: str):
     """Clone a git repository from a URL."""
 
     output = None
-    status = 'failed'
-    error = ''
+    status = "failed"
+    error = ""
 
     try:
         # Check if URL looks like a git repo
         if not is_git_url(url):
-            print(f'Skipping git clone for non-git URL: {url}', file=sys.stderr)
-            print(json.dumps({
-                'type': 'ArchiveResult',
-                'status': 'skipped',
-                'output_str': 'Not a git URL',
-            }))
+            print(f"Skipping git clone for non-git URL: {url}", file=sys.stderr)
+            print(
+                json.dumps(
+                    {
+                        "type": "ArchiveResult",
+                        "status": "skipped",
+                        "output_str": "Not a git URL",
+                    }
+                )
+            )
             sys.exit(0)
 
         # Get binary from environment
-        binary = get_env('GIT_BINARY', 'git')
+        binary = get_env("GIT_BINARY", "git")
 
         # Run extraction
         success, output, error = clone_git(url, binary)
-        status = 'succeeded' if success else 'failed'
+        status = "succeeded" if success else "failed"
 
     except Exception as e:
-        error = f'{type(e).__name__}: {e}'
-        status = 'failed'
+        error = f"{type(e).__name__}: {e}"
+        status = "failed"
 
     if error:
-        print(f'ERROR: {error}', file=sys.stderr)
+        print(f"ERROR: {error}", file=sys.stderr)
 
     # Output clean JSONL (no RESULT_JSON= prefix)
     result = {
-        'type': 'ArchiveResult',
-        'status': status,
-        'output_str': output or error or '',
+        "type": "ArchiveResult",
+        "status": status,
+        "output_str": output or error or "",
     }
     print(json.dumps(result))
 
-    sys.exit(0 if status == 'succeeded' else 1)
+    sys.exit(0 if status == "succeeded" else 1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

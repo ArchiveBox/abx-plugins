@@ -22,16 +22,23 @@ from abx_pkg import Binary, BrewProvider
 
 
 @click.command()
-@click.option('--machine-id', required=True, help="Machine UUID")
-@click.option('--binary-id', required=True, help="Dependency UUID")
-@click.option('--name', required=True, help="Binary name to install")
-@click.option('--binproviders', default='*', help="Allowed providers (comma-separated)")
-@click.option('--custom-cmd', default=None, help="Custom install command")
-@click.option('--overrides', default=None, help="JSON-encoded overrides dict")
-def main(binary_id: str, machine_id: str, name: str, binproviders: str, custom_cmd: str | None, overrides: str | None):
+@click.option("--machine-id", required=True, help="Machine UUID")
+@click.option("--binary-id", required=True, help="Dependency UUID")
+@click.option("--name", required=True, help="Binary name to install")
+@click.option("--binproviders", default="*", help="Allowed providers (comma-separated)")
+@click.option("--custom-cmd", default=None, help="Custom install command")
+@click.option("--overrides", default=None, help="JSON-encoded overrides dict")
+def main(
+    binary_id: str,
+    machine_id: str,
+    name: str,
+    binproviders: str,
+    custom_cmd: str | None,
+    overrides: str | None,
+):
     """Install binary using Homebrew."""
 
-    if binproviders != '*' and 'brew' not in binproviders.split(','):
+    if binproviders != "*" and "brew" not in binproviders.split(","):
         click.echo(f"brew provider not allowed for {name}", err=True)
         sys.exit(0)
 
@@ -49,11 +56,17 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, custom_c
         if overrides:
             try:
                 overrides_dict = json.loads(overrides)
-                click.echo(f"Using custom install overrides: {overrides_dict}", err=True)
+                click.echo(
+                    f"Using custom install overrides: {overrides_dict}", err=True
+                )
             except json.JSONDecodeError:
-                click.echo(f"Warning: Failed to parse overrides JSON: {overrides}", err=True)
+                click.echo(
+                    f"Warning: Failed to parse overrides JSON: {overrides}", err=True
+                )
 
-        binary = Binary(name=name, binproviders=[provider], overrides=overrides_dict or {}).install()
+        binary = Binary(
+            name=name, binproviders=[provider], overrides=overrides_dict or {}
+        ).install()
     except Exception as e:
         click.echo(f"brew install failed: {e}", err=True)
         sys.exit(1)
@@ -62,18 +75,18 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, custom_c
         click.echo(f"{name} not found after brew install", err=True)
         sys.exit(1)
 
-    machine_id = os.environ.get('MACHINE_ID', '')
+    machine_id = os.environ.get("MACHINE_ID", "")
 
     # Output Binary JSONL record to stdout
     record = {
-        'type': 'Binary',
-        'name': name,
-        'abspath': str(binary.abspath),
-        'version': str(binary.version) if binary.version else '',
-        'sha256': binary.sha256 or '',
-        'binprovider': 'brew',
-        'machine_id': machine_id,
-        'binary_id': binary_id,
+        "type": "Binary",
+        "name": name,
+        "abspath": str(binary.abspath),
+        "version": str(binary.version) if binary.version else "",
+        "sha256": binary.sha256 or "",
+        "binprovider": "brew",
+        "machine_id": machine_id,
+        "binary_id": binary_id,
     }
     print(json.dumps(record))
 
@@ -84,5 +97,5 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, custom_c
     sys.exit(0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

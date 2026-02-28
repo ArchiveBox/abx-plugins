@@ -52,14 +52,19 @@ def _collect_forbidden_imports(path: Path) -> list[tuple[int, str]]:
             if not node.args:
                 continue
             first_arg = node.args[0]
-            if not isinstance(first_arg, ast.Constant) or not isinstance(first_arg.value, str):
+            if not isinstance(first_arg, ast.Constant) or not isinstance(
+                first_arg.value, str
+            ):
                 continue
 
             if isinstance(node.func, ast.Name) and node.func.id == "__import__":
                 if _is_forbidden_import(first_arg.value):
                     violations.append((node.lineno, first_arg.value))
 
-            if isinstance(node.func, ast.Attribute) and node.func.attr == "import_module":
+            if (
+                isinstance(node.func, ast.Attribute)
+                and node.func.attr == "import_module"
+            ):
                 if _is_forbidden_import(first_arg.value):
                     violations.append((node.lineno, first_arg.value))
 

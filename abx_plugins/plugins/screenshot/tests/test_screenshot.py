@@ -30,26 +30,29 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 )
 
 PLUGIN_DIR = get_plugin_dir(__file__)
-_SCREENSHOT_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_screenshot.*')
+_SCREENSHOT_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_screenshot.*")
 if _SCREENSHOT_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 SCREENSHOT_HOOK = _SCREENSHOT_HOOK
 
 # Get Chrome hooks for setting up sessions
-_CHROME_LAUNCH_HOOK = get_hook_script(CHROME_PLUGIN_DIR, 'on_Crawl__*_chrome_launch.*')
+_CHROME_LAUNCH_HOOK = get_hook_script(CHROME_PLUGIN_DIR, "on_Crawl__*_chrome_launch.*")
 if _CHROME_LAUNCH_HOOK is None:
     raise FileNotFoundError(f"Chrome launch hook not found in {CHROME_PLUGIN_DIR}")
 CHROME_LAUNCH_HOOK = _CHROME_LAUNCH_HOOK
-_CHROME_TAB_HOOK = get_hook_script(CHROME_PLUGIN_DIR, 'on_Snapshot__*_chrome_tab.*')
+_CHROME_TAB_HOOK = get_hook_script(CHROME_PLUGIN_DIR, "on_Snapshot__*_chrome_tab.*")
 if _CHROME_TAB_HOOK is None:
     raise FileNotFoundError(f"Chrome tab hook not found in {CHROME_PLUGIN_DIR}")
 CHROME_TAB_HOOK = _CHROME_TAB_HOOK
-_CHROME_NAVIGATE_HOOK = get_hook_script(CHROME_PLUGIN_DIR, 'on_Snapshot__*_chrome_navigate.*')
+_CHROME_NAVIGATE_HOOK = get_hook_script(
+    CHROME_PLUGIN_DIR, "on_Snapshot__*_chrome_navigate.*"
+)
 if _CHROME_NAVIGATE_HOOK is None:
     raise FileNotFoundError(f"Chrome navigate hook not found in {CHROME_PLUGIN_DIR}")
 CHROME_NAVIGATE_HOOK = _CHROME_NAVIGATE_HOOK
 
-@pytest.fixture(scope='module', autouse=True)
+
+@pytest.fixture(scope="module", autouse=True)
 def _ensure_chrome_prereqs(ensure_chromium_and_puppeteer_installed):
     return ensure_chromium_and_puppeteer_installed
 
@@ -64,7 +67,7 @@ def test_verify_deps_with_abx_pkg():
     from abx_pkg import Binary, EnvProvider
 
     # Verify node is available
-    node_binary = Binary(name='node', binproviders=[EnvProvider()])
+    node_binary = Binary(name="node", binproviders=[EnvProvider()])
     node_loaded = node_binary.load()
     assert node_loaded and node_loaded.abspath, "Node.js required for screenshot plugin"
 
@@ -73,73 +76,94 @@ def test_screenshot_with_chrome_session(chrome_test_url):
     """Test multiple screenshot scenarios with one Chrome session to save time."""
     with tempfile.TemporaryDirectory() as tmpdir:
         test_url = chrome_test_url
-        snapshot_id = 'test-screenshot-snap'
+        snapshot_id = "test-screenshot-snap"
 
         try:
             with chrome_session(
                 Path(tmpdir),
-                crawl_id='test-screenshot-crawl',
+                crawl_id="test-screenshot-crawl",
                 snapshot_id=snapshot_id,
                 test_url=test_url,
                 navigate=True,
                 timeout=30,
             ) as (chrome_process, chrome_pid, snapshot_chrome_dir, env):
-
                 # Scenario 1: Basic screenshot extraction
-                screenshot_dir = snapshot_chrome_dir.parent / 'screenshot'
+                screenshot_dir = snapshot_chrome_dir.parent / "screenshot"
                 screenshot_dir.mkdir()
 
                 try:
                     result = subprocess.run(
-                        ['node', str(SCREENSHOT_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
+                        [
+                            "node",
+                            str(SCREENSHOT_HOOK),
+                            f"--url={test_url}",
+                            f"--snapshot-id={snapshot_id}",
+                        ],
                         cwd=str(screenshot_dir),
                         capture_output=True,
                         text=True,
                         timeout=120,
-                        env=env
+                        env=env,
                     )
                 except subprocess.TimeoutExpired:
-                    pytest.fail('Screenshot capture timed out')
+                    pytest.fail("Screenshot capture timed out")
 
-                if result.returncode != 0 and 'Screenshot capture timed out' in result.stderr:
+                if (
+                    result.returncode != 0
+                    and "Screenshot capture timed out" in result.stderr
+                ):
                     pytest.fail(f"Screenshot capture timed out: {result.stderr}")
 
-                assert result.returncode == 0, f"Screenshot extraction failed:\nStderr: {result.stderr}"
+                assert result.returncode == 0, (
+                    f"Screenshot extraction failed:\nStderr: {result.stderr}"
+                )
 
                 # Parse JSONL output
                 result_json = None
-                for line in result.stdout.strip().split('\n'):
+                for line in result.stdout.strip().split("\n"):
                     line = line.strip()
-                    if line.startswith('{'):
+                    if line.startswith("{"):
                         try:
                             record = json.loads(line)
-                            if record.get('type') == 'ArchiveResult':
+                            if record.get("type") == "ArchiveResult":
                                 result_json = record
                                 break
                         except json.JSONDecodeError:
                             pass
 
-                assert result_json and result_json['status'] == 'succeeded'
-                screenshot_file = screenshot_dir / 'screenshot.png'
-                assert screenshot_file.exists() and screenshot_file.stat().st_size > 1000
-                assert screenshot_file.read_bytes()[:8] == b'\x89PNG\r\n\x1a\n'
+                assert result_json and result_json["status"] == "succeeded"
+                screenshot_file = screenshot_dir / "screenshot.png"
+                assert (
+                    screenshot_file.exists() and screenshot_file.stat().st_size > 1000
+                )
+                assert screenshot_file.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
 
                 # Scenario 2: Wrong target ID (error case)
-                screenshot_dir3 = snapshot_chrome_dir.parent / 'screenshot3'
+                screenshot_dir3 = snapshot_chrome_dir.parent / "screenshot3"
                 screenshot_dir3.mkdir()
-                (snapshot_chrome_dir / 'target_id.txt').write_text('nonexistent-target-id')
+                (snapshot_chrome_dir / "target_id.txt").write_text(
+                    "nonexistent-target-id"
+                )
 
                 result = subprocess.run(
-                    ['node', str(SCREENSHOT_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
+                    [
+                        "node",
+                        str(SCREENSHOT_HOOK),
+                        f"--url={test_url}",
+                        f"--snapshot-id={snapshot_id}",
+                    ],
                     cwd=str(screenshot_dir3),
                     capture_output=True,
                     text=True,
                     timeout=5,
-                    env=env
+                    env=env,
                 )
 
                 assert result.returncode != 0
-                assert 'target' in result.stderr.lower() and 'not found' in result.stderr.lower()
+                assert (
+                    "target" in result.stderr.lower()
+                    and "not found" in result.stderr.lower()
+                )
 
         except RuntimeError:
             raise
@@ -148,85 +172,109 @@ def test_screenshot_with_chrome_session(chrome_test_url):
 def test_skips_when_staticfile_exists(chrome_test_url):
     """Test that screenshot skips when staticfile extractor already handled the URL."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        snap_dir = Path(tmpdir) / 'snap'
+        snap_dir = Path(tmpdir) / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
-        snapshot_dir = snap_dir / 'snap-skip'
-        screenshot_dir = snapshot_dir / 'screenshot'
+        snapshot_dir = snap_dir / "snap-skip"
+        screenshot_dir = snapshot_dir / "screenshot"
         screenshot_dir.mkdir(parents=True)
 
         # Create staticfile output to simulate staticfile extractor already ran
-        staticfile_dir = snapshot_dir / 'staticfile'
+        staticfile_dir = snapshot_dir / "staticfile"
         staticfile_dir.mkdir()
-        (staticfile_dir / 'stdout.log').write_text('{"type":"ArchiveResult","status":"succeeded","output_str":"index.html"}\n')
+        (staticfile_dir / "stdout.log").write_text(
+            '{"type":"ArchiveResult","status":"succeeded","output_str":"index.html"}\n'
+        )
 
-        env = get_test_env() | {'SNAP_DIR': str(snapshot_dir)}
+        env = get_test_env() | {"SNAP_DIR": str(snapshot_dir)}
         result = subprocess.run(
-            ['node', str(SCREENSHOT_HOOK), f'--url={chrome_test_url}', '--snapshot-id=snap-skip'],
+            [
+                "node",
+                str(SCREENSHOT_HOOK),
+                f"--url={chrome_test_url}",
+                "--snapshot-id=snap-skip",
+            ],
             cwd=str(screenshot_dir),
             capture_output=True,
             text=True,
             timeout=30,
-            env=env
+            env=env,
         )
 
         assert result.returncode == 0, f"Should exit successfully: {result.stderr}"
 
         # Should emit skipped status
         result_json = None
-        for line in result.stdout.strip().split('\n'):
+        for line in result.stdout.strip().split("\n"):
             line = line.strip()
-            if line.startswith('{'):
+            if line.startswith("{"):
                 try:
                     record = json.loads(line)
-                    if record.get('type') == 'ArchiveResult':
+                    if record.get("type") == "ArchiveResult":
                         result_json = record
                         break
                 except json.JSONDecodeError:
                     pass
 
         assert result_json, "Should have ArchiveResult JSONL output"
-        assert result_json['status'] == 'skipped', f"Should skip: {result_json}"
+        assert result_json["status"] == "skipped", f"Should skip: {result_json}"
 
 
 def test_config_save_screenshot_false_skips(chrome_test_url):
     """Test that SCREENSHOT_ENABLED=False exits without emitting JSONL."""
 
     # FIRST check what Python sees
-    print(f"\n[DEBUG PYTHON] NODE_V8_COVERAGE in os.environ: {'NODE_V8_COVERAGE' in os.environ}")
+    print(
+        f"\n[DEBUG PYTHON] NODE_V8_COVERAGE in os.environ: {'NODE_V8_COVERAGE' in os.environ}"
+    )
     print(f"[DEBUG PYTHON] Value: {os.environ.get('NODE_V8_COVERAGE', 'NOT SET')}")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        snap_dir = tmpdir / 'snap'
+        snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
         env = os.environ.copy()
-        env['SCREENSHOT_ENABLED'] = 'False'
-        env['SNAP_DIR'] = str(snap_dir)
+        env["SCREENSHOT_ENABLED"] = "False"
+        env["SNAP_DIR"] = str(snap_dir)
 
         # Check what's in the copied env
         print(f"[DEBUG ENV COPY] NODE_V8_COVERAGE in env: {'NODE_V8_COVERAGE' in env}")
         print(f"[DEBUG ENV COPY] Value: {env.get('NODE_V8_COVERAGE', 'NOT SET')}")
 
         result = subprocess.run(
-            ['node', str(SCREENSHOT_HOOK), f'--url={chrome_test_url}', '--snapshot-id=test999'],
+            [
+                "node",
+                str(SCREENSHOT_HOOK),
+                f"--url={chrome_test_url}",
+                "--snapshot-id=test999",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             env=env,
-            timeout=30
+            timeout=30,
         )
 
         print(f"[DEBUG RESULT] Exit code: {result.returncode}")
         print(f"[DEBUG RESULT] Stderr: {result.stderr[:200]}")
 
-        assert result.returncode == 0, f"Should exit 0 when feature disabled: {result.stderr}"
+        assert result.returncode == 0, (
+            f"Should exit 0 when feature disabled: {result.stderr}"
+        )
 
         # Feature disabled - temporary failure, should NOT emit JSONL
-        assert 'Skipping' in result.stderr or 'False' in result.stderr, "Should log skip reason to stderr"
+        assert "Skipping" in result.stderr or "False" in result.stderr, (
+            "Should log skip reason to stderr"
+        )
 
         # Should NOT emit any JSONL
-        jsonl_lines = [line for line in result.stdout.strip().split('\n') if line.strip().startswith('{')]
-        assert len(jsonl_lines) == 0, f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
+        jsonl_lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if line.strip().startswith("{")
+        ]
+        assert len(jsonl_lines) == 0, (
+            f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
+        )
 
 
 def test_reports_missing_chrome(chrome_test_url):
@@ -235,24 +283,33 @@ def test_reports_missing_chrome(chrome_test_url):
         tmpdir = Path(tmpdir)
 
         # Set CHROME_BINARY to nonexistent path
-        snap_dir = tmpdir / 'snap'
+        snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
-        env = get_test_env() | {'SNAP_DIR': str(snap_dir)}
-        env['CHROME_BINARY'] = '/nonexistent/chrome'
+        env = get_test_env() | {"SNAP_DIR": str(snap_dir)}
+        env["CHROME_BINARY"] = "/nonexistent/chrome"
 
         result = subprocess.run(
-            ['node', str(SCREENSHOT_HOOK), f'--url={chrome_test_url}', '--snapshot-id=test123'],
+            [
+                "node",
+                str(SCREENSHOT_HOOK),
+                f"--url={chrome_test_url}",
+                "--snapshot-id=test123",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             env=env,
-            timeout=30
+            timeout=30,
         )
 
         # Should fail and report missing Chrome
         if result.returncode != 0:
             combined = result.stdout + result.stderr
-            assert 'chrome' in combined.lower() or 'browser' in combined.lower() or 'ERROR=' in combined
+            assert (
+                "chrome" in combined.lower()
+                or "browser" in combined.lower()
+                or "ERROR=" in combined
+            )
 
 
 def test_waits_for_navigation_timeout(chrome_test_url):
@@ -261,36 +318,45 @@ def test_waits_for_navigation_timeout(chrome_test_url):
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        snap_dir = tmpdir / 'snap'
+        snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
 
         # Create chrome directory without navigation.json to trigger timeout
-        chrome_dir = snap_dir / 'chrome'
+        chrome_dir = snap_dir / "chrome"
         chrome_dir.mkdir(parents=True, exist_ok=True)
-        (chrome_dir / 'cdp_url.txt').write_text('ws://chrome-cdp.localhost:9222/devtools/browser/test')
-        (chrome_dir / 'target_id.txt').write_text('test-target-id')
+        (chrome_dir / "cdp_url.txt").write_text(
+            "ws://chrome-cdp.localhost:9222/devtools/browser/test"
+        )
+        (chrome_dir / "target_id.txt").write_text("test-target-id")
         # Intentionally NOT creating navigation.json to test timeout
 
-        screenshot_dir = snap_dir / 'screenshot'
+        screenshot_dir = snap_dir / "screenshot"
         screenshot_dir.mkdir()
 
-        env = get_test_env() | {'SNAP_DIR': str(snap_dir)}
-        env['SCREENSHOT_TIMEOUT'] = '2'  # Set 2 second timeout
+        env = get_test_env() | {"SNAP_DIR": str(snap_dir)}
+        env["SCREENSHOT_TIMEOUT"] = "2"  # Set 2 second timeout
 
         start_time = time.time()
         result = subprocess.run(
-            ['node', str(SCREENSHOT_HOOK), f'--url={chrome_test_url}', '--snapshot-id=test-timeout'],
+            [
+                "node",
+                str(SCREENSHOT_HOOK),
+                f"--url={chrome_test_url}",
+                "--snapshot-id=test-timeout",
+            ],
             cwd=str(screenshot_dir),
             capture_output=True,
             text=True,
             timeout=5,  # Test timeout slightly higher than SCREENSHOT_TIMEOUT
-            env=env
+            env=env,
         )
         elapsed = time.time() - start_time
 
         # Should fail when navigation.json doesn't appear
         assert result.returncode != 0, "Should fail when navigation.json missing"
-        assert 'not loaded' in result.stderr.lower() or 'navigate' in result.stderr.lower(), f"Should mention navigation timeout: {result.stderr}"
+        assert (
+            "not loaded" in result.stderr.lower() or "navigate" in result.stderr.lower()
+        ), f"Should mention navigation timeout: {result.stderr}"
         # Should complete within 3s (2s wait + 1s overhead)
         assert elapsed < 3, f"Should timeout within 3s, took {elapsed:.1f}s"
 
@@ -300,21 +366,26 @@ def test_config_timeout_honored(chrome_test_url):
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        snap_dir = tmpdir / 'snap'
+        snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
 
         # Set very short timeout
         env = os.environ.copy()
-        env['CHROME_TIMEOUT'] = '5'
-        env['SNAP_DIR'] = str(snap_dir)
+        env["CHROME_TIMEOUT"] = "5"
+        env["SNAP_DIR"] = str(snap_dir)
 
         result = subprocess.run(
-            ['node', str(SCREENSHOT_HOOK), f'--url={chrome_test_url}', '--snapshot-id=testtimeout'],
+            [
+                "node",
+                str(SCREENSHOT_HOOK),
+                f"--url={chrome_test_url}",
+                "--snapshot-id=testtimeout",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             env=env,
-            timeout=30
+            timeout=30,
         )
 
         # Should complete (success or fail, but not hang)
@@ -326,21 +397,21 @@ def test_missing_url_argument():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        snap_dir = tmpdir / 'snap'
+        snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
-        env = get_test_env() | {'SNAP_DIR': str(snap_dir)}
+        env = get_test_env() | {"SNAP_DIR": str(snap_dir)}
         result = subprocess.run(
-            ['node', str(SCREENSHOT_HOOK), '--snapshot-id=test-missing-url'],
+            ["node", str(SCREENSHOT_HOOK), "--snapshot-id=test-missing-url"],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             timeout=30,
-            env=env
+            env=env,
         )
 
         # Should exit with error
         assert result.returncode != 0, "Should fail when URL is missing"
-        assert 'Usage:' in result.stderr or 'url' in result.stderr.lower()
+        assert "Usage:" in result.stderr or "url" in result.stderr.lower()
 
 
 def test_missing_snapshot_id_argument(chrome_test_url):
@@ -348,101 +419,118 @@ def test_missing_snapshot_id_argument(chrome_test_url):
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        snap_dir = tmpdir / 'snap'
+        snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
-        env = get_test_env() | {'SNAP_DIR': str(snap_dir)}
+        env = get_test_env() | {"SNAP_DIR": str(snap_dir)}
         result = subprocess.run(
-            ['node', str(SCREENSHOT_HOOK), f'--url={chrome_test_url}'],
+            ["node", str(SCREENSHOT_HOOK), f"--url={chrome_test_url}"],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             timeout=30,
-            env=env
+            env=env,
         )
 
         # Should exit with error
         assert result.returncode != 0, "Should fail when snapshot-id is missing"
-        assert 'Usage:' in result.stderr or 'snapshot' in result.stderr.lower()
+        assert "Usage:" in result.stderr or "snapshot" in result.stderr.lower()
 
 
 def test_no_cdp_url_fails(chrome_test_url):
     """Test error when chrome dir exists but no cdp_url.txt."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        snap_dir = tmpdir / 'snap'
+        snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
-        chrome_dir = snap_dir / 'chrome'
+        chrome_dir = snap_dir / "chrome"
         chrome_dir.mkdir()
         # Create target_id.txt and navigation.json but NOT cdp_url.txt
-        (chrome_dir / 'target_id.txt').write_text('test-target')
-        (chrome_dir / 'navigation.json').write_text('{}')
+        (chrome_dir / "target_id.txt").write_text("test-target")
+        (chrome_dir / "navigation.json").write_text("{}")
 
-        screenshot_dir = snap_dir / 'screenshot'
+        screenshot_dir = snap_dir / "screenshot"
         screenshot_dir.mkdir()
 
         result = subprocess.run(
-            ['node', str(SCREENSHOT_HOOK), f'--url={chrome_test_url}', '--snapshot-id=test'],
+            [
+                "node",
+                str(SCREENSHOT_HOOK),
+                f"--url={chrome_test_url}",
+                "--snapshot-id=test",
+            ],
             cwd=str(screenshot_dir),
             capture_output=True,
             text=True,
             timeout=7,
-            env=get_test_env() | {'SNAP_DIR': str(snap_dir)}
+            env=get_test_env() | {"SNAP_DIR": str(snap_dir)},
         )
 
         assert result.returncode != 0
-        assert 'no chrome session' in result.stderr.lower()
+        assert "no chrome session" in result.stderr.lower()
 
 
 def test_no_target_id_fails(chrome_test_url):
     """Test error when cdp_url exists but no target_id.txt."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        snap_dir = tmpdir / 'snap'
+        snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
-        chrome_dir = snap_dir / 'chrome'
+        chrome_dir = snap_dir / "chrome"
         chrome_dir.mkdir()
         # Create cdp_url.txt and navigation.json but NOT target_id.txt
-        (chrome_dir / 'cdp_url.txt').write_text('ws://chrome-cdp.localhost:9222/devtools/browser/test')
-        (chrome_dir / 'navigation.json').write_text('{}')
+        (chrome_dir / "cdp_url.txt").write_text(
+            "ws://chrome-cdp.localhost:9222/devtools/browser/test"
+        )
+        (chrome_dir / "navigation.json").write_text("{}")
 
-        screenshot_dir = snap_dir / 'screenshot'
+        screenshot_dir = snap_dir / "screenshot"
         screenshot_dir.mkdir()
 
         result = subprocess.run(
-            ['node', str(SCREENSHOT_HOOK), f'--url={chrome_test_url}', '--snapshot-id=test'],
+            [
+                "node",
+                str(SCREENSHOT_HOOK),
+                f"--url={chrome_test_url}",
+                "--snapshot-id=test",
+            ],
             cwd=str(screenshot_dir),
             capture_output=True,
             text=True,
             timeout=7,
-            env=get_test_env() | {'SNAP_DIR': str(snap_dir)}
+            env=get_test_env() | {"SNAP_DIR": str(snap_dir)},
         )
 
         assert result.returncode != 0
-        assert 'target_id.txt' in result.stderr.lower()
+        assert "target_id.txt" in result.stderr.lower()
 
 
 def test_invalid_cdp_url_fails(chrome_test_url):
     """Test error with malformed CDP URL."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        snap_dir = tmpdir / 'snap'
+        snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
-        chrome_dir = snap_dir / 'chrome'
+        chrome_dir = snap_dir / "chrome"
         chrome_dir.mkdir()
-        (chrome_dir / 'cdp_url.txt').write_text('invalid-url')
-        (chrome_dir / 'target_id.txt').write_text('test-target')
-        (chrome_dir / 'navigation.json').write_text('{}')
+        (chrome_dir / "cdp_url.txt").write_text("invalid-url")
+        (chrome_dir / "target_id.txt").write_text("test-target")
+        (chrome_dir / "navigation.json").write_text("{}")
 
-        screenshot_dir = snap_dir / 'screenshot'
+        screenshot_dir = snap_dir / "screenshot"
         screenshot_dir.mkdir()
 
         result = subprocess.run(
-            ['node', str(SCREENSHOT_HOOK), f'--url={chrome_test_url}', '--snapshot-id=test'],
+            [
+                "node",
+                str(SCREENSHOT_HOOK),
+                f"--url={chrome_test_url}",
+                "--snapshot-id=test",
+            ],
             cwd=str(screenshot_dir),
             capture_output=True,
             text=True,
             timeout=7,
-            env=get_test_env() | {'SNAP_DIR': str(snap_dir)}
+            env=get_test_env() | {"SNAP_DIR": str(snap_dir)},
         )
 
         assert result.returncode != 0
@@ -452,29 +540,37 @@ def test_invalid_timeout_uses_default(chrome_test_url):
     """Test that invalid SCREENSHOT_TIMEOUT falls back to default."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        snap_dir = tmpdir / 'snap'
+        snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
-        chrome_dir = snap_dir / 'chrome'
+        chrome_dir = snap_dir / "chrome"
         chrome_dir.mkdir()
         # No navigation.json to trigger timeout
-        (chrome_dir / 'cdp_url.txt').write_text('ws://chrome-cdp.localhost:9222/test')
-        (chrome_dir / 'target_id.txt').write_text('test')
+        (chrome_dir / "cdp_url.txt").write_text("ws://chrome-cdp.localhost:9222/test")
+        (chrome_dir / "target_id.txt").write_text("test")
 
-        screenshot_dir = snap_dir / 'screenshot'
+        screenshot_dir = snap_dir / "screenshot"
         screenshot_dir.mkdir()
 
-        env = get_test_env() | {'SNAP_DIR': str(snap_dir)}
-        env['SCREENSHOT_TIMEOUT'] = 'invalid'  # Should fallback to default (10s becomes NaN, treated as 0)
+        env = get_test_env() | {"SNAP_DIR": str(snap_dir)}
+        env["SCREENSHOT_TIMEOUT"] = (
+            "invalid"  # Should fallback to default (10s becomes NaN, treated as 0)
+        )
 
         import time
+
         start = time.time()
         result = subprocess.run(
-            ['node', str(SCREENSHOT_HOOK), f'--url={chrome_test_url}', '--snapshot-id=test'],
+            [
+                "node",
+                str(SCREENSHOT_HOOK),
+                f"--url={chrome_test_url}",
+                "--snapshot-id=test",
+            ],
             cwd=str(screenshot_dir),
             capture_output=True,
             text=True,
             timeout=5,
-            env=env
+            env=env,
         )
         elapsed = time.time() - start
 
@@ -483,5 +579,5 @@ def test_invalid_timeout_uses_default(chrome_test_url):
         assert elapsed < 2  # Should fail quickly, not wait 10s
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

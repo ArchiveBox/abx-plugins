@@ -23,13 +23,13 @@ import rich_click as click
 
 
 # Extractor metadata
-PLUGIN_NAME = 'htmltotext'
+PLUGIN_NAME = "htmltotext"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
-OUTPUT_FILE = 'htmltotext.txt'
+OUTPUT_FILE = "htmltotext.txt"
 
 
 class HTMLTextExtractor(HTMLParser):
@@ -38,7 +38,7 @@ class HTMLTextExtractor(HTMLParser):
     def __init__(self):
         super().__init__()
         self.result = []
-        self.skip_tags = {'script', 'style', 'head', 'meta', 'link', 'noscript'}
+        self.skip_tags = {"script", "style", "head", "meta", "link", "noscript"}
         self.current_tag = None
 
     def handle_starttag(self, tag, attrs):
@@ -54,7 +54,7 @@ class HTMLTextExtractor(HTMLParser):
                 self.result.append(text)
 
     def get_text(self) -> str:
-        return ' '.join(self.result)
+        return " ".join(self.result)
 
 
 def html_to_text(html: str) -> str:
@@ -65,10 +65,14 @@ def html_to_text(html: str) -> str:
         return parser.get_text()
     except Exception:
         # Fallback: strip HTML tags with regex
-        text = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
-        text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
-        text = re.sub(r'<[^>]+>', ' ', text)
-        text = re.sub(r'\s+', ' ', text)
+        text = re.sub(
+            r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE
+        )
+        text = re.sub(
+            r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL | re.IGNORECASE
+        )
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"\s+", " ", text)
         return text.strip()
 
 
@@ -76,18 +80,18 @@ def find_html_source() -> str | None:
     """Find HTML content from other extractors in the snapshot directory."""
     # Hooks run in snapshot_dir, sibling extractor outputs are in subdirectories
     search_patterns = [
-        'singlefile/singlefile.html',
-        '*_singlefile/singlefile.html',
-        'singlefile/*.html',
-        '*_singlefile/*.html',
-        'dom/output.html',
-        '*_dom/output.html',
-        'dom/*.html',
-        '*_dom/*.html',
-        'wget/**/*.html',
-        '*_wget/**/*.html',
-        'wget/**/*.htm',
-        '*_wget/**/*.htm',
+        "singlefile/singlefile.html",
+        "*_singlefile/singlefile.html",
+        "singlefile/*.html",
+        "*_singlefile/*.html",
+        "dom/output.html",
+        "*_dom/output.html",
+        "dom/*.html",
+        "*_dom/*.html",
+        "wget/**/*.html",
+        "*_wget/**/*.html",
+        "wget/**/*.htm",
+        "*_wget/**/*.htm",
     ]
 
     for base in (Path.cwd(), Path.cwd().parent):
@@ -96,7 +100,7 @@ def find_html_source() -> str | None:
             for match in matches:
                 if match.is_file() and match.stat().st_size > 0:
                     try:
-                        return match.read_text(errors='ignore')
+                        return match.read_text(errors="ignore")
                     except Exception:
                         continue
 
@@ -112,25 +116,25 @@ def extract_htmltotext(url: str) -> tuple[bool, str | None, str]:
     # Find HTML source from other extractors
     html_content = find_html_source()
     if not html_content:
-        return False, None, 'No HTML source found (run singlefile, dom, or wget first)'
+        return False, None, "No HTML source found (run singlefile, dom, or wget first)"
 
     # Convert HTML to text
     text = html_to_text(html_content)
 
     if not text or len(text) < 10:
-        return False, None, 'No meaningful text extracted from HTML'
+        return False, None, "No meaningful text extracted from HTML"
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
     output_path = output_dir / OUTPUT_FILE
-    output_path.write_text(text, encoding='utf-8')
+    output_path.write_text(text, encoding="utf-8")
 
-    return True, str(output_path), ''
+    return True, str(output_path), ""
 
 
 @click.command()
-@click.option('--url', required=True, help='URL that was archived')
-@click.option('--snapshot-id', required=True, help='Snapshot UUID')
+@click.option("--url", required=True, help="URL that was archived")
+@click.option("--snapshot-id", required=True, help="Snapshot UUID")
 def main(url: str, snapshot_id: str):
     """Convert HTML to plain text for search indexing."""
 
@@ -141,22 +145,22 @@ def main(url: str, snapshot_id: str):
         if success:
             # Success - emit ArchiveResult
             result = {
-                'type': 'ArchiveResult',
-                'status': 'succeeded',
-                'output_str': output or ''
+                "type": "ArchiveResult",
+                "status": "succeeded",
+                "output_str": output or "",
             }
             print(json.dumps(result))
             sys.exit(0)
         else:
             # Transient error - emit NO JSONL
-            print(f'ERROR: {error}', file=sys.stderr)
+            print(f"ERROR: {error}", file=sys.stderr)
             sys.exit(1)
 
     except Exception as e:
         # Transient error - emit NO JSONL
-        print(f'ERROR: {type(e).__name__}: {e}', file=sys.stderr)
+        print(f"ERROR: {type(e).__name__}: {e}", file=sys.stderr)
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

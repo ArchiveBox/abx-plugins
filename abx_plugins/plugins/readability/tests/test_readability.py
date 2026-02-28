@@ -24,20 +24,20 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
-_READABILITY_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_readability.*')
+_READABILITY_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_readability.*")
 if _READABILITY_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 READABILITY_HOOK = _READABILITY_HOOK
-TEST_URL = 'https://example.com'
+TEST_URL = "https://example.com"
 
 
 def create_example_html(tmpdir: Path) -> Path:
     """Create sample HTML that looks like example.com with enough content for Readability."""
-    singlefile_dir = tmpdir / 'singlefile'
+    singlefile_dir = tmpdir / "singlefile"
     singlefile_dir.mkdir()
 
-    html_file = singlefile_dir / 'singlefile.html'
-    html_file.write_text('''
+    html_file = singlefile_dir / "singlefile.html"
+    html_file.write_text("""
 <!DOCTYPE html>
 <html>
 <head>
@@ -71,7 +71,7 @@ def create_example_html(tmpdir: Path) -> Path:
     </article>
 </body>
 </html>
-    ''')
+    """)
 
     return html_file
 
@@ -85,34 +85,48 @@ def test_reports_missing_dependency_when_not_installed():
     """Test that script reports DEPENDENCY_NEEDED when readability-extractor is not found."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        snap_dir = tmpdir / 'snap'
+        snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
 
         # Create HTML source so it doesn't fail on missing HTML
         create_example_html(snap_dir)
 
         # Run with empty PATH so binary won't be found
-        env = {'PATH': '/nonexistent', 'HOME': str(tmpdir), 'SNAP_DIR': str(snap_dir)}
+        env = {"PATH": "/nonexistent", "HOME": str(tmpdir), "SNAP_DIR": str(snap_dir)}
 
         result = subprocess.run(
-            [sys.executable, str(READABILITY_HOOK), '--url', TEST_URL, '--snapshot-id', 'test123'],
+            [
+                sys.executable,
+                str(READABILITY_HOOK),
+                "--url",
+                TEST_URL,
+                "--snapshot-id",
+                "test123",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
-            env=env
+            env=env,
         )
 
         # Missing binary is a transient error - should exit 1 with no JSONL
         assert result.returncode == 1, "Should exit 1 when dependency missing"
 
         # Should NOT emit JSONL (transient error - will be retried)
-        jsonl_lines = [line for line in result.stdout.strip().split('\n')
-                      if line.strip().startswith('{')]
-        assert len(jsonl_lines) == 0, "Should not emit JSONL for transient error (missing binary)"
+        jsonl_lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if line.strip().startswith("{")
+        ]
+        assert len(jsonl_lines) == 0, (
+            "Should not emit JSONL for transient error (missing binary)"
+        )
 
         # Should log error to stderr
-        assert 'readability-extractor' in result.stderr.lower() or 'error' in result.stderr.lower(), \
-            "Should report error in stderr"
+        assert (
+            "readability-extractor" in result.stderr.lower()
+            or "error" in result.stderr.lower()
+        ), "Should report error in stderr"
 
 
 def test_verify_deps_with_abx_pkg():
@@ -126,9 +140,9 @@ def test_verify_deps_with_abx_pkg():
         pytest.fail(f"NpmProvider unavailable in this runtime: {exc}")
 
     readability_binary = Binary(
-        name='readability-extractor',
+        name="readability-extractor",
         binproviders=[npm_provider, EnvProvider()],
-        overrides={'npm': {'packages': ['github:ArchiveBox/readability-extractor']}}
+        overrides={"npm": {"packages": ["github:ArchiveBox/readability-extractor"]}},
     )
     readability_loaded = readability_binary.load()
 
@@ -144,7 +158,7 @@ def test_extracts_article_after_installation():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        snap_dir = tmpdir / 'snap'
+        snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
 
         # Create example.com HTML for readability to process
@@ -152,39 +166,46 @@ def test_extracts_article_after_installation():
 
         # Run readability extraction (should find the binary)
         env = os.environ.copy()
-        env['SNAP_DIR'] = str(snap_dir)
+        env["SNAP_DIR"] = str(snap_dir)
         result = subprocess.run(
-            [sys.executable, str(READABILITY_HOOK), '--url', TEST_URL, '--snapshot-id', 'test789'],
+            [
+                sys.executable,
+                str(READABILITY_HOOK),
+                "--url",
+                TEST_URL,
+                "--snapshot-id",
+                "test789",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             timeout=30,
-            env=env
+            env=env,
         )
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
         # Parse clean JSONL output
         result_json = None
-        for line in result.stdout.strip().split('\n'):
+        for line in result.stdout.strip().split("\n"):
             line = line.strip()
-            if line.startswith('{'):
+            if line.startswith("{"):
                 pass
                 try:
                     record = json.loads(line)
-                    if record.get('type') == 'ArchiveResult':
+                    if record.get("type") == "ArchiveResult":
                         result_json = record
                         break
                 except json.JSONDecodeError:
                     pass
 
         assert result_json, "Should have ArchiveResult JSONL output"
-        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
+        assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
 
         # Verify output files exist (hook writes to current directory)
-        html_file = snap_dir / 'readability' / 'content.html'
-        txt_file = snap_dir / 'readability' / 'content.txt'
-        json_file = snap_dir / 'readability' / 'article.json'
+        html_file = snap_dir / "readability" / "content.html"
+        txt_file = snap_dir / "readability" / "content.txt"
+        json_file = snap_dir / "readability" / "article.json"
 
         assert html_file.exists(), "content.html not created"
         assert txt_file.exists(), "content.txt not created"
@@ -192,17 +213,24 @@ def test_extracts_article_after_installation():
 
         # Verify HTML content contains REAL example.com text
         html_content = html_file.read_text()
-        assert len(html_content) > 100, f"HTML content too short: {len(html_content)} bytes"
-        assert 'example domain' in html_content.lower(), "Missing 'Example Domain' in HTML"
-        assert ('illustrative examples' in html_content.lower() or
-                'use in' in html_content.lower() or
-                'literature' in html_content.lower()), \
-            "Missing example.com description in HTML"
+        assert len(html_content) > 100, (
+            f"HTML content too short: {len(html_content)} bytes"
+        )
+        assert "example domain" in html_content.lower(), (
+            "Missing 'Example Domain' in HTML"
+        )
+        assert (
+            "illustrative examples" in html_content.lower()
+            or "use in" in html_content.lower()
+            or "literature" in html_content.lower()
+        ), "Missing example.com description in HTML"
 
         # Verify text content contains REAL example.com text
         txt_content = txt_file.read_text()
-        assert len(txt_content) > 50, f"Text content too short: {len(txt_content)} bytes"
-        assert 'example' in txt_content.lower(), "Missing 'example' in text"
+        assert len(txt_content) > 50, (
+            f"Text content too short: {len(txt_content)} bytes"
+        )
+        assert "example" in txt_content.lower(), "Missing 'example' in text"
 
         # Verify JSON metadata
         json_data = json.loads(json_file.read_text())
@@ -215,29 +243,37 @@ def test_fails_gracefully_without_html_source():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        snap_dir = tmpdir / 'snap'
+        snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
 
         # Don't create any HTML source files
 
         env = os.environ.copy()
-        env['SNAP_DIR'] = str(snap_dir)
+        env["SNAP_DIR"] = str(snap_dir)
         result = subprocess.run(
-            [sys.executable, str(READABILITY_HOOK), '--url', TEST_URL, '--snapshot-id', 'test999'],
+            [
+                sys.executable,
+                str(READABILITY_HOOK),
+                "--url",
+                TEST_URL,
+                "--snapshot-id",
+                "test999",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             timeout=30,
-            env=env
+            env=env,
         )
 
         assert result.returncode != 0, "Should fail without HTML source"
         combined_output = result.stdout + result.stderr
-        assert ('no html source' in combined_output.lower() or
-                'not found' in combined_output.lower() or
-                'ERROR=' in combined_output), \
-            "Should report missing HTML source"
+        assert (
+            "no html source" in combined_output.lower()
+            or "not found" in combined_output.lower()
+            or "ERROR=" in combined_output
+        ), "Should report missing HTML source"
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

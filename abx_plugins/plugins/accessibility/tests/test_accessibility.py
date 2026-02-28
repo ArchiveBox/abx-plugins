@@ -25,7 +25,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 
 def chrome_available() -> bool:
     """Check if Chrome/Chromium is available."""
-    for name in ['chromium', 'chromium-browser', 'google-chrome', 'chrome']:
+    for name in ["chromium", "chromium-browser", "google-chrome", "chrome"]:
         if shutil.which(name):
             return True
     return False
@@ -33,7 +33,7 @@ def chrome_available() -> bool:
 
 # Get the path to the accessibility hook
 PLUGIN_DIR = get_plugin_dir(__file__)
-ACCESSIBILITY_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_accessibility.*')
+ACCESSIBILITY_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_accessibility.*")
 
 
 class TestAccessibilityPlugin:
@@ -41,7 +41,9 @@ class TestAccessibilityPlugin:
 
     def test_accessibility_hook_exists(self):
         """Accessibility hook script should exist."""
-        assert ACCESSIBILITY_HOOK is not None, "Accessibility hook not found in plugin directory"
+        assert ACCESSIBILITY_HOOK is not None, (
+            "Accessibility hook not found in plugin directory"
+        )
         assert ACCESSIBILITY_HOOK.exists(), f"Hook not found: {ACCESSIBILITY_HOOK}"
 
 
@@ -51,7 +53,7 @@ class TestAccessibilityWithChrome:
     def setup_method(self, _method=None):
         """Set up test environment."""
         self.temp_dir = Path(tempfile.mkdtemp())
-        self.snap_dir = self.temp_dir / 'snap'
+        self.snap_dir = self.temp_dir / "snap"
         self.snap_dir.mkdir(parents=True, exist_ok=True)
 
     def teardown_method(self, _method=None):
@@ -61,12 +63,12 @@ class TestAccessibilityWithChrome:
     def test_accessibility_extracts_page_outline(self, chrome_test_url):
         """Accessibility hook should extract headings and accessibility tree."""
         test_url = chrome_test_url
-        snapshot_id = 'test-accessibility-snapshot'
+        snapshot_id = "test-accessibility-snapshot"
 
         try:
             with chrome_session(
                 self.temp_dir,
-                crawl_id='test-accessibility-crawl',
+                crawl_id="test-accessibility-crawl",
                 snapshot_id=snapshot_id,
                 test_url=test_url,
                 navigate=True,
@@ -76,16 +78,23 @@ class TestAccessibilityWithChrome:
 
                 # Run accessibility hook with the active Chrome session
                 result = subprocess.run(
-                    ['node', str(ACCESSIBILITY_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
+                    [
+                        "node",
+                        str(ACCESSIBILITY_HOOK),
+                        f"--url={test_url}",
+                        f"--snapshot-id={snapshot_id}",
+                    ],
                     cwd=str(snapshot_chrome_dir),
                     capture_output=True,
                     text=True,
                     timeout=60,
-                    env=env
+                    env=env,
                 )
 
                 # Check for output file
-                accessibility_output = Path(env['SNAP_DIR']) / 'accessibility' / 'accessibility.json'
+                accessibility_output = (
+                    Path(env["SNAP_DIR"]) / "accessibility" / "accessibility.json"
+                )
 
                 accessibility_data = None
 
@@ -99,14 +108,18 @@ class TestAccessibilityWithChrome:
 
                 # Verify hook ran successfully
                 assert result.returncode == 0, f"Hook failed: {result.stderr}"
-                assert 'Traceback' not in result.stderr
+                assert "Traceback" not in result.stderr
 
                 # example.com has headings, so we should get accessibility data
-                assert accessibility_data is not None, "No accessibility data was generated"
+                assert accessibility_data is not None, (
+                    "No accessibility data was generated"
+                )
 
                 # Verify we got page outline data
-                assert 'headings' in accessibility_data, f"Missing headings: {accessibility_data}"
-                assert 'url' in accessibility_data, f"Missing url: {accessibility_data}"
+                assert "headings" in accessibility_data, (
+                    f"Missing headings: {accessibility_data}"
+                )
+                assert "url" in accessibility_data, f"Missing url: {accessibility_data}"
 
         except RuntimeError:
             raise
@@ -114,38 +127,43 @@ class TestAccessibilityWithChrome:
     def test_accessibility_disabled_skips(self, chrome_test_url):
         """Test that ACCESSIBILITY_ENABLED=False skips without error."""
         test_url = chrome_test_url
-        snapshot_id = 'test-disabled'
+        snapshot_id = "test-disabled"
 
-        env = get_test_env() | {'SNAP_DIR': str(self.snap_dir)}
-        env['ACCESSIBILITY_ENABLED'] = 'False'
+        env = get_test_env() | {"SNAP_DIR": str(self.snap_dir)}
+        env["ACCESSIBILITY_ENABLED"] = "False"
 
         result = subprocess.run(
-            ['node', str(ACCESSIBILITY_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
+            [
+                "node",
+                str(ACCESSIBILITY_HOOK),
+                f"--url={test_url}",
+                f"--snapshot-id={snapshot_id}",
+            ],
             cwd=str(self.temp_dir),
             capture_output=True,
             text=True,
             timeout=30,
-            env=env
+            env=env,
         )
 
         # Should exit 0 even when disabled
         assert result.returncode == 0, f"Should succeed when disabled: {result.stderr}"
 
         # Should NOT create output file when disabled
-        accessibility_output = self.snap_dir / 'accessibility' / 'accessibility.json'
+        accessibility_output = self.snap_dir / "accessibility" / "accessibility.json"
         assert not accessibility_output.exists(), "Should not create file when disabled"
 
     def test_accessibility_missing_url_argument(self):
         """Test that missing --url argument causes error."""
-        snapshot_id = 'test-missing-url'
+        snapshot_id = "test-missing-url"
 
         result = subprocess.run(
-            ['node', str(ACCESSIBILITY_HOOK), f'--snapshot-id={snapshot_id}'],
+            ["node", str(ACCESSIBILITY_HOOK), f"--snapshot-id={snapshot_id}"],
             cwd=str(self.temp_dir),
             capture_output=True,
             text=True,
             timeout=30,
-            env=get_test_env() | {'SNAP_DIR': str(self.snap_dir)}
+            env=get_test_env() | {"SNAP_DIR": str(self.snap_dir)},
         )
 
         # Should fail with non-zero exit code
@@ -156,12 +174,12 @@ class TestAccessibilityWithChrome:
         test_url = chrome_test_url
 
         result = subprocess.run(
-            ['node', str(ACCESSIBILITY_HOOK), f'--url={test_url}'],
+            ["node", str(ACCESSIBILITY_HOOK), f"--url={test_url}"],
             cwd=str(self.temp_dir),
             capture_output=True,
             text=True,
             timeout=30,
-            env=get_test_env() | {'SNAP_DIR': str(self.snap_dir)}
+            env=get_test_env() | {"SNAP_DIR": str(self.snap_dir)},
         )
 
         # Should fail with non-zero exit code
@@ -170,15 +188,20 @@ class TestAccessibilityWithChrome:
     def test_accessibility_with_no_chrome_session(self, chrome_test_url):
         """Test that hook fails gracefully when no Chrome session exists."""
         test_url = chrome_test_url
-        snapshot_id = 'test-no-chrome'
+        snapshot_id = "test-no-chrome"
 
         result = subprocess.run(
-            ['node', str(ACCESSIBILITY_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
+            [
+                "node",
+                str(ACCESSIBILITY_HOOK),
+                f"--url={test_url}",
+                f"--snapshot-id={snapshot_id}",
+            ],
             cwd=str(self.temp_dir),
             capture_output=True,
             text=True,
             timeout=30,
-            env=get_test_env()
+            env=get_test_env(),
         )
 
         # Should fail when no Chrome session
@@ -186,9 +209,9 @@ class TestAccessibilityWithChrome:
         # Error should mention CDP or Chrome
         err_lower = result.stderr.lower()
         assert any(
-            x in err_lower for x in ['chrome', 'cdp', 'cannot find', 'puppeteer']
+            x in err_lower for x in ["chrome", "cdp", "cannot find", "puppeteer"]
         ), f"Should mention Chrome/CDP in error: {result.stderr}"
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

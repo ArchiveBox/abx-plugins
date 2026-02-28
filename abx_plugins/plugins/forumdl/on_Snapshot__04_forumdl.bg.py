@@ -27,23 +27,25 @@ import rich_click as click
 
 
 # Extractor metadata
-PLUGIN_NAME = 'forumdl'
-BIN_NAME = 'forum-dl'
-BIN_PROVIDERS = 'pip,env'
+PLUGIN_NAME = "forumdl"
+BIN_NAME = "forum-dl"
+BIN_PROVIDERS = "pip,env"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
-def get_env(name: str, default: str = '') -> str:
+
+
+def get_env(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
 
 
 def get_env_bool(name: str, default: bool = False) -> bool:
-    val = get_env(name, '').lower()
-    if val in ('true', '1', 'yes', 'on'):
+    val = get_env(name, "").lower()
+    if val in ("true", "1", "yes", "on"):
         return True
-    if val in ('false', '0', 'no', 'off'):
+    if val in ("false", "0", "no", "off"):
         return False
     return default
 
@@ -57,7 +59,7 @@ def get_env_int(name: str, default: int = 0) -> int:
 
 def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
     """Parse a JSON array from environment variable."""
-    val = get_env(name, '')
+    val = get_env(name, "")
     if not val:
         return default if default is not None else []
     try:
@@ -72,10 +74,10 @@ def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
 def get_binary_shebang(binary_path: str) -> str | None:
     """Return interpreter from shebang line if present (e.g., /path/to/python)."""
     try:
-        with open(binary_path, 'r', encoding='utf-8') as f:
+        with open(binary_path, "r", encoding="utf-8") as f:
             first_line = f.readline().strip()
-            if first_line.startswith('#!'):
-                return first_line[2:].strip().split(' ')[0]
+            if first_line.startswith("#!"):
+                return first_line[2:].strip().split(" ")[0]
     except Exception:
         pass
     return None
@@ -90,7 +92,6 @@ def resolve_binary_path(binary: str) -> str | None:
     return shutil.which(binary)
 
 
-
 def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
     """
     Download forum using forum-dl.
@@ -98,25 +99,25 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
     Returns: (success, output_path, error_message)
     """
     # Get config from env (with FORUMDL_ prefix, x-fallback handled by config loader)
-    timeout = get_env_int('FORUMDL_TIMEOUT') or get_env_int('TIMEOUT', 3600)
-    forumdl_args = get_env_array('FORUMDL_ARGS', [])
-    forumdl_args_extra = get_env_array('FORUMDL_ARGS_EXTRA', [])
-    output_format = get_env('FORUMDL_OUTPUT_FORMAT', 'jsonl')
+    timeout = get_env_int("FORUMDL_TIMEOUT") or get_env_int("TIMEOUT", 3600)
+    forumdl_args = get_env_array("FORUMDL_ARGS", [])
+    forumdl_args_extra = get_env_array("FORUMDL_ARGS_EXTRA", [])
+    output_format = get_env("FORUMDL_OUTPUT_FORMAT", "jsonl")
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
 
     # Build output filename based on format
-    if output_format == 'warc':
-        output_file = output_dir / 'forum.warc.gz'
-    elif output_format == 'jsonl':
-        output_file = output_dir / 'forum.jsonl'
-    elif output_format == 'maildir':
-        output_file = output_dir / 'forum'  # maildir is a directory
-    elif output_format in ('mbox', 'mh', 'mmdf', 'babyl'):
-        output_file = output_dir / f'forum.{output_format}'
+    if output_format == "warc":
+        output_file = output_dir / "forum.warc.gz"
+    elif output_format == "jsonl":
+        output_file = output_dir / "forum.jsonl"
+    elif output_format == "maildir":
+        output_file = output_dir / "forum"  # maildir is a directory
+    elif output_format in ("mbox", "mh", "mmdf", "babyl"):
+        output_file = output_dir / f"forum.{output_format}"
     else:
-        output_file = output_dir / f'forum.{output_format}'
+        output_file = output_dir / f"forum.{output_format}"
 
     resolved_binary = resolve_binary_path(binary) or binary
     forumdl_python = get_binary_shebang(resolved_binary)
@@ -138,9 +139,25 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
             raise SystemExit(main())
             """
         ).strip()
-        cmd = [forumdl_python, '-c', inline_entrypoint, *forumdl_args, '-f', output_format, '-o', str(output_file)]
+        cmd = [
+            forumdl_python,
+            "-c",
+            inline_entrypoint,
+            *forumdl_args,
+            "-f",
+            output_format,
+            "-o",
+            str(output_file),
+        ]
     else:
-        cmd = [resolved_binary, *forumdl_args, '-f', output_format, '-o', str(output_file)]
+        cmd = [
+            resolved_binary,
+            *forumdl_args,
+            "-f",
+            output_format,
+            "-o",
+            str(output_file),
+        ]
 
     if forumdl_args_extra:
         cmd.extend(forumdl_args_extra)
@@ -148,7 +165,7 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
     cmd.append(url)
 
     try:
-        print(f'[forumdl] Starting download (timeout={timeout}s)', file=sys.stderr)
+        print(f"[forumdl] Starting download (timeout={timeout}s)", file=sys.stderr)
         output_lines: list[str] = []
         process = subprocess.Popen(
             cmd,
@@ -173,62 +190,70 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
         except subprocess.TimeoutExpired:
             process.kill()
             reader.join(timeout=1)
-            return False, None, f'Timed out after {timeout} seconds'
+            return False, None, f"Timed out after {timeout} seconds"
 
         reader.join(timeout=1)
-        combined_output = ''.join(output_lines)
+        combined_output = "".join(output_lines)
 
         # Check if output file was created
         if output_file.exists() and output_file.stat().st_size > 0:
-            return True, str(output_file), ''
+            return True, str(output_file), ""
         else:
             stderr = combined_output
 
             # These are NOT errors - page simply has no downloadable forum content
             stderr_lower = stderr.lower()
-            if 'unsupported url' in stderr_lower:
-                return True, None, ''  # Not a forum site - success, no output
-            if 'no content' in stderr_lower:
-                return True, None, ''  # No forum found - success, no output
-            if 'extractornotfounderror' in stderr_lower:
-                return True, None, ''  # No forum extractor for this URL - success, no output
+            if "unsupported url" in stderr_lower:
+                return True, None, ""  # Not a forum site - success, no output
+            if "no content" in stderr_lower:
+                return True, None, ""  # No forum found - success, no output
+            if "extractornotfounderror" in stderr_lower:
+                return (
+                    True,
+                    None,
+                    "",
+                )  # No forum extractor for this URL - success, no output
             if process.returncode == 0:
-                return True, None, ''  # forum-dl exited cleanly, just no forum - success
+                return (
+                    True,
+                    None,
+                    "",
+                )  # forum-dl exited cleanly, just no forum - success
 
             # These ARE errors - something went wrong
-            if '404' in stderr:
-                return False, None, '404 Not Found'
-            if '403' in stderr:
-                return False, None, '403 Forbidden'
-            if 'unable to extract' in stderr_lower:
-                return False, None, 'Unable to extract forum info'
+            if "404" in stderr:
+                return False, None, "404 Not Found"
+            if "403" in stderr:
+                return False, None, "403 Forbidden"
+            if "unable to extract" in stderr_lower:
+                return False, None, "Unable to extract forum info"
 
-            return False, None, f'forum-dl error: {stderr}'
+            return False, None, f"forum-dl error: {stderr}"
 
     except subprocess.TimeoutExpired:
-        return False, None, f'Timed out after {timeout} seconds'
+        return False, None, f"Timed out after {timeout} seconds"
     except Exception as e:
-        return False, None, f'{type(e).__name__}: {e}'
+        return False, None, f"{type(e).__name__}: {e}"
 
 
 @click.command()
-@click.option('--url', required=True, help='URL to download forum from')
-@click.option('--snapshot-id', required=True, help='Snapshot UUID')
+@click.option("--url", required=True, help="URL to download forum from")
+@click.option("--snapshot-id", required=True, help="Snapshot UUID")
 def main(url: str, snapshot_id: str):
     """Download forum content from a URL using forum-dl."""
 
     output = None
-    error = ''
+    error = ""
 
     try:
         # Check if forum-dl is enabled
-        if not get_env_bool('FORUMDL_ENABLED', True):
-            print('Skipping forum-dl (FORUMDL_ENABLED=False)', file=sys.stderr)
+        if not get_env_bool("FORUMDL_ENABLED", True):
+            print("Skipping forum-dl (FORUMDL_ENABLED=False)", file=sys.stderr)
             # Temporary failure (config disabled) - NO JSONL emission
             sys.exit(0)
 
         # Get binary from environment
-        binary = get_env('FORUMDL_BINARY', 'forum-dl')
+        binary = get_env("FORUMDL_BINARY", "forum-dl")
 
         # Run extraction
         success, output, error = save_forum(url, binary)
@@ -236,22 +261,22 @@ def main(url: str, snapshot_id: str):
         if success:
             # Success - emit ArchiveResult
             result = {
-                'type': 'ArchiveResult',
-                'status': 'succeeded',
-                'output_str': output or ''
+                "type": "ArchiveResult",
+                "status": "succeeded",
+                "output_str": output or "",
             }
             print(json.dumps(result))
             sys.exit(0)
         else:
             # Transient error - emit NO JSONL
-            print(f'ERROR: {error}', file=sys.stderr)
+            print(f"ERROR: {error}", file=sys.stderr)
             sys.exit(1)
 
     except Exception as e:
         # Transient error - emit NO JSONL
-        print(f'ERROR: {type(e).__name__}: {e}', file=sys.stderr)
+        print(f"ERROR: {type(e).__name__}: {e}", file=sys.stderr)
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

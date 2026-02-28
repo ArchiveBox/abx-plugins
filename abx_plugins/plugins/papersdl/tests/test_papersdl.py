@@ -22,11 +22,11 @@ import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
-_PAPERSDL_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_papersdl.*'), None)
+_PAPERSDL_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_papersdl.*"), None)
 if _PAPERSDL_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 PAPERSDL_HOOK = _PAPERSDL_HOOK
-TEST_URL = 'https://example.com'
+TEST_URL = "https://example.com"
 
 # Module-level cache for binary path
 _papersdl_binary_path = None
@@ -44,6 +44,7 @@ def require_papersdl_binary() -> str:
     assert Path(binary_path).is_file(), f"papers-dl binary path invalid: {binary_path}"
     return binary_path
 
+
 def get_papersdl_binary_path():
     """Get the installed papers-dl binary path from cache or by running installation."""
     global _papersdl_binary_path, _papersdl_install_error, _papersdl_home_root
@@ -51,23 +52,27 @@ def get_papersdl_binary_path():
         return _papersdl_binary_path
 
     # Always validate installation path by running the real pip hook.
-    pip_hook = PLUGINS_ROOT / 'pip' / 'on_Binary__11_pip_install.py'
+    pip_hook = PLUGINS_ROOT / "pip" / "on_Binary__11_pip_install.py"
     if pip_hook and pip_hook.exists():
         binary_id = str(uuid.uuid4())
         machine_id = str(uuid.uuid4())
         if not _papersdl_home_root:
-            _papersdl_home_root = tempfile.mkdtemp(prefix='papersdl-lib-')
+            _papersdl_home_root = tempfile.mkdtemp(prefix="papersdl-lib-")
 
         env = os.environ.copy()
-        env['HOME'] = str(_papersdl_home_root)
-        env['SNAP_DIR'] = str(Path(_papersdl_home_root) / 'data')
-        env.pop('LIB_DIR', None)
+        env["HOME"] = str(_papersdl_home_root)
+        env["SNAP_DIR"] = str(Path(_papersdl_home_root) / "data")
+        env.pop("LIB_DIR", None)
 
         cmd = [
-            sys.executable, str(pip_hook),
-            '--binary-id', binary_id,
-            '--machine-id', machine_id,
-            '--name', 'papers-dl'
+            sys.executable,
+            str(pip_hook),
+            "--binary-id",
+            binary_id,
+            "--machine-id",
+            machine_id,
+            "--name",
+            "papers-dl",
         ]
 
         install_result = subprocess.run(
@@ -79,12 +84,15 @@ def get_papersdl_binary_path():
         )
 
         # Parse Binary from pip installation
-        for install_line in install_result.stdout.strip().split('\n'):
+        for install_line in install_result.stdout.strip().split("\n"):
             if install_line.strip():
                 try:
                     install_record = json.loads(install_line)
-                    if install_record.get('type') == 'Binary' and install_record.get('name') == 'papers-dl':
-                        _papersdl_binary_path = install_record.get('abspath')
+                    if (
+                        install_record.get("type") == "Binary"
+                        and install_record.get("name") == "papers-dl"
+                    ):
+                        _papersdl_binary_path = install_record.get("abspath")
                         return _papersdl_binary_path
                 except json.JSONDecodeError:
                     pass
@@ -98,6 +106,7 @@ def get_papersdl_binary_path():
     _papersdl_install_error = f"pip hook not found: {pip_hook}"
     return None
 
+
 def test_hook_script_exists():
     """Verify on_Snapshot hook exists."""
     assert PAPERSDL_HOOK.exists(), f"Hook not found: {PAPERSDL_HOOK}"
@@ -106,7 +115,9 @@ def test_hook_script_exists():
 def test_verify_deps_with_abx_pkg():
     """Verify papers-dl is installed by calling the REAL installation hooks."""
     binary_path = require_papersdl_binary()
-    assert Path(binary_path).is_file(), f"Binary path must be a valid file: {binary_path}"
+    assert Path(binary_path).is_file(), (
+        f"Binary path must be a valid file: {binary_path}"
+    )
 
 
 def test_handles_non_paper_url():
@@ -117,61 +128,87 @@ def test_handles_non_paper_url():
         tmpdir = Path(tmpdir)
 
         env = os.environ.copy()
-        env['PAPERSDL_BINARY'] = binary_path
+        env["PAPERSDL_BINARY"] = binary_path
 
         # Run papers-dl extraction hook on non-paper URL
         result = subprocess.run(
-            [sys.executable, str(PAPERSDL_HOOK), '--url', 'https://example.com', '--snapshot-id', 'test789'],
+            [
+                sys.executable,
+                str(PAPERSDL_HOOK),
+                "--url",
+                "https://example.com",
+                "--snapshot-id",
+                "test789",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             env=env,
-            timeout=60
+            timeout=60,
         )
 
         # Should exit 0 even for non-paper URL
-        assert result.returncode == 0, f"Should handle non-paper URL gracefully: {result.stderr}"
+        assert result.returncode == 0, (
+            f"Should handle non-paper URL gracefully: {result.stderr}"
+        )
 
         # Parse clean JSONL output
         result_json = None
-        for line in result.stdout.strip().split('\n'):
+        for line in result.stdout.strip().split("\n"):
             line = line.strip()
-            if line.startswith('{'):
+            if line.startswith("{"):
                 try:
                     record = json.loads(line)
-                    if record.get('type') == 'ArchiveResult':
+                    if record.get("type") == "ArchiveResult":
                         result_json = record
                         break
                 except json.JSONDecodeError:
                     pass
 
         assert result_json, "Should have ArchiveResult JSONL output"
-        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
+        assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
 
 
 def test_config_save_papersdl_false_skips():
     """Test that PAPERSDL_ENABLED=False exits without emitting JSONL."""
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
-        env['PAPERSDL_ENABLED'] = 'False'
+        env["PAPERSDL_ENABLED"] = "False"
 
         result = subprocess.run(
-            [sys.executable, str(PAPERSDL_HOOK), '--url', TEST_URL, '--snapshot-id', 'test999'],
+            [
+                sys.executable,
+                str(PAPERSDL_HOOK),
+                "--url",
+                TEST_URL,
+                "--snapshot-id",
+                "test999",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             env=env,
-            timeout=30
+            timeout=30,
         )
 
-        assert result.returncode == 0, f"Should exit 0 when feature disabled: {result.stderr}"
+        assert result.returncode == 0, (
+            f"Should exit 0 when feature disabled: {result.stderr}"
+        )
 
         # Feature disabled - temporary failure, should NOT emit JSONL
-        assert 'Skipping' in result.stderr or 'False' in result.stderr, "Should log skip reason to stderr"
+        assert "Skipping" in result.stderr or "False" in result.stderr, (
+            "Should log skip reason to stderr"
+        )
 
         # Should NOT emit any JSONL
-        jsonl_lines = [line for line in result.stdout.strip().split('\n') if line.strip().startswith('{')]
-        assert len(jsonl_lines) == 0, f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
+        jsonl_lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if line.strip().startswith("{")
+        ]
+        assert len(jsonl_lines) == 0, (
+            f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
+        )
 
 
 def test_config_timeout():
@@ -180,16 +217,23 @@ def test_config_timeout():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
-        env['PAPERSDL_BINARY'] = binary_path
-        env['PAPERSDL_TIMEOUT'] = '5'
+        env["PAPERSDL_BINARY"] = binary_path
+        env["PAPERSDL_TIMEOUT"] = "5"
 
         result = subprocess.run(
-            [sys.executable, str(PAPERSDL_HOOK), '--url', 'https://example.com', '--snapshot-id', 'testtimeout'],
+            [
+                sys.executable,
+                str(PAPERSDL_HOOK),
+                "--url",
+                "https://example.com",
+                "--snapshot-id",
+                "testtimeout",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             env=env,
-            timeout=30
+            timeout=30,
         )
 
         assert result.returncode == 0, "Should complete without hanging"
@@ -203,15 +247,22 @@ def test_real_doi_download():
         tmpdir = Path(tmpdir)
 
         # Public DOI for an open-access arXiv paper.
-        doi_url = 'https://doi.org/10.48550/arXiv.1706.03762'
+        doi_url = "https://doi.org/10.48550/arXiv.1706.03762"
 
         env = os.environ.copy()
-        env['PAPERSDL_BINARY'] = binary_path
-        env['PAPERSDL_TIMEOUT'] = '120'
-        env['SNAP_DIR'] = str(tmpdir)
+        env["PAPERSDL_BINARY"] = binary_path
+        env["PAPERSDL_TIMEOUT"] = "120"
+        env["SNAP_DIR"] = str(tmpdir)
 
         result = subprocess.run(
-            [sys.executable, str(PAPERSDL_HOOK), '--url', doi_url, '--snapshot-id', 'testrealdoi'],
+            [
+                sys.executable,
+                str(PAPERSDL_HOOK),
+                "--url",
+                doi_url,
+                "--snapshot-id",
+                "testrealdoi",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -222,27 +273,34 @@ def test_real_doi_download():
         assert result.returncode == 0, f"DOI download should succeed: {result.stderr}"
 
         result_json = None
-        for line in result.stdout.strip().split('\n'):
+        for line in result.stdout.strip().split("\n"):
             line = line.strip()
-            if line.startswith('{'):
+            if line.startswith("{"):
                 try:
                     record = json.loads(line)
-                    if record.get('type') == 'ArchiveResult':
+                    if record.get("type") == "ArchiveResult":
                         result_json = record
                         break
                 except json.JSONDecodeError:
                     pass
 
         assert result_json, f"Should emit ArchiveResult JSONL. stdout: {result.stdout}"
-        assert result_json.get('status') == 'succeeded', f"DOI download should succeed: {result_json}"
+        assert result_json.get("status") == "succeeded", (
+            f"DOI download should succeed: {result_json}"
+        )
 
-        output_str = (result_json.get('output_str') or '').strip()
-        assert output_str, f"ArchiveResult must include output path for DOI download: {result_json}"
+        output_str = (result_json.get("output_str") or "").strip()
+        assert output_str, (
+            f"ArchiveResult must include output path for DOI download: {result_json}"
+        )
 
         output_path = Path(output_str)
         assert output_path.is_file(), f"Downloaded paper path missing: {output_path}"
-        assert output_path.suffix.lower() == '.pdf', f"Downloaded paper must be a PDF: {output_path}"
+        assert output_path.suffix.lower() == ".pdf", (
+            f"Downloaded paper must be a PDF: {output_path}"
+        )
         assert output_path.stat().st_size > 0, f"Downloaded PDF is empty: {output_path}"
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

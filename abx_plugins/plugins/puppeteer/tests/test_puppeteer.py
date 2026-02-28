@@ -16,9 +16,9 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
-CRAWL_HOOK = get_hook_script(PLUGIN_DIR, 'on_Crawl__*_puppeteer_install.py')
-BINARY_HOOK = get_hook_script(PLUGIN_DIR, 'on_Binary__*_puppeteer_install.py')
-NPM_BINARY_HOOK = PLUGIN_DIR.parent / 'npm' / 'on_Binary__10_npm_install.py'
+CRAWL_HOOK = get_hook_script(PLUGIN_DIR, "on_Crawl__*_puppeteer_install.py")
+BINARY_HOOK = get_hook_script(PLUGIN_DIR, "on_Binary__*_puppeteer_install.py")
+NPM_BINARY_HOOK = PLUGIN_DIR.parent / "npm" / "on_Binary__10_npm_install.py"
 
 
 def test_hook_scripts_exist():
@@ -39,20 +39,30 @@ def test_crawl_hook_emits_puppeteer_binary():
         )
 
         assert result.returncode == 0, f"crawl hook failed: {result.stderr}"
-        records = [json.loads(line) for line in result.stdout.splitlines() if line.strip().startswith('{')]
-        binaries = [r for r in records if r.get('type') == 'Binary' and r.get('name') == 'puppeteer']
+        records = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.strip().startswith("{")
+        ]
+        binaries = [
+            r
+            for r in records
+            if r.get("type") == "Binary" and r.get("name") == "puppeteer"
+        ]
         assert binaries, f"Expected Binary record for puppeteer, got: {records}"
-        assert 'npm' in binaries[0].get('binproviders', ''), "puppeteer should be installable via npm provider"
+        assert "npm" in binaries[0].get("binproviders", ""), (
+            "puppeteer should be installable via npm provider"
+        )
 
 
 def test_puppeteer_installs_chromium():
-    assert shutil.which('npm'), "npm is required for puppeteer installation"
+    assert shutil.which("npm"), "npm is required for puppeteer installation"
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
         env = os.environ.copy()
-        env['HOME'] = str(tmpdir)
-        env.pop('LIB_DIR', None)
+        env["HOME"] = str(tmpdir)
+        env.pop("LIB_DIR", None)
 
         crawl_result = subprocess.run(
             [sys.executable, str(CRAWL_HOOK)],
@@ -63,22 +73,32 @@ def test_puppeteer_installs_chromium():
             timeout=30,
         )
         assert crawl_result.returncode == 0, f"crawl hook failed: {crawl_result.stderr}"
-        crawl_records = [json.loads(line) for line in crawl_result.stdout.splitlines() if line.strip().startswith('{')]
+        crawl_records = [
+            json.loads(line)
+            for line in crawl_result.stdout.splitlines()
+            if line.strip().startswith("{")
+        ]
         puppeteer_record = next(
-            (r for r in crawl_records if r.get('type') == 'Binary' and r.get('name') == 'puppeteer'),
+            (
+                r
+                for r in crawl_records
+                if r.get("type") == "Binary" and r.get("name") == "puppeteer"
+            ),
             None,
         )
-        assert puppeteer_record, f"Expected puppeteer Binary record, got: {crawl_records}"
+        assert puppeteer_record, (
+            f"Expected puppeteer Binary record, got: {crawl_records}"
+        )
 
         npm_result = subprocess.run(
             [
                 sys.executable,
                 str(NPM_BINARY_HOOK),
-                '--machine-id=test-machine',
-                '--binary-id=test-puppeteer',
-                '--name=puppeteer',
+                "--machine-id=test-machine",
+                "--binary-id=test-puppeteer",
+                "--name=puppeteer",
                 f"--binproviders={puppeteer_record.get('binproviders', '*')}",
-                '--overrides=' + json.dumps(puppeteer_record.get('overrides') or {}),
+                "--overrides=" + json.dumps(puppeteer_record.get("overrides") or {}),
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -96,11 +116,12 @@ def test_puppeteer_installs_chromium():
             [
                 sys.executable,
                 str(BINARY_HOOK),
-                '--machine-id=test-machine',
-                '--binary-id=test-binary',
-                '--name=chromium',
-                '--binproviders=puppeteer',
-                '--overrides=' + json.dumps({'puppeteer': ['chromium@latest', '--install-deps']}),
+                "--machine-id=test-machine",
+                "--binary-id=test-binary",
+                "--name=chromium",
+                "--binproviders=puppeteer",
+                "--overrides="
+                + json.dumps({"puppeteer": ["chromium@latest", "--install-deps"]}),
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -115,8 +136,18 @@ def test_puppeteer_installs_chromium():
             f"stderr:\n{result.stderr}"
         )
 
-        records = [json.loads(line) for line in result.stdout.splitlines() if line.strip().startswith('{')]
-        binaries = [r for r in records if r.get('type') == 'Binary' and r.get('name') == 'chromium']
+        records = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.strip().startswith("{")
+        ]
+        binaries = [
+            r
+            for r in records
+            if r.get("type") == "Binary" and r.get("name") == "chromium"
+        ]
         assert binaries, f"Expected Binary record for chromium, got: {records}"
-        abspath = binaries[0].get('abspath')
-        assert abspath and Path(abspath).exists(), f"Chromium binary path invalid: {abspath}"
+        abspath = binaries[0].get("abspath")
+        assert abspath and Path(abspath).exists(), (
+            f"Chromium binary path invalid: {abspath}"
+        )

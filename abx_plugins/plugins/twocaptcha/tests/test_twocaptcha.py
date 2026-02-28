@@ -24,13 +24,12 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_SCRIPT = PLUGIN_DIR / 'on_Crawl__83_twocaptcha_install.js'
-CONFIG_SCRIPT = PLUGIN_DIR / 'on_Crawl__95_twocaptcha_config.js'
+INSTALL_SCRIPT = PLUGIN_DIR / "on_Crawl__83_twocaptcha_install.js"
+CONFIG_SCRIPT = PLUGIN_DIR / "on_Crawl__95_twocaptcha_config.js"
 
-TEST_URL = 'https://www.google.com/recaptcha/api2/demo'
-LIVE_API_KEY = (
-    os.environ.get('TWOCAPTCHA_API_KEY')
-    or os.environ.get('API_KEY_2CAPTCHA')
+TEST_URL = "https://www.google.com/recaptcha/api2/demo"
+LIVE_API_KEY = os.environ.get("TWOCAPTCHA_API_KEY") or os.environ.get(
+    "API_KEY_2CAPTCHA"
 )
 
 
@@ -45,44 +44,58 @@ class TestTwoCaptcha:
     @pytest.fixture(autouse=True)
     def setup(self):
         self.api_key = LIVE_API_KEY
-        assert self.api_key, 'TWOCAPTCHA_API_KEY or API_KEY_2CAPTCHA must be set in shell env'
+        assert self.api_key, (
+            "TWOCAPTCHA_API_KEY or API_KEY_2CAPTCHA must be set in shell env"
+        )
 
     def test_install_and_load(self):
         """Extension installs and loads in Chromium."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
             env = setup_test_env(tmpdir)
-            env['TWOCAPTCHA_API_KEY'] = self.api_key
+            env["TWOCAPTCHA_API_KEY"] = self.api_key
 
             # Install
-            result = subprocess.run(['node', str(INSTALL_SCRIPT)], env=env, timeout=120, capture_output=True, text=True)
+            result = subprocess.run(
+                ["node", str(INSTALL_SCRIPT)],
+                env=env,
+                timeout=120,
+                capture_output=True,
+                text=True,
+            )
             assert result.returncode == 0, f"Install failed: {result.stderr}"
 
-            cache = Path(env['CHROME_EXTENSIONS_DIR']) / 'twocaptcha.extension.json'
+            cache = Path(env["CHROME_EXTENSIONS_DIR"]) / "twocaptcha.extension.json"
             assert cache.exists()
             data = json.loads(cache.read_text())
-            assert data['webstore_id'] == 'ifibfemgeogfhoebkmokieepdoobkbpo'
+            assert data["webstore_id"] == "ifibfemgeogfhoebkmokieepdoobkbpo"
 
             # Launch Chromium in crawls directory
-            crawl_id = 'test'
-            crawl_dir = Path(env['CRAWL_DIR']) / crawl_id
-            chrome_dir = crawl_dir / 'chrome'
-            env['CRAWL_DIR'] = str(crawl_dir)
+            crawl_id = "test"
+            crawl_dir = Path(env["CRAWL_DIR"]) / crawl_id
+            chrome_dir = crawl_dir / "chrome"
+            env["CRAWL_DIR"] = str(crawl_dir)
             process, cdp_url = launch_chrome(env, chrome_dir, crawl_id)
 
             try:
                 # Wait for extensions.json to be written
-                extensions_file = chrome_dir / 'extensions.json'
+                extensions_file = chrome_dir / "extensions.json"
                 for i in range(20):
                     if extensions_file.exists():
                         break
                     time.sleep(0.5)
 
-                assert extensions_file.exists(), f"extensions.json not created. Chrome dir files: {list(chrome_dir.iterdir())}"
+                assert extensions_file.exists(), (
+                    f"extensions.json not created. Chrome dir files: {list(chrome_dir.iterdir())}"
+                )
 
                 exts = json.loads(extensions_file.read_text())
-                assert any(e['name'] == 'twocaptcha' for e in exts), f"twocaptcha not loaded: {exts}"
-                print(f"[+] Extension loaded: id={next(e['id'] for e in exts if e['name']=='twocaptcha')}")
+                assert any(e["name"] == "twocaptcha" for e in exts), (
+                    f"twocaptcha not loaded: {exts}"
+                )
+                print(
+                    f"[+] Extension loaded: id={next(e['id'] for e in exts if e['name'] == 'twocaptcha')}"
+                )
             finally:
                 kill_chrome(process, chrome_dir)
 
@@ -91,22 +104,24 @@ class TestTwoCaptcha:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
             env = setup_test_env(tmpdir)
-            env['TWOCAPTCHA_API_KEY'] = self.api_key
-            env['TWOCAPTCHA_RETRY_COUNT'] = '5'
-            env['TWOCAPTCHA_RETRY_DELAY'] = '10'
+            env["TWOCAPTCHA_API_KEY"] = self.api_key
+            env["TWOCAPTCHA_RETRY_COUNT"] = "5"
+            env["TWOCAPTCHA_RETRY_DELAY"] = "10"
 
-            subprocess.run(['node', str(INSTALL_SCRIPT)], env=env, timeout=120, capture_output=True)
+            subprocess.run(
+                ["node", str(INSTALL_SCRIPT)], env=env, timeout=120, capture_output=True
+            )
 
             # Launch Chromium in crawls directory
-            crawl_id = 'cfg'
-            crawl_dir = Path(env['CRAWL_DIR']) / crawl_id
-            chrome_dir = crawl_dir / 'chrome'
-            env['CRAWL_DIR'] = str(crawl_dir)
+            crawl_id = "cfg"
+            crawl_dir = Path(env["CRAWL_DIR"]) / crawl_id
+            chrome_dir = crawl_dir / "chrome"
+            env["CRAWL_DIR"] = str(crawl_dir)
             process, cdp_url = launch_chrome(env, chrome_dir, crawl_id)
 
             try:
                 # Wait for extensions.json to be written
-                extensions_file = chrome_dir / 'extensions.json'
+                extensions_file = chrome_dir / "extensions.json"
                 for i in range(20):
                     if extensions_file.exists():
                         break
@@ -114,17 +129,27 @@ class TestTwoCaptcha:
                 assert extensions_file.exists(), "extensions.json not created"
 
                 result = subprocess.run(
-                    ['node', str(CONFIG_SCRIPT), '--url=https://example.com', '--snapshot-id=test'],
-                    env=env, timeout=30, capture_output=True, text=True
+                    [
+                        "node",
+                        str(CONFIG_SCRIPT),
+                        "--url=https://example.com",
+                        "--snapshot-id=test",
+                    ],
+                    env=env,
+                    timeout=30,
+                    capture_output=True,
+                    text=True,
                 )
                 assert result.returncode == 0, f"Config failed: {result.stderr}"
-                assert (chrome_dir / '.twocaptcha_configured').exists()
+                assert (chrome_dir / ".twocaptcha_configured").exists()
 
                 # Verify config via options.html and Config.getAll()
                 # Get the actual extension ID from the config marker (Chrome computes IDs differently)
-                config_marker = json.loads((chrome_dir / '.twocaptcha_configured').read_text())
-                ext_id = config_marker['extensionId']
-                script = f'''
+                config_marker = json.loads(
+                    (chrome_dir / ".twocaptcha_configured").read_text()
+                )
+                ext_id = config_marker["extensionId"]
+                script = f"""
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 const puppeteer = require('puppeteer-core');
 (async () => {{
@@ -160,24 +185,41 @@ const puppeteer = require('puppeteer-core');
     browser.disconnect();
     console.log(JSON.stringify(cfg));
 }})();
-'''
-                (tmpdir / 'v.js').write_text(script)
-                r = subprocess.run(['node', str(tmpdir / 'v.js')], env=env, timeout=30, capture_output=True, text=True)
+"""
+                (tmpdir / "v.js").write_text(script)
+                r = subprocess.run(
+                    ["node", str(tmpdir / "v.js")],
+                    env=env,
+                    timeout=30,
+                    capture_output=True,
+                    text=True,
+                )
                 print(r.stderr)
                 assert r.returncode == 0, f"Verify failed: {r.stderr}"
 
-                cfg = json.loads(r.stdout.strip().split('\n')[-1])
+                cfg = json.loads(r.stdout.strip().split("\n")[-1])
                 print(f"[*] Config from extension: {json.dumps(cfg, indent=2)}")
 
                 # Verify all the fields we care about
-                assert cfg.get('apiKey') == self.api_key or cfg.get('api_key') == self.api_key, f"API key not set: {cfg}"
-                assert cfg.get('isPluginEnabled'), f"Plugin not enabled: {cfg}"
-                assert cfg.get('repeatOnErrorTimes') == 5, f"Retry count wrong: {cfg}"
-                assert cfg.get('repeatOnErrorDelay') == 10, f"Retry delay wrong: {cfg}"
-                assert cfg.get('autoSolveRecaptchaV2'), f"autoSolveRecaptchaV2 not enabled: {cfg}"
-                assert cfg.get('autoSolveRecaptchaV3'), f"autoSolveRecaptchaV3 not enabled: {cfg}"
-                assert cfg.get('autoSolveTurnstile'), f"autoSolveTurnstile not enabled: {cfg}"
-                assert cfg.get('enabledForRecaptchaV2'), f"enabledForRecaptchaV2 not enabled: {cfg}"
+                assert (
+                    cfg.get("apiKey") == self.api_key
+                    or cfg.get("api_key") == self.api_key
+                ), f"API key not set: {cfg}"
+                assert cfg.get("isPluginEnabled"), f"Plugin not enabled: {cfg}"
+                assert cfg.get("repeatOnErrorTimes") == 5, f"Retry count wrong: {cfg}"
+                assert cfg.get("repeatOnErrorDelay") == 10, f"Retry delay wrong: {cfg}"
+                assert cfg.get("autoSolveRecaptchaV2"), (
+                    f"autoSolveRecaptchaV2 not enabled: {cfg}"
+                )
+                assert cfg.get("autoSolveRecaptchaV3"), (
+                    f"autoSolveRecaptchaV3 not enabled: {cfg}"
+                )
+                assert cfg.get("autoSolveTurnstile"), (
+                    f"autoSolveTurnstile not enabled: {cfg}"
+                )
+                assert cfg.get("enabledForRecaptchaV2"), (
+                    f"enabledForRecaptchaV2 not enabled: {cfg}"
+                )
 
                 print("[+] Config verified via Config.getAll()!")
             finally:
@@ -215,20 +257,22 @@ const puppeteer = require('puppeteer-core');
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
             env = setup_test_env(tmpdir)
-            env['TWOCAPTCHA_API_KEY'] = self.api_key
+            env["TWOCAPTCHA_API_KEY"] = self.api_key
 
-            subprocess.run(['node', str(INSTALL_SCRIPT)], env=env, timeout=120, capture_output=True)
+            subprocess.run(
+                ["node", str(INSTALL_SCRIPT)], env=env, timeout=120, capture_output=True
+            )
 
             # Launch Chromium in crawls directory
-            crawl_id = 'solve'
-            crawl_dir = Path(env['CRAWL_DIR']) / crawl_id
-            chrome_dir = crawl_dir / 'chrome'
-            env['CRAWL_DIR'] = str(crawl_dir)
+            crawl_id = "solve"
+            crawl_dir = Path(env["CRAWL_DIR"]) / crawl_id
+            chrome_dir = crawl_dir / "chrome"
+            env["CRAWL_DIR"] = str(crawl_dir)
             process, cdp_url = launch_chrome(env, chrome_dir, crawl_id)
 
             try:
                 # Wait for extensions.json to be written
-                extensions_file = chrome_dir / 'extensions.json'
+                extensions_file = chrome_dir / "extensions.json"
                 for i in range(20):
                     if extensions_file.exists():
                         break
@@ -236,60 +280,73 @@ const puppeteer = require('puppeteer-core');
                 assert extensions_file.exists(), "extensions.json not created"
 
                 config_result = subprocess.run(
-                    ['node', str(CONFIG_SCRIPT), f'--url={TEST_URL}', '--snapshot-id=solve'],
+                    [
+                        "node",
+                        str(CONFIG_SCRIPT),
+                        f"--url={TEST_URL}",
+                        "--snapshot-id=solve",
+                    ],
                     env=env,
                     timeout=30,
                     capture_output=True,
                     text=True,
                 )
-                assert config_result.returncode == 0, f"Config hook failed: {config_result.stderr}"
+                assert config_result.returncode == 0, (
+                    f"Config hook failed: {config_result.stderr}"
+                )
 
                 # Service-level live solve check (no mocks): submit recaptcha to 2captcha API and poll for token.
                 # Keep extension install/config assertions above to validate plugin setup path as well.
-                site_key = '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'  # Google's public testing sitekey
+                site_key = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"  # Google's public testing sitekey
                 submit = requests.get(
-                    'https://2captcha.com/in.php',
+                    "https://2captcha.com/in.php",
                     params={
-                        'key': self.api_key,
-                        'method': 'userrecaptcha',
-                        'googlekey': site_key,
-                        'pageurl': TEST_URL,
-                        'json': 1,
+                        "key": self.api_key,
+                        "method": "userrecaptcha",
+                        "googlekey": site_key,
+                        "pageurl": TEST_URL,
+                        "json": 1,
                     },
                     timeout=30,
                 )
                 submit.raise_for_status()
                 submit_data = submit.json()
-                assert submit_data.get('status') == 1, f"2captcha submit failed: {submit_data}"
-                captcha_id = submit_data['request']
+                assert submit_data.get("status") == 1, (
+                    f"2captcha submit failed: {submit_data}"
+                )
+                captcha_id = submit_data["request"]
 
                 token = None
                 deadline = time.time() + 180
                 while time.time() < deadline:
                     time.sleep(5)
                     poll = requests.get(
-                        'https://2captcha.com/res.php',
+                        "https://2captcha.com/res.php",
                         params={
-                            'key': self.api_key,
-                            'action': 'get',
-                            'id': captcha_id,
-                            'json': 1,
+                            "key": self.api_key,
+                            "action": "get",
+                            "id": captcha_id,
+                            "json": 1,
                         },
                         timeout=30,
                     )
                     poll.raise_for_status()
                     poll_data = poll.json()
-                    if poll_data.get('status') == 1:
-                        token = poll_data.get('request')
+                    if poll_data.get("status") == 1:
+                        token = poll_data.get("request")
                         break
-                    assert poll_data.get('request') == 'CAPCHA_NOT_READY', f"2captcha poll failed: {poll_data}"
+                    assert poll_data.get("request") == "CAPCHA_NOT_READY", (
+                        f"2captcha poll failed: {poll_data}"
+                    )
 
                 assert token, "Timed out waiting for 2captcha solve token"
-                assert isinstance(token, str) and len(token) > 20, f"Invalid solve token: {token}"
+                assert isinstance(token, str) and len(token) > 20, (
+                    f"Invalid solve token: {token}"
+                )
                 print(f"[+] SUCCESS! Received 2captcha token prefix: {token[:24]}...")
             finally:
                 kill_chrome(process, chrome_dir)
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-xvs'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-xvs"])

@@ -21,13 +21,19 @@ from typing import List, Iterable
 
 
 # Config with old var names for backwards compatibility
-SQLITEFTS_DB = os.environ.get('SQLITEFTS_DB', 'search.sqlite3').strip()
-FTS_SEPARATE_DATABASE = os.environ.get('FTS_SEPARATE_DATABASE', 'true').lower() in ('true', '1', 'yes')
-FTS_TOKENIZERS = os.environ.get('FTS_TOKENIZERS', 'porter unicode61 remove_diacritics 2').strip()
+SQLITEFTS_DB = os.environ.get("SQLITEFTS_DB", "search.sqlite3").strip()
+FTS_SEPARATE_DATABASE = os.environ.get("FTS_SEPARATE_DATABASE", "true").lower() in (
+    "true",
+    "1",
+    "yes",
+)
+FTS_TOKENIZERS = os.environ.get(
+    "FTS_TOKENIZERS", "porter unicode61 remove_diacritics 2"
+).strip()
 
 
 def _get_data_dir() -> Path:
-    data_dir = os.environ.get('SNAP_DIR', '').strip()
+    data_dir = os.environ.get("SNAP_DIR", "").strip()
     if data_dir:
         return Path(data_dir)
     return Path.cwd()
@@ -47,8 +53,8 @@ def search(query: str) -> List[str]:
     conn = sqlite3.connect(str(db_path))
     try:
         cursor = conn.execute(
-            'SELECT DISTINCT snapshot_id FROM search_index WHERE search_index MATCH ?',
-            (query,)
+            "SELECT DISTINCT snapshot_id FROM search_index WHERE search_index MATCH ?",
+            (query,),
         )
         return [row[0] for row in cursor.fetchall()]
     except sqlite3.OperationalError:
@@ -67,7 +73,9 @@ def flush(snapshot_ids: Iterable[str]) -> None:
     conn = sqlite3.connect(str(db_path))
     try:
         for snapshot_id in snapshot_ids:
-            conn.execute('DELETE FROM search_index WHERE snapshot_id = ?', (snapshot_id,))
+            conn.execute(
+                "DELETE FROM search_index WHERE snapshot_id = ?", (snapshot_id,)
+            )
         conn.commit()
     except sqlite3.OperationalError:
         pass  # Table doesn't exist

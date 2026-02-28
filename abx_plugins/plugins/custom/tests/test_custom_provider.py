@@ -16,7 +16,7 @@ import pytest
 
 # Get the path to the custom provider hook
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_HOOK = next(PLUGIN_DIR.glob('on_Binary__*_custom_install.py'), None)
+INSTALL_HOOK = next(PLUGIN_DIR.glob("on_Binary__*_custom_install.py"), None)
 
 
 class TestCustomProviderHook:
@@ -29,6 +29,7 @@ class TestCustomProviderHook:
     def teardown_method(self, _method=None):
         """Clean up."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_hook_script_exists(self):
@@ -38,60 +39,62 @@ class TestCustomProviderHook:
     def test_hook_skips_when_custom_not_allowed(self):
         """Hook should skip when custom not in allowed binproviders."""
         env = os.environ.copy()
-        env['SNAP_DIR'] = self.temp_dir
+        env["SNAP_DIR"] = self.temp_dir
 
         result = subprocess.run(
             [
-                sys.executable, str(INSTALL_HOOK),
-                '--name=echo',
-                '--binary-id=test-uuid',
-                '--machine-id=test-machine',
-                '--binproviders=pip,apt',  # custom not allowed
-                '--custom-cmd=echo hello',
+                sys.executable,
+                str(INSTALL_HOOK),
+                "--name=echo",
+                "--binary-id=test-uuid",
+                "--machine-id=test-machine",
+                "--binproviders=pip,apt",  # custom not allowed
+                "--custom-cmd=echo hello",
             ],
             capture_output=True,
             text=True,
             timeout=30,
-            env=env
+            env=env,
         )
 
         # Should exit cleanly (code 0) when custom not allowed
         assert result.returncode == 0
-        assert 'custom provider not allowed' in result.stderr
+        assert "custom provider not allowed" in result.stderr
 
     def test_hook_runs_custom_command_and_finds_binary(self):
         """Hook should run custom command and find the binary in PATH."""
         env = os.environ.copy()
-        env['SNAP_DIR'] = self.temp_dir
+        env["SNAP_DIR"] = self.temp_dir
 
         # Use a simple echo command that doesn't actually install anything
         # Then check for 'echo' which is already in PATH
         result = subprocess.run(
             [
-                sys.executable, str(INSTALL_HOOK),
-                '--name=echo',
-                '--binary-id=test-uuid',
-                '--machine-id=test-machine',
+                sys.executable,
+                str(INSTALL_HOOK),
+                "--name=echo",
+                "--binary-id=test-uuid",
+                "--machine-id=test-machine",
                 '--custom-cmd=echo "custom install simulation"',
             ],
             capture_output=True,
             text=True,
             timeout=30,
-            env=env
+            env=env,
         )
 
         # Should succeed since echo is in PATH
         assert result.returncode == 0, f"Hook failed: {result.stderr}"
 
         # Parse JSONL output
-        for line in result.stdout.split('\n'):
+        for line in result.stdout.split("\n"):
             line = line.strip()
-            if line.startswith('{'):
+            if line.startswith("{"):
                 try:
                     record = json.loads(line)
-                    if record.get('type') == 'Binary' and record.get('name') == 'echo':
-                        assert record['binprovider'] == 'custom'
-                        assert record['abspath']
+                    if record.get("type") == "Binary" and record.get("name") == "echo":
+                        assert record["binprovider"] == "custom"
+                        assert record["abspath"]
                         return
                 except json.JSONDecodeError:
                     continue
@@ -101,48 +104,50 @@ class TestCustomProviderHook:
     def test_hook_fails_for_missing_binary_after_command(self):
         """Hook should fail if binary not found after running custom command."""
         env = os.environ.copy()
-        env['SNAP_DIR'] = self.temp_dir
+        env["SNAP_DIR"] = self.temp_dir
 
         result = subprocess.run(
             [
-                sys.executable, str(INSTALL_HOOK),
-                '--name=nonexistent_binary_xyz123',
-                '--binary-id=test-uuid',
-                '--machine-id=test-machine',
+                sys.executable,
+                str(INSTALL_HOOK),
+                "--name=nonexistent_binary_xyz123",
+                "--binary-id=test-uuid",
+                "--machine-id=test-machine",
                 '--custom-cmd=echo "failed install"',  # Doesn't actually install
             ],
             capture_output=True,
             text=True,
             timeout=30,
-            env=env
+            env=env,
         )
 
         # Should fail since binary not found after command
         assert result.returncode == 1
-        assert 'not found' in result.stderr.lower()
+        assert "not found" in result.stderr.lower()
 
     def test_hook_fails_for_failing_command(self):
         """Hook should fail if custom command returns non-zero exit code."""
         env = os.environ.copy()
-        env['SNAP_DIR'] = self.temp_dir
+        env["SNAP_DIR"] = self.temp_dir
 
         result = subprocess.run(
             [
-                sys.executable, str(INSTALL_HOOK),
-                '--name=echo',
-                '--binary-id=test-uuid',
-                '--machine-id=test-machine',
-                '--custom-cmd=exit 1',  # Command that fails
+                sys.executable,
+                str(INSTALL_HOOK),
+                "--name=echo",
+                "--binary-id=test-uuid",
+                "--machine-id=test-machine",
+                "--custom-cmd=exit 1",  # Command that fails
             ],
             capture_output=True,
             text=True,
             timeout=30,
-            env=env
+            env=env,
         )
 
         # Should fail with exit code 1
         assert result.returncode == 1
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
