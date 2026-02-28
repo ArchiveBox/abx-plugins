@@ -36,6 +36,28 @@ TEST_URL = "https://www.singsing.movie/"
 COOKIE_CONSENT_TEST_URL = "https://www.filmin.es/"
 
 
+def _modal_page_url(httpserver) -> str:
+    """Serve a deterministic page with visible modal/cookie elements."""
+    html = """<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Modal Fixture</title>
+</head>
+<body class="modal-open" style="overflow: hidden;">
+  <main><h1>Modal Fixture</h1></main>
+  <div id="cookie-consent" class="cookie-banner" style="display:block; visibility:visible; position:fixed; inset:0; background: rgba(0,0,0,0.8); z-index:9999;">
+    Cookie banner
+  </div>
+</body>
+</html>
+"""
+    httpserver.expect_request("/modal").respond_with_data(
+        html, content_type="text/html; charset=utf-8"
+    )
+    return httpserver.url_for("/modal")
+
+
 def test_hook_script_exists():
     """Verify on_Snapshot hook exists."""
     assert MODALCLOSER_HOOK is not None, "Modalcloser hook not found"
@@ -126,16 +148,18 @@ def test_fails_gracefully_without_chrome_session():
         )
 
 
-def test_background_script_handles_sigterm():
+def test_background_script_handles_sigterm(httpserver):
     """Test that background script runs and handles SIGTERM correctly."""
     with tempfile.TemporaryDirectory() as tmpdir:
         modalcloser_process = None
         try:
+            test_url = _modal_page_url(httpserver)
             with chrome_session(
                 Path(tmpdir),
                 crawl_id="test-modalcloser",
                 snapshot_id="snap-modalcloser",
-                test_url=TEST_URL,
+                test_url=test_url,
+                timeout=30,
             ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
                 # Create modalcloser output directory (sibling to chrome)
                 modalcloser_dir = snapshot_chrome_dir.parent / "modalcloser"
@@ -148,7 +172,7 @@ def test_background_script_handles_sigterm():
                     [
                         "node",
                         str(MODALCLOSER_HOOK),
-                        f"--url={TEST_URL}",
+                        f"--url={test_url}",
                         "--snapshot-id=snap-modalcloser",
                     ],
                     cwd=str(modalcloser_dir),
@@ -196,9 +220,12 @@ def test_background_script_handles_sigterm():
 
                 # Verify output_str format
                 output_str = result_json.get("output_str", "")
-                assert (
-                    "modal" in output_str.lower() or "dialog" in output_str.lower()
-                ), f"output_str should mention modals/dialogs: {output_str}"
+                assert "closed" in output_str.lower(), (
+                    f"output_str should report closed modal/dialog counts: {output_str}"
+                )
+                assert "no modals detected" not in output_str.lower(), (
+                    f"Should close at least one modal/dialog: {output_str}"
+                )
 
                 # Verify no files created in output directory
                 output_files = list(modalcloser_dir.iterdir())
@@ -211,16 +238,18 @@ def test_background_script_handles_sigterm():
                 modalcloser_process.kill()
 
 
-def test_dialog_handler_logs_dialogs():
+def test_dialog_handler_logs_dialogs(httpserver):
     """Test that dialog handler is set up correctly."""
     with tempfile.TemporaryDirectory() as tmpdir:
         modalcloser_process = None
         try:
+            test_url = _modal_page_url(httpserver)
             with chrome_session(
                 Path(tmpdir),
                 crawl_id="test-dialog",
                 snapshot_id="snap-dialog",
-                test_url=TEST_URL,
+                test_url=test_url,
+                timeout=30,
             ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
                 modalcloser_dir = snapshot_chrome_dir.parent / "modalcloser"
                 modalcloser_dir.mkdir()
@@ -233,7 +262,7 @@ def test_dialog_handler_logs_dialogs():
                     [
                         "node",
                         str(MODALCLOSER_HOOK),
-                        f"--url={TEST_URL}",
+                        f"--url={test_url}",
                         "--snapshot-id=snap-dialog",
                     ],
                     cwd=str(modalcloser_dir),
@@ -267,18 +296,20 @@ def test_dialog_handler_logs_dialogs():
                 modalcloser_process.kill()
 
 
-def test_config_poll_interval():
+def test_config_poll_interval(httpserver):
     """Test that MODALCLOSER_POLL_INTERVAL config is respected."""
     with tempfile.TemporaryDirectory() as tmpdir:
         chrome_launch_process = None
         chrome_pid = None
         modalcloser_process = None
         try:
+            test_url = _modal_page_url(httpserver)
             with chrome_session(
                 Path(tmpdir),
                 crawl_id="test-poll",
                 snapshot_id="snap-poll",
-                test_url=TEST_URL,
+                test_url=test_url,
+                timeout=30,
             ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
                 modalcloser_dir = snapshot_chrome_dir.parent / "modalcloser"
                 modalcloser_dir.mkdir()
@@ -290,7 +321,7 @@ def test_config_poll_interval():
                     [
                         "node",
                         str(MODALCLOSER_HOOK),
-                        f"--url={TEST_URL}",
+                        f"--url={test_url}",
                         "--snapshot-id=snap-poll",
                     ],
                     cwd=str(modalcloser_dir),
@@ -327,6 +358,10 @@ def test_config_poll_interval():
                 assert result_json is not None, "Should have JSONL output"
                 assert result_json["status"] == "succeeded", (
                     f"Should succeed: {result_json}"
+                )
+                output_str = result_json.get("output_str", "").lower()
+                assert "closed" in output_str and "no modals detected" not in output_str, (
+                    f"Should report closing modals/dialogs: {result_json}"
                 )
 
         finally:

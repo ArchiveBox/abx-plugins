@@ -109,8 +109,11 @@ def test_chrome_launch_and_tab_creation(chrome_test_url):
             env=env,
         )
 
-        # Wait for Chrome to launch (check process isn't dead and files exist)
-        for i in range(15):  # Wait up to 15 seconds for Chrome to start
+        # Wait for Chrome to launch (check process isn't dead and files exist).
+        # launchChromium() itself waits up to 30s for CDP readiness, so allow
+        # additional headroom here to avoid CI false negatives on cold runners.
+        launch_wait_seconds = 45
+        for i in range(launch_wait_seconds):
             if chrome_launch_process.poll() is not None:
                 stdout, stderr = chrome_launch_process.communicate()
                 pytest.fail(
@@ -141,7 +144,7 @@ def test_chrome_launch_and_tab_creation(chrome_test_url):
                     except OSError:
                         chrome_alive = "no"
                     pytest.fail(
-                        f"cdp_url.txt missing after 15s. Chrome dir files: {files}. Chrome process {chrome_pid} alive: {chrome_alive}\nLaunch stdout: {stdout}\nLaunch stderr: {stderr}"
+                        f"cdp_url.txt missing after {launch_wait_seconds}s. Chrome dir files: {files}. Chrome process {chrome_pid} alive: {chrome_alive}\nLaunch stdout: {stdout}\nLaunch stderr: {stderr}"
                     )
                 else:
                     pytest.fail(
