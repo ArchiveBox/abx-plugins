@@ -35,6 +35,7 @@ if _DOM_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 DOM_HOOK = _DOM_HOOK
 TEST_URL = "https://example.com"
+CHROME_STARTUP_TIMEOUT_SECONDS = 45
 
 
 def test_hook_script_exists():
@@ -52,14 +53,18 @@ def test_verify_deps_with_abx_pkg():
     assert node_loaded and node_loaded.abspath, "Node.js required for dom plugin"
 
 
-def test_extracts_dom_from_example_com(require_chrome_runtime):
-    """Test full workflow: extract DOM from real example.com via hook."""
+def test_extracts_dom_from_example_com(require_chrome_runtime, chrome_test_url):
+    """Test full workflow: extract DOM from deterministic local fixture via hook."""
     # Prerequisites checked by earlier test
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        with chrome_session(tmpdir, test_url=TEST_URL) as (
+        with chrome_session(
+            tmpdir,
+            test_url=chrome_test_url,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        ) as (
             _process,
             _pid,
             snapshot_chrome_dir,
@@ -70,7 +75,12 @@ def test_extracts_dom_from_example_com(require_chrome_runtime):
 
             # Run DOM extraction hook
             result = subprocess.run(
-                ["node", str(DOM_HOOK), f"--url={TEST_URL}", "--snapshot-id=test789"],
+                [
+                    "node",
+                    str(DOM_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=test789",
+                ],
                 cwd=dom_dir,
                 capture_output=True,
                 text=True,
@@ -107,14 +117,17 @@ def test_extracts_dom_from_example_com(require_chrome_runtime):
         assert len(html_content) > 200, (
             f"HTML content too short: {len(html_content)} bytes"
         )
-        assert "<html" in html_content.lower(), "Missing <html> tag"
-        assert "example domain" in html_content.lower(), (
+        html_lower = html_content.lower()
+        assert "<html" in html_lower, "Missing <html> tag"
+        assert "example domain" in html_lower, (
             "Missing 'Example Domain' in HTML"
         )
         assert (
-            "this domain" in html_content.lower()
-            or "illustrative examples" in html_content.lower()
-        ), "Missing example.com description text"
+            "this domain" in html_lower
+            or "illustrative examples" in html_lower
+            or "local deterministic test page" in html_lower
+            or "chrome test helper fixture" in html_lower
+        ), "Missing expected description text in extracted HTML"
 
 
 def test_config_save_dom_false_skips():

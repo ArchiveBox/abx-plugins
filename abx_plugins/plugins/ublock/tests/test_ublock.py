@@ -18,7 +18,6 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     setup_test_env,
     launch_chromium_session,
     kill_chromium_session,
-    CHROME_LAUNCH_HOOK,
 )
 
 
@@ -27,6 +26,7 @@ _INSTALL_SCRIPT = next(PLUGIN_DIR.glob("on_Crawl__*_install_ublock_extension.*")
 if _INSTALL_SCRIPT is None:
     raise FileNotFoundError(f"Install script not found in {PLUGIN_DIR}")
 INSTALL_SCRIPT = _INSTALL_SCRIPT
+CHROME_STARTUP_TIMEOUT_SECONDS = 45
 
 
 def test_install_script_exists():
@@ -335,9 +335,6 @@ def test_extension_loads_in_chromium():
     to chrome-extension://<id>/dashboard.html and checks that "uBlock" appears
     in the page content.
     """
-    import signal
-    import time
-
     print("[test] Starting test_extension_loads_in_chromium", flush=True)
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -359,7 +356,7 @@ def test_extension_loads_in_chromium():
             capture_output=True,
             text=True,
             env=env,
-            timeout=5,
+            timeout=120,
         )
         print(f"[test] Extension install rc={result.returncode}", flush=True)
         assert result.returncode == 0, f"Extension install failed: {result.stderr}"
@@ -389,46 +386,21 @@ def test_extension_loads_in_chromium():
         chrome_dir.mkdir(parents=True, exist_ok=True)
         env["CRAWL_DIR"] = str(crawl_dir)
 
-        chrome_launch_process = subprocess.Popen(
-            ["node", str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
-            cwd=str(chrome_dir),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=env,
-        )
-        assert chrome_launch_process.stderr is not None, (
-            "Expected stderr pipe to be available"
-        )
-        print("[test] Chrome hook started, waiting for CDP...", flush=True)
-
-        # Wait for Chromium to launch and CDP URL to be available
+        chrome_launch_process = None
         cdp_url = None
-        import select
+        try:
+            chrome_launch_process, cdp_url = launch_chromium_session(
+                env,
+                chrome_dir,
+                crawl_id,
+                timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Chromium launch failed after waiting up to {CHROME_STARTUP_TIMEOUT_SECONDS}s"
+            ) from exc
 
-        for i in range(20):
-            poll_result = chrome_launch_process.poll()
-            if poll_result is not None:
-                stdout, stderr = chrome_launch_process.communicate()
-                raise RuntimeError(
-                    f"Chromium launch failed (exit={poll_result}):\nStdout: {stdout}\nStderr: {stderr}"
-                )
-            cdp_file = chrome_dir / "cdp_url.txt"
-            if cdp_file.exists():
-                cdp_url = cdp_file.read_text().strip()
-                print(f"[test] CDP URL found after {i + 1} attempts", flush=True)
-                break
-            # Read any available stderr
-            while select.select([chrome_launch_process.stderr], [], [], 0)[0]:
-                line = chrome_launch_process.stderr.readline()
-                if not line:
-                    break
-                print(f"[hook] {line.strip()}", flush=True)
-            time.sleep(0.3)
-
-        assert cdp_url, "Chromium CDP URL not found after 20s"
         print(f"[test] Chromium launched with CDP URL: {cdp_url}", flush=True)
-        print("[test] Reading hook stderr...", flush=True)
 
         # Check what extensions were loaded by chrome hook
         extensions_file = chrome_dir / "extensions.json"
@@ -524,7 +496,7 @@ const puppeteer = require('puppeteer-core');
                 capture_output=True,
                 text=True,
                 env=env,
-                timeout=10,
+                timeout=45,
             )
 
             print(f"stderr: {result.stderr}")
@@ -546,19 +518,8 @@ const puppeteer = require('puppeteer-core');
             print(f"Extension loaded successfully: {test_result}")
 
         finally:
-            # Clean up Chromium
-            try:
-                chrome_launch_process.send_signal(signal.SIGTERM)
-                chrome_launch_process.wait(timeout=5)
-            except Exception:
-                pass
-            chrome_pid_file = chrome_dir / "chrome.pid"
-            if chrome_pid_file.exists():
-                try:
-                    chrome_pid = int(chrome_pid_file.read_text().strip())
-                    os.kill(chrome_pid, signal.SIGKILL)
-                except (OSError, ValueError):
-                    pass
+            if chrome_launch_process:
+                kill_chromium_session(chrome_launch_process, chrome_dir)
 
 
 def test_blocks_ads_on_yahoo_com():
@@ -607,7 +568,10 @@ def test_blocks_ads_on_yahoo_com():
 
         try:
             baseline_process, baseline_cdp_url = launch_chromium_session(
-                env_no_ext, baseline_chrome_dir, baseline_crawl_id
+                env_no_ext,
+                baseline_chrome_dir,
+                baseline_crawl_id,
+                timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
             )
             print(f"Baseline Chromium launched: {baseline_cdp_url}")
 
@@ -684,7 +648,10 @@ def test_blocks_ads_on_yahoo_com():
 
         try:
             ext_process, ext_cdp_url = launch_chromium_session(
-                env_base, ext_chrome_dir, ext_crawl_id
+                env_base,
+                ext_chrome_dir,
+                ext_crawl_id,
+                timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
             )
             print(f"Extension Chromium launched: {ext_cdp_url}")
 

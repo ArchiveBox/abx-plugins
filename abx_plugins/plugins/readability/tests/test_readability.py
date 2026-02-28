@@ -13,6 +13,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 
 import pytest
@@ -24,11 +25,16 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
+PLUGINS_ROOT = PLUGIN_DIR.parent
 _READABILITY_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_readability.*")
 if _READABILITY_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 READABILITY_HOOK = _READABILITY_HOOK
 TEST_URL = "https://example.com"
+
+# Module-level cache for binary path
+_readability_binary_path = None
+_readability_lib_root = None
 
 
 def create_example_html(tmpdir: Path) -> Path:
@@ -74,6 +80,122 @@ def create_example_html(tmpdir: Path) -> Path:
     """)
 
     return html_file
+
+
+def require_readability_binary() -> str:
+    """Return readability-extractor binary path or fail with actionable context."""
+    binary_path = get_readability_binary_path()
+    assert binary_path, (
+        "readability-extractor installation failed. Install hook should install "
+        "the binary automatically in this test environment."
+    )
+    assert Path(binary_path).is_file(), (
+        f"readability-extractor binary path invalid: {binary_path}"
+    )
+    return binary_path
+
+
+def get_readability_binary_path():
+    """Get readability-extractor path from cache or by running install hooks."""
+    global _readability_binary_path
+    if _readability_binary_path and Path(_readability_binary_path).is_file():
+        return _readability_binary_path
+
+    from abx_pkg import Binary, NpmProvider, EnvProvider
+
+    try:
+        binary = Binary(
+            name="readability-extractor",
+            binproviders=[NpmProvider(), EnvProvider()],
+            overrides={
+                "npm": {"packages": ["https://github.com/ArchiveBox/readability-extractor"]}
+            },
+        ).load()
+        if binary and binary.abspath:
+            _readability_binary_path = str(binary.abspath)
+            return _readability_binary_path
+    except Exception:
+        pass
+
+    npm_hook = PLUGINS_ROOT / "npm" / "on_Binary__10_npm_install.py"
+    crawl_hook = PLUGIN_DIR / "on_Crawl__35_readability_install.py"
+    if not npm_hook.exists():
+        return None
+
+    binary_id = str(uuid.uuid4())
+    machine_id = str(uuid.uuid4())
+    binproviders = "*"
+    overrides = None
+
+    if crawl_hook.exists():
+        crawl_result = subprocess.run(
+            [sys.executable, str(crawl_hook)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        for line in crawl_result.stdout.strip().split("\n"):
+            if not line.strip().startswith("{"):
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if (
+                record.get("type") == "Binary"
+                and record.get("name") == "readability-extractor"
+            ):
+                binproviders = record.get("binproviders", "*")
+                overrides = record.get("overrides")
+                break
+
+    global _readability_lib_root
+    if not _readability_lib_root:
+        _readability_lib_root = tempfile.mkdtemp(prefix="readability-lib-")
+
+    env = os.environ.copy()
+    env["HOME"] = str(_readability_lib_root)
+    env["SNAP_DIR"] = str(Path(_readability_lib_root) / "data")
+    env["CRAWL_DIR"] = str(Path(_readability_lib_root) / "crawl")
+    env.pop("LIB_DIR", None)
+
+    cmd = [
+        sys.executable,
+        str(npm_hook),
+        "--binary-id",
+        binary_id,
+        "--machine-id",
+        machine_id,
+        "--name",
+        "readability-extractor",
+        f"--binproviders={binproviders}",
+    ]
+    if overrides:
+        cmd.append(f"--overrides={json.dumps(overrides)}")
+
+    install_result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        env=env,
+    )
+
+    for line in install_result.stdout.strip().split("\n"):
+        if not line.strip().startswith("{"):
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if (
+            record.get("type") == "Binary"
+            and record.get("name") == "readability-extractor"
+        ):
+            _readability_binary_path = record.get("abspath")
+            return _readability_binary_path
+
+    return None
 
 
 def test_hook_script_exists():
@@ -130,31 +252,16 @@ def test_reports_missing_dependency_when_not_installed():
 
 
 def test_verify_deps_with_abx_pkg():
-    """Verify readability-extractor is available via abx-pkg."""
-    from abx_pkg import Binary, NpmProvider, EnvProvider
-    from pydantic.errors import PydanticUserError
-
-    try:
-        npm_provider = NpmProvider()
-    except PydanticUserError as exc:
-        pytest.fail(f"NpmProvider unavailable in this runtime: {exc}")
-
-    readability_binary = Binary(
-        name="readability-extractor",
-        binproviders=[npm_provider, EnvProvider()],
-        overrides={"npm": {"packages": ["github:ArchiveBox/readability-extractor"]}},
+    """Verify readability-extractor is installed by real plugin install hooks."""
+    binary_path = require_readability_binary()
+    assert Path(binary_path).is_file(), (
+        f"Binary path must be a valid file: {binary_path}"
     )
-    readability_loaded = readability_binary.load()
-
-    if readability_loaded and readability_loaded.abspath:
-        assert True, "readability-extractor is available"
-    else:
-        pass
 
 
 def test_extracts_article_after_installation():
     """Test full workflow: extract article using readability-extractor from real HTML."""
-    # Prerequisites checked by earlier test (install hook should have run)
+    binary_path = require_readability_binary()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -167,6 +274,7 @@ def test_extracts_article_after_installation():
         # Run readability extraction (should find the binary)
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
+        env["READABILITY_BINARY"] = binary_path
         result = subprocess.run(
             [
                 sys.executable,
@@ -239,7 +347,7 @@ def test_extracts_article_after_installation():
 
 def test_fails_gracefully_without_html_source():
     """Test that extraction fails gracefully when no HTML source is available."""
-    # Prerequisites checked by earlier test (install hook should have run)
+    binary_path = require_readability_binary()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -250,6 +358,7 @@ def test_fails_gracefully_without_html_source():
 
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
+        env["READABILITY_BINARY"] = binary_path
         result = subprocess.run(
             [
                 sys.executable,

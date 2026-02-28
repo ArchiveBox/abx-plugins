@@ -102,8 +102,9 @@ async function main() {
         const { browser, page } = await chromeUtils.connectToPage({
             chromeSessionDir: CHROME_SESSION_DIR,
             timeoutMs: 60000,
-            requireTargetId: false,
             requireTargetId: true,
+            puppeteer,
+            puppeteerModule: puppeteer,
         });
         console.error('[singlefile] connected to chrome');
 

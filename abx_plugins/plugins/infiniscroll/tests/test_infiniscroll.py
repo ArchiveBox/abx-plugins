@@ -32,6 +32,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 PLUGIN_DIR = Path(__file__).parent.parent
 INFINISCROLL_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_infiniscroll.*"), None)
 TEST_URL = "https://www.singsing.movie/"
+CHROME_STARTUP_TIMEOUT_SECONDS = 45
 
 
 def test_hook_script_exists():
@@ -132,6 +133,7 @@ def test_scrolls_page_and_outputs_stats():
             crawl_id="test-infiniscroll",
             snapshot_id="snap-infiniscroll",
             test_url=TEST_URL,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
         ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
             # Create infiniscroll output directory (sibling to chrome)
             infiniscroll_dir = snapshot_chrome_dir.parent / "infiniscroll"
@@ -207,6 +209,7 @@ def test_config_scroll_limit_honored():
             crawl_id="test-scroll-limit",
             snapshot_id="snap-limit",
             test_url=TEST_URL,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
         ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
             infiniscroll_dir = snapshot_chrome_dir.parent / "infiniscroll"
             infiniscroll_dir.mkdir()

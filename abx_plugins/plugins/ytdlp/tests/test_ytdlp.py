@@ -11,10 +11,12 @@ Tests verify:
 """
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import time
+import uuid
 from pathlib import Path
 import pytest
 
@@ -26,10 +28,120 @@ if _YTDLP_HOOK is None:
 YTDLP_HOOK = _YTDLP_HOOK
 TEST_URL = "https://example.com/video.mp4"
 
+# Module-level cache for binary path
+_ytdlp_binary_path = None
+_ytdlp_lib_root = None
+
 
 def _has_ssl_cert_error(result: subprocess.CompletedProcess[str]) -> bool:
     combined = f"{result.stdout}\n{result.stderr}"
     return "CERTIFICATE_VERIFY_FAILED" in combined
+
+
+def require_ytdlp_binary() -> str:
+    """Return yt-dlp binary path or fail with actionable context."""
+    binary_path = get_ytdlp_binary_path()
+    assert binary_path, (
+        "yt-dlp installation failed. Install hook should install yt-dlp "
+        "automatically in this test environment."
+    )
+    assert Path(binary_path).is_file(), f"yt-dlp binary path invalid: {binary_path}"
+    return binary_path
+
+
+def get_ytdlp_binary_path():
+    """Get yt-dlp path from cache or by running install hooks."""
+    global _ytdlp_binary_path
+    if _ytdlp_binary_path and Path(_ytdlp_binary_path).is_file():
+        return _ytdlp_binary_path
+
+    from abx_pkg import Binary, PipProvider, EnvProvider
+
+    try:
+        binary = Binary(
+            name="yt-dlp",
+            binproviders=[PipProvider(), EnvProvider()],
+            overrides={"pip": {"packages": ["yt-dlp[default]"]}},
+        ).load()
+        if binary and binary.abspath:
+            _ytdlp_binary_path = str(binary.abspath)
+            return _ytdlp_binary_path
+    except Exception:
+        pass
+
+    pip_hook = PLUGINS_ROOT / "pip" / "on_Binary__11_pip_install.py"
+    crawl_hook = PLUGIN_DIR / "on_Crawl__15_ytdlp_install.py"
+    if not pip_hook.exists():
+        return None
+
+    binary_id = str(uuid.uuid4())
+    machine_id = str(uuid.uuid4())
+    binproviders = "*"
+    overrides = None
+
+    if crawl_hook.exists():
+        crawl_result = subprocess.run(
+            [sys.executable, str(crawl_hook)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        for line in crawl_result.stdout.strip().split("\n"):
+            if not line.strip().startswith("{"):
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if record.get("type") == "Binary" and record.get("name") == "yt-dlp":
+                binproviders = record.get("binproviders", "*")
+                overrides = record.get("overrides")
+                break
+
+    global _ytdlp_lib_root
+    if not _ytdlp_lib_root:
+        _ytdlp_lib_root = tempfile.mkdtemp(prefix="ytdlp-lib-")
+
+    env = os.environ.copy()
+    env["HOME"] = str(_ytdlp_lib_root)
+    env["SNAP_DIR"] = str(Path(_ytdlp_lib_root) / "data")
+    env["CRAWL_DIR"] = str(Path(_ytdlp_lib_root) / "crawl")
+    env.pop("LIB_DIR", None)
+
+    cmd = [
+        sys.executable,
+        str(pip_hook),
+        "--binary-id",
+        binary_id,
+        "--machine-id",
+        machine_id,
+        "--name",
+        "yt-dlp",
+        f"--binproviders={binproviders}",
+    ]
+    if overrides:
+        cmd.append(f"--overrides={json.dumps(overrides)}")
+
+    install_result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        env=env,
+    )
+
+    for line in install_result.stdout.strip().split("\n"):
+        if not line.strip().startswith("{"):
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if record.get("type") == "Binary" and record.get("name") == "yt-dlp":
+            _ytdlp_binary_path = record.get("abspath")
+            return _ytdlp_binary_path
+
+    return None
 
 
 def test_hook_script_exists():
@@ -38,51 +150,22 @@ def test_hook_script_exists():
 
 
 def test_verify_deps_with_abx_pkg():
-    """Verify yt-dlp, node, and ffmpeg are available via abx-pkg."""
-    from abx_pkg import Binary, PipProvider, AptProvider, BrewProvider, EnvProvider
-
-    try:
-        pip_provider = PipProvider()
-        apt_provider = AptProvider()
-        brew_provider = BrewProvider()
-        env_provider = EnvProvider()
-    except Exception as exc:
-        pytest.fail(f"Binary providers unavailable in this runtime: {exc}")
-
-    missing_binaries = []
-
-    # Verify yt-dlp is available
-    ytdlp_binary = Binary(name="yt-dlp", binproviders=[pip_provider, env_provider])
-    ytdlp_loaded = ytdlp_binary.load()
-    if not (ytdlp_loaded and ytdlp_loaded.abspath):
-        missing_binaries.append("yt-dlp")
-
-    # Verify node is available (yt-dlp needs it for JS extraction)
-    node_binary = Binary(
-        name="node", binproviders=[apt_provider, brew_provider, env_provider]
+    """Verify yt-dlp is installed by real plugin install hooks."""
+    binary_path = require_ytdlp_binary()
+    assert Path(binary_path).is_file(), (
+        f"Binary path must be a valid file: {binary_path}"
     )
-    node_loaded = node_binary.load()
-    if not (node_loaded and node_loaded.abspath):
-        missing_binaries.append("node")
-
-    # Verify ffmpeg is available (yt-dlp needs it for video conversion)
-    ffmpeg_binary = Binary(
-        name="ffmpeg", binproviders=[apt_provider, brew_provider, env_provider]
-    )
-    ffmpeg_loaded = ffmpeg_binary.load()
-    if not (ffmpeg_loaded and ffmpeg_loaded.abspath):
-        missing_binaries.append("ffmpeg")
-
-    if missing_binaries:
-        pass
 
 
 def test_handles_non_video_url():
     """Test that ytdlp extractor handles non-video URLs gracefully via hook."""
-    # Prerequisites checked by earlier test
+    binary_path = require_ytdlp_binary()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
+        env = os.environ.copy()
+        env["YTDLP_BINARY"] = binary_path
+        env["SNAP_DIR"] = str(tmpdir)
 
         # Run ytdlp extraction hook on non-video URL
         result = subprocess.run(
@@ -97,6 +180,7 @@ def test_handles_non_video_url():
             cwd=tmpdir,
             capture_output=True,
             text=True,
+            env=env,
             timeout=60,
         )
 
@@ -173,11 +257,13 @@ def test_config_ytdlp_enabled_false_skips():
 
 def test_config_timeout():
     """Test that YTDLP_TIMEOUT config is respected (also via MEDIA_TIMEOUT alias)."""
-    import os
+    binary_path = require_ytdlp_binary()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
         env["YTDLP_TIMEOUT"] = "5"
+        env["YTDLP_BINARY"] = binary_path
+        env["SNAP_DIR"] = str(tmpdir)
 
         start_time = time.time()
         result = subprocess.run(
@@ -212,7 +298,7 @@ def test_config_timeout():
 
 def test_real_youtube_url():
     """Test that yt-dlp can extract video/audio from a real YouTube URL."""
-    import os
+    binary_path = require_ytdlp_binary()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -222,6 +308,7 @@ def test_real_youtube_url():
 
         env = os.environ.copy()
         env["YTDLP_TIMEOUT"] = "120"  # Give it time to download
+        env["YTDLP_BINARY"] = binary_path
         env["SNAP_DIR"] = str(tmpdir)
 
         start_time = time.time()

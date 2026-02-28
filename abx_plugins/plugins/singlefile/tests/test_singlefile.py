@@ -11,6 +11,7 @@ Tests verify:
 """
 
 import os
+import json
 import subprocess
 import sys
 import tempfile
@@ -35,6 +36,89 @@ if _SNAPSHOT_HOOK is None:
 SNAPSHOT_HOOK = _SNAPSHOT_HOOK
 INSTALL_SCRIPT = PLUGIN_DIR / "on_Crawl__82_singlefile_install.js"
 TEST_URL = "https://example.com"
+
+# Module-level cache for extension install location
+_singlefile_install_root = None
+_singlefile_install_state = None
+
+
+def ensure_singlefile_extension_installed() -> dict[str, Path]:
+    """Install SingleFile extension via crawl hook and return resolved paths."""
+    global _singlefile_install_state
+    if _singlefile_install_state:
+        cache_file = _singlefile_install_state["cache_file"]
+        if cache_file.exists():
+            try:
+                payload = json.loads(cache_file.read_text())
+                unpacked_path = Path(payload.get("unpacked_path", ""))
+                if unpacked_path.exists() and (unpacked_path / "manifest.json").exists():
+                    return _singlefile_install_state
+            except Exception:
+                pass
+
+    global _singlefile_install_root
+    if not _singlefile_install_root:
+        _singlefile_install_root = tempfile.mkdtemp(prefix="singlefile-ext-")
+
+    install_root = Path(_singlefile_install_root)
+    snap_dir = install_root / "snap"
+    crawl_dir = install_root / "crawl"
+    personas_dir = install_root / "personas"
+    extensions_dir = personas_dir / "Default" / "chrome_extensions"
+    downloads_dir = personas_dir / "Default" / "chrome_downloads"
+    user_data_dir = personas_dir / "Default" / "chrome_user_data"
+
+    extensions_dir.mkdir(parents=True, exist_ok=True)
+    downloads_dir.mkdir(parents=True, exist_ok=True)
+    user_data_dir.mkdir(parents=True, exist_ok=True)
+    snap_dir.mkdir(parents=True, exist_ok=True)
+    crawl_dir.mkdir(parents=True, exist_ok=True)
+
+    env_install = os.environ.copy()
+    env_install.update(
+        {
+            "SNAP_DIR": str(snap_dir),
+            "CRAWL_DIR": str(crawl_dir),
+            "PERSONAS_DIR": str(personas_dir),
+            "CHROME_EXTENSIONS_DIR": str(extensions_dir),
+            "CHROME_DOWNLOADS_DIR": str(downloads_dir),
+            "CHROME_USER_DATA_DIR": str(user_data_dir),
+        }
+    )
+
+    result = subprocess.run(
+        ["node", str(INSTALL_SCRIPT)],
+        capture_output=True,
+        text=True,
+        env=env_install,
+        timeout=180,
+    )
+    assert result.returncode == 0, (
+        f"SingleFile extension install hook failed: {result.stderr}\nstdout: {result.stdout}"
+    )
+
+    cache_file = extensions_dir / "singlefile.extension.json"
+    assert cache_file.exists(), f"Extension cache file not created: {cache_file}"
+
+    payload = json.loads(cache_file.read_text())
+    unpacked_path = Path(payload.get("unpacked_path", ""))
+    assert unpacked_path.exists(), f"Unpacked extension path missing: {unpacked_path}"
+    assert (unpacked_path / "manifest.json").exists(), (
+        f"Extension manifest missing: {unpacked_path / 'manifest.json'}"
+    )
+
+    _singlefile_install_state = {
+        "install_root": install_root,
+        "snap_dir": snap_dir,
+        "crawl_dir": crawl_dir,
+        "personas_dir": personas_dir,
+        "extensions_dir": extensions_dir,
+        "downloads_dir": downloads_dir,
+        "user_data_dir": user_data_dir,
+        "cache_file": cache_file,
+        "unpacked_path": unpacked_path,
+    }
+    return _singlefile_install_state
 
 
 def test_snapshot_hook_exists():
@@ -61,6 +145,8 @@ def test_verify_deps_with_abx_pkg():
     node_binary = Binary(name="node", binproviders=[EnvProvider()])
     node_loaded = node_binary.load()
     assert node_loaded and node_loaded.abspath, "Node.js required for singlefile plugin"
+    state = ensure_singlefile_extension_installed()
+    assert state["cache_file"].exists(), "SingleFile extension cache should be installed"
 
 
 def test_singlefile_cli_archives_example_com():
@@ -160,56 +246,70 @@ def test_singlefile_with_chrome_session():
     When a Chrome session exists (chrome/cdp_url.txt), singlefile should
     connect to it instead of launching a new Chrome instance.
     """
+    install_state = ensure_singlefile_extension_installed()
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Set up Chrome session using shared helper
-        with chrome_session(
-            tmpdir=tmpdir,
-            crawl_id="singlefile-test-crawl",
-            snapshot_id="singlefile-test-snap",
-            test_url=TEST_URL,
-            navigate=False,  # Don't navigate, singlefile will do that
-            timeout=20,
-        ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
-            snap_dir = Path(env["SNAP_DIR"])
-            singlefile_output_dir = snap_dir / "singlefile"
-            singlefile_output_dir.mkdir(parents=True, exist_ok=True)
+        old_env = os.environ.copy()
+        os.environ["PERSONAS_DIR"] = str(install_state["personas_dir"])
+        os.environ["CHROME_EXTENSIONS_DIR"] = str(install_state["extensions_dir"])
+        os.environ["CHROME_DOWNLOADS_DIR"] = str(install_state["downloads_dir"])
+        os.environ["CHROME_USER_DATA_DIR"] = str(install_state["user_data_dir"])
+        try:
+            # Set up Chrome session using shared helper
+            with chrome_session(
+                tmpdir=tmpdir,
+                crawl_id="singlefile-test-crawl",
+                snapshot_id="singlefile-test-snap",
+                test_url=TEST_URL,
+                navigate=False,  # Don't navigate, singlefile will do that
+                timeout=20,
+            ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
+                snap_dir = Path(env["SNAP_DIR"])
+                singlefile_output_dir = snap_dir / "singlefile"
+                singlefile_output_dir.mkdir(parents=True, exist_ok=True)
 
-            # Use env from chrome_session
-            env["SINGLEFILE_ENABLED"] = "true"
+                # Use env from chrome_session
+                env["SINGLEFILE_ENABLED"] = "true"
+                env["CHROME_EXTENSIONS_DIR"] = str(install_state["extensions_dir"])
+                env["CHROME_DOWNLOADS_DIR"] = str(install_state["downloads_dir"])
+                env["CHROME_USER_DATA_DIR"] = str(install_state["user_data_dir"])
 
-            # Run singlefile - it should find and use the existing Chrome session
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(SNAPSHOT_HOOK),
-                    f"--url={TEST_URL}",
-                    "--snapshot-id=singlefile-test-snap",
-                ],
-                cwd=str(singlefile_output_dir),
-                capture_output=True,
-                text=True,
-                env=env,
-                timeout=120,
-            )
-
-            # Verify output
-            output_file = singlefile_output_dir / "singlefile.html"
-            if output_file.exists():
-                html_content = output_file.read_text()
-                assert len(html_content) > 500, "Output file too small"
-                assert "Example Domain" in html_content, (
-                    "Should contain example.com content"
+                # Run singlefile - it should find and use the existing Chrome session
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        str(SNAPSHOT_HOOK),
+                        f"--url={TEST_URL}",
+                        "--snapshot-id=singlefile-test-snap",
+                    ],
+                    cwd=str(singlefile_output_dir),
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=120,
                 )
-            else:
-                # If singlefile couldn't connect to Chrome, it may have failed
-                # Check if it mentioned browser-server in its args (indicating it tried to use CDP)
-                assert (
-                    result.returncode == 0
-                    or "browser-server" in result.stderr
-                    or "cdp" in result.stderr.lower()
-                ), f"Singlefile should attempt CDP connection. stderr: {result.stderr}"
+
+                # Verify output
+                output_file = singlefile_output_dir / "singlefile.html"
+                if output_file.exists():
+                    html_content = output_file.read_text()
+                    assert len(html_content) > 500, "Output file too small"
+                    assert "Example Domain" in html_content, (
+                        "Should contain example.com content"
+                    )
+                else:
+                    # If singlefile couldn't connect to Chrome, it may have failed
+                    # Check if it mentioned browser-server in its args (indicating it tried to use CDP)
+                    assert (
+                        result.returncode == 0
+                        or "browser-server" in result.stderr
+                        or "cdp" in result.stderr.lower()
+                    ), f"Singlefile should attempt CDP connection. stderr: {result.stderr}"
+        finally:
+            os.environ.clear()
+            os.environ.update(old_env)
 
 
 def test_singlefile_with_extension_uses_existing_chrome():
@@ -261,7 +361,7 @@ def test_singlefile_with_extension_uses_existing_chrome():
                 navigate=True,
                 timeout=30,
             ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
-                singlefile_output_dir = tmpdir / "snapshot" / "singlefile"
+                singlefile_output_dir = snapshot_chrome_dir.parent / "singlefile"
                 singlefile_output_dir.mkdir(parents=True, exist_ok=True)
 
                 # Ensure ../chrome points to snapshot chrome session (contains target_id.txt)

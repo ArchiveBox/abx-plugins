@@ -54,14 +54,14 @@ def test_verify_deps_with_abx_pkg():
     assert node_loaded and node_loaded.abspath, "Node.js required for pdf plugin"
 
 
-def test_extracts_pdf_from_example_com():
-    """Test full workflow: extract PDF from real example.com via hook."""
+def test_extracts_pdf_from_example_com(chrome_test_url):
+    """Test full workflow: extract PDF from deterministic local fixture via hook."""
     # Prerequisites checked by earlier test
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        with chrome_session(tmpdir, test_url=TEST_URL) as (
+        with chrome_session(tmpdir, test_url=chrome_test_url, timeout=30) as (
             _process,
             _pid,
             snapshot_chrome_dir,
@@ -72,7 +72,12 @@ def test_extracts_pdf_from_example_com():
 
             # Run PDF extraction hook
             result = subprocess.run(
-                ["node", str(PDF_HOOK), f"--url={TEST_URL}", "--snapshot-id=test789"],
+                [
+                    "node",
+                    str(PDF_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=test789",
+                ],
                 cwd=pdf_dir,
                 capture_output=True,
                 text=True,
@@ -189,12 +194,12 @@ def test_reports_missing_chrome():
         )
 
 
-def test_runs_with_shared_chrome_session():
+def test_runs_with_shared_chrome_session(chrome_test_url):
     """Test that PDF hook completes when shared Chrome session is available."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        with chrome_session(tmpdir, test_url=TEST_URL) as (
+        with chrome_session(tmpdir, test_url=chrome_test_url, timeout=30) as (
             _process,
             _pid,
             snapshot_chrome_dir,
@@ -207,7 +212,7 @@ def test_runs_with_shared_chrome_session():
                 [
                     "node",
                     str(PDF_HOOK),
-                    f"--url={TEST_URL}",
+                    f"--url={chrome_test_url}",
                     "--snapshot-id=testtimeout",
                 ],
                 cwd=pdf_dir,

@@ -1979,7 +1979,8 @@ async function closeTabInChromeSession(options = {}) {
  * @param {string} [options.chromeSessionDir='../chrome'] - Path to chrome session directory
  * @param {number} [options.timeoutMs=60000] - Timeout for waiting
  * @param {boolean} [options.requireTargetId=true] - Require target_id.txt in session dir
- * @param {Object} [options.puppeteer] - Puppeteer module (must be passed in)
+ * @param {Object} [options.puppeteer] - Puppeteer module (preferred explicit form)
+ * @param {Object} [options.puppeteerModule] - Backward-compatible puppeteer module key
  * @returns {Promise<Object>} - { browser, page, targetId, cdpUrl }
  * @throws {Error} - If connection fails or page not found
  */
@@ -1989,16 +1990,19 @@ async function connectToPage(options = {}) {
         timeoutMs = 60000,
         requireTargetId = true,
         puppeteer,
+        puppeteerModule,
     } = options;
 
-    const puppeteerModule = requirePuppeteerModule(puppeteer, 'connectToPage');
+    // Support both key names and fall back to local resolution for compatibility
+    // with older callers that may omit explicit module injection.
+    const resolvedPuppeteer = puppeteer || puppeteerModule || resolvePuppeteerModule();
     const state = await waitForChromeSessionState(chromeSessionDir, { timeoutMs, requireTargetId });
     if (!state) {
         throw new Error(CHROME_SESSION_REQUIRED_ERROR);
     }
 
     // Connect to browser
-    const browser = await puppeteerModule.connect({ browserWSEndpoint: state.cdpUrl });
+    const browser = await resolvedPuppeteer.connect({ browserWSEndpoint: state.cdpUrl });
 
     try {
         // Find the target page

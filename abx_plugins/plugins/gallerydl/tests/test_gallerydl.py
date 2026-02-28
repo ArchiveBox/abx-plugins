@@ -18,6 +18,7 @@ import sys
 import tempfile
 import time
 import os
+import uuid
 from pathlib import Path
 import pytest
 
@@ -29,6 +30,114 @@ if _GALLERYDL_HOOK is None:
 GALLERYDL_HOOK = _GALLERYDL_HOOK
 TEST_URL = "https://example.com"
 
+# Module-level cache for binary path
+_gallerydl_binary_path = None
+_gallerydl_lib_root = None
+
+
+def require_gallerydl_binary() -> str:
+    """Return gallery-dl binary path or fail with actionable context."""
+    binary_path = get_gallerydl_binary_path()
+    assert binary_path, (
+        "gallery-dl installation failed. Install hook should install gallery-dl "
+        "automatically in this test environment."
+    )
+    assert Path(binary_path).is_file(), (
+        f"gallery-dl binary path invalid: {binary_path}"
+    )
+    return binary_path
+
+
+def get_gallerydl_binary_path():
+    """Get gallery-dl binary path from cache or by running install hooks."""
+    global _gallerydl_binary_path
+    if _gallerydl_binary_path and Path(_gallerydl_binary_path).is_file():
+        return _gallerydl_binary_path
+
+    # Try loading from existing providers first
+    from abx_pkg import Binary, PipProvider, EnvProvider
+
+    try:
+        binary = Binary(
+            name="gallery-dl", binproviders=[PipProvider(), EnvProvider()]
+        ).load()
+        if binary and binary.abspath:
+            _gallerydl_binary_path = str(binary.abspath)
+            return _gallerydl_binary_path
+    except Exception:
+        pass
+
+    # Install via real plugin hooks
+    pip_hook = PLUGINS_ROOT / "pip" / "on_Binary__11_pip_install.py"
+    crawl_hook = PLUGIN_DIR / "on_Crawl__20_gallerydl_install.py"
+    if not pip_hook.exists():
+        return None
+
+    binary_id = str(uuid.uuid4())
+    machine_id = str(uuid.uuid4())
+    overrides = None
+
+    if crawl_hook.exists():
+        crawl_result = subprocess.run(
+            [sys.executable, str(crawl_hook)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        for line in crawl_result.stdout.strip().split("\n"):
+            if not line.strip().startswith("{"):
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if record.get("type") == "Binary" and record.get("name") == "gallery-dl":
+                overrides = record.get("overrides")
+                break
+
+    global _gallerydl_lib_root
+    if not _gallerydl_lib_root:
+        _gallerydl_lib_root = tempfile.mkdtemp(prefix="gallerydl-lib-")
+
+    env = os.environ.copy()
+    env["HOME"] = str(_gallerydl_lib_root)
+    env["SNAP_DIR"] = str(Path(_gallerydl_lib_root) / "data")
+    env.pop("LIB_DIR", None)
+
+    cmd = [
+        sys.executable,
+        str(pip_hook),
+        "--binary-id",
+        binary_id,
+        "--machine-id",
+        machine_id,
+        "--name",
+        "gallery-dl",
+    ]
+    if overrides:
+        cmd.append(f"--overrides={json.dumps(overrides)}")
+
+    install_result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        env=env,
+    )
+
+    for line in install_result.stdout.strip().split("\n"):
+        if not line.strip().startswith("{"):
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if record.get("type") == "Binary" and record.get("name") == "gallery-dl":
+            _gallerydl_binary_path = record.get("abspath")
+            return _gallerydl_binary_path
+
+    return None
+
 
 def test_hook_script_exists():
     """Verify on_Snapshot hook exists."""
@@ -36,35 +145,22 @@ def test_hook_script_exists():
 
 
 def test_verify_deps_with_abx_pkg():
-    """Verify gallery-dl is available via abx-pkg."""
-    from abx_pkg import Binary, PipProvider, EnvProvider
-
-    try:
-        pip_provider = PipProvider()
-        env_provider = EnvProvider()
-    except Exception as exc:
-        pytest.fail(f"Python package providers unavailable in this runtime: {exc}")
-
-    missing_binaries = []
-
-    # Verify gallery-dl is available
-    gallerydl_binary = Binary(
-        name="gallery-dl", binproviders=[pip_provider, env_provider]
+    """Verify gallery-dl is installed by real plugin install hooks."""
+    binary_path = require_gallerydl_binary()
+    assert Path(binary_path).is_file(), (
+        f"Binary path must be a valid file: {binary_path}"
     )
-    gallerydl_loaded = gallerydl_binary.load()
-    if not (gallerydl_loaded and gallerydl_loaded.abspath):
-        missing_binaries.append("gallery-dl")
-
-    if missing_binaries:
-        pass
 
 
 def test_handles_non_gallery_url():
     """Test that gallery-dl extractor handles non-gallery URLs gracefully via hook."""
-    # Prerequisites checked by earlier test
+    binary_path = require_gallerydl_binary()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
+        env = os.environ.copy()
+        env["GALLERYDL_BINARY"] = binary_path
+        env["SNAP_DIR"] = str(tmpdir)
 
         # Run gallery-dl extraction hook on non-gallery URL
         result = subprocess.run(
@@ -79,6 +175,7 @@ def test_handles_non_gallery_url():
             cwd=tmpdir,
             capture_output=True,
             text=True,
+            env=env,
             timeout=60,
         )
 
@@ -153,9 +250,13 @@ def test_config_timeout():
     """Test that GALLERY_DL_TIMEOUT config is respected."""
     import os
 
+    binary_path = require_gallerydl_binary()
+
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
         env["GALLERY_DL_TIMEOUT"] = "5"
+        env["GALLERYDL_BINARY"] = binary_path
+        env["SNAP_DIR"] = str(tmpdir)
 
         start_time = time.time()
         result = subprocess.run(
@@ -186,6 +287,8 @@ def test_config_timeout():
 
 def test_real_gallery_url():
     """Test that gallery-dl can extract images from a real Flickr gallery URL."""
+    binary_path = require_gallerydl_binary()
+
     # Real public gallery URL that currently yields downloadable media.
     gallery_url = "https://www.flickr.com/photos/gregorydolivet/55002388567/in/explore-2025-12-25/"
 
@@ -197,6 +300,7 @@ def test_real_gallery_url():
             tmpdir = Path(tmpdir)
             env = os.environ.copy()
             env["GALLERYDL_TIMEOUT"] = "60"
+            env["GALLERYDL_BINARY"] = binary_path
             env["SNAP_DIR"] = str(tmpdir)
 
             start_time = time.time()

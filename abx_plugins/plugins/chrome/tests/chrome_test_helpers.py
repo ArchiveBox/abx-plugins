@@ -1113,7 +1113,7 @@ def setup_test_env(tmpdir: Path) -> dict:
 
 
 def launch_chromium_session(
-    env: dict, chrome_dir: Path, crawl_id: str
+    env: dict, chrome_dir: Path, crawl_id: str, timeout: int = 30
 ) -> Tuple[subprocess.Popen, str]:
     """Launch Chromium and return (process, cdp_url).
 
@@ -1124,6 +1124,7 @@ def launch_chromium_session(
         env: Environment dict (from setup_test_env)
         chrome_dir: Directory for Chrome to write its files (cdp_url.txt, chrome.pid, etc.)
         crawl_id: ID for the crawl
+        timeout: Maximum seconds to wait for cdp_url.txt
 
     Returns:
         Tuple of (chrome_launch_process, cdp_url)
@@ -1152,7 +1153,7 @@ def launch_chromium_session(
 
     # Wait for Chromium to launch and CDP URL to be available
     cdp_url = None
-    for _ in range(30):
+    for _ in range(timeout):
         if chrome_launch_process.poll() is not None:
             stdout, stderr = chrome_launch_process.communicate()
             raise RuntimeError(
@@ -1167,7 +1168,7 @@ def launch_chromium_session(
 
     if not cdp_url:
         chrome_launch_process.kill()
-        raise RuntimeError("Chromium CDP URL not found after 30s")
+        raise RuntimeError(f"Chromium CDP URL not found after {timeout}s")
 
     return chrome_launch_process, cdp_url
 
