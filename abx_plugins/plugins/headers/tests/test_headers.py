@@ -2,16 +2,14 @@
 Integration tests for headers plugin
 
 Tests verify:
-    pass
 1. Plugin script exists and is executable
 2. Node.js is available
-3. Headers extraction works for real example.com
+3. Headers extraction works for deterministic local URLs
 4. Output JSON contains actual HTTP headers
 5. Config options work (TIMEOUT, USER_AGENT)
 """
 
 import json
-import shutil
 import subprocess
 import tempfile
 import time
@@ -32,7 +30,45 @@ _HEADERS_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_headers.*"), None)
 if _HEADERS_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 HEADERS_HOOK = _HEADERS_HOOK
-TEST_URL = "https://example.com"
+TEST_URL = "http://headers-test.invalid/"
+CHROME_STARTUP_TIMEOUT_SECONDS = 45
+
+
+@pytest.fixture
+def headers_test_urls(httpserver):
+    """Serve deterministic pages for headers integration tests."""
+    httpserver.expect_request("/").respond_with_data(
+        """
+        <!doctype html>
+        <html>
+          <head><title>Headers Fixture</title></head>
+          <body><h1>Headers Fixture</h1></body>
+        </html>
+        """.strip(),
+        content_type="text/html; charset=utf-8",
+        headers={"Cache-Control": "max-age=60"},
+    )
+    httpserver.expect_request("/404").respond_with_data(
+        """
+        <!doctype html>
+        <html>
+          <head><title>Not Found Fixture</title></head>
+          <body><h1>Not Found</h1></body>
+        </html>
+        """.strip(),
+        content_type="text/html; charset=utf-8",
+        status=404,
+    )
+    httpserver.expect_request("/redirect").respond_with_data(
+        "",
+        status=302,
+        headers={"Location": "/"},
+    )
+    return {
+        "base": httpserver.url_for("/"),
+        "not_found": httpserver.url_for("/404"),
+        "redirect": httpserver.url_for("/redirect"),
+    }
 
 
 def normalize_root_url(url: str) -> str:
@@ -64,7 +100,8 @@ def run_headers_capture(headers_dir, snapshot_chrome_dir, env, url, snapshot_id)
     )
 
     headers_file = headers_dir / "headers.json"
-    for _ in range(60):
+    wait_seconds = 60 if nav_result.returncode == 0 else 5
+    for _ in range(wait_seconds):
         if headers_file.exists() and headers_file.stat().st_size > 0:
             break
         time.sleep(1)
@@ -90,9 +127,7 @@ def test_hook_script_exists():
 def test_node_is_available():
     """Test that Node.js is available on the system."""
     result = subprocess.run(["which", "node"], capture_output=True, text=True)
-
-    if result.returncode != 0:
-        pass
+    assert result.returncode == 0, f"node not found in PATH: {result.stderr}"
 
     binary_path = result.stdout.strip()
     assert Path(binary_path).exists(), f"Binary should exist at {binary_path}"
@@ -111,17 +146,19 @@ def test_node_is_available():
     )
 
 
-def test_extracts_headers_from_example_com(require_chrome_runtime):
-    """Test full workflow: extract headers from real example.com."""
-
-    # Check node is available
-    if not shutil.which("node"):
-        pass
+def test_extracts_headers_from_example_com(require_chrome_runtime, headers_test_urls):
+    """Test full workflow: extract headers from deterministic local fixture."""
+    test_url = headers_test_urls["base"]
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        with chrome_session(tmpdir, test_url=TEST_URL, navigate=False) as (
+        with chrome_session(
+            tmpdir,
+            test_url=test_url,
+            navigate=False,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        ) as (
             _process,
             _pid,
             snapshot_chrome_dir,
@@ -134,7 +171,7 @@ def test_extracts_headers_from_example_com(require_chrome_runtime):
                 headers_dir,
                 snapshot_chrome_dir,
                 env,
-                TEST_URL,
+                test_url,
                 "test789",
             )
 
@@ -162,13 +199,13 @@ def test_extracts_headers_from_example_com(require_chrome_runtime):
         # Verify output file exists (hook writes to current directory)
         assert headers_file.exists(), "headers.json not created"
 
-        # Verify headers JSON contains REAL example.com response
+        # Verify headers JSON contains deterministic local response
         headers_data = json.loads(headers_file.read_text())
 
         assert "url" in headers_data, "Should have url field"
         assert normalize_root_url(headers_data["url"]) == normalize_root_url(
-            TEST_URL
-        ), f"URL should be {TEST_URL}"
+            test_url
+        ), f"URL should be {test_url}"
 
         assert "status" in headers_data, "Should have status field"
         assert headers_data["status"] in [200, 301, 302], (
@@ -204,16 +241,19 @@ def test_extracts_headers_from_example_com(require_chrome_runtime):
         ), "Response headers should include :status pseudo header"
 
 
-def test_headers_output_structure(require_chrome_runtime):
+def test_headers_output_structure(require_chrome_runtime, headers_test_urls):
     """Test that headers plugin produces correctly structured output."""
-
-    if not shutil.which("node"):
-        pass
+    test_url = headers_test_urls["base"]
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        with chrome_session(tmpdir, test_url=TEST_URL, navigate=False) as (
+        with chrome_session(
+            tmpdir,
+            test_url=test_url,
+            navigate=False,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        ) as (
             _process,
             _pid,
             snapshot_chrome_dir,
@@ -226,7 +266,7 @@ def test_headers_output_structure(require_chrome_runtime):
                 headers_dir,
                 snapshot_chrome_dir,
                 env,
-                TEST_URL,
+                test_url,
                 "testformat",
             )
 
@@ -277,16 +317,13 @@ def test_headers_output_structure(require_chrome_runtime):
         )
         assert isinstance(output_data["headers"], dict), "Headers should be dict"
 
-        # Verify example.com returns expected headers
-        assert normalize_root_url(output_data["url"]) == normalize_root_url(TEST_URL)
-        assert output_data["status"] in [200, 301, 302]
+        # Verify local fixture returns expected headers
+        assert normalize_root_url(output_data["url"]) == normalize_root_url(test_url)
+        assert output_data["status"] == 200
 
 
 def test_fails_without_chrome_session():
     """Test that headers plugin fails when chrome session is missing."""
-
-    if not shutil.which("node"):
-        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -309,18 +346,20 @@ def test_fails_without_chrome_session():
         ), f"Unexpected error output: {combined_output}"
 
 
-def test_config_timeout_honored(require_chrome_runtime):
+def test_config_timeout_honored(require_chrome_runtime, headers_test_urls):
     """Test that TIMEOUT config is respected."""
-
-    if not shutil.which("node"):
-        pass
+    test_url = headers_test_urls["base"]
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Set very short timeout (but example.com should still succeed)
-
-        with chrome_session(tmpdir, test_url=TEST_URL, navigate=False) as (
+        # Set very short timeout (fixture should still succeed)
+        with chrome_session(
+            tmpdir,
+            test_url=test_url,
+            navigate=False,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        ) as (
             _process,
             _pid,
             snapshot_chrome_dir,
@@ -334,7 +373,7 @@ def test_config_timeout_honored(require_chrome_runtime):
                 headers_dir,
                 snapshot_chrome_dir,
                 env,
-                TEST_URL,
+                test_url,
                 "testtimeout",
             )
 
@@ -344,18 +383,19 @@ def test_config_timeout_honored(require_chrome_runtime):
         assert hook_code in (0, 1), "Should complete without hanging"
 
 
-def test_config_user_agent(require_chrome_runtime):
+def test_config_user_agent(require_chrome_runtime, headers_test_urls):
     """Test that USER_AGENT config is used."""
-
-    if not shutil.which("node"):
-        pass
+    test_url = headers_test_urls["base"]
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Set custom user agent
-
-        with chrome_session(tmpdir, test_url=TEST_URL, navigate=False) as (
+        with chrome_session(
+            tmpdir,
+            test_url=test_url,
+            navigate=False,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        ) as (
             _process,
             _pid,
             snapshot_chrome_dir,
@@ -369,11 +409,11 @@ def test_config_user_agent(require_chrome_runtime):
                 headers_dir,
                 snapshot_chrome_dir,
                 env,
-                TEST_URL,
+                test_url,
                 "testua",
             )
 
-        # Should succeed (example.com doesn't block)
+        # Should succeed on fixture page
         hook_code, stdout, _stderr, nav_result, _headers_file = result
         assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
         if hook_code == 0:
@@ -397,16 +437,18 @@ def test_config_user_agent(require_chrome_runtime):
             )
 
 
-def test_handles_https_urls(require_chrome_runtime):
-    """Test that HTTPS URLs work correctly."""
-
-    if not shutil.which("node"):
-        pass
+def test_handles_https_urls(require_chrome_runtime, chrome_test_https_url):
+    """Test HTTPS behavior deterministically (success or explicit cert failure)."""
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        with chrome_session(tmpdir, test_url="https://example.org", navigate=False) as (
+        with chrome_session(
+            tmpdir,
+            test_url=chrome_test_https_url,
+            navigate=False,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        ) as (
             _process,
             _pid,
             snapshot_chrome_dir,
@@ -418,32 +460,39 @@ def test_handles_https_urls(require_chrome_runtime):
                 headers_dir,
                 snapshot_chrome_dir,
                 env,
-                "https://example.org",
+                chrome_test_https_url,
                 "testhttps",
             )
 
         hook_code, _stdout, _stderr, nav_result, headers_file = result
-        assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
-        if hook_code == 0:
-            if headers_file.exists():
-                output_data = json.loads(headers_file.read_text())
-                assert normalize_root_url(output_data["url"]) == normalize_root_url(
-                    "https://example.org"
-                )
-                assert output_data["status"] in [200, 301, 302]
+        if nav_result.returncode == 0:
+            assert hook_code == 0, "Headers hook should succeed after successful HTTPS navigation"
+            assert headers_file.exists(), "headers.json not created for HTTPS page"
+            output_data = json.loads(headers_file.read_text())
+            assert normalize_root_url(output_data["url"]) == normalize_root_url(
+                chrome_test_https_url
+            )
+            assert output_data["status"] == 200
+        else:
+            nav_output = (nav_result.stdout + nav_result.stderr).lower()
+            assert "err_cert" in nav_output or "certificate" in nav_output, (
+                f"Expected TLS/certificate navigation error, got: {nav_result.stderr}"
+            )
+            assert hook_code in (0, 1), "Hook must terminate cleanly when HTTPS navigation fails"
 
 
-def test_handles_404_gracefully(require_chrome_runtime):
+def test_handles_404_gracefully(require_chrome_runtime, headers_test_urls):
     """Test that headers plugin handles 404s gracefully."""
-
-    if not shutil.which("node"):
-        pass
+    not_found_url = headers_test_urls["not_found"]
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
         with chrome_session(
-            tmpdir, test_url="https://example.com/nonexistent-page-404", navigate=False
+            tmpdir,
+            test_url=not_found_url,
+            navigate=False,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
         ) as (_process, _pid, snapshot_chrome_dir, env):
             headers_dir = snapshot_chrome_dir.parent / "headers"
             headers_dir.mkdir(exist_ok=True)
@@ -451,18 +500,16 @@ def test_handles_404_gracefully(require_chrome_runtime):
                 headers_dir,
                 snapshot_chrome_dir,
                 env,
-                "https://example.com/nonexistent-page-404",
+                not_found_url,
                 "test404",
             )
 
-        # May succeed or fail depending on server behavior
-        # If it succeeds, verify 404 status is captured
         hook_code, _stdout, _stderr, nav_result, headers_file = result
         assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
-        if hook_code == 0:
-            if headers_file.exists():
-                output_data = json.loads(headers_file.read_text())
-                assert output_data["status"] == 404, "Should capture 404 status"
+        assert hook_code == 0, "Headers hook should succeed for HTTP 404 responses"
+        assert headers_file.exists(), "headers.json not created"
+        output_data = json.loads(headers_file.read_text())
+        assert output_data["status"] == 404, "Should capture 404 status"
 
 
 if __name__ == "__main__":
