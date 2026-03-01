@@ -16,7 +16,7 @@ import json
 import sys
 
 import rich_click as click
-from abx_pkg import AptProvider, Binary
+from abx_pkg import AptProvider, Binary, EnvProvider
 
 
 @click.command()
@@ -41,7 +41,7 @@ def main(
         click.echo("apt not available on this system", err=True)
         sys.exit(1)
 
-    click.echo(f"Installing {name} via apt...", err=True)
+    click.echo(f"Resolving {name} via apt (load or install)...", err=True)
 
     try:
         # Parse overrides if provided
@@ -57,11 +57,12 @@ def main(
                     f"Warning: Failed to parse overrides JSON: {overrides}", err=True
                 )
 
+        # Prefer already-installed binaries found in PATH, then fall back to apt install.
         binary = Binary(
             name=name,
-            binproviders=[provider],
+            binproviders=[EnvProvider(), provider],
             overrides={"apt": overrides_dict} if overrides_dict else {},
-        ).install()
+        ).load_or_install()
     except Exception as e:
         click.echo(f"apt install failed: {e}", err=True)
         sys.exit(1)

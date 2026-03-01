@@ -201,35 +201,122 @@ function findFreePort() {
  */
 function waitForDebugPort(port, timeout = 30000) {
     const startTime = Date.now();
+    let lastFailure = 'no response yet';
+    const host = '127.0.0.1';
 
-    return new Promise((resolve, reject) => {
-        const tryConnect = () => {
-            if (Date.now() - startTime > timeout) {
-                reject(new Error(`Timeout waiting for Chrome debug port ${port}`));
+    const probeDebugPort = () => new Promise((resolve, reject) => {
+        const socket = net.createConnection({ host, port });
+        let rawResponse = '';
+        let settled = false;
+        let expectedBodyLength = null;
+        let parsedHeaders = false;
+        let statusLine = '';
+
+        const finishReject = (error) => {
+            if (settled) return;
+            settled = true;
+            reject(error);
+        };
+
+        const finishResolve = (info) => {
+            if (settled) return;
+            settled = true;
+            resolve(info);
+        };
+
+        const tryParseResponse = () => {
+            const separator = rawResponse.indexOf('\r\n\r\n');
+            if (separator === -1) return;
+
+            if (!parsedHeaders) {
+                const headersText = rawResponse.slice(0, separator);
+                const headerLines = headersText.split('\r\n');
+                statusLine = headerLines[0] || '';
+                parsedHeaders = true;
+                for (const line of headerLines.slice(1)) {
+                    const [name, value] = line.split(':', 2);
+                    if (!name || !value) continue;
+                    if (name.trim().toLowerCase() === 'content-length') {
+                        const parsed = parseInt(value.trim(), 10);
+                        if (Number.isFinite(parsed) && parsed >= 0) {
+                            expectedBodyLength = parsed;
+                        }
+                    }
+                }
+            }
+
+            if (!statusLine.includes(' 200 ')) {
+                finishReject(new Error(`unexpected status line: ${statusLine}`));
+                socket.destroy();
                 return;
             }
 
-            const req = http.get(`http://127.0.0.1:${port}/json/version`, (res) => {
-                let data = '';
-                res.on('data', (chunk) => (data += chunk));
-                res.on('end', () => {
-                    try {
-                        const info = JSON.parse(data);
-                        resolve(info);
-                    } catch (e) {
-                        setTimeout(tryConnect, 100);
-                    }
-                });
-            });
+            const body = rawResponse.slice(separator + 4);
+            if (expectedBodyLength !== null && body.length < expectedBodyLength) {
+                return;
+            }
 
-            req.on('error', () => {
-                setTimeout(tryConnect, 100);
-            });
+            try {
+                const info = JSON.parse(body);
+                if (!info?.webSocketDebuggerUrl) {
+                    finishReject(new Error('missing webSocketDebuggerUrl in /json/version response'));
+                    socket.destroy();
+                    return;
+                }
+                finishResolve(info);
+                socket.destroy();
+            } catch (error) {
+                if (expectedBodyLength === null) {
+                    // Wait for more bytes when no Content-Length is present.
+                    return;
+                }
+                finishReject(new Error(`invalid /json/version payload: ${error.message}`));
+                socket.destroy();
+            }
+        };
 
-            req.setTimeout(1000, () => {
-                req.destroy();
-                setTimeout(tryConnect, 100);
-            });
+        socket.setTimeout(2000);
+        socket.on('timeout', () => {
+            socket.destroy(new Error('socket timeout'));
+        });
+        socket.on('error', (error) => {
+            finishReject(error);
+        });
+        socket.on('connect', () => {
+            socket.write(
+                `GET /json/version HTTP/1.1\r\nHost: ${host}:${port}\r\nConnection: close\r\n\r\n`
+            );
+        });
+        socket.on('data', (chunk) => {
+            rawResponse += chunk.toString('utf8');
+            tryParseResponse();
+        });
+        socket.on('end', () => {
+            if (!settled) {
+                tryParseResponse();
+            }
+            if (!settled) {
+                finishReject(new Error('incomplete /json/version response'));
+            }
+        });
+    });
+
+    return new Promise((resolve, reject) => {
+        const tryConnect = async () => {
+            if (Date.now() - startTime > timeout) {
+                reject(new Error(`Timeout waiting for Chrome debug port ${port} (${lastFailure})`));
+                return;
+            }
+
+            try {
+                const info = await probeDebugPort();
+                resolve(info);
+                return;
+            } catch (error) {
+                lastFailure = `${host}: ${error.message}`;
+            }
+
+            setTimeout(tryConnect, 100);
         };
 
         tryConnect();
@@ -566,8 +653,10 @@ async function launchChromium(options = {}) {
 
         // Wait for debug port
         console.error(`[*] Waiting for debug port ${debugPort}...`);
-        const versionInfo = await waitForDebugPort(debugPort, 30000);
+        const debugProbeTimeoutMs = getEnvInt('CHROME_DEBUG_PORT_TIMEOUT_MS', 30000);
+        const versionInfo = await waitForDebugPort(debugPort, debugProbeTimeoutMs);
         const wsUrl = versionInfo.webSocketDebuggerUrl;
+
         console.error(`[+] Chromium ready: ${wsUrl}`);
 
         fs.writeFileSync(path.join(outputDir, 'cdp_url.txt'), wsUrl);

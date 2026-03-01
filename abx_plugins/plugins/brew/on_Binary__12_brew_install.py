@@ -17,7 +17,7 @@ import json
 import sys
 
 import rich_click as click
-from abx_pkg import Binary, BrewProvider
+from abx_pkg import Binary, BrewProvider, EnvProvider
 
 
 @click.command()
@@ -47,7 +47,7 @@ def main(
         click.echo("brew not available on this system", err=True)
         sys.exit(1)
 
-    click.echo(f"Installing {name} via brew...", err=True)
+    click.echo(f"Resolving {name} via brew (load or install)...", err=True)
 
     try:
         # Parse overrides if provided
@@ -63,9 +63,12 @@ def main(
                     f"Warning: Failed to parse overrides JSON: {overrides}", err=True
                 )
 
+        # Prefer already-installed binaries found in PATH, then fall back to brew install.
         binary = Binary(
-            name=name, binproviders=[provider], overrides=overrides_dict or {}
-        ).install()
+            name=name,
+            binproviders=[EnvProvider(), provider],
+            overrides=overrides_dict or {},
+        ).load_or_install()
     except Exception as e:
         click.echo(f"brew install failed: {e}", err=True)
         sys.exit(1)
