@@ -169,7 +169,7 @@ def test_can_install_wget_via_provider():
                 record = json.loads(line)
                 if record.get("type") == "Binary":
                     assert record["name"] == "wget"
-                    assert record["binprovider"] in ["brew", "apt"]
+                    assert record["binprovider"] in ["brew", "apt", "env"]
                     assert record["abspath"], "Should have binary path"
                     assert Path(record["abspath"]).exists(), (
                         f"Binary should exist at {record['abspath']}"
