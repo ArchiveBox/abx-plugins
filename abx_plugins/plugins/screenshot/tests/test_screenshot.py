@@ -50,6 +50,7 @@ _CHROME_NAVIGATE_HOOK = get_hook_script(
 if _CHROME_NAVIGATE_HOOK is None:
     raise FileNotFoundError(f"Chrome navigate hook not found in {CHROME_PLUGIN_DIR}")
 CHROME_NAVIGATE_HOOK = _CHROME_NAVIGATE_HOOK
+CHROME_STARTUP_TIMEOUT_SECONDS = 45
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -85,7 +86,7 @@ def test_screenshot_with_chrome_session(chrome_test_url):
                 snapshot_id=snapshot_id,
                 test_url=test_url,
                 navigate=True,
-                timeout=30,
+                timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
             ) as (chrome_process, chrome_pid, snapshot_chrome_dir, env):
                 # Scenario 1: Basic screenshot extraction
                 screenshot_dir = snapshot_chrome_dir.parent / "screenshot"
