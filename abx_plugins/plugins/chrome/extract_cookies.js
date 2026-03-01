@@ -27,6 +27,7 @@ const {
     launchChromium,
     killChrome,
     getEnv,
+    getCookiesViaCdp,
 } = require('./chrome_utils.js');
 
 /**
@@ -146,75 +147,11 @@ async function main() {
         console.error(`[*] Chrome launched (PID: ${chromePid})`);
         console.error(`[*] CDP URL: ${cdpUrl}`);
 
-        // Connect to CDP and get cookies
-        const http = require('http');
-
-        // Use CDP directly via HTTP to get all cookies
-        const getCookies = () => {
-            return new Promise((resolve, reject) => {
-                const req = http.request(
-                    {
-                        hostname: '127.0.0.1',
-                        port: port,
-                        path: '/json/list',
-                        method: 'GET',
-                    },
-                    (res) => {
-                        let data = '';
-                        res.on('data', (chunk) => (data += chunk));
-                        res.on('end', () => {
-                            try {
-                                const targets = JSON.parse(data);
-                                // Find a page target
-                                const pageTarget = targets.find(t => t.type === 'page') || targets[0];
-                                if (!pageTarget) {
-                                    reject(new Error('No page target found'));
-                                    return;
-                                }
-
-                                // Connect via WebSocket and send CDP command
-                                const WebSocket = require('ws');
-                                const ws = new WebSocket(pageTarget.webSocketDebuggerUrl);
-
-                                ws.on('open', () => {
-                                    ws.send(JSON.stringify({
-                                        id: 1,
-                                        method: 'Network.getAllCookies',
-                                    }));
-                                });
-
-                                ws.on('message', (message) => {
-                                    const response = JSON.parse(message);
-                                    if (response.id === 1) {
-                                        ws.close();
-                                        if (response.result && response.result.cookies) {
-                                            resolve(response.result.cookies);
-                                        } else {
-                                            reject(new Error('Failed to get cookies: ' + JSON.stringify(response)));
-                                        }
-                                    }
-                                });
-
-                                ws.on('error', (err) => {
-                                    reject(err);
-                                });
-                            } catch (e) {
-                                reject(e);
-                            }
-                        });
-                    }
-                );
-
-                req.on('error', reject);
-                req.end();
-            });
-        };
-
         // Wait a moment for the browser to fully initialize
         await new Promise(r => setTimeout(r, 2000));
 
         console.error('[*] Fetching cookies via CDP...');
-        const cookies = await getCookies();
+        const cookies = await getCookiesViaCdp(port, { timeoutMs: 20000 });
 
         console.error(`[+] Retrieved ${cookies.length} cookies`);
 

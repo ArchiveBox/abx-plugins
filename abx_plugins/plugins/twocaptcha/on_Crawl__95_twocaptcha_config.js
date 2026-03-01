@@ -137,7 +137,7 @@ function getTwoCaptchaConfig() {
         autoSolveMTCaptcha: true,
 
         // Other settings with sensible defaults
-        recaptchaV2Type: 'token',
+        recaptchaV2Type: 'click',
         recaptchaV3MinScore: 0.3,
         buttonPosition: 'inner',
         useProxy: false,
@@ -256,20 +256,31 @@ async function configure2Captcha() {
                 console.error('[*] Waiting for Config object...');
                 await configPage.waitForFunction(() => typeof Config !== 'undefined', { timeout: 10000 });
 
-                // Use chrome.storage.local.set with the config wrapper
+                // Merge onto extension defaults instead of replacing the whole object.
+                // New extension versions may add nested config fields (e.g. recaptcha.*)
+                // that runtime solver code expects to exist.
                 const result = await configPage.evaluate((cfg) => {
-                    return new Promise((resolve) => {
-                        if (typeof chrome !== 'undefined' && chrome.storage) {
-                            chrome.storage.local.set({ config: cfg }, () => {
-                                if (chrome.runtime.lastError) {
-                                    resolve({ success: false, error: chrome.runtime.lastError.message });
-                                } else {
-                                    resolve({ success: true, method: 'options_page' });
-                                }
-                            });
-                        } else {
+                    return new Promise(async (resolve) => {
+                        if (typeof chrome === 'undefined' || !chrome.storage) {
                             resolve({ success: false, error: 'chrome.storage not available' });
+                            return;
                         }
+
+                        let currentConfig = {};
+                        try {
+                            if (typeof Config !== 'undefined' && typeof Config.getAll === 'function') {
+                                currentConfig = await Config.getAll();
+                            }
+                        } catch (e) {}
+
+                        const mergedConfig = { ...currentConfig, ...cfg };
+                        chrome.storage.local.set({ config: mergedConfig }, () => {
+                            if (chrome.runtime.lastError) {
+                                resolve({ success: false, error: chrome.runtime.lastError.message });
+                            } else {
+                                resolve({ success: true, method: 'options_page' });
+                            }
+                        });
                     });
                 }, config);
 

@@ -14,7 +14,6 @@
 #     ./on_Binary__14_custom_install.py [...] > events.jsonl
 
 import json
-import os
 import subprocess
 import sys
 
@@ -23,15 +22,17 @@ from abx_pkg import Binary, EnvProvider
 
 
 @click.command()
-@click.option('--binary-id', required=True, help="Binary UUID")
-@click.option('--machine-id', required=True, help="Machine UUID")
-@click.option('--name', required=True, help="Binary name to install")
-@click.option('--binproviders', default='*', help="Allowed providers (comma-separated)")
-@click.option('--custom-cmd', required=True, help="Custom bash command to run")
-def main(binary_id: str, machine_id: str, name: str, binproviders: str, custom_cmd: str):
+@click.option("--binary-id", required=True, help="Binary UUID")
+@click.option("--machine-id", required=True, help="Machine UUID")
+@click.option("--name", required=True, help="Binary name to install")
+@click.option("--binproviders", default="*", help="Allowed providers (comma-separated)")
+@click.option("--custom-cmd", required=True, help="Custom bash command to run")
+def main(
+    binary_id: str, machine_id: str, name: str, binproviders: str, custom_cmd: str
+):
     """Install binary using custom bash command."""
 
-    if binproviders != '*' and 'custom' not in binproviders.split(','):
+    if binproviders != "*" and "custom" not in binproviders.split(","):
         click.echo(f"custom provider not allowed for {name}", err=True)
         sys.exit(0)
 
@@ -63,7 +64,7 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, custom_c
             binary = Binary(
                 name=name,
                 binproviders=[provider],
-                overrides={'env': {'version': '0.0.1'}},
+                overrides={"env": {"version": "0.0.1"}},
             ).load()
         except Exception as e:
             click.echo(f"{name} not found after custom install: {e}", err=True)
@@ -73,18 +74,16 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, custom_c
         click.echo(f"{name} not found after custom install", err=True)
         sys.exit(1)
 
-    machine_id = os.environ.get('MACHINE_ID', '')
-
     # Output Binary JSONL record to stdout
     record = {
-        'type': 'Binary',
-        'name': name,
-        'abspath': str(binary.abspath),
-        'version': str(binary.version) if binary.version else '',
-        'sha256': binary.sha256 or '',
-        'binprovider': 'custom',
-        'machine_id': machine_id,
-        'binary_id': binary_id,
+        "type": "Binary",
+        "name": name,
+        "abspath": str(binary.abspath),
+        "version": str(binary.version) if binary.version else "",
+        "sha256": binary.sha256 or "",
+        "binprovider": "custom",
+        "machine_id": machine_id,
+        "binary_id": binary_id,
     }
     print(json.dumps(record))
 
@@ -95,5 +94,5 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, custom_c
     sys.exit(0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

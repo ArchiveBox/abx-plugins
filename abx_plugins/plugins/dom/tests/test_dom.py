@@ -14,28 +14,28 @@ Tests verify:
 import json
 import os
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
     get_plugin_dir,
     get_hook_script,
-    run_hook_and_parse,
-    LIB_DIR,
-    NODE_MODULES_DIR,
-    PLUGINS_ROOT,
     chrome_session,
 )
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
-DOM_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_dom.*')
-NPM_PROVIDER_HOOK = get_hook_script(PLUGINS_ROOT / 'npm', 'on_Binary__install_using_npm_provider.py')
-TEST_URL = 'https://example.com'
+_DOM_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_dom.*")
+if _DOM_HOOK is None:
+    raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
+DOM_HOOK = _DOM_HOOK
+TEST_URL = "https://example.com"
+CHROME_STARTUP_TIMEOUT_SECONDS = 45
 
 
 def test_hook_script_exists():
@@ -45,95 +45,124 @@ def test_hook_script_exists():
 
 def test_verify_deps_with_abx_pkg():
     """Verify dependencies are available via abx-pkg after hook installation."""
-    from abx_pkg import Binary, EnvProvider, BinProviderOverrides
-
-    EnvProvider.model_rebuild()
+    from abx_pkg import Binary, EnvProvider
 
     # Verify node is available
-    node_binary = Binary(name='node', binproviders=[EnvProvider()])
+    node_binary = Binary(name="node", binproviders=[EnvProvider()])
     node_loaded = node_binary.load()
     assert node_loaded and node_loaded.abspath, "Node.js required for dom plugin"
 
 
-def test_extracts_dom_from_example_com():
-    """Test full workflow: extract DOM from real example.com via hook."""
+def test_extracts_dom_from_example_com(require_chrome_runtime, chrome_test_url):
+    """Test full workflow: extract DOM from deterministic local fixture via hook."""
     # Prerequisites checked by earlier test
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        with chrome_session(tmpdir, test_url=TEST_URL) as (_process, _pid, snapshot_chrome_dir, env):
-            dom_dir = snapshot_chrome_dir.parent / 'dom'
+        with chrome_session(
+            tmpdir,
+            test_url=chrome_test_url,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        ) as (
+            _process,
+            _pid,
+            snapshot_chrome_dir,
+            env,
+        ):
+            dom_dir = snapshot_chrome_dir.parent / "dom"
             dom_dir.mkdir(exist_ok=True)
 
             # Run DOM extraction hook
             result = subprocess.run(
-                ['node', str(DOM_HOOK), f'--url={TEST_URL}', '--snapshot-id=test789'],
+                [
+                    "node",
+                    str(DOM_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=test789",
+                ],
                 cwd=dom_dir,
                 capture_output=True,
                 text=True,
                 timeout=120,
-                env=env
+                env=env,
             )
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
         # Parse clean JSONL output
         result_json = None
-        for line in result.stdout.strip().split('\n'):
+        for line in result.stdout.strip().split("\n"):
             line = line.strip()
-            if line.startswith('{'):
+            if line.startswith("{"):
                 try:
                     record = json.loads(line)
-                    if record.get('type') == 'ArchiveResult':
+                    if record.get("type") == "ArchiveResult":
                         result_json = record
                         break
                 except json.JSONDecodeError:
                     pass
 
         assert result_json, "Should have ArchiveResult JSONL output"
-        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
+        assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
 
         # Verify filesystem output (hook writes directly to working dir)
-        dom_file = dom_dir / 'output.html'
-        assert dom_file.exists(), f"output.html not created. Files: {list(tmpdir.iterdir())}"
+        dom_file = dom_dir / "output.html"
+        assert dom_file.exists(), (
+            f"output.html not created. Files: {list(tmpdir.iterdir())}"
+        )
 
         # Verify HTML content contains REAL example.com text
-        html_content = dom_file.read_text(errors='ignore')
-        assert len(html_content) > 200, f"HTML content too short: {len(html_content)} bytes"
-        assert '<html' in html_content.lower(), "Missing <html> tag"
-        assert 'example domain' in html_content.lower(), "Missing 'Example Domain' in HTML"
-        assert ('this domain' in html_content.lower() or
-                'illustrative examples' in html_content.lower()), \
-            "Missing example.com description text"
+        html_content = dom_file.read_text(errors="ignore")
+        assert len(html_content) > 200, (
+            f"HTML content too short: {len(html_content)} bytes"
+        )
+        html_lower = html_content.lower()
+        assert "<html" in html_lower, "Missing <html> tag"
+        assert "example domain" in html_lower, "Missing 'Example Domain' in HTML"
+        assert (
+            "this domain" in html_lower
+            or "illustrative examples" in html_lower
+            or "local deterministic test page" in html_lower
+            or "chrome test helper fixture" in html_lower
+        ), "Missing expected description text in extracted HTML"
 
 
 def test_config_save_dom_false_skips():
     """Test that DOM_ENABLED=False exits without emitting JSONL."""
-    import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         env = os.environ.copy()
-        env['DOM_ENABLED'] = 'False'
+        env["DOM_ENABLED"] = "False"
 
         result = subprocess.run(
-            ['node', str(DOM_HOOK), f'--url={TEST_URL}', '--snapshot-id=test999'],
+            ["node", str(DOM_HOOK), f"--url={TEST_URL}", "--snapshot-id=test999"],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             env=env,
-            timeout=30
+            timeout=30,
         )
 
-        assert result.returncode == 0, f"Should exit 0 when feature disabled: {result.stderr}"
+        assert result.returncode == 0, (
+            f"Should exit 0 when feature disabled: {result.stderr}"
+        )
 
         # Feature disabled - temporary failure, should NOT emit JSONL
-        assert 'Skipping DOM' in result.stderr or 'False' in result.stderr, "Should log skip reason to stderr"
+        assert "Skipping DOM" in result.stderr or "False" in result.stderr, (
+            "Should log skip reason to stderr"
+        )
 
         # Should NOT emit any JSONL
-        jsonl_lines = [line for line in result.stdout.strip().split('\n') if line.strip().startswith('{')]
-        assert len(jsonl_lines) == 0, f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
+        jsonl_lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if line.strip().startswith("{")
+        ]
+        assert len(jsonl_lines) == 0, (
+            f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
+        )
 
 
 def test_staticfile_present_skips():
@@ -141,47 +170,53 @@ def test_staticfile_present_skips():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir
-        env = get_test_env() | {'SNAP_DIR': str(snap_dir)}
+        env = get_test_env() | {"SNAP_DIR": str(snap_dir)}
 
         # Create directory structure like real ArchiveBox:
         # tmpdir/
         #   staticfile/  <- staticfile extractor output
         #   dom/         <- dom extractor runs here, looks for ../staticfile
-        staticfile_dir = tmpdir / 'staticfile'
+        staticfile_dir = tmpdir / "staticfile"
         staticfile_dir.mkdir()
-        (staticfile_dir / 'stdout.log').write_text('{"type":"ArchiveResult","status":"succeeded","output_str":"index.html"}\n')
+        (staticfile_dir / "stdout.log").write_text(
+            '{"type":"ArchiveResult","status":"succeeded","output_str":"index.html"}\n'
+        )
 
-        dom_dir = tmpdir / 'dom'
+        dom_dir = tmpdir / "dom"
         dom_dir.mkdir()
 
         result = subprocess.run(
-            ['node', str(DOM_HOOK), f'--url={TEST_URL}', '--snapshot-id=teststatic'],
+            ["node", str(DOM_HOOK), f"--url={TEST_URL}", "--snapshot-id=teststatic"],
             cwd=dom_dir,  # Run from dom subdirectory
             capture_output=True,
             text=True,
-            timeout=30
-        ,
-            env=env)
+            timeout=30,
+            env=env,
+        )
 
         assert result.returncode == 0, "Should exit 0 when permanently skipping"
 
         # Permanent skip - should emit ArchiveResult with status='skipped'
         result_json = None
-        for line in result.stdout.strip().split('\n'):
+        for line in result.stdout.strip().split("\n"):
             line = line.strip()
-            if line.startswith('{'):
+            if line.startswith("{"):
                 try:
                     record = json.loads(line)
-                    if record.get('type') == 'ArchiveResult':
+                    if record.get("type") == "ArchiveResult":
                         result_json = record
                         break
                 except json.JSONDecodeError:
                     pass
 
         assert result_json, "Should emit ArchiveResult JSONL for permanent skip"
-        assert result_json['status'] == 'skipped', f"Should have status='skipped': {result_json}"
-        assert 'staticfile' in result_json.get('output_str', '').lower(), "Should mention staticfile in output_str"
+        assert result_json["status"] == "skipped", (
+            f"Should have status='skipped': {result_json}"
+        )
+        assert "staticfile" in result_json.get("output_str", "").lower(), (
+            "Should mention staticfile in output_str"
+        )
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

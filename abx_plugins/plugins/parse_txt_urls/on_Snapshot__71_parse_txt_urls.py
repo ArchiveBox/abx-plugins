@@ -23,37 +23,35 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, timezone
 from html import unescape
 from pathlib import Path
 from urllib.parse import urlparse
-from urllib.request import urlopen
 
 import rich_click as click
 
-PLUGIN_NAME = 'parse_txt_urls'
+PLUGIN_NAME = "parse_txt_urls"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
-URLS_FILE = Path('urls.jsonl')
+URLS_FILE = Path("urls.jsonl")
 
 # URL regex from archivebox/misc/util.py
 # https://mathiasbynens.be/demo/url-regex
 URL_REGEX = re.compile(
-    r'(?=('
-    r'http[s]?://'                     # start matching from allowed schemes
-    r'(?:[a-zA-Z]|[0-9]'               # followed by allowed alphanum characters
-    r'|[-_$@.&+!*\(\),]'               #   or allowed symbols (keep hyphen first to match literal hyphen)
-    r'|[^\u0000-\u007F])+'             #   or allowed unicode bytes
-    r'[^\]\[<>"\'\s]+'                 # stop parsing at these symbols
-    r'))',
+    r"(?=("
+    r"http[s]?://"  # start matching from allowed schemes
+    r"(?:[a-zA-Z]|[0-9]"  # followed by allowed alphanum characters
+    r"|[-_$@.&+!*\(\),]"  #   or allowed symbols (keep hyphen first to match literal hyphen)
+    r"|[^\u0000-\u007F])+"  #   or allowed unicode bytes
+    r'[^\]\[<>"\'\s]+'  # stop parsing at these symbols
+    r"))",
     re.IGNORECASE | re.UNICODE,
 )
 
 
-def parens_are_matched(string: str, open_char='(', close_char=')') -> bool:
+def parens_are_matched(string: str, open_char="(", close_char=")") -> bool:
     """Check that all parentheses in a string are balanced and nested properly."""
     count = 0
     for c in string:
@@ -94,41 +92,49 @@ def fetch_content(url: str) -> str:
     """Fetch content from a URL (supports file:// and https://)."""
     parsed = urlparse(url)
 
-    if parsed.scheme == 'file':
+    if parsed.scheme == "file":
         # Local file
         file_path = parsed.path
-        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
             return f.read()
     else:
         # Remote URL
-        timeout = int(os.environ.get('TIMEOUT', '60'))
-        user_agent = os.environ.get('USER_AGENT', 'Mozilla/5.0 (compatible; ArchiveBox/1.0)')
+        timeout = int(os.environ.get("TIMEOUT", "60"))
+        user_agent = os.environ.get(
+            "USER_AGENT", "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
+        )
 
         import urllib.request
-        req = urllib.request.Request(url, headers={'User-Agent': user_agent})
+
+        req = urllib.request.Request(url, headers={"User-Agent": user_agent})
         with urllib.request.urlopen(req, timeout=timeout) as response:
-            return response.read().decode('utf-8', errors='replace')
+            return response.read().decode("utf-8", errors="replace")
 
 
 @click.command()
-@click.option('--url', required=True, help='URL to parse (file:// or https://)')
-@click.option('--snapshot-id', required=False, help='Parent Snapshot UUID')
-@click.option('--crawl-id', required=False, help='Crawl UUID')
-@click.option('--depth', type=int, default=0, help='Current depth level')
-def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0):
+@click.option("--url", required=True, help="URL to parse (file:// or https://)")
+@click.option("--snapshot-id", required=False, help="Parent Snapshot UUID")
+@click.option("--crawl-id", required=False, help="Crawl UUID")
+@click.option("--depth", type=int, default=0, help="Current depth level")
+def main(
+    url: str,
+    snapshot_id: str | None = None,
+    crawl_id: str | None = None,
+    depth: int = 0,
+):
     """Parse plain text and extract URLs."""
-    env_depth = os.environ.get('SNAPSHOT_DEPTH')
+    env_depth = os.environ.get("SNAPSHOT_DEPTH")
     if env_depth is not None:
         try:
             depth = int(env_depth)
         except Exception:
             pass
-    crawl_id = crawl_id or os.environ.get('CRAWL_ID')
+    crawl_id = crawl_id or os.environ.get("CRAWL_ID")
 
     try:
         content = fetch_content(url)
     except Exception as e:
-        click.echo(f'Failed to fetch {url}: {e}', err=True)
+        click.echo(f"Failed to fetch {url}: {e}", err=True)
         sys.exit(1)
 
     urls_found = set()
@@ -142,26 +148,28 @@ def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0
     records = []
     for found_url in sorted(urls_found):
         record = {
-            'type': 'Snapshot',
-            'url': found_url,
-            'plugin': PLUGIN_NAME,
-            'depth': depth + 1,
+            "type": "Snapshot",
+            "url": found_url,
+            "plugin": PLUGIN_NAME,
+            "depth": depth + 1,
         }
         if snapshot_id:
-            record['parent_snapshot_id'] = snapshot_id
+            record["parent_snapshot_id"] = snapshot_id
         if crawl_id:
-            record['crawl_id'] = crawl_id
+            record["crawl_id"] = crawl_id
         records.append(record)
         print(json.dumps(record))
 
     # Emit ArchiveResult record to mark completion
-    URLS_FILE.write_text('\n'.join(json.dumps(r) for r in records) + ('\n' if records else ''))
-    status = 'succeeded' if urls_found else 'skipped'
+    URLS_FILE.write_text(
+        "\n".join(json.dumps(r) for r in records) + ("\n" if records else "")
+    )
+    status = "succeeded" if urls_found else "skipped"
     output_str = URLS_FILE.name
     ar_record = {
-        'type': 'ArchiveResult',
-        'status': status,
-        'output_str': output_str,
+        "type": "ArchiveResult",
+        "status": status,
+        "output_str": output_str,
     }
     print(json.dumps(ar_record))
 
@@ -169,5 +177,5 @@ def main(url: str, snapshot_id: str = None, crawl_id: str = None, depth: int = 0
     sys.exit(0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

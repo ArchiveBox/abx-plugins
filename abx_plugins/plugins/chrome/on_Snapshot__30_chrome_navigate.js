@@ -20,6 +20,9 @@ const path = require('path');
 // Add NODE_MODULES_DIR to module resolution paths if set
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 const puppeteer = require('puppeteer');
+const {
+    connectToPage,
+} = require('./chrome_utils.js');
 
 const PLUGIN_NAME = 'chrome_navigate';
 const CHROME_SESSION_DIR = '.';
@@ -30,7 +33,6 @@ if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 process.chdir(OUTPUT_DIR);
-const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
 
 function parseArgs() {
     const args = {};
@@ -57,34 +59,6 @@ function getEnvFloat(name, defaultValue = 0) {
     return isNaN(val) ? defaultValue : val;
 }
 
-async function waitForChromeTabOpen(timeoutMs = 60000) {
-    const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
-    const targetIdFile = path.join(CHROME_SESSION_DIR, 'target_id.txt');
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < timeoutMs) {
-        if (fs.existsSync(cdpFile) && fs.existsSync(targetIdFile)) {
-            return true;
-        }
-        // Wait 100ms before checking again
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
-
-    return false;
-}
-
-function getCdpUrl() {
-    const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
-    if (!fs.existsSync(cdpFile)) return null;
-    return fs.readFileSync(cdpFile, 'utf8').trim();
-}
-
-function getPageId() {
-    const targetIdFile = path.join(CHROME_SESSION_DIR, 'target_id.txt');
-    if (!fs.existsSync(targetIdFile)) return null;
-    return fs.readFileSync(targetIdFile, 'utf8').trim();
-}
-
 function getWaitCondition() {
     const waitFor = getEnv('CHROME_WAIT_FOR', 'networkidle2').toLowerCase();
     const valid = ['domcontentloaded', 'load', 'networkidle0', 'networkidle2'];
@@ -95,34 +69,23 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function navigate(url, cdpUrl) {
+async function navigate(url) {
     const timeout = (getEnvInt('CHROME_PAGELOAD_TIMEOUT') || getEnvInt('CHROME_TIMEOUT') || getEnvInt('TIMEOUT', 60)) * 1000;
     const delayAfterLoad = getEnvFloat('CHROME_DELAY_AFTER_LOAD', 0) * 1000;
     const waitUntil = getWaitCondition();
-    const targetId = getPageId();
 
     let browser = null;
     const navStartTime = Date.now();
 
     try {
-        browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl });
-
-        const pages = await browser.pages();
-        if (pages.length === 0) {
-            return { success: false, error: 'No pages found in browser', waitUntil, elapsed: Date.now() - navStartTime };
-        }
-
-        // Find page by target ID if available
-        let page = null;
-        if (targetId) {
-            page = pages.find(p => {
-                const target = p.target();
-                return target && target._targetId === targetId;
-            });
-        }
-        if (!page) {
-            page = pages[pages.length - 1];
-        }
+        const conn = await connectToPage({
+            chromeSessionDir: CHROME_SESSION_DIR,
+            timeoutMs: timeout,
+            requireTargetId: true,
+            puppeteer,
+        });
+        browser = conn.browser;
+        const page = conn.page;
 
         // Navigate
         console.log(`Navigating to ${url} (wait: ${waitUntil}, timeout: ${timeout}ms)`);
@@ -179,20 +142,7 @@ async function main() {
     let output = null;
     let error = '';
 
-    // Wait for chrome tab to be open (up to 60s)
-    const tabOpen = await waitForChromeTabOpen(60000);
-    if (!tabOpen) {
-        console.error(`ERROR: ${CHROME_SESSION_REQUIRED_ERROR}`);
-        process.exit(1);
-    }
-
-    const cdpUrl = getCdpUrl();
-    if (!cdpUrl) {
-        console.error(`ERROR: ${CHROME_SESSION_REQUIRED_ERROR}`);
-        process.exit(1);
-    }
-
-    const result = await navigate(url, cdpUrl);
+    const result = await navigate(url);
 
     if (result.success) {
         status = 'succeeded';

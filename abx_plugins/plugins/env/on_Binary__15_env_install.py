@@ -22,16 +22,18 @@ from abx_pkg import Binary, EnvProvider
 
 
 @click.command()
-@click.option('--machine-id', required=True, help="Machine UUID")
-@click.option('--binary-id', required=True, help="Dependency UUID")
-@click.option('--name', required=True, help="Binary name to find")
-@click.option('--binproviders', default='*', help="Allowed providers (comma-separated)")
-@click.option('--overrides', default=None, help="JSON-encoded overrides dict (unused)")
-def main(binary_id: str, machine_id: str, name: str, binproviders: str, overrides: str | None):
+@click.option("--machine-id", required=True, help="Machine UUID")
+@click.option("--binary-id", required=True, help="Dependency UUID")
+@click.option("--name", required=True, help="Binary name to find")
+@click.option("--binproviders", default="*", help="Allowed providers (comma-separated)")
+@click.option("--overrides", default=None, help="JSON-encoded overrides dict (unused)")
+def main(
+    binary_id: str, machine_id: str, name: str, binproviders: str, overrides: str | None
+):
     """Check if binary is available in PATH and record it."""
 
     # Check if env provider is allowed
-    if binproviders != '*' and 'env' not in binproviders.split(','):
+    if binproviders != "*" and "env" not in binproviders.split(","):
         click.echo(f"env provider not allowed for {name}", err=True)
         sys.exit(0)  # Not an error, just skip
 
@@ -47,18 +49,18 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, override
         click.echo(f"{name} not found in PATH", err=True)
         sys.exit(1)
 
-    machine_id = os.environ.get('MACHINE_ID', '')
+    machine_id = machine_id.strip() or os.environ.get("MACHINE_ID", "").strip()
 
     # Output Binary JSONL record to stdout
     record = {
-        'type': 'Binary',
-        'name': name,
-        'abspath': str(binary.abspath),
-        'version': str(binary.version) if binary.version else '',
-        'sha256': binary.sha256 or '',
-        'binprovider': 'env',
-        'machine_id': machine_id,
-        'binary_id': binary_id,
+        "type": "Binary",
+        "name": name,
+        "abspath": str(binary.abspath),
+        "version": str(binary.version) if binary.version else "",
+        "sha256": binary.sha256 or "",
+        "binprovider": "env",
+        "machine_id": machine_id,
+        "binary_id": binary_id,
     }
     print(json.dumps(record))
 
@@ -69,5 +71,5 @@ def main(binary_id: str, machine_id: str, name: str, binproviders: str, override
     sys.exit(0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

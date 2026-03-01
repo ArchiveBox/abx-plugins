@@ -16,7 +16,7 @@ import pytest
 
 # Get the path to the hashes hook
 PLUGIN_DIR = Path(__file__).parent.parent
-HASHES_HOOK = PLUGIN_DIR / 'on_Snapshot__93_hashes.py'
+HASHES_HOOK = PLUGIN_DIR / "on_Snapshot__93_hashes.py"
 
 
 class TestHashesPlugin:
@@ -30,130 +30,135 @@ class TestHashesPlugin:
         """Hashes hook should generate merkle tree for files in snapshot directory."""
         with tempfile.TemporaryDirectory() as temp_dir:
             # Create a mock snapshot directory structure
-            snap_dir = Path(temp_dir) / 'snap'
+            snap_dir = Path(temp_dir) / "snap"
             snap_dir.mkdir(parents=True, exist_ok=True)
 
             # Create output directory for hashes
-            output_dir = snap_dir / 'hashes'
+            output_dir = snap_dir / "hashes"
             output_dir.mkdir()
 
             # Create some test files
-            (snap_dir / 'index.html').write_text('<html><body>Test</body></html>')
-            (snap_dir / 'screenshot.png').write_bytes(b'\x89PNG\r\n\x1a\n' + b'\x00' * 100)
+            (snap_dir / "index.html").write_text("<html><body>Test</body></html>")
+            (snap_dir / "screenshot.png").write_bytes(
+                b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+            )
 
-            subdir = snap_dir / 'media'
+            subdir = snap_dir / "media"
             subdir.mkdir()
-            (subdir / 'video.mp4').write_bytes(b'\x00\x00\x00\x18ftypmp42')
+            (subdir / "video.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42")
 
             # Run the hook from the output directory
             env = os.environ.copy()
-            env['HASHES_ENABLED'] = 'true'
-            env['SNAP_DIR'] = str(snap_dir)
+            env["HASHES_ENABLED"] = "true"
+            env["SNAP_DIR"] = str(snap_dir)
 
             result = subprocess.run(
                 [
-                    sys.executable, str(HASHES_HOOK),
-                    '--url=https://example.com',
-                    '--snapshot-id=test-snapshot',
+                    sys.executable,
+                    str(HASHES_HOOK),
+                    "--url=https://example.com",
+                    "--snapshot-id=test-snapshot",
                 ],
                 capture_output=True,
                 text=True,
                 cwd=str(output_dir),  # Hook expects to run from output dir
                 env=env,
-                timeout=30
+                timeout=30,
             )
 
             # Should succeed
             assert result.returncode == 0, f"Hook failed: {result.stderr}"
 
             # Check output file exists
-            output_file = output_dir / 'hashes.json'
+            output_file = output_dir / "hashes.json"
             assert output_file.exists(), "hashes.json not created"
 
             # Parse and verify output
             with open(output_file) as f:
                 data = json.load(f)
 
-            assert 'root_hash' in data
-            assert 'files' in data
-            assert 'metadata' in data
+            assert "root_hash" in data
+            assert "files" in data
+            assert "metadata" in data
 
             # Should have indexed our test files
-            file_paths = [f['path'] for f in data['files']]
-            assert 'index.html' in file_paths
-            assert 'screenshot.png' in file_paths
+            file_paths = [f["path"] for f in data["files"]]
+            assert "index.html" in file_paths
+            assert "screenshot.png" in file_paths
 
             # Verify metadata
-            assert data['metadata']['file_count'] > 0
-            assert data['metadata']['total_size'] > 0
+            assert data["metadata"]["file_count"] > 0
+            assert data["metadata"]["total_size"] > 0
 
     def test_hashes_skips_when_disabled(self):
         """Hashes hook should skip when HASHES_ENABLED=false."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            snap_dir = Path(temp_dir) / 'snap'
+            snap_dir = Path(temp_dir) / "snap"
             snap_dir.mkdir(parents=True, exist_ok=True)
-            output_dir = snap_dir / 'hashes'
+            output_dir = snap_dir / "hashes"
             output_dir.mkdir()
 
             env = os.environ.copy()
-            env['HASHES_ENABLED'] = 'false'
-            env['SNAP_DIR'] = str(snap_dir)
+            env["HASHES_ENABLED"] = "false"
+            env["SNAP_DIR"] = str(snap_dir)
 
             result = subprocess.run(
                 [
-                    sys.executable, str(HASHES_HOOK),
-                    '--url=https://example.com',
-                    '--snapshot-id=test-snapshot',
+                    sys.executable,
+                    str(HASHES_HOOK),
+                    "--url=https://example.com",
+                    "--snapshot-id=test-snapshot",
                 ],
                 capture_output=True,
                 text=True,
                 cwd=str(output_dir),
                 env=env,
-                timeout=30
+                timeout=30,
             )
 
             # Should succeed (exit 0) but skip
             assert result.returncode == 0
-            assert 'skipped' in result.stdout
+            assert "skipped" in result.stdout
 
     def test_hashes_handles_empty_directory(self):
         """Hashes hook should handle empty snapshot directory."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            snap_dir = Path(temp_dir) / 'snap'
+            snap_dir = Path(temp_dir) / "snap"
             snap_dir.mkdir(parents=True, exist_ok=True)
-            output_dir = snap_dir / 'hashes'
+            output_dir = snap_dir / "hashes"
             output_dir.mkdir()
 
             env = os.environ.copy()
-            env['HASHES_ENABLED'] = 'true'
-            env['SNAP_DIR'] = str(snap_dir)
+            env["HASHES_ENABLED"] = "true"
+            env["SNAP_DIR"] = str(snap_dir)
 
             result = subprocess.run(
                 [
-                    sys.executable, str(HASHES_HOOK),
-                    '--url=https://example.com',
-                    '--snapshot-id=test-snapshot',
+                    sys.executable,
+                    str(HASHES_HOOK),
+                    "--url=https://example.com",
+                    "--snapshot-id=test-snapshot",
                 ],
                 capture_output=True,
                 text=True,
                 cwd=str(output_dir),
                 env=env,
-                timeout=30
+                timeout=30,
             )
 
             # Should succeed even with empty directory
             assert result.returncode == 0, f"Hook failed: {result.stderr}"
 
             # Check output file exists
-            output_file = output_dir / 'hashes.json'
+            output_file = output_dir / "hashes.json"
             assert output_file.exists()
 
             with open(output_file) as f:
                 data = json.load(f)
 
             # Should have empty file list
-            assert data['metadata']['file_count'] == 0
+            assert data["metadata"]["file_count"] == 0
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

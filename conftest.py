@@ -9,7 +9,9 @@ pytest_plugins = ["abx_plugins.plugins.chrome.tests.chrome_test_helpers"]
 
 
 @pytest.fixture(autouse=True)
-def isolated_test_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
+def isolated_test_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> dict[str, Path]:
     """Apply per-test env overrides and let monkeypatch restore global state after each test."""
     test_root = tmp_path / "abx_plugins_env"
     home_dir = test_root / "home"
@@ -30,6 +32,8 @@ def isolated_test_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[s
         monkeypatch.setenv("LIB_DIR", str(lib_dir))
     if "PERSONAS_DIR" not in os.environ:
         monkeypatch.setenv("PERSONAS_DIR", str(personas_dir))
+    if "TWOCAPTCHA_API_KEY" not in os.environ and "API_KEY_2CAPTCHA" not in os.environ:
+        print("WARNING: TWOCAPTCHA_API_KEY not found in env, 2captcha tests will fail")
 
     return {
         "root": test_root,
@@ -47,7 +51,7 @@ def local_http_base_url(httpserver) -> str:
     return httpserver.url_for("/")
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def ensure_chrome_test_prereqs(ensure_chromium_and_puppeteer_installed):
-    """Install shared Chromium/Puppeteer deps once so hook-only tests can run in isolation."""
+    """Install shared Chromium/Puppeteer deps when explicitly requested by tests."""
     return ensure_chromium_and_puppeteer_installed

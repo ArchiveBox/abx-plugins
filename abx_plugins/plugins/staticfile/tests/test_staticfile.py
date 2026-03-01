@@ -1,39 +1,106 @@
 """
 Tests for the staticfile plugin.
 
-Tests the real staticfile hook with actual URLs to verify
-static file detection and download.
+Tests the real staticfile hook using deterministic local fixtures.
 """
 
-import json
-import shutil
 import subprocess
+import shutil
 import tempfile
 import time
 from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
-    chrome_session,
-    get_test_env,
+    CHROME_NAVIGATE_HOOK,
     get_plugin_dir,
     get_hook_script,
-    chrome_test_url,
+    parse_jsonl_output,
+    chrome_session,
 )
-
-
-def chrome_available() -> bool:
-    """Check if Chrome/Chromium is available."""
-    for name in ['chromium', 'chromium-browser', 'google-chrome', 'chrome']:
-        if shutil.which(name):
-            return True
-    return False
 
 
 # Get the path to the staticfile hook
 PLUGIN_DIR = get_plugin_dir(__file__)
-STATICFILE_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_staticfile.*')
+STATICFILE_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_staticfile.*")
+CHROME_STARTUP_TIMEOUT_SECONDS = 45
+JSON_FIXTURE_BYTES = b'{"fixture":"staticfile","ok":true}\n'
+
+
+@pytest.fixture
+def staticfile_test_urls(httpserver):
+    """Serve deterministic non-static and static responses."""
+    httpserver.expect_request("/html").respond_with_data(
+        """
+        <!doctype html>
+        <html>
+          <head><title>Staticfile Fixture</title></head>
+          <body><h1>Staticfile HTML Fixture</h1></body>
+        </html>
+        """.strip(),
+        content_type="text/html; charset=utf-8",
+    )
+    httpserver.expect_request("/test.json").respond_with_data(
+        JSON_FIXTURE_BYTES,
+        content_type="application/json",
+    )
+    return {
+        "html_url": httpserver.url_for("/html"),
+        "json_url": httpserver.url_for("/test.json"),
+    }
+
+
+def run_staticfile_capture(staticfile_dir, snapshot_chrome_dir, env, url, snapshot_id):
+    """Launch staticfile hook in background, navigate, then terminate for final JSONL."""
+    hook_proc = subprocess.Popen(
+        [
+            "node",
+            str(STATICFILE_HOOK),
+            f"--url={url}",
+            f"--snapshot-id={snapshot_id}",
+        ],
+        cwd=str(staticfile_dir),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+    )
+
+    # Ensure listeners attach before navigation starts.
+    time.sleep(1)
+
+    nav_result = subprocess.run(
+        [
+            "node",
+            str(CHROME_NAVIGATE_HOOK),
+            f"--url={url}",
+            f"--snapshot-id={snapshot_id}",
+        ],
+        cwd=str(snapshot_chrome_dir),
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env=env,
+    )
+
+    # Give response handlers a short window to process the first response.
+    time.sleep(1)
+
+    if hook_proc.poll() is None:
+        hook_proc.terminate()
+        try:
+            stdout, stderr = hook_proc.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            hook_proc.kill()
+            stdout, stderr = hook_proc.communicate()
+    else:
+        stdout, stderr = hook_proc.communicate()
+
+    archive_result = parse_jsonl_output(stdout)
+    return hook_proc.returncode, stdout, stderr, nav_result, archive_result
 
 
 class TestStaticfilePlugin:
@@ -41,7 +108,9 @@ class TestStaticfilePlugin:
 
     def test_staticfile_hook_exists(self):
         """Staticfile hook script should exist."""
-        assert STATICFILE_HOOK is not None, "Staticfile hook not found in plugin directory"
+        assert STATICFILE_HOOK is not None, (
+            "Staticfile hook not found in plugin directory"
+        )
         assert STATICFILE_HOOK.exists(), f"Hook not found: {STATICFILE_HOOK}"
 
 
@@ -56,65 +125,105 @@ class TestStaticfileWithChrome:
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_staticfile_skips_html_pages(self, chrome_test_url):
+    def test_staticfile_skips_html_pages(self, staticfile_test_urls):
         """Staticfile hook should skip HTML pages (not static files)."""
-        test_url = chrome_test_url  # HTML page, not a static file
-        snapshot_id = 'test-staticfile-snapshot'
+        test_url = staticfile_test_urls["html_url"]
+        snapshot_id = "test-staticfile-html"
 
-        try:
-            with chrome_session(
-                self.temp_dir,
-                crawl_id='test-staticfile-crawl',
-                snapshot_id=snapshot_id,
-                test_url=test_url,
-                navigate=True,
-                timeout=30,
-            ) as (chrome_process, chrome_pid, snapshot_chrome_dir, env):
-                # Use the environment from chrome_session (already has CHROME_HEADLESS=true)
+        with chrome_session(
+            self.temp_dir,
+            crawl_id="test-staticfile-crawl-html",
+            snapshot_id=snapshot_id,
+            test_url=test_url,
+            navigate=False,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        ) as (_chrome_process, _chrome_pid, snapshot_chrome_dir, env):
+            staticfile_dir = snapshot_chrome_dir.parent / "staticfile"
+            staticfile_dir.mkdir(exist_ok=True)
+
+            (
+                hook_code,
+                stdout,
+                stderr,
+                nav_result,
+                archive_result,
+            ) = run_staticfile_capture(
+                staticfile_dir,
+                snapshot_chrome_dir,
+                env,
+                test_url,
+                snapshot_id,
+            )
+
+        assert nav_result.returncode in (0, 1), (
+            f"Unexpected navigation return code: {nav_result.returncode}\n"
+            f"stderr={nav_result.stderr}\nstdout={nav_result.stdout}"
+        )
+        if nav_result.returncode == 1:
+            assert "ERR_ABORTED" in nav_result.stderr, (
+                "Direct static-file navigations may abort in Chromium while still "
+                "emitting the response; expected ERR_ABORTED when returncode=1"
+            )
+        assert hook_code == 0, f"Staticfile hook failed: {stderr}"
+        assert "Traceback" not in stderr
+        assert archive_result is not None, f"Missing ArchiveResult in stdout:\n{stdout}"
+        assert archive_result.get("status") == "skipped", archive_result
+        assert "Not a static file" in archive_result.get("output_str", ""), (
+            archive_result
+        )
+        assert archive_result.get("content_type", "").startswith("text/html"), (
+            archive_result
+        )
+        assert not any(staticfile_dir.glob("*.pdf")), (
+            "Should not download files for HTML pages"
+        )
+
+    def test_staticfile_downloads_static_file_pages(self, staticfile_test_urls):
+        """Staticfile hook should download deterministic static-file fixtures."""
+        test_url = staticfile_test_urls["json_url"]
+        snapshot_id = "test-staticfile-json"
+
+        with chrome_session(
+            self.temp_dir,
+            crawl_id="test-staticfile-crawl-json",
+            snapshot_id=snapshot_id,
+            test_url=test_url,
+            navigate=False,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        ) as (_chrome_process, _chrome_pid, snapshot_chrome_dir, env):
+            staticfile_dir = snapshot_chrome_dir.parent / "staticfile"
+            staticfile_dir.mkdir(exist_ok=True)
+
+            (
+                hook_code,
+                stdout,
+                stderr,
+                nav_result,
+                archive_result,
+            ) = run_staticfile_capture(
+                staticfile_dir,
+                snapshot_chrome_dir,
+                env,
+                test_url,
+                snapshot_id,
+            )
+
+        assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
+        assert hook_code == 0, f"Staticfile hook failed: {stderr}"
+        assert "Traceback" not in stderr
+        assert archive_result is not None, f"Missing ArchiveResult in stdout:\n{stdout}"
+        assert archive_result.get("status") == "succeeded", archive_result
+        assert archive_result.get("content_type") == "application/json", archive_result
+
+        output_name = archive_result.get("output_str")
+        assert output_name, (
+            f"Missing downloaded filename in ArchiveResult: {archive_result}"
+        )
+        output_file = staticfile_dir / output_name
+        assert output_file.exists(), f"Expected downloaded file at {output_file}"
+        output_bytes = output_file.read_bytes()
+        assert output_bytes == JSON_FIXTURE_BYTES, "Downloaded JSON bytes mismatch"
 
 
-                # Run staticfile hook with the active Chrome session (background hook)
-                result = subprocess.Popen(
-                    ['node', str(STATICFILE_HOOK), f'--url={test_url}', f'--snapshot-id={snapshot_id}'],
-                    cwd=str(snapshot_chrome_dir),
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    env=env
-                )
-
-                # Allow it to run briefly, then terminate (background hook)
-                time.sleep(3)
-                if result.poll() is None:
-                    result.terminate()
-                    try:
-                        stdout, stderr = result.communicate(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        result.kill()
-                        stdout, stderr = result.communicate()
-                else:
-                    stdout, stderr = result.communicate()
-
-                # Verify hook ran without crash
-                assert 'Traceback' not in stderr
-
-                # Parse JSONL output to verify it recognized HTML as non-static
-                for line in stdout.split('\n'):
-                    line = line.strip()
-                    if line.startswith('{'):
-                        try:
-                            record = json.loads(line)
-                            if record.get('type') == 'ArchiveResult':
-                                # HTML pages should be skipped
-                                if record.get('status') == 'skipped':
-                                    assert 'Not a static file' in record.get('output_str', '')
-                                break
-                        except json.JSONDecodeError:
-                            continue
-
-        except RuntimeError:
-            raise
-
-
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

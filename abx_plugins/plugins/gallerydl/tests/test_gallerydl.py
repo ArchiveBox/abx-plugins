@@ -17,13 +17,125 @@ import subprocess
 import sys
 import tempfile
 import time
+import os
+import uuid
 from pathlib import Path
 import pytest
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
-GALLERYDL_HOOK = next(PLUGIN_DIR.glob('on_Snapshot__*_gallerydl.*'), None)
-TEST_URL = 'https://example.com'
+_GALLERYDL_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_gallerydl.*"), None)
+if _GALLERYDL_HOOK is None:
+    raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
+GALLERYDL_HOOK = _GALLERYDL_HOOK
+TEST_URL = "https://example.com"
+
+# Module-level cache for binary path
+_gallerydl_binary_path = None
+_gallerydl_lib_root = None
+
+
+def require_gallerydl_binary() -> str:
+    """Return gallery-dl binary path or fail with actionable context."""
+    binary_path = get_gallerydl_binary_path()
+    assert binary_path, (
+        "gallery-dl installation failed. Install hook should install gallery-dl "
+        "automatically in this test environment."
+    )
+    assert Path(binary_path).is_file(), f"gallery-dl binary path invalid: {binary_path}"
+    return binary_path
+
+
+def get_gallerydl_binary_path():
+    """Get gallery-dl binary path from cache or by running install hooks."""
+    global _gallerydl_binary_path
+    if _gallerydl_binary_path and Path(_gallerydl_binary_path).is_file():
+        return _gallerydl_binary_path
+
+    # Try loading from existing providers first
+    from abx_pkg import Binary, PipProvider, EnvProvider
+
+    try:
+        binary = Binary(
+            name="gallery-dl", binproviders=[PipProvider(), EnvProvider()]
+        ).load()
+        if binary and binary.abspath:
+            _gallerydl_binary_path = str(binary.abspath)
+            return _gallerydl_binary_path
+    except Exception:
+        pass
+
+    # Install via real plugin hooks
+    pip_hook = PLUGINS_ROOT / "pip" / "on_Binary__11_pip_install.py"
+    crawl_hook = PLUGIN_DIR / "on_Crawl__20_gallerydl_install.py"
+    if not pip_hook.exists():
+        return None
+
+    binary_id = str(uuid.uuid4())
+    machine_id = str(uuid.uuid4())
+    overrides = None
+
+    if crawl_hook.exists():
+        crawl_result = subprocess.run(
+            [sys.executable, str(crawl_hook)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        for line in crawl_result.stdout.strip().split("\n"):
+            if not line.strip().startswith("{"):
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if record.get("type") == "Binary" and record.get("name") == "gallery-dl":
+                overrides = record.get("overrides")
+                break
+
+    global _gallerydl_lib_root
+    if not _gallerydl_lib_root:
+        _gallerydl_lib_root = tempfile.mkdtemp(prefix="gallerydl-lib-")
+
+    env = os.environ.copy()
+    env["HOME"] = str(_gallerydl_lib_root)
+    env["SNAP_DIR"] = str(Path(_gallerydl_lib_root) / "data")
+    env.pop("LIB_DIR", None)
+
+    cmd = [
+        sys.executable,
+        str(pip_hook),
+        "--binary-id",
+        binary_id,
+        "--machine-id",
+        machine_id,
+        "--name",
+        "gallery-dl",
+    ]
+    if overrides:
+        cmd.append(f"--overrides={json.dumps(overrides)}")
+
+    install_result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        env=env,
+    )
+
+    for line in install_result.stdout.strip().split("\n"):
+        if not line.strip().startswith("{"):
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if record.get("type") == "Binary" and record.get("name") == "gallery-dl":
+            _gallerydl_binary_path = record.get("abspath")
+            return _gallerydl_binary_path
+
+    return None
+
 
 def test_hook_script_exists():
     """Verify on_Snapshot hook exists."""
@@ -31,56 +143,61 @@ def test_hook_script_exists():
 
 
 def test_verify_deps_with_abx_pkg():
-    """Verify gallery-dl is available via abx-pkg."""
-    from abx_pkg import Binary, PipProvider, EnvProvider, BinProviderOverrides
-
-    missing_binaries = []
-
-    # Verify gallery-dl is available
-    gallerydl_binary = Binary(name='gallery-dl', binproviders=[PipProvider(), EnvProvider()])
-    gallerydl_loaded = gallerydl_binary.load()
-    if not (gallerydl_loaded and gallerydl_loaded.abspath):
-        missing_binaries.append('gallery-dl')
-
-    if missing_binaries:
-        pass
+    """Verify gallery-dl is installed by real plugin install hooks."""
+    binary_path = require_gallerydl_binary()
+    assert Path(binary_path).is_file(), (
+        f"Binary path must be a valid file: {binary_path}"
+    )
 
 
 def test_handles_non_gallery_url():
     """Test that gallery-dl extractor handles non-gallery URLs gracefully via hook."""
-    # Prerequisites checked by earlier test
+    binary_path = require_gallerydl_binary()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
+        env = os.environ.copy()
+        env["GALLERYDL_BINARY"] = binary_path
+        env["SNAP_DIR"] = str(tmpdir)
 
         # Run gallery-dl extraction hook on non-gallery URL
         result = subprocess.run(
-            [sys.executable, str(GALLERYDL_HOOK), '--url', 'https://example.com', '--snapshot-id', 'test789'],
+            [
+                sys.executable,
+                str(GALLERYDL_HOOK),
+                "--url",
+                "https://example.com",
+                "--snapshot-id",
+                "test789",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
-            timeout=60
+            env=env,
+            timeout=60,
         )
 
         # Should exit 0 even for non-gallery URL
-        assert result.returncode == 0, f"Should handle non-gallery URL gracefully: {result.stderr}"
+        assert result.returncode == 0, (
+            f"Should handle non-gallery URL gracefully: {result.stderr}"
+        )
 
         # Parse clean JSONL output
         result_json = None
-        for line in result.stdout.strip().split('\n'):
+        for line in result.stdout.strip().split("\n"):
             line = line.strip()
-            if line.startswith('{'):
+            if line.startswith("{"):
                 pass
                 try:
                     record = json.loads(line)
-                    if record.get('type') == 'ArchiveResult':
+                    if record.get("type") == "ArchiveResult":
                         result_json = record
                         break
                 except json.JSONDecodeError:
                     pass
 
         assert result_json, "Should have ArchiveResult JSONL output"
-        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
+        assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
 
 
 def test_config_save_gallery_dl_false_skips():
@@ -89,102 +206,186 @@ def test_config_save_gallery_dl_false_skips():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
-        env['GALLERYDL_ENABLED'] = 'False'
+        env["GALLERYDL_ENABLED"] = "False"
 
         result = subprocess.run(
-            [sys.executable, str(GALLERYDL_HOOK), '--url', TEST_URL, '--snapshot-id', 'test999'],
+            [
+                sys.executable,
+                str(GALLERYDL_HOOK),
+                "--url",
+                TEST_URL,
+                "--snapshot-id",
+                "test999",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             env=env,
-            timeout=30
+            timeout=30,
         )
 
-        assert result.returncode == 0, f"Should exit 0 when feature disabled: {result.stderr}"
+        assert result.returncode == 0, (
+            f"Should exit 0 when feature disabled: {result.stderr}"
+        )
 
         # Feature disabled - temporary failure, should NOT emit JSONL
-        assert 'Skipping' in result.stderr or 'False' in result.stderr, "Should log skip reason to stderr"
+        assert "Skipping" in result.stderr or "False" in result.stderr, (
+            "Should log skip reason to stderr"
+        )
 
         # Should NOT emit any JSONL
-        jsonl_lines = [line for line in result.stdout.strip().split('\n') if line.strip().startswith('{')]
-        assert len(jsonl_lines) == 0, f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
+        jsonl_lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if line.strip().startswith("{")
+        ]
+        assert len(jsonl_lines) == 0, (
+            f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
+        )
 
 
 def test_config_timeout():
     """Test that GALLERY_DL_TIMEOUT config is respected."""
     import os
 
+    binary_path = require_gallerydl_binary()
+
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
-        env['GALLERY_DL_TIMEOUT'] = '5'
+        env["GALLERY_DL_TIMEOUT"] = "5"
+        env["GALLERYDL_BINARY"] = binary_path
+        env["SNAP_DIR"] = str(tmpdir)
 
         start_time = time.time()
         result = subprocess.run(
-            [sys.executable, str(GALLERYDL_HOOK), '--url', 'https://example.com', '--snapshot-id', 'testtimeout'],
+            [
+                sys.executable,
+                str(GALLERYDL_HOOK),
+                "--url",
+                "https://example.com",
+                "--snapshot-id",
+                "testtimeout",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             env=env,
-            timeout=10  # Should complete in 5s, use 10s as safety margin
+            timeout=10,  # Should complete in 5s, use 10s as safety margin
         )
         elapsed_time = time.time() - start_time
 
-        assert result.returncode == 0, f"Should complete without hanging: {result.stderr}"
+        assert result.returncode == 0, (
+            f"Should complete without hanging: {result.stderr}"
+        )
         # Allow 1 second overhead for subprocess startup and Python interpreter
-        assert elapsed_time <= 6.0, f"Should complete within 6 seconds (5s timeout + 1s overhead), took {elapsed_time:.2f}s"
+        assert elapsed_time <= 6.0, (
+            f"Should complete within 6 seconds (5s timeout + 1s overhead), took {elapsed_time:.2f}s"
+        )
 
 
 def test_real_gallery_url():
     """Test that gallery-dl can extract images from a real Flickr gallery URL."""
-    import os
+    binary_path = require_gallerydl_binary()
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
+    # Real public gallery URL that currently yields downloadable media.
+    gallery_url = "https://www.flickr.com/photos/gregorydolivet/55002388567/in/explore-2025-12-25/"
 
-        # Use a real Flickr photo page
-        gallery_url = 'https://www.flickr.com/photos/gregorydolivet/55002388567/in/explore-2025-12-25/'
+    max_attempts = 3
+    last_error = ""
 
-        env = os.environ.copy()
-        env['GALLERY_DL_TIMEOUT'] = '60'  # Give it time to download
+    for attempt in range(1, max_attempts + 1):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = Path(tmpdir)
+            env = os.environ.copy()
+            env["GALLERYDL_TIMEOUT"] = "60"
+            env["GALLERYDL_BINARY"] = binary_path
+            env["SNAP_DIR"] = str(tmpdir)
 
-        start_time = time.time()
-        result = subprocess.run(
-            [sys.executable, str(GALLERYDL_HOOK), '--url', gallery_url, '--snapshot-id', 'testflickr'],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=90
-        )
-        elapsed_time = time.time() - start_time
+            start_time = time.time()
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(GALLERYDL_HOOK),
+                    "--url",
+                    gallery_url,
+                    "--snapshot-id",
+                    f"testflickr{attempt}",
+                ],
+                cwd=tmpdir,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=90,
+            )
+            elapsed_time = time.time() - start_time
 
-        # Should succeed
-        assert result.returncode == 0, f"Should extract gallery successfully: {result.stderr}"
+            if result.returncode != 0:
+                last_error = f"attempt={attempt} returncode={result.returncode} stderr={result.stderr}"
+                continue
 
-        # Parse JSONL output
-        result_json = None
-        for line in result.stdout.strip().split('\n'):
-            line = line.strip()
-            if line.startswith('{'):
-                try:
-                    record = json.loads(line)
-                    if record.get('type') == 'ArchiveResult':
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+            result_json = None
+            for line in result.stdout.strip().split("\n"):
+                line = line.strip()
+                if line.startswith("{"):
+                    try:
+                        record = json.loads(line)
+                        if record.get("type") == "ArchiveResult":
+                            result_json = record
+                            break
+                    except json.JSONDecodeError:
+                        pass
 
-        assert result_json, f"Should have ArchiveResult JSONL output. stdout: {result.stdout}"
-        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
+            if not result_json or result_json.get("status") != "succeeded":
+                last_error = f"attempt={attempt} invalid ArchiveResult stdout={result.stdout} stderr={result.stderr}"
+                continue
 
-        # Check that some files were downloaded
-        output_files = list(tmpdir.glob('**/*'))
-        image_files = [f for f in output_files if f.is_file() and f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif', '.webp')]
+            output_str = (result_json.get("output_str") or "").strip()
+            if not output_str:
+                last_error = f"attempt={attempt} empty output_str stdout={result.stdout} stderr={result.stderr}"
+                continue
 
-        assert len(image_files) > 0, f"Should have downloaded at least one image. Files: {output_files}"
+            output_path = Path(output_str)
+            if not output_path.is_file():
+                last_error = f"attempt={attempt} output missing path={output_path}"
+                continue
 
-        print(f"Successfully extracted {len(image_files)} image(s) in {elapsed_time:.2f}s")
+            if output_path.suffix.lower() not in (
+                ".jpg",
+                ".jpeg",
+                ".png",
+                ".gif",
+                ".webp",
+                ".bmp",
+            ):
+                last_error = f"attempt={attempt} output is not image path={output_path}"
+                continue
+
+            if output_path.stat().st_size <= 0:
+                last_error = f"attempt={attempt} output file empty path={output_path}"
+                continue
+
+            # Ensure the extractor really downloaded image media, not just metadata.
+            output_files = list(tmpdir.rglob("*"))
+            image_files = [
+                f
+                for f in output_files
+                if f.is_file()
+                and f.suffix.lower()
+                in (".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp")
+            ]
+            if not image_files:
+                last_error = f"attempt={attempt} no image files under SNAP_DIR={tmpdir}"
+                continue
+
+            print(
+                f"Successfully extracted {len(image_files)} image(s) in {elapsed_time:.2f}s"
+            )
+            return
+
+    pytest.fail(
+        f"Real gallery download did not yield an image after {max_attempts} attempts. Last error: {last_error}"
+    )
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

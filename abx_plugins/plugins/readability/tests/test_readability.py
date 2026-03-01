@@ -9,10 +9,11 @@ Tests verify:
 """
 
 import json
-import shutil
+import os
 import subprocess
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 
 import pytest
@@ -20,22 +21,29 @@ import pytest
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,
     get_hook_script,
-    PLUGINS_ROOT,
 )
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
-READABILITY_HOOK = get_hook_script(PLUGIN_DIR, 'on_Snapshot__*_readability.*')
-TEST_URL = 'https://example.com'
+PLUGINS_ROOT = PLUGIN_DIR.parent
+_READABILITY_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_readability.*")
+if _READABILITY_HOOK is None:
+    raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
+READABILITY_HOOK = _READABILITY_HOOK
+TEST_URL = "https://example.com"
+
+# Module-level cache for binary path
+_readability_binary_path = None
+_readability_lib_root = None
 
 
 def create_example_html(tmpdir: Path) -> Path:
     """Create sample HTML that looks like example.com with enough content for Readability."""
-    singlefile_dir = tmpdir / 'singlefile'
+    singlefile_dir = tmpdir / "singlefile"
     singlefile_dir.mkdir()
 
-    html_file = singlefile_dir / 'singlefile.html'
-    html_file.write_text('''
+    html_file = singlefile_dir / "singlefile.html"
+    html_file.write_text("""
 <!DOCTYPE html>
 <html>
 <head>
@@ -69,9 +77,127 @@ def create_example_html(tmpdir: Path) -> Path:
     </article>
 </body>
 </html>
-    ''')
+    """)
 
     return html_file
+
+
+def require_readability_binary() -> str:
+    """Return readability-extractor binary path or fail with actionable context."""
+    binary_path = get_readability_binary_path()
+    assert binary_path, (
+        "readability-extractor installation failed. Install hook should install "
+        "the binary automatically in this test environment."
+    )
+    assert Path(binary_path).is_file(), (
+        f"readability-extractor binary path invalid: {binary_path}"
+    )
+    return binary_path
+
+
+def get_readability_binary_path():
+    """Get readability-extractor path from cache or by running install hooks."""
+    global _readability_binary_path
+    if _readability_binary_path and Path(_readability_binary_path).is_file():
+        return _readability_binary_path
+
+    from abx_pkg import Binary, NpmProvider, EnvProvider
+
+    try:
+        binary = Binary(
+            name="readability-extractor",
+            binproviders=[NpmProvider(), EnvProvider()],
+            overrides={
+                "npm": {
+                    "packages": ["https://github.com/ArchiveBox/readability-extractor"]
+                }
+            },
+        ).load()
+        if binary and binary.abspath:
+            _readability_binary_path = str(binary.abspath)
+            return _readability_binary_path
+    except Exception:
+        pass
+
+    npm_hook = PLUGINS_ROOT / "npm" / "on_Binary__10_npm_install.py"
+    crawl_hook = PLUGIN_DIR / "on_Crawl__35_readability_install.py"
+    if not npm_hook.exists():
+        return None
+
+    binary_id = str(uuid.uuid4())
+    machine_id = str(uuid.uuid4())
+    binproviders = "*"
+    overrides = None
+
+    if crawl_hook.exists():
+        crawl_result = subprocess.run(
+            [sys.executable, str(crawl_hook)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        for line in crawl_result.stdout.strip().split("\n"):
+            if not line.strip().startswith("{"):
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if (
+                record.get("type") == "Binary"
+                and record.get("name") == "readability-extractor"
+            ):
+                binproviders = record.get("binproviders", "*")
+                overrides = record.get("overrides")
+                break
+
+    global _readability_lib_root
+    if not _readability_lib_root:
+        _readability_lib_root = tempfile.mkdtemp(prefix="readability-lib-")
+
+    env = os.environ.copy()
+    env["HOME"] = str(_readability_lib_root)
+    env["SNAP_DIR"] = str(Path(_readability_lib_root) / "data")
+    env["CRAWL_DIR"] = str(Path(_readability_lib_root) / "crawl")
+    env.pop("LIB_DIR", None)
+
+    cmd = [
+        sys.executable,
+        str(npm_hook),
+        "--binary-id",
+        binary_id,
+        "--machine-id",
+        machine_id,
+        "--name",
+        "readability-extractor",
+        f"--binproviders={binproviders}",
+    ]
+    if overrides:
+        cmd.append(f"--overrides={json.dumps(overrides)}")
+
+    install_result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        env=env,
+    )
+
+    for line in install_result.stdout.strip().split("\n"):
+        if not line.strip().startswith("{"):
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if (
+            record.get("type") == "Binary"
+            and record.get("name") == "readability-extractor"
+        ):
+            _readability_binary_path = record.get("abspath")
+            return _readability_binary_path
+
+    return None
 
 
 def test_hook_script_exists():
@@ -83,60 +209,65 @@ def test_reports_missing_dependency_when_not_installed():
     """Test that script reports DEPENDENCY_NEEDED when readability-extractor is not found."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        snap_dir = tmpdir / 'snap'
+        snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
 
         # Create HTML source so it doesn't fail on missing HTML
         create_example_html(snap_dir)
 
         # Run with empty PATH so binary won't be found
-        env = {'PATH': '/nonexistent', 'HOME': str(tmpdir), 'SNAP_DIR': str(snap_dir)}
+        env = {"PATH": "/nonexistent", "HOME": str(tmpdir), "SNAP_DIR": str(snap_dir)}
 
         result = subprocess.run(
-            [sys.executable, str(READABILITY_HOOK), '--url', TEST_URL, '--snapshot-id', 'test123'],
+            [
+                sys.executable,
+                str(READABILITY_HOOK),
+                "--url",
+                TEST_URL,
+                "--snapshot-id",
+                "test123",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
-            env=env
+            env=env,
         )
 
         # Missing binary is a transient error - should exit 1 with no JSONL
         assert result.returncode == 1, "Should exit 1 when dependency missing"
 
         # Should NOT emit JSONL (transient error - will be retried)
-        jsonl_lines = [line for line in result.stdout.strip().split('\n')
-                      if line.strip().startswith('{')]
-        assert len(jsonl_lines) == 0, "Should not emit JSONL for transient error (missing binary)"
+        jsonl_lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if line.strip().startswith("{")
+        ]
+        assert len(jsonl_lines) == 0, (
+            "Should not emit JSONL for transient error (missing binary)"
+        )
 
         # Should log error to stderr
-        assert 'readability-extractor' in result.stderr.lower() or 'error' in result.stderr.lower(), \
-            "Should report error in stderr"
+        assert (
+            "readability-extractor" in result.stderr.lower()
+            or "error" in result.stderr.lower()
+        ), "Should report error in stderr"
 
 
 def test_verify_deps_with_abx_pkg():
-    """Verify readability-extractor is available via abx-pkg."""
-    from abx_pkg import Binary, NpmProvider, EnvProvider, BinProviderOverrides
-
-    readability_binary = Binary(
-        name='readability-extractor',
-        binproviders=[NpmProvider(), EnvProvider()],
-        overrides={'npm': {'packages': ['github:ArchiveBox/readability-extractor']}}
+    """Verify readability-extractor is installed by real plugin install hooks."""
+    binary_path = require_readability_binary()
+    assert Path(binary_path).is_file(), (
+        f"Binary path must be a valid file: {binary_path}"
     )
-    readability_loaded = readability_binary.load()
-
-    if readability_loaded and readability_loaded.abspath:
-        assert True, "readability-extractor is available"
-    else:
-        pass
 
 
 def test_extracts_article_after_installation():
     """Test full workflow: extract article using readability-extractor from real HTML."""
-    # Prerequisites checked by earlier test (install hook should have run)
+    binary_path = require_readability_binary()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        snap_dir = tmpdir / 'snap'
+        snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
 
         # Create example.com HTML for readability to process
@@ -144,39 +275,47 @@ def test_extracts_article_after_installation():
 
         # Run readability extraction (should find the binary)
         env = os.environ.copy()
-        env['SNAP_DIR'] = str(snap_dir)
+        env["SNAP_DIR"] = str(snap_dir)
+        env["READABILITY_BINARY"] = binary_path
         result = subprocess.run(
-            [sys.executable, str(READABILITY_HOOK), '--url', TEST_URL, '--snapshot-id', 'test789'],
+            [
+                sys.executable,
+                str(READABILITY_HOOK),
+                "--url",
+                TEST_URL,
+                "--snapshot-id",
+                "test789",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             timeout=30,
-            env=env
+            env=env,
         )
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
         # Parse clean JSONL output
         result_json = None
-        for line in result.stdout.strip().split('\n'):
+        for line in result.stdout.strip().split("\n"):
             line = line.strip()
-            if line.startswith('{'):
+            if line.startswith("{"):
                 pass
                 try:
                     record = json.loads(line)
-                    if record.get('type') == 'ArchiveResult':
+                    if record.get("type") == "ArchiveResult":
                         result_json = record
                         break
                 except json.JSONDecodeError:
                     pass
 
         assert result_json, "Should have ArchiveResult JSONL output"
-        assert result_json['status'] == 'succeeded', f"Should succeed: {result_json}"
+        assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
 
         # Verify output files exist (hook writes to current directory)
-        html_file = snap_dir / 'readability' / 'content.html'
-        txt_file = snap_dir / 'readability' / 'content.txt'
-        json_file = snap_dir / 'readability' / 'article.json'
+        html_file = snap_dir / "readability" / "content.html"
+        txt_file = snap_dir / "readability" / "content.txt"
+        json_file = snap_dir / "readability" / "article.json"
 
         assert html_file.exists(), "content.html not created"
         assert txt_file.exists(), "content.txt not created"
@@ -184,17 +323,24 @@ def test_extracts_article_after_installation():
 
         # Verify HTML content contains REAL example.com text
         html_content = html_file.read_text()
-        assert len(html_content) > 100, f"HTML content too short: {len(html_content)} bytes"
-        assert 'example domain' in html_content.lower(), "Missing 'Example Domain' in HTML"
-        assert ('illustrative examples' in html_content.lower() or
-                'use in' in html_content.lower() or
-                'literature' in html_content.lower()), \
-            "Missing example.com description in HTML"
+        assert len(html_content) > 100, (
+            f"HTML content too short: {len(html_content)} bytes"
+        )
+        assert "example domain" in html_content.lower(), (
+            "Missing 'Example Domain' in HTML"
+        )
+        assert (
+            "illustrative examples" in html_content.lower()
+            or "use in" in html_content.lower()
+            or "literature" in html_content.lower()
+        ), "Missing example.com description in HTML"
 
         # Verify text content contains REAL example.com text
         txt_content = txt_file.read_text()
-        assert len(txt_content) > 50, f"Text content too short: {len(txt_content)} bytes"
-        assert 'example' in txt_content.lower(), "Missing 'example' in text"
+        assert len(txt_content) > 50, (
+            f"Text content too short: {len(txt_content)} bytes"
+        )
+        assert "example" in txt_content.lower(), "Missing 'example' in text"
 
         # Verify JSON metadata
         json_data = json.loads(json_file.read_text())
@@ -203,33 +349,42 @@ def test_extracts_article_after_installation():
 
 def test_fails_gracefully_without_html_source():
     """Test that extraction fails gracefully when no HTML source is available."""
-    # Prerequisites checked by earlier test (install hook should have run)
+    binary_path = require_readability_binary()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        snap_dir = tmpdir / 'snap'
+        snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
 
         # Don't create any HTML source files
 
         env = os.environ.copy()
-        env['SNAP_DIR'] = str(snap_dir)
+        env["SNAP_DIR"] = str(snap_dir)
+        env["READABILITY_BINARY"] = binary_path
         result = subprocess.run(
-            [sys.executable, str(READABILITY_HOOK), '--url', TEST_URL, '--snapshot-id', 'test999'],
+            [
+                sys.executable,
+                str(READABILITY_HOOK),
+                "--url",
+                TEST_URL,
+                "--snapshot-id",
+                "test999",
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             timeout=30,
-            env=env
+            env=env,
         )
 
         assert result.returncode != 0, "Should fail without HTML source"
         combined_output = result.stdout + result.stderr
-        assert ('no html source' in combined_output.lower() or
-                'not found' in combined_output.lower() or
-                'ERROR=' in combined_output), \
-            "Should report missing HTML source"
+        assert (
+            "no html source" in combined_output.lower()
+            or "not found" in combined_output.lower()
+            or "ERROR=" in combined_output
+        ), "Should report missing HTML source"
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

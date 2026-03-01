@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Iterable, List
 
 
-def get_env(name: str, default: str = '') -> str:
+def get_env(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
 
 
@@ -36,7 +36,7 @@ def get_env_int(name: str, default: int = 0) -> int:
 
 def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
     """Parse a JSON array from environment variable."""
-    val = get_env(name, '')
+    val = get_env(name, "")
     if not val:
         return default if default is not None else []
     try:
@@ -49,7 +49,7 @@ def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
 
 
 def _get_archive_dir() -> Path:
-    snap_dir = os.environ.get('SNAP_DIR', '').strip()
+    snap_dir = os.environ.get("SNAP_DIR", "").strip()
     if snap_dir:
         return Path(snap_dir)
     return Path.cwd()
@@ -57,14 +57,16 @@ def _get_archive_dir() -> Path:
 
 def search(query: str) -> List[str]:
     """Search for snapshots using ripgrep."""
-    rg_binary = get_env('RIPGREP_BINARY', 'rg')
+    rg_binary = get_env("RIPGREP_BINARY", "rg")
     rg_binary = shutil.which(rg_binary) or rg_binary
     if not rg_binary or not Path(rg_binary).exists():
-        raise RuntimeError(f'ripgrep binary not found. Install with: apt install ripgrep')
+        raise RuntimeError(
+            "ripgrep binary not found. Install with: apt install ripgrep"
+        )
 
-    timeout = get_env_int('RIPGREP_TIMEOUT', 90)
-    ripgrep_args = get_env_array('RIPGREP_ARGS', [])
-    ripgrep_args_extra = get_env_array('RIPGREP_ARGS_EXTRA', [])
+    timeout = get_env_int("RIPGREP_TIMEOUT", 90)
+    ripgrep_args = get_env_array("RIPGREP_ARGS", [])
+    ripgrep_args_extra = get_env_array("RIPGREP_ARGS_EXTRA", [])
 
     archive_dir = _get_archive_dir()
     if not archive_dir.exists():
@@ -74,7 +76,7 @@ def search(query: str) -> List[str]:
         rg_binary,
         *ripgrep_args,
         *ripgrep_args_extra,
-        '--regexp',
+        "--regexp",
         query,
         str(archive_dir),
     ]
@@ -85,7 +87,7 @@ def search(query: str) -> List[str]:
         # Extract snapshot IDs from file paths
         # Paths look like: archive/<snapshot_id>/<extractor>/file.txt
         snapshot_ids = set()
-        for line in result.stdout.strip().split('\n'):
+        for line in result.stdout.strip().split("\n"):
             if not line:
                 continue
             path = Path(line)

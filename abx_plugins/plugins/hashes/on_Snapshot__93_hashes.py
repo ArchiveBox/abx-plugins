@@ -24,21 +24,22 @@ import click
 
 
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-SNAP_DIR = Path(os.environ.get('SNAP_DIR', '.')).resolve()
+SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
+
 
 def sha256_file(filepath: Path) -> str:
     """Compute SHA256 hash of a file."""
     h = hashlib.sha256()
     try:
-        with open(filepath, 'rb') as f:
+        with open(filepath, "rb") as f:
             while chunk := f.read(65536):
                 h.update(chunk)
         return h.hexdigest()
     except (OSError, PermissionError):
-        return '0' * 64
+        return "0" * 64
 
 
 def sha256_data(data: bytes) -> str:
@@ -46,9 +47,11 @@ def sha256_data(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def collect_files(snapshot_dir: Path, exclude_dirs: Optional[List[str]] = None) -> List[Tuple[Path, str, int]]:
+def collect_files(
+    snapshot_dir: Path, exclude_dirs: Optional[List[str]] = None
+) -> List[Tuple[Path, str, int]]:
     """Recursively collect all files in snapshot directory."""
-    exclude_dirs = exclude_dirs or ['hashes', '.git', '__pycache__']
+    exclude_dirs = exclude_dirs or ["hashes", ".git", "__pycache__"]
     files = []
 
     for root, dirs, filenames in os.walk(snapshot_dir):
@@ -72,7 +75,7 @@ def collect_files(snapshot_dir: Path, exclude_dirs: Optional[List[str]] = None) 
 def build_merkle_tree(file_hashes: List[str]) -> Tuple[str, List[List[str]]]:
     """Build a Merkle tree from a list of leaf hashes."""
     if not file_hashes:
-        return sha256_data(b''), [[]]
+        return sha256_data(b""), [[]]
 
     tree_levels = [file_hashes.copy()]
 
@@ -88,7 +91,7 @@ def build_merkle_tree(file_hashes: List[str]) -> Tuple[str, List[List[str]]]:
             else:
                 combined = left + left
 
-            parent_hash = sha256_data(combined.encode('utf-8'))
+            parent_hash = sha256_data(combined.encode("utf-8"))
             next_level.append(parent_hash)
 
         tree_levels.append(next_level)
@@ -105,41 +108,46 @@ def create_hashes(snapshot_dir: Path) -> Dict[str, Any]:
     total_size = sum(size for _, _, size in files)
 
     file_list = [
-        {'path': str(path), 'hash': file_hash, 'size': size}
+        {"path": str(path), "hash": file_hash, "size": size}
         for path, file_hash, size in files
     ]
 
     return {
-        'root_hash': root_hash,
-        'tree_levels': tree_levels,
-        'files': file_list,
-        'metadata': {
-            'timestamp': datetime.now(timezone.utc).isoformat(),
-            'file_count': len(files),
-            'total_size': total_size,
-            'tree_depth': len(tree_levels),
+        "root_hash": root_hash,
+        "tree_levels": tree_levels,
+        "files": file_list,
+        "metadata": {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "file_count": len(files),
+            "total_size": total_size,
+            "tree_depth": len(tree_levels),
         },
     }
 
 
 @click.command()
-@click.option('--url', required=True, help='URL being archived')
-@click.option('--snapshot-id', required=True, help='Snapshot UUID')
+@click.option("--url", required=True, help="URL being archived")
+@click.option("--snapshot-id", required=True, help="Snapshot UUID")
 def main(url: str, snapshot_id: str):
     """Generate Merkle tree of all archived outputs."""
-    status = 'failed'
+    status = "failed"
     output = None
-    error = ''
+    error = ""
     root_hash = None
     file_count = 0
 
     try:
         # Check if enabled
-        save_hashes = os.getenv('HASHES_ENABLED', 'true').lower() in ('true', '1', 'yes', 'on')
+        save_hashes = os.getenv("HASHES_ENABLED", "true").lower() in (
+            "true",
+            "1",
+            "yes",
+            "on",
+        )
 
         if not save_hashes:
-            status = 'skipped'
-            click.echo(json.dumps({'status': status, 'output': 'HASHES_ENABLED=false'}))
+            status = "skipped"
+            click.echo(json.dumps({"status": status, "output": "HASHES_ENABLED=false"}))
             sys.exit(0)
 
         # Working directory is the extractor output dir (e.g., <snapshot>/hashes/)
@@ -148,41 +156,41 @@ def main(url: str, snapshot_id: str):
         snapshot_dir = output_dir.parent
 
         if not snapshot_dir.exists():
-            raise FileNotFoundError(f'Snapshot directory not found: {snapshot_dir}')
+            raise FileNotFoundError(f"Snapshot directory not found: {snapshot_dir}")
 
         # Ensure output directory exists
         output_dir.mkdir(exist_ok=True)
-        output_path = output_dir / 'hashes.json'
+        output_path = output_dir / "hashes.json"
 
         # Generate Merkle tree
         merkle_data = create_hashes(snapshot_dir)
 
         # Write output
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             json.dump(merkle_data, f, indent=2)
 
-        status = 'succeeded'
-        output = 'hashes.json'
-        root_hash = merkle_data['root_hash']
-        file_count = merkle_data['metadata']['file_count']
+        status = "succeeded"
+        output = "hashes.json"
+        root_hash = merkle_data["root_hash"]
+        file_count = merkle_data["metadata"]["file_count"]
 
     except Exception as e:
-        error = f'{type(e).__name__}: {e}'
-        status = 'failed'
-        click.echo(f'Error: {error}', err=True)
+        error = f"{type(e).__name__}: {e}"
+        status = "failed"
+        click.echo(f"Error: {error}", err=True)
 
     # Print JSON result for hook runner
     result = {
-        'status': status,
-        'output': output,
-        'error': error or None,
-        'root_hash': root_hash,
-        'file_count': file_count,
+        "status": status,
+        "output": output,
+        "error": error or None,
+        "root_hash": root_hash,
+        "file_count": file_count,
     }
     click.echo(json.dumps(result))
 
-    sys.exit(0 if status in ('succeeded', 'skipped') else 1)
+    sys.exit(0 if status in ("succeeded", "skipped") else 1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
