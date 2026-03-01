@@ -47,8 +47,11 @@ def get_env_int(name: str, default: int = 0) -> int:
 
 def http_get(url: str, headers: dict[str, str], timeout: int) -> tuple[int, bytes]:
     req = Request(url, headers=headers)
-    with urlopen(req, timeout=timeout) as response:
-        return response.getcode() or 0, response.read()
+    try:
+        with urlopen(req, timeout=timeout) as response:
+            return response.getcode() or 0, response.read()
+    except HTTPError as e:
+        return e.code, e.read()
 
 
 def get_favicon(url: str) -> tuple[bool, str | None, str]:
