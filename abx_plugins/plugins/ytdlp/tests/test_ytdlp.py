@@ -11,12 +11,14 @@ Tests verify:
 """
 
 import json
+import io
 import os
 import subprocess
 import sys
 import tempfile
 import time
 import uuid
+import wave
 from pathlib import Path
 import pytest
 
@@ -38,6 +40,22 @@ def _has_ssl_cert_error(result: subprocess.CompletedProcess[str]) -> bool:
     return "CERTIFICATE_VERIFY_FAILED" in combined
 
 
+def _build_test_wav_bytes() -> bytes:
+    """Build a short deterministic WAV payload for local-media extractor tests."""
+    sample_rate = 8000
+    duration_seconds = 1
+    num_frames = sample_rate * duration_seconds
+
+    wav_io = io.BytesIO()
+    with wave.open(wav_io, "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(b"\x00\x00" * num_frames)
+
+    return wav_io.getvalue()
+
+
 @pytest.fixture
 def non_video_test_url(httpserver):
     """Serve deterministic non-media content for failure-path ytdlp tests."""
@@ -52,6 +70,16 @@ def non_video_test_url(httpserver):
         content_type="text/html; charset=utf-8",
     )
     return httpserver.url_for("/")
+
+
+@pytest.fixture
+def media_test_url(httpserver):
+    """Serve deterministic media bytes for end-to-end ytdlp extraction tests."""
+    httpserver.expect_request("/sample.wav").respond_with_data(
+        _build_test_wav_bytes(),
+        content_type="audio/wav",
+    )
+    return httpserver.url_for("/sample.wav")
 
 
 def require_ytdlp_binary() -> str:
@@ -304,18 +332,15 @@ def test_config_timeout(non_video_test_url):
         )
 
 
-def test_real_youtube_url():
-    """Test that yt-dlp can extract video/audio from a real YouTube URL."""
+def test_extracts_local_media_url(media_test_url):
+    """Test yt-dlp extraction against deterministic local media served by httpserver."""
     binary_path = require_ytdlp_binary()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Use a short, stable YouTube video (YouTube's own about video)
-        youtube_url = "https://www.youtube.com/watch?v=jNQXAC9IVRw"  # "Me at the zoo" - first YouTube video
-
         env = os.environ.copy()
-        env["YTDLP_TIMEOUT"] = "120"  # Give it time to download
+        env["YTDLP_TIMEOUT"] = "60"
         env["YTDLP_BINARY"] = binary_path
         env["SNAP_DIR"] = str(tmpdir)
 
@@ -325,25 +350,20 @@ def test_real_youtube_url():
                 sys.executable,
                 str(YTDLP_HOOK),
                 "--url",
-                youtube_url,
+                media_test_url,
                 "--snapshot-id",
-                "testyoutube",
+                "testlocalmedia",
             ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             env=env,
-            timeout=180,
+            timeout=90,
         )
         elapsed_time = time.time() - start_time
 
-        assert not _has_ssl_cert_error(result), (
-            "Local SSL certificate trust issue for outbound HTTPS must be fixed"
-        )
-
-        # Should succeed
         assert result.returncode == 0, (
-            f"Should extract video/audio successfully: {result.stderr}"
+            f"Should extract local media successfully: {result.stderr}"
         )
 
         # Parse JSONL output
@@ -371,7 +391,17 @@ def test_real_youtube_url():
             for f in output_files
             if f.is_file()
             and f.suffix.lower()
-            in (".mp4", ".webm", ".mkv", ".m4a", ".mp3", ".json", ".jpg", ".webp")
+            in (
+                ".mp4",
+                ".webm",
+                ".mkv",
+                ".m4a",
+                ".mp3",
+                ".wav",
+                ".json",
+                ".jpg",
+                ".webp",
+            )
         ]
 
         assert len(media_files) > 0, (
