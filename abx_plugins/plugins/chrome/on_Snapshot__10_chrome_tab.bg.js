@@ -99,8 +99,10 @@ async function cleanup(signal) {
     } catch (e) {
         // Best effort
     }
-    emitResult();
-    process.exit(finalStatus === 'succeeded' ? 0 : 1);
+    const hasTargetId = Boolean(readTargetId(OUTPUT_DIR));
+    const status = hasTargetId ? 'succeeded' : finalStatus;
+    emitResult(status);
+    process.exit(status === 'succeeded' ? 0 : 1);
 }
 
 // Register signal handlers
@@ -150,6 +152,15 @@ async function main() {
         fs.writeFileSync(path.join(OUTPUT_DIR, 'chrome.pid'), String(crawlSession.pid));
         fs.writeFileSync(path.join(OUTPUT_DIR, 'target_id.txt'), targetId);
         fs.writeFileSync(path.join(OUTPUT_DIR, 'url.txt'), url);
+
+        // Mark success immediately after tab creation so SIGTERM cleanup exits 0.
+        status = 'succeeded';
+        output = OUTPUT_DIR;
+        finalStatus = status;
+        finalOutput = output;
+        finalError = '';
+        cmdVersion = version || '';
+
         try {
             const extensionsMetadata = await waitForExtensionsMetadata(crawlSession.crawlChromeDir, 10000);
             fs.writeFileSync(
@@ -159,9 +170,6 @@ async function main() {
         } catch (err) {
             // Extension metadata is optional for non-extension snapshots.
         }
-
-        status = 'succeeded';
-        output = OUTPUT_DIR;
         console.log(`[+] Chrome tab ready`);
         console.log(`[+] CDP URL: ${crawlSession.cdpUrl}`);
         console.log(`[+] Page target ID: ${targetId}`);
