@@ -1128,6 +1128,24 @@ async function waitForExtensionTargetType(browser, extensionId, targetType, time
     return await tryGetExtensionContext(target, targetType);
 }
 
+/**
+ * Wait for a Puppeteer target handle for a specific extension id.
+ *
+ * @param {Object} browser - Puppeteer browser instance
+ * @param {string} extensionId - Extension ID
+ * @param {number} [timeout=30000] - Timeout in milliseconds
+ * @returns {Promise<Object>} - Puppeteer target
+ */
+async function waitForExtensionTargetHandle(browser, extensionId, timeout = 30000) {
+    return await browser.waitForTarget(
+        target =>
+            getExtensionIdFromUrl(target.url()) === extensionId &&
+            (EXTENSION_BACKGROUND_TARGET_TYPES.has(target.type()) ||
+                target.url().startsWith(CHROME_EXTENSION_URL_PREFIX)),
+        { timeout }
+    );
+}
+
 async function isTargetExtension(target) {
     let target_type;
     let target_ctx;
@@ -1309,11 +1327,14 @@ async function installAllExtensions(extensions, extensions_dir = null) {
  * @param {Array} extensions - Array of extension metadata objects
  * @returns {Promise<Array>} - Array of loaded extension objects with connection handlers
  */
-async function loadAllExtensionsFromBrowser(browser, extensions) {
+async function loadAllExtensionsFromBrowser(browser, extensions, timeout = 30000) {
     console.log(`[⚙️] Loading ${extensions.length} chrome extensions from browser...`);
 
-    // Find loaded extensions at runtime by examining browser targets
-    for (const target of browser.targets()) {
+    for (const extension of getValidInstalledExtensions(extensions)) {
+        if (!extension.id) {
+            throw new Error(`Extension ${extension.name || extension.unpacked_path} missing id`);
+        }
+        const target = await waitForExtensionTargetHandle(browser, extension.id, timeout);
         await loadExtensionFromTarget(extensions, target);
     }
 
@@ -1408,13 +1429,58 @@ async function waitForExtensionTarget(browser, extensionId, timeout = 30000) {
     }
 
     // Try any extension page as fallback
-    const extTarget = await browser.waitForTarget(
-        target => getExtensionIdFromUrl(target.url()) === extensionId,
-        { timeout }
-    );
+    const extTarget = await waitForExtensionTargetHandle(browser, extensionId, timeout);
 
     // Return worker or page depending on target type
     return await tryGetExtensionContext(extTarget, extTarget.type());
+}
+
+/**
+ * Read extensions metadata from chrome session directory.
+ *
+ * @param {string} chromeSessionDir - Path to chrome session directory
+ * @returns {Array<Object>|null} - Parsed extensions metadata list or null if unavailable
+ */
+function readExtensionsMetadata(chromeSessionDir) {
+    const extensionsFile = path.join(path.resolve(chromeSessionDir), 'extensions.json');
+    if (!fs.existsSync(extensionsFile)) return null;
+    try {
+        const parsed = JSON.parse(fs.readFileSync(extensionsFile, 'utf8'));
+        return Array.isArray(parsed) ? parsed : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
+ * Wait for extensions metadata to be written by chrome launch hook.
+ *
+ * @param {string} chromeSessionDir - Path to chrome session directory
+ * @param {number} [timeoutMs=10000] - Timeout in milliseconds
+ * @param {number} [intervalMs=250] - Poll interval in milliseconds
+ * @returns {Promise<Array<Object>>} - Parsed extensions metadata list
+ * @throws {Error} - If metadata file is not available in time
+ */
+async function waitForExtensionsMetadata(chromeSessionDir, timeoutMs = 10000, intervalMs = 250) {
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeoutMs) {
+        const metadata = readExtensionsMetadata(chromeSessionDir);
+        if (metadata && metadata.length > 0) return metadata;
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
+    }
+    throw new Error(`Timeout waiting for extensions metadata in ${chromeSessionDir}`);
+}
+
+/**
+ * Find extension metadata entry by name.
+ *
+ * @param {Array<Object>} extensions - Parsed extensions metadata list
+ * @param {string} extensionName - Extension name to match
+ * @returns {Object|null} - Matching extension metadata entry
+ */
+function findExtensionMetadataByName(extensions, extensionName) {
+    const wanted = (extensionName || '').toLowerCase();
+    return extensions.find(ext => (ext?.name || '').toLowerCase() === wanted) || null;
 }
 
 /**
@@ -2223,10 +2289,14 @@ module.exports = {
     loadExtensionFromTarget,
     installAllExtensions,
     loadAllExtensionsFromBrowser,
+    waitForExtensionTargetHandle,
     // New puppeteer best-practices helpers
     getExtensionPaths,
     waitForExtensionTarget,
     getExtensionTargets,
+    readExtensionsMetadata,
+    waitForExtensionsMetadata,
+    findExtensionMetadataByName,
     // Shared path utilities (single source of truth for Python/JS)
     getMachineType,
     getLibDir,
@@ -2417,6 +2487,18 @@ if (require.main === module) {
                     const [webstore_id, name, extensions_dir] = commandArgs;
                     const ext = await loadOrInstallExtension({ webstore_id, name }, extensions_dir);
                     console.log(JSON.stringify(ext, null, 2));
+                    break;
+                }
+
+                case 'waitForExtensionsMetadata': {
+                    const [chromeSessionDir = '.', timeoutMsStr = '10000'] = commandArgs;
+                    const timeoutMs = parseInt(timeoutMsStr, 10);
+                    if (isNaN(timeoutMs) || timeoutMs <= 0) {
+                        console.error('Invalid timeoutMs');
+                        process.exit(1);
+                    }
+                    const metadata = await waitForExtensionsMetadata(chromeSessionDir, timeoutMs);
+                    console.log(JSON.stringify(metadata));
                     break;
                 }
 

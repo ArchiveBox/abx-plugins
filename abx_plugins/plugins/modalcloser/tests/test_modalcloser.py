@@ -34,6 +34,7 @@ PLUGIN_DIR = Path(__file__).parent.parent
 MODALCLOSER_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_modalcloser.*"), None)
 TEST_URL = "https://www.singsing.movie/"
 COOKIE_CONSENT_TEST_URL = "https://www.filmin.es/"
+CHROME_STARTUP_TIMEOUT_SECONDS = 45
 
 
 def _modal_page_url(httpserver) -> str:
@@ -159,7 +160,7 @@ def test_background_script_handles_sigterm(httpserver):
                 crawl_id="test-modalcloser",
                 snapshot_id="snap-modalcloser",
                 test_url=test_url,
-                timeout=30,
+                timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
             ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
                 # Create modalcloser output directory (sibling to chrome)
                 modalcloser_dir = snapshot_chrome_dir.parent / "modalcloser"
@@ -249,7 +250,7 @@ def test_dialog_handler_logs_dialogs(httpserver):
                 crawl_id="test-dialog",
                 snapshot_id="snap-dialog",
                 test_url=test_url,
-                timeout=30,
+                timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
             ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
                 modalcloser_dir = snapshot_chrome_dir.parent / "modalcloser"
                 modalcloser_dir.mkdir()
@@ -309,7 +310,7 @@ def test_config_poll_interval(httpserver):
                 crawl_id="test-poll",
                 snapshot_id="snap-poll",
                 test_url=test_url,
-                timeout=30,
+                timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
             ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
                 modalcloser_dir = snapshot_chrome_dir.parent / "modalcloser"
                 modalcloser_dir.mkdir()

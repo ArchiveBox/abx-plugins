@@ -89,13 +89,7 @@ async function main() {
             console.error('[❌] SingleFile extension not installed');
             process.exit(2);
         }
-        if (extension.unpacked_path) {
-            const runtimeId = chromeUtils.getExtensionId(extension.unpacked_path);
-            if (runtimeId) {
-                extension.id = runtimeId;
-            }
-        }
-        console.error(`[singlefile] extension ready id=${extension.id} version=${extension.version}`);
+        console.error(`[singlefile] extension cache ready name=${extension.name} version=${extension.version}`);
 
         // Connect to existing Chrome session
         console.error('[singlefile] connecting to chrome session...');
@@ -128,71 +122,28 @@ async function main() {
                 console.error(`[singlefile] failed to enable target discovery: ${err.message || err}`);
             }
 
-            // Wait for extension target to be available, then attach dispatchAction
-            console.error('[singlefile] waiting for extension target...');
-            const deadline = Date.now() + 30000;
-            let matchTarget = null;
-            let matchInfo = null;
-            let lastLog = 0;
-            const wantedName = (extension.name || 'singlefile').toLowerCase();
-
-            while (Date.now() < deadline && !matchTarget) {
-                const targets = browser.targets();
-                for (const target of targets) {
-                    const info = await chromeUtils.isTargetExtension(target);
-                    if (!info?.target_is_extension || !info?.extension_id) {
-                        continue;
-                    }
-                    const manifestName = (info.manifest_name || '').toLowerCase();
-                    const targetUrl = (info.target_url || '').toLowerCase();
-                    const nameMatches = manifestName.includes(wantedName) || manifestName.includes('singlefile') || manifestName.includes('single-file');
-                    const urlMatches = targetUrl.includes('singlefile') || targetUrl.includes('single-file') || targetUrl.includes('single-file-extension');
-                    if (nameMatches || urlMatches) {
-                        matchTarget = target;
-                        matchInfo = info;
-                        break;
-                    }
-                }
-
-                if (!matchTarget) {
-                    if (Date.now() - lastLog > 5000) {
-                        const targetsSummary = [];
-                        for (const target of targets) {
-                            const info = await chromeUtils.isTargetExtension(target);
-                            if (!info?.target_is_extension) {
-                                continue;
-                            }
-                            targetsSummary.push({
-                                type: info.target_type,
-                                url: info.target_url,
-                                extensionId: info.extension_id,
-                                manifestName: info.manifest_name,
-                            });
-                        }
-                        console.error(`[singlefile] waiting... targets total=${targets.length} extensions=${targetsSummary.length} details=${JSON.stringify(targetsSummary)}`);
-                        lastLog = Date.now();
-                    }
-                    await new Promise(r => setTimeout(r, 500));
-                }
+            // Resolve extension id from chrome session metadata and connect to target by id.
+            console.error('[singlefile] waiting for extensions metadata...');
+            const crawlDir = process.env.CRAWL_DIR;
+            if (!crawlDir) {
+                throw new Error('CRAWL_DIR is required to resolve extension metadata');
             }
-
-            if (!matchTarget || !matchInfo) {
-                const targets = chromeUtils.getExtensionTargets(browser);
-                console.error(`[singlefile] extension target not found (name=${extension.name})`);
-                console.error(`[singlefile] available targets: ${JSON.stringify(targets)}`);
+            const crawlSession = chromeUtils.getCrawlChromeSession(crawlDir);
+            const sessionExtensions = await chromeUtils.waitForExtensionsMetadata(crawlSession.crawlChromeDir, 15000);
+            const sessionEntry = chromeUtils.findExtensionMetadataByName(sessionExtensions, extension.name);
+            if (!sessionEntry || !sessionEntry.id) {
+                console.error(`[singlefile] extension metadata missing id for name=${extension.name}`);
                 await browser.disconnect();
                 process.exit(5);
             }
+            extension.id = sessionEntry.id;
+            console.error(`[singlefile] resolved extension id from session metadata: ${extension.id}`);
 
-            // Use the runtime extension id from the matched target
-            extension.id = matchInfo.extension_id;
-
+            const extensionTarget = await chromeUtils.waitForExtensionTargetHandle(browser, extension.id, 30000);
             console.error('[singlefile] loading extension from target...');
-            await chromeUtils.loadExtensionFromTarget([extension], matchTarget);
+            await chromeUtils.loadExtensionFromTarget([extension], extensionTarget);
             if (typeof extension.dispatchAction !== 'function') {
-                const targets = chromeUtils.getExtensionTargets(browser);
                 console.error(`[singlefile] extension dispatchAction missing for id=${extension.id}`);
-                console.error(`[singlefile] available targets: ${JSON.stringify(targets)}`);
                 await browser.disconnect();
                 process.exit(6);
             }

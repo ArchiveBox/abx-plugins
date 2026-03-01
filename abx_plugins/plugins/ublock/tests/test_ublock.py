@@ -18,6 +18,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     setup_test_env,
     launch_chromium_session,
     kill_chromium_session,
+    wait_for_extensions_metadata,
 )
 
 
@@ -402,15 +403,12 @@ def test_extension_loads_in_chromium():
 
         print(f"[test] Chromium launched with CDP URL: {cdp_url}", flush=True)
 
-        # Check what extensions were loaded by chrome hook
-        extensions_file = chrome_dir / "extensions.json"
-        if extensions_file.exists():
-            loaded_exts = json.loads(extensions_file.read_text())
-            print(
-                f"Extensions loaded by chrome hook: {[e.get('name') for e in loaded_exts]}"
-            )
-        else:
-            print("Warning: extensions.json not found")
+        loaded_exts = wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
+        print(f"Extensions loaded by chrome hook: {[e.get('name') for e in loaded_exts]}")
+        ext_entry = next((e for e in loaded_exts if e.get("name") == "ublock"), None)
+        assert ext_entry, f"ublock not present in extensions metadata: {loaded_exts}"
+        ext_id = ext_entry.get("id")
+        assert ext_id, f"ublock extension id missing from metadata: {ext_entry}"
 
         # Get the unpacked extension ID - Chrome computes this from the path
         unpacked_path = ext_data.get("unpacked_path", "")
@@ -419,7 +417,7 @@ def test_extension_loads_in_chromium():
 
         try:
             # Step 3: Connect to Chromium and verify extension loads
-            # First use CDP to get all targets and find extension ID
+            # Use extension ID resolved from chrome session metadata.
             test_script = f"""
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 const puppeteer = require('puppeteer-core');
@@ -430,36 +428,8 @@ const puppeteer = require('puppeteer-core');
     // Wait for extension to initialize
     await new Promise(r => setTimeout(r, 500));
 
-    // Use CDP to get all targets including service workers
-    const pages = await browser.pages();
-    const page = pages[0] || await browser.newPage();
-    const client = await page.createCDPSession();
-
-    const {{ targetInfos }} = await client.send('Target.getTargets');
-    console.error('All CDP targets:');
-    targetInfos.forEach(t => console.error('  -', t.type, t.url.slice(0, 100)));
-
-    // Find any chrome-extension:// URLs
-    const extTargets = targetInfos.filter(t => t.url.startsWith('chrome-extension://'));
-    console.error('Extension targets:', extTargets.length);
-
-    // Filter out built-in extensions
-    const builtinIds = ['nkeimhogjdpnpccoofpliimaahmaaome', 'fignfifoniblkonapihmkfakmlgkbkcf',
-                       'ahfgeienlihckogmohjhadlkjgocpleb', 'mhjfbmdgcfjbbpaeojofohoefgiehjai'];
-    const customExts = extTargets.filter(t => {{
-        const extId = t.url.split('://')[1].split('/')[0];
-        return !builtinIds.includes(extId);
-    }});
-
-    if (customExts.length === 0) {{
-        console.log(JSON.stringify({{ loaded: false, error: 'No custom extension found via CDP' }}));
-        browser.disconnect();
-        return;
-    }}
-
-    // Get extension ID from first custom extension
-    const extId = customExts[0].url.split('://')[1].split('/')[0];
-    console.error('Found extension ID:', extId);
+    const extId = '{ext_id}';
+    console.error('Using extension ID from extensions metadata:', extId);
 
     // Try to load dashboard.html
     const newPage = await browser.newPage();
@@ -655,20 +625,21 @@ def test_blocks_ads_on_yahoo_com():
             )
             print(f"Extension Chromium launched: {ext_cdp_url}")
 
-            # Check that extension was loaded
-            extensions_file = ext_chrome_dir / "extensions.json"
-            if extensions_file.exists():
-                loaded_exts = json.loads(extensions_file.read_text())
-                print(f"Extensions loaded: {[e.get('name') for e in loaded_exts]}")
+            loaded_exts = wait_for_extensions_metadata(
+                ext_chrome_dir, timeout_seconds=10
+            )
+            print(f"Extensions loaded: {[e.get('name') for e in loaded_exts]}")
+            ext_entry = next(
+                (e for e in loaded_exts if e.get("name") == "ublock"), None
+            )
+            assert ext_entry, f"ublock not present in extensions metadata: {loaded_exts}"
+            ext_id = ext_entry.get("id")
+            assert ext_id, f"ublock extension id missing from metadata: {ext_entry}"
+            print(f"Extension ID: {ext_id}")
 
-                # Verify extension has ID and is initialized
-                if loaded_exts and loaded_exts[0].get("id"):
-                    ext_id = loaded_exts[0]["id"]
-                    print(f"Extension ID: {ext_id}")
-
-                    # Visit the extension dashboard to ensure it's fully loaded
-                    print("Visiting extension dashboard to verify initialization...")
-                    dashboard_script = f"""
+            # Visit the extension dashboard to ensure it's fully loaded
+            print("Visiting extension dashboard to verify initialization...")
+            dashboard_script = f"""
 const puppeteer = require('{env_base["NODE_MODULES_DIR"]}/puppeteer-core');
 (async () => {{
     const browser = await puppeteer.connect({{
@@ -683,14 +654,14 @@ const puppeteer = require('{env_base["NODE_MODULES_DIR"]}/puppeteer-core');
     browser.disconnect();
 }})();
 """
-                    dash_script_path = tmpdir / "check_dashboard.js"
-                    dash_script_path.write_text(dashboard_script)
-                    subprocess.run(
-                        ["node", str(dash_script_path)],
-                        capture_output=True,
-                        timeout=15,
-                        env=env_base,
-                    )
+            dash_script_path = tmpdir / "check_dashboard.js"
+            dash_script_path.write_text(dashboard_script)
+            subprocess.run(
+                ["node", str(dash_script_path)],
+                capture_output=True,
+                timeout=15,
+                env=env_base,
+            )
 
             # Wait longer for extension to fully initialize filters
             # On first run, uBlock needs to download filter lists which can take 10-15 seconds

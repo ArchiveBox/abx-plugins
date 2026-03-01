@@ -25,6 +25,13 @@ def test_hook_script_exists():
 
 def test_submits_to_archivedotorg():
     with tempfile.TemporaryDirectory() as tmpdir:
+        import os
+
+        env = os.environ.copy()
+        # Keep the hook's own network timeout below subprocess timeout so failures
+        # return cleanly as exit=1 instead of being killed by pytest.
+        env["ARCHIVEDOTORG_TIMEOUT"] = "45"
+
         result = subprocess.run(
             [
                 sys.executable,
@@ -37,7 +44,8 @@ def test_submits_to_archivedotorg():
             cwd=tmpdir,
             capture_output=True,
             text=True,
-            timeout=60,
+            env=env,
+            timeout=90,
         )
 
         assert result.returncode in (0, 1)

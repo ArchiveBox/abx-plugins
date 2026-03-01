@@ -20,6 +20,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     setup_test_env,
     launch_chromium_session,
     kill_chromium_session,
+    wait_for_extensions_metadata,
 )
 
 
@@ -29,7 +30,6 @@ CONFIG_SCRIPT = PLUGIN_DIR / "on_Crawl__95_twocaptcha_config.js"
 
 TEST_URL = "https://www.google.com/recaptcha/api2/demo"
 CHROME_STARTUP_TIMEOUT_SECONDS = 45
-EXTENSIONS_READY_TIMEOUT_SECONDS = 10
 LIVE_API_KEY = os.environ.get("TWOCAPTCHA_API_KEY") or os.environ.get(
     "API_KEY_2CAPTCHA"
 )
@@ -38,20 +38,6 @@ LIVE_API_KEY = os.environ.get("TWOCAPTCHA_API_KEY") or os.environ.get(
 # Alias for backward compatibility with existing test names
 launch_chrome = launch_chromium_session
 kill_chrome = kill_chromium_session
-
-
-def wait_for_extensions_json(chrome_dir: Path) -> list[dict]:
-    """Wait until Chrome writes extensions.json and return parsed entries."""
-    extensions_file = chrome_dir / "extensions.json"
-    deadline = time.monotonic() + EXTENSIONS_READY_TIMEOUT_SECONDS
-    while time.monotonic() < deadline:
-        if extensions_file.exists() and extensions_file.stat().st_size > 0:
-            return json.loads(extensions_file.read_text())
-        time.sleep(0.5)
-    raise AssertionError(
-        f"extensions.json not created after {EXTENSIONS_READY_TIMEOUT_SECONDS}s. "
-        f"Chrome dir files: {list(chrome_dir.iterdir())}"
-    )
 
 
 class TestTwoCaptcha:
@@ -96,7 +82,7 @@ class TestTwoCaptcha:
             )
 
             try:
-                exts = wait_for_extensions_json(chrome_dir)
+                exts = wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
                 assert any(e["name"] == "twocaptcha" for e in exts), (
                     f"twocaptcha not loaded: {exts}"
                 )
@@ -129,7 +115,7 @@ class TestTwoCaptcha:
             )
 
             try:
-                wait_for_extensions_json(chrome_dir)
+                wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
 
                 result = subprocess.run(
                     [
@@ -276,7 +262,7 @@ const puppeteer = require('puppeteer-core');
             )
 
             try:
-                wait_for_extensions_json(chrome_dir)
+                wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
 
                 config_result = subprocess.run(
                     [

@@ -19,6 +19,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     setup_test_env,
     launch_chromium_session,
     kill_chromium_session,
+    wait_for_extensions_metadata,
 )
 
 
@@ -220,11 +221,15 @@ def test_extension_loads_in_chromium():
 
         print(f"Chromium launched with CDP URL: {cdp_url}")
 
-        # Check that extensions were loaded
-        extensions_file = chrome_dir / "extensions.json"
-        if extensions_file.exists():
-            loaded_exts = json.loads(extensions_file.read_text())
-            print(f"Extensions loaded: {[e.get('name') for e in loaded_exts]}")
+        loaded_exts = wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
+        print(f"Extensions loaded: {[e.get('name') for e in loaded_exts]}")
+        ext_entry = next(
+            (e for e in loaded_exts if e.get("name") == "istilldontcareaboutcookies"),
+            None,
+        )
+        assert ext_entry, f"istilldontcareaboutcookies not present in extensions.json: {loaded_exts}"
+        ext_id = ext_entry.get("id")
+        assert ext_id, f"Extension id missing from extensions.json entry: {ext_entry}"
 
         try:
             # Step 3: Connect to Chromium and verify extension loaded via options page
@@ -237,38 +242,8 @@ const puppeteer = require('puppeteer-core');
 
     // Wait for extension to initialize
     await new Promise(r => setTimeout(r, 2000));
-
-    // Find extension targets to get the extension ID
-    const targets = browser.targets();
-    const extTargets = targets.filter(t =>
-        t.url().startsWith('chrome-extension://') ||
-        t.type() === 'service_worker' ||
-        t.type() === 'background_page'
-    );
-
-    // Filter out Chrome's built-in extensions
-    const builtinIds = ['nkeimhogjdpnpccoofpliimaahmaaome', 'fignfifoniblkonapihmkfakmlgkbkcf',
-                       'ahfgeienlihckogmohjhadlkjgocpleb', 'mhjfbmdgcfjbbpaeojofohoefgiehjai'];
-    const customExtTargets = extTargets.filter(t => {{
-        const url = t.url();
-        if (!url.startsWith('chrome-extension://')) return false;
-        const extId = url.split('://')[1].split('/')[0];
-        return !builtinIds.includes(extId);
-    }});
-
-    console.error('Custom extension targets found:', customExtTargets.length);
-    customExtTargets.forEach(t => console.error('  -', t.type(), t.url()));
-
-    if (customExtTargets.length === 0) {{
-        console.log(JSON.stringify({{ loaded: false, error: 'No custom extension targets found' }}));
-        browser.disconnect();
-        return;
-    }}
-
-    // Get the extension ID from the first custom extension target
-    const extUrl = customExtTargets[0].url();
-    const extId = extUrl.split('://')[1].split('/')[0];
-    console.error('Extension ID:', extId);
+    const extId = '{ext_id}';
+    console.error('Extension ID from extensions.json:', extId);
 
     // Try to navigate to the extension's options.html page
     const page = await browser.newPage();
@@ -635,11 +610,10 @@ def test_hides_cookie_consent_on_static_page(httpserver):
             )
             print(f"Extension Chromium launched: {ext_cdp_url}")
 
-            # Check that extension was loaded
-            extensions_file = ext_chrome_dir / "extensions.json"
-            if extensions_file.exists():
-                loaded_exts = json.loads(extensions_file.read_text())
-                print(f"Extensions loaded: {[e.get('name') for e in loaded_exts]}")
+            loaded_exts = wait_for_extensions_metadata(
+                ext_chrome_dir, timeout_seconds=10
+            )
+            print(f"Extensions loaded: {[e.get('name') for e in loaded_exts]}")
 
             # Wait for extension to initialize
             time.sleep(3)

@@ -425,6 +425,33 @@ def _call_chrome_utils(
     return result.returncode, result.stdout, result.stderr
 
 
+def wait_for_extensions_metadata(
+    chrome_dir: Path, timeout_seconds: int = 10
+) -> List[Dict[str, Any]]:
+    """Wait for extensions.json metadata via chrome_utils.js and return parsed entries."""
+    timeout_ms = max(1, int(timeout_seconds * 1000))
+    returncode, stdout, stderr = _call_chrome_utils(
+        "waitForExtensionsMetadata",
+        str(chrome_dir),
+        str(timeout_ms),
+    )
+    if returncode != 0:
+        raise AssertionError(
+            f"waitForExtensionsMetadata failed for {chrome_dir}: {stderr or stdout}"
+        )
+    try:
+        parsed = json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        raise AssertionError(
+            f"Invalid JSON from waitForExtensionsMetadata: {stdout}"
+        ) from exc
+    if not isinstance(parsed, list) or not parsed:
+        raise AssertionError(
+            f"Expected non-empty extension metadata list for {chrome_dir}, got: {parsed}"
+        )
+    return parsed
+
+
 def get_plugin_dir(test_file: str) -> Path:
     """Get the plugin directory from a test file path.
 
