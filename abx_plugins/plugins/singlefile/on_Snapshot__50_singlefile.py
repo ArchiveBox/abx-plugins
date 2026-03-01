@@ -316,6 +316,7 @@ def save_singlefile_with_extension(
         error_lines: list[str] = []
         process = subprocess.Popen(
             cmd,
+            cwd=str(OUTPUT_DIR),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,

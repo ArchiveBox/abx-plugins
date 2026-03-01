@@ -71,6 +71,12 @@ def main(
         click.echo(f"{name} not found after apt install", err=True)
         sys.exit(1)
 
+    resolved_provider = getattr(binary, "binprovider", None)
+    if isinstance(resolved_provider, str):
+        resolved_provider_name = resolved_provider
+    else:
+        resolved_provider_name = getattr(resolved_provider, "name", "") or ""
+
     # Output Binary JSONL record to stdout
     record = {
         "type": "Binary",
@@ -78,7 +84,7 @@ def main(
         "abspath": str(binary.abspath),
         "version": str(binary.version) if binary.version else "",
         "sha256": binary.sha256 or "",
-        "binprovider": "apt",
+        "binprovider": resolved_provider_name,
         "machine_id": machine_id,
         "binary_id": binary_id,
     }

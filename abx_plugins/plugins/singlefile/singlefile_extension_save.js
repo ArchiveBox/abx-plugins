@@ -122,14 +122,9 @@ async function main() {
                 console.error(`[singlefile] failed to enable target discovery: ${err.message || err}`);
             }
 
-            // Resolve extension id from chrome session metadata and connect to target by id.
+            // Resolve extension id from snapshot chrome session metadata and connect to target by id.
             console.error('[singlefile] waiting for extensions metadata...');
-            const crawlDir = process.env.CRAWL_DIR;
-            if (!crawlDir) {
-                throw new Error('CRAWL_DIR is required to resolve extension metadata');
-            }
-            const crawlSession = chromeUtils.getCrawlChromeSession(crawlDir);
-            const sessionExtensions = await chromeUtils.waitForExtensionsMetadata(crawlSession.crawlChromeDir, 15000);
+            const sessionExtensions = await chromeUtils.waitForExtensionsMetadata(CHROME_SESSION_DIR, 15000);
             const sessionEntry = chromeUtils.findExtensionMetadataByName(sessionExtensions, extension.name);
             if (!sessionEntry || !sessionEntry.id) {
                 console.error(`[singlefile] extension metadata missing id for name=${extension.name}`);

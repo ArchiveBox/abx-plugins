@@ -49,7 +49,7 @@ def main(
         click.echo(f"{name} not found in PATH", err=True)
         sys.exit(1)
 
-    machine_id = os.environ.get("MACHINE_ID", "")
+    machine_id = machine_id.strip() or os.environ.get("MACHINE_ID", "").strip()
 
     # Output Binary JSONL record to stdout
     record = {

@@ -27,7 +27,6 @@ const {
     getEnvBool,
     getEnvInt,
     parseArgs,
-    readCdpUrl,
     connectToPage,
     waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
@@ -53,10 +52,6 @@ async function extractOutlinks(url, snapshotId, crawlId, depth, timeoutMs) {
     let browser = null;
 
     try {
-        if (!readCdpUrl(CHROME_SESSION_DIR)) {
-            return { success: false, error: 'No Chrome session found (chrome plugin must run first)' };
-        }
-
         const connection = await connectToPage({
             chromeSessionDir: CHROME_SESSION_DIR,
             timeoutMs,

@@ -383,6 +383,7 @@ def test_singlefile_with_extension_uses_existing_chrome():
                 env["CHROME_EXTENSIONS_DIR"] = str(extensions_dir)
                 env["CHROME_DOWNLOADS_DIR"] = str(downloads_dir)
                 env["CHROME_HEADLESS"] = "false"
+                env.pop("CRAWL_DIR", None)
 
                 # Track downloads dir state before run to ensure file is created then moved out
                 downloads_before = set(downloads_dir.glob("*.html"))

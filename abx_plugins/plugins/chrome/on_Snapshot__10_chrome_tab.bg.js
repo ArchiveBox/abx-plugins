@@ -32,6 +32,7 @@ const {
     getEnvInt,
     readCdpUrl,
     readTargetId,
+    waitForExtensionsMetadata,
     waitForCrawlChromeSession,
     openTabInChromeSession,
     closeTabInChromeSession,
@@ -149,6 +150,15 @@ async function main() {
         fs.writeFileSync(path.join(OUTPUT_DIR, 'chrome.pid'), String(crawlSession.pid));
         fs.writeFileSync(path.join(OUTPUT_DIR, 'target_id.txt'), targetId);
         fs.writeFileSync(path.join(OUTPUT_DIR, 'url.txt'), url);
+        try {
+            const extensionsMetadata = await waitForExtensionsMetadata(crawlSession.crawlChromeDir, 10000);
+            fs.writeFileSync(
+                path.join(OUTPUT_DIR, 'extensions.json'),
+                JSON.stringify(extensionsMetadata, null, 2)
+            );
+        } catch (err) {
+            // Extension metadata is optional for non-extension snapshots.
+        }
 
         status = 'succeeded';
         output = OUTPUT_DIR;
