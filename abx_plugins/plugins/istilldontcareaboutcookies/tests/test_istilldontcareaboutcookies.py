@@ -227,7 +227,9 @@ def test_extension_loads_in_chromium():
             (e for e in loaded_exts if e.get("name") == "istilldontcareaboutcookies"),
             None,
         )
-        assert ext_entry, f"istilldontcareaboutcookies not present in extensions.json: {loaded_exts}"
+        assert ext_entry, (
+            f"istilldontcareaboutcookies not present in extensions.json: {loaded_exts}"
+        )
         ext_id = ext_entry.get("id")
         assert ext_id, f"Extension id missing from extensions.json entry: {ext_entry}"
 

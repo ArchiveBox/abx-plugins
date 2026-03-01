@@ -168,9 +168,15 @@ class TestStaticfileWithChrome:
         assert "Traceback" not in stderr
         assert archive_result is not None, f"Missing ArchiveResult in stdout:\n{stdout}"
         assert archive_result.get("status") == "skipped", archive_result
-        assert "Not a static file" in archive_result.get("output_str", ""), archive_result
-        assert archive_result.get("content_type", "").startswith("text/html"), archive_result
-        assert not any(staticfile_dir.glob("*.pdf")), "Should not download files for HTML pages"
+        assert "Not a static file" in archive_result.get("output_str", ""), (
+            archive_result
+        )
+        assert archive_result.get("content_type", "").startswith("text/html"), (
+            archive_result
+        )
+        assert not any(staticfile_dir.glob("*.pdf")), (
+            "Should not download files for HTML pages"
+        )
 
     def test_staticfile_downloads_static_file_pages(self, staticfile_test_urls):
         """Staticfile hook should download deterministic static-file fixtures."""
@@ -210,7 +216,9 @@ class TestStaticfileWithChrome:
         assert archive_result.get("content_type") == "application/json", archive_result
 
         output_name = archive_result.get("output_str")
-        assert output_name, f"Missing downloaded filename in ArchiveResult: {archive_result}"
+        assert output_name, (
+            f"Missing downloaded filename in ArchiveResult: {archive_result}"
+        )
         output_file = staticfile_dir / output_name
         assert output_file.exists(), f"Expected downloaded file at {output_file}"
         output_bytes = output_file.read_bytes()

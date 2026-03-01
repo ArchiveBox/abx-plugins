@@ -466,7 +466,9 @@ def test_handles_https_urls(require_chrome_runtime, chrome_test_https_url):
 
         hook_code, _stdout, _stderr, nav_result, headers_file = result
         if nav_result.returncode == 0:
-            assert hook_code == 0, "Headers hook should succeed after successful HTTPS navigation"
+            assert hook_code == 0, (
+                "Headers hook should succeed after successful HTTPS navigation"
+            )
             assert headers_file.exists(), "headers.json not created for HTTPS page"
             output_data = json.loads(headers_file.read_text())
             assert normalize_root_url(output_data["url"]) == normalize_root_url(
@@ -478,7 +480,9 @@ def test_handles_https_urls(require_chrome_runtime, chrome_test_https_url):
             assert "err_cert" in nav_output or "certificate" in nav_output, (
                 f"Expected TLS/certificate navigation error, got: {nav_result.stderr}"
             )
-            assert hook_code in (0, 1), "Hook must terminate cleanly when HTTPS navigation fails"
+            assert hook_code in (0, 1), (
+                "Hook must terminate cleanly when HTTPS navigation fails"
+            )
 
 
 def test_handles_404_gracefully(require_chrome_runtime, headers_test_urls):

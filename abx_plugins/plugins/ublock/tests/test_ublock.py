@@ -404,7 +404,9 @@ def test_extension_loads_in_chromium():
         print(f"[test] Chromium launched with CDP URL: {cdp_url}", flush=True)
 
         loaded_exts = wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
-        print(f"Extensions loaded by chrome hook: {[e.get('name') for e in loaded_exts]}")
+        print(
+            f"Extensions loaded by chrome hook: {[e.get('name') for e in loaded_exts]}"
+        )
         ext_entry = next((e for e in loaded_exts if e.get("name") == "ublock"), None)
         assert ext_entry, f"ublock not present in extensions metadata: {loaded_exts}"
         ext_id = ext_entry.get("id")
@@ -632,7 +634,9 @@ def test_blocks_ads_on_yahoo_com():
             ext_entry = next(
                 (e for e in loaded_exts if e.get("name") == "ublock"), None
             )
-            assert ext_entry, f"ublock not present in extensions metadata: {loaded_exts}"
+            assert ext_entry, (
+                f"ublock not present in extensions metadata: {loaded_exts}"
+            )
             ext_id = ext_entry.get("id")
             assert ext_id, f"ublock extension id missing from metadata: {ext_entry}"
             print(f"Extension ID: {ext_id}")
