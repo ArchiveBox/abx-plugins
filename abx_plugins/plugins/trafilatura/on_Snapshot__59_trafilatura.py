@@ -31,6 +31,23 @@ FORMAT_TO_FILE = {
     "xmltei": "content.xmltei",
 }
 
+TRAFILATURA_EXTRACT_SCRIPT = """
+import sys
+from pathlib import Path
+import trafilatura
+
+html = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+url = sys.argv[2]
+fmt = sys.argv[3]
+result = trafilatura.extract(
+    html,
+    output_format=fmt,
+    with_metadata=True,
+    url=url,
+) or ""
+sys.stdout.write(result)
+"""
+
 
 def get_env(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
@@ -107,15 +124,7 @@ def run_trafilatura(
     cmd = [
         str(python_bin),
         "-c",
-        (
-            "import sys,trafilatura; "
-            "from pathlib import Path; "
-            "html=Path(sys.argv[1]).read_text(encoding='utf-8',errors='ignore'); "
-            "url=sys.argv[2]; "
-            "fmt=sys.argv[3]; "
-            "result=trafilatura.extract(html, output_format=fmt, with_metadata=True, url=url) or ''; "
-            "sys.stdout.write(result)"
-        ),
+        TRAFILATURA_EXTRACT_SCRIPT,
         html_source,
         url,
         fmt,
