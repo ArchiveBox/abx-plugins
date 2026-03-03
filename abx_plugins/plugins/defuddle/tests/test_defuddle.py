@@ -1,10 +1,13 @@
 import json
 import os
-import stat
 import subprocess
 import sys
 import tempfile
+import uuid
 from pathlib import Path
+from urllib.request import urlopen
+
+import pytest
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_hook_script,
@@ -13,6 +16,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
+PLUGINS_ROOT = PLUGIN_DIR.parent
 _DEFUDDLE_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_defuddle.*")
 if _DEFUDDLE_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
@@ -25,6 +29,8 @@ DEFUDDLE_CRAWL_HOOK = _DEFUDDLE_CRAWL_HOOK
 
 
 TEST_URL = "https://example.com"
+_defuddle_binary_path = None
+_defuddle_lib_root = None
 
 
 def create_example_html(tmpdir: Path) -> Path:
@@ -37,6 +43,110 @@ def create_example_html(tmpdir: Path) -> Path:
         encoding="utf-8",
     )
     return html_file
+
+
+def require_defuddle_binary() -> str:
+    """Return defuddle binary path or fail with actionable context."""
+    binary_path = get_defuddle_binary_path()
+    assert binary_path, (
+        "defuddle installation failed. Install hook should install "
+        "the binary automatically in this test environment."
+    )
+    assert Path(binary_path).is_file(), f"defuddle binary path invalid: {binary_path}"
+    return binary_path
+
+
+def get_defuddle_binary_path() -> str | None:
+    """Get defuddle path from cache or by running install hooks."""
+    global _defuddle_binary_path
+    if _defuddle_binary_path and Path(_defuddle_binary_path).is_file():
+        return _defuddle_binary_path
+
+    from abx_pkg import Binary, EnvProvider, NpmProvider
+
+    try:
+        binary = Binary(
+            name="defuddle",
+            binproviders=[NpmProvider(), EnvProvider()],
+            overrides={"npm": {"packages": ["defuddle"]}},
+        ).load()
+        if binary and binary.abspath:
+            _defuddle_binary_path = str(binary.abspath)
+            return _defuddle_binary_path
+    except Exception:
+        pass
+
+    npm_hook = PLUGINS_ROOT / "npm" / "on_Binary__10_npm_install.py"
+    if not npm_hook.exists():
+        return None
+
+    binary_id = str(uuid.uuid4())
+    machine_id = str(uuid.uuid4())
+    binproviders = "*"
+    overrides = None
+
+    crawl_result = subprocess.run(
+        [sys.executable, str(DEFUDDLE_CRAWL_HOOK)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    for line in crawl_result.stdout.strip().split("\n"):
+        if not line.strip().startswith("{"):
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if record.get("type") == "Binary" and record.get("name") == "defuddle":
+            binproviders = record.get("binproviders", "*")
+            overrides = record.get("overrides")
+            break
+
+    global _defuddle_lib_root
+    if not _defuddle_lib_root:
+        _defuddle_lib_root = tempfile.mkdtemp(prefix="defuddle-lib-")
+
+    env = os.environ.copy()
+    env["LIB_DIR"] = str(Path(_defuddle_lib_root) / ".config" / "abx" / "lib")
+    env["SNAP_DIR"] = str(Path(_defuddle_lib_root) / "data")
+    env["CRAWL_DIR"] = str(Path(_defuddle_lib_root) / "crawl")
+
+    cmd = [
+        "uv",
+        "run",
+        str(npm_hook),
+        "--binary-id",
+        binary_id,
+        "--machine-id",
+        machine_id,
+        "--name",
+        "defuddle",
+        f"--binproviders={binproviders}",
+    ]
+    if overrides:
+        cmd.append(f"--overrides={json.dumps(overrides)}")
+
+    install_result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        env=env,
+    )
+
+    for line in install_result.stdout.strip().split("\n"):
+        if not line.strip().startswith("{"):
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if record.get("type") == "Binary" and record.get("name") == "defuddle":
+            _defuddle_binary_path = record.get("abspath")
+            return _defuddle_binary_path
+
+    return None
 
 
 def test_hook_script_exists():
@@ -95,32 +205,40 @@ def test_reports_missing_dependency_when_not_installed():
         assert "defuddle" in result.stderr.lower() or "error" in result.stderr.lower()
 
 
-def test_extracts_article_with_json_output_from_binary():
+def test_verify_deps_with_abx_pkg():
+    binary_path = require_defuddle_binary()
+    assert Path(binary_path).is_file()
+
+
+def test_extracts_article_with_real_binary(httpserver):
+    binary_path = require_defuddle_binary()
+    test_url = httpserver.url_for("/defuddle-article")
+
+    httpserver.expect_request("/defuddle-article").respond_with_data(
+        "<html><head><title>Defuddle Test Article</title></head><body>"
+        "<article><h1>Defuddle Test Article</h1>"
+        "<p>This is test content for defuddle parser integration.</p>"
+        "</article></body></html>",
+        content_type="text/html; charset=utf-8",
+    )
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
-        expected_html = create_example_html(snap_dir)
-
-        fake_binary = tmpdir / "fake_defuddle.py"
-        fake_binary.write_text(
-            "import json, pathlib, sys\n"
-            "args = sys.argv[1:]\n"
-            "assert 'parse' in args\n"
-            "idx = args.index('parse') + 1\n"
-            "source = pathlib.Path(args[idx])\n"
-            "assert source.is_file()\n"
-            "assert str(source).startswith('/')\n"
-            "assert not str(source).startswith('http')\n"
-            "assert '--json' in args or '-j' in args\n"
-            "print(json.dumps({'content':'<article>Example</article>','textContent':'Example text','title':'Example Title'}))\n"
+        singlefile_dir = snap_dir / "singlefile"
+        singlefile_dir.mkdir(parents=True, exist_ok=True)
+        html_source = singlefile_dir / "singlefile.html"
+        with urlopen(test_url, timeout=10) as response:
+            page_html = response.read().decode("utf-8")
+        html_source.write_text(
+            page_html,
+            encoding="utf-8",
         )
-        fake_binary.chmod(fake_binary.stat().st_mode | stat.S_IXUSR)
 
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
-        env["DEFUDDLE_BINARY"] = sys.executable
-        env["DEFUDDLE_ARGS"] = json.dumps([str(fake_binary)])
+        env["DEFUDDLE_BINARY"] = binary_path
 
         result = subprocess.run(
             [
@@ -145,8 +263,15 @@ def test_extracts_article_with_json_output_from_binary():
         assert (output_dir / "content.txt").exists()
         assert (output_dir / "article.json").exists()
 
-        assert "Example" in (output_dir / "content.html").read_text(encoding="utf-8")
-        assert "Example text" in (output_dir / "content.txt").read_text(encoding="utf-8")
+        assert "defuddle parser integration" in (
+            output_dir / "content.html"
+        ).read_text(encoding="utf-8").lower()
+        assert "defuddle parser integration" in (
+            output_dir / "content.txt"
+        ).read_text(encoding="utf-8").lower()
         metadata = json.loads((output_dir / "article.json").read_text(encoding="utf-8"))
-        assert metadata.get("title") == "Example Title"
-        assert expected_html.exists()
+        assert metadata.get("title")
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
