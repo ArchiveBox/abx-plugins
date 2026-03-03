@@ -12,6 +12,7 @@ import argparse
 import html
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -64,13 +65,18 @@ def extract_defuddle(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     try:
         cmd = [binary, *defuddle_args, *defuddle_args_extra, url]
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, timeout=timeout, text=True)
-
-        if result.stdout:
-            sys.stderr.write(result.stdout)
-            sys.stderr.flush()
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout,
+            text=True,
+        )
 
         if result.returncode != 0:
+            err = (result.stderr or "").strip()
+            if err:
+                return False, None, f"defuddle failed (exit={result.returncode}): {err}"
             return False, None, f"defuddle failed (exit={result.returncode})"
 
         raw_output = result.stdout.strip()
@@ -103,7 +109,8 @@ def extract_defuddle(url: str, binary: str) -> tuple[bool, str | None, str]:
             html_content = f"<pre>{html.escape(text_content)}</pre>"
 
         if not text_content and html_content:
-            text_content = html_content
+            text_content = re.sub(r"<[^>]+>", " ", html_content)
+            text_content = " ".join(text_content.split())
 
         if not text_content and not html_content:
             return False, None, "No content extracted"
