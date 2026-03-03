@@ -21,18 +21,6 @@
       "x-fallback": "TIMEOUT",
       "description": "Timeout for Trafilatura in seconds"
     },
-    "TRAFILATURA_ARGS": {
-      "type": "array",
-      "items": {"type": "string"},
-      "default": [],
-      "description": "Default Trafilatura arguments"
-    },
-    "TRAFILATURA_ARGS_EXTRA": {
-      "type": "array",
-      "items": {"type": "string"},
-      "default": [],
-      "description": "Extra arguments to append to Trafilatura command"
-    },
     "TRAFILATURA_OUTPUT_TXT": {
       "type": "boolean",
       "default": true,

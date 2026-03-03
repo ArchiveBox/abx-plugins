@@ -30,6 +30,15 @@ FORMAT_TO_FILE = {
     "xml": "content.xml",
     "xmltei": "content.xmltei",
 }
+OUTPUT_ENV_TO_FORMAT = {
+    "TRAFILATURA_OUTPUT_TXT": "txt",
+    "TRAFILATURA_OUTPUT_MARKDOWN": "markdown",
+    "TRAFILATURA_OUTPUT_HTML": "html",
+    "TRAFILATURA_OUTPUT_CSV": "csv",
+    "TRAFILATURA_OUTPUT_JSON": "json",
+    "TRAFILATURA_OUTPUT_XML": "xml",
+    "TRAFILATURA_OUTPUT_XMLTEI": "xmltei",
+}
 
 TRAFILATURA_EXTRACT_SCRIPT = """
 import sys
@@ -109,9 +118,8 @@ def find_html_source() -> str | None:
 
 def get_enabled_formats() -> list[str]:
     return [
-        fmt
-        for fmt in FORMAT_TO_FILE
-        if get_env_bool(f"TRAFILATURA_OUTPUT_{fmt.upper()}", fmt in {"txt", "markdown", "html"})
+        fmt for env_name, fmt in OUTPUT_ENV_TO_FORMAT.items()
+        if get_env_bool(env_name, fmt in {"txt", "markdown", "html"})
     ]
 
 
