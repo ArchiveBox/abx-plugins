@@ -223,6 +223,80 @@ def test_extracts_local_html_outputs_with_real_binary(httpserver):
         assert "example domain" in json_content, "Expected article content in json output"
 
 
+def test_output_format_toggles_map_to_expected_files(httpserver):
+    binary_path = require_trafilatura_binary()
+    test_url = httpserver.url_for("/trafilatura-format-test")
+
+    httpserver.expect_request("/trafilatura-format-test").respond_with_data(
+        "<html><head><title>Trafilatura Format Test</title></head><body>"
+        "<article><h1>Format Coverage</h1>"
+        "<p>This article is used to verify output format toggles.</p>"
+        "<p>It should produce csv, xml, and xmltei when enabled.</p>"
+        "</article></body></html>",
+        content_type="text/html; charset=utf-8",
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        snap_dir = tmpdir / "snap"
+        singlefile_dir = snap_dir / "singlefile"
+        singlefile_dir.mkdir(parents=True, exist_ok=True)
+
+        response = requests.get(test_url, timeout=10)
+        response.raise_for_status()
+        (singlefile_dir / "singlefile.html").write_text(response.text, encoding="utf-8")
+
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(snap_dir)
+        env["TRAFILATURA_BINARY"] = binary_path
+        env["TRAFILATURA_OUTPUT_TXT"] = "false"
+        env["TRAFILATURA_OUTPUT_MARKDOWN"] = "false"
+        env["TRAFILATURA_OUTPUT_HTML"] = "false"
+        env["TRAFILATURA_OUTPUT_JSON"] = "false"
+        env["TRAFILATURA_OUTPUT_CSV"] = "true"
+        env["TRAFILATURA_OUTPUT_XML"] = "true"
+        env["TRAFILATURA_OUTPUT_XMLTEI"] = "true"
+        user_site = site.getusersitepackages()
+        env["PYTHONPATH"] = (
+            f"{user_site}:{env['PYTHONPATH']}" if env.get("PYTHONPATH") else user_site
+        )
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(TRAFILATURA_HOOK),
+                "--url",
+                test_url,
+                "--snapshot-id",
+                "test-formats",
+            ],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=env,
+        )
+
+        assert result.returncode == 0, f"Extraction failed: {result.stderr}"
+
+        output_dir = snap_dir / "trafilatura"
+        assert (output_dir / "content.csv").exists(), "content.csv not created"
+        assert (output_dir / "content.xml").exists(), "content.xml not created"
+        assert (output_dir / "content.xmltei").exists(), "content.xmltei not created"
+        assert not (output_dir / "content.txt").exists(), "content.txt should be disabled"
+        assert not (output_dir / "content.md").exists(), "content.md should be disabled"
+        assert not (output_dir / "content.html").exists(), "content.html should be disabled"
+        assert not (output_dir / "content.json").exists(), "content.json should be disabled"
+
+        assert "format coverage" in (output_dir / "content.csv").read_text(
+            errors="ignore"
+        ).lower()
+        assert "<doc" in (output_dir / "content.xml").read_text(errors="ignore").lower()
+        assert "<tei" in (output_dir / "content.xmltei").read_text(
+            errors="ignore"
+        ).lower()
+
+
 def test_fails_without_html_source():
     binary_path = require_trafilatura_binary()
     with tempfile.TemporaryDirectory() as tmpdir:
