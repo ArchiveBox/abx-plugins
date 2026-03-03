@@ -98,16 +98,26 @@ def get_enabled_formats() -> list[str]:
     ]
 
 
-def run_trafilatura(binary: str, html_source: str, fmt: str, timeout: int) -> tuple[bool, str]:
-    args = get_env_array("TRAFILATURA_ARGS", [])
-    args_extra = get_env_array("TRAFILATURA_ARGS_EXTRA", [])
+def run_trafilatura(
+    binary: str, html_source: str, url: str, fmt: str, timeout: int
+) -> tuple[bool, str]:
+    python_bin = Path(binary).with_name("python")
+    if not python_bin.exists():
+        python_bin = Path(sys.executable)
     cmd = [
-        binary,
-        *args,
-        *args_extra,
-        "--input-file",
+        str(python_bin),
+        "-c",
+        (
+            "import sys,trafilatura; "
+            "from pathlib import Path; "
+            "html=Path(sys.argv[1]).read_text(encoding='utf-8',errors='ignore'); "
+            "url=sys.argv[2]; "
+            "fmt=sys.argv[3]; "
+            "result=trafilatura.extract(html, output_format=fmt, with_metadata=True, url=url) or ''; "
+            "sys.stdout.write(result)"
+        ),
         html_source,
-        "--output-format",
+        url,
         fmt,
     ]
     result = subprocess.run(
@@ -127,7 +137,7 @@ def run_trafilatura(binary: str, html_source: str, fmt: str, timeout: int) -> tu
     return True, ""
 
 
-def extract_trafilatura(binary: str) -> tuple[bool, str | None, str]:
+def extract_trafilatura(url: str, binary: str) -> tuple[bool, str | None, str]:
     timeout = get_env_int("TRAFILATURA_TIMEOUT") or get_env_int("TIMEOUT", 60)
     html_source = find_html_source()
     if not html_source:
@@ -138,7 +148,7 @@ def extract_trafilatura(binary: str) -> tuple[bool, str | None, str]:
         return False, None, "No Trafilatura output formats enabled"
 
     for fmt in formats:
-        success, error = run_trafilatura(binary, html_source, fmt, timeout)
+        success, error = run_trafilatura(binary, html_source, url, fmt, timeout)
         if not success:
             return False, None, error
 
@@ -155,6 +165,7 @@ def main(url: str, snapshot_id: str):
             sys.exit(0)
 
         success, output, error = extract_trafilatura(
+            url,
             get_env("TRAFILATURA_BINARY", "trafilatura")
         )
 
