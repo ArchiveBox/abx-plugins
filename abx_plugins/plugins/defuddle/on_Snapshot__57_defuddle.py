@@ -57,14 +57,50 @@ def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
         return default if default is not None else []
 
 
+def find_html_source() -> str | None:
+    """Return first non-empty HTML source file from sibling extractor outputs."""
+    search_patterns = [
+        "singlefile/singlefile.html",
+        "*_singlefile/singlefile.html",
+        "singlefile/*.html",
+        "*_singlefile/*.html",
+        "dom/output.html",
+        "*_dom/output.html",
+        "dom/*.html",
+        "*_dom/*.html",
+        "wget/**/*.html",
+        "*_wget/**/*.html",
+        "wget/**/*.htm",
+        "*_wget/**/*.htm",
+    ]
+
+    for base in (Path.cwd(), Path.cwd().parent):
+        for pattern in search_patterns:
+            for match in base.glob(pattern):
+                if match.is_file() and match.stat().st_size > 0:
+                    return str(match)
+    return None
+
+
 def extract_defuddle(url: str, binary: str) -> tuple[bool, str | None, str]:
     timeout = get_env_int("DEFUDDLE_TIMEOUT") or get_env_int("TIMEOUT", 60)
     defuddle_args = get_env_array("DEFUDDLE_ARGS", [])
     defuddle_args_extra = get_env_array("DEFUDDLE_ARGS_EXTRA", [])
     output_dir = Path(OUTPUT_DIR)
+    html_source = find_html_source()
+    if not html_source:
+        return False, None, "No HTML source found (run singlefile, dom, or wget first)"
 
     try:
-        cmd = [binary, *defuddle_args, *defuddle_args_extra, url]
+        cmd = [
+            binary,
+            *defuddle_args,
+            "parse",
+            html_source,
+            *defuddle_args_extra,
+        ]
+        if "--json" not in cmd and "-j" not in cmd:
+            cmd.append("--json")
         result = subprocess.run(
             cmd,
             stdout=subprocess.PIPE,

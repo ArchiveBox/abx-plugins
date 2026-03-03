@@ -27,6 +27,18 @@ DEFUDDLE_CRAWL_HOOK = _DEFUDDLE_CRAWL_HOOK
 TEST_URL = "https://example.com"
 
 
+def create_example_html(tmpdir: Path) -> Path:
+    """Create a local singlefile HTML fixture used as parser input."""
+    singlefile_dir = tmpdir / "singlefile"
+    singlefile_dir.mkdir(parents=True, exist_ok=True)
+    html_file = singlefile_dir / "singlefile.html"
+    html_file.write_text(
+        "<html><head><title>Example Domain</title></head><body><article><h1>Example Domain</h1><p>Example text body</p></article></body></html>",
+        encoding="utf-8",
+    )
+    return html_file
+
+
 def test_hook_script_exists():
     assert DEFUDDLE_HOOK.exists(), f"Hook script not found: {DEFUDDLE_HOOK}"
 
@@ -57,6 +69,7 @@ def test_reports_missing_dependency_when_not_installed():
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
+        create_example_html(snap_dir)
 
         env = {"PATH": "/nonexistent", "HOME": str(tmpdir), "SNAP_DIR": str(snap_dir)}
         result = subprocess.run(
@@ -87,10 +100,20 @@ def test_extracts_article_with_json_output_from_binary():
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
+        expected_html = create_example_html(snap_dir)
 
         fake_binary = tmpdir / "fake_defuddle.py"
         fake_binary.write_text(
-            "import json,sys; print(json.dumps({'content':'<article>Example</article>','textContent':'Example text','title':'Example Title'}))"
+            "import json, pathlib, sys\n"
+            "args = sys.argv[1:]\n"
+            "assert 'parse' in args\n"
+            "idx = args.index('parse') + 1\n"
+            "source = pathlib.Path(args[idx])\n"
+            "assert source.is_file()\n"
+            "assert str(source).startswith('/')\n"
+            "assert not str(source).startswith('http')\n"
+            "assert '--json' in args or '-j' in args\n"
+            "print(json.dumps({'content':'<article>Example</article>','textContent':'Example text','title':'Example Title'}))\n"
         )
         fake_binary.chmod(fake_binary.stat().st_mode | stat.S_IXUSR)
 
@@ -126,3 +149,4 @@ def test_extracts_article_with_json_output_from_binary():
         assert "Example text" in (output_dir / "content.txt").read_text(encoding="utf-8")
         metadata = json.loads((output_dir / "article.json").read_text(encoding="utf-8"))
         assert metadata.get("title") == "Example Title"
+        assert expected_html.exists()
