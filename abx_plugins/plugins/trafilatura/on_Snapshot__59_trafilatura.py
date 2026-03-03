@@ -81,7 +81,8 @@ def find_html_source() -> str | None:
         "*_wget/**/*.htm",
     ]
 
-    for base in (Path.cwd(), Path.cwd().parent):
+    cwd = Path.cwd()
+    for base in (cwd, cwd.parent):
         for pattern in search_patterns:
             for match in base.glob(pattern):
                 if match.is_file() and match.stat().st_size > 0:
@@ -149,7 +150,6 @@ def extract_trafilatura(binary: str) -> tuple[bool, str | None, str]:
 @click.option("--url", required=True, help="URL to extract article from")
 @click.option("--snapshot-id", required=True, help="Snapshot UUID")
 def main(url: str, snapshot_id: str):
-    del url, snapshot_id
     try:
         if not get_env_bool("TRAFILATURA_ENABLED", True):
             sys.exit(0)

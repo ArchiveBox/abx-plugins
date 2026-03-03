@@ -13,7 +13,7 @@ import pytest
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_hook_script, get_plugin_dir
 
 PLUGIN_DIR = get_plugin_dir(__file__)
-_TRAFILATURA_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_trafilatura.*")
+_TRAFILATURA_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__[0-9]*_trafilatura.*")
 if _TRAFILATURA_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 TRAFILATURA_HOOK = _TRAFILATURA_HOOK
