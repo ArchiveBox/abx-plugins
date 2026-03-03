@@ -9,7 +9,6 @@ Tests verify:
 
 import json
 import os
-import site
 import subprocess
 import sys
 import tempfile
@@ -77,10 +76,6 @@ def get_trafilatura_binary_path() -> str | None:
     env["LIB_DIR"] = str(Path(_trafilatura_lib_root) / "lib")
     env["SNAP_DIR"] = str(Path(_trafilatura_lib_root) / "data")
     env["CRAWL_DIR"] = str(Path(_trafilatura_lib_root) / "crawl")
-    user_site = site.getusersitepackages()
-    env["PYTHONPATH"] = (
-        f"{user_site}:{env['PYTHONPATH']}" if env.get("PYTHONPATH") else user_site
-    )
 
     cmd = [
         sys.executable,
@@ -163,10 +158,6 @@ def test_extracts_local_html_outputs_with_real_binary(httpserver):
         env["SNAP_DIR"] = str(snap_dir)
         env["TRAFILATURA_BINARY"] = binary_path
         env["TRAFILATURA_OUTPUT_JSON"] = "true"
-        user_site = site.getusersitepackages()
-        env["PYTHONPATH"] = (
-            f"{user_site}:{env['PYTHONPATH']}" if env.get("PYTHONPATH") else user_site
-        )
 
         result = subprocess.run(
             [
@@ -256,10 +247,6 @@ def test_output_format_toggles_map_to_expected_files(httpserver):
         env["TRAFILATURA_OUTPUT_CSV"] = "true"
         env["TRAFILATURA_OUTPUT_XML"] = "true"
         env["TRAFILATURA_OUTPUT_XMLTEI"] = "true"
-        user_site = site.getusersitepackages()
-        env["PYTHONPATH"] = (
-            f"{user_site}:{env['PYTHONPATH']}" if env.get("PYTHONPATH") else user_site
-        )
 
         result = subprocess.run(
             [
@@ -329,10 +316,6 @@ def test_outputs_all_supported_formats_together(httpserver):
         env["TRAFILATURA_OUTPUT_JSON"] = "true"
         env["TRAFILATURA_OUTPUT_XML"] = "true"
         env["TRAFILATURA_OUTPUT_XMLTEI"] = "true"
-        user_site = site.getusersitepackages()
-        env["PYTHONPATH"] = (
-            f"{user_site}:{env['PYTHONPATH']}" if env.get("PYTHONPATH") else user_site
-        )
 
         result = subprocess.run(
             [
@@ -371,10 +354,6 @@ def test_fails_without_html_source():
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
         env["TRAFILATURA_BINARY"] = binary_path
-        user_site = site.getusersitepackages()
-        env["PYTHONPATH"] = (
-            f"{user_site}:{env['PYTHONPATH']}" if env.get("PYTHONPATH") else user_site
-        )
         result = subprocess.run(
             [
                 sys.executable,
