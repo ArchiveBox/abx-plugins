@@ -30,6 +30,9 @@ CONFIG_SCRIPT = PLUGIN_DIR / "on_Crawl__95_twocaptcha_config.js"
 
 TEST_URL = "https://www.google.com/recaptcha/api2/demo"
 CHROME_STARTUP_TIMEOUT_SECONDS = 45
+LIVE_SOLVE_MAX_ATTEMPTS = 5
+LIVE_SOLVE_TIMEOUT_SECONDS = 180
+LIVE_SOLVE_POLL_INTERVAL_SECONDS = 5
 LIVE_API_KEY = os.environ.get("TWOCAPTCHA_API_KEY") or os.environ.get(
     "API_KEY_2CAPTCHA"
 )
@@ -283,52 +286,75 @@ const puppeteer = require('puppeteer-core');
                 # Service-level live solve check (no mocks): submit recaptcha to 2captcha API and poll for token.
                 # Keep extension install/config assertions above to validate plugin setup path as well.
                 site_key = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"  # Google's public testing sitekey
-                submit = requests.get(
-                    "https://2captcha.com/in.php",
-                    params={
-                        "key": self.api_key,
-                        "method": "userrecaptcha",
-                        "googlekey": site_key,
-                        "pageurl": TEST_URL,
-                        "json": 1,
-                    },
-                    timeout=30,
-                )
-                submit.raise_for_status()
-                submit_data = submit.json()
-                assert submit_data.get("status") == 1, (
-                    f"2captcha submit failed: {submit_data}"
-                )
-                captcha_id = submit_data["request"]
-
                 token = None
-                deadline = time.time() + 180
-                while time.time() < deadline:
-                    time.sleep(5)
-                    poll = requests.get(
-                        "https://2captcha.com/res.php",
-                        params={
-                            "key": self.api_key,
-                            "action": "get",
-                            "id": captcha_id,
-                            "json": 1,
-                        },
-                        timeout=30,
-                    )
-                    poll.raise_for_status()
-                    poll_data = poll.json()
-                    if poll_data.get("status") == 1:
-                        token = poll_data.get("request")
-                        break
-                    assert poll_data.get("request") == "CAPCHA_NOT_READY", (
-                        f"2captcha poll failed: {poll_data}"
-                    )
+                attempt_errors: list[str] = []
 
-                assert token, "Timed out waiting for 2captcha solve token"
-                assert isinstance(token, str) and len(token) > 20, (
-                    f"Invalid solve token: {token}"
-                )
-                print(f"[+] SUCCESS! Received 2captcha token prefix: {token[:24]}...")
+                for attempt in range(1, LIVE_SOLVE_MAX_ATTEMPTS + 1):
+                    try:
+                        submit = requests.get(
+                            "https://2captcha.com/in.php",
+                            params={
+                                "key": self.api_key,
+                                "method": "userrecaptcha",
+                                "googlekey": site_key,
+                                "pageurl": TEST_URL,
+                                "json": 1,
+                            },
+                            timeout=30,
+                        )
+                        submit.raise_for_status()
+                        submit_data = submit.json()
+                        assert submit_data.get("status") == 1, (
+                            f"2captcha submit failed: {submit_data}"
+                        )
+                        captcha_id = submit_data["request"]
+
+                        deadline = time.time() + LIVE_SOLVE_TIMEOUT_SECONDS
+                        while time.time() < deadline:
+                            time.sleep(LIVE_SOLVE_POLL_INTERVAL_SECONDS)
+                            poll = requests.get(
+                                "https://2captcha.com/res.php",
+                                params={
+                                    "key": self.api_key,
+                                    "action": "get",
+                                    "id": captcha_id,
+                                    "json": 1,
+                                },
+                                timeout=30,
+                            )
+                            poll.raise_for_status()
+                            poll_data = poll.json()
+                            if poll_data.get("status") == 1:
+                                token = poll_data.get("request")
+                                break
+                            assert poll_data.get("request") == "CAPCHA_NOT_READY", (
+                                f"2captcha poll failed: {poll_data}"
+                            )
+
+                        assert token, "Timed out waiting for 2captcha solve token"
+                        assert isinstance(token, str) and len(token) > 20, (
+                            f"Invalid solve token: {token}"
+                        )
+                        print(
+                            f"[+] SUCCESS! Received 2captcha token prefix: {token[:24]}..."
+                        )
+                        break
+                    except Exception as exc:
+                        attempt_errors.append(
+                            f"attempt {attempt}: {type(exc).__name__}: {exc}"
+                        )
+                        if attempt < LIVE_SOLVE_MAX_ATTEMPTS:
+                            print(
+                                f"[!] 2captcha live solve attempt {attempt}/{LIVE_SOLVE_MAX_ATTEMPTS} failed, retrying..."
+                            )
+                            time.sleep(2)
+
+                if not token:
+                    pytest.fail(
+                        "2captcha live solve failed after "
+                        f"{LIVE_SOLVE_MAX_ATTEMPTS} attempts:\n"
+                        + "\n".join(attempt_errors)
+                    )
             finally:
                 kill_chrome(process, chrome_dir)
 

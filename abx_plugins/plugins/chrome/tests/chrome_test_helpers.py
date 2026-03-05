@@ -1330,6 +1330,8 @@ def chrome_session(
     chrome_pid = None
     chrome_dir: Optional[Path] = None
     try:
+        startup_timeout = max(int(timeout), 45)
+
         # Create proper directory structure in tmpdir
         machine = platform.machine().lower()
         system = platform.system().lower()
@@ -1385,6 +1387,7 @@ def chrome_session(
                 "PUPPETEER_CACHE_DIR": str(puppeteer_cache_dir),
             }
         )
+        env.setdefault("CHROME_DEBUG_PORT_TIMEOUT_MS", str(startup_timeout * 1000))
 
         # Reuse system Puppeteer cache to avoid redundant Chromium downloads
         link_puppeteer_cache(lib_dir)
@@ -1406,8 +1409,10 @@ def chrome_session(
             env=env,
         )
 
-        # Wait for Chrome launch state files from the crawl-level session.
-        for i in range(timeout):
+        # Wait for crawl-level launch state files.
+        # Use monotonic deadlines to avoid off-by-one races near timeout boundaries.
+        deadline = time.monotonic() + startup_timeout
+        while True:
             if chrome_launch_process.poll() is not None:
                 stdout, stderr = chrome_launch_process.communicate()
                 raise RuntimeError(
@@ -1417,10 +1422,14 @@ def chrome_session(
                 chrome_dir / "chrome.pid"
             ).exists():
                 break
-            time.sleep(1)
+            if time.monotonic() >= deadline:
+                break
+            time.sleep(0.2)
 
         if not (chrome_dir / "cdp_url.txt").exists():
-            raise RuntimeError(f"Chrome CDP URL not found after {timeout}s")
+            raise RuntimeError(
+                f"Chrome CDP URL not found after {startup_timeout}s"
+            )
 
         chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
 
