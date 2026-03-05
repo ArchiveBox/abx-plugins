@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "DEFUDDLE_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["SAVE_DEFUDDLE", "USE_DEFUDDLE"],
+      "description": "Enable Defuddle text extraction"
+    },
+    "DEFUDDLE_BINARY": {
+      "type": "string",
+      "default": "defuddle",
+      "description": "Path to defuddle binary"
+    },
+    "DEFUDDLE_TIMEOUT": {
+      "type": "integer",
+      "default": 30,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for Defuddle in seconds"
+    },
+    "DEFUDDLE_ARGS": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "x-aliases": ["DEFUDDLE_DEFAULT_ARGS"],
+      "description": "Default Defuddle arguments"
+    },
+    "DEFUDDLE_ARGS_EXTRA": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "x-aliases": ["DEFUDDLE_EXTRA_ARGS"],
+      "description": "Extra arguments to append to Defuddle command"
+    }
+  }
+}
