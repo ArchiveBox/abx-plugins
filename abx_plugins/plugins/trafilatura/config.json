@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "TRAFILATURA_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["SAVE_TRAFILATURA", "USE_TRAFILATURA"],
+      "description": "Enable Trafilatura extraction"
+    },
+    "TRAFILATURA_BINARY": {
+      "type": "string",
+      "default": "trafilatura",
+      "description": "Path to trafilatura binary"
+    },
+    "TRAFILATURA_TIMEOUT": {
+      "type": "integer",
+      "default": 30,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for Trafilatura in seconds"
+    },
+    "TRAFILATURA_OUTPUT_TXT": {
+      "type": "boolean",
+      "default": true,
+      "description": "Write plain text output (content.txt)"
+    },
+    "TRAFILATURA_OUTPUT_MARKDOWN": {
+      "type": "boolean",
+      "default": true,
+      "description": "Write markdown output (content.md)"
+    },
+    "TRAFILATURA_OUTPUT_HTML": {
+      "type": "boolean",
+      "default": true,
+      "description": "Write HTML output (content.html)"
+    },
+    "TRAFILATURA_OUTPUT_CSV": {
+      "type": "boolean",
+      "default": false,
+      "description": "Write CSV output (content.csv)"
+    },
+    "TRAFILATURA_OUTPUT_JSON": {
+      "type": "boolean",
+      "default": false,
+      "description": "Write JSON output (content.json)"
+    },
+    "TRAFILATURA_OUTPUT_XML": {
+      "type": "boolean",
+      "default": false,
+      "description": "Write XML output (content.xml)"
+    },
+    "TRAFILATURA_OUTPUT_XMLTEI": {
+      "type": "boolean",
+      "default": false,
+      "description": "Write XML TEI output (content.xmltei)"
+    }
+  }
+}
