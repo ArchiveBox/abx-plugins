@@ -1242,21 +1242,32 @@ def launch_chromium_session(
     launch_env = env.copy()
     launch_env["CRAWL_DIR"] = str(crawl_dir)
     env["CRAWL_DIR"] = str(crawl_dir)
+    stdout_log = chrome_dir / "chrome_launch.stdout.log"
+    stderr_log = chrome_dir / "chrome_launch.stderr.log"
+    stdout_handle = open(stdout_log, "w+", encoding="utf-8")
+    stderr_handle = open(stderr_log, "w+", encoding="utf-8")
 
     chrome_launch_process = subprocess.Popen(
         ["node", str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
         cwd=str(chrome_dir),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=stdout_handle,
+        stderr=stderr_handle,
         text=True,
         env=launch_env,
     )
+    chrome_launch_process._stdout_handle = stdout_handle
+    chrome_launch_process._stderr_handle = stderr_handle
+    chrome_launch_process._stdout_log = stdout_log
+    chrome_launch_process._stderr_log = stderr_log
 
     # Wait for Chromium to launch and CDP URL to be available
     cdp_url = None
     for _ in range(timeout):
         if chrome_launch_process.poll() is not None:
-            stdout, stderr = chrome_launch_process.communicate()
+            stdout_handle.flush()
+            stderr_handle.flush()
+            stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
+            stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
             raise RuntimeError(
                 f"Chromium launch failed:\nStdout: {stdout}\nStderr: {stderr}"
             )
@@ -1269,7 +1280,15 @@ def launch_chromium_session(
 
     if not cdp_url:
         chrome_launch_process.kill()
-        raise RuntimeError(f"Chromium CDP URL not found after {timeout}s")
+        stdout_handle.flush()
+        stderr_handle.flush()
+        stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
+        stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
+        stdout_handle.close()
+        stderr_handle.close()
+        raise RuntimeError(
+            f"Chromium CDP URL not found after {timeout}s\nStdout: {stdout}\nStderr: {stderr}"
+        )
 
     return chrome_launch_process, cdp_url
 
@@ -1291,6 +1310,10 @@ def kill_chromium_session(
         chrome_launch_process.wait(timeout=5)
     except Exception:
         pass
+    for attr in ("_stdout_handle", "_stderr_handle"):
+        handle = getattr(chrome_launch_process, attr, None)
+        if handle:
+            handle.close()
 
     # Read PID and use JS to kill with proper cleanup
     chrome_pid_file = chrome_dir / "chrome.pid"
@@ -1375,6 +1398,10 @@ def launch_snapshot_tab(
     timeout: int = 60,
 ) -> subprocess.Popen:
     """Launch the snapshot tab hook in background mode and wait for session markers."""
+    stdout_log = snapshot_chrome_dir / "chrome_tab.stdout.log"
+    stderr_log = snapshot_chrome_dir / "chrome_tab.stderr.log"
+    stdout_handle = open(stdout_log, "w+", encoding="utf-8")
+    stderr_handle = open(stderr_log, "w+", encoding="utf-8")
     tab_process = subprocess.Popen(
         [
             "node",
@@ -1384,16 +1411,23 @@ def launch_snapshot_tab(
             f"--crawl-id={crawl_id}",
         ],
         cwd=str(snapshot_chrome_dir),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=stdout_handle,
+        stderr=stderr_handle,
         text=True,
         env=tab_env,
     )
+    tab_process._stdout_handle = stdout_handle
+    tab_process._stderr_handle = stderr_handle
 
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if tab_process.poll() is not None:
-            stdout, stderr = tab_process.communicate()
+            stdout_handle.flush()
+            stderr_handle.flush()
+            stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
+            stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
+            stdout_handle.close()
+            stderr_handle.close()
             raise RuntimeError(
                 f"Tab creation exited early:\nStdout: {stdout}\nStderr: {stderr}"
             )
@@ -1410,7 +1444,13 @@ def launch_snapshot_tab(
         tab_process.wait(timeout=10)
     except Exception:
         pass
-    raise RuntimeError(f"Tab creation timed out after {timeout}s")
+    stdout_handle.flush()
+    stderr_handle.flush()
+    stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
+    stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
+    stdout_handle.close()
+    stderr_handle.close()
+    raise RuntimeError(f"Tab creation timed out after {timeout}s\nStdout: {stdout}\nStderr: {stderr}")
 
 
 @contextmanager
@@ -1523,21 +1563,30 @@ def chrome_session(
             env["CHROME_BINARY"] = chrome_binary
 
         # Launch Chrome at crawl level
+        stdout_log = chrome_dir / "chrome_launch.stdout.log"
+        stderr_log = chrome_dir / "chrome_launch.stderr.log"
+        stdout_handle = open(stdout_log, "w+", encoding="utf-8")
+        stderr_handle = open(stderr_log, "w+", encoding="utf-8")
         chrome_launch_process = subprocess.Popen(
             ["node", str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
             cwd=str(chrome_dir),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=stdout_handle,
+            stderr=stderr_handle,
             text=True,
             env=env,
         )
+        chrome_launch_process._stdout_handle = stdout_handle
+        chrome_launch_process._stderr_handle = stderr_handle
 
         # Wait for crawl-level launch state files.
         # Use monotonic deadlines to avoid off-by-one races near timeout boundaries.
         deadline = time.monotonic() + startup_timeout
         while True:
             if chrome_launch_process.poll() is not None:
-                stdout, stderr = chrome_launch_process.communicate()
+                stdout_handle.flush()
+                stderr_handle.flush()
+                stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
+                stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
                 raise RuntimeError(
                     f"Chrome launch failed:\nStdout: {stdout}\nStderr: {stderr}"
                 )
@@ -1550,8 +1599,14 @@ def chrome_session(
             time.sleep(0.2)
 
         if not (chrome_dir / "cdp_url.txt").exists():
+            stdout_handle.flush()
+            stderr_handle.flush()
+            stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
+            stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
+            stdout_handle.close()
+            stderr_handle.close()
             raise RuntimeError(
-                f"Chrome CDP URL not found after {startup_timeout}s"
+                f"Chrome CDP URL not found after {startup_timeout}s\nStdout: {stdout}\nStderr: {stderr}"
             )
 
         chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
@@ -1612,5 +1667,9 @@ def chrome_session(
                 tab_process.wait(timeout=10)
             except Exception:
                 pass
+        for attr in ("_stdout_handle", "_stderr_handle"):
+            handle = getattr(tab_process, attr, None) if tab_process else None
+            if handle:
+                handle.close()
         if chrome_launch_process and chrome_pid:
             cleanup_chrome(chrome_launch_process, chrome_pid, chrome_dir=chrome_dir)
