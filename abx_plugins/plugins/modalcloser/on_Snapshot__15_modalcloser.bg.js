@@ -45,6 +45,11 @@ const {
 // Check if modalcloser is enabled BEFORE requiring puppeteer
 if (!getEnvBool('MODALCLOSER_ENABLED', true)) {
     console.error('Skipping modalcloser (MODALCLOSER_ENABLED=False)');
+    console.log(JSON.stringify({
+        type: 'ArchiveResult',
+        status: 'skipped',
+        output_str: 'MODALCLOSER_ENABLED=False',
+    }));
     process.exit(0);
 }
 

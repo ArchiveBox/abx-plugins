@@ -53,15 +53,19 @@ def main(
     pip_venv_path.parent.mkdir(parents=True, exist_ok=True)
     venv_python = pip_venv_path / "bin" / "python"
 
-    # Prefer a stable system python for venv creation if provided/available
+    # Seed the pip venv with the same interpreter running this hook unless explicitly overridden.
     preferred_python = os.environ.get("PIP_VENV_PYTHON", "").strip()
     if not preferred_python:
+        current_python = shutil.which(Path(sys.executable).name) or sys.executable
+        if current_python:
+            preferred_python = current_python
+    if not preferred_python:
         for candidate in (
-            "python3.14",
-            "python3.13",
             "python3.12",
             "python3.11",
             "python3.10",
+            "python3.13",
+            "python3.14",
         ):
             if shutil.which(candidate):
                 preferred_python = candidate

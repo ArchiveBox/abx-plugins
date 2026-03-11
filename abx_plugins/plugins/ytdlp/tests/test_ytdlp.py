@@ -248,7 +248,10 @@ def test_handles_non_video_url(non_video_test_url):
                     pass
 
         assert result_json, "Should have ArchiveResult JSONL output"
-        assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
+        assert result_json["status"] == "noresults", (
+            f"Non-media URL should report noresults: {result_json}"
+        )
+        assert result_json["output_str"] == "No media found", result_json
 
 
 def test_config_ytdlp_enabled_false_skips():

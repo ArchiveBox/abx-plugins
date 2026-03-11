@@ -197,7 +197,10 @@ def test_handles_non_gallery_url():
                     pass
 
         assert result_json, "Should have ArchiveResult JSONL output"
-        assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
+        assert result_json["status"] == "noresults", (
+            f"Non-gallery URL should report noresults: {result_json}"
+        )
+        assert result_json["output_str"] == "No gallery found", result_json
 
 
 def test_config_save_gallery_dl_false_skips():
@@ -284,11 +287,12 @@ def test_config_timeout():
 
 
 def test_real_gallery_url():
-    """Test that gallery-dl can extract images from a real Flickr gallery URL."""
+    """Test that gallery-dl can extract images from a live public Reddit listing."""
     binary_path = require_gallerydl_binary()
 
-    # Real public gallery URL that currently yields downloadable media.
-    gallery_url = "https://www.flickr.com/photos/gregorydolivet/55002388567/in/explore-2025-12-25/"
+    # Flickr's upstream API key in gallery-dl has been unstable; use a public Reddit image post
+    # that yields a single downloadable image without custom site credentials.
+    gallery_url = "https://www.reddit.com/r/pics/comments/1rqmxjp/marco_rubio_wearing_oversized_shoes_that_trump/"
 
     max_attempts = 3
     last_error = ""
@@ -309,7 +313,7 @@ def test_real_gallery_url():
                     "--url",
                     gallery_url,
                     "--snapshot-id",
-                    f"testflickr{attempt}",
+                    f"testreddit{attempt}",
                 ],
                 cwd=tmpdir,
                 capture_output=True,
@@ -344,7 +348,7 @@ def test_real_gallery_url():
                 last_error = f"attempt={attempt} empty output_str stdout={result.stdout} stderr={result.stderr}"
                 continue
 
-            output_path = Path(output_str)
+            output_path = tmpdir / PLUGIN_DIR.name / output_str
             if not output_path.is_file():
                 last_error = f"attempt={attempt} output missing path={output_path}"
                 continue
@@ -383,7 +387,7 @@ def test_real_gallery_url():
             return
 
     pytest.fail(
-        f"Real gallery download did not yield an image after {max_attempts} attempts. Last error: {last_error}"
+        f"Live gallery download did not yield an image after {max_attempts} attempts. Last error: {last_error}"
     )
 
 

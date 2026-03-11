@@ -47,6 +47,11 @@ const {
 // Check if infiniscroll is enabled BEFORE requiring puppeteer
 if (!getEnvBool('INFINISCROLL_ENABLED', true)) {
     console.error('Skipping infiniscroll (INFINISCROLL_ENABLED=False)');
+    console.log(JSON.stringify({
+        type: 'ArchiveResult',
+        status: 'skipped',
+        output_str: 'INFINISCROLL_ENABLED=False',
+    }));
     process.exit(0);
 }
 

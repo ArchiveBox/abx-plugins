@@ -25,7 +25,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_SCRIPT = PLUGIN_DIR / "on_Crawl__83_twocaptcha_install.js"
+INSTALL_SCRIPT = next(PLUGIN_DIR.glob("on_Crawl__83_twocaptcha_install*.js"))
 CONFIG_SCRIPT = PLUGIN_DIR / "on_Crawl__95_twocaptcha_config.js"
 
 TEST_URL = "https://www.google.com/recaptcha/api2/demo"

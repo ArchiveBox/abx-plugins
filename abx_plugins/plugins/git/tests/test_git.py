@@ -110,10 +110,10 @@ def test_handles_non_git_url():
                     pass
 
         if result_json:
-            # Should report failure or skip for non-git URL
-            assert result_json["status"] in ["failed", "skipped"], (
-                f"Should fail or skip: {result_json}"
+            assert result_json["status"] == "noresults", (
+                f"Non-git URL should report noresults: {result_json}"
             )
+            assert result_json["output_str"] == "Not a git URL", result_json
 
 
 def test_real_git_repo():

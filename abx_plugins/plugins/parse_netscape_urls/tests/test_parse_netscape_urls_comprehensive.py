@@ -869,13 +869,12 @@ class TestEdgeCases:
             text=True,
         )
 
-        # Current regex requires non-empty title [^<]+
-        # Parser emits success ArchiveResult with no output file when no valid bookmarks are found
+        # Current regex requires non-empty title [^<]+, so this input produces no valid records.
         assert result.returncode == 0
         result_json = json.loads(result.stdout.strip())
         assert result_json["type"] == "ArchiveResult"
-        assert result_json["status"] == "succeeded"
-        assert result_json["output_str"] == ""
+        assert result_json["status"] == "noresults"
+        assert result_json["output_str"] == "0 URLs parsed"
 
     def test_special_chars_in_url(self, tmp_path):
         """Test URLs with special characters."""

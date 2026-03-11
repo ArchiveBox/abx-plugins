@@ -70,5 +70,6 @@ def test_hook_without_content_skips_cleanly(tmp_path: Path) -> None:
 
     assert result.returncode == 0
     assert "No indexable content found" in result.stderr
-    assert '"output_str": "0kb text indexed"' in result.stdout
+    assert '"status": "noresults"' in result.stdout
+    assert '"output_str": "No indexable content"' in result.stdout
     assert not (tmp_path / "search.sqlite3").exists()

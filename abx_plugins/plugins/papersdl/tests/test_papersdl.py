@@ -166,7 +166,10 @@ def test_handles_non_paper_url():
                     pass
 
         assert result_json, "Should have ArchiveResult JSONL output"
-        assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
+        assert result_json["status"] == "noresults", (
+            f"Non-paper URL should report noresults: {result_json}"
+        )
+        assert result_json["output_str"] == "No papers found", result_json
 
 
 def test_config_save_papersdl_false_skips():
@@ -290,13 +293,16 @@ def test_real_doi_download():
         )
 
         output_str = (result_json.get("output_str") or "").strip()
-        assert output_str == "1 PDFs downloaded", (
-            f"ArchiveResult must include PDF count for DOI download: {result_json}"
+        assert output_str.endswith(".pdf"), (
+            f"ArchiveResult must name the downloaded PDF for a single-file result: {result_json}"
         )
 
-        downloaded_files = [path for path in (tmpdir / "papersdl").iterdir() if path.is_file()]
+        downloaded_files = [
+            path for path in (tmpdir / "papersdl").iterdir()
+            if path.is_file()
+        ]
         assert downloaded_files, f"Downloaded paper path missing in {tmpdir / 'papersdl'}"
-        output_path = downloaded_files[0]
+        output_path = tmpdir / "papersdl" / output_str
         assert output_path.is_file(), f"Downloaded paper path missing: {output_path}"
         assert output_path.stat().st_size > 0, f"Downloaded paper file is empty: {output_path}"
 

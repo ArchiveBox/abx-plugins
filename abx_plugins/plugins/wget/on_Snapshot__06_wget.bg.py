@@ -235,7 +235,7 @@ def main(url: str, snapshot_id: str):
                 json.dumps(
                     {
                         "type": "ArchiveResult",
-                        "status": "succeeded",
+                        "status": "noresults",
                         "output_str": "staticfile already handled",
                     }
                 )

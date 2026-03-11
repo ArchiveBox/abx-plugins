@@ -95,7 +95,7 @@ Output records:
 - terminal record is usually:
 
 ```json
-{"type":"ArchiveResult","status":"succeeded|skipped|failed","output_str":"path-or-message"}
+{"type":"ArchiveResult","status":"succeeded|noresults|skipped|failed","output_str":"path-or-message"}
 ```
 
 - discovery hooks may also emit `Snapshot` and `Tag` records before `ArchiveResult`
@@ -105,9 +105,8 @@ Semantics:
 
 - `stdout`: JSONL records
 - `stderr`: diagnostics/logging
-- exit `0`: succeeded or skipped
+- exit `0`: succeeded, noresults, or skipped
 - exit non-zero: failed
-- current nuance: some skip/transient paths emit no JSONL and rely only on exit code
 
 ### Rules
 

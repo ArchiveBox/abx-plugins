@@ -91,18 +91,19 @@ def test_reports_missing_dependency_when_not_installed():
             env=env,
         )
 
-        # Missing binary is a transient error - should exit 1 with no JSONL
+        # Missing binary is a hard dependency failure.
         assert result.returncode == 1, "Should exit 1 when dependency missing"
 
-        # Should NOT emit JSONL (transient error - will be retried)
+        # Should emit failed JSONL describing the missing dependency.
         jsonl_lines = [
             line
             for line in result.stdout.strip().split("\n")
             if line.strip().startswith("{")
         ]
-        assert len(jsonl_lines) == 0, (
-            "Should not emit JSONL for transient error (missing binary)"
-        )
+        assert len(jsonl_lines) == 1, f"Expected failed JSONL, got: {jsonl_lines}"
+        result_json = json.loads(jsonl_lines[0])
+        assert result_json["status"] == "failed", result_json
+        assert "wget" in result_json["output_str"].lower(), result_json
 
         # Should log error to stderr
         assert "wget" in result.stderr.lower() or "error" in result.stderr.lower(), (
@@ -428,8 +429,8 @@ def test_staticfile_present_skips():
             env=env,
         )
 
-        # Should skip with permanent skip JSONL
-        assert result.returncode == 0, "Should exit 0 when permanently skipping"
+        # Should exit 0 with a noresults JSONL because another plugin already handled it.
+        assert result.returncode == 0, "Should exit 0 when staticfile already handled the URL"
 
         # Parse clean JSONL output
         result_json = None
@@ -445,9 +446,9 @@ def test_staticfile_present_skips():
                 except json.JSONDecodeError:
                     pass
 
-        assert result_json, "Should emit ArchiveResult JSONL for permanent skip"
-        assert result_json["status"] == "skipped", (
-            f"Should have status='skipped': {result_json}"
+        assert result_json, "Should emit ArchiveResult JSONL when staticfile already handled the URL"
+        assert result_json["status"] == "noresults", (
+            f"Should have status='noresults': {result_json}"
         )
         assert "staticfile" in result_json.get("output_str", "").lower(), (
             "Should mention staticfile in output_str"
