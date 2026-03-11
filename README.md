@@ -2,17 +2,11 @@
 
 ArchiveBox-compatible plugin suite (hooks and config schemas).
 
-This package contains only plugin assets and a tiny helper to locate them.
-It does **not** depend on Django or ArchiveBox.
+This package contains only the plugins, to run them use [`abx-dl`](https://github.com/archiveBox/abx-dl) or [`archivebox`](https://github.com/archiveBox/ArchiveBox).
+
+<img width="1000" height="1082" alt="Screenshot 2026-03-11 at 6 53 03 AM" src="https://github.com/user-attachments/assets/08c5f63b-05e2-4947-adca-f64e8c5ad8b3" />
 
 ## Usage
-
-```python
-from abx_plugins import get_plugins_dir
-
-plugins_dir = get_plugins_dir()
-# scan plugins_dir for plugins/*/config.json and on_* hooks
-```
 
 Tools like `abx-dl` and ArchiveBox can discover plugins from this package
 without symlinks or environment-variable tricks.
@@ -114,6 +108,22 @@ Semantics:
 - exit `0`: succeeded or skipped
 - exit non-zero: failed
 - current nuance: some skip/transient paths emit no JSONL and rely only on exit code
+
+### Rules
+
+- all plugins should:
+  - *overwrite* existing files cleanly if re-run in the same dir, do not skip if files are already present (do not delete and then download, because if a process fails we want to leave previous output intact).
+  - the exception to always overwriting files is: chrome.pid. target_id.txt, navigation.json, etc. chrome state which gets re-used if it's not stale. we should detect if any of it is stale during chrome launch and tab creation, and clear all of it together if it is stale to prevent subtle drift errors / reuse of stale values.
+  - status `succeeded` if they ran and produced output
+  - status `noresults` if they ran succesfully but produced no meaningful output (e.g. git on a non-github url, ytdlp on a site with no media, paperdl on a site with no pdfs, etc.)
+  - status `skipped` if only if *config* caused them not to run (e.g. `YTDLP_ENABLED=False`)
+  - status `failed` if any hard dependencies are missing/invalid (e.g. chrome) or if the process exited non-0 / raised an exception
+  - return a short, meaningful `output_str` e.g. the page title, mimetype, return status code, or the relative path of the primary output file produced like `output.pdf` or `0 modals closed` or `The Page Title Verbatim` or `favicon.io` or `Not a git URL`
+  - define execution order solely using lexicographic sort order of hook filenames
+  - use bg hooks for either short-lived tasks that can run in parallel, or long-lived daemons that run for the whole duration of the snapshot and get killed for cleanup/final output at the end
+  - bg hooks that depend on other bg hook outputs must implement their own waiters internally + check that inputs are truly ready and not just that the files are present, because they may be spawned in parallel/before the earlier one's outputs are actually ready and race. e.g. html/artifact generation should usually be fg so that later bg parsing hooks can safely depend on it being finished and not just part of the file being present
+  - use rich_click for cli arg parsing with a uv file header when hooks are written in python. do not depend on archivebox or django, try to only depend on chrome or the output files of other plugins instead of importing code from them. the one exception is to always use chrome_utils.js as the interface for anything involving chrome.
+
 
 ### Event JSONL interface (bbus-style, no dependency)
 
