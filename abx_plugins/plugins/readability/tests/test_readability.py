@@ -120,7 +120,7 @@ def get_readability_binary_path():
         pass
 
     npm_hook = PLUGINS_ROOT / "npm" / "on_Binary__10_npm_install.py"
-    crawl_hook = PLUGIN_DIR / "on_Crawl__35_readability_install.py"
+    crawl_hook = next(PLUGIN_DIR.glob("on_Crawl__35_readability_install*.py"), None)
     if not npm_hook.exists():
         return None
 
@@ -129,7 +129,7 @@ def get_readability_binary_path():
     binproviders = "*"
     overrides = None
 
-    if crawl_hook.exists():
+    if crawl_hook and crawl_hook.exists():
         crawl_result = subprocess.run(
             [sys.executable, str(crawl_hook)],
             capture_output=True,

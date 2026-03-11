@@ -107,15 +107,15 @@ def test_config_modalcloser_disabled_skips():
             "Should log skip reason to stderr"
         )
 
-        # Should NOT emit any JSONL
         jsonl_lines = [
             line
             for line in result.stdout.strip().split("\n")
             if line.strip().startswith("{")
         ]
-        assert len(jsonl_lines) == 0, (
-            f"Should not emit JSONL when feature disabled, got: {jsonl_lines}"
-        )
+        assert len(jsonl_lines) == 1, f"Expected skipped JSONL, got: {jsonl_lines}"
+        result_json = json.loads(jsonl_lines[0])
+        assert result_json["status"] == "skipped", result_json
+        assert result_json["output_str"] == "MODALCLOSER_ENABLED=False", result_json
 
 
 def test_fails_gracefully_without_chrome_session():

@@ -67,7 +67,7 @@ def get_gallerydl_binary_path():
 
     # Install via real plugin hooks
     pip_hook = PLUGINS_ROOT / "pip" / "on_Binary__11_pip_install.py"
-    crawl_hook = PLUGIN_DIR / "on_Crawl__20_gallerydl_install.py"
+    crawl_hook = next(PLUGIN_DIR.glob("on_Crawl__20_gallerydl_install*.py"), None)
     if not pip_hook.exists():
         return None
 
@@ -75,7 +75,7 @@ def get_gallerydl_binary_path():
     machine_id = str(uuid.uuid4())
     overrides = None
 
-    if crawl_hook.exists():
+    if crawl_hook and crawl_hook.exists():
         crawl_result = subprocess.run(
             [sys.executable, str(crawl_hook)],
             capture_output=True,
@@ -228,20 +228,20 @@ def test_config_save_gallery_dl_false_skips():
             f"Should exit 0 when feature disabled: {result.stderr}"
         )
 
-        # Feature disabled - temporary failure, should NOT emit JSONL
+        # Feature disabled should emit skipped JSONL
         assert "Skipping" in result.stderr or "False" in result.stderr, (
             "Should log skip reason to stderr"
         )
 
-        # Should NOT emit any JSONL
         jsonl_lines = [
             line
             for line in result.stdout.strip().split("\n")
             if line.strip().startswith("{")
         ]
-        assert len(jsonl_lines) == 0, (
-            f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
-        )
+        assert len(jsonl_lines) == 1, f"Expected skipped JSONL, got: {jsonl_lines}"
+        result_json = json.loads(jsonl_lines[0])
+        assert result_json["status"] == "skipped", result_json
+        assert result_json["output_str"] == "GALLERYDL_ENABLED=False", result_json
 
 
 def test_config_timeout():
