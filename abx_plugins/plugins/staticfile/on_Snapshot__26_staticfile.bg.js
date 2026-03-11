@@ -252,13 +252,15 @@ async function setupStaticFileListener() {
         if (firstResponseHandled) return;
 
         try {
+            const request = response.request();
             const url = response.url();
             const headers = response.headers();
             const contentType = headers['content-type'] || '';
             const status = response.status();
 
             // Only process the main document response
-            if (normalizeUrl(url) !== normalizeUrl(originalUrl)) return;
+            if (!request.isNavigationRequest()) return;
+            if (request.frame() !== page.mainFrame()) return;
             if (status < 200 || status >= 300) return;
 
             firstResponseHandled = true;
@@ -316,7 +318,8 @@ async function setupStaticFileListener() {
     page.on('requestfailed', (request) => {
         if (firstResponseHandled) return;
         try {
-            if (normalizeUrl(request.url()) !== normalizeUrl(originalUrl)) return;
+            if (!request.isNavigationRequest()) return;
+            if (request.frame() !== page.mainFrame()) return;
             firstResponseHandled = true;
             const failure = request.failure();
             downloadError = failure ? failure.errorText : 'Request failed';

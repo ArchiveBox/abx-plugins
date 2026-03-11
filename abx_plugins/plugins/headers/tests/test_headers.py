@@ -106,14 +106,10 @@ def run_headers_capture(headers_dir, snapshot_chrome_dir, env, url, snapshot_id)
             break
         time.sleep(1)
 
-    if hook_proc.poll() is None:
-        hook_proc.terminate()
-        try:
-            stdout, stderr = hook_proc.communicate(timeout=5)
-        except subprocess.TimeoutExpired:
-            hook_proc.kill()
-            stdout, stderr = hook_proc.communicate()
-    else:
+    try:
+        stdout, stderr = hook_proc.communicate(timeout=10)
+    except subprocess.TimeoutExpired:
+        hook_proc.kill()
         stdout, stderr = hook_proc.communicate()
 
     return hook_proc.returncode, stdout, stderr, nav_result, headers_file

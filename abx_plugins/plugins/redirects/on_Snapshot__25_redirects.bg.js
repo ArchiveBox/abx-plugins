@@ -37,6 +37,7 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 process.chdir(OUTPUT_DIR);
 const OUTPUT_FILE = 'redirects.jsonl';
 const CHROME_SESSION_DIR = '../chrome';
+const JS_REDIRECT_SETTLE_MS = 10000;
 
 // Global state
 let redirectChain = [];
@@ -45,6 +46,27 @@ let finalUrl = '';
 let page = null;
 let browser = null;
 let initialRecorded = false;
+let lastObservedUrl = '';
+const seenTransitions = new Set();
+
+function appendRedirectEntry(outputPath, entry) {
+    const key = JSON.stringify([
+        entry.from_url || null,
+        entry.to_url || null,
+        entry.status || null,
+    ]);
+    if (seenTransitions.has(key)) {
+        return false;
+    }
+    seenTransitions.add(key);
+    redirectChain.push(entry);
+    fs.appendFileSync(outputPath, JSON.stringify(entry) + '\n');
+    if (entry.to_url && entry.to_url.startsWith('http')) {
+        finalUrl = entry.to_url;
+        lastObservedUrl = entry.to_url;
+    }
+    return true;
+}
 
 async function setupRedirectListener() {
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
@@ -70,36 +92,54 @@ async function setupRedirectListener() {
         const { requestId, request, redirectResponse } = params;
 
         if (!initialRecorded && request.url && request.url.startsWith('http')) {
-            const initialEntry = {
+            appendRedirectEntry(outputPath, {
                 timestamp: new Date().toISOString(),
                 from_url: null,
                 to_url: request.url,
                 status: null,
                 type: 'initial',
                 request_id: requestId,
-            };
-            redirectChain.push(initialEntry);
-            fs.appendFileSync(outputPath, JSON.stringify(initialEntry) + '\n');
+            });
             initialRecorded = true;
         }
 
         if (redirectResponse) {
-            // This is a redirect
-            const redirectEntry = {
+            appendRedirectEntry(outputPath, {
                 timestamp: new Date().toISOString(),
                 from_url: redirectResponse.url,
                 to_url: request.url,
                 status: redirectResponse.status,
                 type: 'http',
                 request_id: requestId,
-            };
-            redirectChain.push(redirectEntry);
-            fs.appendFileSync(outputPath, JSON.stringify(redirectEntry) + '\n');
+            });
         }
 
         // Update final URL
         if (request.url && request.url.startsWith('http')) {
             finalUrl = request.url;
+            lastObservedUrl = request.url;
+        }
+    });
+
+    page.on('framenavigated', (frame) => {
+        try {
+            if (frame !== page.mainFrame()) return;
+            const newUrl = frame.url();
+            if (!newUrl || !newUrl.startsWith('http')) return;
+            if (!lastObservedUrl) {
+                lastObservedUrl = newUrl;
+                return;
+            }
+            if (newUrl === lastObservedUrl) return;
+            appendRedirectEntry(outputPath, {
+                timestamp: new Date().toISOString(),
+                from_url: lastObservedUrl,
+                to_url: newUrl,
+                status: null,
+                type: 'javascript',
+            });
+        } catch (e) {
+            // Ignore frame navigation errors
         }
     });
 
@@ -121,15 +161,14 @@ async function setupRedirectListener() {
             });
 
             if (metaRefresh && metaRefresh.url) {
-                const entry = {
+                appendRedirectEntry(outputPath, {
                     timestamp: new Date().toISOString(),
                     from_url: page.url(),
                     to_url: metaRefresh.url,
+                    status: null,
                     type: 'meta_refresh',
                     content: metaRefresh.content,
-                };
-                redirectChain.push(entry);
-                fs.appendFileSync(outputPath, JSON.stringify(entry) + '\n');
+                });
             }
 
             // Check for JS redirects
@@ -148,14 +187,13 @@ async function setupRedirectListener() {
             });
 
             if (jsRedirect && jsRedirect.url) {
-                const entry = {
+                appendRedirectEntry(outputPath, {
                     timestamp: new Date().toISOString(),
                     from_url: page.url(),
                     to_url: jsRedirect.url,
+                    status: null,
                     type: 'javascript',
-                };
-                redirectChain.push(entry);
-                fs.appendFileSync(outputPath, JSON.stringify(entry) + '\n');
+                });
             }
         } catch (e) {
             // Ignore errors during meta/js redirect detection
@@ -163,6 +201,27 @@ async function setupRedirectListener() {
     });
 
     return { browser, page };
+}
+
+async function settleForLateRedirects(page, durationMs, intervalMs = 500) {
+    const deadline = Date.now() + durationMs;
+    while (Date.now() < deadline) {
+        try {
+            const currentUrl = page.url();
+            if (currentUrl && currentUrl.startsWith('http') && lastObservedUrl && currentUrl !== lastObservedUrl) {
+                appendRedirectEntry(path.join(OUTPUT_DIR, OUTPUT_FILE), {
+                    timestamp: new Date().toISOString(),
+                    from_url: lastObservedUrl,
+                    to_url: currentUrl,
+                    status: null,
+                    type: 'javascript',
+                });
+            }
+        } catch (e) {
+            // Ignore transient page access errors while settling.
+        }
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
 }
 
 function emitResult(result) {
@@ -215,26 +274,18 @@ async function main() {
 
     const timeout = getEnvInt('REDIRECTS_TIMEOUT', 30) * 1000;
 
-    // Register signal handlers for graceful shutdown
-    process.on('SIGTERM', () => handleShutdown('SIGTERM'));
-    process.on('SIGINT', () => handleShutdown('SIGINT'));
-
     try {
         // Set up redirect listener BEFORE navigation
         await setupRedirectListener();
 
-        // Wait for chrome_navigate to complete (non-fatal)
+        // Wait for navigation to settle, then leave extra time for late JS redirects.
         try {
             await waitForPageLoaded(CHROME_SESSION_DIR, timeout * 4, 1000);
         } catch (e) {
             console.error(`WARN: ${e.message}`);
         }
-
-        // Keep process alive until killed by cleanup
-        // console.error('Redirect tracking complete, waiting for cleanup signal...');
-
-        // Keep the process alive indefinitely
-        await new Promise(() => {}); // Never resolves
+        await settleForLateRedirects(page, JS_REDIRECT_SETTLE_MS);
+        await handleShutdown('DONE');
 
     } catch (e) {
         const error = `${e.name}: ${e.message}`;

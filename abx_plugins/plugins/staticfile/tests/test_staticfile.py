@@ -47,9 +47,21 @@ def staticfile_test_urls(httpserver):
         JSON_FIXTURE_BYTES,
         content_type="application/json",
     )
+    httpserver.expect_request("/redirect-json").respond_with_data(
+        "",
+        status=302,
+        headers={"Location": "/test.json"},
+    )
+    httpserver.expect_request("/redirect-html").respond_with_data(
+        "",
+        status=302,
+        headers={"Location": "/html"},
+    )
     return {
         "html_url": httpserver.url_for("/html"),
         "json_url": httpserver.url_for("/test.json"),
+        "redirect_json_url": httpserver.url_for("/redirect-json"),
+        "redirect_html_url": httpserver.url_for("/redirect-html"),
     }
 
 
@@ -209,6 +221,66 @@ class TestStaticfileWithChrome:
         assert output_file.exists(), f"Expected downloaded file at {output_file}"
         output_bytes = output_file.read_bytes()
         assert output_bytes == JSON_FIXTURE_BYTES, "Downloaded JSON bytes mismatch"
+
+    def test_staticfile_handles_redirected_main_document(self, staticfile_test_urls):
+        """Staticfile hook should classify the final main-document response after redirects."""
+        test_url = staticfile_test_urls["redirect_json_url"]
+        snapshot_id = "test-staticfile-redirect-json"
+
+        with chrome_session(
+            self.temp_dir,
+            crawl_id="test-staticfile-crawl-redirect-json",
+            snapshot_id=snapshot_id,
+            test_url=test_url,
+            navigate=False,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        ) as (_chrome_process, _chrome_pid, snapshot_chrome_dir, env):
+            staticfile_dir = snapshot_chrome_dir.parent / "staticfile"
+            staticfile_dir.mkdir(exist_ok=True)
+
+            hook_code, stdout, stderr, nav_result, archive_result = run_staticfile_capture(
+                staticfile_dir,
+                snapshot_chrome_dir,
+                env,
+                test_url,
+                snapshot_id,
+            )
+
+        assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
+        assert hook_code == 0, f"Staticfile hook failed: {stderr}"
+        assert archive_result is not None, f"Missing ArchiveResult in stdout:\n{stdout}"
+        assert archive_result.get("status") == "succeeded", archive_result
+        assert archive_result.get("content_type") == "application/json", archive_result
+
+    def test_staticfile_handles_redirected_html_pages_as_noresults(self, staticfile_test_urls):
+        """Staticfile hook should emit noresults for redirected HTML main documents."""
+        test_url = staticfile_test_urls["redirect_html_url"]
+        snapshot_id = "test-staticfile-redirect-html"
+
+        with chrome_session(
+            self.temp_dir,
+            crawl_id="test-staticfile-crawl-redirect-html",
+            snapshot_id=snapshot_id,
+            test_url=test_url,
+            navigate=False,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        ) as (_chrome_process, _chrome_pid, snapshot_chrome_dir, env):
+            staticfile_dir = snapshot_chrome_dir.parent / "staticfile"
+            staticfile_dir.mkdir(exist_ok=True)
+
+            hook_code, stdout, stderr, nav_result, archive_result = run_staticfile_capture(
+                staticfile_dir,
+                snapshot_chrome_dir,
+                env,
+                test_url,
+                snapshot_id,
+            )
+
+        assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
+        assert hook_code == 0, f"Staticfile hook failed: {stderr}"
+        assert archive_result is not None, f"Missing ArchiveResult in stdout:\n{stdout}"
+        assert archive_result.get("status") == "noresults", archive_result
+        assert archive_result.get("content_type", "").startswith("text/html"), archive_result
 
 
 if __name__ == "__main__":

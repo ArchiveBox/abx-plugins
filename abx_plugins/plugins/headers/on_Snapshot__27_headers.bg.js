@@ -53,6 +53,16 @@ let responseStatus = null;
 let responseStatusText = null;
 let responseUrl = null;
 let originalUrl = null;
+let headersReadyResolve = null;
+let headersReadyReject = null;
+const headersReady = new Promise((resolve) => {
+    headersReadyResolve = resolve;
+}).catch((error) => {
+    throw error;
+});
+const headersReadyFailure = new Promise((_, reject) => {
+    headersReadyReject = reject;
+});
 
 function getFinalUrl() {
     const finalUrlFile = path.join(CHROME_SESSION_DIR, 'final_url.txt');
@@ -94,6 +104,9 @@ function writeHeadersFile() {
 
     fs.writeFileSync(outputPath, JSON.stringify(record, null, 2));
     headersWritten = true;
+    if (headersReadyResolve) {
+        headersReadyResolve();
+    }
 }
 
 async function setupListener(url) {
@@ -154,6 +167,18 @@ async function setupListener(url) {
             responseStatusText = response.statusText || null;
             responseUrl = response.url || null;
             writeHeadersFile();
+        } catch (e) {
+            // Ignore errors
+        }
+    });
+
+    client.on('Network.loadingFailed', (params) => {
+        try {
+            if (!requestId || params.requestId !== requestId || headersWritten) return;
+            const errorText = params.errorText || 'Main request failed';
+            if (headersReadyReject) {
+                headersReadyReject(new Error(errorText));
+            }
         } catch (e) {
             // Ignore errors
         }
@@ -223,21 +248,31 @@ async function main() {
         browser = connection.browser;
         page = connection.page;
 
-        // Register signal handlers for graceful shutdown
-        process.on('SIGTERM', () => handleShutdown('SIGTERM'));
-        process.on('SIGINT', () => handleShutdown('SIGINT'));
-
-        // Wait for chrome_navigate to complete (non-fatal)
+        // Wait for navigation and the matched main request/response pair.
         try {
             const timeout = getEnvInt('HEADERS_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
-            await waitForPageLoaded(CHROME_SESSION_DIR, timeout * 4, 200);
+            await Promise.race([
+                waitForPageLoaded(CHROME_SESSION_DIR, timeout * 4, 200).then(() => headersReady),
+                headersReadyFailure,
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out waiting for headers')), timeout * 4)),
+            ]);
         } catch (e) {
-            console.error(`WARN: ${e.message}`);
+            if (!headersWritten) {
+                throw e;
+            }
         }
 
-        // Keep alive until SIGTERM
-        await new Promise(() => {});
-        return;
+        if (!headersWritten) {
+            throw new Error('No headers captured');
+        }
+
+        await emitResult('succeeded', OUTPUT_FILE);
+        if (browser) {
+            try {
+                browser.disconnect();
+            } catch (e) {}
+        }
+        process.exit(0);
 
     } catch (e) {
         const errorMessage = (e && e.message)

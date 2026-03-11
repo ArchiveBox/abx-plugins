@@ -44,6 +44,8 @@ let client = null;
 let sslCaptured = false;
 let shuttingDown = false;
 let sslIssuer = null;
+const seenCertificates = new Set();
+let certCount = 0;
 
 function truncateIssuerName(value, maxLen = 40) {
     const text = String(value || '').trim();
@@ -56,6 +58,8 @@ async function setupListener(url) {
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
     const timeout = getEnvInt('SSL_TIMEOUT', 30) * 1000;
     let targetHost = null;
+
+    fs.writeFileSync(outputPath, '');
 
     // Only extract SSL for HTTPS URLs
     if (!url.startsWith('https://')) {
@@ -99,6 +103,21 @@ async function setupListener(url) {
             let sslInfo = { url: responseUrl };
 
             if (securityDetails) {
+                const sanList = securityDetails.sanList || [];
+                const certKey = JSON.stringify([
+                    responseHostFromUrl(responseUrl),
+                    securityDetails.protocol || '',
+                    securityDetails.subjectName || '',
+                    securityDetails.issuer || '',
+                    securityDetails.validFrom || '',
+                    securityDetails.validTo || '',
+                    ...sanList,
+                ]);
+                if (seenCertificates.has(certKey)) {
+                    return;
+                }
+                seenCertificates.add(certKey);
+                certCount += 1;
                 sslInfo.protocol = securityDetails.protocol;
                 sslInfo.subjectName = securityDetails.subjectName;
                 sslInfo.issuer = securityDetails.issuer;
@@ -108,8 +127,6 @@ async function setupListener(url) {
                 sslInfo.certificateId = securityDetails.subjectName;
                 sslInfo.securityState = response.securityState || 'secure';
                 sslInfo.schemeIsCryptographic = true;
-
-                const sanList = securityDetails.sanList;
                 if (sanList && sanList.length > 0) {
                     sslInfo.subjectAlternativeNames = sanList;
                 }
@@ -122,7 +139,7 @@ async function setupListener(url) {
                 sslInfo.schemeIsCryptographic = false;
             }
 
-            fs.writeFileSync(outputPath, JSON.stringify(sslInfo, null, 2));
+            fs.appendFileSync(outputPath, JSON.stringify(sslInfo) + '\n');
             sslCaptured = true;
         } catch (e) {
             // Ignore errors
@@ -148,6 +165,14 @@ function emitResult(status = 'succeeded', outputStr = truncateIssuerName(sslIssu
             setImmediate(resolve);
         }
     });
+}
+
+function responseHostFromUrl(url) {
+    try {
+        return new URL(url).host;
+    } catch (e) {
+        return url || '';
+    }
 }
 
 async function handleShutdown(signal) {

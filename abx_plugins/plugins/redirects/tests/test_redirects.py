@@ -120,15 +120,11 @@ class TestRedirectsWithChrome:
                         break
                     time.sleep(1)
 
-                # Verify hook ran successfully
-                if result.poll() is None:
-                    result.terminate()
-                    try:
-                        stdout, stderr = result.communicate(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        result.kill()
-                        stdout, stderr = result.communicate()
-                else:
+                # Finite bg hook should exit on its own after the settle window.
+                try:
+                    stdout, stderr = result.communicate(timeout=20)
+                except subprocess.TimeoutExpired:
+                    result.kill()
                     stdout, stderr = result.communicate()
                 assert "Traceback" not in stderr
                 assert "Error:" not in stderr
