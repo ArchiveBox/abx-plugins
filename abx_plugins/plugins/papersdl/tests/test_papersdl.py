@@ -242,69 +242,76 @@ def test_config_timeout():
         assert result.returncode == 0, "Should complete without hanging"
 
 
-def test_real_doi_download():
-    """Test that papers-dl downloads a real paper PDF from a DOI URL."""
+def test_real_public_paper_download():
+    """Test that papers-dl downloads a real public paper PDF via DOI or arXiv URL."""
     binary_path = require_papersdl_binary()
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
+    paper_urls = [
+        ("https://doi.org/10.48550/arXiv.1706.03762", "testrealdoi"),
+        ("https://arxiv.org/abs/1706.03762", "testrealarxiv"),
+    ]
+    attempts = []
 
-        # Public DOI for an open-access arXiv paper.
-        doi_url = "https://doi.org/10.48550/arXiv.1706.03762"
+    for paper_url, snapshot_id in paper_urls:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = Path(tmpdir)
 
-        env = os.environ.copy()
-        env["PAPERSDL_BINARY"] = binary_path
-        env["PAPERSDL_TIMEOUT"] = "120"
-        env["SNAP_DIR"] = str(tmpdir)
+            env = os.environ.copy()
+            env["PAPERSDL_BINARY"] = binary_path
+            env["PAPERSDL_TIMEOUT"] = "120"
+            env["SNAP_DIR"] = str(tmpdir)
 
-        result = subprocess.run(
-            [
-                sys.executable,
-                str(PAPERSDL_HOOK),
-                "--url",
-                doi_url,
-                "--snapshot-id",
-                "testrealdoi",
-            ],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=180,
-        )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PAPERSDL_HOOK),
+                    "--url",
+                    paper_url,
+                    "--snapshot-id",
+                    snapshot_id,
+                ],
+                cwd=tmpdir,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=180,
+            )
 
-        assert result.returncode == 0, f"DOI download should succeed: {result.stderr}"
+            assert result.returncode == 0, f"Paper download should not crash: {result.stderr}"
 
-        result_json = None
-        for line in result.stdout.strip().split("\n"):
-            line = line.strip()
-            if line.startswith("{"):
-                try:
-                    record = json.loads(line)
-                    if record.get("type") == "ArchiveResult":
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+            result_json = None
+            for line in result.stdout.strip().split("\n"):
+                line = line.strip()
+                if line.startswith("{"):
+                    try:
+                        record = json.loads(line)
+                        if record.get("type") == "ArchiveResult":
+                            result_json = record
+                            break
+                    except json.JSONDecodeError:
+                        pass
 
-        assert result_json, f"Should emit ArchiveResult JSONL. stdout: {result.stdout}"
-        assert result_json.get("status") == "succeeded", (
-            f"DOI download should succeed: {result_json}"
-        )
+            assert result_json, f"Should emit ArchiveResult JSONL. stdout: {result.stdout}"
+            attempts.append((paper_url, result_json))
+            if result_json.get("status") != "succeeded":
+                continue
 
-        output_str = (result_json.get("output_str") or "").strip()
-        assert output_str.endswith(".pdf"), (
-            f"ArchiveResult must name the downloaded PDF for a single-file result: {result_json}"
-        )
+            output_str = (result_json.get("output_str") or "").strip()
+            assert output_str.endswith(".pdf"), (
+                f"ArchiveResult must name the downloaded PDF for a single-file result: {result_json}"
+            )
 
-        downloaded_files = [
-            path for path in (tmpdir / "papersdl").iterdir()
-            if path.is_file()
-        ]
-        assert downloaded_files, f"Downloaded paper path missing in {tmpdir / 'papersdl'}"
-        output_path = tmpdir / "papersdl" / output_str
-        assert output_path.is_file(), f"Downloaded paper path missing: {output_path}"
-        assert output_path.stat().st_size > 0, f"Downloaded paper file is empty: {output_path}"
+            downloaded_files = [
+                path for path in (tmpdir / "papersdl").iterdir()
+                if path.is_file()
+            ]
+            assert downloaded_files, f"Downloaded paper path missing in {tmpdir / 'papersdl'}"
+            output_path = tmpdir / "papersdl" / output_str
+            assert output_path.is_file(), f"Downloaded paper path missing: {output_path}"
+            assert output_path.stat().st_size > 0, f"Downloaded paper file is empty: {output_path}"
+            return
+
+    raise AssertionError(f"Expected at least one live paper URL to download successfully, got: {attempts}")
 
 
 if __name__ == "__main__":

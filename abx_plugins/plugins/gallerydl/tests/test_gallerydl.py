@@ -287,12 +287,12 @@ def test_config_timeout():
 
 
 def test_real_gallery_url():
-    """Test that gallery-dl can extract images from a live public Reddit listing."""
+    """Test that gallery-dl can extract an image from a live public Wikimedia page."""
     binary_path = require_gallerydl_binary()
 
-    # Flickr's upstream API key in gallery-dl has been unstable; use a public Reddit image post
-    # that yields a single downloadable image without custom site credentials.
-    gallery_url = "https://www.reddit.com/r/pics/comments/1rqmxjp/marco_rubio_wearing_oversized_shoes_that_trump/"
+    # Reddit aggressively rate-limits GitHub runners. Wikimedia Commons is public, stable,
+    # and gallery-dl can resolve the canonical image filename without site credentials.
+    gallery_url = "https://commons.wikimedia.org/wiki/File:Example.jpg"
 
     max_attempts = 3
     last_error = ""
