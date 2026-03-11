@@ -35,6 +35,8 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 process.chdir(OUTPUT_DIR);
 const OUTPUT_FILE = 'title.txt';
 const CHROME_SESSION_DIR = '../chrome';
+const CHROME_CDP_FILE = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
+const CHROME_TARGET_FILE = path.join(CHROME_SESSION_DIR, 'target_id.txt');
 
 function emitArchiveResult(status, outputStr) {
     console.log(JSON.stringify({
@@ -59,6 +61,9 @@ async function extractTitle(url) {
     let browser = null;
 
     try {
+        if (!fs.existsSync(CHROME_CDP_FILE) || !fs.existsSync(CHROME_TARGET_FILE)) {
+            return { success: false, error: 'No Chrome session found (chrome plugin must run first)' };
+        }
         const connection = await connectToPage({
             chromeSessionDir: CHROME_SESSION_DIR,
             timeoutMs,

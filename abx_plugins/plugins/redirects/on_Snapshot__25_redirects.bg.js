@@ -50,7 +50,16 @@ let lastObservedUrl = '';
 const seenTransitions = new Set();
 
 function isMainDocumentRequest(params) {
-    return params?.type === 'Document' && !!params?.request?.url?.startsWith('http');
+    const url = params?.request?.url || '';
+    if (!url.startsWith('http')) {
+        return false;
+    }
+    return (
+        params?.type === 'Document' ||
+        !!params?.redirectResponse ||
+        params?.documentURL === url ||
+        (params?.requestId && params?.loaderId && params.requestId === params.loaderId)
+    );
 }
 
 function appendRedirectEntry(outputPath, entry) {
