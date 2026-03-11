@@ -16,7 +16,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
-CRAWL_HOOK = get_hook_script(PLUGIN_DIR, "on_Crawl__*_puppeteer_install.py")
+CRAWL_HOOK = get_hook_script(PLUGIN_DIR, "on_Crawl__*_puppeteer_install*.py")
 BINARY_HOOK = get_hook_script(PLUGIN_DIR, "on_Binary__*_puppeteer_install.py")
 NPM_BINARY_HOOK = PLUGIN_DIR.parent / "npm" / "on_Binary__10_npm_install.py"
 

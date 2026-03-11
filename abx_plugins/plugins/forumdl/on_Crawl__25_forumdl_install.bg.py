@@ -11,6 +11,7 @@
 
 import json
 import os
+import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -52,15 +53,36 @@ def output_binary(
     print(json.dumps(record))
 
 
+def output_resolved_binary(name: str, abspath: str, binprovider: str = "env") -> None:
+    machine_id = os.environ.get("MACHINE_ID", "")
+    print(
+        json.dumps(
+            {
+                "type": "Binary",
+                "name": name,
+                "abspath": abspath,
+                "binprovider": binprovider,
+                "machine_id": machine_id,
+            }
+        )
+    )
+
+
 def main():
     forumdl_enabled = get_env_bool("FORUMDL_ENABLED", True)
 
     if not forumdl_enabled:
         sys.exit(0)
 
+    forumdl_binary = get_env("FORUMDL_BINARY", "forum-dl")
+    forumdl_binary_path = shutil.which(forumdl_binary)
+    if forumdl_binary_path:
+        output_resolved_binary(name="forum-dl", abspath=forumdl_binary_path)
+        sys.exit(0)
+
     output_binary(
         name="forum-dl",
-        binproviders="pip,env",
+        binproviders="env,pip",
         overrides={
             "pip": {
                 "packages": [

@@ -1,8 +1,13 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
+# dependencies = []
 # ///
-"""Emit trafilatura Binary dependency for the crawl if enabled."""
+#
+# Emit papers-dl Binary dependency for the crawl.
+#
+# Usage:
+#     ./on_Crawl__30_papersdl_install.py > events.jsonl
 
 import json
 import os
@@ -29,21 +34,27 @@ def get_env_bool(name: str, default: bool = False) -> bool:
     return default
 
 
-def main() -> None:
-    if not get_env_bool("TRAFILATURA_ENABLED", True):
+def output_binary(name: str, binproviders: str):
+    """Output Binary JSONL record for a dependency."""
+    machine_id = os.environ.get("MACHINE_ID", "")
+
+    record = {
+        "type": "Binary",
+        "name": name,
+        "binproviders": binproviders,
+        "machine_id": machine_id,
+    }
+    print(json.dumps(record))
+
+
+def main():
+    papersdl_enabled = get_env_bool("PAPERSDL_ENABLED", True)
+
+    if not papersdl_enabled:
         sys.exit(0)
 
-    print(
-        json.dumps(
-            {
-                "type": "Binary",
-                "name": "trafilatura",
-                "binproviders": "pip,env",
-                "overrides": {"pip": {"packages": ["trafilatura"]}},
-                "machine_id": os.environ.get("MACHINE_ID", ""),
-            }
-        )
-    )
+    output_binary(name="papers-dl", binproviders="env,pip")
+
     sys.exit(0)
 
 

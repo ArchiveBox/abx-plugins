@@ -90,32 +90,72 @@ class TestParseDomOutlinksWithChrome:
 
                 # Check for output file
                 snap_dir = Path(env["SNAP_DIR"])
-                outlinks_output = snap_dir / "parse_dom_outlinks" / "outlinks.json"
-
-                outlinks_data = None
-                json_error = None
-
-                # Try parsing from file first
-                if outlinks_output.exists():
-                    with open(outlinks_output) as f:
-                        try:
-                            outlinks_data = json.load(f)
-                        except json.JSONDecodeError as e:
-                            json_error = str(e)
+                urls_output = snap_dir / "parse_dom_outlinks" / "urls.jsonl"
 
                 # Verify hook ran successfully
                 assert result.returncode == 0, f"Hook failed: {result.stderr}"
                 assert "Traceback" not in result.stderr
 
-                # Verify we got outlinks data with expected categories
-                assert outlinks_data is not None, (
-                    f"No outlinks data found - file missing or invalid JSON: {json_error}"
+                archive_result = json.loads(result.stdout.strip().splitlines()[-1])
+                assert archive_result["type"] == "ArchiveResult"
+                assert archive_result["status"] == "succeeded"
+
+                assert urls_output.exists(), "urls.jsonl not created"
+                urls_data = [json.loads(line) for line in urls_output.read_text().splitlines() if line.strip()]
+                assert urls_data, "urls.jsonl should contain at least one URL"
+                assert all(entry["type"] == "Snapshot" for entry in urls_data)
+                assert archive_result["output_str"] == f"{len(urls_data)} URLs parsed"
+
+        except RuntimeError:
+            raise
+
+    def test_outlinks_removes_outputs_when_no_crawlable_urls(self):
+        """Hook should not leave output files behind when no crawlable URLs are found."""
+        input_file = self.temp_dir / "no-links.html"
+        input_file.write_text(
+            """<!doctype html>
+<html>
+<head><title>No Links</title></head>
+<body><p>No crawlable links on this page.</p></body>
+</html>
+"""
+        )
+        test_url = input_file.resolve().as_uri()
+        snapshot_id = "test-outlinks-empty"
+
+        try:
+            with chrome_session(
+                self.temp_dir,
+                crawl_id="test-outlinks-empty-crawl",
+                snapshot_id=snapshot_id,
+                test_url=test_url,
+                navigate=True,
+                timeout=30,
+            ) as (_chrome_process, _chrome_pid, snapshot_chrome_dir, env):
+                result = subprocess.run(
+                    [
+                        "node",
+                        str(OUTLINKS_HOOK),
+                        f"--url={test_url}",
+                        f"--snapshot-id={snapshot_id}",
+                    ],
+                    cwd=str(snapshot_chrome_dir),
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    env=env,
                 )
 
-                assert "url" in outlinks_data, f"Missing url: {outlinks_data}"
-                assert "hrefs" in outlinks_data, f"Missing hrefs: {outlinks_data}"
-                # example.com has at least one link (to iana.org)
-                assert isinstance(outlinks_data["hrefs"], list)
+                assert result.returncode == 0, f"Hook failed: {result.stderr}"
+
+                archive_result = json.loads(result.stdout.strip().splitlines()[-1])
+                assert archive_result["type"] == "ArchiveResult"
+                assert archive_result["status"] == "noresults"
+                assert archive_result["output_str"] == "0 URLs parsed"
+
+                snap_dir = Path(env["SNAP_DIR"])
+                outlinks_dir = snap_dir / "parse_dom_outlinks"
+                assert not (outlinks_dir / "urls.jsonl").exists()
 
         except RuntimeError:
             raise

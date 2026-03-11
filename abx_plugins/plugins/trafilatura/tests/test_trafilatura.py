@@ -9,6 +9,7 @@ Tests verify:
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -35,6 +36,12 @@ _trafilatura_binary_path = None
 _trafilatura_lib_root = None
 
 
+def _script_cmd(script: Path) -> list[str]:
+    if shutil.which("uv"):
+        return ["uv", "run", str(script)]
+    return [sys.executable, str(script)]
+
+
 def get_trafilatura_binary_path() -> str | None:
     """Install trafilatura using real plugin hooks and return installed binary path."""
     global _trafilatura_binary_path
@@ -42,7 +49,7 @@ def get_trafilatura_binary_path() -> str | None:
         return _trafilatura_binary_path
 
     pip_hook = PLUGINS_ROOT / "pip" / "on_Binary__11_pip_install.py"
-    crawl_hook = PLUGIN_DIR / "on_Crawl__41_trafilatura_install.py"
+    crawl_hook = PLUGIN_DIR / "on_Crawl__41_trafilatura_install.bg.py"
     if not pip_hook.exists():
         return None
 
@@ -51,7 +58,7 @@ def get_trafilatura_binary_path() -> str | None:
 
     if crawl_hook.exists():
         crawl_result = subprocess.run(
-            [sys.executable, str(crawl_hook)],
+            _script_cmd(crawl_hook),
             capture_output=True,
             text=True,
             timeout=30,
@@ -78,8 +85,7 @@ def get_trafilatura_binary_path() -> str | None:
     env["CRAWL_DIR"] = str(Path(_trafilatura_lib_root) / "crawl")
 
     cmd = [
-        sys.executable,
-        str(pip_hook),
+        *_script_cmd(pip_hook),
         "--binary-id",
         str(uuid.uuid4()),
         "--machine-id",
@@ -212,6 +218,48 @@ def test_extracts_local_html_outputs_with_real_binary(httpserver):
         assert "example domain" in md_content, "Expected article content in markdown output"
         assert "example domain" in html_content, "Expected article content in html output"
         assert "example domain" in json_content, "Expected article content in json output"
+
+
+def test_extracts_local_html_with_binary_resolved_from_path(chrome_test_url):
+    binary_path = require_trafilatura_binary()
+    test_url = chrome_test_url
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        snap_dir = tmpdir / "snap"
+        singlefile_dir = snap_dir / "singlefile"
+        singlefile_dir.mkdir(parents=True, exist_ok=True)
+
+        response = requests.get(test_url, timeout=10)
+        response.raise_for_status()
+        (singlefile_dir / "singlefile.html").write_text(response.text, encoding="utf-8")
+
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(snap_dir)
+        env["TRAFILATURA_BINARY"] = "trafilatura"
+        env["PATH"] = f"{Path(binary_path).parent}:{env.get('PATH', '')}"
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(TRAFILATURA_HOOK),
+                "--url",
+                test_url,
+                "--snapshot-id",
+                "test-path-resolution",
+            ],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=env,
+        )
+
+        assert result.returncode == 0, f"Extraction failed: {result.stderr}"
+        assert (snap_dir / "trafilatura" / "content.txt").exists(), "content.txt not created"
+        assert "example domain" in (snap_dir / "trafilatura" / "content.txt").read_text(
+            errors="ignore"
+        ).lower()
 
 
 def test_output_format_toggles_map_to_expected_files(httpserver):
@@ -370,8 +418,14 @@ def test_fails_without_html_source():
             env=env,
         )
 
-        assert result.returncode != 0, "Should fail without HTML source"
+        assert result.returncode == 0, "Should exit 0 without HTML source"
         assert "no html source" in (result.stdout + result.stderr).lower()
+        records = [
+            json.loads(line)
+            for line in result.stdout.strip().split("\n")
+            if line.strip().startswith("{")
+        ]
+        assert records and records[-1]["status"] == "noresults"
 
 
 if __name__ == "__main__":

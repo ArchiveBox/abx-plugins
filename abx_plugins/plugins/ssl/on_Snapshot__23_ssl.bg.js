@@ -43,6 +43,14 @@ let page = null;
 let client = null;
 let sslCaptured = false;
 let shuttingDown = false;
+let sslIssuer = null;
+
+function truncateIssuerName(value, maxLen = 40) {
+    const text = String(value || '').trim();
+    if (!text) return 'unknown issuer';
+    if (text.length <= maxLen) return text;
+    return `${text.slice(0, maxLen - 3)}...`;
+}
 
 async function setupListener(url) {
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
@@ -94,6 +102,7 @@ async function setupListener(url) {
                 sslInfo.protocol = securityDetails.protocol;
                 sslInfo.subjectName = securityDetails.subjectName;
                 sslInfo.issuer = securityDetails.issuer;
+                sslIssuer = securityDetails.issuer || securityDetails.subjectName || null;
                 sslInfo.validFrom = securityDetails.validFrom;
                 sslInfo.validTo = securityDetails.validTo;
                 sslInfo.certificateId = securityDetails.subjectName;
@@ -123,21 +132,27 @@ async function setupListener(url) {
     return { browser, page };
 }
 
-function emitResult(status = 'succeeded') {
-    if (shuttingDown) return;
+function emitResult(status = 'succeeded', outputStr = truncateIssuerName(sslIssuer)) {
+    if (shuttingDown) return Promise.resolve();
     shuttingDown = true;
 
-    const outputStr = sslCaptured ? OUTPUT_FILE : OUTPUT_FILE;
-    console.log(JSON.stringify({
+    const line = JSON.stringify({
         type: 'ArchiveResult',
         status,
         output_str: outputStr,
-    }));
+    }) + '\n';
+    return new Promise((resolve) => {
+        if (!process.stdout.write(line)) {
+            process.stdout.once('drain', resolve);
+        } else {
+            setImmediate(resolve);
+        }
+    });
 }
 
 async function handleShutdown(signal) {
     console.error(`\nReceived ${signal}, emitting final results...`);
-    emitResult('succeeded');
+    await emitResult('succeeded');
     if (browser) {
         try {
             browser.disconnect();
@@ -188,16 +203,13 @@ async function main() {
         const error = `${e.name}: ${e.message}`;
         console.error(`ERROR: ${error}`);
 
-        console.log(JSON.stringify({
-            type: 'ArchiveResult',
-            status: 'failed',
-            output_str: error,
-        }));
+        await emitResult('failed', error);
         process.exit(1);
     }
 }
 
-main().catch(e => {
+main().catch(async (e) => {
     console.error(`Fatal error: ${e.message}`);
+    await emitResult('failed', `${e.name}: ${e.message}`);
     process.exit(1);
 });

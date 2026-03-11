@@ -57,6 +57,24 @@ class HTMLTextExtractor(HTMLParser):
         return " ".join(self.result)
 
 
+def emit_archive_result(status: str, output_str: str) -> None:
+    print(
+        json.dumps(
+            {
+                "type": "ArchiveResult",
+                "status": status,
+                "output_str": output_str,
+            }
+        )
+    )
+
+
+def write_text_atomic(path: Path, text: str) -> None:
+    tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    tmp_path.write_text(text, encoding="utf-8")
+    tmp_path.replace(path)
+
+
 def html_to_text(html: str) -> str:
     """Convert HTML to plain text."""
     parser = HTMLTextExtractor()
@@ -107,7 +125,7 @@ def find_html_source() -> str | None:
     return None
 
 
-def extract_htmltotext(url: str) -> tuple[bool, str | None, str]:
+def extract_htmltotext(url: str) -> tuple[str, str]:
     """
     Extract plain text from HTML sources.
 
@@ -116,20 +134,20 @@ def extract_htmltotext(url: str) -> tuple[bool, str | None, str]:
     # Find HTML source from other extractors
     html_content = find_html_source()
     if not html_content:
-        return False, None, "No HTML source found (run singlefile, dom, or wget first)"
+        return "noresults", "No HTML source found"
 
     # Convert HTML to text
     text = html_to_text(html_content)
 
     if not text or len(text) < 10:
-        return False, None, "No meaningful text extracted from HTML"
+        return "noresults", "No meaningful text extracted"
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
     output_path = output_dir / OUTPUT_FILE
-    output_path.write_text(text, encoding="utf-8")
+    write_text_atomic(output_path, text)
 
-    return True, str(output_path), ""
+    return "succeeded", OUTPUT_FILE
 
 
 @click.command()
@@ -140,25 +158,16 @@ def main(url: str, snapshot_id: str):
 
     try:
         # Run extraction
-        success, output, error = extract_htmltotext(url)
-
-        if success:
-            # Success - emit ArchiveResult
-            result = {
-                "type": "ArchiveResult",
-                "status": "succeeded",
-                "output_str": output or "",
-            }
-            print(json.dumps(result))
-            sys.exit(0)
-        else:
-            # Transient error - emit NO JSONL
-            print(f"ERROR: {error}", file=sys.stderr)
-            sys.exit(1)
+        status, output = extract_htmltotext(url)
+        if status == "failed":
+            print(f"ERROR: {output}", file=sys.stderr)
+        emit_archive_result(status, output)
+        sys.exit(0 if status != "failed" else 1)
 
     except Exception as e:
-        # Transient error - emit NO JSONL
-        print(f"ERROR: {type(e).__name__}: {e}", file=sys.stderr)
+        error = f"{type(e).__name__}: {e}"
+        print(f"ERROR: {error}", file=sys.stderr)
+        emit_archive_result("failed", error)
         sys.exit(1)
 
 

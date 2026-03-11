@@ -125,6 +125,12 @@ def create_hashes(snapshot_dir: Path) -> Dict[str, Any]:
     }
 
 
+def format_output_str(total_size: int, root_hash: str | None) -> str:
+    total_size_mb = total_size / 1_000_000
+    short_hash = (root_hash or "")[:12]
+    return f"{total_size_mb:.1f}MB {short_hash}".strip()
+
+
 @click.command()
 @click.option("--url", required=True, help="URL being archived")
 @click.option("--snapshot-id", required=True, help="Snapshot UUID")
@@ -135,6 +141,7 @@ def main(url: str, snapshot_id: str):
     error = ""
     root_hash = None
     file_count = 0
+    total_size = 0
 
     try:
         # Check if enabled
@@ -147,7 +154,11 @@ def main(url: str, snapshot_id: str):
 
         if not save_hashes:
             status = "skipped"
-            click.echo(json.dumps({"status": status, "output": "HASHES_ENABLED=false"}))
+            click.echo(json.dumps({
+                "type": "ArchiveResult",
+                "status": status,
+                "output_str": "HASHES_ENABLED=False",
+            }))
             sys.exit(0)
 
         # Working directory is the extractor output dir (e.g., <snapshot>/hashes/)
@@ -173,19 +184,18 @@ def main(url: str, snapshot_id: str):
         output = "hashes.json"
         root_hash = merkle_data["root_hash"]
         file_count = merkle_data["metadata"]["file_count"]
+        total_size = merkle_data["metadata"]["total_size"]
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"
         status = "failed"
         click.echo(f"Error: {error}", err=True)
 
-    # Print JSON result for hook runner
+    output_str = format_output_str(total_size, root_hash) if status == "succeeded" else (error or "")
     result = {
+        "type": "ArchiveResult",
         "status": status,
-        "output": output,
-        "error": error or None,
-        "root_hash": root_hash,
-        "file_count": file_count,
+        "output_str": output_str,
     }
     click.echo(json.dumps(result))
 

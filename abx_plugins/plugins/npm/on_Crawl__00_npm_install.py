@@ -45,13 +45,13 @@ def output_binary(
 def main() -> None:
     output_binary(
         name="node",
-        binproviders="apt,brew,env",
+        binproviders="env,apt,brew",
         overrides={"apt": {"packages": ["nodejs"]}},
     )
 
     output_binary(
         name="npm",
-        binproviders="apt,brew,env",
+        binproviders="env,apt,brew",
         overrides={
             "apt": {"packages": ["nodejs", "npm"]},
             "brew": {"packages": ["node"]},

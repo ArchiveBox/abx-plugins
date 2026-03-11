@@ -201,7 +201,10 @@ def test_reports_missing_dependency_when_not_installed():
         jsonl_lines = [
             line for line in result.stdout.strip().split("\n") if line.strip().startswith("{")
         ]
-        assert len(jsonl_lines) == 0
+        assert len(jsonl_lines) == 1
+        record = json.loads(jsonl_lines[0])
+        assert record["type"] == "ArchiveResult"
+        assert record["status"] == "failed"
         assert "defuddle" in result.stderr.lower() or "error" in result.stderr.lower()
 
 

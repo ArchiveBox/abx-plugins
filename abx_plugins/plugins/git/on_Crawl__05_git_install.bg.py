@@ -53,7 +53,7 @@ def main():
     if not git_enabled:
         sys.exit(0)
 
-    output_binary(name="git", binproviders="apt,brew,env")
+    output_binary(name="git", binproviders="env,apt,brew")
 
     sys.exit(0)
 

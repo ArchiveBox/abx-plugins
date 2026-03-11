@@ -1,19 +1,19 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = [
-# ]
+# dependencies = []
 # ///
 #
-# Emit postlight-parser Binary dependency for the crawl if mercury is enabled.
+# Emit yt-dlp (and related) Binary dependencies for the crawl.
 #
 # Usage:
-#     ./on_Crawl__40_mercury_install.py > events.jsonl
+#     ./on_Crawl__15_ytdlp_install.py > events.jsonl
 
 import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
@@ -35,31 +35,44 @@ def get_env_bool(name: str, default: bool = False) -> bool:
     return default
 
 
-def output_binary(name: str, binproviders: str):
+def output_binary(
+    name: str, binproviders: str, overrides: dict[str, Any] | None = None
+) -> None:
     """Output Binary JSONL record for a dependency."""
     machine_id = os.environ.get("MACHINE_ID", "")
 
-    record = {
+    record: dict[str, Any] = {
         "type": "Binary",
         "name": name,
         "binproviders": binproviders,
-        "overrides": {
-            "npm": {
-                "packages": ["@postlight/parser"],
-            }
-        },
         "machine_id": machine_id,
     }
+    if overrides:
+        record["overrides"] = overrides
     print(json.dumps(record))
 
 
 def main():
-    mercury_enabled = get_env_bool("MERCURY_ENABLED", True)
+    ytdlp_enabled = get_env_bool("YTDLP_ENABLED", True)
 
-    if not mercury_enabled:
+    if not ytdlp_enabled:
         sys.exit(0)
 
-    output_binary(name="postlight-parser", binproviders="npm,env")
+    output_binary(
+        name="yt-dlp",
+        binproviders="env,pip,brew,apt",
+        overrides={"pip": {"packages": ["yt-dlp[default]"]}},
+    )
+
+    # Node.js (required by several JS-based extractors)
+    output_binary(
+        name="node",
+        binproviders="env,apt,brew",
+        overrides={"apt": {"packages": ["nodejs"]}},
+    )
+
+    # ffmpeg (used by media extraction)
+    output_binary(name="ffmpeg", binproviders="env,apt,brew")
 
     sys.exit(0)
 

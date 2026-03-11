@@ -81,9 +81,11 @@ CHROME_PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = CHROME_PLUGIN_DIR.parent
 
 # Hook script locations
-CHROME_INSTALL_HOOK = CHROME_PLUGIN_DIR / "on_Crawl__70_chrome_install.py"
+CHROME_INSTALL_HOOK = CHROME_PLUGIN_DIR / "on_Crawl__70_chrome_install.bg.py"
 CHROME_LAUNCH_HOOK = CHROME_PLUGIN_DIR / "on_Crawl__90_chrome_launch.bg.js"
+CHROME_CRAWL_WAIT_HOOK = CHROME_PLUGIN_DIR / "on_Crawl__91_chrome_wait.js"
 CHROME_TAB_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__10_chrome_tab.bg.js"
+CHROME_WAIT_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__11_chrome_wait.js"
 _CHROME_NAVIGATE_HOOK = next(
     CHROME_PLUGIN_DIR.glob("on_Snapshot__*_chrome_navigate.*"), None
 )
@@ -96,7 +98,7 @@ CHROME_UTILS = CHROME_PLUGIN_DIR / "chrome_utils.js"
 PUPPETEER_BINARY_HOOK = (
     PLUGINS_ROOT / "puppeteer" / "on_Binary__12_puppeteer_install.py"
 )
-PUPPETEER_CRAWL_HOOK = PLUGINS_ROOT / "puppeteer" / "on_Crawl__60_puppeteer_install.py"
+PUPPETEER_CRAWL_HOOK = PLUGINS_ROOT / "puppeteer" / "on_Crawl__60_puppeteer_install.bg.py"
 NPM_BINARY_HOOK = PLUGINS_ROOT / "npm" / "on_Binary__10_npm_install.py"
 
 
@@ -177,6 +179,75 @@ class _DeterministicTestRequestHandler(BaseHTTPRequestHandler):
                 200,
                 "<html><head><title>Linked Page</title></head><body><h1>Linked Page</h1></body></html>",
             )
+            return
+
+        if path == "/slow":
+            delay_ms = 5000
+            try:
+                delay_ms = max(0, int(urllib.parse.parse_qs(parsed.query).get("delay", ["5000"])[0]))
+            except Exception:
+                delay_ms = 5000
+            time.sleep(delay_ms / 1000.0)
+            self._write(
+                200,
+                f"""<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Slow Page {delay_ms}</title></head>
+<body>
+  <main>
+    <h1>Slow Page</h1>
+    <p>delay_ms={delay_ms}</p>
+  </main>
+</body>
+</html>""",
+            )
+            return
+
+        if path == "/popup-child":
+            self._write(
+                200,
+                """<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Popup Child</title></head>
+<body><h1>Popup Child</h1><p>This popup should not replace the canonical snapshot target.</p></body>
+</html>""",
+            )
+            return
+
+        if path == "/popup-parent":
+            html = f"""<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Popup Parent</title>
+</head>
+<body>
+  <main>
+    <h1>Popup Parent</h1>
+    <p id="status">main-page</p>
+  </main>
+  <script>
+    const popupUrl = "{origin}/popup-child";
+    let popup = null;
+    function openAndRefocusPopup() {{
+      if (!popup || popup.closed) {{
+        popup = window.open(popupUrl, "abx-popup", "width=480,height=320");
+      }}
+      if (popup && !popup.closed) {{
+        try {{ popup.focus(); }} catch (e) {{}}
+      }}
+      try {{ window.focus(); }} catch (e) {{}}
+    }}
+    window.addEventListener("load", () => {{
+      openAndRefocusPopup();
+      setTimeout(openAndRefocusPopup, 150);
+      setTimeout(openAndRefocusPopup, 400);
+      setTimeout(openAndRefocusPopup, 900);
+    }});
+  </script>
+</body>
+</html>"""
+            self._write(200, html)
             return
 
         if path == "/redirect":
@@ -287,6 +358,9 @@ def _build_test_urls(
         "redirect_url": f"{base}/redirect",
         "not_found_url": f"{base}/nonexistent-page-404",
         "linked_url": f"{base}/linked",
+        "slow_url": f"{base}/slow?delay=5000",
+        "popup_parent_url": f"{base}/popup-parent",
+        "popup_child_url": f"{base}/popup-child",
         "static_file_url": f"{base}/static/test.txt",
         "json_url": f"{base}/api/data.json",
     }
@@ -1291,6 +1365,54 @@ def cleanup_chrome(
     kill_chrome(chrome_pid, str(chrome_dir) if chrome_dir else None)
 
 
+def launch_snapshot_tab(
+    *,
+    snapshot_chrome_dir: Path,
+    tab_env: dict[str, str],
+    test_url: str,
+    snapshot_id: str,
+    crawl_id: str,
+    timeout: int = 60,
+) -> subprocess.Popen:
+    """Launch the snapshot tab hook in background mode and wait for session markers."""
+    tab_process = subprocess.Popen(
+        [
+            "node",
+            str(CHROME_TAB_HOOK),
+            f"--url={test_url}",
+            f"--snapshot-id={snapshot_id}",
+            f"--crawl-id={crawl_id}",
+        ],
+        cwd=str(snapshot_chrome_dir),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=tab_env,
+    )
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if tab_process.poll() is not None:
+            stdout, stderr = tab_process.communicate()
+            raise RuntimeError(
+                f"Tab creation exited early:\nStdout: {stdout}\nStderr: {stderr}"
+            )
+        if (
+            (snapshot_chrome_dir / "cdp_url.txt").exists()
+            and (snapshot_chrome_dir / "target_id.txt").exists()
+            and (snapshot_chrome_dir / "chrome.pid").exists()
+        ):
+            return tab_process
+        time.sleep(0.2)
+
+    try:
+        tab_process.send_signal(signal.SIGTERM)
+        tab_process.wait(timeout=10)
+    except Exception:
+        pass
+    raise RuntimeError(f"Tab creation timed out after {timeout}s")
+
+
 @contextmanager
 def chrome_session(
     tmpdir: Path,
@@ -1327,6 +1449,7 @@ def chrome_session(
         RuntimeError: If Chrome fails to start or tab creation fails
     """
     chrome_launch_process = None
+    tab_process = None
     chrome_pid = None
     chrome_dir: Optional[Path] = None
     try:
@@ -1444,26 +1567,17 @@ def chrome_session(
         tab_env["CRAWL_DIR"] = str(crawl_dir)
         tab_env["SNAP_DIR"] = str(snap_dir)
         try:
-            result = subprocess.run(
-                [
-                    "node",
-                    str(CHROME_TAB_HOOK),
-                    f"--url={test_url}",
-                    f"--snapshot-id={snapshot_id}",
-                    f"--crawl-id={crawl_id}",
-                ],
-                cwd=str(snapshot_chrome_dir),
-                capture_output=True,
-                text=True,
+            tab_process = launch_snapshot_tab(
+                snapshot_chrome_dir=snapshot_chrome_dir,
+                tab_env=tab_env,
+                test_url=test_url,
+                snapshot_id=snapshot_id,
+                crawl_id=crawl_id,
                 timeout=60,
-                env=tab_env,
             )
-            if result.returncode != 0:
-                cleanup_chrome(chrome_launch_process, chrome_pid)
-                raise RuntimeError(f"Tab creation failed: {result.stderr}")
-        except subprocess.TimeoutExpired:
+        except RuntimeError:
             cleanup_chrome(chrome_launch_process, chrome_pid)
-            raise RuntimeError("Tab creation timed out after 60s")
+            raise
 
         # Navigate to URL if requested
         if navigate and CHROME_NAVIGATE_HOOK and test_url != "about:blank":
@@ -1492,5 +1606,11 @@ def chrome_session(
 
         yield chrome_launch_process, chrome_pid, snapshot_chrome_dir, env
     finally:
+        if tab_process and tab_process.poll() is None:
+            try:
+                tab_process.send_signal(signal.SIGTERM)
+                tab_process.wait(timeout=10)
+            except Exception:
+                pass
         if chrome_launch_process and chrome_pid:
             cleanup_chrome(chrome_launch_process, chrome_pid, chrome_dir=chrome_dir)

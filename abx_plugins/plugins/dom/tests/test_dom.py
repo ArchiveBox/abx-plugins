@@ -129,7 +129,7 @@ def test_extracts_dom_from_example_com(require_chrome_runtime, chrome_test_url):
 
 
 def test_config_save_dom_false_skips():
-    """Test that DOM_ENABLED=False exits without emitting JSONL."""
+    """Test that DOM_ENABLED=False exits with skipped JSONL."""
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -149,24 +149,22 @@ def test_config_save_dom_false_skips():
             f"Should exit 0 when feature disabled: {result.stderr}"
         )
 
-        # Feature disabled - temporary failure, should NOT emit JSONL
         assert "Skipping DOM" in result.stderr or "False" in result.stderr, (
             "Should log skip reason to stderr"
         )
 
-        # Should NOT emit any JSONL
-        jsonl_lines = [
-            line
+        records = [
+            json.loads(line)
             for line in result.stdout.strip().split("\n")
             if line.strip().startswith("{")
         ]
-        assert len(jsonl_lines) == 0, (
-            f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
-        )
+        assert records, "Should emit JSONL when disabled"
+        assert records[-1]["type"] == "ArchiveResult"
+        assert records[-1]["status"] == "skipped"
 
 
 def test_staticfile_present_skips():
-    """Test that dom skips when staticfile already downloaded."""
+    """Test that dom returns noresults when staticfile already downloaded."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir
@@ -196,7 +194,6 @@ def test_staticfile_present_skips():
 
         assert result.returncode == 0, "Should exit 0 when permanently skipping"
 
-        # Permanent skip - should emit ArchiveResult with status='skipped'
         result_json = None
         for line in result.stdout.strip().split("\n"):
             line = line.strip()
@@ -209,9 +206,9 @@ def test_staticfile_present_skips():
                 except json.JSONDecodeError:
                     pass
 
-        assert result_json, "Should emit ArchiveResult JSONL for permanent skip"
-        assert result_json["status"] == "skipped", (
-            f"Should have status='skipped': {result_json}"
+        assert result_json, "Should emit ArchiveResult JSONL for noresults"
+        assert result_json["status"] == "noresults", (
+            f"Should have status='noresults': {result_json}"
         )
         assert "staticfile" in result_json.get("output_str", "").lower(), (
             "Should mention staticfile in output_str"

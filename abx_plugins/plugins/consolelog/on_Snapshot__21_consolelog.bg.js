@@ -40,9 +40,8 @@ const CHROME_SESSION_DIR = '../chrome';
 
 let browser = null;
 let page = null;
-let logCount = 0;
 let errorCount = 0;
-let requestFailCount = 0;
+let warningCount = 0;
 let shuttingDown = false;
 
 async function serializeArgs(args) {
@@ -78,15 +77,20 @@ async function setupListeners() {
     // Set up listeners that write directly to file
     page.on('console', async (msg) => {
         try {
+            const msgType = msg.type();
             const logEntry = {
                 timestamp: new Date().toISOString(),
-                type: msg.type(),
+                type: msgType,
                 text: msg.text(),
                 args: await serializeArgs(msg.args()),
                 location: msg.location(),
             };
             fs.appendFileSync(outputPath, JSON.stringify(logEntry) + '\n');
-            logCount += 1;
+            if (msgType === 'warning' || msgType === 'warn') {
+                warningCount += 1;
+            } else if (msgType === 'error' || msgType === 'assert') {
+                errorCount += 1;
+            }
         } catch (e) {
             // Ignore errors
         }
@@ -118,7 +122,7 @@ async function setupListeners() {
                 url: request.url(),
             };
             fs.appendFileSync(outputPath, JSON.stringify(logEntry) + '\n');
-            requestFailCount += 1;
+            errorCount += 1;
         } catch (e) {
             // Ignore
         }
@@ -127,21 +131,27 @@ async function setupListeners() {
     return { browser, page };
 }
 
-function emitResult(status = 'succeeded') {
-    if (shuttingDown) return;
+function emitResult(status = 'succeeded', outputStr = `${errorCount} errors | ${warningCount} warnings`) {
+    if (shuttingDown) return Promise.resolve();
     shuttingDown = true;
 
-    const counts = `${logCount} console, ${errorCount} errors, ${requestFailCount} failed requests`;
-    console.log(JSON.stringify({
+    const line = JSON.stringify({
         type: 'ArchiveResult',
         status,
-        output_str: `${OUTPUT_FILE} (${counts})`,
-    }));
+        output_str: outputStr,
+    }) + '\n';
+    return new Promise((resolve) => {
+        if (!process.stdout.write(line)) {
+            process.stdout.once('drain', resolve);
+        } else {
+            setImmediate(resolve);
+        }
+    });
 }
 
 async function handleShutdown(signal) {
     console.error(`\nReceived ${signal}, emitting final results...`);
-    emitResult('succeeded');
+    await emitResult('succeeded');
     if (browser) {
         try {
             browser.disconnect();
@@ -192,16 +202,13 @@ async function main() {
         const error = `${e.name}: ${e.message}`;
         console.error(`ERROR: ${error}`);
 
-        console.log(JSON.stringify({
-            type: 'ArchiveResult',
-            status: 'failed',
-            output_str: error,
-        }));
+        await emitResult('failed', error);
         process.exit(1);
     }
 }
 
-main().catch(e => {
+main().catch(async (e) => {
     console.error(`Fatal error: ${e.message}`);
+    await emitResult('failed', `${e.name}: ${e.message}`);
     process.exit(1);
 });

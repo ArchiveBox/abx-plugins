@@ -30,11 +30,26 @@ function flushCoverageAndExit(exitCode) {
     process.exit(exitCode);
 }
 
+function emitArchiveResult(status, outputStr) {
+    console.log(JSON.stringify({
+        type: 'ArchiveResult',
+        status,
+        output_str: outputStr,
+    }));
+}
+
+function tempPathFor(filePath) {
+    const dir = path.dirname(filePath);
+    const base = path.basename(filePath);
+    return path.join(dir, `.${base}.${process.pid}.tmp`);
+}
+
 const {
     getEnv,
     getEnvBool,
     parseArgs,
     connectToPage,
+    getTargetIdFromPage,
     waitForPageLoaded,
     readTargetId,
 } = require('../chrome/chrome_utils.js');
@@ -42,7 +57,7 @@ const {
 // Check if screenshot is enabled BEFORE requiring puppeteer
 if (!getEnvBool('SCREENSHOT_ENABLED', true)) {
     console.error('Skipping screenshot (SCREENSHOT_ENABLED=False)');
-    // Temporary failure (config disabled) - NO JSONL emission
+    emitArchiveResult('skipped', 'SCREENSHOT_ENABLED=False');
     flushCoverageAndExit(0);
 }
 
@@ -84,6 +99,7 @@ function hasStaticFileOutput() {
 async function takeScreenshot(url) {
     // Output directory is current directory (hook already runs in output dir)
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
+    const tempOutputPath = tempPathFor(outputPath);
 
     const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
     const targetFile = path.join(CHROME_SESSION_DIR, 'target_id.txt');
@@ -118,7 +134,7 @@ async function takeScreenshot(url) {
         if (!expectedTargetId) {
             throw new Error('No target_id.txt found (chrome_tab must run first)');
         }
-        const actualTargetId = page.target()._targetId;
+        const actualTargetId = getTargetIdFromPage(page);
         if (actualTargetId !== expectedTargetId) {
             throw new Error(`Target ${expectedTargetId} not found in Chrome session`);
         }
@@ -131,7 +147,7 @@ async function takeScreenshot(url) {
         await page.bringToFront();
         try {
             await Promise.race([
-                page.screenshot({ path: outputPath, fullPage: true }),
+                page.screenshot({ path: tempOutputPath, fullPage: true }),
                 timeoutPromise,
             ]);
         } catch (err) {
@@ -140,10 +156,12 @@ async function takeScreenshot(url) {
             }
             // Some Chromium builds hang on full-page capture against local fixture pages.
             // Fall back to viewport capture before failing the hook.
-            await page.screenshot({ path: outputPath, fullPage: false });
+            await page.screenshot({ path: tempOutputPath, fullPage: false });
         }
 
-        return outputPath;
+        fs.renameSync(tempOutputPath, outputPath);
+
+        return OUTPUT_FILE;
 
     } finally {
         // Disconnect from browser (don't close it - we're connected to a shared session)
@@ -159,18 +177,14 @@ async function main() {
 
     if (!url || !snapshotId) {
         console.error('Usage: on_Snapshot__51_screenshot.js --url=<url> --snapshot-id=<uuid>');
+        emitArchiveResult('failed', 'missing required args');
         flushCoverageAndExit(1);
     }
 
     // Check if staticfile extractor already handled this (permanent skip)
     if (hasStaticFileOutput()) {
         console.error(`Skipping screenshot - staticfile extractor already downloaded this`);
-        // Permanent skip - emit ArchiveResult
-        console.log(JSON.stringify({
-            type: 'ArchiveResult',
-            status: 'skipped',
-            output_str: 'staticfile already handled',
-        }));
+        emitArchiveResult('noresults', 'staticfile already handled');
         flushCoverageAndExit(0);
     }
 
@@ -178,18 +192,14 @@ async function main() {
     const outputPath = await takeScreenshot(url);
 
     // Success - emit ArchiveResult
-    const size = fs.statSync(outputPath).size;
+    const size = fs.statSync(path.join(OUTPUT_DIR, outputPath)).size;
     console.error(`Screenshot saved (${size} bytes)`);
-    console.log(JSON.stringify({
-        type: 'ArchiveResult',
-        status: 'succeeded',
-        output_str: outputPath,
-    }));
+    emitArchiveResult('succeeded', outputPath);
     flushCoverageAndExit(0);
 }
 
 main().catch(e => {
-    // Transient error - emit NO JSONL
     console.error(`ERROR: ${e.message}`);
+    emitArchiveResult('failed', e.message || 'unknown error');
     flushCoverageAndExit(1);
 });

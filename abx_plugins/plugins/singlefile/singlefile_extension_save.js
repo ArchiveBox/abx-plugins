@@ -54,6 +54,7 @@ function parseArgs() {
 async function main() {
     const args = parseArgs();
     const url = args.url;
+    const outputPath = args.output_path || path.join(SNAPSHOT_OUTPUT_DIR, 'singlefile.html');
 
     if (!url) {
         console.error('Usage: singlefile_extension_save.js --url=<url>');
@@ -73,7 +74,7 @@ async function main() {
         const {
             EXTENSION,
             saveSinglefileWithExtension,
-        } = require('./on_Crawl__82_singlefile_install.js');
+        } = require('./on_Crawl__82_singlefile_install.bg.js');
         if (process.cwd() !== SNAPSHOT_OUTPUT_DIR) {
             process.chdir(SNAPSHOT_OUTPUT_DIR);
         }
@@ -148,7 +149,7 @@ async function main() {
             console.error('[singlefile] triggering save via extension...');
             const output = await saveSinglefileWithExtension(page, extension, {
                 downloadsDir: DOWNLOADS_DIR,
-                outputPath: path.join(SNAPSHOT_OUTPUT_DIR, 'singlefile.html'),
+                outputPath,
             });
             if (output && fs.existsSync(output)) {
                 console.error(`[singlefile] saved: ${output}`);

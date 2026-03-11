@@ -165,7 +165,18 @@ async function setupRedirectListener() {
     return { browser, page };
 }
 
-function handleShutdown(signal) {
+function emitResult(result) {
+    return new Promise((resolve) => {
+        const line = JSON.stringify(result) + '\n';
+        if (!process.stdout.write(line)) {
+            process.stdout.once('drain', resolve);
+        } else {
+            setImmediate(resolve);
+        }
+    });
+}
+
+async function handleShutdown(signal) {
     console.error(`\nReceived ${signal}, emitting final results...`);
 
     // Emit final JSONL result to stdout
@@ -180,7 +191,7 @@ function handleShutdown(signal) {
         is_redirect: redirectChain.length > 0 || (finalUrl && finalUrl !== originalUrl),
     };
 
-    console.log(JSON.stringify(result));
+    await emitResult(result);
     process.exit(0);
 }
 
@@ -229,16 +240,21 @@ async function main() {
         const error = `${e.name}: ${e.message}`;
         console.error(`ERROR: ${error}`);
 
-        console.log(JSON.stringify({
+        await emitResult({
             type: 'ArchiveResult',
             status: 'failed',
             output_str: error,
-        }));
+        });
         process.exit(1);
     }
 }
 
-main().catch(e => {
+main().catch(async (e) => {
     console.error(`Fatal error: ${e.message}`);
+    await emitResult({
+        type: 'ArchiveResult',
+        status: 'failed',
+        output_str: `${e.name}: ${e.message}`,
+    });
     process.exit(1);
 });

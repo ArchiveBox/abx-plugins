@@ -1,18 +1,15 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = [
-# ]
 # ///
-#
-# Emit single-file Binary dependency for the crawl.
-#
+"""
+Emit readability-extractor Binary dependency for the crawl.
+"""
 
 import json
 import os
 import sys
 from pathlib import Path
-from typing import Any
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
@@ -34,34 +31,31 @@ def get_env_bool(name: str, default: bool = False) -> bool:
     return default
 
 
-def output_binary(
-    name: str, binproviders: str, overrides: dict[str, Any] | None = None
-) -> None:
+def output_binary(name: str, binproviders: str):
     """Output Binary JSONL record for a dependency."""
     machine_id = os.environ.get("MACHINE_ID", "")
 
-    record: dict[str, Any] = {
+    record = {
         "type": "Binary",
         "name": name,
         "binproviders": binproviders,
+        "overrides": {
+            "npm": {
+                "packages": ["https://github.com/ArchiveBox/readability-extractor"],
+            },
+        },
         "machine_id": machine_id,
     }
-    if overrides:
-        record["overrides"] = overrides
     print(json.dumps(record))
 
 
 def main():
-    singlefile_enabled = get_env_bool("SINGLEFILE_ENABLED", True)
+    readability_enabled = get_env_bool("READABILITY_ENABLED", True)
 
-    if not singlefile_enabled:
+    if not readability_enabled:
         sys.exit(0)
 
-    output_binary(
-        name="single-file",
-        binproviders="npm,env",
-        overrides={"npm": {"packages": ["single-file-cli"]}},
-    )
+    output_binary(name="readability-extractor", binproviders="env,npm")
 
     sys.exit(0)
 

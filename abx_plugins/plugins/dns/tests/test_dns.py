@@ -130,6 +130,33 @@ class TestDNSWithChrome:
             has_ip_record = any(r.get("hostname") and r.get("ip") for r in records)
             assert has_ip_record, f"No DNS record with hostname + ip: {records}"
 
+            archive_result = None
+            for line in stdout.split("\n"):
+                line = line.strip()
+                if not line.startswith("{"):
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if record.get("type") == "ArchiveResult":
+                    archive_result = record
+                    break
+
+            assert archive_result is not None, "Missing ArchiveResult from DNS hook"
+            assert archive_result.get("status") == "succeeded"
+
+            expected_ip = None
+            for record in records:
+                if record.get("hostname") == "example.com" and record.get("ip"):
+                    expected_ip = record["ip"]
+                    break
+            expected_ip = expected_ip or next(
+                (record.get("ip") for record in records if record.get("ip")),
+                None,
+            )
+            assert archive_result.get("output_str") == expected_ip
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

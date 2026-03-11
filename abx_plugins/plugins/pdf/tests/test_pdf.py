@@ -130,7 +130,7 @@ def test_extracts_pdf_from_example_com(chrome_test_url):
 
 
 def test_config_save_pdf_false_skips():
-    """Test that PDF_ENABLED=False exits without emitting JSONL."""
+    """Test that PDF_ENABLED=False exits with skipped JSONL."""
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -152,20 +152,18 @@ def test_config_save_pdf_false_skips():
             f"Should exit 0 when feature disabled: {result.stderr}"
         )
 
-        # Feature disabled - temporary failure, should NOT emit JSONL
         assert "Skipping" in result.stderr or "False" in result.stderr, (
             "Should log skip reason to stderr"
         )
 
-        # Should NOT emit any JSONL
-        jsonl_lines = [
-            line
+        records = [
+            json.loads(line)
             for line in result.stdout.strip().split("\n")
             if line.strip().startswith("{")
         ]
-        assert len(jsonl_lines) == 0, (
-            f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
-        )
+        assert records, "Should emit JSONL when disabled"
+        assert records[-1]["type"] == "ArchiveResult"
+        assert records[-1]["status"] == "skipped"
 
 
 def test_reports_missing_chrome():
@@ -192,6 +190,12 @@ def test_reports_missing_chrome():
         assert (
             "chrome session" in combined.lower() or "chrome plugin" in combined.lower()
         )
+        records = [
+            json.loads(line)
+            for line in result.stdout.strip().split("\n")
+            if line.strip().startswith("{")
+        ]
+        assert records and records[-1]["status"] == "failed"
 
 
 def test_runs_with_shared_chrome_session(chrome_test_url):

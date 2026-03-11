@@ -122,6 +122,7 @@ let downloadedFilePath = null;
 let downloadError = null;
 let page = null;
 let browser = null;
+let finalized = false;
 
 function isStaticContentType(contentType) {
     if (!contentType) return false;
@@ -166,6 +167,57 @@ function normalizeUrl(url) {
     }
 }
 
+function buildArchiveResult() {
+    const outputMimeType = detectedContentType || 'unknown';
+
+    if (!detectedContentType) {
+        return {
+            type: 'ArchiveResult',
+            status: 'failed',
+            output_str: 'No main response captured',
+            plugin: PLUGIN_NAME,
+        };
+    }
+
+    if (!isStaticFile) {
+        return {
+            type: 'ArchiveResult',
+            status: 'noresults',
+            output_str: outputMimeType,
+            plugin: PLUGIN_NAME,
+            content_type: detectedContentType,
+        };
+    }
+
+    if (downloadError) {
+        return {
+            type: 'ArchiveResult',
+            status: 'failed',
+            output_str: outputMimeType,
+            plugin: PLUGIN_NAME,
+            content_type: detectedContentType,
+        };
+    }
+
+    if (downloadedFilePath) {
+        return {
+            type: 'ArchiveResult',
+            status: 'succeeded',
+            output_str: outputMimeType,
+            plugin: PLUGIN_NAME,
+            content_type: detectedContentType,
+        };
+    }
+
+    return {
+        type: 'ArchiveResult',
+        status: 'failed',
+        output_str: outputMimeType,
+        plugin: PLUGIN_NAME,
+        content_type: detectedContentType,
+    };
+}
+
 async function setupStaticFileListener() {
     const timeout = getEnvInt('STATICFILE_TIMEOUT', 30) * 1000;
 
@@ -178,7 +230,22 @@ async function setupStaticFileListener() {
     browser = connection.browser;
     page = connection.page;
 
-    // Track the first response to check Content-Type
+    let resolveMainResponse;
+    let rejectMainResponse;
+    const mainResponseHandled = new Promise((resolve, reject) => {
+        resolveMainResponse = resolve;
+        rejectMainResponse = reject;
+    });
+
+    const failTimer = setTimeout(() => {
+        rejectMainResponse(new Error(`Timed out waiting for main response after ${timeout * 4 / 1000} seconds`));
+    }, timeout * 4);
+
+    const finish = () => {
+        clearTimeout(failTimer);
+        resolveMainResponse(buildArchiveResult());
+    };
+
     let firstResponseHandled = false;
 
     page.on('response', async (response) => {
@@ -202,6 +269,7 @@ async function setupStaticFileListener() {
             // Check if it's a static file
             if (!isStaticContentType(detectedContentType)) {
                 console.error('Not a static file, skipping download');
+                finish();
                 return;
             }
 
@@ -214,6 +282,7 @@ async function setupStaticFileListener() {
 
             if (buffer.length > maxSize) {
                 downloadError = `File too large: ${buffer.length} bytes > ${maxSize} max`;
+                finish();
                 return;
             }
 
@@ -234,68 +303,50 @@ async function setupStaticFileListener() {
 
             downloadedFilePath = filename;
             console.error(`Static file downloaded (${buffer.length} bytes): ${filename}`);
+            finish();
 
         } catch (e) {
             downloadError = `${e.name}: ${e.message}`;
             console.error(`Error downloading static file: ${downloadError}`);
+            firstResponseHandled = true;
+            finish();
         }
     });
 
-    return { browser, page };
+    page.on('requestfailed', (request) => {
+        if (firstResponseHandled) return;
+        try {
+            if (normalizeUrl(request.url()) !== normalizeUrl(originalUrl)) return;
+            firstResponseHandled = true;
+            const failure = request.failure();
+            downloadError = failure ? failure.errorText : 'Request failed';
+            rejectMainResponse(new Error(downloadError));
+        } catch (e) {
+            rejectMainResponse(e);
+        }
+    });
+
+    return { browser, page, mainResponseHandled };
 }
 
-function handleShutdown(signal) {
+function emitResult(result) {
+    return new Promise((resolve) => {
+        const line = JSON.stringify(result) + '\n';
+        if (!process.stdout.write(line)) {
+            process.stdout.once('drain', resolve);
+        } else {
+            setImmediate(resolve);
+        }
+    });
+}
+
+async function handleShutdown(signal) {
     console.error(`\nReceived ${signal}, emitting final results...`);
-
-    let result;
-
-    if (!detectedContentType) {
-        // No Content-Type detected (shouldn't happen, but handle it)
-        result = {
-            type: 'ArchiveResult',
-            status: 'skipped',
-            output_str: 'No Content-Type detected',
-            plugin: PLUGIN_NAME,
-        };
-    } else if (!isStaticFile) {
-        // Not a static file (normal case for HTML pages)
-        result = {
-            type: 'ArchiveResult',
-            status: 'skipped',
-            output_str: `Not a static file (Content-Type: ${detectedContentType})`,
-            plugin: PLUGIN_NAME,
-            content_type: detectedContentType,
-        };
-    } else if (downloadError) {
-        // Static file but download failed
-        result = {
-            type: 'ArchiveResult',
-            status: 'failed',
-            output_str: downloadError,
-            plugin: PLUGIN_NAME,
-            content_type: detectedContentType,
-        };
-    } else if (downloadedFilePath) {
-        // Static file downloaded successfully
-        result = {
-            type: 'ArchiveResult',
-            status: 'succeeded',
-            output_str: downloadedFilePath,
-            plugin: PLUGIN_NAME,
-            content_type: detectedContentType,
-        };
-    } else {
-        // Static file detected but no download happened (unexpected)
-        result = {
-            type: 'ArchiveResult',
-            status: 'failed',
-            output_str: 'Static file detected but download did not complete',
-            plugin: PLUGIN_NAME,
-            content_type: detectedContentType,
-        };
+    if (finalized) {
+        process.exit(0);
     }
-
-    console.log(JSON.stringify(result));
+    finalized = true;
+    await emitResult(buildArchiveResult());
     process.exit(0);
 }
 
@@ -324,49 +375,38 @@ async function main() {
     process.on('SIGINT', () => handleShutdown('SIGINT'));
 
     try {
-        // Set up static file listener BEFORE navigation
-        await setupStaticFileListener();
-
-        // Wait for chrome_navigate to complete (non-fatal)
-        try {
-            await waitForPageLoaded(CHROME_SESSION_DIR, timeout * 4, 500);
-            if (!detectedContentType && page) {
-                try {
-                    const inferred = await page.evaluate(() => document.contentType || '');
-                    if (inferred) {
-                        detectedContentType = inferred.split(';')[0].trim();
-                        if (isStaticContentType(detectedContentType)) {
-                            isStaticFile = true;
-                        }
-                    }
-                } catch (e) {
-                    // Best-effort only
-                }
-            }
-        } catch (e) {
-            console.error(`WARN: ${e.message}`);
+        // Set up static file listener BEFORE navigation and finish on the
+        // first successful main-document response.
+        const connection = await setupStaticFileListener();
+        const result = await connection.mainResponseHandled;
+        finalized = true;
+        await emitResult(result);
+        if (browser) {
+            try {
+                browser.disconnect();
+            } catch (e) {}
         }
-
-        // Keep process alive until killed by cleanup
-        // console.error('Static file detection complete, waiting for cleanup signal...');
-
-        // Keep the process alive indefinitely
-        await new Promise(() => {}); // Never resolves
+        process.exit(result.status === 'failed' ? 1 : 0);
 
     } catch (e) {
         const error = `${e.name}: ${e.message}`;
         console.error(`ERROR: ${error}`);
 
-        console.log(JSON.stringify({
+        await emitResult({
             type: 'ArchiveResult',
             status: 'failed',
             output_str: error,
-        }));
+        });
         process.exit(1);
     }
 }
 
-main().catch(e => {
+main().catch(async (e) => {
     console.error(`Fatal error: ${e.message}`);
+    await emitResult({
+        type: 'ArchiveResult',
+        status: 'failed',
+        output_str: `${e.name}: ${e.message}`,
+    });
     process.exit(1);
 });

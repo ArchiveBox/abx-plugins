@@ -34,7 +34,7 @@ _SNAPSHOT_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_singlefile.py")
 if _SNAPSHOT_HOOK is None:
     raise FileNotFoundError(f"Snapshot hook not found in {PLUGIN_DIR}")
 SNAPSHOT_HOOK = _SNAPSHOT_HOOK
-INSTALL_SCRIPT = PLUGIN_DIR / "on_Crawl__82_singlefile_install.js"
+INSTALL_SCRIPT = PLUGIN_DIR / "on_Crawl__82_singlefile_install.bg.js"
 TEST_URL = "https://example.com"
 
 # Module-level cache for extension install location
@@ -432,7 +432,7 @@ def test_singlefile_with_extension_uses_existing_chrome():
 
 
 def test_singlefile_disabled_skips():
-    """Test that SINGLEFILE_ENABLED=False exits without JSONL."""
+    """Test that SINGLEFILE_ENABLED=False exits with skipped JSONL."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
@@ -455,15 +455,14 @@ def test_singlefile_disabled_skips():
 
         assert result.returncode == 0, f"Should exit 0 when disabled: {result.stderr}"
 
-        # Should NOT emit JSONL when disabled
-        jsonl_lines = [
-            line
+        records = [
+            json.loads(line)
             for line in result.stdout.strip().split("\n")
             if line.strip().startswith("{")
         ]
-        assert len(jsonl_lines) == 0, (
-            f"Should not emit JSONL when disabled, but got: {jsonl_lines}"
-        )
+        assert records, "Should emit JSONL when disabled"
+        assert records[-1]["type"] == "ArchiveResult"
+        assert records[-1]["status"] == "skipped"
 
 
 if __name__ == "__main__":

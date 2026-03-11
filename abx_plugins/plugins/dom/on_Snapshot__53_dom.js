@@ -25,10 +25,26 @@ const {
     waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
 
+function emitArchiveResult(status, outputStr) {
+    console.log(JSON.stringify({
+        type: 'ArchiveResult',
+        status,
+        output_str: outputStr,
+    }));
+}
+
+function writeFileAtomic(filePath, contents) {
+    const dir = path.dirname(filePath);
+    const base = path.basename(filePath);
+    const tmpPath = path.join(dir, `.${base}.${process.pid}.tmp`);
+    fs.writeFileSync(tmpPath, contents, 'utf8');
+    fs.renameSync(tmpPath, filePath);
+}
+
 // Check if DOM is enabled BEFORE requiring puppeteer
 if (!getEnvBool('DOM_ENABLED', true)) {
     console.error('Skipping DOM (DOM_ENABLED=False)');
-    // Temporary failure (config disabled) - NO JSONL emission
+    emitArchiveResult('skipped', 'DOM_ENABLED=False');
     process.exit(0);
 }
 
@@ -92,10 +108,10 @@ async function dumpDom(url, timeoutMs) {
         const domContent = await page.content();
 
         if (domContent && domContent.length > 100) {
-            fs.writeFileSync(outputPath, domContent, 'utf8');
-            return { success: true, output: outputPath };
+            writeFileAtomic(outputPath, domContent);
+            return { success: true, output: OUTPUT_FILE };
         } else {
-            return { success: false, error: 'DOM content too short or empty' };
+            return { success: true, noresults: true, output: 'DOM content too short or empty' };
         }
 
     } catch (e) {
@@ -114,6 +130,7 @@ async function main() {
 
     if (!url || !snapshotId) {
         console.error('Usage: on_Snapshot__53_dom.js --url=<url> --snapshot-id=<uuid>');
+        emitArchiveResult('failed', 'missing required args');
         process.exit(1);
     }
 
@@ -121,42 +138,37 @@ async function main() {
         // Check if staticfile extractor already handled this (permanent skip)
         if (hasStaticFileOutput()) {
             console.error(`Skipping DOM - staticfile extractor already downloaded this`);
-            // Permanent skip - emit ArchiveResult with status='skipped'
-            console.log(JSON.stringify({
-                type: 'ArchiveResult',
-                status: 'skipped',
-                output_str: 'staticfile already handled',
-            }));
+            emitArchiveResult('noresults', 'staticfile already handled');
             process.exit(0);
         }
 
         const timeoutMs = getEnvInt('DOM_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
 
-        const result = await dumpDom(url, timeoutMs);
+            const result = await dumpDom(url, timeoutMs);
 
         if (result.success) {
-            // Success - emit ArchiveResult
-            const size = fs.statSync(result.output).size;
+            if (result.noresults) {
+                emitArchiveResult('noresults', result.output);
+                process.exit(0);
+            }
+            const size = fs.statSync(path.join(OUTPUT_DIR, result.output)).size;
             console.error(`DOM saved (${size} bytes)`);
-            console.log(JSON.stringify({
-                type: 'ArchiveResult',
-                status: 'succeeded',
-                output_str: result.output,
-            }));
+            emitArchiveResult('succeeded', result.output);
             process.exit(0);
         } else {
-            // Transient error - emit NO JSONL
             console.error(`ERROR: ${result.error}`);
+            emitArchiveResult('failed', result.error);
             process.exit(1);
         }
     } catch (e) {
-        // Transient error - emit NO JSONL
         console.error(`ERROR: ${e.name}: ${e.message}`);
+        emitArchiveResult('failed', `${e.name}: ${e.message}`);
         process.exit(1);
     }
 }
 
 main().catch(e => {
     console.error(`Fatal error: ${e.message}`);
+    emitArchiveResult('failed', `${e.name}: ${e.message}`);
     process.exit(1);
 });

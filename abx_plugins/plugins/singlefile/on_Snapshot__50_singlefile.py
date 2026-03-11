@@ -41,7 +41,7 @@ import rich_click as click
 # Extractor metadata
 PLUGIN_NAME = "singlefile"
 BIN_NAME = "single-file"
-BIN_PROVIDERS = "npm,env"
+BIN_PROVIDERS = "env,npm"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
@@ -83,6 +83,22 @@ def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
         return default if default is not None else []
     except json.JSONDecodeError:
         return default if default is not None else []
+
+
+def emit_archive_result(status: str, output_str: str) -> None:
+    print(
+        json.dumps(
+            {
+                "type": "ArchiveResult",
+                "status": status,
+                "output_str": output_str,
+            }
+        )
+    )
+
+
+def temp_path_for(path: Path) -> Path:
+    return path.with_name(f".{path.name}.{os.getpid()}.tmp")
 
 
 STATICFILE_DIR = "../staticfile"
@@ -147,6 +163,21 @@ def is_cdp_server_available(cdp_remote_url: str) -> bool:
             return resp.status == 200
     except Exception:
         return False
+
+
+def summarize_error(detail: str) -> str:
+    lines = [line.strip() for line in detail.splitlines() if line.strip()]
+    if not lines:
+        return ""
+
+    non_debug_lines = [line for line in lines if not line.startswith("[singlefile]")]
+    preferred_lines = non_debug_lines or lines
+
+    for line in reversed(preferred_lines):
+        if line.startswith("ERROR:"):
+            return line.removeprefix("ERROR:").strip()
+
+    return preferred_lines[-1]
 
 
 def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
@@ -216,8 +247,9 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
     output_path = output_dir / OUTPUT_FILE
+    temp_output_path = temp_path_for(output_path)
 
-    cmd.extend([url, str(output_path)])
+    cmd.extend([url, str(temp_output_path)])
     print(f"[singlefile] CLI command: {' '.join(cmd[:6])} ...", file=sys.stderr)
 
     try:
@@ -250,8 +282,9 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
         reader.join(timeout=1)
         combined_output = "".join(output_lines)
 
-        if output_path.exists() and output_path.stat().st_size > 0:
-            return True, str(output_path), ""
+        if temp_output_path.exists() and temp_output_path.stat().st_size > 0:
+            temp_output_path.replace(output_path)
+            return True, OUTPUT_FILE, ""
         else:
             stderr = combined_output
             if "ERR_NAME_NOT_RESOLVED" in stderr:
@@ -299,7 +332,14 @@ def save_singlefile_with_extension(
     node_binary = get_env("SINGLEFILE_NODE_BINARY") or get_env("NODE_BINARY", "node")
     downloads_dir = get_env("CHROME_DOWNLOADS_DIR", "")
     extensions_dir = get_env("CHROME_EXTENSIONS_DIR", "")
-    cmd = [node_binary, str(EXTENSION_SAVE_SCRIPT), f"--url={url}"]
+    output_path = Path(OUTPUT_DIR) / OUTPUT_FILE
+    temp_output_path = temp_path_for(output_path)
+    cmd = [
+        node_binary,
+        str(EXTENSION_SAVE_SCRIPT),
+        f"--url={url}",
+        f"--output-path={temp_output_path}",
+    ]
     print(f"[singlefile] cdp_url={cdp_url}", file=sys.stderr)
     print(f"[singlefile] node={node_binary}", file=sys.stderr)
     node_resolved = shutil.which(node_binary) if node_binary else None
@@ -381,18 +421,17 @@ def save_singlefile_with_extension(
         # Prefer explicit stdout path, fallback to local output file
         out_text = result_stdout.decode("utf-8", errors="replace").strip()
         if out_text and Path(out_text).exists():
-            print(f"[singlefile] Extension output: {out_text}", file=sys.stderr)
-            return True, out_text, ""
-        output_path = Path(OUTPUT_DIR) / OUTPUT_FILE
-        if output_path.exists() and output_path.stat().st_size > 0:
+            temp_output_path = Path(out_text)
+        if temp_output_path.exists() and temp_output_path.stat().st_size > 0:
+            temp_output_path.replace(output_path)
             print(f"[singlefile] Extension output: {output_path}", file=sys.stderr)
-            return True, str(output_path), ""
+            return True, OUTPUT_FILE, ""
         return False, None, "SingleFile extension completed but no output file found"
 
     stderr = result_stderr.decode("utf-8", errors="replace").strip()
     stdout = result_stdout.decode("utf-8", errors="replace").strip()
     detail = stderr or stdout
-    return False, None, detail or "SingleFile extension failed"
+    return False, None, summarize_error(detail) or "SingleFile extension failed"
 
 
 @click.command()
@@ -410,7 +449,7 @@ def main(url: str, snapshot_id: str):
         # Check if SingleFile is enabled
         if not get_env_bool("SINGLEFILE_ENABLED", True):
             print("Skipping SingleFile (SINGLEFILE_ENABLED=False)", file=sys.stderr)
-            # Feature disabled - no ArchiveResult, just exit
+            emit_archive_result("skipped", "SINGLEFILE_ENABLED=False")
             sys.exit(0)
 
         # Check if staticfile extractor already handled this (permanent skip)
@@ -419,15 +458,7 @@ def main(url: str, snapshot_id: str):
                 "Skipping SingleFile - staticfile extractor already downloaded this",
                 file=sys.stderr,
             )
-            print(
-                json.dumps(
-                    {
-                        "type": "ArchiveResult",
-                        "status": "skipped",
-                        "output_str": "staticfile already exists",
-                    }
-                )
-            )
+            emit_archive_result("noresults", "staticfile already handled")
             sys.exit(0)
 
         # Prefer SingleFile extension via existing Chrome session
@@ -442,15 +473,9 @@ def main(url: str, snapshot_id: str):
     if error:
         print(f"ERROR: {error}", file=sys.stderr)
 
-    # Output clean JSONL (no RESULT_JSON= prefix)
-    result = {
-        "type": "ArchiveResult",
-        "status": status,
-        "output_str": output or error or "",
-    }
-    print(json.dumps(result))
+    emit_archive_result(status, output or error or "")
 
-    sys.exit(0 if status == "succeeded" else 1)
+    sys.exit(0 if status != "failed" else 1)
 
 
 if __name__ == "__main__":

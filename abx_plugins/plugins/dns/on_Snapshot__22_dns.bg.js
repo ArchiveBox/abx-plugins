@@ -42,6 +42,10 @@ let browser = null;
 let page = null;
 let recordCount = 0;
 let shuttingDown = false;
+let primaryHostname = '';
+let primaryIp = '';
+let firstResolvedIp = '';
+let keepAliveTimer = null;
 
 function extractHostname(url) {
     try {
@@ -55,6 +59,7 @@ function extractHostname(url) {
 async function setupListener(targetUrl) {
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
     const timeout = getEnvInt('DNS_TIMEOUT', 30) * 1000;
+    primaryHostname = extractHostname(targetUrl) || '';
 
     // Initialize output file
     fs.writeFileSync(outputPath, '');
@@ -116,6 +121,13 @@ async function setupListener(targetUrl) {
             // Determine record type (A for IPv4, AAAA for IPv6)
             const isIPv6 = remoteIPAddress.includes(':');
             const recordType = isIPv6 ? 'AAAA' : 'A';
+
+            if (!firstResolvedIp) {
+                firstResolvedIp = remoteIPAddress;
+            }
+            if (!primaryIp && hostname === primaryHostname) {
+                primaryIp = remoteIPAddress;
+            }
 
             // Create DNS record
             const timestamp = new Date().toISOString();
@@ -195,16 +207,40 @@ async function setupListener(targetUrl) {
 function emitResult(status = 'succeeded') {
     if (shuttingDown) return;
     shuttingDown = true;
+    const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
+    let resolvedIp = primaryIp || firstResolvedIp || '';
+
+    if (!resolvedIp && fs.existsSync(outputPath)) {
+        for (const line of fs.readFileSync(outputPath, 'utf8').split('\n')) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('{')) continue;
+            try {
+                const record = JSON.parse(trimmed);
+                const ip = record.ip || '';
+                const hostname = record.hostname || '';
+                if (!ip) continue;
+                if (!resolvedIp) resolvedIp = ip;
+                if (primaryHostname && hostname === primaryHostname) {
+                    resolvedIp = ip;
+                    break;
+                }
+            } catch (e) {}
+        }
+    }
 
     console.log(JSON.stringify({
         type: 'ArchiveResult',
         status,
-        output_str: `${OUTPUT_FILE} (${recordCount} DNS records)`,
+        output_str: resolvedIp,
     }));
 }
 
 async function handleShutdown(signal) {
     console.error(`\nReceived ${signal}, emitting final results...`);
+    if (keepAliveTimer) {
+        clearInterval(keepAliveTimer);
+        keepAliveTimer = null;
+    }
     emitResult('succeeded');
     if (browser) {
         try {
@@ -249,6 +285,7 @@ async function main() {
         }
 
         // console.error('DNS listener active, waiting for cleanup signal...');
+        keepAliveTimer = setInterval(() => {}, 1000);
         await new Promise(() => {}); // Keep alive until SIGTERM
         return;
 

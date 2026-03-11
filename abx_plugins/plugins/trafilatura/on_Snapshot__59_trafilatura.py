@@ -1,19 +1,17 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = [
-#   "click",
-# ]
+# dependencies = []
 # ///
 """Extract article content using trafilatura from local HTML snapshots."""
 
+import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
-
-import click
 
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
@@ -56,6 +54,24 @@ result = trafilatura.extract(
 ) or ""
 sys.stdout.write(result)
 """
+
+
+def emit_archive_result(status: str, output_str: str) -> None:
+    print(
+        json.dumps(
+            {
+                "type": "ArchiveResult",
+                "status": status,
+                "output_str": output_str,
+            }
+        )
+    )
+
+
+def write_text_atomic(path: Path, text: str) -> None:
+    tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    tmp_path.write_text(text, encoding="utf-8")
+    tmp_path.replace(path)
 
 
 def get_env(name: str, default: str = "") -> str:
@@ -126,9 +142,15 @@ def get_enabled_formats() -> list[str]:
 def run_trafilatura(
     binary: str, html_source: str, url: str, fmt: str, timeout: int
 ) -> tuple[bool, str]:
-    python_bin = Path(binary).with_name("python")
-    if not python_bin.exists():
-        python_bin = Path(sys.executable)
+    resolved_binary = shutil.which(binary) or binary
+    binary_path = Path(resolved_binary)
+
+    python_candidates = (
+        binary_path.with_name("python"),
+        binary_path.with_name("python3"),
+    )
+    python_bin = next((candidate for candidate in python_candidates if candidate.exists()), Path(sys.executable))
+
     cmd = [
         str(python_bin),
         "-c",
@@ -150,62 +172,59 @@ def run_trafilatura(
     if result.returncode != 0:
         return False, f"trafilatura failed for format={fmt} (exit={result.returncode})"
 
-    (OUTPUT_DIR / FORMAT_TO_FILE[fmt]).write_text(result.stdout or "", encoding="utf-8")
+    write_text_atomic(OUTPUT_DIR / FORMAT_TO_FILE[fmt], result.stdout or "")
     return True, ""
 
 
-def extract_trafilatura(url: str, binary: str) -> tuple[bool, str | None, str]:
+def extract_trafilatura(url: str, binary: str) -> tuple[str, str]:
     timeout = get_env_int("TRAFILATURA_TIMEOUT") or get_env_int("TIMEOUT", 60)
     html_source = find_html_source()
     if not html_source:
-        return False, None, "No HTML source found (run singlefile, dom, or wget first)"
+        return "noresults", "No HTML source found"
 
     formats = get_enabled_formats()
     if not formats:
-        return False, None, "No Trafilatura output formats enabled"
+        return "noresults", "No output formats enabled"
 
     for fmt in formats:
         success, error = run_trafilatura(binary, html_source, url, fmt, timeout)
         if not success:
-            return False, None, error
+            return "failed", error
 
     output_file = FORMAT_TO_FILE[formats[0]]
-    return True, output_file, ""
+    return "succeeded", output_file
 
 
-@click.command()
-@click.option("--url", required=True, help="URL to extract article from")
-@click.option("--snapshot-id", required=True, help="Snapshot UUID")
-def main(url: str, snapshot_id: str):
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--url", required=True, help="URL to extract article from")
+    parser.add_argument("--snapshot-id", required=True, help="Snapshot UUID")
+    args = parser.parse_args()
+
     try:
         if not get_env_bool("TRAFILATURA_ENABLED", True):
+            emit_archive_result("skipped", "TRAFILATURA_ENABLED=False")
             sys.exit(0)
 
-        success, output, error = extract_trafilatura(
-            url,
+        status, output = extract_trafilatura(
+            args.url,
             get_env("TRAFILATURA_BINARY", "trafilatura")
         )
 
-        if success:
-            print(
-                json.dumps(
-                    {
-                        "type": "ArchiveResult",
-                        "status": "succeeded",
-                        "output_str": output or "",
-                    }
-                )
-            )
-            sys.exit(0)
-
-        print(f"ERROR: {error}", file=sys.stderr)
-        sys.exit(1)
+        if status == "failed":
+            print(f"ERROR: {output}", file=sys.stderr)
+        emit_archive_result(status, output)
+        sys.exit(0 if status != "failed" else 1)
 
     except subprocess.TimeoutExpired as err:
-        print(f"ERROR: Timed out after {err.timeout} seconds", file=sys.stderr)
+        error = f"Timed out after {err.timeout} seconds"
+        print(f"ERROR: {error}", file=sys.stderr)
+        emit_archive_result("failed", error)
         sys.exit(1)
     except Exception as err:
-        print(f"ERROR: {type(err).__name__}: {err}", file=sys.stderr)
+        error = f"{type(err).__name__}: {err}"
+        print(f"ERROR: {error}", file=sys.stderr)
+        emit_archive_result("failed", error)
         sys.exit(1)
 
 

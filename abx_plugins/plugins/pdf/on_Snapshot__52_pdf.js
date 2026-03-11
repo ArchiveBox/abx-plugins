@@ -25,10 +25,24 @@ const {
     waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
 
+function emitArchiveResult(status, outputStr) {
+    console.log(JSON.stringify({
+        type: 'ArchiveResult',
+        status,
+        output_str: outputStr,
+    }));
+}
+
+function tempPathFor(filePath) {
+    const dir = path.dirname(filePath);
+    const base = path.basename(filePath);
+    return path.join(dir, `.${base}.${process.pid}.tmp`);
+}
+
 // Check if PDF is enabled BEFORE requiring puppeteer
 if (!getEnvBool('PDF_ENABLED', true)) {
     console.error('Skipping PDF (PDF_ENABLED=False)');
-    // Temporary failure (config disabled) - NO JSONL emission
+    emitArchiveResult('skipped', 'PDF_ENABLED=False');
     process.exit(0);
 }
 
@@ -70,6 +84,7 @@ function hasStaticFileOutput() {
 async function printToPdf(url, timeoutMs) {
     // Output directory is current directory (hook already runs in output dir)
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
+    const tempOutputPath = tempPathFor(outputPath);
 
     let browser = null;
 
@@ -90,7 +105,7 @@ async function printToPdf(url, timeoutMs) {
 
         // Print to PDF
         await page.pdf({
-            path: outputPath,
+            path: tempOutputPath,
             format: 'A4',
             printBackground: true,
             margin: {
@@ -101,8 +116,10 @@ async function printToPdf(url, timeoutMs) {
             },
         });
 
+        fs.renameSync(tempOutputPath, outputPath);
+
         if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0) {
-            return { success: true, output: outputPath };
+            return { success: true, output: OUTPUT_FILE };
         } else {
             return { success: false, error: 'PDF file not created' };
         }
@@ -123,6 +140,7 @@ async function main() {
 
     if (!url || !snapshotId) {
         console.error('Usage: on_Snapshot__52_pdf.js --url=<url> --snapshot-id=<uuid>');
+        emitArchiveResult('failed', 'missing required args');
         process.exit(1);
     }
 
@@ -130,12 +148,7 @@ async function main() {
         // Check if staticfile extractor already handled this (permanent skip)
         if (hasStaticFileOutput()) {
             console.error(`Skipping PDF - staticfile extractor already downloaded this`);
-            // Permanent skip - emit ArchiveResult
-            console.log(JSON.stringify({
-                type: 'ArchiveResult',
-                status: 'skipped',
-                output_str: 'staticfile already handled',
-            }));
+            emitArchiveResult('noresults', 'staticfile already handled');
             process.exit(0);
         }
 
@@ -145,27 +158,24 @@ async function main() {
 
         if (result.success) {
             // Success - emit ArchiveResult
-            const size = fs.statSync(result.output).size;
+            const size = fs.statSync(path.join(OUTPUT_DIR, result.output)).size;
             console.error(`PDF saved (${size} bytes)`);
-            console.log(JSON.stringify({
-                type: 'ArchiveResult',
-                status: 'succeeded',
-                output_str: result.output,
-            }));
+            emitArchiveResult('succeeded', result.output);
             process.exit(0);
         } else {
-            // Transient error - emit NO JSONL
             console.error(`ERROR: ${result.error}`);
+            emitArchiveResult('failed', result.error);
             process.exit(1);
         }
     } catch (e) {
-        // Transient error - emit NO JSONL
         console.error(`ERROR: ${e.name}: ${e.message}`);
+        emitArchiveResult('failed', `${e.name}: ${e.message}`);
         process.exit(1);
     }
 }
 
 main().catch(e => {
     console.error(`Fatal error: ${e.message}`);
+    emitArchiveResult('failed', `${e.name}: ${e.message}`);
     process.exit(1);
 });

@@ -38,12 +38,17 @@ def main():
     record = {
         "type": "Binary",
         "name": "chromium",
-        "binproviders": "puppeteer,env",
+        "binproviders": "puppeteer",
         "overrides": {
             "puppeteer": ["chromium@latest", "--install-deps"],
         },
     }
     print(json.dumps(record))
+    print(json.dumps({
+        "type": "ArchiveResult",
+        "status": "succeeded",
+        "output_str": "chromium requested",
+    }))
     sys.exit(0)
 
 

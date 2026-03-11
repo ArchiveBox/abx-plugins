@@ -36,6 +36,22 @@ process.chdir(OUTPUT_DIR);
 const OUTPUT_FILE = 'title.txt';
 const CHROME_SESSION_DIR = '../chrome';
 
+function emitArchiveResult(status, outputStr) {
+    console.log(JSON.stringify({
+        type: 'ArchiveResult',
+        status,
+        output_str: outputStr,
+    }));
+}
+
+function writeFileAtomic(filePath, contents) {
+    const dir = path.dirname(filePath);
+    const base = path.basename(filePath);
+    const tmpPath = path.join(dir, `.${base}.${process.pid}.tmp`);
+    fs.writeFileSync(tmpPath, contents, 'utf8');
+    fs.renameSync(tmpPath, filePath);
+}
+
 async function extractTitle(url) {
     // Output directory is current directory (hook already runs in output dir)
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
@@ -67,10 +83,10 @@ async function extractTitle(url) {
         }
 
         if (title) {
-            fs.writeFileSync(outputPath, title, 'utf8');
-            return { success: true, output: outputPath, title, method: 'cdp' };
+            writeFileAtomic(outputPath, title);
+            return { success: true, output: OUTPUT_FILE, title, method: 'cdp' };
         }
-        return { success: false, error: 'No title found in Chrome session' };
+        return { success: true, noresults: true, output: 'No title found' };
     } catch (e) {
         return { success: false, error: e.message };
     } finally {
@@ -87,6 +103,7 @@ async function main() {
 
     if (!url || !snapshotId) {
         console.error('Usage: on_Snapshot__10_title.js --url=<url> --snapshot-id=<uuid>');
+        emitArchiveResult('failed', 'missing required args');
         process.exit(1);
     }
 
@@ -100,10 +117,15 @@ async function main() {
         const result = await extractTitle(url);
 
         if (result.success) {
-            status = 'succeeded';
-            output = result.output;
-            extractedTitle = result.title;
-            console.error(`Title extracted (${result.method}): ${result.title}`);
+            if (result.noresults) {
+                status = 'noresults';
+                output = result.output;
+            } else {
+                status = 'succeeded';
+                output = result.output;
+                extractedTitle = result.title;
+                console.error(`Title extracted (${result.method}): ${result.title}`);
+            }
         } else {
             status = 'failed';
             error = result.error;
@@ -112,8 +134,6 @@ async function main() {
         error = `${e.name}: ${e.message}`;
         status = 'failed';
     }
-
-    const endTs = new Date();
 
     if (error) {
         console.error(`ERROR: ${error}`);
@@ -129,17 +149,12 @@ async function main() {
     }
 
     // Output ArchiveResult JSONL
-    const archiveResult = {
-        type: 'ArchiveResult',
-        status,
-        output_str: output || error || '',
-    };
-    console.log(JSON.stringify(archiveResult));
-
-    process.exit(status === 'succeeded' ? 0 : 1);
+    emitArchiveResult(status, extractedTitle || output || error || '');
+    process.exit(status === 'failed' ? 1 : 0);
 }
 
 main().catch(e => {
     console.error(`Fatal error: ${e.message}`);
+    emitArchiveResult('failed', `${e.name}: ${e.message}`);
     process.exit(1);
 });

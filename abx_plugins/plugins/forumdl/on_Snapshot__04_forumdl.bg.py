@@ -29,12 +29,22 @@ import rich_click as click
 # Extractor metadata
 PLUGIN_NAME = "forumdl"
 BIN_NAME = "forum-dl"
-BIN_PROVIDERS = "pip,env"
+BIN_PROVIDERS = "env,pip"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
+
+
+def rel_output(path_str: str | None) -> str | None:
+    if not path_str:
+        return path_str
+    path = Path(path_str)
+    try:
+        return str(path.resolve().relative_to(OUTPUT_DIR.resolve()))
+    except Exception:
+        return path.name or path_str
 
 
 def get_env(name: str, default: str = "") -> str:
@@ -196,21 +206,13 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
             # These are NOT errors - page simply has no downloadable forum content
             stderr_lower = stderr.lower()
             if "unsupported url" in stderr_lower:
-                return True, None, ""  # Not a forum site - success, no output
+                return True, "No forum found", ""
             if "no content" in stderr_lower:
-                return True, None, ""  # No forum found - success, no output
+                return True, "No forum found", ""
             if "extractornotfounderror" in stderr_lower:
-                return (
-                    True,
-                    None,
-                    "",
-                )  # No forum extractor for this URL - success, no output
+                return True, "No forum found", ""
             if process.returncode == 0:
-                return (
-                    True,
-                    None,
-                    "",
-                )  # forum-dl exited cleanly, just no forum - success
+                return True, "No forum found", ""
 
             # These ARE errors - something went wrong
             if "404" in stderr:
@@ -241,7 +243,11 @@ def main(url: str, snapshot_id: str):
         # Check if forum-dl is enabled
         if not get_env_bool("FORUMDL_ENABLED", True):
             print("Skipping forum-dl (FORUMDL_ENABLED=False)", file=sys.stderr)
-            # Temporary failure (config disabled) - NO JSONL emission
+            print(json.dumps({
+                "type": "ArchiveResult",
+                "status": "skipped",
+                "output_str": "FORUMDL_ENABLED=False",
+            }))
             sys.exit(0)
 
         # Get binary from environment
@@ -251,22 +257,32 @@ def main(url: str, snapshot_id: str):
         success, output, error = save_forum(url, binary)
 
         if success:
+            status = "noresults" if output == "No forum found" else "succeeded"
             # Success - emit ArchiveResult
             result = {
                 "type": "ArchiveResult",
-                "status": "succeeded",
-                "output_str": output or "",
+                "status": status,
+                "output_str": rel_output(output) or "",
             }
             print(json.dumps(result))
             sys.exit(0)
         else:
-            # Transient error - emit NO JSONL
             print(f"ERROR: {error}", file=sys.stderr)
+            print(json.dumps({
+                "type": "ArchiveResult",
+                "status": "failed",
+                "output_str": error or "",
+            }))
             sys.exit(1)
 
     except Exception as e:
-        # Transient error - emit NO JSONL
-        print(f"ERROR: {type(e).__name__}: {e}", file=sys.stderr)
+        error = f"{type(e).__name__}: {e}"
+        print(f"ERROR: {error}", file=sys.stderr)
+        print(json.dumps({
+            "type": "ArchiveResult",
+            "status": "failed",
+            "output_str": error,
+        }))
         sys.exit(1)
 
 

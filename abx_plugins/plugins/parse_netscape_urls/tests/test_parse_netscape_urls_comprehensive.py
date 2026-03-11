@@ -870,11 +870,12 @@ class TestEdgeCases:
         )
 
         # Current regex requires non-empty title [^<]+
-        # Parser emits skipped ArchiveResult when no valid bookmarks found
+        # Parser emits success ArchiveResult with no output file when no valid bookmarks are found
         assert result.returncode == 0
         result_json = json.loads(result.stdout.strip())
         assert result_json["type"] == "ArchiveResult"
-        assert result_json["status"] == "skipped"
+        assert result_json["status"] == "succeeded"
+        assert result_json["output_str"] == ""
 
     def test_special_chars_in_url(self, tmp_path):
         """Test URLs with special characters."""
@@ -1070,7 +1071,7 @@ class TestEdgeCases:
         )
 
         assert result.returncode == 0
-        assert "urls.jsonl" in result.stderr or "urls.jsonl" in result.stdout
+        assert "URLs parsed" in result.stderr or "URLs parsed" in result.stdout
 
         # Output goes to stdout (JSONL) - get all JSONL records
         all_lines = [

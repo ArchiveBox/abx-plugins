@@ -12,7 +12,7 @@
  * - links: <link> tags with rel/href
  *
  * Usage: on_Snapshot__75_parse_dom_outlinks.js --url=<url> --snapshot-id=<uuid>
- * Output: Writes parse_dom_outlinks/outlinks.json and parse_dom_outlinks/urls.jsonl
+ * Output: Writes parse_dom_outlinks/urls.jsonl
  *
  * Environment variables:
  *     PARSE_DOM_OUTLINKS_ENABLED: Enable DOM outlinks extraction (default: true)
@@ -40,15 +40,33 @@ if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 process.chdir(OUTPUT_DIR);
-const OUTPUT_FILE = 'outlinks.json';
 const URLS_FILE = 'urls.jsonl';  // For crawl system
 const CHROME_SESSION_DIR = '../chrome';
+const NORESULTS_OUTPUT = '0 URLs parsed';
+
+function unlinkIfExists(filePath) {
+    if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+    }
+}
+
+function emitArchiveResult(status, outputStr) {
+    console.log(JSON.stringify({
+        type: 'ArchiveResult',
+        status,
+        output_str: outputStr,
+    }));
+}
+
+function writeFileAtomic(filePath, contents) {
+    const tmpPath = `${filePath}.${process.pid}.tmp`;
+    fs.writeFileSync(tmpPath, contents);
+    fs.renameSync(tmpPath, filePath);
+}
 
 // Extract outlinks
 async function extractOutlinks(url, snapshotId, crawlId, depth, timeoutMs) {
     // Output directory is current directory (hook already runs in output dir)
-    const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
-
     let browser = null;
 
     try {
@@ -130,10 +148,6 @@ async function extractOutlinks(url, snapshotId, crawlId, depth, timeoutMs) {
             };
         });
 
-        // Write detailed output (for archival)
-        fs.writeFileSync(outputPath, JSON.stringify(outlinksData, null, 2));
-
-        // Write urls.jsonl for crawl system (only hrefs that are crawlable pages)
         const urlsPath = path.join(OUTPUT_DIR, URLS_FILE);
         const crawlableUrls = outlinksData.hrefs.filter(href => {
             // Only include http/https URLs, exclude static assets
@@ -144,6 +158,17 @@ async function extractOutlinks(url, snapshotId, crawlId, depth, timeoutMs) {
             return !staticExts.some(ext => urlPath.endsWith(ext));
         });
 
+        if (crawlableUrls.length === 0) {
+            unlinkIfExists(urlsPath);
+            return {
+                success: true,
+                status: 'noresults',
+                output: NORESULTS_OUTPUT,
+                outlinksData,
+                crawlableCount: 0,
+            };
+        }
+
         const urlsJsonl = crawlableUrls.map(href => JSON.stringify({
             type: 'Snapshot',
             url: href,
@@ -153,11 +178,15 @@ async function extractOutlinks(url, snapshotId, crawlId, depth, timeoutMs) {
             crawl_id: crawlId || undefined,
         })).join('\n');
 
-        if (urlsJsonl) {
-            fs.writeFileSync(urlsPath, urlsJsonl + '\n');
-        }
+        writeFileAtomic(urlsPath, urlsJsonl + '\n');
 
-        return { success: true, output: outputPath, outlinksData, crawlableCount: crawlableUrls.length };
+        return {
+            success: true,
+            status: 'succeeded',
+            output: `${crawlableUrls.length} URLs parsed`,
+            outlinksData,
+            crawlableCount: crawlableUrls.length,
+        };
 
     } catch (e) {
         return { success: false, error: `${e.name}: ${e.message}` };
@@ -177,10 +206,10 @@ async function main() {
 
     if (!url || !snapshotId) {
         console.error('Usage: on_Snapshot__75_parse_dom_outlinks.js --url=<url> --snapshot-id=<uuid>');
+        emitArchiveResult('failed', 'missing required args');
         process.exit(1);
     }
 
-    const startTs = new Date();
     let status = 'failed';
     let output = null;
     let error = '';
@@ -189,12 +218,7 @@ async function main() {
         // Check if enabled
         if (!getEnvBool('PARSE_DOM_OUTLINKS_ENABLED', true)) {
             console.log('Skipping DOM outlinks (PARSE_DOM_OUTLINKS_ENABLED=False)');
-            // Output clean JSONL (no RESULT_JSON= prefix)
-            console.log(JSON.stringify({
-                type: 'ArchiveResult',
-                status: 'skipped',
-                output_str: 'PARSE_DOM_OUTLINKS_ENABLED=False',
-            }));
+            emitArchiveResult('skipped', 'disabled by config');
             process.exit(0);
         }
 
@@ -203,7 +227,7 @@ async function main() {
         const result = await extractOutlinks(url, snapshotId, crawlId, depth, timeoutMs);
 
         if (result.success) {
-            status = 'succeeded';
+            status = result.status;
             output = result.output;
             const total = result.outlinksData.hrefs.length;
             const crawlable = result.crawlableCount;
@@ -219,21 +243,15 @@ async function main() {
         status = 'failed';
     }
 
-    const endTs = new Date();
-
     if (error) console.error(`ERROR: ${error}`);
 
-    // Output clean JSONL (no RESULT_JSON= prefix)
-    console.log(JSON.stringify({
-        type: 'ArchiveResult',
-        status,
-        output_str: output || error || '',
-    }));
+    emitArchiveResult(status, output || error || '');
 
-    process.exit(status === 'succeeded' ? 0 : 1);
+    process.exit(status === 'failed' ? 1 : 0);
 }
 
 main().catch(e => {
     console.error(`Fatal error: ${e.message}`);
+    emitArchiveResult('failed', `${e.name}: ${e.message}`);
     process.exit(1);
 });

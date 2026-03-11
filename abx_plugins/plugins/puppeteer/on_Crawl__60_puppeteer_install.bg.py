@@ -33,7 +33,7 @@ def main() -> None:
     record = {
         "type": "Binary",
         "name": "puppeteer",
-        "binproviders": "npm,env",
+        "binproviders": "npm",
         "overrides": {
             "npm": {
                 "packages": ["puppeteer"],

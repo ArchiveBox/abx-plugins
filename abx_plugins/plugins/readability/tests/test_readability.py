@@ -233,18 +233,17 @@ def test_reports_missing_dependency_when_not_installed():
             env=env,
         )
 
-        # Missing binary is a transient error - should exit 1 with no JSONL
+        # Missing binary should emit failed JSONL
         assert result.returncode == 1, "Should exit 1 when dependency missing"
 
-        # Should NOT emit JSONL (transient error - will be retried)
-        jsonl_lines = [
-            line
+        records = [
+            json.loads(line)
             for line in result.stdout.strip().split("\n")
             if line.strip().startswith("{")
         ]
-        assert len(jsonl_lines) == 0, (
-            "Should not emit JSONL for transient error (missing binary)"
-        )
+        assert records, "Should emit JSONL for failed dependency"
+        assert records[-1]["type"] == "ArchiveResult"
+        assert records[-1]["status"] == "failed"
 
         # Should log error to stderr
         assert (
@@ -348,7 +347,7 @@ def test_extracts_article_after_installation():
 
 
 def test_fails_gracefully_without_html_source():
-    """Test that extraction fails gracefully when no HTML source is available."""
+    """Test that extraction returns noresults when no HTML source is available."""
     binary_path = require_readability_binary()
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -377,13 +376,19 @@ def test_fails_gracefully_without_html_source():
             env=env,
         )
 
-        assert result.returncode != 0, "Should fail without HTML source"
+        assert result.returncode == 0, "Should exit 0 without HTML source"
         combined_output = result.stdout + result.stderr
         assert (
             "no html source" in combined_output.lower()
             or "not found" in combined_output.lower()
             or "ERROR=" in combined_output
         ), "Should report missing HTML source"
+        records = [
+            json.loads(line)
+            for line in result.stdout.strip().split("\n")
+            if line.strip().startswith("{")
+        ]
+        assert records and records[-1]["status"] == "noresults"
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@
 """Unit tests for parse_jsonl_urls extractor."""
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -32,7 +33,7 @@ class TestParseJsonlUrls:
         )
 
         assert result.returncode == 0
-        assert "urls.jsonl" in result.stderr or "urls.jsonl" in result.stdout
+        assert "URLs parsed" in result.stderr or "URLs parsed" in result.stdout
 
         # Output goes to stdout (JSONL)
         lines = [
@@ -215,7 +216,7 @@ class TestParseJsonlUrls:
         assert len(lines) == 2
 
     def test_skips_when_no_urls_found(self, tmp_path):
-        """Test that script returns skipped status when no URLs found."""
+        """Test that script succeeds without output when no URLs are found."""
         input_file = tmp_path / "empty.jsonl"
         input_file.write_text('{"title": "No URL"}\n')
 
@@ -227,8 +228,10 @@ class TestParseJsonlUrls:
         )
 
         assert result.returncode == 0
-        assert "urls.jsonl" in result.stderr
-        assert '"status": "skipped"' in result.stdout
+        assert '"status": "noresults"' in result.stdout
+        assert '"output_str": "0 URLs parsed"' in result.stdout
+        assert "0 URLs parsed" in result.stderr
+        assert not (tmp_path / "parse_jsonl_urls" / "urls.jsonl").exists()
 
     def test_exits_1_when_file_not_found(self, tmp_path):
         """Test that script exits with code 1 when file doesn't exist."""
@@ -246,6 +249,7 @@ class TestParseJsonlUrls:
 
         assert result.returncode == 1
         assert "Failed to fetch" in result.stderr
+        assert '"status": "failed"' in result.stdout
 
     def test_handles_html_entities(self, tmp_path):
         """Test that HTML entities in URLs and titles are decoded."""
@@ -318,6 +322,32 @@ class TestParseJsonlUrls:
         assert entry["url"] == "https://example.com"
         assert "type" in entry
         assert "plugin" in entry
+
+    def test_overwrites_stale_urls_file_on_rerun(self, tmp_path):
+        """Test that reruns overwrite stale parser output instead of skipping."""
+        input_file = tmp_path / "bookmarks.jsonl"
+        input_file.write_text('{"url": "https://fresh.example.com", "title": "Fresh"}\n')
+
+        urls_dir = tmp_path / "parse_jsonl_urls"
+        urls_dir.mkdir(parents=True, exist_ok=True)
+        urls_file = urls_dir / "urls.jsonl"
+        urls_file.write_text('{"type":"Snapshot","url":"https://stale.example.com"}\n')
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(tmp_path)
+
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        assert result.returncode == 0
+        file_lines = [line for line in urls_file.read_text().splitlines() if line.strip()]
+        assert len(file_lines) == 1
+        entry = json.loads(file_lines[0])
+        assert entry["url"] == "https://fresh.example.com"
 
 
 if __name__ == "__main__":

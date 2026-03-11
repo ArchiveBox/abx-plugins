@@ -128,7 +128,11 @@ def main(url: str, snapshot_id: str):
             "Skipping archive.org submission (ARCHIVEDOTORG_ENABLED=False)",
             file=sys.stderr,
         )
-        # Temporary failure (config disabled) - NO JSONL emission
+        print(json.dumps({
+            "type": "ArchiveResult",
+            "status": "skipped",
+            "output_str": "ARCHIVEDOTORG_ENABLED=False",
+        }))
         sys.exit(0)
 
     try:
@@ -140,19 +144,27 @@ def main(url: str, snapshot_id: str):
             result = {
                 "type": "ArchiveResult",
                 "status": "succeeded",
-                "output_str": output or "",
+                "output_str": OUTPUT_FILE if output else "",
             }
             print(json.dumps(result))
             sys.exit(0)
         else:
-            # Transient error (network, timeout, HTTP error) - emit NO JSONL
-            # System will retry later
             print(f"ERROR: {error}", file=sys.stderr)
+            print(json.dumps({
+                "type": "ArchiveResult",
+                "status": "failed",
+                "output_str": error or "",
+            }))
             sys.exit(1)
 
     except Exception as e:
-        # Unexpected error - also transient, emit NO JSONL
-        print(f"ERROR: {type(e).__name__}: {e}", file=sys.stderr)
+        error = f"{type(e).__name__}: {e}"
+        print(f"ERROR: {error}", file=sys.stderr)
+        print(json.dumps({
+            "type": "ArchiveResult",
+            "status": "failed",
+            "output_str": error,
+        }))
         sys.exit(1)
 
 

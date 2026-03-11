@@ -24,12 +24,22 @@ import rich_click as click
 # Extractor metadata
 PLUGIN_NAME = "git"
 BIN_NAME = "git"
-BIN_PROVIDERS = "apt,brew,env"
+BIN_PROVIDERS = "env,apt,brew"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
+
+
+def rel_output(path_str: str | None) -> str | None:
+    if not path_str:
+        return path_str
+    path = Path(path_str)
+    try:
+        return str(path.resolve().relative_to(OUTPUT_DIR.resolve()))
+    except Exception:
+        return path.name or path_str
 
 
 def get_env(name: str, default: str = "") -> str:
@@ -114,7 +124,7 @@ def main(url: str, snapshot_id: str):
                 json.dumps(
                     {
                         "type": "ArchiveResult",
-                        "status": "skipped",
+                        "status": "noresults",
                         "output_str": "Not a git URL",
                     }
                 )
@@ -139,7 +149,7 @@ def main(url: str, snapshot_id: str):
     result = {
         "type": "ArchiveResult",
         "status": status,
-        "output_str": output or error or "",
+        "output_str": rel_output(output) or error or "",
     }
     print(json.dumps(result))
 

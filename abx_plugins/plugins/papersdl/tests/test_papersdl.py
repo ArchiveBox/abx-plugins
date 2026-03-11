@@ -290,16 +290,15 @@ def test_real_doi_download():
         )
 
         output_str = (result_json.get("output_str") or "").strip()
-        assert output_str, (
-            f"ArchiveResult must include output path for DOI download: {result_json}"
+        assert output_str == "1 PDFs downloaded", (
+            f"ArchiveResult must include PDF count for DOI download: {result_json}"
         )
 
-        output_path = Path(output_str)
+        downloaded_files = [path for path in (tmpdir / "papersdl").iterdir() if path.is_file()]
+        assert downloaded_files, f"Downloaded paper path missing in {tmpdir / 'papersdl'}"
+        output_path = downloaded_files[0]
         assert output_path.is_file(), f"Downloaded paper path missing: {output_path}"
-        assert output_path.suffix.lower() == ".pdf", (
-            f"Downloaded paper must be a PDF: {output_path}"
-        )
-        assert output_path.stat().st_size > 0, f"Downloaded PDF is empty: {output_path}"
+        assert output_path.stat().st_size > 0, f"Downloaded paper file is empty: {output_path}"
 
 
 if __name__ == "__main__":

@@ -163,14 +163,21 @@ async function setupListener(url) {
 }
 
 function emitResult(status = 'succeeded', outputStr = OUTPUT_FILE) {
-    if (shuttingDown) return;
+    if (shuttingDown) return Promise.resolve();
     shuttingDown = true;
 
-    console.log(JSON.stringify({
+    const line = JSON.stringify({
         type: 'ArchiveResult',
         status,
         output_str: outputStr,
-    }));
+    }) + '\n';
+    return new Promise((resolve) => {
+        if (!process.stdout.write(line)) {
+            process.stdout.once('drain', resolve);
+        } else {
+            setImmediate(resolve);
+        }
+    });
 }
 
 async function handleShutdown(signal) {
@@ -179,9 +186,9 @@ async function handleShutdown(signal) {
         writeHeadersFile();
     }
     if (headersWritten) {
-        emitResult('succeeded', OUTPUT_FILE);
+        await emitResult('succeeded', OUTPUT_FILE);
     } else {
-        emitResult('failed', 'No headers captured');
+        await emitResult('failed', 'No headers captured');
     }
 
     if (browser) {
@@ -238,16 +245,13 @@ async function main() {
             : String(e || 'Unknown error');
         console.error(`ERROR: ${errorMessage}`);
 
-        console.log(JSON.stringify({
-            type: 'ArchiveResult',
-            status: 'failed',
-            output_str: errorMessage,
-        }));
+        await emitResult('failed', errorMessage);
         process.exit(1);
     }
 }
 
-main().catch(e => {
+main().catch(async (e) => {
     console.error(`Fatal error: ${e.message}`);
+    await emitResult('failed', `${e.name}: ${e.message}`);
     process.exit(1);
 });

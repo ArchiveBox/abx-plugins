@@ -38,6 +38,23 @@ SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
+EXECUTOR_ARTIFACT_SUFFIXES = (
+    ".stdout.log",
+    ".stderr.log",
+    ".pid",
+    ".sh",
+    ".meta.json",
+)
+
+
+def rel_output(path_str: str | None) -> str | None:
+    if not path_str:
+        return path_str
+    path = Path(path_str)
+    try:
+        return str(path.resolve().relative_to(OUTPUT_DIR.resolve()))
+    except Exception:
+        return path.name or path_str
 
 
 def get_env(name: str, default: str = "") -> str:
@@ -210,7 +227,9 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
         downloaded_files = [
             f
             for f in output_dir.glob("*")
-            if f.is_file() and f.suffix.lower() in media_extensions
+            if f.is_file()
+            and f.suffix.lower() in media_extensions
+            and not any(f.name.endswith(suffix) for suffix in EXECUTOR_ARTIFACT_SUFFIXES)
         ]
 
         if downloaded_files:
@@ -240,11 +259,11 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
             # These are NOT errors - page simply has no downloadable media
             # Return success with no output (legitimate "nothing to download")
             if "ERROR: Unsupported URL" in stderr:
-                return True, None, ""  # Not a media site - success, no output
+                return True, "No media found", ""
             if "URL could be a direct video link" in stderr:
-                return True, None, ""  # Not a supported media URL - success, no output
+                return True, "No media found", ""
             if process.returncode == 0:
-                return True, None, ""  # yt-dlp exited cleanly, just no media - success
+                return True, "No media found", ""
 
             # These ARE errors - something went wrong
             if "HTTP Error 404" in stderr:
@@ -272,7 +291,11 @@ def main(url: str, snapshot_id: str):
         # Check if yt-dlp downloading is enabled
         if not get_env_bool("YTDLP_ENABLED", True):
             print("Skipping ytdlp (YTDLP_ENABLED=False)", file=sys.stderr)
-            # Temporary failure (config disabled) - NO JSONL emission
+            print(json.dumps({
+                "type": "ArchiveResult",
+                "status": "skipped",
+                "output_str": "YTDLP_ENABLED=False",
+            }))
             sys.exit(0)
 
         # Check if staticfile extractor already handled this (permanent skip)
@@ -285,8 +308,8 @@ def main(url: str, snapshot_id: str):
                 json.dumps(
                     {
                         "type": "ArchiveResult",
-                        "status": "skipped",
-                        "output_str": "staticfile already exists",
+                        "status": "succeeded",
+                        "output_str": "staticfile already handled",
                     }
                 )
             )
@@ -299,22 +322,32 @@ def main(url: str, snapshot_id: str):
         success, output, error = save_ytdlp(url, binary)
 
         if success:
+            status = "noresults" if output == "No media found" else "succeeded"
             # Success - emit ArchiveResult
             result = {
                 "type": "ArchiveResult",
-                "status": "succeeded",
-                "output_str": output or "",
+                "status": status,
+                "output_str": rel_output(output) or "",
             }
             print(json.dumps(result))
             sys.exit(0)
         else:
-            # Transient error - emit NO JSONL
             print(f"ERROR: {error}", file=sys.stderr)
+            print(json.dumps({
+                "type": "ArchiveResult",
+                "status": "failed",
+                "output_str": error or "",
+            }))
             sys.exit(1)
 
     except Exception as e:
-        # Transient error - emit NO JSONL
-        print(f"ERROR: {type(e).__name__}: {e}", file=sys.stderr)
+        error = f"{type(e).__name__}: {e}"
+        print(f"ERROR: {error}", file=sys.stderr)
+        print(json.dumps({
+            "type": "ArchiveResult",
+            "status": "failed",
+            "output_str": error,
+        }))
         sys.exit(1)
 
 

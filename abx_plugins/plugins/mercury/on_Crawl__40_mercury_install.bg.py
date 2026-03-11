@@ -1,16 +1,18 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = []
+# dependencies = [
+# ]
 # ///
 #
-# Emits gallery-dl as a Binary dependency for the crawl, configured via environment variables.
+# Emit postlight-parser Binary dependency for the crawl if mercury is enabled.
 #
 # Usage:
-#     ./on_Crawl__20_gallerydl_install.py > events.jsonl
+#     ./on_Crawl__40_mercury_install.py > events.jsonl
 
 import json
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -42,18 +44,44 @@ def output_binary(name: str, binproviders: str):
         "type": "Binary",
         "name": name,
         "binproviders": binproviders,
+        "overrides": {
+            "npm": {
+                "packages": ["@postlight/parser"],
+            }
+        },
         "machine_id": machine_id,
     }
     print(json.dumps(record))
 
 
-def main():
-    gallerydl_enabled = get_env_bool("GALLERYDL_ENABLED", default=True)
+def output_resolved_binary(name: str, abspath: str, binprovider: str = "env") -> None:
+    machine_id = os.environ.get("MACHINE_ID", "")
+    print(
+        json.dumps(
+            {
+                "type": "Binary",
+                "name": name,
+                "abspath": abspath,
+                "binprovider": binprovider,
+                "machine_id": machine_id,
+            }
+        )
+    )
 
-    if not gallerydl_enabled:
+
+def main():
+    mercury_enabled = get_env_bool("MERCURY_ENABLED", True)
+
+    if not mercury_enabled:
         sys.exit(0)
 
-    output_binary(name="gallery-dl", binproviders="pip,brew,apt,env")
+    mercury_binary = get_env("MERCURY_BINARY", "postlight-parser")
+    mercury_binary_path = shutil.which(mercury_binary)
+    if mercury_binary_path:
+        output_resolved_binary(name="postlight-parser", abspath=mercury_binary_path)
+        sys.exit(0)
+
+    output_binary(name="postlight-parser", binproviders="env,npm")
 
     sys.exit(0)
 

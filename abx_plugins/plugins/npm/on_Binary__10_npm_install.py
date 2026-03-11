@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 import rich_click as click
-from abx_pkg import Binary, NpmProvider
+from abx_pkg import Binary, EnvProvider, NpmProvider
 
 
 @click.command()
@@ -74,8 +74,10 @@ def main(
                 )
 
         binary = Binary(
-            name=name, binproviders=[provider], overrides=overrides_dict or {}
-        ).install()
+            name=name,
+            binproviders=[EnvProvider(), provider],
+            overrides=overrides_dict or {},
+        ).load_or_install()
     except Exception as e:
         click.echo(f"npm install failed: {e}", err=True)
         sys.exit(1)

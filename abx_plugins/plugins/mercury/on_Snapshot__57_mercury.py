@@ -2,7 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#   "click",
+#   "rich-click",
 # ]
 # ///
 #
@@ -26,12 +26,15 @@ import rich_click as click
 # Extractor metadata
 PLUGIN_NAME = "mercury"
 BIN_NAME = "postlight-parser"
-BIN_PROVIDERS = "npm,env"
+BIN_PROVIDERS = "env,npm"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
+HTML_FILE = "content.html"
+TEXT_FILE = "content.txt"
+METADATA_FILE = "article.json"
 
 
 def get_env(name: str, default: str = "") -> str:
@@ -68,7 +71,25 @@ def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
         return default if default is not None else []
 
 
-def extract_mercury(url: str, binary: str) -> tuple[bool, str | None, str]:
+def emit_archive_result(status: str, output_str: str) -> None:
+    print(
+        json.dumps(
+            {
+                "type": "ArchiveResult",
+                "status": status,
+                "output_str": output_str,
+            }
+        )
+    )
+
+
+def write_text_atomic(path: Path, text: str) -> None:
+    tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    tmp_path.write_text(text, encoding="utf-8")
+    tmp_path.replace(path)
+
+
+def extract_mercury(url: str, binary: str) -> tuple[str, str]:
     """
     Extract article using Mercury Parser.
 
@@ -92,23 +113,19 @@ def extract_mercury(url: str, binary: str) -> tuple[bool, str | None, str]:
             sys.stderr.flush()
 
         if result_text.returncode != 0:
-            return (
-                False,
-                None,
-                f"postlight-parser failed (exit={result_text.returncode})",
-            )
+            return "failed", f"postlight-parser failed (exit={result_text.returncode})"
 
         try:
             text_json = json.loads(result_text.stdout)
         except json.JSONDecodeError:
-            return False, None, "postlight-parser returned invalid JSON"
+            return "failed", "postlight-parser returned invalid JSON"
 
         if text_json.get("failed"):
-            return False, None, "Mercury was not able to extract article"
+            return "noresults", "Mercury was not able to extract article"
 
         # Save text content
         text_content = text_json.get("content", "")
-        (output_dir / "content.txt").write_text(text_content, encoding="utf-8")
+        write_text_atomic(output_dir / TEXT_FILE, text_content)
 
         # Get HTML version
         cmd_html = [binary, *mercury_args, *mercury_args_extra, url, "--format=html"]
@@ -133,12 +150,12 @@ def extract_mercury(url: str, binary: str) -> tuple[bool, str | None, str]:
             tag_count = html_content.count("<")
             if escaped_count and escaped_count > tag_count * 2:
                 html_content = html.unescape(html_content)
-        (output_dir / "content.html").write_text(html_content, encoding="utf-8")
+        write_text_atomic(output_dir / HTML_FILE, html_content)
 
         # Save article metadata
         metadata = {k: v for k, v in text_json.items() if k != "content"}
-        (output_dir / "article.json").write_text(
-            json.dumps(metadata, indent=2), encoding="utf-8"
+        write_text_atomic(
+            output_dir / METADATA_FILE, json.dumps(metadata, indent=2)
         )
 
         # Link images/ to responses capture (if available)
@@ -164,12 +181,12 @@ def extract_mercury(url: str, binary: str) -> tuple[bool, str | None, str]:
         except Exception:
             pass
 
-        return True, "content.html", ""
+        return "succeeded", HTML_FILE
 
     except subprocess.TimeoutExpired:
-        return False, None, f"Timed out after {timeout} seconds"
+        return "failed", f"Timed out after {timeout} seconds"
     except Exception as e:
-        return False, None, f"{type(e).__name__}: {e}"
+        return "failed", f"{type(e).__name__}: {e}"
 
 
 @click.command()
@@ -182,32 +199,23 @@ def main(url: str, snapshot_id: str):
         # Check if mercury extraction is enabled
         if not get_env_bool("MERCURY_ENABLED", True):
             print("Skipping mercury (MERCURY_ENABLED=False)", file=sys.stderr)
-            # Temporary failure (config disabled) - NO JSONL emission
+            emit_archive_result("skipped", "MERCURY_ENABLED=False")
             sys.exit(0)
 
         # Get binary from environment
         binary = get_env("MERCURY_BINARY", "postlight-parser")
 
         # Run extraction
-        success, output, error = extract_mercury(url, binary)
-
-        if success:
-            # Success - emit ArchiveResult
-            result = {
-                "type": "ArchiveResult",
-                "status": "succeeded",
-                "output_str": output or "",
-            }
-            print(json.dumps(result))
-            sys.exit(0)
-        else:
-            # Transient error - emit NO JSONL
-            print(f"ERROR: {error}", file=sys.stderr)
-            sys.exit(1)
+        status, output = extract_mercury(url, binary)
+        if status == "failed":
+            print(f"ERROR: {output}", file=sys.stderr)
+        emit_archive_result(status, output)
+        sys.exit(0 if status != "failed" else 1)
 
     except Exception as e:
-        # Transient error - emit NO JSONL
-        print(f"ERROR: {type(e).__name__}: {e}", file=sys.stderr)
+        error = f"{type(e).__name__}: {e}"
+        print(f"ERROR: {error}", file=sys.stderr)
+        emit_archive_result("failed", error)
         sys.exit(1)
 
 

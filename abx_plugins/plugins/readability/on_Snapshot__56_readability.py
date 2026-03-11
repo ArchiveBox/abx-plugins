@@ -35,13 +35,15 @@ import rich_click as click
 # Extractor metadata
 PLUGIN_NAME = "readability"
 BIN_NAME = "readability-extractor"
-BIN_PROVIDERS = "npm,env"
+BIN_PROVIDERS = "env,npm"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 OUTPUT_FILE = "content.html"
+TEXT_FILE = "content.txt"
+METADATA_FILE = "article.json"
 
 
 def get_env(name: str, default: str = "") -> str:
@@ -67,6 +69,24 @@ def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
         return default if default is not None else []
     except json.JSONDecodeError:
         return default if default is not None else []
+
+
+def emit_archive_result(status: str, output_str: str) -> None:
+    print(
+        json.dumps(
+            {
+                "type": "ArchiveResult",
+                "status": status,
+                "output_str": output_str,
+            }
+        )
+    )
+
+
+def write_text_atomic(path: Path, text: str) -> None:
+    tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    tmp_path.write_text(text, encoding="utf-8")
+    tmp_path.replace(path)
 
 
 def find_html_source() -> str | None:
@@ -97,7 +117,7 @@ def find_html_source() -> str | None:
     return None
 
 
-def extract_readability(url: str, binary: str) -> tuple[bool, str | None, str]:
+def extract_readability(url: str, binary: str) -> tuple[str, str]:
     """
     Extract article using Readability.
 
@@ -110,7 +130,7 @@ def extract_readability(url: str, binary: str) -> tuple[bool, str | None, str]:
     # Find HTML source
     html_source = find_html_source()
     if not html_source:
-        return False, None, "No HTML source found (run singlefile, dom, or wget first)"
+        return "noresults", "No HTML source found"
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
@@ -125,17 +145,13 @@ def extract_readability(url: str, binary: str) -> tuple[bool, str | None, str]:
             sys.stderr.flush()
 
         if result.returncode != 0:
-            return (
-                False,
-                None,
-                f"readability-extractor failed (exit={result.returncode})",
-            )
+            return "failed", f"readability-extractor failed (exit={result.returncode})"
 
         # Parse JSON output
         try:
             result_json = json.loads(result.stdout)
         except json.JSONDecodeError:
-            return False, None, "readability-extractor returned invalid JSON"
+            return "failed", "readability-extractor returned invalid JSON"
 
         # Extract and save content
         # readability-extractor uses camelCase field names (textContent, content)
@@ -145,12 +161,12 @@ def extract_readability(url: str, binary: str) -> tuple[bool, str | None, str]:
         html_content = result_json.pop("content", result_json.pop("html-content", ""))
 
         if not text_content and not html_content:
-            return False, None, "No content extracted"
+            return "noresults", "No content extracted"
 
-        (output_dir / OUTPUT_FILE).write_text(html_content, encoding="utf-8")
-        (output_dir / "content.txt").write_text(text_content, encoding="utf-8")
-        (output_dir / "article.json").write_text(
-            json.dumps(result_json, indent=2), encoding="utf-8"
+        write_text_atomic(output_dir / OUTPUT_FILE, html_content)
+        write_text_atomic(output_dir / TEXT_FILE, text_content)
+        write_text_atomic(
+            output_dir / METADATA_FILE, json.dumps(result_json, indent=2)
         )
 
         # Link images/ to responses capture (if available)
@@ -175,12 +191,12 @@ def extract_readability(url: str, binary: str) -> tuple[bool, str | None, str]:
         except Exception:
             pass
 
-        return True, OUTPUT_FILE, ""
+        return "succeeded", OUTPUT_FILE
 
     except subprocess.TimeoutExpired:
-        return False, None, f"Timed out after {timeout} seconds"
+        return "failed", f"Timed out after {timeout} seconds"
     except Exception as e:
-        return False, None, f"{type(e).__name__}: {e}"
+        return "failed", f"{type(e).__name__}: {e}"
 
 
 @click.command()
@@ -194,25 +210,16 @@ def main(url: str, snapshot_id: str):
         binary = get_env("READABILITY_BINARY", "readability-extractor")
 
         # Run extraction
-        success, output, error = extract_readability(url, binary)
-
-        if success:
-            # Success - emit ArchiveResult
-            result = {
-                "type": "ArchiveResult",
-                "status": "succeeded",
-                "output_str": output or "",
-            }
-            print(json.dumps(result))
-            sys.exit(0)
-        else:
-            # Transient error - emit NO JSONL
-            print(f"ERROR: {error}", file=sys.stderr)
-            sys.exit(1)
+        status, output = extract_readability(url, binary)
+        if status == "failed":
+            print(f"ERROR: {output}", file=sys.stderr)
+        emit_archive_result(status, output)
+        sys.exit(0 if status != "failed" else 1)
 
     except Exception as e:
-        # Transient error - emit NO JSONL
-        print(f"ERROR: {type(e).__name__}: {e}", file=sys.stderr)
+        error = f"{type(e).__name__}: {e}"
+        print(f"ERROR: {error}", file=sys.stderr)
+        emit_archive_result("failed", error)
         sys.exit(1)
 
 

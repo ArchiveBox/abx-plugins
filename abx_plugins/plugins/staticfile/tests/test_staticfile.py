@@ -54,7 +54,7 @@ def staticfile_test_urls(httpserver):
 
 
 def run_staticfile_capture(staticfile_dir, snapshot_chrome_dir, env, url, snapshot_id):
-    """Launch staticfile hook in background, navigate, then terminate for final JSONL."""
+    """Launch staticfile hook, navigate, and collect its self-emitted final JSONL."""
     hook_proc = subprocess.Popen(
         [
             "node",
@@ -86,18 +86,7 @@ def run_staticfile_capture(staticfile_dir, snapshot_chrome_dir, env, url, snapsh
         env=env,
     )
 
-    # Give response handlers a short window to process the first response.
-    time.sleep(1)
-
-    if hook_proc.poll() is None:
-        hook_proc.terminate()
-        try:
-            stdout, stderr = hook_proc.communicate(timeout=5)
-        except subprocess.TimeoutExpired:
-            hook_proc.kill()
-            stdout, stderr = hook_proc.communicate()
-    else:
-        stdout, stderr = hook_proc.communicate()
+    stdout, stderr = hook_proc.communicate(timeout=5)
 
     archive_result = parse_jsonl_output(stdout)
     return hook_proc.returncode, stdout, stderr, nav_result, archive_result
@@ -167,10 +156,8 @@ class TestStaticfileWithChrome:
         assert hook_code == 0, f"Staticfile hook failed: {stderr}"
         assert "Traceback" not in stderr
         assert archive_result is not None, f"Missing ArchiveResult in stdout:\n{stdout}"
-        assert archive_result.get("status") == "skipped", archive_result
-        assert "Not a static file" in archive_result.get("output_str", ""), (
-            archive_result
-        )
+        assert archive_result.get("status") == "noresults", archive_result
+        assert archive_result.get("output_str") == "text/html", archive_result
         assert archive_result.get("content_type", "").startswith("text/html"), (
             archive_result
         )
@@ -215,11 +202,10 @@ class TestStaticfileWithChrome:
         assert archive_result.get("status") == "succeeded", archive_result
         assert archive_result.get("content_type") == "application/json", archive_result
 
-        output_name = archive_result.get("output_str")
-        assert output_name, (
-            f"Missing downloaded filename in ArchiveResult: {archive_result}"
-        )
-        output_file = staticfile_dir / output_name
+        assert archive_result.get("output_str") == "application/json", archive_result
+        output_files = [path for path in staticfile_dir.iterdir() if path.is_file()]
+        assert len(output_files) == 1, f"Expected exactly one downloaded file, got: {output_files}"
+        output_file = output_files[0]
         assert output_file.exists(), f"Expected downloaded file at {output_file}"
         output_bytes = output_file.read_bytes()
         assert output_bytes == JSON_FIXTURE_BYTES, "Downloaded JSON bytes mismatch"

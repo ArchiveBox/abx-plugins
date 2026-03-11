@@ -81,6 +81,10 @@ class TestHashesPlugin:
             assert "files" in data
             assert "metadata" in data
 
+            result_json = json.loads(result.stdout.strip().splitlines()[-1])
+            assert result_json["type"] == "ArchiveResult"
+            assert result_json["status"] == "succeeded"
+
             # Should have indexed our test files
             file_paths = [f["path"] for f in data["files"]]
             assert "index.html" in file_paths
@@ -89,6 +93,8 @@ class TestHashesPlugin:
             # Verify metadata
             assert data["metadata"]["file_count"] > 0
             assert data["metadata"]["total_size"] > 0
+            total_size_mb = data["metadata"]["total_size"] / 1_000_000
+            assert result_json["output_str"] == f'{total_size_mb:.1f}MB {data["root_hash"][:12]}'
 
     def test_hashes_skips_when_disabled(self):
         """Hashes hook should skip when HASHES_ENABLED=false."""

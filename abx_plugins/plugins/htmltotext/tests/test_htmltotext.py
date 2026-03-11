@@ -103,8 +103,7 @@ def test_fails_gracefully_without_html():
             env=env,
         )
 
-        # Should exit with non-zero or emit failure JSONL
-        # Parse clean JSONL output
+        assert result.returncode == 0, result.stderr
         result_json = None
         for line in result.stdout.strip().split("\n"):
             line = line.strip()
@@ -117,10 +116,10 @@ def test_fails_gracefully_without_html():
                 except json.JSONDecodeError:
                     pass
 
-        if result_json:
-            assert result_json["status"] == "failed", (
-                f"Should fail without HTML source: {result_json}"
-            )
+        assert result_json, "Should emit ArchiveResult JSONL"
+        assert result_json["status"] == "noresults", (
+            f"Should noresult without HTML source: {result_json}"
+        )
 
 
 if __name__ == "__main__":

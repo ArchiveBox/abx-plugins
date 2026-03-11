@@ -68,7 +68,7 @@ class TestParseHtmlUrls:
         )
 
         assert result.returncode == 0
-        assert "urls.jsonl" in result.stderr
+        assert "URLs parsed" in result.stderr
 
         # Parse Snapshot records from stdout
         lines = [
@@ -230,8 +230,44 @@ class TestParseHtmlUrls:
         entry = json.loads(lines[0])
         assert entry["url"] == "https://other.com"
 
+    def test_runs_even_if_parse_dom_outlinks_urls_exist(self, tmp_path):
+        """parse_html_urls should not skip just because parse_dom_outlinks already wrote urls.jsonl."""
+        input_file = tmp_path / "page.html"
+        input_file.write_text("""
+<html>
+<body>
+    <a href="https://example.com/from-html">HTML Link</a>
+</body>
+</html>
+        """)
+
+        dom_urls_dir = tmp_path / "parse_dom_outlinks"
+        dom_urls_dir.mkdir(parents=True, exist_ok=True)
+        (dom_urls_dir / "urls.jsonl").write_text('{"type":"Snapshot","url":"https://stale.example/outlink"}\n')
+
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(tmp_path)
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "Skipping parse_html_urls" not in result.stderr
+        assert "https://example.com/from-html" in result.stdout
+
+        urls_file = tmp_path / "parse_html_urls" / "urls.jsonl"
+        assert urls_file.exists(), "parse_html_urls urls.jsonl not created"
+        file_lines = [line for line in urls_file.read_text().splitlines() if line.strip()]
+        assert len(file_lines) == 1
+        entry = json.loads(file_lines[0])
+        assert entry["url"] == "https://example.com/from-html"
+
     def test_skips_when_no_urls_found(self, tmp_path):
-        """Test that script returns skipped status when no URLs found."""
+        """Test that script succeeds without output when no URLs are found."""
         input_file = tmp_path / "page.html"
         input_file.write_text("<html><body>No links here</body></html>")
 
@@ -246,8 +282,10 @@ class TestParseHtmlUrls:
         )
 
         assert result.returncode == 0
-        assert "urls.jsonl" in result.stderr
-        assert '"status": "skipped"' in result.stdout
+        assert '"status": "noresults"' in result.stdout
+        assert '"output_str": "0 URLs parsed"' in result.stdout
+        assert "0 URLs parsed" in result.stderr
+        assert not (tmp_path / "parse_html_urls" / "urls.jsonl").exists()
 
     def test_handles_malformed_html(self, tmp_path):
         """Test handling of malformed HTML."""

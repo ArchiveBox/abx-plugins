@@ -2,7 +2,6 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "rich-click",
 #     "sonic-client",
 # ]
 # ///
@@ -24,14 +23,14 @@ Environment variables:
     SONIC_BUCKET: Bucket name (default: snapshots)
 """
 
+import argparse
+import json
 import os
 import re
 import sys
 from importlib import import_module
 from pathlib import Path
 from typing import Any
-
-import rich_click as click
 
 
 # Extractor metadata
@@ -76,6 +75,11 @@ def get_env_int(name: str, default: int = 0) -> int:
         return default
 
 
+def get_text_size_kb(texts: list[str]) -> int:
+    total_bytes = sum(len(text.encode("utf-8")) for text in texts)
+    return (total_bytes + 1023) // 1024 if total_bytes > 0 else 0
+
+
 def strip_html_tags(html: str) -> str:
     """Remove HTML tags, keeping text content."""
     html = re.sub(
@@ -93,10 +97,10 @@ def strip_html_tags(html: str) -> str:
 def find_indexable_content() -> list[tuple[str, str]]:
     """Find text content to index from extractor outputs."""
     results = []
-    cwd = Path.cwd()
+    snap_dir = SNAP_DIR
 
     for extractor, file_pattern in INDEXABLE_FILES:
-        plugin_dir = cwd / extractor
+        plugin_dir = snap_dir / extractor
         if not plugin_dir.exists():
             continue
 
@@ -113,7 +117,8 @@ def find_indexable_content() -> list[tuple[str, str]]:
                     if content.strip():
                         if match.suffix in (".html", ".htm"):
                             content = strip_html_tags(content)
-                        results.append((f"{extractor}/{match.name}", content))
+                        rel_path = match.relative_to(plugin_dir)
+                        results.append((f"{extractor}/{rel_path.as_posix()}", content))
                 except Exception:
                     continue
 
@@ -156,14 +161,19 @@ def index_in_sonic(snapshot_id: str, texts: list[str]) -> None:
             ingest.push(config["collection"], config["bucket"], snapshot_id, chunk)
 
 
-@click.command()
-@click.option("--url", required=True, help="URL that was archived")
-@click.option("--snapshot-id", required=True, help="Snapshot UUID")
-def main(url: str, snapshot_id: str):
+def main() -> None:
     """Index snapshot content in Sonic."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--url", required=True, help="URL that was archived")
+    parser.add_argument("--snapshot-id", required=True, help="Snapshot UUID")
+    args = parser.parse_args()
+    url = args.url
+    snapshot_id = args.snapshot_id
 
     status = "failed"
     error = ""
+    output_str = ""
+    text_size_kb = 0
 
     try:
         # Check if this backend is enabled (permanent skips - don't retry)
@@ -173,20 +183,25 @@ def main(url: str, snapshot_id: str):
                 f"Skipping Sonic indexing (SEARCH_BACKEND_ENGINE={backend})",
                 file=sys.stderr,
             )
-            sys.exit(0)  # Permanent skip - different backend selected
-        if not get_env_bool("USE_INDEXING_BACKEND", True):
+            status = "skipped"
+            output_str = f"SEARCH_BACKEND_ENGINE={backend}"
+        elif not get_env_bool("USE_INDEXING_BACKEND", True):
             print("Skipping indexing (USE_INDEXING_BACKEND=False)", file=sys.stderr)
-            sys.exit(0)  # Permanent skip - indexing disabled
+            status = "skipped"
+            output_str = "USE_INDEXING_BACKEND=False"
         else:
             contents = find_indexable_content()
 
             if not contents:
-                status = "skipped"
+                status = "noresults"
+                output_str = "No indexable content"
                 print("No indexable content found", file=sys.stderr)
             else:
                 texts = [content for _, content in contents]
+                text_size_kb = get_text_size_kb(texts)
                 index_in_sonic(snapshot_id, texts)
                 status = "succeeded"
+                output_str = f"{text_size_kb}kb text indexed"
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"
@@ -195,9 +210,18 @@ def main(url: str, snapshot_id: str):
     if error:
         print(f"ERROR: {error}", file=sys.stderr)
 
-    # Search indexing hooks don't emit ArchiveResult - they're utility hooks
-    # Exit code indicates success/failure
-    sys.exit(0 if status == "succeeded" else 1)
+    if status in ("succeeded", "skipped", "noresults"):
+        print(
+            json.dumps(
+                {
+                    "type": "ArchiveResult",
+                    "status": status,
+                    "output_str": output_str,
+                }
+            )
+        )
+
+    sys.exit(0 if status in ("succeeded", "skipped", "noresults") else 1)
 
 
 if __name__ == "__main__":

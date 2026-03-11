@@ -38,7 +38,7 @@ import rich_click as click
 # Extractor metadata
 PLUGIN_NAME = "papersdl"
 BIN_NAME = "papers-dl"
-BIN_PROVIDERS = "pip,env"
+BIN_PROVIDERS = "env,pip"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
@@ -98,11 +98,11 @@ def extract_arxiv_id_from_doi(doi: str) -> str | None:
     return match.group(1)
 
 
-def save_paper(url: str, binary: str) -> tuple[bool, str | None, str]:
+def save_paper(url: str, binary: str) -> tuple[bool, int, str]:
     """
     Download paper using papers-dl.
 
-    Returns: (success, output_path, error_message)
+    Returns: (success, downloaded_file_count, error_message)
     """
     # Get config from env
     timeout = get_env_int("PAPERSDL_TIMEOUT", get_env_int("TIMEOUT", 300))
@@ -111,6 +111,11 @@ def save_paper(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
+    files_before = {
+        path.resolve()
+        for path in output_dir.iterdir()
+        if path.is_file()
+    }
 
     # Try to extract DOI from URL
     doi = extract_doi_from_url(url)
@@ -154,17 +159,17 @@ def save_paper(url: str, binary: str) -> tuple[bool, str | None, str]:
         except subprocess.TimeoutExpired:
             process.kill()
             reader.join(timeout=1)
-            return False, None, f"Timed out after {timeout} seconds"
+            return False, 0, f"Timed out after {timeout} seconds"
 
         reader.join(timeout=1)
         combined_output = "".join(output_lines)
+        downloaded_files = [
+            path for path in output_dir.iterdir()
+            if path.is_file() and path.resolve() not in files_before
+        ]
 
-        # Check if any PDF files were downloaded
-        pdf_files = list(output_dir.glob("*.pdf"))
-
-        if pdf_files:
-            # Return first PDF file
-            return True, str(pdf_files[0]), ""
+        if downloaded_files:
+            return True, len(downloaded_files), ""
         else:
             stderr = combined_output
             stdout = combined_output
@@ -173,28 +178,24 @@ def save_paper(url: str, binary: str) -> tuple[bool, str | None, str]:
             stderr_lower = stderr.lower()
             stdout_lower = stdout.lower()
             if "not found" in stderr_lower or "not found" in stdout_lower:
-                return True, None, ""  # Paper not available - success, no output
+                return True, 0, ""  # Paper not available - success, no output
             if "no results" in stderr_lower or "no results" in stdout_lower:
-                return True, None, ""  # No paper found - success, no output
+                return True, 0, ""  # No paper found - success, no output
             if process.returncode == 0:
-                return (
-                    True,
-                    None,
-                    "",
-                )  # papers-dl exited cleanly, just no paper - success
+                return (True, 0, "")  # papers-dl exited cleanly, just no paper - success
 
             # These ARE errors - something went wrong
             if "404" in stderr or "404" in stdout:
-                return False, None, "404 Not Found"
+                return False, 0, "404 Not Found"
             if "403" in stderr or "403" in stdout:
-                return False, None, "403 Forbidden"
+                return False, 0, "403 Forbidden"
 
-            return False, None, f"papers-dl error: {stderr[:200] or stdout[:200]}"
+            return False, 0, f"papers-dl error: {stderr[:200] or stdout[:200]}"
 
     except subprocess.TimeoutExpired:
-        return False, None, f"Timed out after {timeout} seconds"
+        return False, 0, f"Timed out after {timeout} seconds"
     except Exception as e:
-        return False, None, f"{type(e).__name__}: {e}"
+        return False, 0, f"{type(e).__name__}: {e}"
 
 
 @click.command()
@@ -203,39 +204,58 @@ def save_paper(url: str, binary: str) -> tuple[bool, str | None, str]:
 def main(url: str, snapshot_id: str):
     """Download scientific paper from a URL using papers-dl."""
 
-    output = None
+    downloaded_count = 0
     error = ""
 
     try:
         # Check if papers-dl is enabled
         if not get_env_bool("PAPERSDL_ENABLED", True):
             print("Skipping papers-dl (PAPERSDL_ENABLED=False)", file=sys.stderr)
-            # Temporary failure (config disabled) - NO JSONL emission
+            print(json.dumps({
+                "type": "ArchiveResult",
+                "status": "skipped",
+                "output_str": "PAPERSDL_ENABLED=False",
+            }))
             sys.exit(0)
 
         # Get binary from environment
         binary = get_env("PAPERSDL_BINARY", "papers-dl")
 
         # Run extraction
-        success, output, error = save_paper(url, binary)
+        success, downloaded_count, error = save_paper(url, binary)
 
         if success:
             # Success - emit ArchiveResult
+            pdfs = sorted(path.name for path in OUTPUT_DIR.glob("*.pdf"))
+            status = "noresults" if downloaded_count == 0 else "succeeded"
             result = {
                 "type": "ArchiveResult",
-                "status": "succeeded",
-                "output_str": output or "",
+                "status": status,
+                "output_str": (
+                    pdfs[0] if len(pdfs) == 1 else
+                    f"{downloaded_count} PDFs downloaded" if downloaded_count else
+                    "No papers found"
+                ),
             }
             print(json.dumps(result))
             sys.exit(0)
         else:
-            # Transient error - emit NO JSONL
             print(f"ERROR: {error}", file=sys.stderr)
+            print(json.dumps({
+                "type": "ArchiveResult",
+                "status": "failed",
+                "output_str": error or "",
+            }))
             sys.exit(1)
 
     except Exception as e:
-        # Transient error - emit NO JSONL
-        print(f"ERROR: {type(e).__name__}: {e}", file=sys.stderr)
+        error = f"{type(e).__name__}: {e}"
+        print(f"ERROR: {error}", file=sys.stderr)
+        print(json.dumps({
+            "type": "ArchiveResult",
+            "status": "failed",
+            "output_str": error,
+        }))
         sys.exit(1)
 
 

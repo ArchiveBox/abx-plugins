@@ -354,12 +354,8 @@ async function main() {
 
         browser.disconnect();
 
-        const elapsedSec = (result.elapsedMs / 1000).toFixed(1);
         const finalHeightStr = result.finalHeight.toLocaleString();
-        const addedHeight = result.finalHeight - result.startingHeight;
-        const addedStr = addedHeight > 0 ? `+${addedHeight.toLocaleString()}px new content` : 'no new content';
-        const expandStr = expandResult.total > 0 ? `, expanded ${expandResult.total}` : '';
-        const outputStr = `scrolled to ${finalHeightStr}px (${addedStr}${expandStr}) over ${elapsedSec}s`;
+        const outputStr = `scrolled ${finalHeightStr}px`;
 
         console.error(`Success: ${outputStr}`);
         console.log(JSON.stringify({

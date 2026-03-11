@@ -87,7 +87,7 @@ def main():
         )
 
     if use_wget:
-        output_binary(name="wget", binproviders="apt,brew,pip,env")
+        output_binary(name="wget", binproviders="env,apt,brew,pip")
 
     # Output computed config patch as JSONL
     output_machine_config(

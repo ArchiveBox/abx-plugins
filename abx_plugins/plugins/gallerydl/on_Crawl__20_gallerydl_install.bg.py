@@ -4,10 +4,10 @@
 # dependencies = []
 # ///
 #
-# Emit papers-dl Binary dependency for the crawl.
+# Emits gallery-dl as a Binary dependency for the crawl, configured via environment variables.
 #
 # Usage:
-#     ./on_Crawl__30_papersdl_install.py > events.jsonl
+#     ./on_Crawl__20_gallerydl_install.py > events.jsonl
 
 import json
 import os
@@ -48,12 +48,12 @@ def output_binary(name: str, binproviders: str):
 
 
 def main():
-    papersdl_enabled = get_env_bool("PAPERSDL_ENABLED", True)
+    gallerydl_enabled = get_env_bool("GALLERYDL_ENABLED", default=True)
 
-    if not papersdl_enabled:
+    if not gallerydl_enabled:
         sys.exit(0)
 
-    output_binary(name="papers-dl", binproviders="pip,env")
+    output_binary(name="gallery-dl", binproviders="env,pip,brew,apt")
 
     sys.exit(0)
 

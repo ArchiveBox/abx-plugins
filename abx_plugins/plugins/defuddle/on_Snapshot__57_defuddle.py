@@ -22,6 +22,9 @@ SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
+HTML_FILE = "content.html"
+TEXT_FILE = "content.txt"
+METADATA_FILE = "article.json"
 
 
 def get_env(name: str, default: str = "") -> str:
@@ -57,6 +60,24 @@ def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
         return default if default is not None else []
 
 
+def emit_archive_result(status: str, output_str: str) -> None:
+    print(
+        json.dumps(
+            {
+                "type": "ArchiveResult",
+                "status": status,
+                "output_str": output_str,
+            }
+        )
+    )
+
+
+def write_text_atomic(path: Path, text: str) -> None:
+    tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    tmp_path.write_text(text, encoding="utf-8")
+    tmp_path.replace(path)
+
+
 def find_html_source() -> str | None:
     """Return first non-empty HTML source file from sibling extractor outputs."""
     search_patterns = [
@@ -82,14 +103,14 @@ def find_html_source() -> str | None:
     return None
 
 
-def extract_defuddle(url: str, binary: str) -> tuple[bool, str | None, str]:
+def extract_defuddle(url: str, binary: str) -> tuple[str, str]:
     timeout = get_env_int("DEFUDDLE_TIMEOUT") or get_env_int("TIMEOUT", 60)
     defuddle_args = get_env_array("DEFUDDLE_ARGS", [])
     defuddle_args_extra = get_env_array("DEFUDDLE_ARGS_EXTRA", [])
     output_dir = Path(OUTPUT_DIR)
     html_source = find_html_source()
     if not html_source:
-        return False, None, "No HTML source found (run singlefile, dom, or wget first)"
+        return "noresults", "No HTML source found"
 
     try:
         cmd = [
@@ -112,8 +133,8 @@ def extract_defuddle(url: str, binary: str) -> tuple[bool, str | None, str]:
         if result.returncode != 0:
             err = (result.stderr or "").strip()
             if err:
-                return False, None, f"defuddle failed (exit={result.returncode}): {err}"
-            return False, None, f"defuddle failed (exit={result.returncode})"
+                return "failed", f"defuddle failed (exit={result.returncode}): {err}"
+            return "failed", f"defuddle failed (exit={result.returncode})"
 
         raw_output = result.stdout.strip()
         html_content = ""
@@ -149,19 +170,19 @@ def extract_defuddle(url: str, binary: str) -> tuple[bool, str | None, str]:
             text_content = " ".join(text_content.split())
 
         if not text_content and not html_content:
-            return False, None, "No content extracted"
+            return "noresults", "No content extracted"
 
-        (output_dir / "content.html").write_text(html_content, encoding="utf-8")
-        (output_dir / "content.txt").write_text(text_content, encoding="utf-8")
-        (output_dir / "article.json").write_text(
-            json.dumps(metadata, indent=2), encoding="utf-8"
+        write_text_atomic(output_dir / HTML_FILE, html_content)
+        write_text_atomic(output_dir / TEXT_FILE, text_content)
+        write_text_atomic(
+            output_dir / METADATA_FILE, json.dumps(metadata, indent=2)
         )
 
-        return True, "content.html", ""
+        return "succeeded", HTML_FILE
     except subprocess.TimeoutExpired:
-        return False, None, f"Timed out after {timeout} seconds"
+        return "failed", f"Timed out after {timeout} seconds"
     except Exception as e:
-        return False, None, f"{type(e).__name__}: {e}"
+        return "failed", f"{type(e).__name__}: {e}"
 
 
 def main():
@@ -173,27 +194,19 @@ def main():
 
         if not get_env_bool("DEFUDDLE_ENABLED", True):
             print("Skipping defuddle (DEFUDDLE_ENABLED=False)", file=sys.stderr)
+            emit_archive_result("skipped", "DEFUDDLE_ENABLED=False")
             sys.exit(0)
 
         binary = get_env("DEFUDDLE_BINARY", "defuddle")
-        success, output, error = extract_defuddle(args.url, binary)
-
-        if success:
-            print(
-                json.dumps(
-                    {
-                        "type": "ArchiveResult",
-                        "status": "succeeded",
-                        "output_str": output or "",
-                    }
-                )
-            )
-            sys.exit(0)
-
-        print(f"ERROR: {error}", file=sys.stderr)
-        sys.exit(1)
+        status, output = extract_defuddle(args.url, binary)
+        if status == "failed":
+            print(f"ERROR: {output}", file=sys.stderr)
+        emit_archive_result(status, output)
+        sys.exit(0 if status != "failed" else 1)
     except Exception as e:
-        print(f"ERROR: {type(e).__name__}: {e}", file=sys.stderr)
+        error = f"{type(e).__name__}: {e}"
+        print(f"ERROR: {error}", file=sys.stderr)
+        emit_archive_result("failed", error)
         sys.exit(1)
 
 

@@ -1,10 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = [
-#     "click>=8.0",
-#     "rich-click>=1.6",
-# ]
+# dependencies = []
 # ///
 """
 SQLite FTS5 search backend - indexes snapshot content for full-text search.
@@ -22,13 +19,13 @@ Environment variables:
     SNAP_DIR: Snapshot directory (default: cwd)
 """
 
+import argparse
+import json
 import os
 import re
 import sqlite3
 import sys
 from pathlib import Path
-
-import rich_click as click
 
 
 # Extractor metadata
@@ -66,6 +63,11 @@ def get_env_bool(name: str, default: bool = False) -> bool:
     return default
 
 
+def get_text_size_kb(texts: list[str]) -> int:
+    total_bytes = sum(len(text.encode("utf-8")) for text in texts)
+    return (total_bytes + 1023) // 1024 if total_bytes > 0 else 0
+
+
 def strip_html_tags(html: str) -> str:
     """Remove HTML tags, keeping text content."""
     html = re.sub(
@@ -80,13 +82,13 @@ def strip_html_tags(html: str) -> str:
     return html.strip()
 
 
-def find_indexable_content() -> list[tuple[str, str]]:
+def find_indexable_content() -> list[tuple[str, str, Path]]:
     """Find text content to index from extractor outputs."""
     results = []
-    cwd = Path.cwd()
+    snap_dir = SNAP_DIR
 
     for extractor, file_pattern in INDEXABLE_FILES:
-        plugin_dir = cwd / extractor
+        plugin_dir = snap_dir / extractor
         if not plugin_dir.exists():
             continue
 
@@ -103,7 +105,9 @@ def find_indexable_content() -> list[tuple[str, str]]:
                     if content.strip():
                         if match.suffix in (".html", ".htm"):
                             content = strip_html_tags(content)
-                        results.append((f"{extractor}/{match.name}", content))
+                        if content.strip():
+                            rel_path = match.relative_to(plugin_dir)
+                            results.append((f"{extractor}/{rel_path.as_posix()}", content, match))
                 except Exception:
                     continue
 
@@ -117,18 +121,57 @@ def get_db_path() -> Path:
     return Path(snap_dir) / db_name
 
 
-def index_in_sqlite(snapshot_id: str, texts: list[str]) -> None:
+def get_snapshot_title(contents: list[tuple[str, str, Path]], url: str) -> str:
+    """Extract title from indexed content, falling back to the URL."""
+    for source_id, content, _source_path in contents:
+        if source_id == "title/title.txt" and content.strip():
+            return content.strip()
+    return url
+
+
+def sync_source_symlinks(contents: list[tuple[str, str, Path]]) -> list[Path]:
+    """Mirror indexable source files into this plugin output directory via symlinks."""
+    for existing in OUTPUT_DIR.iterdir():
+        if existing.is_symlink():
+            existing.unlink()
+
+    links: list[Path] = []
+    for source_id, _content, source_path in contents:
+        link_name = source_id.replace("/", "__")
+        link_path = OUTPUT_DIR / link_name
+        if link_path.exists() or link_path.is_symlink():
+            link_path.unlink()
+        link_path.symlink_to(source_path)
+        links.append(link_path)
+    return links
+
+
+def ensure_index_schema(conn: sqlite3.Connection, tokenizers: str) -> None:
+    """Ensure the FTS table exists with the expected schema."""
+    expected_columns = ["snapshot_id", "url", "title", "content"]
+    try:
+        rows = conn.execute("PRAGMA table_info(search_index)").fetchall()
+    except sqlite3.OperationalError:
+        rows = []
+
+    existing_columns = [row[1] for row in rows]
+    if existing_columns and existing_columns != expected_columns:
+        conn.execute("DROP TABLE IF EXISTS search_index")
+
+    conn.execute(f"""
+        CREATE VIRTUAL TABLE IF NOT EXISTS search_index
+        USING fts5(snapshot_id, url, title, content, tokenize='{tokenizers}')
+    """)
+
+
+def index_in_sqlite(snapshot_id: str, url: str, title: str, texts: list[str]) -> None:
     """Index texts in SQLite FTS5."""
     db_path = get_db_path()
     tokenizers = get_env("FTS_TOKENIZERS", "porter unicode61 remove_diacritics 2")
     conn = sqlite3.connect(str(db_path))
 
     try:
-        # Create FTS5 table if needed
-        conn.execute(f"""
-            CREATE VIRTUAL TABLE IF NOT EXISTS search_index
-            USING fts5(snapshot_id, content, tokenize='{tokenizers}')
-        """)
+        ensure_index_schema(conn, tokenizers)
 
         # Remove existing entries
         conn.execute("DELETE FROM search_index WHERE snapshot_id = ?", (snapshot_id,))
@@ -136,22 +179,27 @@ def index_in_sqlite(snapshot_id: str, texts: list[str]) -> None:
         # Insert new content
         content = "\n\n".join(texts)
         conn.execute(
-            "INSERT INTO search_index (snapshot_id, content) VALUES (?, ?)",
-            (snapshot_id, content),
+            "INSERT INTO search_index (snapshot_id, url, title, content) VALUES (?, ?, ?, ?)",
+            (snapshot_id, url, title, content),
         )
         conn.commit()
     finally:
         conn.close()
 
 
-@click.command()
-@click.option("--url", required=True, help="URL that was archived")
-@click.option("--snapshot-id", required=True, help="Snapshot UUID")
-def main(url: str, snapshot_id: str):
+def main() -> None:
     """Index snapshot content in SQLite FTS5."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--url", required=True, help="URL that was archived")
+    parser.add_argument("--snapshot-id", required=True, help="Snapshot UUID")
+    args = parser.parse_args()
+    url = args.url
+    snapshot_id = args.snapshot_id
 
     status = "failed"
     error = ""
+    output_str = ""
+    text_size_kb = 0
 
     try:
         # Check if this backend is enabled (permanent skips - don't retry)
@@ -161,20 +209,31 @@ def main(url: str, snapshot_id: str):
                 f"Skipping SQLite indexing (SEARCH_BACKEND_ENGINE={backend})",
                 file=sys.stderr,
             )
-            sys.exit(0)  # Permanent skip - different backend selected
-        if not get_env_bool("USE_INDEXING_BACKEND", True):
+            status = "skipped"
+            output_str = f"SEARCH_BACKEND_ENGINE={backend}"
+        elif not get_env_bool("USE_INDEXING_BACKEND", True):
             print("Skipping indexing (USE_INDEXING_BACKEND=False)", file=sys.stderr)
-            sys.exit(0)  # Permanent skip - indexing disabled
+            status = "skipped"
+            output_str = "USE_INDEXING_BACKEND=False"
         else:
             contents = find_indexable_content()
 
             if not contents:
-                status = "skipped"
+                status = "noresults"
+                output_str = "No indexable content"
                 print("No indexable content found", file=sys.stderr)
             else:
-                texts = [content for _, content in contents]
-                index_in_sqlite(snapshot_id, texts)
+                sync_source_symlinks(contents)
+                title = get_snapshot_title(contents, url)
+                texts = [
+                    content
+                    for source_id, content, _source_path in contents
+                    if source_id != "title/title.txt"
+                ]
+                text_size_kb = get_text_size_kb(texts)
+                index_in_sqlite(snapshot_id, url, title, texts)
                 status = "succeeded"
+                output_str = f"{text_size_kb}kb text indexed"
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"
@@ -183,9 +242,18 @@ def main(url: str, snapshot_id: str):
     if error:
         print(f"ERROR: {error}", file=sys.stderr)
 
-    # Search indexing hooks don't emit ArchiveResult - they're utility hooks
-    # Exit code indicates success/failure
-    sys.exit(0 if status == "succeeded" else 1)
+    if status in ("succeeded", "skipped", "noresults"):
+        print(
+            json.dumps(
+                {
+                    "type": "ArchiveResult",
+                    "status": status,
+                    "output_str": output_str,
+                }
+            )
+        )
+
+    sys.exit(0 if status in ("succeeded", "skipped", "noresults") else 1)
 
 
 if __name__ == "__main__":

@@ -312,7 +312,7 @@ def test_extracts_with_local_html_source_present(httpserver):
 
 
 def test_config_save_mercury_false_skips():
-    """Test that MERCURY_ENABLED=False exits without emitting JSONL."""
+    """Test that MERCURY_ENABLED=False exits with skipped JSONL."""
     import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -341,20 +341,18 @@ def test_config_save_mercury_false_skips():
             f"Should exit 0 when feature disabled: {result.stderr}"
         )
 
-        # Feature disabled - temporary failure, should NOT emit JSONL
         assert "Skipping" in result.stderr or "False" in result.stderr, (
             "Should log skip reason to stderr"
         )
 
-        # Should NOT emit any JSONL
-        jsonl_lines = [
-            line
+        records = [
+            json.loads(line)
             for line in result.stdout.strip().split("\n")
             if line.strip().startswith("{")
         ]
-        assert len(jsonl_lines) == 0, (
-            f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
-        )
+        assert records, "Should emit JSONL when disabled"
+        assert records[-1]["type"] == "ArchiveResult"
+        assert records[-1]["status"] == "skipped"
 
 
 def test_extracts_without_local_html_source(httpserver):

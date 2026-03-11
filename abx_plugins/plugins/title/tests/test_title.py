@@ -151,6 +151,7 @@ def test_extracts_title_from_example_com(title_test_urls):
 
         assert result_json, "Should have ArchiveResult JSONL output"
         assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
+        assert result_json["output_str"] == "Example Domain"
 
         # Verify output file exists (hook writes to current directory)
         title_file = title_dir / "title.txt"

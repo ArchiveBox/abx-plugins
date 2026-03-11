@@ -78,7 +78,7 @@ def main(
 
     puppeteer_binary = Binary(
         name="puppeteer",
-        binproviders=[npm_provider, EnvProvider()],
+        binproviders=[npm_provider],
         overrides={"npm": {"packages": ["puppeteer"]}},
     ).load()
 

@@ -217,11 +217,11 @@ def test_skips_when_staticfile_exists(chrome_test_url):
                     pass
 
         assert result_json, "Should have ArchiveResult JSONL output"
-        assert result_json["status"] == "skipped", f"Should skip: {result_json}"
+        assert result_json["status"] == "noresults", f"Should noresult: {result_json}"
 
 
 def test_config_save_screenshot_false_skips(chrome_test_url):
-    """Test that SCREENSHOT_ENABLED=False exits without emitting JSONL."""
+    """Test that SCREENSHOT_ENABLED=False exits with skipped JSONL."""
 
     # FIRST check what Python sees
     print(
@@ -262,20 +262,18 @@ def test_config_save_screenshot_false_skips(chrome_test_url):
             f"Should exit 0 when feature disabled: {result.stderr}"
         )
 
-        # Feature disabled - temporary failure, should NOT emit JSONL
         assert "Skipping" in result.stderr or "False" in result.stderr, (
             "Should log skip reason to stderr"
         )
 
-        # Should NOT emit any JSONL
-        jsonl_lines = [
-            line
+        records = [
+            json.loads(line)
             for line in result.stdout.strip().split("\n")
             if line.strip().startswith("{")
         ]
-        assert len(jsonl_lines) == 0, (
-            f"Should not emit JSONL when feature disabled, but got: {jsonl_lines}"
-        )
+        assert records, "Should emit JSONL when disabled"
+        assert records[-1]["type"] == "ArchiveResult"
+        assert records[-1]["status"] == "skipped"
 
 
 def test_reports_missing_chrome(chrome_test_url):

@@ -11,9 +11,6 @@
 # This is a standalone extractor that can run without ArchiveBox.
 # It reads HTML content and extracts all <a href="..."> URLs.
 #
-# NOTE: If parse_dom_outlinks already ran (parse_dom_outlinks/urls.jsonl exists),
-# this extractor will skip since parse_dom_outlinks provides better coverage via Chrome.
-#
 # Usage: ./on_Snapshot__70_parse_html_urls.py --url=<url>
 # Output: Appends discovered URLs to SNAP_DIR/parse_html_urls/urls.jsonl
 #
@@ -39,9 +36,8 @@ OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 
-# Check if parse_dom_outlinks extractor already ran (sibling plugin output dir)
-DOM_OUTLINKS_URLS_FILE = Path("..") / "parse_dom_outlinks" / "urls.jsonl"
 URLS_FILE = Path("urls.jsonl")
+NORESULTS_OUTPUT = "0 URLs parsed"
 
 
 # URL regex from archivebox/misc/util.py
@@ -196,6 +192,40 @@ def fetch_content(url: str) -> str:
             return response.read().decode("utf-8", errors="replace")
 
 
+def emit_archive_result(status: str, output_str: str) -> None:
+    """Emit final ArchiveResult JSONL plus a short stderr summary."""
+    print(
+        json.dumps(
+            {
+                "type": "ArchiveResult",
+                "status": status,
+                "output_str": output_str,
+            }
+        )
+    )
+    if output_str:
+        click.echo(output_str, err=True)
+
+
+def write_text_atomic(path: Path, text: str) -> None:
+    """Atomically replace an output file without clearing the old file first."""
+    tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    tmp_path.write_text(text)
+    tmp_path.replace(path)
+
+
+def persist_records(records: list[dict]) -> tuple[str, str]:
+    """Write extracted URLs when present, otherwise clear stale output after success."""
+    if records:
+        write_text_atomic(
+            URLS_FILE, "\n".join(json.dumps(record) for record in records) + "\n"
+        )
+        return "succeeded", f"{len(records)} URLs parsed"
+
+    URLS_FILE.unlink(missing_ok=True)
+    return "noresults", NORESULTS_OUTPUT
+
+
 def find_html_sources() -> list[str]:
     """Find HTML content from other extractors in the snapshot directory."""
     search_patterns = [
@@ -253,20 +283,12 @@ def main(
             pass
     crawl_id = crawl_id or os.environ.get("CRAWL_ID")
 
-    # Skip only if parse_dom_outlinks already ran AND found URLs (it uses Chrome for better coverage)
-    # If parse_dom_outlinks ran but found nothing, we still try static HTML parsing as fallback
-    if DOM_OUTLINKS_URLS_FILE.exists() and DOM_OUTLINKS_URLS_FILE.stat().st_size > 0:
-        click.echo(
-            "Skipping parse_html_urls - parse_dom_outlinks already extracted URLs"
-        )
-        sys.exit(0)
-
     contents = find_html_sources()
     if not contents:
         try:
             contents = [fetch_content(url)]
         except Exception as e:
-            click.echo(f"Failed to fetch {url}: {e}", err=True)
+            emit_archive_result("failed", f"Failed to fetch {url}: {e}")
             sys.exit(1)
 
     urls_found = set()
@@ -312,21 +334,9 @@ def main(
         records.append(record)
         print(json.dumps(record))
 
-    URLS_FILE.write_text(
-        "\n".join(json.dumps(r) for r in records) + ("\n" if records else "")
-    )
-
     # Emit ArchiveResult record to mark completion
-    status = "succeeded" if urls_found else "skipped"
-    output_str = URLS_FILE.name
-    ar_record = {
-        "type": "ArchiveResult",
-        "status": status,
-        "output_str": output_str,
-    }
-    print(json.dumps(ar_record))
-
-    click.echo(output_str, err=True)
+    status, output_str = persist_records(records)
+    emit_archive_result(status, output_str)
     sys.exit(0)
 
 

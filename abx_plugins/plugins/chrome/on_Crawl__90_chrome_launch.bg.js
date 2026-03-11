@@ -42,6 +42,9 @@ const {
     getExtensionId,
     writePidWithMtime,
     getExtensionsDir,
+    acquireSessionLock,
+    inspectChromeSessionArtifacts,
+    cleanupStaleChromeSessionArtifacts,
 } = require('./chrome_utils.js');
 
 // Extractor metadata
@@ -284,13 +287,15 @@ process.on('SIGINT', cleanup);
 async function main() {
     const args = parseArgs();
     const crawlId = args.crawl_id;
+    let releaseLock = null;
 
     try {
+        releaseLock = await acquireSessionLock(path.join(OUTPUT_DIR, '.launch.lock'));
         const binary = findChromium();
         if (!binary) {
             console.error('ERROR: Chromium binary not found');
             console.error('DEPENDENCY_NEEDED=chromium');
-            console.error('BIN_PROVIDERS=puppeteer,env,playwright,apt,brew');
+            console.error('BIN_PROVIDERS=puppeteer,playwright,apt,brew');
             console.error('INSTALL_HINT=npx @puppeteer/browsers install chromium@latest');
             process.exit(1);
         }
@@ -361,6 +366,28 @@ async function main() {
             fs.mkdirSync(OUTPUT_DIR, { recursive: true });
         }
 
+        const existingSession = await inspectChromeSessionArtifacts(OUTPUT_DIR);
+        if (existingSession.hasArtifacts && !existingSession.stale && existingSession.state?.pid && existingSession.state?.cdpUrl) {
+            chromePid = existingSession.state.pid;
+            const cdpUrl = existingSession.state.cdpUrl;
+            console.error(`[*] Reusing live Chromium session in ${OUTPUT_DIR}`);
+            console.log(JSON.stringify({
+                type: 'ArchiveResult',
+                status: 'succeeded',
+                output_str: `pid=${chromePid} port=${getPortFromCdpUrl(cdpUrl) || '?'}`,
+            }));
+            releaseLock();
+            releaseLock = null;
+            console.log('[*] Chromium launch hook staying alive to handle cleanup...');
+            setInterval(() => {}, 1000000);
+            return;
+        }
+
+        const staleSession = await cleanupStaleChromeSessionArtifacts(OUTPUT_DIR);
+        if (staleSession.cleanedFiles.length > 0) {
+            console.error(`[*] Removed stale Chrome session artifacts from ${OUTPUT_DIR} (${staleSession.reason})`);
+        }
+
         // Launch Chromium using consolidated function
         // userDataDir is derived from ACTIVE_PERSONA by get_config() if not explicitly set
         const result = await launchChromium({
@@ -416,12 +443,22 @@ async function main() {
         console.error(`[+] Chromium session started for crawl ${crawlId}`);
         console.error(`[+] CDP URL: ${cdpUrl}`);
         console.error(`[+] PID: ${chromePid}`);
+        console.log(JSON.stringify({
+            type: 'ArchiveResult',
+            status: 'succeeded',
+            output_str: `pid=${chromePid} port=${getPortFromCdpUrl(cdpUrl) || '?'}`,
+        }));
+        releaseLock();
+        releaseLock = null;
 
         // Stay alive to handle cleanup on SIGTERM
         console.log('[*] Chromium launch hook staying alive to handle cleanup...');
         setInterval(() => {}, 1000000);
 
     } catch (e) {
+        if (releaseLock) {
+            releaseLock();
+        }
         console.error(`ERROR: ${e.name}: ${e.message}`);
         process.exit(1);
     }

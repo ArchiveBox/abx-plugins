@@ -262,16 +262,13 @@ def test_scrolls_page_and_outputs_stats(infiniscroll_test_url):
                 f"Should succeed: {result_json}"
             )
 
-            # Verify output_str format: "scrolled to X,XXXpx (+Y,YYYpx new content) over Z.Zs"
+            # Verify output_str format: "scrolled X,XXXpx"
             output_str = result_json.get("output_str", "")
-            assert output_str.startswith("scrolled to"), (
-                f"output_str should start with 'scrolled to': {output_str}"
+            assert output_str.startswith("scrolled "), (
+                f"output_str should start with 'scrolled ': {output_str}"
             )
-            assert "px" in output_str, (
-                f"output_str should contain pixel count: {output_str}"
-            )
-            assert re.search(r"over \d+(\.\d+)?s", output_str), (
-                f"output_str should contain duration: {output_str}"
+            assert re.fullmatch(r"scrolled [\d,]+px", output_str), (
+                f"output_str should contain only scrolled pixel count: {output_str}"
             )
 
             # Verify no files created in output directory
@@ -333,7 +330,7 @@ def test_config_scroll_limit_honored(infiniscroll_test_url):
             output_str = result_json.get("output_str", "")
 
             # Verify output format and that it completed (scroll limit enforced internally)
-            assert output_str.startswith("scrolled to"), (
+            assert output_str.startswith("scrolled "), (
                 f"Should have valid output_str: {output_str}"
             )
             assert result_json["status"] == "succeeded", (

@@ -146,7 +146,7 @@ async function main() {
 
     if (result.success) {
         status = 'succeeded';
-        output = 'navigation.json';
+        output = result.status ? `page loaded http=${result.status}` : 'page loaded';
         console.log(`Page loaded: ${result.finalUrl} (HTTP ${result.status}) in ${result.elapsed}ms (waitUntil: ${result.waitUntil})`);
     } else {
         error = result.error;

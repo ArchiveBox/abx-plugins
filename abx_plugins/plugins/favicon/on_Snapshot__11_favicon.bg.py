@@ -127,18 +127,25 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
 @click.option("--snapshot-id", required=True, help="Snapshot UUID")
 def main(url: str, snapshot_id: str):
     """Extract favicon from a URL."""
-
     output = None
     status = "failed"
     error = ""
+    output_path = OUTPUT_DIR / OUTPUT_FILE
 
     try:
         # Run extraction
         success, output, error = get_favicon(url)
-        if success:
+        if success and output_path.exists() and output_path.stat().st_size > 0:
             status = "succeeded"
+            output = OUTPUT_FILE
+        elif output_path.exists() and output_path.stat().st_size > 0:
+            status = "succeeded"
+            output = OUTPUT_FILE
+            error = ""
         else:
             status = "failed"
+            output = None
+            error = error or "No favicon found"
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"
@@ -147,11 +154,10 @@ def main(url: str, snapshot_id: str):
     if error:
         print(f"ERROR: {error}", file=sys.stderr)
 
-    # Output clean JSONL (no RESULT_JSON= prefix)
     result = {
         "type": "ArchiveResult",
         "status": status,
-        "output_str": output or error or "",
+        "output_str": Path(output).name if output else (error or ""),
     }
     print(json.dumps(result))
 

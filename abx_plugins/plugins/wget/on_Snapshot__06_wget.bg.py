@@ -37,12 +37,22 @@ import rich_click as click
 # Extractor metadata
 PLUGIN_NAME = "wget"
 BIN_NAME = "wget"
-BIN_PROVIDERS = "apt,brew,env"
+BIN_PROVIDERS = "env,apt,brew"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
+
+
+def rel_output(path_str: str | None) -> str | None:
+    if not path_str:
+        return path_str
+    path = Path(path_str)
+    try:
+        return str(path.resolve().relative_to(OUTPUT_DIR.resolve()))
+    except Exception:
+        return path.name or path_str
 
 
 def get_env(name: str, default: str = "") -> str:
@@ -177,7 +187,7 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
         if not downloaded_files:
             if result.returncode != 0:
                 return False, None, f"wget failed (exit={result.returncode})"
-            return False, None, "No files downloaded"
+            return True, "No files downloaded", ""
 
         # Find main HTML file
         html_files = [
@@ -208,7 +218,11 @@ def main(url: str, snapshot_id: str):
         # Check if wget is enabled
         if not get_env_bool("WGET_ENABLED", True):
             print("Skipping wget (WGET_ENABLED=False)", file=sys.stderr)
-            # Temporary failure (config disabled) - NO JSONL emission
+            print(json.dumps({
+                "type": "ArchiveResult",
+                "status": "skipped",
+                "output_str": "WGET_ENABLED=False",
+            }))
             sys.exit(0)
 
         # Check if staticfile extractor already handled this (permanent skip)
@@ -221,8 +235,8 @@ def main(url: str, snapshot_id: str):
                 json.dumps(
                     {
                         "type": "ArchiveResult",
-                        "status": "skipped",
-                        "output_str": "staticfile already exists",
+                        "status": "succeeded",
+                        "output_str": "staticfile already handled",
                     }
                 )
             )
@@ -235,22 +249,32 @@ def main(url: str, snapshot_id: str):
         success, output, error = save_wget(url, binary)
 
         if success:
+            status = "noresults" if output == "No files downloaded" else "succeeded"
             # Success - emit ArchiveResult
             result = {
                 "type": "ArchiveResult",
-                "status": "succeeded",
-                "output_str": output or "",
+                "status": status,
+                "output_str": rel_output(output) or "",
             }
             print(json.dumps(result))
             sys.exit(0)
         else:
-            # Transient error - emit NO JSONL
             print(f"ERROR: {error}", file=sys.stderr)
+            print(json.dumps({
+                "type": "ArchiveResult",
+                "status": "failed",
+                "output_str": error or "",
+            }))
             sys.exit(1)
 
     except Exception as e:
-        # Transient error - emit NO JSONL
-        print(f"ERROR: {type(e).__name__}: {e}", file=sys.stderr)
+        error = f"{type(e).__name__}: {e}"
+        print(f"ERROR: {error}", file=sys.stderr)
+        print(json.dumps({
+            "type": "ArchiveResult",
+            "status": "failed",
+            "output_str": error,
+        }))
         sys.exit(1)
 
 

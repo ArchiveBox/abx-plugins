@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # ///
 """
-Emit readability-extractor Binary dependency for the crawl.
+Emit defuddle Binary dependency for the crawl.
 """
 
 import json
@@ -32,7 +32,6 @@ def get_env_bool(name: str, default: bool = False) -> bool:
 
 
 def output_binary(name: str, binproviders: str):
-    """Output Binary JSONL record for a dependency."""
     machine_id = os.environ.get("MACHINE_ID", "")
 
     record = {
@@ -41,7 +40,7 @@ def output_binary(name: str, binproviders: str):
         "binproviders": binproviders,
         "overrides": {
             "npm": {
-                "packages": ["https://github.com/ArchiveBox/readability-extractor"],
+                "packages": ["defuddle"],
             },
         },
         "machine_id": machine_id,
@@ -50,13 +49,10 @@ def output_binary(name: str, binproviders: str):
 
 
 def main():
-    readability_enabled = get_env_bool("READABILITY_ENABLED", True)
-
-    if not readability_enabled:
+    if not get_env_bool("DEFUDDLE_ENABLED", True):
         sys.exit(0)
 
-    output_binary(name="readability-extractor", binproviders="npm,env")
-
+    output_binary(name="defuddle", binproviders="env,npm")
     sys.exit(0)
 
 

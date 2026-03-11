@@ -115,6 +115,7 @@ def test_extracts_favicon_from_example_com():
         if result_json["status"] == "succeeded":
             favicon_file = snap_dir / "favicon" / "favicon.ico"
             assert favicon_file.exists(), "favicon.ico not created"
+            assert result_json["output_str"] == "favicon.ico"
 
             # Verify file is not empty and contains actual image data
             file_size = favicon_file.stat().st_size

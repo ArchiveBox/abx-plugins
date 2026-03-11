@@ -32,7 +32,7 @@ def main():
             {
                 "type": "Binary",
                 "name": "rg",
-                "binproviders": "apt,brew,env",
+                "binproviders": "env,apt,brew",
                 "overrides": {
                     "apt": {"packages": ["ripgrep"]},
                 },

@@ -25,12 +25,29 @@ import rich_click as click
 # Extractor metadata
 PLUGIN_NAME = "gallerydl"
 BIN_NAME = "gallery-dl"
-BIN_PROVIDERS = "pip,env"
+BIN_PROVIDERS = "env,pip"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
+EXECUTOR_ARTIFACT_SUFFIXES = (
+    ".stdout.log",
+    ".stderr.log",
+    ".pid",
+    ".sh",
+    ".meta.json",
+)
+
+
+def rel_output(path_str: str | None) -> str | None:
+    if not path_str:
+        return path_str
+    path = Path(path_str)
+    try:
+        return str(path.resolve().relative_to(OUTPUT_DIR.resolve()))
+    except Exception:
+        return path.name or path_str
 
 
 def get_env(name: str, default: str = "") -> str:
@@ -188,7 +205,9 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
         downloaded_files = [
             f
             for f in output_dir.rglob("*")
-            if f.is_file() and f.suffix.lower() in gallery_extensions
+            if f.is_file()
+            and f.suffix.lower() in gallery_extensions
+            and not any(f.name.endswith(suffix) for suffix in EXECUTOR_ARTIFACT_SUFFIXES)
         ]
 
         if downloaded_files:
@@ -208,15 +227,11 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
             # Return success with no output (legitimate "nothing to download")
             stderr_lower = stderr.lower()
             if "unsupported url" in stderr_lower:
-                return True, None, ""  # Not a gallery site - success, no output
+                return True, "No gallery found", ""
             if "no results" in stderr_lower:
-                return True, None, ""  # No gallery found - success, no output
+                return True, "No gallery found", ""
             if process.returncode == 0:
-                return (
-                    True,
-                    None,
-                    "",
-                )  # gallery-dl exited cleanly, just no gallery - success
+                return True, "No gallery found", ""
 
             # These ARE errors - something went wrong
             if "404" in stderr:
@@ -247,7 +262,11 @@ def main(url: str, snapshot_id: str):
         # Check if gallery-dl is enabled
         if not get_env_bool("GALLERYDL_ENABLED", True):
             print("Skipping gallery-dl (GALLERYDL_ENABLED=False)", file=sys.stderr)
-            # Temporary failure (config disabled) - NO JSONL emission
+            print(json.dumps({
+                "type": "ArchiveResult",
+                "status": "skipped",
+                "output_str": "GALLERYDL_ENABLED=False",
+            }))
             sys.exit(0)
 
         # Check if staticfile extractor already handled this (permanent skip)
@@ -260,7 +279,7 @@ def main(url: str, snapshot_id: str):
                 json.dumps(
                     {
                         "type": "ArchiveResult",
-                        "status": "skipped",
+                        "status": "succeeded",
                         "output_str": "staticfile already handled",
                     }
                 )
@@ -274,22 +293,32 @@ def main(url: str, snapshot_id: str):
         success, output, error = save_gallery(url, binary)
 
         if success:
+            status = "noresults" if output == "No gallery found" else "succeeded"
             # Success - emit ArchiveResult
             result = {
                 "type": "ArchiveResult",
-                "status": "succeeded",
-                "output_str": output or "",
+                "status": status,
+                "output_str": rel_output(output) or "",
             }
             print(json.dumps(result))
             sys.exit(0)
         else:
-            # Transient error - emit NO JSONL
             print(f"ERROR: {error}", file=sys.stderr)
+            print(json.dumps({
+                "type": "ArchiveResult",
+                "status": "failed",
+                "output_str": error or "",
+            }))
             sys.exit(1)
 
     except Exception as e:
-        # Transient error - emit NO JSONL
-        print(f"ERROR: {type(e).__name__}: {e}", file=sys.stderr)
+        error = f"{type(e).__name__}: {e}"
+        print(f"ERROR: {error}", file=sys.stderr)
+        print(json.dumps({
+            "type": "ArchiveResult",
+            "status": "failed",
+            "output_str": error,
+        }))
         sys.exit(1)
 
 

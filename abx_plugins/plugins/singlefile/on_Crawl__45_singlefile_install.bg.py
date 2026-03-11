@@ -1,13 +1,12 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = []
+# dependencies = [
+# ]
 # ///
 #
-# Emit yt-dlp (and related) Binary dependencies for the crawl.
+# Emit single-file Binary dependency for the crawl.
 #
-# Usage:
-#     ./on_Crawl__15_ytdlp_install.py > events.jsonl
 
 import json
 import os
@@ -53,26 +52,16 @@ def output_binary(
 
 
 def main():
-    ytdlp_enabled = get_env_bool("YTDLP_ENABLED", True)
+    singlefile_enabled = get_env_bool("SINGLEFILE_ENABLED", True)
 
-    if not ytdlp_enabled:
+    if not singlefile_enabled:
         sys.exit(0)
 
     output_binary(
-        name="yt-dlp",
-        binproviders="pip,brew,apt,env",
-        overrides={"pip": {"packages": ["yt-dlp[default]"]}},
+        name="single-file",
+        binproviders="env,npm",
+        overrides={"npm": {"packages": ["single-file-cli"]}},
     )
-
-    # Node.js (required by several JS-based extractors)
-    output_binary(
-        name="node",
-        binproviders="apt,brew,env",
-        overrides={"apt": {"packages": ["nodejs"]}},
-    )
-
-    # ffmpeg (used by media extraction)
-    output_binary(name="ffmpeg", binproviders="apt,brew,env")
 
     sys.exit(0)
 

@@ -24,7 +24,7 @@ import sys
 from pathlib import Path
 
 import rich_click as click
-from abx_pkg import Binary, PipProvider
+from abx_pkg import Binary, EnvProvider, PipProvider
 
 
 @click.command()
@@ -100,9 +100,9 @@ def main(
 
         binary = Binary(
             name=name,
-            binproviders=[provider],
+            binproviders=[EnvProvider(), provider],
             overrides={"pip": overrides_dict} if overrides_dict else {},
-        ).install()
+        ).load_or_install()
     except Exception as e:
         click.echo(f"pip install failed: {e}", err=True)
         sys.exit(1)

@@ -221,10 +221,10 @@ def test_background_script_handles_sigterm(httpserver):
 
                 # Verify output_str format
                 output_str = result_json.get("output_str", "")
-                assert "closed" in output_str.lower(), (
+                assert output_str.lower().endswith("modals closed"), (
                     f"output_str should report closed modal/dialog counts: {output_str}"
                 )
-                assert "no modals detected" not in output_str.lower(), (
+                assert output_str.split()[0].isdigit(), (
                     f"Should close at least one modal/dialog: {output_str}"
                 )
 
@@ -362,7 +362,7 @@ def test_config_poll_interval(httpserver):
                 )
                 output_str = result_json.get("output_str", "").lower()
                 assert (
-                    "closed" in output_str and "no modals detected" not in output_str
+                    output_str.endswith("modals closed") and output_str.split()[0].isdigit()
                 ), f"Should report closing modals/dialogs: {result_json}"
 
         finally:

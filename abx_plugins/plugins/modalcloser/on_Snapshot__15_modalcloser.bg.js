@@ -39,8 +39,7 @@ const {
     getEnvBool,
     getEnvInt,
     parseArgs,
-    readCdpUrl,
-    readTargetId,
+    connectToPage,
 } = require('../chrome/chrome_utils.js');
 
 // Check if modalcloser is enabled BEFORE requiring puppeteer
@@ -243,16 +242,11 @@ async function main() {
     const dialogTimeout = getEnvInt('MODALCLOSER_TIMEOUT', 1250);
     const pollInterval = getEnvInt('MODALCLOSER_POLL_INTERVAL', 500);
 
-    const cdpUrl = readCdpUrl(CHROME_SESSION_DIR);
-    if (!cdpUrl) {
-        console.error('No Chrome session found (chrome plugin must run first)');
-        process.exit(1);
-    }
-
     let browser = null;
     let dialogsClosed = 0;
     let cssModalsClosed = 0;
     let running = true;
+    const connectTimeoutMs = getEnvInt('CHROME_TIMEOUT', getEnvInt('TIMEOUT', 15)) * 1000;
 
     // Handle SIGTERM for clean exit
     process.on('SIGTERM', () => {
@@ -260,9 +254,7 @@ async function main() {
         const total = dialogsClosed + cssModalsClosed;
         console.error(`Modalcloser exiting: closed ${dialogsClosed} dialogs, ${cssModalsClosed} CSS modals`);
 
-        const outputStr = total > 0
-            ? `closed ${total} modals (${dialogsClosed} dialogs, ${cssModalsClosed} CSS)`
-            : 'no modals detected';
+        const outputStr = `${total} modals closed`;
 
         console.log(JSON.stringify({
             type: 'ArchiveResult',
@@ -275,25 +267,14 @@ async function main() {
     });
 
     try {
-        browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl });
-
-        const pages = await browser.pages();
-        if (pages.length === 0) {
-            throw new Error('No pages found in browser');
-        }
-
-        // Find the right page by target ID
-        const targetId = readTargetId(CHROME_SESSION_DIR);
-        let page = null;
-        if (targetId) {
-            page = pages.find(p => {
-                const target = p.target();
-                return target && target._targetId === targetId;
-            });
-        }
-        if (!page) {
-            page = pages[pages.length - 1];
-        }
+        const connection = await connectToPage({
+            chromeSessionDir: CHROME_SESSION_DIR,
+            timeoutMs: connectTimeoutMs,
+            requireTargetId: true,
+            puppeteer,
+        });
+        browser = connection.browser;
+        const page = connection.page;
 
         // console.error(`Modalcloser listening on ${url}`);
 

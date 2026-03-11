@@ -36,6 +36,7 @@ OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 URLS_FILE = Path("urls.jsonl")
+NORESULTS_OUTPUT = "0 URLs parsed"
 
 # URL regex from archivebox/misc/util.py
 # https://mathiasbynens.be/demo/url-regex
@@ -111,6 +112,40 @@ def fetch_content(url: str) -> str:
             return response.read().decode("utf-8", errors="replace")
 
 
+def emit_archive_result(status: str, output_str: str) -> None:
+    """Emit final ArchiveResult JSONL plus a short stderr summary."""
+    print(
+        json.dumps(
+            {
+                "type": "ArchiveResult",
+                "status": status,
+                "output_str": output_str,
+            }
+        )
+    )
+    if output_str:
+        click.echo(output_str, err=True)
+
+
+def write_text_atomic(path: Path, text: str) -> None:
+    """Atomically replace an output file without clearing the old file first."""
+    tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    tmp_path.write_text(text)
+    tmp_path.replace(path)
+
+
+def persist_records(records: list[dict]) -> tuple[str, str]:
+    """Write extracted URLs when present, otherwise clear stale output after success."""
+    if records:
+        write_text_atomic(
+            URLS_FILE, "\n".join(json.dumps(record) for record in records) + "\n"
+        )
+        return "succeeded", f"{len(records)} URLs parsed"
+
+    URLS_FILE.unlink(missing_ok=True)
+    return "noresults", NORESULTS_OUTPUT
+
+
 @click.command()
 @click.option("--url", required=True, help="URL to parse (file:// or https://)")
 @click.option("--snapshot-id", required=False, help="Parent Snapshot UUID")
@@ -134,7 +169,8 @@ def main(
     try:
         content = fetch_content(url)
     except Exception as e:
-        click.echo(f"Failed to fetch {url}: {e}", err=True)
+        message = f"Failed to fetch {url}: {e}"
+        emit_archive_result("failed", message)
         sys.exit(1)
 
     urls_found = set()
@@ -161,19 +197,8 @@ def main(
         print(json.dumps(record))
 
     # Emit ArchiveResult record to mark completion
-    URLS_FILE.write_text(
-        "\n".join(json.dumps(r) for r in records) + ("\n" if records else "")
-    )
-    status = "succeeded" if urls_found else "skipped"
-    output_str = URLS_FILE.name
-    ar_record = {
-        "type": "ArchiveResult",
-        "status": status,
-        "output_str": output_str,
-    }
-    print(json.dumps(ar_record))
-
-    click.echo(output_str, err=True)
+    status, output_str = persist_records(records)
+    emit_archive_result(status, output_str)
     sys.exit(0)
 
 
