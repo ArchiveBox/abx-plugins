@@ -1,0 +1,73 @@
+abx_plugins/plugins/parse_rss_urls/on_Snapshot__72_parse_rss_urls.py
+  30f0853e91f6211b 97,100,102-103,105-106
+abx_plugins/plugins/parse_dom_outlinks/on_Snapshot__75_parse_dom_outlinks.js
+  30f0853e91f6211b 46-52,161-164,167,169-171,183-184,187,189,250
+abx_plugins/plugins/parse_jsonl_urls/tests/test_parse_jsonl_urls.py
+  30f0853e91f6211b 219,234,351
+abx_plugins/plugins/parse_dom_outlinks/tests/test_parse_dom_outlinks.py
+  30f0853e91f6211b 102,108-146,149-152,155-158
+abx_plugins/plugins/parse_netscape_urls/tests/test_parse_netscape_urls.py
+  30f0853e91f6211b 138,158,266
+abx_plugins/plugins/parse_txt_urls/on_Snapshot__71_parse_txt_urls.py
+  30f0853e91f6211b 139,142,144-145,147-148
+abx_plugins/plugins/parse_jsonl_urls/on_Snapshot__74_parse_jsonl_urls.py
+  30f0853e91f6211b 171,174,176-177,179-180
+abx_plugins/plugins/parse_rss_urls/tests/test_parse_rss_urls.py
+  30f0853e91f6211b 133,154,269
+abx_plugins/plugins/parse_netscape_urls/tests/test_parse_netscape_urls_comprehensive.py
+  30f0853e91f6211b 873,877-878
+abx_plugins/plugins/parse_netscape_urls/on_Snapshot__73_parse_netscape_urls.py
+  30f0853e91f6211b 210,213,215-216,218-219
+abx_plugins/plugins/parse_html_urls/tests/test_parse_html_urls.py
+  30f0853e91f6211b 270,288
+abx_plugins/plugins/parse_html_urls/on_Snapshot__70_parse_html_urls.py
+  30f0853e91f6211b 208-209,219,222,224-225,227-228
+abx_plugins/plugins/parse_txt_urls/tests/test_parse_txt_urls.py
+  30f0853e91f6211b 117,132,244
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.10",
+  "base_commit_sha": "d7499dbfd576e2ad95b8d7ef1d83edd3a80e7678",
+  "prompts": {
+    "0e1c780230e3e0f2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ccedc-2691-7d52-bbbc-cb8637d24a3f",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 85,
+      "total_deletions": 101,
+      "accepted_lines": 17,
+      "overriden_lines": 1
+    },
+    "30f0853e91f6211b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cdc6a-6fda-79e3-860f-ed2d30814e1a",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 4144,
+      "total_deletions": 20,
+      "accepted_lines": 3953,
+      "overriden_lines": 90
+    },
+    "a413074e0ec2a12e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ccee1-1fe7-7c50-8158-354fc5590d9b",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 56,
+      "total_deletions": 37251,
+      "accepted_lines": 49,
+      "overriden_lines": 1
+    }
+  }
+}
