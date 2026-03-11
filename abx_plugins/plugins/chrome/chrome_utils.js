@@ -545,14 +545,13 @@ async function launchChromium(options = {}) {
     const extraArgs = getEnvArray('CHROME_ARGS_EXTRA', []);
 
     // Build dynamic Chrome arguments (these must be computed at runtime)
-    const inDocker = getEnvBool('IN_DOCKER', false);
     const dynamicArgs = [
         // Remote debugging setup
         `--remote-debugging-port=${debugPort}`,
         '--remote-debugging-address=127.0.0.1',
 
-        // Sandbox settings (disable in Docker)
-        ...(sandbox ? [] : (inDocker ? ['--no-sandbox', '--disable-setuid-sandbox'] : [])),
+        // Sandbox settings
+        ...(sandbox ? [] : ['--no-sandbox', '--disable-setuid-sandbox']),
 
         // Docker-specific workarounds
         '--disable-dev-shm-usage',

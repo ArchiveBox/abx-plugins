@@ -32,6 +32,8 @@ import tempfile
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
     find_chromium_binary,
+    launch_chromium_session,
+    kill_chromium_session,
     launch_snapshot_tab,
     wait_for_extensions_metadata,
     CHROME_LAUNCH_HOOK,
@@ -158,6 +160,28 @@ def test_verify_chromium_available():
     assert "Chromium" in result.stdout or "Chrome" in result.stdout, (
         f"Unexpected version output: {result.stdout}"
     )
+
+
+def test_chrome_launch_respects_sandbox_env():
+    """CHROME_SANDBOX=false should add no-sandbox flags to the spawned browser cmd."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        crawl_dir = Path(tmpdir) / "crawl"
+        chrome_dir = crawl_dir / "chrome"
+        chrome_dir.mkdir(parents=True)
+
+        env = get_test_env()
+        env["CHROME_HEADLESS"] = "true"
+        env["CHROME_SANDBOX"] = "false"
+
+        chrome_launch_process, _cdp_url = launch_chromium_session(
+            env, chrome_dir, "test-sandbox-disabled"
+        )
+        try:
+            cmd_contents = (chrome_dir / "cmd.sh").read_text()
+            assert "--no-sandbox" in cmd_contents, cmd_contents
+            assert "--disable-setuid-sandbox" in cmd_contents, cmd_contents
+        finally:
+            kill_chromium_session(chrome_launch_process, chrome_dir)
 
 
 def test_chrome_launch_and_tab_creation(chrome_test_url):
