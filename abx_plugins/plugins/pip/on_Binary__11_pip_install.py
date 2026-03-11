@@ -55,10 +55,20 @@ def main(
 
     # Seed the pip venv with the same interpreter running this hook unless explicitly overridden.
     preferred_python = os.environ.get("PIP_VENV_PYTHON", "").strip()
+    if not preferred_python and sys.version_info[:2] >= (3, 14):
+        for candidate in ("python3.12", "python3.11", "python3.13"):
+            candidate_path = shutil.which(candidate)
+            if candidate_path:
+                preferred_python = candidate_path
+                break
     if not preferred_python:
-        current_python = shutil.which(Path(sys.executable).name) or sys.executable
-        if current_python:
-            preferred_python = current_python
+        current_python = Path(sys.executable).resolve()
+        if current_python.is_file():
+            preferred_python = str(current_python)
+        else:
+            current_python = shutil.which(Path(sys.executable).name) or sys.executable
+            if current_python:
+                preferred_python = current_python
     if not preferred_python:
         for candidate in (
             "python3.12",
@@ -67,8 +77,9 @@ def main(
             "python3.13",
             "python3.14",
         ):
-            if shutil.which(candidate):
-                preferred_python = candidate
+            candidate_path = shutil.which(candidate)
+            if candidate_path:
+                preferred_python = candidate_path
                 break
     if preferred_python and not venv_python.exists():
         try:

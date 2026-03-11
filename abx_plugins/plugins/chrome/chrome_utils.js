@@ -2553,10 +2553,9 @@ async function getCookiesViaCdp(port, options = {}) {
             browserWSEndpoint,
         },
         async (browser) => {
-        const session = await browser.target().createCDPSession();
-        await session.send('Network.enable');
-        const result = await session.send('Network.getAllCookies');
-        return result?.cookies || [];
+            const session = await browser.target().createCDPSession();
+            const result = await session.send('Storage.getCookies');
+            return result?.cookies || [];
         }
     );
 }

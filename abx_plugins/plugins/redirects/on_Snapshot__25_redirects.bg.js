@@ -49,6 +49,10 @@ let initialRecorded = false;
 let lastObservedUrl = '';
 const seenTransitions = new Set();
 
+function isMainDocumentRequest(params) {
+    return params?.type === 'Document' && !!params?.request?.url?.startsWith('http');
+}
+
 function appendRedirectEntry(outputPath, entry) {
     const key = JSON.stringify([
         entry.from_url || null,
@@ -90,8 +94,11 @@ async function setupRedirectListener() {
     // Track redirect chain using CDP
     client.on('Network.requestWillBeSent', (params) => {
         const { requestId, request, redirectResponse } = params;
+        if (!isMainDocumentRequest(params)) {
+            return;
+        }
 
-        if (!initialRecorded && request.url && request.url.startsWith('http')) {
+        if (!initialRecorded) {
             appendRedirectEntry(outputPath, {
                 timestamp: new Date().toISOString(),
                 from_url: null,
@@ -115,10 +122,8 @@ async function setupRedirectListener() {
         }
 
         // Update final URL
-        if (request.url && request.url.startsWith('http')) {
-            finalUrl = request.url;
-            lastObservedUrl = request.url;
-        }
+        finalUrl = request.url;
+        lastObservedUrl = request.url;
     });
 
     page.on('framenavigated', (frame) => {
