@@ -2553,9 +2553,7 @@ async function getCookiesViaCdp(port, options = {}) {
             browserWSEndpoint,
         },
         async (browser) => {
-        const pages = await browser.pages();
-        const page = pages[pages.length - 1] || await browser.newPage();
-        const session = await page.target().createCDPSession();
+        const session = await browser.target().createCDPSession();
         await session.send('Network.enable');
         const result = await session.send('Network.getAllCookies');
         return result?.cookies || [];

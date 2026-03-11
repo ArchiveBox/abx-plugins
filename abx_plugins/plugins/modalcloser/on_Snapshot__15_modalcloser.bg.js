@@ -57,6 +57,8 @@ const puppeteer = require('puppeteer-core');
 
 const PLUGIN_NAME = 'modalcloser';
 const CHROME_SESSION_DIR = path.join(SNAP_DIR, 'chrome');
+const CHROME_CDP_FILE = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
+const CHROME_TARGET_FILE = path.join(CHROME_SESSION_DIR, 'target_id.txt');
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -272,6 +274,10 @@ async function main() {
     });
 
     try {
+        if (!fs.existsSync(CHROME_CDP_FILE) || !fs.existsSync(CHROME_TARGET_FILE)) {
+            throw new Error('No Chrome session found (chrome plugin must run first)');
+        }
+
         const connection = await connectToPage({
             chromeSessionDir: CHROME_SESSION_DIR,
             timeoutMs: connectTimeoutMs,
