@@ -40,12 +40,16 @@ const CHROME_SESSION_DIR = '../chrome';
 
 let browser = null;
 let page = null;
-let client = null;
 let sslCaptured = false;
 let shuttingDown = false;
 let sslIssuer = null;
 const seenCertificates = new Set();
 let certCount = 0;
+
+function readSecurityDetail(details, key) {
+    const value = details?.[key];
+    return typeof value === 'function' ? value.call(details) : value;
+}
 
 function truncateIssuerName(value, maxLen = 40) {
     const text = String(value || '').trim();
@@ -79,15 +83,15 @@ async function setupListener(url) {
         puppeteer,
     });
 
-    client = await page.target().createCDPSession();
-    await client.send('Network.enable');
-
-    client.on('Network.responseReceived', (params) => {
+    page.on('response', (response) => {
         try {
             if (sslCaptured) return;
-            if (params.type && params.type !== 'Document') return;
-            const response = params.response || {};
-            const responseUrl = response.url || '';
+            const request = response.request();
+            if (!request.isNavigationRequest() || request.frame() !== page.mainFrame()) {
+                return;
+            }
+
+            const responseUrl = response.url() || '';
             if (!responseUrl.startsWith('http')) return;
 
             if (targetHost) {
@@ -99,18 +103,26 @@ async function setupListener(url) {
                 }
             }
 
-            const securityDetails = response.securityDetails || null;
+            const securityDetails = response.securityDetails?.() || null;
             let sslInfo = { url: responseUrl };
 
             if (securityDetails) {
-                const sanList = securityDetails.sanList || [];
+                const protocol = readSecurityDetail(securityDetails, 'protocol') || '';
+                const subjectName = readSecurityDetail(securityDetails, 'subjectName') || '';
+                const issuer = readSecurityDetail(securityDetails, 'issuer') || '';
+                const validFrom = readSecurityDetail(securityDetails, 'validFrom') || '';
+                const validTo = readSecurityDetail(securityDetails, 'validTo') || '';
+                const sanList =
+                    readSecurityDetail(securityDetails, 'subjectAlternativeNames') ||
+                    readSecurityDetail(securityDetails, 'sanList') ||
+                    [];
                 const certKey = JSON.stringify([
                     responseHostFromUrl(responseUrl),
-                    securityDetails.protocol || '',
-                    securityDetails.subjectName || '',
-                    securityDetails.issuer || '',
-                    securityDetails.validFrom || '',
-                    securityDetails.validTo || '',
+                    protocol,
+                    subjectName,
+                    issuer,
+                    validFrom,
+                    validTo,
                     ...sanList,
                 ]);
                 if (seenCertificates.has(certKey)) {
@@ -118,20 +130,20 @@ async function setupListener(url) {
                 }
                 seenCertificates.add(certKey);
                 certCount += 1;
-                sslInfo.protocol = securityDetails.protocol;
-                sslInfo.subjectName = securityDetails.subjectName;
-                sslInfo.issuer = securityDetails.issuer;
-                sslIssuer = securityDetails.issuer || securityDetails.subjectName || null;
-                sslInfo.validFrom = securityDetails.validFrom;
-                sslInfo.validTo = securityDetails.validTo;
-                sslInfo.certificateId = securityDetails.subjectName;
-                sslInfo.securityState = response.securityState || 'secure';
+                sslInfo.protocol = protocol;
+                sslInfo.subjectName = subjectName;
+                sslInfo.issuer = issuer;
+                sslIssuer = issuer || subjectName || null;
+                sslInfo.validFrom = validFrom;
+                sslInfo.validTo = validTo;
+                sslInfo.certificateId = subjectName;
+                sslInfo.securityState = 'secure';
                 sslInfo.schemeIsCryptographic = true;
                 if (sanList && sanList.length > 0) {
                     sslInfo.subjectAlternativeNames = sanList;
                 }
             } else if (responseUrl.startsWith('https://')) {
-                sslInfo.securityState = response.securityState || 'unknown';
+                sslInfo.securityState = 'unknown';
                 sslInfo.schemeIsCryptographic = true;
                 sslInfo.error = 'No security details available';
             } else {

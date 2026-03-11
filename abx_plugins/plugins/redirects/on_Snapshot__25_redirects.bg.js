@@ -44,23 +44,9 @@ let redirectChain = [];
 let originalUrl = '';
 let finalUrl = '';
 let page = null;
-let browser = null;
 let initialRecorded = false;
 let lastObservedUrl = '';
 const seenTransitions = new Set();
-
-function isMainDocumentRequest(params) {
-    const url = params?.request?.url || '';
-    if (!url.startsWith('http')) {
-        return false;
-    }
-    return (
-        params?.type === 'Document' ||
-        !!params?.redirectResponse ||
-        params?.documentURL === url ||
-        (params?.requestId && params?.loaderId && params.requestId === params.loaderId)
-    );
-}
 
 function appendRedirectEntry(outputPath, entry) {
     const key = JSON.stringify([
@@ -93,46 +79,52 @@ async function setupRedirectListener() {
         timeoutMs: timeout,
         puppeteer,
     });
-    browser = connection.browser;
     page = connection.page;
 
-    // Enable CDP Network domain to capture redirects
-    const client = await page.target().createCDPSession();
-    await client.send('Network.enable');
+    // Track main-frame navigation requests using Puppeteer's canonical request model.
+    page.on('request', (request) => {
+        try {
+            if (!request.isNavigationRequest() || request.frame() !== page.mainFrame()) {
+                return;
+            }
+            const requestUrl = request.url();
+            if (!requestUrl.startsWith('http')) {
+                return;
+            }
 
-    // Track redirect chain using CDP
-    client.on('Network.requestWillBeSent', (params) => {
-        const { requestId, request, redirectResponse } = params;
-        if (!isMainDocumentRequest(params)) {
+            const requestId = request._requestId || null;
+            const redirectChain = request.redirectChain();
+
+            if (!initialRecorded) {
+                appendRedirectEntry(outputPath, {
+                    timestamp: new Date().toISOString(),
+                    from_url: null,
+                    to_url: requestUrl,
+                    status: null,
+                    type: 'initial',
+                    request_id: requestId,
+                });
+                initialRecorded = true;
+            }
+
+            const previousRequest = redirectChain.at(-1);
+            const previousResponse = previousRequest?.response?.();
+            if (previousRequest && previousResponse) {
+                appendRedirectEntry(outputPath, {
+                    timestamp: new Date().toISOString(),
+                    from_url: previousRequest.url(),
+                    to_url: requestUrl,
+                    status: previousResponse.status(),
+                    type: 'http',
+                    request_id: requestId,
+                });
+            }
+
+            finalUrl = requestUrl;
+            lastObservedUrl = requestUrl;
+        } catch (e) {
             return;
         }
-
-        if (!initialRecorded) {
-            appendRedirectEntry(outputPath, {
-                timestamp: new Date().toISOString(),
-                from_url: null,
-                to_url: request.url,
-                status: null,
-                type: 'initial',
-                request_id: requestId,
-            });
-            initialRecorded = true;
-        }
-
-        if (redirectResponse) {
-            appendRedirectEntry(outputPath, {
-                timestamp: new Date().toISOString(),
-                from_url: redirectResponse.url,
-                to_url: request.url,
-                status: redirectResponse.status,
-                type: 'http',
-                request_id: requestId,
-            });
-        }
-
-        // Update final URL
-        finalUrl = request.url;
-        lastObservedUrl = request.url;
     });
 
     page.on('framenavigated', (frame) => {
@@ -214,7 +206,7 @@ async function setupRedirectListener() {
         }
     });
 
-    return { browser, page };
+    return { browser: connection.browser, page };
 }
 
 async function settleForLateRedirects(page, durationMs, intervalMs = 500) {
