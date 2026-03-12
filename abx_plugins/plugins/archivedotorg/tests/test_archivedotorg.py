@@ -70,8 +70,9 @@ def test_submits_to_archivedotorg():
                 f"Should succeed: {result_json}"
             )
         else:
-            # Transient error - no JSONL output, just stderr
-            assert not result_json, "Should NOT emit JSONL on transient error"
+            # Transient errors still emit failed ArchiveResult JSONL.
+            assert result_json, "Should emit failed ArchiveResult JSONL on error"
+            assert result_json["status"] == "failed", result_json
             assert result.stderr, "Should have error message in stderr"
 
 
@@ -141,19 +142,20 @@ def test_handles_timeout():
             timeout=30,
         )
 
-        # Timeout is a transient error - should exit 1 with no JSONL
+        # Timeout is a transient error - should exit 1 with failed JSONL
         assert result.returncode in (0, 1), "Should complete without hanging"
 
-        # If it timed out (exit 1), should have no JSONL output
+        # If it timed out (exit 1), it should emit a failed ArchiveResult.
         if result.returncode == 1:
             jsonl_lines = [
                 line
                 for line in result.stdout.strip().split("\n")
                 if line.strip().startswith("{")
             ]
-            assert len(jsonl_lines) == 0, (
-                "Should not emit JSONL on timeout (transient error)"
-            )
+            assert len(jsonl_lines) == 1, "Should emit failed JSONL on timeout"
+            result_json = json.loads(jsonl_lines[0])
+            assert result_json["status"] == "failed", result_json
+            assert "timed out" in result_json["output_str"].lower(), result_json
 
 
 if __name__ == "__main__":
