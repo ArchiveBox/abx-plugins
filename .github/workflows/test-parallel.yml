@@ -20,10 +20,14 @@ jobs:
       test-files: ${{ steps.set-matrix.outputs.test-files }}
 
     steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: true
-          fetch-depth: 1
+      - name: Checkout repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git init .
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin "${GITHUB_SHA}"
+          git checkout --detach FETCH_HEAD
 
       - name: Discover test files
         id: set-matrix
@@ -64,10 +68,14 @@ jobs:
         python: ["3.13"]
 
     steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: true
-          fetch-depth: 1
+      - name: Checkout repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git init .
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin "${GITHUB_SHA}"
+          git checkout --detach FETCH_HEAD
 
       - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v5
