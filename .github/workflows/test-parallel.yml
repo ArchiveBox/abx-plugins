@@ -110,6 +110,5 @@ jobs:
           uv run pytest -xvs "${{ matrix.test.path }}" --basetemp="$RUNNER_TEMP/pytest-out"
         env:
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
-          CHROME_ARGS_EXTRA: '["--no-sandbox"]'
+          CHROME_SANDBOX: "false"
           CHROME_HEADLESS: "True"
-          CHROME_BINARY: "/usr/bin/chromium"
