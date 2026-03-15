@@ -33,15 +33,9 @@ from pathlib import Path
 import rich_click as click
 
 # Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from claudecode.claudecode_utils import (
-    build_system_prompt,
-    emit_archive_result,
-    get_env,
-    get_env_bool,
-    get_env_int,
-    run_claude_code,
-)
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import emit_archive_result, get_env, get_env_bool, get_env_int
+from claudecode.claudecode_utils import build_system_prompt, run_claude_code
 
 
 # Extractor metadata

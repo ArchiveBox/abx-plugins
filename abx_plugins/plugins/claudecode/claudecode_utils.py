@@ -12,25 +12,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-
-def get_env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default).strip()
-
-
-def get_env_bool(name: str, default: bool = False) -> bool:
-    val = get_env(name, "").lower()
-    if val in ("true", "1", "yes", "on"):
-        return True
-    if val in ("false", "0", "no", "off"):
-        return False
-    return default
-
-
-def get_env_int(name: str, default: int = 0) -> int:
-    try:
-        return int(get_env(name, str(default)))
-    except ValueError:
-        return default
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import emit_archive_result, get_env, get_env_bool, get_env_int
 
 
 def get_crawl_metadata(crawl_dir: Path) -> dict:
@@ -274,15 +257,3 @@ def run_claude_code(
         return "", f"Claude Code binary not found: {binary}", 1
     except Exception as e:
         return "", f"{type(e).__name__}: {e}", 1
-
-
-def emit_archive_result(status: str, output_str: str) -> None:
-    print(
-        json.dumps(
-            {
-                "type": "ArchiveResult",
-                "status": status,
-                "output_str": output_str,
-            }
-        )
-    )
