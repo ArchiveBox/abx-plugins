@@ -1,0 +1,29 @@
+abx_plugins/plugins/puppeteer/on_Crawl__60_puppeteer_install.py
+  59ac43c9a9814cf9 1-48
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  59ac43c9a9814cf9 112
+abx_plugins/plugins/puppeteer/tests/test_puppeteer.py
+  59ac43c9a9814cf9 27
+docs/index.html
+  59ac43c9a9814cf9 7831,7934,9163
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.11",
+  "base_commit_sha": "7d179bae4fdac3720c8a8f9f334aea89523ec466",
+  "prompts": {
+    "59ac43c9a9814cf9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf33a-9233-71b0-b1c3-01a373045219",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 53,
+      "total_deletions": 53,
+      "accepted_lines": 53,
+      "overriden_lines": 0
+    }
+  }
+}
