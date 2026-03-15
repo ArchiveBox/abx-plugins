@@ -1,0 +1,23 @@
+.github/workflows/pages.yml
+  215926a3b0980153 1-56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.11",
+  "base_commit_sha": "490505f44a102c6b27f1f0cca690e6f2897b4f72",
+  "prompts": {
+    "215926a3b0980153": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf05c-51c2-7602-a35b-e35c12c5be09",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 60,
+      "total_deletions": 4,
+      "accepted_lines": 56,
+      "overriden_lines": 0
+    }
+  }
+}
