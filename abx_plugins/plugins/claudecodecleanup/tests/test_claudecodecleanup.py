@@ -371,7 +371,7 @@ class TestClaudeCodeCleanupIntegration:
             env["CLAUDECODECLEANUP_ENABLED"] = "true"
             env["CLAUDECODECLEANUP_MODEL"] = "haiku"
             env["CLAUDECODECLEANUP_MAX_TURNS"] = "10"
-            env["CLAUDECODECLEANUP_TIMEOUT"] = "120"
+            env["CLAUDECODECLEANUP_TIMEOUT"] = "90"
             env["CLAUDECODECLEANUP_PROMPT"] = (
                 "Delete the broken_extractor/ directory (it contains only incomplete temp files). "
                 "Do NOT delete hashes/ or any other directories. "
