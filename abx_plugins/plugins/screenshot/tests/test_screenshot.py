@@ -11,7 +11,6 @@ Tests verify:
 7. Config options work
 """
 
-import json
 import os
 import subprocess
 import tempfile
@@ -27,6 +26,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_hook_script,
     chrome_session,
     CHROME_PLUGIN_DIR,
+    parse_jsonl_output,
 )
 
 PLUGIN_DIR = get_plugin_dir(__file__)
@@ -120,17 +120,7 @@ def test_screenshot_with_chrome_session(chrome_test_url):
                 )
 
                 # Parse JSONL output
-                result_json = None
-                for line in result.stdout.strip().split("\n"):
-                    line = line.strip()
-                    if line.startswith("{"):
-                        try:
-                            record = json.loads(line)
-                            if record.get("type") == "ArchiveResult":
-                                result_json = record
-                                break
-                        except json.JSONDecodeError:
-                            pass
+                result_json = parse_jsonl_output(result.stdout)
 
                 assert result_json and result_json["status"] == "succeeded"
                 screenshot_file = screenshot_dir / "screenshot.png"
@@ -204,17 +194,7 @@ def test_skips_when_staticfile_exists(chrome_test_url):
         assert result.returncode == 0, f"Should exit successfully: {result.stderr}"
 
         # Should emit skipped status
-        result_json = None
-        for line in result.stdout.strip().split("\n"):
-            line = line.strip()
-            if line.startswith("{"):
-                try:
-                    record = json.loads(line)
-                    if record.get("type") == "ArchiveResult":
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+        result_json = parse_jsonl_output(result.stdout)
 
         assert result_json, "Should have ArchiveResult JSONL output"
         assert result_json["status"] == "noresults", f"Should noresult: {result_json}"
@@ -266,14 +246,10 @@ def test_config_save_screenshot_false_skips(chrome_test_url):
             "Should log skip reason to stderr"
         )
 
-        records = [
-            json.loads(line)
-            for line in result.stdout.strip().split("\n")
-            if line.strip().startswith("{")
-        ]
-        assert records, "Should emit JSONL when disabled"
-        assert records[-1]["type"] == "ArchiveResult"
-        assert records[-1]["status"] == "skipped"
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json, "Should emit JSONL when disabled"
+        assert result_json["type"] == "ArchiveResult"
+        assert result_json["status"] == "skipped"
 
 
 def test_reports_missing_chrome(chrome_test_url):

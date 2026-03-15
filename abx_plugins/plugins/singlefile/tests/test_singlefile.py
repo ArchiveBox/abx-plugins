@@ -26,6 +26,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,
     get_hook_script,
     chrome_session,
+    parse_jsonl_output,
 )
 
 
@@ -455,14 +456,10 @@ def test_singlefile_disabled_skips():
 
         assert result.returncode == 0, f"Should exit 0 when disabled: {result.stderr}"
 
-        records = [
-            json.loads(line)
-            for line in result.stdout.strip().split("\n")
-            if line.strip().startswith("{")
-        ]
-        assert records, "Should emit JSONL when disabled"
-        assert records[-1]["type"] == "ArchiveResult"
-        assert records[-1]["status"] == "skipped"
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json, "Should emit JSONL when disabled"
+        assert result_json["type"] == "ArchiveResult"
+        assert result_json["status"] == "skipped"
 
 
 if __name__ == "__main__":

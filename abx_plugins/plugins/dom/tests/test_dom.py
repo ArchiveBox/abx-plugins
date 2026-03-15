@@ -11,7 +11,6 @@ Tests verify:
 7. Config options work
 """
 
-import json
 import os
 import subprocess
 import tempfile
@@ -26,6 +25,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,
     get_hook_script,
     chrome_session,
+    parse_jsonl_output,
 )
 
 
@@ -91,17 +91,7 @@ def test_extracts_dom_from_example_com(require_chrome_runtime, chrome_test_url):
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
         # Parse clean JSONL output
-        result_json = None
-        for line in result.stdout.strip().split("\n"):
-            line = line.strip()
-            if line.startswith("{"):
-                try:
-                    record = json.loads(line)
-                    if record.get("type") == "ArchiveResult":
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+        result_json = parse_jsonl_output(result.stdout)
 
         assert result_json, "Should have ArchiveResult JSONL output"
         assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
@@ -153,14 +143,10 @@ def test_config_save_dom_false_skips():
             "Should log skip reason to stderr"
         )
 
-        records = [
-            json.loads(line)
-            for line in result.stdout.strip().split("\n")
-            if line.strip().startswith("{")
-        ]
-        assert records, "Should emit JSONL when disabled"
-        assert records[-1]["type"] == "ArchiveResult"
-        assert records[-1]["status"] == "skipped"
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json, "Should emit JSONL when disabled"
+        assert result_json["type"] == "ArchiveResult"
+        assert result_json["status"] == "skipped"
 
 
 def test_staticfile_present_skips():
@@ -194,17 +180,7 @@ def test_staticfile_present_skips():
 
         assert result.returncode == 0, "Should exit 0 when permanently skipping"
 
-        result_json = None
-        for line in result.stdout.strip().split("\n"):
-            line = line.strip()
-            if line.startswith("{"):
-                try:
-                    record = json.loads(line)
-                    if record.get("type") == "ArchiveResult":
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+        result_json = parse_jsonl_output(result.stdout)
 
         assert result_json, "Should emit ArchiveResult JSONL for noresults"
         assert result_json["status"] == "noresults", (

@@ -22,6 +22,7 @@ import requests
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_hook_script,
     get_plugin_dir,
+    parse_jsonl_output,
 )
 
 PLUGIN_DIR = get_plugin_dir(__file__)
@@ -183,17 +184,7 @@ def test_extracts_local_html_outputs_with_real_binary(httpserver):
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
-        result_json = None
-        for line in result.stdout.strip().split("\n"):
-            line = line.strip()
-            if line.startswith("{"):
-                try:
-                    record = json.loads(line)
-                    if record.get("type") == "ArchiveResult":
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+        result_json = parse_jsonl_output(result.stdout)
 
         assert result_json, "Should have ArchiveResult JSONL output"
         assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
@@ -420,12 +411,8 @@ def test_fails_without_html_source():
 
         assert result.returncode == 0, "Should exit 0 without HTML source"
         assert "no html source" in (result.stdout + result.stderr).lower()
-        records = [
-            json.loads(line)
-            for line in result.stdout.strip().split("\n")
-            if line.strip().startswith("{")
-        ]
-        assert records and records[-1]["status"] == "noresults"
+        record = parse_jsonl_output(result.stdout)
+        assert record and record["status"] == "noresults"
 
 
 if __name__ == "__main__":

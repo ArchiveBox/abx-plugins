@@ -11,6 +11,9 @@ import tempfile
 from pathlib import Path
 import pytest
 
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+from base.test_utils import parse_jsonl_output
+
 PLUGIN_DIR = Path(__file__).parent.parent
 _ARCHIVEDOTORG_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_archivedotorg.*"), None)
 if _ARCHIVEDOTORG_HOOK is None:
@@ -51,17 +54,7 @@ def test_submits_to_archivedotorg():
         assert result.returncode in (0, 1)
 
         # Parse clean JSONL output
-        result_json = None
-        for line in result.stdout.strip().split("\n"):
-            line = line.strip()
-            if line.startswith("{"):
-                try:
-                    record = json.loads(line)
-                    if record.get("type") == "ArchiveResult":
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+        result_json = parse_jsonl_output(result.stdout)
 
         if result.returncode == 0:
             # Success - should have ArchiveResult
@@ -108,13 +101,8 @@ def test_config_save_archivedotorg_false_skips():
             "Should log skip reason to stderr"
         )
 
-        jsonl_lines = [
-            line
-            for line in result.stdout.strip().split("\n")
-            if line.strip().startswith("{")
-        ]
-        assert len(jsonl_lines) == 1, f"Expected skipped JSONL, got: {jsonl_lines}"
-        result_json = json.loads(jsonl_lines[0])
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json, f"Expected skipped JSONL output"
         assert result_json["status"] == "skipped", result_json
         assert result_json["output_str"] == "ARCHIVEDOTORG_ENABLED=False", result_json
 
@@ -148,13 +136,8 @@ def test_handles_timeout():
         # With a 1s timeout the hook may time out or get an HTTP error from
         # archive.org (e.g. 403).  Either way it should emit proper JSONL.
         if result.returncode == 1:
-            jsonl_lines = [
-                line
-                for line in result.stdout.strip().split("\n")
-                if line.strip().startswith("{")
-            ]
-            assert len(jsonl_lines) == 1, "Should emit failed JSONL on error"
-            result_json = json.loads(jsonl_lines[0])
+            result_json = parse_jsonl_output(result.stdout)
+            assert result_json, "Should emit failed JSONL on error"
             assert result_json["status"] == "failed", result_json
             assert result_json["output_str"], "Should include error description"
 

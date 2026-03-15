@@ -12,7 +12,6 @@ Tests verify:
 8. Handles failures gracefully
 """
 
-import json
 import os
 import subprocess
 import sys
@@ -24,6 +23,7 @@ import pytest
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,
     get_hook_script,
+    parse_jsonl_output,
 )
 
 
@@ -96,18 +96,7 @@ def test_extracts_favicon_from_example_com():
         assert result.returncode in (0, 1), "Should complete extraction attempt"
 
         # Parse clean JSONL output
-        result_json = None
-        for line in result.stdout.strip().split("\n"):
-            line = line.strip()
-            if line.startswith("{"):
-                pass
-                try:
-                    record = json.loads(line)
-                    if record.get("type") == "ArchiveResult":
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+        result_json = parse_jsonl_output(result.stdout)
 
         assert result_json, "Should have ArchiveResult JSONL output"
 
@@ -219,18 +208,7 @@ def test_config_user_agent():
         # Should succeed (example.com doesn't block)
         if result.returncode == 0:
             # Parse clean JSONL output
-            result_json = None
-            for line in result.stdout.strip().split("\n"):
-                line = line.strip()
-                if line.startswith("{"):
-                    pass
-                    try:
-                        record = json.loads(line)
-                        if record.get("type") == "ArchiveResult":
-                            result_json = record
-                            break
-                    except json.JSONDecodeError:
-                        pass
+            result_json = parse_jsonl_output(result.stdout)
 
             if result_json:
                 assert result_json["status"] == "succeeded", (

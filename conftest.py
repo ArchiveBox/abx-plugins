@@ -55,3 +55,19 @@ def local_http_base_url(httpserver) -> str:
 def ensure_chrome_test_prereqs(ensure_chromium_and_puppeteer_installed):
     """Install shared Chromium/Puppeteer deps when explicitly requested by tests."""
     return ensure_chromium_and_puppeteer_installed
+
+
+@pytest.fixture(scope="module")
+def require_chrome_runtime():
+    """Require chrome runtime prerequisites for integration tests.
+
+    Validates that NpmProvider is available (needed by Chrome-based plugins
+    like dns, dom, headers).  Previously duplicated in dns/dom/headers
+    conftest files.
+    """
+    from abx_pkg import NpmProvider
+
+    try:
+        NpmProvider()
+    except Exception as exc:
+        pytest.fail(f"Chrome integration prerequisites unavailable: {exc}")

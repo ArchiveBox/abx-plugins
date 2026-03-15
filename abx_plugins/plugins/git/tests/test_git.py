@@ -17,6 +17,9 @@ import time
 from pathlib import Path
 import pytest
 
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+from base.test_utils import parse_jsonl_output
+
 PLUGIN_DIR = Path(__file__).parent.parent
 _GIT_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_git.*"), None)
 if _GIT_HOOK is None:
@@ -96,18 +99,7 @@ def test_handles_non_git_url():
         assert result.returncode in (0, 1)
 
         # Parse clean JSONL output
-        result_json = None
-        for line in result.stdout.strip().split("\n"):
-            line = line.strip()
-            if line.startswith("{"):
-                pass
-                try:
-                    record = json.loads(line)
-                    if record.get("type") == "ArchiveResult":
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+        result_json = parse_jsonl_output(result.stdout)
 
         if result_json:
             assert result_json["status"] == "noresults", (
@@ -157,17 +149,7 @@ def test_real_git_repo():
         )
 
         # Parse JSONL output
-        result_json = None
-        for line in result.stdout.strip().split("\n"):
-            line = line.strip()
-            if line.startswith("{"):
-                try:
-                    record = json.loads(line)
-                    if record.get("type") == "ArchiveResult":
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+        result_json = parse_jsonl_output(result.stdout)
 
         assert result_json, (
             f"Should have ArchiveResult JSONL output. stdout: {result.stdout}"

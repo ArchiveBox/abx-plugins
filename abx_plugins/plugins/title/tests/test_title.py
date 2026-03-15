@@ -10,7 +10,6 @@ Tests verify:
 6. Config options work (TITLE_TIMEOUT)
 """
 
-import json
 import subprocess
 import tempfile
 from pathlib import Path
@@ -25,6 +24,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
     chrome_session,
     CHROME_NAVIGATE_HOOK,
+    parse_jsonl_output,
 )
 
 
@@ -136,18 +136,7 @@ def test_extracts_title_from_example_com(title_test_urls):
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
         # Parse clean JSONL output
-        result_json = None
-        for line in result.stdout.strip().split("\n"):
-            line = line.strip()
-            if line.startswith("{"):
-                pass
-                try:
-                    record = json.loads(line)
-                    if record.get("type") == "ArchiveResult":
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+        result_json = parse_jsonl_output(result.stdout)
 
         assert result_json, "Should have ArchiveResult JSONL output"
         assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"

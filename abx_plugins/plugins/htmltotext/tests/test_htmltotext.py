@@ -12,6 +12,9 @@ import tempfile
 from pathlib import Path
 import pytest
 
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+from base.test_utils import parse_jsonl_output
+
 PLUGIN_DIR = Path(__file__).parent.parent
 _HTMLTOTEXT_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_htmltotext.*"), None)
 if _HTMLTOTEXT_HOOK is None:
@@ -56,17 +59,7 @@ def test_extracts_text_from_html():
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
         # Parse clean JSONL output
-        result_json = None
-        for line in result.stdout.strip().split("\n"):
-            line = line.strip()
-            if line.startswith("{"):
-                try:
-                    record = json.loads(line)
-                    if record.get("type") == "ArchiveResult":
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+        result_json = parse_jsonl_output(result.stdout)
 
         assert result_json, "Should have ArchiveResult JSONL output"
         assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
@@ -104,17 +97,7 @@ def test_fails_gracefully_without_html():
         )
 
         assert result.returncode == 0, result.stderr
-        result_json = None
-        for line in result.stdout.strip().split("\n"):
-            line = line.strip()
-            if line.startswith("{"):
-                try:
-                    record = json.loads(line)
-                    if record.get("type") == "ArchiveResult":
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+        result_json = parse_jsonl_output(result.stdout)
 
         assert result_json, "Should emit ArchiveResult JSONL"
         assert result_json["status"] == "noresults", (
