@@ -23,6 +23,7 @@ from __future__ import annotations
 import inspect
 import json
 import os
+import stat
 from pathlib import Path
 from typing import Any
 
@@ -286,3 +287,96 @@ def has_staticfile_output(staticfile_dir: str = "../staticfile") -> bool:
         ):
             return True
     return False
+
+
+# ---------------------------------------------------------------------------
+# Config directory permission management
+# ---------------------------------------------------------------------------
+
+def enforce_lib_permissions(config_dir: Path | str | None = None) -> None:
+    """Set permissions on ~/.config/abx so snapshot hooks can read but not write lib/.
+
+    When running as root (e.g. during crawl/install hooks), this function
+    sets ownership and permissions on the config directory so that:
+      - lib/ and its contents are read+execute only (0o755 dirs, 0o644 files)
+        for the data dir owner, preventing snapshot hooks from modifying
+        installed binaries or node_modules
+      - Everything else under ~/.config/abx (personas, etc.) is writable by
+        the data dir owner
+
+    This should be called at the end of crawl/install hooks that modify lib/.
+    Snapshot hooks should NOT call this.
+
+    Args:
+        config_dir: Path to the abx config dir (default: ~/.config/abx)
+    """
+    if os.geteuid() != 0:
+        return  # Only enforce when running as root
+
+    if config_dir is None:
+        config_dir = Path.home() / ".config" / "abx"
+    else:
+        config_dir = Path(config_dir)
+
+    if not config_dir.exists():
+        return
+
+    lib_dir = config_dir / "lib"
+    if not lib_dir.exists():
+        return
+
+    # Determine target uid/gid from SNAP_DIR or CRAWL_DIR ownership
+    # (these represent the "data user" that snapshot hooks run as)
+    data_dir = os.environ.get("SNAP_DIR") or os.environ.get("CRAWL_DIR")
+    if data_dir and Path(data_dir).exists():
+        data_stat = Path(data_dir).stat()
+        target_uid = data_stat.st_uid
+        target_gid = data_stat.st_gid
+    else:
+        target_uid = os.getuid()
+        target_gid = os.getgid()
+
+    # Set config dir itself to be owned by target user
+    _chown_if_needed(config_dir, target_uid, target_gid)
+
+    # lib/ tree: owner rwx on dirs, owner r-x on files (no write for anyone but root)
+    for dirpath, _dirnames, filenames in os.walk(lib_dir):
+        dp = Path(dirpath)
+        _chown_if_needed(dp, target_uid, target_gid)
+        dp.chmod(0o755)  # rwxr-xr-x
+        for fname in filenames:
+            fp = dp / fname
+            _chown_if_needed(fp, target_uid, target_gid)
+            # Preserve execute bit for binaries
+            current = fp.stat().st_mode
+            if current & stat.S_IXUSR:
+                fp.chmod(0o755)  # rwxr-xr-x (executable)
+            else:
+                fp.chmod(0o644)  # rw-r--r-- (non-executable)
+
+    # Everything else under config_dir: writable by target user
+    for entry in config_dir.iterdir():
+        if entry.name == "lib":
+            continue
+        if entry.is_dir():
+            for dirpath, _dirnames, filenames in os.walk(entry):
+                dp = Path(dirpath)
+                _chown_if_needed(dp, target_uid, target_gid)
+                dp.chmod(0o755)
+                for fname in filenames:
+                    fp = dp / fname
+                    _chown_if_needed(fp, target_uid, target_gid)
+                    fp.chmod(0o644)
+        elif entry.is_file():
+            _chown_if_needed(entry, target_uid, target_gid)
+            entry.chmod(0o644)
+
+
+def _chown_if_needed(path: Path, uid: int, gid: int) -> None:
+    """Change ownership only if it differs from target."""
+    try:
+        st = path.lstat()
+        if st.st_uid != uid or st.st_gid != gid:
+            os.lchown(str(path), uid, gid)
+    except OSError:
+        pass

@@ -23,6 +23,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import enforce_lib_permissions
+
 import rich_click as click
 from abx_pkg import Binary, EnvProvider, PipProvider
 
@@ -160,6 +163,9 @@ def main(
     # Log human-readable info to stderr
     click.echo(f"Installed {name} at {binary.abspath}", err=True)
     click.echo(f"  version: {binary.version}", err=True)
+
+    # Lock down lib/ so snapshot hooks can read/execute but not write
+    enforce_lib_permissions()
 
     sys.exit(0)
 
