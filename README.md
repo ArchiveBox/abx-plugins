@@ -199,9 +199,3 @@ Higher-level tools (abx-dl / ArchiveBox) can:
 
 - Parse these events from stdout
 - Persist or project them (SQLite/JSONL/Django) without plugins knowing
-
-Legacy note:
-
-Some hooks still emit a lightweight JSONL record with a top-level `type` field
-(e.g., `{"type": "ArchiveResult", ...}`). Runtimes should accept those and
-optionally translate them into the event envelope above.
