@@ -2,9 +2,12 @@
 /**
  * Claude for Chrome - Snapshot Hook
  *
- * Runs Claude for Chrome on the current page with a user-configurable prompt.
- * Uses the extension's side panel to execute actions on the page (e.g. clicking
- * "expand" buttons, downloading PDFs, filling in search fields, etc.).
+ * Uses the Anthropic API with CDP to let Claude interact with the current page.
+ * Takes screenshots, sends them to Claude with the user's prompt, and executes
+ * the actions Claude requests (click, type, scroll, etc.) via CDP.
+ *
+ * This replicates what the Claude for Chrome extension does internally, but
+ * works reliably in headless/automated mode without requiring OAuth login.
  *
  * Priority: 47 - After twocaptcha (crawl-level) and infiniscroll (45), before
  *               singlefile (50), screenshot (51), and other extractors.
@@ -16,7 +19,8 @@
  *     CLAUDECHROME_ENABLED: Enable/disable (default: false)
  *     CLAUDECHROME_PROMPT: Prompt for Claude to execute on the page
  *     CLAUDECHROME_TIMEOUT: Timeout in seconds (default: 120)
- *     CLAUDECHROME_MODEL: Claude model to use (default: sonnet)
+ *     CLAUDECHROME_MODEL: Claude model to use (default: claude-sonnet-4-5-20250514)
+ *     CLAUDECHROME_MAX_ACTIONS: Max agentic loop iterations (default: 15)
  *     ANTHROPIC_API_KEY: API key for Anthropic
  */
 
@@ -34,8 +38,6 @@ const {
     readCdpUrl,
     connectToPage,
     waitForPageLoaded,
-    waitForExtensionsMetadata,
-    findExtensionMetadataByName,
 } = require('../chrome/chrome_utils.js');
 
 // Check if enabled BEFORE requiring puppeteer
@@ -61,6 +63,7 @@ if (!getEnv('ANTHROPIC_API_KEY')) {
 }
 
 const puppeteer = require('puppeteer-core');
+const { execFileSync } = require('child_process');
 
 const PLUGIN_DIR = path.basename(__dirname);
 const SNAP_DIR = path.resolve((process.env.SNAP_DIR || '.').trim());
@@ -70,7 +73,7 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 }
 process.chdir(OUTPUT_DIR);
 
-const CHROME_SESSION_DIR = path.join(SNAP_DIR, '..', 'chrome');
+const CHROME_SESSION_DIR = '../chrome';
 const DOWNLOADS_DIR = process.env.CHROME_DOWNLOADS_DIR ||
     path.join(process.env.PERSONAS_DIR || path.join(os.homedir(), '.config', 'abx', 'personas'),
         process.env.ACTIVE_PERSONA || 'Default',
@@ -80,13 +83,17 @@ const DEFAULT_PROMPT = 'Look at the current page. If there are any "expand", "sh
     '"load more", or similar buttons/links, click them all to reveal hidden content. ' +
     'Report what you did.';
 
+// Model name mapping (short names -> full model IDs)
+const MODEL_MAP = {
+    'sonnet': 'claude-sonnet-4-5-20250514',
+    'haiku': 'claude-haiku-4-5-20251001',
+    'opus': 'claude-opus-4-20250514',
+};
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-/**
- * Record existing files in a directory for later diffing.
- */
 function snapshotDirFiles(dir) {
     const files = new Set();
     if (fs.existsSync(dir)) {
@@ -97,9 +104,6 @@ function snapshotDirFiles(dir) {
     return files;
 }
 
-/**
- * Set Chrome download directory via CDP.
- */
 async function setDownloadDir(page, downloadDir) {
     try {
         await fs.promises.mkdir(downloadDir, { recursive: true });
@@ -120,23 +124,18 @@ async function setDownloadDir(page, downloadDir) {
     }
 }
 
-/**
- * Move new files from downloads directory to output directory.
- */
 async function moveNewDownloads(downloadsDir, outputDir, previousFiles) {
     const moved = [];
     if (!fs.existsSync(downloadsDir)) return moved;
 
     for (const entry of fs.readdirSync(downloadsDir)) {
         if (previousFiles.has(entry)) continue;
-        // Skip incomplete downloads
         if (entry.endsWith('.crdownload') || entry.endsWith('.tmp')) continue;
 
         const src = path.join(downloadsDir, entry);
         const dst = path.join(outputDir, entry);
 
         try {
-            // Use rename for same-filesystem moves, fallback to copy+delete
             try {
                 await fs.promises.rename(src, dst);
             } catch (e) {
@@ -153,250 +152,423 @@ async function moveNewDownloads(downloadsDir, outputDir, previousFiles) {
 }
 
 /**
- * Open the Claude for Chrome side panel and run a prompt.
- *
- * This interacts with the extension's side panel UI:
- * 1. Opens the side panel via chrome.sidePanel API
- * 2. Finds the prompt input area
- * 3. Types the prompt and submits
- * 4. Waits for the response to complete
- * 5. Captures the conversation text
+ * Take a screenshot of the page via CDP and return as base64 PNG.
  */
-async function runClaudeOnPage(browser, page, extensionId, prompt, timeout) {
-    const startTime = Date.now();
-    const conversation = [];
+async function takeScreenshot(cdpClient, viewport) {
+    const result = await cdpClient.send('Page.captureScreenshot', {
+        format: 'png',
+        clip: {
+            x: 0,
+            y: 0,
+            width: viewport.width,
+            height: viewport.height,
+            scale: 1,
+        },
+    });
+    return result.data; // base64 PNG
+}
 
-    console.error(`[*] Running Claude for Chrome with prompt: ${prompt.slice(0, 100)}...`);
-    console.error(`[*] Extension ID: ${extensionId}`);
+/**
+ * Execute a computer-use action on the page.
+ *
+ * The computer_20250124 tool returns actions in `input.action` format:
+ *   left_click, right_click, middle_click, double_click, triple_click,
+ *   type, key, scroll, screenshot, wait, mouse_move, left_click_drag
+ *
+ * Coordinates are in `input.coordinate` as [x, y].
+ * Text input is in `input.text`. Key presses are in `input.key`.
+ * Scroll direction is in `input.scroll_direction` and amount in `input.scroll_amount`.
+ */
+async function executeAction(page, cdpClient, action, viewport) {
+    const actionType = action.action || action.type;
 
-    // Try to open the side panel via CDP
-    // The extension registers a side panel, we trigger it via the action button
+    switch (actionType) {
+        case 'left_click':
+        case 'click': {
+            const { coordinate } = action;
+            if (!coordinate || coordinate.length !== 2) {
+                console.error(`[!] Invalid click coordinate: ${JSON.stringify(coordinate)}`);
+                return;
+            }
+            const [x, y] = coordinate;
+            console.error(`[*] Click at (${x}, ${y})`);
+            await page.mouse.click(x, y);
+            await sleep(500);
+            break;
+        }
+
+        case 'right_click': {
+            const { coordinate } = action;
+            if (coordinate && coordinate.length === 2) {
+                const [x, y] = coordinate;
+                console.error(`[*] Right-click at (${x}, ${y})`);
+                await page.mouse.click(x, y, { button: 'right' });
+                await sleep(500);
+            }
+            break;
+        }
+
+        case 'middle_click': {
+            const { coordinate } = action;
+            if (coordinate && coordinate.length === 2) {
+                const [x, y] = coordinate;
+                console.error(`[*] Middle-click at (${x}, ${y})`);
+                await page.mouse.click(x, y, { button: 'middle' });
+                await sleep(500);
+            }
+            break;
+        }
+
+        case 'double_click': {
+            const { coordinate } = action;
+            if (coordinate && coordinate.length === 2) {
+                const [x, y] = coordinate;
+                console.error(`[*] Double-click at (${x}, ${y})`);
+                await page.mouse.click(x, y, { clickCount: 2 });
+                await sleep(500);
+            }
+            break;
+        }
+
+        case 'triple_click': {
+            const { coordinate } = action;
+            if (coordinate && coordinate.length === 2) {
+                const [x, y] = coordinate;
+                console.error(`[*] Triple-click at (${x}, ${y})`);
+                await page.mouse.click(x, y, { clickCount: 3 });
+                await sleep(500);
+            }
+            break;
+        }
+
+        case 'type': {
+            const { text } = action;
+            if (!text) { console.error('[!] No text to type'); return; }
+            console.error(`[*] Type: "${text.slice(0, 50)}${text.length > 50 ? '...' : ''}"`);
+            await page.keyboard.type(text, { delay: 30 });
+            await sleep(300);
+            break;
+        }
+
+        case 'key': {
+            const keyVal = action.key || action.text;
+            if (!keyVal) { console.error('[!] No key specified'); return; }
+            console.error(`[*] Key: ${keyVal}`);
+            // Map computer_use key names to puppeteer equivalents
+            const keyMap = {
+                'Return': 'Enter',
+                'enter': 'Enter',
+                'space': 'Space',
+                'tab': 'Tab',
+                'Tab': 'Tab',
+                'escape': 'Escape',
+                'Escape': 'Escape',
+                'backspace': 'Backspace',
+                'BackSpace': 'Backspace',
+                'delete': 'Delete',
+                'Delete': 'Delete',
+                'up': 'ArrowUp',
+                'Up': 'ArrowUp',
+                'down': 'ArrowDown',
+                'Down': 'ArrowDown',
+                'left': 'ArrowLeft',
+                'Left': 'ArrowLeft',
+                'right': 'ArrowRight',
+                'Right': 'ArrowRight',
+                'page_up': 'PageUp',
+                'Page_Up': 'PageUp',
+                'page_down': 'PageDown',
+                'Page_Down': 'PageDown',
+                'home': 'Home',
+                'Home': 'Home',
+                'end': 'End',
+                'End': 'End',
+                'F1': 'F1', 'F2': 'F2', 'F3': 'F3', 'F4': 'F4',
+                'F5': 'F5', 'F6': 'F6', 'F7': 'F7', 'F8': 'F8',
+                'F9': 'F9', 'F10': 'F10', 'F11': 'F11', 'F12': 'F12',
+            };
+            const mappedKey = keyMap[keyVal] || keyVal;
+            await page.keyboard.press(mappedKey);
+            await sleep(300);
+            break;
+        }
+
+        case 'scroll': {
+            const { coordinate, scroll_direction, scroll_amount } = action;
+            const direction = scroll_direction || action.direction || 'down';
+            const amount = (scroll_amount || 3) * 120; // scroll_amount is in "clicks"
+            const [x, y] = coordinate || [viewport.width / 2, viewport.height / 2];
+            const isVertical = direction === 'up' || direction === 'down';
+            const scrollPx = direction === 'up' || direction === 'left' ? -amount : amount;
+
+            console.error(`[*] Scroll ${direction} ${amount}px at (${x}, ${y})`);
+            await page.mouse.move(x, y);
+            await page.evaluate(({ sx, sy, vert }) => {
+                window.scrollBy(vert ? 0 : sx, vert ? sy : 0);
+            }, { sx: scrollPx, sy: scrollPx, vert: isVertical });
+            await sleep(500);
+            break;
+        }
+
+        case 'mouse_move': {
+            const { coordinate } = action;
+            if (coordinate && coordinate.length === 2) {
+                const [x, y] = coordinate;
+                console.error(`[*] Mouse move to (${x}, ${y})`);
+                await page.mouse.move(x, y);
+                await sleep(200);
+            }
+            break;
+        }
+
+        case 'left_click_drag': {
+            const { start_coordinate, coordinate } = action;
+            if (start_coordinate && coordinate) {
+                const [sx, sy] = start_coordinate;
+                const [ex, ey] = coordinate;
+                console.error(`[*] Drag from (${sx}, ${sy}) to (${ex}, ${ey})`);
+                await page.mouse.move(sx, sy);
+                await page.mouse.down();
+                await page.mouse.move(ex, ey, { steps: 10 });
+                await page.mouse.up();
+                await sleep(500);
+            }
+            break;
+        }
+
+        case 'wait': {
+            const waitMs = (action.duration || 2) * 1000;
+            console.error(`[*] Wait ${waitMs}ms`);
+            await sleep(waitMs);
+            break;
+        }
+
+        case 'screenshot': {
+            console.error('[*] Screenshot requested (will be taken on next loop)');
+            break;
+        }
+
+        default:
+            console.error(`[!] Unknown action type: ${actionType}`);
+    }
+}
+
+/**
+ * Call the Anthropic Messages API.
+ *
+ * Uses curl as a subprocess for reliable proxy support. The Anthropic Node SDK
+ * doesn't handle all proxy configurations (e.g. corporate JWT-auth proxies),
+ * while curl respects HTTP_PROXY/HTTPS_PROXY environment variables universally.
+ */
+function callAnthropicAPI(body) {
+    const apiKey = getEnv('ANTHROPIC_API_KEY');
+    const bodyJson = JSON.stringify(body);
+
+    // Write body to temp file to avoid shell escaping issues with large payloads
+    const tmpFile = path.join(OUTPUT_DIR, '.api_request.tmp.json');
+    fs.writeFileSync(tmpFile, bodyJson);
+
     try {
-        // Find extension targets (service worker or popup)
-        const targets = await browser.targets();
-        const extTarget = targets.find(t => {
-            const url = t.url();
-            return url.startsWith(`chrome-extension://${extensionId}`);
-        });
+        const result = execFileSync('curl', [
+            '-s', '--connect-timeout', '30', '--max-time', '120',
+            '-X', 'POST', 'https://api.anthropic.com/v1/messages',
+            '-H', 'Content-Type: application/json',
+            '-H', `x-api-key: ${apiKey}`,
+            '-H', 'anthropic-version: 2023-06-01',
+            '-H', 'anthropic-beta: computer-use-2025-01-24',
+            '-d', `@${tmpFile}`,
+        ], { encoding: 'utf-8', timeout: 130000, maxBuffer: 50 * 1024 * 1024 });
 
-        if (!extTarget) {
-            console.error('[!] Extension target not found - extension may not be running');
-            return { success: false, conversation, error: 'Extension target not found' };
+        return JSON.parse(result);
+    } finally {
+        try { fs.unlinkSync(tmpFile); } catch (e) {}
+    }
+}
+
+/**
+ * Run the agentic computer-use loop.
+ *
+ * 1. Take screenshot
+ * 2. Send to Claude with prompt
+ * 3. Execute any actions Claude returns
+ * 4. Repeat until Claude returns text-only (no more actions) or max iterations
+ */
+async function runComputerUseLoop(page, cdpClient, prompt, options) {
+    const {
+        model,
+        timeout,
+        maxActions,
+        viewport,
+    } = options;
+
+    const conversation = [];
+    const startTime = Date.now();
+
+    // Take initial screenshot
+    console.error('[*] Taking initial screenshot...');
+    const initialScreenshot = await takeScreenshot(cdpClient, viewport);
+
+    // Save initial screenshot to output
+    fs.writeFileSync(path.join(OUTPUT_DIR, 'screenshot_initial.png'),
+        Buffer.from(initialScreenshot, 'base64'));
+
+    // Build initial messages
+    const messages = [
+        {
+            role: 'user',
+            content: [
+                {
+                    type: 'image',
+                    source: {
+                        type: 'base64',
+                        media_type: 'image/png',
+                        data: initialScreenshot,
+                    },
+                },
+                {
+                    type: 'text',
+                    text: prompt,
+                },
+            ],
+        },
+    ];
+
+    conversation.push({ role: 'user', text: prompt });
+
+    let actionCount = 0;
+
+    for (let iteration = 0; iteration < maxActions; iteration++) {
+        if (Date.now() - startTime > timeout * 1000) {
+            console.error(`[!] Timeout reached after ${iteration} iterations`);
+            conversation.push({ role: 'system', text: `Timeout after ${iteration} iterations` });
+            break;
         }
 
-        // Try to open side panel by clicking the extension's action button
-        // This uses CDP to simulate the toolbar button click
-        const tabId = page.target()._targetId;
+        console.error(`[*] API call ${iteration + 1}/${maxActions}...`);
 
-        // Try using chrome.sidePanel.open via the service worker
-        let workerTarget = targets.find(t =>
-            t.type() === 'service_worker' &&
-            t.url().startsWith(`chrome-extension://${extensionId}`)
-        );
-
-        if (workerTarget) {
-            try {
-                const worker = await workerTarget.worker();
-                if (worker) {
-                    await worker.evaluate(`
-                        chrome.sidePanel.open({ tabId: ${JSON.stringify(tabId)} })
-                            .catch(e => console.error('sidePanel.open failed:', e));
-                    `);
-                    await sleep(3000);
-                    console.error('[+] Side panel opened via service worker');
-                }
-            } catch (e) {
-                console.error(`[*] Service worker sidePanel.open: ${e.message}`);
+        let response;
+        try {
+            response = callAnthropicAPI({
+                model,
+                max_tokens: 4096,
+                system: 'You are controlling a web browser via computer use. ' +
+                    'You can see the current page screenshot and interact with it. ' +
+                    'Execute the user\'s request by clicking, typing, scrolling, etc. ' +
+                    'When you have completed the task (or determined it cannot be done), ' +
+                    'respond with only a text message explaining what you did. ' +
+                    'Do NOT use the computer tool once you are done.',
+                tools: [
+                    {
+                        type: 'computer_20250124',
+                        name: 'computer',
+                        display_width_px: viewport.width,
+                        display_height_px: viewport.height,
+                        display_number: 1,
+                    },
+                ],
+                messages,
+            });
+            if (response.type === 'error') {
+                throw new Error(`${response.error.type}: ${response.error.message}`);
             }
+        } catch (e) {
+            console.error(`[!] API error: ${e.message}`);
+            conversation.push({ role: 'error', text: `API error: ${e.message}` });
+            break;
         }
 
-        // Find the side panel page
-        await sleep(2000);
-        const allPages = await browser.pages();
-        let sidePanelPage = allPages.find(p => {
-            const url = p.url();
-            return url.startsWith(`chrome-extension://${extensionId}`) &&
-                (url.includes('sidepanel') || url.includes('side_panel') || url.includes('panel'));
-        });
+        // Process response content
+        const assistantContent = response.content;
+        let hasToolUse = false;
+        let textParts = [];
 
-        if (!sidePanelPage) {
-            // Try to find any extension page that might be the UI
-            sidePanelPage = allPages.find(p =>
-                p.url().startsWith(`chrome-extension://${extensionId}`) &&
-                !p.url().includes('background')
-            );
-        }
+        for (const block of assistantContent) {
+            if (block.type === 'text') {
+                textParts.push(block.text);
+            } else if (block.type === 'tool_use') {
+                hasToolUse = true;
+                actionCount++;
+                const action = block.input;
+                console.error(`[*] Action ${actionCount}: ${action.action || action.type || 'unknown'}`);
 
-        if (!sidePanelPage) {
-            console.error('[!] Could not find extension side panel page');
-            console.error('[*] Available pages:');
-            for (const p of allPages) {
-                console.error(`    ${p.url()}`);
-            }
-            return { success: false, conversation, error: 'Side panel not found' };
-        }
-
-        console.error(`[+] Found extension UI at: ${sidePanelPage.url()}`);
-
-        // Wait for the UI to be ready
-        await sleep(2000);
-
-        // Find the text input area and type the prompt
-        // Claude for Chrome uses a textarea or contenteditable div for input
-        const inputResult = await sidePanelPage.evaluate(async (promptText) => {
-            // Try common input selectors
-            const selectors = [
-                'textarea',
-                '[contenteditable="true"]',
-                'input[type="text"]',
-                '[role="textbox"]',
-                '.ProseMirror',
-                '[data-placeholder]',
-            ];
-
-            for (const sel of selectors) {
-                const el = document.querySelector(sel);
-                if (el) {
-                    if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
-                        el.value = promptText;
-                        el.dispatchEvent(new Event('input', { bubbles: true }));
-                        el.dispatchEvent(new Event('change', { bubbles: true }));
-                    } else {
-                        el.textContent = promptText;
-                        el.dispatchEvent(new Event('input', { bubbles: true }));
-                    }
-                    return { found: true, selector: sel };
+                // Execute the action
+                try {
+                    await executeAction(page, cdpClient, {
+                        type: action.action || action.type,
+                        ...action,
+                    }, viewport);
+                } catch (e) {
+                    console.error(`[!] Action failed: ${e.message}`);
                 }
-            }
-            return { found: false };
-        }, prompt);
 
-        if (!inputResult.found) {
-            console.error('[!] Could not find input field in extension UI');
-            return { success: false, conversation, error: 'Input field not found' };
-        }
+                // Wait for page to settle after action
+                await sleep(1000);
 
-        console.error(`[+] Typed prompt into ${inputResult.selector}`);
+                // Take a new screenshot after the action
+                const screenshot = await takeScreenshot(cdpClient, viewport);
 
-        // Submit the prompt (press Enter or click submit button)
-        await sidePanelPage.evaluate(() => {
-            // Try clicking a submit button first
-            const submitSelectors = [
-                'button[type="submit"]',
-                'button[aria-label*="send" i]',
-                'button[aria-label*="submit" i]',
-                'button:has(svg)',  // Icon-only button (common for chat UIs)
-            ];
+                // Save intermediate screenshot
+                fs.writeFileSync(
+                    path.join(OUTPUT_DIR, `screenshot_${String(actionCount).padStart(3, '0')}.png`),
+                    Buffer.from(screenshot, 'base64')
+                );
 
-            for (const sel of submitSelectors) {
-                const btn = document.querySelector(sel);
-                if (btn && !btn.disabled) {
-                    btn.click();
-                    return true;
-                }
-            }
+                // Add assistant message and tool result to conversation
+                messages.push({ role: 'assistant', content: assistantContent });
+                messages.push({
+                    role: 'user',
+                    content: [
+                        {
+                            type: 'tool_result',
+                            tool_use_id: block.id,
+                            content: [
+                                {
+                                    type: 'image',
+                                    source: {
+                                        type: 'base64',
+                                        media_type: 'image/png',
+                                        data: screenshot,
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                });
 
-            // Fallback: press Enter on the input
-            const input = document.querySelector('textarea, [contenteditable="true"], input[type="text"]');
-            if (input) {
-                input.dispatchEvent(new KeyboardEvent('keydown', {
-                    key: 'Enter',
-                    code: 'Enter',
-                    bubbles: true,
-                }));
-                return true;
-            }
-            return false;
-        });
-
-        console.error('[*] Prompt submitted, waiting for response...');
-
-        // Wait for the response to complete
-        // Poll for new content and detect when the agent stops
-        let lastContent = '';
-        let stableCount = 0;
-        const pollInterval = 3000;
-        const maxStable = 5; // 5 * 3s = 15s of no change = done
-
-        while (Date.now() - startTime < timeout * 1000) {
-            await sleep(pollInterval);
-
-            const content = await sidePanelPage.evaluate(() => {
-                // Capture all visible text in the chat area
-                const chatSelectors = [
-                    '[role="log"]',
-                    '.messages',
-                    '.chat-messages',
-                    '.conversation',
-                    'main',
-                    '#root',
-                ];
-
-                for (const sel of chatSelectors) {
-                    const el = document.querySelector(sel);
-                    if (el && el.textContent.trim().length > 0) {
-                        return el.textContent.trim();
-                    }
-                }
-                return document.body?.textContent?.trim() || '';
-            }).catch(() => '');
-
-            if (content === lastContent) {
-                stableCount++;
-                if (stableCount >= maxStable) {
-                    console.error('[+] Response appears complete (content stable)');
-                    break;
-                }
-            } else {
-                stableCount = 0;
-                lastContent = content;
-                console.error(`[*] Response growing... (${content.length} chars)`);
-            }
-
-            // Check for loading/thinking indicators
-            const isLoading = await sidePanelPage.evaluate(() => {
-                const loadingSelectors = [
-                    '.loading', '.spinner', '[aria-busy="true"]',
-                    '.thinking', '.generating',
-                ];
-                return loadingSelectors.some(sel => document.querySelector(sel) !== null);
-            }).catch(() => false);
-
-            if (!isLoading && stableCount >= 2) {
-                console.error('[+] Response complete (no loading indicator)');
+                // Only process the first tool_use per response
                 break;
             }
         }
 
-        // Capture the final conversation
-        const finalContent = await sidePanelPage.evaluate(() => {
-            // Get structured conversation if possible
-            const messages = document.querySelectorAll('[data-role], [class*="message"]');
-            if (messages.length > 0) {
-                return Array.from(messages).map(m => ({
-                    role: m.getAttribute('data-role') ||
-                        (m.className.includes('user') ? 'user' : 'assistant'),
-                    text: m.textContent.trim(),
-                }));
-            }
-            // Fallback to raw text
-            return document.body?.textContent?.trim() || '';
-        }).catch(() => lastContent);
-
-        if (typeof finalContent === 'string') {
-            conversation.push({ role: 'full_text', text: finalContent });
-        } else {
-            conversation.push(...finalContent);
+        if (textParts.length > 0) {
+            const text = textParts.join('\n');
+            conversation.push({ role: 'assistant', text });
+            console.error(`[*] Claude: ${text.slice(0, 200)}${text.length > 200 ? '...' : ''}`);
         }
 
-        try { await sidePanelPage.close(); } catch (e) {}
+        // If no tool use, Claude is done
+        if (!hasToolUse) {
+            console.error('[+] Claude finished (no more actions requested)');
+            break;
+        }
 
-        return { success: true, conversation };
-
-    } catch (e) {
-        console.error(`[!] Error running Claude on page: ${e.message}`);
-        return { success: false, conversation, error: e.message };
+        // If stop_reason is end_turn with no tool use, we're done
+        if (response.stop_reason === 'end_turn' && !hasToolUse) {
+            break;
+        }
     }
+
+    // Take final screenshot
+    const finalScreenshot = await takeScreenshot(cdpClient, viewport);
+    fs.writeFileSync(path.join(OUTPUT_DIR, 'screenshot_final.png'),
+        Buffer.from(finalScreenshot, 'base64'));
+
+    return {
+        success: true,
+        conversation,
+        actionCount,
+        iterations: Math.min(actionCount + 1, maxActions),
+    };
 }
 
 async function main() {
@@ -411,6 +583,9 @@ async function main() {
 
     const prompt = getEnv('CLAUDECHROME_PROMPT', DEFAULT_PROMPT);
     const timeout = getEnvInt('CLAUDECHROME_TIMEOUT', 120);
+    const maxActions = getEnvInt('CLAUDECHROME_MAX_ACTIONS', 15);
+    const modelInput = getEnv('CLAUDECHROME_MODEL', 'sonnet');
+    const model = MODEL_MAP[modelInput] || modelInput;
 
     let browser = null;
 
@@ -433,21 +608,30 @@ async function main() {
         const page = connection.page;
         await waitForPageLoaded(CHROME_SESSION_DIR, connectTimeoutMs * 4, 200);
 
-        // Set download directory so any files Claude triggers go to a known location
+        // Set download directory
         await setDownloadDir(page, DOWNLOADS_DIR);
 
-        console.error(`[*] Running Claude for Chrome on ${url}`);
+        // Get viewport dimensions
+        const viewport = await page.evaluate(() => ({
+            width: window.innerWidth || 1280,
+            height: window.innerHeight || 720,
+        }));
 
-        // Get extension ID from session metadata
-        const sessionExtensions = await waitForExtensionsMetadata(CHROME_SESSION_DIR, 15000);
-        const extMeta = findExtensionMetadataByName(sessionExtensions, 'claudechrome');
+        console.error(`[*] Viewport: ${viewport.width}x${viewport.height}`);
+        console.error(`[*] Model: ${model}`);
+        console.error(`[*] Running Claude on ${url}`);
+        console.error(`[*] Prompt: ${prompt.slice(0, 150)}...`);
 
-        if (!extMeta || !extMeta.id) {
-            throw new Error('Claude for Chrome extension not found in session metadata');
-        }
+        // Create CDP session for screenshots
+        const cdpClient = await page.target().createCDPSession();
 
-        // Run Claude on the page
-        const result = await runClaudeOnPage(browser, page, extMeta.id, prompt, timeout);
+        // Run the computer-use agentic loop
+        const result = await runComputerUseLoop(page, cdpClient, prompt, {
+            model,
+            timeout,
+            maxActions,
+            viewport,
+        });
 
         browser.disconnect();
         browser = null;
@@ -458,23 +642,25 @@ async function main() {
             url,
             snapshotId,
             prompt,
+            model,
             timestamp: new Date().toISOString(),
             success: result.success,
-            error: result.error || null,
+            actionCount: result.actionCount,
             conversation: result.conversation,
         }, null, 2));
         console.error(`[+] Conversation saved to ${logPath}`);
 
-        // Also save a human-readable version
+        // Save human-readable version
         const readablePath = path.join(OUTPUT_DIR, 'conversation.txt');
-        let readableText = `URL: ${url}\nPrompt: ${prompt}\nTimestamp: ${new Date().toISOString()}\n\n`;
+        let readableText = `URL: ${url}\nModel: ${model}\nPrompt: ${prompt}\n`;
+        readableText += `Timestamp: ${new Date().toISOString()}\n`;
+        readableText += `Actions taken: ${result.actionCount}\n\n`;
         for (const msg of result.conversation) {
             readableText += `--- ${msg.role || 'unknown'} ---\n${msg.text}\n\n`;
         }
         fs.writeFileSync(readablePath, readableText);
 
-        // Move any new downloads to the output directory
-        // Wait briefly for any in-progress downloads to complete
+        // Move any new downloads
         await sleep(2000);
         const movedFiles = await moveNewDownloads(DOWNLOADS_DIR, OUTPUT_DIR, previousDownloads);
         if (movedFiles.length > 0) {
@@ -482,13 +668,10 @@ async function main() {
         }
 
         // Emit result
-        const outputFiles = [];
-        if (fs.existsSync(logPath)) outputFiles.push('conversation.json');
+        const outputFiles = ['conversation.json'];
         outputFiles.push(...movedFiles);
 
-        const outputStr = outputFiles.length > 0
-            ? outputFiles.join(', ')
-            : (result.success ? 'completed' : result.error || 'failed');
+        const outputStr = `${result.actionCount} actions, ${outputFiles.join(', ')}`;
 
         console.log(JSON.stringify({
             type: 'ArchiveResult',
