@@ -8,13 +8,13 @@
 """
 Clean up redundant/duplicate snapshot outputs using Claude Code AI agent.
 
-Runs at the end of the snapshot pipeline (priority 99) to analyze all
-extractor outputs, identify duplicates and redundant files, and keep
-only the best version of each.
+Runs near the end of the snapshot pipeline (priority 92, before hashes at 93)
+to analyze all extractor outputs, identify duplicates and redundant files,
+and keep only the best version of each.
 
 Requires the claudecode plugin to have installed Claude Code CLI.
 
-Usage: on_Snapshot__99_claudecodecleanup.py --url=<url> --snapshot-id=<uuid>
+Usage: on_Snapshot__92_claudecodecleanup.py --url=<url> --snapshot-id=<uuid>
 Output: Creates claudecodecleanup/ directory with cleanup_report.txt
 
 Environment variables:

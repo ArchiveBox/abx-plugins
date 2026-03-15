@@ -226,6 +226,7 @@ class TestClaudeCodeExtractIntegration:
     """Integration tests that run the full extract pipeline with real Claude Code.
 
     These tests require claude binary in PATH and ANTHROPIC_API_KEY set.
+    No skip decorators — CI always has these prerequisites configured.
     """
 
     def test_extract_generates_markdown_from_snapshot(self):

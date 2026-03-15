@@ -281,6 +281,7 @@ class TestClaudeCodeIntegration:
     """Integration tests that actually run Claude Code CLI.
 
     These tests require claude binary in PATH and ANTHROPIC_API_KEY set.
+    No skip decorators — CI always has these prerequisites configured.
     """
 
     def test_run_claude_code_simple_prompt(self):

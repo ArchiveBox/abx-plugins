@@ -4,7 +4,7 @@ Tests for the claudecodecleanup plugin.
 Tests verify:
 1. Hook script exists
 2. Config schema is valid and declares claudecode dependency
-3. Hook runs at priority 99 (end of pipeline)
+3. Hook runs at priority 92 (before hashes at 93)
 4. Hook skips when disabled
 5. Hook fails gracefully when API key is missing
 6. Hook fails gracefully when claude binary is not found
@@ -293,6 +293,7 @@ class TestClaudeCodeCleanupIntegration:
     """Integration tests that run the full cleanup pipeline with real Claude Code.
 
     These tests require claude binary in PATH and ANTHROPIC_API_KEY set.
+    No skip decorators — CI always has these prerequisites configured.
     """
 
     def test_cleanup_produces_report(self):
@@ -401,6 +402,11 @@ class TestClaudeCodeCleanupIntegration:
             assert archive_results, f"No ArchiveResult. stderr: {result.stderr[:500]}"
             assert archive_results[-1]["status"] == "succeeded", (
                 f"Should succeed: {result.stderr[:500]}"
+            )
+
+            # Verify broken_extractor/ was actually deleted
+            assert not (snap_dir / "broken_extractor").exists(), (
+                "broken_extractor/ should have been deleted by cleanup"
             )
 
             # Verify hashes preserved (must survive even when deletion is enabled)
