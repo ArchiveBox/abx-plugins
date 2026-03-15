@@ -109,7 +109,7 @@ CHROME_UTILS = CHROME_PLUGIN_DIR / "chrome_utils.js"
 PUPPETEER_BINARY_HOOK = (
     PLUGINS_ROOT / "puppeteer" / "on_Binary__12_puppeteer_install.py"
 )
-PUPPETEER_CRAWL_HOOK = PLUGINS_ROOT / "puppeteer" / "on_Crawl__60_puppeteer_install.finite.bg.py"
+PUPPETEER_CRAWL_HOOK = PLUGINS_ROOT / "puppeteer" / "on_Crawl__60_puppeteer_install.py"
 NPM_BINARY_HOOK = PLUGINS_ROOT / "npm" / "on_Binary__10_npm_install.py"
 
 

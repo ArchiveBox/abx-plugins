@@ -24,6 +24,7 @@ NPM_BINARY_HOOK = PLUGIN_DIR.parent / "npm" / "on_Binary__10_npm_install.py"
 def test_hook_scripts_exist():
     assert CRAWL_HOOK and CRAWL_HOOK.exists(), f"Hook not found: {CRAWL_HOOK}"
     assert BINARY_HOOK and BINARY_HOOK.exists(), f"Hook not found: {BINARY_HOOK}"
+    assert CRAWL_HOOK.name == "on_Crawl__60_puppeteer_install.py"
 
 
 def test_crawl_hook_emits_puppeteer_binary():
