@@ -19,7 +19,7 @@ classifiers = [
     "Environment :: Console",
 ]
 dependencies = [
-    "abx-pkg>=0.6.5",
+    "abx-pkg>=0.7.0",
     "feedparser>=6.0.0",
     "pydantic-settings>=2.0.0",
     "pyright>=1.1.408",
