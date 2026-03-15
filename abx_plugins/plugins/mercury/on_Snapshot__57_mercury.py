@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#   "pydantic-settings",
 #   "rich-click",
 # ]
 # ///
@@ -21,7 +22,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, get_env_bool, get_env_int, get_env_array, emit_archive_result, write_text_atomic
+from base.utils import load_config, emit_archive_result, write_text_atomic
 
 import rich_click as click
 
@@ -46,9 +47,10 @@ def extract_mercury(url: str, binary: str) -> tuple[str, str]:
 
     Returns: (success, output_path, error_message)
     """
-    timeout = get_env_int("MERCURY_TIMEOUT") or get_env_int("TIMEOUT", 60)
-    mercury_args = get_env_array("MERCURY_ARGS", [])
-    mercury_args_extra = get_env_array("MERCURY_ARGS_EXTRA", [])
+    config = load_config()
+    timeout = config.MERCURY_TIMEOUT
+    mercury_args = config.MERCURY_ARGS
+    mercury_args_extra = config.MERCURY_ARGS_EXTRA
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
@@ -147,14 +149,16 @@ def main(url: str, snapshot_id: str):
     """Extract article content using Postlight's Mercury Parser."""
 
     try:
+        config = load_config()
+
         # Check if mercury extraction is enabled
-        if not get_env_bool("MERCURY_ENABLED", True):
+        if not config.MERCURY_ENABLED:
             print("Skipping mercury (MERCURY_ENABLED=False)", file=sys.stderr)
             emit_archive_result("skipped", "MERCURY_ENABLED=False")
             sys.exit(0)
 
         # Get binary from environment
-        binary = get_env("MERCURY_BINARY", "postlight-parser")
+        binary = config.MERCURY_BINARY
 
         # Run extraction
         status, output = extract_mercury(url, binary)

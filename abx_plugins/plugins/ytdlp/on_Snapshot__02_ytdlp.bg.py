@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#     "pydantic-settings",
 #     "rich-click",
 # ]
 # ///
@@ -31,7 +32,7 @@ import threading
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, get_env_bool, get_env_int, get_env_array, has_staticfile_output
+from base.utils import load_config, has_staticfile_output
 
 import rich_click as click
 
@@ -66,18 +67,15 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     Returns: (success, output_path, error_message)
     """
-    # Get config from env (with YTDLP_ prefix, x-fallback handled by config loader)
-    timeout = get_env_int("YTDLP_TIMEOUT") or get_env_int("TIMEOUT", 3600)
-    check_ssl = (
-        get_env_bool("YTDLP_CHECK_SSL_VALIDITY", True)
-        if get_env("YTDLP_CHECK_SSL_VALIDITY")
-        else get_env_bool("CHECK_SSL_VALIDITY", True)
-    )
-    cookies_file = get_env("YTDLP_COOKIES_FILE") or get_env("COOKIES_FILE", "")
-    max_size = get_env("YTDLP_MAX_SIZE", "750m")
-    node_binary = get_env("YTDLP_NODE_BINARY") or get_env("NODE_BINARY", "node")
-    ytdlp_args = get_env_array("YTDLP_ARGS", [])
-    ytdlp_args_extra = get_env_array("YTDLP_ARGS_EXTRA", [])
+    # Load config from config.json (auto-resolves x-aliases and x-fallback from env)
+    config = load_config()
+    timeout = config.YTDLP_TIMEOUT
+    check_ssl = config.YTDLP_CHECK_SSL_VALIDITY
+    cookies_file = config.YTDLP_COOKIES_FILE
+    max_size = config.YTDLP_MAX_SIZE
+    node_binary = config.YTDLP_NODE_BINARY
+    ytdlp_args = config.YTDLP_ARGS
+    ytdlp_args_extra = config.YTDLP_ARGS_EXTRA
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(".")
@@ -230,8 +228,10 @@ def main(url: str, snapshot_id: str):
     """Download video/audio from a URL using yt-dlp."""
 
     try:
+        config = load_config()
+
         # Check if yt-dlp downloading is enabled
-        if not get_env_bool("YTDLP_ENABLED", True):
+        if not config.YTDLP_ENABLED:
             print("Skipping ytdlp (YTDLP_ENABLED=False)", file=sys.stderr)
             print(json.dumps({
                 "type": "ArchiveResult",
@@ -258,7 +258,7 @@ def main(url: str, snapshot_id: str):
             sys.exit(0)
 
         # Get binary from environment
-        binary = get_env("YTDLP_BINARY", "yt-dlp")
+        binary = config.YTDLP_BINARY
 
         # Run extraction
         success, output, error = save_ytdlp(url, binary)

@@ -2,7 +2,8 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#   "click",
+#   "pydantic-settings",
+#   "rich-click",
 #   "requests",
 # ]
 # ///
@@ -20,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, get_env_int
+from base.utils import load_config
 
 import rich_click as click
 
@@ -50,8 +51,9 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
     except ModuleNotFoundError:
         return False, None, "requests library not installed"
 
-    timeout = get_env_int("ARCHIVEDOTORG_TIMEOUT") or get_env_int("TIMEOUT", 60)
-    user_agent = get_env("USER_AGENT", "Mozilla/5.0 (compatible; ArchiveBox/1.0)")
+    config = load_config()
+    timeout = config.ARCHIVEDOTORG_TIMEOUT
+    user_agent = config.ARCHIVEDOTORG_USER_AGENT or "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
 
     submit_url = f"https://web.archive.org/save/{url}"
     log(f"Submitting to Wayback Machine (timeout={timeout}s)")
@@ -114,8 +116,10 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
 def main(url: str, snapshot_id: str):
     """Submit a URL to archive.org for archiving."""
 
+    config = load_config()
+
     # Check if feature is enabled
-    if get_env("ARCHIVEDOTORG_ENABLED", "True").lower() in ("false", "0", "no", "off"):
+    if not config.ARCHIVEDOTORG_ENABLED:
         print(
             "Skipping archive.org submission (ARCHIVEDOTORG_ENABLED=False)",
             file=sys.stderr,

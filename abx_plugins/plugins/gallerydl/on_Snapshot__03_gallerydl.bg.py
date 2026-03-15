@@ -2,7 +2,8 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#   "click",
+#   "pydantic-settings",
+#   "rich-click",
 # ]
 # ///
 #
@@ -20,7 +21,7 @@ import threading
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, get_env_bool, get_env_int, get_env_array, has_staticfile_output
+from base.utils import load_config, has_staticfile_output
 
 import rich_click as click
 
@@ -59,16 +60,13 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     Returns: (success, output_path, error_message)
     """
-    # Get config from env (with GALLERYDL_ prefix, x-fallback handled by config loader)
-    timeout = get_env_int("GALLERYDL_TIMEOUT") or get_env_int("TIMEOUT", 3600)
-    check_ssl = (
-        get_env_bool("GALLERYDL_CHECK_SSL_VALIDITY", True)
-        if get_env("GALLERYDL_CHECK_SSL_VALIDITY")
-        else get_env_bool("CHECK_SSL_VALIDITY", True)
-    )
-    gallerydl_args = get_env_array("GALLERYDL_ARGS", [])
-    gallerydl_args_extra = get_env_array("GALLERYDL_ARGS_EXTRA", [])
-    cookies_file = get_env("GALLERYDL_COOKIES_FILE") or get_env("COOKIES_FILE", "")
+    # Load config from config.json (auto-resolves x-aliases and x-fallback from env)
+    config = load_config()
+    timeout = config.GALLERYDL_TIMEOUT
+    check_ssl = config.GALLERYDL_CHECK_SSL_VALIDITY
+    gallerydl_args = config.GALLERYDL_ARGS
+    gallerydl_args_extra = config.GALLERYDL_ARGS_EXTRA
+    cookies_file = config.GALLERYDL_COOKIES_FILE
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
@@ -201,8 +199,10 @@ def main(url: str, snapshot_id: str):
     error = ""
 
     try:
+        config = load_config()
+
         # Check if gallery-dl is enabled
-        if not get_env_bool("GALLERYDL_ENABLED", True):
+        if not config.GALLERYDL_ENABLED:
             print("Skipping gallery-dl (GALLERYDL_ENABLED=False)", file=sys.stderr)
             print(json.dumps({
                 "type": "ArchiveResult",
@@ -229,7 +229,7 @@ def main(url: str, snapshot_id: str):
             sys.exit(0)
 
         # Get binary from environment
-        binary = get_env("GALLERYDL_BINARY", "gallery-dl")
+        binary = config.GALLERYDL_BINARY
 
         # Run extraction
         success, output, error = save_gallery(url, binary)

@@ -2,7 +2,8 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#   "click",
+#   "pydantic-settings",
+#   "rich-click",
 #   "forum-dl",
 #   "pydantic",
 # ]
@@ -24,7 +25,7 @@ import threading
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, get_env_bool, get_env_int, get_env_array
+from base.utils import load_config
 
 import rich_click as click
 
@@ -77,11 +78,12 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     Returns: (success, output_path, error_message)
     """
-    # Get config from env (with FORUMDL_ prefix, x-fallback handled by config loader)
-    timeout = get_env_int("FORUMDL_TIMEOUT") or get_env_int("TIMEOUT", 3600)
-    forumdl_args = get_env_array("FORUMDL_ARGS", [])
-    forumdl_args_extra = get_env_array("FORUMDL_ARGS_EXTRA", [])
-    output_format = get_env("FORUMDL_OUTPUT_FORMAT", "jsonl")
+    # Load config from config.json (auto-resolves x-aliases and x-fallback from env)
+    config = load_config()
+    timeout = config.FORUMDL_TIMEOUT
+    forumdl_args = config.FORUMDL_ARGS
+    forumdl_args_extra = config.FORUMDL_ARGS_EXTRA
+    output_format = config.FORUMDL_OUTPUT_FORMAT
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
@@ -209,8 +211,10 @@ def main(url: str, snapshot_id: str):
     error = ""
 
     try:
+        config = load_config()
+
         # Check if forum-dl is enabled
-        if not get_env_bool("FORUMDL_ENABLED", True):
+        if not config.FORUMDL_ENABLED:
             print("Skipping forum-dl (FORUMDL_ENABLED=False)", file=sys.stderr)
             print(json.dumps({
                 "type": "ArchiveResult",
@@ -220,7 +224,7 @@ def main(url: str, snapshot_id: str):
             sys.exit(0)
 
         # Get binary from environment
-        binary = get_env("FORUMDL_BINARY", "forum-dl")
+        binary = config.FORUMDL_BINARY
 
         # Run extraction
         success, output, error = save_forum(url, binary)

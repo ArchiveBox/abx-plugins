@@ -1,7 +1,9 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = []
+# dependencies = [
+#   "pydantic-settings",
+# ]
 # ///
 """Extract article content using trafilatura from local HTML snapshots."""
 
@@ -14,7 +16,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, get_env_bool, get_env_int, get_env_array, emit_archive_result, write_text_atomic, find_html_source
+from base.utils import load_config, emit_archive_result, write_text_atomic, find_html_source
 
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
@@ -60,9 +62,10 @@ sys.stdout.write(result)
 
 
 def get_enabled_formats() -> list[str]:
+    config = load_config()
     return [
         fmt for env_name, fmt in OUTPUT_ENV_TO_FORMAT.items()
-        if get_env_bool(env_name, fmt in {"txt", "markdown", "html"})
+        if getattr(config, env_name, fmt in {"txt", "markdown", "html"})
     ]
 
 
@@ -104,7 +107,8 @@ def run_trafilatura(
 
 
 def extract_trafilatura(url: str, binary: str) -> tuple[str, str]:
-    timeout = get_env_int("TRAFILATURA_TIMEOUT") or get_env_int("TIMEOUT", 60)
+    config = load_config()
+    timeout = config.TRAFILATURA_TIMEOUT
     html_source = find_html_source()
     if not html_source:
         return "noresults", "No HTML source found"
@@ -129,14 +133,13 @@ def main() -> None:
     args = parser.parse_args()
 
     try:
-        if not get_env_bool("TRAFILATURA_ENABLED", True):
+        config = load_config()
+
+        if not config.TRAFILATURA_ENABLED:
             emit_archive_result("skipped", "TRAFILATURA_ENABLED=False")
             sys.exit(0)
 
-        status, output = extract_trafilatura(
-            args.url,
-            get_env("TRAFILATURA_BINARY", "trafilatura")
-        )
+        status, output = extract_trafilatura(args.url, config.TRAFILATURA_BINARY)
 
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)

@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#   "pydantic-settings",
 #   "rich-click",
 # ]
 # ///
@@ -19,7 +20,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, get_env_int, get_env_array
+from base.utils import load_config
 
 import rich_click as click
 
@@ -64,9 +65,10 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     Returns: (success, output_path, error_message)
     """
-    timeout = get_env_int("GIT_TIMEOUT") or get_env_int("TIMEOUT", 120)
-    git_args = get_env_array("GIT_ARGS", ["clone", "--depth=1", "--recursive"])
-    git_args_extra = get_env_array("GIT_ARGS_EXTRA", [])
+    config = load_config()
+    timeout = config.GIT_TIMEOUT
+    git_args = config.GIT_ARGS
+    git_args_extra = config.GIT_ARGS_EXTRA
 
     cmd = [binary, *git_args, *git_args_extra, url, OUTPUT_DIR]
 
@@ -109,8 +111,9 @@ def main(url: str, snapshot_id: str):
             )
             sys.exit(0)
 
+        config = load_config()
         # Get binary from environment
-        binary = get_env("GIT_BINARY", "git")
+        binary = config.GIT_BINARY
 
         # Run extraction
         success, output, error = clone_git(url, binary)

@@ -21,6 +21,7 @@ classifiers = [
 dependencies = [
     "abx-pkg>=0.6.3",
     "feedparser>=6.0.0",
+    "pydantic-settings>=2.0.0",
     "pyright>=1.1.408",
     "pytest>=9.0.2",
     "pytest-httpserver>=1.1.0",

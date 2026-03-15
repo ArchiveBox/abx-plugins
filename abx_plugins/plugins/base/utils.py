@@ -1,6 +1,7 @@
 """Shared utilities for abx plugins.
 
 Provides common helpers used across multiple plugins:
+- Config loading from config.json using PydanticSettings (load_config)
 - Environment variable parsing (get_env, get_env_bool, get_env_int, get_env_array)
 - JSONL record emission (emit_archive_result, output_binary, output_machine_config)
 - Atomic file writing (write_text_atomic)
@@ -10,10 +11,144 @@ Provides common helpers used across multiple plugins:
 
 from __future__ import annotations
 
+import inspect
 import json
 import os
 from pathlib import Path
 from typing import Any
+
+
+# ---------------------------------------------------------------------------
+# Config loading from config.json using PydanticSettings
+# ---------------------------------------------------------------------------
+
+def load_config(config_path: Path | str | None = None) -> Any:
+    """Load plugin config from config.json using PydanticSettings.
+
+    Reads the JSON Schema config file and creates a BaseSettings model that
+    auto-resolves environment variables, x-aliases, and x-fallback values.
+
+    Falls back to a simple namespace-based loader if pydantic-settings is
+    unavailable (e.g. in minimal environments).
+
+    Args:
+        config_path: Path to config.json. If None, auto-detects from the
+                     caller's plugin directory.
+
+    Returns:
+        An object with typed config values as attributes.
+        Field names match the env var names from config.json (e.g. config.WGET_TIMEOUT).
+
+    Example::
+
+        config = load_config()
+        timeout = config.WGET_TIMEOUT      # int, auto-resolved with x-fallback
+        enabled = config.WGET_ENABLED       # bool, auto-resolved with x-aliases
+        args = config.WGET_ARGS             # list[str], parsed from JSON env var
+    """
+    if config_path is None:
+        caller_file = inspect.stack()[1].filename
+        config_path = Path(caller_file).parent / "config.json"
+    else:
+        config_path = Path(config_path)
+
+    schema = json.loads(config_path.read_text())
+    properties = schema.get("properties", {})
+
+    try:
+        return _load_config_pydantic(properties)
+    except Exception:
+        return _load_config_fallback(properties)
+
+
+def _load_config_pydantic(properties: dict[str, Any]) -> Any:
+    """Load config using PydanticSettings (preferred, with full validation)."""
+    from pydantic import AliasChoices, Field, create_model
+    from pydantic_settings import BaseSettings, SettingsConfigDict
+
+    if not properties:
+        class _EmptyConfig(BaseSettings):
+            model_config = SettingsConfigDict(extra="ignore")
+        return _EmptyConfig()
+
+    JSON_TYPE_MAP: dict[str, type] = {
+        "boolean": bool,
+        "string": str,
+        "integer": int,
+        "number": float,
+    }
+
+    field_definitions: dict[str, Any] = {}
+    for name, prop in properties.items():
+        schema_type = prop.get("type", "string")
+        if schema_type == "array":
+            python_type: type = list
+        else:
+            python_type = JSON_TYPE_MAP.get(schema_type, str)
+
+        default = prop.get("default")
+
+        # Build alias choices: primary name > x-aliases > x-fallback
+        choices = [name]
+        choices.extend(prop.get("x-aliases", []))
+        if fallback := prop.get("x-fallback"):
+            choices.append(fallback)
+
+        field_definitions[name] = (
+            python_type,
+            Field(default=default, validation_alias=AliasChoices(*choices)),
+        )
+
+    class _ConfigBase(BaseSettings):
+        model_config = SettingsConfigDict(extra="ignore")
+
+    return create_model("PluginConfig", __base__=_ConfigBase, **field_definitions)()
+
+
+def _load_config_fallback(properties: dict[str, Any]) -> Any:
+    """Fallback config loader using simple env var parsing (no pydantic needed)."""
+
+    ENV_PARSERS: dict[str, Any] = {
+        "boolean": lambda name, default: get_env_bool(name, default if default is not None else False),
+        "string": lambda name, default: get_env(name, default if default is not None else ""),
+        "integer": lambda name, default: get_env_int(name, default if default is not None else 0),
+        "number": lambda name, default: float(get_env(name, str(default if default is not None else 0))),
+        "array": lambda name, default: get_env_array(name, default if default is not None else []),
+    }
+
+    values: dict[str, Any] = {}
+    for name, prop in properties.items():
+        schema_type = prop.get("type", "string")
+        default = prop.get("default")
+        parser = ENV_PARSERS.get(schema_type, ENV_PARSERS["string"])
+
+        # Try primary name first
+        val = os.environ.get(name)
+        if val is not None:
+            values[name] = parser(name, default)
+            continue
+
+        # Try x-aliases
+        resolved = False
+        for alias in prop.get("x-aliases", []):
+            if os.environ.get(alias) is not None:
+                values[name] = parser(alias, default)
+                resolved = True
+                break
+        if resolved:
+            continue
+
+        # Try x-fallback
+        fallback = prop.get("x-fallback")
+        if fallback and os.environ.get(fallback) is not None:
+            values[name] = parser(fallback, default)
+            continue
+
+        # Use default
+        values[name] = default
+
+    # Return as a simple namespace object with attribute access
+    return type("PluginConfig", (), values)()
 
 
 # ---------------------------------------------------------------------------

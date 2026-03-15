@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#     "pydantic-settings",
 #     "rich-click",
 # ]
 # ///
@@ -36,7 +37,7 @@ from pathlib import Path
 import shutil
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, get_env_bool, get_env_int, get_env_array, emit_archive_result, has_staticfile_output
+from base.utils import load_config, get_env, emit_archive_result, has_staticfile_output
 
 import rich_click as click
 
@@ -119,17 +120,14 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
     Returns: (success, output_path, error_message)
     """
     print(f"[singlefile] CLI mode start url={url}", file=sys.stderr)
-    # Get config from env (with SINGLEFILE_ prefix, x-fallback handled by config loader)
-    timeout = get_env_int("SINGLEFILE_TIMEOUT") or get_env_int("TIMEOUT", 120)
-    user_agent = get_env("SINGLEFILE_USER_AGENT") or get_env("USER_AGENT", "")
-    check_ssl = (
-        get_env_bool("SINGLEFILE_CHECK_SSL_VALIDITY", True)
-        if get_env("SINGLEFILE_CHECK_SSL_VALIDITY")
-        else get_env_bool("CHECK_SSL_VALIDITY", True)
-    )
-    cookies_file = get_env("SINGLEFILE_COOKIES_FILE") or get_env("COOKIES_FILE", "")
-    singlefile_args = get_env_array("SINGLEFILE_ARGS", [])
-    singlefile_args_extra = get_env_array("SINGLEFILE_ARGS_EXTRA", [])
+    # Load config from config.json (auto-resolves x-aliases and x-fallback from env)
+    config = load_config()
+    timeout = config.SINGLEFILE_TIMEOUT
+    user_agent = config.SINGLEFILE_USER_AGENT
+    check_ssl = config.SINGLEFILE_CHECK_SSL_VALIDITY
+    cookies_file = config.SINGLEFILE_COOKIES_FILE
+    singlefile_args = config.SINGLEFILE_ARGS
+    singlefile_args_extra = config.SINGLEFILE_ARGS_EXTRA
     # Chrome args/binary are intentionally ignored because we require a shared Chrome session
 
     cmd = [binary, *singlefile_args]
@@ -259,7 +257,8 @@ def save_singlefile_with_extension(
         )
         return False, None, "SingleFile extension helper script missing"
 
-    node_binary = get_env("SINGLEFILE_NODE_BINARY") or get_env("NODE_BINARY", "node")
+    config = load_config()
+    node_binary = config.SINGLEFILE_NODE_BINARY
     downloads_dir = get_env("CHROME_DOWNLOADS_DIR", "")
     extensions_dir = get_env("CHROME_EXTENSIONS_DIR", "")
     output_path = Path(OUTPUT_DIR) / OUTPUT_FILE
@@ -376,8 +375,10 @@ def main(url: str, snapshot_id: str):
     error = ""
 
     try:
+        config = load_config()
+
         # Check if SingleFile is enabled
-        if not get_env_bool("SINGLEFILE_ENABLED", True):
+        if not config.SINGLEFILE_ENABLED:
             print("Skipping SingleFile (SINGLEFILE_ENABLED=False)", file=sys.stderr)
             emit_archive_result("skipped", "SINGLEFILE_ENABLED=False")
             sys.exit(0)
@@ -392,7 +393,7 @@ def main(url: str, snapshot_id: str):
             sys.exit(0)
 
         # Prefer SingleFile extension via existing Chrome session
-        timeout = get_env_int("SINGLEFILE_TIMEOUT") or get_env_int("TIMEOUT", 120)
+        timeout = config.SINGLEFILE_TIMEOUT
         success, output, error = save_singlefile_with_extension(url, timeout)
         status = "succeeded" if success else "failed"
 

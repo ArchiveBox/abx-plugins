@@ -1,7 +1,9 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = []
+# dependencies = [
+#   "pydantic-settings",
+# ]
 # ///
 #
 # Emit wget Binary dependency for the crawl.
@@ -15,7 +17,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, get_env_bool, get_env_int, output_binary, output_machine_config
+from base.utils import load_config, output_binary, output_machine_config
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
@@ -28,10 +30,11 @@ def main():
     warnings = []
     errors = []
 
-    # Get config values
-    wget_enabled = get_env_bool("WGET_ENABLED", True)
-    wget_timeout = get_env_int("WGET_TIMEOUT") or get_env_int("TIMEOUT", 60)
-    wget_binary = get_env("WGET_BINARY", "wget")
+    # Load config from config.json (auto-resolves x-aliases and x-fallback from env)
+    config = load_config()
+    wget_enabled = config.WGET_ENABLED
+    wget_timeout = config.WGET_TIMEOUT
+    wget_binary = config.WGET_BINARY
 
     # Compute derived values (USE_WGET for backward compatibility)
     use_wget = wget_enabled

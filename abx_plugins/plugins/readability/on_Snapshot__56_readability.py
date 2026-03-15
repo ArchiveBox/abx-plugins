@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#     "pydantic-settings",
 #     "rich-click",
 # ]
 # ///
@@ -29,7 +30,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, get_env_int, get_env_array, emit_archive_result, write_text_atomic, find_html_source
+from base.utils import load_config, emit_archive_result, write_text_atomic, find_html_source
 
 from urllib.parse import urlparse
 
@@ -57,9 +58,10 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
 
     Returns: (success, output_path, error_message)
     """
-    timeout = get_env_int("READABILITY_TIMEOUT") or get_env_int("TIMEOUT", 60)
-    readability_args = get_env_array("READABILITY_ARGS", [])
-    readability_args_extra = get_env_array("READABILITY_ARGS_EXTRA", [])
+    config = load_config()
+    timeout = config.READABILITY_TIMEOUT
+    readability_args = config.READABILITY_ARGS
+    readability_args_extra = config.READABILITY_ARGS_EXTRA
 
     # Find HTML source
     html_source = find_html_source()
@@ -140,8 +142,9 @@ def main(url: str, snapshot_id: str):
     """Extract article content using Mozilla's Readability."""
 
     try:
+        config = load_config()
         # Get binary from environment
-        binary = get_env("READABILITY_BINARY", "readability-extractor")
+        binary = config.READABILITY_BINARY
 
         # Run extraction
         status, output = extract_readability(url, binary)

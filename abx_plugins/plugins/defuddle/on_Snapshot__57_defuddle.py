@@ -2,7 +2,8 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#   "click",
+#   "pydantic-settings",
+#   "rich-click",
 # ]
 # ///
 #
@@ -18,7 +19,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, get_env_bool, get_env_int, get_env_array, emit_archive_result, write_text_atomic, find_html_source
+from base.utils import load_config, emit_archive_result, write_text_atomic, find_html_source
 
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
@@ -31,9 +32,10 @@ METADATA_FILE = "article.json"
 
 
 def extract_defuddle(url: str, binary: str) -> tuple[str, str]:
-    timeout = get_env_int("DEFUDDLE_TIMEOUT") or get_env_int("TIMEOUT", 60)
-    defuddle_args = get_env_array("DEFUDDLE_ARGS", [])
-    defuddle_args_extra = get_env_array("DEFUDDLE_ARGS_EXTRA", [])
+    config = load_config()
+    timeout = config.DEFUDDLE_TIMEOUT
+    defuddle_args = config.DEFUDDLE_ARGS
+    defuddle_args_extra = config.DEFUDDLE_ARGS_EXTRA
     output_dir = Path(OUTPUT_DIR)
     html_source = find_html_source()
     if not html_source:
@@ -119,12 +121,14 @@ def main():
         parser.add_argument("--snapshot-id", required=True, help="Snapshot UUID")
         args = parser.parse_args()
 
-        if not get_env_bool("DEFUDDLE_ENABLED", True):
+        config = load_config()
+
+        if not config.DEFUDDLE_ENABLED:
             print("Skipping defuddle (DEFUDDLE_ENABLED=False)", file=sys.stderr)
             emit_archive_result("skipped", "DEFUDDLE_ENABLED=False")
             sys.exit(0)
 
-        binary = get_env("DEFUDDLE_BINARY", "defuddle")
+        binary = config.DEFUDDLE_BINARY
         status, output = extract_defuddle(args.url, binary)
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)

@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#   "pydantic-settings",
 #   "rich-click",
 # ]
 # ///
@@ -32,7 +33,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, get_env_bool, get_env_int, get_env_array, has_staticfile_output
+from base.utils import load_config, has_staticfile_output
 
 import rich_click as click
 
@@ -64,22 +65,15 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     Returns: (success, output_path, error_message)
     """
-    # Get config from env (with WGET_ prefix, x-fallback handled by config loader)
-    timeout = get_env_int("WGET_TIMEOUT") or get_env_int("TIMEOUT", 60)
-    user_agent = get_env("WGET_USER_AGENT") or get_env(
-        "USER_AGENT", "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
-    )
-    check_ssl = (
-        get_env_bool("WGET_CHECK_SSL_VALIDITY", True)
-        if get_env("WGET_CHECK_SSL_VALIDITY")
-        else get_env_bool("CHECK_SSL_VALIDITY", True)
-    )
-    cookies_file = get_env("WGET_COOKIES_FILE") or get_env("COOKIES_FILE", "")
-    wget_args = get_env_array("WGET_ARGS", [])
-    wget_args_extra = get_env_array("WGET_ARGS_EXTRA", [])
-
-    # Feature toggles
-    warc_enabled = get_env_bool("WGET_WARC_ENABLED", True)
+    # Load config from config.json (auto-resolves x-aliases and x-fallback from env)
+    config = load_config()
+    timeout = config.WGET_TIMEOUT
+    user_agent = config.WGET_USER_AGENT or "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
+    check_ssl = config.WGET_CHECK_SSL_VALIDITY
+    cookies_file = config.WGET_COOKIES_FILE
+    wget_args = config.WGET_ARGS
+    wget_args_extra = config.WGET_ARGS_EXTRA
+    warc_enabled = config.WGET_WARC_ENABLED
 
     # Build wget command (later options take precedence)
     cmd = [
@@ -157,8 +151,10 @@ def main(url: str, snapshot_id: str):
     error = ""
 
     try:
+        config = load_config()
+
         # Check if wget is enabled
-        if not get_env_bool("WGET_ENABLED", True):
+        if not config.WGET_ENABLED:
             print("Skipping wget (WGET_ENABLED=False)", file=sys.stderr)
             print(json.dumps({
                 "type": "ArchiveResult",
@@ -185,7 +181,7 @@ def main(url: str, snapshot_id: str):
             sys.exit(0)
 
         # Get binary from environment
-        binary = get_env("WGET_BINARY", "wget")
+        binary = config.WGET_BINARY
 
         # Run extraction
         success, output, error = save_wget(url, binary)
