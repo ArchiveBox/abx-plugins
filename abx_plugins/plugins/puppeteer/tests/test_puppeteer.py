@@ -64,6 +64,12 @@ def test_puppeteer_installs_chromium():
         env["HOME"] = str(tmpdir)
         env.pop("LIB_DIR", None)
 
+        # Skip Chromium download during npm install when we already have a
+        # Chromium binary.  Puppeteer's postinstall tries to download from
+        # storage.googleapis.com which may be unreachable.
+        if env.get("CHROME_BINARY") and Path(env["CHROME_BINARY"]).exists():
+            env.setdefault("PUPPETEER_SKIP_DOWNLOAD", "1")
+
         crawl_result = subprocess.run(
             [sys.executable, str(CRAWL_HOOK)],
             cwd=tmpdir,

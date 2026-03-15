@@ -24,7 +24,7 @@ from pathlib import Path
 import pytest
 
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import parse_jsonl_output
+from base.test_utils import parse_jsonl_output, parse_jsonl_records
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
@@ -97,9 +97,10 @@ def test_reports_missing_dependency_when_not_installed():
         # Missing binary is a hard dependency failure.
         assert result.returncode == 1, "Should exit 1 when dependency missing"
 
-        # Should emit failed JSONL describing the missing dependency.
-        result_json = parse_jsonl_output(result.stdout)
-        assert result_json, f"Expected failed JSONL output"
+        # Should emit exactly one failed JSONL describing the missing dependency.
+        records = parse_jsonl_records(result.stdout)
+        assert len(records) == 1, f"Expected exactly one JSONL record, got: {records}"
+        result_json = records[0]
         assert result_json["status"] == "failed", result_json
         assert "wget" in result_json["output_str"].lower(), result_json
 
@@ -326,8 +327,9 @@ def test_config_save_wget_false_skips():
             "Should log skip reason to stderr"
         )
 
-        result_json = parse_jsonl_output(result.stdout)
-        assert result_json, f"Expected skipped JSONL output"
+        records = parse_jsonl_records(result.stdout)
+        assert len(records) == 1, f"Expected exactly one JSONL record, got: {records}"
+        result_json = records[0]
         assert result_json["status"] == "skipped", result_json
         assert result_json["output_str"] == "WGET_ENABLED=False", result_json
 

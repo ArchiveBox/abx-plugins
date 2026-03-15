@@ -875,6 +875,12 @@ def _ensure_puppeteer_with_hooks(env: dict, timeout: int) -> None:
     if _has_puppeteer_module(env):
         return
 
+    # Skip Chromium download during npm install if we already have a Chromium binary.
+    # Puppeteer's postinstall script downloads Chromium by default, which fails in
+    # network-restricted environments. We only need the puppeteer node module.
+    if env.get("CHROME_BINARY") and Path(env["CHROME_BINARY"]).exists():
+        env.setdefault("PUPPETEER_SKIP_DOWNLOAD", "1")
+
     puppeteer_result = subprocess.run(
         [sys.executable, str(PUPPETEER_CRAWL_HOOK)],
         capture_output=True,

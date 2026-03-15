@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import parse_jsonl_output
+from base.test_utils import parse_jsonl_output, parse_jsonl_records
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
@@ -228,8 +228,9 @@ def test_config_save_gallery_dl_false_skips():
             "Should log skip reason to stderr"
         )
 
-        result_json = parse_jsonl_output(result.stdout)
-        assert result_json, "Expected skipped JSONL output"
+        records = parse_jsonl_records(result.stdout)
+        assert len(records) == 1, f"Expected exactly one JSONL record, got: {records}"
+        result_json = records[0]
         assert result_json["status"] == "skipped", result_json
         assert result_json["output_str"] == "GALLERYDL_ENABLED=False", result_json
 

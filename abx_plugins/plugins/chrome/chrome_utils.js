@@ -923,19 +923,33 @@ async function installExtension(extension) {
             }
 
             // Download CRX file from Chrome Web Store
-            const response = await fetch(extension.crx_url);
-
-            if (!response.ok) {
-                console.warn(`[⚠️] Failed to download extension ${extension.name}: HTTP ${response.status}`);
-                return false;
+            let downloaded = false;
+            try {
+                const response = await fetch(extension.crx_url);
+                if (response.ok && response.body) {
+                    const crx_file = fs.createWriteStream(extension.crx_path);
+                    const crx_stream = Readable.fromWeb(response.body);
+                    await finished(crx_stream.pipe(crx_file));
+                    downloaded = true;
+                } else {
+                    console.warn(`[⚠️] fetch failed for ${extension.name}: HTTP ${response.status}`);
+                }
+            } catch (fetchErr) {
+                console.warn(`[⚠️] fetch failed for ${extension.name}, trying curl: ${fetchErr.message}`);
             }
 
-            if (response.body) {
-                const crx_file = fs.createWriteStream(extension.crx_path);
-                const crx_stream = Readable.fromWeb(response.body);
-                await finished(crx_stream.pipe(crx_file));
-            } else {
-                console.warn(`[⚠️] Failed to download extension ${extension.name}: No response body`);
+            // Fallback to curl when fetch (Node undici) fails (e.g. DNS/proxy issues)
+            if (!downloaded) {
+                try {
+                    await execAsync(`curl -sL -o "${extension.crx_path}" "${extension.crx_url}" --connect-timeout 30`);
+                    downloaded = fs.existsSync(extension.crx_path) && fs.statSync(extension.crx_path).size > 0;
+                } catch (curlErr) {
+                    console.error(`[❌] curl fallback also failed for ${extension.name}: ${curlErr.message}`);
+                }
+            }
+
+            if (!downloaded) {
+                console.warn(`[⚠️] Failed to download extension ${extension.name}`);
                 return false;
             }
         } catch (err) {

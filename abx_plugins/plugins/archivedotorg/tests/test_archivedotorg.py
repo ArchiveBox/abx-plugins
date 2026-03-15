@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import parse_jsonl_output
+from base.test_utils import parse_jsonl_output, parse_jsonl_records
 
 PLUGIN_DIR = Path(__file__).parent.parent
 _ARCHIVEDOTORG_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_archivedotorg.*"), None)
@@ -101,8 +101,9 @@ def test_config_save_archivedotorg_false_skips():
             "Should log skip reason to stderr"
         )
 
-        result_json = parse_jsonl_output(result.stdout)
-        assert result_json, f"Expected skipped JSONL output"
+        records = parse_jsonl_records(result.stdout)
+        assert len(records) == 1, f"Expected exactly one JSONL record, got: {records}"
+        result_json = records[0]
         assert result_json["status"] == "skipped", result_json
         assert result_json["output_str"] == "ARCHIVEDOTORG_ENABLED=False", result_json
 
@@ -136,8 +137,9 @@ def test_handles_timeout():
         # With a 1s timeout the hook may time out or get an HTTP error from
         # archive.org (e.g. 403).  Either way it should emit proper JSONL.
         if result.returncode == 1:
-            result_json = parse_jsonl_output(result.stdout)
-            assert result_json, "Should emit failed JSONL on error"
+            records = parse_jsonl_records(result.stdout)
+            assert len(records) == 1, f"Should emit exactly one failed JSONL record, got: {records}"
+            result_json = records[0]
             assert result_json["status"] == "failed", result_json
             assert result_json["output_str"], "Should include error description"
 

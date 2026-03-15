@@ -13,6 +13,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_hook_script,
     get_plugin_dir,
     parse_jsonl_output,
+    parse_jsonl_records,
 )
 
 
@@ -194,8 +195,9 @@ def test_reports_missing_dependency_when_not_installed():
         )
 
         assert result.returncode == 1
-        record = parse_jsonl_output(result.stdout)
-        assert record, "Should have ArchiveResult JSONL output"
+        records = parse_jsonl_records(result.stdout)
+        assert len(records) == 1, f"Should emit exactly one JSONL record, got: {records}"
+        record = records[0]
         assert record["type"] == "ArchiveResult"
         assert record["status"] == "failed"
         assert "defuddle" in result.stderr.lower() or "error" in result.stderr.lower()

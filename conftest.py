@@ -32,6 +32,7 @@ def isolated_test_env(
         monkeypatch.setenv("LIB_DIR", str(lib_dir))
     if "PERSONAS_DIR" not in os.environ:
         monkeypatch.setenv("PERSONAS_DIR", str(personas_dir))
+
     if "TWOCAPTCHA_API_KEY" not in os.environ and "API_KEY_2CAPTCHA" not in os.environ:
         print("WARNING: TWOCAPTCHA_API_KEY not found in env, 2captcha tests will fail")
 
@@ -51,6 +52,27 @@ def local_http_base_url(httpserver) -> str:
     return httpserver.url_for("/")
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _auto_detect_chromium():
+    """Auto-detect Chromium binary once per session.
+
+    Sets CHROME_BINARY env var if a Playwright/Puppeteer-installed Chromium
+    is found, so session-scoped install fixtures can skip downloading.
+    Also sets CHROME_ARGS for root environments.
+    """
+    if "CHROME_BINARY" not in os.environ:
+        for candidate in (
+            Path("/root/.cache/ms-playwright/chromium-1194/chrome-linux/chrome"),
+            Path.home() / ".cache" / "ms-playwright" / "chromium-1194" / "chrome-linux" / "chrome",
+        ):
+            if candidate.is_file():
+                os.environ["CHROME_BINARY"] = str(candidate)
+                break
+
+    if os.geteuid() == 0 and "CHROME_ARGS" not in os.environ:
+        os.environ["CHROME_ARGS"] = '["--no-sandbox"]'
+
+
 @pytest.fixture(scope="session")
 def ensure_chrome_test_prereqs(ensure_chromium_and_puppeteer_installed):
     """Install shared Chromium/Puppeteer deps when explicitly requested by tests."""
@@ -61,13 +83,19 @@ def ensure_chrome_test_prereqs(ensure_chromium_and_puppeteer_installed):
 def require_chrome_runtime():
     """Require chrome runtime prerequisites for integration tests.
 
-    Validates that NpmProvider is available (needed by Chrome-based plugins
-    like dns, dom, headers).  Previously duplicated in dns/dom/headers
-    conftest files.
+    Validates that NpmProvider can actually locate npm and node binaries
+    (needed by Chrome-based plugins like dns, dom, headers).
+    Previously duplicated in dns/dom/headers conftest files.
     """
     from abx_pkg import NpmProvider
 
     try:
-        NpmProvider()
+        provider = NpmProvider()
     except Exception as exc:
         pytest.fail(f"Chrome integration prerequisites unavailable: {exc}")
+
+    if not provider.INSTALLER_BIN:
+        pytest.fail(
+            "npm not found on PATH. Chrome-based plugins require npm to install "
+            "node dependencies (puppeteer, etc.)."
+        )
