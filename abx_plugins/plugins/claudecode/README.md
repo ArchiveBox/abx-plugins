@@ -30,7 +30,7 @@ All env vars below also serve as defaults for child plugins (`claudecodeextract`
 
 | Hook | Event | Priority | Description |
 |---|---|---|---|
-| `on_Crawl__35_claudecode_install.bg.py` | `Crawl` | 35 | Emits a `Binary` record requesting `claude` be installed via npm. Runs in the background (`.bg`). |
+| `on_Crawl__35_claudecode_install.finite.bg.py` | `Crawl` | 35 | Emits a `Binary` record requesting `claude` be installed via npm. Runs in the background (finite). |
 
 ## Shared Utilities (`claudecode_utils.py`)
 

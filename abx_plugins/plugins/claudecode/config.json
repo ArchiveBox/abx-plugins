@@ -1,7 +1,12 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Claude Code",
+  "description": "Run Claude Code AI agent on snapshots to extract, analyze, or transform archived content.",
   "type": "object",
   "additionalProperties": false,
+  "required_plugins": [],
+  "required_binaries": ["node", "claude"],
+  "output_mimetypes": ["application/json"],
   "properties": {
     "CLAUDECODE_ENABLED": {
       "type": "boolean",

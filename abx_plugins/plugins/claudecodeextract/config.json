@@ -1,8 +1,12 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Claude Code Extract",
+  "description": "Use Claude Code to generate clean Markdown from snapshot extractor outputs.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": ["claudecode"],
+  "required_binaries": ["claude"],
+  "output_mimetypes": ["text/markdown"],
   "properties": {
     "CLAUDECODEEXTRACT_ENABLED": {
       "type": "boolean",

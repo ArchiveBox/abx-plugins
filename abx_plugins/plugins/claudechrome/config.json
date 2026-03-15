@@ -1,8 +1,12 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Claude Chrome",
+  "description": "Use Claude computer-use to interact with pages in Chrome via CDP screenshots and the Anthropic API.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": ["chrome"],
+  "required_binaries": ["node"],
+  "output_mimetypes": ["application/json", "image/png"],
   "properties": {
     "CLAUDECHROME_ENABLED": {
       "type": "boolean",

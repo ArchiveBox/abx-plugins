@@ -42,7 +42,7 @@ The snapshot hook runs an agentic loop:
 
 | Hook | Event | Priority | Type | Description |
 |---|---|---|---|---|
-| `on_Crawl__84_claudechrome_install.bg.js` | `Crawl` | 84 | Background | (Optional) Downloads Claude for Chrome extension from CWS for manual use. |
+| `on_Crawl__84_claudechrome_install.finite.bg.js` | `Crawl` | 84 | Background | (Optional) Downloads Claude for Chrome extension from CWS for manual use. |
 | `on_Crawl__96_claudechrome_config.js` | `Crawl` | 96 | Foreground | (Optional) Injects `ANTHROPIC_API_KEY` into extension storage. |
 | `on_Snapshot__47_claudechrome.js` | `Snapshot` | 47 | Foreground | Runs Claude computer-use on the page via CDP screenshots + Anthropic API. |
 
