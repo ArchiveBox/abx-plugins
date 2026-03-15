@@ -22,6 +22,9 @@ import uuid
 from pathlib import Path
 import pytest
 
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+from base.test_utils import parse_jsonl_output
+
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
 _FORUMDL_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_forumdl.*"), None)
@@ -191,18 +194,7 @@ def test_handles_non_forum_url(local_http_base_url):
         )
 
         # Parse clean JSONL output
-        result_json = None
-        for line in result.stdout.strip().split("\n"):
-            line = line.strip()
-            if line.startswith("{"):
-                pass
-                try:
-                    record = json.loads(line)
-                    if record.get("type") == "ArchiveResult":
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+        result_json = parse_jsonl_output(result.stdout)
 
         assert result_json, "Should have ArchiveResult JSONL output"
         assert result_json["status"] == "noresults", (
@@ -246,13 +238,8 @@ def test_config_save_forumdl_false_skips():
             "Should log skip reason to stderr"
         )
 
-        jsonl_lines = [
-            line
-            for line in result.stdout.strip().split("\n")
-            if line.strip().startswith("{")
-        ]
-        assert len(jsonl_lines) == 1, f"Expected skipped JSONL, got: {jsonl_lines}"
-        result_json = json.loads(jsonl_lines[0])
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json, "Expected skipped JSONL output"
         assert result_json["status"] == "skipped", result_json
         assert result_json["output_str"] == "FORUMDL_ENABLED=False", result_json
 
@@ -344,17 +331,7 @@ def test_real_forum_url():
         )
 
         # Parse JSONL output
-        result_json = None
-        for line in result.stdout.strip().split("\n"):
-            line = line.strip()
-            if line.startswith("{"):
-                try:
-                    record = json.loads(line)
-                    if record.get("type") == "ArchiveResult":
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+        result_json = parse_jsonl_output(result.stdout)
 
         assert result_json, (
             f"Should have ArchiveResult JSONL output. stdout: {result.stdout}"

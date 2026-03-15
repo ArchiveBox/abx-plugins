@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#   "pydantic-settings",
 #   "rich-click",
 # ]
 # ///
@@ -20,6 +21,9 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import load_config, emit_archive_result, write_text_atomic
+
 import rich_click as click
 
 
@@ -37,67 +41,16 @@ TEXT_FILE = "content.txt"
 METADATA_FILE = "article.json"
 
 
-def get_env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default).strip()
-
-
-def get_env_bool(name: str, default: bool = False) -> bool:
-    val = get_env(name, "").lower()
-    if val in ("true", "1", "yes", "on"):
-        return True
-    if val in ("false", "0", "no", "off"):
-        return False
-    return default
-
-
-def get_env_int(name: str, default: int = 0) -> int:
-    try:
-        return int(get_env(name, str(default)))
-    except ValueError:
-        return default
-
-
-def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
-    """Parse a JSON array from environment variable."""
-    val = get_env(name, "")
-    if not val:
-        return default if default is not None else []
-    try:
-        result = json.loads(val)
-        if isinstance(result, list):
-            return [str(item) for item in result]
-        return default if default is not None else []
-    except json.JSONDecodeError:
-        return default if default is not None else []
-
-
-def emit_archive_result(status: str, output_str: str) -> None:
-    print(
-        json.dumps(
-            {
-                "type": "ArchiveResult",
-                "status": status,
-                "output_str": output_str,
-            }
-        )
-    )
-
-
-def write_text_atomic(path: Path, text: str) -> None:
-    tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    tmp_path.write_text(text, encoding="utf-8")
-    tmp_path.replace(path)
-
-
 def extract_mercury(url: str, binary: str) -> tuple[str, str]:
     """
     Extract article using Mercury Parser.
 
     Returns: (success, output_path, error_message)
     """
-    timeout = get_env_int("MERCURY_TIMEOUT") or get_env_int("TIMEOUT", 60)
-    mercury_args = get_env_array("MERCURY_ARGS", [])
-    mercury_args_extra = get_env_array("MERCURY_ARGS_EXTRA", [])
+    config = load_config()
+    timeout = config.MERCURY_TIMEOUT
+    mercury_args = config.MERCURY_ARGS
+    mercury_args_extra = config.MERCURY_ARGS_EXTRA
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
@@ -196,14 +149,16 @@ def main(url: str, snapshot_id: str):
     """Extract article content using Postlight's Mercury Parser."""
 
     try:
+        config = load_config()
+
         # Check if mercury extraction is enabled
-        if not get_env_bool("MERCURY_ENABLED", True):
+        if not config.MERCURY_ENABLED:
             print("Skipping mercury (MERCURY_ENABLED=False)", file=sys.stderr)
             emit_archive_result("skipped", "MERCURY_ENABLED=False")
             sys.exit(0)
 
         # Get binary from environment
-        binary = get_env("MERCURY_BINARY", "postlight-parser")
+        binary = config.MERCURY_BINARY
 
         # Run extraction
         status, output = extract_mercury(url, binary)

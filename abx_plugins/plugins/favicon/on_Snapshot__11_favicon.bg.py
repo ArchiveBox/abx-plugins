@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#   "pydantic-settings",
 #   "rich-click",
 # ]
 # ///
@@ -22,6 +23,9 @@ from urllib.error import HTTPError
 from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import load_config
+
 import rich_click as click
 
 
@@ -33,17 +37,6 @@ OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 OUTPUT_FILE = "favicon.ico"
-
-
-def get_env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default).strip()
-
-
-def get_env_int(name: str, default: int = 0) -> int:
-    try:
-        return int(get_env(name, str(default)))
-    except ValueError:
-        return default
 
 
 def http_get(url: str, headers: dict[str, str], timeout: int) -> tuple[int, bytes]:
@@ -62,8 +55,9 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
     Returns: (success, output_path, error_message)
     """
 
-    timeout = get_env_int("FAVICON_TIMEOUT") or get_env_int("TIMEOUT", 30)
-    user_agent = get_env("USER_AGENT", "Mozilla/5.0 (compatible; ArchiveBox/1.0)")
+    config = load_config()
+    timeout = config.FAVICON_TIMEOUT
+    user_agent = config.FAVICON_USER_AGENT or "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
     headers = {"User-Agent": user_agent}
 
     # Build list of possible favicon URLs

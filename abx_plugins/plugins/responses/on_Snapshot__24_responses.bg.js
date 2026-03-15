@@ -19,12 +19,17 @@ if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_
 
 const puppeteer = require('puppeteer-core');
 
-// Import shared utilities from chrome_utils.js
+// Import generic helpers from base/utils.js
 const {
     getEnv,
     getEnvBool,
     getEnvInt,
     parseArgs,
+    emitArchiveResult,
+} = require('../base/utils.js');
+
+// Import chrome-specific utilities from chrome_utils.js
+const {
     connectToPage,
     waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
@@ -267,7 +272,7 @@ async function main() {
 
     if (!getEnvBool('RESPONSES_ENABLED', true)) {
         console.error('Skipping (RESPONSES_ENABLED=False)');
-        console.log(JSON.stringify({type: 'ArchiveResult', status: 'skipped', output_str: 'RESPONSES_ENABLED=False'}));
+        emitArchiveResult('skipped', 'RESPONSES_ENABLED=False');
         process.exit(0);
     }
 

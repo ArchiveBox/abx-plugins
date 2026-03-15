@@ -27,6 +27,9 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urljoin, urlparse, urlunparse
 
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import write_text_atomic
+
 import rich_click as click
 
 PLUGIN_NAME = "parse_html_urls"
@@ -205,13 +208,6 @@ def emit_archive_result(status: str, output_str: str) -> None:
     )
     if output_str:
         click.echo(output_str, err=True)
-
-
-def write_text_atomic(path: Path, text: str) -> None:
-    """Atomically replace an output file without clearing the old file first."""
-    tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    tmp_path.write_text(text)
-    tmp_path.replace(path)
 
 
 def persist_records(records: list[dict]) -> tuple[str, str]:

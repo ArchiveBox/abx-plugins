@@ -2,7 +2,8 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#   "click",
+#   "pydantic-settings",
+#   "rich-click",
 #   "forum-dl",
 #   "pydantic",
 # ]
@@ -22,6 +23,9 @@ import sys
 import textwrap
 import threading
 from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import load_config
 
 import rich_click as click
 
@@ -45,40 +49,6 @@ def rel_output(path_str: str | None) -> str | None:
         return str(path.resolve().relative_to(OUTPUT_DIR.resolve()))
     except Exception:
         return path.name or path_str
-
-
-def get_env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default).strip()
-
-
-def get_env_bool(name: str, default: bool = False) -> bool:
-    val = get_env(name, "").lower()
-    if val in ("true", "1", "yes", "on"):
-        return True
-    if val in ("false", "0", "no", "off"):
-        return False
-    return default
-
-
-def get_env_int(name: str, default: int = 0) -> int:
-    try:
-        return int(get_env(name, str(default)))
-    except ValueError:
-        return default
-
-
-def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
-    """Parse a JSON array from environment variable."""
-    val = get_env(name, "")
-    if not val:
-        return default if default is not None else []
-    try:
-        result = json.loads(val)
-        if isinstance(result, list):
-            return [str(item) for item in result]
-        return default if default is not None else []
-    except json.JSONDecodeError:
-        return default if default is not None else []
 
 
 def get_binary_shebang(binary_path: str) -> str | None:
@@ -108,11 +78,12 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     Returns: (success, output_path, error_message)
     """
-    # Get config from env (with FORUMDL_ prefix, x-fallback handled by config loader)
-    timeout = get_env_int("FORUMDL_TIMEOUT") or get_env_int("TIMEOUT", 3600)
-    forumdl_args = get_env_array("FORUMDL_ARGS", [])
-    forumdl_args_extra = get_env_array("FORUMDL_ARGS_EXTRA", [])
-    output_format = get_env("FORUMDL_OUTPUT_FORMAT", "jsonl")
+    # Load config from config.json (auto-resolves x-aliases and x-fallback from env)
+    config = load_config()
+    timeout = config.FORUMDL_TIMEOUT
+    forumdl_args = config.FORUMDL_ARGS
+    forumdl_args_extra = config.FORUMDL_ARGS_EXTRA
+    output_format = config.FORUMDL_OUTPUT_FORMAT
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
@@ -240,8 +211,10 @@ def main(url: str, snapshot_id: str):
     error = ""
 
     try:
+        config = load_config()
+
         # Check if forum-dl is enabled
-        if not get_env_bool("FORUMDL_ENABLED", True):
+        if not config.FORUMDL_ENABLED:
             print("Skipping forum-dl (FORUMDL_ENABLED=False)", file=sys.stderr)
             print(json.dumps({
                 "type": "ArchiveResult",
@@ -251,7 +224,7 @@ def main(url: str, snapshot_id: str):
             sys.exit(0)
 
         # Get binary from environment
-        binary = get_env("FORUMDL_BINARY", "forum-dl")
+        binary = config.FORUMDL_BINARY
 
         # Run extraction
         success, output, error = save_forum(url, binary)

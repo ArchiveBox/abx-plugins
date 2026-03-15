@@ -2,7 +2,8 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#   "click",
+#   "pydantic-settings",
+#   "rich-click",
 # ]
 # ///
 #
@@ -18,6 +19,9 @@ import subprocess
 import sys
 import threading
 from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import load_config, has_staticfile_output
 
 import rich_click as click
 
@@ -50,83 +54,19 @@ def rel_output(path_str: str | None) -> str | None:
         return path.name or path_str
 
 
-def get_env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default).strip()
-
-
-def get_env_bool(name: str, default: bool = False) -> bool:
-    val = get_env(name, "").lower()
-    if val in ("true", "1", "yes", "on"):
-        return True
-    if val in ("false", "0", "no", "off"):
-        return False
-    return default
-
-
-def get_env_int(name: str, default: int = 0) -> int:
-    try:
-        return int(get_env(name, str(default)))
-    except ValueError:
-        return default
-
-
-def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
-    """Parse a JSON array from environment variable."""
-    val = get_env(name, "")
-    if not val:
-        return default if default is not None else []
-    try:
-        result = json.loads(val)
-        if isinstance(result, list):
-            return [str(item) for item in result]
-        return default if default is not None else []
-    except json.JSONDecodeError:
-        return default if default is not None else []
-
-
-STATICFILE_DIR = "../staticfile"
-
-
-def has_staticfile_output() -> bool:
-    """Check if staticfile extractor already downloaded this URL."""
-    staticfile_dir = Path(STATICFILE_DIR)
-    if not staticfile_dir.exists():
-        return False
-    stdout_log = staticfile_dir / "stdout.log"
-    if not stdout_log.exists():
-        return False
-    for line in stdout_log.read_text(errors="ignore").splitlines():
-        line = line.strip()
-        if not line.startswith("{"):
-            continue
-        try:
-            record = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if (
-            record.get("type") == "ArchiveResult"
-            and record.get("status") == "succeeded"
-        ):
-            return True
-    return False
-
-
 def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
     """
     Download gallery using gallery-dl.
 
     Returns: (success, output_path, error_message)
     """
-    # Get config from env (with GALLERYDL_ prefix, x-fallback handled by config loader)
-    timeout = get_env_int("GALLERYDL_TIMEOUT") or get_env_int("TIMEOUT", 3600)
-    check_ssl = (
-        get_env_bool("GALLERYDL_CHECK_SSL_VALIDITY", True)
-        if get_env("GALLERYDL_CHECK_SSL_VALIDITY")
-        else get_env_bool("CHECK_SSL_VALIDITY", True)
-    )
-    gallerydl_args = get_env_array("GALLERYDL_ARGS", [])
-    gallerydl_args_extra = get_env_array("GALLERYDL_ARGS_EXTRA", [])
-    cookies_file = get_env("GALLERYDL_COOKIES_FILE") or get_env("COOKIES_FILE", "")
+    # Load config from config.json (auto-resolves x-aliases and x-fallback from env)
+    config = load_config()
+    timeout = config.GALLERYDL_TIMEOUT
+    check_ssl = config.GALLERYDL_CHECK_SSL_VALIDITY
+    gallerydl_args = config.GALLERYDL_ARGS
+    gallerydl_args_extra = config.GALLERYDL_ARGS_EXTRA
+    cookies_file = config.GALLERYDL_COOKIES_FILE
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
@@ -259,8 +199,10 @@ def main(url: str, snapshot_id: str):
     error = ""
 
     try:
+        config = load_config()
+
         # Check if gallery-dl is enabled
-        if not get_env_bool("GALLERYDL_ENABLED", True):
+        if not config.GALLERYDL_ENABLED:
             print("Skipping gallery-dl (GALLERYDL_ENABLED=False)", file=sys.stderr)
             print(json.dumps({
                 "type": "ArchiveResult",
@@ -287,7 +229,7 @@ def main(url: str, snapshot_id: str):
             sys.exit(0)
 
         # Get binary from environment
-        binary = get_env("GALLERYDL_BINARY", "gallery-dl")
+        binary = config.GALLERYDL_BINARY
 
         # Run extraction
         success, output, error = save_gallery(url, binary)

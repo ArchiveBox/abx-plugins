@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#     "pydantic-settings",
 #     "rich-click",
 # ]
 # ///
@@ -30,6 +31,9 @@ import sys
 import threading
 from pathlib import Path
 
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import load_config, has_staticfile_output
+
 import rich_click as click
 
 
@@ -57,85 +61,21 @@ def rel_output(path_str: str | None) -> str | None:
         return path.name or path_str
 
 
-def get_env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default).strip()
-
-
-def get_env_bool(name: str, default: bool = False) -> bool:
-    val = get_env(name, "").lower()
-    if val in ("true", "1", "yes", "on"):
-        return True
-    if val in ("false", "0", "no", "off"):
-        return False
-    return default
-
-
-def get_env_int(name: str, default: int = 0) -> int:
-    try:
-        return int(get_env(name, str(default)))
-    except ValueError:
-        return default
-
-
-def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
-    """Parse a JSON array from environment variable."""
-    val = get_env(name, "")
-    if not val:
-        return default if default is not None else []
-    try:
-        result = json.loads(val)
-        if isinstance(result, list):
-            return [str(item) for item in result]
-        return default if default is not None else []
-    except json.JSONDecodeError:
-        return default if default is not None else []
-
-
-STATICFILE_DIR = "../staticfile"
-
-
-def has_staticfile_output() -> bool:
-    """Check if staticfile extractor already downloaded this URL."""
-    staticfile_dir = Path(STATICFILE_DIR)
-    if not staticfile_dir.exists():
-        return False
-    stdout_log = staticfile_dir / "stdout.log"
-    if not stdout_log.exists():
-        return False
-    for line in stdout_log.read_text(errors="ignore").splitlines():
-        line = line.strip()
-        if not line.startswith("{"):
-            continue
-        try:
-            record = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if (
-            record.get("type") == "ArchiveResult"
-            and record.get("status") == "succeeded"
-        ):
-            return True
-    return False
-
-
 def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
     """
     Download video/audio using yt-dlp.
 
     Returns: (success, output_path, error_message)
     """
-    # Get config from env (with YTDLP_ prefix, x-fallback handled by config loader)
-    timeout = get_env_int("YTDLP_TIMEOUT") or get_env_int("TIMEOUT", 3600)
-    check_ssl = (
-        get_env_bool("YTDLP_CHECK_SSL_VALIDITY", True)
-        if get_env("YTDLP_CHECK_SSL_VALIDITY")
-        else get_env_bool("CHECK_SSL_VALIDITY", True)
-    )
-    cookies_file = get_env("YTDLP_COOKIES_FILE") or get_env("COOKIES_FILE", "")
-    max_size = get_env("YTDLP_MAX_SIZE", "750m")
-    node_binary = get_env("YTDLP_NODE_BINARY") or get_env("NODE_BINARY", "node")
-    ytdlp_args = get_env_array("YTDLP_ARGS", [])
-    ytdlp_args_extra = get_env_array("YTDLP_ARGS_EXTRA", [])
+    # Load config from config.json (auto-resolves x-aliases and x-fallback from env)
+    config = load_config()
+    timeout = config.YTDLP_TIMEOUT
+    check_ssl = config.YTDLP_CHECK_SSL_VALIDITY
+    cookies_file = config.YTDLP_COOKIES_FILE
+    max_size = config.YTDLP_MAX_SIZE
+    node_binary = config.YTDLP_NODE_BINARY
+    ytdlp_args = config.YTDLP_ARGS
+    ytdlp_args_extra = config.YTDLP_ARGS_EXTRA
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(".")
@@ -288,8 +228,10 @@ def main(url: str, snapshot_id: str):
     """Download video/audio from a URL using yt-dlp."""
 
     try:
+        config = load_config()
+
         # Check if yt-dlp downloading is enabled
-        if not get_env_bool("YTDLP_ENABLED", True):
+        if not config.YTDLP_ENABLED:
             print("Skipping ytdlp (YTDLP_ENABLED=False)", file=sys.stderr)
             print(json.dumps({
                 "type": "ArchiveResult",
@@ -316,7 +258,7 @@ def main(url: str, snapshot_id: str):
             sys.exit(0)
 
         # Get binary from environment
-        binary = get_env("YTDLP_BINARY", "yt-dlp")
+        binary = config.YTDLP_BINARY
 
         # Run extraction
         success, output, error = save_ytdlp(url, binary)

@@ -12,6 +12,7 @@ import pytest
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_hook_script,
     get_plugin_dir,
+    parse_jsonl_output,
 )
 
 
@@ -162,13 +163,8 @@ def test_crawl_hook_emits_defuddle_binary_record():
     )
 
     assert result.returncode == 0
-    records = [
-        json.loads(line)
-        for line in result.stdout.splitlines()
-        if line.strip().startswith("{")
-    ]
-    assert records, "Expected crawl hook to emit Binary record"
-    binary = records[0]
+    binary = parse_jsonl_output(result.stdout, record_type="Binary")
+    assert binary, "Expected crawl hook to emit Binary record"
     assert binary.get("type") == "Binary"
     assert binary.get("name") == "defuddle"
     assert binary.get("overrides", {}).get("npm", {}).get("packages") == ["defuddle"]
@@ -198,11 +194,8 @@ def test_reports_missing_dependency_when_not_installed():
         )
 
         assert result.returncode == 1
-        jsonl_lines = [
-            line for line in result.stdout.strip().split("\n") if line.strip().startswith("{")
-        ]
-        assert len(jsonl_lines) == 1
-        record = json.loads(jsonl_lines[0])
+        record = parse_jsonl_output(result.stdout)
+        assert record, "Should have ArchiveResult JSONL output"
         assert record["type"] == "ArchiveResult"
         assert record["status"] == "failed"
         assert "defuddle" in result.stderr.lower() or "error" in result.stderr.lower()

@@ -18,11 +18,16 @@ if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_
 
 const puppeteer = require('puppeteer-core');
 
-// Import shared utilities from chrome_utils.js
+// Import generic helpers from base/utils.js
 const {
     getEnvBool,
     getEnvInt,
     parseArgs,
+    emitArchiveResult,
+} = require('../base/utils.js');
+
+// Import chrome-specific utilities from chrome_utils.js
+const {
     connectToPage,
     waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
@@ -228,11 +233,7 @@ function emitResult(status = 'succeeded') {
         }
     }
 
-    console.log(JSON.stringify({
-        type: 'ArchiveResult',
-        status,
-        output_str: resolvedIp,
-    }));
+    emitArchiveResult(status, resolvedIp);
 }
 
 async function handleShutdown(signal) {
@@ -262,7 +263,7 @@ async function main() {
 
     if (!getEnvBool('DNS_ENABLED', true)) {
         console.error('Skipping (DNS_ENABLED=False)');
-        console.log(JSON.stringify({type: 'ArchiveResult', status: 'skipped', output_str: 'DNS_ENABLED=False'}));
+        emitArchiveResult('skipped', 'DNS_ENABLED=False');
         process.exit(0);
     }
 
@@ -293,11 +294,7 @@ async function main() {
         const error = `${e.name}: ${e.message}`;
         console.error(`ERROR: ${error}`);
 
-        console.log(JSON.stringify({
-            type: 'ArchiveResult',
-            status: 'failed',
-            output_str: error,
-        }));
+        emitArchiveResult('failed', error);
         process.exit(1);
     }
 }

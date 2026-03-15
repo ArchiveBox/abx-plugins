@@ -32,6 +32,7 @@ if (process.env.NODE_MODULES_DIR) {
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const { parseArgs } = require('../base/utils.js');
 const puppeteer = require('puppeteer');
 const {
     findChromium,
@@ -242,18 +243,6 @@ async function discoverExtensionTargets(cdpUrl, installedExtensions) {
         console.error(`[!] Warning: No custom extensions detected. Extension loading may have failed.`);
         console.error(`[!] Make sure you are using Chromium, not Chrome (Chrome 137+ removed --load-extension support)`);
     }
-}
-
-// Parse command line arguments
-function parseArgs() {
-    const args = {};
-    process.argv.slice(2).forEach((arg) => {
-        if (arg.startsWith('--')) {
-            const [key, ...valueParts] = arg.slice(2).split('=');
-            args[key.replace(/-/g, '_')] = valueParts.join('=') || true;
-        }
-    });
-    return args;
 }
 
 // Cleanup handler for SIGTERM

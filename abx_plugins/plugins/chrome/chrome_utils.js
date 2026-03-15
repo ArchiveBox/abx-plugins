@@ -19,79 +19,10 @@ const { finished } = require('stream/promises');
 
 const execAsync = promisify(exec);
 
+// Import generic helpers from base plugin
+const { getEnv, getEnvBool, getEnvInt, getEnvArray, parseArgs } = require('../base/utils.js');
+
 const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
-
-// ============================================================================
-// Environment helpers
-// ============================================================================
-
-/**
- * Get environment variable with default value.
- * @param {string} name - Environment variable name
- * @param {string} [defaultValue=''] - Default value if not set
- * @returns {string} - Trimmed environment variable value
- */
-function getEnv(name, defaultValue = '') {
-    return (process.env[name] || defaultValue).trim();
-}
-
-/**
- * Get boolean environment variable.
- * @param {string} name - Environment variable name
- * @param {boolean} [defaultValue=false] - Default value if not set
- * @returns {boolean} - Boolean value
- */
-function getEnvBool(name, defaultValue = false) {
-    const val = getEnv(name, '').toLowerCase();
-    if (['true', '1', 'yes', 'on'].includes(val)) return true;
-    if (['false', '0', 'no', 'off'].includes(val)) return false;
-    return defaultValue;
-}
-
-/**
- * Get integer environment variable.
- * @param {string} name - Environment variable name
- * @param {number} [defaultValue=0] - Default value if not set
- * @returns {number} - Integer value
- */
-function getEnvInt(name, defaultValue = 0) {
-    const val = parseInt(getEnv(name, String(defaultValue)), 10);
-    return isNaN(val) ? defaultValue : val;
-}
-
-/**
- * Get array environment variable (JSON array or comma-separated string).
- *
- * Parsing strategy:
- * - If value starts with '[', parse as JSON array
- * - Otherwise, parse as comma-separated values
- *
- * This prevents incorrect splitting of arguments that contain internal commas.
- * For arguments with commas, use JSON format:
- *   CHROME_ARGS='["--user-data-dir=/path/with,comma", "--window-size=1440,900"]'
- *
- * @param {string} name - Environment variable name
- * @param {string[]} [defaultValue=[]] - Default value if not set
- * @returns {string[]} - Array of strings
- */
-function getEnvArray(name, defaultValue = []) {
-    const val = getEnv(name, '');
-    if (!val) return defaultValue;
-
-    // If starts with '[', parse as JSON array
-    if (val.startsWith('[')) {
-        try {
-            const parsed = JSON.parse(val);
-            if (Array.isArray(parsed)) return parsed;
-        } catch (e) {
-            console.error(`[!] Failed to parse ${name} as JSON array: ${e.message}`);
-            // Fall through to comma-separated parsing
-        }
-    }
-
-    // Parse as comma-separated values
-    return val.split(',').map(s => s.trim()).filter(Boolean);
-}
 
 /**
  * Get the current snapshot directory.
@@ -1800,17 +1731,6 @@ const CHROME_SESSION_FILES = Object.freeze({
  *
  * @returns {Object} - Parsed arguments object
  */
-function parseArgs() {
-    const args = {};
-    process.argv.slice(2).forEach(arg => {
-        if (arg.startsWith('--')) {
-            const [key, ...valueParts] = arg.slice(2).split('=');
-            args[key.replace(/-/g, '_')] = valueParts.join('=') || true;
-        }
-    });
-    return args;
-}
-
 /**
  * Resolve all session marker file paths for a chrome session directory.
  *

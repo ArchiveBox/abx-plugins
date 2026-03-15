@@ -21,6 +21,7 @@ import pytest
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,
     get_hook_script,
+    parse_jsonl_output,
 )
 
 
@@ -236,14 +237,10 @@ def test_reports_missing_dependency_when_not_installed():
         # Missing binary should emit failed JSONL
         assert result.returncode == 1, "Should exit 1 when dependency missing"
 
-        records = [
-            json.loads(line)
-            for line in result.stdout.strip().split("\n")
-            if line.strip().startswith("{")
-        ]
-        assert records, "Should emit JSONL for failed dependency"
-        assert records[-1]["type"] == "ArchiveResult"
-        assert records[-1]["status"] == "failed"
+        record = parse_jsonl_output(result.stdout)
+        assert record, "Should emit JSONL for failed dependency"
+        assert record["type"] == "ArchiveResult"
+        assert record["status"] == "failed"
 
         # Should log error to stderr
         assert (
@@ -295,18 +292,7 @@ def test_extracts_article_after_installation():
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
         # Parse clean JSONL output
-        result_json = None
-        for line in result.stdout.strip().split("\n"):
-            line = line.strip()
-            if line.startswith("{"):
-                pass
-                try:
-                    record = json.loads(line)
-                    if record.get("type") == "ArchiveResult":
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+        result_json = parse_jsonl_output(result.stdout)
 
         assert result_json, "Should have ArchiveResult JSONL output"
         assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
@@ -383,12 +369,8 @@ def test_fails_gracefully_without_html_source():
             or "not found" in combined_output.lower()
             or "ERROR=" in combined_output
         ), "Should report missing HTML source"
-        records = [
-            json.loads(line)
-            for line in result.stdout.strip().split("\n")
-            if line.strip().startswith("{")
-        ]
-        assert records and records[-1]["status"] == "noresults"
+        record = parse_jsonl_output(result.stdout)
+        assert record and record["status"] == "noresults"
 
 
 if __name__ == "__main__":

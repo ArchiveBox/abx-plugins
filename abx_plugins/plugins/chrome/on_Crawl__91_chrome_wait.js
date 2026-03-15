@@ -11,6 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { parseArgs } = require('../base/utils.js');
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 const puppeteer = require('puppeteer');
 
@@ -29,17 +30,6 @@ const {
 
 const CHROME_SESSION_DIR = path.join(CRAWL_DIR, 'chrome');
 const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
-
-function parseArgs() {
-    const args = {};
-    process.argv.slice(2).forEach(arg => {
-        if (arg.startsWith('--')) {
-            const [key, ...valueParts] = arg.slice(2).split('=');
-            args[key.replace(/-/g, '_')] = valueParts.join('=') || true;
-        }
-    });
-    return args;
-}
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));

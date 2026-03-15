@@ -17,6 +17,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { parseArgs, getEnv, getEnvInt } = require('../base/utils.js');
 // Add NODE_MODULES_DIR to module resolution paths if set
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 const puppeteer = require('puppeteer');
@@ -33,26 +34,6 @@ if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 process.chdir(OUTPUT_DIR);
-
-function parseArgs() {
-    const args = {};
-    process.argv.slice(2).forEach(arg => {
-        if (arg.startsWith('--')) {
-            const [key, ...valueParts] = arg.slice(2).split('=');
-            args[key.replace(/-/g, '_')] = valueParts.join('=') || true;
-        }
-    });
-    return args;
-}
-
-function getEnv(name, defaultValue = '') {
-    return (process.env[name] || defaultValue).trim();
-}
-
-function getEnvInt(name, defaultValue = 0) {
-    const val = parseInt(getEnv(name, String(defaultValue)), 10);
-    return isNaN(val) ? defaultValue : val;
-}
 
 function getEnvFloat(name, defaultValue = 0) {
     const val = parseFloat(getEnv(name, String(defaultValue)));

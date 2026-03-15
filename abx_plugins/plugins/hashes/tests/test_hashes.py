@@ -13,6 +13,9 @@ from pathlib import Path
 
 import pytest
 
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+from base.test_utils import parse_jsonl_output
+
 
 # Get the path to the hashes hook
 PLUGIN_DIR = Path(__file__).parent.parent
@@ -81,7 +84,7 @@ class TestHashesPlugin:
             assert "files" in data
             assert "metadata" in data
 
-            result_json = json.loads(result.stdout.strip().splitlines()[-1])
+            result_json = parse_jsonl_output(result.stdout)
             assert result_json["type"] == "ArchiveResult"
             assert result_json["status"] == "succeeded"
 

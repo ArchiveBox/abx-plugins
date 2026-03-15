@@ -1,7 +1,9 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = []
+# dependencies = [
+#   "pydantic-settings",
+# ]
 # ///
 """Extract article content using trafilatura from local HTML snapshots."""
 
@@ -12,6 +14,9 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import load_config, emit_archive_result, write_text_atomic, find_html_source
 
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
@@ -56,86 +61,16 @@ sys.stdout.write(result)
 """
 
 
-def emit_archive_result(status: str, output_str: str) -> None:
-    print(
-        json.dumps(
-            {
-                "type": "ArchiveResult",
-                "status": status,
-                "output_str": output_str,
-            }
-        )
-    )
-
-
-def write_text_atomic(path: Path, text: str) -> None:
-    tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    tmp_path.write_text(text, encoding="utf-8")
-    tmp_path.replace(path)
-
-
-def get_env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default).strip()
-
-
-def get_env_bool(name: str, default: bool = False) -> bool:
-    val = get_env(name, "").lower()
-    if val in ("true", "1", "yes", "on"):
-        return True
-    if val in ("false", "0", "no", "off"):
-        return False
-    return default
-
-
-def get_env_int(name: str, default: int = 0) -> int:
-    try:
-        return int(get_env(name, str(default)))
-    except ValueError:
-        return default
-
-
-def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
-    val = get_env(name, "")
-    if not val:
-        return default if default is not None else []
-    try:
-        result = json.loads(val)
-        if isinstance(result, list):
-            return [str(item) for item in result]
-    except json.JSONDecodeError:
-        pass
-    return default if default is not None else []
-
-
-def find_html_source() -> str | None:
-    search_patterns = [
-        "singlefile/singlefile.html",
-        "*_singlefile/singlefile.html",
-        "singlefile/*.html",
-        "*_singlefile/*.html",
-        "dom/output.html",
-        "*_dom/output.html",
-        "dom/*.html",
-        "*_dom/*.html",
-        "wget/**/*.html",
-        "*_wget/**/*.html",
-        "wget/**/*.htm",
-        "*_wget/**/*.htm",
-    ]
-
-    cwd = Path.cwd()
-    for base in (cwd, cwd.parent):
-        for pattern in search_patterns:
-            for match in base.glob(pattern):
-                if match.is_file() and match.stat().st_size > 0:
-                    return str(match)
-    return None
-
-
 def get_enabled_formats() -> list[str]:
+    """Return list of output formats enabled via config (e.g. TRAFILATURA_OUTPUT_TXT=true).
+
+    Defaults come from config.json: txt, markdown, html are enabled;
+    csv, json, xml, xmltei are disabled.
+    """
+    config = load_config()
     return [
         fmt for env_name, fmt in OUTPUT_ENV_TO_FORMAT.items()
-        if get_env_bool(env_name, fmt in {"txt", "markdown", "html"})
+        if getattr(config, env_name)
     ]
 
 
@@ -177,7 +112,8 @@ def run_trafilatura(
 
 
 def extract_trafilatura(url: str, binary: str) -> tuple[str, str]:
-    timeout = get_env_int("TRAFILATURA_TIMEOUT") or get_env_int("TIMEOUT", 60)
+    config = load_config()
+    timeout = config.TRAFILATURA_TIMEOUT
     html_source = find_html_source()
     if not html_source:
         return "noresults", "No HTML source found"
@@ -202,14 +138,13 @@ def main() -> None:
     args = parser.parse_args()
 
     try:
-        if not get_env_bool("TRAFILATURA_ENABLED", True):
+        config = load_config()
+
+        if not config.TRAFILATURA_ENABLED:
             emit_archive_result("skipped", "TRAFILATURA_ENABLED=False")
             sys.exit(0)
 
-        status, output = extract_trafilatura(
-            args.url,
-            get_env("TRAFILATURA_BINARY", "trafilatura")
-        )
+        status, output = extract_trafilatura(args.url, config.TRAFILATURA_BINARY)
 
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)

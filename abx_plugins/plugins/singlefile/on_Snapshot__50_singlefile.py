@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#     "pydantic-settings",
 #     "rich-click",
 # ]
 # ///
@@ -35,6 +36,9 @@ from urllib.request import urlopen
 from pathlib import Path
 import shutil
 
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import load_config, get_env, emit_archive_result, has_staticfile_output
+
 import rich_click as click
 
 
@@ -51,81 +55,8 @@ OUTPUT_FILE = "singlefile.html"
 EXTENSION_SAVE_SCRIPT = Path(__file__).parent / "singlefile_extension_save.js"
 
 
-def get_env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default).strip()
-
-
-def get_env_bool(name: str, default: bool = False) -> bool:
-    val = get_env(name, "").lower()
-    if val in ("true", "1", "yes", "on"):
-        return True
-    if val in ("false", "0", "no", "off"):
-        return False
-    return default
-
-
-def get_env_int(name: str, default: int = 0) -> int:
-    try:
-        return int(get_env(name, str(default)))
-    except ValueError:
-        return default
-
-
-def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
-    """Parse a JSON array from environment variable."""
-    val = get_env(name, "")
-    if not val:
-        return default if default is not None else []
-    try:
-        result = json.loads(val)
-        if isinstance(result, list):
-            return [str(item) for item in result]
-        return default if default is not None else []
-    except json.JSONDecodeError:
-        return default if default is not None else []
-
-
-def emit_archive_result(status: str, output_str: str) -> None:
-    print(
-        json.dumps(
-            {
-                "type": "ArchiveResult",
-                "status": status,
-                "output_str": output_str,
-            }
-        )
-    )
-
-
 def temp_path_for(path: Path) -> Path:
     return path.with_name(f".{path.name}.{os.getpid()}.tmp")
-
-
-STATICFILE_DIR = "../staticfile"
-
-
-def has_staticfile_output() -> bool:
-    """Check if staticfile extractor already downloaded this URL."""
-    staticfile_dir = Path(STATICFILE_DIR)
-    if not staticfile_dir.exists():
-        return False
-    stdout_log = staticfile_dir / "stdout.log"
-    if not stdout_log.exists():
-        return False
-    for line in stdout_log.read_text(errors="ignore").splitlines():
-        line = line.strip()
-        if not line.startswith("{"):
-            continue
-        try:
-            record = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if (
-            record.get("type") == "ArchiveResult"
-            and record.get("status") == "succeeded"
-        ):
-            return True
-    return False
 
 
 # Chrome session directory (relative to extractor output dir)
@@ -189,17 +120,14 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
     Returns: (success, output_path, error_message)
     """
     print(f"[singlefile] CLI mode start url={url}", file=sys.stderr)
-    # Get config from env (with SINGLEFILE_ prefix, x-fallback handled by config loader)
-    timeout = get_env_int("SINGLEFILE_TIMEOUT") or get_env_int("TIMEOUT", 120)
-    user_agent = get_env("SINGLEFILE_USER_AGENT") or get_env("USER_AGENT", "")
-    check_ssl = (
-        get_env_bool("SINGLEFILE_CHECK_SSL_VALIDITY", True)
-        if get_env("SINGLEFILE_CHECK_SSL_VALIDITY")
-        else get_env_bool("CHECK_SSL_VALIDITY", True)
-    )
-    cookies_file = get_env("SINGLEFILE_COOKIES_FILE") or get_env("COOKIES_FILE", "")
-    singlefile_args = get_env_array("SINGLEFILE_ARGS", [])
-    singlefile_args_extra = get_env_array("SINGLEFILE_ARGS_EXTRA", [])
+    # Load config from config.json (auto-resolves x-aliases and x-fallback from env)
+    config = load_config()
+    timeout = config.SINGLEFILE_TIMEOUT
+    user_agent = config.SINGLEFILE_USER_AGENT
+    check_ssl = config.SINGLEFILE_CHECK_SSL_VALIDITY
+    cookies_file = config.SINGLEFILE_COOKIES_FILE
+    singlefile_args = config.SINGLEFILE_ARGS
+    singlefile_args_extra = config.SINGLEFILE_ARGS_EXTRA
     # Chrome args/binary are intentionally ignored because we require a shared Chrome session
 
     cmd = [binary, *singlefile_args]
@@ -329,7 +257,8 @@ def save_singlefile_with_extension(
         )
         return False, None, "SingleFile extension helper script missing"
 
-    node_binary = get_env("SINGLEFILE_NODE_BINARY") or get_env("NODE_BINARY", "node")
+    config = load_config()
+    node_binary = config.SINGLEFILE_NODE_BINARY
     downloads_dir = get_env("CHROME_DOWNLOADS_DIR", "")
     extensions_dir = get_env("CHROME_EXTENSIONS_DIR", "")
     output_path = Path(OUTPUT_DIR) / OUTPUT_FILE
@@ -446,8 +375,10 @@ def main(url: str, snapshot_id: str):
     error = ""
 
     try:
+        config = load_config()
+
         # Check if SingleFile is enabled
-        if not get_env_bool("SINGLEFILE_ENABLED", True):
+        if not config.SINGLEFILE_ENABLED:
             print("Skipping SingleFile (SINGLEFILE_ENABLED=False)", file=sys.stderr)
             emit_archive_result("skipped", "SINGLEFILE_ENABLED=False")
             sys.exit(0)
@@ -462,7 +393,7 @@ def main(url: str, snapshot_id: str):
             sys.exit(0)
 
         # Prefer SingleFile extension via existing Chrome session
-        timeout = get_env_int("SINGLEFILE_TIMEOUT") or get_env_int("TIMEOUT", 120)
+        timeout = config.SINGLEFILE_TIMEOUT
         success, output, error = save_singlefile_with_extension(url, timeout)
         status = "succeeded" if success else "failed"
 

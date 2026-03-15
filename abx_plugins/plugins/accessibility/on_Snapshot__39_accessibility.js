@@ -20,10 +20,8 @@ const path = require('path');
 // Add NODE_MODULES_DIR to module resolution paths if set
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 const puppeteer = require('puppeteer-core');
+const { getEnvBool, getEnvInt, parseArgs, emitArchiveResult } = require('../base/utils.js');
 const {
-    getEnvBool,
-    getEnvInt,
-    parseArgs,
     readCdpUrl,
     connectToPage,
     waitForPageLoaded,
@@ -177,11 +175,7 @@ async function main() {
         if (!getEnvBool('ACCESSIBILITY_ENABLED', true)) {
             console.log('Skipping accessibility (ACCESSIBILITY_ENABLED=False)');
             // Output clean JSONL (no RESULT_JSON= prefix)
-            console.log(JSON.stringify({
-                type: 'ArchiveResult',
-                status: 'skipped',
-                output_str: 'ACCESSIBILITY_ENABLED=False',
-            }));
+            emitArchiveResult('skipped', 'ACCESSIBILITY_ENABLED=False');
             process.exit(0);
         }
 
@@ -207,12 +201,7 @@ async function main() {
 
     if (error) console.error(`ERROR: ${error}`);
 
-    // Output clean JSONL (no RESULT_JSON= prefix)
-    console.log(JSON.stringify({
-        type: 'ArchiveResult',
-        status,
-        output_str: output || error || '',
-    }));
+    emitArchiveResult(status, output || error || '');
 
     process.exit(status === 'succeeded' ? 0 : 1);
 }

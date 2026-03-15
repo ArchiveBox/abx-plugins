@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#   "pydantic-settings",
 #   "rich-click",
 # ]
 # ///
@@ -17,6 +18,9 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import load_config
 
 import rich_click as click
 
@@ -42,31 +46,6 @@ def rel_output(path_str: str | None) -> str | None:
         return path.name or path_str
 
 
-def get_env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default).strip()
-
-
-def get_env_int(name: str, default: int = 0) -> int:
-    try:
-        return int(get_env(name, str(default)))
-    except ValueError:
-        return default
-
-
-def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
-    """Parse a JSON array from environment variable."""
-    val = get_env(name, "")
-    if not val:
-        return default if default is not None else []
-    try:
-        result = json.loads(val)
-        if isinstance(result, list):
-            return [str(item) for item in result]
-        return default if default is not None else []
-    except json.JSONDecodeError:
-        return default if default is not None else []
-
-
 def is_git_url(url: str) -> bool:
     """Check if URL looks like a git repository."""
     git_patterns = [
@@ -86,9 +65,10 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     Returns: (success, output_path, error_message)
     """
-    timeout = get_env_int("GIT_TIMEOUT") or get_env_int("TIMEOUT", 120)
-    git_args = get_env_array("GIT_ARGS", ["clone", "--depth=1", "--recursive"])
-    git_args_extra = get_env_array("GIT_ARGS_EXTRA", [])
+    config = load_config()
+    timeout = config.GIT_TIMEOUT
+    git_args = config.GIT_ARGS
+    git_args_extra = config.GIT_ARGS_EXTRA
 
     cmd = [binary, *git_args, *git_args_extra, url, OUTPUT_DIR]
 
@@ -131,8 +111,9 @@ def main(url: str, snapshot_id: str):
             )
             sys.exit(0)
 
+        config = load_config()
         # Get binary from environment
-        binary = get_env("GIT_BINARY", "git")
+        binary = config.GIT_BINARY
 
         # Run extraction
         success, output, error = clone_git(url, binary)

@@ -16,30 +16,12 @@ const path = require('path');
 // Add NODE_MODULES_DIR to module resolution paths if set
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 
+const { getEnvBool, getEnvInt, parseArgs, emitArchiveResult, writeFileAtomic, hasStaticFileOutput } = require('../base/utils.js');
 const {
-    getEnvBool,
-    getEnvInt,
-    parseArgs,
     readCdpUrl,
     connectToPage,
     waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
-
-function emitArchiveResult(status, outputStr) {
-    console.log(JSON.stringify({
-        type: 'ArchiveResult',
-        status,
-        output_str: outputStr,
-    }));
-}
-
-function writeFileAtomic(filePath, contents) {
-    const dir = path.dirname(filePath);
-    const base = path.basename(filePath);
-    const tmpPath = path.join(dir, `.${base}.${process.pid}.tmp`);
-    fs.writeFileSync(tmpPath, contents, 'utf8');
-    fs.renameSync(tmpPath, filePath);
-}
 
 // Check if DOM is enabled BEFORE requiring puppeteer
 if (!getEnvBool('DOM_ENABLED', true)) {
@@ -62,26 +44,6 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 process.chdir(OUTPUT_DIR);
 const OUTPUT_FILE = 'output.html';
 const CHROME_SESSION_DIR = '../chrome';
-
-// Check if staticfile extractor already downloaded this URL
-const STATICFILE_DIR = '../staticfile';
-function hasStaticFileOutput() {
-    if (!fs.existsSync(STATICFILE_DIR)) return false;
-    const stdoutPath = path.join(STATICFILE_DIR, 'stdout.log');
-    if (!fs.existsSync(stdoutPath)) return false;
-    const stdout = fs.readFileSync(stdoutPath, 'utf8');
-    for (const line of stdout.split('\n')) {
-        const trimmed = line.trim();
-        if (!trimmed.startsWith('{')) continue;
-        try {
-            const record = JSON.parse(trimmed);
-            if (record.type === 'ArchiveResult' && record.status === 'succeeded') {
-                return true;
-            }
-        } catch (e) {}
-    }
-    return false;
-}
 
 async function dumpDom(url, timeoutMs) {
     // Output directory is current directory (hook already runs in output dir)

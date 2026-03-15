@@ -17,6 +17,14 @@ const path = require('path');
 // Add NODE_MODULES_DIR to module resolution paths if set
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 
+const { getEnv, getEnvBool, parseArgs, emitArchiveResult, hasStaticFileOutput } = require('../base/utils.js');
+const {
+    connectToPage,
+    getTargetIdFromPage,
+    waitForPageLoaded,
+    readTargetId,
+} = require('../chrome/chrome_utils.js');
+
 // Flush V8 coverage before exiting (for NODE_V8_COVERAGE support)
 function flushCoverageAndExit(exitCode) {
     if (process.env.NODE_V8_COVERAGE) {
@@ -30,29 +38,11 @@ function flushCoverageAndExit(exitCode) {
     process.exit(exitCode);
 }
 
-function emitArchiveResult(status, outputStr) {
-    console.log(JSON.stringify({
-        type: 'ArchiveResult',
-        status,
-        output_str: outputStr,
-    }));
-}
-
 function tempPathFor(filePath) {
     const dir = path.dirname(filePath);
     const base = path.basename(filePath);
     return path.join(dir, `.${base}.${process.pid}.tmp`);
 }
-
-const {
-    getEnv,
-    getEnvBool,
-    parseArgs,
-    connectToPage,
-    getTargetIdFromPage,
-    waitForPageLoaded,
-    readTargetId,
-} = require('../chrome/chrome_utils.js');
 
 // Check if screenshot is enabled BEFORE requiring puppeteer
 if (!getEnvBool('SCREENSHOT_ENABLED', true)) {
@@ -75,26 +65,6 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 process.chdir(OUTPUT_DIR);
 const OUTPUT_FILE = 'screenshot.png';
 const CHROME_SESSION_DIR = '../chrome';
-
-// Check if staticfile extractor already downloaded this URL
-const STATICFILE_DIR = '../staticfile';
-function hasStaticFileOutput() {
-    if (!fs.existsSync(STATICFILE_DIR)) return false;
-    const stdoutPath = path.join(STATICFILE_DIR, 'stdout.log');
-    if (!fs.existsSync(stdoutPath)) return false;
-    const stdout = fs.readFileSync(stdoutPath, 'utf8');
-    for (const line of stdout.split('\n')) {
-        const trimmed = line.trim();
-        if (!trimmed.startsWith('{')) continue;
-        try {
-            const record = JSON.parse(trimmed);
-            if (record.type === 'ArchiveResult' && record.status === 'succeeded') {
-                return true;
-            }
-        } catch (e) {}
-    }
-    return false;
-}
 
 async function takeScreenshot(url) {
     // Output directory is current directory (hook already runs in output dir)

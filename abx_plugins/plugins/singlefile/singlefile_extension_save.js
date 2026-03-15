@@ -9,6 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { parseArgs } = require('../base/utils.js');
 
 const SNAPSHOT_OUTPUT_DIR = process.cwd();
 const CHROME_SESSION_DIR = path.resolve(SNAPSHOT_OUTPUT_DIR, '..', 'chrome');
@@ -38,17 +39,6 @@ async function setDownloadDir(page, downloadDir) {
     } catch (err) {
         console.error(`[⚠️] Failed to set download directory: ${err.message || err}`);
     }
-}
-
-function parseArgs() {
-    const args = {};
-    process.argv.slice(2).forEach((arg) => {
-        if (arg.startsWith('--')) {
-            const [key, ...valueParts] = arg.slice(2).split('=');
-            args[key.replace(/-/g, '_')] = valueParts.join('=') || true;
-        }
-    });
-    return args;
 }
 
 async function main() {

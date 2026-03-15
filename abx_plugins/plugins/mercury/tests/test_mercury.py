@@ -23,6 +23,7 @@ import pytest
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,
     get_hook_script,
+    parse_jsonl_output,
 )
 
 
@@ -203,18 +204,7 @@ def test_extracts_with_mercury_parser(httpserver):
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
         # Parse clean JSONL output
-        result_json = None
-        for line in result.stdout.strip().split("\n"):
-            line = line.strip()
-            if line.startswith("{"):
-                pass
-                try:
-                    record = json.loads(line)
-                    if record.get("type") == "ArchiveResult":
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+        result_json = parse_jsonl_output(result.stdout)
 
         assert result_json, "Should have ArchiveResult JSONL output"
         assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
@@ -273,17 +263,7 @@ def test_extracts_with_local_html_source_present(httpserver):
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
-        result_json = None
-        for line in result.stdout.strip().split("\n"):
-            line = line.strip()
-            if line.startswith("{"):
-                try:
-                    record = json.loads(line)
-                    if record.get("type") == "ArchiveResult":
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+        result_json = parse_jsonl_output(result.stdout)
 
         assert result_json, "Should have ArchiveResult JSONL output"
         assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
@@ -345,14 +325,10 @@ def test_config_save_mercury_false_skips():
             "Should log skip reason to stderr"
         )
 
-        records = [
-            json.loads(line)
-            for line in result.stdout.strip().split("\n")
-            if line.strip().startswith("{")
-        ]
-        assert records, "Should emit JSONL when disabled"
-        assert records[-1]["type"] == "ArchiveResult"
-        assert records[-1]["status"] == "skipped"
+        record = parse_jsonl_output(result.stdout)
+        assert record, "Should emit JSONL when disabled"
+        assert record["type"] == "ArchiveResult"
+        assert record["status"] == "skipped"
 
 
 def test_extracts_without_local_html_source(httpserver):
@@ -395,17 +371,7 @@ def test_extracts_without_local_html_source(httpserver):
 
         # Mercury fetches URL directly with postlight-parser, doesn't need local HTML source
         # Parse clean JSONL output
-        result_json = None
-        for line in result.stdout.strip().split("\n"):
-            line = line.strip()
-            if line.startswith("{"):
-                try:
-                    record = json.loads(line)
-                    if record.get("type") == "ArchiveResult":
-                        result_json = record
-                        break
-                except json.JSONDecodeError:
-                    pass
+        result_json = parse_jsonl_output(result.stdout)
 
         assert result_json, "Should emit ArchiveResult"
         assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"

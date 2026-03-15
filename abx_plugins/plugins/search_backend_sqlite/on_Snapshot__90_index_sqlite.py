@@ -27,6 +27,9 @@ import sqlite3
 import sys
 from pathlib import Path
 
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import get_env, get_env_bool
+
 
 # Extractor metadata
 PLUGIN_NAME = "index_sqlite"
@@ -48,19 +51,6 @@ INDEXABLE_FILES = [
     ("wget", "**/*.htm"),
     ("title", "title.txt"),
 ]
-
-
-def get_env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default).strip()
-
-
-def get_env_bool(name: str, default: bool = False) -> bool:
-    val = get_env(name, "").lower()
-    if val in ("true", "1", "yes", "on"):
-        return True
-    if val in ("false", "0", "no", "off"):
-        return False
-    return default
 
 
 def get_text_size_kb(texts: list[str]) -> int:

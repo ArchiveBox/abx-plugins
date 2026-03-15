@@ -108,6 +108,42 @@ Semantics:
 - exit `0`: succeeded, noresults, or skipped
 - exit non-zero: failed
 
+### Base plugin utilities
+
+The `base/` plugin provides shared Python and JS helpers that all other plugins import:
+
+**Python** (`base/utils.py`):
+```python
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import load_config, emit_archive_result, get_env
+```
+
+- `load_config()` — load `config.json` via PydanticSettings with env var + alias resolution
+- `emit_archive_result(status, output_str)` — print `{"type":"ArchiveResult",...}` JSONL to stdout
+- `output_binary(name, abspath, version, ...)` — emit `Binary` JSONL record
+- `output_machine_config(config_dict)` — emit `Machine` config patch
+- `write_text_atomic(path, content)` — write file atomically (temp + rename)
+- `find_html_source(snap_dir, ...)` — locate HTML from sibling plugins
+- `has_staticfile_output(snap_dir, path)` — check if a sibling plugin produced a file
+- `get_env(name, default)`, `get_env_bool`, `get_env_int`, `get_env_array` — typed env helpers
+- `enforce_lib_permissions()` — lock down `LIB_DIR` so snapshot hooks can read/execute but not write
+
+**JS** (`base/utils.js`):
+```javascript
+const { getEnv, getEnvBool, getEnvInt, getEnvArray, emitArchiveResult } = require('../base/utils.js');
+```
+
+**Test helpers** (`base/test_utils.py`):
+```python
+from base.test_utils import parse_jsonl_output, run_hook, get_hook_script
+```
+
+- `parse_jsonl_output(stdout)` — extract first matching JSONL record from hook stdout
+- `run_hook(hook_script, url, snapshot_id)` — run a hook subprocess with standard args
+- `get_hook_script(plugin_dir, pattern)` — find hook script by glob pattern
+
+> **Note:** Use `sys.path.append()` (not `insert(0, ...)`) because the `ssl/` plugin directory would shadow Python's stdlib `ssl` module.
+
 ### Rules
 
 - all plugins should:

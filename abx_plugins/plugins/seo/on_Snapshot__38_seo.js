@@ -21,11 +21,16 @@ const path = require('path');
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 const puppeteer = require('puppeteer-core');
 
-// Import shared utilities from chrome_utils.js
+// Import generic helpers from base/utils.js
 const {
     getEnvBool,
     getEnvInt,
     parseArgs,
+    emitArchiveResult,
+} = require('../base/utils.js');
+
+// Import chrome-specific utilities from chrome_utils.js
+const {
     connectToPage,
     waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
@@ -127,12 +132,7 @@ async function main() {
         // Check if enabled
         if (!getEnvBool('SEO_ENABLED', true)) {
             console.log('Skipping SEO (SEO_ENABLED=False)');
-            // Output clean JSONL (no RESULT_JSON= prefix)
-            console.log(JSON.stringify({
-                type: 'ArchiveResult',
-                status: 'skipped',
-                output_str: 'SEO_ENABLED=False',
-            }));
+            emitArchiveResult('skipped', 'SEO_ENABLED=False');
             process.exit(0);
         }
 
@@ -159,12 +159,7 @@ async function main() {
 
     if (error) console.error(`ERROR: ${error}`);
 
-    // Output clean JSONL (no RESULT_JSON= prefix)
-    console.log(JSON.stringify({
-        type: 'ArchiveResult',
-        status,
-        output_str: output || error || '',
-    }));
+    emitArchiveResult(status, output || error || '');
 
     process.exit(status === 'succeeded' ? 0 : 1);
 }

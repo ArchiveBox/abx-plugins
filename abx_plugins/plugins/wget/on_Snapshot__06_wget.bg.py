@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#   "pydantic-settings",
 #   "rich-click",
 # ]
 # ///
@@ -31,6 +32,9 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import load_config, has_staticfile_output
+
 import rich_click as click
 
 
@@ -55,89 +59,21 @@ def rel_output(path_str: str | None) -> str | None:
         return path.name or path_str
 
 
-def get_env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default).strip()
-
-
-def get_env_bool(name: str, default: bool = False) -> bool:
-    val = get_env(name, "").lower()
-    if val in ("true", "1", "yes", "on"):
-        return True
-    if val in ("false", "0", "no", "off"):
-        return False
-    return default
-
-
-def get_env_int(name: str, default: int = 0) -> int:
-    try:
-        return int(get_env(name, str(default)))
-    except ValueError:
-        return default
-
-
-def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
-    """Parse a JSON array from environment variable."""
-    val = get_env(name, "")
-    if not val:
-        return default if default is not None else []
-    try:
-        result = json.loads(val)
-        if isinstance(result, list):
-            return [str(item) for item in result]
-        return default if default is not None else []
-    except json.JSONDecodeError:
-        return default if default is not None else []
-
-
-STATICFILE_DIR = "../staticfile"
-
-
-def has_staticfile_output() -> bool:
-    """Check if staticfile extractor already downloaded this URL."""
-    staticfile_dir = Path(STATICFILE_DIR)
-    if not staticfile_dir.exists():
-        return False
-    stdout_log = staticfile_dir / "stdout.log"
-    if not stdout_log.exists():
-        return False
-    for line in stdout_log.read_text(errors="ignore").splitlines():
-        line = line.strip()
-        if not line.startswith("{"):
-            continue
-        try:
-            record = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if (
-            record.get("type") == "ArchiveResult"
-            and record.get("status") == "succeeded"
-        ):
-            return True
-    return False
-
-
 def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
     """
     Archive URL using wget.
 
     Returns: (success, output_path, error_message)
     """
-    # Get config from env (with WGET_ prefix, x-fallback handled by config loader)
-    timeout = get_env_int("WGET_TIMEOUT") or get_env_int("TIMEOUT", 60)
-    user_agent = get_env("WGET_USER_AGENT") or get_env(
-        "USER_AGENT", "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
-    )
-    check_ssl = (
-        get_env_bool("WGET_CHECK_SSL_VALIDITY", True)
-        if get_env("WGET_CHECK_SSL_VALIDITY")
-        else get_env_bool("CHECK_SSL_VALIDITY", True)
-    )
-    cookies_file = get_env("WGET_COOKIES_FILE") or get_env("COOKIES_FILE", "")
-    wget_args = get_env_array("WGET_ARGS", [])
-    wget_args_extra = get_env_array("WGET_ARGS_EXTRA", [])
-
-    # Feature toggles
-    warc_enabled = get_env_bool("WGET_WARC_ENABLED", True)
+    # Load config from config.json (auto-resolves x-aliases and x-fallback from env)
+    config = load_config()
+    timeout = config.WGET_TIMEOUT
+    user_agent = config.WGET_USER_AGENT or "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
+    check_ssl = config.WGET_CHECK_SSL_VALIDITY
+    cookies_file = config.WGET_COOKIES_FILE
+    wget_args = config.WGET_ARGS
+    wget_args_extra = config.WGET_ARGS_EXTRA
+    warc_enabled = config.WGET_WARC_ENABLED
 
     # Build wget command (later options take precedence)
     cmd = [
@@ -215,8 +151,10 @@ def main(url: str, snapshot_id: str):
     error = ""
 
     try:
+        config = load_config()
+
         # Check if wget is enabled
-        if not get_env_bool("WGET_ENABLED", True):
+        if not config.WGET_ENABLED:
             print("Skipping wget (WGET_ENABLED=False)", file=sys.stderr)
             print(json.dumps({
                 "type": "ArchiveResult",
@@ -243,7 +181,7 @@ def main(url: str, snapshot_id: str):
             sys.exit(0)
 
         # Get binary from environment
-        binary = get_env("WGET_BINARY", "wget")
+        binary = config.WGET_BINARY
 
         # Run extraction
         success, output, error = save_wget(url, binary)
