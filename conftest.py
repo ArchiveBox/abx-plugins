@@ -61,13 +61,14 @@ def ensure_chrome_test_prereqs(ensure_chromium_and_puppeteer_installed):
 def require_chrome_runtime():
     """Require chrome runtime prerequisites for integration tests.
 
-    Validates that NpmProvider is available (needed by Chrome-based plugins
-    like dns, dom, headers).  Previously duplicated in dns/dom/headers
-    conftest files.
+    Validates that node and npm resolve through abx-pkg before running
+    Chrome-based integration tests like dns, dom, and headers. Previously
+    duplicated in dns/dom/headers conftest files.
     """
-    from abx_pkg import NpmProvider
+    from abx_pkg import Binary, EnvProvider
 
     try:
-        NpmProvider()
+        Binary(name="node", binproviders=[EnvProvider()]).load()
+        Binary(name="npm", binproviders=[EnvProvider()]).load()
     except Exception as exc:
         pytest.fail(f"Chrome integration prerequisites unavailable: {exc}")
