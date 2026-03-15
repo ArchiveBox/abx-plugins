@@ -68,6 +68,8 @@ jobs:
     name: ${{ matrix.test.name }}
     runs-on: ubuntu-22.04
     needs: discover-tests
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
     strategy:
       fail-fast: false

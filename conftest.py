@@ -1,13 +1,26 @@
 from __future__ import annotations
 
+import fcntl
+import json
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 pytest_plugins = ["abx_plugins.plugins.chrome.tests.chrome_test_helpers"]
+
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output, parse_jsonl_records
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_lib_dir
+
+
+PLUGINS_ROOT = Path(__file__).resolve().parent / "abx_plugins" / "plugins"
+CLAUDECODE_INSTALL_HOOK = (
+    PLUGINS_ROOT / "claudecode" / "on_Crawl__35_claudecode_install.finite.bg.py"
+)
+NPM_BINARY_HOOK = PLUGINS_ROOT / "npm" / "on_Binary__10_npm_install.py"
 
 
 @pytest.fixture(autouse=True)
@@ -105,19 +118,104 @@ def ensure_chromium_and_puppeteer_installed(tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
-def ensure_claude_code_prereqs():
+def ensure_claude_code_prereqs(tmp_path_factory):
     """Ensure Claude Code CLI is installed and ANTHROPIC_API_KEY is set.
 
     Used by Claude Code integration tests.  Fails immediately with a clear
     message when prerequisites are missing.
     """
-    # Check claude binary (honor CLAUDECODE_BINARY env var)
-    claude_bin = os.environ.get("CLAUDECODE_BINARY") or shutil.which("claude")
+    def apply_machine_updates(records: list[dict], env: dict[str, str]) -> None:
+        for record in records:
+            if record.get("type") != "Machine":
+                continue
+            config = record.get("config")
+            if isinstance(config, dict):
+                env.update({str(key): str(value) for key, value in config.items()})
+
+    def install_claude_code_with_hooks() -> str:
+        env = os.environ.copy()
+        env.setdefault("LIB_DIR", str(get_lib_dir()))
+        env.setdefault("CRAWL_DIR", str(tmp_path_factory.mktemp("claudecode_test_data")))
+        env["CLAUDECODE_ENABLED"] = "true"
+
+        lib_dir = Path(env["LIB_DIR"])
+        lib_dir.mkdir(parents=True, exist_ok=True)
+        lock_path = lib_dir / ".claudecode_install.lock"
+
+        with lock_path.open("w") as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+
+            install_result = subprocess.run(
+                [sys.executable, str(CLAUDECODE_INSTALL_HOOK)],
+                capture_output=True,
+                text=True,
+                timeout=300,
+                env=env,
+            )
+            if install_result.returncode != 0:
+                raise RuntimeError(
+                    f"Claude Code install hook failed: {install_result.stderr or install_result.stdout}"
+                )
+
+            binary_record = parse_jsonl_output(install_result.stdout, record_type="Binary") or {}
+            if binary_record.get("name") != "claude":
+                raise RuntimeError("Claude Code install hook did not emit a claude Binary record")
+
+            npm_cmd = [
+                sys.executable,
+                str(NPM_BINARY_HOOK),
+                "--machine-id=test-machine",
+                "--binary-id=test-claude",
+                "--name=claude",
+                f"--binproviders={binary_record.get('binproviders', '*')}",
+            ]
+            overrides = binary_record.get("overrides")
+            if overrides:
+                npm_cmd.append(f"--overrides={json.dumps(overrides)}")
+
+            npm_result = subprocess.run(
+                npm_cmd,
+                capture_output=True,
+                text=True,
+                timeout=600,
+                env=env,
+            )
+            if npm_result.returncode != 0:
+                raise RuntimeError(
+                    f"Claude Code npm install failed:\nstdout: {npm_result.stdout}\nstderr: {npm_result.stderr}"
+                )
+
+            records = parse_jsonl_records(npm_result.stdout)
+            apply_machine_updates(records, env)
+
+            claude_record = next(
+                (
+                    record
+                    for record in records
+                    if record.get("type") == "Binary" and record.get("name") == "claude"
+                ),
+                None,
+            )
+            if not claude_record:
+                raise RuntimeError("Claude Code npm install did not emit a resolved claude Binary record")
+
+            claude_bin = claude_record.get("abspath")
+            if not isinstance(claude_bin, str) or not Path(claude_bin).exists():
+                raise RuntimeError(f"Claude Code binary not found after install: {claude_bin}")
+
+            os.environ.update(env)
+            os.environ["CLAUDECODE_BINARY"] = claude_bin
+            return claude_bin
+
+    # Check claude binary (honor CLAUDECODE_BINARY env var), otherwise install via hooks.
+    claude_bin = os.environ.get("CLAUDECODE_BINARY")
+    if not claude_bin or not Path(claude_bin).exists():
+        claude_bin = shutil.which("claude")
     if not claude_bin:
-        pytest.fail(
-            "Claude Code CLI not found in PATH and CLAUDECODE_BINARY not set.  "
-            "Install with: npm install -g @anthropic-ai/claude-code"
-        )
+        try:
+            claude_bin = install_claude_code_with_hooks()
+        except Exception as exc:
+            pytest.fail(f"Claude Code CLI install via hooks failed: {exc}")
 
     # Check API key
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
