@@ -661,6 +661,10 @@
         display: grid;
         gap: 12px;
         margin-bottom: 24px;
+        max-width: 980px;
+        margin-left: auto;
+        margin-right: auto;
+        text-align: center;
       }
 
       .footer-intro h2 {
@@ -673,7 +677,9 @@
 
       .footer-intro p {
         margin: 0;
-        max-width: 110ch;
+        max-width: 92ch;
+        margin-left: auto;
+        margin-right: auto;
         font-size: 0.98rem;
         line-height: 1.7;
       }
@@ -1081,17 +1087,17 @@
         <div class="footer-intro">
           <h2>ArchiveBox ecosystem, plugins, and web archiving context</h2>
           <p>
-            ArchiveBox is an open-source self-hosted web archiving platform for saving websites, media, research material, and evidence in durable formats like HTML, JSON, TXT, PDF, PNG, SQLite, and WARC. This plugin marketplace indexes the shared <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">abx-plugins</a> package, which supplies the hook scripts and config schemas used by <a href="https://github.com/ArchiveBox/ArchiveBox" target="_blank" rel="noreferrer">ArchiveBox</a> and <a href="https://github.com/ArchiveBox/abx-dl" target="_blank" rel="noreferrer">abx-dl</a> to crawl sites, install supporting binaries, and produce per-snapshot outputs.
+            The web rots fast. News stories get edited, videos disappear, social posts vanish, and cited links break within a few years. ArchiveBox is an open-source self-hosted web archiving platform built to help individuals and organizations keep durable local copies of the web in standard formats like HTML, JSON, TXT, PDF, PNG, SQLite, and WARC.
           </p>
           <p>
-            The broader stack is split so each project has a clear job: ArchiveBox is the main archive application and long-term collection manager, <a href="https://github.com/ArchiveBox/abx-dl" target="_blank" rel="noreferrer">abx-dl</a> is a lightweight command runner for plugin pipelines, <a href="https://github.com/ArchiveBox/abx-pkg" target="_blank" rel="noreferrer">abx-pkg</a> handles binary discovery and installation, and <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">abx-plugins</a> is the shared plugin catalog published on PyPI and GitHub Pages here. The project history comes out of years of local-first internet archiving work, early wget-based preservation workflows, and talks by Nick Sweeting about link rot, decentralized preservation, and why individuals should keep their own copies of important web history alongside institutions like the Internet Archive and the wider web archiving community.
+            This marketplace documents the shared <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">abx-plugins</a> catalog used by <a href="https://github.com/ArchiveBox/ArchiveBox" target="_blank" rel="noreferrer">ArchiveBox</a> and <a href="https://github.com/ArchiveBox/abx-dl" target="_blank" rel="noreferrer">abx-dl</a>. ArchiveBox manages full collections and long-term archives, <a href="https://github.com/ArchiveBox/abx-dl" target="_blank" rel="noreferrer">abx-dl</a> runs plugin pipelines directly, <a href="https://github.com/ArchiveBox/abx-pkg" target="_blank" rel="noreferrer">abx-pkg</a> installs supporting binaries, and <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">abx-plugins</a> defines the hook scripts and config schemas that actually crawl pages, install tools, and extract per-site outputs.
           </p>
         </div>
 
         <div class="footer-grid">
           <section class="footer-card">
-            <h3>Core projects</h3>
-            <p class="footer-card-subtitle">Archive platform</p>
+            <h3>GitHub Repos</h3>
+            <p class="footer-card-subtitle">Code, issues, and pull requests</p>
             <div class="footer-link-list">
               <a class="footer-link-item" href="https://github.com/ArchiveBox/ArchiveBox" target="_blank" rel="noreferrer">
                 <span class="footer-link-icon">🐙</span>
@@ -1101,31 +1107,10 @@
                 </span>
               </a>
               <a class="footer-link-item" href="https://pypi.org/project/archivebox/" target="_blank" rel="noreferrer">
-                <span class="footer-link-icon">📦</span>
-                <span class="footer-link-copy">
-                  <strong>ArchiveBox on PyPI</strong>
-                  <span>Install the main CLI and Python package with <code>pip install archivebox</code>.</span>
-                </span>
-              </a>
-            </div>
-          </section>
-
-          <section class="footer-card">
-            <h3>Plugin runtime tools</h3>
-            <p class="footer-card-subtitle">Execution and packages</p>
-            <div class="footer-link-list">
-              <a class="footer-link-item" href="https://github.com/ArchiveBox/abx-dl" target="_blank" rel="noreferrer">
                 <span class="footer-link-icon">⚙️</span>
                 <span class="footer-link-copy">
                   <strong>abx-dl repository</strong>
                   <span>Lightweight runner for executing plugin pipelines outside the full ArchiveBox app.</span>
-                </span>
-              </a>
-              <a class="footer-link-item" href="https://pypi.org/project/abx-dl/" target="_blank" rel="noreferrer">
-                <span class="footer-link-icon">📦</span>
-                <span class="footer-link-copy">
-                  <strong>abx-dl on PyPI</strong>
-                  <span>Install the standalone plugin runner with <code>pip install abx-dl</code>.</span>
                 </span>
               </a>
               <a class="footer-link-item" href="https://github.com/ArchiveBox/abx-pkg" target="_blank" rel="noreferrer">
@@ -1135,32 +1120,11 @@
                   <span>Binary installation and discovery layer used by plugins that need Chrome, yt-dlp, and other tools.</span>
                 </span>
               </a>
-              <a class="footer-link-item" href="https://pypi.org/project/abx-pkg/" target="_blank" rel="noreferrer">
-                <span class="footer-link-icon">📦</span>
-                <span class="footer-link-copy">
-                  <strong>abx-pkg on PyPI</strong>
-                  <span>Install the binary/package management layer with <code>pip install abx-pkg</code>.</span>
-                </span>
-              </a>
-            </div>
-          </section>
-
-          <section class="footer-card">
-            <h3>Plugin catalog and contribution</h3>
-            <p class="footer-card-subtitle">This marketplace</p>
-            <div class="footer-link-list">
               <a class="footer-link-item" href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">
                 <span class="footer-link-icon">🧩</span>
                 <span class="footer-link-copy">
                   <strong>abx-plugins repository</strong>
                   <span>Shared plugin package powering this gallery and the hook scripts used by ArchiveBox and abx-dl.</span>
-                </span>
-              </a>
-              <a class="footer-link-item" href="https://pypi.org/project/abx-plugins/" target="_blank" rel="noreferrer">
-                <span class="footer-link-icon">📦</span>
-                <span class="footer-link-copy">
-                  <strong>abx-plugins on PyPI</strong>
-                  <span>Install the plugin bundle with <code>pip install abx-plugins</code>.</span>
                 </span>
               </a>
               <a class="footer-link-item" href="https://github.com/ArchiveBox/abx-plugins/issues" target="_blank" rel="noreferrer">
@@ -1175,6 +1139,41 @@
                 <span class="footer-link-copy">
                   <strong>abx-plugins pull requests</strong>
                   <span>Submit a new plugin, propose fixes, or review incoming changes to the marketplace catalog.</span>
+                </span>
+              </a>
+            </div>
+          </section>
+
+          <section class="footer-card">
+            <h3>PyPI packages</h3>
+            <p class="footer-card-subtitle">Installable Python distributions</p>
+            <div class="footer-link-list">
+              <a class="footer-link-item" href="https://pypi.org/project/archivebox/" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">📦</span>
+                <span class="footer-link-copy">
+                  <strong>ArchiveBox on PyPI</strong>
+                  <span>Install the main CLI and Python package with <code>pip install archivebox</code>.</span>
+                </span>
+              </a>
+              <a class="footer-link-item" href="https://pypi.org/project/abx-dl/" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">📦</span>
+                <span class="footer-link-copy">
+                  <strong>abx-dl on PyPI</strong>
+                  <span>Install the standalone plugin runner with <code>pip install abx-dl</code>.</span>
+                </span>
+              </a>
+              <a class="footer-link-item" href="https://pypi.org/project/abx-pkg/" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">📦</span>
+                <span class="footer-link-copy">
+                  <strong>abx-pkg on PyPI</strong>
+                  <span>Install the binary and package management layer with <code>pip install abx-pkg</code>.</span>
+                </span>
+              </a>
+              <a class="footer-link-item" href="https://pypi.org/project/abx-plugins/" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">📦</span>
+                <span class="footer-link-copy">
+                  <strong>abx-plugins on PyPI</strong>
+                  <span>Install the shared plugin bundle with <code>pip install abx-plugins</code>.</span>
                 </span>
               </a>
             </div>
