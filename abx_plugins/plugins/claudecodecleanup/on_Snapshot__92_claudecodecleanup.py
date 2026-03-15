@@ -100,9 +100,18 @@ def main(url: str, snapshot_id: str):
             extra_context=(
                 f"You are performing cleanup on the snapshot for URL: {url}\n"
                 f"Snapshot ID: {snapshot_id}\n\n"
-                f"Your output directory is: {OUTPUT_DIR}\n\n"
-                "IMPORTANT: You have full read/write/delete access to all files "
-                "in the snapshot directory. Be careful and methodical:\n"
+                f"Snapshot directory (your working directory): {SNAP_DIR}\n"
+                f"Your output directory: {OUTPUT_DIR}\n\n"
+                "## Scope & Permissions\n"
+                f"You have FULL permissions (read, write, rename, move, delete) within "
+                f"the snapshot directory: {SNAP_DIR}\n"
+                "You may run any bash commands you need (rm, mv, cp, find, etc.) as long as "
+                "ALL paths are within the snapshot directory above.\n\n"
+                "CRITICAL RESTRICTION: You MUST NOT read, write, modify, or delete anything "
+                f"outside of {SNAP_DIR}. Do not use absolute paths to other directories. "
+                "Do not use .. to escape the snapshot directory. Every file operation must "
+                "target a path within the snapshot directory.\n\n"
+                "## Procedure\n"
                 "1. First, list and inspect all extractor output directories\n"
                 "2. Identify groups of similar/redundant outputs\n"
                 "3. Compare quality within each group\n"
@@ -128,7 +137,9 @@ def main(url: str, snapshot_id: str):
             f"{OUTPUT_DIR}/cleanup_report.txt"
         )
 
-        # Run Claude Code with broader permissions (needs to delete files)
+        # Run Claude Code with full permissions within SNAP_DIR.
+        # Path scoping is enforced via system prompt (Claude Code's --allowedTools
+        # cannot restrict by path, only by command name).
         stdout, stderr, returncode = run_claude_code(
             prompt=full_prompt,
             work_dir=SNAP_DIR,
@@ -139,16 +150,10 @@ def main(url: str, snapshot_id: str):
             allowed_tools=[
                 "Read",
                 "Write",
-                "Bash(cat:*)",
-                "Bash(ls:*)",
-                "Bash(find:*)",
-                "Bash(head:*)",
-                "Bash(tail:*)",
-                "Bash(wc:*)",
-                "Bash(rm:*)",
-                "Bash(rmdir:*)",
-                "Bash(du:*)",
-                "Bash(diff:*)",
+                "Edit",
+                "Bash",
+                "Glob",
+                "Grep",
             ],
             session_log_path=OUTPUT_DIR / "session.json",
         )

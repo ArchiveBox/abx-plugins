@@ -95,10 +95,15 @@ def main(url: str, snapshot_id: str):
             extra_context=(
                 f"You are processing the snapshot for URL: {url}\n"
                 f"Snapshot ID: {snapshot_id}\n\n"
-                f"Your output directory is: {OUTPUT_DIR}\n"
-                f"IMPORTANT: You MUST save all output files to exactly this directory: {OUTPUT_DIR}\n"
-                "Do NOT save files anywhere else. Do NOT print output to stdout instead of writing files.\n"
-                "You have read access to all sibling extractor directories in the snapshot."
+                f"Snapshot directory (your working directory): {SNAP_DIR}\n"
+                f"Your output directory: {OUTPUT_DIR}\n\n"
+                "## Scope & Permissions\n"
+                f"You may READ any files within the snapshot directory: {SNAP_DIR}\n"
+                f"You MUST WRITE all output files to exactly: {OUTPUT_DIR}\n"
+                "Do NOT write files anywhere else. Do NOT print output to stdout instead of writing files.\n\n"
+                "CRITICAL RESTRICTION: You MUST NOT read, write, or modify anything "
+                f"outside of {SNAP_DIR}. Do not use absolute paths to other directories. "
+                "Do not use .. to escape the snapshot directory."
             ),
         )
 
