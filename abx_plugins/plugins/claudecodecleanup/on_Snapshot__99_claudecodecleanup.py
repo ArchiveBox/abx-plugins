@@ -1,0 +1,184 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "rich-click",
+# ]
+# ///
+"""
+Clean up redundant/duplicate snapshot outputs using Claude Code AI agent.
+
+Runs at the end of the snapshot pipeline (priority 99) to analyze all
+extractor outputs, identify duplicates and redundant files, and keep
+only the best version of each.
+
+Requires the claudecode plugin to have installed Claude Code CLI.
+
+Usage: on_Snapshot__99_claudecodecleanup.py --url=<url> --snapshot-id=<uuid>
+Output: Creates claudecodecleanup/ directory with cleanup_report.txt
+
+Environment variables:
+    CLAUDECODECLEANUP_ENABLED: Enable AI cleanup (default: true)
+    CLAUDECODECLEANUP_PROMPT: Custom prompt for cleanup behavior
+    CLAUDECODECLEANUP_TIMEOUT: Timeout in seconds (default: 120)
+    CLAUDECODECLEANUP_MODEL: Claude model to use (default: sonnet)
+    CLAUDECODECLEANUP_MAX_TURNS: Max agentic turns (default: 15)
+    ANTHROPIC_API_KEY: API key for Claude
+"""
+
+import json
+import os
+import sys
+from pathlib import Path
+
+import rich_click as click
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from claudecode.claudecode_utils import (
+    build_system_prompt,
+    emit_archive_result,
+    get_env,
+    get_env_bool,
+    get_env_int,
+    run_claude_code,
+)
+
+
+# Extractor metadata
+PLUGIN_NAME = "claudecodecleanup"
+PLUGIN_DIR = Path(__file__).resolve().parent.name
+SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
+CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", SNAP_DIR.parent)).resolve()
+OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
+
+DEFAULT_PROMPT = (
+    "Analyze all the extractor output directories in this snapshot. "
+    "Look for duplicate or redundant outputs across plugins "
+    "(e.g. multiple HTML extractions, multiple text extractions, "
+    "multiple URL extraction outputs, etc.). "
+    "For each group of similar outputs, inspect the content and determine "
+    "which version is the best quality. Delete the inferior/redundant versions, "
+    "keeping only the best one. Also remove any unnecessary temporary files, "
+    "empty directories, or incomplete outputs. "
+    "Write a summary of what you cleaned up to cleanup_report.txt in your output directory."
+)
+
+
+@click.command()
+@click.option("--url", required=True, help="URL being archived")
+@click.option("--snapshot-id", required=True, help="Snapshot UUID")
+def main(url: str, snapshot_id: str):
+    """Clean up redundant snapshot outputs using Claude Code AI agent."""
+
+    try:
+        # Check if enabled
+        if not get_env_bool("CLAUDECODECLEANUP_ENABLED", True):
+            print("Skipping Claude Code cleanup (CLAUDECODECLEANUP_ENABLED=False)", file=sys.stderr)
+            emit_archive_result("skipped", "CLAUDECODECLEANUP_ENABLED=False")
+            sys.exit(0)
+
+        # Check for API key
+        api_key = get_env("ANTHROPIC_API_KEY")
+        if not api_key:
+            print("ERROR: ANTHROPIC_API_KEY not set", file=sys.stderr)
+            emit_archive_result("failed", "ANTHROPIC_API_KEY not set")
+            sys.exit(1)
+
+        # Get configuration
+        user_prompt = get_env("CLAUDECODECLEANUP_PROMPT", DEFAULT_PROMPT)
+        timeout = get_env_int("CLAUDECODECLEANUP_TIMEOUT") or get_env_int("CLAUDECODE_TIMEOUT", 120)
+        model = get_env("CLAUDECODECLEANUP_MODEL") or get_env("CLAUDECODE_MODEL", "sonnet")
+        max_turns = get_env_int("CLAUDECODECLEANUP_MAX_TURNS") or get_env_int("CLAUDECODE_MAX_TURNS", 15)
+
+        # Build system prompt with snapshot context
+        system_prompt = build_system_prompt(
+            snap_dir=SNAP_DIR,
+            crawl_dir=CRAWL_DIR,
+            extra_context=(
+                f"You are performing cleanup on the snapshot for URL: {url}\n"
+                f"Snapshot ID: {snapshot_id}\n\n"
+                f"Your output directory is: {OUTPUT_DIR}\n"
+                "Save your cleanup report to your output directory.\n\n"
+                "IMPORTANT: You have full read/write/delete access to all files "
+                "in the snapshot directory. Be careful and methodical:\n"
+                "1. First, list and inspect all extractor output directories\n"
+                "2. Identify groups of similar/redundant outputs\n"
+                "3. Compare quality within each group\n"
+                "4. Delete only the clearly inferior/redundant versions\n"
+                "5. Never delete the hashes/ directory or any .json metadata files\n"
+                "6. Write a detailed report of what was cleaned up and why"
+            ),
+        )
+
+        # Compose the full prompt
+        full_prompt = (
+            f"URL being archived: {url}\n\n"
+            f"Snapshot directory: {SNAP_DIR}\n"
+            f"Your output directory (save report here): {OUTPUT_DIR}\n\n"
+            f"Task:\n{user_prompt}"
+        )
+
+        # Run Claude Code with broader permissions (needs to delete files)
+        stdout, stderr, returncode = run_claude_code(
+            prompt=full_prompt,
+            work_dir=SNAP_DIR,
+            system_prompt=system_prompt,
+            timeout=timeout,
+            max_turns=max_turns,
+            model=model,
+            allowed_tools=[
+                "Read",
+                "Write",
+                "Bash(cat:*)",
+                "Bash(ls:*)",
+                "Bash(find:*)",
+                "Bash(head:*)",
+                "Bash(tail:*)",
+                "Bash(wc:*)",
+                "Bash(rm:*)",
+                "Bash(rmdir:*)",
+                "Bash(du:*)",
+                "Bash(diff:*)",
+            ],
+        )
+
+        if stderr:
+            print(stderr, file=sys.stderr)
+
+        # Save Claude's response
+        if stdout:
+            response_path = OUTPUT_DIR / "response.txt"
+            response_path.write_text(stdout, encoding="utf-8")
+
+        if returncode != 0:
+            emit_archive_result("failed", f"Claude Code failed (exit={returncode})")
+            sys.exit(1)
+
+        # Check for cleanup report
+        report_path = OUTPUT_DIR / "cleanup_report.txt"
+        if report_path.exists():
+            report_size = report_path.stat().st_size
+            print(f"[+] Cleanup report: {report_size} bytes", file=sys.stderr)
+            emit_archive_result("succeeded", "cleanup_report.txt")
+        else:
+            # Check for any output files
+            output_files = [f.name for f in OUTPUT_DIR.iterdir() if f.is_file() and not f.name.startswith(".")]
+            if output_files:
+                emit_archive_result("succeeded", ", ".join(sorted(output_files)))
+            else:
+                emit_archive_result("succeeded", "cleanup completed (no report)")
+
+        sys.exit(0)
+
+    except Exception as e:
+        error = f"{type(e).__name__}: {e}"
+        print(f"ERROR: {error}", file=sys.stderr)
+        emit_archive_result("failed", error)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
