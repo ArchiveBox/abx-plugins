@@ -13,7 +13,6 @@ Tests verify:
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -34,14 +33,6 @@ if _CLEANUP_HOOK is None:
 CLEANUP_HOOK = _CLEANUP_HOOK
 TEST_URL = "https://example.com"
 
-# Detect whether real Claude Code integration tests can run
-CLAUDE_BINARY = shutil.which(os.environ.get("CLAUDECODE_BINARY", "claude"))
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-CAN_RUN_CLAUDE = bool(CLAUDE_BINARY and ANTHROPIC_API_KEY)
-SKIP_INTEGRATION = pytest.mark.skipif(
-    not CAN_RUN_CLAUDE,
-    reason="Integration tests require claude binary in PATH and ANTHROPIC_API_KEY set",
-)
 
 
 def create_snapshot_with_duplicates(snap_dir: Path) -> dict:
@@ -170,12 +161,17 @@ class TestClaudeCodeCleanupPlugin:
         assert len(default_prompt) > 50, "Default prompt should be meaningful"
         assert "duplicate" in default_prompt.lower() or "redundant" in default_prompt.lower()
 
-    def test_config_has_higher_max_turns(self):
+    def test_config_has_higher_max_turns_than_extract(self):
         """Cleanup should have higher default max turns than extract."""
-        config_path = PLUGIN_DIR / "config.json"
-        config = json.loads(config_path.read_text())
-        max_turns = config["properties"]["CLAUDECODECLEANUP_MAX_TURNS"]["default"]
-        assert max_turns >= 15, "Cleanup should have higher max turns for thorough inspection"
+        cleanup_config = json.loads((PLUGIN_DIR / "config.json").read_text())
+        extract_config_path = PLUGIN_DIR.parent / "claudecodeextract" / "config.json"
+        extract_config = json.loads(extract_config_path.read_text())
+
+        cleanup_max = cleanup_config["properties"]["CLAUDECODECLEANUP_MAX_TURNS"]["default"]
+        extract_max = extract_config["properties"]["CLAUDECODEEXTRACT_MAX_TURNS"]["default"]
+        assert cleanup_max > extract_max, (
+            f"Cleanup max_turns ({cleanup_max}) should exceed extract max_turns ({extract_max})"
+        )
 
     def test_templates_exist(self):
         """Template files should exist."""
@@ -296,14 +292,9 @@ class TestClaudeCodeCleanupPlugin:
 class TestClaudeCodeCleanupIntegration:
     """Integration tests that run the full cleanup pipeline with real Claude Code.
 
-    These tests require:
-    - claude binary available in PATH
-    - ANTHROPIC_API_KEY set in environment
-
-    They are automatically skipped when these prerequisites are not met.
+    These tests require claude binary in PATH and ANTHROPIC_API_KEY set.
     """
 
-    @SKIP_INTEGRATION
     def test_cleanup_produces_report(self):
         """Cleanup hook should analyze snapshot and produce a cleanup report."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -351,19 +342,20 @@ class TestClaudeCodeCleanupIntegration:
                 f"output={ar.get('output_str', '')}, stderr: {result.stderr[:500]}"
             )
 
-            # Should produce a response file at minimum
-            response_file = output_dir / "response.txt"
-            assert response_file.exists(), "Should save Claude's response"
-            response_text = response_file.read_text()
-            assert len(response_text) > 0, "Response should not be empty"
+            # Should produce cleanup_report.txt
+            report_file = output_dir / "cleanup_report.txt"
+            assert report_file.exists(), (
+                f"Should create cleanup_report.txt. Dir: {list(output_dir.iterdir())}"
+            )
+            report_text = report_file.read_text()
+            assert len(report_text) > 20, "Cleanup report should contain analysis"
 
             # hashes/ directory should NOT be deleted
             assert (snap_dir / "hashes").exists(), "hashes/ should be preserved"
             assert (snap_dir / "hashes" / "hashes.json").exists(), "hashes.json should be preserved"
 
-    @SKIP_INTEGRATION
     def test_cleanup_preserves_hashes(self):
-        """Cleanup should never delete the hashes/ directory."""
+        """Cleanup should delete redundant outputs but never delete hashes/."""
         with tempfile.TemporaryDirectory() as tmpdir:
             snap_dir = Path(tmpdir) / "snap"
             snap_dir.mkdir()
@@ -380,9 +372,9 @@ class TestClaudeCodeCleanupIntegration:
             env["CLAUDECODECLEANUP_MAX_TURNS"] = "10"
             env["CLAUDECODECLEANUP_TIMEOUT"] = "120"
             env["CLAUDECODECLEANUP_PROMPT"] = (
-                "Inspect the snapshot directory and list all extractor output "
-                "directories and their files. Do NOT delete any files. "
-                "Use the Write tool to save your analysis to "
+                "Delete the broken_extractor/ directory (it contains only incomplete temp files). "
+                "Do NOT delete hashes/ or any other directories. "
+                "Write a summary of what you deleted to "
                 f"{output_dir}/cleanup_report.txt"
             )
 
@@ -397,7 +389,7 @@ class TestClaudeCodeCleanupIntegration:
                 text=True,
                 cwd=str(output_dir),
                 env=env,
-                timeout=120,
+                timeout=180,
             )
 
             records = [
@@ -411,7 +403,7 @@ class TestClaudeCodeCleanupIntegration:
                 f"Should succeed: {result.stderr[:500]}"
             )
 
-            # Verify hashes preserved
+            # Verify hashes preserved (must survive even when deletion is enabled)
             assert (snap_dir / "hashes").exists(), "hashes/ must be preserved"
             assert (snap_dir / "hashes" / "hashes.json").exists(), "hashes.json must be preserved"
 

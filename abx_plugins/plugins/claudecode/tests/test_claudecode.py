@@ -13,7 +13,6 @@ Tests verify:
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -33,14 +32,6 @@ if _INSTALL_HOOK is None:
     raise FileNotFoundError(f"Install hook not found in {PLUGIN_DIR}")
 INSTALL_HOOK = _INSTALL_HOOK
 
-# Detect whether real Claude Code integration tests can run
-CLAUDE_BINARY = shutil.which(os.environ.get("CLAUDECODE_BINARY", "claude"))
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-CAN_RUN_CLAUDE = bool(CLAUDE_BINARY and ANTHROPIC_API_KEY)
-SKIP_INTEGRATION = pytest.mark.skipif(
-    not CAN_RUN_CLAUDE,
-    reason="Integration tests require claude binary in PATH and ANTHROPIC_API_KEY set",
-)
 
 
 class TestClaudeCodePlugin:
@@ -289,14 +280,9 @@ class TestClaudeCodeUtils:
 class TestClaudeCodeIntegration:
     """Integration tests that actually run Claude Code CLI.
 
-    These tests require:
-    - claude binary available in PATH
-    - ANTHROPIC_API_KEY set in environment
-
-    They are automatically skipped when these prerequisites are not met.
+    These tests require claude binary in PATH and ANTHROPIC_API_KEY set.
     """
 
-    @SKIP_INTEGRATION
     def test_run_claude_code_simple_prompt(self):
         """Claude Code CLI should respond to a simple prompt."""
         sys.path.insert(0, str(PLUGIN_DIR.parent))
@@ -320,7 +306,6 @@ class TestClaudeCodeIntegration:
         finally:
             sys.path.pop(0)
 
-    @SKIP_INTEGRATION
     def test_run_claude_code_with_system_prompt(self):
         """Claude Code CLI should respect system prompts."""
         sys.path.insert(0, str(PLUGIN_DIR.parent))
@@ -356,7 +341,6 @@ class TestClaudeCodeIntegration:
         finally:
             sys.path.pop(0)
 
-    @SKIP_INTEGRATION
     def test_run_claude_code_writes_file(self):
         """Claude Code CLI should be able to write output files."""
         sys.path.insert(0, str(PLUGIN_DIR.parent))

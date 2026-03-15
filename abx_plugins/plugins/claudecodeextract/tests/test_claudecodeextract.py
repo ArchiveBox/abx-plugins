@@ -12,7 +12,6 @@ Tests verify:
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -33,14 +32,6 @@ if _EXTRACT_HOOK is None:
 EXTRACT_HOOK = _EXTRACT_HOOK
 TEST_URL = "https://example.com"
 
-# Detect whether real Claude Code integration tests can run
-CLAUDE_BINARY = shutil.which(os.environ.get("CLAUDECODE_BINARY", "claude"))
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-CAN_RUN_CLAUDE = bool(CLAUDE_BINARY and ANTHROPIC_API_KEY)
-SKIP_INTEGRATION = pytest.mark.skipif(
-    not CAN_RUN_CLAUDE,
-    reason="Integration tests require claude binary in PATH and ANTHROPIC_API_KEY set",
-)
 
 
 def create_fake_snapshot(snap_dir: Path) -> None:
@@ -234,14 +225,9 @@ class TestClaudeCodeExtractPlugin:
 class TestClaudeCodeExtractIntegration:
     """Integration tests that run the full extract pipeline with real Claude Code.
 
-    These tests require:
-    - claude binary available in PATH
-    - ANTHROPIC_API_KEY set in environment
-
-    They are automatically skipped when these prerequisites are not met.
+    These tests require claude binary in PATH and ANTHROPIC_API_KEY set.
     """
 
-    @SKIP_INTEGRATION
     def test_extract_generates_markdown_from_snapshot(self):
         """Full extract hook should read snapshot outputs and generate markdown."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -290,20 +276,18 @@ class TestClaudeCodeExtractIntegration:
                 f"output={ar.get('output_str', '')}, stderr: {result.stderr[:500]}"
             )
 
-            # Check that output files were created
-            output_files = [f for f in output_dir.iterdir() if f.is_file() and not f.name.startswith(".")]
-            assert len(output_files) > 0, (
-                f"Extract should create output files. "
+            # Default prompt should generate content.md with markdown from snapshot
+            content_md = output_dir / "content.md"
+            assert content_md.exists(), (
+                f"Default prompt should create content.md. "
                 f"Dir contents: {list(output_dir.iterdir())}"
             )
+            md_text = content_md.read_text()
+            assert len(md_text) > 20, "content.md should contain meaningful markdown"
+            assert "example" in md_text.lower(), (
+                f"content.md should contain content from the snapshot: {md_text[:300]}"
+            )
 
-            # Should have at least response.txt (Claude's response)
-            response_file = output_dir / "response.txt"
-            assert response_file.exists(), "Should save Claude's response"
-            response_text = response_file.read_text()
-            assert len(response_text) > 0, "Response should not be empty"
-
-    @SKIP_INTEGRATION
     def test_extract_with_custom_prompt(self):
         """Extract hook should respect custom CLAUDECODEEXTRACT_PROMPT."""
         with tempfile.TemporaryDirectory() as tmpdir:
