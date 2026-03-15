@@ -62,7 +62,7 @@ This ordering means Claude's page modifications (expanded sections, downloaded f
 ## Permissions / Scope
 
 - **Read:** Takes screenshots of the current browser tab via CDP
-- **Write:** Only to its own output directory (`SNAP_DIR/claudechrome/`)
+- **Write:** Final artifacts are stored in its own output directory (`SNAP_DIR/claudechrome/`); Chrome may temporarily write downloads under `chrome_downloads/` before they are moved
 - **Browser interaction:** Can click, type, scroll, and navigate within the current tab
 - Any files downloaded by Chrome during the interaction are moved from `chrome_downloads/` to the output directory
 
