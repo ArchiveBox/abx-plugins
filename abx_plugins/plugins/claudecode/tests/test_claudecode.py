@@ -8,10 +8,12 @@ Tests verify:
 4. Install hook respects CLAUDECODE_ENABLED
 5. Install hook warns when ANTHROPIC_API_KEY is missing
 6. Utility functions work correctly (system prompt building, metadata)
+7. Claude Code CLI actually runs and responds (integration, requires ANTHROPIC_API_KEY)
 """
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -30,6 +32,15 @@ _INSTALL_HOOK = get_hook_script(PLUGIN_DIR, "on_Crawl__*_claudecode_install*")
 if _INSTALL_HOOK is None:
     raise FileNotFoundError(f"Install hook not found in {PLUGIN_DIR}")
 INSTALL_HOOK = _INSTALL_HOOK
+
+# Detect whether real Claude Code integration tests can run
+CLAUDE_BINARY = shutil.which(os.environ.get("CLAUDECODE_BINARY", "claude"))
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+CAN_RUN_CLAUDE = bool(CLAUDE_BINARY and ANTHROPIC_API_KEY)
+SKIP_INTEGRATION = pytest.mark.skipif(
+    not CAN_RUN_CLAUDE,
+    reason="Integration tests require claude binary in PATH and ANTHROPIC_API_KEY set",
+)
 
 
 class TestClaudeCodePlugin:
@@ -245,6 +256,114 @@ class TestClaudeCodeUtils:
                 names = [e["name"] for e in meta["extractor_outputs"]]
                 assert "dom" in names
                 assert "mercury" in names
+        finally:
+            sys.path.pop(0)
+
+
+class TestClaudeCodeIntegration:
+    """Integration tests that actually run Claude Code CLI.
+
+    These tests require:
+    - claude binary available in PATH
+    - ANTHROPIC_API_KEY set in environment
+
+    They are automatically skipped when these prerequisites are not met.
+    """
+
+    @SKIP_INTEGRATION
+    def test_run_claude_code_simple_prompt(self):
+        """Claude Code CLI should respond to a simple prompt."""
+        sys.path.insert(0, str(PLUGIN_DIR.parent))
+        try:
+            from claudecode.claudecode_utils import run_claude_code
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                stdout, stderr, returncode = run_claude_code(
+                    prompt="Respond with exactly: ARCHIVEBOX_TEST_OK",
+                    work_dir=tmpdir,
+                    timeout=60,
+                    max_turns=1,
+                    model="haiku",
+                )
+
+                assert returncode == 0, f"Claude Code failed (rc={returncode}): {stderr}"
+                assert len(stdout.strip()) > 0, "Claude Code returned empty response"
+                assert "ARCHIVEBOX_TEST_OK" in stdout, (
+                    f"Expected 'ARCHIVEBOX_TEST_OK' in response, got: {stdout[:200]}"
+                )
+        finally:
+            sys.path.pop(0)
+
+    @SKIP_INTEGRATION
+    def test_run_claude_code_with_system_prompt(self):
+        """Claude Code CLI should respect system prompts."""
+        sys.path.insert(0, str(PLUGIN_DIR.parent))
+        try:
+            from claudecode.claudecode_utils import run_claude_code, build_system_prompt
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                snap_dir = Path(tmpdir)
+                (snap_dir / "readability").mkdir()
+                (snap_dir / "readability" / "content.txt").write_text(
+                    "This is example.com content about domains."
+                )
+
+                system_prompt = build_system_prompt(snap_dir=snap_dir)
+
+                stdout, stderr, returncode = run_claude_code(
+                    prompt=(
+                        "List the extractor output directories you can see in "
+                        "the snapshot. Respond with just the directory names, "
+                        "one per line."
+                    ),
+                    work_dir=tmpdir,
+                    system_prompt=system_prompt,
+                    timeout=60,
+                    max_turns=2,
+                    model="haiku",
+                )
+
+                assert returncode == 0, f"Claude Code failed (rc={returncode}): {stderr}"
+                assert "readability" in stdout.lower(), (
+                    f"Claude should see readability dir, got: {stdout[:200]}"
+                )
+        finally:
+            sys.path.pop(0)
+
+    @SKIP_INTEGRATION
+    def test_run_claude_code_writes_file(self):
+        """Claude Code CLI should be able to write output files."""
+        sys.path.insert(0, str(PLUGIN_DIR.parent))
+        try:
+            from claudecode.claudecode_utils import run_claude_code
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                output_dir = Path(tmpdir) / "output"
+                output_dir.mkdir()
+
+                stdout, stderr, returncode = run_claude_code(
+                    prompt=(
+                        f"Write the text 'hello from claude' to the file "
+                        f"{output_dir}/test_output.txt"
+                    ),
+                    work_dir=tmpdir,
+                    timeout=60,
+                    max_turns=3,
+                    model="haiku",
+                    allowed_tools=["Read", "Write", "Bash(cat:*)"],
+                )
+
+                assert returncode == 0, f"Claude Code failed (rc={returncode}): {stderr}"
+
+                output_file = output_dir / "test_output.txt"
+                assert output_file.exists(), (
+                    f"Claude should have created test_output.txt. "
+                    f"stdout: {stdout[:300]}, stderr: {stderr[:300]}"
+                )
+                content = output_file.read_text()
+                assert "hello from claude" in content.lower(), (
+                    f"Expected 'hello from claude' in file, got: {content[:200]}"
+                )
         finally:
             sys.path.pop(0)
 

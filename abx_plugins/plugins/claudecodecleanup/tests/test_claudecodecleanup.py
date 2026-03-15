@@ -8,10 +8,12 @@ Tests verify:
 4. Hook skips when disabled
 5. Hook fails gracefully when API key is missing
 6. Hook fails gracefully when claude binary is not found
+7. Full cleanup pipeline runs against real snapshot with duplicates (integration, requires ANTHROPIC_API_KEY)
 """
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -31,6 +33,108 @@ if _CLEANUP_HOOK is None:
     raise FileNotFoundError(f"Cleanup hook not found in {PLUGIN_DIR}")
 CLEANUP_HOOK = _CLEANUP_HOOK
 TEST_URL = "https://example.com"
+
+# Detect whether real Claude Code integration tests can run
+CLAUDE_BINARY = shutil.which(os.environ.get("CLAUDECODE_BINARY", "claude"))
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+CAN_RUN_CLAUDE = bool(CLAUDE_BINARY and ANTHROPIC_API_KEY)
+SKIP_INTEGRATION = pytest.mark.skipif(
+    not CAN_RUN_CLAUDE,
+    reason="Integration tests require claude binary in PATH and ANTHROPIC_API_KEY set",
+)
+
+
+def create_snapshot_with_duplicates(snap_dir: Path) -> dict:
+    """Create a snapshot directory with intentionally redundant/duplicate outputs.
+
+    Returns a dict describing what was created for verification.
+    """
+    created = {"dirs": [], "files": []}
+
+    # readability - good quality article extraction
+    readability_dir = snap_dir / "readability"
+    readability_dir.mkdir(parents=True)
+    (readability_dir / "content.html").write_text("""
+<div id="readability-page-1">
+    <h1>Example Domain</h1>
+    <p>This domain is for use in illustrative examples in documents.
+    You may use this domain in literature without prior coordination
+    or asking for permission.</p>
+    <p>More information about example domains can be found at the
+    IANA website.</p>
+</div>
+    """)
+    (readability_dir / "content.txt").write_text(
+        "Example Domain\n\n"
+        "This domain is for use in illustrative examples in documents. "
+        "You may use this domain in literature without prior coordination "
+        "or asking for permission.\n\n"
+        "More information about example domains can be found at the IANA website.\n"
+    )
+    (readability_dir / "article.json").write_text(json.dumps({
+        "title": "Example Domain",
+        "byline": None,
+        "siteName": "example.com",
+    }, indent=2))
+    created["dirs"].append("readability")
+
+    # htmltotext - lower quality text extraction (subset of readability)
+    htmltotext_dir = snap_dir / "htmltotext"
+    htmltotext_dir.mkdir()
+    (htmltotext_dir / "content.txt").write_text(
+        "Example Domain\n"
+        "This domain is for use in illustrative examples.\n"
+    )
+    created["dirs"].append("htmltotext")
+
+    # mercury - another article extraction (redundant with readability)
+    mercury_dir = snap_dir / "mercury"
+    mercury_dir.mkdir()
+    (mercury_dir / "content.html").write_text(
+        "<div><h1>Example Domain</h1>"
+        "<p>This domain is for use in illustrative examples.</p></div>"
+    )
+    (mercury_dir / "content.txt").write_text(
+        "Example Domain\nThis domain is for use in illustrative examples.\n"
+    )
+    (mercury_dir / "article.json").write_text(json.dumps({
+        "title": "Example Domain",
+        "content": "<p>This domain is for use in illustrative examples.</p>",
+    }, indent=2))
+    created["dirs"].append("mercury")
+
+    # dom - raw DOM dump (large, mostly noise)
+    dom_dir = snap_dir / "dom"
+    dom_dir.mkdir()
+    (dom_dir / "output.html").write_text("""
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8"><title>Example Domain</title>
+<style>body{background:#f0f0f2;margin:0}</style>
+</head><body>
+<div><h1>Example Domain</h1>
+<p>This domain is for use in illustrative examples in documents.</p>
+</div></body></html>
+    """)
+    created["dirs"].append("dom")
+
+    # An empty/broken extractor output
+    broken_dir = snap_dir / "broken_extractor"
+    broken_dir.mkdir()
+    (broken_dir / ".tmp.partial").write_text("")  # incomplete temp file
+    created["dirs"].append("broken_extractor")
+
+    # hashes - should NOT be deleted
+    hashes_dir = snap_dir / "hashes"
+    hashes_dir.mkdir()
+    (hashes_dir / "hashes.json").write_text(json.dumps({
+        "root_hash": "abc123",
+        "files": [],
+        "metadata": {"file_count": 0},
+    }))
+    created["dirs"].append("hashes")
+
+    return created
 
 
 class TestClaudeCodeCleanupPlugin:
@@ -184,6 +288,136 @@ class TestClaudeCodeCleanupPlugin:
             assert records
             assert records[-1]["type"] == "ArchiveResult"
             assert records[-1]["status"] == "failed"
+
+
+class TestClaudeCodeCleanupIntegration:
+    """Integration tests that run the full cleanup pipeline with real Claude Code.
+
+    These tests require:
+    - claude binary available in PATH
+    - ANTHROPIC_API_KEY set in environment
+
+    They are automatically skipped when these prerequisites are not met.
+    """
+
+    @SKIP_INTEGRATION
+    def test_cleanup_produces_report(self):
+        """Cleanup hook should analyze snapshot and produce a cleanup report."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            snap_dir = Path(tmpdir) / "snap"
+            snap_dir.mkdir()
+            create_snapshot_with_duplicates(snap_dir)
+
+            output_dir = snap_dir / "claudecodecleanup"
+            output_dir.mkdir()
+
+            env = os.environ.copy()
+            env["SNAP_DIR"] = str(snap_dir)
+            env["CRAWL_DIR"] = str(Path(tmpdir) / "crawl")
+            env["CLAUDECODECLEANUP_ENABLED"] = "true"
+            env["CLAUDECODECLEANUP_MODEL"] = "haiku"
+            env["CLAUDECODECLEANUP_MAX_TURNS"] = "10"
+            env["CLAUDECODECLEANUP_TIMEOUT"] = "120"
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(CLEANUP_HOOK),
+                    "--url", TEST_URL,
+                    "--snapshot-id", "test-cleanup-integration",
+                ],
+                capture_output=True,
+                text=True,
+                cwd=str(output_dir),
+                env=env,
+                timeout=180,
+            )
+
+            # Parse JSONL output
+            records = [
+                json.loads(line)
+                for line in result.stdout.strip().split("\n")
+                if line.strip().startswith("{")
+            ]
+            archive_results = [r for r in records if r.get("type") == "ArchiveResult"]
+            assert archive_results, f"No ArchiveResult. stderr: {result.stderr[:500]}"
+
+            ar = archive_results[-1]
+            assert ar["status"] == "succeeded", (
+                f"Cleanup should succeed. status={ar['status']}, "
+                f"output={ar.get('output_str', '')}, stderr: {result.stderr[:500]}"
+            )
+
+            # Should produce a response file at minimum
+            response_file = output_dir / "response.txt"
+            assert response_file.exists(), "Should save Claude's response"
+            response_text = response_file.read_text()
+            assert len(response_text) > 0, "Response should not be empty"
+
+            # hashes/ directory should NOT be deleted
+            assert (snap_dir / "hashes").exists(), "hashes/ should be preserved"
+            assert (snap_dir / "hashes" / "hashes.json").exists(), "hashes.json should be preserved"
+
+    @SKIP_INTEGRATION
+    def test_cleanup_preserves_hashes(self):
+        """Cleanup should never delete the hashes/ directory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            snap_dir = Path(tmpdir) / "snap"
+            snap_dir.mkdir()
+            create_snapshot_with_duplicates(snap_dir)
+
+            output_dir = snap_dir / "claudecodecleanup"
+            output_dir.mkdir()
+
+            env = os.environ.copy()
+            env["SNAP_DIR"] = str(snap_dir)
+            env["CRAWL_DIR"] = str(Path(tmpdir) / "crawl")
+            env["CLAUDECODECLEANUP_ENABLED"] = "true"
+            env["CLAUDECODECLEANUP_MODEL"] = "haiku"
+            env["CLAUDECODECLEANUP_MAX_TURNS"] = "5"
+            env["CLAUDECODECLEANUP_TIMEOUT"] = "90"
+            env["CLAUDECODECLEANUP_PROMPT"] = (
+                "Inspect the snapshot directory and write a brief analysis "
+                "of what files exist to cleanup_report.txt in your output "
+                "directory. Do NOT delete any files - just report what you find."
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(CLEANUP_HOOK),
+                    "--url", TEST_URL,
+                    "--snapshot-id", "test-preserve-hashes",
+                ],
+                capture_output=True,
+                text=True,
+                cwd=str(output_dir),
+                env=env,
+                timeout=120,
+            )
+
+            records = [
+                json.loads(line)
+                for line in result.stdout.strip().split("\n")
+                if line.strip().startswith("{")
+            ]
+            archive_results = [r for r in records if r.get("type") == "ArchiveResult"]
+            assert archive_results, f"No ArchiveResult. stderr: {result.stderr[:500]}"
+            assert archive_results[-1]["status"] == "succeeded", (
+                f"Should succeed: {result.stderr[:500]}"
+            )
+
+            # Verify hashes preserved
+            assert (snap_dir / "hashes").exists(), "hashes/ must be preserved"
+            assert (snap_dir / "hashes" / "hashes.json").exists(), "hashes.json must be preserved"
+
+            # Verify cleanup report was written
+            report_file = output_dir / "cleanup_report.txt"
+            assert report_file.exists(), (
+                f"Should create cleanup_report.txt. Dir: {list(output_dir.iterdir())}"
+            )
+            report_text = report_file.read_text()
+            assert len(report_text) > 20, "Report should contain analysis"
 
 
 if __name__ == "__main__":
