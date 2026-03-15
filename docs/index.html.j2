@@ -256,12 +256,10 @@
       }
 
       .plugin-card summary {
-        display: grid;
-        grid-template-columns: auto 1fr auto;
-        gap: 16px;
-        align-items: center;
+        position: relative;
+        display: block;
         list-style: none;
-        padding: 22px 22px 20px;
+        padding: 22px 68px 20px 22px;
         cursor: pointer;
         container-type: inline-size;
       }
@@ -271,7 +269,7 @@
       }
 
       .plugin-icon {
-        display: grid;
+        display: inline-grid;
         place-items: center;
         width: 72px;
         height: 72px;
@@ -292,32 +290,40 @@
 
       .plugin-main {
         min-width: 0;
+        display: grid;
+        gap: 10px;
       }
 
       .plugin-title-row {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        align-items: center;
-        gap: 10px;
-        margin-bottom: 8px;
+        display: block;
       }
 
       .plugin-main h2 {
         margin: 0;
-        min-width: 0;
-        font-size: clamp(1.2rem, 5.8cqi, 2.6rem);
-        line-height: 0.98;
+        font-size: clamp(1.25rem, 6.2cqi, 3rem);
+        line-height: 0.96;
         letter-spacing: -0.04em;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        text-wrap: balance;
+        overflow-wrap: anywhere;
+      }
+
+      .plugin-slug {
+        color: var(--muted);
+        font-size: 0.86rem;
+        letter-spacing: 0.02em;
+      }
+
+      .plugin-summary-description {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+        line-height: 1.55;
       }
 
       .plugin-header-meta {
         display: inline-flex;
         align-items: center;
         gap: 10px;
-        justify-self: end;
         flex: 0 0 auto;
         white-space: nowrap;
       }
@@ -350,8 +356,22 @@
 
       .plugin-subline {
         display: flex;
+        align-items: center;
         gap: 8px;
         flex-wrap: wrap;
+      }
+
+      .plugin-summary-facts {
+        display: grid;
+        gap: 6px;
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 0.87rem;
+      }
+
+      .plugin-summary-facts strong {
+        color: var(--ink);
+        font-weight: 500;
       }
 
       .chip {
@@ -369,6 +389,9 @@
       }
 
       .plugin-toggle {
+        position: absolute;
+        top: 18px;
+        right: 18px;
         display: grid;
         place-items: center;
         width: 36px;
@@ -491,6 +514,40 @@
 
       .config-grid {
         grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      }
+
+      .plugin-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 12px;
+      }
+
+      .plugin-info-card {
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.72);
+      }
+
+      .plugin-info-card span {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .plugin-info-card p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .pill-list {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
       }
 
       .config-card strong {
@@ -619,34 +676,16 @@
           data-search="{{ plugin.search_text }}"
         >
           <summary>
-            <div class="plugin-icon">{{ plugin.icon_html }}</div>
             <div class="plugin-main">
               <div class="plugin-title-row">
-                <h2>{{ plugin.name }}</h2>
-                <div class="plugin-header-meta">
-                  {% if plugin.display_order is not none %}
-                  <span class="plugin-order">#{{ "%02d"|format(plugin.display_order) }}</span>
-                  {% endif %}
-                  {% if plugin.primary_language == "python" %}
-                  <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
-                    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
-                      <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
-                      <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
-                      <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
-                      <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
-                    </svg>
-                  </span>
-                  {% elif plugin.primary_language == "javascript" %}
-                  <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
-                    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                      <rect x="4.5" y="4.5" width="15" height="15" rx="2.5" fill="currentColor" opacity="0.2"></rect>
-                      <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
-                    </svg>
-                  </span>
-                  {% endif %}
-                </div>
+                <h2>{{ plugin.display_title }}</h2>
               </div>
+              <div class="plugin-slug"><code>{{ plugin.name }}</code></div>
+              {% if plugin.description %}
+              <p class="plugin-summary-description">{{ plugin.description }}</p>
+              {% endif %}
               <div class="plugin-subline">
+                <div class="plugin-icon">{{ plugin.icon_html }}</div>
                 {% for phase in plugin.phases %}
                 <span class="chip">{{ phase }}</span>
                 {% endfor %}
@@ -656,6 +695,41 @@
                 <span class="chip">{{ plugin.hook_count }} hooks</span>
                 <span class="chip">{{ plugin.config_count }} config fields</span>
               </div>
+              <div class="plugin-header-meta">
+                {% if plugin.display_order is not none %}
+                <span class="plugin-order">#{{ "%02d"|format(plugin.display_order) }}</span>
+                {% endif %}
+                {% if plugin.primary_language == "python" %}
+                <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
+                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                    <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                    <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                    <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                    <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                  </svg>
+                </span>
+                {% elif plugin.primary_language == "javascript" %}
+                <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
+                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <rect x="4.5" y="4.5" width="15" height="15" rx="2.5" fill="currentColor" opacity="0.2"></rect>
+                    <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
+                  </svg>
+                </span>
+                {% endif %}
+              </div>
+              {% if plugin.required_plugins or plugin.required_binaries or plugin.output_mimetypes %}
+              <div class="plugin-summary-facts">
+                {% if plugin.required_plugins %}
+                <div><strong>Needs plugins:</strong> {{ plugin.required_plugins|join(", ") }}</div>
+                {% endif %}
+                {% if plugin.required_binaries %}
+                <div><strong>Needs binaries:</strong> {{ plugin.required_binaries|join(", ") }}</div>
+                {% endif %}
+                {% if plugin.output_mimetypes %}
+                <div><strong>Outputs:</strong> {{ plugin.output_mimetypes[:4]|join(", ") }}{% if plugin.output_mimetypes|length > 4 %} +{{ plugin.output_mimetypes|length - 4 }} more{% endif %}</div>
+                {% endif %}
+              </div>
+              {% endif %}
             </div>
             <div class="plugin-toggle" aria-hidden="true">+</div>
           </summary>
@@ -663,6 +737,54 @@
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="{{ plugin.source_url }}" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Plugin Info</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Plugin</span>
+                <p><strong>{{ plugin.display_title }}</strong></p>
+                <p><code>{{ plugin.name }}</code></p>
+                {% if plugin.description %}
+                <p>{{ plugin.description }}</p>
+                {% endif %}
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                {% if plugin.required_plugins %}
+                <div class="pill-list">
+                  {% for item in plugin.required_plugins %}
+                  <span class="chip">{{ item }}</span>
+                  {% endfor %}
+                </div>
+                {% else %}
+                <p>No plugin dependencies declared.</p>
+                {% endif %}
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                {% if plugin.required_binaries %}
+                <div class="pill-list">
+                  {% for item in plugin.required_binaries %}
+                  <span class="chip">{{ item }}</span>
+                  {% endfor %}
+                </div>
+                {% else %}
+                <p>No binary dependencies declared.</p>
+                {% endif %}
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                {% if plugin.output_mimetypes %}
+                <div class="pill-list">
+                  {% for item in plugin.output_mimetypes %}
+                  <span class="chip">{{ item }}</span>
+                  {% endfor %}
+                </div>
+                {% else %}
+                <p>No output mimetypes declared.</p>
+                {% endif %}
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -706,7 +828,7 @@
             <div class="empty-state">No hook scripts are defined in this plugin directory.</div>
             {% endif %}
 
-            <h3 class="section-title">Config Defaults</h3>
+            <h3 class="section-title">Config Options</h3>
             {% if plugin.has_config %}
             <div class="config-grid">
               {% for field in plugin.config_fields %}

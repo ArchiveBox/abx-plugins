@@ -64,6 +64,12 @@ def load_config(plugin_dir: Path) -> dict[str, Any]:
     return json.loads(config_path.read_text(encoding="utf-8"))
 
 
+def as_string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if item not in (None, "")]
+
+
 def format_json_value(value: Any) -> str:
     if value is None:
         return "null"
@@ -223,12 +229,23 @@ def build_plugin(plugin_dir: Path) -> dict[str, Any]:
     primary_language = dominant_language(hooks)
     sort_group, sort_order, sort_phase, display_order = plugin_sort_metadata(hooks)
     template_labels = template_badges(plugin_dir)
+    display_title = str(config_schema.get("title") or plugin_dir.name)
+    description = str(config_schema.get("description") or "").strip()
+    required_plugins = as_string_list(config_schema.get("required_plugins"))
+    required_binaries = as_string_list(config_schema.get("required_binaries"))
+    output_mimetypes = as_string_list(config_schema.get("output_mimetypes"))
     search_parts = [plugin_dir.name, *phases]
+    search_parts.append(display_title)
+    if description:
+        search_parts.append(description)
     if primary_language:
         search_parts.append(primary_language)
     if sort_phase:
         search_parts.append(sort_phase)
     search_parts.extend(template_labels)
+    search_parts.extend(required_plugins)
+    search_parts.extend(required_binaries)
+    search_parts.extend(output_mimetypes)
     search_parts.extend(hook["filename"] for hook in hooks)
     for field in config_fields:
         search_parts.append(field["key"])
@@ -236,6 +253,8 @@ def build_plugin(plugin_dir: Path) -> dict[str, Any]:
             search_parts.append(field["description"])
     return {
         "name": plugin_dir.name,
+        "display_title": display_title,
+        "description": description,
         "phases": phases,
         "primary_language": primary_language,
         "icon_html": load_icon(plugin_dir),
@@ -247,6 +266,9 @@ def build_plugin(plugin_dir: Path) -> dict[str, Any]:
         "has_config": bool(config_fields),
         "commands": commands,
         "template_labels": template_labels,
+        "required_plugins": required_plugins,
+        "required_binaries": required_binaries,
+        "output_mimetypes": output_mimetypes,
         "display_order": display_order,
         "sort_group": sort_group,
         "sort_order": sort_order,
