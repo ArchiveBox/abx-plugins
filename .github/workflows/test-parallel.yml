@@ -32,6 +32,7 @@ jobs:
       - name: Discover test files
         id: set-matrix
         run: |
+          chrome_test_pattern='ensure_chrome_test_prereqs|ensure_chromium_and_puppeteer_installed|require_chrome_runtime|chrome_session\(|CHROME_NAVIGATE_HOOK'
           plugin_tests=$(find abx_plugins/plugins -path "*/tests/test_*.py" -type f | sort)
 
           json_array="["
@@ -46,8 +47,12 @@ jobs:
             plugin=$(echo $test_file | sed 's|abx_plugins/plugins/\([^/]*\)/.*|\1|')
             test_name=$(basename $test_file .py | sed 's/^test_//')
             name="$test_name"
+            needs_chromium=false
+            if rg -q "$chrome_test_pattern" "$test_file"; then
+              needs_chromium=true
+            fi
 
-            json_array+="{\"path\":\"$test_file\",\"name\":\"$name\"}"
+            json_array+="{\"path\":\"$test_file\",\"name\":\"$name\",\"needs_chromium\":$needs_chromium}"
           done
           json_array+="]"
 
@@ -113,6 +118,10 @@ jobs:
           uv venv
           uv sync --dev --all-extras
           uv pip install -e ".[dev]"
+
+      - name: Verify Chromium launch
+        if: ${{ matrix.test.needs_chromium }}
+        uses: ./.github/actions/verify-chromium-launch
 
       - name: Run test - ${{ matrix.test.name }}
         run: |
