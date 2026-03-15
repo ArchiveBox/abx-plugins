@@ -59,6 +59,13 @@ The snapshot hook runs an agentic loop:
 
 This ordering means Claude's page modifications (expanded sections, downloaded files, filled forms) are captured by all subsequent extractors.
 
+## Permissions / Scope
+
+- **Read:** Takes screenshots of the current browser tab via CDP
+- **Write:** Only to its own output directory (`SNAP_DIR/claudechrome/`)
+- **Browser interaction:** Can click, type, scroll, and navigate within the current tab
+- Any files downloaded by Chrome during the interaction are moved from `chrome_downloads/` to the output directory
+
 ## Output
 
 Files are written to `SNAP_DIR/claudechrome/`:
