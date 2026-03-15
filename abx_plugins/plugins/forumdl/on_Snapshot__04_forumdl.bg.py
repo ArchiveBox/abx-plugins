@@ -24,7 +24,7 @@ import textwrap
 import threading
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 from base.utils import load_config
 
 import rich_click as click

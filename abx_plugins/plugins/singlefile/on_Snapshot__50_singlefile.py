@@ -36,7 +36,7 @@ from urllib.request import urlopen
 from pathlib import Path
 import shutil
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 from base.utils import load_config, get_env, emit_archive_result, has_staticfile_output
 
 import rich_click as click

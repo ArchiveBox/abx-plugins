@@ -32,7 +32,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 from base.utils import get_env, get_env_bool, get_env_int
 
 

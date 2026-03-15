@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 from base.utils import get_env, output_binary
 
 PLUGIN_DIR = Path(__file__).parent.name

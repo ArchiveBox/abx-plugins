@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 from typing import Iterable, List
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 from base.utils import get_env, get_env_int, get_env_array
 
 

@@ -18,7 +18,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 from base.utils import load_config, emit_archive_result, write_text_atomic, find_html_source
 
 PLUGIN_DIR = Path(__file__).resolve().parent.name

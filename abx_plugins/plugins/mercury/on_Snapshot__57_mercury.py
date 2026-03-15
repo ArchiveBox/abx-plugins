@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 from base.utils import load_config, emit_archive_result, write_text_atomic
 
 import rich_click as click
