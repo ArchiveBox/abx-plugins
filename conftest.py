@@ -3,49 +3,11 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
 pytest_plugins = ["abx_plugins.plugins.chrome.tests.chrome_test_helpers"]
-
-
-# ---------------------------------------------------------------------------
-# Well-known Chromium binary locations (checked in order)
-# ---------------------------------------------------------------------------
-_CHROMIUM_SEARCH_PATHS = [
-    # ABX lib install directory
-    "{lib_dir}/chrome-linux/chrome",
-    "{lib_dir}/browsers/chrome/chrome",
-    # Puppeteer cache (root)
-    os.path.expanduser("~/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome"),
-    os.path.expanduser("~/.cache/ms-playwright/chromium-*/chrome-linux/chrome"),
-    # System locations
-    "/usr/bin/google-chrome-stable",
-    "/usr/bin/google-chrome",
-    "/usr/bin/chromium",
-]
-
-
-def _find_chromium_binary(lib_dir: str = "") -> str | None:
-    """Search well-known locations for a Chromium binary.
-
-    Returns the absolute path or None.
-    """
-    import glob
-
-    for pattern in _CHROMIUM_SEARCH_PATHS:
-        expanded = pattern.format(lib_dir=lib_dir) if "{lib_dir}" in pattern else pattern
-        for candidate in glob.glob(expanded):
-            if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
-                return candidate
-    # Fallback: shutil.which
-    for name in ("chromium", "chromium-browser", "google-chrome-stable", "google-chrome", "chrome"):
-        found = shutil.which(name)
-        if found:
-            return found
-    return None
 
 
 @pytest.fixture(autouse=True)
@@ -99,16 +61,14 @@ def ensure_chrome_test_prereqs(ensure_chromium_and_puppeteer_installed):
 
 @pytest.fixture(scope="session")
 def ensure_chromium_and_puppeteer_installed(tmp_path_factory):
-    """Install Chromium and Puppeteer once for test sessions that require Chrome.
+    """Install Chromium and Puppeteer once via hook-based install.
 
-    Overrides the default from chrome_test_helpers to handle environments where
-    the npm binary owner UID has no passwd entry (e.g. containers).  Falls back
-    to scanning well-known paths for a pre-installed Chromium when the hook-based
-    install fails.
+    Overrides the default from chrome_test_helpers only to auto-disable
+    the Chrome sandbox when running as root (common in containers/CI).
     """
     from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
         get_test_env,
-        _has_puppeteer_module,
+        install_chromium_with_hooks,
     )
 
     if not os.environ.get("SNAP_DIR"):
@@ -125,43 +85,12 @@ def ensure_chromium_and_puppeteer_installed(tmp_path_factory):
         os.environ.setdefault("CHROME_SANDBOX", "false")
         env.setdefault("CHROME_SANDBOX", "false")
 
-    # --- Chromium binary ---
-    # Try CHROME_BINARY from env first, then scan well-known locations
-    chromium_binary = env.get("CHROME_BINARY", "")
-    if not chromium_binary or not Path(chromium_binary).exists():
-        chromium_binary = _find_chromium_binary(lib_dir=env.get("LIB_DIR", ""))
-
+    chromium_binary = install_chromium_with_hooks(env)
     if not chromium_binary:
-        # Last resort: try the hook-based install (may fail on UID issues)
-        from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
-            install_chromium_with_hooks,
-        )
-        chromium_binary = install_chromium_with_hooks(env)
+        raise RuntimeError("Chromium not found after hook-based install")
 
-    if not chromium_binary:
-        raise RuntimeError(
-            "Chromium not found.  Set CHROME_BINARY or install Chromium."
-        )
-
-    env["CHROME_BINARY"] = chromium_binary
     os.environ["CHROME_BINARY"] = chromium_binary
-
-    # --- Puppeteer module ---
-    if not _has_puppeteer_module(env):
-        # Try hook-based install
-        from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
-            install_chromium_with_hooks,
-        )
-        install_chromium_with_hooks(env)
-
-    if not _has_puppeteer_module(env):
-        raise RuntimeError(
-            "puppeteer module not found after install.  "
-            f"NODE_MODULES_DIR={env.get('NODE_MODULES_DIR')}"
-        )
-
-    # Propagate env vars for the rest of the session
-    for key in ("NODE_MODULES_DIR", "NODE_PATH", "PATH", "CHROME_BINARY"):
+    for key in ("NODE_MODULES_DIR", "NODE_PATH", "PATH"):
         if env.get(key):
             os.environ[key] = env[key]
 
