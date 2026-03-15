@@ -13,16 +13,18 @@ Tests verify:
 
 import json
 import os
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+from base.test_utils import (
     get_plugin_dir,
     get_hook_script,
+    parse_jsonl_output,
+    run_hook,
 )
 
 
@@ -192,22 +194,15 @@ class TestClaudeCodeCleanupPlugin:
             env["SNAP_DIR"] = str(snap_dir)
             env["CLAUDECODECLEANUP_ENABLED"] = "false"
 
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(CLEANUP_HOOK),
-                    "--url", TEST_URL,
-                    "--snapshot-id", "test-snapshot",
-                ],
-                capture_output=True,
-                text=True,
-                cwd=str(output_dir),
-                env=env,
-                timeout=30,
+            returncode, stdout, stderr = run_hook(
+                CLEANUP_HOOK, TEST_URL, "test-snapshot",
+                cwd=output_dir, env=env, timeout=30,
             )
 
-            assert result.returncode == 0, f"Hook failed: {result.stderr}"
-            assert "skipped" in result.stdout
+            assert returncode == 0, f"Hook failed: {stderr}"
+            result = parse_jsonl_output(stdout)
+            assert result is not None, f"Expected JSONL output, got: {stdout}"
+            assert result["status"] == "skipped"
 
     def test_hook_fails_without_api_key(self):
         """Hook should fail when ANTHROPIC_API_KEY is not set."""
@@ -222,30 +217,16 @@ class TestClaudeCodeCleanupPlugin:
             env["CLAUDECODECLEANUP_ENABLED"] = "true"
             env.pop("ANTHROPIC_API_KEY", None)
 
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(CLEANUP_HOOK),
-                    "--url", TEST_URL,
-                    "--snapshot-id", "test-snapshot",
-                ],
-                capture_output=True,
-                text=True,
-                cwd=str(output_dir),
-                env=env,
-                timeout=30,
+            returncode, stdout, stderr = run_hook(
+                CLEANUP_HOOK, TEST_URL, "test-snapshot",
+                cwd=output_dir, env=env, timeout=30,
             )
 
-            assert result.returncode == 1
-            records = [
-                json.loads(line)
-                for line in result.stdout.strip().split("\n")
-                if line.strip().startswith("{")
-            ]
-            assert records
-            assert records[-1]["type"] == "ArchiveResult"
-            assert records[-1]["status"] == "failed"
-            assert "ANTHROPIC_API_KEY" in records[-1]["output_str"]
+            assert returncode == 1
+            result = parse_jsonl_output(stdout)
+            assert result is not None, f"Expected JSONL output, got: {stdout}"
+            assert result["status"] == "failed"
+            assert "ANTHROPIC_API_KEY" in result["output_str"]
 
     def test_hook_fails_gracefully_with_missing_binary(self):
         """Hook should fail gracefully when claude binary is not found."""
@@ -261,31 +242,17 @@ class TestClaudeCodeCleanupPlugin:
             env["ANTHROPIC_API_KEY"] = "sk-ant-test-key"
             env["CLAUDECODE_BINARY"] = "/nonexistent/claude"
 
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(CLEANUP_HOOK),
-                    "--url", TEST_URL,
-                    "--snapshot-id", "test-snapshot",
-                ],
-                capture_output=True,
-                text=True,
-                cwd=str(output_dir),
-                env=env,
-                timeout=30,
+            returncode, stdout, stderr = run_hook(
+                CLEANUP_HOOK, TEST_URL, "test-snapshot",
+                cwd=output_dir, env=env, timeout=30,
             )
 
-            assert result.returncode == 1
-            records = [
-                json.loads(line)
-                for line in result.stdout.strip().split("\n")
-                if line.strip().startswith("{")
-            ]
-            assert records
-            assert records[-1]["type"] == "ArchiveResult"
-            assert records[-1]["status"] == "failed"
-            assert "not found" in records[-1]["output_str"].lower(), (
-                f"Error should mention missing binary: {records[-1]['output_str']}"
+            assert returncode == 1
+            result = parse_jsonl_output(stdout)
+            assert result is not None, f"Expected JSONL output, got: {stdout}"
+            assert result["status"] == "failed"
+            assert "not found" in result["output_str"].lower(), (
+                f"Error should mention missing binary: {result['output_str']}"
             )
 
 
@@ -293,7 +260,6 @@ class TestClaudeCodeCleanupIntegration:
     """Integration tests that run the full cleanup pipeline with real Claude Code.
 
     These tests require claude binary in PATH and ANTHROPIC_API_KEY set.
-    No skip decorators — CI always has these prerequisites configured.
     """
 
     def test_cleanup_produces_report(self):
@@ -314,33 +280,16 @@ class TestClaudeCodeCleanupIntegration:
             env["CLAUDECODECLEANUP_MAX_TURNS"] = "10"
             env["CLAUDECODECLEANUP_TIMEOUT"] = "120"
 
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(CLEANUP_HOOK),
-                    "--url", TEST_URL,
-                    "--snapshot-id", "test-cleanup-integration",
-                ],
-                capture_output=True,
-                text=True,
-                cwd=str(output_dir),
-                env=env,
-                timeout=180,
+            returncode, stdout, stderr = run_hook(
+                CLEANUP_HOOK, TEST_URL, "test-cleanup-integration",
+                cwd=output_dir, env=env, timeout=180,
             )
 
-            # Parse JSONL output
-            records = [
-                json.loads(line)
-                for line in result.stdout.strip().split("\n")
-                if line.strip().startswith("{")
-            ]
-            archive_results = [r for r in records if r.get("type") == "ArchiveResult"]
-            assert archive_results, f"No ArchiveResult. stderr: {result.stderr[:500]}"
-
-            ar = archive_results[-1]
-            assert ar["status"] == "succeeded", (
-                f"Cleanup should succeed. status={ar['status']}, "
-                f"output={ar.get('output_str', '')}, stderr: {result.stderr[:500]}"
+            result = parse_jsonl_output(stdout)
+            assert result is not None, f"No ArchiveResult. stderr: {stderr[:500]}"
+            assert result["status"] == "succeeded", (
+                f"Cleanup should succeed. status={result['status']}, "
+                f"output={result.get('output_str', '')}, stderr: {stderr[:500]}"
             )
 
             # Should produce cleanup_report.txt
@@ -379,29 +328,15 @@ class TestClaudeCodeCleanupIntegration:
                 f"{output_dir}/cleanup_report.txt"
             )
 
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(CLEANUP_HOOK),
-                    "--url", TEST_URL,
-                    "--snapshot-id", "test-preserve-hashes",
-                ],
-                capture_output=True,
-                text=True,
-                cwd=str(output_dir),
-                env=env,
-                timeout=180,
+            returncode, stdout, stderr = run_hook(
+                CLEANUP_HOOK, TEST_URL, "test-preserve-hashes",
+                cwd=output_dir, env=env, timeout=180,
             )
 
-            records = [
-                json.loads(line)
-                for line in result.stdout.strip().split("\n")
-                if line.strip().startswith("{")
-            ]
-            archive_results = [r for r in records if r.get("type") == "ArchiveResult"]
-            assert archive_results, f"No ArchiveResult. stderr: {result.stderr[:500]}"
-            assert archive_results[-1]["status"] == "succeeded", (
-                f"Should succeed: {result.stderr[:500]}"
+            result = parse_jsonl_output(stdout)
+            assert result is not None, f"No ArchiveResult. stderr: {stderr[:500]}"
+            assert result["status"] == "succeeded", (
+                f"Should succeed: {stderr[:500]}"
             )
 
             # Verify broken_extractor/ was actually deleted

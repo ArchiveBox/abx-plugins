@@ -12,16 +12,18 @@ Tests verify:
 
 import json
 import os
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+from base.test_utils import (
     get_plugin_dir,
     get_hook_script,
+    parse_jsonl_output,
+    run_hook,
 )
 
 
@@ -125,22 +127,15 @@ class TestClaudeCodeExtractPlugin:
             env["SNAP_DIR"] = str(snap_dir)
             env["CLAUDECODEEXTRACT_ENABLED"] = "false"
 
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(EXTRACT_HOOK),
-                    "--url", TEST_URL,
-                    "--snapshot-id", "test-snapshot",
-                ],
-                capture_output=True,
-                text=True,
-                cwd=str(output_dir),
-                env=env,
-                timeout=30,
+            returncode, stdout, stderr = run_hook(
+                EXTRACT_HOOK, TEST_URL, "test-snapshot",
+                cwd=output_dir, env=env, timeout=30,
             )
 
-            assert result.returncode == 0, f"Hook failed: {result.stderr}"
-            assert "skipped" in result.stdout
+            assert returncode == 0, f"Hook failed: {stderr}"
+            result = parse_jsonl_output(stdout)
+            assert result is not None, f"Expected JSONL output, got: {stdout}"
+            assert result["status"] == "skipped"
 
     def test_hook_fails_without_api_key(self):
         """Hook should fail when ANTHROPIC_API_KEY is not set."""
@@ -155,30 +150,16 @@ class TestClaudeCodeExtractPlugin:
             env["CLAUDECODEEXTRACT_ENABLED"] = "true"
             env.pop("ANTHROPIC_API_KEY", None)
 
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(EXTRACT_HOOK),
-                    "--url", TEST_URL,
-                    "--snapshot-id", "test-snapshot",
-                ],
-                capture_output=True,
-                text=True,
-                cwd=str(output_dir),
-                env=env,
-                timeout=30,
+            returncode, stdout, stderr = run_hook(
+                EXTRACT_HOOK, TEST_URL, "test-snapshot",
+                cwd=output_dir, env=env, timeout=30,
             )
 
-            assert result.returncode == 1
-            records = [
-                json.loads(line)
-                for line in result.stdout.strip().split("\n")
-                if line.strip().startswith("{")
-            ]
-            assert records
-            assert records[-1]["type"] == "ArchiveResult"
-            assert records[-1]["status"] == "failed"
-            assert "ANTHROPIC_API_KEY" in records[-1]["output_str"]
+            assert returncode == 1
+            result = parse_jsonl_output(stdout)
+            assert result is not None, f"Expected JSONL output, got: {stdout}"
+            assert result["status"] == "failed"
+            assert "ANTHROPIC_API_KEY" in result["output_str"]
 
     def test_hook_fails_gracefully_with_missing_binary(self):
         """Hook should fail gracefully when claude binary is not found."""
@@ -194,31 +175,17 @@ class TestClaudeCodeExtractPlugin:
             env["ANTHROPIC_API_KEY"] = "sk-ant-test-key"
             env["CLAUDECODE_BINARY"] = "/nonexistent/claude"
 
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(EXTRACT_HOOK),
-                    "--url", TEST_URL,
-                    "--snapshot-id", "test-snapshot",
-                ],
-                capture_output=True,
-                text=True,
-                cwd=str(output_dir),
-                env=env,
-                timeout=30,
+            returncode, stdout, stderr = run_hook(
+                EXTRACT_HOOK, TEST_URL, "test-snapshot",
+                cwd=output_dir, env=env, timeout=30,
             )
 
-            assert result.returncode == 1
-            records = [
-                json.loads(line)
-                for line in result.stdout.strip().split("\n")
-                if line.strip().startswith("{")
-            ]
-            assert records
-            assert records[-1]["type"] == "ArchiveResult"
-            assert records[-1]["status"] == "failed"
-            assert "not found" in records[-1]["output_str"].lower(), (
-                f"Error should mention missing binary: {records[-1]['output_str']}"
+            assert returncode == 1
+            result = parse_jsonl_output(stdout)
+            assert result is not None, f"Expected JSONL output, got: {stdout}"
+            assert result["status"] == "failed"
+            assert "not found" in result["output_str"].lower(), (
+                f"Error should mention missing binary: {result['output_str']}"
             )
 
 
@@ -226,7 +193,6 @@ class TestClaudeCodeExtractIntegration:
     """Integration tests that run the full extract pipeline with real Claude Code.
 
     These tests require claude binary in PATH and ANTHROPIC_API_KEY set.
-    No skip decorators — CI always has these prerequisites configured.
     """
 
     def test_extract_generates_markdown_from_snapshot(self):
@@ -246,35 +212,17 @@ class TestClaudeCodeExtractIntegration:
             env["CLAUDECODEEXTRACT_MODEL"] = "haiku"
             env["CLAUDECODEEXTRACT_MAX_TURNS"] = "5"
             env["CLAUDECODEEXTRACT_TIMEOUT"] = "90"
-            # Use default prompt (generate markdown from best source)
 
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(EXTRACT_HOOK),
-                    "--url", TEST_URL,
-                    "--snapshot-id", "test-extract-integration",
-                ],
-                capture_output=True,
-                text=True,
-                cwd=str(output_dir),
-                env=env,
-                timeout=120,
+            returncode, stdout, stderr = run_hook(
+                EXTRACT_HOOK, TEST_URL, "test-extract-integration",
+                cwd=output_dir, env=env, timeout=120,
             )
 
-            # Parse JSONL output
-            records = [
-                json.loads(line)
-                for line in result.stdout.strip().split("\n")
-                if line.strip().startswith("{")
-            ]
-            archive_results = [r for r in records if r.get("type") == "ArchiveResult"]
-            assert archive_results, f"No ArchiveResult in output. stderr: {result.stderr[:500]}"
-
-            ar = archive_results[-1]
-            assert ar["status"] == "succeeded", (
-                f"Extract should succeed. status={ar['status']}, "
-                f"output={ar.get('output_str', '')}, stderr: {result.stderr[:500]}"
+            result = parse_jsonl_output(stdout)
+            assert result is not None, f"No ArchiveResult in output. stderr: {stderr[:500]}"
+            assert result["status"] == "succeeded", (
+                f"Extract should succeed. status={result['status']}, "
+                f"output={result.get('output_str', '')}, stderr: {stderr[:500]}"
             )
 
             # Default prompt should generate content.md with markdown from snapshot
@@ -312,29 +260,15 @@ class TestClaudeCodeExtractIntegration:
                 '{"title": "<the title you found>"}.'
             )
 
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(EXTRACT_HOOK),
-                    "--url", TEST_URL,
-                    "--snapshot-id", "test-custom-prompt",
-                ],
-                capture_output=True,
-                text=True,
-                cwd=str(output_dir),
-                env=env,
-                timeout=120,
+            returncode, stdout, stderr = run_hook(
+                EXTRACT_HOOK, TEST_URL, "test-custom-prompt",
+                cwd=output_dir, env=env, timeout=120,
             )
 
-            records = [
-                json.loads(line)
-                for line in result.stdout.strip().split("\n")
-                if line.strip().startswith("{")
-            ]
-            archive_results = [r for r in records if r.get("type") == "ArchiveResult"]
-            assert archive_results, f"No ArchiveResult. stderr: {result.stderr[:500]}"
-            assert archive_results[-1]["status"] == "succeeded", (
-                f"Custom prompt extraction should succeed: {result.stderr[:500]}"
+            result = parse_jsonl_output(stdout)
+            assert result is not None, f"No ArchiveResult. stderr: {stderr[:500]}"
+            assert result["status"] == "succeeded", (
+                f"Custom prompt extraction should succeed: {stderr[:500]}"
             )
 
             # Verify the custom output file was created

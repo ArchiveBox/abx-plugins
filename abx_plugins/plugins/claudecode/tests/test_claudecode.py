@@ -13,16 +13,19 @@ Tests verify:
 
 import json
 import os
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+from base.test_utils import (
     get_plugin_dir,
     get_hook_script,
+    parse_jsonl_output,
+    parse_jsonl_records,
+    run_hook,
 )
 
 
@@ -75,24 +78,14 @@ class TestClaudeCodePlugin:
             env["CLAUDECODE_ENABLED"] = "true"
             env["ANTHROPIC_API_KEY"] = "sk-ant-test-key"
 
-            result = subprocess.run(
-                [sys.executable, str(INSTALL_HOOK)],
-                capture_output=True,
-                text=True,
-                timeout=30,
-                env=env,
+            returncode, stdout, stderr = run_hook(
+                INSTALL_HOOK, "https://example.com", "test-install",
+                cwd=tmpdir, env=env, timeout=30,
             )
 
-            assert result.returncode == 0, f"Hook failed: {result.stderr}"
+            assert returncode == 0, f"Hook failed: {stderr}"
 
-            records = []
-            for line in result.stdout.strip().split("\n"):
-                line = line.strip()
-                if line.startswith("{"):
-                    try:
-                        records.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        pass
+            records = parse_jsonl_records(stdout)
 
             # Should emit Binary record for claude
             binary_records = [r for r in records if r.get("type") == "Binary"]
@@ -102,9 +95,9 @@ class TestClaudeCodePlugin:
             assert binary_records[0]["overrides"]["npm"]["packages"] == ["@anthropic-ai/claude-code"]
 
             # Should emit ArchiveResult
-            result_records = [r for r in records if r.get("type") == "ArchiveResult"]
-            assert len(result_records) == 1
-            assert result_records[0]["status"] == "succeeded"
+            result = parse_jsonl_output(stdout)
+            assert result is not None
+            assert result["status"] == "succeeded"
 
     def test_install_hook_skips_when_disabled(self):
         """Install hook should exit cleanly when CLAUDECODE_ENABLED=false."""
@@ -113,24 +106,16 @@ class TestClaudeCodePlugin:
             env["CRAWL_DIR"] = tmpdir
             env["CLAUDECODE_ENABLED"] = "false"
 
-            result = subprocess.run(
-                [sys.executable, str(INSTALL_HOOK)],
-                capture_output=True,
-                text=True,
-                timeout=30,
-                env=env,
+            returncode, stdout, stderr = run_hook(
+                INSTALL_HOOK, "https://example.com", "test-disabled",
+                cwd=tmpdir, env=env, timeout=30,
             )
 
-            assert result.returncode == 0, f"Hook failed: {result.stderr}"
+            assert returncode == 0, f"Hook failed: {stderr}"
             # Should not emit any Binary records
-            for line in result.stdout.strip().split("\n"):
-                line = line.strip()
-                if line.startswith("{"):
-                    try:
-                        record = json.loads(line)
-                        assert record.get("type") != "Binary", "Should not emit Binary when disabled"
-                    except json.JSONDecodeError:
-                        pass
+            records = parse_jsonl_records(stdout)
+            binary_records = [r for r in records if r.get("type") == "Binary"]
+            assert len(binary_records) == 0, "Should not emit Binary when disabled"
 
     def test_install_hook_skips_by_default(self):
         """Install hook should skip when CLAUDECODE_ENABLED is not set (default=false)."""
@@ -139,24 +124,15 @@ class TestClaudeCodePlugin:
             env["CRAWL_DIR"] = tmpdir
             env.pop("CLAUDECODE_ENABLED", None)
 
-            result = subprocess.run(
-                [sys.executable, str(INSTALL_HOOK)],
-                capture_output=True,
-                text=True,
-                timeout=30,
-                env=env,
+            returncode, stdout, stderr = run_hook(
+                INSTALL_HOOK, "https://example.com", "test-default",
+                cwd=tmpdir, env=env, timeout=30,
             )
 
-            assert result.returncode == 0, f"Hook failed: {result.stderr}"
-            # Should not emit any Binary records
-            for line in result.stdout.strip().split("\n"):
-                line = line.strip()
-                if line.startswith("{"):
-                    try:
-                        record = json.loads(line)
-                        assert record.get("type") != "Binary", "Should not emit Binary when disabled by default"
-                    except json.JSONDecodeError:
-                        pass
+            assert returncode == 0, f"Hook failed: {stderr}"
+            records = parse_jsonl_records(stdout)
+            binary_records = [r for r in records if r.get("type") == "Binary"]
+            assert len(binary_records) == 0, "Should not emit Binary when disabled by default"
 
     def test_install_hook_warns_missing_api_key(self):
         """Install hook should warn when ANTHROPIC_API_KEY is not set."""
@@ -166,16 +142,13 @@ class TestClaudeCodePlugin:
             env["CLAUDECODE_ENABLED"] = "true"
             env.pop("ANTHROPIC_API_KEY", None)
 
-            result = subprocess.run(
-                [sys.executable, str(INSTALL_HOOK)],
-                capture_output=True,
-                text=True,
-                timeout=30,
-                env=env,
+            returncode, stdout, stderr = run_hook(
+                INSTALL_HOOK, "https://example.com", "test-no-key",
+                cwd=tmpdir, env=env, timeout=30,
             )
 
-            assert result.returncode == 0
-            assert "ANTHROPIC_API_KEY" in result.stderr, "Should warn about missing API key"
+            assert returncode == 0
+            assert "ANTHROPIC_API_KEY" in stderr, "Should warn about missing API key"
 
 
 class TestClaudeCodeUtils:
@@ -281,7 +254,6 @@ class TestClaudeCodeIntegration:
     """Integration tests that actually run Claude Code CLI.
 
     These tests require claude binary in PATH and ANTHROPIC_API_KEY set.
-    No skip decorators — CI always has these prerequisites configured.
     """
 
     def test_run_claude_code_simple_prompt(self):
