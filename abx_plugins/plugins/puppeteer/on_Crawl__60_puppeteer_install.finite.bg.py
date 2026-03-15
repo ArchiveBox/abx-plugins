@@ -36,7 +36,7 @@ def main() -> None:
         "binproviders": "npm",
         "overrides": {
             "npm": {
-                "packages": ["puppeteer"],
+                "install_args": ["puppeteer"],
             }
         },
     }

@@ -27,7 +27,7 @@ def main():
     if not readability_enabled:
         sys.exit(0)
 
-    output_binary(name="readability-extractor", binproviders="env,npm", overrides={"npm": {"packages": ["https://github.com/ArchiveBox/readability-extractor"]}})
+    output_binary(name="readability-extractor", binproviders="env,npm", overrides={"npm": {"install_args": ["https://github.com/ArchiveBox/readability-extractor"]}})
 
     sys.exit(0)
 

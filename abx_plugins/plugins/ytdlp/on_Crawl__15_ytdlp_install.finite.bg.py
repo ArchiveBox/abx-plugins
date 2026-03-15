@@ -34,14 +34,14 @@ def main():
     output_binary(
         name="yt-dlp",
         binproviders="env,pip,brew,apt",
-        overrides={"pip": {"packages": ["yt-dlp[default]"]}},
+        overrides={"pip": {"install_args": ["yt-dlp[default]"]}},
     )
 
     # Node.js (required by several JS-based extractors)
     output_binary(
         name="node",
         binproviders="env,apt,brew",
-        overrides={"apt": {"packages": ["nodejs"]}},
+        overrides={"apt": {"install_args": ["nodejs"]}},
     )
 
     # ffmpeg (used by media extraction)

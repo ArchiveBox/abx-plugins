@@ -123,7 +123,7 @@ class TestNpmProviderHook:
         env["HOME"] = self.temp_dir
         env.pop("LIB_DIR", None)
 
-        overrides = json.dumps({"npm": {"packages": ["custom-pkg"]}})
+        overrides = json.dumps({"npm": {"install_args": ["custom-pkg"]}})
 
         # Just verify it doesn't crash with overrides
         result = subprocess.run(

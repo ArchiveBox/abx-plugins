@@ -40,7 +40,7 @@ def main():
         output_binary(
             name="claude",
             binproviders="env,npm",
-            overrides={"npm": {"packages": ["@anthropic-ai/claude-code"]}},
+            overrides={"npm": {"install_args": ["@anthropic-ai/claude-code"]}},
         )
 
     emit_archive_result("succeeded", "claude requested")

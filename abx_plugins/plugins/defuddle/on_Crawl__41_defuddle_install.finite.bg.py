@@ -25,7 +25,7 @@ def main():
     if not get_env_bool("DEFUDDLE_ENABLED", True):
         sys.exit(0)
 
-    output_binary(name="defuddle", binproviders="env,npm", overrides={"npm": {"packages": ["defuddle"]}})
+    output_binary(name="defuddle", binproviders="env,npm", overrides={"npm": {"install_args": ["defuddle"]}})
     sys.exit(0)
 
 

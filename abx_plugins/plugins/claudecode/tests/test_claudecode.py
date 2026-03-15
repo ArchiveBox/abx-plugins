@@ -92,7 +92,7 @@ class TestClaudeCodePlugin:
             assert len(binary_records) == 1, f"Expected 1 Binary record, got {len(binary_records)}"
             assert binary_records[0]["name"] == "claude"
             assert "npm" in binary_records[0]["binproviders"]
-            assert binary_records[0]["overrides"]["npm"]["packages"] == ["@anthropic-ai/claude-code"]
+            assert binary_records[0]["overrides"]["npm"]["install_args"] == ["@anthropic-ai/claude-code"]
 
             # Should emit ArchiveResult
             result = parse_jsonl_output(stdout)

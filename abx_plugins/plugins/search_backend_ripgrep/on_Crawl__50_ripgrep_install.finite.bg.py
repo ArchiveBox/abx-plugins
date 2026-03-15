@@ -34,7 +34,7 @@ def main():
                 "name": "rg",
                 "binproviders": "env,apt,brew",
                 "overrides": {
-                    "apt": {"packages": ["ripgrep"]},
+                    "apt": {"install_args": ["ripgrep"]},
                 },
                 "machine_id": machine_id,
             }

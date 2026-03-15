@@ -40,7 +40,7 @@ def main():
         print(json.dumps({"type": "Binary", "name": "postlight-parser", "abspath": mercury_binary_path, "binprovider": "env", "machine_id": machine_id}))
         sys.exit(0)
 
-    output_binary(name="postlight-parser", binproviders="env,npm", overrides={"npm": {"packages": ["@postlight/parser"]}})
+    output_binary(name="postlight-parser", binproviders="env,npm", overrides={"npm": {"install_args": ["@postlight/parser"]}})
 
     sys.exit(0)
 

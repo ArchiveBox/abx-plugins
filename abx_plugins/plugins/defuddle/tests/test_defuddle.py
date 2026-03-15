@@ -69,7 +69,7 @@ def get_defuddle_binary_path() -> str | None:
         binary = Binary(
             name="defuddle",
             binproviders=[NpmProvider(), EnvProvider()],
-            overrides={"npm": {"packages": ["defuddle"]}},
+            overrides={"npm": {"install_args": ["defuddle"]}},
         ).load()
         if binary and binary.abspath:
             _defuddle_binary_path = str(binary.abspath)
@@ -167,7 +167,7 @@ def test_crawl_hook_emits_defuddle_binary_record():
     assert binary, "Expected crawl hook to emit Binary record"
     assert binary.get("type") == "Binary"
     assert binary.get("name") == "defuddle"
-    assert binary.get("overrides", {}).get("npm", {}).get("packages") == ["defuddle"]
+    assert binary.get("overrides", {}).get("npm", {}).get("install_args") == ["defuddle"]
 
 
 def test_reports_missing_dependency_when_not_installed():

@@ -58,7 +58,7 @@ def main():
         binproviders="env,pip",
         overrides={
             "pip": {
-                "packages": [
+                "install_args": [
                     "--no-deps",
                     "--prefer-binary",
                     "forum-dl",

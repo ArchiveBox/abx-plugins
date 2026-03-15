@@ -30,15 +30,15 @@ def main() -> None:
     output_binary(
         name="node",
         binproviders="env,apt,brew",
-        overrides={"apt": {"packages": ["nodejs"]}},
+        overrides={"apt": {"install_args": ["nodejs"]}},
     )
 
     output_binary(
         name="npm",
         binproviders="env,apt,brew",
         overrides={
-            "apt": {"packages": ["nodejs", "npm"]},
-            "brew": {"packages": ["node"]},
+            "apt": {"install_args": ["nodejs", "npm"]},
+            "brew": {"install_args": ["node"]},
         },
     )
 

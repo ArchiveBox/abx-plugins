@@ -79,7 +79,7 @@ def main(
     puppeteer_binary = Binary(
         name="puppeteer",
         binproviders=[npm_provider],
-        overrides={"npm": {"packages": ["puppeteer"]}},
+        overrides={"npm": {"install_args": ["puppeteer"]}},
     ).load()
 
     if not puppeteer_binary.abspath:
@@ -88,7 +88,7 @@ def main(
         )
         sys.exit(1)
 
-    install_args = _parse_override_packages(
+    install_args = _parse_override_install_args(
         overrides, default=["chromium@latest", "--install-deps"]
     )
     proc = _run_puppeteer_install(
@@ -130,7 +130,7 @@ def main(
     sys.exit(0)
 
 
-def _parse_override_packages(overrides: str | None, default: list[str]) -> list[str]:
+def _parse_override_install_args(overrides: str | None, default: list[str]) -> list[str]:
     if not overrides:
         return default
     try:
@@ -141,9 +141,9 @@ def _parse_override_packages(overrides: str | None, default: list[str]) -> list[
     if isinstance(overrides_dict, dict):
         provider_overrides = overrides_dict.get("puppeteer")
         if isinstance(provider_overrides, dict):
-            packages = provider_overrides.get("packages")
-            if isinstance(packages, list) and packages:
-                return [str(arg) for arg in packages]
+            install_args = provider_overrides.get("install_args")
+            if isinstance(install_args, list) and install_args:
+                return [str(arg) for arg in install_args]
         if isinstance(provider_overrides, list) and provider_overrides:
             return [str(arg) for arg in provider_overrides]
     if isinstance(overrides_dict, list) and overrides_dict:

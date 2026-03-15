@@ -51,7 +51,7 @@ Lifecycle:
 `on_Crawl` output (dependency declaration):
 
 ```json
-{"type":"Binary","name":"yt-dlp","binproviders":"pip,brew,apt,env","overrides":{"pip":{"packages":["yt-dlp[default]"]}},"machine_id":"<optional>"}
+{"type":"Binary","name":"yt-dlp","binproviders":"pip,brew,apt,env","overrides":{"pip":{"install_args":["yt-dlp[default]"]}},"machine_id":"<optional>"}
 ```
 
 `on_Binary` input/output:

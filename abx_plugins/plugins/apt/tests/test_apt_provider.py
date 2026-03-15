@@ -91,7 +91,7 @@ class TestAptProviderHook:
 
     def test_hook_handles_overrides(self):
         """Hook should accept overrides JSON."""
-        overrides = json.dumps({"apt": {"packages": ["custom-package-name"]}})
+        overrides = json.dumps({"apt": {"install_args": ["custom-package-name"]}})
 
         result = subprocess.run(
             [

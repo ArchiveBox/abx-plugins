@@ -33,7 +33,7 @@ def main():
     output_binary(
         name="single-file",
         binproviders="env,npm",
-        overrides={"npm": {"packages": ["single-file-cli"]}},
+        overrides={"npm": {"install_args": ["single-file-cli"]}},
     )
 
     sys.exit(0)

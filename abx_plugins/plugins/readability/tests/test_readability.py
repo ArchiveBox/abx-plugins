@@ -110,7 +110,7 @@ def get_readability_binary_path():
             binproviders=[NpmProvider(), EnvProvider()],
             overrides={
                 "npm": {
-                    "packages": ["https://github.com/ArchiveBox/readability-extractor"]
+                    "install_args": ["https://github.com/ArchiveBox/readability-extractor"]
                 }
             },
         ).load()

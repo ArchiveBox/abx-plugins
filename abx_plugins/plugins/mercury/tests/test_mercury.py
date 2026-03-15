@@ -65,7 +65,7 @@ def get_mercury_binary_path():
         binary = Binary(
             name="postlight-parser",
             binproviders=[NpmProvider(), EnvProvider()],
-            overrides={"npm": {"packages": ["@postlight/parser"]}},
+            overrides={"npm": {"install_args": ["@postlight/parser"]}},
         ).load()
         if binary and binary.abspath:
             _mercury_binary_path = str(binary.abspath)

@@ -29,7 +29,7 @@ def main() -> None:
                 "type": "Binary",
                 "name": "trafilatura",
                 "binproviders": "env,pip",
-                "overrides": {"pip": {"packages": ["trafilatura"]}},
+                "overrides": {"pip": {"install_args": ["trafilatura"]}},
                 "machine_id": os.environ.get("MACHINE_ID", ""),
             }
         )

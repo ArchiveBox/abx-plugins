@@ -108,7 +108,7 @@ def get_ytdlp_binary_path():
         binary = Binary(
             name="yt-dlp",
             binproviders=[PipProvider(), EnvProvider()],
-            overrides={"pip": {"packages": ["yt-dlp[default]"]}},
+            overrides={"pip": {"install_args": ["yt-dlp[default]"]}},
         ).load()
         if binary and binary.abspath:
             _ytdlp_binary_path = str(binary.abspath)
