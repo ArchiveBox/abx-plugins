@@ -32,7 +32,7 @@ jobs:
       - name: Discover test files
         id: set-matrix
         run: |
-          chrome_test_pattern='ensure_chrome_test_prereqs|ensure_chromium_and_puppeteer_installed|require_chrome_runtime|chrome_session\(|CHROME_NAVIGATE_HOOK'
+          chrome_test_pattern='ensure_chrome_test_prereqs|ensure_chromium_and_puppeteer_installed|require_chrome_runtime|chrome_session\(|CHROME_(NAVIGATE|LAUNCH|TAB|WAIT)_HOOK|launch_snapshot_tab'
           plugin_tests=$(find abx_plugins/plugins -path "*/tests/test_*.py" -type f | sort)
           root_tests=""
           if [ -d tests ]; then
@@ -52,7 +52,7 @@ jobs:
             test_name=$(basename $test_file .py | sed 's/^test_//')
             name="$test_name"
             needs_chromium=false
-            if rg -q "$chrome_test_pattern" "$test_file"; then
+            if [[ "$test_file" == abx_plugins/plugins/chrome/tests/* ]] || rg -q "$chrome_test_pattern" "$test_file"; then
               needs_chromium=true
             fi
 
