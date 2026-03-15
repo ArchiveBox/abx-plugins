@@ -28,6 +28,7 @@
         --warm: #c96f2d;
         --shadow: 0 20px 60px rgba(33, 36, 29, 0.12);
         --radius: 28px;
+        --hero-badge-height: 64px;
       }
 
       * {
@@ -96,6 +97,12 @@
         flex-wrap: wrap;
       }
 
+      .hero-actions {
+        display: flex;
+        justify-content: flex-end;
+        flex: 1 1 220px;
+      }
+
       .eyebrow {
         display: inline-flex;
         align-items: center;
@@ -138,6 +145,7 @@
 
       .stat {
         min-width: 140px;
+        min-height: var(--hero-badge-height);
         padding: 14px 16px;
         border: 1px solid var(--line);
         border-radius: 20px;
@@ -153,6 +161,97 @@
       .stat span {
         font-size: 0.82rem;
         color: var(--muted);
+      }
+
+      .stat-link {
+        display: block;
+        min-width: 140px;
+        text-decoration: none;
+        color: inherit;
+      }
+
+      .stat-link:hover {
+        transform: translateY(-1px);
+      }
+
+      .stat-link--cta {
+        position: relative;
+        overflow: hidden;
+        background:
+          linear-gradient(135deg, rgba(255, 250, 242, 0.96), rgba(244, 251, 250, 0.92)),
+          rgba(255, 253, 248, 0.9);
+        box-shadow:
+          0 0 0 1px rgba(201, 111, 45, 0.14),
+          0 10px 28px rgba(22, 35, 31, 0.08),
+          0 0 24px rgba(201, 111, 45, 0.12);
+        animation: cta-glow-pulse 2.8s ease-in-out infinite;
+      }
+
+      .stat-link--cta::before {
+        content: "";
+        position: absolute;
+        top: -35%;
+        bottom: -35%;
+        left: -40%;
+        width: 38%;
+        border-radius: 24px;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent);
+        transform: translateX(-180%) rotate(18deg);
+        animation: cta-sheen 3.4s ease-in-out infinite;
+        pointer-events: none;
+      }
+
+      .stat-link--cta strong,
+      .stat-link--cta span {
+        position: relative;
+        z-index: 1;
+      }
+
+      .stat-link--cta strong {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .cta-plus {
+        display: inline-grid;
+        place-items: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 999px;
+        background: rgba(201, 111, 45, 0.14);
+        color: var(--warm);
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 0.95rem;
+        line-height: 1;
+      }
+
+      @keyframes cta-sheen {
+        0% {
+          transform: translateX(-180%) rotate(18deg);
+        }
+        55% {
+          transform: translateX(430%) rotate(18deg);
+        }
+        100% {
+          transform: translateX(430%) rotate(18deg);
+        }
+      }
+
+      @keyframes cta-glow-pulse {
+        0%,
+        100% {
+          box-shadow:
+            0 0 0 1px rgba(201, 111, 45, 0.14),
+            0 10px 28px rgba(22, 35, 31, 0.08),
+            0 0 24px rgba(201, 111, 45, 0.12);
+        }
+        50% {
+          box-shadow:
+            0 0 0 1px rgba(201, 111, 45, 0.2),
+            0 14px 34px rgba(22, 35, 31, 0.1),
+            0 0 34px rgba(201, 111, 45, 0.2);
+        }
       }
 
       .toolbar {
@@ -423,6 +522,12 @@
         font-size: 0.9rem;
       }
 
+      .button-link--hero {
+        border-color: var(--line);
+        background: rgba(255, 253, 248, 0.9);
+        box-shadow: none;
+      }
+
       .section-title {
         margin: 20px 0 10px;
         font-size: 0.82rem;
@@ -625,6 +730,17 @@
             <p class="hero-copy">
               Browse the plugins that ArchiveBox, abx-dl, and other tools in the abx-ecosystem provide to extract content from websites.
             </p>
+          </div>
+          <div class="hero-actions">
+            <a
+              class="stat stat-link stat-link--cta button-link--hero"
+              href="https://github.com/ArchiveBox/abx-plugins/pulls"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <strong><span class="cta-plus">+</span> Submit</strong>
+              <span>a new plugin</span>
+            </a>
           </div>
           <div class="hero-meta">
             <div class="stat">
@@ -8080,7 +8196,7 @@
 
       <footer class="page-footer">
         <span>Generated from <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">ArchiveBox/abx-plugins</a> at ref <code>main</code>.</span>
-        <span>Updated 2026-03-15 08:12 UTC</span>
+        <span>Updated 2026-03-15 08:21 UTC</span>
       </footer>
     </div>
 
