@@ -4,7 +4,6 @@
 # dependencies = [
 #   "pydantic-settings",
 #   "rich-click",
-#   "requests",
 # ]
 # ///
 #
@@ -16,9 +15,9 @@
 import json
 import os
 import sys
-from importlib import import_module
 from pathlib import Path
-from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from base.utils import load_config
@@ -46,11 +45,6 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
     def log(message: str) -> None:
         print(f"[archivedotorg] {message}", file=sys.stderr)
 
-    try:
-        requests: Any = import_module("requests")
-    except ModuleNotFoundError:
-        return False, None, "requests library not installed"
-
     config = load_config()
     timeout = config.ARCHIVEDOTORG_TIMEOUT
     user_agent = config.ARCHIVEDOTORG_USER_AGENT or "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
@@ -60,17 +54,17 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
     log(f"GET {submit_url}")
 
     try:
-        response = requests.get(
-            submit_url,
-            timeout=timeout,
-            headers={"User-Agent": user_agent},
-            allow_redirects=True,
-        )
-        log(f"HTTP {response.status_code} final_url={response.url}")
+        req = Request(submit_url, headers={"User-Agent": user_agent})
+        response = urlopen(req, timeout=timeout)
+        final_url = response.url
+        status = response.status
+        headers = response.headers
+        body = response.read().decode("utf-8", errors="replace")
+        log(f"HTTP {status} final_url={final_url}")
 
         # Check for successful archive
-        content_location = response.headers.get("Content-Location", "")
-        x_archive_orig_url = response.headers.get("X-Archive-Orig-Url", "")
+        content_location = headers.get("Content-Location", "")
+        x_archive_orig_url = headers.get("X-Archive-Orig-Url", "")
         if content_location:
             log(f"Content-Location: {content_location}")
         if x_archive_orig_url:
@@ -82,30 +76,32 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
             Path(OUTPUT_FILE).write_text(archive_url, encoding="utf-8")
             log(f"Saved archive URL -> {archive_url}")
             return True, OUTPUT_FILE, ""
-        elif "web.archive.org" in response.url:
+        elif "web.archive.org" in final_url:
             # We were redirected to an archive page
-            Path(OUTPUT_FILE).write_text(response.url, encoding="utf-8")
-            log(f"Redirected to archive page -> {response.url}")
+            Path(OUTPUT_FILE).write_text(final_url, encoding="utf-8")
+            log(f"Redirected to archive page -> {final_url}")
             return True, OUTPUT_FILE, ""
         else:
             # Check for errors in response
-            if "RobotAccessControlException" in response.text:
+            if "RobotAccessControlException" in body:
                 # Blocked by robots.txt - save submit URL for manual retry
                 Path(OUTPUT_FILE).write_text(submit_url, encoding="utf-8")
                 log("Blocked by robots.txt, saved submit URL for manual retry")
                 return True, OUTPUT_FILE, ""  # Consider this a soft success
-            elif response.status_code >= 400:
-                return False, None, f"HTTP {response.status_code}"
             else:
                 # Save submit URL anyway
                 Path(OUTPUT_FILE).write_text(submit_url, encoding="utf-8")
                 log("No archive URL returned, saved submit URL for manual retry")
                 return True, OUTPUT_FILE, ""
 
-    except requests.Timeout:
+    except HTTPError as e:
+        if e.code >= 400:
+            return False, None, f"HTTP {e.code}"
+        return False, None, f"HTTPError: {e}"
+    except TimeoutError:
         return False, None, f"Request timed out after {timeout} seconds"
-    except requests.RequestException as e:
-        return False, None, f"{type(e).__name__}: {e}"
+    except URLError as e:
+        return False, None, f"URLError: {e.reason}"
     except Exception as e:
         return False, None, f"{type(e).__name__}: {e}"
 
