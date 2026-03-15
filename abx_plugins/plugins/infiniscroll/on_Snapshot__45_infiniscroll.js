@@ -34,11 +34,16 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 }
 process.chdir(OUTPUT_DIR);
 
+// Import generic helpers from base/utils.js
 const {
-    getEnv,
     getEnvBool,
     getEnvInt,
     parseArgs,
+    emitArchiveResult,
+} = require('../base/utils.js');
+
+// Import chrome-specific utilities from chrome_utils.js
+const {
     readCdpUrl,
     connectToPage,
     waitForPageLoaded,
@@ -47,11 +52,7 @@ const {
 // Check if infiniscroll is enabled BEFORE requiring puppeteer
 if (!getEnvBool('INFINISCROLL_ENABLED', true)) {
     console.error('Skipping infiniscroll (INFINISCROLL_ENABLED=False)');
-    console.log(JSON.stringify({
-        type: 'ArchiveResult',
-        status: 'skipped',
-        output_str: 'INFINISCROLL_ENABLED=False',
-    }));
+    emitArchiveResult('skipped', 'INFINISCROLL_ENABLED=False');
     process.exit(0);
 }
 
@@ -363,11 +364,7 @@ async function main() {
         const outputStr = `scrolled ${finalHeightStr}px`;
 
         console.error(`Success: ${outputStr}`);
-        console.log(JSON.stringify({
-            type: 'ArchiveResult',
-            status: 'succeeded',
-            output_str: outputStr,
-        }));
+        emitArchiveResult('succeeded', outputStr);
         process.exit(0);
 
     } catch (e) {

@@ -34,22 +34,23 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 }
 process.chdir(OUTPUT_DIR);
 
-// Import shared utilities from chrome_utils.js
+// Import generic helpers from base/utils.js
 const {
     getEnvBool,
     getEnvInt,
     parseArgs,
+    emitArchiveResult,
+} = require('../base/utils.js');
+
+// Import chrome-specific utilities from chrome_utils.js
+const {
     connectToPage,
 } = require('../chrome/chrome_utils.js');
 
 // Check if modalcloser is enabled BEFORE requiring puppeteer
 if (!getEnvBool('MODALCLOSER_ENABLED', true)) {
     console.error('Skipping modalcloser (MODALCLOSER_ENABLED=False)');
-    console.log(JSON.stringify({
-        type: 'ArchiveResult',
-        status: 'skipped',
-        output_str: 'MODALCLOSER_ENABLED=False',
-    }));
+    emitArchiveResult('skipped', 'MODALCLOSER_ENABLED=False');
     process.exit(0);
 }
 
@@ -263,11 +264,7 @@ async function main() {
 
         const outputStr = `${total} modals closed`;
 
-        console.log(JSON.stringify({
-            type: 'ArchiveResult',
-            status: 'succeeded',
-            output_str: outputStr,
-        }));
+        emitArchiveResult('succeeded', outputStr);
 
         if (browser) browser.disconnect();
         process.exit(0);

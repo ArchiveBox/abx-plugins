@@ -35,6 +35,9 @@ from urllib.request import urlopen
 from pathlib import Path
 import shutil
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from base.utils import get_env, get_env_bool, get_env_int, get_env_array, emit_archive_result, has_staticfile_output
+
 import rich_click as click
 
 
@@ -51,81 +54,8 @@ OUTPUT_FILE = "singlefile.html"
 EXTENSION_SAVE_SCRIPT = Path(__file__).parent / "singlefile_extension_save.js"
 
 
-def get_env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default).strip()
-
-
-def get_env_bool(name: str, default: bool = False) -> bool:
-    val = get_env(name, "").lower()
-    if val in ("true", "1", "yes", "on"):
-        return True
-    if val in ("false", "0", "no", "off"):
-        return False
-    return default
-
-
-def get_env_int(name: str, default: int = 0) -> int:
-    try:
-        return int(get_env(name, str(default)))
-    except ValueError:
-        return default
-
-
-def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
-    """Parse a JSON array from environment variable."""
-    val = get_env(name, "")
-    if not val:
-        return default if default is not None else []
-    try:
-        result = json.loads(val)
-        if isinstance(result, list):
-            return [str(item) for item in result]
-        return default if default is not None else []
-    except json.JSONDecodeError:
-        return default if default is not None else []
-
-
-def emit_archive_result(status: str, output_str: str) -> None:
-    print(
-        json.dumps(
-            {
-                "type": "ArchiveResult",
-                "status": status,
-                "output_str": output_str,
-            }
-        )
-    )
-
-
 def temp_path_for(path: Path) -> Path:
     return path.with_name(f".{path.name}.{os.getpid()}.tmp")
-
-
-STATICFILE_DIR = "../staticfile"
-
-
-def has_staticfile_output() -> bool:
-    """Check if staticfile extractor already downloaded this URL."""
-    staticfile_dir = Path(STATICFILE_DIR)
-    if not staticfile_dir.exists():
-        return False
-    stdout_log = staticfile_dir / "stdout.log"
-    if not stdout_log.exists():
-        return False
-    for line in stdout_log.read_text(errors="ignore").splitlines():
-        line = line.strip()
-        if not line.startswith("{"):
-            continue
-        try:
-            record = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if (
-            record.get("type") == "ArchiveResult"
-            and record.get("status") == "succeeded"
-        ):
-            return True
-    return False
 
 
 # Chrome session directory (relative to extractor output dir)

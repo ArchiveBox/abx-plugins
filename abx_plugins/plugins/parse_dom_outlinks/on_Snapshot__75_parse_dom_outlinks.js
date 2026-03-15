@@ -23,10 +23,8 @@ const path = require('path');
 // Add NODE_MODULES_DIR to module resolution paths if set
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 const puppeteer = require('puppeteer-core');
+const { getEnvBool, getEnvInt, parseArgs, emitArchiveResult, writeFileAtomic } = require('../base/utils.js');
 const {
-    getEnvBool,
-    getEnvInt,
-    parseArgs,
     connectToPage,
     waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
@@ -48,20 +46,6 @@ function unlinkIfExists(filePath) {
     if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
     }
-}
-
-function emitArchiveResult(status, outputStr) {
-    console.log(JSON.stringify({
-        type: 'ArchiveResult',
-        status,
-        output_str: outputStr,
-    }));
-}
-
-function writeFileAtomic(filePath, contents) {
-    const tmpPath = `${filePath}.${process.pid}.tmp`;
-    fs.writeFileSync(tmpPath, contents);
-    fs.renameSync(tmpPath, filePath);
 }
 
 // Extract outlinks

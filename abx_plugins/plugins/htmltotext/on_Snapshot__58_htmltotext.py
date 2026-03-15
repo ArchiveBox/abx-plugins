@@ -19,6 +19,9 @@ import sys
 from html.parser import HTMLParser
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from base.utils import emit_archive_result, write_text_atomic
+
 import rich_click as click
 
 
@@ -55,24 +58,6 @@ class HTMLTextExtractor(HTMLParser):
 
     def get_text(self) -> str:
         return " ".join(self.result)
-
-
-def emit_archive_result(status: str, output_str: str) -> None:
-    print(
-        json.dumps(
-            {
-                "type": "ArchiveResult",
-                "status": status,
-                "output_str": output_str,
-            }
-        )
-    )
-
-
-def write_text_atomic(path: Path, text: str) -> None:
-    tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    tmp_path.write_text(text, encoding="utf-8")
-    tmp_path.replace(path)
 
 
 def html_to_text(html: str) -> str:

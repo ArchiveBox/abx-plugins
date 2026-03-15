@@ -27,6 +27,10 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from base.utils import get_env, get_env_int, get_env_array, emit_archive_result, write_text_atomic, find_html_source
+
 from urllib.parse import urlparse
 
 import rich_click as click
@@ -45,76 +49,6 @@ OUTPUT_FILE = "content.html"
 TEXT_FILE = "content.txt"
 METADATA_FILE = "article.json"
 
-
-def get_env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default).strip()
-
-
-def get_env_int(name: str, default: int = 0) -> int:
-    try:
-        return int(get_env(name, str(default)))
-    except ValueError:
-        return default
-
-
-def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
-    """Parse a JSON array from environment variable."""
-    val = get_env(name, "")
-    if not val:
-        return default if default is not None else []
-    try:
-        result = json.loads(val)
-        if isinstance(result, list):
-            return [str(item) for item in result]
-        return default if default is not None else []
-    except json.JSONDecodeError:
-        return default if default is not None else []
-
-
-def emit_archive_result(status: str, output_str: str) -> None:
-    print(
-        json.dumps(
-            {
-                "type": "ArchiveResult",
-                "status": status,
-                "output_str": output_str,
-            }
-        )
-    )
-
-
-def write_text_atomic(path: Path, text: str) -> None:
-    tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    tmp_path.write_text(text, encoding="utf-8")
-    tmp_path.replace(path)
-
-
-def find_html_source() -> str | None:
-    """Find HTML content from other extractors in the snapshot directory."""
-    # Hooks run in snapshot_dir, sibling extractor outputs are in subdirectories
-    search_patterns = [
-        "singlefile/singlefile.html",
-        "*_singlefile/singlefile.html",
-        "singlefile/*.html",
-        "*_singlefile/*.html",
-        "dom/output.html",
-        "*_dom/output.html",
-        "dom/*.html",
-        "*_dom/*.html",
-        "wget/**/*.html",
-        "*_wget/**/*.html",
-        "wget/**/*.htm",
-        "*_wget/**/*.htm",
-    ]
-
-    for base in (Path.cwd(), Path.cwd().parent):
-        for pattern in search_patterns:
-            matches = list(base.glob(pattern))
-            for match in matches:
-                if match.is_file() and match.stat().st_size > 0:
-                    return str(match)
-
-    return None
 
 
 def extract_readability(url: str, binary: str) -> tuple[str, str]:

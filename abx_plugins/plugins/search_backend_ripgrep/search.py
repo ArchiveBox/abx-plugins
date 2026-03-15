@@ -19,33 +19,12 @@ import json
 import os
 import subprocess
 import shutil
+import sys
 from pathlib import Path
 from typing import Iterable, List
 
-
-def get_env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default).strip()
-
-
-def get_env_int(name: str, default: int = 0) -> int:
-    try:
-        return int(get_env(name, str(default)))
-    except ValueError:
-        return default
-
-
-def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
-    """Parse a JSON array from environment variable."""
-    val = get_env(name, "")
-    if not val:
-        return default if default is not None else []
-    try:
-        result = json.loads(val)
-        if isinstance(result, list):
-            return [str(item) for item in result]
-        return default if default is not None else []
-    except json.JSONDecodeError:
-        return default if default is not None else []
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from base.utils import get_env, get_env_int, get_env_array
 
 
 def _get_archive_dir() -> Path:

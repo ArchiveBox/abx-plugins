@@ -32,6 +32,9 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from base.utils import get_env, get_env_bool, get_env_int
+
 
 # Extractor metadata
 PLUGIN_NAME = "index_sonic"
@@ -53,26 +56,6 @@ INDEXABLE_FILES = [
     ("wget", "**/*.htm"),
     ("title", "title.txt"),
 ]
-
-
-def get_env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default).strip()
-
-
-def get_env_bool(name: str, default: bool = False) -> bool:
-    val = get_env(name, "").lower()
-    if val in ("true", "1", "yes", "on"):
-        return True
-    if val in ("false", "0", "no", "off"):
-        return False
-    return default
-
-
-def get_env_int(name: str, default: int = 0) -> int:
-    try:
-        return int(get_env(name, str(default)))
-    except ValueError:
-        return default
 
 
 def get_text_size_kb(texts: list[str]) -> int:

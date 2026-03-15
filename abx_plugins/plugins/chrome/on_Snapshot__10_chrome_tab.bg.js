@@ -23,6 +23,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const { parseArgs } = require('../base/utils.js');
 // Add NODE_MODULES_DIR to module resolution paths if set
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 
@@ -66,18 +67,6 @@ const SNAPSHOT_MARKER_FILES = [
     'final_url.txt',
     'navigation.json',
 ];
-
-// Parse command line arguments
-function parseArgs() {
-    const args = {};
-    process.argv.slice(2).forEach(arg => {
-        if (arg.startsWith('--')) {
-            const [key, ...valueParts] = arg.slice(2).split('=');
-            args[key.replace(/-/g, '_')] = valueParts.join('=') || true;
-        }
-    });
-    return args;
-}
 
 function getPortFromCdpUrl(cdpUrl) {
     const match = (cdpUrl || '').match(/:(\d+)\/devtools\//);

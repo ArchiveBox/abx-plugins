@@ -16,10 +16,8 @@ const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer-core');
 
-// Import shared utilities from chrome_utils.js
+const { getEnvInt, parseArgs, emitArchiveResult, writeFileAtomic } = require('../base/utils.js');
 const {
-    getEnvInt,
-    parseArgs,
     connectToPage,
     waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
@@ -37,22 +35,6 @@ const OUTPUT_FILE = 'title.txt';
 const CHROME_SESSION_DIR = '../chrome';
 const CHROME_CDP_FILE = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
 const CHROME_TARGET_FILE = path.join(CHROME_SESSION_DIR, 'target_id.txt');
-
-function emitArchiveResult(status, outputStr) {
-    console.log(JSON.stringify({
-        type: 'ArchiveResult',
-        status,
-        output_str: outputStr,
-    }));
-}
-
-function writeFileAtomic(filePath, contents) {
-    const dir = path.dirname(filePath);
-    const base = path.basename(filePath);
-    const tmpPath = path.join(dir, `.${base}.${process.pid}.tmp`);
-    fs.writeFileSync(tmpPath, contents, 'utf8');
-    fs.renameSync(tmpPath, filePath);
-}
 
 async function extractTitle(url) {
     // Output directory is current directory (hook already runs in output dir)

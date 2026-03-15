@@ -22,6 +22,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const { getEnv, getEnvBool, getEnvInt, parseArgs } = require('../base/utils.js');
 // Add NODE_MODULES_DIR to module resolution paths if set
 if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
 const puppeteer = require('puppeteer-core');
@@ -41,37 +42,6 @@ function getCrawlChromeSessionDir() {
 
 const CHROME_SESSION_DIR = getCrawlChromeSessionDir();
 const CONFIG_MARKER = path.join(CHROME_SESSION_DIR, '.twocaptcha_configured');
-
-// Get environment variable with default
-function getEnv(name, defaultValue = '') {
-    return (process.env[name] || defaultValue).trim();
-}
-
-// Get boolean environment variable
-function getEnvBool(name, defaultValue = false) {
-    const val = getEnv(name, '').toLowerCase();
-    if (['true', '1', 'yes', 'on'].includes(val)) return true;
-    if (['false', '0', 'no', 'off'].includes(val)) return false;
-    return defaultValue;
-}
-
-// Get integer environment variable
-function getEnvInt(name, defaultValue = 0) {
-    const val = parseInt(getEnv(name, String(defaultValue)), 10);
-    return isNaN(val) ? defaultValue : val;
-}
-
-// Parse command line arguments
-function parseArgs() {
-    const args = {};
-    process.argv.slice(2).forEach(arg => {
-        if (arg.startsWith('--')) {
-            const [key, ...valueParts] = arg.slice(2).split('=');
-            args[key.replace(/-/g, '_')] = valueParts.join('=') || true;
-        }
-    });
-    return args;
-}
 
 /**
  * Get 2captcha configuration from environment variables.
