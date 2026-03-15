@@ -1503,7 +1503,25 @@ function findChromium() {
         return null;
     };
 
-    // 3. Search fallback locations (Chromium only)
+    // 3. Search LIB_DIR for hook-installed Chromium
+    const libDir = getEnv('LIB_DIR');
+    if (libDir) {
+        const libCandidates = [
+            path.join(libDir, 'chrome-linux', 'chrome'),
+            path.join(libDir, 'browsers', 'chrome', 'chrome'),
+        ];
+        for (const c of libCandidates) {
+            if (validateBinary(c)) return c;
+        }
+        // Also search puppeteer cache under LIB_DIR
+        const libPuppeteerDir = path.join(libDir, 'puppeteer', 'chrome');
+        const libPuppeteerBinary = findInPuppeteerDir(libPuppeteerDir);
+        if (libPuppeteerBinary && validateBinary(libPuppeteerBinary)) {
+            return libPuppeteerBinary;
+        }
+    }
+
+    // 4. Search fallback locations (Chromium only)
     const fallbackLocations = [
         // System Chromium
         '/Applications/Chromium.app/Contents/MacOS/Chromium',

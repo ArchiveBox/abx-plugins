@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Claude Code Cleanup",
+  "description": "Use Claude Code to deduplicate and clean up redundant snapshot extractor outputs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": ["claudecode"],
+  "required_binaries": ["claude"],
+  "output_mimetypes": ["text/plain"],
+  "properties": {
+    "CLAUDECODECLEANUP_ENABLED": {
+      "type": "boolean",
+      "default": false,
+      "x-aliases": ["USE_CLAUDECODECLEANUP"],
+      "description": "Enable Claude Code AI cleanup of snapshot files"
+    },
+    "CLAUDECODECLEANUP_TIMEOUT": {
+      "type": "integer",
+      "default": 120,
+      "minimum": 10,
+      "x-fallback": "CLAUDECODE_TIMEOUT",
+      "description": "Timeout for Claude Code cleanup in seconds"
+    },
+    "CLAUDECODECLEANUP_PROMPT": {
+      "type": "string",
+      "default": "Analyze all the extractor output directories in this snapshot. Look for duplicate or redundant outputs across plugins (e.g. multiple HTML extractions, multiple text extractions, multiple URL extraction outputs, etc.). For each group of similar outputs, inspect the content and determine which version is the best quality. Delete the inferior/redundant versions, keeping only the best one. Also remove any unnecessary temporary files, empty directories, or incomplete outputs. Write a summary of what you cleaned up to cleanup_report.txt in your output directory.",
+      "description": "Custom prompt for Claude Code cleanup. Defines what Claude should clean up and how to determine which duplicates to keep."
+    },
+    "CLAUDECODECLEANUP_MODEL": {
+      "type": "string",
+      "default": "sonnet",
+      "x-fallback": "CLAUDECODE_MODEL",
+      "description": "Claude model to use for cleanup (e.g. sonnet, opus, haiku)"
+    },
+    "CLAUDECODECLEANUP_MAX_TURNS": {
+      "type": "integer",
+      "default": 15,
+      "minimum": 1,
+      "x-fallback": "CLAUDECODE_MAX_TURNS",
+      "description": "Maximum number of agentic turns for cleanup"
+    }
+  }
+}

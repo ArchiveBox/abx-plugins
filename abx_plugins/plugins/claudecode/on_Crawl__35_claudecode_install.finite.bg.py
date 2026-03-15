@@ -1,0 +1,52 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# ///
+"""
+Emit @anthropic-ai/claude-code Binary dependency for the crawl.
+"""
+
+import os
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import emit_archive_result, get_env, get_env_bool, output_binary
+
+PLUGIN_DIR = Path(__file__).parent.name
+CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
+OUTPUT_DIR = CRAWL_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
+
+
+def main():
+    claudecode_enabled = get_env_bool("CLAUDECODE_ENABLED", False)
+
+    if not claudecode_enabled:
+        sys.exit(0)
+
+    # Check for API key
+    api_key = get_env("ANTHROPIC_API_KEY")
+    if not api_key:
+        print("WARNING: ANTHROPIC_API_KEY not set, Claude Code will not be functional", file=sys.stderr)
+
+    # Honor custom binary path - skip npm install if user provides their own
+    custom_binary = get_env("CLAUDECODE_BINARY")
+    if custom_binary and custom_binary != "claude":
+        # Use basename for Binary record name (env provider does PATH lookup, not absolute paths)
+        output_binary(name=custom_binary, binproviders="env")
+    else:
+        output_binary(
+            name="claude",
+            binproviders="env,npm",
+            overrides={"npm": {"packages": ["@anthropic-ai/claude-code"]}},
+        )
+
+    emit_archive_result("succeeded", "claude requested")
+
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()

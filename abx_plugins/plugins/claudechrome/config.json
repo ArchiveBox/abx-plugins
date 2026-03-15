@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Claude Chrome",
+  "description": "Use Claude computer-use to interact with pages in Chrome via CDP screenshots and the Anthropic API.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": ["chrome"],
+  "required_binaries": ["node"],
+  "output_mimetypes": ["application/json", "image/png"],
+  "properties": {
+    "CLAUDECHROME_ENABLED": {
+      "type": "boolean",
+      "default": false,
+      "x-aliases": ["USE_CLAUDECHROME"],
+      "description": "Enable Claude for Chrome browser extension for AI-driven page interaction"
+    },
+    "CLAUDECHROME_PROMPT": {
+      "type": "string",
+      "default": "Look at the current page. If there are any \"expand\", \"show more\", \"load more\", or similar buttons/links, click them all to reveal hidden content. Report what you did.",
+      "description": "Prompt for Claude to execute on the page. Claude can click buttons, fill forms, download files, and interact with any page element."
+    },
+    "CLAUDECHROME_TIMEOUT": {
+      "type": "integer",
+      "default": 120,
+      "minimum": 10,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for Claude for Chrome operations in seconds"
+    },
+    "CLAUDECHROME_MODEL": {
+      "type": "string",
+      "default": "sonnet",
+      "description": "Claude model to use (e.g. sonnet, opus, haiku). Availability depends on your plan."
+    },
+    "CLAUDECHROME_MAX_ACTIONS": {
+      "type": "integer",
+      "default": 15,
+      "minimum": 1,
+      "maximum": 50,
+      "description": "Maximum number of agentic loop iterations (screenshots + actions) per page"
+    },
+    "ANTHROPIC_API_KEY": {
+      "type": "string",
+      "default": "",
+      "x-sensitive": true,
+      "description": "Anthropic API key for Claude for Chrome authentication"
+    }
+  }
+}
