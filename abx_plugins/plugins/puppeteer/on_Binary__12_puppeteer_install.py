@@ -23,6 +23,11 @@ from pathlib import Path
 import rich_click as click
 from abx_pkg import Binary, EnvProvider, NpmProvider
 
+CLAUDE_SANDBOX_NO_PROXY = (
+    "localhost,127.0.0.1,169.254.169.254,metadata.google.internal,"
+    ".svc.cluster.local,.local"
+)
+
 
 @click.command()
 @click.option("--machine-id", required=True, help="Machine UUID")
@@ -97,6 +102,9 @@ def main(
     if proc.returncode != 0:
         click.echo(proc.stdout.strip(), err=True)
         click.echo(proc.stderr.strip(), err=True)
+        install_hint = _get_install_failure_hint(proc.stdout + "\n" + proc.stderr)
+        if install_hint:
+            click.echo(install_hint, err=True)
         click.echo(f"ERROR: puppeteer install failed ({proc.returncode})", err=True)
         sys.exit(1)
 
@@ -204,6 +212,28 @@ def _cleanup_partial_chromium_cache(install_output: str, cache_dir: Path) -> boo
             removed_any = True
 
     return removed_any
+
+
+def _get_install_failure_hint(install_output: str) -> str | None:
+    output = install_output or ""
+    lowered = output.lower()
+    if (
+        "storage.googleapis.com" in lowered
+        and "getaddrinfo" in lowered
+        and "eai_again" in lowered
+    ):
+        return (
+            "HINT: Puppeteer failed to download Chromium from storage.googleapis.com.\n"
+            "HINT: In Claude sandboxes, NO_PROXY often includes *.googleapis.com "
+            "and *.google.com. @puppeteer/browsers respects NO_PROXY, bypasses the "
+            "egress proxy for storage.googleapis.com, and the direct connection can "
+            "time out or fail DNS resolution.\n"
+            "HINT: Override NO_PROXY, no_proxy, and any tool-specific no-proxy env "
+            "vars to remove .googleapis.com and .google.com before retrying.\n"
+            f'HINT: NO_PROXY="{CLAUDE_SANDBOX_NO_PROXY}"\n'
+            'HINT: no_proxy="$NO_PROXY"'
+        )
+    return None
 
 
 def _emit_chromium_binary_record(

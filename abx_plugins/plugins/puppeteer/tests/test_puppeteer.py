@@ -8,6 +8,9 @@ import sys
 import tempfile
 from pathlib import Path
 
+from abx_plugins.plugins.puppeteer.on_Binary__12_puppeteer_install import (
+    _get_install_failure_hint,
+)
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,
@@ -54,6 +57,23 @@ def test_crawl_hook_emits_puppeteer_binary():
         assert "npm" in binaries[0].get("binproviders", ""), (
             "puppeteer should be installable via npm provider"
         )
+
+
+def test_puppeteer_install_failure_hint_for_claude_sandbox_dns_error():
+    output = """
+Error: getaddrinfo EAI_AGAIN storage.googleapis.com
+    at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
+  errno: -3001,
+  code: 'EAI_AGAIN',
+  syscall: 'getaddrinfo',
+  hostname: 'storage.googleapis.com'
+}
+"""
+    hint = _get_install_failure_hint(output)
+    assert hint is not None
+    assert "Claude sandboxes" in hint
+    assert 'NO_PROXY="localhost,127.0.0.1,169.254.169.254,metadata.google.internal,.svc.cluster.local,.local"' in hint
+    assert 'no_proxy="$NO_PROXY"' in hint
 
 
 def test_puppeteer_installs_chromium():
