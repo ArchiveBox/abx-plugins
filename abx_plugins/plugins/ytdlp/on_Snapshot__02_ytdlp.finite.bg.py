@@ -9,7 +9,7 @@
 """
 Download video/audio from a URL using yt-dlp.
 
-Usage: on_Snapshot__02_ytdlp.bg.py --url=<url> --snapshot-id=<uuid>
+Usage: on_Snapshot__02_ytdlp.finite.bg.py --url=<url> --snapshot-id=<uuid>
 Output: Downloads video/audio files to SNAP_DIR/ytdlp/
 
 Environment variables:

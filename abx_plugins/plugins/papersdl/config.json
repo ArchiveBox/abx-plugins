@@ -1,7 +1,12 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "papers-dl",
+  "description": "Fetch downloadable academic papers from paper URLs and DOI targets.",
   "type": "object",
   "additionalProperties": false,
+  "required_plugins": [],
+  "required_binaries": ["papers-dl"],
+  "output_mimetypes": ["application/pdf"],
   "properties": {
     "PAPERSDL_ENABLED": {
       "type": "boolean",

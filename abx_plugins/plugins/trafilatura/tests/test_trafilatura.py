@@ -50,7 +50,7 @@ def get_trafilatura_binary_path() -> str | None:
         return _trafilatura_binary_path
 
     pip_hook = PLUGINS_ROOT / "pip" / "on_Binary__11_pip_install.py"
-    crawl_hook = PLUGIN_DIR / "on_Crawl__41_trafilatura_install.bg.py"
+    crawl_hook = PLUGIN_DIR / "on_Crawl__41_trafilatura_install.finite.bg.py"
     if not pip_hook.exists():
         return None
 

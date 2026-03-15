@@ -1,12 +1,22 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Favicon",
+  "description": "Fetch and save the site favicon or touch icon.",
   "type": "object",
   "additionalProperties": false,
+  "required_plugins": [],
+  "required_binaries": [],
+  "output_mimetypes": [
+    "image/"
+  ],
   "properties": {
     "FAVICON_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SAVE_FAVICON", "USE_FAVICON"],
+      "x-aliases": [
+        "SAVE_FAVICON",
+        "USE_FAVICON"
+      ],
       "description": "Enable favicon downloading"
     },
     "FAVICON_TIMEOUT": {

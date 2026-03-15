@@ -11,7 +11,7 @@
 # Supports configurable git arguments and timeout via environment variables.
 #
 # Usage:
-#     ./on_Snapshot__05_git.bg.py --url=<url> --snapshot-id=<uuid> > events.jsonl
+#     ./on_Snapshot__05_git.finite.bg.py --url=<url> --snapshot-id=<uuid> > events.jsonl
 
 import json
 import os

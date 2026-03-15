@@ -1,7 +1,20 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Trafilatura",
+  "description": "Extract article content from archived HTML into text, markdown, HTML, CSV, JSON, and XML formats.",
   "type": "object",
   "additionalProperties": false,
+  "required_plugins": [],
+  "required_binaries": ["trafilatura"],
+  "output_mimetypes": [
+    "text/plain",
+    "text/markdown",
+    "text/html",
+    "text/csv",
+    "application/json",
+    "application/xml",
+    "application/tei+xml"
+  ],
   "properties": {
     "TRAFILATURA_ENABLED": {
       "type": "boolean",

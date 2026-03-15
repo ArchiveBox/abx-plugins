@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Base",
-  "description": "Provide shared utilities, helpers, and test support used by other plugins.",
+  "title": "Environment",
+  "description": "Discover binaries that are already available on the system PATH.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],

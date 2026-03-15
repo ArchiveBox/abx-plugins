@@ -1,7 +1,19 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Git",
+  "description": "Clone git repositories from supported repository URLs into the snapshot output directory.",
   "type": "object",
   "additionalProperties": false,
+  "required_plugins": [],
+  "required_binaries": ["git"],
+  "output_mimetypes": [
+    "text/",
+    "application/",
+    "image/",
+    "audio/",
+    "video/",
+    "font/"
+  ],
   "properties": {
     "GIT_ENABLED": {
       "type": "boolean",

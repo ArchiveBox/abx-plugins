@@ -1,18 +1,33 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Chrome",
+  "description": "Launch and manage a shared Chromium session for browser-driven plugins.",
   "type": "object",
   "additionalProperties": false,
+  "required_plugins": [],
+  "required_binaries": [
+    "chrome"
+  ],
+  "output_mimetypes": [
+    "text/plain",
+    "application/json"
+  ],
   "properties": {
     "CHROME_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["USE_CHROME"],
+      "x-aliases": [
+        "USE_CHROME"
+      ],
       "description": "Enable Chromium browser integration for archiving"
     },
     "CHROME_BINARY": {
       "type": "string",
       "default": "chromium",
-      "x-aliases": ["CHROMIUM_BINARY", "GOOGLE_CHROME_BINARY"],
+      "x-aliases": [
+        "CHROMIUM_BINARY",
+        "GOOGLE_CHROME_BINARY"
+      ],
       "description": "Path to Chromium binary"
     },
     "CHROME_NODE_BINARY": {
@@ -58,7 +73,9 @@
     },
     "CHROME_ARGS": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {
+        "type": "string"
+      },
       "default": [
         "--no-first-run",
         "--no-default-browser-check",
@@ -118,14 +135,20 @@
         "--log-level=2",
         "--enable-logging=stderr"
       ],
-      "x-aliases": ["CHROME_DEFAULT_ARGS"],
+      "x-aliases": [
+        "CHROME_DEFAULT_ARGS"
+      ],
       "description": "Default Chrome command-line arguments (static flags only, dynamic args like --user-data-dir are added at runtime)"
     },
     "CHROME_ARGS_EXTRA": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {
+        "type": "string"
+      },
       "default": [],
-      "x-aliases": ["CHROME_EXTRA_ARGS"],
+      "x-aliases": [
+        "CHROME_EXTRA_ARGS"
+      ],
       "description": "Extra arguments to append to Chrome command (for user customization)"
     },
     "CHROME_PAGELOAD_TIMEOUT": {
@@ -138,7 +161,12 @@
     "CHROME_WAIT_FOR": {
       "type": "string",
       "default": "networkidle2",
-      "enum": ["domcontentloaded", "load", "networkidle0", "networkidle2"],
+      "enum": [
+        "domcontentloaded",
+        "load",
+        "networkidle0",
+        "networkidle2"
+      ],
       "description": "Page load completion condition (domcontentloaded, load, networkidle0, networkidle2)"
     },
     "CHROME_DELAY_AFTER_LOAD": {

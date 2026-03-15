@@ -3,12 +3,12 @@
  * Launch a shared Chromium browser session for the entire crawl.
  *
  * This runs once per crawl and keeps Chromium alive for all snapshots to share.
- * Each snapshot creates its own tab via on_Snapshot__10_chrome_tab.bg.js.
+ * Each snapshot creates its own tab via on_Snapshot__10_chrome_tab.daemon.bg.js.
  *
  * NOTE: We use Chromium instead of Chrome because Chrome 137+ removed support for
  * --load-extension and --disable-extensions-except flags.
  *
- * Usage: on_Crawl__90_chrome_launch.bg.js --crawl-id=<uuid> --source-url=<url>
+ * Usage: on_Crawl__90_chrome_launch.daemon.bg.js --crawl-id=<uuid> --source-url=<url>
  * Output: Writes to current directory (executor creates chrome/ dir):
  *   - cdp_url.txt: WebSocket URL for CDP connection
  *   - chrome.pid: Chromium process ID (for cleanup)

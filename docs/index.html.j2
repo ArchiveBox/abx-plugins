@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ArchiveBox Plugin Marketplace | abx-plugins</title>
+    <meta
+      name="description"
+      content="Browse every plugin shipped in abx-plugins, including hooks, config defaults, source links, and example ArchiveBox and abx-dl commands."
+    >
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    >
+    <style>
+      :root {
+        --bg: #f6f1e7;
+        --bg-accent: #efe3c9;
+        --surface: rgba(255, 252, 246, 0.9);
+        --surface-strong: #fffdf8;
+        --ink: #1d2927;
+        --muted: #5d6b67;
+        --line: rgba(29, 41, 39, 0.12);
+        --accent: #0f766e;
+        --accent-soft: rgba(15, 118, 110, 0.12);
+        --warm: #c96f2d;
+        --shadow: 0 20px 60px rgba(33, 36, 29, 0.12);
+        --radius: 28px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(201, 111, 45, 0.14), transparent 30%),
+          radial-gradient(circle at top right, rgba(15, 118, 110, 0.14), transparent 28%),
+          linear-gradient(180deg, #fbf7ee 0%, var(--bg) 48%, #f3ecdd 100%);
+        font-family: "Space Grotesk", sans-serif;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      code,
+      pre,
+      input {
+        font-family: "IBM Plex Mono", monospace;
+      }
+
+      .page-shell {
+        width: calc(100vw - 24px);
+        margin: 0 12px;
+        padding: 20px 0 48px;
+      }
+
+      .hero {
+        position: relative;
+        overflow: hidden;
+        padding: 36px;
+        border: 1px solid var(--line);
+        border-radius: calc(var(--radius) + 8px);
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(255, 247, 233, 0.82)),
+          linear-gradient(120deg, rgba(15, 118, 110, 0.08), transparent 60%);
+        box-shadow: var(--shadow);
+      }
+
+      .hero::after {
+        content: "";
+        position: absolute;
+        inset: auto -80px -100px auto;
+        width: 260px;
+        height: 260px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(201, 111, 45, 0.25), transparent 70%);
+        pointer-events: none;
+      }
+
+      .hero-top {
+        display: flex;
+        gap: 18px;
+        justify-content: space-between;
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+        font-size: 0.84rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--warm);
+      }
+
+      .eyebrow::before {
+        content: "";
+        width: 40px;
+        height: 1px;
+        background: currentColor;
+      }
+
+      h1 {
+        margin: 0;
+        max-width: 52ch;
+        font-size: clamp(2.8rem, 8vw, 4.2rem);
+        line-height: 0.94;
+        letter-spacing: -0.05em;
+      }
+
+      .hero-copy {
+        max-width: 70ch;
+        margin: 18px 0 0;
+        color: var(--muted);
+        font-size: 1rem;
+        line-height: 1.6;
+      }
+
+      .hero-meta {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .stat {
+        min-width: 140px;
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: rgba(255, 253, 248, 0.9);
+      }
+
+      .stat strong {
+        display: block;
+        font-size: 1.5rem;
+        line-height: 1.1;
+      }
+
+      .stat span {
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
+
+      .toolbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 14px;
+        margin-top: 28px;
+      }
+
+      .searchbox {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 18px;
+        border: 1px solid rgba(29, 41, 39, 0.16);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.92);
+      }
+
+      .searchbox input {
+        width: 100%;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        padding: 17px 0;
+        font-size: 0.95rem;
+        color: var(--ink);
+      }
+
+      .searchbox svg {
+        color: var(--accent);
+        flex: 0 0 auto;
+      }
+
+      .result-count {
+        align-self: center;
+        padding: 12px 16px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.74);
+        color: var(--muted);
+        white-space: nowrap;
+      }
+
+      .gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 18px;
+        margin-top: 24px;
+        align-items: start;
+      }
+
+      .plugin-card {
+        --card-tint: rgba(255, 255, 255, 0.72);
+        --card-border: var(--line);
+        --card-accent: var(--accent);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background:
+          linear-gradient(180deg, color-mix(in srgb, var(--card-tint) 92%, white), rgba(255, 255, 255, 0.9)),
+          var(--surface);
+        box-shadow: 0 14px 40px rgba(42, 47, 38, 0.08);
+        backdrop-filter: blur(10px);
+        transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+      }
+
+      .plugin-card--snapshot {
+        --card-tint: rgba(73, 154, 84, 0.18);
+        --card-border: rgba(73, 154, 84, 0.28);
+        --card-accent: #2f7d32;
+      }
+
+      .plugin-card--crawl-only {
+        --card-tint: rgba(44, 122, 214, 0.18);
+        --card-border: rgba(44, 122, 214, 0.28);
+        --card-accent: #1f5fae;
+      }
+
+      .plugin-card--binary-only {
+        --card-tint: rgba(117, 124, 132, 0.18);
+        --card-border: rgba(117, 124, 132, 0.28);
+        --card-accent: #59636e;
+      }
+
+      .plugin-card[hidden] {
+        display: none;
+      }
+
+      .plugin-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--card-border);
+      }
+
+      .plugin-card[open] {
+        grid-column: 1 / -1;
+        background:
+          linear-gradient(180deg, color-mix(in srgb, var(--card-tint) 96%, white), rgba(255, 255, 255, 0.98)),
+          var(--surface-strong);
+        border-color: var(--card-border);
+        box-shadow: 0 20px 48px rgba(22, 35, 31, 0.14);
+      }
+
+      .plugin-card summary {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 16px;
+        align-items: center;
+        list-style: none;
+        padding: 22px 22px 20px;
+        cursor: pointer;
+        container-type: inline-size;
+      }
+
+      .plugin-card summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .plugin-icon {
+        display: grid;
+        place-items: center;
+        width: 72px;
+        height: 72px;
+        border-radius: 24px;
+        background: linear-gradient(135deg, color-mix(in srgb, var(--card-accent) 16%, white), rgba(201, 111, 45, 0.1));
+        color: var(--card-accent);
+      }
+
+      .plugin-icon .abx-output-icon {
+        display: inline-grid;
+        place-items: center;
+      }
+
+      .plugin-icon .abx-output-icon svg {
+        width: 34px;
+        height: 34px;
+      }
+
+      .plugin-main {
+        min-width: 0;
+      }
+
+      .plugin-title-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+
+      .plugin-main h2 {
+        margin: 0;
+        min-width: 0;
+        font-size: clamp(1.2rem, 5.8cqi, 2.6rem);
+        line-height: 0.98;
+        letter-spacing: -0.04em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .plugin-header-meta {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        justify-self: end;
+        flex: 0 0 auto;
+        white-space: nowrap;
+      }
+
+      .plugin-order {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 0.9rem;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        color: var(--card-accent);
+      }
+
+      .plugin-language {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        color: var(--ink);
+        flex: 0 0 auto;
+      }
+
+      .plugin-language--python {
+        color: #346f9c;
+      }
+
+      .plugin-language--javascript {
+        color: #7a6200;
+      }
+
+      .plugin-subline {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.9);
+        font-size: 0.76rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .plugin-toggle {
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.9);
+        color: var(--muted);
+        transition: transform 180ms ease;
+      }
+
+      .plugin-card[open] .plugin-toggle {
+        transform: rotate(45deg);
+        color: var(--card-accent);
+      }
+
+      .plugin-body {
+        padding: 0 22px 22px;
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 18px;
+      }
+
+      .button-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(15, 118, 110, 0.18);
+        background: var(--accent-soft);
+        color: var(--accent);
+        text-decoration: none;
+        font-size: 0.9rem;
+      }
+
+      .section-title {
+        margin: 20px 0 10px;
+        font-size: 0.82rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--warm);
+      }
+
+      .command-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 12px;
+      }
+
+      .command-card,
+      .hook-card,
+      .config-card,
+      .empty-state {
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.72);
+      }
+
+      .command-card span,
+      .hook-card span,
+      .config-card span {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .command-card pre,
+      .config-card pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 0.86rem;
+        line-height: 1.55;
+      }
+
+      .note {
+        margin: 10px 0 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+        line-height: 1.55;
+      }
+
+      .hook-list,
+      .config-grid {
+        display: grid;
+        gap: 12px;
+      }
+
+      .hook-card {
+        display: grid;
+        gap: 10px;
+      }
+
+      .hook-card strong {
+        display: block;
+        font-size: 1rem;
+      }
+
+      .hook-meta {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .hook-file {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.86rem;
+        word-break: break-all;
+      }
+
+      .config-grid {
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      }
+
+      .config-card strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 1rem;
+        word-break: break-word;
+      }
+
+      .config-card p {
+        margin: 0 0 10px;
+        color: var(--muted);
+        font-size: 0.93rem;
+        line-height: 1.55;
+      }
+
+      .config-meta {
+        display: grid;
+        gap: 6px;
+        margin-bottom: 12px;
+        color: var(--muted);
+        font-size: 0.84rem;
+      }
+
+      .config-meta code {
+        font-size: 0.84rem;
+      }
+
+      .page-footer {
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 26px;
+        padding: 0 8px;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .page-footer a {
+        color: var(--accent);
+      }
+
+      .empty-state {
+        margin-top: 24px;
+        text-align: center;
+        color: var(--muted);
+      }
+
+      @media (max-width: 720px) {
+        .page-shell {
+          width: calc(100vw - 12px);
+          margin: 0 6px;
+          padding-top: 12px;
+        }
+
+        .hero {
+          padding: 24px;
+        }
+
+        .toolbar,
+        .plugin-card summary {
+          grid-template-columns: 1fr;
+        }
+
+        .plugin-card summary {
+          align-items: flex-start;
+        }
+
+        .plugin-toggle {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-shell">
+      <section class="hero">
+        <div class="hero-top">
+          <div>
+            <div class="eyebrow">abx ecosystem</div>
+            <h1>ArchiveBox Plugin Gallery</h1>
+            <p class="hero-copy">
+              Browse the plugins that ArchiveBox, abx-dl, and other tools in the abx-ecosystem provide to extract content from websites.
+            </p>
+          </div>
+          <div class="hero-meta">
+            <div class="stat">
+              <strong>{{ site.plugin_count }}</strong>
+              <span>Plugins</span>
+            </div>
+            <div class="stat">
+              <strong>{{ site.hook_count }}</strong>
+              <span>Hook scripts</span>
+            </div>
+            <div class="stat">
+              <strong>{{ site.config_count }}</strong>
+              <span>Config Options</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <label class="searchbox" for="plugin-search">
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="11" cy="11" r="7"></circle>
+              <path d="M20 20l-3.5-3.5"></path>
+            </svg>
+            <input
+              id="plugin-search"
+              type="search"
+              placeholder="Filter by plugin name, hook, config key, or description"
+              autocomplete="off"
+              spellcheck="false"
+            >
+          </label>
+          <div class="result-count"><span id="visible-count">{{ site.plugin_count }}</span> / {{ site.plugin_count }} visible</div>
+        </div>
+      </section>
+
+      <main class="gallery" id="plugin-gallery">
+        {% for plugin in site.plugins %}
+        <details
+          class="plugin-card{% if 'Snapshot' in plugin.phases %} plugin-card--snapshot{% elif plugin.phases == ['Crawl'] %} plugin-card--crawl-only{% elif plugin.phases == ['Binary'] %} plugin-card--binary-only{% endif %}"
+          data-search="{{ plugin.search_text }}"
+        >
+          <summary>
+            <div class="plugin-icon">{{ plugin.icon_html }}</div>
+            <div class="plugin-main">
+              <div class="plugin-title-row">
+                <h2>{{ plugin.name }}</h2>
+                <div class="plugin-header-meta">
+                  {% if plugin.display_order is not none %}
+                  <span class="plugin-order">#{{ "%02d"|format(plugin.display_order) }}</span>
+                  {% endif %}
+                  {% if plugin.primary_language == "python" %}
+                  <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
+                    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                      <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                      <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                      <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                      <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                    </svg>
+                  </span>
+                  {% elif plugin.primary_language == "javascript" %}
+                  <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
+                    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <rect x="4.5" y="4.5" width="15" height="15" rx="2.5" fill="currentColor" opacity="0.2"></rect>
+                      <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
+                    </svg>
+                  </span>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="plugin-subline">
+                {% for phase in plugin.phases %}
+                <span class="chip">{{ phase }}</span>
+                {% endfor %}
+                {% for label in plugin.template_labels %}
+                <span class="chip">{{ label }}</span>
+                {% endfor %}
+                <span class="chip">{{ plugin.hook_count }} hooks</span>
+                <span class="chip">{{ plugin.config_count }} config fields</span>
+              </div>
+            </div>
+            <div class="plugin-toggle" aria-hidden="true">+</div>
+          </summary>
+
+          <div class="plugin-body">
+            <div class="actions">
+              <a class="button-link" href="{{ plugin.source_url }}" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Run It</h3>
+            <div class="command-grid">
+              <div class="command-card">
+                <span>ArchiveBox</span>
+                <pre><code>{{ plugin.commands.archivebox }}</code></pre>
+              </div>
+              <div class="command-card">
+                <span>abx-dl</span>
+                <pre><code>{{ plugin.commands.abx_dl }}</code></pre>
+              </div>
+            </div>
+            <p class="note">{{ plugin.commands.note }}</p>
+
+            <h3 class="section-title">Hook Scripts</h3>
+            {% if plugin.hooks %}
+            <div class="hook-list">
+              {% for hook in plugin.hooks %}
+              <article class="hook-card">
+                <div>
+                  <span>{{ hook.phase }} hook</span>
+                  <strong>{{ hook.label }}</strong>
+                </div>
+                <div class="hook-meta">
+                  <span class="chip">{{ hook.language }}</span>
+                  {% if hook.order is not none %}
+                  <span class="chip">order {{ "%02d"|format(hook.order) }}</span>
+                  {% endif %}
+                  {% if hook.is_background %}
+                  <span class="chip">background</span>
+                  {% endif %}
+                </div>
+                <p class="hook-file">
+                  <a href="{{ hook.source_url }}" target="_blank" rel="noreferrer"><code>{{ hook.filename }}</code></a>
+                </p>
+              </article>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">No hook scripts are defined in this plugin directory.</div>
+            {% endif %}
+
+            <h3 class="section-title">Config Defaults</h3>
+            {% if plugin.has_config %}
+            <div class="config-grid">
+              {% for field in plugin.config_fields %}
+              <article class="config-card">
+                <span>Config key</span>
+                <strong><code>{{ field.key }}</code></strong>
+                {% if field.description %}
+                <p>{{ field.description }}</p>
+                {% endif %}
+                <div class="config-meta">
+                  <div>Type: <code>{{ field.type }}</code></div>
+                  {% if field.fallback %}
+                  <div>Fallback: <code>{{ field.fallback }}</code></div>
+                  {% endif %}
+                  {% if field.aliases %}
+                  <div>Aliases: <code>{{ field.aliases|join(", ") }}</code></div>
+                  {% endif %}
+                  {% if field.minimum is not none %}
+                  <div>Minimum: <code>{{ field.minimum }}</code></div>
+                  {% endif %}
+                  {% if field.pattern %}
+                  <div>Pattern: <code>{{ field.pattern }}</code></div>
+                  {% endif %}
+                  {% if field.enum %}
+                  <div>Enum: <code>{{ field.enum|join(", ") }}</code></div>
+                  {% endif %}
+                </div>
+                {% if field.default is not none %}
+                <pre><code>{{ field.default }}</code></pre>
+                {% else %}
+                <p class="note">No explicit default is defined.</p>
+                {% endif %}
+              </article>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">This plugin does not define a <code>config.json</code> schema.</div>
+            {% endif %}
+          </div>
+        </details>
+        {% endfor %}
+      </main>
+
+      <div class="empty-state" id="empty-state" hidden>No plugins match the current filter.</div>
+
+      <footer class="page-footer">
+        <span>Generated from <a href="{{ site.github_repo }}" target="_blank" rel="noreferrer">ArchiveBox/abx-plugins</a> at ref <code>{{ site.github_ref }}</code>.</span>
+        <span>Updated {{ site.generated_at }}</span>
+      </footer>
+    </div>
+
+    <script>
+      const searchInput = document.getElementById("plugin-search");
+      const cards = Array.from(document.querySelectorAll(".plugin-card"));
+      const visibleCount = document.getElementById("visible-count");
+      const emptyState = document.getElementById("empty-state");
+      const interactiveSelector = "a, button, input, textarea, select, summary, code, pre";
+
+      const applyFilter = () => {
+        const query = searchInput.value.trim().toLowerCase();
+        let count = 0;
+
+        for (const card of cards) {
+          const matches = !query || card.dataset.search.includes(query);
+          card.hidden = !matches;
+          if (matches) count += 1;
+        }
+
+        visibleCount.textContent = String(count);
+        emptyState.hidden = count !== 0;
+      };
+
+      searchInput.addEventListener("input", applyFilter);
+
+      for (const card of cards) {
+        card.addEventListener("click", (event) => {
+          if (card.open) return;
+          if (event.target.closest(interactiveSelector)) return;
+          card.open = true;
+        });
+      }
+
+      applyFilter();
+    </script>
+  </body>
+</html>

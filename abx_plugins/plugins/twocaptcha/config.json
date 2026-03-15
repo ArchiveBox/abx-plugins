@@ -1,8 +1,12 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "2Captcha",
+  "description": "Install and configure the 2Captcha extension to solve CAPTCHAs during browser-based archiving.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": ["chrome"],
+  "required_binaries": ["chrome"],
+  "output_mimetypes": [],
   "properties": {
     "TWOCAPTCHA_ENABLED": {
       "type": "boolean",

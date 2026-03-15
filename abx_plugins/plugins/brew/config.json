@@ -1,11 +1,13 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Base",
-  "description": "Provide shared utilities, helpers, and test support used by other plugins.",
+  "title": "Homebrew",
+  "description": "Install binaries through the Homebrew package manager.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
-  "required_binaries": [],
+  "required_binaries": [
+    "brew"
+  ],
   "output_mimetypes": [],
   "properties": {}
 }

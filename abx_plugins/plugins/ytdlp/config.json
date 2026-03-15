@@ -1,7 +1,12 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "yt-dlp",
+  "description": "Download video and audio media with metadata, subtitles, thumbnails, and description sidecars.",
   "type": "object",
   "additionalProperties": false,
+  "required_plugins": [],
+  "required_binaries": ["yt-dlp", "node", "ffmpeg"],
+  "output_mimetypes": ["audio/", "video/", "image/", "application/x-subrip", "text/vtt", "application/json", "text/plain"],
   "properties": {
     "YTDLP_ENABLED": {
       "type": "boolean",

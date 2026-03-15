@@ -13,7 +13,7 @@
 # Outputs forum data to $PWD/ and emits ArchiveResult events to stdout.
 #
 # Usage:
-#     ./on_Snapshot__04_forumdl.bg.py --url=<url> --snapshot-id=<snapshot-id>
+#     ./on_Snapshot__04_forumdl.finite.bg.py --url=<url> --snapshot-id=<snapshot-id>
 
 import json
 import os

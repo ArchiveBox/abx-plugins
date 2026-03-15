@@ -1,7 +1,12 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "forum-dl",
+  "description": "Download forum threads and exports in JSONL, WARC, and mailbox-style archive formats.",
   "type": "object",
   "additionalProperties": false,
+  "required_plugins": [],
+  "required_binaries": ["forum-dl"],
+  "output_mimetypes": ["application/x-ndjson", "application/warc", "message/rfc822"],
   "properties": {
     "FORUMDL_ENABLED": {
       "type": "boolean",

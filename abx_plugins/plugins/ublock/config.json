@@ -1,8 +1,12 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "uBlock Origin",
+  "description": "Install the uBlock Origin extension to block ads, trackers, and other page clutter during archiving.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": ["chrome"],
+  "required_binaries": ["chrome"],
+  "output_mimetypes": [],
   "properties": {
     "UBLOCK_ENABLED": {
       "type": "boolean",

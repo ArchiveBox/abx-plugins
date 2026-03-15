@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Base",
-  "description": "Provide shared utilities, helpers, and test support used by other plugins.",
+  "title": "Custom",
+  "description": "Install binaries using an arbitrary custom shell command.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],

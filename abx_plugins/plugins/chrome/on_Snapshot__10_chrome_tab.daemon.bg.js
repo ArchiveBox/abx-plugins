@@ -2,10 +2,10 @@
 /**
  * Create a Chrome tab for this snapshot in the shared crawl Chrome session.
  *
- * Connects to the crawl-level Chrome session (from on_Crawl__90_chrome_launch.bg.js)
+ * Connects to the crawl-level Chrome session (from on_Crawl__90_chrome_launch.daemon.bg.js)
  * and creates a new tab. This hook does NOT launch its own Chrome instance.
  *
- * Usage: on_Snapshot__10_chrome_tab.bg.js --url=<url> --snapshot-id=<uuid> --crawl-id=<uuid>
+ * Usage: on_Snapshot__10_chrome_tab.daemon.bg.js --url=<url> --snapshot-id=<uuid> --crawl-id=<uuid>
  * Output: Creates chrome/ directory under snapshot output dir with:
  *   - cdp_url.txt: WebSocket URL for CDP connection
  *   - chrome.pid: Chrome process ID (from crawl)
@@ -145,7 +145,7 @@ async function main() {
     let releaseLock = null;
 
     if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__10_chrome_tab.bg.js --url=<url> --snapshot-id=<uuid> [--crawl-id=<uuid>]');
+        console.error('Usage: on_Snapshot__10_chrome_tab.daemon.bg.js --url=<url> --snapshot-id=<uuid> [--crawl-id=<uuid>]');
         process.exit(1);
     }
 

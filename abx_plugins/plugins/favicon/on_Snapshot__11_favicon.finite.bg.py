@@ -11,7 +11,7 @@
 # Supports multiple favicon sources including HTML link tags and Google's favicon service.
 #
 # Usage:
-#     ./on_Snapshot__11_favicon.bg.py --url=<url> --snapshot-id=<snapshot-id>
+#     ./on_Snapshot__11_favicon.finite.bg.py --url=<url> --snapshot-id=<snapshot-id>
 
 import json
 import os

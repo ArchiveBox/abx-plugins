@@ -1,7 +1,12 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "gallery-dl",
+  "description": "Download image and media galleries along with metadata sidecars from supported sites.",
   "type": "object",
   "additionalProperties": false,
+  "required_plugins": [],
+  "required_binaries": ["gallery-dl"],
+  "output_mimetypes": ["image/", "video/", "application/json", "text/plain", "application/zip"],
   "properties": {
     "GALLERYDL_ENABLED": {
       "type": "boolean",

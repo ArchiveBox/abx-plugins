@@ -1,7 +1,12 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Archive.org",
+  "description": "Submit URLs to the Internet Archive Wayback Machine and save the resulting archive link.",
   "type": "object",
   "additionalProperties": false,
+  "required_plugins": [],
+  "required_binaries": [],
+  "output_mimetypes": ["text/plain"],
   "properties": {
     "ARCHIVEDOTORG_ENABLED": {
       "type": "boolean",

@@ -92,10 +92,10 @@ CHROME_PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = CHROME_PLUGIN_DIR.parent
 
 # Hook script locations
-CHROME_INSTALL_HOOK = CHROME_PLUGIN_DIR / "on_Crawl__70_chrome_install.bg.py"
-CHROME_LAUNCH_HOOK = CHROME_PLUGIN_DIR / "on_Crawl__90_chrome_launch.bg.js"
+CHROME_INSTALL_HOOK = CHROME_PLUGIN_DIR / "on_Crawl__70_chrome_install.finite.bg.py"
+CHROME_LAUNCH_HOOK = CHROME_PLUGIN_DIR / "on_Crawl__90_chrome_launch.daemon.bg.js"
 CHROME_CRAWL_WAIT_HOOK = CHROME_PLUGIN_DIR / "on_Crawl__91_chrome_wait.js"
-CHROME_TAB_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__10_chrome_tab.bg.js"
+CHROME_TAB_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__10_chrome_tab.daemon.bg.js"
 CHROME_WAIT_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__11_chrome_wait.js"
 _CHROME_NAVIGATE_HOOK = next(
     CHROME_PLUGIN_DIR.glob("on_Snapshot__*_chrome_navigate.*"), None
@@ -109,7 +109,7 @@ CHROME_UTILS = CHROME_PLUGIN_DIR / "chrome_utils.js"
 PUPPETEER_BINARY_HOOK = (
     PLUGINS_ROOT / "puppeteer" / "on_Binary__12_puppeteer_install.py"
 )
-PUPPETEER_CRAWL_HOOK = PLUGINS_ROOT / "puppeteer" / "on_Crawl__60_puppeteer_install.bg.py"
+PUPPETEER_CRAWL_HOOK = PLUGINS_ROOT / "puppeteer" / "on_Crawl__60_puppeteer_install.finite.bg.py"
 NPM_BINARY_HOOK = PLUGINS_ROOT / "npm" / "on_Binary__10_npm_install.py"
 
 

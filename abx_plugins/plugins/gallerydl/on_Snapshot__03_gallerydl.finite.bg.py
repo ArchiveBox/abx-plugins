@@ -11,7 +11,7 @@
 # cookies, and timeout configurations via environment variables.
 #
 # Usage:
-#     ./on_Snapshot__03_gallerydl.bg.py --url=<url> --snapshot-id=<uuid> > events.jsonl
+#     ./on_Snapshot__03_gallerydl.finite.bg.py --url=<url> --snapshot-id=<uuid> > events.jsonl
 
 import json
 import os

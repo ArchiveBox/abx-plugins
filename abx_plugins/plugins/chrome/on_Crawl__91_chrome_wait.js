@@ -3,7 +3,7 @@
  * Wait for the crawl-level Chrome browser session to become CDP-connectable.
  *
  * This is a foreground crawl hook that blocks later crawl hooks until the
- * shared browser launched by on_Crawl__90_chrome_launch.bg.js is actually
+ * shared browser launched by on_Crawl__90_chrome_launch.daemon.bg.js is actually
  * reachable over CDP.
  *
  * Usage: on_Crawl__91_chrome_wait.js --url=<url> --snapshot-id=<uuid>

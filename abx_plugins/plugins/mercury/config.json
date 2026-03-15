@@ -1,7 +1,12 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mercury",
+  "description": "Extract article HTML, text, and metadata using the Postlight Mercury parser.",
   "type": "object",
   "additionalProperties": false,
+  "required_plugins": [],
+  "required_binaries": ["postlight-parser"],
+  "output_mimetypes": ["text/html", "text/plain", "application/json"],
   "properties": {
     "MERCURY_ENABLED": {
       "type": "boolean",

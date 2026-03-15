@@ -10,7 +10,7 @@
 # Submit a URL to archive.org for archiving and save the resulting archive.org link.
 #
 # Usage:
-#     ./on_Snapshot__08_archivedotorg.bg.py --url=<url> --snapshot-id=<uuid> > events.jsonl
+#     ./on_Snapshot__08_archivedotorg.finite.bg.py --url=<url> --snapshot-id=<uuid> > events.jsonl
 
 import json
 import os
