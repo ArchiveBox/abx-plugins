@@ -62,10 +62,15 @@ sys.stdout.write(result)
 
 
 def get_enabled_formats() -> list[str]:
+    """Return list of output formats enabled via config (e.g. TRAFILATURA_OUTPUT_TXT=true).
+
+    Defaults come from config.json: txt, markdown, html are enabled;
+    csv, json, xml, xmltei are disabled.
+    """
     config = load_config()
     return [
         fmt for env_name, fmt in OUTPUT_ENV_TO_FORMAT.items()
-        if getattr(config, env_name, fmt in {"txt", "markdown", "html"})
+        if getattr(config, env_name)
     ]
 
 

@@ -46,7 +46,11 @@ function getEnvArray(name, defaultValue = []) {
         try {
             const parsed = JSON.parse(val);
             if (Array.isArray(parsed)) return parsed;
-        } catch (e) {}
+        } catch (e) {
+            // Warn when a value looks like JSON but fails to parse, then
+            // fall through to comma-separated parsing below.
+            process.stderr.write(`[base/utils.js] Warning: ${name} looks like JSON but failed to parse: ${e.message}\n`);
+        }
     }
 
     return val.split(',').map(s => s.trim()).filter(Boolean);

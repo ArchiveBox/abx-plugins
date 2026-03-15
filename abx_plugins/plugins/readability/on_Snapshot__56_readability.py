@@ -143,6 +143,12 @@ def main(url: str, snapshot_id: str):
 
     try:
         config = load_config()
+
+        if not config.READABILITY_ENABLED:
+            print("Skipping readability (READABILITY_ENABLED=False)", file=sys.stderr)
+            emit_archive_result("skipped", "READABILITY_ENABLED=False")
+            sys.exit(0)
+
         # Get binary from environment
         binary = config.READABILITY_BINARY
 

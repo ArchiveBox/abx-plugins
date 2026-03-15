@@ -7,6 +7,15 @@ Provides common helpers used across multiple plugins:
 - Atomic file writing (write_text_atomic)
 - HTML source discovery (find_html_source)
 - Sibling plugin output checking (has_staticfile_output)
+
+IMPORTANT: All plugin hook scripts import this module via::
+
+    sys.path.append(str(Path(__file__).resolve().parent.parent))
+    from base.utils import load_config
+
+We use ``sys.path.append()`` (not ``insert(0, ...)``) deliberately because
+``abx_plugins/plugins/`` contains an ``ssl/`` plugin directory that would
+shadow Python's stdlib ``ssl`` module if placed at the front of sys.path.
 """
 
 from __future__ import annotations
@@ -22,15 +31,31 @@ from typing import Any
 # Config loading from config.json using PydanticSettings
 # ---------------------------------------------------------------------------
 
+# Cache: config_path -> (model_class, schema_mtime)
+# The model class is reused across calls to avoid re-parsing the JSON schema
+# and re-creating the Pydantic model on every call.  A fresh *instance* is
+# returned each time so that environment variable changes are picked up.
+_config_model_cache: dict[str, tuple[type, float]] = {}
+
+
 def load_config(config_path: Path | str | None = None) -> Any:
     """Load plugin config from config.json using PydanticSettings.
 
     Reads the JSON Schema config file and creates a BaseSettings model that
     auto-resolves environment variables, x-aliases, and x-fallback values.
 
+    The model *class* is cached per config_path (keyed by resolved absolute
+    path) so repeated calls within the same plugin avoid redundant schema
+    parsing and ``create_model()`` overhead.  A new *instance* is created on
+    every call so that env var changes between calls are always reflected.
+
     Args:
         config_path: Path to config.json. If None, auto-detects from the
-                     caller's plugin directory.
+                     **direct caller's** directory using ``inspect.stack()``.
+                     Only pass None when calling from a top-level hook script
+                     that lives next to its own config.json.  Helpers or
+                     wrappers that call ``load_config()`` on behalf of a
+                     plugin must pass the path explicitly.
 
     Returns:
         A PydanticSettings instance with typed, validated config values.
@@ -46,18 +71,35 @@ def load_config(config_path: Path | str | None = None) -> Any:
     from pydantic import AliasChoices, Field, create_model
     from pydantic_settings import BaseSettings, SettingsConfigDict
 
+    # Resolve config_path -------------------------------------------------
+    # When config_path is None we walk up one frame to find the caller's
+    # directory.  This is safe because every hook script lives alongside its
+    # own config.json and calls load_config() directly (never via a shared
+    # helper that would add extra stack frames).
     if config_path is None:
         caller_file = inspect.stack()[1].filename
         config_path = Path(caller_file).parent / "config.json"
     else:
         config_path = Path(config_path)
 
+    cache_key = str(config_path.resolve())
+
+    # Check cache ----------------------------------------------------------
+    mtime = config_path.stat().st_mtime
+    cached = _config_model_cache.get(cache_key)
+    if cached is not None:
+        model_cls, cached_mtime = cached
+        if cached_mtime == mtime:
+            return model_cls()  # fresh instance picks up env changes
+
+    # Build model class ----------------------------------------------------
     schema = json.loads(config_path.read_text())
     properties = schema.get("properties", {})
 
     if not properties:
         class _EmptyConfig(BaseSettings):
             model_config = SettingsConfigDict(extra="ignore")
+        _config_model_cache[cache_key] = (_EmptyConfig, mtime)
         return _EmptyConfig()
 
     JSON_TYPE_MAP: dict[str, type] = {
@@ -91,7 +133,9 @@ def load_config(config_path: Path | str | None = None) -> Any:
     class _ConfigBase(BaseSettings):
         model_config = SettingsConfigDict(extra="ignore")
 
-    return create_model("PluginConfig", __base__=_ConfigBase, **field_definitions)()
+    model_cls = create_model("PluginConfig", __base__=_ConfigBase, **field_definitions)
+    _config_model_cache[cache_key] = (model_cls, mtime)
+    return model_cls()
 
 
 # ---------------------------------------------------------------------------
