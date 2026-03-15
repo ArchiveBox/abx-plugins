@@ -256,6 +256,7 @@ class TestClaudeCodeCleanupPlugin:
             )
 
 
+@pytest.mark.usefixtures("ensure_claude_code_prereqs")
 class TestClaudeCodeCleanupIntegration:
     """Integration tests that run the full cleanup pipeline with real Claude Code.
 

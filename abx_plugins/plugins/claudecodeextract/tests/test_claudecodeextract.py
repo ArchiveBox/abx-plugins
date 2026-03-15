@@ -189,6 +189,7 @@ class TestClaudeCodeExtractPlugin:
             )
 
 
+@pytest.mark.usefixtures("ensure_claude_code_prereqs")
 class TestClaudeCodeExtractIntegration:
     """Integration tests that run the full extract pipeline with real Claude Code.
 

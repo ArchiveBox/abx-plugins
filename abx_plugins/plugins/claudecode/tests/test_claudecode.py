@@ -250,6 +250,7 @@ class TestClaudeCodeUtils:
             sys.path.pop(0)
 
 
+@pytest.mark.usefixtures("ensure_claude_code_prereqs")
 class TestClaudeCodeIntegration:
     """Integration tests that actually run Claude Code CLI.
 
