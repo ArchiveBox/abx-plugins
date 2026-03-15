@@ -4,7 +4,8 @@ import ast
 from pathlib import Path
 
 
-PLUGINS_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[1]
+PLUGINS_ROOT = REPO_ROOT / "abx_plugins" / "plugins"
 FORBIDDEN_IMPORT_ROOTS = ("archivebox", "django")
 
 

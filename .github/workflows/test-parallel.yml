@@ -34,17 +34,21 @@ jobs:
         run: |
           chrome_test_pattern='ensure_chrome_test_prereqs|ensure_chromium_and_puppeteer_installed|require_chrome_runtime|chrome_session\(|CHROME_NAVIGATE_HOOK'
           plugin_tests=$(find abx_plugins/plugins -path "*/tests/test_*.py" -type f | sort)
+          root_tests=""
+          if [ -d tests ]; then
+            root_tests=$(find tests -path "*/test_*.py" -type f | sort)
+          fi
+          all_tests=$(printf "%s\n%s\n" "$plugin_tests" "$root_tests" | sed '/^$/d')
 
           json_array="["
           first=true
-          for test_file in $plugin_tests; do
+          for test_file in $all_tests; do
             if [ "$first" = true ]; then
               first=false
             else
               json_array+="," 
             fi
 
-            plugin=$(echo $test_file | sed 's|abx_plugins/plugins/\([^/]*\)/.*|\1|')
             test_name=$(basename $test_file .py | sed 's/^test_//')
             name="$test_name"
             needs_chromium=false
@@ -57,7 +61,7 @@ jobs:
           json_array+="]"
 
           echo "test-files=$json_array" >> $GITHUB_OUTPUT
-          echo "Found $(echo $plugin_tests | wc -w) test files"
+          echo "Found $(echo $all_tests | wc -w) test files"
           echo "$json_array" | jq '.'
 
   run-tests:

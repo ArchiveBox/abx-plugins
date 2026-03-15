@@ -19,7 +19,7 @@ classifiers = [
     "Environment :: Console",
 ]
 dependencies = [
-    "abx-pkg>=0.6.3",
+    "abx-pkg>=0.6.4",
     "feedparser>=6.0.0",
     "pydantic-settings>=2.0.0",
     "pyright>=1.1.408",
@@ -57,4 +57,4 @@ Documentation = "https://github.com/ArchiveBox/ArchiveBox"
 "Bug Tracker" = "https://github.com/ArchiveBox/abx-plugins/issues"
 
 [tool.pytest.ini_options]
-testpaths = ["abx_plugins/plugins"]
+testpaths = ["abx_plugins/plugins", "tests"]
