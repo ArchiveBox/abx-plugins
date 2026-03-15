@@ -17,7 +17,7 @@ Usage: on_Snapshot__58_claudecodeextract.py --url=<url> --snapshot-id=<uuid>
 Output: Creates claudecodeextract/ directory with AI-generated output files
 
 Environment variables:
-    CLAUDECODEEXTRACT_ENABLED: Enable AI extraction (default: true)
+    CLAUDECODEEXTRACT_ENABLED: Enable AI extraction (default: false)
     CLAUDECODEEXTRACT_PROMPT: Custom prompt for extraction
     CLAUDECODEEXTRACT_TIMEOUT: Timeout in seconds (default: 120)
     CLAUDECODEEXTRACT_MODEL: Claude model to use (default: sonnet)
@@ -50,8 +50,8 @@ PLUGIN_DIR = Path(__file__).resolve().parent.name
 SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", SNAP_DIR.parent)).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-os.chdir(OUTPUT_DIR)
+# NOTE: OUTPUT_DIR is created after building the system prompt so that
+# get_snapshot_metadata() doesn't list our own empty dir as an extractor output
 
 DEFAULT_PROMPT = (
     "Read all the previously extracted outputs in this snapshot directory "
@@ -102,6 +102,9 @@ def main(url: str, snapshot_id: str):
             ),
         )
 
+        # Create output dir after system prompt is built (so it's not listed as an extractor)
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
         # Compose the full prompt
         full_prompt = (
             f"URL being archived: {url}\n\n"
@@ -127,6 +130,7 @@ def main(url: str, snapshot_id: str):
                 "Bash(tail:*)",
                 "Bash(wc:*)",
             ],
+            session_log_path=OUTPUT_DIR / "session.json",
         )
 
         if stderr:
@@ -141,8 +145,12 @@ def main(url: str, snapshot_id: str):
             emit_archive_result("failed", f"Claude Code failed (exit={returncode})")
             sys.exit(1)
 
-        # Check what files were created
-        output_files = [f.name for f in OUTPUT_DIR.iterdir() if f.is_file() and not f.name.startswith(".")]
+        # Check what files were created (exclude metadata files that aren't actual extraction output)
+        METADATA_FILES = {"response.txt", "session.json"}
+        output_files = [
+            f.name for f in OUTPUT_DIR.iterdir()
+            if f.is_file() and not f.name.startswith(".") and f.name not in METADATA_FILES
+        ]
         if not output_files:
             emit_archive_result("noresults", "No output files generated")
             sys.exit(0)

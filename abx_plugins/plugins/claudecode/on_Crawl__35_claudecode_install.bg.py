@@ -60,7 +60,12 @@ def main():
     if not api_key:
         print("WARNING: ANTHROPIC_API_KEY not set, Claude Code will not be functional", file=sys.stderr)
 
-    output_binary(name="claude", binproviders="env,npm")
+    # Honor custom binary path - skip npm install if user provides their own
+    custom_binary = get_env("CLAUDECODE_BINARY")
+    if custom_binary and custom_binary != "claude":
+        output_binary(name=custom_binary, binproviders="env")
+    else:
+        output_binary(name="claude", binproviders="env,npm")
 
     print(json.dumps({
         "type": "ArchiveResult",

@@ -151,9 +151,14 @@ def run_claude_code(
     max_turns: int = 10,
     model: str = "sonnet",
     allowed_tools: list[str] | None = None,
+    session_log_path: str | Path | None = None,
 ) -> tuple[str, str, int]:
     """
     Run Claude Code CLI with the given prompt and configuration.
+
+    Args:
+        session_log_path: If set, save the full session conversation log
+            as JSON to this path.
 
     Returns: (stdout, stderr, returncode)
     """
@@ -189,10 +194,28 @@ def run_claude_code(
         cmd.extend(["--allowedTools", "Bash(tail:*)"])
         cmd.extend(["--allowedTools", "Bash(wc:*)"])
 
+    # Add JSON output format to capture session log
+    if session_log_path:
+        cmd.extend(["--output-format", "json"])
+
     # Add the prompt
     cmd.extend(["--", prompt])
 
-    env = os.environ.copy()
+    # Filter out sensitive env vars to avoid leaking secrets into the agent session
+    DENIED_ENV_VARS = {
+        # Secrets and credentials that should not be passed to the agent
+        "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN",
+        "GITHUB_TOKEN", "GH_TOKEN", "GITLAB_TOKEN",
+        "DATABASE_URL", "DB_PASSWORD", "DB_PASS",
+        "SECRET_KEY", "DJANGO_SECRET_KEY",
+        "SMTP_PASSWORD", "EMAIL_PASSWORD",
+        "TWOCAPTCHA_API_KEY", "API_KEY_2CAPTCHA",
+        "OPENAI_API_KEY",
+        "COOKIES_TXT_FILE", "COOKIES_FILE",
+        "SSH_AUTH_SOCK", "SSH_AGENT_PID",
+        "GPG_AGENT_INFO",
+    }
+    env = {k: v for k, v in os.environ.items() if k not in DENIED_ENV_VARS}
 
     # Ensure API key is set
     api_key = get_env("ANTHROPIC_API_KEY")
@@ -211,6 +234,38 @@ def run_claude_code(
             timeout=timeout,
             env=env,
         )
+
+        # Save session log if requested
+        if session_log_path and result.stdout:
+            try:
+                Path(session_log_path).write_text(result.stdout, encoding="utf-8")
+                print(f"[+] Session log saved to {session_log_path}", file=sys.stderr)
+            except OSError as e:
+                print(f"[!] Failed to save session log: {e}", file=sys.stderr)
+
+            # When using JSON output format, the text response is embedded in the JSON
+            # Extract it for the caller
+            text_response = ""
+            try:
+                session_data = json.loads(result.stdout)
+                if isinstance(session_data, list):
+                    # Extract assistant text from conversation messages
+                    for msg in session_data:
+                        if msg.get("role") == "assistant":
+                            content = msg.get("content", [])
+                            if isinstance(content, list):
+                                for block in content:
+                                    if isinstance(block, dict) and block.get("type") == "text":
+                                        text_response += block.get("text", "")
+                            elif isinstance(content, str):
+                                text_response += content
+                elif isinstance(session_data, dict):
+                    text_response = session_data.get("result", result.stdout)
+            except (json.JSONDecodeError, KeyError):
+                text_response = result.stdout
+
+            return text_response, result.stderr, result.returncode
+
         return result.stdout, result.stderr, result.returncode
     except subprocess.TimeoutExpired:
         return "", f"Claude Code timed out after {timeout} seconds", 1

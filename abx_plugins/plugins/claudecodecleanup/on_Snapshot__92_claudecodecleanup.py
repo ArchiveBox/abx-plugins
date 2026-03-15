@@ -18,7 +18,7 @@ Usage: on_Snapshot__99_claudecodecleanup.py --url=<url> --snapshot-id=<uuid>
 Output: Creates claudecodecleanup/ directory with cleanup_report.txt
 
 Environment variables:
-    CLAUDECODECLEANUP_ENABLED: Enable AI cleanup (default: true)
+    CLAUDECODECLEANUP_ENABLED: Enable AI cleanup (default: false)
     CLAUDECODECLEANUP_PROMPT: Custom prompt for cleanup behavior
     CLAUDECODECLEANUP_TIMEOUT: Timeout in seconds (default: 120)
     CLAUDECODECLEANUP_MODEL: Claude model to use (default: sonnet)
@@ -51,8 +51,8 @@ PLUGIN_DIR = Path(__file__).resolve().parent.name
 SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", SNAP_DIR.parent)).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-os.chdir(OUTPUT_DIR)
+# NOTE: OUTPUT_DIR is created after building the system prompt so that
+# get_snapshot_metadata() doesn't list our own empty dir as an extractor output
 
 DEFAULT_PROMPT = (
     "Analyze all the extractor output directories in this snapshot. "
@@ -115,6 +115,9 @@ def main(url: str, snapshot_id: str):
             ),
         )
 
+        # Create output dir after system prompt is built (so it's not listed as an extractor)
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
         # Compose the full prompt
         full_prompt = (
             f"URL being archived: {url}\n\n"
@@ -147,6 +150,7 @@ def main(url: str, snapshot_id: str):
                 "Bash(du:*)",
                 "Bash(diff:*)",
             ],
+            session_log_path=OUTPUT_DIR / "session.json",
         )
 
         if stderr:

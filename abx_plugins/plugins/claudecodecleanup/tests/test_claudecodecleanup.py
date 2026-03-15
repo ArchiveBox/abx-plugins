@@ -144,9 +144,9 @@ class TestClaudeCodeCleanupPlugin:
         """Hook script should exist."""
         assert CLEANUP_HOOK.exists(), f"Hook not found: {CLEANUP_HOOK}"
 
-    def test_hook_runs_at_priority_99(self):
-        """Hook should be at priority 99 (end of pipeline)."""
-        assert "__99_" in CLEANUP_HOOK.name, f"Expected priority 99 in hook name: {CLEANUP_HOOK.name}"
+    def test_hook_runs_at_priority_92(self):
+        """Hook should be at priority 92 (after extractors, before hashes at 93)."""
+        assert "__92_" in CLEANUP_HOOK.name, f"Expected priority 92 in hook name: {CLEANUP_HOOK.name}"
 
     def test_config_json_exists_and_valid(self):
         """config.json should exist and declare claudecode dependency."""
@@ -288,6 +288,9 @@ class TestClaudeCodeCleanupPlugin:
             assert records
             assert records[-1]["type"] == "ArchiveResult"
             assert records[-1]["status"] == "failed"
+            assert "not found" in records[-1]["output_str"].lower() or "failed" in records[-1]["output_str"].lower(), (
+                f"Error should mention missing binary: {records[-1]['output_str']}"
+            )
 
 
 class TestClaudeCodeCleanupIntegration:
