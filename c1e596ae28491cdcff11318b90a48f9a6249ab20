@@ -1,0 +1,25 @@
+abx_plugins/plugins/puppeteer/on_Binary__12_puppeteer_install.py
+  59ac43c9a9814cf9 26-29,105-107,217-236
+abx_plugins/plugins/puppeteer/tests/test_puppeteer.py
+  59ac43c9a9814cf9 11-13,62-76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.11",
+  "base_commit_sha": "c1e596ae28491cdcff11318b90a48f9a6249ab20",
+  "prompts": {
+    "59ac43c9a9814cf9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf33a-9233-71b0-b1c3-01a373045219",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 50,
+      "total_deletions": 0,
+      "accepted_lines": 50,
+      "overriden_lines": 0
+    }
+  }
+}
