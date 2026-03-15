@@ -43,6 +43,7 @@ process.chdir(OUTPUT_DIR);
 const OUTPUT_FILE = 'headers.json';
 const CHROME_SESSION_DIR = '../chrome';
 const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
+const POST_CAPTURE_NAVIGATION_GRACE_MS = 2000;
 
 let browser = null;
 let page = null;
@@ -253,18 +254,22 @@ async function main() {
         browser = connection.browser;
         page = connection.page;
 
-        // Wait for navigation and the matched main request/response pair.
+        // The hook only needs the top-level request/response pair. Waiting for
+        // full navigation as a hard requirement keeps the daemon alive longer
+        // than necessary and makes CI timing more fragile.
+        const timeout = getEnvInt('HEADERS_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
+        await Promise.race([
+            headersReady,
+            headersReadyFailure,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out waiting for headers')), timeout * 4)),
+        ]);
+
+        // Best-effort short grace period so final_url.txt/page_loaded.txt can
+        // land before we serialize output, without blocking success on them.
         try {
-            const timeout = getEnvInt('HEADERS_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
-            await Promise.race([
-                waitForPageLoaded(CHROME_SESSION_DIR, timeout * 4, 200).then(() => headersReady),
-                headersReadyFailure,
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out waiting for headers')), timeout * 4)),
-            ]);
+            await waitForPageLoaded(CHROME_SESSION_DIR, POST_CAPTURE_NAVIGATION_GRACE_MS, 200);
         } catch (e) {
-            if (!headersWritten) {
-                throw e;
-            }
+            // Ignore navigation marker timeouts once headers have been captured.
         }
 
         if (!headersWritten) {
@@ -289,6 +294,14 @@ async function main() {
         process.exit(1);
     }
 }
+
+process.on('SIGINT', () => {
+    handleShutdown('SIGINT');
+});
+
+process.on('SIGTERM', () => {
+    handleShutdown('SIGTERM');
+});
 
 main().catch(async (e) => {
     console.error(`Fatal error: ${e.message}`);
