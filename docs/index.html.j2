@@ -199,7 +199,7 @@
 
       .gallery {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr));
         gap: 18px;
         margin-top: 24px;
         align-items: start;
@@ -271,9 +271,9 @@
       .plugin-icon {
         display: inline-grid;
         place-items: center;
-        width: 72px;
-        height: 72px;
-        border-radius: 24px;
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
         background: linear-gradient(135deg, color-mix(in srgb, var(--card-accent) 16%, white), rgba(201, 111, 45, 0.1));
         color: var(--card-accent);
       }
@@ -284,8 +284,8 @@
       }
 
       .plugin-icon .abx-output-icon svg {
-        width: 34px;
-        height: 34px;
+        width: 18px;
+        height: 18px;
       }
 
       .plugin-main {
@@ -388,7 +388,7 @@
         letter-spacing: 0.06em;
       }
 
-      .plugin-toggle {
+      .plugin-corner-icon {
         position: absolute;
         top: 18px;
         right: 18px;
@@ -396,16 +396,7 @@
         place-items: center;
         width: 36px;
         height: 36px;
-        border-radius: 999px;
-        border: 1px solid var(--line);
-        background: rgba(255, 255, 255, 0.9);
-        color: var(--muted);
-        transition: transform 180ms ease;
-      }
-
-      .plugin-card[open] .plugin-toggle {
-        transform: rotate(45deg);
-        color: var(--card-accent);
+        pointer-events: none;
       }
 
       .plugin-body {
@@ -618,7 +609,7 @@
           align-items: flex-start;
         }
 
-        .plugin-toggle {
+        .plugin-corner-icon {
           display: none;
         }
       }
@@ -685,7 +676,6 @@
               <p class="plugin-summary-description">{{ plugin.description }}</p>
               {% endif %}
               <div class="plugin-subline">
-                <div class="plugin-icon">{{ plugin.icon_html }}</div>
                 {% for phase in plugin.phases %}
                 <span class="chip">{{ phase }}</span>
                 {% endfor %}
@@ -731,7 +721,9 @@
               </div>
               {% endif %}
             </div>
-            <div class="plugin-toggle" aria-hidden="true">+</div>
+            <div class="plugin-corner-icon" aria-hidden="true">
+              <div class="plugin-icon">{{ plugin.icon_html }}</div>
+            </div>
           </summary>
 
           <div class="plugin-body">
