@@ -660,7 +660,7 @@
       .footer-intro {
         display: grid;
         gap: 12px;
-        margin-bottom: 22px;
+        margin-bottom: 24px;
       }
 
       .footer-intro h2 {
@@ -680,13 +680,13 @@
 
       .footer-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 18px;
       }
 
       .footer-card {
         min-height: 100%;
-        padding: 18px 18px 16px;
+        padding: 20px 20px 18px;
         border: 1px solid rgba(29, 41, 39, 0.1);
         border-radius: 22px;
         background: rgba(255, 255, 255, 0.56);
@@ -704,19 +704,71 @@
         line-height: 1.65;
       }
 
-      .footer-links {
+      .footer-link-list {
         display: grid;
-        gap: 8px;
+        gap: 10px;
       }
 
-      .footer-links a {
-        width: fit-content;
+      .footer-link-item {
+        display: grid;
+        grid-template-columns: 34px 1fr;
+        gap: 10px;
+        align-items: start;
+        padding: 10px 12px;
+        border: 1px solid rgba(29, 41, 39, 0.08);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.54);
         text-decoration: none;
-        border-bottom: 1px solid transparent;
       }
 
-      .footer-links a:hover {
-        border-bottom-color: currentColor;
+      .footer-link-item:hover {
+        border-color: rgba(15, 118, 110, 0.22);
+        background: rgba(255, 255, 255, 0.8);
+      }
+
+      .footer-link-icon {
+        display: inline-grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 12px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 1rem;
+        line-height: 1;
+      }
+
+      .footer-link-copy {
+        display: grid;
+        gap: 2px;
+      }
+
+      .footer-link-copy strong {
+        color: var(--ink);
+        font-size: 0.94rem;
+        line-height: 1.2;
+      }
+
+      .footer-link-copy span {
+        color: var(--muted);
+        font-size: 0.84rem;
+        line-height: 1.45;
+      }
+
+      .footer-link-copy code {
+        font-size: 0.84rem;
+      }
+
+      .footer-link-inline {
+        text-decoration: none;
+      }
+
+      .footer-card-subtitle {
+        margin: 0 0 14px;
+        color: var(--warm);
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
       }
 
       .footer-meta {
@@ -8251,50 +8303,190 @@
         <div class="footer-grid">
           <section class="footer-card">
             <h3>Core projects</h3>
-            <p>Start here if you want the main repos and Python packages behind the ArchiveBox plugin ecosystem.</p>
-            <div class="footer-links">
-              <a href="https://github.com/ArchiveBox/ArchiveBox" target="_blank" rel="noreferrer">ArchiveBox GitHub repository</a>
-              <a href="https://pypi.org/project/archivebox/" target="_blank" rel="noreferrer">ArchiveBox on PyPI</a>
-              <a href="https://github.com/ArchiveBox/abx-dl" target="_blank" rel="noreferrer">abx-dl GitHub repository</a>
-              <a href="https://pypi.org/project/abx-dl/" target="_blank" rel="noreferrer">abx-dl on PyPI</a>
-              <a href="https://github.com/ArchiveBox/abx-pkg" target="_blank" rel="noreferrer">abx-pkg GitHub repository</a>
-              <a href="https://pypi.org/project/abx-pkg/" target="_blank" rel="noreferrer">abx-pkg on PyPI</a>
-              <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">abx-plugins GitHub repository</a>
-              <a href="https://pypi.org/project/abx-plugins/" target="_blank" rel="noreferrer">abx-plugins on PyPI</a>
+            <p class="footer-card-subtitle">Archive platform</p>
+            <div class="footer-link-list">
+              <a class="footer-link-item" href="https://github.com/ArchiveBox/ArchiveBox" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">🐙</span>
+                <span class="footer-link-copy">
+                  <strong>ArchiveBox repository</strong>
+                  <span>Main app for self-hosted web archiving, snapshot management, and long-term collections.</span>
+                </span>
+              </a>
+              <a class="footer-link-item" href="https://pypi.org/project/archivebox/" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">📦</span>
+                <span class="footer-link-copy">
+                  <strong>ArchiveBox on PyPI</strong>
+                  <span>Install the main CLI and Python package with <code>pip install archivebox</code>.</span>
+                </span>
+              </a>
             </div>
           </section>
 
           <section class="footer-card">
-            <h3>Learn the ecosystem</h3>
-            <p>These links explain the plugin ecosystem launch, ArchiveBox background, and how the projects fit into the wider web archiving landscape.</p>
-            <div class="footer-links">
-              <a href="https://docs.monadical.com/archivebox-plugin-ecosystem-announcement" target="_blank" rel="noreferrer">Plugin ecosystem announcement</a>
-              <a href="https://github.com/ArchiveBox/ArchiveBox/wiki" target="_blank" rel="noreferrer">ArchiveBox wiki</a>
-              <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community" target="_blank" rel="noreferrer">Web Archiving Community wiki page</a>
-              <a href="https://github.com/pirate/internet-archiving-talk" target="_blank" rel="noreferrer">Internet archiving talk repository</a>
-              <a href="https://www.youtube.com/watch?v=7eoz_EU6-wQ" target="_blank" rel="noreferrer">ArchiveBox history and background talk video</a>
-              <a href="https://pirate.github.io/internet-archiving-talk/Archiving%20Talk%20Long/assets/player/KeynoteDHTMLPlayer.html" target="_blank" rel="noreferrer">Interactive talk slides</a>
+            <h3>Plugin runtime tools</h3>
+            <p class="footer-card-subtitle">Execution and packages</p>
+            <div class="footer-link-list">
+              <a class="footer-link-item" href="https://github.com/ArchiveBox/abx-dl" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">⚙️</span>
+                <span class="footer-link-copy">
+                  <strong>abx-dl repository</strong>
+                  <span>Lightweight runner for executing plugin pipelines outside the full ArchiveBox app.</span>
+                </span>
+              </a>
+              <a class="footer-link-item" href="https://pypi.org/project/abx-dl/" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">📦</span>
+                <span class="footer-link-copy">
+                  <strong>abx-dl on PyPI</strong>
+                  <span>Install the standalone plugin runner with <code>pip install abx-dl</code>.</span>
+                </span>
+              </a>
+              <a class="footer-link-item" href="https://github.com/ArchiveBox/abx-pkg" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">🧰</span>
+                <span class="footer-link-copy">
+                  <strong>abx-pkg repository</strong>
+                  <span>Binary installation and discovery layer used by plugins that need Chrome, yt-dlp, and other tools.</span>
+                </span>
+              </a>
+              <a class="footer-link-item" href="https://pypi.org/project/abx-pkg/" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">📦</span>
+                <span class="footer-link-copy">
+                  <strong>abx-pkg on PyPI</strong>
+                  <span>Install the binary/package management layer with <code>pip install abx-pkg</code>.</span>
+                </span>
+              </a>
             </div>
           </section>
 
           <section class="footer-card">
-            <h3>Community and contribution</h3>
-            <p>Use these links to get involved, ask questions, file bugs, submit plugins, and find other people working on preservation and self-hosted archiving.</p>
-            <div class="footer-links">
-              <a href="https://zulip.archivebox.io" target="_blank" rel="noreferrer">ArchiveBox Zulip forum and live chat</a>
-              <a href="https://github.com/ArchiveBox/abx-plugins/issues" target="_blank" rel="noreferrer">abx-plugins issues</a>
-              <a href="https://github.com/ArchiveBox/abx-plugins/pulls" target="_blank" rel="noreferrer">abx-plugins pull requests</a>
-              <a href="https://github.com/ArchiveBox" target="_blank" rel="noreferrer">@ArchiveBox GitHub organization</a>
-              <a href="https://github.com/sponsors/ArchiveBox" target="_blank" rel="noreferrer">ArchiveBox sponsors and donations</a>
-              <a href="https://x.com/ArchiveBoxApp" target="_blank" rel="noreferrer">@ArchiveBoxApp on X</a>
-              <a href="https://x.com/theSquashSH" target="_blank" rel="noreferrer">@theSquashSH on X</a>
+            <h3>Plugin catalog and contribution</h3>
+            <p class="footer-card-subtitle">This marketplace</p>
+            <div class="footer-link-list">
+              <a class="footer-link-item" href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">🧩</span>
+                <span class="footer-link-copy">
+                  <strong>abx-plugins repository</strong>
+                  <span>Shared plugin package powering this gallery and the hook scripts used by ArchiveBox and abx-dl.</span>
+                </span>
+              </a>
+              <a class="footer-link-item" href="https://pypi.org/project/abx-plugins/" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">📦</span>
+                <span class="footer-link-copy">
+                  <strong>abx-plugins on PyPI</strong>
+                  <span>Install the plugin bundle with <code>pip install abx-plugins</code>.</span>
+                </span>
+              </a>
+              <a class="footer-link-item" href="https://github.com/ArchiveBox/abx-plugins/issues" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">🐛</span>
+                <span class="footer-link-copy">
+                  <strong>abx-plugins issues</strong>
+                  <span>Report bugs, request new extractors, or track problems in existing hooks and config schemas.</span>
+                </span>
+              </a>
+              <a class="footer-link-item" href="https://github.com/ArchiveBox/abx-plugins/pulls" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">🔀</span>
+                <span class="footer-link-copy">
+                  <strong>abx-plugins pull requests</strong>
+                  <span>Submit a new plugin, propose fixes, or review incoming changes to the marketplace catalog.</span>
+                </span>
+              </a>
+            </div>
+          </section>
+
+          <section class="footer-card">
+            <h3>History and documentation</h3>
+            <p class="footer-card-subtitle">Background and learning</p>
+            <div class="footer-link-list">
+              <a class="footer-link-item" href="https://docs.monadical.com/archivebox-plugin-ecosystem-announcement" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">📰</span>
+                <span class="footer-link-copy">
+                  <strong>Plugin ecosystem announcement</strong>
+                  <span>Overview of the new ArchiveBox plugin architecture and why the ecosystem was split into focused packages.</span>
+                </span>
+              </a>
+              <a class="footer-link-item" href="https://github.com/ArchiveBox/ArchiveBox/wiki" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">📘</span>
+                <span class="footer-link-copy">
+                  <strong>ArchiveBox wiki</strong>
+                  <span>Documentation covering install, usage, storage, browser automation, and broader project background.</span>
+                </span>
+              </a>
+              <a class="footer-link-item" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">🌐</span>
+                <span class="footer-link-copy">
+                  <strong>Web Archiving Community</strong>
+                  <span>Directory of related tools, organizations, and communities working on internet preservation.</span>
+                </span>
+              </a>
+              <a class="footer-link-item" href="https://github.com/pirate/internet-archiving-talk" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">🗂️</span>
+                <span class="footer-link-copy">
+                  <strong>Internet archiving talk repository</strong>
+                  <span>Slide deck, outline, and references about link rot, decentralized archives, and ArchiveBox’s roots.</span>
+                </span>
+              </a>
+              <a class="footer-link-item" href="https://www.youtube.com/watch?v=7eoz_EU6-wQ" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">▶️</span>
+                <span class="footer-link-copy">
+                  <strong>ArchiveBox history and background talk video</strong>
+                  <span>Recorded talk covering motivation, technical design, and the broader web archiving ecosystem.</span>
+                </span>
+              </a>
+              <a class="footer-link-item" href="https://pirate.github.io/internet-archiving-talk/Archiving%20Talk%20Long/assets/player/KeynoteDHTMLPlayer.html" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">🧭</span>
+                <span class="footer-link-copy">
+                  <strong>Interactive talk slides</strong>
+                  <span>Browsable slide deck with the history, motivation, and preservation references behind the project.</span>
+                </span>
+              </a>
+            </div>
+          </section>
+
+          <section class="footer-card">
+            <h3>Community and social</h3>
+            <p class="footer-card-subtitle">Join the conversation</p>
+            <div class="footer-link-list">
+              <a class="footer-link-item" href="https://zulip.archivebox.io" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">💬</span>
+                <span class="footer-link-copy">
+                  <strong>ArchiveBox Zulip</strong>
+                  <span>Live chat, support, and community discussion around ArchiveBox, plugins, and web archiving workflows.</span>
+                </span>
+              </a>
+              <a class="footer-link-item" href="https://github.com/ArchiveBox" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">🏛️</span>
+                <span class="footer-link-copy">
+                  <strong>@ArchiveBox GitHub organization</strong>
+                  <span>Browse the broader family of repositories that make up the ArchiveBox ecosystem.</span>
+                </span>
+              </a>
+              <a class="footer-link-item" href="https://github.com/sponsors/ArchiveBox" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">💸</span>
+                <span class="footer-link-copy">
+                  <strong>ArchiveBox sponsors and donations</strong>
+                  <span>Support open-source maintenance, research, integrations, and continued development.</span>
+                </span>
+              </a>
+              <a class="footer-link-item" href="https://x.com/ArchiveBoxApp" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">📣</span>
+                <span class="footer-link-copy">
+                  <strong>@ArchiveBoxApp on X</strong>
+                  <span>Project updates, release news, screenshots, and ecosystem announcements.</span>
+                </span>
+              </a>
+              <a class="footer-link-item" href="https://x.com/theSquashSH" target="_blank" rel="noreferrer">
+                <span class="footer-link-icon">👤</span>
+                <span class="footer-link-copy">
+                  <strong>@theSquashSH on X</strong>
+                  <span>Nick Sweeting’s account with project history, talks, and broader archiving context.</span>
+                </span>
+              </a>
             </div>
           </section>
         </div>
 
         <div class="footer-meta">
           <span>Generated from <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">ArchiveBox/abx-plugins</a> at ref <code>main</code>.</span>
-          <span>Updated 2026-03-15 08:44 UTC</span>
+          <span>Updated 2026-03-15 08:49 UTC</span>
         </div>
       </footer>
     </div>
