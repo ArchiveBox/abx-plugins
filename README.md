@@ -2,6 +2,7 @@
 
 > [!TIP]
 > **[➡️ View The Live Gallery 🌠](https://archivebox.github.io/abx-plugins/)**
+> [![](https://github.com/user-attachments/assets/e1c70778-ba8b-4812-8b5a-4d8ebc461eed)](https://archivebox.github.io/abx-plugins/)
 
 ArchiveBox-compatible plugin suite (hooks and config schemas).
 
