@@ -63,7 +63,9 @@ def main():
     # Honor custom binary path - skip npm install if user provides their own
     custom_binary = get_env("CLAUDECODE_BINARY")
     if custom_binary and custom_binary != "claude":
-        output_binary(name=custom_binary, binproviders="env")
+        # Use basename for Binary record name (env provider does PATH lookup, not absolute paths)
+        binary_name = Path(custom_binary).name
+        output_binary(name=binary_name, binproviders="env")
     else:
         output_binary(name="claude", binproviders="env,npm")
 

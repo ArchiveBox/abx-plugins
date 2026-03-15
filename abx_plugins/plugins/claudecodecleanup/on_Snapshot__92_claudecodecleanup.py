@@ -162,7 +162,8 @@ def main(url: str, snapshot_id: str):
             response_path.write_text(stdout, encoding="utf-8")
 
         if returncode != 0:
-            emit_archive_result("failed", f"Claude Code failed (exit={returncode})")
+            error_detail = stderr.strip().split("\n")[-1] if stderr else f"exit={returncode}"
+            emit_archive_result("failed", f"Claude Code failed: {error_detail}")
             sys.exit(1)
 
         # Check for cleanup report
@@ -172,8 +173,12 @@ def main(url: str, snapshot_id: str):
             print(f"[+] Cleanup report: {report_size} bytes", file=sys.stderr)
             emit_archive_result("succeeded", "cleanup_report.txt")
         else:
-            # Check for any output files
-            output_files = [f.name for f in OUTPUT_DIR.iterdir() if f.is_file() and not f.name.startswith(".")]
+            # Check for output files (exclude metadata that isn't actual cleanup output)
+            METADATA_FILES = {"response.txt", "session.json"}
+            output_files = [
+                f.name for f in OUTPUT_DIR.iterdir()
+                if f.is_file() and not f.name.startswith(".") and f.name not in METADATA_FILES
+            ]
             if output_files:
                 emit_archive_result("succeeded", ", ".join(sorted(output_files)))
             else:

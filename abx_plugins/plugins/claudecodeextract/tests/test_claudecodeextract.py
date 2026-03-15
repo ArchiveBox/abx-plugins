@@ -217,7 +217,7 @@ class TestClaudeCodeExtractPlugin:
             assert records
             assert records[-1]["type"] == "ArchiveResult"
             assert records[-1]["status"] == "failed"
-            assert "not found" in records[-1]["output_str"].lower() or "failed" in records[-1]["output_str"].lower(), (
+            assert "not found" in records[-1]["output_str"].lower(), (
                 f"Error should mention missing binary: {records[-1]['output_str']}"
             )
 

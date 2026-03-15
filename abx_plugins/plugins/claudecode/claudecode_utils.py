@@ -194,7 +194,8 @@ def run_claude_code(
         cmd.extend(["--allowedTools", "Bash(tail:*)"])
         cmd.extend(["--allowedTools", "Bash(wc:*)"])
 
-    # Add JSON output format to capture session log
+    # Use JSON output to capture the conversation messages (prompt + responses).
+    # Note: this captures the message-level log, not a full tool-use transcript.
     if session_log_path:
         cmd.extend(["--output-format", "json"])
 

@@ -142,7 +142,8 @@ def main(url: str, snapshot_id: str):
             response_path.write_text(stdout, encoding="utf-8")
 
         if returncode != 0:
-            emit_archive_result("failed", f"Claude Code failed (exit={returncode})")
+            error_detail = stderr.strip().split("\n")[-1] if stderr else f"exit={returncode}"
+            emit_archive_result("failed", f"Claude Code failed: {error_detail}")
             sys.exit(1)
 
         # Check what files were created (exclude metadata files that aren't actual extraction output)
