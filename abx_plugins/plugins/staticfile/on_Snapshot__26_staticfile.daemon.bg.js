@@ -6,7 +6,7 @@
  * Content-Type from the initial response. If it's a static file (PDF, image, etc.),
  * it downloads the content directly using CDP.
  *
- * Usage: on_Snapshot__26_staticfile.bg.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__26_staticfile.daemon.bg.js --url=<url> --snapshot-id=<uuid>
  * Output: Downloads static file
  */
 
@@ -364,7 +364,7 @@ async function main() {
     const snapshotId = args.snapshot_id;
 
     if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__26_staticfile.bg.js --url=<url> --snapshot-id=<uuid>');
+        console.error('Usage: on_Snapshot__26_staticfile.daemon.bg.js --url=<url> --snapshot-id=<uuid>');
         process.exit(1);
     }
 

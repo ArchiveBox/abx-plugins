@@ -6,7 +6,7 @@
  * then waits for navigation to complete. The listeners capture all DNS
  * resolutions by extracting hostname/IP pairs from network responses.
  *
- * Usage: on_Snapshot__22_dns.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__22_dns.daemon.bg.js --url=<url> --snapshot-id=<uuid>
  * Output: Writes dns.jsonl with one line per DNS resolution record
  */
 
@@ -257,7 +257,7 @@ async function main() {
     const snapshotId = args.snapshot_id;
 
     if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__22_dns.js --url=<url> --snapshot-id=<uuid>');
+        console.error('Usage: on_Snapshot__22_dns.daemon.bg.js --url=<url> --snapshot-id=<uuid>');
         process.exit(1);
     }
 

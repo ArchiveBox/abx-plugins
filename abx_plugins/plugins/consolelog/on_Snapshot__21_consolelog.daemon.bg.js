@@ -6,7 +6,7 @@
  * then waits for navigation to complete. The listeners stay active through
  * navigation and capture all console output.
  *
- * Usage: on_Snapshot__21_consolelog.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__21_consolelog.daemon.bg.js --url=<url> --snapshot-id=<uuid>
  * Output: Writes console.jsonl
  */
 
@@ -171,7 +171,7 @@ async function main() {
     const snapshotId = args.snapshot_id;
 
     if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__21_consolelog.js --url=<url> --snapshot-id=<uuid>');
+        console.error('Usage: on_Snapshot__21_consolelog.daemon.bg.js --url=<url> --snapshot-id=<uuid>');
         process.exit(1);
     }
 

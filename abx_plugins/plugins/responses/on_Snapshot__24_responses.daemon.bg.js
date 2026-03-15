@@ -6,7 +6,7 @@
  * then waits for navigation to complete. The listeners capture all network
  * responses during the navigation.
  *
- * Usage: on_Snapshot__24_responses.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__24_responses.daemon.bg.js --url=<url> --snapshot-id=<uuid>
  * Output: Creates responses/ directory with index.jsonl
  */
 
@@ -266,7 +266,7 @@ async function main() {
     const snapshotId = args.snapshot_id;
 
     if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__24_responses.js --url=<url> --snapshot-id=<uuid>');
+        console.error('Usage: on_Snapshot__24_responses.daemon.bg.js --url=<url> --snapshot-id=<uuid>');
         process.exit(1);
     }
 

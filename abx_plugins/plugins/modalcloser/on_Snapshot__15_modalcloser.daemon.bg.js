@@ -10,7 +10,7 @@
  * - Framework modals (Bootstrap, Tailwind, shadcn, Angular Material, jQuery UI, SweetAlert)
  * - Cookie consent banners, newsletter popups, age gates
  *
- * Usage: on_Snapshot__15_modalcloser.bg.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__15_modalcloser.daemon.bg.js --url=<url> --snapshot-id=<uuid>
  * Output: JSONL with modal close stats (no files created)
  * Termination: Send SIGTERM to exit cleanly
  *
@@ -243,7 +243,7 @@ async function main() {
     const snapshotId = args.snapshot_id;
 
     if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__15_modalcloser.bg.js --url=<url> --snapshot-id=<uuid>');
+        console.error('Usage: on_Snapshot__15_modalcloser.daemon.bg.js --url=<url> --snapshot-id=<uuid>');
         process.exit(1);
     }
 
