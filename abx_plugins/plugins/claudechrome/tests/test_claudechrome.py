@@ -200,7 +200,7 @@ class TestClaudeChromePlugin:
                 )
 
 
-@pytest.mark.usefixtures("ensure_chrome_test_prereqs", "ensure_claude_code_prereqs")
+@pytest.mark.usefixtures("ensure_chrome_test_prereqs", "ensure_anthropic_api_key")
 class TestClaudeChromeIntegration:
     """Integration tests requiring Chrome session and ANTHROPIC_API_KEY."""
 

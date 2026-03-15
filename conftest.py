@@ -24,14 +24,20 @@ def isolated_test_env(
     for directory in (home_dir, run_dir, lib_dir, personas_dir):
         directory.mkdir(parents=True, exist_ok=True)
 
+    # Resolve LIB_DIR BEFORE monkeypatching HOME, so path helpers
+    # (chrome_utils.js / Path.home()) see the real home directory.
+    if "LIB_DIR" not in os.environ:
+        from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_lib_dir
+
+        resolved_lib = get_lib_dir()
+
     monkeypatch.setenv("HOME", str(home_dir))
     # Mirror abx-dl runtime semantics: both resolve to the current run directory.
     monkeypatch.setenv("CRAWL_DIR", str(run_dir))
     monkeypatch.setenv("SNAP_DIR", str(run_dir))
 
-    # Respect explicit env overrides from the calling shell/CI, otherwise root under test tmp state.
     if "LIB_DIR" not in os.environ:
-        monkeypatch.setenv("LIB_DIR", str(lib_dir))
+        monkeypatch.setenv("LIB_DIR", str(resolved_lib))
     if "PERSONAS_DIR" not in os.environ:
         monkeypatch.setenv("PERSONAS_DIR", str(personas_dir))
     if "TWOCAPTCHA_API_KEY" not in os.environ and "API_KEY_2CAPTCHA" not in os.environ:
@@ -89,10 +95,11 @@ def ensure_chromium_and_puppeteer_installed(tmp_path_factory):
     if not chromium_binary:
         raise RuntimeError("Chromium not found after hook-based install")
 
+    # Only stash CHROME_BINARY so _resolve_existing_chromium() can skip
+    # re-download.  Do NOT propagate NODE_MODULES_DIR / NODE_PATH / PATH —
+    # chrome_session() calls get_test_env() itself and must not depend on
+    # session fixture execution order.
     os.environ["CHROME_BINARY"] = chromium_binary
-    for key in ("NODE_MODULES_DIR", "NODE_PATH", "PATH"):
-        if env.get(key):
-            os.environ[key] = env[key]
 
     return chromium_binary
 
@@ -104,11 +111,11 @@ def ensure_claude_code_prereqs():
     Used by Claude Code integration tests.  Fails immediately with a clear
     message when prerequisites are missing.
     """
-    # Check claude binary
-    claude_bin = shutil.which("claude")
+    # Check claude binary (honor CLAUDECODE_BINARY env var)
+    claude_bin = os.environ.get("CLAUDECODE_BINARY") or shutil.which("claude")
     if not claude_bin:
         pytest.fail(
-            "Claude Code CLI ('claude') not found in PATH.  "
+            "Claude Code CLI not found in PATH and CLAUDECODE_BINARY not set.  "
             "Install with: npm install -g @anthropic-ai/claude-code"
         )
 
@@ -131,6 +138,21 @@ def ensure_claude_code_prereqs():
         pytest.fail(f"'claude --version' failed (rc={result.returncode}): {result.stderr}")
 
     return claude_bin
+
+
+@pytest.fixture(scope="session")
+def ensure_anthropic_api_key():
+    """Ensure ANTHROPIC_API_KEY is set.
+
+    Used by plugins that call the Anthropic API directly (e.g. claudechrome).
+    """
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        pytest.fail(
+            "ANTHROPIC_API_KEY not set.  Integration tests that call the "
+            "Anthropic API require a valid API key."
+        )
+    return api_key
 
 
 @pytest.fixture(scope="module")
