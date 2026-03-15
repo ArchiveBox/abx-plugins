@@ -1,0 +1,50 @@
+abx_plugins/plugins/responses/on_Snapshot__24_responses.daemon.bg.js
+  215926a3b0980153 9,269
+abx_plugins/plugins/ssl/on_Snapshot__23_ssl.daemon.bg.js
+  215926a3b0980153 9,212
+abx_plugins/plugins/consolelog/on_Snapshot__21_consolelog.daemon.bg.js
+  215926a3b0980153 9,174
+abx_plugins/plugins/redirects/on_Snapshot__25_redirects.daemon.bg.js
+  215926a3b0980153 9,274
+abx_plugins/plugins/staticfile/on_Snapshot__26_staticfile.daemon.bg.js
+  215926a3b0980153 9,367
+abx_plugins/plugins/headers/on_Snapshot__27_headers.daemon.bg.js
+  215926a3b0980153 9,238
+abx_plugins/plugins/dns/on_Snapshot__22_dns.daemon.bg.js
+  215926a3b0980153 9,260
+abx_plugins/plugins/modalcloser/on_Snapshot__15_modalcloser.daemon.bg.js
+  215926a3b0980153 13,246
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.11",
+  "base_commit_sha": "5038fa30accb32aba1a8ea09691b15548a0e40b5",
+  "prompts": {
+    "04c24726f22b0eea": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf080-0e53-71e0-a261-b75eb338c709",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "215926a3b0980153": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf05c-51c2-7602-a35b-e35c12c5be09",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 2531,
+      "total_deletions": 793,
+      "accepted_lines": 2476,
+      "overriden_lines": 0
+    }
+  }
+}
