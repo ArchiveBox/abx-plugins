@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import fcntl
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -14,6 +15,8 @@ pytest_plugins = ["abx_plugins.plugins.chrome.tests.chrome_test_helpers"]
 
 from abx_plugins.plugins.base.test_utils import parse_jsonl_output, parse_jsonl_records
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_lib_dir
+
+logger = logging.getLogger(__name__)
 
 
 PLUGINS_ROOT = Path(__file__).resolve().parent / "abx_plugins" / "plugins"
@@ -267,4 +270,8 @@ def require_chrome_runtime():
         Binary(name="node", binproviders=[EnvProvider()]).load()
         Binary(name="npm", binproviders=[EnvProvider()]).load()
     except Exception as exc:
-        pytest.fail(f"Chrome integration prerequisites unavailable: {exc}")
+        logger.error("Chrome integration prerequisites unavailable: %s", exc)
+        pytest.fail(
+            f"Chrome integration prerequisites unavailable: {exc}",
+            pytrace=False,
+        )
