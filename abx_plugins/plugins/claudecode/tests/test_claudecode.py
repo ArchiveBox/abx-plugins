@@ -141,6 +141,32 @@ class TestClaudeCodePlugin:
                     except json.JSONDecodeError:
                         pass
 
+    def test_install_hook_skips_by_default(self):
+        """Install hook should skip when CLAUDECODE_ENABLED is not set (default=false)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env = os.environ.copy()
+            env["CRAWL_DIR"] = tmpdir
+            env.pop("CLAUDECODE_ENABLED", None)
+
+            result = subprocess.run(
+                [sys.executable, str(INSTALL_HOOK)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=env,
+            )
+
+            assert result.returncode == 0, f"Hook failed: {result.stderr}"
+            # Should not emit any Binary records
+            for line in result.stdout.strip().split("\n"):
+                line = line.strip()
+                if line.startswith("{"):
+                    try:
+                        record = json.loads(line)
+                        assert record.get("type") != "Binary", "Should not emit Binary when disabled by default"
+                    except json.JSONDecodeError:
+                        pass
+
     def test_install_hook_warns_missing_api_key(self):
         """Install hook should warn when ANTHROPIC_API_KEY is not set."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -319,7 +345,7 @@ class TestClaudeCodeIntegration:
                     work_dir=tmpdir,
                     system_prompt=system_prompt,
                     timeout=60,
-                    max_turns=2,
+                    max_turns=5,
                     model="haiku",
                 )
 

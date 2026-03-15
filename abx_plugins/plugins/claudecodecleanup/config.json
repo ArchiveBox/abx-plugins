@@ -6,7 +6,7 @@
   "properties": {
     "CLAUDECODECLEANUP_ENABLED": {
       "type": "boolean",
-      "default": true,
+      "default": false,
       "x-aliases": ["USE_CLAUDECODECLEANUP"],
       "description": "Enable Claude Code AI cleanup of snapshot files"
     },

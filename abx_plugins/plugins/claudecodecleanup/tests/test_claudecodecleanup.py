@@ -374,12 +374,13 @@ class TestClaudeCodeCleanupIntegration:
             env["CRAWL_DIR"] = str(Path(tmpdir) / "crawl")
             env["CLAUDECODECLEANUP_ENABLED"] = "true"
             env["CLAUDECODECLEANUP_MODEL"] = "haiku"
-            env["CLAUDECODECLEANUP_MAX_TURNS"] = "5"
-            env["CLAUDECODECLEANUP_TIMEOUT"] = "90"
+            env["CLAUDECODECLEANUP_MAX_TURNS"] = "10"
+            env["CLAUDECODECLEANUP_TIMEOUT"] = "120"
             env["CLAUDECODECLEANUP_PROMPT"] = (
-                "Inspect the snapshot directory and write a brief analysis "
-                "of what files exist to cleanup_report.txt in your output "
-                "directory. Do NOT delete any files - just report what you find."
+                "Inspect the snapshot directory and list all extractor output "
+                "directories and their files. Do NOT delete any files. "
+                "Use the Write tool to save your analysis to "
+                f"{output_dir}/cleanup_report.txt"
             )
 
             result = subprocess.run(

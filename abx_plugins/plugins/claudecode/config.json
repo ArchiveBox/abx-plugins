@@ -5,7 +5,7 @@
   "properties": {
     "CLAUDECODE_ENABLED": {
       "type": "boolean",
-      "default": true,
+      "default": false,
       "x-aliases": ["USE_CLAUDECODE"],
       "description": "Enable Claude Code AI agent integration"
     },

@@ -70,7 +70,7 @@ def main(url: str, snapshot_id: str):
 
     try:
         # Check if enabled
-        if not get_env_bool("CLAUDECODEEXTRACT_ENABLED", True):
+        if not get_env_bool("CLAUDECODEEXTRACT_ENABLED", False):
             print("Skipping Claude Code extraction (CLAUDECODEEXTRACT_ENABLED=False)", file=sys.stderr)
             emit_archive_result("skipped", "CLAUDECODEEXTRACT_ENABLED=False")
             sys.exit(0)
@@ -96,7 +96,8 @@ def main(url: str, snapshot_id: str):
                 f"You are processing the snapshot for URL: {url}\n"
                 f"Snapshot ID: {snapshot_id}\n\n"
                 f"Your output directory is: {OUTPUT_DIR}\n"
-                "Save all output files to your output directory.\n"
+                f"IMPORTANT: You MUST save all output files to exactly this directory: {OUTPUT_DIR}\n"
+                "Do NOT save files anywhere else. Do NOT print output to stdout instead of writing files.\n"
                 "You have read access to all sibling extractor directories in the snapshot."
             ),
         )

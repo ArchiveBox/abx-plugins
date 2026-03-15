@@ -50,7 +50,7 @@ def output_binary(name: str, binproviders: str):
 
 
 def main():
-    claudecode_enabled = get_env_bool("CLAUDECODE_ENABLED", True)
+    claudecode_enabled = get_env_bool("CLAUDECODE_ENABLED", False)
 
     if not claudecode_enabled:
         sys.exit(0)

@@ -75,7 +75,7 @@ def main(url: str, snapshot_id: str):
 
     try:
         # Check if enabled
-        if not get_env_bool("CLAUDECODECLEANUP_ENABLED", True):
+        if not get_env_bool("CLAUDECODECLEANUP_ENABLED", False):
             print("Skipping Claude Code cleanup (CLAUDECODECLEANUP_ENABLED=False)", file=sys.stderr)
             emit_archive_result("skipped", "CLAUDECODECLEANUP_ENABLED=False")
             sys.exit(0)
@@ -100,8 +100,7 @@ def main(url: str, snapshot_id: str):
             extra_context=(
                 f"You are performing cleanup on the snapshot for URL: {url}\n"
                 f"Snapshot ID: {snapshot_id}\n\n"
-                f"Your output directory is: {OUTPUT_DIR}\n"
-                "Save your cleanup report to your output directory.\n\n"
+                f"Your output directory is: {OUTPUT_DIR}\n\n"
                 "IMPORTANT: You have full read/write/delete access to all files "
                 "in the snapshot directory. Be careful and methodical:\n"
                 "1. First, list and inspect all extractor output directories\n"
@@ -109,7 +108,10 @@ def main(url: str, snapshot_id: str):
                 "3. Compare quality within each group\n"
                 "4. Delete only the clearly inferior/redundant versions\n"
                 "5. Never delete the hashes/ directory or any .json metadata files\n"
-                "6. Write a detailed report of what was cleaned up and why"
+                "6. REQUIRED: You MUST write a detailed report of what was cleaned up "
+                f"and why to exactly this path: {OUTPUT_DIR}/cleanup_report.txt\n"
+                "   This file MUST exist when you are done. Always create it, even if "
+                "   no cleanup was needed (in that case, explain why nothing was removed)."
             ),
         )
 
@@ -117,8 +119,10 @@ def main(url: str, snapshot_id: str):
         full_prompt = (
             f"URL being archived: {url}\n\n"
             f"Snapshot directory: {SNAP_DIR}\n"
-            f"Your output directory (save report here): {OUTPUT_DIR}\n\n"
-            f"Task:\n{user_prompt}"
+            f"Your output directory: {OUTPUT_DIR}\n\n"
+            f"Task:\n{user_prompt}\n\n"
+            f"IMPORTANT: When finished, you MUST write your report to "
+            f"{OUTPUT_DIR}/cleanup_report.txt"
         )
 
         # Run Claude Code with broader permissions (needs to delete files)

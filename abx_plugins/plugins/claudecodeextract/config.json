@@ -6,7 +6,7 @@
   "properties": {
     "CLAUDECODEEXTRACT_ENABLED": {
       "type": "boolean",
-      "default": true,
+      "default": false,
       "x-aliases": ["USE_CLAUDECODEEXTRACT"],
       "description": "Enable Claude Code AI extraction"
     },
