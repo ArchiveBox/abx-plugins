@@ -5,6 +5,8 @@ import json
 import os
 import subprocess
 import sys
+import threading
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
@@ -133,6 +135,64 @@ class TestParseNetscapeUrls:
         entry = json.loads(lines[0])
         assert entry["url"] == "https://example.com/page?a=1&b=2"
         assert entry["title"] == "Test & Title"
+
+    def test_resolves_relative_urls_against_source_page_url(self, tmp_path):
+        """Test that relative bookmark HREFs are emitted as absolute URLs."""
+        input_file = tmp_path / "bookmarks.html"
+        input_file.write_text("""
+<DT><A HREF="/about.html" ADD_DATE="1609459200">About</A>
+<DT><A HREF="docs/page.html" ADD_DATE="1609459200">Docs</A>
+        """)
+
+        class QuietHandler(SimpleHTTPRequestHandler):
+            def log_message(self, format, *args):
+                return
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), lambda *args, **kwargs: QuietHandler(*args, directory=str(tmp_path), **kwargs))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        try:
+            base_url = f"http://127.0.0.1:{server.server_address[1]}/bookmarks.html"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_PATH),
+                    "--url",
+                    base_url,
+                ],
+                cwd=tmp_path,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "SNAP_DIR": str(tmp_path),
+                },
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+
+        assert result.returncode == 0
+        lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if line.strip() and '"type": "Snapshot"' in line
+        ]
+        assert len(lines) == 2
+
+        entries = [json.loads(line) for line in lines]
+        expected_root_relative = f"http://127.0.0.1:{server.server_address[1]}/about.html"
+        expected_path_relative = (
+            f"http://127.0.0.1:{server.server_address[1]}/docs/page.html"
+        )
+        assert entries[0]["url"] == expected_root_relative
+        assert entries[1]["url"] == expected_path_relative
+
+        urls_file = tmp_path / "parse_netscape_urls" / "urls.jsonl"
+        file_entries = [json.loads(line) for line in urls_file.read_text().splitlines()]
+        assert file_entries[0]["url"] == expected_root_relative
+        assert file_entries[1]["url"] == expected_path_relative
 
     def test_skips_when_no_bookmarks_found(self, tmp_path):
         """Test that script succeeds without output when no bookmarks are found."""

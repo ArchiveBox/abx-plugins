@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 from datetime import datetime, timezone
 from html import unescape
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from base.utils import write_text_atomic
@@ -186,6 +186,14 @@ def fetch_content(url: str) -> str:
             return response.read().decode("utf-8", errors="replace")
 
 
+def normalize_bookmark_url(bookmark_url: str, root_url: str) -> str:
+    """Resolve relative bookmark URLs against the source page URL."""
+    cleaned = unescape((bookmark_url or "").strip())
+    if not cleaned:
+        return cleaned
+    return urljoin(root_url, cleaned)
+
+
 def emit_archive_result(status: str, output_str: str) -> None:
     """Emit final ArchiveResult JSONL plus a short stderr summary."""
     print(
@@ -249,10 +257,11 @@ def main(
             timestamp_str = match.group(2)
             tags_str = match.group(3) or ""
             title = match.group(4).strip()
+            resolved_url = normalize_bookmark_url(bookmark_url, url)
 
             entry = {
                 "type": "Snapshot",
-                "url": unescape(bookmark_url),
+                "url": resolved_url,
                 "plugin": PLUGIN_NAME,
                 "depth": depth + 1,
             }
