@@ -51,7 +51,7 @@ def main(
     npm_prefix = Path(lib_dir) / "npm"
     npm_prefix.mkdir(parents=True, exist_ok=True)
     npm_provider = NpmProvider(npm_prefix=npm_prefix)
-    cache_dir = Path(lib_dir) / "puppeteer"
+    cache_dir = Path(lib_dir) / "puppeteer" / "chrome"
     cache_dir.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("PUPPETEER_CACHE_DIR", str(cache_dir))
 
@@ -59,12 +59,13 @@ def main(
     # a full `puppeteer browsers install` call for this invocation.
     existing_chrome_binary = os.environ.get("CHROME_BINARY", "").strip()
     if existing_chrome_binary:
-        existing_binary = _load_binary_from_path(existing_chrome_binary)
+        existing_binary = _load_binary_from_path(existing_chrome_binary, name=name)
         if existing_binary and existing_binary.abspath:
-            _emit_chromium_binary_record(
+            _emit_browser_binary_record(
                 binary=existing_binary,
                 machine_id=machine_id,
                 binary_id=binary_id,
+                name=name,
             )
             print(
                 json.dumps(
@@ -94,7 +95,7 @@ def main(
         sys.exit(1)
 
     install_args = _parse_override_install_args(
-        overrides, default=["chromium@latest", "--install-deps"]
+        overrides, default=[f"{name}@latest", "--install-deps"]
     )
     proc = _run_puppeteer_install(
         binary=puppeteer_binary, install_args=install_args, cache_dir=cache_dir
@@ -108,15 +109,18 @@ def main(
         click.echo(f"ERROR: puppeteer install failed ({proc.returncode})", err=True)
         sys.exit(1)
 
-    chromium_binary = _load_chromium_binary(proc.stdout + "\n" + proc.stderr)
+    chromium_binary = _load_browser_binary(
+        proc.stdout + "\n" + proc.stderr, name=name
+    )
     if not chromium_binary or not chromium_binary.abspath:
         click.echo("ERROR: failed to locate Chromium after install", err=True)
         sys.exit(1)
 
-    _emit_chromium_binary_record(
+    _emit_browser_binary_record(
         binary=chromium_binary,
         machine_id=machine_id,
         binary_id=binary_id,
+        name=name,
     )
 
     config_patch = {
@@ -236,12 +240,12 @@ def _get_install_failure_hint(install_output: str) -> str | None:
     return None
 
 
-def _emit_chromium_binary_record(
-    binary: Binary, machine_id: str, binary_id: str
+def _emit_browser_binary_record(
+    binary: Binary, machine_id: str, binary_id: str, name: str
 ) -> None:
     record = {
         "type": "Binary",
-        "name": "chromium",
+        "name": name,
         "abspath": str(binary.abspath),
         "version": str(binary.version) if binary.version else "",
         "sha256": binary.sha256 or "",
@@ -252,12 +256,27 @@ def _emit_chromium_binary_record(
     print(json.dumps(record))
 
 
-def _load_binary_from_path(path: str) -> Binary | None:
+def _resolve_binary_reference(binary_ref: str) -> str | None:
+    resolved_ref = shutil.which(binary_ref)
+    if resolved_ref:
+        return resolved_ref
+
+    path_obj = Path(binary_ref).expanduser()
+    if path_obj.is_absolute() or path_obj.parent != Path("."):
+        return str(path_obj.resolve(strict=False))
+
+    return None
+
+
+def _load_binary_from_path(path: str, name: str) -> Binary | None:
+    resolved_path = _resolve_binary_reference(path)
+    if not resolved_path:
+        return None
     try:
         binary = Binary(
-            name="chromium",
+            name=name,
             binproviders=[EnvProvider()],
-            overrides={"env": {"abspath": str(path)}},
+            overrides={"env": {"abspath": resolved_path}},
         ).load()
     except Exception:
         return None
@@ -266,7 +285,7 @@ def _load_binary_from_path(path: str) -> Binary | None:
     return None
 
 
-def _load_chromium_binary(output: str) -> Binary | None:
+def _load_browser_binary(output: str, name: str) -> Binary | None:
     candidates: list[Path] = []
     match = re.search(r"(?:chromium|chrome)@[^\s]+\s+(\S+)", output)
     if match:
@@ -286,9 +305,17 @@ def _load_chromium_binary(output: str) -> Binary | None:
     )
 
     for base in cache_dirs:
-        for root in (base, base / "chromium", base / "chrome"):
+        for root in (base, base / name):
             try:
                 candidates.extend(root.rglob("Chromium.app/Contents/MacOS/Chromium"))
+            except Exception:
+                pass
+            try:
+                candidates.extend(
+                    root.rglob(
+                        "Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
+                    )
+                )
             except Exception:
                 pass
             try:
@@ -299,7 +326,7 @@ def _load_chromium_binary(output: str) -> Binary | None:
     for candidate in candidates:
         try:
             binary = Binary(
-                name="chromium",
+                name=name,
                 binproviders=[EnvProvider()],
                 overrides={"env": {"abspath": str(candidate)}},
             ).load()

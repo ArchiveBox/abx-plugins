@@ -10,6 +10,7 @@ import tempfile
 from pathlib import Path
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    _call_chrome_utils,
     get_test_env,
     get_machine_type,
     get_lib_dir,
@@ -21,6 +22,12 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     parse_jsonl_output,
     install_chromium_with_hooks,
 )
+
+
+def _write_fake_browser_binary(path: Path, label: str = "Chromium") -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"#!/bin/sh\necho '{label} 123.0.0.0'\n")
+    path.chmod(0o755)
 
 
 def test_get_machine_type():
@@ -136,6 +143,60 @@ def test_find_chromium_binary():
         assert isinstance(binary, str)
         # Should be an absolute path if found
         assert os.path.isabs(binary)
+
+
+def test_find_chromium_uses_canonical_managed_puppeteer_cache_dir(tmp_path: Path):
+    """findChromium() should resolve binaries from LIB_DIR/puppeteer/chrome."""
+    binary_path = (
+        tmp_path
+        / "lib"
+        / "puppeteer"
+        / "chrome"
+        / "chromium"
+        / "123456"
+        / "chrome-linux64"
+        / "chrome"
+    )
+    _write_fake_browser_binary(binary_path)
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "LIB_DIR": str(tmp_path / "lib"),
+            "HOME": str(tmp_path / "home"),
+        }
+    )
+    env.pop("CHROME_BINARY", None)
+
+    returncode, stdout, stderr = _call_chrome_utils("findChromium", env=env)
+
+    assert returncode == 0, stderr
+    assert stdout.strip() == str(binary_path)
+
+
+@pytest.mark.parametrize(
+    ("browser_name", "label"),
+    [("chrome", "Google Chrome"), ("chromium", "Chromium")],
+)
+def test_find_chromium_accepts_command_name_chrome_binary(
+    tmp_path: Path, browser_name: str, label: str
+):
+    """CHROME_BINARY should accept command names, not only filesystem paths."""
+    binary_path = tmp_path / "bin" / browser_name
+    _write_fake_browser_binary(binary_path, label=label)
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "CHROME_BINARY": browser_name,
+            "PATH": f"{binary_path.parent}{os.pathsep}{env.get('PATH', '')}",
+        }
+    )
+
+    returncode, stdout, stderr = _call_chrome_utils("findChromium", env=env)
+
+    assert returncode == 0, stderr
+    assert stdout.strip() == str(binary_path)
 
 
 def test_get_plugin_dir():

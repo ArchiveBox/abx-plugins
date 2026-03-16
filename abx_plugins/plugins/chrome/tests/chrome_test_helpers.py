@@ -627,7 +627,7 @@ def link_puppeteer_cache(lib_dir: Path) -> None:
     Avoids repeated Chromium downloads across tests by reusing the
     default Puppeteer cache directory.
     """
-    cache_dir = lib_dir / "puppeteer"
+    cache_dir = lib_dir / "puppeteer" / "chrome"
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     candidates = [
@@ -832,7 +832,7 @@ def _chromium_install_lock(env: dict):
     """Serialize shared Chromium/Puppeteer installs across parallel test processes."""
     lib_dir = Path(env.get("LIB_DIR") or get_lib_dir())
     lib_dir.mkdir(parents=True, exist_ok=True)
-    lock_path = lib_dir / ".chromium_install.lock"
+    lock_path = lib_dir / ".chrome_install.lock"
     with lock_path.open("w") as lock_file:
         fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
         try:
@@ -1415,7 +1415,7 @@ def chrome_session(
             lib_dir = get_lib_dir()
             npm_dir = lib_dir / "npm"
             node_modules_dir = npm_dir / "node_modules"
-        puppeteer_cache_dir = lib_dir / "puppeteer"
+        puppeteer_cache_dir = lib_dir / "puppeteer" / "chrome"
 
         # Create lib structure for puppeteer installation
         node_modules_dir.mkdir(parents=True, exist_ok=True)

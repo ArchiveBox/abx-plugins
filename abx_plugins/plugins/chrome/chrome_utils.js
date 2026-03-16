@@ -770,9 +770,10 @@ async function killChrome(pid, outputDir = null) {
 async function installChromium(options = {}) {
     // Check if CHROME_BINARY is already set and valid
     const configuredBinary = getEnv('CHROME_BINARY');
-    if (configuredBinary && fs.existsSync(configuredBinary)) {
-        console.error(`[+] Using configured CHROME_BINARY: ${configuredBinary}`);
-        return { success: true, binary: configuredBinary, version: null };
+    const resolvedConfiguredBinary = resolveBinaryReference(configuredBinary);
+    if (resolvedConfiguredBinary) {
+        console.error(`[+] Using configured CHROME_BINARY: ${resolvedConfiguredBinary}`);
+        return { success: true, binary: resolvedConfiguredBinary, version: null };
     }
 
     // Try to load @puppeteer/browsers from NODE_MODULES_DIR or system
@@ -1451,27 +1452,47 @@ function getExtensionTargets(browser) {
  * @returns {string|null} - Absolute path to browser binary or null if not found
  */
 function findChromium() {
-    const { execSync } = require('child_process');
+    const { execFileSync } = require('child_process');
 
     // Helper to validate a binary by running --version
     const validateBinary = (binaryPath) => {
-        if (!binaryPath || !fs.existsSync(binaryPath)) return false;
+        if (!binaryPath) return false;
         try {
-            execSync(`"${binaryPath}" --version`, { encoding: 'utf8', timeout: 5000, stdio: 'pipe' });
+            execFileSync(binaryPath, ['--version'], { encoding: 'utf8', timeout: 5000, stdio: 'pipe' });
             return true;
         } catch (e) {
             return false;
         }
     };
 
+    const resolveBinaryReference = (binaryPath) => {
+        if (!binaryPath) return null;
+
+        const hasPathSeparator = binaryPath.includes(path.sep) || (path.sep === '\\' && binaryPath.includes('/'));
+        if (path.isAbsolute(binaryPath) || hasPathSeparator) {
+            const absPath = path.resolve(binaryPath);
+            return validateBinary(absPath) ? absPath : null;
+        }
+
+        try {
+            const locator = process.platform === 'win32' ? 'where' : 'which';
+            const resolved = execFileSync(locator, [binaryPath], {
+                encoding: 'utf8',
+                timeout: 5000,
+                stdio: 'pipe',
+            }).split(/\r?\n/).find(Boolean)?.trim();
+            return resolved && validateBinary(resolved) ? resolved : null;
+        } catch (e) {
+            return validateBinary(binaryPath) ? binaryPath : null;
+        }
+    };
+
     // 1. Check CHROME_BINARY env var first
     const chromeBinary = getEnv('CHROME_BINARY');
     if (chromeBinary) {
-        const absPath = path.resolve(chromeBinary);
-        if (absPath.includes('Google Chrome') || absPath.includes('google-chrome')) {
-            console.error('[!] Warning: CHROME_BINARY points to Chrome. Chromium is required for extension support.');
-        } else if (validateBinary(absPath)) {
-            return absPath;
+        const resolvedBinary = resolveBinaryReference(chromeBinary);
+        if (resolvedBinary) {
+            return resolvedBinary;
         }
         console.error(`[!] Warning: CHROME_BINARY="${chromeBinary}" is not valid`);
     }
@@ -1485,18 +1506,39 @@ function findChromium() {
     const findInPuppeteerDir = (baseDir) => {
         if (!fs.existsSync(baseDir)) return null;
         try {
-            const versions = fs.readdirSync(baseDir);
-            for (const version of versions.sort().reverse()) {
-                const versionDir = path.join(baseDir, version);
-                const candidates = [
-                    path.join(versionDir, 'chrome-mac-arm64/Chromium.app/Contents/MacOS/Chromium'),
-                    path.join(versionDir, 'chrome-mac/Chromium.app/Contents/MacOS/Chromium'),
-                    path.join(versionDir, 'chrome-mac-x64/Chromium.app/Contents/MacOS/Chromium'),
-                    path.join(versionDir, 'chrome-linux64/chrome'),
-                    path.join(versionDir, 'chrome-linux/chrome'),
-                ];
-                for (const c of candidates) {
-                    if (fs.existsSync(c)) return c;
+            const entryNames = fs.readdirSync(baseDir, { withFileTypes: true })
+                .filter(entry => entry.isDirectory())
+                .map(entry => entry.name);
+            const versionRoots = [baseDir];
+
+            for (const entryName of entryNames) {
+                if (entryName === 'chrome' || entryName === 'chromium') {
+                    versionRoots.push(path.join(baseDir, entryName));
+                }
+            }
+
+            for (const versionRoot of versionRoots) {
+                if (!fs.existsSync(versionRoot)) continue;
+                const versions = fs.readdirSync(versionRoot, { withFileTypes: true })
+                    .filter(entry => entry.isDirectory())
+                    .map(entry => entry.name)
+                    .sort()
+                    .reverse();
+                for (const version of versions) {
+                    const versionDir = path.join(versionRoot, version);
+                    const candidates = [
+                        path.join(versionDir, 'chrome-mac-arm64/Chromium.app/Contents/MacOS/Chromium'),
+                        path.join(versionDir, 'chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing'),
+                        path.join(versionDir, 'chrome-mac/Chromium.app/Contents/MacOS/Chromium'),
+                        path.join(versionDir, 'chrome-mac/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing'),
+                        path.join(versionDir, 'chrome-mac-x64/Chromium.app/Contents/MacOS/Chromium'),
+                        path.join(versionDir, 'chrome-mac-x64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing'),
+                        path.join(versionDir, 'chrome-linux64/chrome'),
+                        path.join(versionDir, 'chrome-linux/chrome'),
+                    ];
+                    for (const c of candidates) {
+                        if (fs.existsSync(c)) return c;
+                    }
                 }
             }
         } catch (e) {}
@@ -1528,13 +1570,12 @@ function findChromium() {
         '/usr/bin/chromium',
         '/usr/bin/chromium-browser',
         // Puppeteer cache
-        path.join(process.env.HOME || '', '.cache/puppeteer/chromium'),
         path.join(process.env.HOME || '', '.cache/puppeteer'),
+        path.join(process.env.HOME || '', 'Library/Caches/puppeteer'),
     ];
 
     for (const loc of fallbackLocations) {
-        // Check if it's a puppeteer cache dir
-        if (loc.includes('.cache/puppeteer')) {
+        if (loc.endsWith('/puppeteer') || loc.endsWith('\\puppeteer')) {
             const binary = findInPuppeteerDir(loc);
             if (binary && validateBinary(binary)) {
                 return binary;

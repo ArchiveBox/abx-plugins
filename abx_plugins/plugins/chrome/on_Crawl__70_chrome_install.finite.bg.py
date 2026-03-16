@@ -35,19 +35,28 @@ def main():
     if not chrome_enabled:
         sys.exit(0)
 
+    configured_binary = os.environ.get("CHROME_BINARY", "").strip()
+    configured_name = Path(configured_binary).name.lower() if configured_binary else ""
+    if configured_name in ("chrome", "google-chrome"):
+        browser_name = "chrome"
+    elif configured_name in ("chromium", "chromium-browser"):
+        browser_name = "chromium"
+    else:
+        browser_name = "chromium"
+
     record = {
         "type": "Binary",
-        "name": "chromium",
+        "name": browser_name,
         "binproviders": "puppeteer",
         "overrides": {
-            "puppeteer": ["chromium@latest", "--install-deps"],
+            "puppeteer": [f"{browser_name}@latest", "--install-deps"],
         },
     }
     print(json.dumps(record))
     print(json.dumps({
         "type": "ArchiveResult",
         "status": "succeeded",
-        "output_str": "chromium requested",
+        "output_str": f"{browser_name} requested",
     }))
     sys.exit(0)
 
