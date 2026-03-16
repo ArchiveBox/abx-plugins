@@ -489,11 +489,12 @@ def chrome_test_https_url(chrome_test_urls):
 def _call_chrome_utils(
     command: str, *args: str, env: Optional[dict] = None
 ) -> Tuple[int, str, str]:
-    """Call chrome_utils.js CLI command (internal helper).
+    """Call the JS chrome utilities from Python test code.
 
-    This is the central dispatch for calling the JS utilities from Python.
-    All path calculations and Chrome operations are centralized in chrome_utils.js
-    to ensure consistency between Python and JavaScript code.
+    This is the bridge to the runtime single source of truth. Lifecycle-sensitive
+    behavior such as browser discovery, session marker handling, and test env
+    path calculation should stay in ``chrome_utils.js`` so Python tests exercise
+    the same rules as production hooks instead of shadowing them.
 
     Args:
         command: The CLI command (e.g., 'findChromium', 'getTestEnv')
@@ -513,7 +514,13 @@ def _call_chrome_utils(
 def wait_for_extensions_metadata(
     chrome_dir: Path, timeout_seconds: int = 10
 ) -> List[Dict[str, Any]]:
-    """Wait for extensions.json metadata via chrome_utils.js and return parsed entries."""
+    """Wait for ``extensions.json`` to be published and return its parsed records.
+
+    Extension-backed hooks should treat this as the post-launch readiness gate
+    for extension discovery metadata. It is stronger than merely seeing
+    ``chrome.pid`` or ``cdp_url.txt`` because the browser may still be in the
+    startup window before extensions finish loading.
+    """
     timeout_ms = max(1, int(timeout_seconds * 1000))
     returncode, stdout, stderr = _call_chrome_utils(
         "waitForExtensionsMetadata",
@@ -655,9 +662,9 @@ def find_chromium(data_dir: Optional[str] = None) -> Optional[str]:
 
     Uses chrome_utils.js which checks:
     - CHROME_BINARY env var
-    - @puppeteer/browsers install locations
+    - hook-managed LIB_DIR install locations
+    - @puppeteer/browsers / Puppeteer cache locations
     - System Chromium locations
-    - Falls back to Chrome (with warning)
 
     Args:
         data_dir: Optional SNAP_DIR override
@@ -698,13 +705,35 @@ def kill_chrome(pid: int, output_dir: Optional[str] = None) -> bool:
     return returncode == 0
 
 
+def _is_pid_alive(pid: int) -> bool:
+    """Return True if the process still exists."""
+    try:
+        os.kill(pid, 0)
+    except (ProcessLookupError, OSError):
+        return False
+    return True
+
+
+def _wait_for_pid_exit(pid: int, timeout_seconds: float = 15.0) -> bool:
+    """Wait for a process to exit and return True if it did."""
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if not _is_pid_alive(pid):
+            return True
+        time.sleep(0.25)
+    return not _is_pid_alive(pid)
+
+
 def get_test_env() -> dict:
-    """Get environment dict with all paths set correctly for tests.
+    """Get the shared runtime-like environment dict for Chrome plugin tests.
 
     Matches JS: getTestEnv()
 
-    Tries chrome_utils.js first for path values, builds env dict.
-    Use this for all subprocess calls in plugin tests.
+    Tries ``chrome_utils.js`` first for path values, then builds an env dict on
+    top of the current process environment. Use this for subprocess calls in
+    plugin tests so ``LIB_DIR``, ``NODE_MODULES_DIR``, ``NODE_PATH``,
+    ``CHROME_EXTENSIONS_DIR``, and related settings match the JS runtime
+    contract.
     """
     env = os.environ.copy()
 
@@ -871,7 +900,12 @@ def _has_puppeteer_module(env: dict) -> bool:
 
 
 def _ensure_puppeteer_with_hooks(env: dict, timeout: int) -> None:
-    """Install puppeteer npm package using plugin hooks if not already available."""
+    """Install the JS ``puppeteer`` package through the plugin hook chain.
+
+    The Chrome JS hooks require ``require('puppeteer')`` to succeed even when a
+    browser binary already exists on disk, so test setup must ensure the npm
+    package lifecycle is complete before attempting any launch/install flow.
+    """
     if _has_puppeteer_module(env):
         return
 
@@ -928,7 +962,16 @@ def _ensure_puppeteer_with_hooks(env: dict, timeout: int) -> None:
 
 
 def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
-    """Install Chromium via chrome crawl hook + puppeteer/npm hooks.
+    """Install Chromium via the same hook sequence used by runtime code.
+
+    The order matters:
+    1. ensure the ``puppeteer`` JS package exists
+    2. reuse an existing Chromium if one is already valid for this env
+    3. otherwise emit the Chrome Binary record and satisfy it via the Puppeteer
+       binary hook
+
+    Any Machine updates emitted by hooks are folded back into ``env`` so later
+    subprocesses inherit the resolved ``CHROME_BINARY`` / npm path settings.
 
     Returns absolute path to Chromium binary.
     """
@@ -1033,16 +1076,19 @@ def run_hook_and_parse(
 
 
 def setup_test_env(tmpdir: Path) -> dict:
-    """Set up isolated data/lib directory structure for extension tests.
+    """Set up an isolated, runtime-like Chrome test environment.
 
-    Creates structure for tests:
-        <tmpdir>/snap/
-        <tmpdir>/crawl/
-        ~/.config/abx/lib/   (or LIB_DIR)
-        ~/.config/abx/personas/Default/chrome_extensions/ (or PERSONAS_DIR)
+    The resulting env mirrors the production contract closely enough that
+    extension tests can exercise the real launch/session lifecycle:
+    - crawl state lives under ``<tmpdir>/crawl``
+    - snapshot state lives under ``<tmpdir>/snap``
+    - persona-scoped ``chrome_extensions``, ``chrome_downloads``, and
+      ``chrome_user_data`` dirs are provisioned together
+    - Chromium + npm dependencies are installed through hooks, not hand-written
+      test setup
 
-    Calls chrome install hook + puppeteer/npm hooks for Chromium installation.
-    Returns env dict with SNAP_DIR, PERSONAS_DIR, LIB_DIR, NPM_BIN_DIR, NODE_MODULES_DIR, CHROME_BINARY, etc.
+    Returns env dict with ``SNAP_DIR``, ``CRAWL_DIR``, ``PERSONAS_DIR``,
+    ``LIB_DIR``, ``NODE_MODULES_DIR``, ``NODE_PATH``, ``CHROME_BINARY``, etc.
 
     Args:
         tmpdir: Base temporary directory for the test
@@ -1069,7 +1115,7 @@ def setup_test_env(tmpdir: Path) -> dict:
     npm_bin_dir = npm_dir / ".bin"
     node_modules_dir = npm_dir / "node_modules"
 
-    personas_dir = get_personas_dir()
+    personas_dir = tmpdir / "personas"
     chrome_extensions_dir = personas_dir / "Default" / "chrome_extensions"
     chrome_downloads_dir = personas_dir / "Default" / "chrome_downloads"
     chrome_user_data_dir = personas_dir / "Default" / "chrome_user_data"
@@ -1115,10 +1161,11 @@ def setup_test_env(tmpdir: Path) -> dict:
 def launch_chromium_session(
     env: dict, chrome_dir: Path, crawl_id: str, timeout: int = 30
 ) -> Tuple[subprocess.Popen, str]:
-    """Launch Chromium and return (process, cdp_url).
+    """Launch the crawl-level Chrome hook and return ``(process, cdp_url)``.
 
-    This launches Chrome using the chrome launch hook and waits for the CDP URL
-    to become available. Use this for extension tests that need direct CDP access.
+    This waits for the crawl hook to publish ``cdp_url.txt`` in the crawl's
+    ``chrome`` dir, not just for a child process to exist. That keeps tests on
+    the same readiness contract as production snapshot hooks.
 
     Args:
         env: Environment dict (from setup_test_env)
@@ -1189,6 +1236,15 @@ def launch_chromium_session(
             f"Chromium CDP URL not found after {timeout}s\nStdout: {stdout}\nStderr: {stderr}"
         )
 
+    chrome_pid_file = chrome_dir / "chrome.pid"
+    if chrome_pid_file.exists():
+        try:
+            chrome_launch_process._chrome_pid = int(chrome_pid_file.read_text().strip())
+        except (ValueError, FileNotFoundError):
+            chrome_launch_process._chrome_pid = None
+    else:
+        chrome_launch_process._chrome_pid = None
+
     return chrome_launch_process, cdp_url
 
 
@@ -1203,25 +1259,29 @@ def kill_chromium_session(
         chrome_launch_process: The Popen object from launch_chromium_session
         chrome_dir: The chrome directory containing chrome.pid
     """
+    chrome_pid = getattr(chrome_launch_process, "_chrome_pid", None)
+    if chrome_pid is None:
+        chrome_pid_file = chrome_dir / "chrome.pid"
+        if chrome_pid_file.exists():
+            try:
+                chrome_pid = int(chrome_pid_file.read_text().strip())
+            except (ValueError, FileNotFoundError):
+                chrome_pid = None
+
     # First try to terminate the launch process gracefully
     try:
         chrome_launch_process.send_signal(signal.SIGTERM)
         chrome_launch_process.wait(timeout=5)
     except Exception:
         pass
+
+    if chrome_pid is not None and _is_pid_alive(chrome_pid) and not _wait_for_pid_exit(chrome_pid):
+        kill_chrome(chrome_pid, str(chrome_dir))
+
     for attr in ("_stdout_handle", "_stderr_handle"):
         handle = getattr(chrome_launch_process, attr, None)
         if handle:
             handle.close()
-
-    # Read PID and use JS to kill with proper cleanup
-    chrome_pid_file = chrome_dir / "chrome.pid"
-    if chrome_pid_file.exists():
-        try:
-            chrome_pid = int(chrome_pid_file.read_text().strip())
-            kill_chrome(chrome_pid, str(chrome_dir))
-        except (ValueError, FileNotFoundError):
-            pass
 
 
 @contextmanager
@@ -1283,8 +1343,8 @@ def cleanup_chrome(
     except Exception:
         pass
 
-    # Use JS to kill Chrome with proper process group handling
-    kill_chrome(chrome_pid, str(chrome_dir) if chrome_dir else None)
+    if _is_pid_alive(chrome_pid) and not _wait_for_pid_exit(chrome_pid):
+        kill_chrome(chrome_pid, str(chrome_dir) if chrome_dir else None)
 
 
 def launch_snapshot_tab(
@@ -1296,7 +1356,13 @@ def launch_snapshot_tab(
     crawl_id: str,
     timeout: int = 60,
 ) -> subprocess.Popen:
-    """Launch the snapshot tab hook in background mode and wait for session markers."""
+    """Launch the snapshot tab hook and wait for snapshot-level session markers.
+
+    This waits only for tab/session marker publication (``cdp_url.txt``,
+    ``target_id.txt``, ``chrome.pid``). Navigation is still a separate lifecycle
+    step handled by the navigate hook and signaled later via ``page_loaded.txt``
+    / ``navigation.json``.
+    """
     stdout_log = snapshot_chrome_dir / "chrome_tab.stdout.log"
     stderr_log = snapshot_chrome_dir / "chrome_tab.stderr.log"
     stdout_handle = open(stdout_log, "w+", encoding="utf-8")
@@ -1361,11 +1427,18 @@ def chrome_session(
     navigate: bool = True,
     timeout: int = 15,
 ):
-    """Context manager for Chrome sessions with automatic cleanup.
+    """Context manager for the full crawl -> snapshot -> optional navigate flow.
 
-    Creates the directory structure, launches Chrome, creates a tab,
-    and optionally navigates to the test URL. Automatically cleans up
-    Chrome on exit.
+    It models the real plugin lifecycle in miniature:
+    1. provision crawl/snapshot dirs and runtime env
+    2. launch the crawl-level shared browser
+    3. wait for crawl readiness markers (including ``chrome.pid`` / ``cdp_url``)
+    4. create a snapshot tab with its own session markers
+    5. optionally run the navigate hook and wait for its outputs
+
+    Runtime overrides such as an already-exported ``CHROME_BINARY`` or
+    ``NODE_MODULES_DIR`` remain authoritative so test harnesses can inject
+    preinstalled browsers without fighting the helper.
 
     Usage:
         with chrome_session(tmpdir, test_url='https://example.com') as (process, pid, chrome_dir, env):
@@ -1407,7 +1480,7 @@ def chrome_session(
         # Model real runtime layout: one crawl root + one snapshot root per session.
         crawl_dir = tmpdir / "crawl" / crawl_id
         snap_dir = tmpdir / "snap" / snapshot_id
-        personas_dir = get_personas_dir()
+        personas_dir = tmpdir / "personas"
         env = os.environ.copy()
 
         # Prefer an already-provisioned NODE_MODULES_DIR (set by session-level chrome fixture)

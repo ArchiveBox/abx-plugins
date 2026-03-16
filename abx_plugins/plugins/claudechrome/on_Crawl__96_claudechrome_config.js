@@ -20,7 +20,13 @@ const fs = require('fs');
 const { ensureNodeModuleResolution } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 
-const { getEnv, getEnvBool } = require('../chrome/chrome_utils.js');
+const {
+    getEnv,
+    getEnvBool,
+    waitForCrawlChromeSession,
+    waitForExtensionsMetadata,
+    findExtensionMetadataByName,
+} = require('../chrome/chrome_utils.js');
 
 // Check if enabled
 if (!getEnvBool('CLAUDECHROME_ENABLED', false)) {
@@ -61,12 +67,9 @@ async function configureClaudeChrome() {
     console.error(`[*]   API Key: ${apiKey.slice(0, 8)}...${apiKey.slice(-4)}`);
 
     try {
-        const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
-        if (!fs.existsSync(cdpFile)) {
-            return { success: false, error: 'No Chrome session found (chrome plugin must run first)' };
-        }
-
-        const cdpUrl = fs.readFileSync(cdpFile, 'utf-8').trim();
+        const { cdpUrl } = await waitForCrawlChromeSession(10000, {
+            crawlBaseDir: CRAWL_DIR,
+        });
         const browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl });
 
         try {
@@ -82,13 +85,8 @@ async function configureClaudeChrome() {
             try { await triggerPage.close(); } catch (e) {}
 
             // Read extension metadata
-            const extensionsFile = path.join(CHROME_SESSION_DIR, 'extensions.json');
-            if (!fs.existsSync(extensionsFile)) {
-                return { success: false, error: 'extensions.json not found' };
-            }
-
-            const extensions = JSON.parse(fs.readFileSync(extensionsFile, 'utf-8'));
-            const claudeExt = extensions.find(ext => ext.name === 'claudechrome');
+            const extensions = await waitForExtensionsMetadata(CHROME_SESSION_DIR, 10000);
+            const claudeExt = findExtensionMetadataByName(extensions, 'claudechrome');
             if (!claudeExt || !claudeExt.id) {
                 console.error('[*] Claude for Chrome extension not found in extensions.json');
                 return { success: true, skipped: true };

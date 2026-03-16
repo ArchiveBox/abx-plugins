@@ -386,7 +386,19 @@ function killZombieChrome(snapDir = null, options = {}) {
 // ============================================================================
 
 /**
- * Launch Chromium with extensions and return connection info.
+ * Launch Chromium and return the live browser process + browser-level CDP endpoint.
+ *
+ * This helper only performs process startup and debug-port verification. It is
+ * intentionally earlier in the lifecycle than the crawl launch hook's
+ * "published readiness" step:
+ * - it may write `chrome.pid` immediately for later cleanup/re-attachment
+ * - it does NOT publish `cdp_url.txt` / `port.txt` as stable crawl markers
+ * - callers must finish any runtime setup that should happen before other
+ *   hooks attach (downloads via CDP, cookie seeding, extension discovery, etc.)
+ *   and only then write the crawl/session readiness files
+ *
+ * Snapshot hooks should therefore wait on the persisted session markers emitted
+ * by the crawl launch hook, not on this raw launch result alone.
  *
  * @param {Object} options - Launch options
  * @param {string} [options.binary] - Chrome binary path (auto-detected if not provided)
@@ -1459,8 +1471,18 @@ function getExtensionTargets(browser) {
 }
 
 /**
- * Find Chromium binary path.
- * Checks CHROME_BINARY env var first, then falls back to system locations.
+ * Resolve the Chromium-family browser binary to launch.
+ *
+ * Resolution order matters because tests and runtime callers may override the
+ * browser at the environment layer:
+ * 1. `CHROME_BINARY`, if explicitly provided at runtime
+ * 2. hook-managed installs under `LIB_DIR`
+ * 3. Puppeteer cache locations
+ * 4. system Chromium locations
+ *
+ * This helper is intentionally Chromium-oriented. It should not guess at
+ * unrelated branded browsers or `/Applications/*` installs when a runtime
+ * override or hook-managed browser is expected to be authoritative.
  *
  * @returns {string|null} - Absolute path to browser binary or null if not found
  */
@@ -1675,8 +1697,12 @@ function getLibDir() {
 }
 
 /**
- * Get NODE_MODULES_DIR path for npm packages.
- * Returns LIB_DIR/npm/node_modules/
+ * Get the canonical `NODE_MODULES_DIR` used to resolve runtime JS deps.
+ *
+ * Chrome hooks depend on packages such as `puppeteer` and
+ * `@puppeteer/browsers`. Python callers should treat this as the source of
+ * truth and export the same value through `NODE_PATH` when shelling out to
+ * Node so test/runtime resolution stays identical.
  *
  * @returns {string} - Absolute path to node_modules directory
  */
@@ -1685,9 +1711,12 @@ function getNodeModulesDir() {
 }
 
 /**
- * Get all test environment paths as a JSON object.
- * This is the single source of truth for path calculations - Python calls this
- * to avoid duplicating path logic.
+ * Get the shared environment/path contract used by Python tests and JS hooks.
+ *
+ * This mirrors the runtime path layout closely enough that test helpers can
+ * exercise the same launch/session code without re-implementing the path
+ * calculation rules. Python should prefer this instead of reconstructing
+ * `LIB_DIR`, `NODE_MODULES_DIR`, `CHROME_EXTENSIONS_DIR`, etc. on its own.
  *
  * @returns {Object} - Object with all test environment paths
  */
@@ -1801,7 +1830,14 @@ const CHROME_SESSION_FILES = Object.freeze({
  * @returns {Object} - Parsed arguments object
  */
 /**
- * Resolve all session marker file paths for a chrome session directory.
+ * Resolve the canonical marker/artifact paths for one crawl- or snapshot-level
+ * Chrome session directory.
+ *
+ * The crawl-level session typically owns the long-lived browser markers
+ * (`chrome.pid`, `cdp_url.txt`, `port.txt`, `extensions.json`). Snapshot-level
+ * sessions reuse the same schema and add per-tab markers such as
+ * `target_id.txt`, `navigation.json`, `page_loaded.txt`, and copied
+ * `extensions.json` metadata for consumers that operate at snapshot scope.
  *
  * @param {string} chromeSessionDir - Path to chrome session directory
  * @returns {{sessionDir: string, cdpFile: string, targetIdFile: string, chromePidFile: string, pageLoadedFile: string}}
@@ -1830,7 +1866,12 @@ function readSessionTextFile(filePath) {
 }
 
 /**
- * Read the current chrome session state from marker files.
+ * Read the minimal persisted session state from marker files.
+ *
+ * This is intentionally a filesystem read only. It does not prove that the
+ * browser is still alive or that the websocket is attachable; callers that need
+ * liveness must layer `inspectChromeSessionArtifacts()` /
+ * `waitForCrawlChromeSession()` on top.
  *
  * @param {string} chromeSessionDir - Path to chrome session directory
  * @returns {{sessionDir: string, cdpUrl: string|null, targetId: string|null, pid: number|null}}
@@ -1852,7 +1893,13 @@ function readChromeSessionState(chromeSessionDir) {
 }
 
 /**
- * Return the session-related artifact files that may need cleanup when stale.
+ * Return all persisted marker/artifact files that should be cleaned together
+ * when a session is determined to be stale.
+ *
+ * The list intentionally includes both readiness markers and navigation
+ * byproducts. Leaving old `navigation.json`, `page_loaded.txt`, or
+ * `extensions.json` files behind can trick later hooks/tests into believing a
+ * brand-new session has already advanced further than it actually has.
  *
  * @param {string} chromeSessionDir - Path to chrome session directory
  * @returns {string[]} - Absolute file paths
@@ -1893,7 +1940,48 @@ function getChromeDebugPortFromCdpUrl(cdpUrl) {
 }
 
 /**
- * Inspect whether session marker files refer to a still-live Chrome session.
+ * Convert a Chrome websocket endpoint into the corresponding browser-server URL.
+ *
+ * ArchiveBox persists browser websocket endpoints in `cdp_url.txt`, while
+ * tools such as `single-file-cli` expect an HTTP(S) browser-server base URL.
+ * Keeping the translation here avoids re-implementing URL/port parsing in
+ * Python helpers.
+ *
+ * @param {string|null} cdpUrl - Browser websocket or HTTP endpoint
+ * @returns {string|null} - HTTP(S) browser-server URL or null if invalid
+ */
+function getBrowserServerUrlFromCdpUrl(cdpUrl) {
+    if (!cdpUrl) return null;
+
+    try {
+        const endpoint = new URL(cdpUrl);
+        if (endpoint.protocol === 'http:' || endpoint.protocol === 'https:') {
+            endpoint.pathname = '';
+            endpoint.search = '';
+            endpoint.hash = '';
+            return endpoint.toString().replace(/\/+$/, '');
+        }
+        if (endpoint.protocol !== 'ws:' && endpoint.protocol !== 'wss:') {
+            return null;
+        }
+        endpoint.protocol = endpoint.protocol === 'wss:' ? 'https:' : 'http:';
+        endpoint.pathname = '';
+        endpoint.search = '';
+        endpoint.hash = '';
+        return endpoint.toString().replace(/\/+$/, '');
+    } catch (error) {
+        return null;
+    }
+}
+
+/**
+ * Inspect whether persisted session markers still correspond to a live attachable
+ * Chrome session.
+ *
+ * This is the boundary between "files exist" and "the session is actually
+ * reusable". It validates the saved websocket endpoint, optional target marker,
+ * and pid state, then probes the DevTools port so callers can distinguish stale
+ * leftovers from a healthy reusable session.
  *
  * @param {string} chromeSessionDir - Path to chrome session directory
  * @param {Object} [options={}] - Validation options
@@ -1950,7 +2038,12 @@ async function inspectChromeSessionArtifacts(chromeSessionDir, options = {}) {
 }
 
 /**
- * Delete stale Chrome session marker files, but leave healthy sessions untouched.
+ * Delete stale marker files for a session directory while leaving healthy ones
+ * intact.
+ *
+ * This should be used before reusing a crawl/snapshot chrome directory. It is
+ * safer than blindly unlinking only one file because the readiness lifecycle is
+ * multi-step and stale markers tend to cluster.
  *
  * @param {string} chromeSessionDir - Path to chrome session directory
  * @param {Object} [options={}] - Validation options
@@ -2008,7 +2101,12 @@ function isValidChromeSessionState(state, options = {}) {
 }
 
 /**
- * Wait for a chrome session state to satisfy required fields.
+ * Wait for the persisted marker state to contain the required fields.
+ *
+ * This is a filesystem-level readiness gate only. It does not probe the CDP
+ * socket unless `requireAlivePid` rejects a dead process, so callers that need
+ * stronger guarantees should follow with `inspectChromeSessionArtifacts()` or a
+ * real CDP connect.
  *
  * @param {string} chromeSessionDir - Path to chrome session directory
  * @param {Object} [options={}] - Wait/validation options
@@ -2100,8 +2198,11 @@ async function withConnectedBrowser(options, operation) {
 
 /**
  * Configure Chrome's download behavior over the live CDP session.
- * Prefer runtime configuration instead of mutating profile Preferences ahead
- * of launch because Chrome's on-disk profile format changes frequently.
+ *
+ * This is the supported way to set the downloads directory for ArchiveBox's
+ * Chrome lifecycle. Call it after the browser is reachable but before crawl
+ * readiness is published so later snapshot hooks inherit a fully-configured
+ * browser without needing to mutate on-disk profile `Preferences`.
  *
  * @param {Object} options - Download behavior options
  * @param {Object} options.browser - Connected puppeteer browser instance
@@ -2290,11 +2391,28 @@ async function cleanupLaunchArtifacts(outputDir, chromePid = null) {
     } catch (error) {}
 }
 
+/**
+ * Verify that a freshly launched browser survives long enough to be considered
+ * stable for downstream hooks.
+ *
+ * This is stronger than "debug port opened once". It waits through the fragile
+ * startup window and proves the websocket is attachable with Puppeteer.
+ *
+ * It must stay strictly earlier than crawl-level extension discovery. The
+ * caller is responsible for inspecting extension targets and later writing
+ * `extensions.json`; waiting for that file here would deadlock the launch flow.
+ *
+ * @param {Object} options - Verification options
+ * @param {number} options.chromePid - Spawned Chrome PID
+ * @param {string} options.cdpUrl - Browser websocket endpoint
+ * @param {boolean} [options.headless=true] - Whether browser is headless
+ * @param {string[]} [options.extensionPaths=[]] - Extension paths loaded at launch
+ * @returns {Promise<void>}
+ */
 async function verifyStableChromiumSession(options = {}) {
     const {
         chromePid,
         cdpUrl,
-        outputDir,
         headless = true,
         extensionPaths = [],
     } = options;
@@ -2343,17 +2461,6 @@ async function verifyStableChromiumSession(options = {}) {
         }
         await sleep(200);
     }
-
-    if (outputDir && hasExtensions) {
-        const extensionsFile = path.join(outputDir, 'extensions.json');
-        const extensionsDeadline = Date.now() + getEnvInt('CHROME_EXTENSION_METADATA_TIMEOUT_MS', 10000);
-        while (!fs.existsSync(extensionsFile) && Date.now() < extensionsDeadline) {
-            if (!isProcessAlive(chromePid)) {
-                throw new Error('Chromium exited before extension metadata became available');
-            }
-            await sleep(200);
-        }
-    }
 }
 
 async function resolvePageByTargetId(browser, targetId, timeoutMs = 0) {
@@ -2386,8 +2493,10 @@ async function resolvePageByTargetId(browser, targetId, timeoutMs = 0) {
 }
 
 /**
- * Wait for Chrome session files to be ready.
- * Polls for cdp_url.txt and optionally target_id.txt in the chrome session directory.
+ * Convenience wrapper for waiting on persisted session markers.
+ *
+ * This is suitable for hooks that only need the marker contract (`cdp_url.txt`
+ * plus optional `target_id.txt`), not an immediate live browser probe.
  *
  * @param {string} chromeSessionDir - Path to chrome session directory (e.g., '../chrome')
  * @param {number} [timeoutMs=60000] - Timeout in milliseconds
@@ -2432,7 +2541,11 @@ function readChromePid(chromeSessionDir) {
 }
 
 /**
- * Resolve the active crawl-level Chrome session.
+ * Resolve the already-published crawl-level Chrome session.
+ *
+ * This should be used by consumers that attach to the shared browser created by
+ * the crawl launch hook. It requires both persisted markers and a live pid, and
+ * it deliberately ignores any snapshot-level markers.
  *
  * @param {string} [crawlBaseDir='.'] - Crawl root directory
  * @returns {{cdpUrl: string, pid: number, crawlChromeDir: string}}
@@ -2448,7 +2561,12 @@ function getCrawlChromeSession(crawlBaseDir = '.') {
 }
 
 /**
- * Wait for an active crawl-level Chrome session.
+ * Wait for the crawl launch hook to publish a reusable browser session.
+ *
+ * One-shot code paths like `archivebox add ...` should not synthesize this
+ * state themselves unless they are explicitly acting as the long-lived crawl
+ * browser owner. Consumers should wait for this instead of watching a raw spawn
+ * pid or assuming the websocket is immediately safe to use.
  *
  * @param {number} timeoutMs - Timeout in milliseconds
  * @param {Object} [options={}] - Optional settings
@@ -2472,7 +2590,57 @@ async function waitForCrawlChromeSession(timeoutMs, options = {}) {
 }
 
 /**
- * Open a new tab in an existing Chrome session.
+ * Resolve a live browser-server URL from an already-published session dir.
+ *
+ * This is the browser-level analogue to `connectToPage(...)`: it waits for the
+ * marker contract, verifies the underlying session is still reusable, then
+ * returns the HTTP(S) base URL expected by browser-scoped tools.
+ *
+ * @param {string} [chromeSessionDir='../chrome'] - Session directory to inspect
+ * @param {Object} [options={}] - Resolution options
+ * @param {number} [options.timeoutMs=60000] - Timeout waiting for markers
+ * @param {boolean} [options.requireTargetId=true] - Require target_id.txt
+ * @returns {Promise<string>} - Browser-server URL
+ * @throws {Error} - If no reusable Chrome session is available
+ */
+async function getBrowserServerUrl(chromeSessionDir = '../chrome', options = {}) {
+    const {
+        timeoutMs = 60000,
+        requireTargetId = true,
+    } = options;
+
+    const state = await waitForChromeSessionState(chromeSessionDir, {
+        timeoutMs,
+        requirePid: true,
+        requireAlivePid: true,
+        requireTargetId,
+    });
+    if (!state?.cdpUrl) {
+        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
+    }
+
+    const inspection = await inspectChromeSessionArtifacts(chromeSessionDir, {
+        requireTargetId,
+        probeTimeoutMs: Math.min(Math.max(timeoutMs, 250), 2000),
+    });
+    if (inspection.stale || !inspection.state?.cdpUrl) {
+        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
+    }
+
+    const browserServerUrl = getBrowserServerUrlFromCdpUrl(inspection.state.cdpUrl);
+    if (!browserServerUrl) {
+        throw new Error('Invalid CDP URL in chrome session');
+    }
+    return browserServerUrl;
+}
+
+/**
+ * Open a blank page target inside an existing crawl-level browser session.
+ *
+ * This helper only asks DevTools to create the target and returns its runtime
+ * `targetId`. Persisting snapshot-level markers such as `target_id.txt`,
+ * `cdp_url.txt`, or copied `extensions.json` remains the responsibility of the
+ * snapshot tab hook.
  *
  * @param {Object} options - Tab open options
  * @param {string} options.cdpUrl - Browser CDP websocket URL
@@ -2528,11 +2696,12 @@ async function closeTabInChromeSession(options = {}) {
 }
 
 /**
- * Connect to Chrome browser and find the target page.
- * This is a high-level utility that handles all the connection logic:
- * 1. Wait for chrome session files
- * 2. Connect to browser via CDP
- * 3. Find the target page by ID
+ * Attach to a persisted session directory and resolve the corresponding page.
+ *
+ * This is the high-level handoff from filesystem readiness markers to a live
+ * Puppeteer page object. On success it transfers browser ownership to the
+ * caller; on failure before handoff it disconnects immediately so callers do
+ * not inherit half-initialized state.
  *
  * @param {Object} options - Connection options
  * @param {string} [options.chromeSessionDir='../chrome'] - Path to chrome session directory
@@ -2610,8 +2779,12 @@ async function connectToPage(options = {}) {
 }
 
 /**
- * Wait for page navigation to complete.
- * Polls for page_loaded.txt marker file written by chrome_navigate.
+ * Wait for the snapshot navigation hook to publish its completion marker.
+ *
+ * This does not perform navigation by itself. It only watches the
+ * `page_loaded.txt` artifact emitted by `chrome_navigate` and optionally waits
+ * a bit longer for late network work that should remain within the same
+ * snapshot lifecycle.
  *
  * @param {string} chromeSessionDir - Path to chrome session directory
  * @param {number} [timeoutMs=120000] - Timeout in milliseconds
@@ -2734,6 +2907,7 @@ module.exports = {
     readChromePid,
     getCrawlChromeSession,
     waitForCrawlChromeSession,
+    getBrowserServerUrl,
     openTabInChromeSession,
     closeTabInChromeSession,
     getTargetIdFromTarget,
@@ -2764,6 +2938,7 @@ if (require.main === module) {
         console.log('  launchChromium            Launch Chrome with CDP debugging');
         console.log('  getCookiesViaCdp <port>  Read browser cookies via CDP port');
         console.log('  getCrawlChromeSession    Resolve active crawl chrome session');
+        console.log('  getBrowserServerUrl      Resolve browser-server URL from session dir');
         console.log('  killChrome <pid>          Kill Chrome process by PID');
         console.log('  killZombieChrome          Clean up zombie Chrome processes');
         console.log('');
@@ -2868,6 +3043,28 @@ if (require.main === module) {
                     const [crawlBaseDir] = commandArgs;
                     const session = getCrawlChromeSession(crawlBaseDir || getEnv('CRAWL_DIR', '.'));
                     console.log(JSON.stringify(session));
+                    break;
+                }
+
+                case 'getBrowserServerUrl': {
+                    const [
+                        chromeSessionDir = '../chrome',
+                        timeoutMsStr = '60000',
+                        requireTargetIdStr = 'true',
+                    ] = commandArgs;
+                    const timeoutMs = parseInt(timeoutMsStr, 10);
+                    if (isNaN(timeoutMs) || timeoutMs <= 0) {
+                        console.error('Invalid timeoutMs');
+                        process.exit(1);
+                    }
+                    const requireTargetId = !['0', 'false', 'no'].includes(
+                        String(requireTargetIdStr).toLowerCase(),
+                    );
+                    const browserServerUrl = await getBrowserServerUrl(chromeSessionDir, {
+                        timeoutMs,
+                        requireTargetId,
+                    });
+                    console.log(browserServerUrl);
                     break;
                 }
 

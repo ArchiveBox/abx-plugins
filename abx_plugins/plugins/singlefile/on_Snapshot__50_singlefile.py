@@ -26,18 +26,14 @@ Environment variables:
     SINGLEFILE_ARGS_EXTRA: Extra arguments to append (JSON array)
 """
 
-import json
 import os
 import subprocess
 import sys
 import threading
-import time
-from urllib.request import urlopen
 from pathlib import Path
-import shutil
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import load_config, get_env, emit_archive_result, has_staticfile_output
+from base.utils import load_config, emit_archive_result, has_staticfile_output
 
 import rich_click as click
 
@@ -53,6 +49,7 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 OUTPUT_FILE = "singlefile.html"
 EXTENSION_SAVE_SCRIPT = Path(__file__).parent / "singlefile_extension_save.js"
+CHROME_UTILS_SCRIPT = Path(__file__).parent.parent / "chrome" / "chrome_utils.js"
 
 
 def temp_path_for(path: Path) -> Path:
@@ -65,37 +62,6 @@ def temp_path_for(path: Path) -> Path:
 CHROME_SESSION_DIR = "../chrome"
 
 
-def get_cdp_url(wait_seconds: float = 0.0) -> str | None:
-    """Get CDP URL from chrome plugin if available."""
-    cdp_file = Path(CHROME_SESSION_DIR) / "cdp_url.txt"
-    deadline = time.time() + max(wait_seconds, 0.0)
-    while True:
-        if cdp_file.exists():
-            cdp_url = cdp_file.read_text().strip()
-            return cdp_url or None
-        if time.time() >= deadline:
-            return None
-        time.sleep(0.2)
-
-
-def get_port_from_cdp_url(cdp_url: str) -> str | None:
-    """Extract port from CDP WebSocket URL (ws://127.0.0.1:PORT/...)."""
-    import re
-
-    match = re.search(r":(\d+)/", cdp_url)
-    if match:
-        return match.group(1)
-    return None
-
-
-def is_cdp_server_available(cdp_remote_url: str) -> bool:
-    try:
-        with urlopen(f"{cdp_remote_url}/json/version", timeout=1) as resp:
-            return resp.status == 200
-    except Exception:
-        return False
-
-
 def summarize_error(detail: str) -> str:
     lines = [line.strip() for line in detail.splitlines() if line.strip()]
     if not lines:
@@ -105,10 +71,41 @@ def summarize_error(detail: str) -> str:
     preferred_lines = non_debug_lines or lines
 
     for line in reversed(preferred_lines):
-        if line.startswith("ERROR:"):
-            return line.removeprefix("ERROR:").strip()
+        for prefix in ("ERROR:", "Error:", "[❌]"):
+            if line.startswith(prefix):
+                return line.removeprefix(prefix).strip()
 
     return preferred_lines[-1]
+
+
+def run_chrome_utils(
+    node_binary: str, command: str, *args: str, timeout: int
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [node_binary, str(CHROME_UTILS_SCRIPT), command, *args],
+        cwd=str(OUTPUT_DIR),
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+
+
+def get_browser_server_url(
+    node_binary: str, timeout: int, require_target: bool = True
+) -> tuple[str | None, str]:
+    timeout_ms = max(1000, timeout * 1000)
+    result = run_chrome_utils(
+        node_binary,
+        "getBrowserServerUrl",
+        CHROME_SESSION_DIR,
+        str(timeout_ms),
+        "true" if require_target else "false",
+        timeout=max(timeout + 5, 10),
+    )
+    if result.returncode != 0:
+        detail = summarize_error(result.stderr or result.stdout)
+        return None, detail or "No Chrome session found (chrome plugin must run first)"
+    return result.stdout.strip() or None, ""
 
 
 def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
@@ -123,6 +120,7 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
     # Load config from config.json (auto-resolves x-aliases and x-fallback from env)
     config = load_config()
     timeout = config.SINGLEFILE_TIMEOUT
+    node_binary = config.SINGLEFILE_NODE_BINARY
     user_agent = config.SINGLEFILE_USER_AGENT
     check_ssl = config.SINGLEFILE_CHECK_SSL_VALIDITY
     cookies_file = config.SINGLEFILE_COOKIES_FILE
@@ -132,31 +130,16 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     cmd = [binary, *singlefile_args]
 
-    # Try to use existing Chrome session via CDP (prefer HTTP base URL)
-    cdp_wait = min(10, max(1, timeout // 10))
-    cdp_url = get_cdp_url(wait_seconds=cdp_wait)
-    cdp_remote_url = None
-    if cdp_url:
-        if cdp_url.startswith(("http://", "https://")):
-            cdp_remote_url = cdp_url
-        else:
-            port = get_port_from_cdp_url(cdp_url)
-            if port:
-                cdp_remote_url = f"http://127.0.0.1:{port}"
-            else:
-                cdp_remote_url = cdp_url
+    cdp_remote_url, error = get_browser_server_url(
+        node_binary,
+        timeout=min(10, max(1, timeout // 10)),
+        require_target=True,
+    )
+    if not cdp_remote_url:
+        return False, None, error or "No Chrome session found (chrome plugin must run first)"
 
-    if cdp_remote_url and not is_cdp_server_available(cdp_remote_url):
-        cdp_remote_url = None
-
-    if cdp_remote_url:
-        print(
-            f"[singlefile] Using existing Chrome session: {cdp_remote_url}",
-            file=sys.stderr,
-        )
-        cmd.extend(["--browser-server", cdp_remote_url])
-    else:
-        return False, None, "No Chrome session found (chrome plugin must run first)"
+    print(f"[singlefile] Using existing Chrome session: {cdp_remote_url}", file=sys.stderr)
+    cmd.extend(["--browser-server", cdp_remote_url])
 
     # SSL handling
     if not check_ssl:
@@ -241,14 +224,6 @@ def save_singlefile_with_extension(
 ) -> tuple[bool, str | None, str]:
     """Save using the SingleFile Chrome extension via existing Chrome session."""
     print(f"[singlefile] Extension mode start url={url}", file=sys.stderr)
-    # Only attempt if chrome session exists
-    cdp_url = get_cdp_url(wait_seconds=min(5, max(1, timeout // 10)))
-    if not cdp_url:
-        print(
-            "[singlefile] No Chrome session found (chrome plugin must run first)",
-            file=sys.stderr,
-        )
-        return False, None, "No Chrome session found (chrome plugin must run first)"
 
     if not EXTENSION_SAVE_SCRIPT.exists():
         print(
@@ -259,8 +234,6 @@ def save_singlefile_with_extension(
 
     config = load_config()
     node_binary = config.SINGLEFILE_NODE_BINARY
-    downloads_dir = get_env("CHROME_DOWNLOADS_DIR", "")
-    extensions_dir = get_env("CHROME_EXTENSIONS_DIR", "")
     output_path = Path(OUTPUT_DIR) / OUTPUT_FILE
     temp_output_path = temp_path_for(output_path)
     cmd = [
@@ -269,15 +242,7 @@ def save_singlefile_with_extension(
         f"--url={url}",
         f"--output-path={temp_output_path}",
     ]
-    print(f"[singlefile] cdp_url={cdp_url}", file=sys.stderr)
     print(f"[singlefile] node={node_binary}", file=sys.stderr)
-    node_resolved = shutil.which(node_binary) if node_binary else None
-    print(f"[singlefile] node_resolved={node_resolved}", file=sys.stderr)
-    print(f"[singlefile] PATH={os.environ.get('PATH', '')}", file=sys.stderr)
-    if downloads_dir:
-        print(f"[singlefile] CHROME_DOWNLOADS_DIR={downloads_dir}", file=sys.stderr)
-    if extensions_dir:
-        print(f"[singlefile] CHROME_EXTENSIONS_DIR={extensions_dir}", file=sys.stderr)
     print(f"[singlefile] helper_cmd={' '.join(cmd)}", file=sys.stderr)
 
     try:

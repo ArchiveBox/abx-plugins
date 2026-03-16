@@ -24,13 +24,18 @@ const path = require('path');
 const fs = require('fs');
 const {
     ensureNodeModuleResolution,
-    getEnv,
-    getEnvBool,
-    getEnvInt,
     parseArgs,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer-core');
+const {
+    getEnv,
+    getEnvBool,
+    getEnvInt,
+    waitForCrawlChromeSession,
+    waitForExtensionsMetadata,
+    findExtensionMetadataByName,
+} = require('../chrome/chrome_utils.js');
 
 const PLUGIN_DIR = path.basename(__dirname);
 const CRAWL_DIR = path.resolve((process.env.CRAWL_DIR || '.').trim());
@@ -150,13 +155,9 @@ async function configure2Captcha() {
     console.error(`[*]   Auto Solve: all CAPTCHA types enabled`);
 
     try {
-        // Connect to the existing Chrome session via CDP
-        const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
-        if (!fs.existsSync(cdpFile)) {
-            return { success: false, error: 'No Chrome session found (chrome plugin must run first)' };
-        }
-
-        const cdpUrl = fs.readFileSync(cdpFile, 'utf-8').trim();
+        const { cdpUrl } = await waitForCrawlChromeSession(10000, {
+            crawlBaseDir: CRAWL_DIR,
+        });
         const browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl });
 
         try {
@@ -172,13 +173,8 @@ async function configure2Captcha() {
             try { await triggerPage.close(); } catch (e) {}
 
             // Get 2captcha extension info from extensions.json
-            const extensionsFile = path.join(CHROME_SESSION_DIR, 'extensions.json');
-            if (!fs.existsSync(extensionsFile)) {
-                return { success: false, error: 'extensions.json not found - chrome plugin must run first' };
-            }
-
-            const extensions = JSON.parse(fs.readFileSync(extensionsFile, 'utf-8'));
-            const captchaExt = extensions.find(ext => ext.name === 'twocaptcha');
+            const extensions = await waitForExtensionsMetadata(CHROME_SESSION_DIR, 10000);
+            const captchaExt = findExtensionMetadataByName(extensions, 'twocaptcha');
 
             if (!captchaExt) {
                 console.error('[*] 2captcha extension not installed, skipping configuration');
