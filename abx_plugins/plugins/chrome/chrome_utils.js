@@ -564,6 +564,9 @@ async function launchChromium(options = {}) {
                 ));
             });
         });
+        // Suppress unhandled rejection if chromiumExit loses the race but
+        // fires later when the browser eventually shuts down.
+        chromiumExit.catch(() => {});
 
         // Wait for debug port
         console.error(`[*] Waiting for debug port ${debugPort}...`);
