@@ -24,6 +24,7 @@ const {
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer-core');
 const {
+    waitForChromeSession,
     connectToPage,
     waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
@@ -39,8 +40,6 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 process.chdir(OUTPUT_DIR);
 const OUTPUT_FILE = 'title.txt';
 const CHROME_SESSION_DIR = '../chrome';
-const CHROME_CDP_FILE = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
-const CHROME_TARGET_FILE = path.join(CHROME_SESSION_DIR, 'target_id.txt');
 
 async function extractTitle(url) {
     // Output directory is current directory (hook already runs in output dir)
@@ -49,9 +48,10 @@ async function extractTitle(url) {
     let browser = null;
 
     try {
-        if (!fs.existsSync(CHROME_CDP_FILE) || !fs.existsSync(CHROME_TARGET_FILE)) {
+        if (!(await waitForChromeSession(CHROME_SESSION_DIR, Math.min(timeoutMs, 1000), true))) {
             return { success: false, error: 'No Chrome session found (chrome plugin must run first)' };
         }
+
         const connection = await connectToPage({
             chromeSessionDir: CHROME_SESSION_DIR,
             timeoutMs,

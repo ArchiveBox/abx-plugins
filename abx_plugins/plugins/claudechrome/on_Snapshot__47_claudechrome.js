@@ -34,8 +34,9 @@ const {
     getEnvBool,
     getEnvInt,
     parseArgs,
-    readCdpUrl,
+    waitForChromeSession,
     connectToPage,
+    setBrowserDownloadBehavior,
     waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
 
@@ -93,26 +94,6 @@ function snapshotDirFiles(dir) {
         }
     }
     return files;
-}
-
-async function setDownloadDir(page, downloadDir) {
-    try {
-        await fs.promises.mkdir(downloadDir, { recursive: true });
-        const client = await page.target().createCDPSession();
-        try {
-            await client.send('Page.setDownloadBehavior', {
-                behavior: 'allow',
-                downloadPath: downloadDir,
-            });
-        } catch (err) {
-            await client.send('Browser.setDownloadBehavior', {
-                behavior: 'allow',
-                downloadPath: downloadDir,
-            });
-        }
-    } catch (err) {
-        console.error(`[!] Failed to set download directory: ${err.message || err}`);
-    }
 }
 
 async function moveNewDownloads(downloadsDir, outputDir, previousFiles) {
@@ -581,7 +562,7 @@ async function main() {
     let browser = null;
 
     try {
-        if (!readCdpUrl(CHROME_SESSION_DIR)) {
+        if (!(await waitForChromeSession(CHROME_SESSION_DIR, Math.min(timeout * 1000, 1000), true))) {
             throw new Error('No Chrome session found (chrome plugin must run first)');
         }
 
@@ -600,7 +581,7 @@ async function main() {
         await waitForPageLoaded(CHROME_SESSION_DIR, connectTimeoutMs * 4, 200);
 
         // Set download directory
-        await setDownloadDir(page, DOWNLOADS_DIR);
+        await setBrowserDownloadBehavior({ page, downloadPath: DOWNLOADS_DIR });
 
         // Get viewport dimensions
         const viewport = await page.evaluate(() => ({

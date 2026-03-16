@@ -43,6 +43,7 @@ ensureNodeModuleResolution(module);
 
 // Import chrome-specific utilities from chrome_utils.js
 const {
+    waitForChromeSession,
     connectToPage,
 } = require('../chrome/chrome_utils.js');
 
@@ -57,8 +58,6 @@ const puppeteer = require('puppeteer-core');
 
 const PLUGIN_NAME = 'modalcloser';
 const CHROME_SESSION_DIR = path.join(SNAP_DIR, 'chrome');
-const CHROME_CDP_FILE = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
-const CHROME_TARGET_FILE = path.join(CHROME_SESSION_DIR, 'target_id.txt');
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -270,7 +269,7 @@ async function main() {
     });
 
     try {
-        if (!fs.existsSync(CHROME_CDP_FILE) || !fs.existsSync(CHROME_TARGET_FILE)) {
+        if (!(await waitForChromeSession(CHROME_SESSION_DIR, Math.min(connectTimeoutMs, 1000), true))) {
             throw new Error('No Chrome session found (chrome plugin must run first)');
         }
 

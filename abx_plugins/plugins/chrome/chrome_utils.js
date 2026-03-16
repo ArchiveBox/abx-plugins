@@ -2212,13 +2212,38 @@ async function withConnectedBrowser(options, operation) {
 async function setBrowserDownloadBehavior(options = {}) {
     const {
         browser,
+        page,
         downloadPath,
     } = options;
 
-    if (!browser || !downloadPath) return false;
+    if ((!browser && !page) || !downloadPath) return false;
 
     await fs.promises.mkdir(downloadPath, { recursive: true });
-    const session = await browser.target().createCDPSession();
+    const sessionTarget = page ? page.target() : browser.target();
+    const session = await sessionTarget.createCDPSession();
+
+    if (page) {
+        try {
+            await session.send('Page.setDownloadBehavior', {
+                behavior: 'allow',
+                downloadPath,
+            });
+            return true;
+        } catch (pageError) {
+            try {
+                await session.send('Browser.setDownloadBehavior', {
+                    behavior: 'allow',
+                    downloadPath,
+                });
+                return true;
+            } catch (browserError) {
+                throw new Error(
+                    `Page.setDownloadBehavior failed: ${pageError.message}; ` +
+                    `Browser.setDownloadBehavior failed: ${browserError.message}`
+                );
+            }
+        }
+    }
 
     try {
         await session.send('Browser.setDownloadBehavior', {

@@ -409,12 +409,15 @@ def _coerce_upstream_urls(value: Any) -> Optional[Dict[str, str]]:
 @pytest.fixture(scope="session")
 def ensure_chromium_and_puppeteer_installed(tmp_path_factory):
     """Install Chromium and Puppeteer once for test sessions that require Chrome."""
-    if not os.environ.get("SNAP_DIR"):
-        os.environ["SNAP_DIR"] = str(tmp_path_factory.mktemp("chrome_test_data"))
-    if not os.environ.get("PERSONAS_DIR"):
-        os.environ["PERSONAS_DIR"] = str(
-            tmp_path_factory.mktemp("chrome_test_personas")
-        )
+    os.environ["SNAP_DIR"] = str(tmp_path_factory.mktemp("chrome_test_data"))
+    os.environ["PERSONAS_DIR"] = str(tmp_path_factory.mktemp("chrome_test_personas"))
+    os.environ["HOME"] = str(tmp_path_factory.mktemp("chrome_test_home"))
+    os.environ["XDG_CONFIG_HOME"] = str(Path(os.environ["HOME"]) / ".config")
+    os.environ["XDG_CACHE_HOME"] = str(Path(os.environ["HOME"]) / ".cache")
+    os.environ["XDG_DATA_HOME"] = str(Path(os.environ["HOME"]) / ".local" / "share")
+
+    for key in ("HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME"):
+        Path(os.environ[key]).mkdir(parents=True, exist_ok=True)
 
     env = get_test_env()
     chromium_binary = install_chromium_with_hooks(env)
@@ -1116,6 +1119,10 @@ def setup_test_env(tmpdir: Path) -> dict:
     node_modules_dir = npm_dir / "node_modules"
 
     personas_dir = tmpdir / "personas"
+    home_dir = tmpdir / "home"
+    xdg_config_home = home_dir / ".config"
+    xdg_cache_home = home_dir / ".cache"
+    xdg_data_home = home_dir / ".local" / "share"
     chrome_extensions_dir = personas_dir / "Default" / "chrome_extensions"
     chrome_downloads_dir = personas_dir / "Default" / "chrome_downloads"
     chrome_user_data_dir = personas_dir / "Default" / "chrome_user_data"
@@ -1123,6 +1130,10 @@ def setup_test_env(tmpdir: Path) -> dict:
     # Create all directories
     node_modules_dir.mkdir(parents=True, exist_ok=True)
     npm_bin_dir.mkdir(parents=True, exist_ok=True)
+    home_dir.mkdir(parents=True, exist_ok=True)
+    xdg_config_home.mkdir(parents=True, exist_ok=True)
+    xdg_cache_home.mkdir(parents=True, exist_ok=True)
+    xdg_data_home.mkdir(parents=True, exist_ok=True)
     chrome_extensions_dir.mkdir(parents=True, exist_ok=True)
     chrome_downloads_dir.mkdir(parents=True, exist_ok=True)
     chrome_user_data_dir.mkdir(parents=True, exist_ok=True)
@@ -1141,6 +1152,10 @@ def setup_test_env(tmpdir: Path) -> dict:
             "MACHINE_TYPE": machine_type,
             "NPM_BIN_DIR": str(npm_bin_dir),
             "NODE_MODULES_DIR": str(node_modules_dir),
+            "HOME": str(home_dir),
+            "XDG_CONFIG_HOME": str(xdg_config_home),
+            "XDG_CACHE_HOME": str(xdg_cache_home),
+            "XDG_DATA_HOME": str(xdg_data_home),
             "CHROME_EXTENSIONS_DIR": str(chrome_extensions_dir),
             "CHROME_DOWNLOADS_DIR": str(chrome_downloads_dir),
             "CHROME_USER_DATA_DIR": str(chrome_user_data_dir),
@@ -1481,6 +1496,10 @@ def chrome_session(
         crawl_dir = tmpdir / "crawl" / crawl_id
         snap_dir = tmpdir / "snap" / snapshot_id
         personas_dir = tmpdir / "personas"
+        home_dir = tmpdir / "home"
+        xdg_config_home = home_dir / ".config"
+        xdg_cache_home = home_dir / ".cache"
+        xdg_data_home = home_dir / ".local" / "share"
         env = os.environ.copy()
 
         # Prefer an already-provisioned NODE_MODULES_DIR (set by session-level chrome fixture)
@@ -1507,6 +1526,10 @@ def chrome_session(
         # Build env with tmpdir-specific paths
         snap_dir.mkdir(parents=True, exist_ok=True)
         personas_dir.mkdir(parents=True, exist_ok=True)
+        home_dir.mkdir(parents=True, exist_ok=True)
+        xdg_config_home.mkdir(parents=True, exist_ok=True)
+        xdg_cache_home.mkdir(parents=True, exist_ok=True)
+        xdg_data_home.mkdir(parents=True, exist_ok=True)
 
         env.update(
             {
@@ -1518,6 +1541,10 @@ def chrome_session(
                 "NODE_MODULES_DIR": str(node_modules_dir),
                 "NODE_PATH": str(node_modules_dir),
                 "NPM_BIN_DIR": str(npm_dir / ".bin"),
+                "HOME": str(home_dir),
+                "XDG_CONFIG_HOME": str(xdg_config_home),
+                "XDG_CACHE_HOME": str(xdg_cache_home),
+                "XDG_DATA_HOME": str(xdg_data_home),
                 "CHROME_HEADLESS": "true",
                 "PUPPETEER_CACHE_DIR": str(puppeteer_cache_dir),
             }
