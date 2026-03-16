@@ -55,6 +55,7 @@ const originalLoad = Module._load;
 Module._load = function(request, parent, isMain) {
     if (request === '../chrome/chrome_utils.js') {
         return {
+            waitForChromeSession: async () => true,
             connectToPage: async () => ({
                 browser: { disconnect: () => {} },
                 page: { title: async () => 'Resolved Title' },
