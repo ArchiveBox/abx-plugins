@@ -14,10 +14,15 @@
 
 const fs = require('fs');
 const path = require('path');
-// Add NODE_MODULES_DIR to module resolution paths if set
-if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
-
-const { getEnv, getEnvBool, parseArgs, emitArchiveResult, hasStaticFileOutput } = require('../base/utils.js');
+const {
+    ensureNodeModuleResolution,
+    getEnv,
+    getEnvBool,
+    parseArgs,
+    emitArchiveResult,
+    hasStaticFileOutput,
+} = require('../base/utils.js');
+ensureNodeModuleResolution(module);
 const {
     connectToPage,
     getTargetIdFromPage,

@@ -14,19 +14,17 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-// Add NODE_MODULES_DIR to module resolution paths if set
-if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
-
-const puppeteer = require('puppeteer-core');
-
 // Import generic helpers from base/utils.js
 const {
+    ensureNodeModuleResolution,
     getEnv,
     getEnvBool,
     getEnvInt,
     parseArgs,
     emitArchiveResult,
 } = require('../base/utils.js');
+ensureNodeModuleResolution(module);
+const puppeteer = require('puppeteer-core');
 
 // Import chrome-specific utilities from chrome_utils.js
 const {

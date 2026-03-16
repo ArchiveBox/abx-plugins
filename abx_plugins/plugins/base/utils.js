@@ -10,6 +10,7 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 // ---------------------------------------------------------------------------
@@ -54,6 +55,38 @@ function getEnvArray(name, defaultValue = []) {
     }
 
     return val.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function getLibDir() {
+    const configured = getEnv('LIB_DIR');
+    if (configured) return path.resolve(configured);
+    return path.resolve(path.join(os.homedir(), '.config', 'abx', 'lib'));
+}
+
+function getNodeModulesDir() {
+    const configured = getEnv('NODE_MODULES_DIR') || getEnv('NODE_MODULE_DIR');
+    if (configured) return path.resolve(configured);
+    return path.resolve(path.join(getLibDir(), 'npm', 'node_modules'));
+}
+
+function ensureNodeModuleResolution(moduleRef = module) {
+    const nodeModulesDir = getNodeModulesDir();
+
+    if (!process.env.NODE_MODULES_DIR && process.env.NODE_MODULE_DIR) {
+        process.env.NODE_MODULES_DIR = process.env.NODE_MODULE_DIR;
+    }
+    if (!process.env.NODE_MODULE_DIR && process.env.NODE_MODULES_DIR) {
+        process.env.NODE_MODULE_DIR = process.env.NODE_MODULES_DIR;
+    }
+    if (!process.env.NODE_PATH) {
+        process.env.NODE_PATH = nodeModulesDir;
+    }
+
+    if (!moduleRef.paths.includes(nodeModulesDir)) {
+        moduleRef.paths.unshift(nodeModulesDir);
+    }
+
+    return nodeModulesDir;
 }
 
 // ---------------------------------------------------------------------------
@@ -126,6 +159,9 @@ module.exports = {
     getEnvBool,
     getEnvInt,
     getEnvArray,
+    getLibDir,
+    getNodeModulesDir,
+    ensureNodeModuleResolution,
     parseArgs,
     emitArchiveResult,
     writeFileAtomic,

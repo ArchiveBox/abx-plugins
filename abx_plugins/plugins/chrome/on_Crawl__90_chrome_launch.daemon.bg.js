@@ -24,15 +24,11 @@
  *     CHROME_EXTENSIONS_DIR: Directory containing Chrome extensions
  */
 
-// Add NODE_MODULES_DIR to module resolution paths if set
-if (process.env.NODE_MODULES_DIR) {
-    module.paths.unshift(process.env.NODE_MODULES_DIR);
-}
-
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
-const { parseArgs } = require('../base/utils.js');
+const { ensureNodeModuleResolution, parseArgs } = require('../base/utils.js');
+ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer');
 const {
     findChromium,

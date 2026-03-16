@@ -15,13 +15,10 @@
  *   NODE_MODULES_DIR: Path to node_modules for module resolution
  */
 
-// Add NODE_MODULES_DIR to module resolution paths if set
-if (process.env.NODE_MODULES_DIR) {
-    module.paths.unshift(process.env.NODE_MODULES_DIR);
-}
-
 const fs = require('fs');
 const path = require('path');
+const { ensureNodeModuleResolution } = require('../base/utils.js');
+ensureNodeModuleResolution(module);
 const {
     findAnyChromiumBinary,
     launchChromium,

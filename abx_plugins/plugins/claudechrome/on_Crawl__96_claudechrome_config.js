@@ -17,8 +17,8 @@
 
 const path = require('path');
 const fs = require('fs');
-// Add NODE_MODULES_DIR to module resolution paths if set
-if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
+const { ensureNodeModuleResolution } = require('../base/utils.js');
+ensureNodeModuleResolution(module);
 
 const { getEnv, getEnvBool } = require('../chrome/chrome_utils.js');
 

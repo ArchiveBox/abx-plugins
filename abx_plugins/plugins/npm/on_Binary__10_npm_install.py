@@ -129,7 +129,7 @@ def main(
         )
     )
 
-    # Also emit NODE_MODULES_DIR for JS module resolution
+    # Emit JS module resolution env vars for downstream node-based hooks.
     node_modules_dir = str(npm_prefix / "node_modules")
     print(
         json.dumps(
@@ -137,6 +137,8 @@ def main(
                 "type": "Machine",
                 "config": {
                     "NODE_MODULES_DIR": node_modules_dir,
+                    "NODE_MODULE_DIR": node_modules_dir,
+                    "NODE_PATH": node_modules_dir,
                 },
             }
         )

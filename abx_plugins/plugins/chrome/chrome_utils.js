@@ -20,7 +20,17 @@ const { finished } = require('stream/promises');
 const execAsync = promisify(exec);
 
 // Import generic helpers from base plugin
-const { getEnv, getEnvBool, getEnvInt, getEnvArray, parseArgs } = require('../base/utils.js');
+const {
+    getEnv,
+    getEnvBool,
+    getEnvInt,
+    getEnvArray,
+    getNodeModulesDir: getNodeModulesDirFromBaseUtils,
+    ensureNodeModuleResolution,
+    parseArgs,
+} = require('../base/utils.js');
+
+ensureNodeModuleResolution(module);
 
 const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
 
@@ -779,9 +789,7 @@ async function installChromium(options = {}) {
     // Try to load @puppeteer/browsers from NODE_MODULES_DIR or system
     let puppeteerBrowsers;
     try {
-        if (process.env.NODE_MODULES_DIR) {
-            module.paths.unshift(process.env.NODE_MODULES_DIR);
-        }
+        ensureNodeModuleResolution(module);
         puppeteerBrowsers = require('@puppeteer/browsers');
     } catch (e) {
         console.error(`[!] @puppeteer/browsers not found. Install it first with installPuppeteerCore.`);
@@ -1668,10 +1676,7 @@ function getLibDir() {
  * @returns {string} - Absolute path to node_modules directory
  */
 function getNodeModulesDir() {
-    if (process.env.NODE_MODULES_DIR) {
-        return path.resolve(process.env.NODE_MODULES_DIR);
-    }
-    return path.resolve(path.join(getLibDir(), 'npm', 'node_modules'));
+    return getNodeModulesDirFromBaseUtils();
 }
 
 /**

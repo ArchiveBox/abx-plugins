@@ -17,9 +17,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { parseArgs, getEnv, getEnvInt } = require('../base/utils.js');
-// Add NODE_MODULES_DIR to module resolution paths if set
-if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
+const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvInt } = require('../base/utils.js');
+ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer');
 const {
     connectToPage,

@@ -27,10 +27,8 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-// Add NODE_MODULES_DIR to module resolution paths if set
-if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
-
-const { emitArchiveResult } = require('../base/utils.js');
+const { ensureNodeModuleResolution, emitArchiveResult } = require('../base/utils.js');
+ensureNodeModuleResolution(module);
 const {
     getEnv,
     getEnvBool,

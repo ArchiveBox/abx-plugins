@@ -14,9 +14,11 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import importlib.util
 from pathlib import Path
 
 import pytest
+from click.testing import CliRunner
 
 
 # Get the path to the npm provider hook
@@ -147,3 +149,73 @@ class TestNpmProviderHook:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_hook_emits_node_module_aliases(tmp_path, monkeypatch):
+    """Hook should emit NODE_MODULES_DIR, NODE_MODULE_DIR, and NODE_PATH together."""
+
+    spec = importlib.util.spec_from_file_location("npm_install_hook", INSTALL_HOOK)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    fake_bin = tmp_path / "lib" / "npm" / "node_modules" / ".bin" / "fake-cli"
+    fake_bin.parent.mkdir(parents=True, exist_ok=True)
+    fake_bin.write_text("", encoding="utf-8")
+
+    class FakeNpmProvider:
+        INSTALLER_BIN = "npm"
+
+        def __init__(self, npm_prefix):
+            self.npm_prefix = npm_prefix
+
+    class FakeBinaryResult:
+        abspath = fake_bin
+        version = "1.2.3"
+        sha256 = "deadbeef"
+
+    class FakeBinary:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def load_or_install(self):
+            return FakeBinaryResult()
+
+    monkeypatch.setattr(module, "NpmProvider", FakeNpmProvider)
+    monkeypatch.setattr(module, "Binary", FakeBinary)
+    monkeypatch.setattr(module, "EnvProvider", lambda: object())
+
+    runner = CliRunner()
+    env = os.environ.copy()
+    env["LIB_DIR"] = str(tmp_path / "lib")
+
+    result = runner.invoke(
+        module.main,
+        [
+            "--name=fake-cli",
+            "--binary-id=test-binary",
+            "--machine-id=test-machine",
+        ],
+        env=env,
+    )
+
+    assert result.exit_code == 0, result.output
+
+    records = [
+        json.loads(line)
+        for line in result.output.splitlines()
+        if line.startswith("{")
+    ]
+    machine_configs = [
+        record["config"]
+        for record in records
+        if record.get("type") == "Machine"
+    ]
+    node_config = next(
+        config
+        for config in machine_configs
+        if "NODE_MODULES_DIR" in config
+    )
+
+    assert node_config["NODE_MODULES_DIR"] == node_config["NODE_MODULE_DIR"]
+    assert node_config["NODE_MODULES_DIR"] == node_config["NODE_PATH"]

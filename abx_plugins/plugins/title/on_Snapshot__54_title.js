@@ -14,9 +14,15 @@
 
 const fs = require('fs');
 const path = require('path');
+const {
+    ensureNodeModuleResolution,
+    getEnvInt,
+    parseArgs,
+    emitArchiveResult,
+    writeFileAtomic,
+} = require('../base/utils.js');
+ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer-core');
-
-const { getEnvInt, parseArgs, emitArchiveResult, writeFileAtomic } = require('../base/utils.js');
 const {
     connectToPage,
     waitForPageLoaded,

@@ -9,16 +9,14 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { parseArgs } = require('../base/utils.js');
+const { ensureNodeModuleResolution, parseArgs } = require('../base/utils.js');
 
 // Match the rest of the JS hook lifecycle: ArchiveBox resolves provider-owned
 // node_modules once and passes NODE_MODULES_DIR to hook subprocesses. Helper
 // scripts launched from Python must honor the same lookup path or they will
 // fail to resolve shared dependencies like puppeteer-core even when the parent
 // hook already has them available.
-if (process.env.NODE_MODULES_DIR) {
-    module.paths.unshift(process.env.NODE_MODULES_DIR);
-}
+ensureNodeModuleResolution(module);
 
 const SNAPSHOT_OUTPUT_DIR = process.cwd();
 const CHROME_SESSION_DIR = path.resolve(SNAPSHOT_OUTPUT_DIR, '..', 'chrome');

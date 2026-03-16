@@ -22,9 +22,14 @@
 
 const path = require('path');
 const fs = require('fs');
-const { getEnv, getEnvBool, getEnvInt, parseArgs } = require('../base/utils.js');
-// Add NODE_MODULES_DIR to module resolution paths if set
-if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
+const {
+    ensureNodeModuleResolution,
+    getEnv,
+    getEnvBool,
+    getEnvInt,
+    parseArgs,
+} = require('../base/utils.js');
+ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer-core');
 
 const PLUGIN_DIR = path.basename(__dirname);

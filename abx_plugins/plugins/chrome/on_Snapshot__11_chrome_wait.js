@@ -10,9 +10,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { parseArgs } = require('../base/utils.js');
-// Add NODE_MODULES_DIR to module resolution paths if set
-if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
+const { ensureNodeModuleResolution, parseArgs } = require('../base/utils.js');
+ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer');
 
 const PLUGIN_DIR = path.basename(__dirname);

@@ -17,10 +17,15 @@
 
 const fs = require('fs');
 const path = require('path');
-// Add NODE_MODULES_DIR to module resolution paths if set
-if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
+const {
+    ensureNodeModuleResolution,
+    getEnvBool,
+    getEnvInt,
+    parseArgs,
+    emitArchiveResult,
+} = require('../base/utils.js');
+ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer-core');
-const { getEnvBool, getEnvInt, parseArgs, emitArchiveResult } = require('../base/utils.js');
 const {
     readCdpUrl,
     connectToPage,
