@@ -37,6 +37,7 @@ const {
     getEnv,
     getEnvBool,
     getExtensionId,
+    setBrowserDownloadBehavior,
     writePidWithMtime,
     getExtensionsDir,
     acquireSessionLock,
@@ -300,10 +301,14 @@ async function main() {
         // Load installed extensions
         const extensionsDir = getExtensionsDir();
         const userDataDir = getEnv('CHROME_USER_DATA_DIR');
+        const downloadsDir = getEnv('CHROME_DOWNLOADS_DIR');
         const cookiesFile = getEnv('COOKIES_TXT_FILE') || getEnv('COOKIES_FILE');
 
         if (userDataDir) {
             console.error(`[*] Using user data dir: ${userDataDir}`);
+        }
+        if (downloadsDir) {
+            console.error(`[*] Using downloads dir: ${downloadsDir}`);
         }
         if (cookiesFile) {
             console.error(`[*] Using cookies file: ${cookiesFile}`);
@@ -397,24 +402,36 @@ async function main() {
             await discoverExtensionTargets(cdpUrl, installedExtensions);
         }
 
-        // Only connect to CDP when cookies import is needed to reduce crash risk.
-        if (cookiesFile) {
-            console.error(`[*] Connecting puppeteer to CDP for cookie import...`);
+        // Configure browser-scoped download behavior and import cookies only
+        // after Chromium is fully up instead of mutating profile prefs before
+        // launch. Publishing cdp_url.txt still waits until all crawl-level
+        // setup is complete.
+        if (downloadsDir || cookiesFile) {
+            console.error(`[*] Connecting puppeteer to CDP for browser setup...`);
             const browser = await puppeteer.connect({
                 browserWSEndpoint: cdpUrl,
                 defaultViewport: null,
             });
             browserInstance = browser;
 
-            // Import cookies into Chrome profile at crawl start
-            await importCookiesFromFile(browser, cookiesFile, userDataDir);
+            if (downloadsDir) {
+                await setBrowserDownloadBehavior({
+                    browser,
+                    downloadPath: downloadsDir,
+                });
+                console.error(`[*] Configured Chrome download directory via CDP: ${downloadsDir}`);
+            }
+
+            if (cookiesFile) {
+                await importCookiesFromFile(browser, cookiesFile, userDataDir);
+            }
 
             try {
                 browser.disconnect();
             } catch (e) {}
             browserInstance = null;
         } else {
-            console.error('[*] Skipping puppeteer CDP connection (no cookies to import)');
+            console.error('[*] Skipping puppeteer CDP connection (no browser setup needed)');
         }
 
         // Write extensions metadata with actual IDs

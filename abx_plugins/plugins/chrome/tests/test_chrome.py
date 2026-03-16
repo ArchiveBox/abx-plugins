@@ -184,6 +184,43 @@ def test_chrome_launch_respects_sandbox_env():
             kill_chromium_session(chrome_launch_process, chrome_dir)
 
 
+def test_chrome_launch_configures_downloads_via_cdp_not_profile_prefs():
+    """CHROME_DOWNLOADS_DIR should be applied via CDP after launch, not by prewriting profile prefs."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        crawl_dir = Path(tmpdir) / "crawl"
+        chrome_dir = crawl_dir / "chrome"
+        user_data_dir = Path(tmpdir) / "chrome_user_data"
+        downloads_dir = Path(tmpdir) / "chrome_downloads"
+        chrome_dir.mkdir(parents=True)
+        user_data_dir.mkdir(parents=True)
+        downloads_dir.mkdir(parents=True)
+
+        env = get_test_env()
+        env["CHROME_HEADLESS"] = "true"
+        env["CHROME_USER_DATA_DIR"] = str(user_data_dir)
+        env["CHROME_DOWNLOADS_DIR"] = str(downloads_dir)
+
+        chrome_launch_process, _cdp_url = launch_chromium_session(
+            env, chrome_dir, "test-downloads-via-cdp"
+        )
+        try:
+            chrome_launch_process._stderr_handle.flush()
+            stderr = chrome_launch_process._stderr_log.read_text(
+                encoding="utf-8", errors="replace"
+            )
+            assert "Configured Chrome download directory via CDP" in stderr, stderr
+            assert "Set Chrome download directory:" not in stderr, stderr
+
+            prefs_path = user_data_dir / "Default" / "Preferences"
+            if prefs_path.exists():
+                prefs = json.loads(prefs_path.read_text())
+                assert (
+                    prefs.get("download", {}).get("default_directory") != str(downloads_dir)
+                ), prefs
+        finally:
+            kill_chromium_session(chrome_launch_process, chrome_dir)
+
+
 def test_chrome_launch_and_tab_creation(chrome_test_url):
     """Integration test: Launch Chrome at crawl level and create tab at snapshot level."""
     with tempfile.TemporaryDirectory() as tmpdir:

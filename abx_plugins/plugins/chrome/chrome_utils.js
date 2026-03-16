@@ -418,8 +418,6 @@ async function launchChromium(options = {}) {
         return { success: false, error: 'Chrome binary not found' };
     }
 
-    const downloadsDir = getEnv('CHROME_DOWNLOADS_DIR');
-
     // Kill zombies first
     if (killZombies) {
         killZombieChrome(getSnapDir(), {
@@ -448,28 +446,6 @@ async function launchChromium(options = {}) {
                 console.error(`[*] Removed stale SingletonLock: ${singletonLock}`);
             } catch (e) {
                 console.error(`[!] Failed to remove SingletonLock: ${e.message}`);
-            }
-        }
-        if (downloadsDir) {
-            try {
-                const defaultProfileDir = path.join(userDataDir, 'Default');
-                const prefsPath = path.join(defaultProfileDir, 'Preferences');
-                fs.mkdirSync(defaultProfileDir, { recursive: true });
-                let prefs = {};
-                if (fs.existsSync(prefsPath)) {
-                    try {
-                        prefs = JSON.parse(fs.readFileSync(prefsPath, 'utf-8'));
-                    } catch (e) {
-                        prefs = {};
-                    }
-                }
-                prefs.download = prefs.download || {};
-                prefs.download.default_directory = downloadsDir;
-                prefs.download.prompt_for_download = false;
-                fs.writeFileSync(prefsPath, JSON.stringify(prefs));
-                console.error(`[*] Set Chrome download directory: ${downloadsDir}`);
-            } catch (e) {
-                console.error(`[!] Failed to set Chrome download directory: ${e.message}`);
             }
         }
     }
@@ -1219,18 +1195,29 @@ async function loadExtensionFromTarget(extensions, target) {
         // Trigger extension toolbar button click
         dispatchAction: async (tab) => {
             return await target_ctx.evaluate(async (tab) => {
-                tab = tab || (await new Promise((resolve) =>
-                    chrome.tabs.query({ currentWindow: true, active: true }, ([tab]) => resolve(tab))
-                ));
+                const browserApi = (typeof browser !== 'undefined' && browser) || null;
+                const chromeApi = (typeof chrome !== 'undefined' && chrome) || null;
+                const tabsApi = browserApi?.tabs || chromeApi?.tabs || null;
 
-                // Manifest V3: chrome.action
-                if (chrome.action?.onClicked?.dispatch) {
-                    return await chrome.action.onClicked.dispatch(tab);
+                if (!tab && tabsApi?.query) {
+                    const tabs = await tabsApi.query({ currentWindow: true, active: true });
+                    tab = tabs?.[0] || null;
                 }
 
-                // Manifest V2: chrome.browserAction
-                if (chrome.browserAction?.onClicked?.dispatch) {
-                    return await chrome.browserAction.onClicked.dispatch(tab);
+                if (browserApi?.action?.onClicked?.dispatch) {
+                    return await browserApi.action.onClicked.dispatch(tab);
+                }
+
+                if (chromeApi?.action?.onClicked?.dispatch) {
+                    return await chromeApi.action.onClicked.dispatch(tab);
+                }
+
+                if (browserApi?.browserAction?.onClicked?.dispatch) {
+                    return await browserApi.browserAction.onClicked.dispatch(tab);
+                }
+
+                if (chromeApi?.browserAction?.onClicked?.dispatch) {
+                    return await chromeApi.browserAction.onClicked.dispatch(tab);
                 }
 
                 throw new Error('Extension action dispatch not available');
@@ -2111,6 +2098,49 @@ async function withConnectedBrowser(options, operation) {
     }
 }
 
+/**
+ * Configure Chrome's download behavior over the live CDP session.
+ * Prefer runtime configuration instead of mutating profile Preferences ahead
+ * of launch because Chrome's on-disk profile format changes frequently.
+ *
+ * @param {Object} options - Download behavior options
+ * @param {Object} options.browser - Connected puppeteer browser instance
+ * @param {string} options.downloadPath - Directory to save downloads in
+ * @returns {Promise<boolean>} - True if configuration succeeded
+ */
+async function setBrowserDownloadBehavior(options = {}) {
+    const {
+        browser,
+        downloadPath,
+    } = options;
+
+    if (!browser || !downloadPath) return false;
+
+    await fs.promises.mkdir(downloadPath, { recursive: true });
+    const session = await browser.target().createCDPSession();
+
+    try {
+        await session.send('Browser.setDownloadBehavior', {
+            behavior: 'allow',
+            downloadPath,
+        });
+        return true;
+    } catch (browserError) {
+        try {
+            await session.send('Page.setDownloadBehavior', {
+                behavior: 'allow',
+                downloadPath,
+            });
+            return true;
+        } catch (pageError) {
+            throw new Error(
+                `Browser.setDownloadBehavior failed: ${browserError.message}; ` +
+                `Page.setDownloadBehavior failed: ${pageError.message}`
+            );
+        }
+    }
+}
+
 function fetchDevtoolsTargets(cdpUrl) {
     const port = getChromeDebugPortFromCdpUrl(cdpUrl);
     if (!port) {
@@ -2716,6 +2746,7 @@ module.exports = {
     waitForNewDevtoolsPageTarget,
     connectToPage,
     waitForPageLoaded,
+    setBrowserDownloadBehavior,
     getCookiesViaCdp,
 };
 
