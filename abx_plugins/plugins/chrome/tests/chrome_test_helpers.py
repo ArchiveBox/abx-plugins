@@ -1029,12 +1029,14 @@ def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
         records = parse_jsonl_records(result.stdout)
         chromium_record = None
         for record in records:
-            if record.get("type") == "Binary" and record.get("name") in (
-                "chromium",
-                "chrome",
-            ):
+            if record.get("type") == "Binary" and record.get("name") == "chromium":
                 chromium_record = record
                 break
+        if not chromium_record:
+            for record in records:
+                if record.get("type") == "Binary" and record.get("name") == "chrome":
+                    chromium_record = record
+                    break
         if not chromium_record:
             chromium_record = parse_jsonl_output(result.stdout, record_type="Binary")
         if not chromium_record:

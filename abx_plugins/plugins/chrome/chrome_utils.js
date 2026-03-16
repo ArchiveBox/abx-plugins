@@ -524,14 +524,19 @@ async function launchChromium(options = {}) {
     // Write command script for debugging
     writeCmdScript(path.join(outputDir, 'cmd.sh'), binary, chromiumArgs);
 
+    let chromiumProcess = null;
+    let chromePid = null;
+    let recentStderr = '';
+    let recentStdout = '';
+
     try {
         console.error(`[*] Spawning Chromium (headless=${headless})...`);
-        const chromiumProcess = spawn(binary, chromiumArgs, {
+        chromiumProcess = spawn(binary, chromiumArgs, {
             stdio: ['ignore', 'pipe', 'pipe'],
             detached: true,
         });
 
-        const chromePid = chromiumProcess.pid;
+        chromePid = chromiumProcess.pid;
         const chromeStartTime = Date.now() / 1000;
 
         if (chromePid) {
@@ -541,16 +546,32 @@ async function launchChromium(options = {}) {
 
         // Pipe Chrome output to stderr
         chromiumProcess.stdout.on('data', (data) => {
+            recentStdout = `${recentStdout}${String(data)}`.slice(-4000);
             process.stderr.write(`[chromium:stdout] ${data}`);
         });
         chromiumProcess.stderr.on('data', (data) => {
+            recentStderr = `${recentStderr}${String(data)}`.slice(-4000);
             process.stderr.write(`[chromium:stderr] ${data}`);
+        });
+
+        const chromiumExit = new Promise((_, reject) => {
+            chromiumProcess.once('error', (error) => {
+                reject(new Error(`Chromium process failed to start: ${error.message}`));
+            });
+            chromiumProcess.once('exit', (code, signal) => {
+                reject(new Error(
+                    `Chromium exited before opening the debug port (code=${code ?? 'null'}, signal=${signal || 'none'})`
+                ));
+            });
         });
 
         // Wait for debug port
         console.error(`[*] Waiting for debug port ${debugPort}...`);
         const debugProbeTimeoutMs = getEnvInt('CHROME_DEBUG_PORT_TIMEOUT_MS', 30000);
-        const versionInfo = await waitForDebugPort(debugPort, debugProbeTimeoutMs);
+        const versionInfo = await Promise.race([
+            waitForDebugPort(debugPort, debugProbeTimeoutMs),
+            chromiumExit,
+        ]);
         const wsUrl = versionInfo.webSocketDebuggerUrl;
 
         console.error(`[+] Chromium ready: ${wsUrl}`);
@@ -584,7 +605,19 @@ async function launchChromium(options = {}) {
 
         return result;
     } catch (e) {
-        return { success: false, error: `${e.name}: ${e.message}` };
+        if (chromePid) {
+            await cleanupLaunchArtifacts(outputDir, chromePid);
+        }
+        const extraOutput = [
+            recentStdout ? `stdout=${recentStdout.trim()}` : '',
+            recentStderr ? `stderr=${recentStderr.trim()}` : '',
+        ].filter(Boolean).join(' ');
+        return {
+            success: false,
+            error: extraOutput
+                ? `${e.name}: ${e.message} (${extraOutput})`
+                : `${e.name}: ${e.message}`,
+        };
     }
 }
 
@@ -1591,10 +1624,15 @@ function findChromium() {
             if (validateBinary(c)) return c;
         }
         // Also search puppeteer cache under LIB_DIR
-        const libPuppeteerDir = path.join(libDir, 'puppeteer', 'chrome');
-        const libPuppeteerBinary = findInPuppeteerDir(libPuppeteerDir);
-        if (libPuppeteerBinary && validateBinary(libPuppeteerBinary)) {
-            return libPuppeteerBinary;
+        const libPuppeteerDirs = [
+            path.join(libDir, 'puppeteer', 'chromium'),
+            path.join(libDir, 'puppeteer', 'chrome'),
+        ];
+        for (const libPuppeteerDir of libPuppeteerDirs) {
+            const libPuppeteerBinary = findInPuppeteerDir(libPuppeteerDir);
+            if (libPuppeteerBinary && validateBinary(libPuppeteerBinary)) {
+                return libPuppeteerBinary;
+            }
         }
     }
 
@@ -2267,7 +2305,7 @@ async function setBrowserDownloadBehavior(options = {}) {
     }
 }
 
-function fetchDevtoolsTargets(cdpUrl) {
+function fetchDevtoolsTargets(cdpUrl, timeoutMs = 5000) {
     const port = getChromeDebugPortFromCdpUrl(cdpUrl);
     if (!port) {
         return Promise.resolve([]);
@@ -2289,11 +2327,14 @@ function fetchDevtoolsTargets(cdpUrl) {
                 });
             }
         );
+        req.setTimeout(timeoutMs, () => {
+            req.destroy(new Error(`Timed out fetching DevTools targets after ${timeoutMs}ms`));
+        });
         req.on('error', reject);
     });
 }
 
-function devtoolsHttpRequest(cdpUrl, requestPath, method = 'GET') {
+function devtoolsHttpRequest(cdpUrl, requestPath, method = 'GET', timeoutMs = 5000) {
     const port = getChromeDebugPortFromCdpUrl(cdpUrl);
     if (!port) {
         return Promise.reject(new Error(`Invalid CDP URL: ${cdpUrl}`));
@@ -2314,14 +2355,18 @@ function devtoolsHttpRequest(cdpUrl, requestPath, method = 'GET') {
                 });
             }
         );
+        req.setTimeout(timeoutMs, () => {
+            req.destroy(new Error(`Timed out waiting for DevTools ${method} ${requestPath} after ${timeoutMs}ms`));
+        });
         req.on('error', reject);
         req.end();
     });
 }
 
-async function createDevtoolsPageTarget(cdpUrl, initialUrl = 'about:blank') {
+async function createDevtoolsPageTarget(cdpUrl, initialUrl = 'about:blank', options = {}) {
+    const timeoutMs = options.timeoutMs || 5000;
     const encodedUrl = encodeURIComponent(initialUrl);
-    const response = await devtoolsHttpRequest(cdpUrl, `/json/new?${encodedUrl}`, 'PUT');
+    const response = await devtoolsHttpRequest(cdpUrl, `/json/new?${encodedUrl}`, 'PUT', timeoutMs);
     const target = JSON.parse(response || '{}');
     if (!target?.id) {
         throw new Error('Failed to create DevTools page target');
@@ -2673,15 +2718,38 @@ async function getBrowserServerUrl(chromeSessionDir = '../chrome', options = {})
  * @returns {Promise<{targetId: string}>}
  */
 async function openTabInChromeSession(options = {}) {
-    const { cdpUrl, puppeteer } = options;
+    const {
+        cdpUrl,
+        puppeteer,
+        timeoutMs = 10000,
+        intervalMs = 250,
+    } = options;
     if (!cdpUrl) {
         throw new Error(CHROME_SESSION_REQUIRED_ERROR);
     }
     if (puppeteer) {
         requirePuppeteerModule(puppeteer, 'openTabInChromeSession');
     }
-    const target = await createDevtoolsPageTarget(cdpUrl, 'about:blank');
-    return { targetId: target.id };
+    const deadline = Date.now() + Math.max(timeoutMs, 0);
+    let lastError = null;
+
+    while (Date.now() <= deadline) {
+        try {
+            const requestTimeoutMs = Math.max(1000, Math.min(5000, deadline - Date.now()));
+            const target = await createDevtoolsPageTarget(cdpUrl, 'about:blank', {
+                timeoutMs: requestTimeoutMs,
+            });
+            return { targetId: target.id };
+        } catch (error) {
+            lastError = error;
+            if (Date.now() >= deadline) {
+                break;
+            }
+            await sleep(intervalMs);
+        }
+    }
+
+    throw lastError || new Error('Failed to create DevTools page target');
 }
 
 /**
