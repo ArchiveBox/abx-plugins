@@ -421,7 +421,7 @@ def ensure_chromium_and_puppeteer_installed(tmp_path_factory):
     if not chromium_binary:
         raise RuntimeError("Chromium not found after install")
 
-    os.environ["CHROME_BINARY"] = chromium_binary
+    os.environ.setdefault("CHROME_BINARY", chromium_binary)
     for key in ("NODE_MODULES_DIR", "NODE_PATH", "PATH"):
         if env.get(key):
             os.environ[key] = env[key]
@@ -1071,11 +1071,15 @@ def setup_test_env(tmpdir: Path) -> dict:
 
     personas_dir = get_personas_dir()
     chrome_extensions_dir = personas_dir / "Default" / "chrome_extensions"
+    chrome_downloads_dir = personas_dir / "Default" / "chrome_downloads"
+    chrome_user_data_dir = personas_dir / "Default" / "chrome_user_data"
 
     # Create all directories
     node_modules_dir.mkdir(parents=True, exist_ok=True)
     npm_bin_dir.mkdir(parents=True, exist_ok=True)
     chrome_extensions_dir.mkdir(parents=True, exist_ok=True)
+    chrome_downloads_dir.mkdir(parents=True, exist_ok=True)
+    chrome_user_data_dir.mkdir(parents=True, exist_ok=True)
     snap_dir.mkdir(parents=True, exist_ok=True)
     crawl_dir = tmpdir / "crawl"
     crawl_dir.mkdir(parents=True, exist_ok=True)
@@ -1092,6 +1096,8 @@ def setup_test_env(tmpdir: Path) -> dict:
             "NPM_BIN_DIR": str(npm_bin_dir),
             "NODE_MODULES_DIR": str(node_modules_dir),
             "CHROME_EXTENSIONS_DIR": str(chrome_extensions_dir),
+            "CHROME_DOWNLOADS_DIR": str(chrome_downloads_dir),
+            "CHROME_USER_DATA_DIR": str(chrome_user_data_dir),
         }
     )
 

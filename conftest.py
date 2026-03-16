@@ -111,11 +111,12 @@ def ensure_chromium_and_puppeteer_installed(tmp_path_factory):
     if not chromium_binary:
         raise RuntimeError("Chromium not found after hook-based install")
 
-    # Only stash CHROME_BINARY so _resolve_existing_chromium() can skip
-    # re-download.  Do NOT propagate NODE_MODULES_DIR / NODE_PATH / PATH —
-    # chrome_session() calls get_test_env() itself and must not depend on
-    # session fixture execution order.
-    os.environ["CHROME_BINARY"] = chromium_binary
+    # Default tests to the hook-installed Puppeteer Chrome, but keep any
+    # explicit runtime CHROME_BINARY override authoritative.
+    # Do NOT propagate NODE_MODULES_DIR / NODE_PATH / PATH — chrome_session()
+    # calls get_test_env() itself and must not depend on session fixture
+    # execution order.
+    os.environ.setdefault("CHROME_BINARY", chromium_binary)
 
     return chromium_binary
 

@@ -21,6 +21,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_hook_script,
     parse_jsonl_output,
     install_chromium_with_hooks,
+    setup_test_env,
 )
 
 
@@ -348,6 +349,56 @@ def test_install_chromium_with_hooks_reuses_existing_chromium_via_env(tmp_path: 
 
     assert resolved == str(chromium_path)
     assert env["CHROME_BINARY"] == str(chromium_path)
+
+
+def test_setup_test_env_provisions_extension_runtime_dirs(tmp_path: Path):
+    """Extension test env should include explicit downloads and user-data dirs."""
+    env = setup_test_env(tmp_path)
+
+    downloads_dir = Path(env["CHROME_DOWNLOADS_DIR"])
+    user_data_dir = Path(env["CHROME_USER_DATA_DIR"])
+    extensions_dir = Path(env["CHROME_EXTENSIONS_DIR"])
+
+    assert downloads_dir.is_dir()
+    assert user_data_dir.is_dir()
+    assert extensions_dir.is_dir()
+    assert downloads_dir.parent == extensions_dir.parent
+    assert user_data_dir.parent == extensions_dir.parent
+
+
+def test_session_fixture_preserves_runtime_chrome_binary_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Session fixture should default CHROME_BINARY, not overwrite explicit overrides."""
+    import abx_plugins.plugins.chrome.tests.chrome_test_helpers as helpers
+
+    runtime_binary = tmp_path / "runtime-chromium"
+    installed_binary = tmp_path / "hook-chromium"
+    _write_fake_browser_binary(runtime_binary)
+    _write_fake_browser_binary(installed_binary)
+
+    class DummyTmpPathFactory:
+        def mktemp(self, name: str) -> Path:
+            path = tmp_path / name
+            path.mkdir(parents=True, exist_ok=True)
+            return path
+
+    monkeypatch.setenv("CHROME_BINARY", str(runtime_binary))
+    monkeypatch.delenv("SNAP_DIR", raising=False)
+    monkeypatch.delenv("PERSONAS_DIR", raising=False)
+    monkeypatch.setattr(helpers, "get_test_env", lambda: {})
+    monkeypatch.setattr(
+        helpers,
+        "install_chromium_with_hooks",
+        lambda env: str(installed_binary),
+    )
+
+    resolved = helpers.ensure_chromium_and_puppeteer_installed.__wrapped__(
+        DummyTmpPathFactory()
+    )
+
+    assert resolved == str(installed_binary)
+    assert os.environ["CHROME_BINARY"] == str(runtime_binary)
 
 
 if __name__ == "__main__":
