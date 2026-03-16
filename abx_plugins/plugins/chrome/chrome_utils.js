@@ -573,13 +573,28 @@ async function launchChromium(options = {}) {
         // readiness gate, so exposing it too early lets them race Chrome while
         // it is still settling and can trigger native browser crashes.
 
-        return {
+        const result = {
             success: true,
             cdpUrl: wsUrl,
             pid: chromePid,
             port: debugPort,
             process: chromiumProcess,
         };
+
+        try {
+            await verifyStableChromiumSession({
+                chromePid,
+                cdpUrl: wsUrl,
+                outputDir,
+                headless,
+                extensionPaths,
+            });
+        } catch (error) {
+            await cleanupLaunchArtifacts(outputDir, chromePid);
+            return { success: false, error: error.message };
+        }
+
+        return result;
     } catch (e) {
         return { success: false, error: `${e.name}: ${e.message}` };
     }
@@ -2231,6 +2246,84 @@ async function waitForNewDevtoolsPageTarget(cdpUrl, previousTargetIds = new Set(
 
 async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function cleanupLaunchArtifacts(outputDir, chromePid = null) {
+    if (chromePid) {
+        try {
+            await killChrome(chromePid, outputDir);
+        } catch (error) {}
+    }
+
+    try {
+        await cleanupStaleChromeSessionArtifacts(outputDir, { probeTimeoutMs: 250 });
+    } catch (error) {}
+}
+
+async function verifyStableChromiumSession(options = {}) {
+    const {
+        chromePid,
+        cdpUrl,
+        outputDir,
+        headless = true,
+        extensionPaths = [],
+    } = options;
+
+    const hasExtensions = extensionPaths.length > 0;
+    const settleMs = getEnvInt('CHROME_LAUNCH_SETTLE_MS', hasExtensions ? 1000 : 250);
+    const stableMs = getEnvInt('CHROME_LAUNCH_STABILITY_MS', hasExtensions ? 2500 : 750);
+
+    if (settleMs > 0) {
+        await sleep(settleMs);
+    }
+
+    if (!chromePid || !isProcessAlive(chromePid)) {
+        throw new Error(
+            hasExtensions && headless
+                ? 'Chromium exited during headless extension startup'
+                : 'Chromium exited during startup'
+        );
+    }
+
+    let browser = null;
+    try {
+        const puppeteer = resolvePuppeteerModule();
+        browser = await puppeteer.connect({
+            browserWSEndpoint: cdpUrl,
+            defaultViewport: null,
+        });
+    } catch (error) {
+        throw new Error(`Chromium CDP session not stable after startup: ${error.message}`);
+    } finally {
+        if (browser) {
+            try {
+                await browser.disconnect();
+            } catch (disconnectError) {}
+        }
+    }
+
+    const deadline = Date.now() + stableMs;
+    while (Date.now() < deadline) {
+        if (!isProcessAlive(chromePid)) {
+            throw new Error(
+                hasExtensions && headless
+                    ? 'Chromium exited after opening the debug port during headless extension startup'
+                    : 'Chromium exited after opening the debug port'
+            );
+        }
+        await sleep(200);
+    }
+
+    if (outputDir && hasExtensions) {
+        const extensionsFile = path.join(outputDir, 'extensions.json');
+        const extensionsDeadline = Date.now() + getEnvInt('CHROME_EXTENSION_METADATA_TIMEOUT_MS', 10000);
+        while (!fs.existsSync(extensionsFile) && Date.now() < extensionsDeadline) {
+            if (!isProcessAlive(chromePid)) {
+                throw new Error('Chromium exited before extension metadata became available');
+            }
+            await sleep(200);
+        }
+    }
 }
 
 async function resolvePageByTargetId(browser, targetId, timeoutMs = 0) {
