@@ -318,6 +318,86 @@ def test_chrome_launch_and_tab_creation(chrome_test_url):
             pass
 
 
+def test_cdp_url_is_not_published_before_extensions_metadata():
+    """cddp_url.txt should only appear after extension metadata is ready."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        shared_dir = Path(tmpdir) / "shared"
+        shared_dir.mkdir()
+        chrome_dir = shared_dir / "chrome"
+        chrome_dir.mkdir()
+        extensions_dir = Path(tmpdir) / "chrome_extensions"
+        extensions_dir.mkdir()
+
+        install_env = get_test_env() | {"CHROME_EXTENSIONS_DIR": str(extensions_dir)}
+        install = subprocess.run(
+            ["node", str(UBLOCK_INSTALL_HOOK)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=install_env,
+        )
+        assert install.returncode == 0, (
+            f"ublock install should succeed:\nStdout: {install.stdout}\nStderr: {install.stderr}"
+        )
+
+        env = install_env | {
+            "CRAWL_DIR": str(shared_dir),
+            "SNAP_DIR": str(shared_dir),
+            "CHROME_HEADLESS": "true",
+        }
+        extensions_file = chrome_dir / "extensions.json"
+        cdp_file = chrome_dir / "cdp_url.txt"
+        chrome_launch_process = subprocess.Popen(
+            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-cdp-after-exts"],
+            cwd=str(chrome_dir),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
+        )
+
+        try:
+            deadline = time.time() + 45
+            saw_extensions = False
+            saw_cdp = False
+
+            while time.time() < deadline:
+                if chrome_launch_process.poll() is not None:
+                    stdout, stderr = chrome_launch_process.communicate()
+                    pytest.fail(
+                        f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                    )
+
+                saw_extensions = extensions_file.exists()
+                saw_cdp = cdp_file.exists()
+
+                if saw_cdp and not saw_extensions:
+                    pytest.fail(
+                        "chrome launch published cdp_url.txt before extensions.json was ready"
+                    )
+
+                if saw_cdp and saw_extensions:
+                    break
+
+                time.sleep(0.1)
+
+            assert saw_extensions, "chrome launch should create extensions.json"
+            assert saw_cdp, "chrome launch should create cdp_url.txt"
+            metadata = wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
+            assert any(entry["name"] == "ublock" for entry in metadata), metadata
+        finally:
+            try:
+                chrome_launch_process.send_signal(signal.SIGTERM)
+                chrome_launch_process.wait(timeout=5)
+            except Exception:
+                pass
+            if (chrome_dir / "chrome.pid").exists():
+                try:
+                    os.kill(int((chrome_dir / "chrome.pid").read_text().strip()), signal.SIGKILL)
+                except OSError:
+                    pass
+
+
 def test_cookies_imported_on_launch():
     """Integration test: COOKIES_TXT_FILE is imported at crawl start."""
     with tempfile.TemporaryDirectory() as tmpdir:

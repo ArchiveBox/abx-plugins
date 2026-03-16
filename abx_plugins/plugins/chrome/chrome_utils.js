@@ -566,9 +566,12 @@ async function launchChromium(options = {}) {
         const wsUrl = versionInfo.webSocketDebuggerUrl;
 
         console.error(`[+] Chromium ready: ${wsUrl}`);
-
-        fs.writeFileSync(path.join(outputDir, 'cdp_url.txt'), wsUrl);
-        fs.writeFileSync(path.join(outputDir, 'port.txt'), String(debugPort));
+        // Do not publish cdp_url.txt / port.txt here.
+        // Crawl-level callers finish additional startup work after the raw CDP
+        // socket comes up (extension discovery, cookie import, writing
+        // extensions.json, etc.). Downstream hooks treat cdp_url.txt as the
+        // readiness gate, so exposing it too early lets them race Chrome while
+        // it is still settling and can trigger native browser crashes.
 
         return {
             success: true,

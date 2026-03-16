@@ -119,6 +119,7 @@ class TestTwoCaptcha:
 
             try:
                 wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
+                chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
 
                 result = subprocess.run(
                     [
@@ -214,6 +215,13 @@ const puppeteer = require('puppeteer-core');
                 )
 
                 print("[+] Config verified via Config.getAll()!")
+
+                # Immediate extension configuration used to crash Chromium 147 on
+                # macOS when cdp_url.txt was published before crawl-level launch
+                # setup had fully settled. Keep the browser alive briefly after
+                # config to ensure downstream hooks can safely attach right away.
+                time.sleep(5)
+                os.kill(chrome_pid, 0)
             finally:
                 kill_chrome(process, chrome_dir)
 

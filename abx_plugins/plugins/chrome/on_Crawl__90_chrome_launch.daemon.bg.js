@@ -425,6 +425,13 @@ async function main() {
             );
         }
 
+        // Publish the shared session files only after all crawl-level browser
+        // startup work is complete. Other hooks gate on cdp_url.txt to decide
+        // when Chrome is safe to use, so writing it earlier would let them
+        // attach while extensions are still initializing.
+        fs.writeFileSync(path.join(OUTPUT_DIR, 'cdp_url.txt'), cdpUrl);
+        fs.writeFileSync(path.join(OUTPUT_DIR, 'port.txt'), String(getPortFromCdpUrl(cdpUrl) || ''));
+
         console.error(`[+] Chromium session started for crawl ${crawlId}`);
         console.error(`[+] CDP URL: ${cdpUrl}`);
         console.error(`[+] PID: ${chromePid}`);
