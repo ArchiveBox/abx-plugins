@@ -1,0 +1,83 @@
+abx_plugins/plugins/seo/on_Snapshot__38_seo.js
+  7747428ab8277468 23,29-30
+abx_plugins/plugins/ssl/on_Snapshot__23_ssl.daemon.bg.js
+  7747428ab8277468 18,24-25
+abx_plugins/plugins/dom/on_Snapshot__53_dom.js
+  7747428ab8277468 17,23-25
+abx_plugins/plugins/dns/on_Snapshot__22_dns.daemon.bg.js
+  7747428ab8277468 18,24-25
+abx_plugins/plugins/claudechrome/on_Snapshot__47_claudechrome.js
+  7747428ab8277468 30-31
+abx_plugins/plugins/chrome/on_Snapshot__30_chrome_navigate.js
+  7747428ab8277468 20-21
+abx_plugins/plugins/headers/on_Snapshot__27_headers.daemon.bg.js
+  7747428ab8277468 18,24-25
+abx_plugins/plugins/chrome/chrome_utils.js
+  7747428ab8277468 28-33,792,1679
+abx_plugins/plugins/modalcloser/on_Snapshot__15_modalcloser.daemon.bg.js
+  7747428ab8277468 36,42
+abx_plugins/plugins/title/on_Snapshot__54_title.js
+  7747428ab8277468 17-24
+abx_plugins/plugins/accessibility/on_Snapshot__39_accessibility.js
+  7747428ab8277468 20-27
+abx_plugins/plugins/redirects/on_Snapshot__25_redirects.daemon.bg.js
+  7747428ab8277468 18,24-25
+abx_plugins/plugins/chrome/on_Snapshot__10_chrome_tab.daemon.bg.js
+  7747428ab8277468 26-27
+abx_plugins/plugins/npm/on_Binary__10_npm_install.py
+  7747428ab8277468 132,140-141
+abx_plugins/plugins/responses/on_Snapshot__24_responses.daemon.bg.js
+  7747428ab8277468 19,26-27
+abx_plugins/plugins/consolelog/on_Snapshot__21_consolelog.daemon.bg.js
+  7747428ab8277468 18,24-25
+abx_plugins/plugins/chrome/on_Crawl__90_chrome_launch.daemon.bg.js
+  7747428ab8277468 30-31
+abx_plugins/plugins/screenshot/on_Snapshot__51_screenshot.js
+  7747428ab8277468 18,23-25
+abx_plugins/plugins/pdf/on_Snapshot__52_pdf.js
+  7747428ab8277468 17,22-24
+abx_plugins/plugins/npm/tests/test_npm_provider.py
+  7747428ab8277468 17,21,152-221
+abx_plugins/plugins/singlefile/singlefile_extension_save.js
+  7747428ab8277468 12,19
+abx_plugins/plugins/claudechrome/on_Crawl__96_claudechrome_config.js
+  7747428ab8277468 20-21
+abx_plugins/plugins/parse_dom_outlinks/on_Snapshot__75_parse_dom_outlinks.js
+  7747428ab8277468 23-31
+abx_plugins/plugins/twocaptcha/on_Crawl__95_twocaptcha_config.js
+  7747428ab8277468 26,30,32
+abx_plugins/plugins/chrome/on_Crawl__91_chrome_wait.js
+  7747428ab8277468 14-15
+tests/test_js_node_module_resolution.py
+  7747428ab8277468 1-161
+abx_plugins/plugins/base/utils.js
+  7747428ab8277468 13,60-91,162-164
+abx_plugins/plugins/staticfile/on_Snapshot__26_staticfile.daemon.bg.js
+  7747428ab8277468 18,24-25
+abx_plugins/plugins/chrome/extract_cookies.js
+  7747428ab8277468 20-21
+abx_plugins/plugins/chrome/on_Snapshot__11_chrome_wait.js
+  7747428ab8277468 13-14
+abx_plugins/plugins/infiniscroll/on_Snapshot__45_infiniscroll.js
+  7747428ab8277468 37,43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.11",
+  "base_commit_sha": "5692bb8faae48b2a3a22773e0bc79f8e29e9dc25",
+  "prompts": {
+    "7747428ab8277468": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf473-a338-7961-957c-f453adf90d80",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 392,
+      "total_deletions": 107,
+      "accepted_lines": 366,
+      "overriden_lines": 0
+    }
+  }
+}
