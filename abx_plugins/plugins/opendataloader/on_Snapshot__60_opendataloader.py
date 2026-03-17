@@ -161,6 +161,8 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
     all_text_parts: list[str] = []
     metadata_records: list[dict] = []
 
+    binary_failed = False
+
     for source_file in sources:
         print(f"[opendataloader] Processing: {source_file.name}", file=sys.stderr)
         try:
@@ -200,12 +202,22 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
                 file=sys.stderr,
             )
             continue
+        except (FileNotFoundError, PermissionError, OSError) as e:
+            print(
+                f"[opendataloader] Binary execution failed: {type(e).__name__}: {e}",
+                file=sys.stderr,
+            )
+            binary_failed = True
+            break
         except Exception as e:
             print(
                 f"[opendataloader] Error on {source_file.name}: {type(e).__name__}: {e}",
                 file=sys.stderr,
             )
             continue
+
+    if binary_failed:
+        return "failed", f"Binary '{binary}' could not be executed"
 
     if not all_md_parts and not all_text_parts:
         return "noresults", "No content extracted from sources"
@@ -231,7 +243,10 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
         ),
     )
 
-    return "succeeded", OUTPUT_FILE
+    # Return the primary output file that was actually written
+    if all_md_parts:
+        return "succeeded", OUTPUT_FILE
+    return "succeeded", TEXT_FILE
 
 
 @click.command()

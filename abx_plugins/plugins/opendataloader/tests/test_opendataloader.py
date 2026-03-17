@@ -140,8 +140,11 @@ def require_opendataloader_binary() -> str:
     return binary_path
 
 
-def _download_test_pdf() -> bytes:
-    """Download a small public PDF for testing. Tries multiple sources."""
+def _download_test_pdf() -> bytes | None:
+    """Download a small public PDF for testing. Tries multiple sources.
+
+    Returns PDF bytes, or None if all sources are unavailable.
+    """
     pdf_urls = [
         "https://unec.edu.az/application/uploads/2014/12/pdf-sample.pdf",
         "https://www.orimi.com/pdf-test.pdf",
@@ -153,7 +156,15 @@ def _download_test_pdf() -> bytes:
                 return resp.content
         except Exception:
             continue
-    pytest.fail("Could not download any test PDF from the web")
+    return None
+
+
+def _require_test_pdf() -> bytes:
+    """Download a test PDF or skip the test if unavailable."""
+    pdf = _download_test_pdf()
+    if pdf is None:
+        pytest.skip("Could not download test PDF (network unavailable)")
+    return pdf
 
 
 def test_hook_script_exists():
@@ -231,7 +242,7 @@ def test_noresults_without_sources():
 def test_extract_single_pdf():
     """Test extraction on a single real PDF downloaded from the web."""
     binary_path = require_opendataloader_binary()
-    pdf_content = _download_test_pdf()
+    pdf_content = _require_test_pdf()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -288,7 +299,7 @@ def test_extract_multiple_pdfs():
     the hook processes every one, not just the first.
     """
     binary_path = require_opendataloader_binary()
-    pdf_content = _download_test_pdf()
+    pdf_content = _require_test_pdf()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -352,7 +363,7 @@ def test_force_ocr_adds_hybrid_flag():
     but we verify the flag is passed by checking stderr output.
     """
     binary_path = require_opendataloader_binary()
-    pdf_content = _download_test_pdf()
+    pdf_content = _require_test_pdf()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -384,14 +395,32 @@ def test_force_ocr_adds_hybrid_flag():
         )
 
         # With FORCE_OCR, it will attempt --hybrid docling-fast.
-        # Without a running hybrid server, it should still succeed via fallback
-        # (--hybrid-fallback is true by default in opendataloader-pdf).
+        # The hook must not crash regardless of hybrid server availability.
         assert result.returncode == 0, f"Should not crash: {result.stderr}"
 
         record = parse_jsonl_output(result.stdout)
         assert record, "Should have ArchiveResult JSONL output"
-        # Accept succeeded (fallback worked) or noresults (hybrid failed, no fallback content)
-        assert record["status"] in ("succeeded", "noresults"), f"Unexpected: {record}"
+
+        if record["status"] == "noresults":
+            # Hybrid server not available and fallback didn't produce content.
+            # Skip content assertions but don't fake-pass — mark as skipped
+            # so CI visibility shows OCR extraction was NOT verified.
+            pytest.skip(
+                "Hybrid OCR server not available; cannot verify OCR extraction. "
+                "Run with a hybrid server to fully test FORCE_OCR."
+            )
+
+        assert record["status"] == "succeeded", (
+            f"FORCE_OCR should succeed or noresults (no hybrid server), got: {record}. "
+            f"stderr: {result.stderr}"
+        )
+
+        output_dir = snap_dir / "opendataloader"
+        # Verify actual content was extracted (not a no-op pass)
+        output_file = output_dir / record["output_str"]
+        assert output_file.exists(), f"Output file {record['output_str']} not created"
+        content = output_file.read_text(errors="ignore")
+        assert len(content) > 10, f"Output too short, extraction may be broken: {content!r}"
 
 
 if __name__ == "__main__":

@@ -30,6 +30,11 @@ def main():
     if not opendataloader_enabled:
         sys.exit(0)
 
+    # Honor OPENDATALOADER_BINARY: if set and the file exists, skip install
+    custom_binary = os.environ.get("OPENDATALOADER_BINARY", "").strip()
+    if custom_binary and Path(custom_binary).is_file():
+        sys.exit(0)
+
     output_binary(
         name="opendataloader-pdf",
         binproviders="env,pip",
