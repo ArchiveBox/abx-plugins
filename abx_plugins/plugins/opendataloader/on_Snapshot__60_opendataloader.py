@@ -7,19 +7,28 @@
 # ]
 # ///
 """
-OCR PDFs and images using opendataloader-pdf.
+Extract structured text from PDFs using opendataloader-pdf.
 
-Finds PDF and image files produced by other plugins (pdf, screenshot, responses,
-staticfile) and extracts structured text content using opendataloader-pdf.
+Finds all PDF files produced by other plugins (pdf, responses, staticfile)
+and extracts text, tables, and metadata from each one. Processes every PDF
+found, combining results into content.md, content.txt, and metadata.json.
+
+For scanned/image-based PDFs, set OPENDATALOADER_FORCE_OCR=true to use the
+hybrid OCR backend (requires opendataloader-pdf-hybrid server running).
 
 Usage: on_Snapshot__60_opendataloader.py --url=<url> --snapshot-id=<uuid> > events.jsonl
 
 Environment variables:
     OPENDATALOADER_BINARY: Path to opendataloader-pdf binary
     OPENDATALOADER_TIMEOUT: Timeout in seconds (default: 120)
+    OPENDATALOADER_FORCE_OCR: Enable hybrid OCR for scanned PDFs (default: false)
+    OPENDATALOADER_HYBRID_URL: URL of hybrid server (default: built-in)
     OPENDATALOADER_ARGS: Default opendataloader-pdf arguments (JSON array)
     OPENDATALOADER_ARGS_EXTRA: Extra arguments to append (JSON array)
     TIMEOUT: Fallback timeout
+
+Note: opendataloader-pdf handles PDF files only. Standalone images (JPG, PNG)
+      are not supported as input by this tool.
 """
 
 import json
@@ -48,14 +57,11 @@ OUTPUT_FILE = "content.md"
 TEXT_FILE = "content.txt"
 METADATA_FILE = "metadata.json"
 
-PDF_EXTENSIONS = (".pdf",)
-IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif", ".gif")
 
+def find_pdf_sources() -> list[Path]:
+    """Find all PDF files from sibling plugin output directories.
 
-def find_pdf_and_image_sources() -> list[Path]:
-    """Find PDF and image files from sibling plugin output directories.
-
-    Searches for outputs from: pdf, screenshot, responses, staticfile plugins.
+    Searches for outputs from: pdf, responses, staticfile plugins.
     """
     search_patterns = [
         # PDF plugin output
@@ -63,41 +69,12 @@ def find_pdf_and_image_sources() -> list[Path]:
         "*_pdf/output.pdf",
         "pdf/*.pdf",
         "*_pdf/*.pdf",
-        # Screenshot plugin output
-        "screenshot/screenshot.png",
-        "*_screenshot/screenshot.png",
-        "screenshot/*.png",
-        "*_screenshot/*.png",
-        "screenshot/*.jpg",
-        "*_screenshot/*.jpg",
-        # Responses plugin output (PDFs and images served by the URL)
+        # Responses plugin output (PDFs served directly by the URL)
         "responses/**/*.pdf",
         "*_responses/**/*.pdf",
-        "responses/**/*.png",
-        "*_responses/**/*.png",
-        "responses/**/*.jpg",
-        "*_responses/**/*.jpg",
-        "responses/**/*.jpeg",
-        "*_responses/**/*.jpeg",
-        "responses/**/*.webp",
-        "*_responses/**/*.webp",
-        "responses/**/*.tiff",
-        "*_responses/**/*.tiff",
-        "responses/**/*.tif",
-        "*_responses/**/*.tif",
-        "responses/**/*.bmp",
-        "*_responses/**/*.bmp",
-        "responses/**/*.gif",
-        "*_responses/**/*.gif",
         # Staticfile plugin output
         "staticfile/**/*.pdf",
         "*_staticfile/**/*.pdf",
-        "staticfile/**/*.png",
-        "*_staticfile/**/*.png",
-        "staticfile/**/*.jpg",
-        "*_staticfile/**/*.jpg",
-        "staticfile/**/*.jpeg",
-        "*_staticfile/**/*.jpeg",
     ]
 
     found: list[Path] = []
@@ -110,10 +87,8 @@ def find_pdf_and_image_sources() -> list[Path]:
                 if resolved in seen:
                     continue
                 if match.is_file() and match.stat().st_size > 0:
-                    suffix = match.suffix.lower()
-                    if suffix in PDF_EXTENSIONS or suffix in IMAGE_EXTENSIONS:
-                        found.append(match)
-                        seen.add(resolved)
+                    found.append(match)
+                    seen.add(resolved)
 
     return found
 
@@ -148,20 +123,38 @@ def _run_opendataloader(binary: str, source_file: Path, fmt: str, out_dir: Path,
 
 def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
     """
-    OCR PDFs and images using opendataloader-pdf.
+    Extract text from all PDFs found using opendataloader-pdf.
+
+    Processes every PDF found across sibling plugin directories.
+    Results from all files are combined into the output.
 
     Returns: (status, output_str)
     """
     config = load_config()
     timeout = config.OPENDATALOADER_TIMEOUT
+    force_ocr = config.OPENDATALOADER_FORCE_OCR
+    hybrid_url = config.OPENDATALOADER_HYBRID_URL
     opendataloader_args = config.OPENDATALOADER_ARGS
     opendataloader_args_extra = config.OPENDATALOADER_ARGS_EXTRA
     extra_args = [*opendataloader_args, *opendataloader_args_extra]
 
-    # Find PDF/image sources from sibling plugins
-    sources = find_pdf_and_image_sources()
+    # When FORCE_OCR is enabled, use hybrid backend for scanned/image-based PDFs
+    if force_ocr:
+        # Only add if user hasn't already specified --hybrid in ARGS
+        has_hybrid = any(a.startswith("--hybrid") for a in extra_args)
+        if not has_hybrid:
+            extra_args.extend(["--hybrid", "docling-fast"])
+        if hybrid_url:
+            has_url = any(a.startswith("--hybrid-url") for a in extra_args)
+            if not has_url:
+                extra_args.extend(["--hybrid-url", hybrid_url])
+
+    # Find all PDF sources from sibling plugins
+    sources = find_pdf_sources()
     if not sources:
-        return "noresults", "No PDF or image sources found"
+        return "noresults", "No PDF sources found"
+
+    print(f"[opendataloader] Found {len(sources)} PDF(s) to process", file=sys.stderr)
 
     output_dir = Path(OUTPUT_DIR)
     all_md_parts: list[str] = []
@@ -169,6 +162,7 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
     metadata_records: list[dict] = []
 
     for source_file in sources:
+        print(f"[opendataloader] Processing: {source_file.name}", file=sys.stderr)
         try:
             # Run markdown extraction
             with tempfile.TemporaryDirectory() as tmpdir:
@@ -244,7 +238,7 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
 @click.option("--url", required=True, help="URL being archived")
 @click.option("--snapshot-id", required=True, help="Snapshot UUID")
 def main(url: str, snapshot_id: str):
-    """OCR PDFs and images using opendataloader-pdf."""
+    """Extract structured text from PDFs using opendataloader-pdf."""
 
     try:
         config = load_config()

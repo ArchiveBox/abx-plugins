@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "OpenDataLoader",
-  "description": "OCR PDFs and images to extract structured text, tables, and metadata using opendataloader-pdf.",
+  "description": "Extract structured text, tables, and metadata from PDFs using opendataloader-pdf. Supports OCR for scanned PDFs via hybrid backend.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
@@ -12,7 +12,7 @@
       "type": "boolean",
       "default": true,
       "x-aliases": ["SAVE_OPENDATALOADER", "USE_OPENDATALOADER"],
-      "description": "Enable OCR extraction with opendataloader-pdf"
+      "description": "Enable PDF text extraction with opendataloader-pdf"
     },
     "OPENDATALOADER_BINARY": {
       "type": "string",
@@ -24,7 +24,17 @@
       "default": 120,
       "minimum": 10,
       "x-fallback": "TIMEOUT",
-      "description": "Timeout for OCR extraction in seconds"
+      "description": "Timeout for PDF extraction in seconds"
+    },
+    "OPENDATALOADER_FORCE_OCR": {
+      "type": "boolean",
+      "default": false,
+      "description": "Use hybrid OCR backend (--hybrid docling-fast) for scanned/image-based PDFs. Requires opendataloader-pdf-hybrid server running."
+    },
+    "OPENDATALOADER_HYBRID_URL": {
+      "type": "string",
+      "default": "",
+      "description": "URL of the opendataloader-pdf-hybrid server (e.g. http://localhost:5002). If empty, uses the default built-in URL."
     },
     "OPENDATALOADER_ARGS": {
       "type": "array",

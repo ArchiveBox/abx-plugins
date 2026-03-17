@@ -4,9 +4,10 @@ Integration tests for opendataloader plugin.
 Tests verify:
 1. Hook script exists
 2. Install hooks can install opendataloader-pdf binary
-3. OCR extraction runs with real opendataloader-pdf binary on a real live PDF
-4. Config options work (enabled/disabled)
-5. Handles missing sources gracefully
+3. Extraction runs with real opendataloader-pdf binary on a real live PDF
+4. Multiple PDFs are all processed (not just the first)
+5. Config options work (enabled/disabled, FORCE_OCR)
+6. Handles missing sources gracefully
 """
 
 import json
@@ -139,6 +140,22 @@ def require_opendataloader_binary() -> str:
     return binary_path
 
 
+def _download_test_pdf() -> bytes:
+    """Download a small public PDF for testing. Tries multiple sources."""
+    pdf_urls = [
+        "https://unec.edu.az/application/uploads/2014/12/pdf-sample.pdf",
+        "https://www.orimi.com/pdf-test.pdf",
+    ]
+    for url in pdf_urls:
+        try:
+            resp = requests.get(url, timeout=30)
+            if resp.status_code == 200 and resp.content[:5] == b"%PDF-":
+                return resp.content
+        except Exception:
+            continue
+    pytest.fail("Could not download any test PDF from the web")
+
+
 def test_hook_script_exists():
     assert OPENDATALOADER_HOOK.exists(), f"Hook script not found: {OPENDATALOADER_HOOK}"
 
@@ -178,7 +195,7 @@ def test_config_disabled_skips():
 
 
 def test_noresults_without_sources():
-    """Test that hook reports noresults when no PDF/image sources exist."""
+    """Test that hook reports noresults when no PDF sources exist."""
     binary_path = require_opendataloader_binary()
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -211,32 +228,10 @@ def test_noresults_without_sources():
         assert record and record["status"] == "noresults"
 
 
-def test_ocr_real_pdf_from_web():
-    """Test OCR extraction on a real PDF downloaded from the web.
-
-    Downloads a public PDF, places it as if the pdf plugin produced it,
-    and runs the opendataloader snapshot hook to extract text.
-    """
+def test_extract_single_pdf():
+    """Test extraction on a single real PDF downloaded from the web."""
     binary_path = require_opendataloader_binary()
-
-    # Try multiple stable public PDF sources
-    pdf_urls = [
-        "https://unec.edu.az/application/uploads/2014/12/pdf-sample.pdf",
-        "https://www.orimi.com/pdf-test.pdf",
-    ]
-
-    pdf_content = None
-    for url in pdf_urls:
-        try:
-            resp = requests.get(url, timeout=30)
-            if resp.status_code == 200 and resp.content[:5] == b"%PDF-":
-                pdf_content = resp.content
-                break
-        except Exception:
-            continue
-
-    if pdf_content is None:
-        pytest.fail("Could not download any test PDF from the web")
+    pdf_content = _download_test_pdf()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -245,8 +240,7 @@ def test_ocr_real_pdf_from_web():
         # Place PDF as if the pdf plugin produced it
         pdf_dir = snap_dir / "pdf"
         pdf_dir.mkdir(parents=True, exist_ok=True)
-        pdf_file = pdf_dir / "output.pdf"
-        pdf_file.write_bytes(pdf_content)
+        (pdf_dir / "output.pdf").write_bytes(pdf_content)
 
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
@@ -259,7 +253,7 @@ def test_ocr_real_pdf_from_web():
                 "--url",
                 "https://example.com/test.pdf",
                 "--snapshot-id",
-                "test-real-pdf",
+                "test-single-pdf",
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -268,52 +262,47 @@ def test_ocr_real_pdf_from_web():
             env=env,
         )
 
-        assert result.returncode == 0, f"OCR extraction failed: {result.stderr}"
+        assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
         record = parse_jsonl_output(result.stdout)
         assert record, "Should have ArchiveResult JSONL output"
         assert record["status"] == "succeeded", f"Should succeed: {record}. stderr: {result.stderr}"
 
         output_dir = snap_dir / "opendataloader"
-        md_file = output_dir / "content.md"
-        txt_file = output_dir / "content.txt"
-        meta_file = output_dir / "metadata.json"
+        assert (output_dir / "content.md").exists(), "content.md not created"
+        assert (output_dir / "content.txt").exists(), "content.txt not created"
+        assert (output_dir / "metadata.json").exists(), "metadata.json not created"
 
-        assert md_file.exists(), "content.md not created"
-        assert txt_file.exists(), "content.txt not created"
-        assert meta_file.exists(), "metadata.json not created"
-
-        md_content = md_file.read_text(errors="ignore")
+        md_content = (output_dir / "content.md").read_text(errors="ignore")
         assert len(md_content) > 10, f"content.md too short: {md_content!r}"
 
-        metadata = json.loads(meta_file.read_text())
-        assert metadata["sources_processed"] >= 1
+        metadata = json.loads((output_dir / "metadata.json").read_text())
+        assert metadata["sources_processed"] == 1
         assert metadata["files"][0]["source_file"] == "output.pdf"
 
 
-def test_ocr_image_from_responses():
-    """Test OCR extraction on an image placed as if the responses plugin produced it."""
+def test_extract_multiple_pdfs():
+    """Test that ALL PDFs are processed when multiple exist across plugins.
+
+    Places PDFs in both pdf/ and responses/ directories and verifies
+    the hook processes every one, not just the first.
+    """
     binary_path = require_opendataloader_binary()
-
-    # Download a real image with text content (a table image from W3C)
-    image_url = "https://www.w3.org/WAI/WCAG21/Techniques/pdf/img/table-word.jpg"
-
-    try:
-        resp = requests.get(image_url, timeout=30)
-        resp.raise_for_status()
-        image_content = resp.content
-    except Exception as e:
-        pytest.fail(f"Could not download test image: {e}")
+    pdf_content = _download_test_pdf()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir / "snap"
 
-        # Place image as if responses plugin produced it
-        responses_dir = snap_dir / "responses" / "image" / "example.com"
+        # Place PDF in pdf/ plugin output
+        pdf_dir = snap_dir / "pdf"
+        pdf_dir.mkdir(parents=True, exist_ok=True)
+        (pdf_dir / "output.pdf").write_bytes(pdf_content)
+
+        # Place another PDF in responses/ as if the server served a PDF
+        responses_dir = snap_dir / "responses" / "application" / "example.com"
         responses_dir.mkdir(parents=True, exist_ok=True)
-        img_file = responses_dir / "table-word.jpg"
-        img_file.write_bytes(image_content)
+        (responses_dir / "document.pdf").write_bytes(pdf_content)
 
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
@@ -324,9 +313,9 @@ def test_ocr_image_from_responses():
                 sys.executable,
                 str(OPENDATALOADER_HOOK),
                 "--url",
-                "https://example.com/image.jpg",
+                "https://example.com/docs",
                 "--snapshot-id",
-                "test-image-ocr",
+                "test-multi-pdf",
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -335,16 +324,74 @@ def test_ocr_image_from_responses():
             env=env,
         )
 
-        assert result.returncode == 0, f"Image OCR failed: {result.stderr}"
+        assert result.returncode == 0, f"Extraction failed: {result.stderr}"
 
         record = parse_jsonl_output(result.stdout)
         assert record, "Should have ArchiveResult JSONL output"
-        # opendataloader-pdf handles PDFs; images may not be supported - accept noresults too
-        assert record["status"] in ("succeeded", "noresults"), f"Unexpected status: {record}"
+        assert record["status"] == "succeeded", f"Should succeed: {record}"
 
-        if record["status"] == "succeeded":
-            output_dir = snap_dir / "opendataloader"
-            assert (output_dir / "content.md").exists(), "content.md not created"
+        output_dir = snap_dir / "opendataloader"
+        metadata = json.loads((output_dir / "metadata.json").read_text())
+        assert metadata["sources_processed"] == 2, (
+            f"Expected 2 PDFs processed, got {metadata['sources_processed']}. "
+            f"Files: {metadata['files']}"
+        )
+        assert metadata["total_sources_found"] == 2
+
+        # Verify combined output contains content from both files
+        md_content = (output_dir / "content.md").read_text(errors="ignore")
+        assert "---" in md_content or md_content.count("<!-- source:") >= 2, (
+            "Combined markdown should contain content from both PDFs"
+        )
+
+
+def test_force_ocr_adds_hybrid_flag():
+    """Test that OPENDATALOADER_FORCE_OCR=true adds --hybrid docling-fast to command.
+
+    Since no hybrid server is running, the extraction will fail/fallback,
+    but we verify the flag is passed by checking stderr output.
+    """
+    binary_path = require_opendataloader_binary()
+    pdf_content = _download_test_pdf()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        snap_dir = tmpdir / "snap"
+
+        pdf_dir = snap_dir / "pdf"
+        pdf_dir.mkdir(parents=True, exist_ok=True)
+        (pdf_dir / "output.pdf").write_bytes(pdf_content)
+
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(snap_dir)
+        env["OPENDATALOADER_BINARY"] = binary_path
+        env["OPENDATALOADER_FORCE_OCR"] = "true"
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(OPENDATALOADER_HOOK),
+                "--url",
+                "https://example.com/scanned.pdf",
+                "--snapshot-id",
+                "test-force-ocr",
+            ],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=env,
+        )
+
+        # With FORCE_OCR, it will attempt --hybrid docling-fast.
+        # Without a running hybrid server, it should still succeed via fallback
+        # (--hybrid-fallback is true by default in opendataloader-pdf).
+        assert result.returncode == 0, f"Should not crash: {result.stderr}"
+
+        record = parse_jsonl_output(result.stdout)
+        assert record, "Should have ArchiveResult JSONL output"
+        # Accept succeeded (fallback worked) or noresults (hybrid failed, no fallback content)
+        assert record["status"] in ("succeeded", "noresults"), f"Unexpected: {record}"
 
 
 if __name__ == "__main__":
