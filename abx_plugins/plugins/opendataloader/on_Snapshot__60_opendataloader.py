@@ -190,7 +190,8 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
                 continue
             if a.startswith("--hybrid"):
                 # Skip --hybrid and --hybrid-url along with their values
-                skip_next = True
+                if "=" not in a:
+                    skip_next = True
                 continue
             _filtered.append(a)
         base_args = _filtered
