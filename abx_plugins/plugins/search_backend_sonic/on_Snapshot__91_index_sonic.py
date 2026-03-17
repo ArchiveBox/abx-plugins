@@ -49,6 +49,8 @@ INDEXABLE_FILES = [
     ("readability", "content.html"),
     ("mercury", "content.txt"),
     ("mercury", "content.html"),
+    ("opendataloader", "content.txt"),
+    ("opendataloader", "content.md"),
     ("htmltotext", "output.txt"),
     ("singlefile", "singlefile.html"),
     ("dom", "output.html"),
