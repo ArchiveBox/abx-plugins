@@ -11,7 +11,6 @@ Tests verify:
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -38,16 +37,25 @@ _opendataloader_lib_root = None
 
 
 def get_opendataloader_binary_path():
-    """Get opendataloader-pdf binary path from PATH or by running install hooks."""
+    """Get opendataloader-pdf binary path using abx_pkg or install hooks."""
     global _opendataloader_binary_path
     if _opendataloader_binary_path and Path(_opendataloader_binary_path).is_file():
         return _opendataloader_binary_path
 
-    # Try finding it on PATH first (already installed)
-    found = shutil.which("opendataloader-pdf")
-    if found and Path(found).is_file():
-        _opendataloader_binary_path = found
-        return _opendataloader_binary_path
+    # Try loading via abx_pkg Binary API first
+    from abx_pkg import Binary, PipProvider, EnvProvider
+
+    try:
+        binary = Binary(
+            name="opendataloader-pdf",
+            binproviders=[PipProvider(), EnvProvider()],
+            overrides={"pip": {"install_args": ["opendataloader-pdf"]}},
+        ).load()
+        if binary and binary.abspath:
+            _opendataloader_binary_path = str(binary.abspath)
+            return _opendataloader_binary_path
+    except Exception:
+        pass
 
     # Fall back to install via real plugin hooks
     pip_hook = PLUGINS_ROOT / "pip" / "on_Binary__11_pip_install.py"
