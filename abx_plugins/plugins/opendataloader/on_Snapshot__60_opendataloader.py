@@ -121,6 +121,21 @@ def _run_opendataloader(binary: str, source_file: Path, fmt: str, out_dir: Path,
     return None
 
 
+def _extract_single_pdf(binary: str, source_file: Path, timeout: int, extra_args: list[str]) -> tuple[str, str]:
+    """Run markdown + text extraction on a single PDF, return (md_content, text_content)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        md_out = _run_opendataloader(binary, source_file, "markdown", tmp, timeout, extra_args)
+        md_content = md_out.read_text(errors="ignore") if md_out else ""
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        txt_out = _run_opendataloader(binary, source_file, "text", tmp, timeout, extra_args)
+        text_content = txt_out.read_text(errors="ignore") if txt_out else ""
+
+    return md_content, text_content
+
+
 def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
     """
     Extract text from all PDFs found using opendataloader-pdf.
@@ -163,20 +178,40 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
 
     binary_failed = False
 
+    # Build base args (without hybrid flags) for fallback when hybrid fails
+    base_args = [a for a in extra_args if not a.startswith("--hybrid")]
+    # Also remove the value arg following --hybrid (e.g. "docling-fast")
+    if force_ocr:
+        _filtered: list[str] = []
+        skip_next = False
+        for a in extra_args:
+            if skip_next:
+                skip_next = False
+                continue
+            if a.startswith("--hybrid"):
+                # Skip --hybrid and --hybrid-url along with their values
+                skip_next = True
+                continue
+            _filtered.append(a)
+        base_args = _filtered
+
     for source_file in sources:
         print(f"[opendataloader] Processing: {source_file.name}", file=sys.stderr)
         try:
-            # Run markdown extraction
-            with tempfile.TemporaryDirectory() as tmpdir:
-                tmp = Path(tmpdir)
-                md_out = _run_opendataloader(binary, source_file, "markdown", tmp, timeout, extra_args)
-                md_content = md_out.read_text(errors="ignore") if md_out else ""
+            md_content, text_content = _extract_single_pdf(
+                binary, source_file, timeout, extra_args,
+            )
 
-            # Run text extraction
-            with tempfile.TemporaryDirectory() as tmpdir:
-                tmp = Path(tmpdir)
-                txt_out = _run_opendataloader(binary, source_file, "text", tmp, timeout, extra_args)
-                text_content = txt_out.read_text(errors="ignore") if txt_out else ""
+            # If hybrid extraction produced nothing, retry without hybrid flags
+            if force_ocr and not md_content and not text_content and base_args != extra_args:
+                print(
+                    f"[opendataloader] Hybrid extraction failed for {source_file.name}, "
+                    "retrying without hybrid flags",
+                    file=sys.stderr,
+                )
+                md_content, text_content = _extract_single_pdf(
+                    binary, source_file, timeout, base_args,
+                )
 
             if not md_content and not text_content:
                 print(
