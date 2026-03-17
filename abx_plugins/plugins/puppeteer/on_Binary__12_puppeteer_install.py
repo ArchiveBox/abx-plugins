@@ -171,10 +171,43 @@ def _run_puppeteer_install(binary: Binary, install_args: list[str], cache_dir: P
         return proc
 
     install_output = f"{proc.stdout}\n{proc.stderr}"
+
+    # If --install-deps failed because we're not root, retry with sudo
+    if (
+        "--install-deps" in install_args
+        and "requires root privileges" in install_output
+        and os.geteuid() != 0
+        and shutil.which("sudo")
+    ):
+        sudo_proc = _run_puppeteer_install_with_sudo(binary, install_args, cache_dir)
+        if sudo_proc is not None:
+            return sudo_proc
+
     if not _cleanup_partial_chromium_cache(install_output, cache_dir):
         return proc
 
     return binary.exec(cmd=cmd, timeout=300)
+
+
+def _run_puppeteer_install_with_sudo(
+    binary: Binary, install_args: list[str], cache_dir: Path
+):
+    """Re-run puppeteer install via sudo so --install-deps can install system libs."""
+    import subprocess as _subprocess
+
+    abspath = str(binary.abspath or shutil.which("puppeteer") or "")
+    if not abspath:
+        return None
+
+    sudo_cmd = [
+        "sudo", "-E", abspath, "browsers", "install", *install_args,
+    ]
+    env = os.environ.copy()
+    env.setdefault("PUPPETEER_CACHE_DIR", str(cache_dir))
+    proc = _subprocess.run(
+        sudo_cmd, capture_output=True, text=True, timeout=300, env=env,
+    )
+    return proc
 
 
 def _cleanup_partial_chromium_cache(install_output: str, cache_dir: Path) -> bool:
