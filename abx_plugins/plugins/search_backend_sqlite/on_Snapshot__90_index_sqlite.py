@@ -38,21 +38,12 @@ SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
-# Text file patterns to index, in priority order
-INDEXABLE_FILES = [
-    ("readability", "content.txt"),
-    ("readability", "content.html"),
-    ("mercury", "content.txt"),
-    ("mercury", "content.html"),
-    ("opendataloader", "content.txt"),
-    ("opendataloader", "content.md"),
-    ("htmltotext", "output.txt"),
-    ("singlefile", "singlefile.html"),
-    ("dom", "output.html"),
-    ("wget", "**/*.html"),
-    ("wget", "**/*.htm"),
-    ("title", "title.txt"),
-]
+# File extensions eligible for full-text indexing
+INDEXABLE_EXTENSIONS = {".txt", ".md", ".html", ".htm"}
+# Directories to skip (search backends themselves, executor artifacts, non-text plugins)
+SKIP_DIRS = {"search_backend_sqlite", "search_backend_sonic", "search_backend_ripgrep"}
+# Filename suffixes that are executor artifacts, not content
+EXECUTOR_ARTIFACT_SUFFIXES = (".stdout.log", ".stderr.log", ".pid", ".sh", ".meta.json")
 
 
 def get_text_size_kb(texts: list[str]) -> int:
@@ -75,33 +66,49 @@ def strip_html_tags(html: str) -> str:
 
 
 def find_indexable_content() -> list[tuple[str, str, Path]]:
-    """Find text content to index from extractor outputs."""
+    """Auto-discover text content to index from all plugin output directories.
+
+    Walks every subdirectory of SNAP_DIR and collects .txt, .md, .html, .htm
+    files, stripping HTML tags where needed.  This avoids hardcoding which
+    plugins produce indexable output — any plugin that writes text files will
+    be picked up automatically.
+    """
     results = []
     snap_dir = SNAP_DIR
 
-    for extractor, file_pattern in INDEXABLE_FILES:
-        plugin_dir = snap_dir / extractor
-        if not plugin_dir.exists():
+    if not snap_dir.is_dir():
+        return results
+
+    for plugin_dir in sorted(snap_dir.iterdir()):
+        if not plugin_dir.is_dir():
             continue
 
-        if "*" in file_pattern:
-            matches = list(plugin_dir.glob(file_pattern))
-        else:
-            match = plugin_dir / file_pattern
-            matches = [match] if match.exists() else []
+        extractor = plugin_dir.name
+        if extractor in SKIP_DIRS:
+            continue
 
-        for match in matches:
-            if match.is_file() and match.stat().st_size > 0:
-                try:
-                    content = match.read_text(encoding="utf-8", errors="ignore")
-                    if content.strip():
-                        if match.suffix in (".html", ".htm"):
-                            content = strip_html_tags(content)
-                        if content.strip():
-                            rel_path = match.relative_to(plugin_dir)
-                            results.append((f"{extractor}/{rel_path.as_posix()}", content, match))
-                except Exception:
+        for match in plugin_dir.rglob("*"):
+            if not match.is_file():
+                continue
+            if match.suffix.lower() not in INDEXABLE_EXTENSIONS:
+                continue
+            if any(match.name.endswith(s) for s in EXECUTOR_ARTIFACT_SUFFIXES):
+                continue
+            if match.stat().st_size == 0:
+                continue
+
+            try:
+                content = match.read_text(encoding="utf-8", errors="ignore")
+                if not content.strip():
                     continue
+                if match.suffix.lower() in (".html", ".htm"):
+                    content = strip_html_tags(content)
+                if not content.strip():
+                    continue
+                rel_path = match.relative_to(plugin_dir)
+                results.append((f"{extractor}/{rel_path.as_posix()}", content, match))
+            except Exception:
+                continue
 
     return results
 
