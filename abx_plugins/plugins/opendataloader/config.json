@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OpenDataLoader",
+  "description": "OCR PDFs and images to extract structured text, tables, and metadata using opendataloader-pdf.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [],
+  "required_binaries": ["opendataloader-pdf"],
+  "output_mimetypes": ["text/plain", "text/markdown", "application/json"],
+  "properties": {
+    "OPENDATALOADER_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["SAVE_OPENDATALOADER", "USE_OPENDATALOADER"],
+      "description": "Enable OCR extraction with opendataloader-pdf"
+    },
+    "OPENDATALOADER_BINARY": {
+      "type": "string",
+      "default": "opendataloader-pdf",
+      "description": "Path to opendataloader-pdf binary"
+    },
+    "OPENDATALOADER_TIMEOUT": {
+      "type": "integer",
+      "default": 120,
+      "minimum": 10,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for OCR extraction in seconds"
+    },
+    "OPENDATALOADER_ARGS": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "x-aliases": ["OPENDATALOADER_DEFAULT_ARGS"],
+      "description": "Default opendataloader-pdf arguments"
+    },
+    "OPENDATALOADER_ARGS_EXTRA": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "x-aliases": ["OPENDATALOADER_EXTRA_ARGS"],
+      "description": "Extra arguments to append to opendataloader-pdf command"
+    }
+  }
+}
