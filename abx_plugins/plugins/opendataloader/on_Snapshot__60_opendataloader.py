@@ -141,7 +141,7 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
     # When FORCE_OCR is enabled, use hybrid backend for scanned/image-based PDFs
     if force_ocr:
         # Only add if user hasn't already specified --hybrid in ARGS
-        has_hybrid = any(a.startswith("--hybrid") for a in extra_args)
+        has_hybrid = any(a == "--hybrid" or a.startswith("--hybrid=") for a in extra_args)
         if not has_hybrid:
             extra_args.extend(["--hybrid", "docling-fast"])
         if hybrid_url:
