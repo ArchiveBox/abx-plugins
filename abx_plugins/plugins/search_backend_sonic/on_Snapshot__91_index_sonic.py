@@ -92,28 +92,27 @@ def find_indexable_content() -> list[tuple[str, str]]:
         if extractor in SKIP_DIRS:
             continue
 
-        for match in plugin_dir.rglob("*"):
-            if not match.is_file():
-                continue
-            if match.suffix.lower() not in INDEXABLE_EXTENSIONS:
-                continue
-            if any(match.name.endswith(s) for s in EXECUTOR_ARTIFACT_SUFFIXES):
-                continue
-            if match.stat().st_size == 0:
-                continue
+        for ext in INDEXABLE_EXTENSIONS:
+            for match in plugin_dir.rglob(f"*{ext}"):
+                if not match.is_file():
+                    continue
+                if any(match.name.endswith(s) for s in EXECUTOR_ARTIFACT_SUFFIXES):
+                    continue
+                if match.stat().st_size == 0:
+                    continue
 
-            try:
-                content = match.read_text(encoding="utf-8", errors="ignore")
-                if not content.strip():
+                try:
+                    content = match.read_text(encoding="utf-8", errors="ignore")
+                    if not content.strip():
+                        continue
+                    if match.suffix.lower() in (".html", ".htm"):
+                        content = strip_html_tags(content)
+                    if not content.strip():
+                        continue
+                    rel_path = match.relative_to(plugin_dir)
+                    results.append((f"{extractor}/{rel_path.as_posix()}", content))
+                except Exception:
                     continue
-                if match.suffix.lower() in (".html", ".htm"):
-                    content = strip_html_tags(content)
-                if not content.strip():
-                    continue
-                rel_path = match.relative_to(plugin_dir)
-                results.append((f"{extractor}/{rel_path.as_posix()}", content))
-            except Exception:
-                continue
 
     return results
 
