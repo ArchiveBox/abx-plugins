@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OpenDataLoader",
+  "description": "Extract structured text, tables, and metadata from PDFs using opendataloader-pdf. Supports OCR for scanned PDFs via hybrid backend.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [],
+  "required_binaries": ["opendataloader-pdf"],
+  "output_mimetypes": ["text/plain", "text/markdown", "application/json"],
+  "properties": {
+    "OPENDATALOADER_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["SAVE_OPENDATALOADER", "USE_OPENDATALOADER"],
+      "description": "Enable PDF text extraction with opendataloader-pdf"
+    },
+    "OPENDATALOADER_BINARY": {
+      "type": "string",
+      "default": "opendataloader-pdf",
+      "description": "Path to opendataloader-pdf binary"
+    },
+    "OPENDATALOADER_TIMEOUT": {
+      "type": "integer",
+      "default": 120,
+      "minimum": 10,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for PDF extraction in seconds"
+    },
+    "OPENDATALOADER_FORCE_OCR": {
+      "type": "boolean",
+      "default": false,
+      "description": "Use hybrid OCR backend (--hybrid docling-fast) for scanned/image-based PDFs. Requires opendataloader-pdf-hybrid server running."
+    },
+    "OPENDATALOADER_HYBRID_URL": {
+      "type": "string",
+      "default": "",
+      "description": "URL of the opendataloader-pdf-hybrid server (e.g. http://localhost:5002). If empty, uses the default built-in URL."
+    },
+    "OPENDATALOADER_ARGS": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "x-aliases": ["OPENDATALOADER_DEFAULT_ARGS"],
+      "description": "Default opendataloader-pdf arguments"
+    },
+    "OPENDATALOADER_ARGS_EXTRA": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "x-aliases": ["OPENDATALOADER_EXTRA_ARGS"],
+      "description": "Extra arguments to append to opendataloader-pdf command"
+    }
+  }
+}
