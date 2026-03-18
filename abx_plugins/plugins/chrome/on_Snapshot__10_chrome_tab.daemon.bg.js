@@ -252,6 +252,7 @@ async function main() {
 
             const opened = await openTabInChromeSession({
                 cdpUrl: currentCdpUrl,
+                timeoutMs: timeoutSeconds * 1000,
                 puppeteer,
             });
             targetId = opened.targetId;
