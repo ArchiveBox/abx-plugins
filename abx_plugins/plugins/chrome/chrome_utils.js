@@ -3060,7 +3060,7 @@ async function ensureChromeSession(options = {}) {
     }
 
     let resolvedBinary = binary;
-    let resolvedPid = reusingExplicitCdpUrl ? (existingSession.state?.pid || null) : null;
+    let resolvedPid = reusingExplicitCdpUrl && processIsLocal ? (existingSession.state?.pid || null) : null;
     let resolvedCdpUrl = reusingExplicitCdpUrl ? existingSession.state?.cdpUrl : cdpUrl;
 
     if (!resolvedCdpUrl) {
