@@ -1,0 +1,51 @@
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  6ce0defec3ce80d0 529,532,538
+abx_plugins/plugins/claudechrome/on_Crawl__96_claudechrome_config.js
+  6ce0defec3ce80d0 24,26,68-70,72-76
+abx_plugins/plugins/headers/on_Snapshot__27_headers.daemon.bg.js
+  6ce0defec3ce80d0 118,124
+abx_plugins/plugins/title/on_Snapshot__54_title.js
+  6ce0defec3ce80d0 26,50-51
+abx_plugins/plugins/twocaptcha/on_Crawl__95_twocaptcha_config.js
+  6ce0defec3ce80d0 35,37,158-160,162-166
+abx_plugins/plugins/chrome/on_Snapshot__10_chrome_tab.daemon.bg.js
+  6ce0defec3ce80d0 117-121,175,282-284,286-288,332-335,337-339,342
+abx_plugins/plugins/chrome/on_Snapshot__09_chrome_launch.daemon.bg.js
+  6ce0defec3ce80d0 20,72-74,76-78
+abx_plugins/plugins/pdf/on_Snapshot__52_pdf.js
+  6ce0defec3ce80d0 25,66-67
+abx_plugins/plugins/screenshot/on_Snapshot__51_screenshot.js
+  6ce0defec3ce80d0 26,81
+abx_plugins/plugins/dom/on_Snapshot__53_dom.js
+  6ce0defec3ce80d0 26,60-61
+abx_plugins/plugins/accessibility/on_Snapshot__39_accessibility.js
+  6ce0defec3ce80d0 29,54-55
+abx_plugins/plugins/claudechrome/on_Snapshot__47_claudechrome.js
+  6ce0defec3ce80d0 574-575,580
+abx_plugins/plugins/infiniscroll/on_Snapshot__45_infiniscroll.js
+  6ce0defec3ce80d0 316-317
+abx_plugins/plugins/chrome/chrome_utils.js
+  6ce0defec3ce80d0 1985,1987-1988,1990-1991,2055,2062,2068,2072-2074,2094-2095,2167,2174,2182,2187-2191,2193-2194,2562-2565,2724,2735-2738,2748-2749,2764,2779-2784,2786,2789,3498,3505-3512
+abx_plugins/plugins/chrome/README.md
+  6ce0defec3ce80d0 155,326
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "393a55d34a06f043bd124a48d73736eb1feb612a",
+  "prompts": {
+    "6ce0defec3ce80d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf4ff-885e-75f2-bb69-8d87ff7a8fd8",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 235,
+      "total_deletions": 441,
+      "accepted_lines": 130,
+      "overriden_lines": 2
+    }
+  }
+}
