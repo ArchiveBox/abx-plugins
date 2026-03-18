@@ -1,0 +1,37 @@
+abx_plugins/plugins/chrome/on_Crawl__91_chrome_wait.js
+  6ce0defec3ce80d0 27-28,42,49-51,95-101,112,114
+abx_plugins/plugins/chrome/on_Snapshot__09_chrome_launch.daemon.bg.js
+  6ce0defec3ce80d0 1-134
+abx_plugins/plugins/chrome/on_Snapshot__10_chrome_tab.daemon.bg.js
+  6ce0defec3ce80d0 32,41,64,124,171-174,180-182,211,213-218,221,241-249,251,253-259,262-269,271-272,278-279,288-300,303-306,309-316,318-326,333,340
+abx_plugins/plugins/chrome/chrome_utils.js
+  6ce0defec3ce80d0 527-531,555-565,575-577,611-617,1638,2018-2083,2103,2122-2125,2134-2138,2140-2143,2148,2150,2153,2156,2161-2162,2213,2216-2218,2221-2222,2256,2262,2315-2316,2320-2321,2349-2352,2354,2359-2362,2460,2463-2468,2492-2564,2640,2643-2644,2668,2673-2675,2700,2704-2705,2707,2716,2745-2747,2752-2764,2766-2767,2775-2792,2814-2815,2818,2864,2897-3249,3251-3269,3380-3382,3406
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  6ce0defec3ce80d0 42,98-134,166-283,330-331,416-419,464-714,880,895,950,1297,1358,1462,1533,1646,1754,1835,1873,1933,2001,2043-2044
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  6ce0defec3ce80d0 98
+abx_plugins/plugins/chrome/config.json
+  6ce0defec3ce80d0 74-97
+abx_plugins/plugins/chrome/on_Crawl__90_chrome_launch.daemon.bg.js
+  6ce0defec3ce80d0 35,37-38,53-55,65-73,90-93,95-98,102,104,107,109-112,115-117,119-120,122-125,127-130,133-134,136-140,144-145,149,154-156,162-172
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "c20a30258d6dfe432e39fe7691db0787f91af4be",
+  "prompts": {
+    "6ce0defec3ce80d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf4ff-885e-75f2-bb69-8d87ff7a8fd8",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 1272,
+      "total_deletions": 630,
+      "accepted_lines": 1395,
+      "overriden_lines": 0
+    }
+  }
+}
