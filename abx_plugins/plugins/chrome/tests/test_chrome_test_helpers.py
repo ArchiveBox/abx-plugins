@@ -14,6 +14,7 @@ from pathlib import Path
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     _call_chrome_utils,
     CHROME_UTILS,
+    chrome_session,
     get_test_env,
     get_machine_type,
     get_lib_dir,
@@ -26,6 +27,8 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     install_chromium_with_hooks,
     setup_test_env,
 )
+
+TEST_URL = "https://example.com"
 
 
 def _write_fake_browser_binary(path: Path, label: str = "Chromium") -> None:
@@ -203,45 +206,151 @@ def test_find_chromium_accepts_command_name_chrome_binary(
     assert stdout.strip() == str(binary_path)
 
 
-def test_set_browser_download_behavior_requires_download_path():
-    """Download setup failures must hard-fail for snapshot-level download extractors."""
-    script = """
-const utils = require(process.argv[1]);
-const page = {
-  target() {
-    return {
-      createCDPSession: async () => ({
-        async send() { return {}; },
-      }),
-    };
-  },
-};
+def test_set_browser_download_behavior_downloads_file_with_live_page(
+    ensure_chrome_test_prereqs,
+):
+    """setBrowserDownloadBehavior() should drive a real download on a live browser page."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with chrome_session(
+            Path(tmpdir),
+            crawl_id="test-download-config",
+            snapshot_id="snap-download-config",
+            test_url=TEST_URL,
+            navigate=True,
+            timeout=45,
+        ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
+            download_dir = snapshot_chrome_dir.parent / "download-test"
+            download_dir.mkdir(parents=True, exist_ok=True)
+            script = """
+const fs = require('fs');
+const path = require('path');
+const chromeUtils = require(process.argv[1]);
+const chromeSessionDir = process.argv[2];
+const downloadDir = process.argv[3];
+const filename = 'abx-download.txt';
+const expectedPath = path.join(downloadDir, filename);
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 (async () => {
+  const { browser, page } = await chromeUtils.connectToPage({
+    chromeSessionDir,
+    timeoutMs: 30000,
+  });
   try {
-    await utils.setBrowserDownloadBehavior({ page });
-    process.stdout.write(JSON.stringify({ ok: true }));
-  } catch (error) {
-    process.stdout.write(JSON.stringify({ ok: false, error: error.message }));
+    const ok = await chromeUtils.setBrowserDownloadBehavior({
+      page,
+      downloadPath: downloadDir,
+    });
+    await page.bringToFront();
+    await page.evaluate((name) => {
+      const blob = new Blob(['archivebox-download-ok'], { type: 'text/plain' });
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    }, filename);
+
+    const deadline = Date.now() + 15000;
+    while (Date.now() < deadline) {
+      if (fs.existsSync(expectedPath) && fs.statSync(expectedPath).size > 0) {
+        process.stdout.write(JSON.stringify({
+          ok,
+          expectedPath,
+          pageUrl: page.url(),
+          content: fs.readFileSync(expectedPath, 'utf8'),
+        }));
+        return;
+      }
+      await sleep(200);
+    }
+    throw new Error(`Timed out waiting for download at ${expectedPath}`);
+  } finally {
+    await browser.disconnect();
   }
 })().catch((error) => {
   console.error(error.stack || error.message);
   process.exit(1);
 });
 """
-    result = subprocess.run(
-        ["node", "-e", script, str(CHROME_UTILS)],
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
+            result = subprocess.run(
+                [
+                    "node",
+                    "-e",
+                    script,
+                    str(CHROME_UTILS),
+                    str(snapshot_chrome_dir),
+                    str(download_dir),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=env,
+            )
 
-    assert result.returncode == 0, result.stderr
-    payload = json.loads(result.stdout)
-    assert payload == {
-        "ok": False,
-        "error": "setBrowserDownloadBehavior requires downloadPath",
-    }
+            assert result.returncode == 0, result.stderr
+            payload = json.loads(result.stdout)
+            assert payload["ok"] is True
+            assert payload["pageUrl"].startswith(TEST_URL)
+            assert payload["content"] == "archivebox-download-ok"
+            assert Path(payload["expectedPath"]).exists()
+
+
+def test_set_browser_download_behavior_requires_download_path_with_live_page(
+    ensure_chrome_test_prereqs,
+):
+    """Download setup failures must hard-fail for snapshot-level download extractors."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with chrome_session(
+            Path(tmpdir),
+            crawl_id="test-download-config-missing",
+            snapshot_id="snap-download-config-missing",
+            test_url=TEST_URL,
+            navigate=True,
+            timeout=45,
+        ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
+            script = """
+const chromeUtils = require(process.argv[1]);
+const chromeSessionDir = process.argv[2];
+
+(async () => {
+  const { browser, page } = await chromeUtils.connectToPage({
+    chromeSessionDir,
+    timeoutMs: 30000,
+  });
+  try {
+    await chromeUtils.setBrowserDownloadBehavior({ page });
+    process.stdout.write(JSON.stringify({ ok: true }));
+  } catch (error) {
+    process.stdout.write(JSON.stringify({
+      ok: false,
+      error: error.message,
+      pageUrl: page.url(),
+    }));
+  } finally {
+    await browser.disconnect();
+  }
+})().catch((error) => {
+  console.error(error.stack || error.message);
+  process.exit(1);
+});
+"""
+            result = subprocess.run(
+                ["node", "-e", script, str(CHROME_UTILS), str(snapshot_chrome_dir)],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=env,
+            )
+
+            assert result.returncode == 0, result.stderr
+            payload = json.loads(result.stdout)
+            assert payload["ok"] is False
+            assert payload["error"] == "setBrowserDownloadBehavior requires downloadPath"
+            assert payload["pageUrl"].startswith(TEST_URL)
 
 
 def test_get_plugin_dir():
