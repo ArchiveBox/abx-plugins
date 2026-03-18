@@ -2265,22 +2265,22 @@ async function setBrowserDownloadBehavior(options = {}) {
 
     if (page) {
         try {
-            await session.send('Page.setDownloadBehavior', {
+            await session.send('Browser.setDownloadBehavior', {
                 behavior: 'allow',
                 downloadPath,
             });
             return true;
-        } catch (pageError) {
+        } catch (browserError) {
             try {
-                await session.send('Browser.setDownloadBehavior', {
+                await session.send('Page.setDownloadBehavior', {
                     behavior: 'allow',
                     downloadPath,
                 });
                 return true;
-            } catch (browserError) {
+            } catch (pageError) {
                 throw new Error(
-                    `Page.setDownloadBehavior failed: ${pageError.message}; ` +
-                    `Browser.setDownloadBehavior failed: ${browserError.message}`
+                    `Browser.setDownloadBehavior failed: ${browserError.message}; ` +
+                    `Page.setDownloadBehavior failed: ${pageError.message}`
                 );
             }
         }
