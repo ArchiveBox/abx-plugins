@@ -153,7 +153,7 @@ const requireTargetId = process.argv[3] === 'true';
 });
 """
     result = subprocess.run(
-        ["node", "-e", script, str(CHROME_UTILS), str(session_dir), str(require_target_id).lower()],
+        [script, str(CHROME_UTILS), str(session_dir), str(require_target_id).lower()],
         capture_output=True,
         text=True,
         timeout=15,
@@ -777,6 +777,95 @@ def test_cdp_url_is_not_published_before_extensions_metadata():
             assert any(entry["name"] == TEST_EXTENSION_NAME for entry in metadata), metadata
         finally:
             _cleanup_launch_process(chrome_launch_process, chrome_dir)
+
+
+def test_crawl_wait_accepts_http_cdp_url_for_external_browser(chrome_test_url):
+    """crawl wait should accept an adopted HTTP CDP endpoint when CHROME_IS_LOCAL=false."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        provider_dir = Path(tmpdir) / "provider"
+        provider_dir.mkdir()
+        provider_chrome_dir = provider_dir / "chrome"
+        provider_chrome_dir.mkdir()
+
+        provider_env = _isolated_test_env(
+            tmpdir,
+            CRAWL_DIR=str(provider_dir),
+            CHROME_HEADLESS="true",
+        )
+        provider_process = subprocess.Popen(
+            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=provider-http-adopt"],
+            cwd=str(provider_chrome_dir),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=provider_env,
+        )
+
+        adopted_process = None
+        try:
+            for _ in range(30):
+                if provider_process.poll() is not None:
+                    stdout, stderr = provider_process.communicate()
+                    pytest.fail(
+                        f"provider launch exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                    )
+                if (provider_chrome_dir / "cdp_url.txt").exists() and (provider_chrome_dir / "chrome.pid").exists():
+                    break
+                time.sleep(1)
+
+            provider_cdp_url = (provider_chrome_dir / "cdp_url.txt").read_text().strip()
+            provider_http_url = f"http://127.0.0.1:{_port_from_cdp_url(provider_cdp_url)}"
+
+            adopted_dir = Path(tmpdir) / "adopted"
+            adopted_dir.mkdir()
+            adopted_chrome_dir = adopted_dir / "chrome"
+            adopted_chrome_dir.mkdir()
+
+            adopted_env = _isolated_test_env(
+                tmpdir,
+                CRAWL_DIR=str(adopted_dir),
+                CHROME_HEADLESS="true",
+                CHROME_CDP_URL=provider_http_url,
+                CHROME_IS_LOCAL="false",
+                CHROME_KEEPALIVE="true",
+            )
+
+            adopted_launch = subprocess.run(
+                ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=adopt-http-crawl"],
+                cwd=str(adopted_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=adopted_env,
+            )
+            assert adopted_launch.returncode == 0, (
+                f"adopted launch should succeed with HTTP endpoint:\n"
+                f"Stdout: {adopted_launch.stdout}\nStderr: {adopted_launch.stderr}"
+            )
+            assert (adopted_chrome_dir / "cdp_url.txt").read_text().strip() == provider_http_url
+            assert not (adopted_chrome_dir / "chrome.pid").exists()
+
+            crawl_wait = subprocess.run(
+                [
+                    "node",
+                    str(CHROME_CRAWL_WAIT_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=snap-http-adopt",
+                ],
+                cwd=str(adopted_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=adopted_env,
+            )
+            assert crawl_wait.returncode == 0, (
+                f"crawl wait should succeed for adopted HTTP endpoint:\n"
+                f"Stdout: {crawl_wait.stdout}\nStderr: {crawl_wait.stderr}"
+            )
+            assert "pid=external" in crawl_wait.stdout
+            assert f"port={_port_from_cdp_url(provider_cdp_url)}" in crawl_wait.stdout
+        finally:
+            _cleanup_launch_process(provider_process, provider_chrome_dir)
 
 
 def test_cookies_imported_on_launch():

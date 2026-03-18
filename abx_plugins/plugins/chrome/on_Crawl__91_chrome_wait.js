@@ -11,7 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ensureNodeModuleResolution, parseArgs } = require('../base/utils.js');
+const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvBool, getEnvInt } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer');
 
@@ -24,10 +24,8 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 process.chdir(OUTPUT_DIR);
 
 const {
-    getEnv,
-    getEnvBool,
-    getEnvInt,
     waitForChromeSessionState,
+    connectToBrowserEndpoint,
 } = require('./chrome_utils.js');
 
 const CHROME_SESSION_DIR = path.join(CRAWL_DIR, 'chrome');
@@ -40,6 +38,7 @@ function sleep(ms) {
 async function waitForConnectableCrawlChromeSession(chromeSessionDir, timeoutMs) {
     const deadline = Date.now() + timeoutMs;
     const processIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true);
+    let lastError = CHROME_SESSION_REQUIRED_ERROR;
 
     while (Date.now() < deadline) {
         const remainingMs = Math.max(deadline - Date.now(), 0);
@@ -52,21 +51,20 @@ async function waitForConnectableCrawlChromeSession(chromeSessionDir, timeoutMs)
         });
 
         if (!state?.cdpUrl) {
+            lastError = CHROME_SESSION_REQUIRED_ERROR;
             await sleep(Math.min(200, remainingMs));
             continue;
         }
 
         let browser = null;
         try {
-            browser = await puppeteer.connect({
-                browserWSEndpoint: state.cdpUrl,
-                defaultViewport: null,
-            });
+            browser = await connectToBrowserEndpoint(puppeteer, state.cdpUrl, { defaultViewport: null });
             return {
                 cdpUrl: state.cdpUrl,
                 pid: state.pid,
             };
         } catch (error) {
+            lastError = error?.message || String(error);
             await sleep(Math.min(200, remainingMs));
         } finally {
             if (browser) {
@@ -77,7 +75,11 @@ async function waitForConnectableCrawlChromeSession(chromeSessionDir, timeoutMs)
         }
     }
 
-    return null;
+    return {
+        cdpUrl: null,
+        pid: null,
+        error: lastError,
+    };
 }
 
 async function main() {
@@ -103,15 +105,22 @@ async function main() {
     console.error(`[chrome_wait:crawl] Waiting for crawl Chrome session (timeout=${timeoutSeconds}s)...`);
 
     const readySession = await waitForConnectableCrawlChromeSession(CHROME_SESSION_DIR, timeoutMs);
-    if (!readySession) {
-        console.error(`[chrome_wait:crawl] ERROR: ${CHROME_SESSION_REQUIRED_ERROR}`);
-        console.log(JSON.stringify({ type: 'ArchiveResult', status: 'failed', output_str: CHROME_SESSION_REQUIRED_ERROR }));
+    if (!readySession?.cdpUrl) {
+        const error = readySession?.error || CHROME_SESSION_REQUIRED_ERROR;
+        console.error(`[chrome_wait:crawl] ERROR: ${error}`);
+        console.log(JSON.stringify({ type: 'ArchiveResult', status: 'failed', output_str: error }));
         process.exit(1);
     }
 
-    console.error(`[chrome_wait:crawl] Chrome session ready (verified CDP connection, pid=${readySession.pid || 'external'}, cdp_url=${readySession.cdpUrl.slice(0, 32)}...).`);
-    const port = (readySession.cdpUrl.match(/:(\d+)\/devtools\//) || [])[1] || '?';
-    console.log(JSON.stringify({ type: 'ArchiveResult', status: 'succeeded', output_str: `browser ready pid=${readySession.pid || 'external'} port=${port}` }));
+    const pid = readySession.pid || 'external';
+    let port = '?';
+    try {
+        const endpoint = new URL(readySession.cdpUrl);
+        port = endpoint.port || (endpoint.protocol === 'https:' || endpoint.protocol === 'wss:' ? '443' : '80');
+    } catch (error) {}
+
+    console.error(`[chrome_wait:crawl] Chrome session ready (verified CDP connection, pid=${pid}, cdp_url=${readySession.cdpUrl.slice(0, 32)}...).`);
+    console.log(JSON.stringify({ type: 'ArchiveResult', status: 'succeeded', output_str: `browser ready pid=${pid} port=${port}` }));
     process.exit(0);
 }
 

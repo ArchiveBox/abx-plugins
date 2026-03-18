@@ -26,13 +26,10 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ensureNodeModuleResolution, parseArgs } = require('../base/utils.js');
+const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvBool, getEnvInt } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer');
 const {
-    getEnv,
-    getEnvBool,
-    getEnvInt,
     acquireSessionLock,
     ensureChromeSession,
     closeBrowserInChromeSession,

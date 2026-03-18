@@ -3371,6 +3371,7 @@ module.exports = {
     loadAllExtensionsFromBrowser,
     waitForExtensionTargetHandle,
     // New puppeteer best-practices helpers
+    connectToBrowserEndpoint,
     getExtensionPaths,
     waitForExtensionTarget,
     getExtensionTargets,

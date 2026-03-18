@@ -26,7 +26,7 @@ ensureNodeModuleResolution(module);
 const {
     readCdpUrl,
     readTargetId,
-    waitForChromeSession,
+    waitForChromeSessionState,
     connectToPage,
     waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
@@ -77,10 +77,16 @@ async function takeScreenshot(url) {
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
     const tempOutputPath = tempPathFor(outputPath);
 
-    if (!(await waitForChromeSession(CHROME_SESSION_DIR, 1000, false))) {
+    if (!(await waitForChromeSessionState(CHROME_SESSION_DIR, {
+        timeoutMs: 1000,
+        requireTargetId: false,
+    }))) {
         throw new Error('No Chrome session found (chrome plugin must run first)');
     }
-    if (!(await waitForChromeSession(CHROME_SESSION_DIR, 1000, true))) {
+    if (!(await waitForChromeSessionState(CHROME_SESSION_DIR, {
+        timeoutMs: 1000,
+        requireTargetId: true,
+    }))) {
         throw new Error('No target_id.txt found (chrome_tab must run first)');
     }
 

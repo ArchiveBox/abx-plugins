@@ -17,13 +17,12 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ensureNodeModuleResolution } = require('../base/utils.js');
+const { ensureNodeModuleResolution, getEnv } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const {
     findAnyChromiumBinary,
     launchChromium,
     killChrome,
-    getEnv,
     getCookiesViaCdp,
 } = require('./chrome_utils.js');
 

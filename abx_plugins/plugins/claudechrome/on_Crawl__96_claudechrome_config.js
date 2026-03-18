@@ -17,12 +17,10 @@
 
 const path = require('path');
 const fs = require('fs');
-const { ensureNodeModuleResolution } = require('../base/utils.js');
+const { ensureNodeModuleResolution, getEnv, getEnvBool } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 
 const {
-    getEnv,
-    getEnvBool,
     waitForCrawlChromeSession,
     waitForExtensionsMetadata,
     findExtensionMetadataByName,
