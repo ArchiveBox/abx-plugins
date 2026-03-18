@@ -20,6 +20,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import textwrap
 import threading
 from pathlib import Path
@@ -49,18 +50,6 @@ def rel_output(path_str: str | None) -> str | None:
         return str(path.resolve().relative_to(OUTPUT_DIR.resolve()))
     except Exception:
         return path.name or path_str
-
-
-def get_binary_shebang(binary_path: str) -> str | None:
-    """Return interpreter from shebang line if present (e.g., /path/to/python)."""
-    try:
-        with open(binary_path, "r", encoding="utf-8") as f:
-            first_line = f.readline().strip()
-            if first_line.startswith("#!"):
-                return first_line[2:].strip().split(" ")[0]
-    except Exception:
-        pass
-    return None
 
 
 def resolve_binary_path(binary: str) -> str | None:
@@ -101,13 +90,10 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
         output_file = output_dir / f"forum.{output_format}"
 
     resolved_binary = resolve_binary_path(binary) or binary
-    forumdl_python = get_binary_shebang(resolved_binary) or sys.executable
-    # Inline compatibility shim so this hook stays self-contained.
-    # Always run through this shim so forum-dl serialization stays compatible
-    # with Pydantic v2 even when binary shebang detection fails.
-    inline_entrypoint = textwrap.dedent(
+    # Inject a sitecustomize shim via PYTHONPATH so forum-dl can still run as a
+    # black-box executable while we patch its Pydantic v2 incompatibility.
+    sitecustomize_code = textwrap.dedent(
         """
-        import sys
         try:
             from forum_dl.writers.jsonl import JsonlWriter
             from pydantic import BaseModel
@@ -117,14 +103,10 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
                 JsonlWriter._serialize_entry = _patched_serialize_entry
         except Exception:
             pass
-        from forum_dl import main
-        raise SystemExit(main())
         """
     ).strip()
     cmd = [
-        forumdl_python,
-        "-c",
-        inline_entrypoint,
+        resolved_binary,
         *forumdl_args,
         "-f",
         output_format,
@@ -140,60 +122,72 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
     try:
         print(f"[forumdl] Starting download (timeout={timeout}s)", file=sys.stderr)
         output_lines: list[str] = []
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-        )
+        with tempfile.TemporaryDirectory(prefix="forumdl-sitecustomize-") as shim_dir:
+            shim_path = Path(shim_dir) / "sitecustomize.py"
+            shim_path.write_text(sitecustomize_code, encoding="utf-8")
 
-        def _read_output() -> None:
-            if not process.stdout:
-                return
-            for line in process.stdout:
-                output_lines.append(line)
-                sys.stderr.write(line)
+            env = os.environ.copy()
+            existing_pythonpath = env.get("PYTHONPATH", "")
+            env["PYTHONPATH"] = (
+                f"{shim_dir}{os.pathsep}{existing_pythonpath}"
+                if existing_pythonpath
+                else shim_dir
+            )
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                env=env,
+            )
 
-        reader = threading.Thread(target=_read_output, daemon=True)
-        reader.start()
+            def _read_output() -> None:
+                if not process.stdout:
+                    return
+                for line in process.stdout:
+                    output_lines.append(line)
+                    sys.stderr.write(line)
 
-        try:
-            process.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            process.kill()
+            reader = threading.Thread(target=_read_output, daemon=True)
+            reader.start()
+
+            try:
+                process.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                reader.join(timeout=1)
+                return False, None, f"Timed out after {timeout} seconds"
+
             reader.join(timeout=1)
-            return False, None, f"Timed out after {timeout} seconds"
+            combined_output = "".join(output_lines)
 
-        reader.join(timeout=1)
-        combined_output = "".join(output_lines)
+            # Check if output file was created
+            if output_file.exists() and output_file.stat().st_size > 0:
+                return True, str(output_file), ""
+            else:
+                stderr = combined_output
 
-        # Check if output file was created
-        if output_file.exists() and output_file.stat().st_size > 0:
-            return True, str(output_file), ""
-        else:
-            stderr = combined_output
+                # These are NOT errors - page simply has no downloadable forum content
+                stderr_lower = stderr.lower()
+                if "unsupported url" in stderr_lower:
+                    return True, "No forum found", ""
+                if "no content" in stderr_lower:
+                    return True, "No forum found", ""
+                if "extractornotfounderror" in stderr_lower:
+                    return True, "No forum found", ""
+                if process.returncode == 0:
+                    return True, "No forum found", ""
 
-            # These are NOT errors - page simply has no downloadable forum content
-            stderr_lower = stderr.lower()
-            if "unsupported url" in stderr_lower:
-                return True, "No forum found", ""
-            if "no content" in stderr_lower:
-                return True, "No forum found", ""
-            if "extractornotfounderror" in stderr_lower:
-                return True, "No forum found", ""
-            if process.returncode == 0:
-                return True, "No forum found", ""
+                # These ARE errors - something went wrong
+                if "404" in stderr:
+                    return False, None, "404 Not Found"
+                if "403" in stderr:
+                    return False, None, "403 Forbidden"
+                if "unable to extract" in stderr_lower:
+                    return False, None, "Unable to extract forum info"
 
-            # These ARE errors - something went wrong
-            if "404" in stderr:
-                return False, None, "404 Not Found"
-            if "403" in stderr:
-                return False, None, "403 Forbidden"
-            if "unable to extract" in stderr_lower:
-                return False, None, "Unable to extract forum info"
-
-            return False, None, f"forum-dl error: {stderr}"
+                return False, None, f"forum-dl error: {stderr}"
 
     except subprocess.TimeoutExpired:
         return False, None, f"Timed out after {timeout} seconds"

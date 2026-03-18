@@ -27,14 +27,17 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { ensureNodeModuleResolution, emitArchiveResult } = require('../base/utils.js');
-ensureNodeModuleResolution(module);
 const {
+    ensureNodeModuleResolution,
+    emitArchiveResult,
     getEnv,
     getEnvBool,
     getEnvInt,
     parseArgs,
-    waitForChromeSession,
+} = require('../base/utils.js');
+ensureNodeModuleResolution(module);
+const {
+    waitForChromeSessionState,
     connectToPage,
     setBrowserDownloadBehavior,
     waitForPageLoaded,
@@ -562,7 +565,10 @@ async function main() {
     let browser = null;
 
     try {
-        if (!(await waitForChromeSession(CHROME_SESSION_DIR, Math.min(timeout * 1000, 1000), true))) {
+        if (!(await waitForChromeSessionState(CHROME_SESSION_DIR, {
+            timeoutMs: Math.min(timeout * 1000, 1000),
+            requireTargetId: true,
+        }))) {
             throw new Error('No Chrome session found (chrome plugin must run first)');
         }
 

@@ -2015,6 +2015,72 @@ function getBrowserServerUrlFromCdpUrl(cdpUrl) {
     }
 }
 
+function getPuppeteerConnectOptionsForCdpUrl(cdpUrl) {
+    if (!cdpUrl) {
+        throw new Error('Missing CDP URL');
+    }
+
+    try {
+        const endpoint = new URL(cdpUrl);
+        if (endpoint.protocol === 'http:' || endpoint.protocol === 'https:') {
+            return { browserURL: getBrowserServerUrlFromCdpUrl(cdpUrl) || cdpUrl };
+        }
+        if (endpoint.protocol === 'ws:' || endpoint.protocol === 'wss:') {
+            return { browserWSEndpoint: cdpUrl };
+        }
+    } catch (error) {}
+
+    return { browserWSEndpoint: cdpUrl };
+}
+
+async function connectToBrowserEndpoint(puppeteer, cdpUrl, connectOptions = {}) {
+    return await puppeteer.connect({
+        ...getPuppeteerConnectOptionsForCdpUrl(cdpUrl),
+        ...connectOptions,
+    });
+}
+
+async function withTimeout(promiseFactory, timeoutMs, timeoutMessage) {
+    let timeoutHandle = null;
+    try {
+        return await Promise.race([
+            promiseFactory(),
+            new Promise((_, reject) => {
+                timeoutHandle = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+            }),
+        ]);
+    } finally {
+        if (timeoutHandle) {
+            clearTimeout(timeoutHandle);
+        }
+    }
+}
+
+async function canConnectToChromeBrowser(cdpUrl, options = {}) {
+    const {
+        timeoutMs = 1500,
+        puppeteer = resolvePuppeteerModule(),
+    } = options;
+
+    let browser = null;
+    try {
+        browser = await withTimeout(
+            () => connectToBrowserEndpoint(puppeteer, cdpUrl, { defaultViewport: null }),
+            timeoutMs,
+            `Timed out connecting to browser at ${cdpUrl}`
+        );
+        return true;
+    } catch (error) {
+        return false;
+    } finally {
+        if (browser) {
+            try {
+                await browser.disconnect();
+            } catch (disconnectError) {}
+        }
+    }
+}
+
 /**
  * Inspect whether persisted session markers still correspond to a live attachable
  * Chrome session.
@@ -2551,22 +2617,6 @@ async function resolvePageByTargetId(browser, targetId, timeoutMs = 0) {
 }
 
 /**
- * Convenience wrapper for waiting on persisted session markers.
- *
- * This is suitable for hooks that only need the marker contract (`cdp_url.txt`
- * plus optional `target_id.txt`), not an immediate live browser probe.
- *
- * @param {string} chromeSessionDir - Path to chrome session directory (e.g., '../chrome')
- * @param {number} [timeoutMs=60000] - Timeout in milliseconds
- * @param {boolean} [requireTargetId=true] - Whether target_id.txt must exist
- * @returns {Promise<boolean>} - True if files are ready, false if timeout
- */
-async function waitForChromeSession(chromeSessionDir, timeoutMs = 60000, requireTargetId = true) {
-    const state = await waitForChromeSessionState(chromeSessionDir, { timeoutMs, requireTargetId });
-    return Boolean(state);
-}
-
-/**
  * Read CDP WebSocket URL from chrome session directory.
  *
  * @param {string} chromeSessionDir - Path to chrome session directory
@@ -2961,6 +3011,7 @@ module.exports = {
     loadAllExtensionsFromBrowser,
     waitForExtensionTargetHandle,
     // New puppeteer best-practices helpers
+    connectToBrowserEndpoint,
     getExtensionPaths,
     waitForExtensionTarget,
     getExtensionTargets,
@@ -2982,7 +3033,6 @@ module.exports = {
     inspectChromeSessionArtifacts,
     cleanupStaleChromeSessionArtifacts,
     waitForChromeSessionState,
-    waitForChromeSession,
     readCdpUrl,
     readTargetId,
     readChromePid,

@@ -27,15 +27,13 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
-const { ensureNodeModuleResolution, parseArgs } = require('../base/utils.js');
+const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvBool } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer');
 const {
     findChromium,
     launchChromium,
     killChrome,
-    getEnv,
-    getEnvBool,
     getExtensionId,
     setBrowserDownloadBehavior,
     writePidWithMtime,

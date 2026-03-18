@@ -23,7 +23,7 @@ const {
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const {
-    waitForChromeSession,
+    waitForChromeSessionState,
     connectToPage,
     waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
@@ -64,7 +64,10 @@ async function printToPdf(url, timeoutMs) {
     let browser = null;
 
     try {
-        if (!(await waitForChromeSession(CHROME_SESSION_DIR, Math.min(timeoutMs, 1000), true))) {
+        if (!(await waitForChromeSessionState(CHROME_SESSION_DIR, {
+            timeoutMs: Math.min(timeoutMs, 1000),
+            requireTargetId: true,
+        }))) {
             return { success: false, error: 'No Chrome session found (chrome plugin must run first)' };
         }
 
