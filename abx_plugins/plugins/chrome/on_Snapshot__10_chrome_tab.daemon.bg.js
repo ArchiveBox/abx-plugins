@@ -307,6 +307,7 @@ async function main() {
             const opened = await openTabInChromeSession({
                 cdpUrl: crawlSession.cdpUrl,
                 puppeteer,
+                timeoutMs: timeoutSeconds * 1000,
             });
             targetId = opened.targetId;
             if (!targetId) {
