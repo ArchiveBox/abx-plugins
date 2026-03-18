@@ -1,0 +1,25 @@
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  6ce0defec3ce80d0 156
+abx_plugins/plugins/chrome/chrome_utils.js
+  6ce0defec3ce80d0 2368,2376
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "55925d81ce47c184f222cf1db6c88189c64ec7bb",
+  "prompts": {
+    "6ce0defec3ce80d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf4ff-885e-75f2-bb69-8d87ff7a8fd8",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 1,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    }
+  }
+}
