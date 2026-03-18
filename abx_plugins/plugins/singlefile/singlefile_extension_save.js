@@ -94,7 +94,6 @@ async function main() {
             // Ensure CDP target discovery is enabled so service_worker targets appear
             try {
                 await cdpSession.send('Target.setDiscoverTargets', { discover: true });
-                await cdpSession.send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: false, flatten: true });
             } catch (err) {
                 console.error(`[singlefile] failed to enable target discovery: ${err.message || err}`);
             }

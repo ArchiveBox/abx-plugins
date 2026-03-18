@@ -2781,6 +2781,11 @@ async function connectToPage(options = {}) {
         }
 
         const cdpSession = await page.target().createCDPSession();
+        await cdpSession.send('Target.setAutoAttach', {
+            autoAttach: true,
+            waitForDebuggerOnStart: false,
+            flatten: true,
+        });
 
         return {
             ...state,
