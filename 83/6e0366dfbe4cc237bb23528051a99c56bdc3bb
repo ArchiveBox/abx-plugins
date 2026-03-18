@@ -1,0 +1,25 @@
+abx_plugins/plugins/chrome/on_Crawl__91_chrome_wait.js
+  6ce0defec3ce80d0 73
+abx_plugins/plugins/chrome/on_Snapshot__11_chrome_wait.js
+  6ce0defec3ce80d0 58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "836e0366dfbe4cc237bb23528051a99c56bdc3bb",
+  "prompts": {
+    "6ce0defec3ce80d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf4ff-885e-75f2-bb69-8d87ff7a8fd8",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 2,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}
