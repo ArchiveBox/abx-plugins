@@ -1,0 +1,41 @@
+conftest.py
+  c6156093e009d8e0 53,57,60,62-63,66,68-69,71,73-83,91,98-100,108-117
+abx_plugins/plugins/chrome/on_Snapshot__10_chrome_tab.daemon.bg.js
+  6ce0defec3ce80d0 58,63,97,99,112-117,139,188,244,310,312
+  c6156093e009d8e0 64-65,69
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  c6156093e009d8e0 168-181,928,1165-1170,1360,1367,2191,2737-2738
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "231310b7cc49a44db7e05080a28e7db3fc20fde2",
+  "prompts": {
+    "6ce0defec3ce80d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf4ff-885e-75f2-bb69-8d87ff7a8fd8",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 21,
+      "total_deletions": 8,
+      "accepted_lines": 21,
+      "overriden_lines": 0
+    },
+    "c6156093e009d8e0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d0293-2e03-7b52-aa80-ebd8a4a15b10",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 73,
+      "total_deletions": 17,
+      "accepted_lines": 71,
+      "overriden_lines": 0
+    }
+  }
+}
