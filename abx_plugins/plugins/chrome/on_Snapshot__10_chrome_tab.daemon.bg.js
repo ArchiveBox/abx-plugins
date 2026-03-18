@@ -55,10 +55,18 @@ let finalized = false;
 let targetId = null;
 let keepAliveTimer = null;
 let currentCdpUrl = null;
-const SNAPSHOT_MARKER_FILES = [
+const SNAPSHOT_PAGE_MARKER_FILES = [
     'target_id.txt',
     'url.txt',
     'navigation.json',
+];
+const SNAPSHOT_ARTIFACT_FILES = [
+    'cdp_url.txt',
+    'chrome.pid',
+    'target_id.txt',
+    'url.txt',
+    'navigation.json',
+    'extensions.json',
 ];
 
 function getPortFromCdpUrl(cdpUrl) {
@@ -86,9 +94,9 @@ function emitResult(statusOverride) {
     console.log(JSON.stringify(result));
 }
 
-function cleanupSnapshotMarkers(reason) {
+function cleanupFiles(fileNames, reason) {
     let removed = 0;
-    for (const fileName of SNAPSHOT_MARKER_FILES) {
+    for (const fileName of fileNames) {
         const filePath = path.join(OUTPUT_DIR, fileName);
         if (!fs.existsSync(filePath)) continue;
         try {
@@ -101,12 +109,19 @@ function cleanupSnapshotMarkers(reason) {
     }
 }
 
+function cleanupSnapshotPageMarkers(reason) {
+    cleanupFiles(SNAPSHOT_PAGE_MARKER_FILES, reason);
+}
+
+function cleanupSnapshotArtifacts(reason) {
+    cleanupFiles(SNAPSHOT_ARTIFACT_FILES, reason);
+}
+
 // Cleanup handler for SIGTERM - close this snapshot's tab
 async function cleanup(signal) {
     if (signal) {
         console.error(`\nReceived ${signal}, closing chrome tab...`);
     }
-    const targetIdFile = path.join(OUTPUT_DIR, 'target_id.txt');
     try {
         if (keepAliveTimer) {
             clearInterval(keepAliveTimer);
@@ -121,9 +136,7 @@ async function cleanup(signal) {
     } catch (e) {
         // Best effort
     }
-    try {
-        fs.unlinkSync(targetIdFile);
-    } catch (e) {}
+    cleanupSnapshotArtifacts('snapshot teardown');
     targetId = null;
     emitResult(finalStatus);
     process.exit(finalStatus === 'succeeded' ? 0 : 1);
@@ -172,7 +185,7 @@ async function main() {
         });
         const existingTargetId = existingSnapshotSession.state?.targetId;
         if (!existingTargetId) {
-            cleanupSnapshotMarkers('missing target_id.txt');
+            cleanupSnapshotPageMarkers('missing target_id.txt');
         }
         if (existingSnapshotSession.hasArtifacts && !existingSnapshotSession.stale && existingSnapshotSession.state?.targetId) {
             let reusableTarget = false;
@@ -228,7 +241,7 @@ async function main() {
                 keepAliveTimer = setInterval(() => {}, 1000);
                 await new Promise(() => {});
             }
-            cleanupSnapshotMarkers(`discarded dead target ${existingSnapshotSession.state.targetId}`);
+            cleanupSnapshotPageMarkers(`discarded dead target ${existingSnapshotSession.state.targetId}`);
         }
 
         if (isolation === 'snapshot') {
@@ -294,9 +307,9 @@ async function main() {
                         targetId: existingTargetId,
                         puppeteer,
                     });
-                    cleanupSnapshotMarkers(`replaced stale target ${existingTargetId}`);
+                    cleanupSnapshotPageMarkers(`replaced stale target ${existingTargetId}`);
                 } catch (error) {
-                    cleanupSnapshotMarkers(`failed to reuse target ${existingTargetId}`);
+                    cleanupSnapshotPageMarkers(`failed to reuse target ${existingTargetId}`);
                 }
             }
 

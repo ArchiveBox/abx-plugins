@@ -50,39 +50,54 @@ def _normalize_subprocess_stream(stream: object) -> str:
     return str(stream)
 
 
-def _emit_subprocess_output(args: object, stdout: object, stderr: object) -> None:
+def _format_subprocess_output(args: object, stdout: object, stderr: object) -> str:
     cmd_display = _format_subprocess_args(args)
     stdout_text = _normalize_subprocess_stream(stdout)
     stderr_text = _normalize_subprocess_stream(stderr)
+    chunks: list[str] = []
 
     if stdout_text:
-        sys.stdout.write(f"\n[subprocess stdout] {cmd_display}\n{stdout_text}")
+        chunk = f"\n[subprocess stdout] {cmd_display}\n{stdout_text}"
         if not stdout_text.endswith("\n"):
-            sys.stdout.write("\n")
-        sys.stdout.flush()
+            chunk += "\n"
+        chunks.append(chunk)
 
     if stderr_text:
-        sys.stderr.write(f"\n[subprocess stderr] {cmd_display}\n{stderr_text}")
+        chunk = f"\n[subprocess stderr] {cmd_display}\n{stderr_text}"
         if not stderr_text.endswith("\n"):
-            sys.stderr.write("\n")
-        sys.stderr.flush()
+            chunk += "\n"
+        chunks.append(chunk)
+
+    return "".join(chunks)
 
 
-@pytest.fixture(scope="session", autouse=True)
-def tee_captured_subprocess_output_in_ci() -> None:
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]):
+    outcome = yield
+    report = outcome.get_result()
+    setattr(item, f"rep_{report.when}", report)
+
+
+@pytest.fixture(autouse=True)
+def tee_captured_subprocess_output_on_failure(
+    request: pytest.FixtureRequest,
+) -> None:
     if not _tee_subprocess_output_enabled():
         yield
         return
 
     monkeypatch = pytest.MonkeyPatch()
     real_run = subprocess.run
+    subprocess_output_log: list[str] = []
 
     def wrapped_run(*args, **kwargs):
         result = real_run(*args, **kwargs)
         cmd_args = kwargs.get("args")
         if cmd_args is None and args:
             cmd_args = args[0]
-        _emit_subprocess_output(cmd_args, result.stdout, result.stderr)
+        formatted = _format_subprocess_output(cmd_args, result.stdout, result.stderr)
+        if formatted:
+            subprocess_output_log.append(formatted)
         return result
 
     monkeypatch.setattr(subprocess, "run", wrapped_run)
@@ -90,6 +105,16 @@ def tee_captured_subprocess_output_in_ci() -> None:
         yield
     finally:
         monkeypatch.undo()
+        rep_setup = getattr(request.node, "rep_setup", None)
+        rep_call = getattr(request.node, "rep_call", None)
+        rep_teardown = getattr(request.node, "rep_teardown", None)
+        failed = any(
+            report is not None and report.failed
+            for report in (rep_setup, rep_call, rep_teardown)
+        )
+        if failed and subprocess_output_log:
+            sys.stdout.write("".join(subprocess_output_log))
+            sys.stdout.flush()
 
 
 @pytest.fixture(autouse=True)

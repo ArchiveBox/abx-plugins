@@ -165,6 +165,20 @@ const requireTargetId = process.argv[3] === 'true';
     return json.loads(result.stdout.strip())
 
 
+def _assert_snapshot_chrome_state_cleared(snapshot_chrome_dir: Path) -> None:
+    for file_name in [
+        "cdp_url.txt",
+        "chrome.pid",
+        "target_id.txt",
+        "url.txt",
+        "navigation.json",
+        "extensions.json",
+    ]:
+        assert not (snapshot_chrome_dir / file_name).exists(), (
+            f"{file_name} should be removed from snapshot chrome dir during teardown"
+        )
+
+
 def _write_test_extension_cache(extensions_dir: Path) -> dict:
     unpacked_dir = extensions_dir / f"{TEST_EXTENSION_NAME}_unpacked"
     unpacked_dir.mkdir(parents=True, exist_ok=True)
@@ -911,6 +925,7 @@ def test_snapshot_isolation_launches_and_cleans_up_local_browser(chrome_test_url
 
         with pytest.raises(OSError):
             os.kill(chrome_pid, 0)
+        _assert_snapshot_chrome_state_cleared(snapshot_chrome_dir)
 
 
 def test_crawl_isolation_local_keepalive_true_keeps_browser_running_after_hook_exit(
@@ -1147,6 +1162,12 @@ def test_crawl_isolation_external_cdp_keepalive_false_closes_adopted_browser_on_
             assert _wait_for_pid_exit(provider_pid), (
                 "adopted external browser should be closed when crawl keepalive=false hook shuts down"
             )
+            assert not (adopted_chrome_dir / "cdp_url.txt").exists(), (
+                "cdp_url.txt should be removed from crawl-owned chrome dir on teardown"
+            )
+            assert not (adopted_chrome_dir / "extensions.json").exists(), (
+                "extensions.json should be removed from crawl-owned chrome dir on teardown"
+            )
         finally:
             if adopt_process.poll() is None:
                 adopt_process.send_signal(signal.SIGTERM)
@@ -1336,12 +1357,14 @@ def test_snapshot_isolation_external_cdp_keepalive_false_closes_adopted_browser_
             tab_process.send_signal(signal.SIGTERM)
             tab_process.wait(timeout=20)
             tab_process = None
+            _assert_snapshot_chrome_state_cleared(snapshot_chrome_dir)
 
             launch_process.send_signal(signal.SIGTERM)
             launch_process.wait(timeout=20)
             assert _wait_for_pid_exit(provider_pid), (
                 "adopted external browser should be closed when snapshot keepalive=false hook shuts down"
             )
+            _assert_snapshot_chrome_state_cleared(snapshot_chrome_dir)
         finally:
             if tab_process is not None and tab_process.poll() is None:
                 tab_process.send_signal(signal.SIGTERM)
@@ -2165,9 +2188,7 @@ def test_tab_cleanup_on_sigterm(chrome_test_url):
         stdout, stderr = tab_process.communicate(timeout=10)
 
         assert tab_process.returncode == 0, f"Tab process should exit cleanly: {stderr}"
-        assert not (snapshot_chrome_dir / "target_id.txt").exists(), (
-            "target_id.txt should be removed when the snapshot tab is cleaned up"
-        )
+        _assert_snapshot_chrome_state_cleared(snapshot_chrome_dir)
 
         # Chrome should still be running
         try:
@@ -2712,6 +2733,9 @@ def test_chrome_cleanup_on_crawl_end():
 
         assert not (chrome_dir / "chrome.pid").exists(), (
             "chrome.pid should be removed during Chrome cleanup"
+        )
+        assert not (chrome_dir / "cdp_url.txt").exists(), (
+            "cdp_url.txt should be removed during Chrome cleanup"
         )
 
 
