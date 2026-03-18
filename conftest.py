@@ -82,6 +82,11 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]):
 def tee_captured_subprocess_output_on_failure(
     request: pytest.FixtureRequest,
 ) -> None:
+    # Pytest only auto-shows output it captured itself. Many tests in this repo
+    # call subprocess.run(..., capture_output=True), which hides child-process
+    # stdout/stderr from pytest entirely unless the test manually includes it in
+    # an assertion message. In CI, buffer that captured subprocess output and
+    # dump it only when the owning test fails.
     if not _tee_subprocess_output_enabled():
         yield
         return
@@ -108,6 +113,8 @@ def tee_captured_subprocess_output_on_failure(
         rep_setup = getattr(request.node, "rep_setup", None)
         rep_call = getattr(request.node, "rep_call", None)
         rep_teardown = getattr(request.node, "rep_teardown", None)
+        # Match pytest's default ergonomics: keep passing tests quiet, but emit
+        # the buffered child-process output for failures in setup/call/teardown.
         failed = any(
             report is not None and report.failed
             for report in (rep_setup, rep_call, rep_teardown)
