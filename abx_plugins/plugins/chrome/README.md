@@ -95,6 +95,8 @@ This directory does **not** own a separate browser. It stores the per-snapshot t
 
 The snapshot-level `cdp_url.txt` and `chrome.pid` are copies of the crawl session values. The snapshot-level `target_id.txt` is unique per snapshot.
 
+Snapshot hooks should treat `SNAP_DIR/chrome/` as their entire Chrome state surface. They should not reach back into `CRAWL_DIR/chrome/` directly; if they need a tab, target, navigation record, or copied extension metadata, they should consume the snapshot-level markers and let the core Chrome hooks handle any crawl-to-snapshot propagation.
+
 ## Readiness Lifecycle
 
 ### 1. Extension install hooks run before Chrome launch

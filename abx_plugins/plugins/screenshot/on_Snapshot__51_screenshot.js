@@ -24,10 +24,11 @@ const {
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const {
-    connectToPage,
-    getTargetIdFromPage,
-    waitForPageLoaded,
+    readCdpUrl,
     readTargetId,
+    waitForChromeSession,
+    connectToPage,
+    waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
 
 // Flush V8 coverage before exiting (for NODE_V8_COVERAGE support)
@@ -76,12 +77,10 @@ async function takeScreenshot(url) {
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
     const tempOutputPath = tempPathFor(outputPath);
 
-    const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
-    const targetFile = path.join(CHROME_SESSION_DIR, 'target_id.txt');
-    if (!fs.existsSync(cdpFile)) {
+    if (!(await waitForChromeSession(CHROME_SESSION_DIR, 1000, false))) {
         throw new Error('No Chrome session found (chrome plugin must run first)');
     }
-    if (!fs.existsSync(targetFile)) {
+    if (!(await waitForChromeSession(CHROME_SESSION_DIR, 1000, true))) {
         throw new Error('No target_id.txt found (chrome_tab must run first)');
     }
 
@@ -89,13 +88,20 @@ async function takeScreenshot(url) {
     // Keep runtime default aligned with config.json (default: 60s).
     const timeoutSeconds = parseInt(getEnv('SCREENSHOT_TIMEOUT', '60'), 10);
     const timeoutMs = timeoutSeconds * 1000;
+    const cdpUrl = readCdpUrl(CHROME_SESSION_DIR);
+    const targetId = readTargetId(CHROME_SESSION_DIR);
+    if (!cdpUrl) {
+        throw new Error('No Chrome session found (chrome plugin must run first)');
+    }
+    if (!targetId) {
+        throw new Error('No target_id.txt found (chrome_tab must run first)');
+    }
+    if (!cdpUrl.startsWith('ws://') && !cdpUrl.startsWith('wss://')) {
+        throw new Error('Invalid CDP URL in cdp_url.txt');
+    }
     const navigationFile = path.join(CHROME_SESSION_DIR, 'navigation.json');
     if (!fs.existsSync(navigationFile)) {
         await waitForPageLoaded(CHROME_SESSION_DIR, timeoutMs);
-    }
-    const cdpUrl = fs.readFileSync(cdpFile, 'utf8').trim();
-    if (!cdpUrl.startsWith('ws://') && !cdpUrl.startsWith('wss://')) {
-        throw new Error('Invalid CDP URL in cdp_url.txt');
     }
 
     const { browser, page } = await connectToPage({
@@ -105,15 +111,6 @@ async function takeScreenshot(url) {
     });
 
     try {
-        const expectedTargetId = readTargetId(CHROME_SESSION_DIR);
-        if (!expectedTargetId) {
-            throw new Error('No target_id.txt found (chrome_tab must run first)');
-        }
-        const actualTargetId = getTargetIdFromPage(page);
-        if (actualTargetId !== expectedTargetId) {
-            throw new Error(`Target ${expectedTargetId} not found in Chrome session`);
-        }
-
         const captureTimeoutMs = Math.max(timeoutMs, 10000);
         const timeoutPromise = new Promise((_, reject) => {
             setTimeout(() => reject(new Error('Screenshot capture timed out')), captureTimeoutMs);

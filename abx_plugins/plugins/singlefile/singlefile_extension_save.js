@@ -27,27 +27,6 @@ const DOWNLOADS_DIR = process.env.CHROME_DOWNLOADS_DIR ||
 
 process.env.CHROME_DOWNLOADS_DIR = DOWNLOADS_DIR;
 
-async function setDownloadDir(page, downloadDir) {
-    try {
-        await fs.promises.mkdir(downloadDir, { recursive: true });
-        const client = await page.target().createCDPSession();
-        try {
-            await client.send('Page.setDownloadBehavior', {
-                behavior: 'allow',
-                downloadPath: downloadDir,
-            });
-        } catch (err) {
-            // Fallback for newer protocol versions
-            await client.send('Browser.setDownloadBehavior', {
-                behavior: 'allow',
-                downloadPath: downloadDir,
-            });
-        }
-    } catch (err) {
-        console.error(`[⚠️] Failed to set download directory: ${err.message || err}`);
-    }
-}
-
 async function main() {
     const args = parseArgs();
     const url = args.url;
@@ -141,7 +120,7 @@ async function main() {
                 process.exit(6);
             }
             console.error('[singlefile] setting download dir...');
-            await setDownloadDir(page, DOWNLOADS_DIR);
+            await chromeUtils.setBrowserDownloadBehavior({ page, downloadPath: DOWNLOADS_DIR });
 
             console.error('[singlefile] triggering save via extension...');
             const output = await saveSinglefileWithExtension(page, extension, {

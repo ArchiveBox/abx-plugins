@@ -27,6 +27,7 @@ const puppeteer = require('puppeteer-core');
 // Import chrome-specific utilities from chrome_utils.js
 const {
     connectToPage,
+    waitForChromeSessionState,
     waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
 
@@ -115,18 +116,13 @@ function writeHeadersFile() {
 
 async function setupListener(url) {
     const timeout = getEnvInt('HEADERS_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
-    const cdpFile = path.join(CHROME_SESSION_DIR, 'cdp_url.txt');
-    const targetIdFile = path.join(CHROME_SESSION_DIR, 'target_id.txt');
-    const pidFile = path.join(CHROME_SESSION_DIR, 'chrome.pid');
-
-    if (!fs.existsSync(cdpFile) || !fs.existsSync(targetIdFile) || !fs.existsSync(pidFile)) {
-        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
-    }
-    try {
-        const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
-        if (!pid || Number.isNaN(pid)) throw new Error('Invalid pid');
-        process.kill(pid, 0);
-    } catch (e) {
+    const chromeSession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
+        timeoutMs: Math.min(timeout, 1000),
+        requireTargetId: true,
+        requirePid: true,
+        requireAlivePid: true,
+    });
+    if (!chromeSession) {
         throw new Error(CHROME_SESSION_REQUIRED_ERROR);
     }
 

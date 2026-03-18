@@ -44,7 +44,7 @@ ensureNodeModuleResolution(module);
 
 // Import chrome-specific utilities from chrome_utils.js
 const {
-    readCdpUrl,
+    waitForChromeSession,
     connectToPage,
     waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
@@ -308,7 +308,7 @@ async function main() {
 
     let browser = null;
     try {
-        if (!readCdpUrl(CHROME_SESSION_DIR)) {
+        if (!(await waitForChromeSession(CHROME_SESSION_DIR, Math.min(timeout, 1000), true))) {
             throw new Error('No Chrome session found (chrome plugin must run first)');
         }
 

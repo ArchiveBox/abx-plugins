@@ -60,6 +60,7 @@ Module._load = function(request, parent, isMain) {
             loadExtensionFromTarget: async (extensions) => {
                 extensions[0].dispatchAction = async () => {};
             },
+            setBrowserDownloadBehavior: async () => true,
         };
     }
 

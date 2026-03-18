@@ -26,19 +26,13 @@ const { exec } = require('child_process');
 const execAsync = promisify(exec);
 
 // Import extension utilities
-const extensionUtils = require('../chrome/chrome_utils.js');
+const { installExtensionWithCache } = require('../chrome/chrome_utils.js');
 
 // Extension metadata
 const EXTENSION = {
     webstore_id: 'mpiodijhokgodhhofbcjdecpffjipkle',
     name: 'singlefile',
 };
-
-// Get extensions directory from environment or use default
-const EXTENSIONS_DIR = process.env.CHROME_EXTENSIONS_DIR ||
-    path.join(process.env.PERSONAS_DIR || path.join(os.homedir(), '.config', 'abx', 'personas'),
-        process.env.ACTIVE_PERSONA || 'Default',
-        'chrome_extensions');
 
 const CHROME_DOWNLOADS_DIR = process.env.CHROME_DOWNLOADS_DIR ||
     path.join(process.env.PERSONAS_DIR || path.join(os.homedir(), '.config', 'abx', 'personas'),
@@ -53,26 +47,6 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 }
 process.chdir(OUTPUT_DIR);
 const OUTPUT_FILE = 'singlefile.html';
-
-/**
- * Install the SingleFile extension
- */
-async function installSinglefileExtension() {
-    console.log('[*] Installing SingleFile extension...');
-
-    // Install the extension
-    const extension = await extensionUtils.loadOrInstallExtension(EXTENSION, EXTENSIONS_DIR);
-
-    if (!extension) {
-        console.error('[❌] Failed to install SingleFile extension');
-        return null;
-    }
-
-    console.log('[+] SingleFile extension installed');
-    console.log('[+] Web pages will be saved as single HTML files');
-
-    return extension;
-}
 
 /**
  * Wait for a specified amount of time
@@ -297,36 +271,10 @@ async function saveSinglefileWithCLI(url, options = {}) {
  * Main entry point - install extension before archiving
  */
 async function main() {
-    // Check if extension is already cached
-    const cacheFile = path.join(EXTENSIONS_DIR, 'singlefile.extension.json');
+    const extension = await installExtensionWithCache(EXTENSION);
 
-    if (fs.existsSync(cacheFile)) {
-        try {
-            const cached = JSON.parse(fs.readFileSync(cacheFile, 'utf-8'));
-            const manifestPath = path.join(cached.unpacked_path, 'manifest.json');
-
-            if (fs.existsSync(manifestPath)) {
-                console.log('[*] SingleFile extension already installed (using cache)');
-                return cached;
-            }
-        } catch (e) {
-            // Cache file corrupted, re-install
-            console.warn('[⚠️] Extension cache corrupted, re-installing...');
-        }
-    }
-
-    // Install extension
-    const extension = await installSinglefileExtension();
-
-    // Export extension metadata for chrome plugin to load
     if (extension) {
-        // Write extension info to a cache file that chrome plugin can read
-        await fs.promises.mkdir(EXTENSIONS_DIR, { recursive: true });
-        await fs.promises.writeFile(
-            cacheFile,
-            JSON.stringify(extension, null, 2)
-        );
-        console.log(`[+] Extension metadata written to ${cacheFile}`);
+        console.log('[+] Web pages will be saved as single HTML files');
     }
 
     return extension;
@@ -335,7 +283,6 @@ async function main() {
 // Export functions for use by other plugins
 module.exports = {
     EXTENSION,
-    installSinglefileExtension,
     saveSinglefileWithExtension,
     saveSinglefileWithCLI,
 };
