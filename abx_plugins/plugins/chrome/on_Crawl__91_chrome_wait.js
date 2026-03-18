@@ -70,7 +70,7 @@ async function main() {
     } catch (error) {
         const message = error?.message || String(error);
         console.error(`[chrome_wait:crawl] ERROR: ${message}`);
-        console.log(JSON.stringify({ type: 'ArchiveResult', status: 'failed', output_str: message }));
+        console.log(JSON.stringify({ type: 'ArchiveResult', status: 'failed', output_str: CHROME_SESSION_REQUIRED_ERROR }));
         process.exit(1);
     } finally {
         if (browser) {
