@@ -119,13 +119,12 @@ const originalLoad = Module._load;
 
 Module._load = function(request, parent, isMain) {
     if (request === './chrome_utils.js') {
+        const actual = originalLoad(request, parent, isMain);
         return {
+            ...actual,
             waitForChromeSessionState: async () => ({
                 cdpUrl: 'ws://127.0.0.1:9222/devtools/browser/test',
                 pid: 4321,
-            }),
-            connectToBrowserEndpoint: async () => ({
-                disconnect: () => {},
             }),
         };
     }

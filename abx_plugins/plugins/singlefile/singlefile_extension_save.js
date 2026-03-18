@@ -76,7 +76,6 @@ async function main() {
             requireTargetId: true,
             requireExtensionsLoaded: true,
             puppeteer,
-            puppeteerModule: puppeteer,
         });
         console.error('[singlefile] connected to chrome');
 

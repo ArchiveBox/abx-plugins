@@ -2722,8 +2722,7 @@ async function closeTabInChromeSession(options = {}) {
  * @param {number} [options.timeoutMs=60000] - Timeout for waiting
  * @param {boolean} [options.requireTargetId=true] - Require target_id.txt in session dir
  * @param {boolean} [options.requireExtensionsLoaded=false] - Require extensions.json to be available and parseable
- * @param {Object} [options.puppeteer] - Puppeteer module (preferred explicit form)
- * @param {Object} [options.puppeteerModule] - Backward-compatible puppeteer module key
+ * @param {Object} options.puppeteer - Puppeteer module
  * @returns {Promise<Object>} - { browser, page, cdpSession, targetId, cdpUrl, extensions }
  * @throws {Error} - If connection fails or page not found
  */
@@ -2737,12 +2736,16 @@ async function connectToPage(options = {}) {
         pageLoadTimeoutMs = timeoutMs * 4,
         postLoadDelayMs = 0,
         puppeteer,
-        puppeteerModule,
     } = options;
 
-    // Support both key names and fall back to local resolution for compatibility
-    // with older callers that may omit explicit module injection.
-    const resolvedPuppeteer = puppeteer || puppeteerModule || resolvePuppeteerModule();
+    const resolvedPuppeteer = puppeteer || resolvePuppeteerModule();
+    const initialInspection = await inspectChromeSessionArtifacts(chromeSessionDir, {
+        requireTargetId,
+        validateLiveness: false,
+    });
+    if (!initialInspection.hasArtifacts) {
+        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
+    }
     const state = await waitForChromeSessionState(chromeSessionDir, {
         timeoutMs,
         requireTargetId,
