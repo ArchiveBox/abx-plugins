@@ -2257,13 +2257,18 @@ async function setBrowserDownloadBehavior(options = {}) {
         downloadPath,
     } = options;
 
-    if ((!browser && !page) || !downloadPath) return false;
+    if (!browser && !page) {
+        throw new Error('setBrowserDownloadBehavior requires a browser or page');
+    }
+    if (!downloadPath) {
+        throw new Error('setBrowserDownloadBehavior requires downloadPath');
+    }
 
     await fs.promises.mkdir(downloadPath, { recursive: true });
     const sessionTarget = page ? page.target() : browser.target();
     const session = await sessionTarget.createCDPSession();
-
-    if (page) {
+    let operationError = null;
+    try {
         try {
             await session.send('Browser.setDownloadBehavior', {
                 behavior: 'allow',
@@ -2284,26 +2289,16 @@ async function setBrowserDownloadBehavior(options = {}) {
                 );
             }
         }
-    }
-
-    try {
-        await session.send('Browser.setDownloadBehavior', {
-            behavior: 'allow',
-            downloadPath,
-        });
-        return true;
-    } catch (browserError) {
+    } catch (error) {
+        operationError = error;
+        throw error;
+    } finally {
         try {
-            await session.send('Page.setDownloadBehavior', {
-                behavior: 'allow',
-                downloadPath,
-            });
-            return true;
-        } catch (pageError) {
-            throw new Error(
-                `Browser.setDownloadBehavior failed: ${browserError.message}; ` +
-                `Page.setDownloadBehavior failed: ${pageError.message}`
-            );
+            await session.detach();
+        } catch (detachError) {
+            if (!operationError) {
+                throw detachError;
+            }
         }
     }
 }

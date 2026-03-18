@@ -4,13 +4,16 @@ Tests for chrome_test_helpers.py functions.
 These tests verify the Python helper functions used across Chrome plugin tests.
 """
 
+import json
 import os
+import subprocess
 import pytest
 import tempfile
 from pathlib import Path
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     _call_chrome_utils,
+    CHROME_UTILS,
     get_test_env,
     get_machine_type,
     get_lib_dir,
@@ -198,6 +201,163 @@ def test_find_chromium_accepts_command_name_chrome_binary(
 
     assert returncode == 0, stderr
     assert stdout.strip() == str(binary_path)
+
+
+def test_set_browser_download_behavior_detaches_session_on_success(tmp_path: Path):
+    """setBrowserDownloadBehavior() should always detach the created CDP session."""
+    download_dir = tmp_path / "downloads"
+    script = """
+const utils = require(process.argv[1]);
+const downloadPath = process.argv[2];
+const calls = [];
+const session = {
+  async send(method, params) {
+    calls.push({ type: 'send', method, downloadPath: params.downloadPath });
+    return {};
+  },
+  async detach() {
+    calls.push({ type: 'detach' });
+  },
+};
+const page = {
+  target() {
+    return {
+      createCDPSession: async () => session,
+    };
+  },
+};
+
+(async () => {
+  const result = await utils.setBrowserDownloadBehavior({ page, downloadPath });
+  process.stdout.write(JSON.stringify({ result, calls }));
+})().catch((error) => {
+  console.error(error.stack || error.message);
+  process.exit(1);
+});
+"""
+    result = subprocess.run(
+        ["node", "-e", script, str(CHROME_UTILS), str(download_dir)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["result"] is True
+    assert payload["calls"] == [
+        {
+            "type": "send",
+            "method": "Browser.setDownloadBehavior",
+            "downloadPath": str(download_dir),
+        },
+        {"type": "detach"},
+    ]
+
+
+def test_set_browser_download_behavior_detaches_session_on_failure(tmp_path: Path):
+    """setBrowserDownloadBehavior() should detach even when both CDP methods fail."""
+    download_dir = tmp_path / "downloads"
+    script = """
+const utils = require(process.argv[1]);
+const downloadPath = process.argv[2];
+const calls = [];
+const session = {
+  async send(method, params) {
+    calls.push({ type: 'send', method, downloadPath: params.downloadPath });
+    throw new Error(method === 'Browser.setDownloadBehavior' ? 'browser failed' : 'page failed');
+  },
+  async detach() {
+    calls.push({ type: 'detach' });
+  },
+};
+const page = {
+  target() {
+    return {
+      createCDPSession: async () => session,
+    };
+  },
+};
+
+(async () => {
+  try {
+    await utils.setBrowserDownloadBehavior({ page, downloadPath });
+    process.stdout.write(JSON.stringify({ ok: true, calls }));
+  } catch (error) {
+    process.stdout.write(JSON.stringify({ ok: false, error: error.message, calls }));
+  }
+})().catch((error) => {
+  console.error(error.stack || error.message);
+  process.exit(1);
+});
+"""
+    result = subprocess.run(
+        ["node", "-e", script, str(CHROME_UTILS), str(download_dir)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert "Browser.setDownloadBehavior failed: browser failed" in payload["error"]
+    assert "Page.setDownloadBehavior failed: page failed" in payload["error"]
+    assert payload["calls"] == [
+        {
+            "type": "send",
+            "method": "Browser.setDownloadBehavior",
+            "downloadPath": str(download_dir),
+        },
+        {
+            "type": "send",
+            "method": "Page.setDownloadBehavior",
+            "downloadPath": str(download_dir),
+        },
+        {"type": "detach"},
+    ]
+
+
+def test_set_browser_download_behavior_requires_download_path():
+    """Download setup failures must hard-fail for snapshot-level download extractors."""
+    script = """
+const utils = require(process.argv[1]);
+const page = {
+  target() {
+    return {
+      createCDPSession: async () => ({
+        async send() { return {}; },
+        async detach() {},
+      }),
+    };
+  },
+};
+
+(async () => {
+  try {
+    await utils.setBrowserDownloadBehavior({ page });
+    process.stdout.write(JSON.stringify({ ok: true }));
+  } catch (error) {
+    process.stdout.write(JSON.stringify({ ok: false, error: error.message }));
+  }
+})().catch((error) => {
+  console.error(error.stack || error.message);
+  process.exit(1);
+});
+"""
+    result = subprocess.run(
+        ["node", "-e", script, str(CHROME_UTILS)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload == {
+        "ok": False,
+        "error": "setBrowserDownloadBehavior requires downloadPath",
+    }
 
 
 def test_get_plugin_dir():
