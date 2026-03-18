@@ -71,6 +71,30 @@
       "x-fallback": "USER_AGENT",
       "description": "User agent string for Chrome"
     },
+    "CHROME_CDP_URL": {
+      "type": "string",
+      "default": "",
+      "description": "Connect to an already-running browser over CDP instead of launching a new local Chromium process"
+    },
+    "CHROME_IS_LOCAL": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether the managed browser process is local and should have a live chrome.pid marker"
+    },
+    "CHROME_KEEPALIVE": {
+      "type": "boolean",
+      "default": false,
+      "description": "Keep the browser alive after the owning crawl/snapshot hook exits instead of closing it during cleanup"
+    },
+    "CHROME_ISOLATION": {
+      "type": "string",
+      "default": "crawl",
+      "enum": [
+        "crawl",
+        "snapshot"
+      ],
+      "description": "Whether Chrome runs as one shared browser per crawl or a separate browser per snapshot"
+    },
     "CHROME_ARGS": {
       "type": "array",
       "items": {

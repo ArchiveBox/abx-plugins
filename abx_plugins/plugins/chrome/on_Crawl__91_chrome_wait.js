@@ -24,6 +24,8 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 process.chdir(OUTPUT_DIR);
 
 const {
+    getEnv,
+    getEnvBool,
     getEnvInt,
     waitForChromeSessionState,
 } = require('./chrome_utils.js');
@@ -37,14 +39,16 @@ function sleep(ms) {
 
 async function waitForConnectableCrawlChromeSession(chromeSessionDir, timeoutMs) {
     const deadline = Date.now() + timeoutMs;
+    const processIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true);
 
     while (Date.now() < deadline) {
         const remainingMs = Math.max(deadline - Date.now(), 0);
         const state = await waitForChromeSessionState(chromeSessionDir, {
             timeoutMs: Math.min(remainingMs, 500),
             intervalMs: 100,
-            requirePid: true,
-            requireAlivePid: true,
+            requirePid: processIsLocal,
+            requireAlivePid: processIsLocal,
+            processIsLocal,
         });
 
         if (!state?.cdpUrl) {
@@ -88,6 +92,13 @@ async function main() {
 
     const timeoutSeconds = getEnvInt('CHROME_TAB_TIMEOUT', getEnvInt('CHROME_TIMEOUT', getEnvInt('TIMEOUT', 60)));
     const timeoutMs = timeoutSeconds * 1000;
+    const isolation = getEnv('CHROME_ISOLATION', 'crawl').toLowerCase() === 'snapshot' ? 'snapshot' : 'crawl';
+
+    if (isolation === 'snapshot') {
+        console.error('[chrome_wait:crawl] CHROME_ISOLATION=snapshot, skipping crawl-scoped wait');
+        console.log(JSON.stringify({ type: 'ArchiveResult', status: 'succeeded', output_str: 'snapshot isolation active' }));
+        process.exit(0);
+    }
 
     console.error(`[chrome_wait:crawl] Waiting for crawl Chrome session (timeout=${timeoutSeconds}s)...`);
 
@@ -98,9 +109,9 @@ async function main() {
         process.exit(1);
     }
 
-    console.error(`[chrome_wait:crawl] Chrome session ready (verified CDP connection, pid=${readySession.pid}, cdp_url=${readySession.cdpUrl.slice(0, 32)}...).`);
+    console.error(`[chrome_wait:crawl] Chrome session ready (verified CDP connection, pid=${readySession.pid || 'external'}, cdp_url=${readySession.cdpUrl.slice(0, 32)}...).`);
     const port = (readySession.cdpUrl.match(/:(\d+)\/devtools\//) || [])[1] || '?';
-    console.log(JSON.stringify({ type: 'ArchiveResult', status: 'succeeded', output_str: `browser ready pid=${readySession.pid} port=${port}` }));
+    console.log(JSON.stringify({ type: 'ArchiveResult', status: 'succeeded', output_str: `browser ready pid=${readySession.pid || 'external'} port=${port}` }));
     process.exit(0);
 }
 

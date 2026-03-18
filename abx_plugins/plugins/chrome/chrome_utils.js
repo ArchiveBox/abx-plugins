@@ -2015,6 +2015,72 @@ function getBrowserServerUrlFromCdpUrl(cdpUrl) {
     }
 }
 
+function getPuppeteerConnectOptionsForCdpUrl(cdpUrl) {
+    if (!cdpUrl) {
+        throw new Error('Missing CDP URL');
+    }
+
+    try {
+        const endpoint = new URL(cdpUrl);
+        if (endpoint.protocol === 'http:' || endpoint.protocol === 'https:') {
+            return { browserURL: getBrowserServerUrlFromCdpUrl(cdpUrl) || cdpUrl };
+        }
+        if (endpoint.protocol === 'ws:' || endpoint.protocol === 'wss:') {
+            return { browserWSEndpoint: cdpUrl };
+        }
+    } catch (error) {}
+
+    return { browserWSEndpoint: cdpUrl };
+}
+
+async function connectToBrowserEndpoint(puppeteer, cdpUrl, connectOptions = {}) {
+    return await puppeteer.connect({
+        ...getPuppeteerConnectOptionsForCdpUrl(cdpUrl),
+        ...connectOptions,
+    });
+}
+
+async function withTimeout(promiseFactory, timeoutMs, timeoutMessage) {
+    let timeoutHandle = null;
+    try {
+        return await Promise.race([
+            promiseFactory(),
+            new Promise((_, reject) => {
+                timeoutHandle = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+            }),
+        ]);
+    } finally {
+        if (timeoutHandle) {
+            clearTimeout(timeoutHandle);
+        }
+    }
+}
+
+async function canConnectToChromeBrowser(cdpUrl, options = {}) {
+    const {
+        timeoutMs = 1500,
+        puppeteer = resolvePuppeteerModule(),
+    } = options;
+
+    let browser = null;
+    try {
+        browser = await withTimeout(
+            () => connectToBrowserEndpoint(puppeteer, cdpUrl, { defaultViewport: null }),
+            timeoutMs,
+            `Timed out connecting to browser at ${cdpUrl}`
+        );
+        return true;
+    } catch (error) {
+        return false;
+    } finally {
+        if (browser) {
+            try {
+                await browser.disconnect();
+            } catch (disconnectError) {}
+        }
+    }
+}
+
 /**
  * Inspect whether persisted session markers still correspond to a live attachable
  * Chrome session.
@@ -2034,6 +2100,7 @@ async function inspectChromeSessionArtifacts(chromeSessionDir, options = {}) {
     const {
         requireTargetId = false,
         probeTimeoutMs = 1500,
+        processIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true),
     } = options;
 
     const artifactPaths = getChromeSessionArtifactPaths(chromeSessionDir);
@@ -2052,6 +2119,10 @@ async function inspectChromeSessionArtifacts(chromeSessionDir, options = {}) {
         return { hasArtifacts: true, stale: true, state, reason: 'missing target_id.txt' };
     }
 
+    if (processIsLocal && !state.pid) {
+        return { hasArtifacts: true, stale: true, state, reason: 'missing chrome.pid' };
+    }
+
     if (state.pid && !isProcessAlive(state.pid)) {
         return { hasArtifacts: true, stale: true, state, reason: `chrome pid ${state.pid} is not running` };
     }
@@ -2060,22 +2131,35 @@ async function inspectChromeSessionArtifacts(chromeSessionDir, options = {}) {
         return { hasArtifacts: true, stale: true, state, reason: 'invalid chrome.pid' };
     }
 
-    const debugPort = getChromeDebugPortFromCdpUrl(state.cdpUrl);
-    if (!debugPort) {
-        return { hasArtifacts: true, stale: true, state, reason: `invalid cdp url: ${state.cdpUrl}` };
+    if (processIsLocal) {
+        const debugPort = getChromeDebugPortFromCdpUrl(state.cdpUrl);
+        if (!debugPort) {
+            return { hasArtifacts: true, stale: true, state, reason: `invalid cdp url: ${state.cdpUrl}` };
+        }
+
+        try {
+            await waitForDebugPort(debugPort, probeTimeoutMs);
+            return { hasArtifacts: true, stale: false, state, reason: null };
+        } catch (error) {
+            return {
+                hasArtifacts: true,
+                stale: true,
+                state,
+                reason: `cdp unreachable on port ${debugPort}: ${error.message}`,
+            };
+        }
     }
 
-    try {
-        await waitForDebugPort(debugPort, probeTimeoutMs);
+    if (await canConnectToChromeBrowser(state.cdpUrl, { timeoutMs: probeTimeoutMs })) {
         return { hasArtifacts: true, stale: false, state, reason: null };
-    } catch (error) {
-        return {
-            hasArtifacts: true,
-            stale: true,
-            state,
-            reason: `cdp unreachable on port ${debugPort}: ${error.message}`,
-        };
     }
+
+    return {
+        hasArtifacts: true,
+        stale: true,
+        state,
+        reason: `cdp unreachable at ${state.cdpUrl}`,
+    };
 }
 
 /**
@@ -2126,12 +2210,16 @@ function isValidChromeSessionState(state, options = {}) {
         requireTargetId = false,
         requirePid = false,
         requireAlivePid = false,
+        processIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true),
     } = options;
+
+    const effectiveRequirePid = Boolean(requirePid || requireAlivePid || processIsLocal);
+    const effectiveRequireAlivePid = Boolean(requireAlivePid || processIsLocal);
 
     if (!state?.cdpUrl) return false;
     if (requireTargetId && !state.targetId) return false;
-    if ((requirePid || requireAlivePid) && !state.pid) return false;
-    if (requireAlivePid) {
+    if (effectiveRequirePid && !state.pid) return false;
+    if (effectiveRequireAlivePid) {
         try {
             process.kill(state.pid, 0);
         } catch (e) {
@@ -2165,12 +2253,13 @@ async function waitForChromeSessionState(chromeSessionDir, options = {}) {
         requireTargetId = false,
         requirePid = false,
         requireAlivePid = false,
+        processIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true),
     } = options;
     const startTime = Date.now();
 
     while (Date.now() - startTime < timeoutMs) {
         const state = readChromeSessionState(chromeSessionDir);
-        if (isValidChromeSessionState(state, { requireTargetId, requirePid, requireAlivePid })) {
+        if (isValidChromeSessionState(state, { requireTargetId, requirePid, requireAlivePid, processIsLocal })) {
             return state;
         }
         await new Promise(resolve => setTimeout(resolve, intervalMs));
@@ -2223,13 +2312,13 @@ async function withConnectedBrowser(options, operation) {
     const {
         puppeteer,
         browserWSEndpoint,
+        browserURL,
+        cdpUrl,
         connectOptions = {},
     } = options;
 
-    const browser = await puppeteer.connect({
-        browserWSEndpoint,
-        ...connectOptions,
-    });
+    const endpoint = browserURL || browserWSEndpoint || cdpUrl;
+    const browser = await connectToBrowserEndpoint(puppeteer, endpoint, connectOptions);
     try {
         return await operation(browser);
     } finally {
@@ -2293,96 +2382,6 @@ async function setBrowserDownloadBehavior(options = {}) {
     }
 }
 
-function fetchDevtoolsTargets(cdpUrl, timeoutMs = 5000) {
-    const port = getChromeDebugPortFromCdpUrl(cdpUrl);
-    if (!port) {
-        return Promise.resolve([]);
-    }
-
-    return new Promise((resolve, reject) => {
-        const req = http.get(
-            { hostname: '127.0.0.1', port, path: '/json/list' },
-            (res) => {
-                let data = '';
-                res.on('data', (chunk) => (data += chunk));
-                res.on('end', () => {
-                    try {
-                        const targets = JSON.parse(data);
-                        resolve(Array.isArray(targets) ? targets : []);
-                    } catch (error) {
-                        reject(error);
-                    }
-                });
-            }
-        );
-        req.setTimeout(timeoutMs, () => {
-            req.destroy(new Error(`Timed out fetching DevTools targets after ${timeoutMs}ms`));
-        });
-        req.on('error', reject);
-    });
-}
-
-function devtoolsHttpRequest(cdpUrl, requestPath, method = 'GET', timeoutMs = 5000) {
-    const port = getChromeDebugPortFromCdpUrl(cdpUrl);
-    if (!port) {
-        return Promise.reject(new Error(`Invalid CDP URL: ${cdpUrl}`));
-    }
-
-    return new Promise((resolve, reject) => {
-        const req = http.request(
-            { hostname: '127.0.0.1', port, path: requestPath, method },
-            (res) => {
-                let data = '';
-                res.on('data', (chunk) => (data += chunk));
-                res.on('end', () => {
-                    if (res.statusCode && res.statusCode >= 400) {
-                        reject(new Error(`DevTools HTTP ${res.statusCode}: ${data || requestPath}`));
-                        return;
-                    }
-                    resolve(data);
-                });
-            }
-        );
-        req.setTimeout(timeoutMs, () => {
-            req.destroy(new Error(`Timed out waiting for DevTools ${method} ${requestPath} after ${timeoutMs}ms`));
-        });
-        req.on('error', reject);
-        req.end();
-    });
-}
-
-async function createDevtoolsPageTarget(cdpUrl, initialUrl = 'about:blank', options = {}) {
-    const timeoutMs = options.timeoutMs || 5000;
-    const encodedUrl = encodeURIComponent(initialUrl);
-    const response = await devtoolsHttpRequest(cdpUrl, `/json/new?${encodedUrl}`, 'PUT', timeoutMs);
-    const target = JSON.parse(response || '{}');
-    if (!target?.id) {
-        throw new Error('Failed to create DevTools page target');
-    }
-    return target;
-}
-
-async function getDevtoolsTargetById(cdpUrl, targetId) {
-    if (!targetId) return null;
-    const targets = await fetchDevtoolsTargets(cdpUrl);
-    return targets.find((target) => target?.id === targetId) || null;
-}
-
-async function closeDevtoolsPageTarget(cdpUrl, targetId) {
-    if (!cdpUrl || !targetId) {
-        return false;
-    }
-
-    for (const method of ['PUT', 'GET']) {
-        try {
-            await devtoolsHttpRequest(cdpUrl, `/json/close/${targetId}`, method);
-            return true;
-        } catch (error) {}
-    }
-
-    return false;
-}
-
 function getTargetIdFromTarget(target) {
     if (!target) return null;
     return target._targetId || target._targetInfo?.targetId || null;
@@ -2395,42 +2394,6 @@ function getTargetIdFromPage(page) {
     } catch (error) {
         return null;
     }
-}
-
-async function waitForNewPageTarget(browser, previousTargetIds = new Set(), timeoutMs = 5000) {
-    const deadline = Date.now() + Math.max(timeoutMs, 0);
-
-    while (Date.now() <= deadline) {
-        const pages = await browser.pages();
-        for (const page of pages) {
-            const targetId = getTargetIdFromPage(page);
-            if (targetId && !previousTargetIds.has(targetId)) {
-                return { page, targetId };
-            }
-        }
-        await sleep(100);
-    }
-
-    return { page: null, targetId: null };
-}
-
-async function waitForNewDevtoolsPageTarget(cdpUrl, previousTargetIds = new Set(), timeoutMs = 5000) {
-    const deadline = Date.now() + Math.max(timeoutMs, 0);
-
-    while (Date.now() <= deadline) {
-        const targets = await fetchDevtoolsTargets(cdpUrl);
-        const target = targets.find((candidate) => {
-            if (candidate?.type !== 'page') return false;
-            if (!candidate.id) return false;
-            return !previousTargetIds.has(candidate.id);
-        });
-        if (target?.id) {
-            return target;
-        }
-        await sleep(100);
-    }
-
-    return null;
 }
 
 async function sleep(ms) {
@@ -2494,9 +2457,14 @@ async function verifyStableChromiumSession(options = {}) {
     let browser = null;
     try {
         const puppeteer = resolvePuppeteerModule();
-        browser = await puppeteer.connect({
-            browserWSEndpoint: cdpUrl,
+        browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, {
             defaultViewport: null,
+        });
+        await waitForBrowserPageReady({
+            browser,
+            timeoutMs: getEnvInt('CHROME_PAGE_READY_TIMEOUT_MS', 10000),
+            requireAboutBlank: true,
+            createPageIfMissing: true,
         });
     } catch (error) {
         throw new Error(`Chromium CDP session not stable after startup: ${error.message}`);
@@ -2518,6 +2486,82 @@ async function verifyStableChromiumSession(options = {}) {
             );
         }
         await sleep(200);
+    }
+}
+
+async function waitForBrowserPageReady(options = {}) {
+    const {
+        browser = null,
+        puppeteer = null,
+        cdpUrl = null,
+        timeoutMs = 10000,
+        requireAboutBlank = false,
+        createPageIfMissing = true,
+    } = options;
+
+    let ownedBrowser = null;
+    let connectedBrowser = browser;
+    let createdProbePage = false;
+    let lastError = null;
+    const deadline = Date.now() + Math.max(timeoutMs, 0);
+
+    if (!connectedBrowser) {
+        const puppeteerModule = requirePuppeteerModule(puppeteer, 'waitForBrowserPageReady');
+        connectedBrowser = await connectToBrowserEndpoint(puppeteerModule, cdpUrl, {
+            defaultViewport: null,
+        });
+        ownedBrowser = connectedBrowser;
+    }
+
+    try {
+        while (Date.now() <= deadline) {
+            let pages = [];
+            try {
+                pages = await connectedBrowser.pages();
+            } catch (error) {
+                lastError = error;
+            }
+
+            let page = pages.find(candidate => candidate && candidate.url() === 'about:blank') || pages[0] || null;
+            if ((!page || (requireAboutBlank && page.url() !== 'about:blank')) && createPageIfMissing && !createdProbePage) {
+                try {
+                    page = await connectedBrowser.newPage();
+                    createdProbePage = true;
+                } catch (error) {
+                    lastError = error;
+                }
+            }
+
+            if (page) {
+                try {
+                    const url = page.url();
+                    if (requireAboutBlank && url !== 'about:blank') {
+                        lastError = new Error(`Expected about:blank probe page, found ${url || '<empty>'}`);
+                    } else {
+                        const title = await page.title();
+                        const targetId = getTargetIdFromPage(page);
+                        if (!targetId) {
+                            throw new Error('Missing target ID for probe page');
+                        }
+                        return { browser: connectedBrowser, page, targetId, url, title };
+                    }
+                } catch (error) {
+                    lastError = error;
+                }
+            } else if (!lastError) {
+                lastError = new Error('No page targets available yet');
+            }
+
+            await sleep(100);
+        }
+
+        throw new Error(lastError?.message || 'Timed out waiting for a usable Chrome page');
+    } finally {
+        if (ownedBrowser) {
+            try {
+                await ownedBrowser.disconnect();
+            } catch (disconnectError) {}
+        }
     }
 }
 
@@ -2548,22 +2592,6 @@ async function resolvePageByTargetId(browser, targetId, timeoutMs = 0) {
 
         await sleep(100);
     }
-}
-
-/**
- * Convenience wrapper for waiting on persisted session markers.
- *
- * This is suitable for hooks that only need the marker contract (`cdp_url.txt`
- * plus optional `target_id.txt`), not an immediate live browser probe.
- *
- * @param {string} chromeSessionDir - Path to chrome session directory (e.g., '../chrome')
- * @param {number} [timeoutMs=60000] - Timeout in milliseconds
- * @param {boolean} [requireTargetId=true] - Whether target_id.txt must exist
- * @returns {Promise<boolean>} - True if files are ready, false if timeout
- */
-async function waitForChromeSession(chromeSessionDir, timeoutMs = 60000, requireTargetId = true) {
-    const state = await waitForChromeSessionState(chromeSessionDir, { timeoutMs, requireTargetId });
-    return Boolean(state);
 }
 
 /**
@@ -2609,10 +2637,11 @@ function readChromePid(chromeSessionDir) {
  * @returns {{cdpUrl: string, pid: number, crawlChromeDir: string}}
  * @throws {Error} - If session files are missing/invalid or process is dead
  */
-function getCrawlChromeSession(crawlBaseDir = '.') {
+function getCrawlChromeSession(crawlBaseDir = '.', options = {}) {
     const crawlChromeDir = path.join(path.resolve(crawlBaseDir), 'chrome');
     const state = readChromeSessionState(crawlChromeDir);
-    if (!isValidChromeSessionState(state, { requirePid: true, requireAlivePid: true })) {
+    const processIsLocal = options.processIsLocal ?? (getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true));
+    if (!isValidChromeSessionState(state, { requirePid: processIsLocal, requireAlivePid: processIsLocal, processIsLocal })) {
         throw new Error(CHROME_SESSION_REQUIRED_ERROR);
     }
     return { cdpUrl: state.cdpUrl, pid: state.pid, crawlChromeDir };
@@ -2636,12 +2665,14 @@ function getCrawlChromeSession(crawlBaseDir = '.') {
 async function waitForCrawlChromeSession(timeoutMs, options = {}) {
     const intervalMs = options.intervalMs || 250;
     const crawlBaseDir = options.crawlBaseDir || '.';
+    const processIsLocal = options.processIsLocal ?? (getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true));
     const crawlChromeDir = path.join(path.resolve(crawlBaseDir), 'chrome');
     const state = await waitForChromeSessionState(crawlChromeDir, {
         timeoutMs,
         intervalMs,
-        requirePid: true,
-        requireAlivePid: true,
+        requirePid: processIsLocal,
+        requireAlivePid: processIsLocal,
+        processIsLocal,
     });
     if (!state) throw new Error(CHROME_SESSION_REQUIRED_ERROR);
     return { cdpUrl: state.cdpUrl, pid: state.pid, crawlChromeDir };
@@ -2666,12 +2697,14 @@ async function getBrowserServerUrl(chromeSessionDir = '../chrome', options = {})
         timeoutMs = 60000,
         requireTargetId = true,
     } = options;
+    const processIsLocal = options.processIsLocal ?? (getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true));
 
     const state = await waitForChromeSessionState(chromeSessionDir, {
         timeoutMs,
-        requirePid: true,
-        requireAlivePid: true,
+        requirePid: processIsLocal,
+        requireAlivePid: processIsLocal,
         requireTargetId,
+        processIsLocal,
     });
     if (!state?.cdpUrl) {
         throw new Error(CHROME_SESSION_REQUIRED_ERROR);
@@ -2680,6 +2713,7 @@ async function getBrowserServerUrl(chromeSessionDir = '../chrome', options = {})
     const inspection = await inspectChromeSessionArtifacts(chromeSessionDir, {
         requireTargetId,
         probeTimeoutMs: Math.min(Math.max(timeoutMs, 250), 2000),
+        processIsLocal,
     });
     if (inspection.stale || !inspection.state?.cdpUrl) {
         throw new Error(CHROME_SESSION_REQUIRED_ERROR);
@@ -2715,19 +2749,37 @@ async function openTabInChromeSession(options = {}) {
     if (!cdpUrl) {
         throw new Error(CHROME_SESSION_REQUIRED_ERROR);
     }
-    if (puppeteer) {
-        requirePuppeteerModule(puppeteer, 'openTabInChromeSession');
-    }
+    const puppeteerModule = requirePuppeteerModule(puppeteer, 'openTabInChromeSession');
     const deadline = Date.now() + Math.max(timeoutMs, 0);
     let lastError = null;
 
     while (Date.now() <= deadline) {
         try {
-            const requestTimeoutMs = Math.max(1000, Math.min(5000, deadline - Date.now()));
-            const target = await createDevtoolsPageTarget(cdpUrl, 'about:blank', {
-                timeoutMs: requestTimeoutMs,
-            });
-            return { targetId: target.id };
+            return await withConnectedBrowser(
+                {
+                    puppeteer: puppeteerModule,
+                    cdpUrl,
+                    connectOptions: { defaultViewport: null },
+                },
+                async (browser) => {
+                    const remainingMs = Math.max(1000, Math.min(5000, deadline - Date.now()));
+                    const page = await withTimeout(
+                        () => browser.newPage(),
+                        remainingMs,
+                        `Timed out creating new page after ${remainingMs}ms`
+                    );
+                    await withTimeout(
+                        () => page.title(),
+                        remainingMs,
+                        `Timed out probing new page after ${remainingMs}ms`
+                    );
+                    const targetId = getTargetIdFromPage(page);
+                    if (!targetId) {
+                        throw new Error('Failed to resolve target ID for new tab');
+                    }
+                    return { targetId };
+                }
+            );
         } catch (error) {
             lastError = error;
             if (Date.now() >= deadline) {
@@ -2737,7 +2789,7 @@ async function openTabInChromeSession(options = {}) {
         }
     }
 
-    throw lastError || new Error('Failed to create DevTools page target');
+    throw lastError || new Error('Failed to open a new Chrome tab');
 }
 
 /**
@@ -2754,24 +2806,21 @@ async function closeTabInChromeSession(options = {}) {
     if (!cdpUrl || !targetId) {
         return false;
     }
-    if (await closeDevtoolsPageTarget(cdpUrl, targetId)) {
-        return true;
-    }
     const puppeteerModule = requirePuppeteerModule(puppeteer, 'closeTabInChromeSession');
 
     return withConnectedBrowser(
         {
             puppeteer: puppeteerModule,
-            browserWSEndpoint: cdpUrl,
+            cdpUrl,
+            connectOptions: { defaultViewport: null },
         },
         async (browser) => {
-        const pages = await browser.pages();
-        const page = pages.find(p => getTargetIdFromPage(p) === targetId);
-        if (!page) {
-            return false;
-        }
-        await page.close();
-        return true;
+            const page = await resolvePageByTargetId(browser, targetId, 1000);
+            if (!page) {
+                return false;
+            }
+            await page.close();
+            return true;
         }
     );
 }
@@ -2811,16 +2860,8 @@ async function connectToPage(options = {}) {
     }
     let targetId = state.targetId;
 
-    let devtoolsTarget = null;
-    if (targetId) {
-        devtoolsTarget = await getDevtoolsTargetById(state.cdpUrl, targetId);
-        if (!devtoolsTarget && requireTargetId) {
-            throw new Error(`Target ${targetId} not found in Chrome session`);
-        }
-    }
-
     // Connect to browser
-    const browser = await resolvedPuppeteer.connect({ browserWSEndpoint: state.cdpUrl });
+    const browser = await connectToBrowserEndpoint(resolvedPuppeteer, state.cdpUrl, { defaultViewport: null });
 
     try {
         // Find the target page
@@ -2828,12 +2869,6 @@ async function connectToPage(options = {}) {
 
         if (targetId) {
             page = await resolvePageByTargetId(browser, targetId, Math.min(timeoutMs, 5000));
-            if (!page && requireTargetId) {
-                const pages = await browser.pages();
-                if (devtoolsTarget?.url) {
-                    page = pages.find((candidate) => candidate.url() === devtoolsTarget.url) || null;
-                }
-            }
             if (!page && requireTargetId) {
                 throw new Error(`Target ${targetId} not found in Chrome session`);
             }
@@ -2857,6 +2892,381 @@ async function connectToPage(options = {}) {
         } catch (disconnectError) {}
         throw error;
     }
+}
+
+function loadInstalledExtensionsFromCache(extensionsDir = getExtensionsDir()) {
+    const installedExtensions = [];
+    const extensionPaths = [];
+
+    if (!fs.existsSync(extensionsDir)) {
+        return { installedExtensions, extensionPaths };
+    }
+
+    for (const file of fs.readdirSync(extensionsDir)) {
+        if (!file.endsWith('.extension.json')) continue;
+
+        try {
+            const extPath = path.join(extensionsDir, file);
+            const extData = JSON.parse(fs.readFileSync(extPath, 'utf-8'));
+            if (!extData.unpacked_path || !fs.existsSync(extData.unpacked_path)) continue;
+            if (!extData.id) {
+                extData.id = getExtensionId(extData.unpacked_path);
+            }
+            installedExtensions.push(extData);
+            extensionPaths.push(extData.unpacked_path);
+        } catch (error) {}
+    }
+
+    return { installedExtensions, extensionPaths };
+}
+
+function parseCookiesTxt(contents) {
+    const cookies = [];
+    let skipped = 0;
+
+    for (const rawLine of contents.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line) continue;
+
+        let httpOnly = false;
+        let dataLine = line;
+
+        if (dataLine.startsWith('#HttpOnly_')) {
+            httpOnly = true;
+            dataLine = dataLine.slice('#HttpOnly_'.length);
+        } else if (dataLine.startsWith('#')) {
+            continue;
+        }
+
+        const parts = dataLine.split('\t');
+        if (parts.length < 7) {
+            skipped += 1;
+            continue;
+        }
+
+        const [domainRaw, includeSubdomainsRaw, pathRaw, secureRaw, expiryRaw, name, value] = parts;
+        if (!name || !domainRaw) {
+            skipped += 1;
+            continue;
+        }
+
+        const includeSubdomains = (includeSubdomainsRaw || '').toUpperCase() === 'TRUE';
+        let domain = domainRaw;
+        if (includeSubdomains && !domain.startsWith('.')) domain = `.${domain}`;
+        if (!includeSubdomains && domain.startsWith('.')) domain = domain.slice(1);
+
+        const cookie = {
+            name,
+            value,
+            domain,
+            path: pathRaw || '/',
+            secure: (secureRaw || '').toUpperCase() === 'TRUE',
+            httpOnly,
+        };
+
+        const expires = parseInt(expiryRaw, 10);
+        if (!isNaN(expires) && expires > 0) {
+            cookie.expires = expires;
+        }
+
+        cookies.push(cookie);
+    }
+
+    return { cookies, skipped };
+}
+
+async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
+    if (!cookiesFile) return;
+
+    if (!fs.existsSync(cookiesFile)) {
+        console.error(`[!] Cookies file not found: ${cookiesFile}`);
+        return;
+    }
+
+    let contents = '';
+    try {
+        contents = fs.readFileSync(cookiesFile, 'utf-8');
+    } catch (e) {
+        console.error(`[!] Failed to read COOKIES_TXT_FILE: ${e.message}`);
+        return;
+    }
+
+    const { cookies, skipped } = parseCookiesTxt(contents);
+    if (cookies.length === 0) {
+        console.error('[!] No cookies found to import');
+        return;
+    }
+
+    console.error(`[*] Importing ${cookies.length} cookies from ${cookiesFile}...`);
+    if (skipped) {
+        console.error(`[*] Skipped ${skipped} malformed cookie line(s)`);
+    }
+    if (!userDataDir) {
+        console.error('[!] CHROME_USER_DATA_DIR not set; cookies will not persist beyond this session');
+    }
+
+    const page = await browser.newPage();
+    const client = await page.target().createCDPSession();
+    await client.send('Network.enable');
+
+    const chunkSize = 200;
+    let imported = 0;
+    for (let i = 0; i < cookies.length; i += chunkSize) {
+        const chunk = cookies.slice(i, i + chunkSize);
+        try {
+            await client.send('Network.setCookies', { cookies: chunk });
+            imported += chunk.length;
+        } catch (e) {
+            console.error(`[!] Failed to import cookies ${i + 1}-${i + chunk.length}: ${e.message}`);
+        }
+    }
+
+    await page.close();
+    console.error(`[+] Imported ${imported}/${cookies.length} cookies`);
+}
+
+async function waitForProcessExit(pid, timeoutMs = 5000, intervalMs = 100) {
+    if (!pid) return true;
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        if (!isProcessAlive(pid)) {
+            return true;
+        }
+        await sleep(intervalMs);
+    }
+    return !isProcessAlive(pid);
+}
+
+async function waitForBrowserEndpointGone(cdpUrl, timeoutMs = 5000, intervalMs = 200) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        if (!(await canConnectToChromeBrowser(cdpUrl, { timeoutMs: Math.min(intervalMs, 1000) }))) {
+            return true;
+        }
+        await sleep(intervalMs);
+    }
+    return !(await canConnectToChromeBrowser(cdpUrl, { timeoutMs: Math.min(intervalMs, 1000) }));
+}
+
+async function closeBrowserInChromeSession(options = {}) {
+    const {
+        cdpUrl = null,
+        pid = null,
+        outputDir = null,
+        puppeteer = resolvePuppeteerModule(),
+        processIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true),
+        forceKillTimeoutMs = getEnvInt('CHROME_CLOSE_TIMEOUT_MS', 5000),
+    } = options;
+
+    if (!cdpUrl && !(processIsLocal && pid)) {
+        return false;
+    }
+
+    if (cdpUrl) {
+        let browser = null;
+        try {
+            browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, { defaultViewport: null });
+            const session = await browser.target().createCDPSession();
+            await session.send('Browser.close');
+        } catch (error) {
+            console.error(`[!] Browser.close failed: ${error.message}`);
+        } finally {
+            if (browser) {
+                try {
+                    await browser.disconnect();
+                } catch (disconnectError) {}
+            }
+        }
+    }
+
+    let closed = false;
+    if (processIsLocal && pid) {
+        closed = await waitForProcessExit(pid, forceKillTimeoutMs);
+        if (!closed) {
+            await killChrome(pid, outputDir);
+            closed = true;
+        }
+    } else if (cdpUrl) {
+        closed = await waitForBrowserEndpointGone(cdpUrl, forceKillTimeoutMs);
+    }
+
+    if (outputDir) {
+        try {
+            await cleanupStaleChromeSessionArtifacts(outputDir, {
+                processIsLocal,
+                probeTimeoutMs: Math.min(Math.max(forceKillTimeoutMs, 250), 1000),
+            });
+        } catch (error) {}
+    }
+
+    return closed;
+}
+
+async function ensureChromeSession(options = {}) {
+    const {
+        outputDir = '.',
+        puppeteer = resolvePuppeteerModule(),
+        processIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true),
+        cdpUrl = getEnv('CHROME_CDP_URL', ''),
+        userDataDir = getEnv('CHROME_USER_DATA_DIR'),
+        downloadsDir = getEnv('CHROME_DOWNLOADS_DIR'),
+        cookiesFile = getEnv('COOKIES_TXT_FILE') || getEnv('COOKIES_FILE'),
+        extensionsDir = getExtensionsDir(),
+        timeoutMs = getEnvInt('CHROME_TIMEOUT', 60) * 1000,
+        reuseExisting = !cdpUrl,
+        binary = null,
+    } = options;
+
+    if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    const { installedExtensions, extensionPaths } = loadInstalledExtensionsFromCache(extensionsDir);
+
+    const existingSession = await inspectChromeSessionArtifacts(outputDir, { processIsLocal });
+    if (reuseExisting && existingSession.hasArtifacts && !existingSession.stale && existingSession.state?.cdpUrl) {
+        return {
+            cdpUrl: existingSession.state.cdpUrl,
+            pid: existingSession.state.pid,
+            port: getChromeDebugPortFromCdpUrl(existingSession.state.cdpUrl),
+            installedExtensions,
+            extensionPaths,
+            processIsLocal,
+            reusedExisting: true,
+            binary,
+        };
+    }
+
+    if (existingSession.hasArtifacts && existingSession.state?.cdpUrl) {
+        try {
+            await closeBrowserInChromeSession({
+                cdpUrl: existingSession.state.cdpUrl,
+                pid: existingSession.state.pid,
+                outputDir,
+                puppeteer,
+                processIsLocal: Boolean(existingSession.state.pid),
+            });
+        } catch (error) {}
+    }
+
+    const staleSession = await cleanupStaleChromeSessionArtifacts(outputDir, {
+        processIsLocal: existingSession.state?.pid ? true : processIsLocal,
+    });
+    if (staleSession.cleanedFiles.length === 0) {
+        for (const filePath of getChromeSessionArtifactPaths(outputDir)) {
+            if (!fs.existsSync(filePath)) continue;
+            try {
+                fs.unlinkSync(filePath);
+            } catch (error) {}
+        }
+    }
+
+    let resolvedBinary = binary;
+    let resolvedPid = null;
+    let resolvedCdpUrl = cdpUrl;
+
+    if (!resolvedCdpUrl) {
+        if (!processIsLocal) {
+            throw new Error('CHROME_IS_LOCAL=false requires CHROME_CDP_URL or an upstream published chrome session');
+        }
+
+        resolvedBinary = resolvedBinary || findChromium();
+        if (!resolvedBinary) {
+            throw new Error('Chromium binary not found');
+        }
+
+        const result = await launchChromium({
+            binary: resolvedBinary,
+            outputDir,
+            userDataDir,
+            extensionPaths,
+        });
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to launch Chromium');
+        }
+
+        resolvedPid = result.pid;
+        resolvedCdpUrl = result.cdpUrl;
+    }
+
+    if (downloadsDir || cookiesFile || installedExtensions.length > 0) {
+        let browser = null;
+        try {
+            browser = await connectToBrowserEndpoint(puppeteer, resolvedCdpUrl, { defaultViewport: null });
+
+            if (installedExtensions.length > 0) {
+                await loadAllExtensionsFromBrowser(browser, installedExtensions, timeoutMs);
+            }
+
+            if (downloadsDir) {
+                await setBrowserDownloadBehavior({
+                    browser,
+                    downloadPath: downloadsDir,
+                });
+            }
+
+            if (cookiesFile) {
+                await importCookiesFromFile(browser, cookiesFile, userDataDir);
+            }
+        } finally {
+            if (browser) {
+                try {
+                    await browser.disconnect();
+                } catch (error) {}
+            }
+        }
+    }
+
+    await waitForBrowserPageReady({
+        puppeteer,
+        cdpUrl: resolvedCdpUrl,
+        timeoutMs: getEnvInt('CHROME_PAGE_READY_TIMEOUT_MS', 10000),
+        requireAboutBlank: true,
+        createPageIfMissing: true,
+    });
+
+    if (processIsLocal && resolvedPid) {
+        try {
+            process.kill(resolvedPid, 0);
+        } catch (error) {
+            throw new Error(`Chrome process ${resolvedPid} exited during launch setup`);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        try {
+            process.kill(resolvedPid, 0);
+        } catch (error) {
+            throw new Error(`Chrome process ${resolvedPid} exited immediately after launch setup`);
+        }
+    }
+
+    if (installedExtensions.length > 0) {
+        fs.writeFileSync(
+            path.join(outputDir, 'extensions.json'),
+            JSON.stringify(installedExtensions, null, 2)
+        );
+    } else {
+        try { fs.unlinkSync(path.join(outputDir, 'extensions.json')); } catch (error) {}
+    }
+
+    if (resolvedPid) {
+        fs.writeFileSync(path.join(outputDir, 'chrome.pid'), String(resolvedPid));
+    } else {
+        try { fs.unlinkSync(path.join(outputDir, 'chrome.pid')); } catch (error) {}
+    }
+    fs.writeFileSync(path.join(outputDir, 'port.txt'), String(getChromeDebugPortFromCdpUrl(resolvedCdpUrl) || ''));
+    fs.writeFileSync(path.join(outputDir, 'cdp_url.txt'), resolvedCdpUrl);
+
+    return {
+        cdpUrl: resolvedCdpUrl,
+        pid: resolvedPid,
+        port: getChromeDebugPortFromCdpUrl(resolvedCdpUrl),
+        installedExtensions,
+        extensionPaths,
+        processIsLocal,
+        reusedExisting: false,
+        binary: resolvedBinary,
+    };
 }
 
 /**
@@ -2967,6 +3377,9 @@ module.exports = {
     readExtensionsMetadata,
     waitForExtensionsMetadata,
     findExtensionMetadataByName,
+    loadInstalledExtensionsFromCache,
+    importCookiesFromFile,
+    ensureChromeSession,
     // Shared path utilities (single source of truth for Python/JS)
     getMachineType,
     getLibDir,
@@ -2982,7 +3395,6 @@ module.exports = {
     inspectChromeSessionArtifacts,
     cleanupStaleChromeSessionArtifacts,
     waitForChromeSessionState,
-    waitForChromeSession,
     readCdpUrl,
     readTargetId,
     readChromePid,
@@ -2991,14 +3403,9 @@ module.exports = {
     getBrowserServerUrl,
     openTabInChromeSession,
     closeTabInChromeSession,
+    closeBrowserInChromeSession,
     getTargetIdFromTarget,
     getTargetIdFromPage,
-    fetchDevtoolsTargets,
-    createDevtoolsPageTarget,
-    getDevtoolsTargetById,
-    closeDevtoolsPageTarget,
-    waitForNewPageTarget,
-    waitForNewDevtoolsPageTarget,
     connectToPage,
     waitForPageLoaded,
     setBrowserDownloadBehavior,

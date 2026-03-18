@@ -26,23 +26,16 @@
 
 const fs = require('fs');
 const path = require('path');
-const http = require('http');
 const { ensureNodeModuleResolution, parseArgs } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer');
 const {
-    findChromium,
-    launchChromium,
-    killChrome,
     getEnv,
     getEnvBool,
-    getExtensionId,
-    setBrowserDownloadBehavior,
-    writePidWithMtime,
-    getExtensionsDir,
+    getEnvInt,
     acquireSessionLock,
-    inspectChromeSessionArtifacts,
-    cleanupStaleChromeSessionArtifacts,
+    ensureChromeSession,
+    closeBrowserInChromeSession,
 } = require('./chrome_utils.js');
 
 // Extractor metadata
@@ -57,112 +50,9 @@ process.chdir(OUTPUT_DIR);
 
 // Global state for cleanup
 let chromePid = null;
-let browserInstance = null;
-
-function parseCookiesTxt(contents) {
-    const cookies = [];
-    let skipped = 0;
-
-    for (const rawLine of contents.split(/\r?\n/)) {
-        const line = rawLine.trim();
-        if (!line) continue;
-
-        let httpOnly = false;
-        let dataLine = line;
-
-        if (dataLine.startsWith('#HttpOnly_')) {
-            httpOnly = true;
-            dataLine = dataLine.slice('#HttpOnly_'.length);
-        } else if (dataLine.startsWith('#')) {
-            continue;
-        }
-
-        const parts = dataLine.split('\t');
-        if (parts.length < 7) {
-            skipped += 1;
-            continue;
-        }
-
-        const [domainRaw, includeSubdomainsRaw, pathRaw, secureRaw, expiryRaw, name, value] = parts;
-        if (!name || !domainRaw) {
-            skipped += 1;
-            continue;
-        }
-
-        const includeSubdomains = (includeSubdomainsRaw || '').toUpperCase() === 'TRUE';
-        let domain = domainRaw;
-        if (includeSubdomains && !domain.startsWith('.')) domain = `.${domain}`;
-        if (!includeSubdomains && domain.startsWith('.')) domain = domain.slice(1);
-
-        const cookie = {
-            name,
-            value,
-            domain,
-            path: pathRaw || '/',
-            secure: (secureRaw || '').toUpperCase() === 'TRUE',
-            httpOnly,
-        };
-
-        const expires = parseInt(expiryRaw, 10);
-        if (!isNaN(expires) && expires > 0) {
-            cookie.expires = expires;
-        }
-
-        cookies.push(cookie);
-    }
-
-    return { cookies, skipped };
-}
-
-async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
-    if (!cookiesFile) return;
-
-    if (!fs.existsSync(cookiesFile)) {
-        console.error(`[!] Cookies file not found: ${cookiesFile}`);
-        return;
-    }
-
-    let contents = '';
-    try {
-        contents = fs.readFileSync(cookiesFile, 'utf-8');
-    } catch (e) {
-        console.error(`[!] Failed to read COOKIES_TXT_FILE: ${e.message}`);
-        return;
-    }
-
-    const { cookies, skipped } = parseCookiesTxt(contents);
-    if (cookies.length === 0) {
-        console.error('[!] No cookies found to import');
-        return;
-    }
-
-    console.error(`[*] Importing ${cookies.length} cookies from ${cookiesFile}...`);
-    if (skipped) {
-        console.error(`[*] Skipped ${skipped} malformed cookie line(s)`);
-    }
-    if (!userDataDir) {
-        console.error('[!] CHROME_USER_DATA_DIR not set; cookies will not persist beyond this session');
-    }
-
-    const page = await browser.newPage();
-    const client = await page.target().createCDPSession();
-    await client.send('Network.enable');
-
-    const chunkSize = 200;
-    let imported = 0;
-    for (let i = 0; i < cookies.length; i += chunkSize) {
-        const chunk = cookies.slice(i, i + chunkSize);
-        try {
-            await client.send('Network.setCookies', { cookies: chunk });
-            imported += chunk.length;
-        } catch (e) {
-            console.error(`[!] Failed to import cookies ${i + 1}-${i + chunk.length}: ${e.message}`);
-        }
-    }
-
-    await page.close();
-    console.error(`[+] Imported ${imported}/${cookies.length} cookies`);
-}
+let chromeCdpUrl = null;
+let chromeProcessIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true);
+let shouldCloseOnCleanup = false;
 
 function getPortFromCdpUrl(cdpUrl) {
     if (!cdpUrl) return null;
@@ -170,97 +60,17 @@ function getPortFromCdpUrl(cdpUrl) {
     return match ? match[1] : null;
 }
 
-async function fetchDevtoolsTargets(cdpUrl) {
-    const port = getPortFromCdpUrl(cdpUrl);
-    if (!port) return [];
-
-    const urlPath = '/json/list';
-    return new Promise((resolve, reject) => {
-        const req = http.get(
-            { hostname: '127.0.0.1', port, path: urlPath },
-            (res) => {
-                let data = '';
-                res.on('data', (chunk) => (data += chunk));
-                res.on('end', () => {
-                    try {
-                        const targets = JSON.parse(data);
-                        resolve(Array.isArray(targets) ? targets : []);
-                    } catch (e) {
-                        reject(e);
-                    }
-                });
-            }
-        );
-        req.on('error', reject);
-    });
-}
-
-async function discoverExtensionTargets(cdpUrl, installedExtensions) {
-    const builtinIds = [
-        'nkeimhogjdpnpccoofpliimaahmaaome',
-        'fignfifoniblkonapihmkfakmlgkbkcf',
-        'ahfgeienlihckogmohjhadlkjgocpleb',
-        'mhjfbmdgcfjbbpaeojofohoefgiehjai',
-    ];
-
-    let targets = [];
-    for (let i = 0; i < 10; i += 1) {
-        try {
-            targets = await fetchDevtoolsTargets(cdpUrl);
-            if (targets.length > 0) break;
-        } catch (e) {
-            // Ignore and retry
-        }
-        await new Promise(r => setTimeout(r, 500));
-    }
-
-    const customExtTargets = targets.filter(t => {
-        const url = t.url || '';
-        if (!url.startsWith('chrome-extension://')) return false;
-        const extId = url.split('://')[1].split('/')[0];
-        return !builtinIds.includes(extId);
-    });
-
-    console.error(`[+] Found ${customExtTargets.length} custom extension target(s) via /json/list`);
-
-    for (const target of customExtTargets) {
-        const url = target.url || '';
-        const extId = url.split('://')[1].split('/')[0];
-        console.error(`[+] Extension target: ${extId} (${target.type || 'unknown'})`);
-    }
-
-    const runtimeIds = new Set(customExtTargets.map(t => (t.url || '').split('://')[1].split('/')[0]));
-    for (const ext of installedExtensions) {
-        if (ext.id) {
-            ext.loaded = runtimeIds.has(ext.id);
-        }
-    }
-
-    if (customExtTargets.length === 0 && installedExtensions.length > 0) {
-        console.error(`[!] Warning: No custom extensions detected. Extension loading may have failed.`);
-        console.error(`[!] Make sure you are using Chromium, not Chrome (Chrome 137+ removed --load-extension support)`);
-    }
-}
-
 // Cleanup handler for SIGTERM
 async function cleanup() {
-    console.error('[*] Cleaning up Chrome session...');
-
-    // Try graceful browser close first
-    if (browserInstance) {
-        try {
-            console.error('[*] Closing browser gracefully...');
-            await browserInstance.close();
-            browserInstance = null;
-            console.error('[+] Browser closed gracefully');
-        } catch (e) {
-            console.error(`[!] Graceful close failed: ${e.message}`);
-        }
-    }
-
-    // Kill Chrome process
-    if (chromePid) {
-        await killChrome(chromePid, OUTPUT_DIR);
+    if (shouldCloseOnCleanup) {
+        console.error('[*] Cleaning up Chrome session...');
+        await closeBrowserInChromeSession({
+            cdpUrl: chromeCdpUrl,
+            pid: chromePid,
+            outputDir: OUTPUT_DIR,
+            puppeteer,
+            processIsLocal: chromeProcessIsLocal,
+        });
     }
 
     process.exit(0);
@@ -277,194 +87,89 @@ async function main() {
 
     try {
         releaseLock = await acquireSessionLock(path.join(OUTPUT_DIR, '.launch.lock'));
-        const binary = findChromium();
-        if (!binary) {
-            console.error('ERROR: Chromium binary not found');
-            console.error('DEPENDENCY_NEEDED=chromium');
-            console.error('BIN_PROVIDERS=puppeteer,playwright,apt,brew');
-            console.error('INSTALL_HINT=npx @puppeteer/browsers install chromium@latest');
-            process.exit(1);
-        }
+        const isolation = getEnv('CHROME_ISOLATION', 'crawl').toLowerCase() === 'snapshot' ? 'snapshot' : 'crawl';
+        const keepAlive = getEnvBool('CHROME_KEEPALIVE', false);
+        const cdpUrlOverride = getEnv('CHROME_CDP_URL', '');
+        chromeProcessIsLocal = cdpUrlOverride ? false : getEnvBool('CHROME_IS_LOCAL', true);
 
-        // Get Chromium version
-        let version = '';
-        try {
-            const { execSync } = require('child_process');
-            version = execSync(`"${binary}" --version`, { encoding: 'utf8', timeout: 5000 })
-                .trim()
-                .slice(0, 64);
-        } catch (e) {}
-
-        console.error(`[*] Using browser: ${binary}`);
-        if (version) console.error(`[*] Version: ${version}`);
-
-        // Load installed extensions
-        const extensionsDir = getExtensionsDir();
-        const userDataDir = getEnv('CHROME_USER_DATA_DIR');
-        const downloadsDir = getEnv('CHROME_DOWNLOADS_DIR');
-        const cookiesFile = getEnv('COOKIES_TXT_FILE') || getEnv('COOKIES_FILE');
-
-        if (userDataDir) {
-            console.error(`[*] Using user data dir: ${userDataDir}`);
-        }
-        if (downloadsDir) {
-            console.error(`[*] Using downloads dir: ${downloadsDir}`);
-        }
-        if (cookiesFile) {
-            console.error(`[*] Using cookies file: ${cookiesFile}`);
-        }
-
-        const installedExtensions = [];
-        const extensionPaths = [];
-        if (fs.existsSync(extensionsDir)) {
-            const files = fs.readdirSync(extensionsDir);
-            for (const file of files) {
-                if (file.endsWith('.extension.json')) {
-                    try {
-                        const extPath = path.join(extensionsDir, file);
-                        const extData = JSON.parse(fs.readFileSync(extPath, 'utf-8'));
-                        if (extData.unpacked_path && fs.existsSync(extData.unpacked_path)) {
-                            installedExtensions.push(extData);
-                            extensionPaths.push(extData.unpacked_path);
-                            console.error(`[*] Loading extension: ${extData.name || file}`);
-                        }
-                    } catch (e) {
-                        console.warn(`[!] Skipping invalid extension cache: ${file}`);
-                    }
-                }
-            }
-        }
-
-        if (installedExtensions.length > 0) {
-            console.error(`[+] Found ${installedExtensions.length} extension(s) to load`);
-        }
-
-        // Ensure extension IDs are available without chrome://extensions
-        for (const ext of installedExtensions) {
-            if (!ext.id && ext.unpacked_path) {
-                try {
-                    ext.id = getExtensionId(ext.unpacked_path);
-                } catch (e) {
-                    console.error(`[!] Failed to compute extension id for ${ext.name}: ${e.message}`);
-                }
-            }
-        }
-
-        // Note: PID file is written by run_hook() with hook-specific name
-        // Snapshot.cleanup() kills all *.pid processes when done
-        if (!fs.existsSync(OUTPUT_DIR)) {
-            fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-        }
-
-        const existingSession = await inspectChromeSessionArtifacts(OUTPUT_DIR);
-        if (existingSession.hasArtifacts && !existingSession.stale && existingSession.state?.pid && existingSession.state?.cdpUrl) {
-            chromePid = existingSession.state.pid;
-            const cdpUrl = existingSession.state.cdpUrl;
-            console.error(`[*] Reusing live Chromium session in ${OUTPUT_DIR}`);
+        if (isolation === 'snapshot') {
+            console.error('[*] CHROME_ISOLATION=snapshot, skipping crawl-scoped browser launch');
+            releaseLock();
+            releaseLock = null;
             console.log(JSON.stringify({
                 type: 'ArchiveResult',
                 status: 'succeeded',
-                output_str: `pid=${chromePid} port=${getPortFromCdpUrl(cdpUrl) || '?'}`,
+                output_str: 'snapshot isolation active',
             }));
-            releaseLock();
-            releaseLock = null;
-            console.log('[*] Chromium launch hook staying alive to handle cleanup...');
-            setInterval(() => {}, 1000000);
-            return;
+            process.exit(0);
         }
 
-        const staleSession = await cleanupStaleChromeSessionArtifacts(OUTPUT_DIR);
-        if (staleSession.cleanedFiles.length > 0) {
-            console.error(`[*] Removed stale Chrome session artifacts from ${OUTPUT_DIR} (${staleSession.reason})`);
-        }
-
-        // Launch Chromium using consolidated function
-        // userDataDir is derived from ACTIVE_PERSONA by get_config() if not explicitly set
-        const result = await launchChromium({
-            binary,
+        const session = await ensureChromeSession({
             outputDir: OUTPUT_DIR,
-            userDataDir,
-            extensionPaths,
+            puppeteer,
+            processIsLocal: chromeProcessIsLocal,
+            cdpUrl: cdpUrlOverride,
+            timeoutMs: getEnvInt('CHROME_TIMEOUT', 60) * 1000,
         });
 
-        if (!result.success) {
-            console.error(`ERROR: ${result.error}`);
-            process.exit(1);
-        }
+        chromePid = session.pid;
+        chromeCdpUrl = session.cdpUrl;
+        shouldCloseOnCleanup = !keepAlive;
 
-        chromePid = result.pid;
-        const cdpUrl = result.cdpUrl;
-
-        // Discover extension targets at launch (no chrome://extensions)
-        if (extensionPaths.length > 0) {
-            await new Promise(r => setTimeout(r, 2000));
-            console.error('[*] Discovering extension targets via devtools /json/list...');
-            await discoverExtensionTargets(cdpUrl, installedExtensions);
-        }
-
-        // Configure browser-scoped download behavior and import cookies only
-        // after Chromium is fully up instead of mutating profile prefs before
-        // launch. Publishing cdp_url.txt still waits until all crawl-level
-        // setup is complete.
-        if (downloadsDir || cookiesFile) {
-            console.error(`[*] Connecting puppeteer to CDP for browser setup...`);
-            const browser = await puppeteer.connect({
-                browserWSEndpoint: cdpUrl,
-                defaultViewport: null,
-            });
-            browserInstance = browser;
-
-            if (downloadsDir) {
-                await setBrowserDownloadBehavior({
-                    browser,
-                    downloadPath: downloadsDir,
-                });
-                console.error(`[*] Configured Chrome download directory via CDP: ${downloadsDir}`);
-            }
-
-            if (cookiesFile) {
-                await importCookiesFromFile(browser, cookiesFile, userDataDir);
-            }
-
+        if (session.binary) {
+            let version = '';
             try {
-                browser.disconnect();
+                const { execSync } = require('child_process');
+                version = execSync(`"${session.binary}" --version`, { encoding: 'utf8', timeout: 5000 })
+                    .trim()
+                    .slice(0, 64);
             } catch (e) {}
-            browserInstance = null;
-        } else {
-            console.error('[*] Skipping puppeteer CDP connection (no browser setup needed)');
+            console.error(`[*] Using browser: ${session.binary}`);
+            if (version) console.error(`[*] Version: ${version}`);
+        } else if (cdpUrlOverride) {
+            console.error(`[*] Adopting browser from CHROME_CDP_URL`);
         }
 
-        // Write extensions metadata with actual IDs
-        if (installedExtensions.length > 0) {
-            fs.writeFileSync(
-                path.join(OUTPUT_DIR, 'extensions.json'),
-                JSON.stringify(installedExtensions, null, 2)
-            );
+        for (const extension of session.installedExtensions) {
+            console.error(`[*] Loading extension: ${extension.name || extension.id || extension.unpacked_path}`);
         }
-
-        // Publish the shared session files only after all crawl-level browser
-        // startup work is complete. Other hooks gate on cdp_url.txt to decide
-        // when Chrome is safe to use, so writing it earlier would let them
-        // attach while extensions are still initializing.
-        fs.writeFileSync(path.join(OUTPUT_DIR, 'cdp_url.txt'), cdpUrl);
-        fs.writeFileSync(path.join(OUTPUT_DIR, 'port.txt'), String(getPortFromCdpUrl(cdpUrl) || ''));
+        if (session.installedExtensions.length > 0) {
+            console.error(`[+] Found ${session.installedExtensions.length} extension(s) to load`);
+        }
+        if (session.reusedExisting) {
+            console.error(`[*] Reusing live Chromium session in ${OUTPUT_DIR}`);
+        }
 
         console.error(`[+] Chromium session started for crawl ${crawlId}`);
-        console.error(`[+] CDP URL: ${cdpUrl}`);
-        console.error(`[+] PID: ${chromePid}`);
+        console.error(`[+] CDP URL: ${chromeCdpUrl}`);
+        console.error(`[+] PID: ${chromePid || 'external'}`);
         console.log(JSON.stringify({
             type: 'ArchiveResult',
             status: 'succeeded',
-            output_str: `pid=${chromePid} port=${getPortFromCdpUrl(cdpUrl) || '?'}`,
+            output_str: `pid=${chromePid || 'external'} port=${getPortFromCdpUrl(chromeCdpUrl) || '?'}`,
         }));
         releaseLock();
         releaseLock = null;
 
-        // Stay alive to handle cleanup on SIGTERM
+        if (!shouldCloseOnCleanup) {
+            process.exit(0);
+        }
+
         console.log('[*] Chromium launch hook staying alive to handle cleanup...');
         setInterval(() => {}, 1000000);
 
     } catch (e) {
+        if (chromeCdpUrl || chromePid) {
+            try {
+                await closeBrowserInChromeSession({
+                    cdpUrl: chromeCdpUrl,
+                    pid: chromePid,
+                    outputDir: OUTPUT_DIR,
+                    puppeteer,
+                    processIsLocal: chromeProcessIsLocal,
+                });
+            } catch (cleanupError) {}
+        }
         if (releaseLock) {
             releaseLock();
         }

@@ -29,6 +29,7 @@ ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer');
 const {
     getEnv,
+    getEnvBool,
     getEnvInt,
     openTabInChromeSession,
     readCdpUrl,
@@ -37,6 +38,7 @@ const {
     inspectChromeSessionArtifacts,
     connectToPage,
     waitForExtensionsMetadata,
+    waitForChromeSessionState,
     waitForCrawlChromeSession,
     closeTabInChromeSession,
 } = require('./chrome_utils.js');
@@ -59,6 +61,7 @@ let cmdVersion = '';
 let finalized = false;
 let targetId = null;
 let keepAliveTimer = null;
+let currentCdpUrl = null;
 const SNAPSHOT_MARKER_FILES = [
     'target_id.txt',
     'url.txt',
@@ -118,7 +121,7 @@ async function cleanup(signal) {
             clearInterval(keepAliveTimer);
             keepAliveTimer = null;
         }
-        const cdpUrl = readCdpUrl(OUTPUT_DIR);
+        const cdpUrl = currentCdpUrl || readCdpUrl(OUTPUT_DIR);
         const currentTargetId = targetId || readTargetId(OUTPUT_DIR);
         await closeTabInChromeSession({ cdpUrl, targetId: currentTargetId, puppeteer });
     } catch (e) {
@@ -165,19 +168,19 @@ async function main() {
             version = '';
         }
 
+        const isolation = getEnv('CHROME_ISOLATION', 'crawl').toLowerCase() === 'snapshot' ? 'snapshot' : 'crawl';
+        const cdpUrlOverride = getEnv('CHROME_CDP_URL', '');
+        const processIsLocal = cdpUrlOverride ? false : getEnvBool('CHROME_IS_LOCAL', true);
+        const timeoutSeconds = getEnvInt('CHROME_TAB_TIMEOUT', getEnvInt('CHROME_TIMEOUT', getEnvInt('TIMEOUT', 60)));
         const existingTargetId = readTargetId(OUTPUT_DIR);
         if (!existingTargetId) {
             cleanupSnapshotMarkers('missing target_id.txt');
         }
 
-        // Try to use existing crawl Chrome session (wait for readiness)
-        const timeoutSeconds = getEnvInt('CHROME_TAB_TIMEOUT', getEnvInt('CHROME_TIMEOUT', getEnvInt('TIMEOUT', 60)));
-        const crawlSession = await waitForCrawlChromeSession(timeoutSeconds * 1000, {
-            crawlBaseDir: getEnv('CRAWL_DIR', '.'),
+        const existingSnapshotSession = await inspectChromeSessionArtifacts(OUTPUT_DIR, {
+            requireTargetId: true,
+            processIsLocal,
         });
-        console.log(`[*] Found existing Chrome session from crawl ${crawlId}`);
-
-        const existingSnapshotSession = await inspectChromeSessionArtifacts(OUTPUT_DIR, { requireTargetId: true });
         if (existingSnapshotSession.hasArtifacts && !existingSnapshotSession.stale && existingSnapshotSession.state?.targetId) {
             let reusableTarget = false;
             let existingBrowser = null;
@@ -205,12 +208,17 @@ async function main() {
                 if (existingUrl && existingUrl !== url) {
                     throw new Error(`Live snapshot target already exists for different URL (${existingUrl})`);
                 }
+                currentCdpUrl = existingSnapshotSession.state.cdpUrl;
                 targetId = existingSnapshotSession.state.targetId;
-                fs.writeFileSync(path.join(OUTPUT_DIR, 'cdp_url.txt'), crawlSession.cdpUrl);
-                fs.writeFileSync(path.join(OUTPUT_DIR, 'chrome.pid'), String(crawlSession.pid));
+                fs.writeFileSync(path.join(OUTPUT_DIR, 'cdp_url.txt'), currentCdpUrl);
+                if (existingSnapshotSession.state.pid) {
+                    fs.writeFileSync(path.join(OUTPUT_DIR, 'chrome.pid'), String(existingSnapshotSession.state.pid));
+                } else {
+                    try { fs.unlinkSync(path.join(OUTPUT_DIR, 'chrome.pid')); } catch (error) {}
+                }
                 fs.writeFileSync(existingUrlFile, url);
                 status = 'succeeded';
-                output = `target=${targetId} port=${getPortFromCdpUrl(crawlSession.cdpUrl)}`;
+                output = `target=${targetId} port=${getPortFromCdpUrl(currentCdpUrl)}`;
                 finalStatus = status;
                 finalOutput = output;
                 finalError = '';
@@ -230,61 +238,117 @@ async function main() {
             cleanupSnapshotMarkers(`discarded dead target ${existingSnapshotSession.state.targetId}`);
         }
 
-        if (existingTargetId) {
-            try {
-                await closeTabInChromeSession({
-                    cdpUrl: crawlSession.cdpUrl,
-                    targetId: existingTargetId,
-                    puppeteer,
-                });
-                cleanupSnapshotMarkers(`replaced stale target ${existingTargetId}`);
-            } catch (error) {
-                cleanupSnapshotMarkers(`failed to reuse target ${existingTargetId}`);
+        if (isolation === 'snapshot') {
+            const snapshotSession = await waitForChromeSessionState(OUTPUT_DIR, {
+                timeoutMs: timeoutSeconds * 1000,
+                requirePid: processIsLocal,
+                requireAlivePid: processIsLocal,
+                processIsLocal,
+            });
+            if (!snapshotSession?.cdpUrl) {
+                throw new Error('No snapshot-scoped Chrome session found');
             }
+            currentCdpUrl = snapshotSession.cdpUrl;
+
+            const opened = await openTabInChromeSession({
+                cdpUrl: currentCdpUrl,
+                puppeteer,
+            });
+            targetId = opened.targetId;
+            if (!targetId) {
+                throw new Error('Failed to resolve target ID for snapshot-scoped tab');
+            }
+
+            fs.writeFileSync(path.join(OUTPUT_DIR, 'cdp_url.txt'), currentCdpUrl);
+            if (snapshotSession.pid) {
+                fs.writeFileSync(path.join(OUTPUT_DIR, 'chrome.pid'), String(snapshotSession.pid));
+            } else {
+                try { fs.unlinkSync(path.join(OUTPUT_DIR, 'chrome.pid')); } catch (error) {}
+            }
+            fs.writeFileSync(path.join(OUTPUT_DIR, 'target_id.txt'), targetId);
+            fs.writeFileSync(path.join(OUTPUT_DIR, 'url.txt'), url);
+
+            status = 'succeeded';
+            output = `target=${targetId} port=${getPortFromCdpUrl(currentCdpUrl)}`;
+            finalStatus = status;
+            finalOutput = output;
+            finalError = '';
+            cmdVersion = version || '';
+
+            console.log(`[+] Chrome tab ready`);
+            console.log(`[+] CDP URL: ${currentCdpUrl}`);
+            console.log(`[+] Page target ID: ${targetId}`);
+            console.log(JSON.stringify({
+                type: 'ArchiveResult',
+                status,
+                output_str: output,
+            }));
+            releaseLock();
+            releaseLock = null;
+        } else {
+            const crawlSession = await waitForCrawlChromeSession(timeoutSeconds * 1000, {
+                crawlBaseDir: getEnv('CRAWL_DIR', '.'),
+                processIsLocal,
+            });
+            console.log(`[*] Found existing Chrome session from crawl ${crawlId}`);
+            currentCdpUrl = crawlSession.cdpUrl;
+
+            if (existingTargetId) {
+                try {
+                    await closeTabInChromeSession({
+                        cdpUrl: crawlSession.cdpUrl,
+                        targetId: existingTargetId,
+                        puppeteer,
+                    });
+                    cleanupSnapshotMarkers(`replaced stale target ${existingTargetId}`);
+                } catch (error) {
+                    cleanupSnapshotMarkers(`failed to reuse target ${existingTargetId}`);
+                }
+            }
+
+            const opened = await openTabInChromeSession({
+                cdpUrl: crawlSession.cdpUrl,
+                puppeteer,
+            });
+            targetId = opened.targetId;
+            if (!targetId) {
+                throw new Error('Failed to resolve target ID for new tab');
+            }
+
+            fs.writeFileSync(path.join(OUTPUT_DIR, 'cdp_url.txt'), crawlSession.cdpUrl);
+            if (crawlSession.pid) {
+                fs.writeFileSync(path.join(OUTPUT_DIR, 'chrome.pid'), String(crawlSession.pid));
+            } else {
+                try { fs.unlinkSync(path.join(OUTPUT_DIR, 'chrome.pid')); } catch (error) {}
+            }
+            fs.writeFileSync(path.join(OUTPUT_DIR, 'target_id.txt'), targetId);
+            fs.writeFileSync(path.join(OUTPUT_DIR, 'url.txt'), url);
+
+            status = 'succeeded';
+            output = `target=${targetId} port=${getPortFromCdpUrl(crawlSession.cdpUrl)}`;
+            finalStatus = status;
+            finalOutput = output;
+            finalError = '';
+            cmdVersion = version || '';
+
+            try {
+                const extensionsMetadata = await waitForExtensionsMetadata(crawlSession.crawlChromeDir, 10000);
+                fs.writeFileSync(
+                    path.join(OUTPUT_DIR, 'extensions.json'),
+                    JSON.stringify(extensionsMetadata, null, 2)
+                );
+            } catch (err) {}
+            console.log(`[+] Chrome tab ready`);
+            console.log(`[+] CDP URL: ${crawlSession.cdpUrl}`);
+            console.log(`[+] Page target ID: ${targetId}`);
+            console.log(JSON.stringify({
+                type: 'ArchiveResult',
+                status,
+                output_str: output,
+            }));
+            releaseLock();
+            releaseLock = null;
         }
-
-        const opened = await openTabInChromeSession({
-            cdpUrl: crawlSession.cdpUrl,
-            puppeteer,
-            timeoutMs: timeoutSeconds * 1000,
-        });
-        targetId = opened.targetId;
-        if (!targetId) {
-            throw new Error('Failed to resolve target ID for new tab');
-        }
-
-        fs.writeFileSync(path.join(OUTPUT_DIR, 'cdp_url.txt'), crawlSession.cdpUrl);
-        fs.writeFileSync(path.join(OUTPUT_DIR, 'chrome.pid'), String(crawlSession.pid));
-        fs.writeFileSync(path.join(OUTPUT_DIR, 'target_id.txt'), targetId);
-        fs.writeFileSync(path.join(OUTPUT_DIR, 'url.txt'), url);
-
-        // Mark success immediately after tab creation so SIGTERM cleanup exits 0.
-        status = 'succeeded';
-        output = `target=${targetId} port=${getPortFromCdpUrl(crawlSession.cdpUrl)}`;
-        finalStatus = status;
-        finalOutput = output;
-        finalError = '';
-        cmdVersion = version || '';
-
-        try {
-            const extensionsMetadata = await waitForExtensionsMetadata(crawlSession.crawlChromeDir, 10000);
-            fs.writeFileSync(
-                path.join(OUTPUT_DIR, 'extensions.json'),
-                JSON.stringify(extensionsMetadata, null, 2)
-            );
-        } catch (err) {
-            // Extension metadata is optional for non-extension snapshots.
-        }
-        console.log(`[+] Chrome tab ready`);
-        console.log(`[+] CDP URL: ${crawlSession.cdpUrl}`);
-        console.log(`[+] Page target ID: ${targetId}`);
-        console.log(JSON.stringify({
-            type: 'ArchiveResult',
-            status,
-            output_str: output,
-        }));
-        releaseLock();
-        releaseLock = null;
     } catch (e) {
         error = `${e.name}: ${e.message}`;
         status = 'failed';

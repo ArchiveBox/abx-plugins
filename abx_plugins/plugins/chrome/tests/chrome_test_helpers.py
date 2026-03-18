@@ -95,6 +95,7 @@ PLUGINS_ROOT = CHROME_PLUGIN_DIR.parent
 CHROME_INSTALL_HOOK = CHROME_PLUGIN_DIR / "on_Crawl__70_chrome_install.finite.bg.py"
 CHROME_LAUNCH_HOOK = CHROME_PLUGIN_DIR / "on_Crawl__90_chrome_launch.daemon.bg.js"
 CHROME_CRAWL_WAIT_HOOK = CHROME_PLUGIN_DIR / "on_Crawl__91_chrome_wait.js"
+CHROME_SNAPSHOT_LAUNCH_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__09_chrome_launch.daemon.bg.js"
 CHROME_TAB_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__10_chrome_tab.daemon.bg.js"
 CHROME_WAIT_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__11_chrome_wait.js"
 _CHROME_NAVIGATE_HOOK = next(
