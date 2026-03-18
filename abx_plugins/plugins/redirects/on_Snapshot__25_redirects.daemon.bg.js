@@ -27,7 +27,7 @@ const puppeteer = require('puppeteer-core');
 // Import chrome-specific utilities from chrome_utils.js
 const {
     connectToPage,
-    waitForPageLoaded,
+    waitForNavigationComplete,
 } = require('../chrome/chrome_utils.js');
 
 const PLUGIN_NAME = 'redirects';
@@ -289,7 +289,7 @@ async function main() {
 
         // Wait for navigation to settle, then leave extra time for late JS redirects.
         try {
-            await waitForPageLoaded(CHROME_SESSION_DIR, timeout * 4, 1000);
+            await waitForNavigationComplete(CHROME_SESSION_DIR, timeout * 4, 1000);
         } catch (e) {
             console.error(`WARN: ${e.message}`);
         }

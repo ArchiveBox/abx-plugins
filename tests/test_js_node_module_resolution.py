@@ -59,7 +59,7 @@ Module._load = function(request, parent, isMain) {
                 browser: { disconnect: () => {} },
                 page: { title: async () => 'Resolved Title' },
             }),
-            waitForPageLoaded: async () => {},
+            waitForNavigationComplete: async () => {},
         };
     }
     return originalLoad(request, parent, isMain);

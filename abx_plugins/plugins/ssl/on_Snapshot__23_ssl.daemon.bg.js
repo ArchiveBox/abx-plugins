@@ -27,7 +27,7 @@ const puppeteer = require('puppeteer-core');
 // Import chrome-specific utilities from chrome_utils.js
 const {
     connectToPage,
-    waitForPageLoaded,
+    waitForNavigationComplete,
 } = require('../chrome/chrome_utils.js');
 
 const PLUGIN_NAME = 'ssl';
@@ -230,7 +230,7 @@ async function main() {
         // Wait for chrome_navigate to complete (non-fatal)
         try {
             const timeout = getEnvInt('SSL_TIMEOUT', 30) * 1000;
-            await waitForPageLoaded(CHROME_SESSION_DIR, timeout * 4);
+            await waitForNavigationComplete(CHROME_SESSION_DIR, timeout * 4);
         } catch (e) {
             console.error(`WARN: ${e.message}`);
         }

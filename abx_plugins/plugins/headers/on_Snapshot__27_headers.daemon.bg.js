@@ -27,7 +27,7 @@ const puppeteer = require('puppeteer-core');
 // Import chrome-specific utilities from chrome_utils.js
 const {
     connectToPage,
-    waitForPageLoaded,
+    waitForNavigationComplete,
 } = require('../chrome/chrome_utils.js');
 
 const PLUGIN_NAME = 'headers';
@@ -250,7 +250,7 @@ async function main() {
         // Best-effort short grace period so final_url.txt/page_loaded.txt can
         // land before we serialize output, without blocking success on them.
         try {
-            await waitForPageLoaded(CHROME_SESSION_DIR, POST_CAPTURE_NAVIGATION_GRACE_MS, 200);
+            await waitForNavigationComplete(CHROME_SESSION_DIR, POST_CAPTURE_NAVIGATION_GRACE_MS, 200);
         } catch (e) {
             // Ignore navigation marker timeouts once headers have been captured.
         }

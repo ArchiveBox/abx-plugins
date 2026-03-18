@@ -56,7 +56,7 @@ async function extractSeo(url) {
         const connection = await connectToPage({
             chromeSessionDir: CHROME_SESSION_DIR,
             timeoutMs: timeout,
-            waitForPageLoaded: true,
+            waitForNavigationComplete: true,
             postLoadDelayMs: 200,
             puppeteer,
         });

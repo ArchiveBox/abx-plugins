@@ -78,7 +78,7 @@ async function takeScreenshot(url) {
     const { browser, page } = await connectToPage({
         chromeSessionDir: CHROME_SESSION_DIR,
         timeoutMs,
-        waitForPageLoaded: true,
+        waitForNavigationComplete: true,
         puppeteer,
     });
 

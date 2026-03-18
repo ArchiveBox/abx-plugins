@@ -2732,8 +2732,8 @@ async function connectToPage(options = {}) {
         timeoutMs = 60000,
         requireTargetId = true,
         requireExtensionsLoaded = false,
-        waitForPageLoaded: shouldWaitForPageLoaded = false,
-        pageLoadTimeoutMs = timeoutMs * 4,
+        waitForNavigationComplete: shouldWaitForPageLoaded = false,
+        pageLoadTimeoutMs = timeoutMs,
         postLoadDelayMs = 0,
         puppeteer,
     } = options;
@@ -2756,6 +2756,10 @@ async function connectToPage(options = {}) {
     }
     let targetId = state.targetId;
 
+    if (shouldWaitForPageLoaded) {
+        await waitForNavigationComplete(chromeSessionDir, pageLoadTimeoutMs, postLoadDelayMs);
+    }
+
     // Connect to browser
     const browser = await connectToBrowserEndpoint(resolvedPuppeteer, state.cdpUrl, { defaultViewport: null });
 
@@ -2777,10 +2781,6 @@ async function connectToPage(options = {}) {
 
         if (!page) {
             throw new Error('No page found in browser');
-        }
-
-        if (shouldWaitForPageLoaded) {
-            await waitForPageLoaded(chromeSessionDir, pageLoadTimeoutMs, postLoadDelayMs);
         }
 
         const cdpSession = await page.target().createCDPSession();
@@ -3196,7 +3196,7 @@ async function ensureChromeSession(options = {}) {
  * @returns {Promise<void>}
  * @throws {Error} - If timeout waiting for navigation
  */
-async function waitForPageLoaded(chromeSessionDir, timeoutMs = 120000, postLoadDelayMs = 0) {
+async function waitForNavigationComplete(chromeSessionDir, timeoutMs = 120000, postLoadDelayMs = 0) {
     const { pageLoadedFile } = getChromeSessionPaths(chromeSessionDir);
     const pollInterval = 100;
     let waitTime = 0;
@@ -3315,7 +3315,7 @@ module.exports = {
     getTargetIdFromTarget,
     getTargetIdFromPage,
     connectToPage,
-    waitForPageLoaded,
+    waitForNavigationComplete,
     setBrowserDownloadBehavior,
     getCookiesViaCdp,
 };

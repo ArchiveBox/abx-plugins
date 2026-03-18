@@ -60,7 +60,7 @@ async function extractOutlinks(url, snapshotId, crawlId, depth, timeoutMs) {
         const connection = await connectToPage({
             chromeSessionDir: CHROME_SESSION_DIR,
             timeoutMs,
-            waitForPageLoaded: true,
+            waitForNavigationComplete: true,
             postLoadDelayMs: 200,
             puppeteer,
         });
