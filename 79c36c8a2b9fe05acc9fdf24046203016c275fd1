@@ -1,0 +1,25 @@
+conftest.py
+  c6156093e009d8e0 7,30-92
+.github/workflows/test-parallel.yml
+  c6156093e009d8e0 77,139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "79c36c8a2b9fe05acc9fdf24046203016c275fd1",
+  "prompts": {
+    "c6156093e009d8e0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d0293-2e03-7b52-aa80-ebd8a4a15b10",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 68,
+      "total_deletions": 1,
+      "accepted_lines": 68,
+      "overriden_lines": 0
+    }
+  }
+}
