@@ -209,6 +209,17 @@ def _run_puppeteer_install_with_sudo(
     proc = _subprocess.run(
         sudo_cmd, capture_output=True, text=True, timeout=300, env=env,
     )
+
+    # Fix ownership: sudo may have written root-owned files into the
+    # normal user's cache dir, which would break later non-root operations.
+    if proc.returncode == 0 and cache_dir.exists():
+        uid = os.getuid()
+        gid = os.getgid()
+        _subprocess.run(
+            ["sudo", "chown", "-R", f"{uid}:{gid}", str(cache_dir)],
+            timeout=30,
+        )
+
     return proc
 
 
