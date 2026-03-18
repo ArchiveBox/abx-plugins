@@ -1,0 +1,61 @@
+abx_plugins/plugins/claudechrome/on_Crawl__84_claudechrome_install.finite.bg.js
+  6ce0defec3ce80d0 19,30
+abx_plugins/plugins/modalcloser/on_Snapshot__15_modalcloser.daemon.bg.js
+  6ce0defec3ce80d0 46,272-275
+abx_plugins/plugins/pdf/on_Snapshot__52_pdf.js
+  6ce0defec3ce80d0 26,67-70
+abx_plugins/plugins/chrome/on_Crawl__91_chrome_wait.js
+  6ce0defec3ce80d0 14,28,41,54,61,67,78-82,108-111,115-123
+abx_plugins/plugins/claudechrome/on_Crawl__96_claudechrome_config.js
+  6ce0defec3ce80d0 20
+abx_plugins/plugins/forumdl/on_Snapshot__04_forumdl.finite.bg.py
+  6ce0defec3ce80d0 23,93-95,109,125-135,141-142,144,151,153-154,159-160,164,170,181,189
+abx_plugins/plugins/chrome/chrome_utils.js
+  6ce0defec3ce80d0 3374
+abx_plugins/plugins/chrome/on_Snapshot__10_chrome_tab.daemon.bg.js
+  6ce0defec3ce80d0 26
+abx_plugins/plugins/chrome/extract_cookies.js
+  6ce0defec3ce80d0 20
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  6ce0defec3ce80d0 156,782-868
+abx_plugins/plugins/infiniscroll/on_Snapshot__45_infiniscroll.js
+  6ce0defec3ce80d0 47,311-314
+abx_plugins/plugins/dom/on_Snapshot__53_dom.js
+  6ce0defec3ce80d0 27,61-64
+abx_plugins/plugins/screenshot/on_Snapshot__51_screenshot.js
+  6ce0defec3ce80d0 29,80-83,86-89
+abx_plugins/plugins/chrome/on_Crawl__90_chrome_launch.daemon.bg.js
+  6ce0defec3ce80d0 29
+abx_plugins/plugins/claudechrome/on_Snapshot__47_claudechrome.js
+  6ce0defec3ce80d0 31-32,37-40,568-571
+abx_plugins/plugins/title/on_Snapshot__54_title.js
+  6ce0defec3ce80d0 27,51-54
+abx_plugins/plugins/singlefile/on_Snapshot__50_singlefile.py
+  6ce0defec3ce80d0 80,82,90
+abx_plugins/plugins/chrome/on_Snapshot__11_chrome_wait.js
+  6ce0defec3ce80d0 13
+abx_plugins/plugins/accessibility/on_Snapshot__39_accessibility.js
+  6ce0defec3ce80d0 30,55-58
+abx_plugins/plugins/trafilatura/on_Snapshot__59_trafilatura.py
+  6ce0defec3ce80d0 19-22,24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "371082cb28a658bfb228ee8ff29f8cf925d86574",
+  "prompts": {
+    "6ce0defec3ce80d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf4ff-885e-75f2-bb69-8d87ff7a8fd8",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 250,
+      "total_deletions": 149,
+      "accepted_lines": 207,
+      "overriden_lines": 0
+    }
+  }
+}
