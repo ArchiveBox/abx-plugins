@@ -96,10 +96,9 @@ def main(url: str, snapshot_id: str):
                 f"You MUST WRITE all output files to exactly: {OUTPUT_DIR}\n"
                 "Do NOT write files anywhere else. Do NOT print output to stdout instead of writing files.\n\n"
                 "## Required Deliverable\n"
-                f"You MUST create exactly one primary output file at: {OUTPUT_DIR}/content.md\n"
-                "The task is not complete until that file exists on disk and contains the final markdown.\n"
-                "Do not merely describe the output in your response. You must use the Write/Edit tools to create the file itself.\n"
-                "Before finishing, verify the file exists and is non-empty by reading it or listing it from the filesystem.\n\n"
+                "You must complete the task exactly as requested in the user prompt.\n"
+                "Do not merely describe the output in your response. You must use the Write/Edit tools to create the file or files themselves.\n"
+                "Before finishing, verify the output file or files exist and are non-empty by reading them or listing them from the filesystem.\n\n"
                 "CRITICAL RESTRICTION: You MUST NOT read, write, or modify anything "
                 f"outside of {SNAP_DIR}. Do not use absolute paths to other directories. "
                 "Do not use .. to escape the snapshot directory."
@@ -114,10 +113,6 @@ def main(url: str, snapshot_id: str):
             f"URL being archived: {url}\n\n"
             f"Your output directory (save files here): {OUTPUT_DIR}\n\n"
             f"Task:\n{user_prompt}\n\n"
-            "Completion requirements:\n"
-            f"1. Write the final extracted markdown to exactly: {OUTPUT_DIR}/content.md\n"
-            "2. Do not rely on your chat response as the output\n"
-            "3. Before finishing, verify the file exists and is non-empty\n"
         )
 
         # Run Claude Code
