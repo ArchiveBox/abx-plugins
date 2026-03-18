@@ -1,0 +1,23 @@
+abx_plugins/plugins/claudecodeextract/on_Snapshot__58_claudecodeextract.py
+  6ce0defec3ce80d0 99-101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "c6bcfa54a553bbaa814d30736eb23dbf2fb57c2e",
+  "prompts": {
+    "6ce0defec3ce80d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf4ff-885e-75f2-bb69-8d87ff7a8fd8",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 11,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    }
+  }
+}
