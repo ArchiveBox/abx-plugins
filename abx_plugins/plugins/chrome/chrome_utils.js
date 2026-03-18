@@ -2267,38 +2267,28 @@ async function setBrowserDownloadBehavior(options = {}) {
     await fs.promises.mkdir(downloadPath, { recursive: true });
     const sessionTarget = page ? page.target() : browser.target();
     const session = await sessionTarget.createCDPSession();
-    let operationError = null;
+
+    // Keep the CDP session alive for the lifetime of the caller's browser/page
+    // connection. Extension-driven downloads regress if we detach immediately
+    // after configuring download behavior.
     try {
+        await session.send('Browser.setDownloadBehavior', {
+            behavior: 'allow',
+            downloadPath,
+        });
+        return true;
+    } catch (browserError) {
         try {
-            await session.send('Browser.setDownloadBehavior', {
+            await session.send('Page.setDownloadBehavior', {
                 behavior: 'allow',
                 downloadPath,
             });
             return true;
-        } catch (browserError) {
-            try {
-                await session.send('Page.setDownloadBehavior', {
-                    behavior: 'allow',
-                    downloadPath,
-                });
-                return true;
-            } catch (pageError) {
-                throw new Error(
-                    `Browser.setDownloadBehavior failed: ${browserError.message}; ` +
-                    `Page.setDownloadBehavior failed: ${pageError.message}`
-                );
-            }
-        }
-    } catch (error) {
-        operationError = error;
-        throw error;
-    } finally {
-        try {
-            await session.detach();
-        } catch (detachError) {
-            if (!operationError) {
-                throw detachError;
-            }
+        } catch (pageError) {
+            throw new Error(
+                `Browser.setDownloadBehavior failed: ${browserError.message}; ` +
+                `Page.setDownloadBehavior failed: ${pageError.message}`
+            );
         }
     }
 }

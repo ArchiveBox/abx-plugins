@@ -203,121 +203,6 @@ def test_find_chromium_accepts_command_name_chrome_binary(
     assert stdout.strip() == str(binary_path)
 
 
-def test_set_browser_download_behavior_detaches_session_on_success(tmp_path: Path):
-    """setBrowserDownloadBehavior() should always detach the created CDP session."""
-    download_dir = tmp_path / "downloads"
-    script = """
-const utils = require(process.argv[1]);
-const downloadPath = process.argv[2];
-const calls = [];
-const session = {
-  async send(method, params) {
-    calls.push({ type: 'send', method, downloadPath: params.downloadPath });
-    return {};
-  },
-  async detach() {
-    calls.push({ type: 'detach' });
-  },
-};
-const page = {
-  target() {
-    return {
-      createCDPSession: async () => session,
-    };
-  },
-};
-
-(async () => {
-  const result = await utils.setBrowserDownloadBehavior({ page, downloadPath });
-  process.stdout.write(JSON.stringify({ result, calls }));
-})().catch((error) => {
-  console.error(error.stack || error.message);
-  process.exit(1);
-});
-"""
-    result = subprocess.run(
-        ["node", "-e", script, str(CHROME_UTILS), str(download_dir)],
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-
-    assert result.returncode == 0, result.stderr
-    payload = json.loads(result.stdout)
-    assert payload["result"] is True
-    assert payload["calls"] == [
-        {
-            "type": "send",
-            "method": "Browser.setDownloadBehavior",
-            "downloadPath": str(download_dir),
-        },
-        {"type": "detach"},
-    ]
-
-
-def test_set_browser_download_behavior_detaches_session_on_failure(tmp_path: Path):
-    """setBrowserDownloadBehavior() should detach even when both CDP methods fail."""
-    download_dir = tmp_path / "downloads"
-    script = """
-const utils = require(process.argv[1]);
-const downloadPath = process.argv[2];
-const calls = [];
-const session = {
-  async send(method, params) {
-    calls.push({ type: 'send', method, downloadPath: params.downloadPath });
-    throw new Error(method === 'Browser.setDownloadBehavior' ? 'browser failed' : 'page failed');
-  },
-  async detach() {
-    calls.push({ type: 'detach' });
-  },
-};
-const page = {
-  target() {
-    return {
-      createCDPSession: async () => session,
-    };
-  },
-};
-
-(async () => {
-  try {
-    await utils.setBrowserDownloadBehavior({ page, downloadPath });
-    process.stdout.write(JSON.stringify({ ok: true, calls }));
-  } catch (error) {
-    process.stdout.write(JSON.stringify({ ok: false, error: error.message, calls }));
-  }
-})().catch((error) => {
-  console.error(error.stack || error.message);
-  process.exit(1);
-});
-"""
-    result = subprocess.run(
-        ["node", "-e", script, str(CHROME_UTILS), str(download_dir)],
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-
-    assert result.returncode == 0, result.stderr
-    payload = json.loads(result.stdout)
-    assert payload["ok"] is False
-    assert "Browser.setDownloadBehavior failed: browser failed" in payload["error"]
-    assert "Page.setDownloadBehavior failed: page failed" in payload["error"]
-    assert payload["calls"] == [
-        {
-            "type": "send",
-            "method": "Browser.setDownloadBehavior",
-            "downloadPath": str(download_dir),
-        },
-        {
-            "type": "send",
-            "method": "Page.setDownloadBehavior",
-            "downloadPath": str(download_dir),
-        },
-        {"type": "detach"},
-    ]
-
-
 def test_set_browser_download_behavior_requires_download_path():
     """Download setup failures must hard-fail for snapshot-level download extractors."""
     script = """
@@ -327,7 +212,6 @@ const page = {
     return {
       createCDPSession: async () => ({
         async send() { return {}; },
-        async detach() {},
       }),
     };
   },
