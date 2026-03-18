@@ -3037,6 +3037,12 @@ async function ensureChromeSession(options = {}) {
     const { installedExtensions, extensionPaths } = loadInstalledExtensionsFromCache(extensionsDir);
 
     const existingSession = await inspectChromeSessionArtifacts(outputDir, { processIsLocal });
+    const reusingExplicitCdpUrl =
+        Boolean(cdpUrl) &&
+        existingSession.hasArtifacts &&
+        !existingSession.stale &&
+        existingSession.state?.cdpUrl === cdpUrl;
+
     if (reuseExisting && existingSession.hasArtifacts && !existingSession.stale && existingSession.state?.cdpUrl) {
         return {
             cdpUrl: existingSession.state.cdpUrl,
@@ -3050,7 +3056,7 @@ async function ensureChromeSession(options = {}) {
         };
     }
 
-    if (existingSession.hasArtifacts && existingSession.state?.cdpUrl) {
+    if (!reusingExplicitCdpUrl && existingSession.hasArtifacts && existingSession.state?.cdpUrl) {
         try {
             await closeBrowserInChromeSession({
                 cdpUrl: existingSession.state.cdpUrl,
@@ -3062,21 +3068,23 @@ async function ensureChromeSession(options = {}) {
         } catch (error) {}
     }
 
-    const staleSession = await cleanupStaleChromeSessionArtifacts(outputDir, {
-        processIsLocal: existingSession.state?.pid ? true : processIsLocal,
-    });
-    if (staleSession.cleanedFiles.length === 0) {
-        for (const filePath of getChromeSessionArtifactPaths(outputDir)) {
-            if (!fs.existsSync(filePath)) continue;
-            try {
-                fs.unlinkSync(filePath);
-            } catch (error) {}
+    if (!reusingExplicitCdpUrl) {
+        const staleSession = await cleanupStaleChromeSessionArtifacts(outputDir, {
+            processIsLocal: existingSession.state?.pid ? true : processIsLocal,
+        });
+        if (staleSession.cleanedFiles.length === 0) {
+            for (const filePath of getChromeSessionArtifactPaths(outputDir)) {
+                if (!fs.existsSync(filePath)) continue;
+                try {
+                    fs.unlinkSync(filePath);
+                } catch (error) {}
+            }
         }
     }
 
     let resolvedBinary = binary;
-    let resolvedPid = null;
-    let resolvedCdpUrl = cdpUrl;
+    let resolvedPid = reusingExplicitCdpUrl ? (existingSession.state?.pid || null) : null;
+    let resolvedCdpUrl = reusingExplicitCdpUrl ? existingSession.state?.cdpUrl : cdpUrl;
 
     if (!resolvedCdpUrl) {
         if (!processIsLocal) {
