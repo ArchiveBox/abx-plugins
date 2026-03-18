@@ -392,7 +392,7 @@ function killZombieChrome(snapDir = null, options = {}) {
  * intentionally earlier in the lifecycle than the crawl launch hook's
  * "published readiness" step:
  * - it may write `chrome.pid` immediately for later cleanup/re-attachment
- * - it does NOT publish `cdp_url.txt` / `port.txt` as stable crawl markers
+ * - it does NOT publish `cdp_url.txt` as a stable crawl marker
  * - callers must finish any runtime setup that should happen before other
  *   hooks attach (downloads via CDP, cookie seeding, extension discovery, etc.)
  *   and only then write the crawl/session readiness files
@@ -578,7 +578,7 @@ async function launchChromium(options = {}) {
         const wsUrl = versionInfo.webSocketDebuggerUrl;
 
         console.error(`[+] Chromium ready: ${wsUrl}`);
-        // Do not publish cdp_url.txt / port.txt here.
+        // Do not publish cdp_url.txt here.
         // Crawl-level callers finish additional startup work after the raw CDP
         // socket comes up (extension discovery, cookie import, writing
         // extensions.json, etc.). Downstream hooks treat cdp_url.txt as the
@@ -726,9 +726,9 @@ async function killChrome(pid, outputDir = null) {
     let debugPort = null;
     if (outputDir) {
         try {
-            const portFile = path.join(outputDir, 'port.txt');
-            if (fs.existsSync(portFile)) {
-                debugPort = parseInt(fs.readFileSync(portFile, 'utf8').trim(), 10);
+            const cdpFile = path.join(outputDir, 'cdp_url.txt');
+            if (fs.existsSync(cdpFile)) {
+                debugPort = getChromeDebugPortFromCdpUrl(fs.readFileSync(cdpFile, 'utf8').trim());
             }
         } catch (e) {}
     }
@@ -806,7 +806,6 @@ async function killChrome(pid, outputDir = null) {
     // Note: hook-specific .pid files are cleaned up by run_hook() and Snapshot.cleanup()
     if (outputDir) {
         try { fs.unlinkSync(path.join(outputDir, 'chrome.pid')); } catch (e) {}
-        try { fs.unlinkSync(path.join(outputDir, 'port.txt')); } catch (e) {}
     }
 
     console.error('[*] Chrome cleanup completed');
@@ -1842,7 +1841,6 @@ const CHROME_SESSION_FILES = Object.freeze({
     cdpUrl: 'cdp_url.txt',
     targetId: 'target_id.txt',
     chromePid: 'chrome.pid',
-    pageLoaded: 'page_loaded.txt',
 });
 
 /**
@@ -1856,13 +1854,12 @@ const CHROME_SESSION_FILES = Object.freeze({
  * Chrome session directory.
  *
  * The crawl-level session typically owns the long-lived browser markers
- * (`chrome.pid`, `cdp_url.txt`, `port.txt`, `extensions.json`). Snapshot-level
- * sessions reuse the same schema and add per-tab markers such as
- * `target_id.txt`, `navigation.json`, `page_loaded.txt`, and copied
- * `extensions.json` metadata for consumers that operate at snapshot scope.
+ * (`chrome.pid`, `cdp_url.txt`, `extensions.json`). Snapshot-level sessions
+ * reuse the same schema and add per-tab markers such as `target_id.txt`,
+ * `url.txt`, and `navigation.json`.
  *
  * @param {string} chromeSessionDir - Path to chrome session directory
- * @returns {{sessionDir: string, cdpFile: string, targetIdFile: string, chromePidFile: string, pageLoadedFile: string}}
+ * @returns {{sessionDir: string, cdpFile: string, targetIdFile: string, chromePidFile: string, urlFile: string, navigationFile: string}}
  */
 function getChromeSessionPaths(chromeSessionDir) {
     const sessionDir = path.resolve(chromeSessionDir);
@@ -1871,7 +1868,8 @@ function getChromeSessionPaths(chromeSessionDir) {
         cdpFile: path.join(sessionDir, CHROME_SESSION_FILES.cdpUrl),
         targetIdFile: path.join(sessionDir, CHROME_SESSION_FILES.targetId),
         chromePidFile: path.join(sessionDir, CHROME_SESSION_FILES.chromePid),
-        pageLoadedFile: path.join(sessionDir, CHROME_SESSION_FILES.pageLoaded),
+        urlFile: path.join(sessionDir, 'url.txt'),
+        navigationFile: path.join(sessionDir, 'navigation.json'),
     };
 }
 
@@ -1892,23 +1890,20 @@ function readSessionTextFile(filePath) {
  * when a session is determined to be stale.
  *
  * The list intentionally includes both readiness markers and navigation
- * byproducts. Leaving old `navigation.json`, `page_loaded.txt`, or
- * `extensions.json` files behind can trick later hooks/tests into believing a
- * brand-new session has already advanced further than it actually has.
+ * byproducts. Leaving old `navigation.json` or `extensions.json` files behind
+ * can trick later hooks/tests into believing a brand-new session has already
+ * advanced further than it actually has.
  *
  * @param {string} chromeSessionDir - Path to chrome session directory
  * @returns {string[]} - Absolute file paths
  */
 function getChromeSessionArtifactPaths(chromeSessionDir) {
-    const { sessionDir, cdpFile, targetIdFile, chromePidFile, pageLoadedFile } = getChromeSessionPaths(chromeSessionDir);
+    const { sessionDir, cdpFile, targetIdFile, chromePidFile } = getChromeSessionPaths(chromeSessionDir);
     return [
         cdpFile,
         targetIdFile,
         chromePidFile,
-        pageLoadedFile,
-        path.join(sessionDir, 'port.txt'),
         path.join(sessionDir, 'url.txt'),
-        path.join(sessionDir, 'final_url.txt'),
         path.join(sessionDir, 'navigation.json'),
         path.join(sessionDir, 'extensions.json'),
     ];
@@ -2531,41 +2526,6 @@ async function resolvePageByTargetId(browser, targetId, timeoutMs = 0) {
 }
 
 /**
- * Read CDP WebSocket URL from chrome session directory.
- *
- * @param {string} chromeSessionDir - Path to chrome session directory
- * @returns {string|null} - CDP URL or null if not found
- */
-function readCdpUrl(chromeSessionDir) {
-    const { cdpFile } = getChromeSessionPaths(chromeSessionDir);
-    return readSessionTextFile(cdpFile);
-}
-
-/**
- * Read target ID from chrome session directory.
- *
- * @param {string} chromeSessionDir - Path to chrome session directory
- * @returns {string|null} - Target ID or null if not found
- */
-function readTargetId(chromeSessionDir) {
-    const { targetIdFile } = getChromeSessionPaths(chromeSessionDir);
-    return readSessionTextFile(targetIdFile);
-}
-
-/**
- * Read Chrome PID from chrome session directory.
- *
- * @param {string} chromeSessionDir - Path to chrome session directory
- * @returns {number|null} - PID or null if invalid/missing
- */
-function readChromePid(chromeSessionDir) {
-    const { chromePidFile } = getChromeSessionPaths(chromeSessionDir);
-    const rawPid = readSessionTextFile(chromePidFile);
-    const parsedPid = rawPid ? parseInt(rawPid, 10) : NaN;
-    return Number.isFinite(parsedPid) && parsedPid > 0 ? parsedPid : null;
-}
-
-/**
  * Resolve a live browser-server URL from an already-published session dir.
  *
  * This is the browser-level analogue to `connectToPage(...)`: it waits for the
@@ -2722,6 +2682,9 @@ async function closeTabInChromeSession(options = {}) {
  * @param {number} [options.timeoutMs=60000] - Timeout for waiting
  * @param {boolean} [options.requireTargetId=true] - Require target_id.txt in session dir
  * @param {boolean} [options.requireExtensionsLoaded=false] - Require extensions.json to be available and parseable
+ * @param {boolean} [options.waitForNavigationComplete=false] - Wait for navigation.json success before attaching
+ * @param {number} [options.pageLoadTimeoutMs=timeoutMs] - Timeout for navigation.json readiness
+ * @param {number} [options.postLoadDelayMs=0] - Additional delay after successful navigation
  * @param {Object} options.puppeteer - Puppeteer module
  * @returns {Promise<Object>} - { browser, page, cdpSession, targetId, cdpUrl, extensions }
  * @throws {Error} - If connection fails or page not found
@@ -2732,7 +2695,7 @@ async function connectToPage(options = {}) {
         timeoutMs = 60000,
         requireTargetId = true,
         requireExtensionsLoaded = false,
-        waitForNavigationComplete: shouldWaitForPageLoaded = false,
+        waitForNavigationComplete: shouldWaitForNavigationComplete = false,
         pageLoadTimeoutMs = timeoutMs,
         postLoadDelayMs = 0,
         puppeteer,
@@ -2746,6 +2709,20 @@ async function connectToPage(options = {}) {
     if (!initialInspection.hasArtifacts) {
         throw new Error(CHROME_SESSION_REQUIRED_ERROR);
     }
+    if (!initialInspection.state?.cdpUrl) {
+        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
+    }
+    getPuppeteerConnectOptionsForCdpUrl(initialInspection.state.cdpUrl);
+    if (requireTargetId && !initialInspection.state?.targetId) {
+        const sessionPaths = getChromeSessionPaths(chromeSessionDir);
+        const hasLaterSnapshotMarkers = [
+            sessionPaths.urlFile,
+            sessionPaths.navigationFile,
+        ].some(filePath => fs.existsSync(filePath));
+        if (hasLaterSnapshotMarkers) {
+            throw new Error('No target_id.txt found');
+        }
+    }
     const state = await waitForChromeSessionState(chromeSessionDir, {
         timeoutMs,
         requireTargetId,
@@ -2756,7 +2733,7 @@ async function connectToPage(options = {}) {
     }
     let targetId = state.targetId;
 
-    if (shouldWaitForPageLoaded) {
+    if (shouldWaitForNavigationComplete) {
         await waitForNavigationComplete(chromeSessionDir, pageLoadTimeoutMs, postLoadDelayMs);
     }
 
@@ -3175,7 +3152,6 @@ async function ensureChromeSession(options = {}) {
     } else {
         try { fs.unlinkSync(path.join(outputDir, 'chrome.pid')); } catch (error) {}
     }
-    fs.writeFileSync(path.join(outputDir, 'port.txt'), String(getChromeDebugPortFromCdpUrl(resolvedCdpUrl) || ''));
     fs.writeFileSync(path.join(outputDir, 'cdp_url.txt'), resolvedCdpUrl);
 
     return {
@@ -3191,37 +3167,43 @@ async function ensureChromeSession(options = {}) {
 }
 
 /**
- * Wait for the snapshot navigation hook to publish its completion marker.
+ * Wait for the snapshot navigation hook to publish a successful navigation result.
  *
  * This does not perform navigation by itself. It only watches the
- * `page_loaded.txt` artifact emitted by `chrome_navigate` and optionally waits
+ * `navigation.json` artifact emitted by `chrome_navigate` and optionally waits
  * a bit longer for late network work that should remain within the same
  * snapshot lifecycle.
  *
  * @param {string} chromeSessionDir - Path to chrome session directory
  * @param {number} [timeoutMs=120000] - Timeout in milliseconds
- * @param {number} [postLoadDelayMs=0] - Additional delay after page load marker
- * @returns {Promise<void>}
- * @throws {Error} - If timeout waiting for navigation
+ * @param {number} [postLoadDelayMs=0] - Additional delay after successful navigation
+ * @returns {Promise<Object>} - Parsed navigation state
+ * @throws {Error} - If timeout waiting for navigation or navigation.json reports an error
  */
 async function waitForNavigationComplete(chromeSessionDir, timeoutMs = 120000, postLoadDelayMs = 0) {
-    const { pageLoadedFile } = getChromeSessionPaths(chromeSessionDir);
+    const { navigationFile } = getChromeSessionPaths(chromeSessionDir);
     const pollInterval = 100;
     let waitTime = 0;
 
-    while (!fs.existsSync(pageLoadedFile) && waitTime < timeoutMs) {
+    while (!fs.existsSync(navigationFile) && waitTime < timeoutMs) {
         await new Promise(resolve => setTimeout(resolve, pollInterval));
         waitTime += pollInterval;
     }
 
-    if (!fs.existsSync(pageLoadedFile)) {
+    if (!fs.existsSync(navigationFile)) {
         throw new Error('Timeout waiting for navigation (chrome_navigate did not complete)');
     }
 
-    // Optional post-load delay for late responses
+    const navigationState = JSON.parse(fs.readFileSync(navigationFile, 'utf8'));
+    if (navigationState?.error) {
+        throw new Error(navigationState.error);
+    }
+
     if (postLoadDelayMs > 0) {
         await new Promise(resolve => setTimeout(resolve, postLoadDelayMs));
     }
+
+    return navigationState;
 }
 
 /**
@@ -3315,7 +3297,6 @@ module.exports = {
     inspectChromeSessionArtifacts,
     cleanupStaleChromeSessionArtifacts,
     waitForChromeSessionState,
-    readChromePid,
     getBrowserServerUrl,
     openTabInChromeSession,
     closeTabInChromeSession,

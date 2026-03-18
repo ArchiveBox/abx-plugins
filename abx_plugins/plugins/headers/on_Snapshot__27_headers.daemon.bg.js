@@ -68,15 +68,11 @@ const headersReadyFailure = new Promise((_, reject) => {
     headersReadyReject = reject;
 });
 
-function getFinalUrl() {
-    const finalUrlFile = path.join(CHROME_SESSION_DIR, 'final_url.txt');
-    if (fs.existsSync(finalUrlFile)) {
-        return fs.readFileSync(finalUrlFile, 'utf8').trim();
-    }
-    return page ? page.url() : null;
+function getFinalUrl(navigationState = null) {
+    return navigationState?.finalUrl || page?.url() || null;
 }
 
-function writeHeadersFile() {
+function writeHeadersFile(navigationState = null) {
     if (headersWritten) return;
     if (!responseHeaders) return;
 
@@ -92,7 +88,7 @@ function writeHeadersFile() {
 
     const record = {
         url: requestUrl || originalUrl,
-        final_url: getFinalUrl(),
+        final_url: getFinalUrl(navigationState),
         status: responseStatus !== undefined ? responseStatus : null,
         request_headers: requestHeaders || {},
         response_headers: responseHeadersWithStatus,
@@ -247,14 +243,18 @@ async function main() {
             new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out waiting for headers')), timeout * 4)),
         ]);
 
-        // Best-effort short grace period so final_url.txt/page_loaded.txt can
-        // land before we serialize output, without blocking success on them.
+        // Best-effort short grace period so navigation.json can land before we
+        // serialize output, without blocking success on it.
+        let navigationState = null;
         try {
-            await waitForNavigationComplete(CHROME_SESSION_DIR, POST_CAPTURE_NAVIGATION_GRACE_MS, 200);
+            navigationState = await waitForNavigationComplete(CHROME_SESSION_DIR, POST_CAPTURE_NAVIGATION_GRACE_MS, 200);
         } catch (e) {
             // Ignore navigation marker timeouts once headers have been captured.
         }
 
+        if (!headersWritten) {
+            writeHeadersFile(navigationState);
+        }
         if (!headersWritten) {
             throw new Error('No headers captured');
         }

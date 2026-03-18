@@ -521,7 +521,6 @@ def test_chrome_launch_and_tab_creation(chrome_test_url):
 
         assert (chrome_dir / "cdp_url.txt").exists(), "cdp_url.txt should exist"
         assert (chrome_dir / "chrome.pid").exists(), "chrome.pid should exist"
-        assert (chrome_dir / "port.txt").exists(), "port.txt should exist"
 
         chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
 
@@ -901,7 +900,6 @@ def test_snapshot_isolation_launches_and_cleans_up_local_browser(chrome_test_url
 
         chrome_pid = int((snapshot_chrome_dir / "chrome.pid").read_text().strip())
         os.kill(chrome_pid, 0)
-        assert (snapshot_chrome_dir / "page_loaded.txt").exists()
         assert (snapshot_chrome_dir / "navigation.json").exists()
 
         try:
@@ -1579,13 +1577,13 @@ def test_cookies_imported_on_launch():
         )
 
         for _ in range(15):
-            if (chrome_dir / "port.txt").exists():
+            if (chrome_dir / "cdp_url.txt").exists():
                 break
             time.sleep(1)
 
-        assert (chrome_dir / "port.txt").exists(), "port.txt should exist"
+        assert (chrome_dir / "cdp_url.txt").exists(), "cdp_url.txt should exist"
         chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
-        port = int((chrome_dir / "port.txt").read_text().strip())
+        port = _port_from_cdp_url((chrome_dir / "cdp_url.txt").read_text().strip())
 
         cookie_found = False
         for _ in range(15):
@@ -1672,9 +1670,6 @@ def test_chrome_navigation(chrome_test_url):
         assert (snapshot_chrome_dir / "navigation.json").exists(), (
             "navigation.json should exist"
         )
-        assert (snapshot_chrome_dir / "page_loaded.txt").exists(), (
-            "page_loaded.txt should exist"
-        )
 
         nav_data = json.loads((snapshot_chrome_dir / "navigation.json").read_text())
         assert nav_data.get("status") in [200, 301, 302], (
@@ -1709,15 +1704,12 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
         shared_files = {
             "cdp_url": chrome_dir / "cdp_url.txt",
             "chrome_pid": chrome_dir / "chrome.pid",
-            "port": chrome_dir / "port.txt",
         }
         extensions_file = chrome_dir / "extensions.json"
         snapshot_files = {
             "target": chrome_dir / "target_id.txt",
             "url": chrome_dir / "url.txt",
             "navigation": chrome_dir / "navigation.json",
-            "page_loaded": chrome_dir / "page_loaded.txt",
-            "final_url": chrome_dir / "final_url.txt",
         }
         chrome_launch_process = None
         tab_process = None
@@ -1750,12 +1742,11 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
 
             cdp_url_before = shared_files["cdp_url"].read_text().strip()
             chrome_pid_before = shared_files["chrome_pid"].read_text().strip()
-            port_before = shared_files["port"].read_text().strip()
             extensions_before = (
                 extensions_file.read_text() if extensions_file.exists() else None
             )
             assert cdp_url_before.startswith("ws://127.0.0.1:"), cdp_url_before
-            assert port_before == str(_port_from_cdp_url(cdp_url_before))
+            port_before = str(_port_from_cdp_url(cdp_url_before))
             os.kill(int(chrome_pid_before), 0)
             assert _fetch_devtools_targets(cdp_url_before), (
                 "crawl launch should expose a live DevTools target list"
@@ -1824,15 +1815,8 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
             assert not snapshot_files["navigation"].exists(), (
                 "chrome_tab should not create navigation.json before navigate"
             )
-            assert not snapshot_files["page_loaded"].exists(), (
-                "chrome_tab should not create page_loaded.txt before navigate"
-            )
-            assert not snapshot_files["final_url"].exists(), (
-                "chrome_tab should not create final_url.txt before navigate"
-            )
             assert shared_files["cdp_url"].read_text().strip() == cdp_url_before
             assert shared_files["chrome_pid"].read_text().strip() == chrome_pid_before
-            assert shared_files["port"].read_text().strip() == port_before
 
             tab_targets = _fetch_devtools_targets(cdp_url_before)
             tab_target = next(
@@ -1883,15 +1867,12 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
                 f"Stdout: {navigate.stdout}\nStderr: {navigate.stderr}"
             )
             nav_data = json.loads(snapshot_files["navigation"].read_text())
-            final_url = snapshot_files["final_url"].read_text().strip()
-            assert snapshot_files["page_loaded"].read_text().strip()
             assert nav_data["url"] == chrome_test_url
-            assert nav_data["finalUrl"] == final_url
+            final_url = nav_data["finalUrl"]
             assert nav_data["status"] == 200
             assert final_url.rstrip("/") == chrome_test_url.rstrip("/")
             assert shared_files["cdp_url"].read_text().strip() == cdp_url_before
             assert shared_files["chrome_pid"].read_text().strip() == chrome_pid_before
-            assert shared_files["port"].read_text().strip() == port_before
             if extensions_before is not None:
                 assert extensions_file.read_text() == extensions_before
             assert snapshot_files["target"].read_text().strip() == target_id_before_wait
@@ -1921,9 +1902,6 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
                     pass
             assert not shared_files["chrome_pid"].exists(), (
                 "chrome.pid should be removed after crawl teardown"
-            )
-            assert not shared_files["port"].exists(), (
-                "port.txt should be removed after crawl teardown"
             )
 
 
@@ -2084,8 +2062,6 @@ def test_cleanup_stale_chrome_session_artifacts_only_when_stale():
         )
         session_dir.joinpath("target_id.txt").write_text("stale-target-id")
         session_dir.joinpath("chrome.pid").write_text("999999")
-        session_dir.joinpath("port.txt").write_text("9")
-
         result = _cleanup_session_artifacts(
             session_dir,
             _isolated_test_env(tmpdir),
@@ -2461,8 +2437,7 @@ def test_target_crash_mid_navigation_recovers_with_fresh_tab(chrome_test_urls):
                 or "closed" in nav_data["error"]
                 or "detached" in nav_data["error"]
             ), nav_data
-            assert not (chrome_dir / "page_loaded.txt").exists()
-            assert not (chrome_dir / "final_url.txt").exists()
+            assert not nav_data.get("finalUrl")
 
             replacement_url = chrome_test_urls["base_url"]
             replacement_tab_process = launch_snapshot_tab(
@@ -2737,9 +2712,6 @@ def test_chrome_cleanup_on_crawl_end():
 
         assert not (chrome_dir / "chrome.pid").exists(), (
             "chrome.pid should be removed during Chrome cleanup"
-        )
-        assert not (chrome_dir / "port.txt").exists(), (
-            "port.txt should be removed during Chrome cleanup"
         )
 
 

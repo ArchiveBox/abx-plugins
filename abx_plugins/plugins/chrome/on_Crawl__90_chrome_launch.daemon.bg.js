@@ -10,9 +10,8 @@
  *
  * Usage: on_Crawl__90_chrome_launch.daemon.bg.js --crawl-id=<uuid> --source-url=<url>
  * Output: Writes to current directory (executor creates chrome/ dir):
- *   - cdp_url.txt: WebSocket URL for CDP connection
+ *   - cdp_url.txt: WebSocket/HTTP URL for CDP connection
  *   - chrome.pid: Chromium process ID (for cleanup)
- *   - port.txt: Debug port number
  *   - extensions.json: Loaded extensions metadata
  *
  * Environment variables:

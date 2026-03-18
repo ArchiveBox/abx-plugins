@@ -1374,8 +1374,7 @@ def launch_snapshot_tab(
 
     This waits only for tab/session marker publication (``cdp_url.txt``,
     ``target_id.txt``, ``chrome.pid``). Navigation is still a separate lifecycle
-    step handled by the navigate hook and signaled later via ``page_loaded.txt``
-    / ``navigation.json``.
+    step handled by the navigate hook and signaled later via ``navigation.json``.
     """
     stdout_log = snapshot_chrome_dir / "chrome_tab.stdout.log"
     stderr_log = snapshot_chrome_dir / "chrome_tab.stderr.log"

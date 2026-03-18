@@ -7,7 +7,7 @@
  * Post-load hooks (31+) can then read from the loaded page.
  *
  * Usage: on_Snapshot__30_chrome_navigate.js --url=<url> --snapshot-id=<uuid>
- * Output: Writes page_loaded.txt marker when navigation completes
+ * Output: Writes navigation.json when navigation completes
  *
  * Environment variables:
  *     CHROME_PAGELOAD_TIMEOUT: Timeout in seconds (default: 60)
@@ -91,10 +91,6 @@ async function navigate(url) {
             timestamp: new Date().toISOString()
         };
         fs.writeFileSync(path.join(OUTPUT_DIR, 'navigation.json'), JSON.stringify(navigationState, null, 2));
-
-        // Write marker files for backwards compatibility
-        fs.writeFileSync(path.join(OUTPUT_DIR, 'page_loaded.txt'), new Date().toISOString());
-        fs.writeFileSync(path.join(OUTPUT_DIR, 'final_url.txt'), finalUrl);
 
         browser.disconnect();
 

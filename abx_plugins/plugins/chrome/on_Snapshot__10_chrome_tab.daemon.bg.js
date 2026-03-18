@@ -58,8 +58,6 @@ let currentCdpUrl = null;
 const SNAPSHOT_MARKER_FILES = [
     'target_id.txt',
     'url.txt',
-    'page_loaded.txt',
-    'final_url.txt',
     'navigation.json',
 ];
 

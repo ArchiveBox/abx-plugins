@@ -206,7 +206,6 @@ They should not reach back into `CRAWL_DIR/chrome/` directly unless they are int
 |---|---|
 | `cdp_url.txt` | Authoritative browser readiness marker. |
 | `chrome.pid` | Local-process ownership metadata. Optional for external sessions. |
-| `port.txt` | Debug port derived from `cdp_url.txt` when available. |
 | `extensions.json` | Loaded extension metadata. Optional if no extensions are present. |
 
 ### Snapshot-only markers
@@ -216,14 +215,12 @@ They should not reach back into `CRAWL_DIR/chrome/` directly unless they are int
 | `target_id.txt` | Authoritative page-target marker for the snapshot. |
 | `url.txt` | Requested URL used for snapshot reuse checks. |
 | `navigation.json` | Structured navigation result, including errors. |
-| `page_loaded.txt` | Success marker written after navigation completes. |
-| `final_url.txt` | Final navigated URL after redirects. |
 
 ### Readiness rules
 
 - `cdp_url.txt` means the browser is safe to connect to
 - `target_id.txt` means a specific page target exists for this snapshot
-- `page_loaded.txt` means `chrome_navigate` completed successfully
+- `navigation.json` means `chrome_navigate` completed, and success vs failure is encoded inside the JSON
 - `chrome.pid` does not imply readiness
 
 ## `chrome_utils.js` Helpers
@@ -302,7 +299,7 @@ Options include:
 - `timeoutMs`
 - `requireTargetId`
 - `requireExtensionsLoaded`
-- `waitForPageLoaded`
+- `waitForNavigationComplete`
 - `pageLoadTimeoutMs`
 - `postLoadDelayMs`
 - `puppeteer`
@@ -319,15 +316,15 @@ Returns:
 Important behavior:
 
 - fails fast if there is no Chrome session at all
-- if `waitForPageLoaded: true`, waits for `page_loaded.txt` before attaching
+- if `waitForNavigationComplete: true`, waits for successful `navigation.json` before attaching
 - creates a page CDP session for the returned page
 - sends initial `Target.setAutoAttach({ autoAttach: true, waitForDebuggerOnStart: false, flatten: true })`
 
 This is the preferred helper for almost all snapshot extractors.
 
-#### `waitForPageLoaded(chromeSessionDir, timeoutMs, postLoadDelayMs)`
+#### `waitForNavigationComplete(chromeSessionDir, timeoutMs, postLoadDelayMs)`
 
-Waits for the snapshot navigation marker written by `chrome_navigate`.
+Waits for `navigation.json` from `chrome_navigate`, parses it, and throws if navigation failed.
 
 This is marker-based, not a live CDP page-state poll.
 
@@ -356,7 +353,7 @@ Core tab lifecycle helpers used by the Chrome hooks.
 5. Crawl wait verifies a real CDP connection.
 6. Snapshot tab hook creates a target and publishes `SNAP_DIR/chrome/target_id.txt`.
 7. Snapshot wait verifies the target is live.
-8. Navigate hook writes `navigation.json`, `page_loaded.txt`, and `final_url.txt`.
+8. Navigate hook writes `navigation.json`.
 9. Later extractors call `connectToPage(...)`.
 
 ### Snapshot isolation
@@ -377,7 +374,7 @@ If you are writing a Chrome-dependent plugin:
 - use `waitForChromeSessionState(..., { requireExtensionsLoaded: true })` only when you truly need extension metadata before page attachment
 - treat `cdp_url.txt` as the browser readiness gate
 - treat `target_id.txt` as the page readiness gate
-- treat `page_loaded.txt` as the post-navigation readiness gate
+- treat `navigation.json` as the post-navigation readiness gate
 
 Anti-patterns:
 

@@ -31,53 +31,6 @@ const {
 const CHROME_SESSION_DIR = path.join(CRAWL_DIR, 'chrome');
 const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
 
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function waitForConnectableCrawlChromeSession(chromeSessionDir, timeoutMs) {
-    const deadline = Date.now() + timeoutMs;
-    let lastError = CHROME_SESSION_REQUIRED_ERROR;
-
-    while (Date.now() < deadline) {
-        const remainingMs = Math.max(deadline - Date.now(), 0);
-        const state = await waitForChromeSessionState(chromeSessionDir, {
-            timeoutMs: Math.min(remainingMs, 500),
-            intervalMs: 100,
-        });
-
-        if (!state?.cdpUrl) {
-            lastError = CHROME_SESSION_REQUIRED_ERROR;
-            await sleep(Math.min(200, remainingMs));
-            continue;
-        }
-
-        let browser = null;
-        try {
-            browser = await connectToBrowserEndpoint(puppeteer, state.cdpUrl, { defaultViewport: null });
-            return {
-                cdpUrl: state.cdpUrl,
-                pid: state.pid,
-            };
-        } catch (error) {
-            lastError = error?.message || String(error);
-            await sleep(Math.min(200, remainingMs));
-        } finally {
-            if (browser) {
-                try {
-                    browser.disconnect();
-                } catch (disconnectError) {}
-            }
-        }
-    }
-
-    return {
-        cdpUrl: null,
-        pid: null,
-        error: lastError,
-    };
-}
-
 async function main() {
     const args = parseArgs();
     const url = args.url;
@@ -100,12 +53,31 @@ async function main() {
 
     console.error(`[chrome_wait:crawl] Waiting for crawl Chrome session (timeout=${timeoutSeconds}s)...`);
 
-    const readySession = await waitForConnectableCrawlChromeSession(CHROME_SESSION_DIR, timeoutMs);
+    const readySession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
+        timeoutMs,
+        intervalMs: 100,
+    });
     if (!readySession?.cdpUrl) {
-        const error = readySession?.error || CHROME_SESSION_REQUIRED_ERROR;
+        const error = CHROME_SESSION_REQUIRED_ERROR;
         console.error(`[chrome_wait:crawl] ERROR: ${error}`);
         console.log(JSON.stringify({ type: 'ArchiveResult', status: 'failed', output_str: error }));
         process.exit(1);
+    }
+
+    let browser = null;
+    try {
+        browser = await connectToBrowserEndpoint(puppeteer, readySession.cdpUrl, { defaultViewport: null });
+    } catch (error) {
+        const message = error?.message || String(error);
+        console.error(`[chrome_wait:crawl] ERROR: ${message}`);
+        console.log(JSON.stringify({ type: 'ArchiveResult', status: 'failed', output_str: message }));
+        process.exit(1);
+    } finally {
+        if (browser) {
+            try {
+                browser.disconnect();
+            } catch (disconnectError) {}
+        }
     }
 
     const pid = readySession.pid || 'external';
