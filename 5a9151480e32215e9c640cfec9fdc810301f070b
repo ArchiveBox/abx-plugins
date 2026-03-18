@@ -1,0 +1,27 @@
+abx_plugins/plugins/claudecodeextract/on_Snapshot__58_claudecodeextract.py
+  6ce0defec3ce80d0 98-102,116-120
+abx_plugins/plugins/chrome/chrome_utils.js
+  6ce0defec3ce80d0 2759,2761-2762
+abx_plugins/plugins/claudecodecleanup/on_Snapshot__92_claudecodecleanup.py
+  6ce0defec3ce80d0 117-120,134-138,182
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "5a9151480e32215e9c640cfec9fdc810301f070b",
+  "prompts": {
+    "6ce0defec3ce80d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf4ff-885e-75f2-bb69-8d87ff7a8fd8",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 25,
+      "total_deletions": 18,
+      "accepted_lines": 23,
+      "overriden_lines": 1
+    }
+  }
+}
