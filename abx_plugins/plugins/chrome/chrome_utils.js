@@ -2723,65 +2723,86 @@ async function connectToPage(options = {}) {
             throw new Error('No target_id.txt found');
         }
     }
-    const state = await waitForChromeSessionState(chromeSessionDir, {
-        timeoutMs,
-        requireTargetId,
-        requireExtensionsLoaded,
-    });
-    if (!state) {
-        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
-    }
-    let targetId = state.targetId;
 
     if (shouldWaitForNavigationComplete) {
         await waitForNavigationComplete(chromeSessionDir, pageLoadTimeoutMs, postLoadDelayMs);
     }
 
-    // Connect to browser
-    const browser = await connectToBrowserEndpoint(resolvedPuppeteer, state.cdpUrl, { defaultViewport: null });
+    const deadline = Date.now() + timeoutMs;
+    let lastError = new Error(CHROME_SESSION_REQUIRED_ERROR);
 
-    try {
-        // Find the target page
-        let page = null;
-
-        if (targetId) {
-            page = await resolvePageByTargetId(browser, targetId, Math.min(timeoutMs, 1000));
-            if (!page && requireTargetId) {
-                throw new Error(`Target ${targetId} not found in Chrome session`);
-            }
-        }
-
-        const pages = await browser.pages();
-        if (!page) {
-            page = pages[pages.length - 1];
-        }
-
-        if (!page) {
-            throw new Error('No page found in browser');
-        }
-
-        const cdpSession = await page.target().createCDPSession();
-        await cdpSession.send('Target.setAutoAttach', {
-            autoAttach: true,
-            waitForDebuggerOnStart: false,
-            flatten: true,
+    while (Date.now() < deadline) {
+        const remainingMs = Math.max(deadline - Date.now(), 0);
+        const state = await waitForChromeSessionState(chromeSessionDir, {
+            timeoutMs: Math.min(remainingMs, 500),
+            intervalMs: 100,
+            requireTargetId,
+            requireExtensionsLoaded,
         });
+        if (!state) {
+            break;
+        }
 
-        return {
-            ...state,
-            browser,
-            page,
-            cdpSession,
-            targetId,
-        };
-    } catch (error) {
-        // connectToPage hands ownership of browser to callers on success;
-        // disconnect here only for failures that happen before handoff.
+        const targetId = state.targetId;
+        const browser = await connectToBrowserEndpoint(resolvedPuppeteer, state.cdpUrl, { defaultViewport: null })
+            .catch((error) => {
+                lastError = error instanceof Error ? error : new Error(String(error));
+                return null;
+            });
+
+        if (!browser) {
+            if (Date.now() >= deadline) break;
+            await sleep(100);
+            continue;
+        }
+
         try {
-            await browser.disconnect();
-        } catch (disconnectError) {}
-        throw error;
+            let page = null;
+
+            if (targetId) {
+                page = await resolvePageByTargetId(browser, targetId, Math.min(remainingMs, 1000));
+                if (!page && requireTargetId) {
+                    throw new Error(`Target ${targetId} not found in Chrome session`);
+                }
+            }
+
+            const pages = await browser.pages();
+            if (!page) {
+                page = pages[pages.length - 1];
+            }
+
+            if (!page) {
+                throw new Error('No page found in browser');
+            }
+
+            const cdpSession = await page.target().createCDPSession();
+            await cdpSession.send('Target.setAutoAttach', {
+                autoAttach: true,
+                waitForDebuggerOnStart: false,
+                flatten: true,
+            });
+
+            return {
+                ...state,
+                browser,
+                page,
+                cdpSession,
+                targetId,
+            };
+        } catch (error) {
+            lastError = error instanceof Error ? error : new Error(String(error));
+            try {
+                await browser.disconnect();
+            } catch (disconnectError) {}
+        }
+
+        if (Date.now() >= deadline) {
+            break;
+        }
+        await sleep(100);
     }
+
+    throw lastError;
 }
 
 function loadInstalledExtensionsFromCache(extensionsDir = getExtensionsDir()) {
