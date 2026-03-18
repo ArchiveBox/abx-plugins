@@ -152,7 +152,7 @@ It does **not** create any new files. It only verifies that the published crawl 
 It:
 
 1. Acquires `.target.lock` in `SNAP_DIR/chrome/`
-2. Waits for the crawl session using `waitForCrawlChromeSession(...)`
+2. Waits for the crawl session by reading `CRAWL_DIR/chrome/` with `waitForChromeSessionState(...)`
 3. Reuses an existing live tab if the snapshot markers already point at a valid target for the same URL
 4. Otherwise opens a new `about:blank` page target in the shared crawl browser
 5. Writes snapshot-level markers:
@@ -323,7 +323,7 @@ If the target is dead or mismatched, it removes stale snapshot markers and opens
 If you are writing another browser-backed plugin:
 
 - wait for crawl readiness by consuming `CRAWL_DIR/chrome/cdp_url.txt`, not just `chrome.pid`
-- for crawl-scoped extension configuration hooks like `twocaptcha` or `claudechrome`, use `waitForCrawlChromeSession(...)` and then `waitForExtensionsMetadata(...)`
+- for crawl-scoped extension configuration hooks like `twocaptcha` or `claudechrome`, wait on `CRAWL_DIR/chrome/` with `waitForChromeSessionState(..., { requireExtensionsLoaded: true })` and use the returned `extensions`
 - wait for snapshot readiness by consuming `SNAP_DIR/chrome/cdp_url.txt` + `target_id.txt`
 - do not assume `navigation.json` / `page_loaded.txt` / `final_url.txt` exist until after `on_Snapshot__30_chrome_navigate.js`
 - do not regenerate `extensions.json` yourself; treat the crawl launch hook as the source of truth

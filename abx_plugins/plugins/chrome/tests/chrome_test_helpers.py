@@ -526,20 +526,16 @@ def wait_for_extensions_metadata(
     startup window before extensions finish loading.
     """
     timeout_ms = max(1, int(timeout_seconds * 1000))
-    returncode, stdout, stderr = _call_chrome_utils(
-        "waitForExtensionsMetadata",
-        str(chrome_dir),
-        str(timeout_ms),
-    )
+    returncode, stdout, stderr = _call_chrome_utils("readExtensionsMetadata", str(chrome_dir), str(timeout_ms))
     if returncode != 0:
         raise AssertionError(
-            f"waitForExtensionsMetadata failed for {chrome_dir}: {stderr or stdout}"
+            f"readExtensionsMetadata failed for {chrome_dir}: {stderr or stdout}"
         )
     try:
         parsed = json.loads(stdout)
     except json.JSONDecodeError as exc:
         raise AssertionError(
-            f"Invalid JSON from waitForExtensionsMetadata: {stdout}"
+            f"Invalid JSON from readExtensionsMetadata: {stdout}"
         ) from exc
     if not isinstance(parsed, list) or not parsed:
         raise AssertionError(

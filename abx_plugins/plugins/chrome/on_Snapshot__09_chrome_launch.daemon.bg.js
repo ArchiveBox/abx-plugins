@@ -17,7 +17,7 @@ const {
     getEnvBool,
     getEnvInt,
     acquireSessionLock,
-    waitForCrawlChromeSession,
+    waitForChromeSessionState,
     ensureChromeSession,
     closeBrowserInChromeSession,
 } = require('./chrome_utils.js');
@@ -69,10 +69,13 @@ async function main() {
         chromeProcessIsLocal = cdpUrlOverride ? false : getEnvBool('CHROME_IS_LOCAL', true);
 
         if (isolation === 'crawl') {
-            await waitForCrawlChromeSession(getEnvInt('CHROME_TIMEOUT', 60) * 1000, {
-                crawlBaseDir: getEnv('CRAWL_DIR', '.'),
-                processIsLocal: chromeProcessIsLocal,
+            const crawlChromeDir = path.join(path.resolve(getEnv('CRAWL_DIR', '.')), 'chrome');
+            const crawlSession = await waitForChromeSessionState(crawlChromeDir, {
+                timeoutMs: getEnvInt('CHROME_TIMEOUT', 60) * 1000,
             });
+            if (!crawlSession?.cdpUrl) {
+                throw new Error('No Chrome session found (chrome plugin must run first)');
+            }
             releaseLock();
             releaseLock = null;
             console.log(JSON.stringify({

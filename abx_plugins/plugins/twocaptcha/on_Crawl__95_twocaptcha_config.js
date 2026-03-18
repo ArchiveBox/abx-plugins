@@ -25,16 +25,16 @@ const fs = require('fs');
 const {
     ensureNodeModuleResolution,
     parseArgs,
+    getEnv,
+    getEnvBool,
+    getEnvInt,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer-core');
 const {
-    getEnv,
-    getEnvBool,
-    getEnvInt,
-    waitForCrawlChromeSession,
-    waitForExtensionsMetadata,
+    waitForChromeSessionState,
     findExtensionMetadataByName,
+    connectToBrowserEndpoint,
 } = require('../chrome/chrome_utils.js');
 
 const PLUGIN_DIR = path.basename(__dirname);
@@ -155,10 +155,15 @@ async function configure2Captcha() {
     console.error(`[*]   Auto Solve: all CAPTCHA types enabled`);
 
     try {
-        const { cdpUrl } = await waitForCrawlChromeSession(10000, {
-            crawlBaseDir: CRAWL_DIR,
+        const chromeSession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
+            timeoutMs: 10000,
+            requireExtensionsLoaded: true,
         });
-        const browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl });
+        if (!chromeSession?.cdpUrl) {
+            throw new Error('No Chrome session found (chrome plugin must run first)');
+        }
+        const { cdpUrl } = chromeSession;
+        const browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, { defaultViewport: null });
 
         try {
             // First, navigate to a page to trigger extension content scripts and wake up service worker
@@ -173,7 +178,7 @@ async function configure2Captcha() {
             try { await triggerPage.close(); } catch (e) {}
 
             // Get 2captcha extension info from extensions.json
-            const extensions = await waitForExtensionsMetadata(CHROME_SESSION_DIR, 10000);
+            const extensions = chromeSession.extensions || [];
             const captchaExt = findExtensionMetadataByName(extensions, 'twocaptcha');
 
             if (!captchaExt) {

@@ -55,7 +55,6 @@ const originalLoad = Module._load;
 Module._load = function(request, parent, isMain) {
     if (request === '../chrome/chrome_utils.js') {
         return {
-            waitForChromeSession: async () => true,
             connectToPage: async () => ({
                 browser: { disconnect: () => {} },
                 page: { title: async () => 'Resolved Title' },
@@ -121,10 +120,12 @@ const originalLoad = Module._load;
 Module._load = function(request, parent, isMain) {
     if (request === './chrome_utils.js') {
         return {
-            getEnvInt: (_name, defaultValue) => defaultValue,
             waitForChromeSessionState: async () => ({
                 cdpUrl: 'ws://127.0.0.1:9222/devtools/browser/test',
                 pid: 4321,
+            }),
+            connectToBrowserEndpoint: async () => ({
+                disconnect: () => {},
             }),
         };
     }

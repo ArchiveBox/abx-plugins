@@ -27,7 +27,6 @@ const puppeteer = require('puppeteer-core');
 // Import chrome-specific utilities from chrome_utils.js
 const {
     connectToPage,
-    waitForChromeSessionState,
     waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
 
@@ -116,23 +115,13 @@ function writeHeadersFile() {
 
 async function setupListener(url) {
     const timeout = getEnvInt('HEADERS_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
-    const chromeSession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
-        timeoutMs: Math.min(timeout, 1000),
-        requireTargetId: true,
-        requirePid: true,
-        requireAlivePid: true,
-    });
-    if (!chromeSession) {
-        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
-    }
-
-    const { browser, page } = await connectToPage({
+    const { browser, page, cdpSession } = await connectToPage({
         chromeSessionDir: CHROME_SESSION_DIR,
         timeoutMs: timeout,
         puppeteer,
     });
 
-    client = await page.target().createCDPSession();
+    client = cdpSession;
     await client.send('Network.enable');
 
     client.on('Network.requestWillBeSent', (params) => {

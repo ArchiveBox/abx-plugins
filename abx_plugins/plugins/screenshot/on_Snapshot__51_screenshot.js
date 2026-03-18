@@ -23,13 +23,7 @@ const {
     hasStaticFileOutput,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
-const {
-    readCdpUrl,
-    readTargetId,
-    waitForChromeSessionState,
-    connectToPage,
-    waitForPageLoaded,
-} = require('../chrome/chrome_utils.js');
+const { connectToPage } = require('../chrome/chrome_utils.js');
 
 // Flush V8 coverage before exiting (for NODE_V8_COVERAGE support)
 function flushCoverageAndExit(exitCode) {
@@ -77,42 +71,14 @@ async function takeScreenshot(url) {
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
     const tempOutputPath = tempPathFor(outputPath);
 
-    if (!(await waitForChromeSessionState(CHROME_SESSION_DIR, {
-        timeoutMs: 1000,
-        requireTargetId: false,
-    }))) {
-        throw new Error('No Chrome session found (chrome plugin must run first)');
-    }
-    if (!(await waitForChromeSessionState(CHROME_SESSION_DIR, {
-        timeoutMs: 1000,
-        requireTargetId: true,
-    }))) {
-        throw new Error('No target_id.txt found (chrome_tab must run first)');
-    }
-
     // Wait for chrome_navigate to complete (writes navigation.json)
     // Keep runtime default aligned with config.json (default: 60s).
     const timeoutSeconds = parseInt(getEnv('SCREENSHOT_TIMEOUT', '60'), 10);
     const timeoutMs = timeoutSeconds * 1000;
-    const cdpUrl = readCdpUrl(CHROME_SESSION_DIR);
-    const targetId = readTargetId(CHROME_SESSION_DIR);
-    if (!cdpUrl) {
-        throw new Error('No Chrome session found (chrome plugin must run first)');
-    }
-    if (!targetId) {
-        throw new Error('No target_id.txt found (chrome_tab must run first)');
-    }
-    if (!cdpUrl.startsWith('ws://') && !cdpUrl.startsWith('wss://')) {
-        throw new Error('Invalid CDP URL in cdp_url.txt');
-    }
-    const navigationFile = path.join(CHROME_SESSION_DIR, 'navigation.json');
-    if (!fs.existsSync(navigationFile)) {
-        await waitForPageLoaded(CHROME_SESSION_DIR, timeoutMs);
-    }
-
     const { browser, page } = await connectToPage({
         chromeSessionDir: CHROME_SESSION_DIR,
         timeoutMs,
+        waitForPageLoaded: true,
         puppeteer,
     });
 

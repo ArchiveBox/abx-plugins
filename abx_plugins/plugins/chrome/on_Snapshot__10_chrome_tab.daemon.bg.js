@@ -29,14 +29,10 @@ ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer');
 const {
     openTabInChromeSession,
-    readCdpUrl,
-    readTargetId,
     acquireSessionLock,
     inspectChromeSessionArtifacts,
     connectToPage,
-    waitForExtensionsMetadata,
     waitForChromeSessionState,
-    waitForCrawlChromeSession,
     closeTabInChromeSession,
 } = require('./chrome_utils.js');
 
@@ -118,8 +114,11 @@ async function cleanup(signal) {
             clearInterval(keepAliveTimer);
             keepAliveTimer = null;
         }
-        const cdpUrl = currentCdpUrl || readCdpUrl(OUTPUT_DIR);
-        const currentTargetId = targetId || readTargetId(OUTPUT_DIR);
+        const currentSession = await waitForChromeSessionState(OUTPUT_DIR, {
+            timeoutMs: 250,
+        });
+        const cdpUrl = currentCdpUrl || currentSession?.cdpUrl;
+        const currentTargetId = targetId || currentSession?.targetId;
         await closeTabInChromeSession({ cdpUrl, targetId: currentTargetId, puppeteer });
     } catch (e) {
         // Best effort
@@ -169,15 +168,14 @@ async function main() {
         const cdpUrlOverride = getEnv('CHROME_CDP_URL', '');
         const processIsLocal = cdpUrlOverride ? false : getEnvBool('CHROME_IS_LOCAL', true);
         const timeoutSeconds = getEnvInt('CHROME_TAB_TIMEOUT', getEnvInt('CHROME_TIMEOUT', getEnvInt('TIMEOUT', 60)));
-        const existingTargetId = readTargetId(OUTPUT_DIR);
-        if (!existingTargetId) {
-            cleanupSnapshotMarkers('missing target_id.txt');
-        }
-
         const existingSnapshotSession = await inspectChromeSessionArtifacts(OUTPUT_DIR, {
             requireTargetId: true,
             processIsLocal,
         });
+        const existingTargetId = existingSnapshotSession.state?.targetId;
+        if (!existingTargetId) {
+            cleanupSnapshotMarkers('missing target_id.txt');
+        }
         if (existingSnapshotSession.hasArtifacts && !existingSnapshotSession.stale && existingSnapshotSession.state?.targetId) {
             let reusableTarget = false;
             let existingBrowser = null;
@@ -238,9 +236,6 @@ async function main() {
         if (isolation === 'snapshot') {
             const snapshotSession = await waitForChromeSessionState(OUTPUT_DIR, {
                 timeoutMs: timeoutSeconds * 1000,
-                requirePid: processIsLocal,
-                requireAlivePid: processIsLocal,
-                processIsLocal,
             });
             if (!snapshotSession?.cdpUrl) {
                 throw new Error('No snapshot-scoped Chrome session found');
@@ -284,10 +279,13 @@ async function main() {
             releaseLock();
             releaseLock = null;
         } else {
-            const crawlSession = await waitForCrawlChromeSession(timeoutSeconds * 1000, {
-                crawlBaseDir: getEnv('CRAWL_DIR', '.'),
-                processIsLocal,
+            const crawlChromeDir = path.join(path.resolve(getEnv('CRAWL_DIR', '.')), 'chrome');
+            const crawlSession = await waitForChromeSessionState(crawlChromeDir, {
+                timeoutMs: timeoutSeconds * 1000,
             });
+            if (!crawlSession?.cdpUrl) {
+                throw new Error('No Chrome session found (chrome plugin must run first)');
+            }
             console.log(`[*] Found existing Chrome session from crawl ${crawlId}`);
             currentCdpUrl = crawlSession.cdpUrl;
 
@@ -331,10 +329,17 @@ async function main() {
             cmdVersion = version || '';
 
             try {
-                const extensionsMetadata = await waitForExtensionsMetadata(crawlSession.crawlChromeDir, 10000);
+                const extensionsSession = await waitForChromeSessionState(crawlChromeDir, {
+                    timeoutMs: 10000,
+                    requireExtensionsLoaded: true,
+                });
+                const extensions = extensionsSession?.extensions;
+                if (!extensions) {
+                    throw new Error('Missing extensions metadata');
+                }
                 fs.writeFileSync(
                     path.join(OUTPUT_DIR, 'extensions.json'),
-                    JSON.stringify(extensionsMetadata, null, 2)
+                    JSON.stringify(extensions, null, 2)
                 );
             } catch (err) {}
             console.log(`[+] Chrome tab ready`);

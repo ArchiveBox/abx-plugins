@@ -21,9 +21,9 @@ const { ensureNodeModuleResolution, getEnv, getEnvBool } = require('../base/util
 ensureNodeModuleResolution(module);
 
 const {
-    waitForCrawlChromeSession,
-    waitForExtensionsMetadata,
+    waitForChromeSessionState,
     findExtensionMetadataByName,
+    connectToBrowserEndpoint,
 } = require('../chrome/chrome_utils.js');
 
 // Check if enabled
@@ -65,10 +65,15 @@ async function configureClaudeChrome() {
     console.error(`[*]   API Key: ${apiKey.slice(0, 8)}...${apiKey.slice(-4)}`);
 
     try {
-        const { cdpUrl } = await waitForCrawlChromeSession(10000, {
-            crawlBaseDir: CRAWL_DIR,
+        const chromeSession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
+            timeoutMs: 10000,
+            requireExtensionsLoaded: true,
         });
-        const browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl });
+        if (!chromeSession?.cdpUrl) {
+            throw new Error('No Chrome session found (chrome plugin must run first)');
+        }
+        const { cdpUrl } = chromeSession;
+        const browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, { defaultViewport: null });
 
         try {
             // Wake up the extension by visiting a page
@@ -83,7 +88,7 @@ async function configureClaudeChrome() {
             try { await triggerPage.close(); } catch (e) {}
 
             // Read extension metadata
-            const extensions = await waitForExtensionsMetadata(CHROME_SESSION_DIR, 10000);
+            const extensions = chromeSession.extensions || [];
             const claudeExt = findExtensionMetadataByName(extensions, 'claudechrome');
             if (!claudeExt || !claudeExt.id) {
                 console.error('[*] Claude for Chrome extension not found in extensions.json');

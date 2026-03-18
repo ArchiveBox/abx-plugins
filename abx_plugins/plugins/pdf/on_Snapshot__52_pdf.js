@@ -22,11 +22,7 @@ const {
     hasStaticFileOutput,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
-const {
-    waitForChromeSessionState,
-    connectToPage,
-    waitForPageLoaded,
-} = require('../chrome/chrome_utils.js');
+const { connectToPage } = require('../chrome/chrome_utils.js');
 
 function tempPathFor(filePath) {
     const dir = path.dirname(filePath);
@@ -64,22 +60,15 @@ async function printToPdf(url, timeoutMs) {
     let browser = null;
 
     try {
-        if (!(await waitForChromeSessionState(CHROME_SESSION_DIR, {
-            timeoutMs: Math.min(timeoutMs, 1000),
-            requireTargetId: true,
-        }))) {
-            return { success: false, error: 'No Chrome session found (chrome plugin must run first)' };
-        }
-
         const connection = await connectToPage({
             chromeSessionDir: CHROME_SESSION_DIR,
             timeoutMs,
+            waitForPageLoaded: true,
+            postLoadDelayMs: 200,
             puppeteer,
         });
         browser = connection.browser;
         const page = connection.page;
-
-        await waitForPageLoaded(CHROME_SESSION_DIR, timeoutMs * 4, 200);
 
         // Print to PDF
         await page.pdf({

@@ -73,14 +73,11 @@ async function setupListener(targetUrl) {
     const requestUrls = new Map();
 
     // Connect to Chrome page using shared utility
-    const { browser, page } = await connectToPage({
+    const { browser, page, cdpSession: client } = await connectToPage({
         chromeSessionDir: CHROME_SESSION_DIR,
         timeoutMs: timeout,
         puppeteer,
     });
-
-    // Get CDP session for low-level network events
-    const client = await page.target().createCDPSession();
 
     // Enable network domain to receive events
     await client.send('Network.enable');

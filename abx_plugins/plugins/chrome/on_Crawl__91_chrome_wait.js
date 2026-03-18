@@ -37,7 +37,6 @@ function sleep(ms) {
 
 async function waitForConnectableCrawlChromeSession(chromeSessionDir, timeoutMs) {
     const deadline = Date.now() + timeoutMs;
-    const processIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true);
     let lastError = CHROME_SESSION_REQUIRED_ERROR;
 
     while (Date.now() < deadline) {
@@ -45,9 +44,6 @@ async function waitForConnectableCrawlChromeSession(chromeSessionDir, timeoutMs)
         const state = await waitForChromeSessionState(chromeSessionDir, {
             timeoutMs: Math.min(remainingMs, 500),
             intervalMs: 100,
-            requirePid: processIsLocal,
-            requireAlivePid: processIsLocal,
-            processIsLocal,
         });
 
         if (!state?.cdpUrl) {

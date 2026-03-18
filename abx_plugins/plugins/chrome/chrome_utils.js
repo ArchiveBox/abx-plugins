@@ -1457,25 +1457,6 @@ function readExtensionsMetadata(chromeSessionDir) {
 }
 
 /**
- * Wait for extensions metadata to be written by chrome launch hook.
- *
- * @param {string} chromeSessionDir - Path to chrome session directory
- * @param {number} [timeoutMs=10000] - Timeout in milliseconds
- * @param {number} [intervalMs=250] - Poll interval in milliseconds
- * @returns {Promise<Array<Object>>} - Parsed extensions metadata list
- * @throws {Error} - If metadata file is not available in time
- */
-async function waitForExtensionsMetadata(chromeSessionDir, timeoutMs = 10000, intervalMs = 250) {
-    const startTime = Date.now();
-    while (Date.now() - startTime < timeoutMs) {
-        const metadata = readExtensionsMetadata(chromeSessionDir);
-        if (metadata && metadata.length > 0) return metadata;
-        await new Promise(resolve => setTimeout(resolve, intervalMs));
-    }
-    throw new Error(`Timeout waiting for extensions metadata in ${chromeSessionDir}`);
-}
-
-/**
  * Find extension metadata entry by name.
  *
  * @param {Array<Object>} extensions - Parsed extensions metadata list
@@ -1907,33 +1888,6 @@ function readSessionTextFile(filePath) {
 }
 
 /**
- * Read the minimal persisted session state from marker files.
- *
- * This is intentionally a filesystem read only. It does not prove that the
- * browser is still alive or that the websocket is attachable; callers that need
- * liveness must layer `inspectChromeSessionArtifacts()` /
- * `waitForCrawlChromeSession()` on top.
- *
- * @param {string} chromeSessionDir - Path to chrome session directory
- * @returns {{sessionDir: string, cdpUrl: string|null, targetId: string|null, pid: number|null}}
- */
-function readChromeSessionState(chromeSessionDir) {
-    const sessionPaths = getChromeSessionPaths(chromeSessionDir);
-    const cdpUrl = readSessionTextFile(sessionPaths.cdpFile);
-    const targetId = readSessionTextFile(sessionPaths.targetIdFile);
-    const rawPid = readSessionTextFile(sessionPaths.chromePidFile);
-    const parsedPid = rawPid ? parseInt(rawPid, 10) : NaN;
-    const pid = Number.isFinite(parsedPid) && parsedPid > 0 ? parsedPid : null;
-
-    return {
-        sessionDir: sessionPaths.sessionDir,
-        cdpUrl,
-        targetId,
-        pid,
-    };
-}
-
-/**
  * Return all persisted marker/artifact files that should be cleaned together
  * when a session is determined to be stale.
  *
@@ -2028,9 +1982,13 @@ function getPuppeteerConnectOptionsForCdpUrl(cdpUrl) {
         if (endpoint.protocol === 'ws:' || endpoint.protocol === 'wss:') {
             return { browserWSEndpoint: cdpUrl };
         }
-    } catch (error) {}
-
-    return { browserWSEndpoint: cdpUrl };
+        throw new Error(`Invalid CDP URL protocol: ${endpoint.protocol}`);
+    } catch (error) {
+        if (error instanceof Error) {
+            throw error;
+        }
+        throw new Error(`Invalid CDP URL: ${cdpUrl}`);
+    }
 }
 
 async function connectToBrowserEndpoint(puppeteer, cdpUrl, connectOptions = {}) {
@@ -2094,18 +2052,32 @@ async function canConnectToChromeBrowser(cdpUrl, options = {}) {
  * @param {Object} [options={}] - Validation options
  * @param {boolean} [options.requireTargetId=false] - Require target ID marker to consider the session healthy
  * @param {number} [options.probeTimeoutMs=1500] - Timeout for probing the CDP endpoint
+ * @param {boolean} [options.validateLiveness=true] - Probe whether the session is actually reusable
  * @returns {Promise<{hasArtifacts: boolean, stale: boolean, state: Object, reason: string|null}>}
  */
 async function inspectChromeSessionArtifacts(chromeSessionDir, options = {}) {
     const {
         requireTargetId = false,
         probeTimeoutMs = 1500,
+        validateLiveness = true,
         processIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true),
     } = options;
 
     const artifactPaths = getChromeSessionArtifactPaths(chromeSessionDir);
     const hasArtifacts = artifactPaths.some(filePath => fs.existsSync(filePath));
-    const state = readChromeSessionState(chromeSessionDir);
+    const sessionPaths = getChromeSessionPaths(chromeSessionDir);
+    const cdpUrl = readSessionTextFile(sessionPaths.cdpFile);
+    const targetId = readSessionTextFile(sessionPaths.targetIdFile);
+    const rawPid = readSessionTextFile(sessionPaths.chromePidFile);
+    const parsedPid = rawPid ? parseInt(rawPid, 10) : NaN;
+    const pid = Number.isFinite(parsedPid) && parsedPid > 0 ? parsedPid : null;
+    const state = {
+        sessionDir: sessionPaths.sessionDir,
+        cdpUrl,
+        targetId,
+        pid,
+        extensions: readExtensionsMetadata(chromeSessionDir),
+    };
 
     if (!hasArtifacts) {
         return { hasArtifacts: false, stale: false, state, reason: null };
@@ -2119,16 +2091,8 @@ async function inspectChromeSessionArtifacts(chromeSessionDir, options = {}) {
         return { hasArtifacts: true, stale: true, state, reason: 'missing target_id.txt' };
     }
 
-    if (processIsLocal && !state.pid) {
-        return { hasArtifacts: true, stale: true, state, reason: 'missing chrome.pid' };
-    }
-
-    if (state.pid && !isProcessAlive(state.pid)) {
-        return { hasArtifacts: true, stale: true, state, reason: `chrome pid ${state.pid} is not running` };
-    }
-
-    if (fs.existsSync(getChromeSessionPaths(chromeSessionDir).chromePidFile) && !state.pid) {
-        return { hasArtifacts: true, stale: true, state, reason: 'invalid chrome.pid' };
+    if (!validateLiveness) {
+        return { hasArtifacts: true, stale: false, state, reason: null };
     }
 
     if (processIsLocal) {
@@ -2196,70 +2160,40 @@ async function cleanupStaleChromeSessionArtifacts(chromeSessionDir, options = {}
 }
 
 /**
- * Check if a chrome session state satisfies required fields.
- *
- * @param {{cdpUrl: string|null, targetId: string|null, pid: number|null}} state - Session state
- * @param {Object} [options={}] - Validation options
- * @param {boolean} [options.requireTargetId=false] - Require target ID marker
- * @param {boolean} [options.requirePid=false] - Require PID marker
- * @param {boolean} [options.requireAlivePid=false] - Require PID to be alive
- * @returns {boolean} - True if state is valid
- */
-function isValidChromeSessionState(state, options = {}) {
-    const {
-        requireTargetId = false,
-        requirePid = false,
-        requireAlivePid = false,
-        processIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true),
-    } = options;
-
-    const effectiveRequirePid = Boolean(requirePid || requireAlivePid || processIsLocal);
-    const effectiveRequireAlivePid = Boolean(requireAlivePid || processIsLocal);
-
-    if (!state?.cdpUrl) return false;
-    if (requireTargetId && !state.targetId) return false;
-    if (effectiveRequirePid && !state.pid) return false;
-    if (effectiveRequireAlivePid) {
-        try {
-            process.kill(state.pid, 0);
-        } catch (e) {
-            return false;
-        }
-    }
-    return true;
-}
-
-/**
  * Wait for the persisted marker state to contain the required fields.
  *
  * This is a filesystem-level readiness gate only. It does not probe the CDP
- * socket unless `requireAlivePid` rejects a dead process, so callers that need
- * stronger guarantees should follow with `inspectChromeSessionArtifacts()` or a
- * real CDP connect.
+ * socket, so callers that need stronger guarantees should follow with
+ * `inspectChromeSessionArtifacts()` or a real CDP connect.
  *
  * @param {string} chromeSessionDir - Path to chrome session directory
  * @param {Object} [options={}] - Wait/validation options
  * @param {number} [options.timeoutMs=60000] - Timeout in milliseconds
  * @param {number} [options.intervalMs=100] - Poll interval in milliseconds
  * @param {boolean} [options.requireTargetId=false] - Require target ID marker
- * @param {boolean} [options.requirePid=false] - Require PID marker
- * @param {boolean} [options.requireAlivePid=false] - Require PID to be alive
- * @returns {Promise<{sessionDir: string, cdpUrl: string|null, targetId: string|null, pid: number|null}|null>}
+ * @param {boolean} [options.requireExtensionsLoaded=false] - Require extensions.json to be available and parseable
+ * @returns {Promise<{sessionDir: string, cdpUrl: string|null, targetId: string|null, pid: number|null, extensions: Array<Object>|null}|null>}
  */
 async function waitForChromeSessionState(chromeSessionDir, options = {}) {
     const {
         timeoutMs = 60000,
         intervalMs = 100,
         requireTargetId = false,
-        requirePid = false,
-        requireAlivePid = false,
-        processIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true),
+        requireExtensionsLoaded = false,
     } = options;
     const startTime = Date.now();
 
     while (Date.now() - startTime < timeoutMs) {
-        const state = readChromeSessionState(chromeSessionDir);
-        if (isValidChromeSessionState(state, { requireTargetId, requirePid, requireAlivePid, processIsLocal })) {
+        const inspection = await inspectChromeSessionArtifacts(chromeSessionDir, {
+            requireTargetId,
+            validateLiveness: false,
+        });
+        const state = inspection.state;
+        if (
+            state?.cdpUrl &&
+            (!requireTargetId || state.targetId) &&
+            (!requireExtensionsLoaded || state.extensions !== null)
+        ) {
             return state;
         }
         await new Promise(resolve => setTimeout(resolve, intervalMs));
@@ -2625,59 +2559,10 @@ function readTargetId(chromeSessionDir) {
  * @returns {number|null} - PID or null if invalid/missing
  */
 function readChromePid(chromeSessionDir) {
-    return readChromeSessionState(chromeSessionDir).pid;
-}
-
-/**
- * Resolve the already-published crawl-level Chrome session.
- *
- * This should be used by consumers that attach to the shared browser created by
- * the crawl launch hook. It requires both persisted markers and a live pid, and
- * it deliberately ignores any snapshot-level markers.
- *
- * @param {string} [crawlBaseDir='.'] - Crawl root directory
- * @returns {{cdpUrl: string, pid: number, crawlChromeDir: string}}
- * @throws {Error} - If session files are missing/invalid or process is dead
- */
-function getCrawlChromeSession(crawlBaseDir = '.', options = {}) {
-    const crawlChromeDir = path.join(path.resolve(crawlBaseDir), 'chrome');
-    const state = readChromeSessionState(crawlChromeDir);
-    const processIsLocal = options.processIsLocal ?? (getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true));
-    if (!isValidChromeSessionState(state, { requirePid: processIsLocal, requireAlivePid: processIsLocal, processIsLocal })) {
-        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
-    }
-    return { cdpUrl: state.cdpUrl, pid: state.pid, crawlChromeDir };
-}
-
-/**
- * Wait for the crawl launch hook to publish a reusable browser session.
- *
- * One-shot code paths like `archivebox add ...` should not synthesize this
- * state themselves unless they are explicitly acting as the long-lived crawl
- * browser owner. Consumers should wait for this instead of watching a raw spawn
- * pid or assuming the websocket is immediately safe to use.
- *
- * @param {number} timeoutMs - Timeout in milliseconds
- * @param {Object} [options={}] - Optional settings
- * @param {number} [options.intervalMs=250] - Poll interval in ms
- * @param {string} [options.crawlBaseDir='.'] - Crawl root directory
- * @returns {Promise<{cdpUrl: string, pid: number, crawlChromeDir: string}>}
- * @throws {Error} - If timeout reached
- */
-async function waitForCrawlChromeSession(timeoutMs, options = {}) {
-    const intervalMs = options.intervalMs || 250;
-    const crawlBaseDir = options.crawlBaseDir || '.';
-    const processIsLocal = options.processIsLocal ?? (getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true));
-    const crawlChromeDir = path.join(path.resolve(crawlBaseDir), 'chrome');
-    const state = await waitForChromeSessionState(crawlChromeDir, {
-        timeoutMs,
-        intervalMs,
-        requirePid: processIsLocal,
-        requireAlivePid: processIsLocal,
-        processIsLocal,
-    });
-    if (!state) throw new Error(CHROME_SESSION_REQUIRED_ERROR);
-    return { cdpUrl: state.cdpUrl, pid: state.pid, crawlChromeDir };
+    const { chromePidFile } = getChromeSessionPaths(chromeSessionDir);
+    const rawPid = readSessionTextFile(chromePidFile);
+    const parsedPid = rawPid ? parseInt(rawPid, 10) : NaN;
+    return Number.isFinite(parsedPid) && parsedPid > 0 ? parsedPid : null;
 }
 
 /**
@@ -2703,10 +2588,7 @@ async function getBrowserServerUrl(chromeSessionDir = '../chrome', options = {})
 
     const state = await waitForChromeSessionState(chromeSessionDir, {
         timeoutMs,
-        requirePid: processIsLocal,
-        requireAlivePid: processIsLocal,
         requireTargetId,
-        processIsLocal,
     });
     if (!state?.cdpUrl) {
         throw new Error(CHROME_SESSION_REQUIRED_ERROR);
@@ -2839,9 +2721,10 @@ async function closeTabInChromeSession(options = {}) {
  * @param {string} [options.chromeSessionDir='../chrome'] - Path to chrome session directory
  * @param {number} [options.timeoutMs=60000] - Timeout for waiting
  * @param {boolean} [options.requireTargetId=true] - Require target_id.txt in session dir
+ * @param {boolean} [options.requireExtensionsLoaded=false] - Require extensions.json to be available and parseable
  * @param {Object} [options.puppeteer] - Puppeteer module (preferred explicit form)
  * @param {Object} [options.puppeteerModule] - Backward-compatible puppeteer module key
- * @returns {Promise<Object>} - { browser, page, targetId, cdpUrl }
+ * @returns {Promise<Object>} - { browser, page, cdpSession, targetId, cdpUrl, extensions }
  * @throws {Error} - If connection fails or page not found
  */
 async function connectToPage(options = {}) {
@@ -2849,6 +2732,10 @@ async function connectToPage(options = {}) {
         chromeSessionDir = '../chrome',
         timeoutMs = 60000,
         requireTargetId = true,
+        requireExtensionsLoaded = false,
+        waitForPageLoaded: shouldWaitForPageLoaded = false,
+        pageLoadTimeoutMs = timeoutMs * 4,
+        postLoadDelayMs = 0,
         puppeteer,
         puppeteerModule,
     } = options;
@@ -2856,7 +2743,11 @@ async function connectToPage(options = {}) {
     // Support both key names and fall back to local resolution for compatibility
     // with older callers that may omit explicit module injection.
     const resolvedPuppeteer = puppeteer || puppeteerModule || resolvePuppeteerModule();
-    const state = await waitForChromeSessionState(chromeSessionDir, { timeoutMs, requireTargetId });
+    const state = await waitForChromeSessionState(chromeSessionDir, {
+        timeoutMs,
+        requireTargetId,
+        requireExtensionsLoaded,
+    });
     if (!state) {
         throw new Error(CHROME_SESSION_REQUIRED_ERROR);
     }
@@ -2870,7 +2761,7 @@ async function connectToPage(options = {}) {
         let page = null;
 
         if (targetId) {
-            page = await resolvePageByTargetId(browser, targetId, Math.min(timeoutMs, 5000));
+            page = await resolvePageByTargetId(browser, targetId, Math.min(timeoutMs, 1000));
             if (!page && requireTargetId) {
                 throw new Error(`Target ${targetId} not found in Chrome session`);
             }
@@ -2885,7 +2776,19 @@ async function connectToPage(options = {}) {
             throw new Error('No page found in browser');
         }
 
-        return { browser, page, targetId, cdpUrl: state.cdpUrl };
+        if (shouldWaitForPageLoaded) {
+            await waitForPageLoaded(chromeSessionDir, pageLoadTimeoutMs, postLoadDelayMs);
+        }
+
+        const cdpSession = await page.target().createCDPSession();
+
+        return {
+            ...state,
+            browser,
+            page,
+            cdpSession,
+            targetId,
+        };
     } catch (error) {
         // connectToPage hands ownership of browser to callers on success;
         // disconnect here only for failures that happen before handoff.
@@ -3377,8 +3280,6 @@ module.exports = {
     getExtensionPaths,
     waitForExtensionTarget,
     getExtensionTargets,
-    readExtensionsMetadata,
-    waitForExtensionsMetadata,
     findExtensionMetadataByName,
     loadInstalledExtensionsFromCache,
     importCookiesFromFile,
@@ -3398,11 +3299,7 @@ module.exports = {
     inspectChromeSessionArtifacts,
     cleanupStaleChromeSessionArtifacts,
     waitForChromeSessionState,
-    readCdpUrl,
-    readTargetId,
     readChromePid,
-    getCrawlChromeSession,
-    waitForCrawlChromeSession,
     getBrowserServerUrl,
     openTabInChromeSession,
     closeTabInChromeSession,
@@ -3428,7 +3325,6 @@ if (require.main === module) {
         console.log('  installPuppeteerCore      Install puppeteer-core npm package');
         console.log('  launchChromium            Launch Chrome with CDP debugging');
         console.log('  getCookiesViaCdp <port>  Read browser cookies via CDP port');
-        console.log('  getCrawlChromeSession    Resolve active crawl chrome session');
         console.log('  getBrowserServerUrl      Resolve browser-server URL from session dir');
         console.log('  killChrome <pid>          Kill Chrome process by PID');
         console.log('  killZombieChrome          Clean up zombie Chrome processes');
@@ -3530,13 +3426,6 @@ if (require.main === module) {
                     break;
                 }
 
-                case 'getCrawlChromeSession': {
-                    const [crawlBaseDir] = commandArgs;
-                    const session = getCrawlChromeSession(crawlBaseDir || getEnv('CRAWL_DIR', '.'));
-                    console.log(JSON.stringify(session));
-                    break;
-                }
-
                 case 'getBrowserServerUrl': {
                     const [
                         chromeSessionDir = '../chrome',
@@ -3606,14 +3495,23 @@ if (require.main === module) {
                     break;
                 }
 
-                case 'waitForExtensionsMetadata': {
+                case 'readExtensionsMetadata': {
                     const [chromeSessionDir = '.', timeoutMsStr = '10000'] = commandArgs;
                     const timeoutMs = parseInt(timeoutMsStr, 10);
                     if (isNaN(timeoutMs) || timeoutMs <= 0) {
                         console.error('Invalid timeoutMs');
                         process.exit(1);
                     }
-                    const metadata = await waitForExtensionsMetadata(chromeSessionDir, timeoutMs);
+                    const deadline = Date.now() + timeoutMs;
+                    let metadata = readExtensionsMetadata(chromeSessionDir);
+                    while (metadata === null && Date.now() < deadline) {
+                        await sleep(250);
+                        metadata = readExtensionsMetadata(chromeSessionDir);
+                    }
+                    if (metadata === null) {
+                        console.error(`Timeout waiting for extensions metadata in ${chromeSessionDir}`);
+                        process.exit(1);
+                    }
                     console.log(JSON.stringify(metadata));
                     break;
                 }
