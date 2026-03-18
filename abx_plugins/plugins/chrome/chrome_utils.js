@@ -2365,6 +2365,7 @@ async function setBrowserDownloadBehavior(options = {}) {
             behavior: 'allow',
             downloadPath,
         });
+        console.error(`[+] Configured Chrome download directory via CDP: ${downloadPath}`);
         return true;
     } catch (browserError) {
         try {
@@ -2372,6 +2373,7 @@ async function setBrowserDownloadBehavior(options = {}) {
                 behavior: 'allow',
                 downloadPath,
             });
+            console.error(`[+] Configured Chrome download directory via CDP: ${downloadPath}`);
             return true;
         } catch (pageError) {
             throw new Error(

@@ -153,7 +153,7 @@ const requireTargetId = process.argv[3] === 'true';
 });
 """
     result = subprocess.run(
-        [script, str(CHROME_UTILS), str(session_dir), str(require_target_id).lower()],
+        ["node", "-e", script, str(CHROME_UTILS), str(session_dir), str(require_target_id).lower()],
         capture_output=True,
         text=True,
         timeout=15,
