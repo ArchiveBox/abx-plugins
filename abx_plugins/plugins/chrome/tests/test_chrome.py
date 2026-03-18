@@ -719,6 +719,90 @@ def test_chrome_can_adopt_existing_cdp_url_without_local_pid(chrome_test_url):
                 pass
 
 
+def test_crawl_isolation_external_cdp_keepalive_true_reinvocation_reuses_same_browser_without_closing_it(
+    chrome_test_url,
+):
+    """crawl isolation + external CDP + keepalive=true should not close the same adopted browser on re-invocation in the same crawl dir."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        (
+            _provider_dir,
+            provider_chrome_dir,
+            _provider_env,
+            provider_cdp_url,
+            provider_pid,
+        ) = _launch_keepalive_local_provider_browser(
+            tmpdir,
+            crawl_dir_name="provider-crawl-reinvoke",
+        )
+
+        adopted_dir = Path(tmpdir) / "adopted-crawl-reinvoke"
+        adopted_dir.mkdir()
+        adopted_chrome_dir = adopted_dir / "chrome"
+        adopted_chrome_dir.mkdir()
+
+        adopt_env = _isolated_test_env(
+            tmpdir,
+            CRAWL_DIR=str(adopted_dir),
+            CHROME_HEADLESS="true",
+            CHROME_CDP_URL=provider_cdp_url,
+            CHROME_IS_LOCAL="false",
+            CHROME_KEEPALIVE="true",
+        )
+        try:
+            first_launch = subprocess.run(
+                [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-external-reinvoke"],
+                cwd=str(adopted_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=adopt_env,
+            )
+            assert first_launch.returncode == 0, (
+                f"first adopted launch should succeed:\nStdout: {first_launch.stdout}\nStderr: {first_launch.stderr}"
+            )
+            assert (adopted_chrome_dir / "cdp_url.txt").read_text().strip() == provider_cdp_url
+            assert not (adopted_chrome_dir / "chrome.pid").exists()
+            assert _is_pid_alive(provider_pid), "provider browser should still be alive after first adopted launch"
+
+            second_launch = subprocess.run(
+                [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-external-reinvoke"],
+                cwd=str(adopted_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=adopt_env,
+            )
+            assert second_launch.returncode == 0, (
+                f"second adopted launch in same crawl dir should succeed without closing the provider browser:\n"
+                f"Stdout: {second_launch.stdout}\nStderr: {second_launch.stderr}"
+            )
+            assert (adopted_chrome_dir / "cdp_url.txt").read_text().strip() == provider_cdp_url
+            assert not (adopted_chrome_dir / "chrome.pid").exists()
+            assert _is_pid_alive(provider_pid), (
+                "provider browser should remain alive after re-invoking adopted keepalive launch in the same crawl dir"
+            )
+
+            crawl_wait = subprocess.run(
+                [
+                    str(CHROME_CRAWL_WAIT_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=snap-external-reinvoke",
+                ],
+                cwd=str(adopted_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=adopt_env,
+            )
+            assert crawl_wait.returncode == 0, (
+                f"crawl wait should still succeed after re-invocation:\nStdout: {crawl_wait.stdout}\nStderr: {crawl_wait.stderr}"
+            )
+        finally:
+            if _is_pid_alive(provider_pid):
+                kill_chrome(provider_pid, str(provider_chrome_dir))
+                assert _wait_for_pid_exit(provider_pid), "manual cleanup should terminate adopted provider browser"
+
+
 def test_snapshot_isolation_launches_and_cleans_up_local_browser(chrome_test_url):
     """CHROME_ISOLATION=snapshot should launch from the snapshot launch hook and close on teardown."""
     with tempfile.TemporaryDirectory() as tmpdir:
