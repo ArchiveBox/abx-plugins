@@ -1,0 +1,42 @@
+abx_plugins/plugins/accessibility/on_Snapshot__39_accessibility.js
+  c6156093e009d8e0 30,55-58
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  6ce0defec3ce80d0 118,487-573
+abx_plugins/plugins/chrome/chrome_utils.js
+  6ce0defec3ce80d0 2018-2083,3014
+abx_plugins/plugins/chrome/on_Crawl__91_chrome_wait.js
+  6ce0defec3ce80d0 14,28,40-41,48-50,54,61,67,78-82,101-104,108-116
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "5fce4af30c773de11efd1ff5c5229197b93fb169",
+  "prompts": {
+    "6ce0defec3ce80d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf4ff-885e-75f2-bb69-8d87ff7a8fd8",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 187,
+      "total_deletions": 35,
+      "accepted_lines": 185,
+      "overriden_lines": 0
+    },
+    "c6156093e009d8e0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d0293-2e03-7b52-aa80-ebd8a4a15b10",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 6,
+      "total_deletions": 10,
+      "accepted_lines": 5,
+      "overriden_lines": 0
+    }
+  }
+}
