@@ -180,8 +180,10 @@ def _run_puppeteer_install(binary: Binary, install_args: list[str], cache_dir: P
         and shutil.which("sudo")
     ):
         sudo_proc = _run_puppeteer_install_with_sudo(binary, install_args, cache_dir)
-        if sudo_proc is not None:
+        if sudo_proc is not None and sudo_proc.returncode == 0:
             return sudo_proc
+        if sudo_proc is not None:
+            install_output = f"{sudo_proc.stdout}\n{sudo_proc.stderr}"
 
     if not _cleanup_partial_chromium_cache(install_output, cache_dir):
         return proc
