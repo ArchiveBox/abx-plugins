@@ -1,0 +1,38 @@
+tests/test_plugin_executables_have_shebang.py
+  c6156093e009d8e0 1-46
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  c6156093e009d8e0 239-355,834-1298
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "e13c73ba782bd898286c23216d404168b807ba8a",
+  "prompts": {
+    "6ce0defec3ce80d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf4ff-885e-75f2-bb69-8d87ff7a8fd8",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "c6156093e009d8e0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d0293-2e03-7b52-aa80-ebd8a4a15b10",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 600,
+      "total_deletions": 3,
+      "accepted_lines": 630,
+      "overriden_lines": 0
+    }
+  }
+}
