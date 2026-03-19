@@ -1,0 +1,27 @@
+abx_plugins/plugins/chrome/README.md
+  c6156093e009d8e0 44,87-89,100-101,228
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  c6156093e009d8e0 594-668
+abx_plugins/plugins/chrome/on_Snapshot__10_chrome_tab.daemon.bg.js
+  c6156093e009d8e0 100-107,176-183,304,306,349-350,402,418
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "1a4ebc5b6e73a648289f07d570107e6dbcd7a02a",
+  "prompts": {
+    "c6156093e009d8e0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d0293-2e03-7b52-aa80-ebd8a4a15b10",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 106,
+      "total_deletions": 37,
+      "accepted_lines": 106,
+      "overriden_lines": 0
+    }
+  }
+}
