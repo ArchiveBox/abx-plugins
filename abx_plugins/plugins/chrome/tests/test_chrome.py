@@ -591,6 +591,81 @@ def test_chrome_launch_and_tab_creation(chrome_test_url):
         _cleanup_launch_process(chrome_launch_process, chrome_dir)
 
 
+def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):
+    """chrome_tab should emit one succeeded ArchiveResult and remain alive after startup."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        crawl_dir = Path(tmpdir) / "crawl"
+        crawl_dir.mkdir()
+        chrome_dir = crawl_dir / "chrome"
+        chrome_dir.mkdir()
+
+        env = _isolated_test_env(
+            tmpdir,
+            CHROME_HEADLESS="true",
+            CRAWL_DIR=str(crawl_dir),
+        )
+
+        chrome_launch_process, _cdp_url = launch_chromium_session(
+            env,
+            chrome_dir,
+            "test-tab-single-result",
+            timeout=45,
+        )
+
+        snapshot_dir = Path(tmpdir) / "snapshot1"
+        snapshot_dir.mkdir()
+        snapshot_chrome_dir = snapshot_dir / "chrome"
+        snapshot_chrome_dir.mkdir()
+
+        env["CRAWL_DIR"] = str(crawl_dir)
+        env["SNAP_DIR"] = str(snapshot_dir)
+        tab_process = None
+        try:
+            tab_process = launch_snapshot_tab(
+                snapshot_chrome_dir=snapshot_chrome_dir,
+                tab_env=env,
+                test_url=chrome_test_url,
+                snapshot_id="snap-single-result",
+                crawl_id="test-tab-single-result",
+            )
+
+            time.sleep(1)
+            assert tab_process.poll() is None, (
+                "chrome_tab should stay alive after publishing its startup result"
+            )
+
+            stdout_log = snapshot_chrome_dir / "chrome_tab.stdout.log"
+            stdout_lines = [
+                line.strip()
+                for line in stdout_log.read_text(encoding="utf-8", errors="replace").splitlines()
+                if line.strip()
+            ]
+            archive_results = []
+            for line in stdout_lines:
+                if not line.startswith("{"):
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if record.get("type") == "ArchiveResult":
+                    archive_results.append(record)
+
+            assert len(archive_results) == 1, (
+                f"chrome_tab should emit exactly one ArchiveResult on successful startup, got {archive_results}\n"
+                f"Stdout log:\n{stdout_log.read_text(encoding='utf-8', errors='replace')}"
+            )
+            assert archive_results[0]["status"] == "succeeded", archive_results[0]
+        finally:
+            if tab_process is not None:
+                try:
+                    tab_process.send_signal(signal.SIGTERM)
+                    tab_process.wait(timeout=10)
+                except Exception:
+                    pass
+            _cleanup_launch_process(chrome_launch_process, chrome_dir)
+
+
 def test_chrome_can_adopt_existing_cdp_url_without_local_pid(chrome_test_url):
     """CHROME_CDP_URL + CHROME_IS_LOCAL=false should reuse a browser without writing chrome.pid."""
     with tempfile.TemporaryDirectory() as tmpdir:

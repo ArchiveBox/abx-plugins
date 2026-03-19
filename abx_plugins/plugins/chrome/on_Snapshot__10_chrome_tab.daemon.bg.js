@@ -97,6 +97,14 @@ function emitResult(statusOverride) {
     console.log(JSON.stringify(result));
 }
 
+function publishSuccess(outputStr, versionOverride = '') {
+    finalStatus = 'succeeded';
+    finalOutput = outputStr || '';
+    finalError = '';
+    cmdVersion = versionOverride || cmdVersion || '';
+    emitResult('succeeded');
+}
+
 function cleanupFiles(fileNames, reason) {
     let removed = 0;
     for (const fileName of fileNames) {
@@ -163,6 +171,16 @@ async function startTargetMonitor() {
         cleanupSnapshotPageMarkers(`target ${expectedTargetId} disappeared`);
         await stopTargetMonitor();
     });
+}
+
+async function startTargetMonitorBestEffort() {
+    try {
+        await startTargetMonitor();
+    } catch (error) {
+        const message = error?.message || String(error);
+        console.error(`[*] Skipping target monitor setup: ${message}`);
+        await stopTargetMonitor();
+    }
 }
 
 // Cleanup handler for SIGTERM - close this snapshot's tab
@@ -280,20 +298,12 @@ async function main() {
                 fs.writeFileSync(existingUrlFile, url);
                 status = 'succeeded';
                 output = `target=${targetId} port=${getPortFromCdpUrl(currentCdpUrl)}`;
-                finalStatus = status;
-                finalOutput = output;
-                finalError = '';
-                cmdVersion = version || '';
                 releaseLock();
                 releaseLock = null;
                 console.log('[*] Reusing existing live snapshot tab');
-                console.log(JSON.stringify({
-                    type: 'ArchiveResult',
-                    status,
-                    output_str: output,
-                }));
+                publishSuccess(output, version || '');
                 console.log('[*] Chrome tab created, waiting for cleanup signal...');
-                await startTargetMonitor();
+                await startTargetMonitorBestEffort();
                 keepAliveTimer = setInterval(() => {}, 1000);
                 await new Promise(() => {});
             }
@@ -330,22 +340,14 @@ async function main() {
 
             status = 'succeeded';
             output = `target=${targetId} port=${getPortFromCdpUrl(currentCdpUrl)}`;
-            finalStatus = status;
-            finalOutput = output;
-            finalError = '';
-            cmdVersion = version || '';
 
             console.log(`[+] Chrome tab ready`);
             console.log(`[+] CDP URL: ${currentCdpUrl}`);
             console.log(`[+] Page target ID: ${targetId}`);
-            console.log(JSON.stringify({
-                type: 'ArchiveResult',
-                status,
-                output_str: output,
-            }));
             releaseLock();
             releaseLock = null;
-            await startTargetMonitor();
+            publishSuccess(output, version || '');
+            await startTargetMonitorBestEffort();
         } else {
             const crawlChromeDir = path.join(path.resolve(getEnv('CRAWL_DIR', '.')), 'chrome');
             const crawlSession = await waitForChromeSessionState(crawlChromeDir, {
@@ -391,21 +393,13 @@ async function main() {
 
             status = 'succeeded';
             output = `target=${targetId} port=${getPortFromCdpUrl(crawlSession.cdpUrl)}`;
-            finalStatus = status;
-            finalOutput = output;
-            finalError = '';
-            cmdVersion = version || '';
 
             console.log(`[+] Chrome tab ready`);
             console.log(`[+] CDP URL: ${crawlSession.cdpUrl}`);
             console.log(`[+] Page target ID: ${targetId}`);
-            console.log(JSON.stringify({
-                type: 'ArchiveResult',
-                status,
-                output_str: output,
-            }));
             releaseLock();
             releaseLock = null;
+            publishSuccess(output, version || '');
 
             try {
                 const extensionsSession = await waitForChromeSessionState(crawlChromeDir, {
@@ -421,7 +415,7 @@ async function main() {
                     JSON.stringify(extensions, null, 2)
                 );
             } catch (err) {}
-            await startTargetMonitor();
+            await startTargetMonitorBestEffort();
         }
     } catch (e) {
         error = `${e.name}: ${e.message}`;

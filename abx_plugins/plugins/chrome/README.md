@@ -41,7 +41,7 @@ The Chrome plugin publishes those details behind a shared `chrome/` session dire
 
 ## Config
 
-Defined in [config.json](/Users/squash/Local/Code/archiveboxes/new/abx-plugins/abx_plugins/plugins/chrome/config.json).
+Defined in [config.json](./config.json).
 
 ### Core session options
 
@@ -84,9 +84,9 @@ Defined in [config.json](/Users/squash/Local/Code/archiveboxes/new/abx-plugins/a
 
 Ownership:
 
-- [on_Crawl__90_chrome_launch.daemon.bg.js](/Users/squash/Local/Code/archiveboxes/new/abx-plugins/abx_plugins/plugins/chrome/on_Crawl__90_chrome_launch.daemon.bg.js) owns the browser session
-- [on_Crawl__91_chrome_wait.js](/Users/squash/Local/Code/archiveboxes/new/abx-plugins/abx_plugins/plugins/chrome/on_Crawl__91_chrome_wait.js) verifies the crawl-scoped session is connectable
-- [on_Snapshot__10_chrome_tab.daemon.bg.js](/Users/squash/Local/Code/archiveboxes/new/abx-plugins/abx_plugins/plugins/chrome/on_Snapshot__10_chrome_tab.daemon.bg.js) creates one page/tab per snapshot
+- [on_Crawl__90_chrome_launch.daemon.bg.js](./on_Crawl__90_chrome_launch.daemon.bg.js) owns the browser session
+- [on_Crawl__91_chrome_wait.js](./on_Crawl__91_chrome_wait.js) verifies the crawl-scoped session is connectable
+- [on_Snapshot__10_chrome_tab.daemon.bg.js](./on_Snapshot__10_chrome_tab.daemon.bg.js) creates one page/tab per snapshot
 
 Contract:
 
@@ -97,8 +97,8 @@ Contract:
 
 Ownership:
 
-- [on_Snapshot__09_chrome_launch.daemon.bg.js](/Users/squash/Local/Code/archiveboxes/new/abx-plugins/abx_plugins/plugins/chrome/on_Snapshot__09_chrome_launch.daemon.bg.js) owns the browser session for that snapshot
-- [on_Snapshot__10_chrome_tab.daemon.bg.js](/Users/squash/Local/Code/archiveboxes/new/abx-plugins/abx_plugins/plugins/chrome/on_Snapshot__10_chrome_tab.daemon.bg.js) adopts or verifies the already-published snapshot session
+- [on_Snapshot__09_chrome_launch.daemon.bg.js](./on_Snapshot__09_chrome_launch.daemon.bg.js) owns the browser session for that snapshot
+- [on_Snapshot__10_chrome_tab.daemon.bg.js](./on_Snapshot__10_chrome_tab.daemon.bg.js) adopts or verifies the already-published snapshot session
 
 Contract:
 
@@ -225,7 +225,7 @@ They should not reach back into `CRAWL_DIR/chrome/` directly unless they are int
 
 ## `chrome_utils.js` Helpers
 
-The shared helpers live in [chrome_utils.js](/Users/squash/Local/Code/archiveboxes/new/abx-plugins/abx_plugins/plugins/chrome/chrome_utils.js).
+The shared helpers live in [chrome_utils.js](./chrome_utils.js).
 
 ### Main helpers
 
