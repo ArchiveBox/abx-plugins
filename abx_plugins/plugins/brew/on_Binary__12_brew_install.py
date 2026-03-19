@@ -2,7 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#   "click",
+#   "rich-click",
 #   "abx-pkg",
 # ]
 # ///

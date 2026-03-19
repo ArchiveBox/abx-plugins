@@ -55,7 +55,7 @@ def test_reports_missing_git():
     with tempfile.TemporaryDirectory() as tmpdir:
         env = {"PATH": "/nonexistent"}
         result = subprocess.run(
-            [str(GIT_HOOK),
+            [sys.executable, str(GIT_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",

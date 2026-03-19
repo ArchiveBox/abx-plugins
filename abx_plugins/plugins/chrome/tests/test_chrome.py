@@ -267,6 +267,18 @@ def _wait_for_pid_exit(pid: int, timeout_seconds: float = 15.0) -> bool:
     return not _is_pid_alive(pid)
 
 
+def _wait_for_process_to_remain_running(
+    process: subprocess.Popen,
+    *,
+    stable_seconds: float = 1.0,
+    poll_interval: float = 0.1,
+) -> None:
+    deadline = time.monotonic() + stable_seconds
+    while time.monotonic() < deadline:
+        assert process.poll() is None, "process exited before reaching the required stable running window"
+        time.sleep(poll_interval)
+
+
 def _launch_keepalive_local_provider_browser(
     tmpdir: str | Path,
     *,
@@ -629,27 +641,31 @@ def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):
                 crawl_id="test-tab-single-result",
             )
 
-            time.sleep(1)
-            assert tab_process.poll() is None, (
-                "chrome_tab should stay alive after publishing its startup result"
-            )
-
             stdout_log = snapshot_chrome_dir / "chrome_tab.stdout.log"
-            stdout_lines = [
-                line.strip()
-                for line in stdout_log.read_text(encoding="utf-8", errors="replace").splitlines()
-                if line.strip()
-            ]
+            deadline = time.monotonic() + 10
             archive_results = []
-            for line in stdout_lines:
-                if not line.startswith("{"):
-                    continue
-                try:
-                    record = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if record.get("type") == "ArchiveResult":
-                    archive_results.append(record)
+            while time.monotonic() < deadline:
+                assert tab_process.poll() is None, (
+                    "chrome_tab should stay alive after publishing its startup result"
+                )
+                stdout_lines = [
+                    line.strip()
+                    for line in stdout_log.read_text(encoding="utf-8", errors="replace").splitlines()
+                    if line.strip()
+                ]
+                archive_results = []
+                for line in stdout_lines:
+                    if not line.startswith("{"):
+                        continue
+                    try:
+                        record = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if record.get("type") == "ArchiveResult":
+                        archive_results.append(record)
+                if len(archive_results) == 1:
+                    break
+                time.sleep(0.1)
 
             assert len(archive_results) == 1, (
                 f"chrome_tab should emit exactly one ArchiveResult on successful startup, got {archive_results}\n"
@@ -2196,10 +2212,7 @@ def test_crawl_wait_retries_until_published_cdp_endpoint_becomes_connectable(chr
                 env=adopted_env,
             )
 
-            time.sleep(1)
-            assert wait_process.poll() is None, (
-                "crawl wait should still be waiting while the published cdp_url is unreachable"
-            )
+            _wait_for_process_to_remain_running(wait_process, stable_seconds=1.0)
 
             adopted_chrome_dir.joinpath("cdp_url.txt").write_text(provider_cdp_url)
 
@@ -2861,16 +2874,9 @@ def test_chrome_cleanup_on_crawl_end():
         chrome_launch_process.send_signal(signal.SIGTERM)
         stdout, stderr = chrome_launch_process.communicate(timeout=10)
 
-        # Wait for cleanup
-        time.sleep(3)
-
-        # Verify Chrome process is killed
-        try:
-            os.kill(chrome_pid, 0)
-            pytest.fail("Chrome should be killed after SIGTERM")
-        except OSError:
-            # Expected - Chrome should be dead
-            pass
+        assert _wait_for_pid_exit(chrome_pid, timeout_seconds=10), (
+            "Chrome should be killed after SIGTERM"
+        )
 
         assert not (chrome_dir / "chrome.pid").exists(), (
             "chrome.pid should be removed during Chrome cleanup"
