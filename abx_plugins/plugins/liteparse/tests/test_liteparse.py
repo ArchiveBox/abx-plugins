@@ -144,20 +144,26 @@ def require_liteparse_binary() -> str:
     return binary_path
 
 
-def _download_test_pdf() -> bytes:
-    """Download a small public PDF for testing. Tries multiple sources."""
-    pdf_urls = [
-        "https://unec.edu.az/application/uploads/2014/12/pdf-sample.pdf",
-        "https://www.orimi.com/pdf-test.pdf",
-    ]
-    for url in pdf_urls:
-        try:
-            resp = requests.get(url, timeout=30)
-            if resp.status_code == 200 and resp.content[:5] == b"%PDF-":
-                return resp.content
-        except Exception:
-            continue
-    pytest.fail("Could not download any test PDF from the web")
+# Two public PDFs with known, distinct text content:
+#
+# PDF_URL_A (unec.edu.az/pdf-sample.pdf):
+#   Contains "Adobe® Portable Document Format (PDF) is a universal file format
+#   that preserves all of the fonts, formatting, colours and graphics"
+#
+# PDF_URL_B (pdfobject.com/pdf/sample.pdf):
+#   Contains "This is a simple PDF file. Fun fun fun."
+#   and "Lorem ipsum dolor sit amet, consectetuer adipiscing elit."
+#
+PDF_URL_A = "https://unec.edu.az/application/uploads/2014/12/pdf-sample.pdf"
+PDF_URL_B = "https://pdfobject.com/pdf/sample.pdf"
+
+
+def _download_pdf(url: str) -> bytes:
+    """Download a single PDF by URL, fail if unavailable."""
+    resp = requests.get(url, timeout=30)
+    assert resp.status_code == 200, f"Failed to download {url}: HTTP {resp.status_code}"
+    assert resp.content[:5] == b"%PDF-", f"Not a PDF: {url}"
+    return resp.content
 
 
 def test_hook_scripts_exist():
@@ -245,12 +251,13 @@ def test_noresults_without_sources():
 def test_extract_single_pdf():
     """Test extraction on a single real PDF downloaded from the web.
 
-    Downloads a real PDF, places it as pdf plugin output, runs the
-    liteparse snapshot hook, and asserts the output contains expected
-    text content from the actual PDF document.
+    Uses PDF_URL_B (pdfobject.com sample) which contains the exact text:
+      "This is a simple PDF file. Fun fun fun."
+      "Lorem ipsum dolor sit amet, consectetuer adipiscing elit."
+    Asserts these specific sentences appear in the extracted output.
     """
     binary_path = require_liteparse_binary()
-    pdf_content = _download_test_pdf()
+    pdf_content = _download_pdf(PDF_URL_B)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -267,7 +274,7 @@ def test_extract_single_pdf():
 
         result = subprocess.run(
             [str(LITEPARSE_HOOK),
-                "--url", "https://example.com/test.pdf",
+                "--url", PDF_URL_B,
                 "--snapshot-id", "test-single-pdf",
             ],
             cwd=tmpdir,
@@ -288,13 +295,16 @@ def test_extract_single_pdf():
         assert (output_dir / "metadata.json").exists(), "metadata.json not created"
 
         text_content = (output_dir / "content.txt").read_text(errors="ignore")
-        assert len(text_content) > 10, f"content.txt too short: {text_content!r}"
-
-        # The test PDFs contain known text - verify real content was extracted
-        # pdf-sample.pdf contains "Adobe Acrobat" or similar known strings
         text_lower = text_content.lower()
-        assert any(word in text_lower for word in ["pdf", "sample", "adobe", "acrobat", "document", "page", "file", "test"]), (
-            f"Extracted text does not contain expected PDF content keywords. Got: {text_content[:500]!r}"
+
+        # Assert specific sentences from the actual PDF page content
+        assert "this is a simple pdf file" in text_lower, (
+            f"Expected exact text 'This is a simple PDF file' from {PDF_URL_B}. "
+            f"Got: {text_content[:500]!r}"
+        )
+        assert "consectetuer adipiscing elit" in text_lower, (
+            f"Expected exact text 'consectetuer adipiscing elit' from {PDF_URL_B}. "
+            f"Got: {text_content[:500]!r}"
         )
 
         metadata = json.loads((output_dir / "metadata.json").read_text())
@@ -303,23 +313,32 @@ def test_extract_single_pdf():
 
 
 def test_extract_multiple_pdfs():
-    """Test that ALL PDFs are processed when multiple exist across plugins."""
+    """Test that ALL PDFs are processed when multiple exist across plugins.
+
+    Uses two different PDFs with distinct content:
+      PDF_URL_A (unec.edu.az): contains "preserves all of the fonts, formatting, colours and graphics"
+      PDF_URL_B (pdfobject.com): contains "This is a simple PDF file. Fun fun fun."
+
+    Places them in pdf/ and responses/ directories and verifies the combined
+    output contains unique text from BOTH documents.
+    """
     binary_path = require_liteparse_binary()
-    pdf_content = _download_test_pdf()
+    pdf_a = _download_pdf(PDF_URL_A)
+    pdf_b = _download_pdf(PDF_URL_B)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir / "snap"
 
-        # Place PDF in pdf/ plugin output
+        # Place PDF A in pdf/ plugin output
         pdf_dir = snap_dir / "pdf"
         pdf_dir.mkdir(parents=True, exist_ok=True)
-        (pdf_dir / "output.pdf").write_bytes(pdf_content)
+        (pdf_dir / "output.pdf").write_bytes(pdf_a)
 
-        # Place another PDF in responses/
+        # Place PDF B in responses/ as if the server served a PDF
         responses_dir = snap_dir / "responses" / "application" / "example.com"
         responses_dir.mkdir(parents=True, exist_ok=True)
-        (responses_dir / "document.pdf").write_bytes(pdf_content)
+        (responses_dir / "document.pdf").write_bytes(pdf_b)
 
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
@@ -351,10 +370,25 @@ def test_extract_multiple_pdfs():
         )
         assert metadata["total_sources_found"] == 2
 
-        # Verify combined output contains content from both files
         text_content = (output_dir / "content.txt").read_text(errors="ignore")
-        assert "---" in text_content or text_content.count("<!-- source:") >= 2, (
-            "Combined text should contain content from both PDFs"
+        text_lower = text_content.lower()
+
+        # Assert unique content from PDF A (unec.edu.az pdf-sample.pdf)
+        # This PDF is about Adobe Acrobat and contains this exact phrase:
+        assert "preserves all" in text_lower and "colours and graphics" in text_lower, (
+            f"Expected text from PDF_URL_A about 'preserves all of the fonts, formatting, "
+            f"colours and graphics'. Got: {text_content[:500]!r}"
+        )
+
+        # Assert unique content from PDF B (pdfobject.com sample.pdf)
+        # This PDF contains a simple greeting and Lorem ipsum:
+        assert "this is a simple pdf file" in text_lower, (
+            f"Expected text from PDF_URL_B: 'This is a simple PDF file'. "
+            f"Got: {text_content[:500]!r}"
+        )
+        assert "consectetuer adipiscing elit" in text_lower, (
+            f"Expected text from PDF_URL_B: 'consectetuer adipiscing elit'. "
+            f"Got: {text_content[:500]!r}"
         )
 
 
