@@ -375,16 +375,7 @@
         overflow-wrap: anywhere;
       }
 
-      .plugin-anchor {
-        color: inherit;
-        text-decoration: none;
-      }
 
-      .plugin-anchor:hover {
-        text-decoration: underline;
-        text-underline-offset: 0.15em;
-        text-decoration-thickness: 2px;
-      }
 
       .plugin-slug {
         color: var(--muted);
@@ -898,7 +889,7 @@
           <summary>
             <div class="plugin-main">
               <div class="plugin-title-row">
-                <h2><a href="#{{ plugin.name }}" class="plugin-anchor">{{ plugin.display_title }}</a></h2>
+                <h2>{{ plugin.display_title }}</h2>
               </div>
               <div class="plugin-slug"><code>{{ plugin.name }}</code></div>
               {% if plugin.description %}
