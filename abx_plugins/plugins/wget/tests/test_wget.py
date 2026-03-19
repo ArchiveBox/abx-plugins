@@ -80,7 +80,9 @@ def test_reports_missing_dependency_when_not_installed():
         env = {"PATH": "/nonexistent", "HOME": str(tmpdir)}
 
         result = subprocess.run(
-            [str(WGET_HOOK),
+            [
+                sys.executable,
+                str(WGET_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
