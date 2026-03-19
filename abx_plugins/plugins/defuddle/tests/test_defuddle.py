@@ -176,7 +176,7 @@ def test_reports_missing_dependency_when_not_installed():
 
         env = {"PATH": "/nonexistent", "HOME": str(tmpdir), "SNAP_DIR": str(snap_dir)}
         result = subprocess.run(
-            [str(DEFUDDLE_HOOK),
+            [sys.executable, str(DEFUDDLE_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
