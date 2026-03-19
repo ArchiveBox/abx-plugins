@@ -114,7 +114,10 @@ def main(url: str, snapshot_id: str):
                 "6. REQUIRED: You MUST write a detailed report of what was cleaned up "
                 f"and why to exactly this path: {OUTPUT_DIR}/cleanup_report.txt\n"
                 "   This file MUST exist when you are done. Always create it, even if "
-                "   no cleanup was needed (in that case, explain why nothing was removed)."
+                "   no cleanup was needed (in that case, explain why nothing was removed).\n"
+                "7. The task is not complete until cleanup_report.txt exists on disk.\n"
+                "   Do not merely describe the cleanup in your response. You must use Write/Edit "
+                "   to create the file itself, then verify it exists and is non-empty."
             ),
         )
 
@@ -128,7 +131,11 @@ def main(url: str, snapshot_id: str):
             f"Your output directory: {OUTPUT_DIR}\n\n"
             f"Task:\n{user_prompt}\n\n"
             f"IMPORTANT: When finished, you MUST write your report to "
-            f"{OUTPUT_DIR}/cleanup_report.txt"
+            f"{OUTPUT_DIR}/cleanup_report.txt\n"
+            "Completion requirements:\n"
+            "1. cleanup_report.txt must exist on disk before you finish\n"
+            "2. Do not rely on your chat response as the report\n"
+            "3. Verify the file exists and is non-empty before finishing"
         )
 
         # Run Claude Code with full permissions within SNAP_DIR.
@@ -172,16 +179,7 @@ def main(url: str, snapshot_id: str):
             print(f"[+] Cleanup report: {report_size} bytes", file=sys.stderr)
             emit_archive_result("succeeded", "cleanup_report.txt")
         else:
-            # Check for output files (exclude metadata that isn't actual cleanup output)
-            METADATA_FILES = {"response.txt", "session.json"}
-            output_files = [
-                f.name for f in OUTPUT_DIR.iterdir()
-                if f.is_file() and not f.name.startswith(".") and f.name not in METADATA_FILES
-            ]
-            if output_files:
-                emit_archive_result("succeeded", ", ".join(sorted(output_files)))
-            else:
-                emit_archive_result("succeeded", "cleanup completed (no report)")
+            emit_archive_result("failed", "cleanup_report.txt was not created")
 
         sys.exit(0)
 

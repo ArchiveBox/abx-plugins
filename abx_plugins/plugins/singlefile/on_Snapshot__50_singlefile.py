@@ -15,7 +15,6 @@ Output: Writes singlefile.html to $PWD
 Environment variables:
     SINGLEFILE_ENABLED: Enable SingleFile archiving (default: True)
     SINGLEFILE_BINARY: Path to SingleFile binary (default: single-file)
-    SINGLEFILE_NODE_BINARY: Path to Node.js binary (x-fallback: NODE_BINARY)
     SINGLEFILE_CHROME_BINARY: Path to Chrome binary (x-fallback: CHROME_BINARY) [unused; shared Chrome session required]
     SINGLEFILE_TIMEOUT: Timeout in seconds (x-fallback: TIMEOUT)
     SINGLEFILE_USER_AGENT: User agent string (x-fallback: USER_AGENT)
@@ -78,11 +77,9 @@ def summarize_error(detail: str) -> str:
     return preferred_lines[-1]
 
 
-def run_chrome_utils(
-    node_binary: str, command: str, *args: str, timeout: int
-) -> subprocess.CompletedProcess[str]:
+def run_chrome_utils(command: str, *args: str, timeout: int) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [node_binary, str(CHROME_UTILS_SCRIPT), command, *args],
+        [str(CHROME_UTILS_SCRIPT), command, *args],
         cwd=str(OUTPUT_DIR),
         capture_output=True,
         text=True,
@@ -90,12 +87,9 @@ def run_chrome_utils(
     )
 
 
-def get_browser_server_url(
-    node_binary: str, timeout: int, require_target: bool = True
-) -> tuple[str | None, str]:
+def get_browser_server_url(timeout: int, require_target: bool = True) -> tuple[str | None, str]:
     timeout_ms = max(1000, timeout * 1000)
     result = run_chrome_utils(
-        node_binary,
         "getBrowserServerUrl",
         CHROME_SESSION_DIR,
         str(timeout_ms),
@@ -120,7 +114,6 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
     # Load config from config.json (auto-resolves x-aliases and x-fallback from env)
     config = load_config()
     timeout = config.SINGLEFILE_TIMEOUT
-    node_binary = config.SINGLEFILE_NODE_BINARY
     user_agent = config.SINGLEFILE_USER_AGENT
     check_ssl = config.SINGLEFILE_CHECK_SSL_VALIDITY
     cookies_file = config.SINGLEFILE_COOKIES_FILE
@@ -131,7 +124,6 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
     cmd = [binary, *singlefile_args]
 
     cdp_remote_url, error = get_browser_server_url(
-        node_binary,
         timeout=min(10, max(1, timeout // 10)),
         require_target=True,
     )
@@ -233,16 +225,13 @@ def save_singlefile_with_extension(
         return False, None, "SingleFile extension helper script missing"
 
     config = load_config()
-    node_binary = config.SINGLEFILE_NODE_BINARY
     output_path = Path(OUTPUT_DIR) / OUTPUT_FILE
     temp_output_path = temp_path_for(output_path)
     cmd = [
-        node_binary,
         str(EXTENSION_SAVE_SCRIPT),
         f"--url={url}",
         f"--output-path={temp_output_path}",
     ]
-    print(f"[singlefile] node={node_binary}", file=sys.stderr)
     print(f"[singlefile] helper_cmd={' '.join(cmd)}", file=sys.stderr)
 
     try:

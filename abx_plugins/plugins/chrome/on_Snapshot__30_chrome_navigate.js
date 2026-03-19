@@ -7,7 +7,7 @@
  * Post-load hooks (31+) can then read from the loaded page.
  *
  * Usage: on_Snapshot__30_chrome_navigate.js --url=<url> --snapshot-id=<uuid>
- * Output: Writes page_loaded.txt marker when navigation completes
+ * Output: Writes navigation.json when navigation completes
  *
  * Environment variables:
  *     CHROME_PAGELOAD_TIMEOUT: Timeout in seconds (default: 60)
@@ -17,7 +17,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvInt } = require('../base/utils.js');
+const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvInt, writeFileAtomic } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer');
 const {
@@ -90,11 +90,7 @@ async function navigate(url) {
             status,
             timestamp: new Date().toISOString()
         };
-        fs.writeFileSync(path.join(OUTPUT_DIR, 'navigation.json'), JSON.stringify(navigationState, null, 2));
-
-        // Write marker files for backwards compatibility
-        fs.writeFileSync(path.join(OUTPUT_DIR, 'page_loaded.txt'), new Date().toISOString());
-        fs.writeFileSync(path.join(OUTPUT_DIR, 'final_url.txt'), finalUrl);
+        writeFileAtomic(path.join(OUTPUT_DIR, 'navigation.json'), JSON.stringify(navigationState, null, 2));
 
         browser.disconnect();
 
@@ -138,7 +134,7 @@ async function main() {
             error: result.error,
             timestamp: new Date().toISOString()
         };
-        fs.writeFileSync(path.join(OUTPUT_DIR, 'navigation.json'), JSON.stringify(navigationState, null, 2));
+        writeFileAtomic(path.join(OUTPUT_DIR, 'navigation.json'), JSON.stringify(navigationState, null, 2));
     }
 
     const endTs = new Date();

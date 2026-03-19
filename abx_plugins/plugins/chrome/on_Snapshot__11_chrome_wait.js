@@ -5,12 +5,18 @@
  * This is a foreground hook that blocks until the Chrome tab is ready,
  * so downstream hooks can safely connect to CDP.
  *
+ * This hook exists primarily as a foreground barrier. The snapshot launch/tab
+ * hooks are daemons/background hooks, so they do not block later foreground
+ * hooks by themselves. Keeping this as a thin foreground wait stage means
+ * downstream snapshot hooks do not all need to reimplement their own manual
+ * ordering and blocking checks before connecting to the published page target.
+ *
  * Usage: on_Snapshot__11_chrome_wait.js --url=<url> --snapshot-id=<uuid>
  */
 
 const fs = require('fs');
 const path = require('path');
-const { ensureNodeModuleResolution, parseArgs } = require('../base/utils.js');
+const { ensureNodeModuleResolution, parseArgs, getEnvInt } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer');
 
@@ -23,70 +29,11 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 process.chdir(OUTPUT_DIR);
 
 const {
-    getEnvInt,
     waitForChromeSessionState,
-    connectToPage,
-    getTargetIdFromPage,
 } = require('./chrome_utils.js');
 
 const CHROME_SESSION_DIR = path.join(SNAP_DIR, 'chrome');
 const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function waitForConnectableChromeSession(chromeSessionDir, timeoutMs) {
-    const deadline = Date.now() + timeoutMs;
-    let lastError = CHROME_SESSION_REQUIRED_ERROR;
-
-    while (Date.now() < deadline) {
-        const remainingMs = Math.max(deadline - Date.now(), 0);
-        const state = await waitForChromeSessionState(chromeSessionDir, {
-            timeoutMs: Math.min(remainingMs, 500),
-            intervalMs: 100,
-            requireTargetId: true,
-        });
-
-        if (!state) {
-            await sleep(Math.min(200, remainingMs));
-            continue;
-        }
-
-        let browser = null;
-        try {
-            const conn = await connectToPage({
-                chromeSessionDir,
-                timeoutMs: Math.min(remainingMs, 5000),
-                requireTargetId: true,
-                puppeteer,
-            });
-            browser = conn.browser;
-
-            const connectedTargetId = getTargetIdFromPage(conn.page);
-            if (state.targetId && connectedTargetId && connectedTargetId !== state.targetId) {
-                throw new Error(`Chrome tab target mismatch (${connectedTargetId} !== ${state.targetId})`);
-            }
-
-            return {
-                cdpUrl: conn.cdpUrl || state.cdpUrl,
-                targetId: connectedTargetId || conn.targetId || state.targetId,
-            };
-        } catch (error) {
-            lastError = error?.message || String(error);
-        } finally {
-            if (browser) {
-                try {
-                    browser.disconnect();
-                } catch (disconnectError) {}
-            }
-        }
-
-        await sleep(200);
-    }
-
-    return null;
-}
 
 async function main() {
     const args = parseArgs();
@@ -103,8 +50,15 @@ async function main() {
 
     console.error(`[chrome_wait] Waiting for Chrome session (timeout=${timeoutSeconds}s)...`);
 
-    const readySession = await waitForConnectableChromeSession(CHROME_SESSION_DIR, timeoutMs);
-    if (!readySession) {
+    const readySession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
+        timeoutMs,
+        intervalMs: 100,
+        requireTargetId: true,
+        requireConnectable: true,
+        probeTimeoutMs: 1000,
+        puppeteer,
+    });
+    if (!readySession?.cdpUrl || !readySession?.targetId) {
         const error = CHROME_SESSION_REQUIRED_ERROR;
         console.error(`[chrome_wait] ERROR: ${error}`);
         console.log(JSON.stringify({ type: 'ArchiveResult', status: 'failed', output_str: error }));

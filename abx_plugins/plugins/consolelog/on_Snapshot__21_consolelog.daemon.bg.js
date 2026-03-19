@@ -27,7 +27,7 @@ const puppeteer = require('puppeteer-core');
 // Import chrome-specific utilities from chrome_utils.js
 const {
     connectToPage,
-    waitForPageLoaded,
+    waitForNavigationComplete,
 } = require('../chrome/chrome_utils.js');
 
 const PLUGIN_NAME = 'consolelog';
@@ -192,7 +192,7 @@ async function main() {
         // Wait for chrome_navigate to complete (non-fatal)
         try {
             const timeout = getEnvInt('CONSOLELOG_TIMEOUT', 30) * 1000;
-            await waitForPageLoaded(CHROME_SESSION_DIR, timeout * 4, 500);
+            await waitForNavigationComplete(CHROME_SESSION_DIR, timeout * 4, 500);
         } catch (e) {
             console.error(`WARN: ${e.message}`);
         }

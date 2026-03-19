@@ -44,9 +44,7 @@ ensureNodeModuleResolution(module);
 
 // Import chrome-specific utilities from chrome_utils.js
 const {
-    waitForChromeSession,
     connectToPage,
-    waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
 
 // Check if infiniscroll is enabled BEFORE requiring puppeteer
@@ -308,10 +306,6 @@ async function main() {
 
     let browser = null;
     try {
-        if (!(await waitForChromeSession(CHROME_SESSION_DIR, Math.min(timeout, 1000), true))) {
-            throw new Error('No Chrome session found (chrome plugin must run first)');
-        }
-
         const connectTimeoutMs = Math.min(
             timeout,
             getEnvInt('TIMEOUT', 30) * 1000
@@ -319,11 +313,12 @@ async function main() {
         const connection = await connectToPage({
             chromeSessionDir: CHROME_SESSION_DIR,
             timeoutMs: connectTimeoutMs,
+            waitForNavigationComplete: true,
+            postLoadDelayMs: 200,
             puppeteer,
         });
         browser = connection.browser;
         const page = connection.page;
-        await waitForPageLoaded(CHROME_SESSION_DIR, connectTimeoutMs * 4, 200);
 
         console.error(`Starting infinite scroll on ${url}`);
 

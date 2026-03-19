@@ -74,6 +74,7 @@ jobs:
     needs: discover-tests
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      ABX_PYTEST_TEE_SUBPROCESS_OUTPUT: "1"
 
     strategy:
       fail-fast: false
@@ -135,7 +136,7 @@ jobs:
 
       - name: Run test - ${{ matrix.test.name }}
         run: |
-          uv run pytest -xvs "${{ matrix.test.path }}" --basetemp="$RUNNER_TEMP/pytest-out"
+          uv run pytest -xvs -rA "${{ matrix.test.path }}" --basetemp="$RUNNER_TEMP/pytest-out"
         env:
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           CHROME_SANDBOX: "false"

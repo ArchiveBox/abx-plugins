@@ -23,11 +23,7 @@ const {
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer-core');
-const {
-    waitForChromeSession,
-    connectToPage,
-    waitForPageLoaded,
-} = require('../chrome/chrome_utils.js');
+const { connectToPage } = require('../chrome/chrome_utils.js');
 
 // Extractor metadata
 const PLUGIN_NAME = 'title';
@@ -48,19 +44,15 @@ async function extractTitle(url) {
     let browser = null;
 
     try {
-        if (!(await waitForChromeSession(CHROME_SESSION_DIR, Math.min(timeoutMs, 1000), true))) {
-            return { success: false, error: 'No Chrome session found (chrome plugin must run first)' };
-        }
-
         const connection = await connectToPage({
             chromeSessionDir: CHROME_SESSION_DIR,
             timeoutMs,
+            waitForNavigationComplete: true,
+            postLoadDelayMs: 200,
             puppeteer,
         });
         browser = connection.browser;
         const page = connection.page;
-
-        await waitForPageLoaded(CHROME_SESSION_DIR, timeoutMs * 4, 200);
 
         // Get title from page
         let title = await page.title();

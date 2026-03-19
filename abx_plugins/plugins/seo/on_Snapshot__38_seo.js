@@ -30,10 +30,7 @@ ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer-core');
 
 // Import chrome-specific utilities from chrome_utils.js
-const {
-    connectToPage,
-    waitForPageLoaded,
-} = require('../chrome/chrome_utils.js');
+const { connectToPage } = require('../chrome/chrome_utils.js');
 
 // Extractor metadata
 const PLUGIN_NAME = 'seo';
@@ -59,6 +56,8 @@ async function extractSeo(url) {
         const connection = await connectToPage({
             chromeSessionDir: CHROME_SESSION_DIR,
             timeoutMs: timeout,
+            waitForNavigationComplete: true,
+            postLoadDelayMs: 200,
             puppeteer,
         });
         browser = connection.browser;
@@ -135,9 +134,6 @@ async function main() {
             emitArchiveResult('skipped', 'SEO_ENABLED=False');
             process.exit(0);
         }
-
-        const timeout = getEnvInt('SEO_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
-        await waitForPageLoaded(CHROME_SESSION_DIR, timeout * 4, 200);
 
         const result = await extractSeo(url);
 

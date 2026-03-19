@@ -16,7 +16,12 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import load_config, emit_archive_result, write_text_atomic, find_html_source
+from base.utils import (
+    emit_archive_result,
+    find_html_source,
+    load_config,
+    write_text_atomic,
+)
 
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()

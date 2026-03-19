@@ -132,7 +132,7 @@ def get_readability_binary_path():
 
     if crawl_hook and crawl_hook.exists():
         crawl_result = subprocess.run(
-            [sys.executable, str(crawl_hook)],
+            [str(crawl_hook)],
             capture_output=True,
             text=True,
             timeout=30,
@@ -162,9 +162,7 @@ def get_readability_binary_path():
     env["CRAWL_DIR"] = str(Path(_readability_lib_root) / "crawl")
     env.pop("LIB_DIR", None)
 
-    cmd = [
-        sys.executable,
-        str(npm_hook),
+    cmd = [str(npm_hook),
         "--binary-id",
         binary_id,
         "--machine-id",
@@ -220,9 +218,7 @@ def test_reports_missing_dependency_when_not_installed():
         env = {"PATH": "/nonexistent", "HOME": str(tmpdir), "SNAP_DIR": str(snap_dir)}
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(READABILITY_HOOK),
+            [sys.executable, str(READABILITY_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -274,9 +270,7 @@ def test_extracts_article_after_installation():
         env["SNAP_DIR"] = str(snap_dir)
         env["READABILITY_BINARY"] = binary_path
         result = subprocess.run(
-            [
-                sys.executable,
-                str(READABILITY_HOOK),
+            [str(READABILITY_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -347,9 +341,7 @@ def test_fails_gracefully_without_html_source():
         env["SNAP_DIR"] = str(snap_dir)
         env["READABILITY_BINARY"] = binary_path
         result = subprocess.run(
-            [
-                sys.executable,
-                str(READABILITY_HOOK),
+            [str(READABILITY_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",

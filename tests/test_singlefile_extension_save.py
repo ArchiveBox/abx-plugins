@@ -54,7 +54,7 @@ Module._load = function(request, parent, isMain) {
                     target: () => ({ createCDPSession: async () => ({ send: async () => {} }) }),
                 },
             }),
-            waitForExtensionsMetadata: async () => [{ name: 'singlefile', id: 'test-extension-id' }],
+            readExtensionsMetadata: () => [{ name: 'singlefile', id: 'test-extension-id' }],
             findExtensionMetadataByName: () => ({ id: 'test-extension-id' }),
             waitForExtensionTargetHandle: async () => ({}),
             loadExtensionFromTarget: async (extensions) => {

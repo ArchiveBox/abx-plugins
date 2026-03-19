@@ -95,6 +95,7 @@ PLUGINS_ROOT = CHROME_PLUGIN_DIR.parent
 CHROME_INSTALL_HOOK = CHROME_PLUGIN_DIR / "on_Crawl__70_chrome_install.finite.bg.py"
 CHROME_LAUNCH_HOOK = CHROME_PLUGIN_DIR / "on_Crawl__90_chrome_launch.daemon.bg.js"
 CHROME_CRAWL_WAIT_HOOK = CHROME_PLUGIN_DIR / "on_Crawl__91_chrome_wait.js"
+CHROME_SNAPSHOT_LAUNCH_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__09_chrome_launch.daemon.bg.js"
 CHROME_TAB_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__10_chrome_tab.daemon.bg.js"
 CHROME_WAIT_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__11_chrome_wait.js"
 _CHROME_NAVIGATE_HOOK = next(
@@ -507,7 +508,7 @@ def _call_chrome_utils(
     Returns:
         Tuple of (returncode, stdout, stderr)
     """
-    cmd = ["node", str(CHROME_UTILS), command] + list(args)
+    cmd = [str(CHROME_UTILS), command] + list(args)
     result = subprocess.run(
         cmd, capture_output=True, text=True, timeout=30, env=env or os.environ.copy()
     )
@@ -525,20 +526,16 @@ def wait_for_extensions_metadata(
     startup window before extensions finish loading.
     """
     timeout_ms = max(1, int(timeout_seconds * 1000))
-    returncode, stdout, stderr = _call_chrome_utils(
-        "waitForExtensionsMetadata",
-        str(chrome_dir),
-        str(timeout_ms),
-    )
+    returncode, stdout, stderr = _call_chrome_utils("readExtensionsMetadata", str(chrome_dir), str(timeout_ms))
     if returncode != 0:
         raise AssertionError(
-            f"waitForExtensionsMetadata failed for {chrome_dir}: {stderr or stdout}"
+            f"readExtensionsMetadata failed for {chrome_dir}: {stderr or stdout}"
         )
     try:
         parsed = json.loads(stdout)
     except json.JSONDecodeError as exc:
         raise AssertionError(
-            f"Invalid JSON from waitForExtensionsMetadata: {stdout}"
+            f"Invalid JSON from readExtensionsMetadata: {stdout}"
         ) from exc
     if not isinstance(parsed, list) or not parsed:
         raise AssertionError(
@@ -913,7 +910,7 @@ def _ensure_puppeteer_with_hooks(env: dict, timeout: int) -> None:
         return
 
     puppeteer_result = subprocess.run(
-        [sys.executable, str(PUPPETEER_CRAWL_HOOK)],
+        [str(PUPPETEER_CRAWL_HOOK)],
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -930,9 +927,7 @@ def _ensure_puppeteer_with_hooks(env: dict, timeout: int) -> None:
     if not puppeteer_record or puppeteer_record.get("name") != "puppeteer":
         raise RuntimeError("Puppeteer Binary record not emitted by crawl hook")
 
-    npm_cmd = [
-        sys.executable,
-        str(NPM_BINARY_HOOK),
+    npm_cmd = [str(NPM_BINARY_HOOK),
         "--machine-id=test-machine",
         "--binary-id=test-puppeteer",
         "--name=puppeteer",
@@ -989,7 +984,7 @@ def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
             return existing
 
         chrome_result = subprocess.run(
-            [sys.executable, str(CHROME_INSTALL_HOOK)],
+            [str(CHROME_INSTALL_HOOK)],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -1004,9 +999,7 @@ def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
         if not chrome_record or chrome_record.get("name") not in ("chromium", "chrome"):
             raise RuntimeError("Chrome Binary record not emitted by crawl hook")
 
-        chromium_cmd = [
-            sys.executable,
-            str(PUPPETEER_BINARY_HOOK),
+        chromium_cmd = [str(PUPPETEER_BINARY_HOOK),
             "--machine-id=test-machine",
             "--binary-id=test-chromium",
             f"--name={chrome_record.get('name', 'chromium')}",
@@ -1211,7 +1204,7 @@ def launch_chromium_session(
     stderr_handle = open(stderr_log, "w+", encoding="utf-8")
 
     chrome_launch_process = subprocess.Popen(
-        ["node", str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
+        [str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
         cwd=str(chrome_dir),
         stdout=stdout_handle,
         stderr=stderr_handle,
@@ -1372,22 +1365,22 @@ def launch_snapshot_tab(
     snapshot_id: str,
     crawl_id: str,
     timeout: int = 60,
+    require_pid: bool | None = None,
 ) -> subprocess.Popen:
     """Launch the snapshot tab hook and wait for snapshot-level session markers.
 
-    This waits only for tab/session marker publication (``cdp_url.txt``,
-    ``target_id.txt``, ``chrome.pid``). Navigation is still a separate lifecycle
-    step handled by the navigate hook and signaled later via ``page_loaded.txt``
-    / ``navigation.json``.
+    This waits only for tab/session marker publication. By default it requires
+    ``chrome.pid`` only when the environment represents a local browser
+    (`CHROME_IS_LOCAL` true and no `CHROME_CDP_URL`). Navigation is still a
+    separate lifecycle step handled by the navigate hook and signaled later via
+    ``navigation.json``.
     """
     stdout_log = snapshot_chrome_dir / "chrome_tab.stdout.log"
     stderr_log = snapshot_chrome_dir / "chrome_tab.stderr.log"
     stdout_handle = open(stdout_log, "w+", encoding="utf-8")
     stderr_handle = open(stderr_log, "w+", encoding="utf-8")
     tab_process = subprocess.Popen(
-        [
-            "node",
-            str(CHROME_TAB_HOOK),
+        [str(CHROME_TAB_HOOK),
             f"--url={test_url}",
             f"--snapshot-id={snapshot_id}",
             f"--crawl-id={crawl_id}",
@@ -1401,6 +1394,11 @@ def launch_snapshot_tab(
     tab_process._stdout_handle = stdout_handle
     tab_process._stderr_handle = stderr_handle
 
+    if require_pid is None:
+        cdp_url_override = (tab_env.get("CHROME_CDP_URL") or "").strip()
+        is_local = (tab_env.get("CHROME_IS_LOCAL") or "true").strip().lower() in {"1", "true", "yes", "on"}
+        require_pid = is_local and not cdp_url_override
+
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if tab_process.poll() is not None:
@@ -1413,11 +1411,10 @@ def launch_snapshot_tab(
             raise RuntimeError(
                 f"Tab creation exited early:\nStdout: {stdout}\nStderr: {stderr}"
             )
-        if (
-            (snapshot_chrome_dir / "cdp_url.txt").exists()
-            and (snapshot_chrome_dir / "target_id.txt").exists()
-            and (snapshot_chrome_dir / "chrome.pid").exists()
-        ):
+        cdp_ready = (snapshot_chrome_dir / "cdp_url.txt").exists()
+        target_ready = (snapshot_chrome_dir / "target_id.txt").exists()
+        pid_ready = (snapshot_chrome_dir / "chrome.pid").exists()
+        if cdp_ready and target_ready and (pid_ready or not require_pid):
             return tab_process
         time.sleep(0.2)
 
@@ -1569,7 +1566,7 @@ def chrome_session(
         stdout_handle = open(stdout_log, "w+", encoding="utf-8")
         stderr_handle = open(stderr_log, "w+", encoding="utf-8")
         chrome_launch_process = subprocess.Popen(
-            ["node", str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
+            [str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
             cwd=str(chrome_dir),
             stdout=stdout_handle,
             stderr=stderr_handle,
@@ -1640,7 +1637,6 @@ def chrome_session(
             try:
                 result = subprocess.run(
                     [
-                        "node",
                         str(CHROME_NAVIGATE_HOOK),
                         f"--url={test_url}",
                         f"--snapshot-id={snapshot_id}",

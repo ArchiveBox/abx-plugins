@@ -55,12 +55,11 @@ const originalLoad = Module._load;
 Module._load = function(request, parent, isMain) {
     if (request === '../chrome/chrome_utils.js') {
         return {
-            waitForChromeSession: async () => true,
             connectToPage: async () => ({
                 browser: { disconnect: () => {} },
                 page: { title: async () => 'Resolved Title' },
             }),
-            waitForPageLoaded: async () => {},
+            waitForNavigationComplete: async () => {},
         };
     }
     return originalLoad(request, parent, isMain);
@@ -120,8 +119,9 @@ const originalLoad = Module._load;
 
 Module._load = function(request, parent, isMain) {
     if (request === './chrome_utils.js') {
+        const actual = originalLoad(request, parent, isMain);
         return {
-            getEnvInt: (_name, defaultValue) => defaultValue,
+            ...actual,
             waitForChromeSessionState: async () => ({
                 cdpUrl: 'ws://127.0.0.1:9222/devtools/browser/test',
                 pid: 4321,

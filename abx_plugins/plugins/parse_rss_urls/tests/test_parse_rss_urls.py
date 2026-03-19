@@ -20,9 +20,7 @@ class TestParseRssUrls:
         """Test parsing a real RSS feed from the web."""
         # Use httpbin.org which provides a sample RSS feed
         result = subprocess.run(
-            [
-                sys.executable,
-                str(SCRIPT_PATH),
+            [str(SCRIPT_PATH),
                 "--url",
                 "https://news.ycombinator.com/rss",
             ],
@@ -65,7 +63,7 @@ class TestParseRssUrls:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -111,7 +109,7 @@ class TestParseRssUrls:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -141,7 +139,7 @@ class TestParseRssUrls:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -156,7 +154,7 @@ class TestParseRssUrls:
     def test_exits_1_when_file_not_found(self, tmp_path):
         """Test that script exits with code 1 when file doesn't exist."""
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", "file:///nonexistent/feed.rss"],
+            [str(SCRIPT_PATH), "--url", "file:///nonexistent/feed.rss"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -181,7 +179,7 @@ class TestParseRssUrls:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -213,7 +211,7 @@ class TestParseRssUrls:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -254,7 +252,7 @@ class TestParseRssUrls:
         env["SNAP_DIR"] = str(tmp_path)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,

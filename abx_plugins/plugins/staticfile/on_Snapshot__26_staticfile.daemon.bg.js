@@ -25,10 +25,7 @@ ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer-core');
 
 // Import chrome-specific utilities from chrome_utils.js
-const {
-    connectToPage,
-    waitForPageLoaded,
-} = require('../chrome/chrome_utils.js');
+const { connectToPage } = require('../chrome/chrome_utils.js');
 
 const PLUGIN_NAME = 'staticfile';
 const PLUGIN_DIR = path.basename(__dirname);

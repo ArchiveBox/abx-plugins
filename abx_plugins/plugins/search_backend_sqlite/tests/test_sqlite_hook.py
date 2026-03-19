@@ -21,7 +21,7 @@ def run_hook(tmp_path: Path, snapshot_id: str = "snap-001") -> subprocess.Comple
         }
     )
     return subprocess.run(
-        [sys.executable, str(HOOK), "--url=https://example.com", f"--snapshot-id={snapshot_id}"],
+        [str(HOOK), "--url=https://example.com", f"--snapshot-id={snapshot_id}"],
         cwd=str(output_dir),
         env=env,
         capture_output=True,

@@ -75,9 +75,7 @@ class TestParseDomOutlinksWithChrome:
 
                 # Run outlinks hook with the active Chrome session
                 result = subprocess.run(
-                    [
-                        "node",
-                        str(OUTLINKS_HOOK),
+                    [str(OUTLINKS_HOOK),
                         f"--url={test_url}",
                         f"--snapshot-id={snapshot_id}",
                     ],
@@ -133,9 +131,7 @@ class TestParseDomOutlinksWithChrome:
                 timeout=30,
             ) as (_chrome_process, _chrome_pid, snapshot_chrome_dir, env):
                 result = subprocess.run(
-                    [
-                        "node",
-                        str(OUTLINKS_HOOK),
+                    [str(OUTLINKS_HOOK),
                         f"--url={test_url}",
                         f"--snapshot-id={snapshot_id}",
                     ],

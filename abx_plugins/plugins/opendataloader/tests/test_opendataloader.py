@@ -69,7 +69,7 @@ def get_opendataloader_binary_path():
 
     if crawl_hook.exists():
         crawl_result = subprocess.run(
-            [sys.executable, str(crawl_hook)],
+            [str(crawl_hook)],
             capture_output=True,
             text=True,
             timeout=30,
@@ -95,9 +95,7 @@ def get_opendataloader_binary_path():
     env["SNAP_DIR"] = str(Path(_opendataloader_lib_root) / "data")
     env["CRAWL_DIR"] = str(Path(_opendataloader_lib_root) / "crawl")
 
-    cmd = [
-        sys.executable,
-        str(pip_hook),
+    cmd = [str(pip_hook),
         "--binary-id",
         str(uuid.uuid4()),
         "--machine-id",
@@ -172,9 +170,7 @@ def test_config_disabled_skips():
         env["OPENDATALOADER_ENABLED"] = "False"
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(OPENDATALOADER_HOOK),
+            [str(OPENDATALOADER_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -208,9 +204,7 @@ def test_noresults_without_sources():
         env["OPENDATALOADER_BINARY"] = binary_path
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(OPENDATALOADER_HOOK),
+            [str(OPENDATALOADER_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -247,9 +241,7 @@ def test_extract_single_pdf():
         env["OPENDATALOADER_BINARY"] = binary_path
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(OPENDATALOADER_HOOK),
+            [str(OPENDATALOADER_HOOK),
                 "--url",
                 "https://example.com/test.pdf",
                 "--snapshot-id",
@@ -309,9 +301,7 @@ def test_extract_multiple_pdfs():
         env["OPENDATALOADER_BINARY"] = binary_path
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(OPENDATALOADER_HOOK),
+            [str(OPENDATALOADER_HOOK),
                 "--url",
                 "https://example.com/docs",
                 "--snapshot-id",
@@ -368,9 +358,7 @@ def test_force_ocr_adds_hybrid_flag():
         env["OPENDATALOADER_FORCE_OCR"] = "true"
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(OPENDATALOADER_HOOK),
+            [str(OPENDATALOADER_HOOK),
                 "--url",
                 "https://example.com/scanned.pdf",
                 "--snapshot-id",

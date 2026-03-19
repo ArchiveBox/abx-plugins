@@ -224,6 +224,7 @@ def run_claude_code(
             try:
                 Path(session_log_path).write_text(result.stdout, encoding="utf-8")
                 print(f"[+] Session log saved to {session_log_path}", file=sys.stderr)
+                print(result.stdout, file=sys.stderr)
             except OSError as e:
                 print(f"[!] Failed to save session log: {e}", file=sys.stderr)
 

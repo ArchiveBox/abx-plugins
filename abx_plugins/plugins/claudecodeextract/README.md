@@ -55,7 +55,4 @@ Files are written to `SNAP_DIR/claudecodeextract/`:
 export CLAUDECODE_ENABLED=true
 export CLAUDECODEEXTRACT_ENABLED=true
 export ANTHROPIC_API_KEY=sk-ant-...
-
-# Custom prompt example: extract structured data instead of Markdown
-export CLAUDECODEEXTRACT_PROMPT="Extract all named entities (people, organizations, locations) from the page content. Output as entities.json with keys: people, organizations, locations."
 ```

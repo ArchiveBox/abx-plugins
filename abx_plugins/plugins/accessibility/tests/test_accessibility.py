@@ -78,9 +78,7 @@ class TestAccessibilityWithChrome:
 
                 # Run accessibility hook with the active Chrome session
                 result = subprocess.run(
-                    [
-                        "node",
-                        str(ACCESSIBILITY_HOOK),
+                    [str(ACCESSIBILITY_HOOK),
                         f"--url={test_url}",
                         f"--snapshot-id={snapshot_id}",
                     ],
@@ -133,9 +131,7 @@ class TestAccessibilityWithChrome:
         env["ACCESSIBILITY_ENABLED"] = "False"
 
         result = subprocess.run(
-            [
-                "node",
-                str(ACCESSIBILITY_HOOK),
+            [str(ACCESSIBILITY_HOOK),
                 f"--url={test_url}",
                 f"--snapshot-id={snapshot_id}",
             ],
@@ -158,7 +154,7 @@ class TestAccessibilityWithChrome:
         snapshot_id = "test-missing-url"
 
         result = subprocess.run(
-            ["node", str(ACCESSIBILITY_HOOK), f"--snapshot-id={snapshot_id}"],
+            [str(ACCESSIBILITY_HOOK), f"--snapshot-id={snapshot_id}"],
             cwd=str(self.temp_dir),
             capture_output=True,
             text=True,
@@ -174,7 +170,7 @@ class TestAccessibilityWithChrome:
         test_url = chrome_test_url
 
         result = subprocess.run(
-            ["node", str(ACCESSIBILITY_HOOK), f"--url={test_url}"],
+            [str(ACCESSIBILITY_HOOK), f"--url={test_url}"],
             cwd=str(self.temp_dir),
             capture_output=True,
             text=True,
@@ -191,9 +187,7 @@ class TestAccessibilityWithChrome:
         snapshot_id = "test-no-chrome"
 
         result = subprocess.run(
-            [
-                "node",
-                str(ACCESSIBILITY_HOOK),
+            [str(ACCESSIBILITY_HOOK),
                 f"--url={test_url}",
                 f"--snapshot-id={snapshot_id}",
             ],

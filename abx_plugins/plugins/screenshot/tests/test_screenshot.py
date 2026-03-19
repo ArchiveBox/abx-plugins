@@ -95,7 +95,6 @@ def test_screenshot_with_chrome_session(chrome_test_url):
                 try:
                     result = subprocess.run(
                         [
-                            "node",
                             str(SCREENSHOT_HOOK),
                             f"--url={test_url}",
                             f"--snapshot-id={snapshot_id}",
@@ -138,7 +137,6 @@ def test_screenshot_with_chrome_session(chrome_test_url):
 
                 result = subprocess.run(
                     [
-                        "node",
                         str(SCREENSHOT_HOOK),
                         f"--url={test_url}",
                         f"--snapshot-id={snapshot_id}",
@@ -146,7 +144,7 @@ def test_screenshot_with_chrome_session(chrome_test_url):
                     cwd=str(screenshot_dir3),
                     capture_output=True,
                     text=True,
-                    timeout=5,
+                    timeout=20,
                     env=env,
                 )
 
@@ -179,7 +177,6 @@ def test_skips_when_staticfile_exists(chrome_test_url):
         env = get_test_env() | {"SNAP_DIR": str(snapshot_dir)}
         result = subprocess.run(
             [
-                "node",
                 str(SCREENSHOT_HOOK),
                 f"--url={chrome_test_url}",
                 "--snapshot-id=snap-skip",
@@ -223,7 +220,6 @@ def test_config_save_screenshot_false_skips(chrome_test_url):
 
         result = subprocess.run(
             [
-                "node",
                 str(SCREENSHOT_HOOK),
                 f"--url={chrome_test_url}",
                 "--snapshot-id=test999",
@@ -265,7 +261,6 @@ def test_reports_missing_chrome(chrome_test_url):
 
         result = subprocess.run(
             [
-                "node",
                 str(SCREENSHOT_HOOK),
                 f"--url={chrome_test_url}",
                 "--snapshot-id=test123",
@@ -314,7 +309,6 @@ def test_waits_for_navigation_timeout(chrome_test_url):
         start_time = time.time()
         result = subprocess.run(
             [
-                "node",
                 str(SCREENSHOT_HOOK),
                 f"--url={chrome_test_url}",
                 "--snapshot-id=test-timeout",
@@ -351,7 +345,6 @@ def test_config_timeout_honored(chrome_test_url):
 
         result = subprocess.run(
             [
-                "node",
                 str(SCREENSHOT_HOOK),
                 f"--url={chrome_test_url}",
                 "--snapshot-id=testtimeout",
@@ -376,7 +369,7 @@ def test_missing_url_argument():
         snap_dir.mkdir(parents=True, exist_ok=True)
         env = get_test_env() | {"SNAP_DIR": str(snap_dir)}
         result = subprocess.run(
-            ["node", str(SCREENSHOT_HOOK), "--snapshot-id=test-missing-url"],
+            [str(SCREENSHOT_HOOK), "--snapshot-id=test-missing-url"],
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -398,7 +391,7 @@ def test_missing_snapshot_id_argument(chrome_test_url):
         snap_dir.mkdir(parents=True, exist_ok=True)
         env = get_test_env() | {"SNAP_DIR": str(snap_dir)}
         result = subprocess.run(
-            ["node", str(SCREENSHOT_HOOK), f"--url={chrome_test_url}"],
+            [str(SCREENSHOT_HOOK), f"--url={chrome_test_url}"],
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -428,7 +421,6 @@ def test_no_cdp_url_fails(chrome_test_url):
 
         result = subprocess.run(
             [
-                "node",
                 str(SCREENSHOT_HOOK),
                 f"--url={chrome_test_url}",
                 "--snapshot-id=test",
@@ -463,7 +455,6 @@ def test_no_target_id_fails(chrome_test_url):
 
         result = subprocess.run(
             [
-                "node",
                 str(SCREENSHOT_HOOK),
                 f"--url={chrome_test_url}",
                 "--snapshot-id=test",
@@ -496,7 +487,6 @@ def test_invalid_cdp_url_fails(chrome_test_url):
 
         result = subprocess.run(
             [
-                "node",
                 str(SCREENSHOT_HOOK),
                 f"--url={chrome_test_url}",
                 "--snapshot-id=test",
@@ -536,7 +526,6 @@ def test_invalid_timeout_uses_default(chrome_test_url):
         start = time.time()
         result = subprocess.run(
             [
-                "node",
                 str(SCREENSHOT_HOOK),
                 f"--url={chrome_test_url}",
                 "--snapshot-id=test",

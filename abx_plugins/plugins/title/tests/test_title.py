@@ -77,7 +77,6 @@ def title_test_urls(httpserver):
 def run_title_capture(title_dir, snapshot_chrome_dir, env, url, snapshot_id):
     nav_result = subprocess.run(
         [
-            "node",
             str(CHROME_NAVIGATE_HOOK),
             f"--url={url}",
             f"--snapshot-id={snapshot_id}",
@@ -89,7 +88,7 @@ def run_title_capture(title_dir, snapshot_chrome_dir, env, url, snapshot_id):
         env=env,
     )
     result = subprocess.run(
-        ["node", str(TITLE_HOOK), f"--url={url}", f"--snapshot-id={snapshot_id}"],
+        [str(TITLE_HOOK), f"--url={url}", f"--snapshot-id={snapshot_id}"],
         cwd=title_dir,
         capture_output=True,
         text=True,
@@ -168,7 +167,7 @@ def test_fails_without_chrome_session():
 
         # Run title extraction
         result = subprocess.run(
-            ["node", str(TITLE_HOOK), f"--url={TEST_URL}", "--snapshot-id=testhttp"],
+            [str(TITLE_HOOK), f"--url={TEST_URL}", "--snapshot-id=testhttp"],
             cwd=title_dir,
             capture_output=True,
             text=True,

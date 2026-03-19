@@ -6,14 +6,19 @@
  * shared browser launched by on_Crawl__90_chrome_launch.daemon.bg.js is actually
  * reachable over CDP.
  *
+ * This hook exists primarily as a foreground barrier. The launch hook is a
+ * daemon/background hook, so it does not block later foreground hooks by
+ * itself. Keeping this as a thin foreground wait stage means downstream crawl
+ * hooks do not all need to reimplement their own "wait until Chrome is ready"
+ * ordering logic before touching the shared browser session.
+ *
  * Usage: on_Crawl__91_chrome_wait.js --url=<url> --snapshot-id=<uuid>
  */
 
 const fs = require('fs');
 const path = require('path');
-const { ensureNodeModuleResolution, parseArgs } = require('../base/utils.js');
+const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvInt } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
-const puppeteer = require('puppeteer');
 
 const PLUGIN_DIR = path.basename(__dirname);
 const CRAWL_DIR = path.resolve((process.env.CRAWL_DIR || '.').trim());
@@ -24,57 +29,11 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 process.chdir(OUTPUT_DIR);
 
 const {
-    getEnvInt,
     waitForChromeSessionState,
 } = require('./chrome_utils.js');
 
 const CHROME_SESSION_DIR = path.join(CRAWL_DIR, 'chrome');
 const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function waitForConnectableCrawlChromeSession(chromeSessionDir, timeoutMs) {
-    const deadline = Date.now() + timeoutMs;
-
-    while (Date.now() < deadline) {
-        const remainingMs = Math.max(deadline - Date.now(), 0);
-        const state = await waitForChromeSessionState(chromeSessionDir, {
-            timeoutMs: Math.min(remainingMs, 500),
-            intervalMs: 100,
-            requirePid: true,
-            requireAlivePid: true,
-        });
-
-        if (!state?.cdpUrl) {
-            await sleep(Math.min(200, remainingMs));
-            continue;
-        }
-
-        let browser = null;
-        try {
-            browser = await puppeteer.connect({
-                browserWSEndpoint: state.cdpUrl,
-                defaultViewport: null,
-            });
-            return {
-                cdpUrl: state.cdpUrl,
-                pid: state.pid,
-            };
-        } catch (error) {
-            await sleep(Math.min(200, remainingMs));
-        } finally {
-            if (browser) {
-                try {
-                    browser.disconnect();
-                } catch (disconnectError) {}
-            }
-        }
-    }
-
-    return null;
-}
 
 async function main() {
     const args = parseArgs();
@@ -88,19 +47,38 @@ async function main() {
 
     const timeoutSeconds = getEnvInt('CHROME_TAB_TIMEOUT', getEnvInt('CHROME_TIMEOUT', getEnvInt('TIMEOUT', 60)));
     const timeoutMs = timeoutSeconds * 1000;
+    const isolation = getEnv('CHROME_ISOLATION', 'crawl').toLowerCase() === 'snapshot' ? 'snapshot' : 'crawl';
+
+    if (isolation === 'snapshot') {
+        console.error('[chrome_wait:crawl] CHROME_ISOLATION=snapshot, skipping crawl-scoped wait');
+        console.log(JSON.stringify({ type: 'ArchiveResult', status: 'succeeded', output_str: 'snapshot isolation active' }));
+        process.exit(0);
+    }
 
     console.error(`[chrome_wait:crawl] Waiting for crawl Chrome session (timeout=${timeoutSeconds}s)...`);
 
-    const readySession = await waitForConnectableCrawlChromeSession(CHROME_SESSION_DIR, timeoutMs);
-    if (!readySession) {
-        console.error(`[chrome_wait:crawl] ERROR: ${CHROME_SESSION_REQUIRED_ERROR}`);
-        console.log(JSON.stringify({ type: 'ArchiveResult', status: 'failed', output_str: CHROME_SESSION_REQUIRED_ERROR }));
+    const readySession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
+        timeoutMs,
+        intervalMs: 100,
+        requireConnectable: true,
+        probeTimeoutMs: 1000,
+    });
+    if (!readySession?.cdpUrl) {
+        const error = CHROME_SESSION_REQUIRED_ERROR;
+        console.error(`[chrome_wait:crawl] ERROR: ${error}`);
+        console.log(JSON.stringify({ type: 'ArchiveResult', status: 'failed', output_str: error }));
         process.exit(1);
     }
 
-    console.error(`[chrome_wait:crawl] Chrome session ready (verified CDP connection, pid=${readySession.pid}, cdp_url=${readySession.cdpUrl.slice(0, 32)}...).`);
-    const port = (readySession.cdpUrl.match(/:(\d+)\/devtools\//) || [])[1] || '?';
-    console.log(JSON.stringify({ type: 'ArchiveResult', status: 'succeeded', output_str: `browser ready pid=${readySession.pid} port=${port}` }));
+    const pid = readySession.pid || 'external';
+    let port = '?';
+    try {
+        const endpoint = new URL(readySession.cdpUrl);
+        port = endpoint.port || (endpoint.protocol === 'https:' || endpoint.protocol === 'wss:' ? '443' : '80');
+    } catch (error) {}
+
+    console.error(`[chrome_wait:crawl] Chrome session ready (verified CDP connection, pid=${pid}, cdp_url=${readySession.cdpUrl.slice(0, 32)}...).`);
+    console.log(JSON.stringify({ type: 'ArchiveResult', status: 'succeeded', output_str: `browser ready pid=${pid} port=${port}` }));
     process.exit(0);
 }
 

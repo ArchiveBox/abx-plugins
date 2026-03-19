@@ -68,9 +68,7 @@ def staticfile_test_urls(httpserver):
 def run_staticfile_capture(staticfile_dir, snapshot_chrome_dir, env, url, snapshot_id):
     """Launch staticfile hook, navigate, and collect its self-emitted final JSONL."""
     hook_proc = subprocess.Popen(
-        [
-            "node",
-            str(STATICFILE_HOOK),
+        [str(STATICFILE_HOOK),
             f"--url={url}",
             f"--snapshot-id={snapshot_id}",
         ],
@@ -85,9 +83,7 @@ def run_staticfile_capture(staticfile_dir, snapshot_chrome_dir, env, url, snapsh
     time.sleep(1)
 
     nav_result = subprocess.run(
-        [
-            "node",
-            str(CHROME_NAVIGATE_HOOK),
+        [str(CHROME_NAVIGATE_HOOK),
             f"--url={url}",
             f"--snapshot-id={snapshot_id}",
         ],

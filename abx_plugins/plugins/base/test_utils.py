@@ -21,7 +21,6 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -134,13 +133,7 @@ def run_hook(
     if env is None:
         env = os.environ.copy()
 
-    # Determine interpreter based on file extension
-    if hook_script.suffix == ".py":
-        cmd = [sys.executable, str(hook_script)]
-    elif hook_script.suffix == ".js":
-        cmd = ["node", str(hook_script)]
-    else:
-        cmd = [str(hook_script)]
+    cmd = [str(hook_script)]
 
     cmd.extend([f"--url={url}", f"--snapshot-id={snapshot_id}"])
     if extra_args:

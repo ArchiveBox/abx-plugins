@@ -16,6 +16,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { getEnvBool } = require('../base/utils.js');
 
 const PLUGIN_DIR = path.basename(__dirname);
 const CRAWL_DIR = path.resolve((process.env.CRAWL_DIR || '.').trim());
@@ -26,7 +27,7 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 process.chdir(OUTPUT_DIR);
 
 // Import extension utilities
-const { installExtensionWithCache, getEnvBool } = require('../chrome/chrome_utils.js');
+const { installExtensionWithCache } = require('../chrome/chrome_utils.js');
 
 // Check if enabled
 if (!getEnvBool('CLAUDECHROME_ENABLED', false)) {

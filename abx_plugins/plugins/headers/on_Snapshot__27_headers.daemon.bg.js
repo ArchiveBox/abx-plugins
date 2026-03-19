@@ -27,8 +27,7 @@ const puppeteer = require('puppeteer-core');
 // Import chrome-specific utilities from chrome_utils.js
 const {
     connectToPage,
-    waitForChromeSessionState,
-    waitForPageLoaded,
+    waitForNavigationComplete,
 } = require('../chrome/chrome_utils.js');
 
 const PLUGIN_NAME = 'headers';
@@ -58,6 +57,7 @@ let responseStatus = null;
 let responseStatusText = null;
 let responseUrl = null;
 let originalUrl = null;
+let latestNavigationState = null;
 let headersReadyResolve = null;
 let headersReadyReject = null;
 const headersReady = new Promise((resolve) => {
@@ -69,17 +69,13 @@ const headersReadyFailure = new Promise((_, reject) => {
     headersReadyReject = reject;
 });
 
-function getFinalUrl() {
-    const finalUrlFile = path.join(CHROME_SESSION_DIR, 'final_url.txt');
-    if (fs.existsSync(finalUrlFile)) {
-        return fs.readFileSync(finalUrlFile, 'utf8').trim();
-    }
-    return page ? page.url() : null;
+function getFinalUrl(navigationState = null) {
+    return navigationState?.finalUrl || page?.url() || null;
 }
 
-function writeHeadersFile() {
-    if (headersWritten) return;
+function writeHeadersFile(navigationState = null, forceRewrite = false) {
     if (!responseHeaders) return;
+    if (headersWritten && !forceRewrite) return;
 
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
     const responseHeadersWithStatus = {
@@ -93,7 +89,7 @@ function writeHeadersFile() {
 
     const record = {
         url: requestUrl || originalUrl,
-        final_url: getFinalUrl(),
+        final_url: getFinalUrl(navigationState),
         status: responseStatus !== undefined ? responseStatus : null,
         request_headers: requestHeaders || {},
         response_headers: responseHeadersWithStatus,
@@ -108,31 +104,22 @@ function writeHeadersFile() {
     }
 
     fs.writeFileSync(outputPath, JSON.stringify(record, null, 2));
+    const wasWritten = headersWritten;
     headersWritten = true;
-    if (headersReadyResolve) {
+    if (!wasWritten && headersReadyResolve) {
         headersReadyResolve();
     }
 }
 
 async function setupListener(url) {
     const timeout = getEnvInt('HEADERS_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
-    const chromeSession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
-        timeoutMs: Math.min(timeout, 1000),
-        requireTargetId: true,
-        requirePid: true,
-        requireAlivePid: true,
-    });
-    if (!chromeSession) {
-        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
-    }
-
-    const { browser, page } = await connectToPage({
+    const { browser, page, cdpSession } = await connectToPage({
         chromeSessionDir: CHROME_SESSION_DIR,
         timeoutMs: timeout,
         puppeteer,
     });
 
-    client = await page.target().createCDPSession();
+    client = cdpSession;
     await client.send('Network.enable');
 
     client.on('Network.requestWillBeSent', (params) => {
@@ -207,8 +194,8 @@ function emitResult(status = 'succeeded', outputStr = OUTPUT_FILE) {
 
 async function handleShutdown(signal) {
     console.error(`\nReceived ${signal}, emitting final results...`);
-    if (!headersWritten) {
-        writeHeadersFile();
+    if (!headersWritten || latestNavigationState) {
+        writeHeadersFile(latestNavigationState, true);
     }
     if (headersWritten) {
         await emitResult('succeeded', OUTPUT_FILE);
@@ -258,14 +245,17 @@ async function main() {
             new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out waiting for headers')), timeout * 4)),
         ]);
 
-        // Best-effort short grace period so final_url.txt/page_loaded.txt can
-        // land before we serialize output, without blocking success on them.
+        // Best-effort short grace period so navigation.json can land before we
+        // serialize output, without blocking success on it.
+        let navigationState = null;
         try {
-            await waitForPageLoaded(CHROME_SESSION_DIR, POST_CAPTURE_NAVIGATION_GRACE_MS, 200);
+            navigationState = await waitForNavigationComplete(CHROME_SESSION_DIR, POST_CAPTURE_NAVIGATION_GRACE_MS, 200);
+            latestNavigationState = navigationState;
         } catch (e) {
             // Ignore navigation marker timeouts once headers have been captured.
         }
 
+        writeHeadersFile(navigationState, true);
         if (!headersWritten) {
             throw new Error('No headers captured');
         }

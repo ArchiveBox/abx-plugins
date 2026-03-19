@@ -72,9 +72,7 @@ def test_extracts_pdf_from_example_com(chrome_test_url):
 
             # Run PDF extraction hook
             result = subprocess.run(
-                [
-                    "node",
-                    str(PDF_HOOK),
+                [str(PDF_HOOK),
                     f"--url={chrome_test_url}",
                     "--snapshot-id=test789",
                 ],
@@ -129,7 +127,7 @@ def test_config_save_pdf_false_skips():
         env["PDF_ENABLED"] = "False"
 
         result = subprocess.run(
-            ["node", str(PDF_HOOK), f"--url={TEST_URL}", "--snapshot-id=test999"],
+            [str(PDF_HOOK), f"--url={TEST_URL}", "--snapshot-id=test999"],
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -162,7 +160,7 @@ def test_reports_missing_chrome():
         env = get_test_env() | {"SNAP_DIR": str(snap_dir)}
 
         result = subprocess.run(
-            ["node", str(PDF_HOOK), f"--url={TEST_URL}", "--snapshot-id=test123"],
+            [str(PDF_HOOK), f"--url={TEST_URL}", "--snapshot-id=test123"],
             cwd=pdf_dir,
             capture_output=True,
             text=True,
@@ -194,9 +192,7 @@ def test_runs_with_shared_chrome_session(chrome_test_url):
             pdf_dir.mkdir(exist_ok=True)
 
             result = subprocess.run(
-                [
-                    "node",
-                    str(PDF_HOOK),
+                [str(PDF_HOOK),
                     f"--url={chrome_test_url}",
                     "--snapshot-id=testtimeout",
                 ],

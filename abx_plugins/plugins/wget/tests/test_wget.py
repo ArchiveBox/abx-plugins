@@ -131,9 +131,7 @@ def test_can_install_wget_via_provider():
     machine_id = str(uuid.uuid4())
 
     result = subprocess.run(
-        [
-            sys.executable,
-            str(provider_hook),
+        [str(provider_hook),
             "--binary-id",
             binary_id,
             "--machine-id",
@@ -199,9 +197,7 @@ def test_archives_example_com():
 
     # Run installation (idempotent - will succeed if already installed)
     install_result = subprocess.run(
-        [
-            sys.executable,
-            str(provider_hook),
+        [str(provider_hook),
             "--binary-id",
             str(uuid.uuid4()),
             "--machine-id",
@@ -227,9 +223,7 @@ def test_archives_example_com():
 
         # Run wget extraction
         result = subprocess.run(
-            [
-                sys.executable,
-                str(WGET_HOOK),
+            [str(WGET_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -301,9 +295,7 @@ def test_config_save_wget_false_skips():
         env["WGET_ENABLED"] = "False"
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(WGET_HOOK),
+            [str(WGET_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -348,9 +340,7 @@ def test_config_save_warc():
         env["SNAP_DIR"] = str(tmpdir)
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(WGET_HOOK),
+            [str(WGET_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -396,9 +386,7 @@ def test_staticfile_present_skips():
         wget_dir.mkdir()
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(WGET_HOOK),
+            [str(WGET_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -437,9 +425,7 @@ def test_handles_404_gracefully():
 
         # Try to download non-existent page
         result = subprocess.run(
-            [
-                sys.executable,
-                str(WGET_HOOK),
+            [str(WGET_HOOK),
                 "--url",
                 "https://example.com/nonexistent-page-404",
                 "--snapshot-id",
@@ -477,9 +463,7 @@ def test_config_timeout_honored():
 
         # This should still succeed for example.com (it's fast)
         result = subprocess.run(
-            [
-                sys.executable,
-                str(WGET_HOOK),
+            [str(WGET_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -510,9 +494,7 @@ def test_config_user_agent():
         env["WGET_USER_AGENT"] = "TestBot/1.0"
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(WGET_HOOK),
+            [str(WGET_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",

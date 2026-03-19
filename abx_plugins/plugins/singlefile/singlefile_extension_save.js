@@ -70,12 +70,12 @@ async function main() {
 
         // Connect to existing Chrome session
         console.error('[singlefile] connecting to chrome session...');
-        const { browser, page } = await chromeUtils.connectToPage({
+        const { browser, page, cdpSession, extensions } = await chromeUtils.connectToPage({
             chromeSessionDir: CHROME_SESSION_DIR,
             timeoutMs: 60000,
             requireTargetId: true,
+            requireExtensionsLoaded: true,
             puppeteer,
-            puppeteerModule: puppeteer,
         });
         console.error('[singlefile] connected to chrome');
 
@@ -92,16 +92,14 @@ async function main() {
 
             // Ensure CDP target discovery is enabled so service_worker targets appear
             try {
-                const client = await page.createCDPSession();
-                await client.send('Target.setDiscoverTargets', { discover: true });
-                await client.send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: false, flatten: true });
+                await cdpSession.send('Target.setDiscoverTargets', { discover: true });
             } catch (err) {
                 console.error(`[singlefile] failed to enable target discovery: ${err.message || err}`);
             }
 
             // Resolve extension id from snapshot chrome session metadata and connect to target by id.
             console.error('[singlefile] waiting for extensions metadata...');
-            const sessionExtensions = await chromeUtils.waitForExtensionsMetadata(CHROME_SESSION_DIR, 15000);
+            const sessionExtensions = extensions || [];
             const sessionEntry = chromeUtils.findExtensionMetadataByName(sessionExtensions, extension.name);
             if (!sessionEntry || !sessionEntry.id) {
                 console.error(`[singlefile] extension metadata missing id for name=${extension.name}`);

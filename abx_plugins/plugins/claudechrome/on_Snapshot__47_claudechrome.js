@@ -27,17 +27,18 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { ensureNodeModuleResolution, emitArchiveResult } = require('../base/utils.js');
-ensureNodeModuleResolution(module);
 const {
+    ensureNodeModuleResolution,
+    emitArchiveResult,
     getEnv,
     getEnvBool,
     getEnvInt,
     parseArgs,
-    waitForChromeSession,
+} = require('../base/utils.js');
+ensureNodeModuleResolution(module);
+const {
     connectToPage,
     setBrowserDownloadBehavior,
-    waitForPageLoaded,
 } = require('../chrome/chrome_utils.js');
 
 // Check if enabled BEFORE requiring puppeteer
@@ -562,10 +563,6 @@ async function main() {
     let browser = null;
 
     try {
-        if (!(await waitForChromeSession(CHROME_SESSION_DIR, Math.min(timeout * 1000, 1000), true))) {
-            throw new Error('No Chrome session found (chrome plugin must run first)');
-        }
-
         // Snapshot pre-existing downloads before we start
         const previousDownloads = snapshotDirFiles(DOWNLOADS_DIR);
 
@@ -574,11 +571,13 @@ async function main() {
         const connection = await connectToPage({
             chromeSessionDir: CHROME_SESSION_DIR,
             timeoutMs: connectTimeoutMs,
+            waitForNavigationComplete: true,
+            postLoadDelayMs: 200,
             puppeteer,
         });
         browser = connection.browser;
         const page = connection.page;
-        await waitForPageLoaded(CHROME_SESSION_DIR, connectTimeoutMs * 4, 200);
+        const cdpClient = connection.cdpSession;
 
         // Set download directory
         await setBrowserDownloadBehavior({ page, downloadPath: DOWNLOADS_DIR });
@@ -593,9 +592,6 @@ async function main() {
         console.error(`[*] Model: ${model}`);
         console.error(`[*] Running Claude on ${url}`);
         console.error(`[*] Prompt: ${prompt.slice(0, 150)}...`);
-
-        // Create CDP session for screenshots
-        const cdpClient = await page.target().createCDPSession();
 
         // Run the computer-use agentic loop
         const result = await runComputerUseLoop(page, cdpClient, prompt, {

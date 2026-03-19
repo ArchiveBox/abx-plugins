@@ -53,9 +53,7 @@ class TestNpmProviderHook:
         env["HOME"] = self.temp_dir
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(INSTALL_HOOK),
+            [str(INSTALL_HOOK),
                 "--name=some-package",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
@@ -77,9 +75,7 @@ class TestNpmProviderHook:
         env.pop("LIB_DIR", None)
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(INSTALL_HOOK),
+            [str(INSTALL_HOOK),
                 "--name=some-package",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
@@ -103,9 +99,7 @@ class TestNpmProviderHook:
 
         # Even if installation fails, the npm prefix should be created
         subprocess.run(
-            [
-                sys.executable,
-                str(INSTALL_HOOK),
+            [str(INSTALL_HOOK),
                 "--name=nonexistent-xyz123",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
@@ -129,9 +123,7 @@ class TestNpmProviderHook:
 
         # Just verify it doesn't crash with overrides
         result = subprocess.run(
-            [
-                sys.executable,
-                str(INSTALL_HOOK),
+            [str(INSTALL_HOOK),
                 "--name=test-pkg",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",

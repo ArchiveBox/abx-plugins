@@ -85,7 +85,7 @@ def get_mercury_binary_path():
 
     if crawl_hook and crawl_hook.exists():
         crawl_result = subprocess.run(
-            [sys.executable, str(crawl_hook)],
+            [str(crawl_hook)],
             capture_output=True,
             text=True,
             timeout=30,
@@ -115,9 +115,7 @@ def get_mercury_binary_path():
     env["CRAWL_DIR"] = str(Path(_mercury_lib_root) / "crawl")
     env.pop("LIB_DIR", None)
 
-    cmd = [
-        sys.executable,
-        str(npm_hook),
+    cmd = [str(npm_hook),
         "--binary-id",
         binary_id,
         "--machine-id",
@@ -186,9 +184,7 @@ def test_extracts_with_mercury_parser(httpserver):
 
         # Run mercury extraction hook
         result = subprocess.run(
-            [
-                sys.executable,
-                str(MERCURY_HOOK),
+            [str(MERCURY_HOOK),
                 "--url",
                 test_url,
                 "--snapshot-id",
@@ -246,9 +242,7 @@ def test_extracts_with_local_html_source_present(httpserver):
         env["MERCURY_BINARY"] = binary_path
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(MERCURY_HOOK),
+            [str(MERCURY_HOOK),
                 "--url",
                 test_url,
                 "--snapshot-id",
@@ -302,9 +296,7 @@ def test_config_save_mercury_false_skips():
         env["SNAP_DIR"] = str(snap_dir)
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(MERCURY_HOOK),
+            [str(MERCURY_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -352,9 +344,7 @@ def test_extracts_without_local_html_source(httpserver):
         env["MERCURY_BINARY"] = binary_path
         env["SNAP_DIR"] = str(tmpdir)
         result = subprocess.run(
-            [
-                sys.executable,
-                str(MERCURY_HOOK),
+            [str(MERCURY_HOOK),
                 "--url",
                 test_url,
                 "--snapshot-id",

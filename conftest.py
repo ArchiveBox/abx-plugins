@@ -4,6 +4,7 @@ import fcntl
 import json
 import logging
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -24,6 +25,103 @@ CLAUDECODE_INSTALL_HOOK = (
     PLUGINS_ROOT / "claudecode" / "on_Crawl__35_claudecode_install.finite.bg.py"
 )
 NPM_BINARY_HOOK = PLUGINS_ROOT / "npm" / "on_Binary__10_npm_install.py"
+
+
+def _tee_subprocess_output_enabled() -> bool:
+    return os.environ.get("ABX_PYTEST_TEE_SUBPROCESS_OUTPUT", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _format_subprocess_args(args: object) -> str:
+    if isinstance(args, (list, tuple)):
+        return shlex.join(str(arg) for arg in args)
+    return str(args)
+
+
+def _normalize_subprocess_stream(stream: object) -> str:
+    if stream is None:
+        return ""
+    if isinstance(stream, bytes):
+        return stream.decode("utf-8", errors="replace")
+    return str(stream)
+
+
+def _format_subprocess_output(args: object, stdout: object, stderr: object) -> str:
+    cmd_display = _format_subprocess_args(args)
+    stdout_text = _normalize_subprocess_stream(stdout)
+    stderr_text = _normalize_subprocess_stream(stderr)
+    chunks: list[str] = []
+
+    if stdout_text:
+        chunk = f"\n[subprocess stdout] {cmd_display}\n{stdout_text}"
+        if not stdout_text.endswith("\n"):
+            chunk += "\n"
+        chunks.append(chunk)
+
+    if stderr_text:
+        chunk = f"\n[subprocess stderr] {cmd_display}\n{stderr_text}"
+        if not stderr_text.endswith("\n"):
+            chunk += "\n"
+        chunks.append(chunk)
+
+    return "".join(chunks)
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]):
+    outcome = yield
+    report = outcome.get_result()
+    setattr(item, f"rep_{report.when}", report)
+
+
+@pytest.fixture(autouse=True)
+def tee_captured_subprocess_output_on_failure(
+    request: pytest.FixtureRequest,
+) -> None:
+    # Pytest only auto-shows output it captured itself. Many tests in this repo
+    # call subprocess.run(..., capture_output=True), which hides child-process
+    # stdout/stderr from pytest entirely unless the test manually includes it in
+    # an assertion message. In CI, buffer that captured subprocess output and
+    # dump it only when the owning test fails.
+    if not _tee_subprocess_output_enabled():
+        yield
+        return
+
+    monkeypatch = pytest.MonkeyPatch()
+    real_run = subprocess.run
+    subprocess_output_log: list[str] = []
+
+    def wrapped_run(*args, **kwargs):
+        result = real_run(*args, **kwargs)
+        cmd_args = kwargs.get("args")
+        if cmd_args is None and args:
+            cmd_args = args[0]
+        formatted = _format_subprocess_output(cmd_args, result.stdout, result.stderr)
+        if formatted:
+            subprocess_output_log.append(formatted)
+        return result
+
+    monkeypatch.setattr(subprocess, "run", wrapped_run)
+    try:
+        yield
+    finally:
+        monkeypatch.undo()
+        rep_setup = getattr(request.node, "rep_setup", None)
+        rep_call = getattr(request.node, "rep_call", None)
+        rep_teardown = getattr(request.node, "rep_teardown", None)
+        # Match pytest's default ergonomics: keep passing tests quiet, but emit
+        # the buffered child-process output for failures in setup/call/teardown.
+        failed = any(
+            report is not None and report.failed
+            for report in (rep_setup, rep_call, rep_teardown)
+        )
+        if failed and subprocess_output_log:
+            sys.stdout.write("".join(subprocess_output_log))
+            sys.stdout.flush()
 
 
 @pytest.fixture(autouse=True)
@@ -150,7 +248,7 @@ def ensure_claude_code_prereqs(tmp_path_factory):
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
 
             install_result = subprocess.run(
-                [sys.executable, str(CLAUDECODE_INSTALL_HOOK)],
+                [str(CLAUDECODE_INSTALL_HOOK)],
                 capture_output=True,
                 text=True,
                 timeout=300,
@@ -165,9 +263,7 @@ def ensure_claude_code_prereqs(tmp_path_factory):
             if binary_record.get("name") != "claude":
                 raise RuntimeError("Claude Code install hook did not emit a claude Binary record")
 
-            npm_cmd = [
-                sys.executable,
-                str(NPM_BINARY_HOOK),
+            npm_cmd = [str(NPM_BINARY_HOOK),
                 "--machine-id=test-machine",
                 "--binary-id=test-claude",
                 "--name=claude",

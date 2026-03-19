@@ -30,10 +30,7 @@ const {
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer-core');
-const {
-    connectToPage,
-    waitForPageLoaded,
-} = require('../chrome/chrome_utils.js');
+const { connectToPage } = require('../chrome/chrome_utils.js');
 
 // Extractor metadata
 const PLUGIN_NAME = 'parse_dom_outlinks';
@@ -63,11 +60,12 @@ async function extractOutlinks(url, snapshotId, crawlId, depth, timeoutMs) {
         const connection = await connectToPage({
             chromeSessionDir: CHROME_SESSION_DIR,
             timeoutMs,
+            waitForNavigationComplete: true,
+            postLoadDelayMs: 200,
             puppeteer,
         });
         browser = connection.browser;
         const page = connection.page;
-        await waitForPageLoaded(CHROME_SESSION_DIR, timeoutMs * 4, 200);
 
         // Extract outlinks by category
         const outlinksData = await page.evaluate(() => {

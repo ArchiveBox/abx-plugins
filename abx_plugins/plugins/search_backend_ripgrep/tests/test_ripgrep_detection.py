@@ -29,7 +29,7 @@ def test_ripgrep_hook_detects_binary_from_path():
     env["RIPGREP_BINARY"] = "rg"  # Just the name, not the full path (this was the bug)
 
     result = subprocess.run(
-        [sys.executable, str(hook_path)],
+        [str(hook_path)],
         capture_output=True,
         text=True,
         env=env,
@@ -60,7 +60,7 @@ def test_ripgrep_hook_skips_when_backend_not_ripgrep():
     env["SEARCH_BACKEND_ENGINE"] = "sqlite"  # Different backend
 
     result = subprocess.run(
-        [sys.executable, str(hook_path)],
+        [str(hook_path)],
         capture_output=True,
         text=True,
         env=env,
@@ -87,7 +87,7 @@ def test_ripgrep_hook_handles_absolute_path():
     env["RIPGREP_BINARY"] = rg_path  # Full absolute path
 
     result = subprocess.run(
-        [sys.executable, str(hook_path)],
+        [str(hook_path)],
         capture_output=True,
         text=True,
         env=env,
@@ -125,7 +125,7 @@ def test_ripgrep_only_detected_when_backend_enabled():
     env1["RIPGREP_BINARY"] = "rg"
 
     result1 = subprocess.run(
-        [sys.executable, str(hook_path)],
+        [str(hook_path)],
         capture_output=True,
         text=True,
         env=env1,
@@ -144,7 +144,7 @@ def test_ripgrep_only_detected_when_backend_enabled():
     env2["RIPGREP_BINARY"] = "rg"
 
     result2 = subprocess.run(
-        [sys.executable, str(hook_path)],
+        [str(hook_path)],
         capture_output=True,
         text=True,
         env=env2,

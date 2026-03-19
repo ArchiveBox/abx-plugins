@@ -69,9 +69,7 @@ class TestResponsesWithChrome:
 
             # Run responses hook with the active Chrome session (background hook)
             result = subprocess.Popen(
-                [
-                    "node",
-                    str(RESPONSES_HOOK),
+                [str(RESPONSES_HOOK),
                     f"--url={test_url}",
                     f"--snapshot-id={snapshot_id}",
                 ],
@@ -83,9 +81,7 @@ class TestResponsesWithChrome:
             )
 
             nav_result = subprocess.run(
-                [
-                    "node",
-                    str(CHROME_NAVIGATE_HOOK),
+                [str(CHROME_NAVIGATE_HOOK),
                     f"--url={test_url}",
                     f"--snapshot-id={snapshot_id}",
                 ],

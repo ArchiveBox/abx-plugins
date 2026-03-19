@@ -79,7 +79,7 @@ def get_forumdl_binary_path():
 
         if crawl_hook and crawl_hook.exists():
             crawl_result = subprocess.run(
-                [sys.executable, str(crawl_hook)],
+                [str(crawl_hook)],
                 capture_output=True,
                 text=True,
                 timeout=30,
@@ -106,9 +106,7 @@ def get_forumdl_binary_path():
         env["SNAP_DIR"] = str(Path(_forumdl_lib_root) / "data")
         env.pop("LIB_DIR", None)
 
-        cmd = [
-            sys.executable,
-            str(pip_hook),
+        cmd = [str(pip_hook),
             "--binary-id",
             binary_id,
             "--machine-id",
@@ -173,9 +171,7 @@ def test_handles_non_forum_url(local_http_base_url):
 
         # Run forum-dl extraction hook on non-forum URL
         result = subprocess.run(
-            [
-                sys.executable,
-                str(FORUMDL_HOOK),
+            [str(FORUMDL_HOOK),
                 "--url",
                 local_http_base_url,
                 "--snapshot-id",
@@ -214,9 +210,7 @@ def test_config_save_forumdl_false_skips():
         env.pop("LIB_DIR", None)
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(FORUMDL_HOOK),
+            [str(FORUMDL_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -259,9 +253,7 @@ def test_config_timeout():
 
         start_time = time.time()
         result = subprocess.run(
-            [
-                sys.executable,
-                str(FORUMDL_HOOK),
+            [str(FORUMDL_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -309,9 +301,7 @@ def test_real_forum_url():
 
         start_time = time.time()
         result = subprocess.run(
-            [
-                sys.executable,
-                str(FORUMDL_HOOK),
+            [str(FORUMDL_HOOK),
                 "--url",
                 forum_url,
                 "--snapshot-id",

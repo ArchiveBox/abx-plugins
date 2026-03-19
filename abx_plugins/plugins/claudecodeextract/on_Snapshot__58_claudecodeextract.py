@@ -95,6 +95,10 @@ def main(url: str, snapshot_id: str):
                 f"You may READ any files within the snapshot directory: {SNAP_DIR}\n"
                 f"You MUST WRITE all output files to exactly: {OUTPUT_DIR}\n"
                 "Do NOT write files anywhere else. Do NOT print output to stdout instead of writing files.\n\n"
+                "## Required Deliverable\n"
+                "You must complete the task exactly as requested in the user prompt.\n"
+                "Do not merely describe the output in your response. You must use the Write/Edit tools to create the file or files themselves.\n"
+                "Before finishing, verify the output file or files exist and are non-empty by reading them or listing them from the filesystem.\n\n"
                 "CRITICAL RESTRICTION: You MUST NOT read, write, or modify anything "
                 f"outside of {SNAP_DIR}. Do not use absolute paths to other directories. "
                 "Do not use .. to escape the snapshot directory."
@@ -108,7 +112,7 @@ def main(url: str, snapshot_id: str):
         full_prompt = (
             f"URL being archived: {url}\n\n"
             f"Your output directory (save files here): {OUTPUT_DIR}\n\n"
-            f"Task:\n{user_prompt}"
+            f"Task:\n{user_prompt}\n\n"
         )
 
         # Run Claude Code

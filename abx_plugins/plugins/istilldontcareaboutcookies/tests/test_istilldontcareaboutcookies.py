@@ -74,7 +74,7 @@ def test_install_creates_cache():
         env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
 
         result = subprocess.run(
-            ["node", str(INSTALL_SCRIPT)],
+            [str(INSTALL_SCRIPT)],
             capture_output=True,
             text=True,
             env=env,
@@ -117,7 +117,7 @@ def test_install_uses_existing_cache():
         env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
 
         result = subprocess.run(
-            ["node", str(INSTALL_SCRIPT)],
+            [str(INSTALL_SCRIPT)],
             capture_output=True,
             text=True,
             env=env,
@@ -139,7 +139,7 @@ def test_no_configuration_required():
         # No special env vars needed - works out of the box
 
         result = subprocess.run(
-            ["node", str(INSTALL_SCRIPT)],
+            [str(INSTALL_SCRIPT)],
             capture_output=True,
             text=True,
             env=env,
@@ -182,7 +182,7 @@ def test_extension_loads_in_chromium():
 
         # Step 1: Install the extension
         result = subprocess.run(
-            ["node", str(INSTALL_SCRIPT)],
+            [str(INSTALL_SCRIPT)],
             cwd=str(tmpdir),
             capture_output=True,
             text=True,
@@ -280,14 +280,15 @@ const puppeteer = require('puppeteer-core');
         }}));
     }}
 
-    browser.disconnect();
+            browser.disconnect();
 }})();
 """
             script_path = tmpdir / "test_extension.js"
-            script_path.write_text(test_script)
+            script_path.write_text(f"#!/usr/bin/env node\n{test_script}", encoding="utf-8")
+            script_path.chmod(0o755)
 
             result = subprocess.run(
-                ["node", str(script_path)],
+                [str(script_path)],
                 cwd=str(tmpdir),
                 capture_output=True,
                 text=True,
@@ -432,10 +433,11 @@ const puppeteer = require('puppeteer-core');
 }})();
 """
     script_path = script_dir / "check_cookies.js"
-    script_path.write_text(test_script)
+    script_path.write_text(f"#!/usr/bin/env node\n{test_script}", encoding="utf-8")
+    script_path.chmod(0o755)
 
     result = subprocess.run(
-        ["node", str(script_path)],
+        [str(script_path)],
         cwd=str(script_dir),
         capture_output=True,
         text=True,
@@ -574,7 +576,7 @@ def test_hides_cookie_consent_on_static_page(httpserver):
         env_with_ext["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
 
         result = subprocess.run(
-            ["node", str(INSTALL_SCRIPT)],
+            [str(INSTALL_SCRIPT)],
             cwd=str(tmpdir),
             capture_output=True,
             text=True,

@@ -52,9 +52,7 @@ class TestAptProviderHook:
     def test_hook_skips_when_apt_not_allowed(self):
         """Hook should skip when apt not in allowed binproviders."""
         result = subprocess.run(
-            [
-                sys.executable,
-                str(INSTALL_HOOK),
+            [str(INSTALL_HOOK),
                 "--name=wget",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
@@ -74,9 +72,7 @@ class TestAptProviderHook:
         """Hook should detect apt binary when available."""
         assert apt_available(), "apt not installed"
         result = subprocess.run(
-            [
-                sys.executable,
-                str(INSTALL_HOOK),
+            [str(INSTALL_HOOK),
                 "--name=nonexistent-pkg-xyz123",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
@@ -94,9 +90,7 @@ class TestAptProviderHook:
         overrides = json.dumps({"apt": {"install_args": ["custom-package-name"]}})
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(INSTALL_HOOK),
+            [str(INSTALL_HOOK),
                 "--name=test-pkg",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
@@ -120,9 +114,7 @@ class TestAptProviderSystemBinaries:
         assert apt_available(), "apt not installed"
         # Check for a binary that's almost certainly installed (like 'ls' or 'bash')
         result = subprocess.run(
-            [
-                sys.executable,
-                str(INSTALL_HOOK),
+            [str(INSTALL_HOOK),
                 "--name=bash",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",

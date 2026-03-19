@@ -39,6 +39,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     wait_for_extensions_metadata,
     CHROME_LAUNCH_HOOK,
     CHROME_CRAWL_WAIT_HOOK,
+    CHROME_SNAPSHOT_LAUNCH_HOOK,
     CHROME_TAB_HOOK,
     CHROME_WAIT_HOOK,
     CHROME_NAVIGATE_HOOK,
@@ -51,7 +52,7 @@ TEST_EXTENSION_VERSION = "1.0.0"
 
 def _get_cookies_via_cdp(port: int, env: dict) -> list[dict]:
     result = subprocess.run(
-        ["node", str(CHROME_UTILS), "getCookiesViaCdp", str(port)],
+        [str(CHROME_UTILS), "getCookiesViaCdp", str(port)],
         capture_output=True,
         text=True,
         timeout=30,
@@ -94,6 +95,43 @@ def _create_target_via_cdp(cdp_url: str, url: str) -> dict:
         return json.loads(response.read().decode("utf-8"))
 
 
+def _probe_browser_page_via_cdp(cdp_url: str, env: dict) -> dict:
+    script = """
+const puppeteer = require('puppeteer');
+(async () => {
+  const browser = await puppeteer.connect({ browserWSEndpoint: process.argv[1], defaultViewport: null });
+  try {
+    const pages = await browser.pages();
+    const page = pages.find(candidate => candidate.url() === 'about:blank') || pages[0];
+    if (!page) {
+      throw new Error('No page available in browser');
+    }
+    process.stdout.write(JSON.stringify({
+      url: page.url(),
+      title: await page.title(),
+      targetId: page.target()._targetId || page.target()._targetInfo?.targetId || null,
+    }));
+  } finally {
+    await browser.disconnect();
+  }
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
+"""
+    result = subprocess.run(
+        ["node", "-e", script, cdp_url],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
+    assert result.returncode == 0, (
+        f"Failed to probe browser page via CDP: {result.stderr}\nStdout: {result.stdout}"
+    )
+    return json.loads(result.stdout.strip())
+
+
 def _cleanup_session_artifacts(session_dir: Path, env: dict, *, require_target_id: bool = False) -> dict:
     script = """
 const path = require('path');
@@ -125,6 +163,20 @@ const requireTargetId = process.argv[3] === 'true';
         f"cleanupStaleChromeSessionArtifacts failed: {result.stderr}\nStdout: {result.stdout}"
     )
     return json.loads(result.stdout.strip())
+
+
+def _assert_snapshot_chrome_state_cleared(snapshot_chrome_dir: Path) -> None:
+    for file_name in [
+        "cdp_url.txt",
+        "chrome.pid",
+        "target_id.txt",
+        "url.txt",
+        "navigation.json",
+        "extensions.json",
+    ]:
+        assert not (snapshot_chrome_dir / file_name).exists(), (
+            f"{file_name} should be removed from snapshot chrome dir during teardown"
+        )
 
 
 def _write_test_extension_cache(extensions_dir: Path) -> dict:
@@ -196,6 +248,135 @@ def _cleanup_launch_process(
 ) -> None:
     if chrome_launch_process is not None:
         kill_chromium_session(chrome_launch_process, chrome_dir)
+
+
+def _is_pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def _wait_for_pid_exit(pid: int, timeout_seconds: float = 15.0) -> bool:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if not _is_pid_alive(pid):
+            return True
+        time.sleep(0.25)
+    return not _is_pid_alive(pid)
+
+
+def _wait_for_process_to_remain_running(
+    process: subprocess.Popen,
+    *,
+    stable_seconds: float = 1.0,
+    poll_interval: float = 0.1,
+) -> None:
+    deadline = time.monotonic() + stable_seconds
+    while time.monotonic() < deadline:
+        assert process.poll() is None, "process exited before reaching the required stable running window"
+        time.sleep(poll_interval)
+
+
+def _launch_keepalive_local_provider_browser(
+    tmpdir: str | Path,
+    *,
+    crawl_dir_name: str,
+) -> tuple[Path, Path, dict, str, int]:
+    provider_dir = Path(tmpdir) / crawl_dir_name
+    provider_dir.mkdir()
+    provider_chrome_dir = provider_dir / "chrome"
+    provider_chrome_dir.mkdir()
+
+    provider_env = _isolated_test_env(
+        tmpdir,
+        CRAWL_DIR=str(provider_dir),
+        CHROME_HEADLESS="true",
+        CHROME_KEEPALIVE="true",
+    )
+    provider_launch = subprocess.run(
+        [str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_dir_name}"],
+        cwd=str(provider_chrome_dir),
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=provider_env,
+    )
+    assert provider_launch.returncode == 0, (
+        f"provider launch should succeed:\nStdout: {provider_launch.stdout}\nStderr: {provider_launch.stderr}"
+    )
+
+    cdp_url = (provider_chrome_dir / "cdp_url.txt").read_text().strip()
+    pid = int((provider_chrome_dir / "chrome.pid").read_text().strip())
+    assert cdp_url.startswith("ws://"), cdp_url
+    assert _is_pid_alive(pid), f"provider browser pid should be running: {pid}"
+    return provider_dir, provider_chrome_dir, provider_env, cdp_url, pid
+
+
+def _launch_snapshot_tab_allowing_optional_pid(
+    *,
+    snapshot_chrome_dir: Path,
+    tab_env: dict[str, str],
+    test_url: str,
+    snapshot_id: str,
+    crawl_id: str,
+    require_pid: bool,
+    timeout: int = 60,
+) -> subprocess.Popen:
+    stdout_log = snapshot_chrome_dir / "chrome_tab.stdout.log"
+    stderr_log = snapshot_chrome_dir / "chrome_tab.stderr.log"
+    stdout_handle = open(stdout_log, "w+", encoding="utf-8")
+    stderr_handle = open(stderr_log, "w+", encoding="utf-8")
+    tab_process = subprocess.Popen(
+        [
+            str(CHROME_TAB_HOOK),
+            f"--url={test_url}",
+            f"--snapshot-id={snapshot_id}",
+            f"--crawl-id={crawl_id}",
+        ],
+        cwd=str(snapshot_chrome_dir),
+        stdout=stdout_handle,
+        stderr=stderr_handle,
+        text=True,
+        env=tab_env,
+    )
+    tab_process._stdout_handle = stdout_handle
+    tab_process._stderr_handle = stderr_handle
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if tab_process.poll() is not None:
+            stdout_handle.flush()
+            stderr_handle.flush()
+            stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
+            stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
+            stdout_handle.close()
+            stderr_handle.close()
+            raise RuntimeError(
+                f"Tab creation exited early:\nStdout: {stdout}\nStderr: {stderr}"
+            )
+        cdp_ready = (snapshot_chrome_dir / "cdp_url.txt").exists()
+        target_ready = (snapshot_chrome_dir / "target_id.txt").exists()
+        pid_ready = (snapshot_chrome_dir / "chrome.pid").exists()
+        if cdp_ready and target_ready and (pid_ready or not require_pid):
+            return tab_process
+        time.sleep(0.2)
+
+    try:
+        tab_process.send_signal(signal.SIGTERM)
+        tab_process.wait(timeout=10)
+    except Exception:
+        pass
+    stdout_handle.flush()
+    stderr_handle.flush()
+    stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
+    stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
+    stdout_handle.close()
+    stderr_handle.close()
+    raise RuntimeError(
+        f"Tab creation timed out after {timeout}s\nStdout: {stdout}\nStderr: {stderr}"
+    )
 
 
 def _isolated_test_env(tmpdir: str | Path, **updates: str) -> dict:
@@ -366,7 +547,6 @@ def test_chrome_launch_and_tab_creation(chrome_test_url):
 
         assert (chrome_dir / "cdp_url.txt").exists(), "cdp_url.txt should exist"
         assert (chrome_dir / "chrome.pid").exists(), "chrome.pid should exist"
-        assert (chrome_dir / "port.txt").exists(), "port.txt should exist"
 
         chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
 
@@ -374,6 +554,10 @@ def test_chrome_launch_and_tab_creation(chrome_test_url):
             f"CDP URL should be WebSocket URL: {cdp_url}"
         )
         assert chrome_pid > 0, "Chrome PID should be valid"
+
+        page_probe = _probe_browser_page_via_cdp(cdp_url, env)
+        assert page_probe["url"] == "about:blank", page_probe
+        assert page_probe["targetId"], page_probe
 
         # Verify Chrome process is running
         try:
@@ -419,6 +603,913 @@ def test_chrome_launch_and_tab_creation(chrome_test_url):
         _cleanup_launch_process(chrome_launch_process, chrome_dir)
 
 
+def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):
+    """chrome_tab should emit one succeeded ArchiveResult and remain alive after startup."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        crawl_dir = Path(tmpdir) / "crawl"
+        crawl_dir.mkdir()
+        chrome_dir = crawl_dir / "chrome"
+        chrome_dir.mkdir()
+
+        env = _isolated_test_env(
+            tmpdir,
+            CHROME_HEADLESS="true",
+            CRAWL_DIR=str(crawl_dir),
+        )
+
+        chrome_launch_process, _cdp_url = launch_chromium_session(
+            env,
+            chrome_dir,
+            "test-tab-single-result",
+            timeout=45,
+        )
+
+        snapshot_dir = Path(tmpdir) / "snapshot1"
+        snapshot_dir.mkdir()
+        snapshot_chrome_dir = snapshot_dir / "chrome"
+        snapshot_chrome_dir.mkdir()
+
+        env["CRAWL_DIR"] = str(crawl_dir)
+        env["SNAP_DIR"] = str(snapshot_dir)
+        tab_process = None
+        try:
+            tab_process = launch_snapshot_tab(
+                snapshot_chrome_dir=snapshot_chrome_dir,
+                tab_env=env,
+                test_url=chrome_test_url,
+                snapshot_id="snap-single-result",
+                crawl_id="test-tab-single-result",
+            )
+
+            stdout_log = snapshot_chrome_dir / "chrome_tab.stdout.log"
+            deadline = time.monotonic() + 10
+            archive_results = []
+            while time.monotonic() < deadline:
+                assert tab_process.poll() is None, (
+                    "chrome_tab should stay alive after publishing its startup result"
+                )
+                stdout_lines = [
+                    line.strip()
+                    for line in stdout_log.read_text(encoding="utf-8", errors="replace").splitlines()
+                    if line.strip()
+                ]
+                archive_results = []
+                for line in stdout_lines:
+                    if not line.startswith("{"):
+                        continue
+                    try:
+                        record = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if record.get("type") == "ArchiveResult":
+                        archive_results.append(record)
+                if len(archive_results) == 1:
+                    _wait_for_process_to_remain_running(tab_process, stable_seconds=1.0)
+                    stdout_lines = [
+                        line.strip()
+                        for line in stdout_log.read_text(encoding="utf-8", errors="replace").splitlines()
+                        if line.strip()
+                    ]
+                    archive_results = []
+                    for line in stdout_lines:
+                        if not line.startswith("{"):
+                            continue
+                        try:
+                            record = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        if record.get("type") == "ArchiveResult":
+                            archive_results.append(record)
+                    break
+                time.sleep(0.1)
+
+            assert len(archive_results) == 1, (
+                f"chrome_tab should emit exactly one ArchiveResult on successful startup, got {archive_results}\n"
+                f"Stdout log:\n{stdout_log.read_text(encoding='utf-8', errors='replace')}"
+            )
+            assert archive_results[0]["status"] == "succeeded", archive_results[0]
+        finally:
+            if tab_process is not None:
+                try:
+                    tab_process.send_signal(signal.SIGTERM)
+                    tab_process.wait(timeout=10)
+                except Exception:
+                    pass
+            _cleanup_launch_process(chrome_launch_process, chrome_dir)
+
+
+def test_chrome_can_adopt_existing_cdp_url_without_local_pid(chrome_test_url):
+    """CHROME_CDP_URL + CHROME_IS_LOCAL=false should reuse a browser without writing chrome.pid."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        provider_crawl_dir = Path(tmpdir) / "provider-crawl"
+        provider_crawl_dir.mkdir()
+        provider_chrome_dir = provider_crawl_dir / "chrome"
+        provider_chrome_dir.mkdir()
+
+        provider_env = get_test_env() | {
+            "CRAWL_DIR": str(provider_crawl_dir),
+            "CHROME_HEADLESS": "true",
+        }
+        provider_process = subprocess.Popen(
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=provider-crawl"],
+            cwd=str(provider_chrome_dir),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=provider_env,
+        )
+
+        try:
+            for _ in range(45):
+                if provider_process.poll() is not None:
+                    stdout, stderr = provider_process.communicate()
+                    pytest.fail(
+                        f"provider chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                    )
+                if (provider_chrome_dir / "cdp_url.txt").exists() and (provider_chrome_dir / "chrome.pid").exists():
+                    break
+                time.sleep(1)
+
+            assert (provider_chrome_dir / "cdp_url.txt").exists()
+            assert (provider_chrome_dir / "chrome.pid").exists()
+            provider_cdp_url = (provider_chrome_dir / "cdp_url.txt").read_text().strip()
+            provider_pid = int((provider_chrome_dir / "chrome.pid").read_text().strip())
+            os.kill(provider_pid, 0)
+
+            crawl_dir = Path(tmpdir) / "crawl"
+            crawl_dir.mkdir()
+            chrome_dir = crawl_dir / "chrome"
+            chrome_dir.mkdir()
+
+            adopt_env = get_test_env() | {
+                "CRAWL_DIR": str(crawl_dir),
+                "CHROME_HEADLESS": "true",
+                "CHROME_CDP_URL": provider_cdp_url,
+                "CHROME_IS_LOCAL": "false",
+                "CHROME_KEEPALIVE": "true",
+            }
+
+            launch = subprocess.run(
+                [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-adopted-crawl"],
+                cwd=str(chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=adopt_env,
+            )
+            assert launch.returncode == 0, (
+                f"Chrome adoption should succeed:\nStdout: {launch.stdout}\nStderr: {launch.stderr}"
+            )
+            assert (chrome_dir / "cdp_url.txt").exists(), "cdp_url.txt should be published"
+            assert not (chrome_dir / "chrome.pid").exists(), (
+                "chrome.pid should not be written for CHROME_IS_LOCAL=false"
+            )
+            assert (chrome_dir / "cdp_url.txt").read_text().strip() == provider_cdp_url
+
+            wait_result = subprocess.run(
+                [str(CHROME_CRAWL_WAIT_HOOK), f"--url={chrome_test_url}", "--snapshot-id=test-adopted-snapshot"],
+                cwd=str(chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=adopt_env,
+            )
+            assert wait_result.returncode == 0, (
+                f"crawl wait should accept adopted session without pid:\nStdout: {wait_result.stdout}\nStderr: {wait_result.stderr}"
+            )
+
+            snapshot_dir = Path(tmpdir) / "snapshot-adopted"
+            snapshot_dir.mkdir()
+            snapshot_chrome_dir = snapshot_dir / "chrome"
+            snapshot_chrome_dir.mkdir()
+
+            tab_env = adopt_env | {
+                "SNAP_DIR": str(snapshot_dir),
+            }
+            tab_process = subprocess.Popen(
+                [
+                    str(CHROME_TAB_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=snap-adopted-123",
+                    "--crawl-id=test-adopted-crawl",
+                ],
+                cwd=str(snapshot_chrome_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=tab_env,
+            )
+            try:
+                for _ in range(60):
+                    if tab_process.poll() is not None:
+                        stdout, stderr = tab_process.communicate()
+                        pytest.fail(
+                            f"adopted snapshot tab exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                        )
+                    if (snapshot_chrome_dir / "cdp_url.txt").exists() and (snapshot_chrome_dir / "target_id.txt").exists():
+                        break
+                    time.sleep(1)
+
+                assert (snapshot_chrome_dir / "cdp_url.txt").exists()
+                assert (snapshot_chrome_dir / "target_id.txt").exists()
+                assert not (snapshot_chrome_dir / "chrome.pid").exists(), (
+                    "snapshot chrome.pid should not be written for CHROME_IS_LOCAL=false"
+                )
+
+                wait_env = tab_env
+                wait_result = subprocess.run(
+                    [str(CHROME_WAIT_HOOK), f"--url={chrome_test_url}", "--snapshot-id=snap-adopted-123"],
+                    cwd=str(snapshot_chrome_dir),
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    env=wait_env,
+                )
+                assert wait_result.returncode == 0, (
+                    f"snapshot wait should succeed for adopted session:\nStdout: {wait_result.stdout}\nStderr: {wait_result.stderr}"
+                )
+            finally:
+                tab_process.send_signal(signal.SIGTERM)
+                tab_process.wait(timeout=20)
+        finally:
+            try:
+                provider_process.send_signal(signal.SIGTERM)
+                provider_process.wait(timeout=20)
+            except Exception:
+                pass
+
+
+def test_crawl_isolation_external_cdp_keepalive_true_reinvocation_reuses_same_browser_without_closing_it(
+    chrome_test_url,
+):
+    """crawl isolation + external CDP + keepalive=true should not close the same adopted browser on re-invocation in the same crawl dir."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        (
+            _provider_dir,
+            provider_chrome_dir,
+            _provider_env,
+            provider_cdp_url,
+            provider_pid,
+        ) = _launch_keepalive_local_provider_browser(
+            tmpdir,
+            crawl_dir_name="provider-crawl-reinvoke",
+        )
+
+        adopted_dir = Path(tmpdir) / "adopted-crawl-reinvoke"
+        adopted_dir.mkdir()
+        adopted_chrome_dir = adopted_dir / "chrome"
+        adopted_chrome_dir.mkdir()
+
+        adopt_env = _isolated_test_env(
+            tmpdir,
+            CRAWL_DIR=str(adopted_dir),
+            CHROME_HEADLESS="true",
+            CHROME_CDP_URL=provider_cdp_url,
+            CHROME_IS_LOCAL="false",
+            CHROME_KEEPALIVE="true",
+        )
+        try:
+            first_launch = subprocess.run(
+                [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-external-reinvoke"],
+                cwd=str(adopted_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=adopt_env,
+            )
+            assert first_launch.returncode == 0, (
+                f"first adopted launch should succeed:\nStdout: {first_launch.stdout}\nStderr: {first_launch.stderr}"
+            )
+            assert (adopted_chrome_dir / "cdp_url.txt").read_text().strip() == provider_cdp_url
+            assert not (adopted_chrome_dir / "chrome.pid").exists()
+            assert _is_pid_alive(provider_pid), "provider browser should still be alive after first adopted launch"
+
+            second_launch = subprocess.run(
+                [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-external-reinvoke"],
+                cwd=str(adopted_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=adopt_env,
+            )
+            assert second_launch.returncode == 0, (
+                f"second adopted launch in same crawl dir should succeed without closing the provider browser:\n"
+                f"Stdout: {second_launch.stdout}\nStderr: {second_launch.stderr}"
+            )
+            assert (adopted_chrome_dir / "cdp_url.txt").read_text().strip() == provider_cdp_url
+            assert not (adopted_chrome_dir / "chrome.pid").exists()
+            assert _is_pid_alive(provider_pid), (
+                "provider browser should remain alive after re-invoking adopted keepalive launch in the same crawl dir"
+            )
+
+            crawl_wait = subprocess.run(
+                [
+                    str(CHROME_CRAWL_WAIT_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=snap-external-reinvoke",
+                ],
+                cwd=str(adopted_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=adopt_env,
+            )
+            assert crawl_wait.returncode == 0, (
+                f"crawl wait should still succeed after re-invocation:\nStdout: {crawl_wait.stdout}\nStderr: {crawl_wait.stderr}"
+            )
+        finally:
+            if _is_pid_alive(provider_pid):
+                kill_chrome(provider_pid, str(provider_chrome_dir))
+                assert _wait_for_pid_exit(provider_pid), "manual cleanup should terminate adopted provider browser"
+
+
+def test_snapshot_isolation_launches_and_cleans_up_local_browser(chrome_test_url):
+    """CHROME_ISOLATION=snapshot should launch from the snapshot launch hook and close on teardown."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        crawl_dir = Path(tmpdir) / "crawl"
+        crawl_dir.mkdir()
+        snapshot_dir = Path(tmpdir) / "snapshot"
+        snapshot_dir.mkdir()
+        snapshot_chrome_dir = snapshot_dir / "chrome"
+        snapshot_chrome_dir.mkdir()
+
+        tab_env = get_test_env() | {
+            "CRAWL_DIR": str(crawl_dir),
+            "SNAP_DIR": str(snapshot_dir),
+            "CHROME_HEADLESS": "true",
+            "CHROME_ISOLATION": "snapshot",
+        }
+
+        launch_process = subprocess.Popen(
+            [
+                str(CHROME_SNAPSHOT_LAUNCH_HOOK),
+                f"--url={chrome_test_url}",
+                "--snapshot-id=snap-isolated-123",
+                "--crawl-id=test-snapshot-isolation",
+            ],
+            cwd=str(snapshot_chrome_dir),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=tab_env,
+        )
+
+        for _ in range(60):
+            if launch_process.poll() is not None:
+                stdout, stderr = launch_process.communicate()
+                pytest.fail(
+                    f"snapshot-isolated launch hook exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                )
+            if (
+                (snapshot_chrome_dir / "cdp_url.txt").exists()
+                and (snapshot_chrome_dir / "chrome.pid").exists()
+            ):
+                break
+            time.sleep(1)
+
+        tab_process = subprocess.Popen(
+            [
+                str(CHROME_TAB_HOOK),
+                f"--url={chrome_test_url}",
+                "--snapshot-id=snap-isolated-123",
+                "--crawl-id=test-snapshot-isolation",
+            ],
+            cwd=str(snapshot_chrome_dir),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=tab_env,
+        )
+
+        for _ in range(60):
+            if tab_process.poll() is not None:
+                stdout, stderr = tab_process.communicate()
+                pytest.fail(
+                    f"snapshot-isolated tab hook exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                )
+            if (
+                (snapshot_chrome_dir / "cdp_url.txt").exists()
+                and (snapshot_chrome_dir / "target_id.txt").exists()
+                and (snapshot_chrome_dir / "chrome.pid").exists()
+            ):
+                break
+            time.sleep(1)
+
+        wait_result = subprocess.run(
+            [str(CHROME_WAIT_HOOK), f"--url={chrome_test_url}", "--snapshot-id=snap-isolated-123"],
+            cwd=str(snapshot_chrome_dir),
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=tab_env,
+        )
+        assert wait_result.returncode == 0, (
+            f"snapshot wait should succeed in snapshot isolation mode:\nStdout: {wait_result.stdout}\nStderr: {wait_result.stderr}"
+        )
+
+        navigate_result = subprocess.run(
+            [str(CHROME_NAVIGATE_HOOK), f"--url={chrome_test_url}", "--snapshot-id=snap-isolated-123"],
+            cwd=str(snapshot_chrome_dir),
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=tab_env,
+        )
+        assert navigate_result.returncode == 0, (
+            f"navigation should succeed in snapshot isolation mode:\nStdout: {navigate_result.stdout}\nStderr: {navigate_result.stderr}"
+        )
+
+        chrome_pid = int((snapshot_chrome_dir / "chrome.pid").read_text().strip())
+        os.kill(chrome_pid, 0)
+        assert (snapshot_chrome_dir / "navigation.json").exists()
+
+        try:
+            tab_process.send_signal(signal.SIGTERM)
+            tab_process.wait(timeout=20)
+        finally:
+            launch_process.send_signal(signal.SIGTERM)
+            launch_process.wait(timeout=20)
+
+        with pytest.raises(OSError):
+            os.kill(chrome_pid, 0)
+        _assert_snapshot_chrome_state_cleared(snapshot_chrome_dir)
+
+
+def test_crawl_isolation_local_keepalive_true_keeps_browser_running_after_hook_exit(
+    chrome_test_url,
+):
+    """crawl isolation + local browser + keepalive=true should leave Chrome running after the launch hook exits."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        crawl_dir = Path(tmpdir) / "crawl"
+        crawl_dir.mkdir()
+        chrome_dir = crawl_dir / "chrome"
+        chrome_dir.mkdir()
+
+        env = _isolated_test_env(
+            tmpdir,
+            CRAWL_DIR=str(crawl_dir),
+            CHROME_HEADLESS="true",
+            CHROME_KEEPALIVE="true",
+        )
+
+        launch = subprocess.run(
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-crawl-keepalive-true"],
+            cwd=str(chrome_dir),
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+        )
+        assert launch.returncode == 0, (
+            f"crawl launch should succeed with keepalive=true:\nStdout: {launch.stdout}\nStderr: {launch.stderr}"
+        )
+        chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
+        assert _is_pid_alive(chrome_pid), "Chrome should still be running after launch hook exits"
+
+        crawl_wait = subprocess.run(
+            [
+                str(CHROME_CRAWL_WAIT_HOOK),
+                f"--url={chrome_test_url}",
+                "--snapshot-id=snap-crawl-keepalive-true",
+            ],
+            cwd=str(chrome_dir),
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
+        )
+        assert crawl_wait.returncode == 0, (
+            f"crawl wait should still succeed after keepalive launch exits:\nStdout: {crawl_wait.stdout}\nStderr: {crawl_wait.stderr}"
+        )
+
+        snapshot_dir = Path(tmpdir) / "snapshot"
+        snapshot_dir.mkdir()
+        snapshot_chrome_dir = snapshot_dir / "chrome"
+        snapshot_chrome_dir.mkdir()
+        tab_env = env | {"SNAP_DIR": str(snapshot_dir)}
+        tab_process = launch_snapshot_tab(
+            snapshot_chrome_dir=snapshot_chrome_dir,
+            tab_env=tab_env,
+            test_url=chrome_test_url,
+            snapshot_id="snap-crawl-keepalive-true",
+            crawl_id="test-crawl-keepalive-true",
+        )
+        try:
+            snapshot_wait = subprocess.run(
+                [
+                    str(CHROME_WAIT_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=snap-crawl-keepalive-true",
+                ],
+                cwd=str(snapshot_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=tab_env,
+            )
+            assert snapshot_wait.returncode == 0, (
+                f"snapshot wait should succeed after keepalive crawl launch exits:\nStdout: {snapshot_wait.stdout}\nStderr: {snapshot_wait.stderr}"
+            )
+        finally:
+            tab_process.send_signal(signal.SIGTERM)
+            tab_process.wait(timeout=20)
+
+        assert _is_pid_alive(chrome_pid), (
+            "Chrome should remain alive after snapshot tab cleanup when crawl keepalive=true"
+        )
+        assert kill_chrome(chrome_pid, str(chrome_dir))
+        assert _wait_for_pid_exit(chrome_pid), "manual cleanup should terminate keepalive browser"
+
+
+def test_snapshot_isolation_local_keepalive_true_keeps_browser_running_after_hook_exit(
+    chrome_test_url,
+):
+    """snapshot isolation + local browser + keepalive=true should leave Chrome running after the launch hook exits."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        crawl_dir = Path(tmpdir) / "crawl"
+        crawl_dir.mkdir()
+        snapshot_dir = Path(tmpdir) / "snapshot"
+        snapshot_dir.mkdir()
+        snapshot_chrome_dir = snapshot_dir / "chrome"
+        snapshot_chrome_dir.mkdir()
+
+        env = _isolated_test_env(
+            tmpdir,
+            CRAWL_DIR=str(crawl_dir),
+            SNAP_DIR=str(snapshot_dir),
+            CHROME_HEADLESS="true",
+            CHROME_ISOLATION="snapshot",
+            CHROME_KEEPALIVE="true",
+        )
+
+        launch = subprocess.run(
+            [
+                str(CHROME_SNAPSHOT_LAUNCH_HOOK),
+                f"--url={chrome_test_url}",
+                "--snapshot-id=snap-local-keepalive-true",
+                "--crawl-id=test-snapshot-keepalive-true",
+            ],
+            cwd=str(snapshot_chrome_dir),
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+        )
+        assert launch.returncode == 0, (
+            f"snapshot launch should succeed with keepalive=true:\nStdout: {launch.stdout}\nStderr: {launch.stderr}"
+        )
+        chrome_pid = int((snapshot_chrome_dir / "chrome.pid").read_text().strip())
+        assert _is_pid_alive(chrome_pid), "Chrome should still be running after snapshot launch exits"
+
+        tab_process = launch_snapshot_tab(
+            snapshot_chrome_dir=snapshot_chrome_dir,
+            tab_env=env,
+            test_url=chrome_test_url,
+            snapshot_id="snap-local-keepalive-true",
+            crawl_id="test-snapshot-keepalive-true",
+        )
+        try:
+            snapshot_wait = subprocess.run(
+                [
+                    str(CHROME_WAIT_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=snap-local-keepalive-true",
+                ],
+                cwd=str(snapshot_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=env,
+            )
+            assert snapshot_wait.returncode == 0, (
+                f"snapshot wait should succeed for keepalive=true snapshot browser:\nStdout: {snapshot_wait.stdout}\nStderr: {snapshot_wait.stderr}"
+            )
+        finally:
+            tab_process.send_signal(signal.SIGTERM)
+            tab_process.wait(timeout=20)
+
+        assert _is_pid_alive(chrome_pid), (
+            "Chrome should remain alive after snapshot tab cleanup when snapshot keepalive=true"
+        )
+        assert kill_chrome(chrome_pid, str(snapshot_chrome_dir))
+        assert _wait_for_pid_exit(chrome_pid), "manual cleanup should terminate keepalive browser"
+
+
+def test_crawl_isolation_external_cdp_keepalive_false_closes_adopted_browser_on_cleanup(
+    chrome_test_url,
+):
+    """crawl isolation + external CDP + keepalive=false should close the adopted browser on hook cleanup."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        (
+            _provider_dir,
+            provider_chrome_dir,
+            _provider_env,
+            provider_cdp_url,
+            provider_pid,
+        ) = _launch_keepalive_local_provider_browser(
+            tmpdir,
+            crawl_dir_name="provider-crawl-keepalive",
+        )
+
+        adopted_dir = Path(tmpdir) / "adopted-crawl"
+        adopted_dir.mkdir()
+        adopted_chrome_dir = adopted_dir / "chrome"
+        adopted_chrome_dir.mkdir()
+
+        adopt_env = _isolated_test_env(
+            tmpdir,
+            CRAWL_DIR=str(adopted_dir),
+            CHROME_HEADLESS="true",
+            CHROME_CDP_URL=provider_cdp_url,
+            CHROME_IS_LOCAL="false",
+            CHROME_KEEPALIVE="false",
+        )
+
+        adopt_process = subprocess.Popen(
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-external-crawl-close"],
+            cwd=str(adopted_chrome_dir),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=adopt_env,
+        )
+        try:
+            for _ in range(60):
+                if adopt_process.poll() is not None:
+                    stdout, stderr = adopt_process.communicate()
+                    pytest.fail(
+                        f"adopted crawl launch exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                    )
+                if (adopted_chrome_dir / "cdp_url.txt").exists():
+                    break
+                time.sleep(1)
+
+            assert (adopted_chrome_dir / "cdp_url.txt").read_text().strip() == provider_cdp_url
+            assert not (adopted_chrome_dir / "chrome.pid").exists()
+            assert _is_pid_alive(provider_pid), "provider browser should be alive before adopted cleanup"
+
+            crawl_wait = subprocess.run(
+                [
+                    str(CHROME_CRAWL_WAIT_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=snap-external-crawl-close",
+                ],
+                cwd=str(adopted_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=adopt_env,
+            )
+            assert crawl_wait.returncode == 0, (
+                f"crawl wait should succeed for adopted external browser:\nStdout: {crawl_wait.stdout}\nStderr: {crawl_wait.stderr}"
+            )
+
+            adopt_process.send_signal(signal.SIGTERM)
+            adopt_process.wait(timeout=20)
+            assert _wait_for_pid_exit(provider_pid), (
+                "adopted external browser should be closed when crawl keepalive=false hook shuts down"
+            )
+            assert not (adopted_chrome_dir / "cdp_url.txt").exists(), (
+                "cdp_url.txt should be removed from crawl-owned chrome dir on teardown"
+            )
+            assert not (adopted_chrome_dir / "extensions.json").exists(), (
+                "extensions.json should be removed from crawl-owned chrome dir on teardown"
+            )
+        finally:
+            if adopt_process.poll() is None:
+                adopt_process.send_signal(signal.SIGTERM)
+                adopt_process.wait(timeout=20)
+            if _is_pid_alive(provider_pid):
+                kill_chrome(provider_pid, str(provider_chrome_dir))
+
+
+def test_snapshot_isolation_external_cdp_keepalive_true_ignores_is_local_true_and_keeps_browser_running(
+    chrome_test_url,
+):
+    """snapshot isolation + external CDP + keepalive=true should keep the adopted browser alive and treat CHROME_CDP_URL as external even if CHROME_IS_LOCAL=true."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        (
+            _provider_dir,
+            provider_chrome_dir,
+            _provider_env,
+            provider_cdp_url,
+            provider_pid,
+        ) = _launch_keepalive_local_provider_browser(
+            tmpdir,
+            crawl_dir_name="provider-snapshot-keepalive",
+        )
+
+        crawl_dir = Path(tmpdir) / "crawl"
+        crawl_dir.mkdir(exist_ok=True)
+        snapshot_dir = Path(tmpdir) / "snapshot"
+        snapshot_dir.mkdir(exist_ok=True)
+        snapshot_chrome_dir = snapshot_dir / "chrome"
+        snapshot_chrome_dir.mkdir()
+
+        env = _isolated_test_env(
+            tmpdir,
+            CRAWL_DIR=str(crawl_dir),
+            SNAP_DIR=str(snapshot_dir),
+            CHROME_HEADLESS="true",
+            CHROME_ISOLATION="snapshot",
+            CHROME_CDP_URL=provider_cdp_url,
+            CHROME_IS_LOCAL="true",
+            CHROME_KEEPALIVE="true",
+        )
+
+        launch = subprocess.run(
+            [
+                str(CHROME_SNAPSHOT_LAUNCH_HOOK),
+                f"--url={chrome_test_url}",
+                "--snapshot-id=snap-external-keepalive-true",
+                "--crawl-id=test-external-snapshot-keepalive-true",
+            ],
+            cwd=str(snapshot_chrome_dir),
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+        )
+        assert launch.returncode == 0, (
+            f"snapshot launch should succeed for external keepalive browser:\nStdout: {launch.stdout}\nStderr: {launch.stderr}"
+        )
+        assert (snapshot_chrome_dir / "cdp_url.txt").read_text().strip() == provider_cdp_url
+        assert not (snapshot_chrome_dir / "chrome.pid").exists(), (
+            "CHROME_CDP_URL should force external behavior even when CHROME_IS_LOCAL=true"
+        )
+        assert _is_pid_alive(provider_pid), "provider browser should still be alive after keepalive launch exits"
+
+        tab_process = _launch_snapshot_tab_allowing_optional_pid(
+            snapshot_chrome_dir=snapshot_chrome_dir,
+            tab_env=env,
+            test_url=chrome_test_url,
+            snapshot_id="snap-external-keepalive-true",
+            crawl_id="test-external-snapshot-keepalive-true",
+            require_pid=False,
+        )
+        try:
+            snapshot_wait = subprocess.run(
+                [
+                    str(CHROME_WAIT_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=snap-external-keepalive-true",
+                ],
+                cwd=str(snapshot_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=env,
+            )
+            assert snapshot_wait.returncode == 0, (
+                f"snapshot wait should succeed for external keepalive snapshot browser:\nStdout: {snapshot_wait.stdout}\nStderr: {snapshot_wait.stderr}"
+            )
+        finally:
+            tab_process.send_signal(signal.SIGTERM)
+            tab_process.wait(timeout=20)
+
+        assert _is_pid_alive(provider_pid), (
+            "external provider browser should remain alive after snapshot tab cleanup when keepalive=true"
+        )
+        assert kill_chrome(provider_pid, str(provider_chrome_dir))
+        assert _wait_for_pid_exit(provider_pid), "manual cleanup should terminate adopted provider browser"
+
+
+def test_snapshot_isolation_external_cdp_keepalive_false_closes_adopted_browser_on_cleanup(
+    chrome_test_url,
+):
+    """snapshot isolation + external CDP + keepalive=false should close the adopted browser on hook cleanup."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        (
+            _provider_dir,
+            provider_chrome_dir,
+            _provider_env,
+            provider_cdp_url,
+            provider_pid,
+        ) = _launch_keepalive_local_provider_browser(
+            tmpdir,
+            crawl_dir_name="provider-snapshot-close",
+        )
+
+        crawl_dir = Path(tmpdir) / "crawl"
+        crawl_dir.mkdir(exist_ok=True)
+        snapshot_dir = Path(tmpdir) / "snapshot"
+        snapshot_dir.mkdir(exist_ok=True)
+        snapshot_chrome_dir = snapshot_dir / "chrome"
+        snapshot_chrome_dir.mkdir()
+
+        env = _isolated_test_env(
+            tmpdir,
+            CRAWL_DIR=str(crawl_dir),
+            SNAP_DIR=str(snapshot_dir),
+            CHROME_HEADLESS="true",
+            CHROME_ISOLATION="snapshot",
+            CHROME_CDP_URL=provider_cdp_url,
+            CHROME_IS_LOCAL="false",
+            CHROME_KEEPALIVE="false",
+        )
+
+        launch_process = subprocess.Popen(
+            [
+                str(CHROME_SNAPSHOT_LAUNCH_HOOK),
+                f"--url={chrome_test_url}",
+                "--snapshot-id=snap-external-keepalive-false",
+                "--crawl-id=test-external-snapshot-keepalive-false",
+            ],
+            cwd=str(snapshot_chrome_dir),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
+        )
+        tab_process = None
+        try:
+            for _ in range(60):
+                if launch_process.poll() is not None:
+                    stdout, stderr = launch_process.communicate()
+                    pytest.fail(
+                        f"snapshot launch exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                    )
+                if (snapshot_chrome_dir / "cdp_url.txt").exists():
+                    break
+                time.sleep(1)
+
+            assert (snapshot_chrome_dir / "cdp_url.txt").read_text().strip() == provider_cdp_url
+            assert not (snapshot_chrome_dir / "chrome.pid").exists()
+            assert _is_pid_alive(provider_pid), "provider browser should be alive before snapshot cleanup"
+
+            tab_process = _launch_snapshot_tab_allowing_optional_pid(
+                snapshot_chrome_dir=snapshot_chrome_dir,
+                tab_env=env,
+                test_url=chrome_test_url,
+                snapshot_id="snap-external-keepalive-false",
+                crawl_id="test-external-snapshot-keepalive-false",
+                require_pid=False,
+            )
+            snapshot_wait = subprocess.run(
+                [
+                    str(CHROME_WAIT_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=snap-external-keepalive-false",
+                ],
+                cwd=str(snapshot_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=env,
+            )
+            assert snapshot_wait.returncode == 0, (
+                f"snapshot wait should succeed for external browser before cleanup:\nStdout: {snapshot_wait.stdout}\nStderr: {snapshot_wait.stderr}"
+            )
+
+            tab_process.send_signal(signal.SIGTERM)
+            tab_process.wait(timeout=20)
+            tab_process = None
+            _assert_snapshot_chrome_state_cleared(snapshot_chrome_dir)
+
+            launch_process.send_signal(signal.SIGTERM)
+            launch_process.wait(timeout=20)
+            assert _wait_for_pid_exit(provider_pid), (
+                "adopted external browser should be closed when snapshot keepalive=false hook shuts down"
+            )
+            _assert_snapshot_chrome_state_cleared(snapshot_chrome_dir)
+        finally:
+            if tab_process is not None and tab_process.poll() is None:
+                tab_process.send_signal(signal.SIGTERM)
+                tab_process.wait(timeout=20)
+            if launch_process.poll() is None:
+                launch_process.send_signal(signal.SIGTERM)
+                launch_process.wait(timeout=20)
+            if _is_pid_alive(provider_pid):
+                kill_chrome(provider_pid, str(provider_chrome_dir))
+
+
+def test_chrome_is_local_false_requires_cdp_url_for_launch():
+    """CHROME_IS_LOCAL=false without CHROME_CDP_URL should fail fast during launch."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        crawl_dir = Path(tmpdir) / "crawl"
+        crawl_dir.mkdir()
+        chrome_dir = crawl_dir / "chrome"
+        chrome_dir.mkdir()
+
+        env = _isolated_test_env(
+            tmpdir,
+            CRAWL_DIR=str(crawl_dir),
+            CHROME_HEADLESS="true",
+            CHROME_IS_LOCAL="false",
+        )
+        launch = subprocess.run(
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-local-false-without-cdp-url"],
+            cwd=str(chrome_dir),
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
+        )
+
+        assert launch.returncode != 0
+        assert "CHROME_IS_LOCAL=false requires CHROME_CDP_URL" in launch.stderr
+
+
 def test_cdp_url_is_not_published_before_extensions_metadata():
     """cddp_url.txt should only appear after extension metadata is ready."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -443,7 +1534,7 @@ def test_cdp_url_is_not_published_before_extensions_metadata():
         extensions_file = chrome_dir / "extensions.json"
         cdp_file = chrome_dir / "cdp_url.txt"
         chrome_launch_process = subprocess.Popen(
-            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-cdp-after-exts"],
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-cdp-after-exts"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -484,6 +1575,93 @@ def test_cdp_url_is_not_published_before_extensions_metadata():
             _cleanup_launch_process(chrome_launch_process, chrome_dir)
 
 
+def test_crawl_wait_accepts_http_cdp_url_for_external_browser(chrome_test_url):
+    """crawl wait should accept an adopted HTTP CDP endpoint when CHROME_IS_LOCAL=false."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        provider_dir = Path(tmpdir) / "provider"
+        provider_dir.mkdir()
+        provider_chrome_dir = provider_dir / "chrome"
+        provider_chrome_dir.mkdir()
+
+        provider_env = _isolated_test_env(
+            tmpdir,
+            CRAWL_DIR=str(provider_dir),
+            CHROME_HEADLESS="true",
+        )
+        provider_process = subprocess.Popen(
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=provider-http-adopt"],
+            cwd=str(provider_chrome_dir),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=provider_env,
+        )
+
+        adopted_process = None
+        try:
+            for _ in range(30):
+                if provider_process.poll() is not None:
+                    stdout, stderr = provider_process.communicate()
+                    pytest.fail(
+                        f"provider launch exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                    )
+                if (provider_chrome_dir / "cdp_url.txt").exists() and (provider_chrome_dir / "chrome.pid").exists():
+                    break
+                time.sleep(1)
+
+            provider_cdp_url = (provider_chrome_dir / "cdp_url.txt").read_text().strip()
+            provider_http_url = f"http://127.0.0.1:{_port_from_cdp_url(provider_cdp_url)}"
+
+            adopted_dir = Path(tmpdir) / "adopted"
+            adopted_dir.mkdir()
+            adopted_chrome_dir = adopted_dir / "chrome"
+            adopted_chrome_dir.mkdir()
+
+            adopted_env = _isolated_test_env(
+                tmpdir,
+                CRAWL_DIR=str(adopted_dir),
+                CHROME_HEADLESS="true",
+                CHROME_CDP_URL=provider_http_url,
+                CHROME_IS_LOCAL="false",
+                CHROME_KEEPALIVE="true",
+            )
+
+            adopted_launch = subprocess.run(
+                [str(CHROME_LAUNCH_HOOK), "--crawl-id=adopt-http-crawl"],
+                cwd=str(adopted_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=adopted_env,
+            )
+            assert adopted_launch.returncode == 0, (
+                f"adopted launch should succeed with HTTP endpoint:\n"
+                f"Stdout: {adopted_launch.stdout}\nStderr: {adopted_launch.stderr}"
+            )
+            assert (adopted_chrome_dir / "cdp_url.txt").read_text().strip() == provider_http_url
+            assert not (adopted_chrome_dir / "chrome.pid").exists()
+
+            crawl_wait = subprocess.run(
+                [str(CHROME_CRAWL_WAIT_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=snap-http-adopt",
+                ],
+                cwd=str(adopted_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=adopted_env,
+            )
+            assert crawl_wait.returncode == 0, (
+                f"crawl wait should succeed for adopted HTTP endpoint:\n"
+                f"Stdout: {crawl_wait.stdout}\nStderr: {crawl_wait.stderr}"
+            )
+            assert "pid=external" in crawl_wait.stdout
+            assert f"port={_port_from_cdp_url(provider_cdp_url)}" in crawl_wait.stdout
+        finally:
+            _cleanup_launch_process(provider_process, provider_chrome_dir)
+
+
 def test_cookies_imported_on_launch():
     """Integration test: COOKIES_TXT_FILE is imported at crawl start."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -518,7 +1696,7 @@ def test_cookies_imported_on_launch():
         )
 
         chrome_launch_process = subprocess.Popen(
-            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-crawl-cookies"],
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-crawl-cookies"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -527,13 +1705,13 @@ def test_cookies_imported_on_launch():
         )
 
         for _ in range(15):
-            if (chrome_dir / "port.txt").exists():
+            if (chrome_dir / "cdp_url.txt").exists():
                 break
             time.sleep(1)
 
-        assert (chrome_dir / "port.txt").exists(), "port.txt should exist"
+        assert (chrome_dir / "cdp_url.txt").exists(), "cdp_url.txt should exist"
         chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
-        port = int((chrome_dir / "port.txt").read_text().strip())
+        port = _port_from_cdp_url((chrome_dir / "cdp_url.txt").read_text().strip())
 
         cookie_found = False
         for _ in range(15):
@@ -599,9 +1777,7 @@ def test_chrome_navigation(chrome_test_url):
             CHROME_WAIT_FOR="load",
         )
         result = subprocess.run(
-            [
-                "node",
-                str(CHROME_NAVIGATE_HOOK),
+            [str(CHROME_NAVIGATE_HOOK),
                 f"--url={chrome_test_url}",
                 "--snapshot-id=snap-nav-123",
             ],
@@ -619,9 +1795,6 @@ def test_chrome_navigation(chrome_test_url):
         # Verify navigation outputs
         assert (snapshot_chrome_dir / "navigation.json").exists(), (
             "navigation.json should exist"
-        )
-        assert (snapshot_chrome_dir / "page_loaded.txt").exists(), (
-            "page_loaded.txt should exist"
         )
 
         nav_data = json.loads((snapshot_chrome_dir / "navigation.json").read_text())
@@ -657,21 +1830,18 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
         shared_files = {
             "cdp_url": chrome_dir / "cdp_url.txt",
             "chrome_pid": chrome_dir / "chrome.pid",
-            "port": chrome_dir / "port.txt",
         }
         extensions_file = chrome_dir / "extensions.json"
         snapshot_files = {
             "target": chrome_dir / "target_id.txt",
             "url": chrome_dir / "url.txt",
             "navigation": chrome_dir / "navigation.json",
-            "page_loaded": chrome_dir / "page_loaded.txt",
-            "final_url": chrome_dir / "final_url.txt",
         }
         chrome_launch_process = None
         tab_process = None
         try:
             chrome_launch_process = subprocess.Popen(
-                ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-shared-order"],
+                [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-shared-order"],
                 cwd=str(chrome_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -698,21 +1868,18 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
 
             cdp_url_before = shared_files["cdp_url"].read_text().strip()
             chrome_pid_before = shared_files["chrome_pid"].read_text().strip()
-            port_before = shared_files["port"].read_text().strip()
             extensions_before = (
                 extensions_file.read_text() if extensions_file.exists() else None
             )
             assert cdp_url_before.startswith("ws://127.0.0.1:"), cdp_url_before
-            assert port_before == str(_port_from_cdp_url(cdp_url_before))
+            port_before = str(_port_from_cdp_url(cdp_url_before))
             os.kill(int(chrome_pid_before), 0)
             assert _fetch_devtools_targets(cdp_url_before), (
                 "crawl launch should expose a live DevTools target list"
             )
 
             crawl_wait = subprocess.run(
-                [
-                    "node",
-                    str(CHROME_CRAWL_WAIT_HOOK),
+                [str(CHROME_CRAWL_WAIT_HOOK),
                     f"--url={chrome_test_url}",
                     "--snapshot-id=snap-shared-order",
                 ],
@@ -733,9 +1900,7 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
             )
 
             snapshot_wait_before_tab = subprocess.run(
-                [
-                    "node",
-                    str(CHROME_WAIT_HOOK),
+                [str(CHROME_WAIT_HOOK),
                     f"--url={chrome_test_url}",
                     "--snapshot-id=snap-shared-order",
                 ],
@@ -752,12 +1917,30 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
                 "snapshot wait must not synthesize target_id.txt before chrome_tab runs"
             )
 
+            delayed_snapshot_wait = subprocess.Popen(
+                [str(CHROME_WAIT_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=snap-shared-order-delayed",
+                ],
+                cwd=str(chrome_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env | {"CHROME_TAB_TIMEOUT": "5", "CHROME_TIMEOUT": "5"},
+            )
+            time.sleep(1)
+
             tab_process = launch_snapshot_tab(
                 snapshot_chrome_dir=chrome_dir,
                 tab_env=env,
                 test_url=chrome_test_url,
                 snapshot_id="snap-shared-order",
                 crawl_id="test-shared-order",
+            )
+            delayed_wait_stdout, delayed_wait_stderr = delayed_snapshot_wait.communicate(timeout=15)
+            assert delayed_snapshot_wait.returncode == 0, (
+                "snapshot wait should block until tab markers appear, not fail immediately when it starts before chrome_tab:\n"
+                f"Stdout: {delayed_wait_stdout}\nStderr: {delayed_wait_stderr}"
             )
 
             target_id_before_wait = snapshot_files["target"].read_text().strip()
@@ -772,15 +1955,8 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
             assert not snapshot_files["navigation"].exists(), (
                 "chrome_tab should not create navigation.json before navigate"
             )
-            assert not snapshot_files["page_loaded"].exists(), (
-                "chrome_tab should not create page_loaded.txt before navigate"
-            )
-            assert not snapshot_files["final_url"].exists(), (
-                "chrome_tab should not create final_url.txt before navigate"
-            )
             assert shared_files["cdp_url"].read_text().strip() == cdp_url_before
             assert shared_files["chrome_pid"].read_text().strip() == chrome_pid_before
-            assert shared_files["port"].read_text().strip() == port_before
 
             tab_targets = _fetch_devtools_targets(cdp_url_before)
             tab_target = next(
@@ -792,9 +1968,7 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
             assert tab_target.get("url") == "about:blank"
 
             snapshot_wait = subprocess.run(
-                [
-                    "node",
-                    str(CHROME_WAIT_HOOK),
+                [str(CHROME_WAIT_HOOK),
                     f"--url={chrome_test_url}",
                     "--snapshot-id=snap-shared-order",
                 ],
@@ -814,9 +1988,7 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
             assert snapshot_files["url"].read_text().strip() == chrome_test_url
 
             navigate = subprocess.run(
-                [
-                    "node",
-                    str(CHROME_NAVIGATE_HOOK),
+                [str(CHROME_NAVIGATE_HOOK),
                     f"--url={chrome_test_url}",
                     "--snapshot-id=snap-shared-order",
                 ],
@@ -831,15 +2003,12 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
                 f"Stdout: {navigate.stdout}\nStderr: {navigate.stderr}"
             )
             nav_data = json.loads(snapshot_files["navigation"].read_text())
-            final_url = snapshot_files["final_url"].read_text().strip()
-            assert snapshot_files["page_loaded"].read_text().strip()
             assert nav_data["url"] == chrome_test_url
-            assert nav_data["finalUrl"] == final_url
+            final_url = nav_data["finalUrl"]
             assert nav_data["status"] == 200
             assert final_url.rstrip("/") == chrome_test_url.rstrip("/")
             assert shared_files["cdp_url"].read_text().strip() == cdp_url_before
             assert shared_files["chrome_pid"].read_text().strip() == chrome_pid_before
-            assert shared_files["port"].read_text().strip() == port_before
             if extensions_before is not None:
                 assert extensions_file.read_text() == extensions_before
             assert snapshot_files["target"].read_text().strip() == target_id_before_wait
@@ -869,9 +2038,6 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
                     pass
             assert not shared_files["chrome_pid"].exists(), (
                 "chrome.pid should be removed after crawl teardown"
-            )
-            assert not shared_files["port"].exists(), (
-                "port.txt should be removed after crawl teardown"
             )
 
 
@@ -905,7 +2071,7 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
         tab_process = None
         try:
             chrome_launch_process = subprocess.Popen(
-                ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-shared-exts"],
+                [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-shared-exts"],
                 cwd=str(chrome_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -948,9 +2114,7 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
             assert extensions_file.read_text() == crawl_extensions_text
 
             snapshot_wait = subprocess.run(
-                [
-                    "node",
-                    str(CHROME_WAIT_HOOK),
+                [str(CHROME_WAIT_HOOK),
                     f"--url={chrome_test_url}",
                     "--snapshot-id=snap-shared-exts",
                 ],
@@ -1001,9 +2165,7 @@ def test_chrome_wait_rejects_stale_cdp_markers(chrome_test_url):
             CHROME_TIMEOUT="1",
         )
         result = subprocess.run(
-            [
-                "node",
-                str(CHROME_WAIT_HOOK),
+            [str(CHROME_WAIT_HOOK),
                 f"--url={chrome_test_url}",
                 "--snapshot-id=snap-wait-stale",
             ],
@@ -1022,6 +2184,69 @@ def test_chrome_wait_rejects_stale_cdp_markers(chrome_test_url):
         assert payload["output_str"] == "No Chrome session found (chrome plugin must run first)"
 
 
+def test_crawl_wait_retries_until_published_cdp_endpoint_becomes_connectable(chrome_test_url):
+    """crawl wait should keep polling a published cdp_url until the browser is actually connectable."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        (
+            provider_dir,
+            provider_chrome_dir,
+            _provider_env,
+            provider_cdp_url,
+            provider_pid,
+        ) = _launch_keepalive_local_provider_browser(
+            tmpdir,
+            crawl_dir_name="provider-crawl-wait-retry",
+        )
+        wait_process = None
+        try:
+            adopted_dir = Path(tmpdir) / "adopted-crawl-wait-retry"
+            adopted_dir.mkdir()
+            adopted_chrome_dir = adopted_dir / "chrome"
+            adopted_chrome_dir.mkdir()
+            adopted_chrome_dir.joinpath("cdp_url.txt").write_text(
+                "ws://127.0.0.1:9/devtools/browser/not-ready-yet"
+            )
+
+            adopted_env = _isolated_test_env(
+                tmpdir,
+                CRAWL_DIR=str(adopted_dir),
+                CHROME_IS_LOCAL="false",
+                CHROME_TIMEOUT="5",
+                CHROME_TAB_TIMEOUT="5",
+            )
+
+            wait_process = subprocess.Popen(
+                [
+                    str(CHROME_CRAWL_WAIT_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=snap-crawl-wait-retry",
+                ],
+                cwd=str(adopted_chrome_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=adopted_env,
+            )
+
+            _wait_for_process_to_remain_running(wait_process, stable_seconds=1.0)
+
+            adopted_chrome_dir.joinpath("cdp_url.txt").write_text(provider_cdp_url)
+
+            stdout, stderr = wait_process.communicate(timeout=15)
+            assert wait_process.returncode == 0, (
+                "crawl wait should retry until the published endpoint becomes connectable:\n"
+                f"Stdout: {stdout}\nStderr: {stderr}"
+            )
+            payload = json.loads(stdout.strip())
+            assert payload["status"] == "succeeded", payload
+            assert "browser ready" in payload["output_str"]
+        finally:
+            if wait_process is not None and wait_process.poll() is None:
+                wait_process.kill()
+                wait_process.communicate()
+            kill_chrome(provider_pid, str(provider_chrome_dir))
+
+
 def test_cleanup_stale_chrome_session_artifacts_only_when_stale():
     """Stale chrome markers should be removed, but only when they are actually stale."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -1032,8 +2257,6 @@ def test_cleanup_stale_chrome_session_artifacts_only_when_stale():
         )
         session_dir.joinpath("target_id.txt").write_text("stale-target-id")
         session_dir.joinpath("chrome.pid").write_text("999999")
-        session_dir.joinpath("port.txt").write_text("9")
-
         result = _cleanup_session_artifacts(
             session_dir,
             _isolated_test_env(tmpdir),
@@ -1062,7 +2285,7 @@ def test_cleanup_stale_chrome_session_artifacts_keeps_live_session():
             CHROME_HEADLESS="true",
         )
         chrome_launch_process = subprocess.Popen(
-            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-stale-cleanup"],
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-stale-cleanup"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -1137,9 +2360,7 @@ def test_tab_cleanup_on_sigterm(chrome_test_url):
         stdout, stderr = tab_process.communicate(timeout=10)
 
         assert tab_process.returncode == 0, f"Tab process should exit cleanly: {stderr}"
-        assert not (snapshot_chrome_dir / "target_id.txt").exists(), (
-            "target_id.txt should be removed when the snapshot tab is cleaned up"
-        )
+        _assert_snapshot_chrome_state_cleared(snapshot_chrome_dir)
 
         # Chrome should still be running
         try:
@@ -1167,7 +2388,7 @@ def test_snapshot_wait_survives_idle_delay_with_shared_dirs(chrome_test_url):
         )
 
         chrome_launch_process = subprocess.Popen(
-            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-shared-dirs"],
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-shared-dirs"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -1197,9 +2418,7 @@ def test_snapshot_wait_survives_idle_delay_with_shared_dirs(chrome_test_url):
         time.sleep(8)
 
         result = subprocess.run(
-            [
-                "node",
-                str(CHROME_WAIT_HOOK),
+            [str(CHROME_WAIT_HOOK),
                 f"--url={chrome_test_url}",
                 "--snapshot-id=snap-shared",
             ],
@@ -1240,7 +2459,7 @@ def test_concurrent_same_dir_reuses_one_browser_and_one_target(chrome_test_url):
         launch_a = launch_b = tab_a = tab_b = None
         try:
             launch_a = subprocess.Popen(
-                ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-concurrent"],
+                [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-concurrent"],
                 cwd=str(chrome_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -1248,7 +2467,7 @@ def test_concurrent_same_dir_reuses_one_browser_and_one_target(chrome_test_url):
                 env=env,
             )
             launch_b = subprocess.Popen(
-                ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-concurrent"],
+                [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-concurrent"],
                 cwd=str(chrome_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -1271,7 +2490,7 @@ def test_concurrent_same_dir_reuses_one_browser_and_one_target(chrome_test_url):
             }
 
             tab_a = subprocess.Popen(
-                ["node", str(CHROME_TAB_HOOK), f"--url={chrome_test_url}", "--snapshot-id=snap-concurrent", "--crawl-id=test-concurrent"],
+                [str(CHROME_TAB_HOOK), f"--url={chrome_test_url}", "--snapshot-id=snap-concurrent", "--crawl-id=test-concurrent"],
                 cwd=str(chrome_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -1279,7 +2498,7 @@ def test_concurrent_same_dir_reuses_one_browser_and_one_target(chrome_test_url):
                 env=env,
             )
             tab_b = subprocess.Popen(
-                ["node", str(CHROME_TAB_HOOK), f"--url={chrome_test_url}", "--snapshot-id=snap-concurrent", "--crawl-id=test-concurrent"],
+                [str(CHROME_TAB_HOOK), f"--url={chrome_test_url}", "--snapshot-id=snap-concurrent", "--crawl-id=test-concurrent"],
                 cwd=str(chrome_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -1300,7 +2519,7 @@ def test_concurrent_same_dir_reuses_one_browser_and_one_target(chrome_test_url):
                 time.sleep(1)
 
             wait_result = subprocess.run(
-                ["node", str(CHROME_WAIT_HOOK), f"--url={chrome_test_url}", "--snapshot-id=snap-concurrent"],
+                [str(CHROME_WAIT_HOOK), f"--url={chrome_test_url}", "--snapshot-id=snap-concurrent"],
                 cwd=str(chrome_dir),
                 capture_output=True,
                 text=True,
@@ -1356,7 +2575,7 @@ def test_target_crash_mid_navigation_recovers_with_fresh_tab(chrome_test_urls):
         navigate_process = None
         try:
             chrome_launch_process = subprocess.Popen(
-                ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-target-crash"],
+                [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-target-crash"],
                 cwd=str(chrome_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -1379,7 +2598,7 @@ def test_target_crash_mid_navigation_recovers_with_fresh_tab(chrome_test_urls):
             target_before = (chrome_dir / "target_id.txt").read_text().strip()
 
             navigate_process = subprocess.Popen(
-                ["node", str(CHROME_NAVIGATE_HOOK), f"--url={chrome_test_urls['slow_url']}", "--snapshot-id=snap-target-crash"],
+                [str(CHROME_NAVIGATE_HOOK), f"--url={chrome_test_urls['slow_url']}", "--snapshot-id=snap-target-crash"],
                 cwd=str(chrome_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -1409,8 +2628,7 @@ def test_target_crash_mid_navigation_recovers_with_fresh_tab(chrome_test_urls):
                 or "closed" in nav_data["error"]
                 or "detached" in nav_data["error"]
             ), nav_data
-            assert not (chrome_dir / "page_loaded.txt").exists()
-            assert not (chrome_dir / "final_url.txt").exists()
+            assert not nav_data.get("finalUrl")
 
             replacement_url = chrome_test_urls["base_url"]
             replacement_tab_process = launch_snapshot_tab(
@@ -1421,7 +2639,7 @@ def test_target_crash_mid_navigation_recovers_with_fresh_tab(chrome_test_urls):
                 crawl_id="test-target-crash",
             )
             wait_result = subprocess.run(
-                ["node", str(CHROME_WAIT_HOOK), f"--url={replacement_url}", "--snapshot-id=snap-target-crash"],
+                [str(CHROME_WAIT_HOOK), f"--url={replacement_url}", "--snapshot-id=snap-target-crash"],
                 cwd=str(chrome_dir),
                 capture_output=True,
                 text=True,
@@ -1462,7 +2680,7 @@ def test_popup_focus_theft_keeps_followup_hooks_on_canonical_target(chrome_test_
         tab_process = None
         try:
             chrome_launch_process = subprocess.Popen(
-                ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-popup-focus"],
+                [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-popup-focus"],
                 cwd=str(chrome_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -1483,7 +2701,7 @@ def test_popup_focus_theft_keeps_followup_hooks_on_canonical_target(chrome_test_
                 crawl_id="test-popup-focus",
             )
             navigate = subprocess.run(
-                ["node", str(CHROME_NAVIGATE_HOOK), f"--url={chrome_test_urls['popup_parent_url']}", "--snapshot-id=snap-popup-focus"],
+                [str(CHROME_NAVIGATE_HOOK), f"--url={chrome_test_urls['popup_parent_url']}", "--snapshot-id=snap-popup-focus"],
                 cwd=str(chrome_dir),
                 capture_output=True,
                 text=True,
@@ -1540,7 +2758,7 @@ def test_multiple_snapshots_share_chrome(chrome_test_urls):
         )
         # Launch Chrome at crawl level
         chrome_launch_process = subprocess.Popen(
-            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-multi-crawl"],
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-multi-crawl"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -1638,7 +2856,7 @@ def test_chrome_cleanup_on_crawl_end():
         )
         # Launch Chrome in background
         chrome_launch_process = subprocess.Popen(
-            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-crawl-end"],
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-crawl-end"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -1672,22 +2890,15 @@ def test_chrome_cleanup_on_crawl_end():
         chrome_launch_process.send_signal(signal.SIGTERM)
         stdout, stderr = chrome_launch_process.communicate(timeout=10)
 
-        # Wait for cleanup
-        time.sleep(3)
-
-        # Verify Chrome process is killed
-        try:
-            os.kill(chrome_pid, 0)
-            pytest.fail("Chrome should be killed after SIGTERM")
-        except OSError:
-            # Expected - Chrome should be dead
-            pass
+        assert _wait_for_pid_exit(chrome_pid, timeout_seconds=10), (
+            "Chrome should be killed after SIGTERM"
+        )
 
         assert not (chrome_dir / "chrome.pid").exists(), (
             "chrome.pid should be removed during Chrome cleanup"
         )
-        assert not (chrome_dir / "port.txt").exists(), (
-            "port.txt should be removed during Chrome cleanup"
+        assert not (chrome_dir / "cdp_url.txt").exists(), (
+            "cdp_url.txt should be removed during Chrome cleanup"
         )
 
 
@@ -1706,7 +2917,7 @@ def test_zombie_prevention_hook_killed():
         )
         # Launch Chrome
         chrome_launch_process = subprocess.Popen(
-            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-zombie"],
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-zombie"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

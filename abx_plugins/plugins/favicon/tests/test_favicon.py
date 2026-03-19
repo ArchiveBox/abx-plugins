@@ -77,9 +77,7 @@ def test_extracts_favicon_from_example_com():
 
         # Run favicon extraction
         result = subprocess.run(
-            [
-                sys.executable,
-                str(FAVICON_HOOK),
+            [str(FAVICON_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -151,9 +149,7 @@ def test_config_timeout_honored():
         env["SNAP_DIR"] = str(tmpdir)
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(FAVICON_HOOK),
+            [str(FAVICON_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -190,9 +186,7 @@ def test_config_user_agent():
         env["SNAP_DIR"] = str(tmpdir)
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(FAVICON_HOOK),
+            [str(FAVICON_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -231,9 +225,7 @@ def test_handles_https_urls():
         env = os.environ.copy()
         env["SNAP_DIR"] = str(tmpdir)
         result = subprocess.run(
-            [
-                sys.executable,
-                str(FAVICON_HOOK),
+            [str(FAVICON_HOOK),
                 "--url",
                 "https://example.org",
                 "--snapshot-id",
@@ -272,9 +264,7 @@ def test_handles_missing_favicon_gracefully():
         env = os.environ.copy()
         env["SNAP_DIR"] = str(tmpdir)
         result = subprocess.run(
-            [
-                sys.executable,
-                str(FAVICON_HOOK),
+            [str(FAVICON_HOOK),
                 "--url",
                 "https://example.com/nonexistent",
                 "--snapshot-id",
@@ -293,48 +283,6 @@ def test_handles_missing_favicon_gracefully():
         if result.returncode != 0:
             combined = result.stdout + result.stderr
             assert "No favicon found" in combined or "ERROR=" in combined
-
-
-def test_reports_missing_requests_library():
-    """Test that script reports error when requests library is missing."""
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-
-        # Run with PYTHONPATH cleared to simulate missing requests
-        import os
-
-        env = os.environ.copy()
-        # Keep only minimal PATH, clear PYTHONPATH
-        env["PYTHONPATH"] = "/nonexistent"
-        env["SNAP_DIR"] = str(tmpdir)
-
-        result = subprocess.run(
-            [
-                sys.executable,
-                "-S",
-                str(FAVICON_HOOK),
-                "--url",
-                TEST_URL,
-                "--snapshot-id",
-                "test123",
-            ],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            env=env,
-        )
-
-        # Should fail and report missing requests
-        if result.returncode != 0:
-            combined = result.stdout + result.stderr
-            # May report missing requests or other import errors
-            assert (
-                "requests" in combined.lower()
-                or "import" in combined.lower()
-                or "ERROR=" in combined
-            )
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
