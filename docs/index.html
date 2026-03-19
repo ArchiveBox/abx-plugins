@@ -845,15 +845,15 @@
           </div>
           <div class="hero-meta">
             <div class="stat">
-              <strong>56</strong>
+              <strong>58</strong>
               <span>Plugins</span>
             </div>
             <div class="stat">
-              <strong>76</strong>
+              <strong>81</strong>
               <span>Hook scripts</span>
             </div>
             <div class="stat">
-              <strong>190</strong>
+              <strong>206</strong>
               <span>Config Options</span>
             </div>
           </div>
@@ -873,7 +873,7 @@
               spellcheck="false"
             >
           </label>
-          <div class="result-count"><span id="visible-count">56</span> / 56 visible</div>
+          <div class="result-count"><span id="visible-count">58</span> / 58 visible</div>
         </div>
       </section>
 
@@ -3218,7 +3218,7 @@
         </details>
         <details
           class="plugin-card plugin-card--snapshot"
-          data-search="chrome crawl snapshot chrome launch and manage a shared chromium session for browser-driven plugins. javascript snapshot chrome text/plain application/json on_crawl__70_chrome_install.finite.bg.py on_crawl__90_chrome_launch.daemon.bg.js on_crawl__91_chrome_wait.js on_snapshot__10_chrome_tab.daemon.bg.js on_snapshot__11_chrome_wait.js on_snapshot__30_chrome_navigate.js chrome_enabled enable chromium browser integration for archiving chrome_binary path to chromium binary chrome_node_binary path to node.js binary (for puppeteer) chrome_timeout timeout for chrome operations in seconds chrome_headless run chrome in headless mode chrome_sandbox enable chrome sandbox (disable in docker with --no-sandbox) chrome_resolution browser viewport resolution (width,height) chrome_user_data_dir path to chrome user data directory for persistent sessions (derived from active_persona if not set) chrome_user_agent user agent string for chrome chrome_args default chrome command-line arguments (static flags only, dynamic args like --user-data-dir are added at runtime) chrome_args_extra extra arguments to append to chrome command (for user customization) chrome_pageload_timeout timeout for page navigation/load in seconds chrome_wait_for page load completion condition (domcontentloaded, load, networkidle0, networkidle2) chrome_delay_after_load extra delay in seconds after page load completes before archiving (useful for js-heavy spas) chrome_check_ssl_validity whether to verify ssl certificates (disable for self-signed certs)"
+          data-search="chrome crawl snapshot chrome launch and manage a shared chromium session for browser-driven plugins. javascript snapshot chrome text/plain application/json on_crawl__70_chrome_install.finite.bg.py on_crawl__90_chrome_launch.daemon.bg.js on_crawl__91_chrome_wait.js on_snapshot__09_chrome_launch.daemon.bg.js on_snapshot__10_chrome_tab.daemon.bg.js on_snapshot__11_chrome_wait.js on_snapshot__30_chrome_navigate.js chrome_enabled enable chromium browser integration for archiving chrome_binary path to chromium binary chrome_node_binary path to node.js binary (for puppeteer) chrome_timeout timeout for chrome operations in seconds chrome_headless run chrome in headless mode chrome_sandbox enable chrome sandbox (disable in docker with --no-sandbox) chrome_resolution browser viewport resolution (width,height) chrome_user_data_dir path to chrome user data directory for persistent sessions (derived from active_persona if not set) chrome_user_agent user agent string for chrome chrome_cdp_url connect to an already-running browser over cdp instead of launching a new local chromium process chrome_is_local whether the managed browser process is local and should have a live chrome.pid marker chrome_keepalive keep the browser alive after the owning crawl/snapshot hook exits instead of closing it during cleanup chrome_isolation whether chrome runs as one shared browser per crawl or a separate browser per snapshot chrome_args default chrome command-line arguments (static flags only, dynamic args like --user-data-dir are added at runtime) chrome_args_extra extra arguments to append to chrome command (for user customization) chrome_pageload_timeout timeout for page navigation/load in seconds chrome_wait_for page load completion condition (domcontentloaded, load, networkidle0, networkidle2) chrome_delay_after_load extra delay in seconds after page load completes before archiving (useful for js-heavy spas) chrome_check_ssl_validity whether to verify ssl certificates (disable for self-signed certs)"
         >
           <summary>
             <div class="plugin-main">
@@ -3230,8 +3230,8 @@
               <div class="plugin-subline">
                 <span class="chip">Crawl</span>
                 <span class="chip">Snapshot</span>
-                <span class="chip">6 hooks</span>
-                <span class="chip">15 config fields</span>
+                <span class="chip">7 hooks</span>
+                <span class="chip">19 config fields</span>
               </div>
               <div class="plugin-header-meta">
                 <span class="plugin-order">#30</span>
@@ -3338,6 +3338,20 @@
                 </div>
                 <p class="hook-file">
                   <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/chrome/on_Crawl__91_chrome_wait.js" target="_blank" rel="noreferrer"><code>on_Crawl__91_chrome_wait.js</code></a>
+                </p>
+              </article>
+              <article class="hook-card">
+                <div>
+                  <span>Snapshot hook</span>
+                  <strong>chrome launch</strong>
+                </div>
+                <div class="hook-meta">
+                  <span class="chip">JavaScript</span>
+                  <span class="chip">order 09</span>
+                  <span class="chip">background</span>
+                </div>
+                <p class="hook-file">
+                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/chrome/on_Snapshot__09_chrome_launch.daemon.bg.js" target="_blank" rel="noreferrer"><code>on_Snapshot__09_chrome_launch.daemon.bg.js</code></a>
                 </p>
               </article>
               <article class="hook-card">
@@ -3472,6 +3486,43 @@
                   <div>Fallback: <code>USER_AGENT</code></div>
                 </div>
                 <pre><code>""</code></pre>
+              </article>
+              <article class="config-card">
+                <span>Config key</span>
+                <strong><code>CHROME_CDP_URL</code></strong>
+                <p>Connect to an already-running browser over CDP instead of launching a new local Chromium process</p>
+                <div class="config-meta">
+                  <div>Type: <code>string</code></div>
+                </div>
+                <pre><code>""</code></pre>
+              </article>
+              <article class="config-card">
+                <span>Config key</span>
+                <strong><code>CHROME_IS_LOCAL</code></strong>
+                <p>Whether the managed browser process is local and should have a live chrome.pid marker</p>
+                <div class="config-meta">
+                  <div>Type: <code>boolean</code></div>
+                </div>
+                <pre><code>true</code></pre>
+              </article>
+              <article class="config-card">
+                <span>Config key</span>
+                <strong><code>CHROME_KEEPALIVE</code></strong>
+                <p>Keep the browser alive after the owning crawl/snapshot hook exits instead of closing it during cleanup</p>
+                <div class="config-meta">
+                  <div>Type: <code>boolean</code></div>
+                </div>
+                <pre><code>false</code></pre>
+              </article>
+              <article class="config-card">
+                <span>Config key</span>
+                <strong><code>CHROME_ISOLATION</code></strong>
+                <p>Whether Chrome runs as one shared browser per crawl or a separate browser per snapshot</p>
+                <div class="config-meta">
+                  <div>Type: <code>string</code></div>
+                  <div>Enum: <code>crawl, snapshot</code></div>
+                </div>
+                <pre><code>"crawl"</code></pre>
               </article>
               <article class="config-card">
                 <span>Config key</span>
@@ -5999,6 +6050,377 @@
         </details>
         <details
           class="plugin-card plugin-card--snapshot"
+          data-search="opendataloader crawl snapshot opendataloader extract structured text, tables, and metadata from pdfs using opendataloader-pdf. supports ocr for scanned pdfs via hybrid backend. python snapshot opendataloader-pdf text/plain text/markdown application/json on_crawl__42_opendataloader_install.finite.bg.py on_snapshot__60_opendataloader.py opendataloader_enabled enable pdf text extraction with opendataloader-pdf opendataloader_binary path to opendataloader-pdf binary opendataloader_timeout timeout for pdf extraction in seconds opendataloader_force_ocr use hybrid ocr backend (--hybrid docling-fast) for scanned/image-based pdfs. requires opendataloader-pdf-hybrid server running. opendataloader_hybrid_url url of the opendataloader-pdf-hybrid server (e.g. http://localhost:5002). if empty, uses the default built-in url. opendataloader_args default opendataloader-pdf arguments opendataloader_args_extra extra arguments to append to opendataloader-pdf command"
+        >
+          <summary>
+            <div class="plugin-main">
+              <div class="plugin-title-row">
+                <h2>OpenDataLoader</h2>
+              </div>
+              <div class="plugin-slug"><code>opendataloader</code></div>
+              <p class="plugin-summary-description">Extract structured text, tables, and metadata from PDFs using opendataloader-pdf. Supports OCR for scanned PDFs via hybrid backend.</p>
+              <div class="plugin-subline">
+                <span class="chip">Crawl</span>
+                <span class="chip">Snapshot</span>
+                <span class="chip">2 hooks</span>
+                <span class="chip">7 config fields</span>
+              </div>
+              <div class="plugin-header-meta">
+                <span class="plugin-order">#60</span>
+                <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
+                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                    <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                    <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                    <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                    <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                  </svg>
+                </span>
+              </div>
+              <div class="plugin-summary-facts">
+                <div><strong>Needs binaries:</strong> opendataloader-pdf</div>
+                <div><strong>Outputs:</strong> text/plain, text/markdown, application/json</div>
+              </div>
+            </div>
+            <div class="plugin-corner-icon" aria-hidden="true">
+              <div class="plugin-icon">
+        <span class="abx-output-icon abx-output-icon--fallback" title="opendataloader">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <rect x="3" y="3" width="18" height="18" rx="6" fill="currentColor" opacity="0.18"></rect>
+            <text x="12" y="16" text-anchor="middle" font-size="11" font-family="IBM Plex Mono, monospace" fill="currentColor">O</text>
+          </svg>
+        </span>
+        </div>
+            </div>
+          </summary>
+
+          <div class="plugin-body">
+            <div class="actions">
+              <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/opendataloader" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Plugin Info</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Plugin</span>
+                <p><strong>OpenDataLoader</strong></p>
+                <p><code>opendataloader</code></p>
+                <p>Extract structured text, tables, and metadata from PDFs using opendataloader-pdf. Supports OCR for scanned PDFs via hybrid backend.</p>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <p>No plugin dependencies declared.</p>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip">opendataloader-pdf</span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">text/plain</span>
+                  <span class="chip">text/markdown</span>
+                  <span class="chip">application/json</span>
+                </div>
+              </article>
+            </div>
+
+            <h3 class="section-title">Run It</h3>
+            <div class="command-grid">
+              <div class="command-card">
+                <span>ArchiveBox</span>
+                <pre><code>OPENDATALOADER_ENABLED=true archivebox add 'https://example.com'</code></pre>
+              </div>
+              <div class="command-card">
+                <span>abx-dl</span>
+                <pre><code>abx-dl dl --plugins=opendataloader 'https://example.com'</code></pre>
+              </div>
+            </div>
+            <p class="note">Runtime plugins execute while archiving a URL.</p>
+
+            <h3 class="section-title">Hook Scripts</h3>
+            <div class="hook-list">
+              <article class="hook-card">
+                <div>
+                  <span>Crawl hook</span>
+                  <strong>opendataloader install</strong>
+                </div>
+                <div class="hook-meta">
+                  <span class="chip">Python</span>
+                  <span class="chip">order 42</span>
+                  <span class="chip">background</span>
+                </div>
+                <p class="hook-file">
+                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/opendataloader/on_Crawl__42_opendataloader_install.finite.bg.py" target="_blank" rel="noreferrer"><code>on_Crawl__42_opendataloader_install.finite.bg.py</code></a>
+                </p>
+              </article>
+              <article class="hook-card">
+                <div>
+                  <span>Snapshot hook</span>
+                  <strong>opendataloader</strong>
+                </div>
+                <div class="hook-meta">
+                  <span class="chip">Python</span>
+                  <span class="chip">order 60</span>
+                </div>
+                <p class="hook-file">
+                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/opendataloader/on_Snapshot__60_opendataloader.py" target="_blank" rel="noreferrer"><code>on_Snapshot__60_opendataloader.py</code></a>
+                </p>
+              </article>
+            </div>
+
+            <h3 class="section-title">Config Options</h3>
+            <div class="config-grid">
+              <article class="config-card">
+                <span>Config key</span>
+                <strong><code>OPENDATALOADER_ENABLED</code></strong>
+                <p>Enable PDF text extraction with opendataloader-pdf</p>
+                <div class="config-meta">
+                  <div>Type: <code>boolean</code></div>
+                  <div>Aliases: <code>SAVE_OPENDATALOADER, USE_OPENDATALOADER</code></div>
+                </div>
+                <pre><code>true</code></pre>
+              </article>
+              <article class="config-card">
+                <span>Config key</span>
+                <strong><code>OPENDATALOADER_BINARY</code></strong>
+                <p>Path to opendataloader-pdf binary</p>
+                <div class="config-meta">
+                  <div>Type: <code>string</code></div>
+                </div>
+                <pre><code>"opendataloader-pdf"</code></pre>
+              </article>
+              <article class="config-card">
+                <span>Config key</span>
+                <strong><code>OPENDATALOADER_TIMEOUT</code></strong>
+                <p>Timeout for PDF extraction in seconds</p>
+                <div class="config-meta">
+                  <div>Type: <code>integer</code></div>
+                  <div>Fallback: <code>TIMEOUT</code></div>
+                  <div>Minimum: <code>10</code></div>
+                </div>
+                <pre><code>120</code></pre>
+              </article>
+              <article class="config-card">
+                <span>Config key</span>
+                <strong><code>OPENDATALOADER_FORCE_OCR</code></strong>
+                <p>Use hybrid OCR backend (--hybrid docling-fast) for scanned/image-based PDFs. Requires opendataloader-pdf-hybrid server running.</p>
+                <div class="config-meta">
+                  <div>Type: <code>boolean</code></div>
+                </div>
+                <pre><code>false</code></pre>
+              </article>
+              <article class="config-card">
+                <span>Config key</span>
+                <strong><code>OPENDATALOADER_HYBRID_URL</code></strong>
+                <p>URL of the opendataloader-pdf-hybrid server (e.g. http://localhost:5002). If empty, uses the default built-in URL.</p>
+                <div class="config-meta">
+                  <div>Type: <code>string</code></div>
+                </div>
+                <pre><code>""</code></pre>
+              </article>
+              <article class="config-card">
+                <span>Config key</span>
+                <strong><code>OPENDATALOADER_ARGS</code></strong>
+                <p>Default opendataloader-pdf arguments</p>
+                <div class="config-meta">
+                  <div>Type: <code>array</code></div>
+                  <div>Aliases: <code>OPENDATALOADER_DEFAULT_ARGS</code></div>
+                </div>
+                <pre><code>[]</code></pre>
+              </article>
+              <article class="config-card">
+                <span>Config key</span>
+                <strong><code>OPENDATALOADER_ARGS_EXTRA</code></strong>
+                <p>Extra arguments to append to opendataloader-pdf command</p>
+                <div class="config-meta">
+                  <div>Type: <code>array</code></div>
+                  <div>Aliases: <code>OPENDATALOADER_EXTRA_ARGS</code></div>
+                </div>
+                <pre><code>[]</code></pre>
+              </article>
+            </div>
+          </div>
+        </details>
+        <details
+          class="plugin-card plugin-card--snapshot"
+          data-search="liteparse crawl snapshot liteparse extract text and metadata from pdfs and documents using liteparse (by llamaindex). supports ocr via tesseract.js. python snapshot lit text/plain application/json on_crawl__43_liteparse_install.finite.bg.py on_snapshot__61_liteparse.py liteparse_enabled enable liteparse document extraction liteparse_binary path to lit binary liteparse_timeout timeout for liteparse extraction in seconds liteparse_args default liteparse arguments liteparse_args_extra extra arguments to append to liteparse command"
+        >
+          <summary>
+            <div class="plugin-main">
+              <div class="plugin-title-row">
+                <h2>LiteParse</h2>
+              </div>
+              <div class="plugin-slug"><code>liteparse</code></div>
+              <p class="plugin-summary-description">Extract text and metadata from PDFs and documents using LiteParse (by LlamaIndex). Supports OCR via Tesseract.js.</p>
+              <div class="plugin-subline">
+                <span class="chip">Crawl</span>
+                <span class="chip">Snapshot</span>
+                <span class="chip">2 hooks</span>
+                <span class="chip">5 config fields</span>
+              </div>
+              <div class="plugin-header-meta">
+                <span class="plugin-order">#61</span>
+                <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
+                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                    <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                    <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                    <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                    <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                  </svg>
+                </span>
+              </div>
+              <div class="plugin-summary-facts">
+                <div><strong>Needs binaries:</strong> lit</div>
+                <div><strong>Outputs:</strong> text/plain, application/json</div>
+              </div>
+            </div>
+            <div class="plugin-corner-icon" aria-hidden="true">
+              <div class="plugin-icon">
+        <span class="abx-output-icon abx-output-icon--fallback" title="liteparse">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <rect x="3" y="3" width="18" height="18" rx="6" fill="currentColor" opacity="0.18"></rect>
+            <text x="12" y="16" text-anchor="middle" font-size="11" font-family="IBM Plex Mono, monospace" fill="currentColor">L</text>
+          </svg>
+        </span>
+        </div>
+            </div>
+          </summary>
+
+          <div class="plugin-body">
+            <div class="actions">
+              <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/liteparse" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Plugin Info</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Plugin</span>
+                <p><strong>LiteParse</strong></p>
+                <p><code>liteparse</code></p>
+                <p>Extract text and metadata from PDFs and documents using LiteParse (by LlamaIndex). Supports OCR via Tesseract.js.</p>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <p>No plugin dependencies declared.</p>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip">lit</span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">text/plain</span>
+                  <span class="chip">application/json</span>
+                </div>
+              </article>
+            </div>
+
+            <h3 class="section-title">Run It</h3>
+            <div class="command-grid">
+              <div class="command-card">
+                <span>ArchiveBox</span>
+                <pre><code>LITEPARSE_ENABLED=true archivebox add 'https://example.com'</code></pre>
+              </div>
+              <div class="command-card">
+                <span>abx-dl</span>
+                <pre><code>abx-dl dl --plugins=liteparse 'https://example.com'</code></pre>
+              </div>
+            </div>
+            <p class="note">Runtime plugins execute while archiving a URL.</p>
+
+            <h3 class="section-title">Hook Scripts</h3>
+            <div class="hook-list">
+              <article class="hook-card">
+                <div>
+                  <span>Crawl hook</span>
+                  <strong>liteparse install</strong>
+                </div>
+                <div class="hook-meta">
+                  <span class="chip">Python</span>
+                  <span class="chip">order 43</span>
+                  <span class="chip">background</span>
+                </div>
+                <p class="hook-file">
+                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/liteparse/on_Crawl__43_liteparse_install.finite.bg.py" target="_blank" rel="noreferrer"><code>on_Crawl__43_liteparse_install.finite.bg.py</code></a>
+                </p>
+              </article>
+              <article class="hook-card">
+                <div>
+                  <span>Snapshot hook</span>
+                  <strong>liteparse</strong>
+                </div>
+                <div class="hook-meta">
+                  <span class="chip">Python</span>
+                  <span class="chip">order 61</span>
+                </div>
+                <p class="hook-file">
+                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/liteparse/on_Snapshot__61_liteparse.py" target="_blank" rel="noreferrer"><code>on_Snapshot__61_liteparse.py</code></a>
+                </p>
+              </article>
+            </div>
+
+            <h3 class="section-title">Config Options</h3>
+            <div class="config-grid">
+              <article class="config-card">
+                <span>Config key</span>
+                <strong><code>LITEPARSE_ENABLED</code></strong>
+                <p>Enable LiteParse document extraction</p>
+                <div class="config-meta">
+                  <div>Type: <code>boolean</code></div>
+                  <div>Aliases: <code>SAVE_LITEPARSE, USE_LITEPARSE</code></div>
+                </div>
+                <pre><code>true</code></pre>
+              </article>
+              <article class="config-card">
+                <span>Config key</span>
+                <strong><code>LITEPARSE_BINARY</code></strong>
+                <p>Path to lit binary</p>
+                <div class="config-meta">
+                  <div>Type: <code>string</code></div>
+                </div>
+                <pre><code>"lit"</code></pre>
+              </article>
+              <article class="config-card">
+                <span>Config key</span>
+                <strong><code>LITEPARSE_TIMEOUT</code></strong>
+                <p>Timeout for LiteParse extraction in seconds</p>
+                <div class="config-meta">
+                  <div>Type: <code>integer</code></div>
+                  <div>Fallback: <code>TIMEOUT</code></div>
+                  <div>Minimum: <code>10</code></div>
+                </div>
+                <pre><code>120</code></pre>
+              </article>
+              <article class="config-card">
+                <span>Config key</span>
+                <strong><code>LITEPARSE_ARGS</code></strong>
+                <p>Default LiteParse arguments</p>
+                <div class="config-meta">
+                  <div>Type: <code>array</code></div>
+                  <div>Aliases: <code>LITEPARSE_DEFAULT_ARGS</code></div>
+                </div>
+                <pre><code>[]</code></pre>
+              </article>
+              <article class="config-card">
+                <span>Config key</span>
+                <strong><code>LITEPARSE_ARGS_EXTRA</code></strong>
+                <p>Extra arguments to append to LiteParse command</p>
+                <div class="config-meta">
+                  <div>Type: <code>array</code></div>
+                  <div>Aliases: <code>LITEPARSE_EXTRA_ARGS</code></div>
+                </div>
+                <pre><code>[]</code></pre>
+              </article>
+            </div>
+          </div>
+        </details>
+        <details
+          class="plugin-card plugin-card--snapshot"
           data-search="papersdl crawl snapshot papers-dl fetch downloadable academic papers from paper urls and doi targets. python snapshot embed fullscreen papers-dl application/pdf on_crawl__30_papersdl_install.finite.bg.py on_snapshot__66_papersdl.finite.bg.py papersdl_enabled enable paper downloading with papers-dl papersdl_binary path to papers-dl binary papersdl_timeout timeout for paper downloads in seconds papersdl_args default papers-dl arguments papersdl_args_extra extra arguments to append to papers-dl command"
         >
           <summary>
@@ -7942,7 +8364,7 @@
         </details>
         <details
           class="plugin-card plugin-card--crawl-only"
-          data-search="ublock crawl ublock origin install the ublock origin extension to block ads, trackers, and other page clutter during archiving. javascript crawl chrome chrome on_crawl__80_install_ublock_extension.js ublock_enabled enable ublock origin browser extension for ad blocking"
+          data-search="ublock crawl ublock origin install the ublock origin extension to block ads, trackers, and other page clutter during archiving. javascript crawl chrome chrome on_crawl__80_install_ublock_extension.finite.bg.js ublock_enabled enable ublock origin browser extension for ad blocking"
         >
           <summary>
             <div class="plugin-main">
@@ -8029,9 +8451,10 @@
                 <div class="hook-meta">
                   <span class="chip">JavaScript</span>
                   <span class="chip">order 80</span>
+                  <span class="chip">background</span>
                 </div>
                 <p class="hook-file">
-                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/ublock/on_Crawl__80_install_ublock_extension.js" target="_blank" rel="noreferrer"><code>on_Crawl__80_install_ublock_extension.js</code></a>
+                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/ublock/on_Crawl__80_install_ublock_extension.finite.bg.js" target="_blank" rel="noreferrer"><code>on_Crawl__80_install_ublock_extension.finite.bg.js</code></a>
                 </p>
               </article>
             </div>
@@ -8053,7 +8476,7 @@
         </details>
         <details
           class="plugin-card plugin-card--crawl-only"
-          data-search="istilldontcareaboutcookies crawl i still don't care about cookies install the i still don't care about cookies extension to dismiss cookie banners during archiving. javascript crawl chrome chrome on_crawl__81_install_istilldontcareaboutcookies_extension.js istilldontcareaboutcookies_enabled enable i still don't care about cookies browser extension"
+          data-search="istilldontcareaboutcookies crawl i still don't care about cookies install the i still don't care about cookies extension to dismiss cookie banners during archiving. javascript crawl chrome chrome on_crawl__81_install_istilldontcareaboutcookies_extension.finite.bg.js istilldontcareaboutcookies_enabled enable i still don't care about cookies browser extension"
         >
           <summary>
             <div class="plugin-main">
@@ -8140,9 +8563,10 @@
                 <div class="hook-meta">
                   <span class="chip">JavaScript</span>
                   <span class="chip">order 81</span>
+                  <span class="chip">background</span>
                 </div>
                 <p class="hook-file">
-                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/istilldontcareaboutcookies/on_Crawl__81_install_istilldontcareaboutcookies_extension.js" target="_blank" rel="noreferrer"><code>on_Crawl__81_install_istilldontcareaboutcookies_extension.js</code></a>
+                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/istilldontcareaboutcookies/on_Crawl__81_install_istilldontcareaboutcookies_extension.finite.bg.js" target="_blank" rel="noreferrer"><code>on_Crawl__81_install_istilldontcareaboutcookies_extension.finite.bg.js</code></a>
                 </p>
               </article>
             </div>
@@ -9160,7 +9584,7 @@
 
         <div class="footer-meta">
           <span>Generated from <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">ArchiveBox/abx-plugins</a> at ref <code>main</code>.</span>
-          <span>Updated 2026-03-15 20:44 UTC</span>
+          <span>Updated 2026-03-19 21:47 UTC</span>
         </div>
       </footer>
     </div>
