@@ -1,0 +1,67 @@
+abx_plugins/plugins/chrome/chrome_utils.js
+  c6156093e009d8e0 2051,2060,2095-2127,2208,2219,2228,2733,2747,2780-2782,2793-2799,2821-2830,2833-2834,2865-2867
+abx_plugins/plugins/claudecode/claudecode_utils.py
+  c6156093e009d8e0 227
+abx_plugins/plugins/screenshot/tests/test_screenshot_browser_install_e2e.py
+  c6156093e009d8e0 63,71,140,158,176,195
+abx_plugins/plugins/pdf/tests/test_pdf.py
+  c6156093e009d8e0 75,195
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  c6156093e009d8e0 913,930,987,1002,1383
+abx_plugins/plugins/chrome/on_Snapshot__11_chrome_wait.js
+  c6156093e009d8e0 53,57-59,61
+abx_plugins/plugins/accessibility/tests/test_accessibility.py
+  c6156093e009d8e0 81,134,190
+abx_plugins/plugins/screenshot/tests/test_screenshot.py
+  c6156093e009d8e0 147,372,394
+abx_plugins/plugins/istilldontcareaboutcookies/tests/test_istilldontcareaboutcookies.py
+  c6156093e009d8e0 287-288,291,436-437,440
+abx_plugins/plugins/ublock/tests/test_ublock.py
+  c6156093e009d8e0 303-304,307,464-465,468,665-668,670
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  c6156093e009d8e0 55
+abx_plugins/plugins/title/tests/test_title.py
+  c6156093e009d8e0 91,170
+abx_plugins/plugins/twocaptcha/tests/test_twocaptcha.py
+  c6156093e009d8e0 125,180-182,184,279
+abx_plugins/plugins/chrome/on_Snapshot__10_chrome_tab.daemon.bg.js
+  c6156093e009d8e0 58-60,123-167,173,179,246-251,424
+  6ce0defec3ce80d0 296,348,407-408
+abx_plugins/plugins/singlefile/tests/test_singlefile.py
+  c6156093e009d8e0 214,285,390,438
+abx_plugins/plugins/dom/tests/test_dom.py
+  c6156093e009d8e0 78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "8deba6f7a947d11b1be303e4f2178e0a46884c53",
+  "prompts": {
+    "6ce0defec3ce80d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf4ff-885e-75f2-bb69-8d87ff7a8fd8",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 13,
+      "total_deletions": 12,
+      "accepted_lines": 5,
+      "overriden_lines": 0
+    },
+    "c6156093e009d8e0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d0293-2e03-7b52-aa80-ebd8a4a15b10",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 214,
+      "total_deletions": 147,
+      "accepted_lines": 180,
+      "overriden_lines": 0
+    }
+  }
+}
