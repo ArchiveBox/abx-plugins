@@ -665,6 +665,21 @@ def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):
                         archive_results.append(record)
                 if len(archive_results) == 1:
                     _wait_for_process_to_remain_running(tab_process, stable_seconds=1.0)
+                    stdout_lines = [
+                        line.strip()
+                        for line in stdout_log.read_text(encoding="utf-8", errors="replace").splitlines()
+                        if line.strip()
+                    ]
+                    archive_results = []
+                    for line in stdout_lines:
+                        if not line.startswith("{"):
+                            continue
+                        try:
+                            record = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        if record.get("type") == "ArchiveResult":
+                            archive_results.append(record)
                     break
                 time.sleep(0.1)
 
