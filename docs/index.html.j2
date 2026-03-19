@@ -375,6 +375,17 @@
         overflow-wrap: anywhere;
       }
 
+      .plugin-anchor {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .plugin-anchor:hover {
+        text-decoration: underline;
+        text-underline-offset: 0.15em;
+        text-decoration-thickness: 2px;
+      }
+
       .plugin-slug {
         color: var(--muted);
         font-size: 0.86rem;
@@ -880,13 +891,14 @@
       <main class="gallery" id="plugin-gallery">
         {% for plugin in site.plugins %}
         <details
+          id="{{ plugin.name }}"
           class="plugin-card{% if 'Snapshot' in plugin.phases %} plugin-card--snapshot{% elif plugin.phases == ['Crawl'] %} plugin-card--crawl-only{% elif plugin.phases == ['Binary'] %} plugin-card--binary-only{% endif %}"
           data-search="{{ plugin.search_text }}"
         >
           <summary>
             <div class="plugin-main">
               <div class="plugin-title-row">
-                <h2>{{ plugin.display_title }}</h2>
+                <h2><a href="#{{ plugin.name }}" class="plugin-anchor">{{ plugin.display_title }}</a></h2>
               </div>
               <div class="plugin-slug"><code>{{ plugin.name }}</code></div>
               {% if plugin.description %}
@@ -1299,7 +1311,36 @@
         emptyState.hidden = count !== 0;
       };
 
-      searchInput.addEventListener("input", applyFilter);
+      const setHash = (value) => {
+        const clean = value.replace(/^#/, "").trim();
+        if (clean) {
+          history.replaceState(null, "", "#" + clean);
+        } else {
+          history.replaceState(null, "", location.pathname + location.search);
+        }
+      };
+
+      const navigateToHash = () => {
+        const hash = decodeURIComponent(location.hash.replace(/^#/, "")).trim();
+        if (!hash) return;
+
+        const target = document.getElementById(hash);
+        if (target && target.classList.contains("plugin-card")) {
+          searchInput.value = "";
+          applyFilter();
+          target.open = true;
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else {
+          searchInput.value = hash;
+          applyFilter();
+          searchInput.focus();
+        }
+      };
+
+      searchInput.addEventListener("input", () => {
+        applyFilter();
+        setHash(searchInput.value.trim());
+      });
 
       for (const card of cards) {
         card.addEventListener("click", (event) => {
@@ -1307,9 +1348,17 @@
           if (event.target.closest(interactiveSelector)) return;
           card.open = true;
         });
+
+        card.addEventListener("toggle", () => {
+          if (card.open) {
+            setHash(card.id);
+          }
+        });
       }
 
       applyFilter();
+      navigateToHash();
+      window.addEventListener("hashchange", navigateToHash);
     </script>
   </body>
 </html>
