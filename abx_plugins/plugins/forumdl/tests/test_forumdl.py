@@ -58,6 +58,26 @@ def get_forumdl_binary_path() -> str | None:
     binary = Binary(
         name="forum-dl",
         binproviders=[PipProvider(), EnvProvider()],
+        overrides={
+            "pip": {
+                "install_args": [
+                    "--no-deps",
+                    "--prefer-binary",
+                    "forum-dl",
+                    "chardet==5.2.0",
+                    "beautifulsoup4",
+                    "soupsieve",
+                    "lxml",
+                    "requests",
+                    "urllib3",
+                    "tenacity",
+                    "python-dateutil",
+                    "six",
+                    "html2text",
+                    "warcio",
+                ]
+            }
+        },
     ).load_or_install()
     if binary and binary.abspath:
         _forumdl_binary_path = str(binary.abspath)
