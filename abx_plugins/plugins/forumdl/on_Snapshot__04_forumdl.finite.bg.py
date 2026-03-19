@@ -4,8 +4,6 @@
 # dependencies = [
 #   "pydantic-settings",
 #   "rich-click",
-#   "forum-dl",
-#   "pydantic",
 # ]
 # ///
 #

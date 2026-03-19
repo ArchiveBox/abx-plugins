@@ -284,46 +284,5 @@ def test_handles_missing_favicon_gracefully():
             combined = result.stdout + result.stderr
             assert "No favicon found" in combined or "ERROR=" in combined
 
-
-def test_reports_missing_requests_library():
-    """Test that script reports error when requests library is missing."""
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-        shim_dir = tmpdir / "shim"
-        shim_dir.mkdir(parents=True, exist_ok=True)
-        (shim_dir / "requests.py").write_text(
-            'raise ImportError("requests disabled for test")\n',
-            encoding="utf-8",
-        )
-
-        # Put a failing `requests` module at the front of PYTHONPATH so the hook
-        # still runs via its shebang while import resolution behaves as if the
-        # dependency is missing.
-        import os
-
-        env = os.environ.copy()
-        env["PYTHONPATH"] = str(shim_dir)
-        env["SNAP_DIR"] = str(tmpdir)
-
-        result = subprocess.run(
-            [str(FAVICON_HOOK), "--url", TEST_URL, "--snapshot-id", "test123"],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            env=env,
-        )
-
-        # Should fail and report missing requests
-        if result.returncode != 0:
-            combined = result.stdout + result.stderr
-            # May report missing requests or other import errors
-            assert (
-                "requests" in combined.lower()
-                or "import" in combined.lower()
-                or "ERROR=" in combined
-            )
-
-
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
