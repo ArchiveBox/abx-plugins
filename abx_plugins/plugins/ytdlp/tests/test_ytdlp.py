@@ -128,7 +128,7 @@ def get_ytdlp_binary_path():
 
     if crawl_hook and crawl_hook.exists():
         crawl_result = subprocess.run(
-            [sys.executable, str(crawl_hook)],
+            [str(crawl_hook)],
             capture_output=True,
             text=True,
             timeout=30,
@@ -155,9 +155,7 @@ def get_ytdlp_binary_path():
     env["CRAWL_DIR"] = str(Path(_ytdlp_lib_root) / "crawl")
     env.pop("LIB_DIR", None)
 
-    cmd = [
-        sys.executable,
-        str(pip_hook),
+    cmd = [str(pip_hook),
         "--binary-id",
         binary_id,
         "--machine-id",
@@ -216,9 +214,7 @@ def test_handles_non_video_url(non_video_test_url):
 
         # Run ytdlp extraction hook on non-video URL
         result = subprocess.run(
-            [
-                sys.executable,
-                str(YTDLP_HOOK),
+            [str(YTDLP_HOOK),
                 "--url",
                 non_video_test_url,
                 "--snapshot-id",
@@ -255,9 +251,7 @@ def test_config_ytdlp_enabled_false_skips():
         env["YTDLP_ENABLED"] = "False"
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(YTDLP_HOOK),
+            [str(YTDLP_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -297,9 +291,7 @@ def test_config_timeout(non_video_test_url):
 
         start_time = time.time()
         result = subprocess.run(
-            [
-                sys.executable,
-                str(YTDLP_HOOK),
+            [str(YTDLP_HOOK),
                 "--url",
                 non_video_test_url,
                 "--snapshot-id",
@@ -336,9 +328,7 @@ def test_extracts_local_media_url(media_test_url):
 
         start_time = time.time()
         result = subprocess.run(
-            [
-                sys.executable,
-                str(YTDLP_HOOK),
+            [str(YTDLP_HOOK),
                 "--url",
                 media_test_url,
                 "--snapshot-id",

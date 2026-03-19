@@ -33,7 +33,7 @@ class TestParseNetscapeUrls:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -69,7 +69,7 @@ class TestParseNetscapeUrls:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -94,7 +94,7 @@ class TestParseNetscapeUrls:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -119,7 +119,7 @@ class TestParseNetscapeUrls:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -155,9 +155,7 @@ class TestParseNetscapeUrls:
         try:
             base_url = f"http://127.0.0.1:{server.server_address[1]}/bookmarks.html"
             result = subprocess.run(
-                [
-                    sys.executable,
-                    str(SCRIPT_PATH),
+                [str(SCRIPT_PATH),
                     "--url",
                     base_url,
                 ],
@@ -205,7 +203,7 @@ class TestParseNetscapeUrls:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -220,9 +218,7 @@ class TestParseNetscapeUrls:
     def test_exits_1_when_file_not_found(self, tmp_path):
         """Test that script exits with code 1 when file doesn't exist."""
         result = subprocess.run(
-            [
-                sys.executable,
-                str(SCRIPT_PATH),
+            [str(SCRIPT_PATH),
                 "--url",
                 "file:///nonexistent/bookmarks.html",
             ],
@@ -253,7 +249,7 @@ class TestParseNetscapeUrls:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -280,7 +276,7 @@ class TestParseNetscapeUrls:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -311,7 +307,7 @@ class TestParseNetscapeUrls:
         env["SNAP_DIR"] = str(tmp_path)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,

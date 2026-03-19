@@ -21,7 +21,7 @@ class TestParseHtmlUrls:
         env = os.environ.copy()
         env["SNAP_DIR"] = str(tmp_path)
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", "https://example.com"],
+            [str(SCRIPT_PATH), "--url", "https://example.com"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -60,7 +60,7 @@ class TestParseHtmlUrls:
         env = os.environ.copy()
         env["SNAP_DIR"] = str(tmp_path)
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -119,7 +119,7 @@ class TestParseHtmlUrls:
         env = os.environ.copy()
         env["SNAP_DIR"] = str(tmp_path)
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -153,7 +153,7 @@ class TestParseHtmlUrls:
         env = os.environ.copy()
         env["SNAP_DIR"] = str(tmp_path)
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -185,7 +185,7 @@ class TestParseHtmlUrls:
         env = os.environ.copy()
         env["SNAP_DIR"] = str(tmp_path)
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -214,7 +214,7 @@ class TestParseHtmlUrls:
         ''')
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", source_url],
+            [str(SCRIPT_PATH), "--url", source_url],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -248,7 +248,7 @@ class TestParseHtmlUrls:
         env = os.environ.copy()
         env["SNAP_DIR"] = str(tmp_path)
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -274,7 +274,7 @@ class TestParseHtmlUrls:
         env = os.environ.copy()
         env["SNAP_DIR"] = str(tmp_path)
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -299,7 +299,7 @@ class TestParseHtmlUrls:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -319,7 +319,7 @@ class TestParseHtmlUrls:
         input_file.write_text('<a href="https://example.com">Link</a>')
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,

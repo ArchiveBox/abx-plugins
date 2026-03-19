@@ -55,6 +55,9 @@ let finalized = false;
 let targetId = null;
 let keepAliveTimer = null;
 let currentCdpUrl = null;
+let monitorBrowser = null;
+let monitorPage = null;
+let shuttingDown = false;
 const SNAPSHOT_PAGE_MARKER_FILES = [
     'target_id.txt',
     'url.txt',
@@ -117,16 +120,63 @@ function cleanupSnapshotArtifacts(reason) {
     cleanupFiles(SNAPSHOT_ARTIFACT_FILES, reason);
 }
 
+async function stopTargetMonitor() {
+    if (monitorPage) {
+        try {
+            monitorPage.removeAllListeners('close');
+        } catch (error) {}
+        monitorPage = null;
+    }
+    if (monitorBrowser) {
+        try {
+            await monitorBrowser.disconnect();
+        } catch (error) {}
+        monitorBrowser = null;
+    }
+}
+
+async function startTargetMonitor() {
+    await stopTargetMonitor();
+    if (!currentCdpUrl || !targetId) {
+        return;
+    }
+
+    const expectedTargetId = targetId;
+    const connection = await connectToPage({
+        chromeSessionDir: OUTPUT_DIR,
+        timeoutMs: 5000,
+        missingTargetGraceMs: 0,
+        requireTargetId: true,
+        puppeteer,
+    });
+    monitorBrowser = connection.browser;
+    monitorPage = connection.page;
+    monitorPage.once('close', async () => {
+        if (shuttingDown) {
+            return;
+        }
+        if (targetId !== expectedTargetId) {
+            return;
+        }
+        console.error(`[*] Snapshot target ${expectedTargetId} closed unexpectedly, clearing snapshot page markers`);
+        targetId = null;
+        cleanupSnapshotPageMarkers(`target ${expectedTargetId} disappeared`);
+        await stopTargetMonitor();
+    });
+}
+
 // Cleanup handler for SIGTERM - close this snapshot's tab
 async function cleanup(signal) {
     if (signal) {
         console.error(`\nReceived ${signal}, closing chrome tab...`);
     }
+    shuttingDown = true;
     try {
         if (keepAliveTimer) {
             clearInterval(keepAliveTimer);
             keepAliveTimer = null;
         }
+        await stopTargetMonitor();
         const currentSession = await waitForChromeSessionState(OUTPUT_DIR, {
             timeoutMs: 250,
         });
@@ -193,7 +243,12 @@ async function main() {
             try {
                 const existingConnection = await connectToPage({
                     chromeSessionDir: OUTPUT_DIR,
-                    timeoutMs: timeoutSeconds * 1000,
+                    // This is only a fast liveness probe for the currently
+                    // published target. If it is already dead, this same hook
+                    // invocation is responsible for replacing it, so do not
+                    // tolerate any stale-target grace period here.
+                    timeoutMs: Math.min(timeoutSeconds * 1000, 1000),
+                    missingTargetGraceMs: 0,
                     requireTargetId: true,
                     puppeteer,
                 });
@@ -238,6 +293,7 @@ async function main() {
                     output_str: output,
                 }));
                 console.log('[*] Chrome tab created, waiting for cleanup signal...');
+                await startTargetMonitor();
                 keepAliveTimer = setInterval(() => {}, 1000);
                 await new Promise(() => {});
             }
@@ -289,6 +345,7 @@ async function main() {
             }));
             releaseLock();
             releaseLock = null;
+            await startTargetMonitor();
         } else {
             const crawlChromeDir = path.join(path.resolve(getEnv('CRAWL_DIR', '.')), 'chrome');
             const crawlSession = await waitForChromeSessionState(crawlChromeDir, {
@@ -339,6 +396,17 @@ async function main() {
             finalError = '';
             cmdVersion = version || '';
 
+            console.log(`[+] Chrome tab ready`);
+            console.log(`[+] CDP URL: ${crawlSession.cdpUrl}`);
+            console.log(`[+] Page target ID: ${targetId}`);
+            console.log(JSON.stringify({
+                type: 'ArchiveResult',
+                status,
+                output_str: output,
+            }));
+            releaseLock();
+            releaseLock = null;
+
             try {
                 const extensionsSession = await waitForChromeSessionState(crawlChromeDir, {
                     timeoutMs: 10000,
@@ -353,16 +421,7 @@ async function main() {
                     JSON.stringify(extensions, null, 2)
                 );
             } catch (err) {}
-            console.log(`[+] Chrome tab ready`);
-            console.log(`[+] CDP URL: ${crawlSession.cdpUrl}`);
-            console.log(`[+] Page target ID: ${targetId}`);
-            console.log(JSON.stringify({
-                type: 'ArchiveResult',
-                status,
-                output_str: output,
-            }));
-            releaseLock();
-            releaseLock = null;
+            await startTargetMonitor();
         }
     } catch (e) {
         error = `${e.name}: ${e.message}`;

@@ -60,7 +60,7 @@ def _browserless_path(tmp_path: Path, browser_name: str) -> str:
     return os.pathsep.join([str(tool_dir), os.environ.get("PATH", "")])
 
 
-def _run_python_hook(
+def _run_hook(
     hook: Path,
     env: dict[str, str],
     cwd: Path,
@@ -68,7 +68,7 @@ def _run_python_hook(
     timeout: int = 300,
 ) -> tuple[int, str, str]:
     result = subprocess.run(
-        [sys.executable, str(hook), *args],
+        [str(hook), *args],
         cwd=str(cwd),
         capture_output=True,
         text=True,
@@ -137,7 +137,7 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     if hasattr(os, "geteuid") and os.geteuid() == 0:
         env["CHROME_SANDBOX"] = "false"
 
-    returncode, stdout, stderr = _run_python_hook(
+    returncode, stdout, stderr = _run_hook(
         PUPPETEER_CRAWL_HOOK,
         env,
         root_dir,
@@ -155,9 +155,7 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     assert puppeteer_record, stdout
 
     npm_result = subprocess.run(
-        [
-            sys.executable,
-            str(NPM_BINARY_HOOK),
+        [str(NPM_BINARY_HOOK),
             "--machine-id=test-machine",
             "--binary-id=test-puppeteer",
             "--name=puppeteer",
@@ -175,7 +173,7 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     )
     _apply_machine_updates(parse_jsonl_records(npm_result.stdout), env)
 
-    returncode, stdout, stderr = _run_python_hook(
+    returncode, stdout, stderr = _run_hook(
         CHROME_INSTALL_HOOK,
         env,
         chrome_dir,
@@ -194,9 +192,7 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     assert chrome_record["name"] == browser_name
 
     browser_result = subprocess.run(
-        [
-            sys.executable,
-            str(PUPPETEER_BINARY_HOOK),
+        [str(PUPPETEER_BINARY_HOOK),
             "--machine-id=test-machine",
             f"--binary-id=test-{browser_name}",
             f"--name={chrome_record['name']}",
@@ -221,7 +217,7 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     assert env["PUPPETEER_CACHE_DIR"] == str(lib_dir / "puppeteer" / "chrome")
 
     chrome_launch_process = subprocess.Popen(
-        ["node", str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
+        [str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
         cwd=str(chrome_dir),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -234,7 +230,6 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
 
         tab_process = subprocess.Popen(
             [
-                "node",
                 str(CHROME_TAB_HOOK),
                 f"--url={chrome_test_url}",
                 f"--snapshot-id={snapshot_id}",
@@ -250,7 +245,6 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
 
         navigate_result = subprocess.run(
             [
-                "node",
                 str(CHROME_NAVIGATE_HOOK),
                 f"--url={chrome_test_url}",
                 f"--snapshot-id={snapshot_id}",
@@ -268,7 +262,6 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
 
         screenshot_result = subprocess.run(
             [
-                "node",
                 str(SCREENSHOT_HOOK),
                 f"--url={chrome_test_url}",
                 f"--snapshot-id={snapshot_id}",

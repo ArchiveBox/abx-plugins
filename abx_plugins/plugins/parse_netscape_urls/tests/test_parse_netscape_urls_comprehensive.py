@@ -33,7 +33,7 @@ class TestFirefoxFormat:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -67,7 +67,7 @@ class TestFirefoxFormat:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -114,7 +114,7 @@ class TestFirefoxFormat:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -147,7 +147,7 @@ class TestFirefoxFormat:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -185,7 +185,7 @@ class TestChromeFormat:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -226,7 +226,7 @@ class TestChromeFormat:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -266,7 +266,7 @@ class TestSafariFormat:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -301,7 +301,7 @@ class TestSafariFormat:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -338,7 +338,7 @@ class TestEdgeFormat:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -370,7 +370,7 @@ class TestTimestampFormats:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -401,7 +401,7 @@ class TestTimestampFormats:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -429,7 +429,7 @@ class TestTimestampFormats:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -457,7 +457,7 @@ class TestTimestampFormats:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -487,7 +487,7 @@ class TestTimestampFormats:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -516,7 +516,7 @@ class TestTimestampFormats:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -547,7 +547,7 @@ class TestTimestampFormats:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -578,7 +578,7 @@ class TestTimestampFormats:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -605,7 +605,7 @@ class TestTimestampFormats:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -631,7 +631,7 @@ class TestTimestampFormats:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -658,7 +658,7 @@ class TestTimestampFormats:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -688,7 +688,7 @@ class TestTimestampFormats:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -723,7 +723,7 @@ class TestBookmarkAttributes:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -749,7 +749,7 @@ class TestBookmarkAttributes:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -774,7 +774,7 @@ class TestBookmarkAttributes:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -807,7 +807,7 @@ class TestEdgeCases:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -836,7 +836,7 @@ class TestEdgeCases:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -863,7 +863,7 @@ class TestEdgeCases:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -886,7 +886,7 @@ class TestEdgeCases:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -914,7 +914,7 @@ class TestEdgeCases:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -941,7 +941,7 @@ class TestEdgeCases:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -966,7 +966,7 @@ class TestEdgeCases:
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -994,7 +994,7 @@ class TestEdgeCases:
         ''')
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -1027,7 +1027,7 @@ class TestEdgeCases:
         )
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -1062,7 +1062,7 @@ class TestEdgeCases:
         )
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,

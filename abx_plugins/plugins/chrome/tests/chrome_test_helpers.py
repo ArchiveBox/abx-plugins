@@ -508,7 +508,7 @@ def _call_chrome_utils(
     Returns:
         Tuple of (returncode, stdout, stderr)
     """
-    cmd = ["node", str(CHROME_UTILS), command] + list(args)
+    cmd = [str(CHROME_UTILS), command] + list(args)
     result = subprocess.run(
         cmd, capture_output=True, text=True, timeout=30, env=env or os.environ.copy()
     )
@@ -910,7 +910,7 @@ def _ensure_puppeteer_with_hooks(env: dict, timeout: int) -> None:
         return
 
     puppeteer_result = subprocess.run(
-        [sys.executable, str(PUPPETEER_CRAWL_HOOK)],
+        [str(PUPPETEER_CRAWL_HOOK)],
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -927,9 +927,7 @@ def _ensure_puppeteer_with_hooks(env: dict, timeout: int) -> None:
     if not puppeteer_record or puppeteer_record.get("name") != "puppeteer":
         raise RuntimeError("Puppeteer Binary record not emitted by crawl hook")
 
-    npm_cmd = [
-        sys.executable,
-        str(NPM_BINARY_HOOK),
+    npm_cmd = [str(NPM_BINARY_HOOK),
         "--machine-id=test-machine",
         "--binary-id=test-puppeteer",
         "--name=puppeteer",
@@ -986,7 +984,7 @@ def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
             return existing
 
         chrome_result = subprocess.run(
-            [sys.executable, str(CHROME_INSTALL_HOOK)],
+            [str(CHROME_INSTALL_HOOK)],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -1001,9 +999,7 @@ def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
         if not chrome_record or chrome_record.get("name") not in ("chromium", "chrome"):
             raise RuntimeError("Chrome Binary record not emitted by crawl hook")
 
-        chromium_cmd = [
-            sys.executable,
-            str(PUPPETEER_BINARY_HOOK),
+        chromium_cmd = [str(PUPPETEER_BINARY_HOOK),
             "--machine-id=test-machine",
             "--binary-id=test-chromium",
             f"--name={chrome_record.get('name', 'chromium')}",
@@ -1384,9 +1380,7 @@ def launch_snapshot_tab(
     stdout_handle = open(stdout_log, "w+", encoding="utf-8")
     stderr_handle = open(stderr_log, "w+", encoding="utf-8")
     tab_process = subprocess.Popen(
-        [
-            "node",
-            str(CHROME_TAB_HOOK),
+        [str(CHROME_TAB_HOOK),
             f"--url={test_url}",
             f"--snapshot-id={snapshot_id}",
             f"--crawl-id={crawl_id}",
@@ -1643,7 +1637,6 @@ def chrome_session(
             try:
                 result = subprocess.run(
                     [
-                        "node",
                         str(CHROME_NAVIGATE_HOOK),
                         f"--url={test_url}",
                         f"--snapshot-id={snapshot_id}",

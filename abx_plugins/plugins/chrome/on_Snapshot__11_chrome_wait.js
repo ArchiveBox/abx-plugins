@@ -30,7 +30,6 @@ process.chdir(OUTPUT_DIR);
 
 const {
     waitForChromeSessionState,
-    connectToPage,
 } = require('./chrome_utils.js');
 
 const CHROME_SESSION_DIR = path.join(SNAP_DIR, 'chrome');
@@ -51,31 +50,18 @@ async function main() {
 
     console.error(`[chrome_wait] Waiting for Chrome session (timeout=${timeoutSeconds}s)...`);
 
-    const deadline = Date.now() + timeoutMs;
-    const markerState = await waitForChromeSessionState(CHROME_SESSION_DIR, {
+    const readySession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
         timeoutMs,
         intervalMs: 100,
         requireTargetId: true,
+        requireConnectable: true,
+        probeTimeoutMs: 1000,
+        puppeteer,
     });
-    if (!markerState?.cdpUrl || !markerState?.targetId) {
+    if (!readySession?.cdpUrl || !readySession?.targetId) {
         const error = CHROME_SESSION_REQUIRED_ERROR;
         console.error(`[chrome_wait] ERROR: ${error}`);
         console.log(JSON.stringify({ type: 'ArchiveResult', status: 'failed', output_str: error }));
-        process.exit(1);
-    }
-
-    let readySession = null;
-    try {
-        readySession = await connectToPage({
-            chromeSessionDir: CHROME_SESSION_DIR,
-            timeoutMs: Math.max(1000, deadline - Date.now()),
-            requireTargetId: true,
-            puppeteer,
-        });
-    } catch (error) {
-        const message = error?.message || CHROME_SESSION_REQUIRED_ERROR;
-        console.error(`[chrome_wait] ERROR: ${message}`);
-        console.log(JSON.stringify({ type: 'ArchiveResult', status: 'failed', output_str: CHROME_SESSION_REQUIRED_ERROR }));
         process.exit(1);
     }
 
@@ -87,10 +73,6 @@ async function main() {
         console.log(JSON.stringify({ type: 'ArchiveResult', status: 'failed', output_str: error }));
         process.exit(1);
     }
-
-    try {
-        readySession.browser.disconnect();
-    } catch (disconnectError) {}
 
     console.error(`[chrome_wait] Chrome session ready (verified CDP connection, cdp_url=${cdpUrl.slice(0, 32)}..., target_id=${targetId}).`);
     const port = (cdpUrl.match(/:(\d+)\/devtools\//) || [])[1] || '?';

@@ -70,9 +70,7 @@ class TestConsolelogWithChrome:
 
             # Run consolelog hook with the active Chrome session (background hook)
             result = subprocess.Popen(
-                [
-                    "node",
-                    str(CONSOLELOG_HOOK),
+                [str(CONSOLELOG_HOOK),
                     f"--url={test_url}",
                     f"--snapshot-id={snapshot_id}",
                 ],
@@ -84,9 +82,7 @@ class TestConsolelogWithChrome:
             )
 
             nav_result = subprocess.run(
-                [
-                    "node",
-                    str(CHROME_NAVIGATE_HOOK),
+                [str(CHROME_NAVIGATE_HOOK),
                     f"--url={test_url}",
                     f"--snapshot-id={snapshot_id}",
                 ],

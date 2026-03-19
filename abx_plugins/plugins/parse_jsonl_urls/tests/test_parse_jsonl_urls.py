@@ -26,7 +26,7 @@ class TestParseJsonlUrls:
         )
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -60,7 +60,7 @@ class TestParseJsonlUrls:
         input_file.write_text('{"href": "https://example.com", "title": "Test"}\n')
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -84,7 +84,7 @@ class TestParseJsonlUrls:
         )
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -108,7 +108,7 @@ class TestParseJsonlUrls:
         )
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -133,7 +133,7 @@ class TestParseJsonlUrls:
         )
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -153,7 +153,7 @@ class TestParseJsonlUrls:
         )
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -175,7 +175,7 @@ class TestParseJsonlUrls:
         )
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -200,7 +200,7 @@ class TestParseJsonlUrls:
         )
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -221,7 +221,7 @@ class TestParseJsonlUrls:
         input_file.write_text('{"title": "No URL"}\n')
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -236,9 +236,7 @@ class TestParseJsonlUrls:
     def test_exits_1_when_file_not_found(self, tmp_path):
         """Test that script exits with code 1 when file doesn't exist."""
         result = subprocess.run(
-            [
-                sys.executable,
-                str(SCRIPT_PATH),
+            [str(SCRIPT_PATH),
                 "--url",
                 "file:///nonexistent/bookmarks.jsonl",
             ],
@@ -259,7 +257,7 @@ class TestParseJsonlUrls:
         )
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -284,7 +282,7 @@ class TestParseJsonlUrls:
         )
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -305,7 +303,7 @@ class TestParseJsonlUrls:
         input_file.write_text('{"url": "https://example.com"}\n')
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -336,7 +334,7 @@ class TestParseJsonlUrls:
         env["SNAP_DIR"] = str(tmp_path)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,

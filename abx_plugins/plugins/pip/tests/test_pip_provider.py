@@ -45,7 +45,7 @@ class TestPipProviderHook:
     def test_hook_help(self):
         """Hook should accept --help without error."""
         result = subprocess.run(
-            [sys.executable, str(INSTALL_HOOK), "--help"],
+            [str(INSTALL_HOOK), "--help"],
             capture_output=True,
             text=True,
             timeout=30,
@@ -62,9 +62,7 @@ class TestPipProviderHook:
         env.pop("LIB_DIR", None)
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(INSTALL_HOOK),
+            [str(INSTALL_HOOK),
                 "--name=pip",
                 "--binproviders=pip",
                 "--binary-id=test-uuid",
@@ -107,9 +105,7 @@ class TestPipProviderHook:
         env.pop("LIB_DIR", None)
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(INSTALL_HOOK),
+            [str(INSTALL_HOOK),
                 "--name=nonexistent_package_xyz123",
                 "--binproviders=pip",
                 "--binary-id=test-uuid",
@@ -157,9 +153,7 @@ class TestPipProviderIntegration:
 
         # Try to find 'pip' itself which should be available
         result = subprocess.run(
-            [
-                sys.executable,
-                str(INSTALL_HOOK),
+            [str(INSTALL_HOOK),
                 "--name=pip",
                 "--binproviders=pip,env",
                 "--binary-id=test-uuid",

@@ -2048,6 +2048,7 @@ async function canConnectToChromeBrowser(cdpUrl, options = {}) {
  * @param {boolean} [options.requireTargetId=false] - Require target ID marker to consider the session healthy
  * @param {number} [options.probeTimeoutMs=1500] - Timeout for probing the CDP endpoint
  * @param {boolean} [options.validateLiveness=true] - Probe whether the session is actually reusable
+ * @param {Object} [options.puppeteer] - Puppeteer module for target-level liveness checks
  * @returns {Promise<{hasArtifacts: boolean, stale: boolean, state: Object, reason: string|null}>}
  */
 async function inspectChromeSessionArtifacts(chromeSessionDir, options = {}) {
@@ -2056,6 +2057,7 @@ async function inspectChromeSessionArtifacts(chromeSessionDir, options = {}) {
         probeTimeoutMs = 1500,
         validateLiveness = true,
         processIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true),
+        puppeteer = null,
     } = options;
 
     const artifactPaths = getChromeSessionArtifactPaths(chromeSessionDir);
@@ -2088,6 +2090,41 @@ async function inspectChromeSessionArtifacts(chromeSessionDir, options = {}) {
 
     if (!validateLiveness) {
         return { hasArtifacts: true, stale: false, state, reason: null };
+    }
+
+    if (requireTargetId && state.targetId) {
+        let browser = null;
+        try {
+            const puppeteerModule = puppeteer || resolvePuppeteerModule();
+            browser = await withTimeout(
+                () => connectToBrowserEndpoint(puppeteerModule, state.cdpUrl, { defaultViewport: null }),
+                probeTimeoutMs,
+                `Timed out connecting to browser at ${state.cdpUrl}`
+            );
+            const page = await resolvePageByTargetId(browser, state.targetId, probeTimeoutMs);
+            if (!page) {
+                return {
+                    hasArtifacts: true,
+                    stale: true,
+                    state,
+                    reason: `target ${state.targetId} not found`,
+                };
+            }
+            return { hasArtifacts: true, stale: false, state, reason: null };
+        } catch (error) {
+            return {
+                hasArtifacts: true,
+                stale: true,
+                state,
+                reason: error?.message || `cdp unreachable at ${state.cdpUrl}`,
+            };
+        } finally {
+            if (browser) {
+                try {
+                    await browser.disconnect();
+                } catch (disconnectError) {}
+            }
+        }
     }
 
     if (processIsLocal) {
@@ -2168,6 +2205,7 @@ async function cleanupStaleChromeSessionArtifacts(chromeSessionDir, options = {}
  * @param {boolean} [options.requireExtensionsLoaded=false] - Require extensions.json to be available and parseable
  * @param {boolean} [options.requireConnectable=false] - Require the browser endpoint to be CDP-connectable
  * @param {number} [options.probeTimeoutMs=min(intervalMs, 1000)] - Timeout for each CDP connectability probe
+ * @param {Object} [options.puppeteer] - Puppeteer module for target-level connectability checks
  * @returns {Promise<{sessionDir: string, cdpUrl: string|null, targetId: string|null, pid: number|null, extensions: Array<Object>|null}|null>}
  */
 async function waitForChromeSessionState(chromeSessionDir, options = {}) {
@@ -2178,6 +2216,7 @@ async function waitForChromeSessionState(chromeSessionDir, options = {}) {
         requireExtensionsLoaded = false,
         requireConnectable = false,
         probeTimeoutMs = Math.min(Math.max(intervalMs, 100), 1000),
+        puppeteer = null,
     } = options;
     const startTime = Date.now();
 
@@ -2186,6 +2225,7 @@ async function waitForChromeSessionState(chromeSessionDir, options = {}) {
             requireTargetId,
             validateLiveness: requireConnectable,
             probeTimeoutMs,
+            puppeteer,
         });
         const state = inspection.state;
         if (
@@ -2690,6 +2730,7 @@ async function closeTabInChromeSession(options = {}) {
  * @param {boolean} [options.waitForNavigationComplete=false] - Wait for navigation.json success before attaching
  * @param {number} [options.pageLoadTimeoutMs=timeoutMs] - Timeout for navigation.json readiness
  * @param {number} [options.postLoadDelayMs=0] - Additional delay after successful navigation
+ * @param {number} [options.missingTargetGraceMs=3000] - How long to tolerate a missing published target before failing
  * @param {Object} options.puppeteer - Puppeteer module
  * @returns {Promise<Object>} - { browser, page, cdpSession, targetId, cdpUrl, extensions }
  * @throws {Error} - If connection fails or page not found
@@ -2703,6 +2744,7 @@ async function connectToPage(options = {}) {
         waitForNavigationComplete: shouldWaitForNavigationComplete = false,
         pageLoadTimeoutMs = timeoutMs,
         postLoadDelayMs = 0,
+        missingTargetGraceMs = 3000,
         puppeteer,
     } = options;
 
@@ -2735,6 +2777,9 @@ async function connectToPage(options = {}) {
 
     const deadline = Date.now() + timeoutMs;
     let lastError = new Error(CHROME_SESSION_REQUIRED_ERROR);
+    let missingTargetKey = null;
+    let missingTargetSince = 0;
+    const staleTargetGraceMs = Math.min(timeoutMs, Math.max(0, missingTargetGraceMs));
 
     while (Date.now() < deadline) {
         const remainingMs = Math.max(deadline - Date.now(), 0);
@@ -2745,7 +2790,13 @@ async function connectToPage(options = {}) {
             requireExtensionsLoaded,
         });
         if (!state) {
-            break;
+            missingTargetKey = null;
+            missingTargetSince = 0;
+            if (Date.now() >= deadline) {
+                break;
+            }
+            await sleep(100);
+            continue;
         }
 
         const targetId = state.targetId;
@@ -2767,8 +2818,20 @@ async function connectToPage(options = {}) {
             if (targetId) {
                 page = await resolvePageByTargetId(browser, targetId, Math.min(remainingMs, 1000));
                 if (!page && requireTargetId) {
+                    const currentTargetKey = `${state.cdpUrl}::${targetId}`;
+                    const now = Date.now();
+                    if (missingTargetKey !== currentTargetKey) {
+                        missingTargetKey = currentTargetKey;
+                        missingTargetSince = now;
+                    } else if (now - missingTargetSince >= staleTargetGraceMs) {
+                        const error = new Error(`Target ${targetId} not found in Chrome session`);
+                        error.code = 'TARGET_NOT_FOUND_STABLE';
+                        throw error;
+                    }
                     throw new Error(`Target ${targetId} not found in Chrome session`);
                 }
+                missingTargetKey = null;
+                missingTargetSince = 0;
             }
 
             const pages = await browser.pages();
@@ -2799,6 +2862,9 @@ async function connectToPage(options = {}) {
             try {
                 await browser.disconnect();
             } catch (disconnectError) {}
+            if (lastError.code === 'TARGET_NOT_FOUND_STABLE') {
+                break;
+            }
         }
 
         if (Date.now() >= deadline) {

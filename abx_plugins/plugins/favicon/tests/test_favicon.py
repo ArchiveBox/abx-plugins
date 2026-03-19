@@ -77,9 +77,7 @@ def test_extracts_favicon_from_example_com():
 
         # Run favicon extraction
         result = subprocess.run(
-            [
-                sys.executable,
-                str(FAVICON_HOOK),
+            [str(FAVICON_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -151,9 +149,7 @@ def test_config_timeout_honored():
         env["SNAP_DIR"] = str(tmpdir)
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(FAVICON_HOOK),
+            [str(FAVICON_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -190,9 +186,7 @@ def test_config_user_agent():
         env["SNAP_DIR"] = str(tmpdir)
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(FAVICON_HOOK),
+            [str(FAVICON_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -231,9 +225,7 @@ def test_handles_https_urls():
         env = os.environ.copy()
         env["SNAP_DIR"] = str(tmpdir)
         result = subprocess.run(
-            [
-                sys.executable,
-                str(FAVICON_HOOK),
+            [str(FAVICON_HOOK),
                 "--url",
                 "https://example.org",
                 "--snapshot-id",
@@ -272,9 +264,7 @@ def test_handles_missing_favicon_gracefully():
         env = os.environ.copy()
         env["SNAP_DIR"] = str(tmpdir)
         result = subprocess.run(
-            [
-                sys.executable,
-                str(FAVICON_HOOK),
+            [str(FAVICON_HOOK),
                 "--url",
                 "https://example.com/nonexistent",
                 "--snapshot-id",
@@ -300,25 +290,24 @@ def test_reports_missing_requests_library():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
+        shim_dir = tmpdir / "shim"
+        shim_dir.mkdir(parents=True, exist_ok=True)
+        (shim_dir / "requests.py").write_text(
+            'raise ImportError("requests disabled for test")\n',
+            encoding="utf-8",
+        )
 
-        # Run with PYTHONPATH cleared to simulate missing requests
+        # Put a failing `requests` module at the front of PYTHONPATH so the hook
+        # still runs via its shebang while import resolution behaves as if the
+        # dependency is missing.
         import os
 
         env = os.environ.copy()
-        # Keep only minimal PATH, clear PYTHONPATH
-        env["PYTHONPATH"] = "/nonexistent"
+        env["PYTHONPATH"] = str(shim_dir)
         env["SNAP_DIR"] = str(tmpdir)
 
         result = subprocess.run(
-            [
-                sys.executable,
-                "-S",
-                str(FAVICON_HOOK),
-                "--url",
-                TEST_URL,
-                "--snapshot-id",
-                "test123",
-            ],
+            [str(FAVICON_HOOK), "--url", TEST_URL, "--snapshot-id", "test123"],
             cwd=tmpdir,
             capture_output=True,
             text=True,

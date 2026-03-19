@@ -38,7 +38,7 @@ def test_crawl_hook_emits_puppeteer_binary():
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
         result = subprocess.run(
-            [sys.executable, str(CRAWL_HOOK)],
+            [str(CRAWL_HOOK)],
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -87,7 +87,7 @@ def test_crawl_hook_respects_configured_chrome_binary(browser_name):
         env["CHROME_BINARY"] = browser_name
 
         result = subprocess.run(
-            [sys.executable, str(CHROME_CRAWL_HOOK)],
+            [str(CHROME_CRAWL_HOOK)],
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -138,7 +138,7 @@ def test_puppeteer_installs_chromium():
         env.pop("LIB_DIR", None)
 
         crawl_result = subprocess.run(
-            [sys.executable, str(CRAWL_HOOK)],
+            [str(CRAWL_HOOK)],
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -164,9 +164,7 @@ def test_puppeteer_installs_chromium():
         )
 
         npm_result = subprocess.run(
-            [
-                sys.executable,
-                str(NPM_BINARY_HOOK),
+            [str(NPM_BINARY_HOOK),
                 "--machine-id=test-machine",
                 "--binary-id=test-puppeteer",
                 "--name=puppeteer",
@@ -186,9 +184,7 @@ def test_puppeteer_installs_chromium():
         )
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(BINARY_HOOK),
+            [str(BINARY_HOOK),
                 "--machine-id=test-machine",
                 "--binary-id=test-binary",
                 "--name=chromium",

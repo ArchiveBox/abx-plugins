@@ -56,9 +56,7 @@ class TestHashesPlugin:
             env["SNAP_DIR"] = str(snap_dir)
 
             result = subprocess.run(
-                [
-                    sys.executable,
-                    str(HASHES_HOOK),
+                [str(HASHES_HOOK),
                     "--url=https://example.com",
                     "--snapshot-id=test-snapshot",
                 ],
@@ -112,9 +110,7 @@ class TestHashesPlugin:
             env["SNAP_DIR"] = str(snap_dir)
 
             result = subprocess.run(
-                [
-                    sys.executable,
-                    str(HASHES_HOOK),
+                [str(HASHES_HOOK),
                     "--url=https://example.com",
                     "--snapshot-id=test-snapshot",
                 ],
@@ -142,9 +138,7 @@ class TestHashesPlugin:
             env["SNAP_DIR"] = str(snap_dir)
 
             result = subprocess.run(
-                [
-                    sys.executable,
-                    str(HASHES_HOOK),
+                [str(HASHES_HOOK),
                     "--url=https://example.com",
                     "--snapshot-id=test-snapshot",
                 ],

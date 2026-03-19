@@ -67,9 +67,7 @@ def get_papersdl_binary_path():
         env["SNAP_DIR"] = str(Path(_papersdl_home_root) / "data")
         env.pop("LIB_DIR", None)
 
-        cmd = [
-            sys.executable,
-            str(pip_hook),
+        cmd = [str(pip_hook),
             "--binary-id",
             binary_id,
             "--machine-id",
@@ -135,9 +133,7 @@ def test_handles_non_paper_url():
 
         # Run papers-dl extraction hook on non-paper URL
         result = subprocess.run(
-            [
-                sys.executable,
-                str(PAPERSDL_HOOK),
+            [str(PAPERSDL_HOOK),
                 "--url",
                 "https://example.com",
                 "--snapshot-id",
@@ -172,9 +168,7 @@ def test_config_save_papersdl_false_skips():
         env["PAPERSDL_ENABLED"] = "False"
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(PAPERSDL_HOOK),
+            [str(PAPERSDL_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -212,9 +206,7 @@ def test_config_timeout():
         env["PAPERSDL_TIMEOUT"] = "5"
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(PAPERSDL_HOOK),
+            [str(PAPERSDL_HOOK),
                 "--url",
                 "https://example.com",
                 "--snapshot-id",
@@ -250,9 +242,7 @@ def test_real_public_paper_download():
             env["SNAP_DIR"] = str(tmpdir)
 
             result = subprocess.run(
-                [
-                    sys.executable,
-                    str(PAPERSDL_HOOK),
+                [str(PAPERSDL_HOOK),
                     "--url",
                     paper_url,
                     "--snapshot-id",

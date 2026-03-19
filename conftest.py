@@ -248,7 +248,7 @@ def ensure_claude_code_prereqs(tmp_path_factory):
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
 
             install_result = subprocess.run(
-                [sys.executable, str(CLAUDECODE_INSTALL_HOOK)],
+                [str(CLAUDECODE_INSTALL_HOOK)],
                 capture_output=True,
                 text=True,
                 timeout=300,
@@ -263,9 +263,7 @@ def ensure_claude_code_prereqs(tmp_path_factory):
             if binary_record.get("name") != "claude":
                 raise RuntimeError("Claude Code install hook did not emit a claude Binary record")
 
-            npm_cmd = [
-                sys.executable,
-                str(NPM_BINARY_HOOK),
+            npm_cmd = [str(NPM_BINARY_HOOK),
                 "--machine-id=test-machine",
                 "--binary-id=test-claude",
                 "--name=claude",

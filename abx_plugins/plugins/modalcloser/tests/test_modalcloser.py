@@ -87,9 +87,7 @@ def test_config_modalcloser_disabled_skips():
         env["MODALCLOSER_ENABLED"] = "False"
 
         result = subprocess.run(
-            [
-                "node",
-                str(MODALCLOSER_HOOK),
+            [str(MODALCLOSER_HOOK),
                 f"--url={TEST_URL}",
                 "--snapshot-id=test-disabled",
             ],
@@ -127,9 +125,7 @@ def test_fails_gracefully_without_chrome_session():
         modalcloser_dir.mkdir(parents=True, exist_ok=True)
 
         result = subprocess.run(
-            [
-                "node",
-                str(MODALCLOSER_HOOK),
+            [str(MODALCLOSER_HOOK),
                 f"--url={TEST_URL}",
                 "--snapshot-id=test-no-chrome",
             ],
@@ -170,9 +166,7 @@ def test_background_script_handles_sigterm(httpserver):
                 env["MODALCLOSER_POLL_INTERVAL"] = "200"  # Faster polling for test
 
                 modalcloser_process = subprocess.Popen(
-                    [
-                        "node",
-                        str(MODALCLOSER_HOOK),
+                    [str(MODALCLOSER_HOOK),
                         f"--url={test_url}",
                         "--snapshot-id=snap-modalcloser",
                     ],
@@ -260,9 +254,7 @@ def test_dialog_handler_logs_dialogs(httpserver):
                 env["MODALCLOSER_POLL_INTERVAL"] = "200"
 
                 modalcloser_process = subprocess.Popen(
-                    [
-                        "node",
-                        str(MODALCLOSER_HOOK),
+                    [str(MODALCLOSER_HOOK),
                         f"--url={test_url}",
                         "--snapshot-id=snap-dialog",
                     ],
@@ -319,9 +311,7 @@ def test_config_poll_interval(httpserver):
                 env["MODALCLOSER_POLL_INTERVAL"] = "100"  # 100ms
 
                 modalcloser_process = subprocess.Popen(
-                    [
-                        "node",
-                        str(MODALCLOSER_HOOK),
+                    [str(MODALCLOSER_HOOK),
                         f"--url={test_url}",
                         "--snapshot-id=snap-poll",
                     ],
@@ -504,14 +494,15 @@ main().catch(e => {
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         script_path = tmpdir / "test_cookie_consent.js"
-        script_path.write_text(test_script)
+        script_path.write_text(f"#!/usr/bin/env node\n{test_script}", encoding="utf-8")
+        script_path.chmod(0o755)
 
         snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
         env = get_test_env() | {"SNAP_DIR": str(snap_dir)}
 
         result = subprocess.run(
-            ["node", str(script_path)],
+            [str(script_path)],
             cwd=tmpdir,
             capture_output=True,
             text=True,

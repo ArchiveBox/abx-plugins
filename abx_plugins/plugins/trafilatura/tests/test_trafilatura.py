@@ -39,8 +39,8 @@ _trafilatura_lib_root = None
 
 def _script_cmd(script: Path) -> list[str]:
     if shutil.which("uv"):
-        return ["uv", "run", str(script)]
-    return [sys.executable, str(script)]
+        return [str(script)]
+    return [str(script)]
 
 
 def get_trafilatura_binary_path() -> str | None:
@@ -167,9 +167,7 @@ def test_extracts_local_html_outputs_with_real_binary(httpserver):
         env["TRAFILATURA_OUTPUT_JSON"] = "true"
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(TRAFILATURA_HOOK),
+            [str(TRAFILATURA_HOOK),
                 "--url",
                 test_url,
                 "--snapshot-id",
@@ -231,9 +229,7 @@ def test_extracts_local_html_with_binary_resolved_from_path(chrome_test_url):
         env["PATH"] = f"{Path(binary_path).parent}:{env.get('PATH', '')}"
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(TRAFILATURA_HOOK),
+            [str(TRAFILATURA_HOOK),
                 "--url",
                 test_url,
                 "--snapshot-id",
@@ -288,9 +284,7 @@ def test_output_format_toggles_map_to_expected_files(httpserver):
         env["TRAFILATURA_OUTPUT_XMLTEI"] = "true"
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(TRAFILATURA_HOOK),
+            [str(TRAFILATURA_HOOK),
                 "--url",
                 test_url,
                 "--snapshot-id",
@@ -357,9 +351,7 @@ def test_outputs_all_supported_formats_together(httpserver):
         env["TRAFILATURA_OUTPUT_XMLTEI"] = "true"
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(TRAFILATURA_HOOK),
+            [str(TRAFILATURA_HOOK),
                 "--url",
                 test_url,
                 "--snapshot-id",
@@ -394,9 +386,7 @@ def test_fails_without_html_source():
         env["SNAP_DIR"] = str(snap_dir)
         env["TRAFILATURA_BINARY"] = binary_path
         result = subprocess.run(
-            [
-                sys.executable,
-                str(TRAFILATURA_HOOK),
+            [str(TRAFILATURA_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",

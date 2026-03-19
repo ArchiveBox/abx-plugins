@@ -52,7 +52,7 @@ TEST_EXTENSION_VERSION = "1.0.0"
 
 def _get_cookies_via_cdp(port: int, env: dict) -> list[dict]:
     result = subprocess.run(
-        ["node", str(CHROME_UTILS), "getCookiesViaCdp", str(port)],
+        [str(CHROME_UTILS), "getCookiesViaCdp", str(port)],
         capture_output=True,
         text=True,
         timeout=30,

@@ -26,7 +26,7 @@ https://www.iana.org/domains/reserved
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -69,7 +69,7 @@ Also see https://github.com/user/repo for the code.
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -96,7 +96,7 @@ Also see https://github.com/user/repo for the code.
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -119,7 +119,7 @@ Also see https://github.com/user/repo for the code.
         input_file.write_text("no urls here, just plain text")
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -134,7 +134,7 @@ Also see https://github.com/user/repo for the code.
     def test_exits_1_when_file_not_found(self, tmp_path):
         """Test that script exits with code 1 when file doesn't exist."""
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", "file:///nonexistent/path.txt"],
+            [str(SCRIPT_PATH), "--url", "file:///nonexistent/path.txt"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -155,7 +155,7 @@ https://other.com
         """)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -175,7 +175,7 @@ https://other.com
         input_file.write_text("https://new.com\nhttps://other.com")
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -199,7 +199,7 @@ https://other.com
         input_file.write_text("https://example.com")
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,
@@ -229,7 +229,7 @@ https://other.com
         env["SNAP_DIR"] = str(tmp_path)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
             text=True,

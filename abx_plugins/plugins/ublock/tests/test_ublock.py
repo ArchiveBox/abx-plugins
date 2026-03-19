@@ -71,7 +71,7 @@ def test_install_creates_cache():
         env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
 
         result = subprocess.run(
-            ["node", str(INSTALL_SCRIPT)],
+            [str(INSTALL_SCRIPT)],
             capture_output=True,
             text=True,
             env=env,
@@ -102,7 +102,7 @@ def test_install_twice_uses_cache():
 
         # First install - downloads the extension
         result1 = subprocess.run(
-            ["node", str(INSTALL_SCRIPT)],
+            [str(INSTALL_SCRIPT)],
             capture_output=True,
             text=True,
             env=env,
@@ -116,7 +116,7 @@ def test_install_twice_uses_cache():
 
         # Second install - should use cache and be faster
         result2 = subprocess.run(
-            ["node", str(INSTALL_SCRIPT)],
+            [str(INSTALL_SCRIPT)],
             capture_output=True,
             text=True,
             env=env,
@@ -143,7 +143,7 @@ def test_no_configuration_required():
         # No API keys needed - works with default filter lists
 
         install_result = subprocess.run(
-            ["node", str(INSTALL_SCRIPT)],
+            [str(INSTALL_SCRIPT)],
             capture_output=True,
             text=True,
             env=env,
@@ -168,7 +168,7 @@ def test_large_extension_size():
         env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
 
         result = subprocess.run(
-            ["node", str(INSTALL_SCRIPT)],
+            [str(INSTALL_SCRIPT)],
             capture_output=True,
             text=True,
             env=env,
@@ -300,10 +300,11 @@ const puppeteer = require('puppeteer-core');
 }})();
 """
     script_path = script_dir / "check_ads.js"
-    script_path.write_text(test_script)
+    script_path.write_text(f"#!/usr/bin/env node\n{test_script}", encoding="utf-8")
+    script_path.chmod(0o755)
 
     result = subprocess.run(
-        ["node", str(script_path)],
+        [str(script_path)],
         cwd=str(script_dir),
         capture_output=True,
         text=True,
@@ -353,7 +354,7 @@ def test_extension_loads_in_chromium():
         # Step 1: Install the uBlock extension
         print("[test] Installing uBlock extension...", flush=True)
         result = subprocess.run(
-            ["node", str(INSTALL_SCRIPT)],
+            [str(INSTALL_SCRIPT)],
             capture_output=True,
             text=True,
             env=env,
@@ -460,10 +461,11 @@ const puppeteer = require('puppeteer-core');
 }})();
 """
             script_path = tmpdir / "test_ublock.js"
-            script_path.write_text(test_script)
+            script_path.write_text(f"#!/usr/bin/env node\n{test_script}", encoding="utf-8")
+            script_path.chmod(0o755)
 
             result = subprocess.run(
-                ["node", str(script_path)],
+                [str(script_path)],
                 cwd=str(tmpdir),
                 capture_output=True,
                 text=True,
@@ -590,7 +592,7 @@ def test_blocks_ads_on_yahoo_com():
         ext_dir = Path(env_base["CHROME_EXTENSIONS_DIR"])
 
         result = subprocess.run(
-            ["node", str(INSTALL_SCRIPT)],
+            [str(INSTALL_SCRIPT)],
             capture_output=True,
             text=True,
             env=env_base,
@@ -659,9 +661,13 @@ const puppeteer = require('{env_base["NODE_MODULES_DIR"]}/puppeteer-core');
 }})();
 """
             dash_script_path = tmpdir / "check_dashboard.js"
-            dash_script_path.write_text(dashboard_script)
+            dash_script_path.write_text(
+                f"#!/usr/bin/env node\n{dashboard_script}",
+                encoding="utf-8",
+            )
+            dash_script_path.chmod(0o755)
             subprocess.run(
-                ["node", str(dash_script_path)],
+                [str(dash_script_path)],
                 capture_output=True,
                 timeout=15,
                 env=env_base,

@@ -87,7 +87,7 @@ def get_defuddle_binary_path() -> str | None:
     overrides = None
 
     crawl_result = subprocess.run(
-        [sys.executable, str(DEFUDDLE_CRAWL_HOOK)],
+        [str(DEFUDDLE_CRAWL_HOOK)],
         capture_output=True,
         text=True,
         timeout=30,
@@ -113,10 +113,7 @@ def get_defuddle_binary_path() -> str | None:
     env["SNAP_DIR"] = str(Path(_defuddle_lib_root) / "data")
     env["CRAWL_DIR"] = str(Path(_defuddle_lib_root) / "crawl")
 
-    cmd = [
-        "uv",
-        "run",
-        str(npm_hook),
+    cmd = [str(npm_hook),
         "--binary-id",
         binary_id,
         "--machine-id",
@@ -156,7 +153,7 @@ def test_hook_script_exists():
 
 def test_crawl_hook_emits_defuddle_binary_record():
     result = subprocess.run(
-        [sys.executable, str(DEFUDDLE_CRAWL_HOOK)],
+        [str(DEFUDDLE_CRAWL_HOOK)],
         capture_output=True,
         text=True,
         timeout=30,
@@ -179,9 +176,7 @@ def test_reports_missing_dependency_when_not_installed():
 
         env = {"PATH": "/nonexistent", "HOME": str(tmpdir), "SNAP_DIR": str(snap_dir)}
         result = subprocess.run(
-            [
-                sys.executable,
-                str(DEFUDDLE_HOOK),
+            [str(DEFUDDLE_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -237,9 +232,7 @@ def test_extracts_article_with_real_binary(httpserver):
         env["DEFUDDLE_BINARY"] = binary_path
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(DEFUDDLE_HOOK),
+            [str(DEFUDDLE_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",

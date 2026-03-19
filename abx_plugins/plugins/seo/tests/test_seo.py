@@ -92,9 +92,7 @@ class TestSEOWithChrome:
             seo_dir.mkdir(exist_ok=True)
 
             nav_result = subprocess.run(
-                [
-                    "node",
-                    str(CHROME_NAVIGATE_HOOK),
+                [str(CHROME_NAVIGATE_HOOK),
                     f"--url={test_url}",
                     f"--snapshot-id={snapshot_id}",
                 ],
@@ -108,9 +106,7 @@ class TestSEOWithChrome:
 
             # Run SEO hook with the active Chrome session
             result = subprocess.run(
-                [
-                    "node",
-                    str(SEO_HOOK),
+                [str(SEO_HOOK),
                     f"--url={test_url}",
                     f"--snapshot-id={snapshot_id}",
                 ],

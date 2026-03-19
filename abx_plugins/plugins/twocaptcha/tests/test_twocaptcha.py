@@ -62,7 +62,7 @@ class TestTwoCaptcha:
 
             # Install
             result = subprocess.run(
-                ["node", str(INSTALL_SCRIPT)],
+                [str(INSTALL_SCRIPT)],
                 env=env,
                 timeout=120,
                 capture_output=True,
@@ -105,7 +105,7 @@ class TestTwoCaptcha:
             env["TWOCAPTCHA_RETRY_DELAY"] = "10"
 
             subprocess.run(
-                ["node", str(INSTALL_SCRIPT)], env=env, timeout=120, capture_output=True
+                [str(INSTALL_SCRIPT)], env=env, timeout=120, capture_output=True
             )
 
             # Launch Chromium in crawls directory
@@ -122,9 +122,7 @@ class TestTwoCaptcha:
                 chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
 
                 result = subprocess.run(
-                    [
-                        "node",
-                        str(CONFIG_SCRIPT),
+                    [str(CONFIG_SCRIPT),
                         "--url=https://example.com",
                         "--snapshot-id=test",
                     ],
@@ -179,9 +177,11 @@ const puppeteer = require('puppeteer-core');
     console.log(JSON.stringify(cfg));
 }})();
 """
-                (tmpdir / "v.js").write_text(script)
+                script_path = tmpdir / "v.js"
+                script_path.write_text(f"#!/usr/bin/env node\n{script}", encoding="utf-8")
+                script_path.chmod(0o755)
                 r = subprocess.run(
-                    ["node", str(tmpdir / "v.js")],
+                    [str(script_path)],
                     env=env,
                     timeout=30,
                     capture_output=True,
@@ -260,7 +260,7 @@ const puppeteer = require('puppeteer-core');
             env["TWOCAPTCHA_API_KEY"] = self.api_key
 
             subprocess.run(
-                ["node", str(INSTALL_SCRIPT)], env=env, timeout=120, capture_output=True
+                [str(INSTALL_SCRIPT)], env=env, timeout=120, capture_output=True
             )
 
             # Launch Chromium in crawls directory
@@ -276,9 +276,7 @@ const puppeteer = require('puppeteer-core');
                 wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
 
                 config_result = subprocess.run(
-                    [
-                        "node",
-                        str(CONFIG_SCRIPT),
+                    [str(CONFIG_SCRIPT),
                         f"--url={TEST_URL}",
                         "--snapshot-id=solve",
                     ],

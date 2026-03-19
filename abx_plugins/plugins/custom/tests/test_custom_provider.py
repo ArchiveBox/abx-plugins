@@ -42,9 +42,7 @@ class TestCustomProviderHook:
         env["SNAP_DIR"] = self.temp_dir
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(INSTALL_HOOK),
+            [str(INSTALL_HOOK),
                 "--name=echo",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
@@ -69,9 +67,7 @@ class TestCustomProviderHook:
         # Use a simple echo command that doesn't actually install anything
         # Then check for 'echo' which is already in PATH
         result = subprocess.run(
-            [
-                sys.executable,
-                str(INSTALL_HOOK),
+            [str(INSTALL_HOOK),
                 "--name=echo",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
@@ -107,9 +103,7 @@ class TestCustomProviderHook:
         env["SNAP_DIR"] = self.temp_dir
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(INSTALL_HOOK),
+            [str(INSTALL_HOOK),
                 "--name=nonexistent_binary_xyz123",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
@@ -131,9 +125,7 @@ class TestCustomProviderHook:
         env["SNAP_DIR"] = self.temp_dir
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(INSTALL_HOOK),
+            [str(INSTALL_HOOK),
                 "--name=echo",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",

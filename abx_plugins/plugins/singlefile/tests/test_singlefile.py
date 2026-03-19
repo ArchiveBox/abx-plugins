@@ -91,7 +91,7 @@ def ensure_singlefile_extension_installed() -> dict[str, Path]:
     )
 
     result = subprocess.run(
-        ["node", str(INSTALL_SCRIPT)],
+        [str(INSTALL_SCRIPT)],
         capture_output=True,
         text=True,
         env=env_install,
@@ -181,7 +181,7 @@ def test_singlefile_cli_archives_example_com():
         )
 
         result = subprocess.run(
-            ["node", str(INSTALL_SCRIPT)],
+            [str(INSTALL_SCRIPT)],
             capture_output=True,
             text=True,
             env=env_install,
@@ -211,9 +211,7 @@ def test_singlefile_cli_archives_example_com():
 
                 # Run singlefile snapshot hook
                 result = subprocess.run(
-                    [
-                        sys.executable,
-                        str(SNAPSHOT_HOOK),
+                    [str(SNAPSHOT_HOOK),
                         f"--url={TEST_URL}",
                         "--snapshot-id=test789",
                     ],
@@ -284,9 +282,7 @@ def test_singlefile_with_chrome_session():
 
                 # Run singlefile - it should find and use the existing Chrome session
                 result = subprocess.run(
-                    [
-                        sys.executable,
-                        str(SNAPSHOT_HOOK),
+                    [str(SNAPSHOT_HOOK),
                         f"--url={TEST_URL}",
                         "--snapshot-id=singlefile-test-snap",
                     ],
@@ -347,7 +343,7 @@ def test_singlefile_with_extension_uses_existing_chrome():
 
         # Install SingleFile extension cache before launching Chrome
         result = subprocess.run(
-            ["node", str(INSTALL_SCRIPT)],
+            [str(INSTALL_SCRIPT)],
             capture_output=True,
             text=True,
             env=env_install,
@@ -391,9 +387,7 @@ def test_singlefile_with_extension_uses_existing_chrome():
                 downloads_mtime_before = downloads_dir.stat().st_mtime_ns
 
                 result = subprocess.run(
-                    [
-                        sys.executable,
-                        str(SNAPSHOT_HOOK),
+                    [str(SNAPSHOT_HOOK),
                         f"--url={TEST_URL}",
                         "--snapshot-id=singlefile-ext-snap",
                     ],
@@ -441,9 +435,7 @@ def test_singlefile_disabled_skips():
         env["SINGLEFILE_ENABLED"] = "False"
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(SNAPSHOT_HOOK),
+            [str(SNAPSHOT_HOOK),
                 f"--url={TEST_URL}",
                 "--snapshot-id=test-disabled",
             ],

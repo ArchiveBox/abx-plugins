@@ -36,9 +36,7 @@ def test_submits_to_archivedotorg():
         env["ARCHIVEDOTORG_TIMEOUT"] = "45"
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(ARCHIVEDOTORG_HOOK),
+            [str(ARCHIVEDOTORG_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -77,9 +75,7 @@ def test_config_save_archivedotorg_false_skips():
         env["ARCHIVEDOTORG_ENABLED"] = "False"
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(ARCHIVEDOTORG_HOOK),
+            [str(ARCHIVEDOTORG_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -115,9 +111,7 @@ def test_handles_timeout():
         env["TIMEOUT"] = "1"
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(ARCHIVEDOTORG_HOOK),
+            [str(ARCHIVEDOTORG_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",

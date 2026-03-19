@@ -80,7 +80,7 @@ def get_gallerydl_binary_path():
 
     if crawl_hook and crawl_hook.exists():
         crawl_result = subprocess.run(
-            [sys.executable, str(crawl_hook)],
+            [str(crawl_hook)],
             capture_output=True,
             text=True,
             timeout=30,
@@ -105,9 +105,7 @@ def get_gallerydl_binary_path():
     env["SNAP_DIR"] = str(Path(_gallerydl_lib_root) / "data")
     env.pop("LIB_DIR", None)
 
-    cmd = [
-        sys.executable,
-        str(pip_hook),
+    cmd = [str(pip_hook),
         "--binary-id",
         binary_id,
         "--machine-id",
@@ -165,9 +163,7 @@ def test_handles_non_gallery_url():
 
         # Run gallery-dl extraction hook on non-gallery URL
         result = subprocess.run(
-            [
-                sys.executable,
-                str(GALLERYDL_HOOK),
+            [str(GALLERYDL_HOOK),
                 "--url",
                 "https://example.com",
                 "--snapshot-id",
@@ -204,9 +200,7 @@ def test_config_save_gallery_dl_false_skips():
         env["GALLERYDL_ENABLED"] = "False"
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(GALLERYDL_HOOK),
+            [str(GALLERYDL_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -248,9 +242,7 @@ def test_config_timeout():
 
         start_time = time.time()
         result = subprocess.run(
-            [
-                sys.executable,
-                str(GALLERYDL_HOOK),
+            [str(GALLERYDL_HOOK),
                 "--url",
                 "https://example.com",
                 "--snapshot-id",
@@ -294,9 +286,7 @@ def test_real_gallery_url():
 
             start_time = time.time()
             result = subprocess.run(
-                [
-                    sys.executable,
-                    str(GALLERYDL_HOOK),
+                [str(GALLERYDL_HOOK),
                     "--url",
                     gallery_url,
                     "--snapshot-id",
