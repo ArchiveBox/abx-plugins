@@ -13,7 +13,6 @@ import os
 import subprocess
 import sys
 import tempfile
-import uuid
 from pathlib import Path
 
 import pytest
@@ -35,7 +34,6 @@ TEST_URL = "https://example.com"
 
 # Module-level cache for binary path
 _readability_binary_path = None
-_readability_lib_root = None
 
 
 def create_example_html(tmpdir: Path) -> Path:
@@ -96,105 +94,26 @@ def require_readability_binary() -> str:
     return binary_path
 
 
-def get_readability_binary_path():
-    """Get readability-extractor path from cache or by running install hooks."""
+def get_readability_binary_path() -> str | None:
+    """Get readability-extractor binary path, installing via abx_pkg if needed."""
     global _readability_binary_path
     if _readability_binary_path and Path(_readability_binary_path).is_file():
         return _readability_binary_path
 
     from abx_pkg import Binary, NpmProvider, EnvProvider
 
-    try:
-        binary = Binary(
-            name="readability-extractor",
-            binproviders=[NpmProvider(), EnvProvider()],
-            overrides={
-                "npm": {
-                    "install_args": ["https://github.com/ArchiveBox/readability-extractor"]
-                }
-            },
-        ).load()
-        if binary and binary.abspath:
-            _readability_binary_path = str(binary.abspath)
-            return _readability_binary_path
-    except Exception:
-        pass
-
-    npm_hook = PLUGINS_ROOT / "npm" / "on_Binary__10_npm_install.py"
-    crawl_hook = next(PLUGIN_DIR.glob("on_Crawl__35_readability_install*.py"), None)
-    if not npm_hook.exists():
-        return None
-
-    binary_id = str(uuid.uuid4())
-    machine_id = str(uuid.uuid4())
-    binproviders = "*"
-    overrides = None
-
-    if crawl_hook and crawl_hook.exists():
-        crawl_result = subprocess.run(
-            [str(crawl_hook)],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        for line in crawl_result.stdout.strip().split("\n"):
-            if not line.strip().startswith("{"):
-                continue
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if (
-                record.get("type") == "Binary"
-                and record.get("name") == "readability-extractor"
-            ):
-                binproviders = record.get("binproviders", "*")
-                overrides = record.get("overrides")
-                break
-
-    global _readability_lib_root
-    if not _readability_lib_root:
-        _readability_lib_root = tempfile.mkdtemp(prefix="readability-lib-")
-
-    env = os.environ.copy()
-    env["HOME"] = str(_readability_lib_root)
-    env["SNAP_DIR"] = str(Path(_readability_lib_root) / "data")
-    env["CRAWL_DIR"] = str(Path(_readability_lib_root) / "crawl")
-    env.pop("LIB_DIR", None)
-
-    cmd = [str(npm_hook),
-        "--binary-id",
-        binary_id,
-        "--machine-id",
-        machine_id,
-        "--name",
-        "readability-extractor",
-        f"--binproviders={binproviders}",
-    ]
-    if overrides:
-        cmd.append(f"--overrides={json.dumps(overrides)}")
-
-    install_result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=300,
-        env=env,
-    )
-
-    for line in install_result.stdout.strip().split("\n"):
-        if not line.strip().startswith("{"):
-            continue
-        try:
-            record = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if (
-            record.get("type") == "Binary"
-            and record.get("name") == "readability-extractor"
-        ):
-            _readability_binary_path = record.get("abspath")
-            return _readability_binary_path
+    binary = Binary(
+        name="readability-extractor",
+        binproviders=[NpmProvider(), EnvProvider()],
+        overrides={
+            "npm": {
+                "install_args": ["https://github.com/ArchiveBox/readability-extractor"]
+            }
+        },
+    ).load_or_install()
+    if binary and binary.abspath:
+        _readability_binary_path = str(binary.abspath)
+        return _readability_binary_path
 
     return None
 

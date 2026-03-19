@@ -17,7 +17,6 @@ import subprocess
 import sys
 import tempfile
 import time
-import uuid
 import wave
 from pathlib import Path
 import pytest
@@ -35,7 +34,6 @@ TEST_URL = "https://www.youtube.com/watch?v=jNQXAC9IVRw"
 
 # Module-level cache for binary path
 _ytdlp_binary_path = None
-_ytdlp_lib_root = None
 
 
 def _has_ssl_cert_error(result: subprocess.CompletedProcess[str]) -> bool:
@@ -96,95 +94,22 @@ def require_ytdlp_binary() -> str:
     return binary_path
 
 
-def get_ytdlp_binary_path():
-    """Get yt-dlp path from cache or by running install hooks."""
+def get_ytdlp_binary_path() -> str | None:
+    """Get yt-dlp binary path, installing via abx_pkg if needed."""
     global _ytdlp_binary_path
     if _ytdlp_binary_path and Path(_ytdlp_binary_path).is_file():
         return _ytdlp_binary_path
 
     from abx_pkg import Binary, PipProvider, EnvProvider
 
-    try:
-        binary = Binary(
-            name="yt-dlp",
-            binproviders=[PipProvider(), EnvProvider()],
-            overrides={"pip": {"install_args": ["yt-dlp[default]"]}},
-        ).load()
-        if binary and binary.abspath:
-            _ytdlp_binary_path = str(binary.abspath)
-            return _ytdlp_binary_path
-    except Exception:
-        pass
-
-    pip_hook = PLUGINS_ROOT / "pip" / "on_Binary__11_pip_install.py"
-    crawl_hook = next(PLUGIN_DIR.glob("on_Crawl__15_ytdlp_install*.py"), None)
-    if not pip_hook.exists():
-        return None
-
-    binary_id = str(uuid.uuid4())
-    machine_id = str(uuid.uuid4())
-    binproviders = "*"
-    overrides = None
-
-    if crawl_hook and crawl_hook.exists():
-        crawl_result = subprocess.run(
-            [str(crawl_hook)],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        for line in crawl_result.stdout.strip().split("\n"):
-            if not line.strip().startswith("{"):
-                continue
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if record.get("type") == "Binary" and record.get("name") == "yt-dlp":
-                binproviders = record.get("binproviders", "*")
-                overrides = record.get("overrides")
-                break
-
-    global _ytdlp_lib_root
-    if not _ytdlp_lib_root:
-        _ytdlp_lib_root = tempfile.mkdtemp(prefix="ytdlp-lib-")
-
-    env = os.environ.copy()
-    env["HOME"] = str(_ytdlp_lib_root)
-    env["SNAP_DIR"] = str(Path(_ytdlp_lib_root) / "data")
-    env["CRAWL_DIR"] = str(Path(_ytdlp_lib_root) / "crawl")
-    env.pop("LIB_DIR", None)
-
-    cmd = [str(pip_hook),
-        "--binary-id",
-        binary_id,
-        "--machine-id",
-        machine_id,
-        "--name",
-        "yt-dlp",
-        f"--binproviders={binproviders}",
-    ]
-    if overrides:
-        cmd.append(f"--overrides={json.dumps(overrides)}")
-
-    install_result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=300,
-        env=env,
-    )
-
-    for line in install_result.stdout.strip().split("\n"):
-        if not line.strip().startswith("{"):
-            continue
-        try:
-            record = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if record.get("type") == "Binary" and record.get("name") == "yt-dlp":
-            _ytdlp_binary_path = record.get("abspath")
-            return _ytdlp_binary_path
+    binary = Binary(
+        name="yt-dlp",
+        binproviders=[PipProvider(), EnvProvider()],
+        overrides={"pip": {"install_args": ["yt-dlp[default]"]}},
+    ).load_or_install()
+    if binary and binary.abspath:
+        _ytdlp_binary_path = str(binary.abspath)
+        return _ytdlp_binary_path
 
     return None
 
