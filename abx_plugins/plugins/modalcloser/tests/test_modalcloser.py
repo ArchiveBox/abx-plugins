@@ -502,7 +502,7 @@ main().catch(e => {
         env = get_test_env() | {"SNAP_DIR": str(snap_dir)}
 
         result = subprocess.run(
-            [str(script_path)],
+            ["node", str(script_path)],
             cwd=tmpdir,
             capture_output=True,
             text=True,
