@@ -664,6 +664,7 @@ def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):
                     if record.get("type") == "ArchiveResult":
                         archive_results.append(record)
                 if len(archive_results) == 1:
+                    _wait_for_process_to_remain_running(tab_process, stable_seconds=1.0)
                     break
                 time.sleep(0.1)
 
