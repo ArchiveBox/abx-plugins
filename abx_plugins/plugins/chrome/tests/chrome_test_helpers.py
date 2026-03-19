@@ -1208,7 +1208,7 @@ def launch_chromium_session(
     stderr_handle = open(stderr_log, "w+", encoding="utf-8")
 
     chrome_launch_process = subprocess.Popen(
-        ["node", str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
+        [str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
         cwd=str(chrome_dir),
         stdout=stdout_handle,
         stderr=stderr_handle,
@@ -1572,7 +1572,7 @@ def chrome_session(
         stdout_handle = open(stdout_log, "w+", encoding="utf-8")
         stderr_handle = open(stderr_log, "w+", encoding="utf-8")
         chrome_launch_process = subprocess.Popen(
-            ["node", str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
+            [str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
             cwd=str(chrome_dir),
             stdout=stdout_handle,
             stderr=stderr_handle,

@@ -17,7 +17,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvInt } = require('../base/utils.js');
+const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvInt, writeFileAtomic } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer');
 const {
@@ -90,7 +90,7 @@ async function navigate(url) {
             status,
             timestamp: new Date().toISOString()
         };
-        fs.writeFileSync(path.join(OUTPUT_DIR, 'navigation.json'), JSON.stringify(navigationState, null, 2));
+        writeFileAtomic(path.join(OUTPUT_DIR, 'navigation.json'), JSON.stringify(navigationState, null, 2));
 
         browser.disconnect();
 
@@ -134,7 +134,7 @@ async function main() {
             error: result.error,
             timestamp: new Date().toISOString()
         };
-        fs.writeFileSync(path.join(OUTPUT_DIR, 'navigation.json'), JSON.stringify(navigationState, null, 2));
+        writeFileAtomic(path.join(OUTPUT_DIR, 'navigation.json'), JSON.stringify(navigationState, null, 2));
     }
 
     const endTs = new Date();

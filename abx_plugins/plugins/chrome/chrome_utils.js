@@ -2157,9 +2157,8 @@ async function cleanupStaleChromeSessionArtifacts(chromeSessionDir, options = {}
 /**
  * Wait for the persisted marker state to contain the required fields.
  *
- * This is a filesystem-level readiness gate only. It does not probe the CDP
- * socket, so callers that need stronger guarantees should follow with
- * `inspectChromeSessionArtifacts()` or a real CDP connect.
+ * This waits for persisted session markers and can optionally require that the
+ * published browser endpoint is actually CDP-connectable before succeeding.
  *
  * @param {string} chromeSessionDir - Path to chrome session directory
  * @param {Object} [options={}] - Wait/validation options
@@ -2167,6 +2166,8 @@ async function cleanupStaleChromeSessionArtifacts(chromeSessionDir, options = {}
  * @param {number} [options.intervalMs=100] - Poll interval in milliseconds
  * @param {boolean} [options.requireTargetId=false] - Require target ID marker
  * @param {boolean} [options.requireExtensionsLoaded=false] - Require extensions.json to be available and parseable
+ * @param {boolean} [options.requireConnectable=false] - Require the browser endpoint to be CDP-connectable
+ * @param {number} [options.probeTimeoutMs=min(intervalMs, 1000)] - Timeout for each CDP connectability probe
  * @returns {Promise<{sessionDir: string, cdpUrl: string|null, targetId: string|null, pid: number|null, extensions: Array<Object>|null}|null>}
  */
 async function waitForChromeSessionState(chromeSessionDir, options = {}) {
@@ -2175,19 +2176,23 @@ async function waitForChromeSessionState(chromeSessionDir, options = {}) {
         intervalMs = 100,
         requireTargetId = false,
         requireExtensionsLoaded = false,
+        requireConnectable = false,
+        probeTimeoutMs = Math.min(Math.max(intervalMs, 100), 1000),
     } = options;
     const startTime = Date.now();
 
     while (Date.now() - startTime < timeoutMs) {
         const inspection = await inspectChromeSessionArtifacts(chromeSessionDir, {
             requireTargetId,
-            validateLiveness: false,
+            validateLiveness: requireConnectable,
+            probeTimeoutMs,
         });
         const state = inspection.state;
         if (
             state?.cdpUrl &&
             (!requireTargetId || state.targetId) &&
-            (!requireExtensionsLoaded || state.extensions !== null)
+            (!requireExtensionsLoaded || state.extensions !== null) &&
+            (!requireConnectable || !inspection.stale)
         ) {
             return state;
         }
@@ -3204,27 +3209,44 @@ async function ensureChromeSession(options = {}) {
 async function waitForNavigationComplete(chromeSessionDir, timeoutMs = 120000, postLoadDelayMs = 0) {
     const { navigationFile } = getChromeSessionPaths(chromeSessionDir);
     const pollInterval = 100;
-    let waitTime = 0;
+    const deadline = Date.now() + timeoutMs;
+    let lastParseError = null;
 
-    while (!fs.existsSync(navigationFile) && waitTime < timeoutMs) {
-        await new Promise(resolve => setTimeout(resolve, pollInterval));
-        waitTime += pollInterval;
+    while (Date.now() < deadline) {
+        if (!fs.existsSync(navigationFile)) {
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+            continue;
+        }
+
+        try {
+            const rawNavigationState = fs.readFileSync(navigationFile, 'utf8');
+            if (!rawNavigationState.trim()) {
+                throw new SyntaxError('navigation.json is empty');
+            }
+            const navigationState = JSON.parse(rawNavigationState);
+            if (navigationState?.error) {
+                throw new Error(navigationState.error);
+            }
+
+            if (postLoadDelayMs > 0) {
+                await new Promise(resolve => setTimeout(resolve, postLoadDelayMs));
+            }
+
+            return navigationState;
+        } catch (error) {
+            if (error instanceof SyntaxError) {
+                lastParseError = error;
+                await new Promise(resolve => setTimeout(resolve, pollInterval));
+                continue;
+            }
+            throw error;
+        }
     }
 
-    if (!fs.existsSync(navigationFile)) {
-        throw new Error('Timeout waiting for navigation (chrome_navigate did not complete)');
+    if (lastParseError) {
+        throw new Error(`Timeout waiting for navigation (invalid navigation.json: ${lastParseError.message})`);
     }
-
-    const navigationState = JSON.parse(fs.readFileSync(navigationFile, 'utf8'));
-    if (navigationState?.error) {
-        throw new Error(navigationState.error);
-    }
-
-    if (postLoadDelayMs > 0) {
-        await new Promise(resolve => setTimeout(resolve, postLoadDelayMs));
-    }
-
-    return navigationState;
+    throw new Error('Timeout waiting for navigation (chrome_navigate did not complete)');
 }
 
 /**

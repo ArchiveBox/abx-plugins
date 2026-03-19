@@ -1427,7 +1427,7 @@ def test_cdp_url_is_not_published_before_extensions_metadata():
         extensions_file = chrome_dir / "extensions.json"
         cdp_file = chrome_dir / "cdp_url.txt"
         chrome_launch_process = subprocess.Popen(
-            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-cdp-after-exts"],
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-cdp-after-exts"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -1482,7 +1482,7 @@ def test_crawl_wait_accepts_http_cdp_url_for_external_browser(chrome_test_url):
             CHROME_HEADLESS="true",
         )
         provider_process = subprocess.Popen(
-            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=provider-http-adopt"],
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=provider-http-adopt"],
             cwd=str(provider_chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -1520,7 +1520,7 @@ def test_crawl_wait_accepts_http_cdp_url_for_external_browser(chrome_test_url):
             )
 
             adopted_launch = subprocess.run(
-                ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=adopt-http-crawl"],
+                [str(CHROME_LAUNCH_HOOK), "--crawl-id=adopt-http-crawl"],
                 cwd=str(adopted_chrome_dir),
                 capture_output=True,
                 text=True,
@@ -1535,9 +1535,7 @@ def test_crawl_wait_accepts_http_cdp_url_for_external_browser(chrome_test_url):
             assert not (adopted_chrome_dir / "chrome.pid").exists()
 
             crawl_wait = subprocess.run(
-                [
-                    "node",
-                    str(CHROME_CRAWL_WAIT_HOOK),
+                [str(CHROME_CRAWL_WAIT_HOOK),
                     f"--url={chrome_test_url}",
                     "--snapshot-id=snap-http-adopt",
                 ],
@@ -1591,7 +1589,7 @@ def test_cookies_imported_on_launch():
         )
 
         chrome_launch_process = subprocess.Popen(
-            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-crawl-cookies"],
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-crawl-cookies"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -1672,9 +1670,7 @@ def test_chrome_navigation(chrome_test_url):
             CHROME_WAIT_FOR="load",
         )
         result = subprocess.run(
-            [
-                "node",
-                str(CHROME_NAVIGATE_HOOK),
+            [str(CHROME_NAVIGATE_HOOK),
                 f"--url={chrome_test_url}",
                 "--snapshot-id=snap-nav-123",
             ],
@@ -1738,7 +1734,7 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
         tab_process = None
         try:
             chrome_launch_process = subprocess.Popen(
-                ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-shared-order"],
+                [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-shared-order"],
                 cwd=str(chrome_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -1776,9 +1772,7 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
             )
 
             crawl_wait = subprocess.run(
-                [
-                    "node",
-                    str(CHROME_CRAWL_WAIT_HOOK),
+                [str(CHROME_CRAWL_WAIT_HOOK),
                     f"--url={chrome_test_url}",
                     "--snapshot-id=snap-shared-order",
                 ],
@@ -1799,9 +1793,7 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
             )
 
             snapshot_wait_before_tab = subprocess.run(
-                [
-                    "node",
-                    str(CHROME_WAIT_HOOK),
+                [str(CHROME_WAIT_HOOK),
                     f"--url={chrome_test_url}",
                     "--snapshot-id=snap-shared-order",
                 ],
@@ -1818,12 +1810,30 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
                 "snapshot wait must not synthesize target_id.txt before chrome_tab runs"
             )
 
+            delayed_snapshot_wait = subprocess.Popen(
+                [str(CHROME_WAIT_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=snap-shared-order-delayed",
+                ],
+                cwd=str(chrome_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env | {"CHROME_TAB_TIMEOUT": "5", "CHROME_TIMEOUT": "5"},
+            )
+            time.sleep(1)
+
             tab_process = launch_snapshot_tab(
                 snapshot_chrome_dir=chrome_dir,
                 tab_env=env,
                 test_url=chrome_test_url,
                 snapshot_id="snap-shared-order",
                 crawl_id="test-shared-order",
+            )
+            delayed_wait_stdout, delayed_wait_stderr = delayed_snapshot_wait.communicate(timeout=15)
+            assert delayed_snapshot_wait.returncode == 0, (
+                "snapshot wait should block until tab markers appear, not fail immediately when it starts before chrome_tab:\n"
+                f"Stdout: {delayed_wait_stdout}\nStderr: {delayed_wait_stderr}"
             )
 
             target_id_before_wait = snapshot_files["target"].read_text().strip()
@@ -1851,9 +1861,7 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
             assert tab_target.get("url") == "about:blank"
 
             snapshot_wait = subprocess.run(
-                [
-                    "node",
-                    str(CHROME_WAIT_HOOK),
+                [str(CHROME_WAIT_HOOK),
                     f"--url={chrome_test_url}",
                     "--snapshot-id=snap-shared-order",
                 ],
@@ -1873,9 +1881,7 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
             assert snapshot_files["url"].read_text().strip() == chrome_test_url
 
             navigate = subprocess.run(
-                [
-                    "node",
-                    str(CHROME_NAVIGATE_HOOK),
+                [str(CHROME_NAVIGATE_HOOK),
                     f"--url={chrome_test_url}",
                     "--snapshot-id=snap-shared-order",
                 ],
@@ -1958,7 +1964,7 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
         tab_process = None
         try:
             chrome_launch_process = subprocess.Popen(
-                ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-shared-exts"],
+                [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-shared-exts"],
                 cwd=str(chrome_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -2001,9 +2007,7 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
             assert extensions_file.read_text() == crawl_extensions_text
 
             snapshot_wait = subprocess.run(
-                [
-                    "node",
-                    str(CHROME_WAIT_HOOK),
+                [str(CHROME_WAIT_HOOK),
                     f"--url={chrome_test_url}",
                     "--snapshot-id=snap-shared-exts",
                 ],
@@ -2054,9 +2058,7 @@ def test_chrome_wait_rejects_stale_cdp_markers(chrome_test_url):
             CHROME_TIMEOUT="1",
         )
         result = subprocess.run(
-            [
-                "node",
-                str(CHROME_WAIT_HOOK),
+            [str(CHROME_WAIT_HOOK),
                 f"--url={chrome_test_url}",
                 "--snapshot-id=snap-wait-stale",
             ],
@@ -2073,6 +2075,72 @@ def test_chrome_wait_rejects_stale_cdp_markers(chrome_test_url):
         payload = json.loads(result.stdout.strip())
         assert payload["status"] == "failed"
         assert payload["output_str"] == "No Chrome session found (chrome plugin must run first)"
+
+
+def test_crawl_wait_retries_until_published_cdp_endpoint_becomes_connectable(chrome_test_url):
+    """crawl wait should keep polling a published cdp_url until the browser is actually connectable."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        (
+            provider_dir,
+            provider_chrome_dir,
+            _provider_env,
+            provider_cdp_url,
+            provider_pid,
+        ) = _launch_keepalive_local_provider_browser(
+            tmpdir,
+            crawl_dir_name="provider-crawl-wait-retry",
+        )
+        wait_process = None
+        try:
+            adopted_dir = Path(tmpdir) / "adopted-crawl-wait-retry"
+            adopted_dir.mkdir()
+            adopted_chrome_dir = adopted_dir / "chrome"
+            adopted_chrome_dir.mkdir()
+            adopted_chrome_dir.joinpath("cdp_url.txt").write_text(
+                "ws://127.0.0.1:9/devtools/browser/not-ready-yet"
+            )
+
+            adopted_env = _isolated_test_env(
+                tmpdir,
+                CRAWL_DIR=str(adopted_dir),
+                CHROME_IS_LOCAL="false",
+                CHROME_TIMEOUT="5",
+                CHROME_TAB_TIMEOUT="5",
+            )
+
+            wait_process = subprocess.Popen(
+                [
+                    str(CHROME_CRAWL_WAIT_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=snap-crawl-wait-retry",
+                ],
+                cwd=str(adopted_chrome_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=adopted_env,
+            )
+
+            time.sleep(1)
+            assert wait_process.poll() is None, (
+                "crawl wait should still be waiting while the published cdp_url is unreachable"
+            )
+
+            adopted_chrome_dir.joinpath("cdp_url.txt").write_text(provider_cdp_url)
+
+            stdout, stderr = wait_process.communicate(timeout=15)
+            assert wait_process.returncode == 0, (
+                "crawl wait should retry until the published endpoint becomes connectable:\n"
+                f"Stdout: {stdout}\nStderr: {stderr}"
+            )
+            payload = json.loads(stdout.strip())
+            assert payload["status"] == "succeeded", payload
+            assert "browser ready" in payload["output_str"]
+        finally:
+            if wait_process is not None and wait_process.poll() is None:
+                wait_process.kill()
+                wait_process.communicate()
+            kill_chrome(provider_pid, str(provider_chrome_dir))
 
 
 def test_cleanup_stale_chrome_session_artifacts_only_when_stale():
@@ -2113,7 +2181,7 @@ def test_cleanup_stale_chrome_session_artifacts_keeps_live_session():
             CHROME_HEADLESS="true",
         )
         chrome_launch_process = subprocess.Popen(
-            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-stale-cleanup"],
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-stale-cleanup"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -2216,7 +2284,7 @@ def test_snapshot_wait_survives_idle_delay_with_shared_dirs(chrome_test_url):
         )
 
         chrome_launch_process = subprocess.Popen(
-            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-shared-dirs"],
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-shared-dirs"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -2246,9 +2314,7 @@ def test_snapshot_wait_survives_idle_delay_with_shared_dirs(chrome_test_url):
         time.sleep(8)
 
         result = subprocess.run(
-            [
-                "node",
-                str(CHROME_WAIT_HOOK),
+            [str(CHROME_WAIT_HOOK),
                 f"--url={chrome_test_url}",
                 "--snapshot-id=snap-shared",
             ],
@@ -2289,7 +2355,7 @@ def test_concurrent_same_dir_reuses_one_browser_and_one_target(chrome_test_url):
         launch_a = launch_b = tab_a = tab_b = None
         try:
             launch_a = subprocess.Popen(
-                ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-concurrent"],
+                [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-concurrent"],
                 cwd=str(chrome_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -2297,7 +2363,7 @@ def test_concurrent_same_dir_reuses_one_browser_and_one_target(chrome_test_url):
                 env=env,
             )
             launch_b = subprocess.Popen(
-                ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-concurrent"],
+                [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-concurrent"],
                 cwd=str(chrome_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -2320,7 +2386,7 @@ def test_concurrent_same_dir_reuses_one_browser_and_one_target(chrome_test_url):
             }
 
             tab_a = subprocess.Popen(
-                ["node", str(CHROME_TAB_HOOK), f"--url={chrome_test_url}", "--snapshot-id=snap-concurrent", "--crawl-id=test-concurrent"],
+                [str(CHROME_TAB_HOOK), f"--url={chrome_test_url}", "--snapshot-id=snap-concurrent", "--crawl-id=test-concurrent"],
                 cwd=str(chrome_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -2328,7 +2394,7 @@ def test_concurrent_same_dir_reuses_one_browser_and_one_target(chrome_test_url):
                 env=env,
             )
             tab_b = subprocess.Popen(
-                ["node", str(CHROME_TAB_HOOK), f"--url={chrome_test_url}", "--snapshot-id=snap-concurrent", "--crawl-id=test-concurrent"],
+                [str(CHROME_TAB_HOOK), f"--url={chrome_test_url}", "--snapshot-id=snap-concurrent", "--crawl-id=test-concurrent"],
                 cwd=str(chrome_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -2349,7 +2415,7 @@ def test_concurrent_same_dir_reuses_one_browser_and_one_target(chrome_test_url):
                 time.sleep(1)
 
             wait_result = subprocess.run(
-                ["node", str(CHROME_WAIT_HOOK), f"--url={chrome_test_url}", "--snapshot-id=snap-concurrent"],
+                [str(CHROME_WAIT_HOOK), f"--url={chrome_test_url}", "--snapshot-id=snap-concurrent"],
                 cwd=str(chrome_dir),
                 capture_output=True,
                 text=True,
@@ -2405,7 +2471,7 @@ def test_target_crash_mid_navigation_recovers_with_fresh_tab(chrome_test_urls):
         navigate_process = None
         try:
             chrome_launch_process = subprocess.Popen(
-                ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-target-crash"],
+                [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-target-crash"],
                 cwd=str(chrome_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -2428,7 +2494,7 @@ def test_target_crash_mid_navigation_recovers_with_fresh_tab(chrome_test_urls):
             target_before = (chrome_dir / "target_id.txt").read_text().strip()
 
             navigate_process = subprocess.Popen(
-                ["node", str(CHROME_NAVIGATE_HOOK), f"--url={chrome_test_urls['slow_url']}", "--snapshot-id=snap-target-crash"],
+                [str(CHROME_NAVIGATE_HOOK), f"--url={chrome_test_urls['slow_url']}", "--snapshot-id=snap-target-crash"],
                 cwd=str(chrome_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -2469,7 +2535,7 @@ def test_target_crash_mid_navigation_recovers_with_fresh_tab(chrome_test_urls):
                 crawl_id="test-target-crash",
             )
             wait_result = subprocess.run(
-                ["node", str(CHROME_WAIT_HOOK), f"--url={replacement_url}", "--snapshot-id=snap-target-crash"],
+                [str(CHROME_WAIT_HOOK), f"--url={replacement_url}", "--snapshot-id=snap-target-crash"],
                 cwd=str(chrome_dir),
                 capture_output=True,
                 text=True,
@@ -2510,7 +2576,7 @@ def test_popup_focus_theft_keeps_followup_hooks_on_canonical_target(chrome_test_
         tab_process = None
         try:
             chrome_launch_process = subprocess.Popen(
-                ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-popup-focus"],
+                [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-popup-focus"],
                 cwd=str(chrome_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -2531,7 +2597,7 @@ def test_popup_focus_theft_keeps_followup_hooks_on_canonical_target(chrome_test_
                 crawl_id="test-popup-focus",
             )
             navigate = subprocess.run(
-                ["node", str(CHROME_NAVIGATE_HOOK), f"--url={chrome_test_urls['popup_parent_url']}", "--snapshot-id=snap-popup-focus"],
+                [str(CHROME_NAVIGATE_HOOK), f"--url={chrome_test_urls['popup_parent_url']}", "--snapshot-id=snap-popup-focus"],
                 cwd=str(chrome_dir),
                 capture_output=True,
                 text=True,
@@ -2588,7 +2654,7 @@ def test_multiple_snapshots_share_chrome(chrome_test_urls):
         )
         # Launch Chrome at crawl level
         chrome_launch_process = subprocess.Popen(
-            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-multi-crawl"],
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-multi-crawl"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -2686,7 +2752,7 @@ def test_chrome_cleanup_on_crawl_end():
         )
         # Launch Chrome in background
         chrome_launch_process = subprocess.Popen(
-            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-crawl-end"],
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-crawl-end"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -2754,7 +2820,7 @@ def test_zombie_prevention_hook_killed():
         )
         # Launch Chrome
         chrome_launch_process = subprocess.Popen(
-            ["node", str(CHROME_LAUNCH_HOOK), "--crawl-id=test-zombie"],
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-zombie"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

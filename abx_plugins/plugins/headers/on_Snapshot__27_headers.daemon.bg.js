@@ -57,6 +57,7 @@ let responseStatus = null;
 let responseStatusText = null;
 let responseUrl = null;
 let originalUrl = null;
+let latestNavigationState = null;
 let headersReadyResolve = null;
 let headersReadyReject = null;
 const headersReady = new Promise((resolve) => {
@@ -72,9 +73,9 @@ function getFinalUrl(navigationState = null) {
     return navigationState?.finalUrl || page?.url() || null;
 }
 
-function writeHeadersFile(navigationState = null) {
-    if (headersWritten) return;
+function writeHeadersFile(navigationState = null, forceRewrite = false) {
     if (!responseHeaders) return;
+    if (headersWritten && !forceRewrite) return;
 
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
     const responseHeadersWithStatus = {
@@ -103,8 +104,9 @@ function writeHeadersFile(navigationState = null) {
     }
 
     fs.writeFileSync(outputPath, JSON.stringify(record, null, 2));
+    const wasWritten = headersWritten;
     headersWritten = true;
-    if (headersReadyResolve) {
+    if (!wasWritten && headersReadyResolve) {
         headersReadyResolve();
     }
 }
@@ -192,8 +194,8 @@ function emitResult(status = 'succeeded', outputStr = OUTPUT_FILE) {
 
 async function handleShutdown(signal) {
     console.error(`\nReceived ${signal}, emitting final results...`);
-    if (!headersWritten) {
-        writeHeadersFile();
+    if (!headersWritten || latestNavigationState) {
+        writeHeadersFile(latestNavigationState, true);
     }
     if (headersWritten) {
         await emitResult('succeeded', OUTPUT_FILE);
@@ -248,13 +250,12 @@ async function main() {
         let navigationState = null;
         try {
             navigationState = await waitForNavigationComplete(CHROME_SESSION_DIR, POST_CAPTURE_NAVIGATION_GRACE_MS, 200);
+            latestNavigationState = navigationState;
         } catch (e) {
             // Ignore navigation marker timeouts once headers have been captured.
         }
 
-        if (!headersWritten) {
-            writeHeadersFile(navigationState);
-        }
+        writeHeadersFile(navigationState, true);
         if (!headersWritten) {
             throw new Error('No headers captured');
         }

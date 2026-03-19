@@ -5,6 +5,12 @@
  * This is a foreground hook that blocks until the Chrome tab is ready,
  * so downstream hooks can safely connect to CDP.
  *
+ * This hook exists primarily as a foreground barrier. The snapshot launch/tab
+ * hooks are daemons/background hooks, so they do not block later foreground
+ * hooks by themselves. Keeping this as a thin foreground wait stage means
+ * downstream snapshot hooks do not all need to reimplement their own manual
+ * ordering and blocking checks before connecting to the published page target.
+ *
  * Usage: on_Snapshot__11_chrome_wait.js --url=<url> --snapshot-id=<uuid>
  */
 
@@ -23,6 +29,7 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 process.chdir(OUTPUT_DIR);
 
 const {
+    waitForChromeSessionState,
     connectToPage,
 } = require('./chrome_utils.js');
 
@@ -44,11 +51,24 @@ async function main() {
 
     console.error(`[chrome_wait] Waiting for Chrome session (timeout=${timeoutSeconds}s)...`);
 
+    const deadline = Date.now() + timeoutMs;
+    const markerState = await waitForChromeSessionState(CHROME_SESSION_DIR, {
+        timeoutMs,
+        intervalMs: 100,
+        requireTargetId: true,
+    });
+    if (!markerState?.cdpUrl || !markerState?.targetId) {
+        const error = CHROME_SESSION_REQUIRED_ERROR;
+        console.error(`[chrome_wait] ERROR: ${error}`);
+        console.log(JSON.stringify({ type: 'ArchiveResult', status: 'failed', output_str: error }));
+        process.exit(1);
+    }
+
     let readySession = null;
     try {
         readySession = await connectToPage({
             chromeSessionDir: CHROME_SESSION_DIR,
-            timeoutMs,
+            timeoutMs: Math.max(1000, deadline - Date.now()),
             requireTargetId: true,
             puppeteer,
         });

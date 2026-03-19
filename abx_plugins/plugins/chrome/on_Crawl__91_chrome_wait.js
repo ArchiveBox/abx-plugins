@@ -6,14 +6,19 @@
  * shared browser launched by on_Crawl__90_chrome_launch.daemon.bg.js is actually
  * reachable over CDP.
  *
+ * This hook exists primarily as a foreground barrier. The launch hook is a
+ * daemon/background hook, so it does not block later foreground hooks by
+ * itself. Keeping this as a thin foreground wait stage means downstream crawl
+ * hooks do not all need to reimplement their own "wait until Chrome is ready"
+ * ordering logic before touching the shared browser session.
+ *
  * Usage: on_Crawl__91_chrome_wait.js --url=<url> --snapshot-id=<uuid>
  */
 
 const fs = require('fs');
 const path = require('path');
-const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvBool, getEnvInt } = require('../base/utils.js');
+const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvInt } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
-const puppeteer = require('puppeteer');
 
 const PLUGIN_DIR = path.basename(__dirname);
 const CRAWL_DIR = path.resolve((process.env.CRAWL_DIR || '.').trim());
@@ -25,7 +30,6 @@ process.chdir(OUTPUT_DIR);
 
 const {
     waitForChromeSessionState,
-    connectToBrowserEndpoint,
 } = require('./chrome_utils.js');
 
 const CHROME_SESSION_DIR = path.join(CRAWL_DIR, 'chrome');
@@ -56,28 +60,14 @@ async function main() {
     const readySession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
         timeoutMs,
         intervalMs: 100,
+        requireConnectable: true,
+        probeTimeoutMs: 1000,
     });
     if (!readySession?.cdpUrl) {
         const error = CHROME_SESSION_REQUIRED_ERROR;
         console.error(`[chrome_wait:crawl] ERROR: ${error}`);
         console.log(JSON.stringify({ type: 'ArchiveResult', status: 'failed', output_str: error }));
         process.exit(1);
-    }
-
-    let browser = null;
-    try {
-        browser = await connectToBrowserEndpoint(puppeteer, readySession.cdpUrl, { defaultViewport: null });
-    } catch (error) {
-        const message = error?.message || String(error);
-        console.error(`[chrome_wait:crawl] ERROR: ${message}`);
-        console.log(JSON.stringify({ type: 'ArchiveResult', status: 'failed', output_str: CHROME_SESSION_REQUIRED_ERROR }));
-        process.exit(1);
-    } finally {
-        if (browser) {
-            try {
-                browser.disconnect();
-            } catch (disconnectError) {}
-        }
     }
 
     const pid = readySession.pid || 'external';

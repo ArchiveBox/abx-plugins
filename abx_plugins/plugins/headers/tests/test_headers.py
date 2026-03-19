@@ -77,7 +77,7 @@ def normalize_root_url(url: str) -> str:
 
 def run_headers_capture(headers_dir, snapshot_chrome_dir, env, url, snapshot_id):
     hook_proc = subprocess.Popen(
-        ["node", str(HEADERS_HOOK), f"--url={url}", f"--snapshot-id={snapshot_id}"],
+        [str(HEADERS_HOOK), f"--url={url}", f"--snapshot-id={snapshot_id}"],
         cwd=headers_dir,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -87,7 +87,6 @@ def run_headers_capture(headers_dir, snapshot_chrome_dir, env, url, snapshot_id)
 
     nav_result = subprocess.run(
         [
-            "node",
             str(CHROME_NAVIGATE_HOOK),
             f"--url={url}",
             f"--snapshot-id={snapshot_id}",
@@ -326,7 +325,7 @@ def test_fails_without_chrome_session():
 
         # Run headers extraction
         result = subprocess.run(
-            ["node", str(HEADERS_HOOK), f"--url={TEST_URL}", "--snapshot-id=testhttp"],
+            [str(HEADERS_HOOK), f"--url={TEST_URL}", "--snapshot-id=testhttp"],
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -510,6 +509,42 @@ def test_handles_404_gracefully(require_chrome_runtime, headers_test_urls):
         assert headers_file.exists(), "headers.json not created"
         output_data = json.loads(headers_file.read_text())
         assert output_data["status"] == 404, "Should capture 404 status"
+
+
+def test_redirect_updates_headers_final_url(require_chrome_runtime, headers_test_urls):
+    """Redirect captures should rewrite final_url from navigation.json after redirect completion."""
+    redirect_url = headers_test_urls["redirect"]
+    final_url = headers_test_urls["base"]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        with chrome_session(
+            tmpdir,
+            test_url=redirect_url,
+            navigate=False,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        ) as (_process, _pid, snapshot_chrome_dir, env):
+            headers_dir = snapshot_chrome_dir.parent / "headers"
+            headers_dir.mkdir(exist_ok=True)
+            hook_code, _stdout, _stderr, nav_result, headers_file = run_headers_capture(
+                headers_dir,
+                snapshot_chrome_dir,
+                env,
+                redirect_url,
+                "testredirect",
+            )
+
+        assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
+        assert hook_code == 0, "Headers hook should succeed for redirects"
+        assert headers_file.exists(), "headers.json not created"
+
+        output_data = json.loads(headers_file.read_text())
+        assert normalize_root_url(output_data["url"]) == normalize_root_url(redirect_url)
+        assert normalize_root_url(output_data["final_url"]) == normalize_root_url(final_url), (
+            f"final_url should reflect the post-redirect destination, got {output_data['final_url']}"
+        )
+        assert output_data["status"] in (200, 301, 302), output_data
 
 
 if __name__ == "__main__":
