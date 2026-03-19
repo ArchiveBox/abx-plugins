@@ -304,7 +304,7 @@ const puppeteer = require('puppeteer-core');
     script_path.chmod(0o755)
 
     result = subprocess.run(
-        [str(script_path)],
+        ["node", str(script_path)],
         cwd=str(script_dir),
         capture_output=True,
         text=True,
