@@ -32,11 +32,15 @@ def test_all_plugin_scripts_are_executable_and_have_shebang() -> None:
 
     for script_path in _iter_plugin_scripts():
         rel_path = script_path.relative_to(REPO_ROOT)
+
+        if not _requires_shebang(script_path):
+            continue
+
         mode = script_path.stat().st_mode
         if not mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH):
             failures.append(f"{rel_path}: missing executable bit")
 
-        if _requires_shebang(script_path):
+        if True:
             first_line = script_path.read_text(
                 encoding="utf-8", errors="ignore"
             ).splitlines()

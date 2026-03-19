@@ -3,7 +3,6 @@ import os
 import subprocess
 import sys
 import tempfile
-import uuid
 from pathlib import Path
 from urllib.request import urlopen
 
@@ -31,7 +30,6 @@ DEFUDDLE_CRAWL_HOOK = _DEFUDDLE_CRAWL_HOOK
 
 TEST_URL = "https://example.com"
 _defuddle_binary_path = None
-_defuddle_lib_root = None
 
 
 def create_example_html(tmpdir: Path) -> Path:
@@ -58,91 +56,21 @@ def require_defuddle_binary() -> str:
 
 
 def get_defuddle_binary_path() -> str | None:
-    """Get defuddle path from cache or by running install hooks."""
+    """Get defuddle binary path, installing via abx_pkg if needed."""
     global _defuddle_binary_path
     if _defuddle_binary_path and Path(_defuddle_binary_path).is_file():
         return _defuddle_binary_path
 
     from abx_pkg import Binary, EnvProvider, NpmProvider
 
-    try:
-        binary = Binary(
-            name="defuddle",
-            binproviders=[NpmProvider(), EnvProvider()],
-            overrides={"npm": {"install_args": ["defuddle"]}},
-        ).load()
-        if binary and binary.abspath:
-            _defuddle_binary_path = str(binary.abspath)
-            return _defuddle_binary_path
-    except Exception:
-        pass
-
-    npm_hook = PLUGINS_ROOT / "npm" / "on_Binary__10_npm_install.py"
-    if not npm_hook.exists():
-        return None
-
-    binary_id = str(uuid.uuid4())
-    machine_id = str(uuid.uuid4())
-    binproviders = "*"
-    overrides = None
-
-    crawl_result = subprocess.run(
-        [str(DEFUDDLE_CRAWL_HOOK)],
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    for line in crawl_result.stdout.strip().split("\n"):
-        if not line.strip().startswith("{"):
-            continue
-        try:
-            record = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if record.get("type") == "Binary" and record.get("name") == "defuddle":
-            binproviders = record.get("binproviders", "*")
-            overrides = record.get("overrides")
-            break
-
-    global _defuddle_lib_root
-    if not _defuddle_lib_root:
-        _defuddle_lib_root = tempfile.mkdtemp(prefix="defuddle-lib-")
-
-    env = os.environ.copy()
-    env["LIB_DIR"] = str(Path(_defuddle_lib_root) / ".config" / "abx" / "lib")
-    env["SNAP_DIR"] = str(Path(_defuddle_lib_root) / "data")
-    env["CRAWL_DIR"] = str(Path(_defuddle_lib_root) / "crawl")
-
-    cmd = [str(npm_hook),
-        "--binary-id",
-        binary_id,
-        "--machine-id",
-        machine_id,
-        "--name",
-        "defuddle",
-        f"--binproviders={binproviders}",
-    ]
-    if overrides:
-        cmd.append(f"--overrides={json.dumps(overrides)}")
-
-    install_result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=300,
-        env=env,
-    )
-
-    for line in install_result.stdout.strip().split("\n"):
-        if not line.strip().startswith("{"):
-            continue
-        try:
-            record = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if record.get("type") == "Binary" and record.get("name") == "defuddle":
-            _defuddle_binary_path = record.get("abspath")
-            return _defuddle_binary_path
+    binary = Binary(
+        name="defuddle",
+        binproviders=[NpmProvider(), EnvProvider()],
+        overrides={"npm": {"install_args": ["defuddle"]}},
+    ).load_or_install()
+    if binary and binary.abspath:
+        _defuddle_binary_path = str(binary.abspath)
+        return _defuddle_binary_path
 
     return None
 

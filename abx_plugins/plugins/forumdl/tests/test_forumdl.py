@@ -18,7 +18,6 @@ import subprocess
 import sys
 import tempfile
 import time
-import uuid
 from pathlib import Path
 import pytest
 
@@ -35,7 +34,6 @@ TEST_URL = "http://example.com"
 
 # Module-level cache for binary path
 _forumdl_binary_path = None
-_forumdl_lib_root = None
 
 
 def require_forumdl_binary() -> str:
@@ -49,95 +47,41 @@ def require_forumdl_binary() -> str:
     return binary_path
 
 
-def get_forumdl_binary_path():
-    """Get the installed forum-dl binary path from cache or by running installation."""
+def get_forumdl_binary_path() -> str | None:
+    """Get forum-dl binary path, installing via abx_pkg if needed."""
     global _forumdl_binary_path
     if _forumdl_binary_path:
         return _forumdl_binary_path
 
-    # Try to find forum-dl binary using abx-pkg
     from abx_pkg import Binary, PipProvider, EnvProvider
 
-    try:
-        binary = Binary(
-            name="forum-dl", binproviders=[PipProvider(), EnvProvider()]
-        ).load()
-
-        if binary and binary.abspath:
-            _forumdl_binary_path = str(binary.abspath)
-            return _forumdl_binary_path
-    except Exception:
-        pass
-
-    # If not found, try to install via pip using the crawl hook overrides
-    pip_hook = PLUGINS_ROOT / "pip" / "on_Binary__11_pip_install.py"
-    crawl_hook = next(PLUGIN_DIR.glob("on_Crawl__25_forumdl_install*.py"), None)
-    if pip_hook.exists():
-        binary_id = str(uuid.uuid4())
-        machine_id = str(uuid.uuid4())
-        overrides = None
-
-        if crawl_hook and crawl_hook.exists():
-            crawl_result = subprocess.run(
-                [str(crawl_hook)],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            for crawl_line in crawl_result.stdout.strip().split("\n"):
-                if crawl_line.strip().startswith("{"):
-                    try:
-                        crawl_record = json.loads(crawl_line)
-                        if (
-                            crawl_record.get("type") == "Binary"
-                            and crawl_record.get("name") == "forum-dl"
-                        ):
-                            overrides = crawl_record.get("overrides")
-                            break
-                    except json.JSONDecodeError:
-                        continue
-
-        # Create a persistent temp HOME for default LIB_DIR usage
-        global _forumdl_lib_root
-        if not _forumdl_lib_root:
-            _forumdl_lib_root = tempfile.mkdtemp(prefix="forumdl-lib-")
-        env = os.environ.copy()
-        env["HOME"] = str(_forumdl_lib_root)
-        env["SNAP_DIR"] = str(Path(_forumdl_lib_root) / "data")
-        env.pop("LIB_DIR", None)
-
-        cmd = [str(pip_hook),
-            "--binary-id",
-            binary_id,
-            "--machine-id",
-            machine_id,
-            "--name",
-            "forum-dl",
-        ]
-        if overrides:
-            cmd.append(f"--overrides={json.dumps(overrides)}")
-
-        install_result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=300,
-            env=env,
-        )
-
-        # Parse Binary from pip installation
-        for install_line in install_result.stdout.strip().split("\n"):
-            if install_line.strip():
-                try:
-                    install_record = json.loads(install_line)
-                    if (
-                        install_record.get("type") == "Binary"
-                        and install_record.get("name") == "forum-dl"
-                    ):
-                        _forumdl_binary_path = install_record.get("abspath")
-                        return _forumdl_binary_path
-                except json.JSONDecodeError:
-                    pass
+    binary = Binary(
+        name="forum-dl",
+        binproviders=[PipProvider(), EnvProvider()],
+        overrides={
+            "pip": {
+                "install_args": [
+                    "--no-deps",
+                    "--prefer-binary",
+                    "forum-dl",
+                    "chardet==5.2.0",
+                    "beautifulsoup4",
+                    "soupsieve",
+                    "lxml",
+                    "requests",
+                    "urllib3",
+                    "tenacity",
+                    "python-dateutil",
+                    "six",
+                    "html2text",
+                    "warcio",
+                ]
+            }
+        },
+    ).load_or_install()
+    if binary and binary.abspath:
+        _forumdl_binary_path = str(binary.abspath)
+        return _forumdl_binary_path
 
     return None
 
