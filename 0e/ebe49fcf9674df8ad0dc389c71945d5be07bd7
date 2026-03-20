@@ -1,0 +1,31 @@
+docs/index.html
+  751f9f3248055509 8821,8823,8828,8830-8831,8838,8850,8856,8863-8865,8873,8889,8899,8903,8906,8916,8918,8923,8925-8926,8933,8944,8948,8954,8961-8963,8972-8973,8990,9000,9004,9007,9017,9019,9024,9026-9027,9034,9045,9049,9055,9062-9064,9073,9090,9100,9104,9107,9117,9119,9124,9126-9127,9134,9144-9145,9149,9155,9162-9164,9172-9174,9190,9200,9204,9207,9217,9219,9224,9226-9227,9234,9246,9252,9259-9261,9285,9295,9299,9302,9647
+abx_plugins/plugins/wget/on_Crawl__10_wget_install.finite.bg.py
+  751f9f3248055509 51
+abx_plugins/plugins/env/tests/test_env_provider.py
+  751f9f3248055509 39-52
+abx_plugins/plugins/wget/tests/test_wget.py
+  751f9f3248055509 32,51-82
+abx_plugins/plugins/env/on_Binary__09_env_discover.py
+  751f9f3248055509 1-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "0eebe49fcf9674df8ad0dc389c71945d5be07bd7",
+  "prompts": {
+    "751f9f3248055509": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d0a07-45d6-7f72-ad65-e0632dcf2995",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 211,
+      "total_deletions": 164,
+      "accepted_lines": 211,
+      "overriden_lines": 0
+    }
+  }
+}
