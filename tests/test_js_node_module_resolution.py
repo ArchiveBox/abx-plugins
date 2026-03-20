@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
+import threading
+import time
 from pathlib import Path
 
 
@@ -160,3 +163,67 @@ Module._load = function(request, parent, isMain) {
     assert result.returncode == 0, result.stderr
     assert "browser ready pid=4321" in result.stdout
     assert "Cannot find module 'puppeteer'" not in result.stderr
+
+
+def test_chrome_launch_prerequisites_wait_for_late_installs(tmp_path: Path) -> None:
+    lib_dir = tmp_path / "lib"
+    node_modules_dir = lib_dir / "npm" / "node_modules"
+    puppeteer_dir = node_modules_dir / "puppeteer"
+    chrome_binary = tmp_path / "bin" / "chromium"
+    chrome_utils_path = json.dumps(
+        str(REPO_ROOT / "abx_plugins" / "plugins" / "chrome" / "chrome_utils.js")
+    )
+
+    def materialize_prereqs() -> None:
+        time.sleep(0.5)
+        puppeteer_dir.mkdir(parents=True, exist_ok=True)
+        (puppeteer_dir / "index.js").write_text("module.exports = { launch: async () => ({}) };\n", encoding="utf-8")
+        chrome_binary.parent.mkdir(parents=True, exist_ok=True)
+        chrome_binary.write_text("#!/bin/sh\necho Chromium 123\n", encoding="utf-8")
+        chrome_binary.chmod(0o755)
+
+    writer = threading.Thread(target=materialize_prereqs, daemon=True)
+    writer.start()
+
+    env = os.environ.copy()
+    env["LIB_DIR"] = str(lib_dir)
+    env["CHROME_BINARY"] = str(chrome_binary)
+
+    result = subprocess.run(
+        [
+            _node_binary(),
+            "-e",
+            f"""
+const {{ waitForChromeLaunchPrerequisites }} = require({chrome_utils_path});
+(async () => {{
+  const startedAt = Date.now();
+  const prereqs = await waitForChromeLaunchPrerequisites({{
+    timeoutMs: 5000,
+    initialIntervalMs: 50,
+    maxIntervalMs: 100,
+  }});
+  console.log(JSON.stringify({{
+    waitedMs: Date.now() - startedAt,
+    hasPuppeteer: !!prereqs.puppeteer,
+    binary: prereqs.binary,
+  }}));
+}})().catch(error => {{
+  console.error(error.message);
+  process.exit(1);
+}});
+""".strip(),
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=10,
+    )
+
+    writer.join(timeout=2)
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout.strip())
+    assert payload["hasPuppeteer"] is True
+    assert payload["binary"] == str(chrome_binary)
+    assert payload["waitedMs"] >= 400

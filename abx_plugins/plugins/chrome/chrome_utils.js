@@ -2317,6 +2317,55 @@ function resolvePuppeteerModule() {
     throw new Error('Missing puppeteer dependency (need puppeteer-core or puppeteer)');
 }
 
+async function waitForChromeLaunchPrerequisites(options = {}) {
+    const {
+        requireLocalBinary = true,
+        timeoutMs = Math.max(getEnvInt('CHROME_TIMEOUT', 60) * 1000, 300000),
+        initialIntervalMs = 100,
+        maxIntervalMs = 1000,
+    } = options;
+
+    const startedAt = Date.now();
+    let intervalMs = initialIntervalMs;
+    let lastPuppeteerError = '';
+    let lastBinaryError = '';
+
+    while (Date.now() - startedAt < timeoutMs) {
+        let puppeteer = null;
+        let binary = null;
+
+        try {
+            puppeteer = resolvePuppeteerModule();
+            lastPuppeteerError = '';
+        } catch (error) {
+            lastPuppeteerError = error.message;
+        }
+
+        if (requireLocalBinary) {
+            binary = findChromium();
+            if (!binary) {
+                lastBinaryError = 'Chromium binary not found yet';
+            } else {
+                lastBinaryError = '';
+            }
+        }
+
+        if (puppeteer && (!requireLocalBinary || binary)) {
+            return { puppeteer, binary };
+        }
+
+        await sleep(intervalMs);
+        intervalMs = Math.min(maxIntervalMs, Math.round(intervalMs * 1.5));
+    }
+
+    const details = [lastPuppeteerError, lastBinaryError].filter(Boolean).join('; ');
+    throw new Error(
+        details
+            ? `Timed out waiting for Chrome launch prerequisites: ${details}`
+            : 'Timed out waiting for Chrome launch prerequisites'
+    );
+}
+
 /**
  * Connect to a running browser, run an operation, and always disconnect.
  *
@@ -3451,6 +3500,7 @@ module.exports = {
     inspectChromeSessionArtifacts,
     cleanupStaleChromeSessionArtifacts,
     waitForChromeSessionState,
+    waitForChromeLaunchPrerequisites,
     getBrowserServerUrl,
     openTabInChromeSession,
     closeTabInChromeSession,

@@ -27,11 +27,11 @@ const fs = require('fs');
 const path = require('path');
 const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvBool, getEnvInt } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
-const puppeteer = require('puppeteer');
 const {
     acquireSessionLock,
     ensureChromeSession,
     closeBrowserInChromeSession,
+    waitForChromeLaunchPrerequisites,
 } = require('./chrome_utils.js');
 
 // Extractor metadata
@@ -49,6 +49,7 @@ let chromePid = null;
 let chromeCdpUrl = null;
 let chromeProcessIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true);
 let shouldCloseOnCleanup = false;
+let puppeteer = null;
 
 function getPortFromCdpUrl(cdpUrl) {
     if (!cdpUrl) return null;
@@ -87,6 +88,10 @@ async function main() {
         const keepAlive = getEnvBool('CHROME_KEEPALIVE', false);
         const cdpUrlOverride = getEnv('CHROME_CDP_URL', '');
         chromeProcessIsLocal = cdpUrlOverride ? false : getEnvBool('CHROME_IS_LOCAL', true);
+        const prerequisiteTimeoutMs = Math.max(
+            getEnvInt('CHROME_TIMEOUT', 60) * 1000,
+            getEnvInt('CHROME_INSTALL_TIMEOUT', 300) * 1000
+        );
 
         if (isolation === 'snapshot') {
             console.error('[*] CHROME_ISOLATION=snapshot, skipping crawl-scoped browser launch');
@@ -100,12 +105,19 @@ async function main() {
             process.exit(0);
         }
 
+        const prerequisites = await waitForChromeLaunchPrerequisites({
+            requireLocalBinary: !cdpUrlOverride && chromeProcessIsLocal,
+            timeoutMs: prerequisiteTimeoutMs,
+        });
+        puppeteer = prerequisites.puppeteer;
+
         const session = await ensureChromeSession({
             outputDir: OUTPUT_DIR,
             puppeteer,
             processIsLocal: chromeProcessIsLocal,
             cdpUrl: cdpUrlOverride,
             timeoutMs: getEnvInt('CHROME_TIMEOUT', 60) * 1000,
+            binary: prerequisites.binary || null,
         });
 
         chromePid = session.pid;
