@@ -288,7 +288,8 @@ def test_archives_example_com():
         assert downloaded_files, "No files downloaded"
 
         # Try the emitted output path first, then fallback to downloaded files.
-        output_path = (output_root / result_json.get("output_str", "")).resolve()
+        assert result_json.get("output_str", "").startswith("wget/"), result_json
+        output_path = (tmpdir / result_json.get("output_str", "")).resolve()
         candidate_files = [output_path] if output_path.is_file() else []
         candidate_files.extend(downloaded_files)
 

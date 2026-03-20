@@ -152,7 +152,7 @@ def main(url: str, snapshot_id: str):
         # Check what files were created (exclude metadata files that aren't actual extraction output)
         METADATA_FILES = {"response.txt", "session.json"}
         output_files = [
-            f.name for f in OUTPUT_DIR.iterdir()
+            f"{PLUGIN_DIR}/{f.name}" for f in OUTPUT_DIR.iterdir()
             if f.is_file() and not f.name.startswith(".") and f.name not in METADATA_FILES
         ]
         if not output_files:

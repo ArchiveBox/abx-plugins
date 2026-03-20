@@ -5,7 +5,7 @@
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
-  "required_binaries": ["opendataloader-pdf"],
+  "required_binaries": ["opendataloader-pdf", "java"],
   "output_mimetypes": ["text/plain", "text/markdown", "application/json"],
   "properties": {
     "OPENDATALOADER_ENABLED": {
@@ -18,6 +18,12 @@
       "type": "string",
       "default": "opendataloader-pdf",
       "description": "Path to opendataloader-pdf binary"
+    },
+    "OPENDATALOADER_JAVA_BINARY": {
+      "type": "string",
+      "default": "java",
+      "x-fallback": "JAVA_BINARY",
+      "description": "Path to the Java runtime used by opendataloader-pdf"
     },
     "OPENDATALOADER_TIMEOUT": {
       "type": "integer",

@@ -242,8 +242,11 @@ def test_real_gallery_url():
             if not output_str:
                 last_error = f"attempt={attempt} empty output_str stdout={result.stdout} stderr={result.stderr}"
                 continue
+            if not output_str.startswith(f"{PLUGIN_DIR.name}/"):
+                last_error = f"attempt={attempt} output_str not SNAP_DIR-relative output_str={output_str}"
+                continue
 
-            output_path = tmpdir / PLUGIN_DIR.name / output_str
+            output_path = tmpdir / output_str
             if not output_path.is_file():
                 last_error = f"attempt={attempt} output missing path={output_path}"
                 continue

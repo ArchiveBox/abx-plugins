@@ -201,7 +201,7 @@ def main(url: str, snapshot_id: str):
                 "type": "ArchiveResult",
                 "status": status,
                 "output_str": (
-                    pdfs[0] if len(pdfs) == 1 else
+                    f"{PLUGIN_DIR}/{pdfs[0]}" if len(pdfs) == 1 else
                     f"{downloaded_count} PDFs downloaded" if downloaded_count else
                     "No papers found"
                 ),

@@ -39,6 +39,7 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 }
 process.chdir(OUTPUT_DIR);
 const OUTPUT_FILE = 'headers.json';
+const OUTPUT_PATH_STR = `${PLUGIN_DIR}/${OUTPUT_FILE}`;
 const CHROME_SESSION_DIR = '../chrome';
 const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
 const POST_CAPTURE_NAVIGATION_GRACE_MS = 2000;
@@ -181,7 +182,7 @@ async function setupListener(url) {
     return { browser, page };
 }
 
-function emitResult(status = 'succeeded', outputStr = OUTPUT_FILE) {
+function emitResult(status = 'succeeded', outputStr = OUTPUT_PATH_STR) {
     if (shuttingDown) return Promise.resolve();
     shuttingDown = true;
 
@@ -205,7 +206,7 @@ async function handleShutdown(signal) {
         writeHeadersFile(latestNavigationState, true);
     }
     if (headersWritten) {
-        await emitResult('succeeded', OUTPUT_FILE);
+        await emitResult('succeeded', OUTPUT_PATH_STR);
     } else {
         await emitResult('failed', 'No headers captured');
     }
@@ -267,7 +268,7 @@ async function main() {
             throw new Error('No headers captured');
         }
 
-        await emitResult('succeeded', OUTPUT_FILE);
+        await emitResult('succeeded', OUTPUT_PATH_STR);
         if (browser) {
             try {
                 browser.disconnect();

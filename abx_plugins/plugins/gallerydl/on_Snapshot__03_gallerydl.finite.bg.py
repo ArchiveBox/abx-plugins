@@ -48,8 +48,11 @@ def rel_output(path_str: str | None) -> str | None:
     if not path_str:
         return path_str
     path = Path(path_str)
+    resolved = path.resolve()
+    if not resolved.exists():
+        return path_str
     try:
-        return str(path.resolve().relative_to(OUTPUT_DIR.resolve()))
+        return str(resolved.relative_to(SNAP_DIR.resolve()))
     except Exception:
         return path.name or path_str
 

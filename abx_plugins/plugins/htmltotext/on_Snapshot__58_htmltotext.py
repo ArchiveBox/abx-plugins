@@ -132,7 +132,7 @@ def extract_htmltotext(url: str) -> tuple[str, str]:
     output_path = output_dir / OUTPUT_FILE
     write_text_atomic(output_path, text)
 
-    return "succeeded", OUTPUT_FILE
+    return "succeeded", f"{PLUGIN_DIR}/{OUTPUT_FILE}"
 
 
 @click.command()

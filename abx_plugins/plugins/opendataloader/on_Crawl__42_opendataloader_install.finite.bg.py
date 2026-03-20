@@ -41,6 +41,20 @@ def main():
         overrides={"pip": {"install_args": ["opendataloader-pdf"]}},
     )
 
+    custom_java = (
+        os.environ.get("OPENDATALOADER_JAVA_BINARY", "").strip()
+        or os.environ.get("JAVA_BINARY", "").strip()
+    )
+    if not (custom_java and Path(custom_java).is_file()):
+        output_binary(
+            name="java",
+            binproviders="brew" if sys.platform == "darwin" else "env,apt,brew",
+            overrides={
+                "brew": {"install_args": ["openjdk"]},
+                "apt": {"install_args": ["default-jre"]},
+            },
+        )
+
     sys.exit(0)
 
 

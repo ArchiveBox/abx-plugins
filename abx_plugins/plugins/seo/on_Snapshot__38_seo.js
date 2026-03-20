@@ -42,6 +42,7 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 }
 process.chdir(OUTPUT_DIR);
 const OUTPUT_FILE = 'seo.json';
+const OUTPUT_PATH_STR = `${PLUGIN_DIR}/${OUTPUT_FILE}`;
 const CHROME_SESSION_DIR = '../chrome';
 
 // Extract SEO metadata
@@ -101,7 +102,7 @@ async function extractSeo(url) {
         // Write output
         fs.writeFileSync(outputPath, JSON.stringify(seoData, null, 2));
 
-        return { success: true, output: outputPath, seoData };
+        return { success: true, output: OUTPUT_PATH_STR, seoData };
 
     } catch (e) {
         return { success: false, error: `${e.name}: ${e.message}` };

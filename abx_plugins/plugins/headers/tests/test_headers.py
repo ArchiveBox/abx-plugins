@@ -190,6 +190,7 @@ def test_extracts_headers_from_example_com(require_chrome_runtime, headers_test_
 
         assert result_json, "Should have ArchiveResult JSONL output"
         assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
+        assert result_json["output_str"] == "headers/headers.json", result_json
 
         # Verify output file exists (hook writes to current directory)
         assert headers_file.exists(), "headers.json not created"

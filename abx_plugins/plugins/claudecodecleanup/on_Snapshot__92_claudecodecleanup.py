@@ -177,7 +177,7 @@ def main(url: str, snapshot_id: str):
         if report_path.exists():
             report_size = report_path.stat().st_size
             print(f"[+] Cleanup report: {report_size} bytes", file=sys.stderr)
-            emit_archive_result("succeeded", "cleanup_report.txt")
+            emit_archive_result("succeeded", f"{PLUGIN_DIR}/cleanup_report.txt")
         else:
             emit_archive_result("failed", "cleanup_report.txt was not created")
 

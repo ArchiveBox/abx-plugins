@@ -265,7 +265,7 @@ def test_real_public_paper_download():
                 continue
 
             output_str = (result_json.get("output_str") or "").strip()
-            assert output_str.endswith(".pdf"), (
+            assert output_str.startswith("papersdl/") and output_str.endswith(".pdf"), (
                 f"ArchiveResult must name the downloaded PDF for a single-file result: {result_json}"
             )
 
@@ -274,7 +274,7 @@ def test_real_public_paper_download():
                 if path.is_file()
             ]
             assert downloaded_files, f"Downloaded paper path missing in {tmpdir / 'papersdl'}"
-            output_path = tmpdir / "papersdl" / output_str
+            output_path = tmpdir / output_str
             assert output_path.is_file(), f"Downloaded paper path missing: {output_path}"
             assert output_path.stat().st_size > 0, f"Downloaded paper file is empty: {output_path}"
             return

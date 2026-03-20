@@ -219,8 +219,8 @@ def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
     )
 
     if all_text_parts:
-        return "succeeded", TEXT_FILE
-    return "succeeded", JSON_FILE
+        return "succeeded", f"{PLUGIN_DIR}/{TEXT_FILE}"
+    return "succeeded", f"{PLUGIN_DIR}/{JSON_FILE}"
 
 
 @click.command()

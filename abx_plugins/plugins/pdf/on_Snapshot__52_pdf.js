@@ -127,7 +127,7 @@ async function main() {
             // Success - emit ArchiveResult
             const size = fs.statSync(path.join(OUTPUT_DIR, result.output)).size;
             console.error(`PDF saved (${size} bytes)`);
-            emitArchiveResult('succeeded', result.output);
+            emitArchiveResult('succeeded', `${PLUGIN_DIR}/${result.output}`);
             process.exit(0);
         } else {
             console.error(`ERROR: ${result.error}`);

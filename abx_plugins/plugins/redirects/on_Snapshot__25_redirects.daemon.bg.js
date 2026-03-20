@@ -39,6 +39,7 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 }
 process.chdir(OUTPUT_DIR);
 const OUTPUT_FILE = 'redirects.jsonl';
+const OUTPUT_PATH_STR = `${PLUGIN_DIR}/${OUTPUT_FILE}`;
 const CHROME_SESSION_DIR = '../chrome';
 const JS_REDIRECT_SETTLE_MS = 10000;
 
@@ -251,7 +252,7 @@ async function handleShutdown(signal) {
     const result = {
         type: 'ArchiveResult',
         status: 'succeeded',
-        output_str: OUTPUT_FILE,
+        output_str: OUTPUT_PATH_STR,
         plugin: PLUGIN_NAME,
         original_url: originalUrl,
         final_url: finalUrl || originalUrl,

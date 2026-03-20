@@ -20,6 +20,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,
     get_hook_script,
 )
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 
 # Get the path to the SEO hook
@@ -124,6 +125,9 @@ class TestSEOWithChrome:
             assert result.returncode == 0, f"Hook failed: {result.stderr}"
             assert "Traceback" not in result.stderr
             assert "Error:" not in result.stderr
+            result_json = parse_jsonl_output(result.stdout)
+            assert result_json is not None, f"Expected ArchiveResult JSONL. stdout: {result.stdout}"
+            assert result_json["output_str"] == "seo/seo.json", result_json
 
             assert seo_output.exists(), "No seo.json produced"
             seo_data = json.loads(seo_output.read_text())

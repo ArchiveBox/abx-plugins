@@ -105,7 +105,7 @@ async function takeScreenshot(url) {
 
         fs.renameSync(tempOutputPath, outputPath);
 
-        return OUTPUT_FILE;
+    return OUTPUT_FILE;
 
     } finally {
         // Disconnect from browser (don't close it - we're connected to a shared session)
@@ -138,7 +138,7 @@ async function main() {
     // Success - emit ArchiveResult
     const size = fs.statSync(path.join(OUTPUT_DIR, outputPath)).size;
     console.error(`Screenshot saved (${size} bytes)`);
-    emitArchiveResult('succeeded', outputPath);
+    emitArchiveResult('succeeded', `${PLUGIN_DIR}/${outputPath}`);
     flushCoverageAndExit(0);
 }
 

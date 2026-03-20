@@ -151,7 +151,8 @@ def test_real_git_repo():
         assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
 
         # Check that the git repo was cloned in the hook's output path.
-        output_path = Path(result_json.get("output_str") or (tmpdir / "git"))
+        assert result_json.get("output_str", "").startswith("git"), result_json
+        output_path = tmpdir / (result_json.get("output_str") or "git")
         git_dirs = list(output_path.glob("**/.git"))
         assert len(git_dirs) > 0, (
             f"Should have cloned a git repository. Output path: {output_path}"

@@ -133,7 +133,7 @@ def extract_trafilatura(url: str, binary: str) -> tuple[str, str]:
             return "failed", error
 
     output_file = FORMAT_TO_FILE[formats[0]]
-    return "succeeded", output_file
+    return "succeeded", f"{PLUGIN_DIR}/{output_file}"
 
 
 def main() -> None:

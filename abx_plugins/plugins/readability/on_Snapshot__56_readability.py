@@ -127,7 +127,7 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
         except Exception:
             pass
 
-        return "succeeded", OUTPUT_FILE
+        return "succeeded", f"{PLUGIN_DIR}/{OUTPUT_FILE}"
 
     except subprocess.TimeoutExpired:
         return "failed", f"Timed out after {timeout} seconds"

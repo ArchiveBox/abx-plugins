@@ -187,7 +187,7 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
 
         if temp_output_path.exists() and temp_output_path.stat().st_size > 0:
             temp_output_path.replace(output_path)
-            return True, OUTPUT_FILE, ""
+            return True, f"{PLUGIN_DIR}/{OUTPUT_FILE}", ""
         else:
             stderr = combined_output
             if "ERR_NAME_NOT_RESOLVED" in stderr:
@@ -308,7 +308,7 @@ def save_singlefile_with_extension(
         if temp_output_path.exists() and temp_output_path.stat().st_size > 0:
             temp_output_path.replace(output_path)
             print(f"[singlefile] Extension output: {output_path}", file=sys.stderr)
-            return True, OUTPUT_FILE, ""
+            return True, f"{PLUGIN_DIR}/{OUTPUT_FILE}", ""
         return False, None, "SingleFile extension completed but no output file found"
 
     stderr = result_stderr.decode("utf-8", errors="replace").strip()

@@ -38,6 +38,7 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 }
 process.chdir(OUTPUT_DIR);
 const OUTPUT_FILE = 'accessibility.json';
+const OUTPUT_PATH_STR = `${PLUGIN_DIR}/${OUTPUT_FILE}`;
 const CHROME_SESSION_DIR = '../chrome';
 
 // Extract accessibility info
@@ -142,7 +143,7 @@ async function extractAccessibility(url, timeoutMs) {
         // Write output
         fs.writeFileSync(outputPath, JSON.stringify(accessibilityData, null, 2));
 
-        return { success: true, output: outputPath, accessibilityData };
+        return { success: true, output: OUTPUT_PATH_STR, accessibilityData };
 
     } catch (e) {
         return { success: false, error: `${e.name}: ${e.message}` };

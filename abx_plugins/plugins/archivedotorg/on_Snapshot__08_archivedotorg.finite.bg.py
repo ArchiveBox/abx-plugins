@@ -136,7 +136,7 @@ def main(url: str, snapshot_id: str):
             result = {
                 "type": "ArchiveResult",
                 "status": "succeeded",
-                "output_str": OUTPUT_FILE if output else "",
+                "output_str": f"{PLUGIN_DIR}/{OUTPUT_FILE}" if output else "",
             }
             print(json.dumps(result))
             sys.exit(0)

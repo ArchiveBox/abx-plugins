@@ -33,6 +33,7 @@ Note: opendataloader-pdf handles PDF files only. Standalone images (JPG, PNG)
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -60,6 +61,30 @@ METADATA_FILE = "metadata.json"
 
 class OpendataloaderRunError(RuntimeError):
     """Raised when the opendataloader CLI itself fails to execute successfully."""
+
+
+def _opendataloader_env(java_binary: str) -> dict[str, str] | None:
+    java_binary = java_binary.strip()
+    if not java_binary:
+        return None
+
+    java_path = Path(java_binary)
+    if not java_path.is_file():
+        resolved = shutil.which(java_binary)
+        if not resolved:
+            return None
+        java_path = Path(resolved)
+
+    env = os.environ.copy()
+    java_bin_dir = str(java_path.parent)
+    current_path = env.get("PATH", "")
+    if java_bin_dir not in current_path.split(os.pathsep):
+        env["PATH"] = f"{java_bin_dir}{os.pathsep}{current_path}" if current_path else java_bin_dir
+
+    java_home = java_path.parent.parent
+    if (java_home / "bin" / "java").is_file():
+        env["JAVA_HOME"] = str(java_home)
+    return env
 
 
 def find_pdf_sources() -> list[Path]:
@@ -97,7 +122,15 @@ def find_pdf_sources() -> list[Path]:
     return found
 
 
-def _run_opendataloader(binary: str, source_file: Path, fmt: str, out_dir: Path, timeout: int, extra_args: list[str]) -> Path | None:
+def _run_opendataloader(
+    binary: str,
+    source_file: Path,
+    fmt: str,
+    out_dir: Path,
+    timeout: int,
+    extra_args: list[str],
+    env: dict[str, str] | None,
+) -> Path | None:
     """Run opendataloader-pdf on a single file with a given format, return output path or None."""
     cmd = [binary, "-f", fmt, "-o", str(out_dir), "-q", *extra_args, str(source_file)]
     result = subprocess.run(
@@ -106,6 +139,7 @@ def _run_opendataloader(binary: str, source_file: Path, fmt: str, out_dir: Path,
         stderr=subprocess.PIPE,
         timeout=timeout,
         text=True,
+        env=env,
     )
     if result.stderr:
         print(result.stderr, file=sys.stderr, end="")
@@ -128,14 +162,20 @@ def _run_opendataloader(binary: str, source_file: Path, fmt: str, out_dir: Path,
     return None
 
 
-def _extract_single_pdf(binary: str, source_file: Path, timeout: int, extra_args: list[str]) -> tuple[str, str]:
+def _extract_single_pdf(
+    binary: str,
+    source_file: Path,
+    timeout: int,
+    extra_args: list[str],
+    env: dict[str, str] | None,
+) -> tuple[str, str]:
     """Run markdown + text extraction on a single PDF, return (md_content, text_content)."""
     errors: list[OpendataloaderRunError] = []
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         try:
-            md_out = _run_opendataloader(binary, source_file, "markdown", tmp, timeout, extra_args)
+            md_out = _run_opendataloader(binary, source_file, "markdown", tmp, timeout, extra_args, env)
         except OpendataloaderRunError as err:
             errors.append(err)
             md_out = None
@@ -144,7 +184,7 @@ def _extract_single_pdf(binary: str, source_file: Path, timeout: int, extra_args
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         try:
-            txt_out = _run_opendataloader(binary, source_file, "text", tmp, timeout, extra_args)
+            txt_out = _run_opendataloader(binary, source_file, "text", tmp, timeout, extra_args, env)
         except OpendataloaderRunError as err:
             errors.append(err)
             txt_out = None
@@ -167,6 +207,7 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
     """
     config = load_config()
     timeout = config.OPENDATALOADER_TIMEOUT
+    java_binary = config.OPENDATALOADER_JAVA_BINARY
     force_ocr = config.OPENDATALOADER_FORCE_OCR
     hybrid_url = config.OPENDATALOADER_HYBRID_URL
     opendataloader_args = config.OPENDATALOADER_ARGS
@@ -197,6 +238,7 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
     metadata_records: list[dict] = []
 
     execution_error: str | None = None
+    runtime_env = _opendataloader_env(java_binary)
 
     # Build base args (without hybrid flags) for fallback when hybrid fails
     base_args = [a for a in extra_args if not a.startswith("--hybrid")]
@@ -220,7 +262,7 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
         print(f"[opendataloader] Processing: {source_file.name}", file=sys.stderr)
         try:
             md_content, text_content = _extract_single_pdf(
-                binary, source_file, timeout, extra_args,
+                binary, source_file, timeout, extra_args, runtime_env,
             )
 
             # If hybrid extraction produced nothing, retry without hybrid flags
@@ -231,7 +273,7 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
                     file=sys.stderr,
                 )
                 md_content, text_content = _extract_single_pdf(
-                    binary, source_file, timeout, base_args,
+                    binary, source_file, timeout, base_args, runtime_env,
                 )
 
             if not md_content and not text_content:
@@ -308,8 +350,8 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
 
     # Return the primary output file that was actually written
     if all_md_parts:
-        return "succeeded", OUTPUT_FILE
-    return "succeeded", TEXT_FILE
+        return "succeeded", f"{PLUGIN_DIR}/{OUTPUT_FILE}"
+    return "succeeded", f"{PLUGIN_DIR}/{TEXT_FILE}"
 
 
 @click.command()

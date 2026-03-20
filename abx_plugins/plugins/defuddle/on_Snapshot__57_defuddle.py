@@ -107,7 +107,7 @@ def extract_defuddle(url: str, binary: str) -> tuple[str, str]:
             output_dir / METADATA_FILE, json.dumps(metadata, indent=2)
         )
 
-        return "succeeded", HTML_FILE
+        return "succeeded", f"{PLUGIN_DIR}/{HTML_FILE}"
     except subprocess.TimeoutExpired:
         return "failed", f"Timed out after {timeout} seconds"
     except Exception as e:

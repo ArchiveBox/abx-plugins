@@ -21,6 +21,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_plugin_dir,
     get_hook_script,
 )
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 
 def chrome_available() -> bool:
@@ -107,6 +108,9 @@ class TestAccessibilityWithChrome:
                 # Verify hook ran successfully
                 assert result.returncode == 0, f"Hook failed: {result.stderr}"
                 assert "Traceback" not in result.stderr
+                result_json = parse_jsonl_output(result.stdout)
+                assert result_json is not None, f"Expected ArchiveResult JSONL. stdout: {result.stdout}"
+                assert result_json["output_str"] == "accessibility/accessibility.json", result_json
 
                 # example.com has headings, so we should get accessibility data
                 assert accessibility_data is not None, (

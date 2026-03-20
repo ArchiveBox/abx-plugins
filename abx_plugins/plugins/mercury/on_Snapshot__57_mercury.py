@@ -134,7 +134,7 @@ def extract_mercury(url: str, binary: str) -> tuple[str, str]:
         except Exception:
             pass
 
-        return "succeeded", HTML_FILE
+        return "succeeded", f"{PLUGIN_DIR}/{HTML_FILE}"
 
     except subprocess.TimeoutExpired:
         return "failed", f"Timed out after {timeout} seconds"

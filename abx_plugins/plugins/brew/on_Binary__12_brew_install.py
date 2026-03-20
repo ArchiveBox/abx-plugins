@@ -14,7 +14,9 @@
 #
 
 import json
+import shutil
 import sys
+from pathlib import Path
 
 import rich_click as click
 from abx_pkg import Binary, BrewProvider, EnvProvider
@@ -63,10 +65,33 @@ def main(
                     f"Warning: Failed to parse overrides JSON: {overrides}", err=True
                 )
 
-        # Prefer already-installed binaries found in PATH, then fall back to brew install.
+        allowed_providers = set(binproviders.split(",")) if binproviders != "*" else {"env", "brew"}
+        providers = [provider]
+        if "env" in allowed_providers:
+            providers.insert(0, EnvProvider())
+
+        brew_overrides = (overrides_dict or {}).get("brew", {})
+        install_args = brew_overrides.get("install_args") or []
+        if install_args and "abspath" not in brew_overrides:
+            search_paths: list[str] = []
+            for package in install_args:
+                if not isinstance(package, str) or package.startswith("-"):
+                    continue
+                for bin_dir in provider.PATH.split(":"):
+                    if not bin_dir.endswith("/bin"):
+                        continue
+                    prefix = Path(bin_dir).parent
+                    search_paths.append(str(prefix / "opt" / package / "bin"))
+                    search_paths.extend(str(path) for path in (prefix / "Cellar" / package).glob("*/bin"))
+            if search_paths:
+                abspath = shutil.which(name, path=":".join(search_paths))
+                if abspath:
+                    brew_overrides = {**brew_overrides, "abspath": abspath}
+                    overrides_dict = {**(overrides_dict or {}), "brew": brew_overrides}
+
         binary = Binary(
             name=name,
-            binproviders=[EnvProvider(), provider],
+            binproviders=providers,
             overrides=overrides_dict or {},
         ).load_or_install()
     except Exception as e:

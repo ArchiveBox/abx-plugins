@@ -10,6 +10,7 @@ Tests verify:
 6. Handles missing sources gracefully
 """
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -29,10 +30,12 @@ _OPENDATALOADER_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_opendataloader.*"), 
 if _OPENDATALOADER_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 OPENDATALOADER_HOOK = _OPENDATALOADER_HOOK
+INSTALL_HOOK = PLUGIN_DIR / "on_Crawl__42_opendataloader_install.finite.bg.py"
 TEST_URL = "https://example.com"
 
 # Module-level cache for binary path
 _opendataloader_binary_path = None
+_java_binary_path = None
 
 
 def get_opendataloader_binary_path() -> str | None:
@@ -65,6 +68,37 @@ def require_opendataloader_binary() -> str:
     return binary_path
 
 
+def get_java_binary_path() -> str | None:
+    """Get a Java 11+ binary path, installing via abx_pkg if needed."""
+    global _java_binary_path
+    if _java_binary_path and Path(_java_binary_path).is_file():
+        return _java_binary_path
+
+    from abx_pkg import AptProvider, Binary, BrewProvider, EnvProvider
+
+    binary = Binary(
+        name="java",
+        min_version="11.0.0",
+        binproviders=[EnvProvider(), BrewProvider(), AptProvider()],
+        overrides={
+            "brew": {"install_args": ["openjdk"]},
+            "apt": {"install_args": ["default-jre"]},
+        },
+    ).load_or_install()
+    if binary and binary.abspath:
+        _java_binary_path = str(binary.abspath)
+        return _java_binary_path
+
+    return None
+
+
+def require_java_binary() -> str:
+    binary_path = get_java_binary_path()
+    assert binary_path, "Java 11+ installation failed for opendataloader integration tests."
+    assert Path(binary_path).is_file(), f"Java binary path invalid: {binary_path}"
+    return binary_path
+
+
 def _download_test_pdf() -> bytes:
     """Download a small public PDF for testing. Tries multiple sources."""
     pdf_urls = [
@@ -88,6 +122,60 @@ def test_hook_script_exists():
 def test_verify_deps_with_install_hooks():
     binary_path = require_opendataloader_binary()
     assert Path(binary_path).is_file(), f"Binary path must be a valid file: {binary_path}"
+
+
+def test_install_hook_requests_java_dependency():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env = os.environ.copy()
+        env["CRAWL_DIR"] = tmpdir
+
+        result = subprocess.run(
+            [str(INSTALL_HOOK)],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
+        )
+
+        assert result.returncode == 0, result.stderr
+        records = [json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")]
+        java_record = next(record for record in records if record.get("name") == "java")
+        assert java_record["overrides"]["brew"]["install_args"] == ["openjdk"]
+        if sys.platform == "darwin":
+            assert java_record["binproviders"] == "brew"
+        else:
+            assert java_record["binproviders"] == "env,apt,brew"
+
+
+def test_opendataloader_env_sets_java_home_and_path(tmp_path):
+    monkeypatch_modules = {
+        "rich_click": __import__("click"),
+    }
+    original_modules = {name: sys.modules.get(name) for name in monkeypatch_modules}
+    sys.modules.update(monkeypatch_modules)
+
+    spec = importlib.util.spec_from_file_location("opendataloader_hook", OPENDATALOADER_HOOK)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        for name, value in original_modules.items():
+            if value is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = value
+
+    java_bin = tmp_path / "jdk" / "bin" / "java"
+    java_bin.parent.mkdir(parents=True, exist_ok=True)
+    java_bin.write_text("", encoding="utf-8")
+    java_bin.chmod(0o755)
+
+    env = module._opendataloader_env(str(java_bin))
+    assert env is not None
+    assert env["JAVA_HOME"] == str(java_bin.parent.parent)
+    assert env["PATH"].split(os.pathsep)[0] == str(java_bin.parent)
 
 
 def test_config_disabled_skips():
@@ -152,6 +240,7 @@ def test_noresults_without_sources():
 def test_extract_single_pdf():
     """Test extraction on a single real PDF downloaded from the web."""
     binary_path = require_opendataloader_binary()
+    java_binary = require_java_binary()
     pdf_content = _download_test_pdf()
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -166,6 +255,7 @@ def test_extract_single_pdf():
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
         env["OPENDATALOADER_BINARY"] = binary_path
+        env["JAVA_BINARY"] = java_binary
 
         result = subprocess.run(
             [str(OPENDATALOADER_HOOK),
@@ -186,6 +276,7 @@ def test_extract_single_pdf():
         record = parse_jsonl_output(result.stdout)
         assert record, "Should have ArchiveResult JSONL output"
         assert record["status"] == "succeeded", f"Should succeed: {record}. stderr: {result.stderr}"
+        assert record["output_str"].startswith("opendataloader/"), record
 
         output_dir = snap_dir / "opendataloader"
         assert (output_dir / "content.md").exists(), "content.md not created"
@@ -207,6 +298,7 @@ def test_extract_multiple_pdfs():
     the hook processes every one, not just the first.
     """
     binary_path = require_opendataloader_binary()
+    java_binary = require_java_binary()
     pdf_content = _download_test_pdf()
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -226,6 +318,7 @@ def test_extract_multiple_pdfs():
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
         env["OPENDATALOADER_BINARY"] = binary_path
+        env["JAVA_BINARY"] = java_binary
 
         result = subprocess.run(
             [str(OPENDATALOADER_HOOK),
@@ -269,6 +362,7 @@ def test_force_ocr_adds_hybrid_flag():
     but we verify the flag is passed by checking stderr output.
     """
     binary_path = require_opendataloader_binary()
+    java_binary = require_java_binary()
     pdf_content = _download_test_pdf()
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -282,6 +376,7 @@ def test_force_ocr_adds_hybrid_flag():
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
         env["OPENDATALOADER_BINARY"] = binary_path
+        env["JAVA_BINARY"] = java_binary
         env["OPENDATALOADER_FORCE_OCR"] = "true"
 
         result = subprocess.run(
@@ -310,9 +405,8 @@ def test_force_ocr_adds_hybrid_flag():
             f"stderr: {result.stderr}"
         )
 
-        output_dir = snap_dir / "opendataloader"
         # Verify actual content was extracted (not a no-op pass)
-        output_file = output_dir / record["output_str"]
+        output_file = snap_dir / record["output_str"]
         assert output_file.exists(), f"Output file {record['output_str']} not created"
         content = output_file.read_text(errors="ignore")
         assert len(content) > 10, f"Output too short, extraction may be broken: {content!r}"
