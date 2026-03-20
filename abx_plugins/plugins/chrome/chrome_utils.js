@@ -1126,16 +1126,46 @@ async function waitForExtensionTargetType(browser, extensionId, targetType, time
  * @param {Object} browser - Puppeteer browser instance
  * @param {string} extensionId - Extension ID
  * @param {number} [timeout=30000] - Timeout in milliseconds
+ * @param {string|null} [preferredTargetUrl=null] - Exact extension target URL to prefer
  * @returns {Promise<Object>} - Puppeteer target
  */
-async function waitForExtensionTargetHandle(browser, extensionId, timeout = 30000) {
-    return await browser.waitForTarget(
-        target =>
+async function waitForExtensionTargetHandle(browser, extensionId, timeout = 30000, preferredTargetUrl = null) {
+    const deadline = Date.now() + Math.max(timeout, 0);
+    let lastCandidates = [];
+
+    while (Date.now() < deadline) {
+        const candidates = browser.targets().filter(target =>
             getExtensionIdFromUrl(target.url()) === extensionId &&
             (EXTENSION_BACKGROUND_TARGET_TYPES.has(target.type()) ||
-                target.url().startsWith(CHROME_EXTENSION_URL_PREFIX)),
-        { timeout }
+                target.url().startsWith(CHROME_EXTENSION_URL_PREFIX))
+        );
+
+        if (preferredTargetUrl) {
+            const exactMatch = candidates.find(target => target.url() === preferredTargetUrl);
+            if (exactMatch) {
+                return exactMatch;
+            }
+        } else {
+            const backgroundTarget = candidates.find(target => EXTENSION_BACKGROUND_TARGET_TYPES.has(target.type()));
+            if (backgroundTarget) {
+                return backgroundTarget;
+            }
+            if (candidates.length > 0) {
+                return candidates[0];
+            }
+        }
+
+        lastCandidates = candidates.map(target => `${target.type()}:${target.url()}`);
+        await sleep(100);
+    }
+
+    const error = new Error(
+        `Timed out waiting for extension target ${extensionId}` +
+        (preferredTargetUrl ? ` (${preferredTargetUrl})` : '') +
+        (lastCandidates.length ? `; last seen: ${lastCandidates.join(', ')}` : '')
     );
+    error.name = 'TimeoutError';
+    throw error;
 }
 
 async function isTargetExtension(target) {
@@ -1332,13 +1362,28 @@ async function installAllExtensions(extensions, extensions_dir = null) {
  */
 async function loadAllExtensionsFromBrowser(browser, extensions, timeout = 30000) {
     console.log(`[⚙️] Loading ${extensions.length} chrome extensions from browser...`);
+    const perExtensionTimeout = Math.max(
+        250,
+        getEnvInt('CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS', Math.min(timeout, 5000))
+    );
 
     for (const extension of getValidInstalledExtensions(extensions)) {
         if (!extension.id) {
-            throw new Error(`Extension ${extension.name || extension.unpacked_path} missing id`);
+            extension.load_error = `Extension ${extension.name || extension.unpacked_path} missing id`;
+            console.warn(`[!] ${extension.load_error}, continuing without browser connection`);
+            continue;
         }
-        const target = await waitForExtensionTargetHandle(browser, extension.id, timeout);
-        await loadExtensionFromTarget(extensions, target);
+        try {
+            const target = await waitForExtensionTargetHandle(browser, extension.id, perExtensionTimeout);
+            await loadExtensionFromTarget(extensions, target);
+            delete extension.load_error;
+        } catch (error) {
+            extension.load_error = `${error.name}: ${error.message}`;
+            console.warn(
+                `[!] Extension ${extension.name || extension.id} did not expose a background target within ` +
+                `${perExtensionTimeout}ms, continuing: ${extension.load_error}`
+            );
+        }
     }
 
     return extensions;

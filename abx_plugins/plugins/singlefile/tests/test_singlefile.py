@@ -427,8 +427,8 @@ def test_singlefile_with_extension_uses_existing_chrome():
             os.environ.update(old_env)
 
 
-def test_singlefile_extension_loader_survives_offscreen_page_without_service_worker():
-    """SingleFile loader should still attach when only the offscreen extension page remains."""
+def test_singlefile_extension_loader_prefers_cached_background_target():
+    """SingleFile loader should prefer the cached background target over the offscreen page."""
     install_state = ensure_singlefile_extension_installed()
     chrome_utils = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
 
@@ -466,6 +466,7 @@ const cdpUrl = process.argv[2];
 const extensionId = process.argv[3];
 const unpackedPath = process.argv[4];
 const extensionVersion = process.argv[5];
+const preferredTargetUrl = process.argv[6];
 
 const OFFSCREEN_PATH = '/src/ui/pages/offscreen-document.html';
 
@@ -509,19 +510,38 @@ function collectTargets(browser, extensionId) {
             await new Promise(resolve => setTimeout(resolve, 100));
         }
 
+        await offscreenPage.evaluate(() => chrome.runtime.sendMessage({ kind: 'singlefile-wakeup' }));
+
+        let afterWake = afterClose;
+        while (Date.now() < deadline) {
+            afterWake = collectTargets(browser, extensionId);
+            const hasServiceWorker = afterWake.some(target => target.type === 'service_worker');
+            const hasOffscreenPage = afterWake.some(
+                target => target.type === 'page' && target.url.endsWith(OFFSCREEN_PATH)
+            );
+            if (hasServiceWorker && hasOffscreenPage) break;
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
         const extension = {
             id: extensionId,
             name: 'singlefile',
             unpacked_path: unpackedPath,
             version: extensionVersion,
         };
-        const target = await chromeUtils.waitForExtensionTargetHandle(browser, extensionId, 5000);
+        const target = await chromeUtils.waitForExtensionTargetHandle(
+            browser,
+            extensionId,
+            5000,
+            preferredTargetUrl
+        );
         const loaded = await chromeUtils.loadExtensionFromTarget([extension], target);
 
         process.stdout.write(JSON.stringify({
             closeResult,
             beforeClose,
             afterClose,
+            afterWake,
             selectedTargetType: target.type(),
             selectedTargetUrl: target.url(),
             loaded: Boolean(loaded),
@@ -546,6 +566,7 @@ function collectTargets(browser, extensionId) {
                         entry["id"],
                         entry["unpacked_path"],
                         entry["version"],
+                        entry["target_url"],
                     ],
                     capture_output=True,
                     text=True,
@@ -559,7 +580,7 @@ function collectTargets(browser, extensionId) {
                     f"stderr: {result.stderr}"
                 )
 
-                payload = json.loads(result.stdout)
+                payload = json.loads(result.stdout.strip().splitlines()[-1])
                 assert payload["closeResult"]["success"] is True, payload
                 assert not any(
                     target["type"] == "service_worker"
@@ -570,8 +591,15 @@ function collectTargets(browser, extensionId) {
                     and target["url"].endswith("/src/ui/pages/offscreen-document.html")
                     for target in payload["afterClose"]
                 ), payload
+                assert any(
+                    target["type"] == "service_worker"
+                    and target["url"] == entry["target_url"]
+                    for target in payload["afterWake"]
+                ), payload
                 assert payload["loaded"] is True, payload
                 assert payload["hasDispatchAction"] is True, payload
+                assert payload["selectedTargetType"] == "service_worker", payload
+                assert payload["selectedTargetUrl"] == entry["target_url"], payload
         finally:
             os.environ.clear()
             os.environ.update(old_env)

@@ -109,7 +109,13 @@ async function main() {
             extension.id = sessionEntry.id;
             console.error(`[singlefile] resolved extension id from session metadata: ${extension.id}`);
 
-            const extensionTarget = await chromeUtils.waitForExtensionTargetHandle(browser, extension.id, 30000);
+            const preferredTargetUrl = sessionEntry.target_url || null;
+            const extensionTarget = await chromeUtils.waitForExtensionTargetHandle(
+                browser,
+                extension.id,
+                30000,
+                preferredTargetUrl
+            );
             console.error('[singlefile] loading extension from target...');
             await chromeUtils.loadExtensionFromTarget([extension], extensionTarget);
             if (typeof extension.dispatchAction !== 'function') {

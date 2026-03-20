@@ -243,6 +243,42 @@ const puppeteer = require('puppeteer-core');
     return json.loads(result.stdout)
 
 
+def test_load_all_extensions_from_browser_does_not_fail_if_one_extension_never_appears():
+    script = r"""
+const chromeUtils = require(process.argv[1]);
+const calls = [];
+const browser = {
+  targets: () => {
+    calls.push('targets');
+    return [];
+  },
+};
+
+(async () => {
+  const extensions = [{ id: 'abc123', name: 'slowext', unpacked_path: '/tmp/slowext' }];
+  const result = await chromeUtils.loadAllExtensionsFromBrowser(browser, extensions, 60000);
+  process.stdout.write(JSON.stringify({ calls, result }));
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
+"""
+    env = get_test_env() | {"CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS": "25"}
+    result = subprocess.run(
+        ["node", "-e", script, str(CHROME_UTILS)],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout.strip().splitlines()[-1])
+    assert payload["calls"], payload
+    assert payload["result"][0]["id"] == "abc123"
+    assert "load_error" in payload["result"][0]
+
+
 def _cleanup_launch_process(
     chrome_launch_process: subprocess.Popen | None, chrome_dir: Path
 ) -> None:
