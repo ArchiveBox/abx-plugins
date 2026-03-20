@@ -17,6 +17,8 @@ import pytest
 # Get the path to the env provider hook
 PLUGIN_DIR = Path(__file__).parent.parent
 INSTALL_HOOK = next(PLUGIN_DIR.glob("on_Binary__*_env_discover.py"), None)
+REQUEST_PLUGIN = "test-suite"
+REQUEST_HOOK = "test_env_provider"
 
 
 class TestEnvProviderHook:
@@ -61,6 +63,8 @@ class TestEnvProviderHook:
                 "--name=python3",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                f"--plugin-name={REQUEST_PLUGIN}",
+                f"--hook-name={REQUEST_HOOK}",
             ],
             capture_output=True,
             text=True,
@@ -100,6 +104,8 @@ class TestEnvProviderHook:
                 "--name=bash",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                f"--plugin-name={REQUEST_PLUGIN}",
+                f"--hook-name={REQUEST_HOOK}",
             ],
             capture_output=True,
             text=True,
@@ -135,6 +141,8 @@ class TestEnvProviderHook:
                 "--name=nonexistent_binary_xyz123",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                f"--plugin-name={REQUEST_PLUGIN}",
+                f"--hook-name={REQUEST_HOOK}",
             ],
             capture_output=True,
             text=True,
@@ -156,6 +164,8 @@ class TestEnvProviderHook:
                 "--name=python3",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                f"--plugin-name={REQUEST_PLUGIN}",
+                f"--hook-name={REQUEST_HOOK}",
                 "--binproviders=pip,apt",  # env not allowed
             ],
             capture_output=True,

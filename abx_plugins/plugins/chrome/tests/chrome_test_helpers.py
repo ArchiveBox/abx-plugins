@@ -930,6 +930,8 @@ def _ensure_puppeteer_with_hooks(env: dict, timeout: int) -> None:
     npm_cmd = [str(NPM_BINARY_HOOK),
         "--machine-id=test-machine",
         "--binary-id=test-puppeteer",
+        "--plugin-name=puppeteer",
+        "--hook-name=on_Crawl__60_puppeteer_install",
         "--name=puppeteer",
         f"--binproviders={puppeteer_record.get('binproviders', '*')}",
     ]
@@ -1002,6 +1004,8 @@ def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
         chromium_cmd = [str(PUPPETEER_BINARY_HOOK),
             "--machine-id=test-machine",
             "--binary-id=test-chromium",
+            "--plugin-name=chrome",
+            "--hook-name=on_Crawl__70_chrome_install.finite.bg",
             f"--name={chrome_record.get('name', 'chromium')}",
             f"--binproviders={chrome_record.get('binproviders', '*')}",
         ]

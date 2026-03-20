@@ -17,6 +17,8 @@ import pytest
 # Get the path to the custom provider hook
 PLUGIN_DIR = Path(__file__).parent.parent
 INSTALL_HOOK = next(PLUGIN_DIR.glob("on_Binary__*_custom_install.py"), None)
+REQUEST_PLUGIN = "test-suite"
+REQUEST_HOOK = "test_custom_provider"
 
 
 class TestCustomProviderHook:
@@ -46,6 +48,8 @@ class TestCustomProviderHook:
                 "--name=echo",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                f"--plugin-name={REQUEST_PLUGIN}",
+                f"--hook-name={REQUEST_HOOK}",
                 "--binproviders=pip,apt",  # custom not allowed
                 "--custom-cmd=echo hello",
             ],
@@ -71,6 +75,8 @@ class TestCustomProviderHook:
                 "--name=echo",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                f"--plugin-name={REQUEST_PLUGIN}",
+                f"--hook-name={REQUEST_HOOK}",
                 '--custom-cmd=echo "custom install simulation"',
             ],
             capture_output=True,
@@ -107,6 +113,8 @@ class TestCustomProviderHook:
                 "--name=nonexistent_binary_xyz123",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                f"--plugin-name={REQUEST_PLUGIN}",
+                f"--hook-name={REQUEST_HOOK}",
                 '--custom-cmd=echo "failed install"',  # Doesn't actually install
             ],
             capture_output=True,
@@ -129,6 +137,8 @@ class TestCustomProviderHook:
                 "--name=echo",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                f"--plugin-name={REQUEST_PLUGIN}",
+                f"--hook-name={REQUEST_HOOK}",
                 "--custom-cmd=exit 1",  # Command that fails
             ],
             capture_output=True,

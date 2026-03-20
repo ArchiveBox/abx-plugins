@@ -25,6 +25,8 @@ from click.testing import CliRunner
 PLUGIN_DIR = Path(__file__).parent.parent
 INSTALL_HOOK = next(PLUGIN_DIR.glob("on_Binary__*_npm_install.py"), None)
 CRAWL_HOOK = next(PLUGIN_DIR.glob("on_Crawl__*_npm_install.py"), None)
+REQUEST_PLUGIN = "test-suite"
+REQUEST_HOOK = "test_npm_provider"
 
 
 def npm_available() -> bool:
@@ -64,6 +66,8 @@ class TestNpmProviderHook:
                 "--name=some-package",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                f"--plugin-name={REQUEST_PLUGIN}",
+                f"--hook-name={REQUEST_HOOK}",
             ],
             capture_output=True,
             text=True,
@@ -86,6 +90,8 @@ class TestNpmProviderHook:
                 "--name=some-package",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                f"--plugin-name={REQUEST_PLUGIN}",
+                f"--hook-name={REQUEST_HOOK}",
                 "--binproviders=pip,apt",  # npm not allowed
             ],
             capture_output=True,
@@ -110,6 +116,8 @@ class TestNpmProviderHook:
                 "--name=nonexistent-xyz123",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                f"--plugin-name={REQUEST_PLUGIN}",
+                f"--hook-name={REQUEST_HOOK}",
             ],
             capture_output=True,
             text=True,
@@ -134,6 +142,8 @@ class TestNpmProviderHook:
                 "--name=test-pkg",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                f"--plugin-name={REQUEST_PLUGIN}",
+                f"--hook-name={REQUEST_HOOK}",
                 f"--overrides={overrides}",
             ],
             capture_output=True,
@@ -194,6 +204,8 @@ def test_hook_emits_node_module_aliases(tmp_path, monkeypatch):
             "--name=fake-cli",
             "--binary-id=test-binary",
             "--machine-id=test-machine",
+            f"--plugin-name={REQUEST_PLUGIN}",
+            f"--hook-name={REQUEST_HOOK}",
         ],
         env=env,
     )
@@ -266,6 +278,8 @@ def test_hook_uses_resolved_binary_path_for_node_module_aliases(tmp_path, monkey
             "--name=puppeteer",
             "--binary-id=test-binary",
             "--machine-id=test-machine",
+            f"--plugin-name={REQUEST_PLUGIN}",
+            f"--hook-name={REQUEST_HOOK}",
         ],
         env=env,
     )

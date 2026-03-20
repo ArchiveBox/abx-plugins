@@ -67,6 +67,8 @@ class TestPipProviderHook:
                 "--binproviders=pip",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                "--plugin-name=testplugin",
+                "--hook-name=on_Crawl__00_test",
             ],
             capture_output=True,
             text=True,
@@ -110,6 +112,8 @@ class TestPipProviderHook:
                 "--binproviders=pip",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                "--plugin-name=testplugin",
+                "--hook-name=on_Crawl__00_test",
             ],
             capture_output=True,
             text=True,
@@ -121,6 +125,40 @@ class TestPipProviderHook:
         # Should not crash
         assert "Traceback" not in result.stderr
         # May have non-zero exit code for missing package
+
+    def test_hook_repairs_partial_shared_venv(self):
+        """Hook should repair a partially created shared pip venv before install."""
+        env = os.environ.copy()
+        env["SNAP_DIR"] = self.temp_dir
+        env["HOME"] = self.temp_dir
+        env["LIB_DIR"] = str(Path(self.temp_dir) / "lib")
+
+        broken_venv = Path(env["LIB_DIR"]) / "pip" / "venv" / "bin"
+        broken_venv.mkdir(parents=True, exist_ok=True)
+        python_path = broken_venv / "python"
+        python_path.write_text("broken")
+        python_path.chmod(0o755)
+
+        result = subprocess.run(
+            [
+                str(INSTALL_HOOK),
+                "--name=opendataloader-pdf",
+                "--binproviders=pip",
+                "--binary-id=test-uuid",
+                "--machine-id=test-machine",
+                "--plugin-name=testplugin",
+                "--hook-name=on_Crawl__00_test",
+                "--overrides={\"pip\":{\"install_args\":[\"opendataloader-pdf\"]}}",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(self.output_dir),
+            env=env,
+            timeout=120,
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert '"type": "Binary"' in result.stdout
 
 
 class TestPipProviderIntegration:
@@ -158,6 +196,8 @@ class TestPipProviderIntegration:
                 "--binproviders=pip,env",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                "--plugin-name=testplugin",
+                "--hook-name=on_Crawl__00_test",
             ],
             capture_output=True,
             text=True,

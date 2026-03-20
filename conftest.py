@@ -266,6 +266,8 @@ def ensure_claude_code_prereqs(tmp_path_factory):
             npm_cmd = [str(NPM_BINARY_HOOK),
                 "--machine-id=test-machine",
                 "--binary-id=test-claude",
+                "--plugin-name=claudecode",
+                "--hook-name=on_Crawl__35_claudecode_install.finite.bg",
                 "--name=claude",
                 f"--binproviders={binary_record.get('binproviders', '*')}",
             ]

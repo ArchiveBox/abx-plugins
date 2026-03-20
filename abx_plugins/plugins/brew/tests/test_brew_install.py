@@ -60,6 +60,8 @@ def test_brew_hook_respects_brew_only_and_maps_openjdk(monkeypatch, tmp_path):
         [
             "--machine-id=test-machine",
             "--binary-id=test-binary",
+            "--plugin-name=test-suite",
+            "--hook-name=test_brew_install",
             "--name=java",
             "--binproviders=brew",
             '--overrides={"brew":{"install_args":["openjdk"]}}',

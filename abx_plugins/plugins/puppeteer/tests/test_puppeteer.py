@@ -170,6 +170,8 @@ def test_puppeteer_installs_chromium():
             [str(NPM_BINARY_HOOK),
                 "--machine-id=test-machine",
                 "--binary-id=test-puppeteer",
+                "--plugin-name=puppeteer",
+                "--hook-name=on_Crawl__60_puppeteer_install",
                 "--name=puppeteer",
                 f"--binproviders={puppeteer_record.get('binproviders', '*')}",
                 "--overrides=" + json.dumps(puppeteer_record.get("overrides") or {}),
@@ -190,6 +192,8 @@ def test_puppeteer_installs_chromium():
             [str(BINARY_HOOK),
                 "--machine-id=test-machine",
                 "--binary-id=test-binary",
+                "--plugin-name=chrome",
+                "--hook-name=on_Crawl__70_chrome_install.finite.bg",
                 "--name=chromium",
                 "--binproviders=puppeteer",
                 "--overrides="

@@ -33,7 +33,9 @@ from abx_pkg import Binary, EnvProvider
 @click.option("--hook-name", required=True, help="Requesting hook name")
 @click.option("--name", required=True, help="Binary name to install")
 @click.option("--binproviders", default="*", help="Allowed providers (comma-separated)")
-@click.option("--custom-cmd", required=True, help="Custom bash command to run")
+@click.option("--min-version", default="", help="Minimum acceptable version")
+@click.option("--overrides", default=None, help="JSON-encoded overrides dict (unused)")
+@click.option("--custom-cmd", default=None, help="Custom bash command to run")
 def main(
     binary_id: str,
     machine_id: str,
@@ -41,7 +43,9 @@ def main(
     hook_name: str,
     name: str,
     binproviders: str,
-    custom_cmd: str,
+    min_version: str,
+    overrides: str | None,
+    custom_cmd: str | None,
 ):
     """Install binary using custom bash command."""
 

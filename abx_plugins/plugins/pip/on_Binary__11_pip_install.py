@@ -22,13 +22,48 @@ import os
 import shutil
 import subprocess
 import sys
+from contextlib import contextmanager
 from pathlib import Path
+
+import fcntl
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from base.utils import emit_binary_record, emit_machine_record, enforce_lib_permissions
 
 import rich_click as click
 from abx_pkg import Binary, EnvProvider, PipProvider
+
+
+def _is_executable(path: Path) -> bool:
+    return path.is_file() and os.access(path, os.X_OK)
+
+
+def _pip_venv_is_ready(pip_venv_path: Path) -> bool:
+    return _is_executable(pip_venv_path / "bin" / "python") and _is_executable(
+        pip_venv_path / "bin" / "pip"
+    )
+
+
+def _seed_pip_venv(pip_venv_path: Path, preferred_python: str) -> bool:
+    cmd = [preferred_python, "-m", "venv", str(pip_venv_path), "--upgrade-deps"]
+    if pip_venv_path.exists():
+        cmd.append("--clear")
+    try:
+        subprocess.run(cmd, check=True)
+    except Exception:
+        return False
+    return _pip_venv_is_ready(pip_venv_path)
+
+
+@contextmanager
+def _locked_pip_venv(lock_path: Path):
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(lock_path, "w") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 @click.command()
@@ -65,7 +100,7 @@ def main(
     # Structure: lib/arm64-darwin/pip/venv (PipProvider will create venv automatically)
     pip_venv_path = Path(lib_dir) / "pip" / "venv"
     pip_venv_path.parent.mkdir(parents=True, exist_ok=True)
-    venv_python = pip_venv_path / "bin" / "python"
+    pip_lock_path = pip_venv_path.parent / ".venv.lock"
 
     # Seed the pip venv with the same interpreter running this hook unless explicitly overridden.
     preferred_python = os.environ.get("PIP_VENV_PYTHON", "").strip()
@@ -95,47 +130,42 @@ def main(
             if candidate_path:
                 preferred_python = candidate_path
                 break
-    if preferred_python and not venv_python.exists():
+    with _locked_pip_venv(pip_lock_path):
+        # Repair partially created shared venvs before delegating to abx-pkg.
+        if preferred_python and not _pip_venv_is_ready(pip_venv_path):
+            _seed_pip_venv(pip_venv_path, preferred_python)
+
+        # Use abx-pkg PipProvider to install binary with custom venv
+        provider = PipProvider(pip_venv=pip_venv_path)
+        if not provider.INSTALLER_BIN:
+            click.echo("pip not available on this system", err=True)
+            sys.exit(1)
+
+        click.echo(f"Installing {name} via pip to venv at {pip_venv_path}...", err=True)
+
         try:
-            subprocess.run(
-                [preferred_python, "-m", "venv", str(pip_venv_path), "--upgrade-deps"],
-                check=True,
-            )
-        except Exception:
-            # Fall back to PipProvider-managed venv creation
-            pass
+            # Parse overrides if provided
+            overrides_dict = None
+            if overrides:
+                try:
+                    overrides_dict = json.loads(overrides)
+                    # Extract pip-specific overrides
+                    overrides_dict = overrides_dict.get("pip", {})
+                    click.echo(f"Using pip install overrides: {overrides_dict}", err=True)
+                except json.JSONDecodeError:
+                    click.echo(
+                        f"Warning: Failed to parse overrides JSON: {overrides}", err=True
+                    )
 
-    # Use abx-pkg PipProvider to install binary with custom venv
-    provider = PipProvider(pip_venv=pip_venv_path)
-    if not provider.INSTALLER_BIN:
-        click.echo("pip not available on this system", err=True)
-        sys.exit(1)
-
-    click.echo(f"Installing {name} via pip to venv at {pip_venv_path}...", err=True)
-
-    try:
-        # Parse overrides if provided
-        overrides_dict = None
-        if overrides:
-            try:
-                overrides_dict = json.loads(overrides)
-                # Extract pip-specific overrides
-                overrides_dict = overrides_dict.get("pip", {})
-                click.echo(f"Using pip install overrides: {overrides_dict}", err=True)
-            except json.JSONDecodeError:
-                click.echo(
-                    f"Warning: Failed to parse overrides JSON: {overrides}", err=True
-                )
-
-        binary = Binary(
-            name=name,
-            min_version=min_version or None,
-            binproviders=[EnvProvider(), provider],
-            overrides={"pip": overrides_dict} if overrides_dict else {},
-        ).load_or_install()
-    except Exception as e:
-        click.echo(f"pip install failed: {e}", err=True)
-        sys.exit(1)
+            binary = Binary(
+                name=name,
+                min_version=min_version or None,
+                binproviders=[EnvProvider(), provider],
+                overrides={"pip": overrides_dict} if overrides_dict else {},
+            ).load_or_install()
+        except Exception as e:
+            click.echo(f"pip install failed: {e}", err=True)
+            sys.exit(1)
 
     if not binary.abspath:
         click.echo(f"{name} not found after pip install", err=True)
