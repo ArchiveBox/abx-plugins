@@ -8,7 +8,7 @@
 # This hook runs early in the Crawl lifecycle so node/npm are installed before any npm-based extractors (e.g., puppeteer) run.
 #
 # Usage:
-#     ./on_Crawl__00_npm_install.py > events.jsonl
+#     ./on_Crawl__01_npm_install.py > events.jsonl
 
 import json
 import os

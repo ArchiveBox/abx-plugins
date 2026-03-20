@@ -49,6 +49,7 @@ class TestEnvProviderHook:
             assert INSTALL_HOOK.name < hook.name, (
                 f"{INSTALL_HOOK.name} should sort before {hook.name}"
             )
+        assert INSTALL_HOOK.name.startswith("on_Binary__00_"), INSTALL_HOOK.name
 
     def test_hook_finds_python(self):
         """Hook should find python3 binary in PATH."""

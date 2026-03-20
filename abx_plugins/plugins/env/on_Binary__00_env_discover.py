@@ -11,7 +11,7 @@
 # This simple provider discovers binaries that are already installed without installing anything.
 #
 # Usage:
-#     ./on_Binary__09_env_discover.py --binary-id=<uuid> --machine-id=<uuid> --name=<name> > events.jsonl
+#     ./on_Binary__00_env_discover.py --binary-id=<uuid> --machine-id=<uuid> --name=<name> > events.jsonl
 
 import json
 import os

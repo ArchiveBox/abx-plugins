@@ -24,6 +24,7 @@ from click.testing import CliRunner
 # Get the path to the npm provider hook
 PLUGIN_DIR = Path(__file__).parent.parent
 INSTALL_HOOK = next(PLUGIN_DIR.glob("on_Binary__*_npm_install.py"), None)
+CRAWL_HOOK = next(PLUGIN_DIR.glob("on_Crawl__*_npm_install.py"), None)
 
 
 def npm_available() -> bool:
@@ -45,6 +46,12 @@ class TestNpmProviderHook:
     def test_hook_script_exists(self):
         """Hook script should exist."""
         assert INSTALL_HOOK and INSTALL_HOOK.exists(), f"Hook not found: {INSTALL_HOOK}"
+        assert CRAWL_HOOK and CRAWL_HOOK.exists(), f"Crawl hook not found: {CRAWL_HOOK}"
+
+    def test_crawl_hook_order_is_after_env_discovery_floor(self):
+        """npm crawl hook should not occupy the 00 floor reserved for env discovery."""
+        assert CRAWL_HOOK is not None, "Crawl hook should exist"
+        assert CRAWL_HOOK.name.startswith("on_Crawl__01_"), CRAWL_HOOK.name
 
     def test_hook_uses_default_lib_dir(self):
         """Hook should fall back to default LIB_DIR when not set."""
