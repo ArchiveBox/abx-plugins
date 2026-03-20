@@ -153,7 +153,7 @@ class TestClaudeCodeUtils:
         try:
             from claudecode.claudecode_utils import (
                 build_system_prompt,
-                emit_archive_result,
+                emit_archive_result_record,
                 get_env,
                 get_env_bool,
                 get_env_int,
@@ -161,7 +161,7 @@ class TestClaudeCodeUtils:
                 get_snapshot_metadata,
             )
             assert callable(build_system_prompt)
-            assert callable(emit_archive_result)
+            assert callable(emit_archive_result_record)
             assert callable(get_env)
             assert callable(get_env_bool)
             assert callable(get_env_int)
