@@ -223,8 +223,8 @@ def ensure_chromium_and_puppeteer_installed(tmp_path_factory):
 def ensure_claude_code_prereqs(tmp_path_factory):
     """Ensure Claude Code CLI is installed and ANTHROPIC_API_KEY is set.
 
-    Used by Claude Code integration tests.  Fails immediately with a clear
-    message when prerequisites are missing.
+    Used by Claude Code integration tests. Skips the dependent tests when
+    live Anthropic credentials are unavailable.
     """
     def apply_machine_updates(records: list[dict], env: dict[str, str]) -> None:
         for record in records:

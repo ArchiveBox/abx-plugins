@@ -510,7 +510,7 @@ function collectTargets(browser, extensionId) {
             await new Promise(resolve => setTimeout(resolve, 100));
         }
 
-        await offscreenPage.evaluate(() => chrome.runtime.sendMessage({ kind: 'singlefile-wakeup' }));
+        await offscreenPage.evaluate(() => chrome.runtime.sendMessage({ method: 'ping' }));
 
         let afterWake = afterClose;
         while (Date.now() < deadline) {
