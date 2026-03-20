@@ -28,6 +28,7 @@ const {
 
 // Check if enabled
 if (!getEnvBool('CLAUDECHROME_ENABLED', false)) {
+    console.log('SKIPPED: CLAUDECHROME_ENABLED=False');
     process.exit(0);
 }
 

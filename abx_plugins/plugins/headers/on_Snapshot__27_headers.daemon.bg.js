@@ -45,11 +45,9 @@ const POST_CAPTURE_NAVIGATION_GRACE_MS = 2000;
 
 let browser = null;
 let page = null;
-let client = null;
 let shuttingDown = false;
 let headersWritten = false;
 
-let requestId = null;
 let requestUrl = null;
 let requestHeaders = null;
 let responseHeaders = null;
@@ -71,6 +69,28 @@ const headersReadyFailure = new Promise((_, reject) => {
 
 function getFinalUrl(navigationState = null) {
     return navigationState?.finalUrl || page?.url() || null;
+}
+
+function isMainNavigationRequest(request) {
+    try {
+        if (!request) return false;
+        const url = request.url();
+        if (!url || !url.startsWith('http')) return false;
+
+        const resourceType = (request.resourceType?.() || '').toLowerCase();
+        if (resourceType && resourceType !== 'document') return false;
+
+        if (request.isNavigationRequest?.() === false) return false;
+
+        const requestFrame = request.frame?.() || null;
+        if (requestFrame && page?.mainFrame && requestFrame !== page.mainFrame()) {
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        return false;
+    }
 }
 
 function writeHeadersFile(navigationState = null, forceRewrite = false) {
@@ -113,56 +133,43 @@ function writeHeadersFile(navigationState = null, forceRewrite = false) {
 
 async function setupListener(url) {
     const timeout = getEnvInt('HEADERS_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
-    const { browser, page, cdpSession } = await connectToPage({
+    const { browser, page } = await connectToPage({
         chromeSessionDir: CHROME_SESSION_DIR,
         timeoutMs: timeout,
         puppeteer,
     });
 
-    client = cdpSession;
-    await client.send('Network.enable');
-
-    client.on('Network.requestWillBeSent', (params) => {
+    page.on('request', (request) => {
         try {
-            if (requestId && !responseHeaders && params.redirectResponse && params.requestId === requestId) {
-                responseHeaders = params.redirectResponse.headers || {};
-                responseStatus = params.redirectResponse.status || null;
-                responseStatusText = params.redirectResponse.statusText || null;
-                responseUrl = params.redirectResponse.url || null;
-                writeHeadersFile();
-            }
-
-            if (requestId) return;
-            if (params.type && params.type !== 'Document') return;
-            if (!params.request || !params.request.url) return;
-            if (!params.request.url.startsWith('http')) return;
-
-            requestId = params.requestId;
-            requestUrl = params.request.url;
-            requestHeaders = params.request.headers || {};
+            if (!isMainNavigationRequest(request)) return;
+            requestUrl = requestUrl || request.url();
+            requestHeaders = request.headers() || {};
         } catch (e) {
             // Ignore errors
         }
     });
 
-    client.on('Network.responseReceived', (params) => {
+    page.on('response', (response) => {
         try {
-            if (!requestId || params.requestId !== requestId || responseHeaders) return;
-            const response = params.response || {};
-            responseHeaders = response.headers || {};
-            responseStatus = response.status || null;
-            responseStatusText = response.statusText || null;
-            responseUrl = response.url || null;
-            writeHeadersFile();
+            const request = response.request();
+            if (!isMainNavigationRequest(request)) return;
+
+            requestUrl = requestUrl || request.url();
+            requestHeaders = request.headers() || {};
+            responseHeaders = response.headers() || {};
+            responseStatus = response.status() || null;
+            responseStatusText = response.statusText ? response.statusText() : null;
+            responseUrl = response.url() || null;
+            writeHeadersFile(null, true);
         } catch (e) {
             // Ignore errors
         }
     });
 
-    client.on('Network.loadingFailed', (params) => {
+    page.on('requestfailed', (request) => {
         try {
-            if (!requestId || params.requestId !== requestId || headersWritten) return;
-            const errorText = params.errorText || 'Main request failed';
+            if (!isMainNavigationRequest(request) || headersWritten) return;
+            const errorText = request.failure()?.errorText || 'Main request failed';
             if (headersReadyReject) {
                 headersReadyReject(new Error(errorText));
             }

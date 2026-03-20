@@ -512,7 +512,7 @@ def test_handles_404_gracefully(require_chrome_runtime, headers_test_urls):
 
 
 def test_redirect_updates_headers_final_url(require_chrome_runtime, headers_test_urls):
-    """Redirect captures should rewrite final_url from navigation.json after redirect completion."""
+    """Redirect captures should reflect the final navigation response after redirect completion."""
     redirect_url = headers_test_urls["redirect"]
     final_url = headers_test_urls["base"]
 
@@ -544,7 +544,8 @@ def test_redirect_updates_headers_final_url(require_chrome_runtime, headers_test
         assert normalize_root_url(output_data["final_url"]) == normalize_root_url(final_url), (
             f"final_url should reflect the post-redirect destination, got {output_data['final_url']}"
         )
-        assert output_data["status"] in (200, 301, 302), output_data
+        assert output_data["status"] == 200, output_data
+        assert normalize_root_url(output_data["response_url"]) == normalize_root_url(final_url), output_data
 
 
 if __name__ == "__main__":

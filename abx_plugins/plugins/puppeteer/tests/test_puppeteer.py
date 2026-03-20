@@ -106,6 +106,9 @@ def test_crawl_hook_respects_configured_chrome_binary(browser_name):
             None,
         )
         assert binary_record is not None, f"Expected Binary record, got: {records}"
+        assert not any(r.get("type") == "ArchiveResult" for r in records), (
+            f"Chrome crawl hook must not emit ArchiveResult: {records}"
+        )
         assert binary_record["name"] == browser_name
         assert binary_record["overrides"]["puppeteer"] == [
             f"{browser_name}@latest",

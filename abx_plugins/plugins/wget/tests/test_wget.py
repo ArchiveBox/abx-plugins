@@ -80,6 +80,9 @@ def test_wget_declares_only_env_apt_brew_providers():
     )
     assert binary_record is not None, f"Expected wget Binary record: {result.stdout}"
     assert binary_record["binproviders"] == "env,apt,brew"
+    assert not any(record.get("type") == "Machine" for record in records), (
+        f"Crawl hook must not emit Machine config patches: {records}"
+    )
 
 
 def test_verify_deps_with_abx_pkg():

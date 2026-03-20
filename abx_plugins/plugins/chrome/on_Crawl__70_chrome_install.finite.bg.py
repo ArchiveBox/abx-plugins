@@ -12,10 +12,12 @@
 # Usage:
 #     ./on_Crawl__70_chrome_install.py > events.jsonl
 
-import json
 import os
 import sys
 from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import output_binary
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
@@ -44,20 +46,13 @@ def main():
     else:
         browser_name = "chromium"
 
-    record = {
-        "type": "Binary",
-        "name": browser_name,
-        "binproviders": "puppeteer",
-        "overrides": {
+    output_binary(
+        name=browser_name,
+        binproviders="puppeteer",
+        overrides={
             "puppeteer": [f"{browser_name}@latest", "--install-deps"],
         },
-    }
-    print(json.dumps(record))
-    print(json.dumps({
-        "type": "ArchiveResult",
-        "status": "succeeded",
-        "output_str": f"{browser_name} requested",
-    }))
+    )
     sys.exit(0)
 
 

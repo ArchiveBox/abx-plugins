@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_archive_result, get_env, get_env_bool, output_binary
+from base.utils import get_env, get_env_bool, output_binary
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
@@ -25,6 +25,7 @@ def main():
     claudecode_enabled = get_env_bool("CLAUDECODE_ENABLED", False)
 
     if not claudecode_enabled:
+        print("SKIPPED: CLAUDECODE_ENABLED=False")
         sys.exit(0)
 
     # Check for API key
@@ -35,16 +36,13 @@ def main():
     # Honor custom binary path - skip npm install if user provides their own
     custom_binary = get_env("CLAUDECODE_BINARY")
     if custom_binary and custom_binary != "claude":
-        # Use basename for Binary record name (env provider does PATH lookup, not absolute paths)
-        output_binary(name=custom_binary, binproviders="env")
+        output_binary(name=Path(custom_binary).name, binproviders="env")
     else:
         output_binary(
             name="claude",
             binproviders="env,npm",
             overrides={"npm": {"install_args": ["@anthropic-ai/claude-code"]}},
         )
-
-    emit_archive_result("succeeded", "claude requested")
 
     sys.exit(0)
 

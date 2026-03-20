@@ -138,6 +138,46 @@ class TestClaudeChromePlugin:
         assert (templates_dir / "card.html").exists()
         assert (templates_dir / "full.html").exists()
 
+    def test_install_hook_reports_skipped_when_disabled(self):
+        """Install hook should not run when CLAUDECHROME_ENABLED=false."""
+        assert _INSTALL_HOOK is not None
+        env = get_test_env()
+        env["CLAUDECHROME_ENABLED"] = "false"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env["CRAWL_DIR"] = tmpdir
+            returncode, stdout, stderr = run_hook(
+                _INSTALL_HOOK,
+                TEST_URL,
+                "test-install-disabled",
+                cwd=tmpdir,
+                env=env,
+                timeout=30,
+            )
+
+            assert returncode == 0, f"Hook failed: {stderr}"
+            assert stdout.strip() == "SKIPPED: CLAUDECHROME_ENABLED=False"
+
+    def test_config_hook_reports_skipped_when_disabled(self):
+        """Config hook should report skipped when CLAUDECHROME_ENABLED=false."""
+        assert _CONFIG_HOOK is not None
+        env = get_test_env()
+        env["CLAUDECHROME_ENABLED"] = "false"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env["CRAWL_DIR"] = tmpdir
+            returncode, stdout, stderr = run_hook(
+                _CONFIG_HOOK,
+                TEST_URL,
+                "test-config-disabled",
+                cwd=tmpdir,
+                env=env,
+                timeout=30,
+            )
+
+            assert returncode == 0, f"Hook failed: {stderr}"
+            assert stdout.strip() == "SKIPPED: CLAUDECHROME_ENABLED=False"
+
     def test_snapshot_hook_skips_when_disabled(self):
         """Snapshot hook should skip when CLAUDECHROME_ENABLED=false."""
         env = get_test_env()

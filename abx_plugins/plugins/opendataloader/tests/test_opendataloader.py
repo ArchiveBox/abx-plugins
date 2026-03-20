@@ -318,5 +318,50 @@ def test_force_ocr_adds_hybrid_flag():
         assert len(content) > 10, f"Output too short, extraction may be broken: {content!r}"
 
 
+def test_cli_runtime_failure_reports_failed_status():
+    """A non-zero opendataloader CLI exit should report failed, not noresults."""
+    pdf_content = _download_test_pdf()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        snap_dir = tmpdir / "snap"
+        pdf_dir = snap_dir / "pdf"
+        pdf_dir.mkdir(parents=True, exist_ok=True)
+        (pdf_dir / "output.pdf").write_bytes(pdf_content)
+
+        failing_binary = tmpdir / "fake-opendataloader"
+        failing_binary.write_text(
+            "#!/bin/sh\n"
+            "echo 'simulated CLI failure' 1>&2\n"
+            "exit 1\n",
+            encoding="utf-8",
+        )
+        failing_binary.chmod(0o755)
+
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(snap_dir)
+        env["OPENDATALOADER_BINARY"] = str(failing_binary)
+
+        result = subprocess.run(
+            [str(OPENDATALOADER_HOOK),
+                "--url",
+                "https://example.com/bad.pdf",
+                "--snapshot-id",
+                "test-cli-runtime-failure",
+            ],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+        )
+
+        assert result.returncode == 1, f"Hook should fail on CLI runtime error: {result.stderr}"
+        record = parse_jsonl_output(result.stdout)
+        assert record, "Should emit ArchiveResult JSONL output"
+        assert record["status"] == "failed", record
+        assert "simulated CLI failure" in record["output_str"], record
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

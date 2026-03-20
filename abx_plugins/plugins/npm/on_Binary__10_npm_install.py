@@ -24,6 +24,17 @@ import rich_click as click
 from abx_pkg import Binary, EnvProvider, NpmProvider
 
 
+def _resolve_node_modules_dir(binary_abspath: str | Path, npm_prefix: Path) -> Path:
+    """Infer the node_modules directory that actually owns the resolved binary."""
+    binary_path = Path(binary_abspath)
+
+    # Typical npm CLI binaries live in <prefix>/node_modules/.bin/<name>.
+    if binary_path.parent.name == ".bin" and binary_path.parent.parent.name == "node_modules":
+        return binary_path.parent.parent
+
+    return npm_prefix / "node_modules"
+
+
 @click.command()
 @click.option("--machine-id", required=True, help="Machine UUID")
 @click.option("--binary-id", required=True, help="Dependency UUID")
@@ -130,7 +141,7 @@ def main(
     )
 
     # Emit JS module resolution env vars for downstream node-based hooks.
-    node_modules_dir = str(npm_prefix / "node_modules")
+    node_modules_dir = str(_resolve_node_modules_dir(binary.abspath, npm_prefix))
     print(
         json.dumps(
             {

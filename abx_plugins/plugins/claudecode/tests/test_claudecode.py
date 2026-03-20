@@ -20,13 +20,7 @@ from pathlib import Path
 import pytest
 
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import (
-    get_plugin_dir,
-    get_hook_script,
-    parse_jsonl_output,
-    parse_jsonl_records,
-    run_hook,
-)
+from base.test_utils import get_plugin_dir, get_hook_script, parse_jsonl_records, run_hook
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
@@ -94,10 +88,8 @@ class TestClaudeCodePlugin:
             assert "npm" in binary_records[0]["binproviders"]
             assert binary_records[0]["overrides"]["npm"]["install_args"] == ["@anthropic-ai/claude-code"]
 
-            # Should emit ArchiveResult
-            result = parse_jsonl_output(stdout)
-            assert result is not None
-            assert result["status"] == "succeeded"
+            archive_results = [r for r in records if r.get("type") == "ArchiveResult"]
+            assert archive_results == [], f"on_Crawl hook must not emit ArchiveResult: {archive_results}"
 
     def test_install_hook_skips_when_disabled(self):
         """Install hook should exit cleanly when CLAUDECODE_ENABLED=false."""
@@ -112,10 +104,10 @@ class TestClaudeCodePlugin:
             )
 
             assert returncode == 0, f"Hook failed: {stderr}"
-            # Should not emit any Binary records
             records = parse_jsonl_records(stdout)
             binary_records = [r for r in records if r.get("type") == "Binary"]
             assert len(binary_records) == 0, "Should not emit Binary when disabled"
+            assert stdout.strip() == "SKIPPED: CLAUDECODE_ENABLED=False"
 
     def test_install_hook_skips_by_default(self):
         """Install hook should skip when CLAUDECODE_ENABLED is not set (default=false)."""
@@ -133,6 +125,7 @@ class TestClaudeCodePlugin:
             records = parse_jsonl_records(stdout)
             binary_records = [r for r in records if r.get("type") == "Binary"]
             assert len(binary_records) == 0, "Should not emit Binary when disabled by default"
+            assert stdout.strip() == "SKIPPED: CLAUDECODE_ENABLED=False"
 
     def test_install_hook_warns_missing_api_key(self):
         """Install hook should warn when ANTHROPIC_API_KEY is not set."""

@@ -58,6 +58,10 @@ TEXT_FILE = "content.txt"
 METADATA_FILE = "metadata.json"
 
 
+class OpendataloaderRunError(RuntimeError):
+    """Raised when the opendataloader CLI itself fails to execute successfully."""
+
+
 def find_pdf_sources() -> list[Path]:
     """Find all PDF files from sibling plugin output directories.
 
@@ -106,7 +110,10 @@ def _run_opendataloader(binary: str, source_file: Path, fmt: str, out_dir: Path,
     if result.stderr:
         print(result.stderr, file=sys.stderr, end="")
     if result.returncode != 0:
-        return None
+        error = result.stderr.strip() or result.stdout.strip() or f"exit code {result.returncode}"
+        raise OpendataloaderRunError(
+            f"opendataloader-pdf failed for {source_file.name} ({fmt}): {error}"
+        )
 
     # opendataloader-pdf writes {input_stem}.{ext} in the output dir
     stem = source_file.stem
@@ -123,15 +130,28 @@ def _run_opendataloader(binary: str, source_file: Path, fmt: str, out_dir: Path,
 
 def _extract_single_pdf(binary: str, source_file: Path, timeout: int, extra_args: list[str]) -> tuple[str, str]:
     """Run markdown + text extraction on a single PDF, return (md_content, text_content)."""
+    errors: list[OpendataloaderRunError] = []
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
-        md_out = _run_opendataloader(binary, source_file, "markdown", tmp, timeout, extra_args)
+        try:
+            md_out = _run_opendataloader(binary, source_file, "markdown", tmp, timeout, extra_args)
+        except OpendataloaderRunError as err:
+            errors.append(err)
+            md_out = None
         md_content = md_out.read_text(errors="ignore") if md_out else ""
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
-        txt_out = _run_opendataloader(binary, source_file, "text", tmp, timeout, extra_args)
+        try:
+            txt_out = _run_opendataloader(binary, source_file, "text", tmp, timeout, extra_args)
+        except OpendataloaderRunError as err:
+            errors.append(err)
+            txt_out = None
         text_content = txt_out.read_text(errors="ignore") if txt_out else ""
+
+    if errors and not md_content and not text_content:
+        raise errors[0]
 
     return md_content, text_content
 
@@ -176,7 +196,7 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
     all_text_parts: list[str] = []
     metadata_records: list[dict] = []
 
-    binary_failed = False
+    execution_error: str | None = None
 
     # Build base args (without hybrid flags) for fallback when hybrid fails
     base_args = [a for a in extra_args if not a.startswith("--hybrid")]
@@ -243,7 +263,14 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
                 f"[opendataloader] Binary execution failed: {type(e).__name__}: {e}",
                 file=sys.stderr,
             )
-            binary_failed = True
+            execution_error = f"Binary '{binary}' could not be executed"
+            break
+        except OpendataloaderRunError as e:
+            print(
+                f"[opendataloader] CLI execution failed: {e}",
+                file=sys.stderr,
+            )
+            execution_error = str(e)
             break
         except Exception as e:
             print(
@@ -252,8 +279,8 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
             )
             continue
 
-    if binary_failed:
-        return "failed", f"Binary '{binary}' could not be executed"
+    if execution_error:
+        return "failed", execution_error
 
     if not all_md_parts and not all_text_parts:
         return "noresults", "No content extracted from sources"

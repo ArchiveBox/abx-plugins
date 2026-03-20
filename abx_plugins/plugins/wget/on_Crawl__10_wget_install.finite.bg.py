@@ -11,13 +11,12 @@
 # Usage:
 #     ./on_Crawl__10_wget_install.py > events.jsonl
 
-import json
 import os
 import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import load_config, output_binary, output_machine_config
+from base.utils import load_config, output_binary
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
@@ -34,29 +33,16 @@ def main():
     config = load_config()
     wget_enabled = config.WGET_ENABLED
     wget_timeout = config.WGET_TIMEOUT
-    wget_binary = config.WGET_BINARY
-
-    # Compute derived values (USE_WGET for backward compatibility)
-    use_wget = wget_enabled
-
     # Validate timeout with warning (not error)
-    if use_wget and wget_timeout < 20:
+    if wget_enabled and wget_timeout < 20:
         warnings.append(
             f"WGET_TIMEOUT={wget_timeout} is very low. "
             "wget may fail to archive sites if set to less than ~20 seconds. "
             "Consider setting WGET_TIMEOUT=60 or higher."
         )
 
-    if use_wget:
+    if wget_enabled:
         output_binary(name="wget", binproviders="env,apt,brew")
-
-    # Output computed config patch as JSONL
-    output_machine_config(
-        {
-            "USE_WGET": use_wget,
-            "WGET_BINARY": wget_binary,
-        }
-    )
 
     for warning in warnings:
         print(f"WARNING:{warning}", file=sys.stderr)
