@@ -27,6 +27,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_hook_script,
     chrome_session,
     parse_jsonl_output,
+    wait_for_extensions_metadata,
 )
 
 
@@ -421,6 +422,156 @@ def test_singlefile_with_extension_uses_existing_chrome():
                 assert not new_downloads, (
                     f"SingleFile download should be moved out of downloads dir, found: {new_downloads}"
                 )
+        finally:
+            os.environ.clear()
+            os.environ.update(old_env)
+
+
+def test_singlefile_extension_loader_survives_offscreen_page_without_service_worker():
+    """SingleFile loader should still attach when only the offscreen extension page remains."""
+    install_state = ensure_singlefile_extension_installed()
+    chrome_utils = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        old_env = os.environ.copy()
+        os.environ["PERSONAS_DIR"] = str(install_state["personas_dir"])
+        os.environ["CHROME_EXTENSIONS_DIR"] = str(install_state["extensions_dir"])
+        os.environ["CHROME_DOWNLOADS_DIR"] = str(install_state["downloads_dir"])
+        os.environ["CHROME_USER_DATA_DIR"] = str(install_state["user_data_dir"])
+        try:
+            with chrome_session(
+                tmpdir=tmpdir,
+                crawl_id="singlefile-offscreen-crawl",
+                snapshot_id="singlefile-offscreen-snap",
+                test_url=TEST_URL,
+                navigate=True,
+                timeout=30,
+            ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
+                metadata = wait_for_extensions_metadata(
+                    snapshot_chrome_dir,
+                    timeout_seconds=20,
+                )
+                entry = next(
+                    ext for ext in metadata if ext.get("name") == "singlefile"
+                )
+                cdp_url = (snapshot_chrome_dir / "cdp_url.txt").read_text().strip()
+                script = r"""
+process.env.NODE_PATH = process.env.NODE_MODULES_DIR;
+require('module').Module._initPaths();
+const puppeteer = require('puppeteer-core');
+const chromeUtils = require(process.argv[1]);
+const cdpUrl = process.argv[2];
+const extensionId = process.argv[3];
+const unpackedPath = process.argv[4];
+const extensionVersion = process.argv[5];
+
+const OFFSCREEN_PATH = '/src/ui/pages/offscreen-document.html';
+
+function collectTargets(browser, extensionId) {
+    return browser.targets()
+        .filter(target => target.url().includes(extensionId))
+        .map(target => ({
+            id: target._targetId || target._targetInfo?.targetId || null,
+            type: target.type(),
+            url: target.url(),
+        }));
+}
+
+(async () => {
+    const browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl, defaultViewport: null });
+    try {
+        const offscreenPage = await browser.newPage();
+        await offscreenPage.goto(
+            `chrome-extension://${extensionId}${OFFSCREEN_PATH}`,
+            { waitUntil: 'load', timeout: 10000 }
+        );
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const session = await offscreenPage.target().createCDPSession();
+        const beforeClose = collectTargets(browser, extensionId);
+        const serviceWorker = beforeClose.find(target => target.type === 'service_worker');
+        if (!serviceWorker?.id) {
+            throw new Error(`Expected SingleFile service worker target, got: ${JSON.stringify(beforeClose)}`);
+        }
+
+        const closeResult = await session.send('Target.closeTarget', { targetId: serviceWorker.id });
+        const deadline = Date.now() + 5000;
+        let afterClose = beforeClose;
+        while (Date.now() < deadline) {
+            afterClose = collectTargets(browser, extensionId);
+            const hasServiceWorker = afterClose.some(target => target.type === 'service_worker');
+            const hasOffscreenPage = afterClose.some(
+                target => target.type === 'page' && target.url.endsWith(OFFSCREEN_PATH)
+            );
+            if (!hasServiceWorker && hasOffscreenPage) break;
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        const extension = {
+            id: extensionId,
+            name: 'singlefile',
+            unpacked_path: unpackedPath,
+            version: extensionVersion,
+        };
+        const target = await chromeUtils.waitForExtensionTargetHandle(browser, extensionId, 5000);
+        const loaded = await chromeUtils.loadExtensionFromTarget([extension], target);
+
+        process.stdout.write(JSON.stringify({
+            closeResult,
+            beforeClose,
+            afterClose,
+            selectedTargetType: target.type(),
+            selectedTargetUrl: target.url(),
+            loaded: Boolean(loaded),
+            hasDispatchAction: typeof extension.dispatchAction === 'function',
+            manifestVersion: extension.manifest?.manifest_version || loaded?.manifest_version || null,
+        }));
+    } finally {
+        await browser.disconnect();
+    }
+})().catch(error => {
+    console.error(error && (error.stack || error.message || String(error)));
+    process.exit(1);
+});
+"""
+                result = subprocess.run(
+                    [
+                        "node",
+                        "-e",
+                        script,
+                        str(chrome_utils),
+                        cdp_url,
+                        entry["id"],
+                        entry["unpacked_path"],
+                        entry["version"],
+                    ],
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=60,
+                )
+
+                assert result.returncode == 0, (
+                    "SingleFile offscreen-target reproducer failed:\n"
+                    f"stdout: {result.stdout}\n"
+                    f"stderr: {result.stderr}"
+                )
+
+                payload = json.loads(result.stdout)
+                assert payload["closeResult"]["success"] is True, payload
+                assert not any(
+                    target["type"] == "service_worker"
+                    for target in payload["afterClose"]
+                ), payload
+                assert any(
+                    target["type"] == "page"
+                    and target["url"].endswith("/src/ui/pages/offscreen-document.html")
+                    for target in payload["afterClose"]
+                ), payload
+                assert payload["loaded"] is True, payload
+                assert payload["hasDispatchAction"] is True, payload
         finally:
             os.environ.clear()
             os.environ.update(old_env)
