@@ -29,6 +29,7 @@ from base.test_utils import parse_jsonl_output
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
+WGET_CRAWL_HOOK = next(PLUGIN_DIR.glob("on_Crawl__*_wget_install*"), None)
 WGET_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_wget.*"))
 BREW_HOOK = next((PLUGINS_ROOT / "brew").glob("on_Binary__*_brew_install.py"), None)
 APT_HOOK = next((PLUGINS_ROOT / "apt").glob("on_Binary__*_apt_install.py"), None)
@@ -47,6 +48,38 @@ def _provider_runtime_unavailable(proc: subprocess.CompletedProcess[str]) -> boo
 def test_hook_script_exists():
     """Verify hook script exists."""
     assert WGET_HOOK.exists(), f"Hook script not found: {WGET_HOOK}"
+    assert WGET_CRAWL_HOOK and WGET_CRAWL_HOOK.exists(), (
+        f"Crawl hook not found: {WGET_CRAWL_HOOK}"
+    )
+
+
+def test_wget_declares_only_env_apt_brew_providers():
+    """Crawl hook should not advertise pip installation for wget."""
+    result = subprocess.run(
+        [str(WGET_CRAWL_HOOK)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=os.environ.copy(),
+    )
+
+    assert result.returncode == 0, f"Crawl hook failed: {result.stderr}"
+
+    records = [
+        json.loads(line)
+        for line in result.stdout.splitlines()
+        if line.strip().startswith("{")
+    ]
+    binary_record = next(
+        (
+            record
+            for record in records
+            if record.get("type") == "Binary" and record.get("name") == "wget"
+        ),
+        None,
+    )
+    assert binary_record is not None, f"Expected wget Binary record: {result.stdout}"
+    assert binary_record["binproviders"] == "env,apt,brew"
 
 
 def test_verify_deps_with_abx_pkg():

@@ -8818,6 +8818,101 @@
           </div>
         </details>
         <details
+          id="env"
+          class="plugin-card plugin-card--binary-only"
+          data-search="env binary environment discover binaries that are already available on the system path. python binary on_binary__09_env_discover.py"
+        >
+          <summary>
+            <div class="plugin-main">
+              <div class="plugin-title-row">
+                <h2>Environment</h2>
+              </div>
+              <div class="plugin-slug"><code>env</code></div>
+              <p class="plugin-summary-description">Discover binaries that are already available on the system PATH.</p>
+              <div class="plugin-subline">
+                <span class="chip">Binary</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">0 config fields</span>
+              </div>
+              <div class="plugin-header-meta">
+                <span class="plugin-order">#09</span>
+                <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
+                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                    <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                    <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                    <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                    <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                  </svg>
+                </span>
+              </div>
+            </div>
+            <div class="plugin-corner-icon" aria-hidden="true">
+              <div class="plugin-icon"><span class="abx-output-icon abx-output-icon--env" title="Environment"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M3 9h18"/><path d="M7 12l2.5 2.5L7 17"/><path d="M12 17h5"/></svg></span></div>
+            </div>
+          </summary>
+
+          <div class="plugin-body">
+            <div class="actions">
+              <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/env" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Plugin Info</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Plugin</span>
+                <p><strong>Environment</strong></p>
+                <p><code>env</code></p>
+                <p>Discover binaries that are already available on the system PATH.</p>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <p>No plugin dependencies declared.</p>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <p>No binary dependencies declared.</p>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <p>No output mimetypes declared.</p>
+              </article>
+            </div>
+
+            <h3 class="section-title">Run It</h3>
+            <div class="command-grid">
+              <div class="command-card">
+                <span>ArchiveBox</span>
+                <pre><code>archivebox init --setup</code></pre>
+              </div>
+              <div class="command-card">
+                <span>abx-dl</span>
+                <pre><code>abx-dl plugins --install env</code></pre>
+              </div>
+            </div>
+            <p class="note">Setup plugins install dependencies or prepare shared runtime state.</p>
+
+            <h3 class="section-title">Hook Scripts</h3>
+            <div class="hook-list">
+              <article class="hook-card">
+                <div>
+                  <span>Binary hook</span>
+                  <strong>env discover</strong>
+                </div>
+                <div class="hook-meta">
+                  <span class="chip">Python</span>
+                  <span class="chip">order 09</span>
+                </div>
+                <p class="hook-file">
+                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/env/on_Binary__09_env_discover.py" target="_blank" rel="noreferrer"><code>on_Binary__09_env_discover.py</code></a>
+                </p>
+              </article>
+            </div>
+
+            <h3 class="section-title">Config Options</h3>
+            <div class="empty-state">This plugin does not define a <code>config.json</code> schema.</div>
+          </div>
+        </details>
+        <details
           id="pip"
           class="plugin-card plugin-card--binary-only"
           data-search="pip binary pip install python-based binaries into a managed virtual environment. python binary python pip on_binary__11_pip_install.py"
@@ -9214,101 +9309,6 @@
           </div>
         </details>
         <details
-          id="env"
-          class="plugin-card plugin-card--binary-only"
-          data-search="env binary environment discover binaries that are already available on the system path. python binary on_binary__15_env_discover.py"
-        >
-          <summary>
-            <div class="plugin-main">
-              <div class="plugin-title-row">
-                <h2>Environment</h2>
-              </div>
-              <div class="plugin-slug"><code>env</code></div>
-              <p class="plugin-summary-description">Discover binaries that are already available on the system PATH.</p>
-              <div class="plugin-subline">
-                <span class="chip">Binary</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">0 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
-                <span class="plugin-order">#15</span>
-                <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
-                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
-                    <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
-                    <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
-                    <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
-                    <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
-                  </svg>
-                </span>
-              </div>
-            </div>
-            <div class="plugin-corner-icon" aria-hidden="true">
-              <div class="plugin-icon"><span class="abx-output-icon abx-output-icon--env" title="Environment"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M3 9h18"/><path d="M7 12l2.5 2.5L7 17"/><path d="M12 17h5"/></svg></span></div>
-            </div>
-          </summary>
-
-          <div class="plugin-body">
-            <div class="actions">
-              <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/env" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Environment</strong></p>
-                <p><code>env</code></p>
-                <p>Discover binaries that are already available on the system PATH.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <p>No binary dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <p>No output mimetypes declared.</p>
-              </article>
-            </div>
-
-            <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>archivebox init --setup</code></pre>
-              </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl plugins --install env</code></pre>
-              </div>
-            </div>
-            <p class="note">Setup plugins install dependencies or prepare shared runtime state.</p>
-
-            <h3 class="section-title">Hook Scripts</h3>
-            <div class="hook-list">
-              <article class="hook-card">
-                <div>
-                  <span>Binary hook</span>
-                  <strong>env discover</strong>
-                </div>
-                <div class="hook-meta">
-                  <span class="chip">Python</span>
-                  <span class="chip">order 15</span>
-                </div>
-                <p class="hook-file">
-                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/env/on_Binary__15_env_discover.py" target="_blank" rel="noreferrer"><code>on_Binary__15_env_discover.py</code></a>
-                </p>
-              </article>
-            </div>
-
-            <h3 class="section-title">Config Options</h3>
-            <div class="empty-state">This plugin does not define a <code>config.json</code> schema.</div>
-          </div>
-        </details>
-        <details
           id="base"
           class="plugin-card"
           data-search="base base provide shared utilities, helpers, and test support used by other plugins."
@@ -9644,7 +9644,7 @@
 
         <div class="footer-meta">
           <span>Generated from <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">ArchiveBox/abx-plugins</a> at ref <code>main</code>.</span>
-          <span>Updated 2026-03-19 22:08 UTC</span>
+          <span>Updated 2026-03-20 06:57 UTC</span>
         </div>
       </footer>
     </div>

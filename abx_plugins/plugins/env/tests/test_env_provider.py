@@ -36,6 +36,20 @@ class TestEnvProviderHook:
         """Hook script should exist."""
         assert INSTALL_HOOK and INSTALL_HOOK.exists(), f"Hook not found: {INSTALL_HOOK}"
 
+    def test_hook_runs_before_other_binary_provider_hooks(self):
+        """Env discovery should sort before install-capable provider hooks."""
+        other_provider_hooks = [
+            next((PLUGIN_DIR.parent / provider).glob("on_Binary__*.py"), None)
+            for provider in ("npm", "pip", "brew", "apt", "custom")
+        ]
+
+        assert INSTALL_HOOK is not None, "Env hook should exist"
+        for hook in other_provider_hooks:
+            assert hook is not None and hook.exists(), f"Missing provider hook: {hook}"
+            assert INSTALL_HOOK.name < hook.name, (
+                f"{INSTALL_HOOK.name} should sort before {hook.name}"
+            )
+
     def test_hook_finds_python(self):
         """Hook should find python3 binary in PATH."""
         env = os.environ.copy()
