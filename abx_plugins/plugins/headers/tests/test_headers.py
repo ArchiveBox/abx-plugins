@@ -76,6 +76,7 @@ def normalize_root_url(url: str) -> str:
 
 
 def run_headers_capture(headers_dir, snapshot_chrome_dir, env, url, snapshot_id):
+    headers_file = headers_dir / "headers.json"
     hook_proc = subprocess.Popen(
         [str(HEADERS_HOOK), f"--url={url}", f"--snapshot-id={snapshot_id}"],
         cwd=headers_dir,
@@ -84,6 +85,12 @@ def run_headers_capture(headers_dir, snapshot_chrome_dir, env, url, snapshot_id)
         text=True,
         env=env,
     )
+
+    for _ in range(20):
+        if headers_file.exists():
+            break
+        time.sleep(0.25)
+    assert headers_file.exists(), "Headers hook did not become ready before navigation"
 
     nav_result = subprocess.run(
         [
@@ -98,7 +105,6 @@ def run_headers_capture(headers_dir, snapshot_chrome_dir, env, url, snapshot_id)
         env=env,
     )
 
-    headers_file = headers_dir / "headers.json"
     wait_seconds = 60 if nav_result.returncode == 0 else 5
     for _ in range(wait_seconds):
         if headers_file.exists() and headers_file.stat().st_size > 0:

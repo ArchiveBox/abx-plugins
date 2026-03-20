@@ -16,7 +16,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ensureNodeModuleResolution, parseArgs, getEnvInt } = require('../base/utils.js');
+const { ensureNodeModuleResolution, parseArgs, getEnvInt, emitArchiveResultRecord } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer');
 
@@ -61,7 +61,7 @@ async function main() {
     if (!readySession?.cdpUrl || !readySession?.targetId) {
         const error = CHROME_SESSION_REQUIRED_ERROR;
         console.error(`[chrome_wait] ERROR: ${error}`);
-        console.log(JSON.stringify({ type: 'ArchiveResult', status: 'failed', output_str: error }));
+        emitArchiveResultRecord('failed', error);
         process.exit(1);
     }
 
@@ -70,13 +70,13 @@ async function main() {
     if (!cdpUrl || !targetId) {
         const error = CHROME_SESSION_REQUIRED_ERROR;
         console.error(`[chrome_wait] ERROR: ${error}`);
-        console.log(JSON.stringify({ type: 'ArchiveResult', status: 'failed', output_str: error }));
+        emitArchiveResultRecord('failed', error);
         process.exit(1);
     }
 
     console.error(`[chrome_wait] Chrome session ready (verified CDP connection, cdp_url=${cdpUrl.slice(0, 32)}..., target_id=${targetId}).`);
     const port = (cdpUrl.match(/:(\d+)\/devtools\//) || [])[1] || '?';
-    console.log(JSON.stringify({ type: 'ArchiveResult', status: 'succeeded', output_str: `tab ready target=${targetId} port=${port}` }));
+    emitArchiveResultRecord('succeeded', `tab ready target=${targetId} port=${port}`);
     process.exit(0);
 }
 

@@ -31,7 +31,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import load_config, emit_archive_result, write_text_atomic
+from base.utils import load_config, emit_archive_result_record, write_text_atomic
 
 import rich_click as click
 
@@ -234,7 +234,7 @@ def main(url: str, snapshot_id: str):
 
         if not config.LITEPARSE_ENABLED:
             print("Skipping liteparse (LITEPARSE_ENABLED=False)", file=sys.stderr)
-            emit_archive_result("skipped", "LITEPARSE_ENABLED=False")
+            emit_archive_result_record("skipped", "LITEPARSE_ENABLED=False")
             sys.exit(0)
 
         binary = config.LITEPARSE_BINARY
@@ -242,13 +242,13 @@ def main(url: str, snapshot_id: str):
         status, output = extract_liteparse(url, binary)
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)
-        emit_archive_result(status, output)
+        emit_archive_result_record(status, output)
         sys.exit(0 if status != "failed" else 1)
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"
         print(f"ERROR: {error}", file=sys.stderr)
-        emit_archive_result("failed", error)
+        emit_archive_result_record("failed", error)
         sys.exit(1)
 
 

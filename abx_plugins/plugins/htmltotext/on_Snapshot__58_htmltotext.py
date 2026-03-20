@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#   "pydantic-settings",
 #   "rich-click",
 # ]
 # ///
@@ -20,7 +21,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_archive_result, write_text_atomic
+from base.utils import emit_archive_result_record, write_text_atomic
 
 import rich_click as click
 
@@ -146,13 +147,13 @@ def main(url: str, snapshot_id: str):
         status, output = extract_htmltotext(url)
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)
-        emit_archive_result(status, output)
+        emit_archive_result_record(status, output)
         sys.exit(0 if status != "failed" else 1)
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"
         print(f"ERROR: {error}", file=sys.stderr)
-        emit_archive_result("failed", error)
+        emit_archive_result_record("failed", error)
         sys.exit(1)
 
 

@@ -17,7 +17,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvInt, writeFileAtomic } = require('../base/utils.js');
+const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvInt, emitArchiveResultRecord, writeFileAtomic } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer');
 const {
@@ -142,11 +142,7 @@ async function main() {
     if (error) console.error(`ERROR: ${error}`);
 
     // Output clean JSONL (no RESULT_JSON= prefix)
-    console.log(JSON.stringify({
-        type: 'ArchiveResult',
-        status,
-        output_str: output || error || '',
-    }));
+    emitArchiveResultRecord(status, output || error || '');
 
     process.exit(status === 'succeeded' ? 0 : 1);
 }

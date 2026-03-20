@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
+#   "pydantic-settings",
 #   "click",
 #   "rich-click",
 #   "abx-pkg",
@@ -24,7 +25,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import enforce_lib_permissions
+from base.utils import emit_binary_record, emit_machine_record, enforce_lib_permissions
 
 import rich_click as click
 from abx_pkg import Binary, EnvProvider, PipProvider
@@ -33,11 +34,21 @@ from abx_pkg import Binary, EnvProvider, PipProvider
 @click.command()
 @click.option("--binary-id", required=True, help="Binary UUID")
 @click.option("--machine-id", required=True, help="Machine UUID")
+@click.option("--plugin-name", required=True, help="Requesting plugin name")
+@click.option("--hook-name", required=True, help="Requesting hook name")
 @click.option("--name", required=True, help="Binary name to install")
 @click.option("--binproviders", default="*", help="Allowed providers (comma-separated)")
+@click.option("--min-version", default="", help="Minimum acceptable version")
 @click.option("--overrides", default=None, help="JSON-encoded overrides dict")
 def main(
-    binary_id: str, machine_id: str, name: str, binproviders: str, overrides: str | None
+    binary_id: str,
+    machine_id: str,
+    plugin_name: str,
+    hook_name: str,
+    name: str,
+    binproviders: str,
+    min_version: str,
+    overrides: str | None,
 ):
     """Install binary using pip."""
 
@@ -118,6 +129,7 @@ def main(
 
         binary = Binary(
             name=name,
+            min_version=min_version or None,
             binproviders=[EnvProvider(), provider],
             overrides={"pip": overrides_dict} if overrides_dict else {},
         ).load_or_install()
@@ -130,15 +142,17 @@ def main(
         sys.exit(1)
 
     # Output Binary JSONL record to stdout
-    record = {
-        "type": "Binary",
-        "name": name,
-        "abspath": str(binary.abspath),
-        "version": str(binary.version) if binary.version else "",
-        "sha256": binary.sha256 or "",
-        "binprovider": "pip",
-    }
-    print(json.dumps(record))
+    emit_binary_record(
+        name=name,
+        abspath=str(binary.abspath),
+        version=str(binary.version) if binary.version else "",
+        sha256=binary.sha256 or "",
+        binprovider="pip",
+        machine_id=machine_id,
+        binary_id=binary_id,
+        plugin_name=plugin_name,
+        hook_name=hook_name,
+    )
 
     # Emit PATH update for pip bin dir
     pip_bin_dir = str(pip_venv_path / "bin")
@@ -149,15 +163,10 @@ def main(
     new_path = f"{pip_bin_dir}:{current_path}" if current_path else pip_bin_dir
     if pip_bin_dir in path_dirs:
         new_path = current_path
-    print(
-        json.dumps(
-            {
-                "type": "Machine",
-                "config": {
-                    "PATH": new_path,
-                },
-            }
-        )
+    emit_machine_record(
+        {
+            "PATH": new_path,
+        }
     )
 
     # Log human-readable info to stderr

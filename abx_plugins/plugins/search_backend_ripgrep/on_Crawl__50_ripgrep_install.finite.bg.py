@@ -1,7 +1,9 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = []
+# dependencies = [
+#   "pydantic-settings",
+# ]
 # ///
 """
 Emit ripgrep Binary dependency for the crawl.
@@ -11,6 +13,9 @@ import os
 import sys
 import json
 from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import emit_binary_record
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
@@ -26,19 +31,13 @@ def main():
         # Not using ripgrep, exit successfully without output
         sys.exit(0)
 
-    machine_id = os.environ.get("MACHINE_ID", "")
-    print(
-        json.dumps(
-            {
-                "type": "Binary",
-                "name": "rg",
-                "binproviders": "env,apt,brew",
-                "overrides": {
-                    "apt": {"install_args": ["ripgrep"]},
-                },
-                "machine_id": machine_id,
-            }
-        )
+    emit_binary_record(
+        name="rg",
+        binproviders="env,apt,brew",
+        overrides={
+            "apt": {"install_args": ["ripgrep"]},
+        },
+        machine_id=os.environ.get("MACHINE_ID", ""),
     )
     sys.exit(0)
 

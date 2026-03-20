@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#   "pydantic-settings",
 #   "rich-click",
 #   "abx-pkg",
 # ]
@@ -21,19 +22,28 @@ from pathlib import Path
 import rich_click as click
 from abx_pkg import Binary, BrewProvider, EnvProvider
 
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import emit_binary_record
+
 
 @click.command()
 @click.option("--machine-id", required=True, help="Machine UUID")
 @click.option("--binary-id", required=True, help="Dependency UUID")
+@click.option("--plugin-name", required=True, help="Requesting plugin name")
+@click.option("--hook-name", required=True, help="Requesting hook name")
 @click.option("--name", required=True, help="Binary name to install")
 @click.option("--binproviders", default="*", help="Allowed providers (comma-separated)")
+@click.option("--min-version", default="", help="Minimum acceptable version")
 @click.option("--custom-cmd", default=None, help="Custom install command")
 @click.option("--overrides", default=None, help="JSON-encoded overrides dict")
 def main(
     binary_id: str,
     machine_id: str,
+    plugin_name: str,
+    hook_name: str,
     name: str,
     binproviders: str,
+    min_version: str,
     custom_cmd: str | None,
     overrides: str | None,
 ):
@@ -91,6 +101,7 @@ def main(
 
         binary = Binary(
             name=name,
+            min_version=min_version or None,
             binproviders=providers,
             overrides=overrides_dict or {},
         ).load_or_install()
@@ -109,17 +120,17 @@ def main(
         resolved_provider_name = getattr(resolved_provider, "name", "") or ""
 
     # Output Binary JSONL record to stdout
-    record = {
-        "type": "Binary",
-        "name": name,
-        "abspath": str(binary.abspath),
-        "version": str(binary.version) if binary.version else "",
-        "sha256": binary.sha256 or "",
-        "binprovider": resolved_provider_name,
-        "machine_id": machine_id,
-        "binary_id": binary_id,
-    }
-    print(json.dumps(record))
+    emit_binary_record(
+        name=name,
+        abspath=str(binary.abspath),
+        version=str(binary.version) if binary.version else "",
+        sha256=binary.sha256 or "",
+        binprovider=resolved_provider_name,
+        machine_id=machine_id,
+        binary_id=binary_id,
+        plugin_name=plugin_name,
+        hook_name=hook_name,
+    )
 
     # Log human-readable info to stderr
     click.echo(f"Installed {name} at {binary.abspath}", err=True)

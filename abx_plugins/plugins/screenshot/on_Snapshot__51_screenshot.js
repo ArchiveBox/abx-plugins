@@ -19,7 +19,7 @@ const {
     getEnv,
     getEnvBool,
     parseArgs,
-    emitArchiveResult,
+    emitArchiveResultRecord,
     hasStaticFileOutput,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
@@ -47,7 +47,7 @@ function tempPathFor(filePath) {
 // Check if screenshot is enabled BEFORE requiring puppeteer
 if (!getEnvBool('SCREENSHOT_ENABLED', true)) {
     console.error('Skipping screenshot (SCREENSHOT_ENABLED=False)');
-    emitArchiveResult('skipped', 'SCREENSHOT_ENABLED=False');
+    emitArchiveResultRecord('skipped', 'SCREENSHOT_ENABLED=False');
     flushCoverageAndExit(0);
 }
 
@@ -121,14 +121,14 @@ async function main() {
 
     if (!url || !snapshotId) {
         console.error('Usage: on_Snapshot__51_screenshot.js --url=<url> --snapshot-id=<uuid>');
-        emitArchiveResult('failed', 'missing required args');
+        emitArchiveResultRecord('failed', 'missing required args');
         flushCoverageAndExit(1);
     }
 
     // Check if staticfile extractor already handled this (permanent skip)
     if (hasStaticFileOutput()) {
         console.error(`Skipping screenshot - staticfile extractor already downloaded this`);
-        emitArchiveResult('noresults', 'staticfile already handled');
+        emitArchiveResultRecord('noresults', 'staticfile already handled');
         flushCoverageAndExit(0);
     }
 
@@ -138,12 +138,12 @@ async function main() {
     // Success - emit ArchiveResult
     const size = fs.statSync(path.join(OUTPUT_DIR, outputPath)).size;
     console.error(`Screenshot saved (${size} bytes)`);
-    emitArchiveResult('succeeded', `${PLUGIN_DIR}/${outputPath}`);
+    emitArchiveResultRecord('succeeded', `${PLUGIN_DIR}/${outputPath}`);
     flushCoverageAndExit(0);
 }
 
 main().catch(e => {
     console.error(`ERROR: ${e.message}`);
-    emitArchiveResult('failed', e.message || 'unknown error');
+    emitArchiveResultRecord('failed', e.message || 'unknown error');
     flushCoverageAndExit(1);
 });

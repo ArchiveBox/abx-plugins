@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#     "pydantic-settings",
 #     "rich-click",
 # ]
 # ///
@@ -33,7 +34,7 @@ import threading
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, get_env_bool, get_env_int, get_env_array
+from base.utils import emit_archive_result_record, load_config
 
 import rich_click as click
 
@@ -74,9 +75,10 @@ def save_paper(url: str, binary: str) -> tuple[bool, int, str]:
     Returns: (success, downloaded_file_count, error_message)
     """
     # Get config from env
-    timeout = get_env_int("PAPERSDL_TIMEOUT", get_env_int("TIMEOUT", 300))
-    papersdl_args = get_env_array("PAPERSDL_ARGS", ["fetch"])
-    papersdl_args_extra = get_env_array("PAPERSDL_ARGS_EXTRA", [])
+    config = load_config()
+    timeout = config.PAPERSDL_TIMEOUT
+    papersdl_args = config.PAPERSDL_ARGS
+    papersdl_args_extra = config.PAPERSDL_ARGS_EXTRA
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
@@ -178,17 +180,14 @@ def main(url: str, snapshot_id: str):
 
     try:
         # Check if papers-dl is enabled
-        if not get_env_bool("PAPERSDL_ENABLED", True):
+        config = load_config()
+
+        if not config.PAPERSDL_ENABLED:
             print("Skipping papers-dl (PAPERSDL_ENABLED=False)", file=sys.stderr)
-            print(json.dumps({
-                "type": "ArchiveResult",
-                "status": "skipped",
-                "output_str": "PAPERSDL_ENABLED=False",
-            }))
+            emit_archive_result_record("skipped", "PAPERSDL_ENABLED=False")
             sys.exit(0)
 
-        # Get binary from environment
-        binary = get_env("PAPERSDL_BINARY", "papers-dl")
+        binary = config.PAPERSDL_BINARY
 
         # Run extraction
         success, downloaded_count, error = save_paper(url, binary)
@@ -197,34 +196,24 @@ def main(url: str, snapshot_id: str):
             # Success - emit ArchiveResult
             pdfs = sorted(path.name for path in OUTPUT_DIR.glob("*.pdf"))
             status = "noresults" if downloaded_count == 0 else "succeeded"
-            result = {
-                "type": "ArchiveResult",
-                "status": status,
-                "output_str": (
+            emit_archive_result_record(
+                status,
+                (
                     f"{PLUGIN_DIR}/{pdfs[0]}" if len(pdfs) == 1 else
                     f"{downloaded_count} PDFs downloaded" if downloaded_count else
                     "No papers found"
                 ),
-            }
-            print(json.dumps(result))
+            )
             sys.exit(0)
         else:
             print(f"ERROR: {error}", file=sys.stderr)
-            print(json.dumps({
-                "type": "ArchiveResult",
-                "status": "failed",
-                "output_str": error or "",
-            }))
+            emit_archive_result_record("failed", error or "")
             sys.exit(1)
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"
         print(f"ERROR: {error}", file=sys.stderr)
-        print(json.dumps({
-            "type": "ArchiveResult",
-            "status": "failed",
-            "output_str": error,
-        }))
+        emit_archive_result_record("failed", error)
         sys.exit(1)
 
 

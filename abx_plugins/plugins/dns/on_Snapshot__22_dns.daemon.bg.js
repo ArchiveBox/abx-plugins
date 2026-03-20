@@ -19,7 +19,7 @@ const {
     getEnvBool,
     getEnvInt,
     parseArgs,
-    emitArchiveResult,
+    emitArchiveResultRecord,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer-core');
@@ -228,7 +228,7 @@ function emitResult(status = 'succeeded') {
         }
     }
 
-    emitArchiveResult(status, resolvedIp);
+    emitArchiveResultRecord(status, resolvedIp);
 }
 
 async function handleShutdown(signal) {
@@ -258,7 +258,7 @@ async function main() {
 
     if (!getEnvBool('DNS_ENABLED', true)) {
         console.error('Skipping (DNS_ENABLED=False)');
-        emitArchiveResult('skipped', 'DNS_ENABLED=False');
+        emitArchiveResultRecord('skipped', 'DNS_ENABLED=False');
         process.exit(0);
     }
 
@@ -289,7 +289,7 @@ async function main() {
         const error = `${e.name}: ${e.message}`;
         console.error(`ERROR: ${error}`);
 
-        emitArchiveResult('failed', error);
+        emitArchiveResultRecord('failed', error);
         process.exit(1);
     }
 }

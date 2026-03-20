@@ -1,7 +1,9 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = []
+# dependencies = [
+#   "pydantic-settings",
+# ]
 # ///
 #
 # Emit node/npm binary dependencies for the crawl.
@@ -17,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, output_binary
+from base.utils import emit_binary_record, get_env
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
@@ -27,13 +29,13 @@ os.chdir(OUTPUT_DIR)
 
 
 def main() -> None:
-    output_binary(
+    emit_binary_record(
         name="node",
         binproviders="env,apt,brew",
         overrides={"apt": {"install_args": ["nodejs"]}},
     )
 
-    output_binary(
+    emit_binary_record(
         name="npm",
         binproviders="env,apt,brew",
         overrides={

@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+# ]"pydantic-settings",
 # ]
 # ///
 """
@@ -12,6 +13,9 @@ import json
 import os
 import sys
 from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import emit_binary_record
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
@@ -30,17 +34,15 @@ def main() -> None:
     if not enabled:
         sys.exit(0)
 
-    record = {
-        "type": "Binary",
-        "name": "puppeteer",
-        "binproviders": "npm",
-        "overrides": {
+    emit_binary_record(
+        name="puppeteer",
+        binproviders="npm",
+        overrides={
             "npm": {
                 "install_args": ["puppeteer"],
             }
         },
-    }
-    print(json.dumps(record))
+    )
     sys.exit(0)
 
 

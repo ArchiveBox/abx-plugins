@@ -1,7 +1,9 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = []
+# dependencies = [
+#   "pydantic-settings",
+# ]
 # ///
 """
 Emit @anthropic-ai/claude-code Binary dependency for the crawl.
@@ -12,7 +14,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, get_env_bool, output_binary
+from base.utils import emit_binary_record, get_env, get_env_bool
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
@@ -36,9 +38,9 @@ def main():
     # Honor custom binary path - skip npm install if user provides their own
     custom_binary = get_env("CLAUDECODE_BINARY")
     if custom_binary and custom_binary != "claude":
-        output_binary(name=Path(custom_binary).name, binproviders="env")
+        emit_binary_record(name=Path(custom_binary).name, binproviders="env")
     else:
-        output_binary(
+        emit_binary_record(
             name="claude",
             binproviders="env,npm",
             overrides={"npm": {"install_args": ["@anthropic-ai/claude-code"]}},

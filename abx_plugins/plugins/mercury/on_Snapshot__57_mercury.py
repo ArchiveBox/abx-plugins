@@ -22,7 +22,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import load_config, emit_archive_result, write_text_atomic
+from base.utils import load_config, emit_archive_result_record, write_text_atomic
 
 import rich_click as click
 
@@ -154,7 +154,7 @@ def main(url: str, snapshot_id: str):
         # Check if mercury extraction is enabled
         if not config.MERCURY_ENABLED:
             print("Skipping mercury (MERCURY_ENABLED=False)", file=sys.stderr)
-            emit_archive_result("skipped", "MERCURY_ENABLED=False")
+            emit_archive_result_record("skipped", "MERCURY_ENABLED=False")
             sys.exit(0)
 
         # Get binary from environment
@@ -164,13 +164,13 @@ def main(url: str, snapshot_id: str):
         status, output = extract_mercury(url, binary)
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)
-        emit_archive_result(status, output)
+        emit_archive_result_record(status, output)
         sys.exit(0 if status != "failed" else 1)
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"
         print(f"ERROR: {error}", file=sys.stderr)
-        emit_archive_result("failed", error)
+        emit_archive_result_record("failed", error)
         sys.exit(1)
 
 

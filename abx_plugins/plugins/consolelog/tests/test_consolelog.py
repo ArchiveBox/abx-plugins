@@ -81,6 +81,13 @@ class TestConsolelogWithChrome:
                 env=env,
             )
 
+            console_output = console_dir / "console.jsonl"
+            for _ in range(20):
+                if console_output.exists():
+                    break
+                time.sleep(0.25)
+            assert console_output.exists(), "Consolelog hook did not become ready before navigation"
+
             nav_result = subprocess.run(
                 [str(CHROME_NAVIGATE_HOOK),
                     f"--url={test_url}",
@@ -93,9 +100,6 @@ class TestConsolelogWithChrome:
                 env=env,
             )
             assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
-
-            # Check for output file
-            console_output = console_dir / "console.jsonl"
 
             # Allow it to run briefly, then terminate (background hook)
             for _ in range(10):

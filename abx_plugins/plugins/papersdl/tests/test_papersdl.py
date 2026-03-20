@@ -72,6 +72,10 @@ def get_papersdl_binary_path():
             binary_id,
             "--machine-id",
             machine_id,
+            "--plugin-name",
+            "papersdl",
+            "--hook-name",
+            "on_Crawl__30_papersdl_install.finite.bg",
             "--name",
             "papers-dl",
         ]

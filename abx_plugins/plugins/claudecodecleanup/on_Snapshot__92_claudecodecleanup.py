@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#     "pydantic-settings",
 #     "rich-click",
 # ]
 # ///
@@ -35,7 +36,7 @@ import rich_click as click
 
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_archive_result, get_env, get_env_bool, get_env_int
+from base.utils import emit_archive_result_record, get_env, get_env_bool, get_env_int
 from claudecode.claudecode_utils import build_system_prompt, run_claude_code
 
 
@@ -71,14 +72,14 @@ def main(url: str, snapshot_id: str):
         # Check if enabled
         if not get_env_bool("CLAUDECODECLEANUP_ENABLED", False):
             print("Skipping Claude Code cleanup (CLAUDECODECLEANUP_ENABLED=False)", file=sys.stderr)
-            emit_archive_result("skipped", "CLAUDECODECLEANUP_ENABLED=False")
+            emit_archive_result_record("skipped", "CLAUDECODECLEANUP_ENABLED=False")
             sys.exit(0)
 
         # Check for API key
         api_key = get_env("ANTHROPIC_API_KEY")
         if not api_key:
             print("ERROR: ANTHROPIC_API_KEY not set", file=sys.stderr)
-            emit_archive_result("failed", "ANTHROPIC_API_KEY not set")
+            emit_archive_result_record("failed", "ANTHROPIC_API_KEY not set")
             sys.exit(1)
 
         # Get configuration
@@ -101,6 +102,8 @@ def main(url: str, snapshot_id: str):
                 f"the snapshot directory: {SNAP_DIR}\n"
                 "You may run any bash commands you need (rm, mv, cp, find, etc.) as long as "
                 "ALL paths are within the snapshot directory above.\n\n"
+                f"You may write your report to {OUTPUT_DIR}/cleanup_report.txt and you may "
+                "modify or delete redundant extractor outputs inside the snapshot directory.\n"
                 "CRITICAL RESTRICTION: You MUST NOT read, write, modify, or delete anything "
                 f"outside of {SNAP_DIR}. Do not use absolute paths to other directories. "
                 "Do not use .. to escape the snapshot directory. Every file operation must "
@@ -169,7 +172,7 @@ def main(url: str, snapshot_id: str):
 
         if returncode != 0:
             error_detail = stderr.strip().split("\n")[-1] if stderr else f"exit={returncode}"
-            emit_archive_result("failed", f"Claude Code failed: {error_detail}")
+            emit_archive_result_record("failed", f"Claude Code failed: {error_detail}")
             sys.exit(1)
 
         # Check for cleanup report
@@ -177,16 +180,16 @@ def main(url: str, snapshot_id: str):
         if report_path.exists():
             report_size = report_path.stat().st_size
             print(f"[+] Cleanup report: {report_size} bytes", file=sys.stderr)
-            emit_archive_result("succeeded", f"{PLUGIN_DIR}/cleanup_report.txt")
+            emit_archive_result_record("succeeded", f"{PLUGIN_DIR}/cleanup_report.txt")
         else:
-            emit_archive_result("failed", "cleanup_report.txt was not created")
+            emit_archive_result_record("failed", "cleanup_report.txt was not created")
 
         sys.exit(0)
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"
         print(f"ERROR: {error}", file=sys.stderr)
-        emit_archive_result("failed", error)
+        emit_archive_result_record("failed", error)
         sys.exit(1)
 
 

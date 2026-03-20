@@ -32,7 +32,7 @@ import threading
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import load_config, emit_archive_result, has_staticfile_output
+from base.utils import load_config, emit_archive_result_record, has_staticfile_output
 
 import rich_click as click
 
@@ -334,7 +334,7 @@ def main(url: str, snapshot_id: str):
         # Check if SingleFile is enabled
         if not config.SINGLEFILE_ENABLED:
             print("Skipping SingleFile (SINGLEFILE_ENABLED=False)", file=sys.stderr)
-            emit_archive_result("skipped", "SINGLEFILE_ENABLED=False")
+            emit_archive_result_record("skipped", "SINGLEFILE_ENABLED=False")
             sys.exit(0)
 
         # Check if staticfile extractor already handled this (permanent skip)
@@ -343,7 +343,7 @@ def main(url: str, snapshot_id: str):
                 "Skipping SingleFile - staticfile extractor already downloaded this",
                 file=sys.stderr,
             )
-            emit_archive_result("noresults", "staticfile already handled")
+            emit_archive_result_record("noresults", "staticfile already handled")
             sys.exit(0)
 
         # Prefer SingleFile extension via existing Chrome session
@@ -358,7 +358,7 @@ def main(url: str, snapshot_id: str):
     if error:
         print(f"ERROR: {error}", file=sys.stderr)
 
-    emit_archive_result(status, output or error or "")
+    emit_archive_result_record(status, output or error or "")
 
     sys.exit(0 if status != "failed" else 1)
 

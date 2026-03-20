@@ -3,7 +3,7 @@
 Provides common helpers used across multiple plugins:
 - Config loading from config.json using PydanticSettings (load_config)
 - Environment variable parsing (get_env, get_env_bool, get_env_int, get_env_array)
-- JSONL record emission (emit_archive_result, output_binary, output_machine_config)
+- JSONL record emission (emit_archive_result_record, emit_binary_record, emit_machine_record, emit_snapshot_record)
 - Atomic file writing (write_text_atomic)
 - HTML source discovery (find_html_source)
 - Sibling plugin output checking (has_staticfile_output)
@@ -181,44 +181,78 @@ def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
 # JSONL record emission
 # ---------------------------------------------------------------------------
 
-def emit_archive_result(status: str, output_str: str) -> None:
-    print(
-        json.dumps(
-            {
-                "type": "ArchiveResult",
-                "status": status,
-                "output_str": output_str,
-            }
-        )
-    )
+def emit_archive_result_record(
+    status: str,
+    output_str: str,
+    **extra: Any,
+) -> None:
+    record: dict[str, Any] = {
+        "type": "ArchiveResult",
+        "status": status,
+        "output_str": output_str,
+    }
+    if extra:
+        record.update(extra)
+    print(json.dumps(record))
 
 
-def output_binary(
-    name: str, binproviders: str, overrides: dict[str, Any] | None = None
+def emit_binary_record(
+    name: str,
+    binproviders: str | None = None,
+    overrides: dict[str, Any] | None = None,
+    min_version: str | None = None,
+    abspath: str | None = None,
+    version: str | None = None,
+    sha256: str | None = None,
+    binprovider: str | None = None,
+    machine_id: str | None = None,
+    binary_id: str | None = None,
+    plugin_name: str | None = None,
+    hook_name: str | None = None,
 ) -> None:
     """Output Binary JSONL record for a dependency."""
-    machine_id = os.environ.get("MACHINE_ID", "")
-
     record: dict[str, Any] = {
         "type": "Binary",
         "name": name,
-        "binproviders": binproviders,
-        "machine_id": machine_id,
     }
+    resolved_machine_id = machine_id if machine_id is not None else os.environ.get("MACHINE_ID", "")
+    record["machine_id"] = resolved_machine_id
+    if binproviders is not None:
+        record["binproviders"] = binproviders
     if overrides:
         record["overrides"] = overrides
+    if min_version:
+        record["min_version"] = min_version
+    if abspath is not None:
+        record["abspath"] = abspath
+    if version is not None:
+        record["version"] = version
+    if sha256 is not None:
+        record["sha256"] = sha256
+    if binprovider is not None:
+        record["binprovider"] = binprovider
+    if binary_id is not None:
+        record["binary_id"] = binary_id
+    if plugin_name is not None:
+        record["plugin_name"] = plugin_name
+    if hook_name is not None:
+        record["hook_name"] = hook_name
     print(json.dumps(record))
-
-
-def output_machine_config(config: dict) -> None:
-    """Output Machine config JSONL patch."""
-    if not config:
-        return
-    record = {
-        "type": "Machine",
-        "config": config,
+def emit_machine_record(config: dict[str, Any]) -> None:
+    print(
+        json.dumps(
+            {
+                "type": "Machine",
+                "config": config,
+            }
+        )
+    )
+def emit_snapshot_record(record: dict[str, Any]) -> None:
+    snapshot_record = {
+        "type": "Snapshot",
+        **{key: value for key, value in record.items() if key != "type"},
     }
-    print(json.dumps(record))
+    print(json.dumps(snapshot_record))
 
 
 # ---------------------------------------------------------------------------

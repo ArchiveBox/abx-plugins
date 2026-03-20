@@ -1,7 +1,9 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = []
+# dependencies = [
+#   "pydantic-settings",
+# ]
 # ///
 #
 # Emit Chromium Binary dependency for the crawl.
@@ -17,7 +19,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import output_binary
+from base.utils import emit_binary_record
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
@@ -46,7 +48,7 @@ def main():
     else:
         browser_name = "chromium"
 
-    output_binary(
+    emit_binary_record(
         name=browser_name,
         binproviders="puppeteer",
         overrides={

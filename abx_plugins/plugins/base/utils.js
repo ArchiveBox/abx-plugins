@@ -4,7 +4,7 @@
  * Provides common helpers used across multiple plugins:
  * - Environment variable parsing (getEnv, getEnvBool, getEnvInt, getEnvArray)
  * - CLI argument parsing (parseArgs)
- * - JSONL record emission (emitArchiveResult)
+ * - JSONL record emission (emitArchiveResultRecord, emitSnapshotRecord)
  * - Atomic file writing (writeFileAtomic)
  * - Sibling plugin output checking (hasStaticFileOutput)
  */
@@ -112,11 +112,19 @@ function parseArgs() {
 // JSONL record emission
 // ---------------------------------------------------------------------------
 
-function emitArchiveResult(status, outputStr) {
+function emitArchiveResultRecord(status, outputStr, extra = {}) {
     console.log(JSON.stringify({
         type: 'ArchiveResult',
         status,
         output_str: outputStr,
+        ...extra,
+    }));
+}
+
+function emitSnapshotRecord(record) {
+    console.log(JSON.stringify({
+        type: 'Snapshot',
+        ...record,
     }));
 }
 
@@ -163,7 +171,8 @@ module.exports = {
     getNodeModulesDir,
     ensureNodeModuleResolution,
     parseArgs,
-    emitArchiveResult,
+    emitArchiveResultRecord,
+    emitSnapshotRecord,
     writeFileAtomic,
     hasStaticFileOutput,
 };

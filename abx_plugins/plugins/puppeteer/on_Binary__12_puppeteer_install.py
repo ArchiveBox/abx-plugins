@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#     "pydantic-settings",
 #     "rich-click",
 #     "abx-pkg",
 # ]
@@ -23,6 +24,9 @@ from pathlib import Path
 import rich_click as click
 from abx_pkg import Binary, EnvProvider, NpmProvider
 
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import emit_binary_record, emit_machine_record
+
 CLAUDE_SANDBOX_NO_PROXY = (
     "localhost,127.0.0.1,169.254.169.254,metadata.google.internal,"
     ".svc.cluster.local,.local"
@@ -32,11 +36,19 @@ CLAUDE_SANDBOX_NO_PROXY = (
 @click.command()
 @click.option("--machine-id", required=True, help="Machine UUID")
 @click.option("--binary-id", required=True, help="Binary UUID")
+@click.option("--plugin-name", required=True, help="Requesting plugin name")
+@click.option("--hook-name", required=True, help="Requesting hook name")
 @click.option("--name", required=True, help="Binary name to install")
 @click.option("--binproviders", default="*", help="Allowed providers (comma-separated)")
 @click.option("--overrides", default=None, help="JSON-encoded overrides dict")
 def main(
-    machine_id: str, binary_id: str, name: str, binproviders: str, overrides: str | None
+    machine_id: str,
+    binary_id: str,
+    plugin_name: str,
+    hook_name: str,
+    name: str,
+    binproviders: str,
+    overrides: str | None,
 ) -> None:
     if binproviders != "*" and "puppeteer" not in binproviders.split(","):
         sys.exit(0)
@@ -65,20 +77,17 @@ def main(
                 binary=existing_binary,
                 machine_id=machine_id,
                 binary_id=binary_id,
+                plugin_name=plugin_name,
+                hook_name=hook_name,
                 name=name,
             )
-            print(
-                json.dumps(
-                    {
-                        "type": "Machine",
-                        "config": {
-                            "CHROME_BINARY": str(existing_binary.abspath),
-                            "CHROMIUM_VERSION": str(existing_binary.version)
-                            if existing_binary.version
-                            else "",
-                        },
-                    }
-                )
+            emit_machine_record(
+                {
+                    "CHROME_BINARY": str(existing_binary.abspath),
+                    "CHROMIUM_VERSION": str(existing_binary.version)
+                    if existing_binary.version
+                    else "",
+                }
             )
             sys.exit(0)
 
@@ -120,6 +129,8 @@ def main(
         binary=chromium_binary,
         machine_id=machine_id,
         binary_id=binary_id,
+        plugin_name=plugin_name,
+        hook_name=hook_name,
         name=name,
     )
 
@@ -130,14 +141,7 @@ def main(
         else "",
     }
 
-    print(
-        json.dumps(
-            {
-                "type": "Machine",
-                "config": config_patch,
-            }
-        )
-    )
+    emit_machine_record(config_patch)
 
     sys.exit(0)
 
@@ -288,19 +292,24 @@ def _get_install_failure_hint(install_output: str) -> str | None:
 
 
 def _emit_browser_binary_record(
-    binary: Binary, machine_id: str, binary_id: str, name: str
+    binary: Binary,
+    machine_id: str,
+    binary_id: str,
+    plugin_name: str,
+    hook_name: str,
+    name: str,
 ) -> None:
-    record = {
-        "type": "Binary",
-        "name": name,
-        "abspath": str(binary.abspath),
-        "version": str(binary.version) if binary.version else "",
-        "sha256": binary.sha256 or "",
-        "binprovider": "puppeteer",
-        "machine_id": machine_id,
-        "binary_id": binary_id,
-    }
-    print(json.dumps(record))
+    emit_binary_record(
+        name=name,
+        abspath=str(binary.abspath),
+        version=str(binary.version) if binary.version else "",
+        sha256=binary.sha256 or "",
+        binprovider="puppeteer",
+        machine_id=machine_id,
+        binary_id=binary_id,
+        plugin_name=plugin_name,
+        hook_name=hook_name,
+    )
 
 
 def _resolve_binary_reference(binary_ref: str) -> str | None:

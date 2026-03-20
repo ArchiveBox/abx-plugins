@@ -18,7 +18,7 @@ const {
     getEnvBool,
     getEnvInt,
     parseArgs,
-    emitArchiveResult,
+    emitArchiveResultRecord,
     writeFileAtomic,
     hasStaticFileOutput,
 } = require('../base/utils.js');
@@ -28,7 +28,7 @@ const { connectToPage } = require('../chrome/chrome_utils.js');
 // Check if DOM is enabled BEFORE requiring puppeteer
 if (!getEnvBool('DOM_ENABLED', true)) {
     console.error('Skipping DOM (DOM_ENABLED=False)');
-    emitArchiveResult('skipped', 'DOM_ENABLED=False');
+    emitArchiveResultRecord('skipped', 'DOM_ENABLED=False');
     process.exit(0);
 }
 
@@ -90,7 +90,7 @@ async function main() {
 
     if (!url || !snapshotId) {
         console.error('Usage: on_Snapshot__53_dom.js --url=<url> --snapshot-id=<uuid>');
-        emitArchiveResult('failed', 'missing required args');
+        emitArchiveResultRecord('failed', 'missing required args');
         process.exit(1);
     }
 
@@ -98,7 +98,7 @@ async function main() {
         // Check if staticfile extractor already handled this (permanent skip)
         if (hasStaticFileOutput()) {
             console.error(`Skipping DOM - staticfile extractor already downloaded this`);
-            emitArchiveResult('noresults', 'staticfile already handled');
+            emitArchiveResultRecord('noresults', 'staticfile already handled');
             process.exit(0);
         }
 
@@ -108,27 +108,27 @@ async function main() {
 
         if (result.success) {
             if (result.noresults) {
-                emitArchiveResult('noresults', result.output);
+                emitArchiveResultRecord('noresults', result.output);
                 process.exit(0);
             }
             const size = fs.statSync(path.join(OUTPUT_DIR, result.output)).size;
             console.error(`DOM saved (${size} bytes)`);
-            emitArchiveResult('succeeded', `${PLUGIN_DIR}/${result.output}`);
+            emitArchiveResultRecord('succeeded', `${PLUGIN_DIR}/${result.output}`);
             process.exit(0);
         } else {
             console.error(`ERROR: ${result.error}`);
-            emitArchiveResult('failed', result.error);
+            emitArchiveResultRecord('failed', result.error);
             process.exit(1);
         }
     } catch (e) {
         console.error(`ERROR: ${e.name}: ${e.message}`);
-        emitArchiveResult('failed', `${e.name}: ${e.message}`);
+        emitArchiveResultRecord('failed', `${e.name}: ${e.message}`);
         process.exit(1);
     }
 }
 
 main().catch(e => {
     console.error(`Fatal error: ${e.message}`);
-    emitArchiveResult('failed', `${e.name}: ${e.message}`);
+    emitArchiveResultRecord('failed', `${e.name}: ${e.message}`);
     process.exit(1);
 });

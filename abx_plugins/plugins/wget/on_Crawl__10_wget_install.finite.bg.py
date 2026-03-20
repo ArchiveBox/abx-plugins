@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import load_config, output_binary
+from base.utils import emit_binary_record, load_config
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
@@ -42,7 +42,7 @@ def main():
         )
 
     if wget_enabled:
-        output_binary(name="wget", binproviders="env,apt,brew")
+        emit_binary_record(name="wget", binproviders="env,apt,brew")
 
     for warning in warnings:
         print(f"WARNING:{warning}", file=sys.stderr)

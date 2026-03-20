@@ -24,7 +24,7 @@ const {
     getEnvBool,
     getEnvInt,
     parseArgs,
-    emitArchiveResult,
+    emitArchiveResultRecord,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer-core');
@@ -132,7 +132,7 @@ async function main() {
         // Check if enabled
         if (!getEnvBool('SEO_ENABLED', true)) {
             console.log('Skipping SEO (SEO_ENABLED=False)');
-            emitArchiveResult('skipped', 'SEO_ENABLED=False');
+            emitArchiveResultRecord('skipped', 'SEO_ENABLED=False');
             process.exit(0);
         }
 
@@ -156,7 +156,7 @@ async function main() {
 
     if (error) console.error(`ERROR: ${error}`);
 
-    emitArchiveResult(status, output || error || '');
+    emitArchiveResultRecord(status, output || error || '');
 
     process.exit(status === 'succeeded' ? 0 : 1);
 }

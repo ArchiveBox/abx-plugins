@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_archive_result, get_env, get_env_bool, get_env_int
+from base.utils import emit_archive_result_record, get_env, get_env_bool, get_env_int
 
 
 def get_crawl_metadata(crawl_dir: Path) -> dict:

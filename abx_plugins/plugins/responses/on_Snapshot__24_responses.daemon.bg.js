@@ -21,7 +21,7 @@ const {
     getEnvBool,
     getEnvInt,
     parseArgs,
-    emitArchiveResult,
+    emitArchiveResultRecord,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer-core');
@@ -232,19 +232,8 @@ async function setupListener() {
 function emitResult(status = 'succeeded', outputStr = `${responseCount} responses`) {
     if (shuttingDown) return Promise.resolve();
     shuttingDown = true;
-
-    const line = JSON.stringify({
-        type: 'ArchiveResult',
-        status,
-        output_str: outputStr,
-    }) + '\n';
-    return new Promise((resolve) => {
-        if (!process.stdout.write(line)) {
-            process.stdout.once('drain', resolve);
-        } else {
-            setImmediate(resolve);
-        }
-    });
+    emitArchiveResultRecord(status, outputStr);
+    return Promise.resolve();
 }
 
 async function handleShutdown(signal) {
@@ -270,7 +259,7 @@ async function main() {
 
     if (!getEnvBool('RESPONSES_ENABLED', true)) {
         console.error('Skipping (RESPONSES_ENABLED=False)');
-        emitArchiveResult('skipped', 'RESPONSES_ENABLED=False');
+        emitArchiveResultRecord('skipped', 'RESPONSES_ENABLED=False');
         process.exit(0);
     }
 

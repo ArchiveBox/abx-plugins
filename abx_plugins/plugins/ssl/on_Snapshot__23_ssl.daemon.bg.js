@@ -19,7 +19,7 @@ const {
     getEnvBool,
     getEnvInt,
     parseArgs,
-    emitArchiveResult,
+    emitArchiveResultRecord,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer-core');
@@ -167,19 +167,8 @@ async function setupListener(url) {
 function emitResult(status = 'succeeded', outputStr = truncateIssuerName(sslIssuer)) {
     if (shuttingDown) return Promise.resolve();
     shuttingDown = true;
-
-    const line = JSON.stringify({
-        type: 'ArchiveResult',
-        status,
-        output_str: outputStr,
-    }) + '\n';
-    return new Promise((resolve) => {
-        if (!process.stdout.write(line)) {
-            process.stdout.once('drain', resolve);
-        } else {
-            setImmediate(resolve);
-        }
-    });
+    emitArchiveResultRecord(status, outputStr);
+    return Promise.resolve();
 }
 
 function responseHostFromUrl(url) {
@@ -213,7 +202,7 @@ async function main() {
 
     if (!getEnvBool('SSL_ENABLED', true)) {
         console.error('Skipping (SSL_ENABLED=False)');
-        emitArchiveResult('skipped', 'SSL_ENABLED=False');
+        emitArchiveResultRecord('skipped', 'SSL_ENABLED=False');
         process.exit(0);
     }
 

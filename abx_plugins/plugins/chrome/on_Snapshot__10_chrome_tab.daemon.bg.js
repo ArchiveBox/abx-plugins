@@ -23,7 +23,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvBool, getEnvInt } = require('../base/utils.js');
+const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvBool, getEnvInt, emitArchiveResultRecord } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 
 const puppeteer = require('puppeteer');
@@ -86,15 +86,11 @@ function emitResult(statusOverride) {
         ? finalOutput
         : (finalError || finalOutput || '');
 
-    const result = {
-        type: 'ArchiveResult',
+    emitArchiveResultRecord(
         status,
-        output_str: outputStr,
-    };
-    if (cmdVersion) {
-        result.cmd_version = cmdVersion;
-    }
-    console.log(JSON.stringify(result));
+        outputStr,
+        cmdVersion ? { cmd_version: cmdVersion } : {},
+    );
 }
 
 function publishSuccess(outputStr, versionOverride = '') {

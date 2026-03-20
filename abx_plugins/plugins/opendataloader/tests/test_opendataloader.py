@@ -141,9 +141,10 @@ def test_install_hook_requests_java_dependency():
         assert result.returncode == 0, result.stderr
         records = [json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")]
         java_record = next(record for record in records if record.get("name") == "java")
+        assert java_record["min_version"] == "11.0.0"
         assert java_record["overrides"]["brew"]["install_args"] == ["openjdk"]
         if sys.platform == "darwin":
-            assert java_record["binproviders"] == "brew"
+            assert java_record["binproviders"] == "env,brew"
         else:
             assert java_record["binproviders"] == "env,apt,brew"
 

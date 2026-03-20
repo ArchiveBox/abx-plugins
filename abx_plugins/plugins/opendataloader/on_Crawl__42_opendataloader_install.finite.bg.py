@@ -1,7 +1,9 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = []
+# dependencies = [
+#   "pydantic-settings",
+# ]
 # ///
 #
 # Emits opendataloader-pdf as a Binary dependency for the crawl, configured via environment variables.
@@ -15,7 +17,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env_bool, output_binary
+from base.utils import emit_binary_record, get_env_bool
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
@@ -30,30 +32,21 @@ def main():
     if not opendataloader_enabled:
         sys.exit(0)
 
-    # Honor OPENDATALOADER_BINARY: if set and the file exists, skip install
-    custom_binary = os.environ.get("OPENDATALOADER_BINARY", "").strip()
-    if custom_binary and Path(custom_binary).is_file():
-        sys.exit(0)
-
-    output_binary(
+    emit_binary_record(
         name="opendataloader-pdf",
         binproviders="env,pip",
         overrides={"pip": {"install_args": ["opendataloader-pdf"]}},
     )
 
-    custom_java = (
-        os.environ.get("OPENDATALOADER_JAVA_BINARY", "").strip()
-        or os.environ.get("JAVA_BINARY", "").strip()
+    emit_binary_record(
+        name="java",
+        binproviders="env,brew" if sys.platform == "darwin" else "env,apt,brew",
+        overrides={
+            "brew": {"install_args": ["openjdk"]},
+            "apt": {"install_args": ["default-jre"]},
+        },
+        min_version="11.0.0",
     )
-    if not (custom_java and Path(custom_java).is_file()):
-        output_binary(
-            name="java",
-            binproviders="brew" if sys.platform == "darwin" else "env,apt,brew",
-            overrides={
-                "brew": {"install_args": ["openjdk"]},
-                "apt": {"install_args": ["default-jre"]},
-            },
-        )
 
     sys.exit(0)
 

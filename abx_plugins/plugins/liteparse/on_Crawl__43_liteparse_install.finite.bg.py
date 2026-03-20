@@ -1,7 +1,9 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = []
+# dependencies = [
+#   "pydantic-settings",
+# ]
 # ///
 """
 Emit lit (LiteParse) Binary dependency for the crawl.
@@ -13,7 +15,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env_bool, output_binary
+from base.utils import emit_binary_record, get_env_bool
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
@@ -26,12 +28,7 @@ def main():
     if not get_env_bool("LITEPARSE_ENABLED", True):
         sys.exit(0)
 
-    # Honor LITEPARSE_BINARY: if set and the file exists, skip install
-    custom_binary = os.environ.get("LITEPARSE_BINARY", "").strip()
-    if custom_binary and Path(custom_binary).is_file():
-        sys.exit(0)
-
-    output_binary(
+    emit_binary_record(
         name="lit",
         binproviders="env,npm",
         overrides={"npm": {"install_args": ["@llamaindex/liteparse"]}},

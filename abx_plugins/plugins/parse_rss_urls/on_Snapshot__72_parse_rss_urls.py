@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#   "pydantic-settings",
 #   "feedparser",
 #   "rich-click",
 # ]
@@ -32,7 +33,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import write_text_atomic
+from base.utils import emit_archive_result_record, emit_snapshot_record, write_text_atomic
 
 import rich_click as click
 
@@ -73,17 +74,9 @@ def fetch_content(url: str) -> str:
             return response.read().decode("utf-8", errors="replace")
 
 
-def emit_archive_result(status: str, output_str: str) -> None:
+def emit_result(status: str, output_str: str) -> None:
     """Emit final ArchiveResult JSONL plus a short stderr summary."""
-    print(
-        json.dumps(
-            {
-                "type": "ArchiveResult",
-                "status": status,
-                "output_str": output_str,
-            }
-        )
-    )
+    emit_archive_result_record(status, output_str)
     if output_str:
         click.echo(output_str, err=True)
 
@@ -121,13 +114,13 @@ def main(
     crawl_id = crawl_id or os.environ.get("CRAWL_ID")
 
     if feedparser is None:
-        emit_archive_result("failed", "feedparser library not installed")
+        emit_result("failed", "feedparser library not installed")
         sys.exit(1)
 
     try:
         content = fetch_content(url)
     except Exception as e:
-        emit_archive_result("failed", f"Failed to fetch {url}: {e}")
+        emit_result("failed", f"Failed to fetch {url}: {e}")
         sys.exit(1)
 
     # Parse the feed
@@ -204,11 +197,11 @@ def main(
 
     # Emit Snapshot records (to stdout as JSONL)
     for entry in urls_found:
-        print(json.dumps(entry))
+        emit_snapshot_record(entry)
 
     # Emit ArchiveResult record to mark completion
     status, output_str = persist_records(urls_found)
-    emit_archive_result(status, output_str)
+    emit_result(status, output_str)
     sys.exit(0)
 
 

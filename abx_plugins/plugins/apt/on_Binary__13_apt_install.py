@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#   "pydantic-settings",
 #   "rich-click",
 #   "abx-pkg",
 # ]
@@ -14,6 +15,10 @@
 
 import json
 import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from base.utils import emit_binary_record
 
 import rich_click as click
 from abx_pkg import AptProvider, Binary, EnvProvider
@@ -22,11 +27,21 @@ from abx_pkg import AptProvider, Binary, EnvProvider
 @click.command()
 @click.option("--binary-id", required=True, help="Binary UUID")
 @click.option("--machine-id", required=True, help="Machine UUID")
+@click.option("--plugin-name", required=True, help="Requesting plugin name")
+@click.option("--hook-name", required=True, help="Requesting hook name")
 @click.option("--name", required=True, help="Binary name to install")
 @click.option("--binproviders", default="*", help="Allowed providers (comma-separated)")
+@click.option("--min-version", default="", help="Minimum acceptable version")
 @click.option("--overrides", default=None, help="JSON-encoded overrides dict")
 def main(
-    binary_id: str, machine_id: str, name: str, binproviders: str, overrides: str | None
+    binary_id: str,
+    machine_id: str,
+    plugin_name: str,
+    hook_name: str,
+    name: str,
+    binproviders: str,
+    min_version: str,
+    overrides: str | None,
 ):
     """Install binary using apt package manager."""
 
@@ -60,6 +75,7 @@ def main(
         # Prefer already-installed binaries found in PATH, then fall back to apt install.
         binary = Binary(
             name=name,
+            min_version=min_version or None,
             binproviders=[EnvProvider(), provider],
             overrides={"apt": overrides_dict} if overrides_dict else {},
         ).load_or_install()
@@ -78,17 +94,17 @@ def main(
         resolved_provider_name = getattr(resolved_provider, "name", "") or ""
 
     # Output Binary JSONL record to stdout
-    record = {
-        "type": "Binary",
-        "name": name,
-        "abspath": str(binary.abspath),
-        "version": str(binary.version) if binary.version else "",
-        "sha256": binary.sha256 or "",
-        "binprovider": resolved_provider_name,
-        "machine_id": machine_id,
-        "binary_id": binary_id,
-    }
-    print(json.dumps(record))
+    emit_binary_record(
+        name=name,
+        abspath=str(binary.abspath),
+        version=str(binary.version) if binary.version else "",
+        sha256=binary.sha256 or "",
+        binprovider=resolved_provider_name,
+        machine_id=machine_id,
+        binary_id=binary_id,
+        plugin_name=plugin_name,
+        hook_name=hook_name,
+    )
 
     # Log human-readable info to stderr
     click.echo(f"Installed {name} at {binary.abspath}", err=True)

@@ -22,7 +22,7 @@ const {
     getEnvBool,
     getEnvInt,
     parseArgs,
-    emitArchiveResult,
+    emitArchiveResultRecord,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer-core');
@@ -174,7 +174,7 @@ async function main() {
         if (!getEnvBool('ACCESSIBILITY_ENABLED', true)) {
             console.log('Skipping accessibility (ACCESSIBILITY_ENABLED=False)');
             // Output clean JSONL (no RESULT_JSON= prefix)
-            emitArchiveResult('skipped', 'ACCESSIBILITY_ENABLED=False');
+            emitArchiveResultRecord('skipped', 'ACCESSIBILITY_ENABLED=False');
             process.exit(0);
         }
 
@@ -200,7 +200,7 @@ async function main() {
 
     if (error) console.error(`ERROR: ${error}`);
 
-    emitArchiveResult(status, output || error || '');
+    emitArchiveResultRecord(status, output || error || '');
 
     process.exit(status === 'succeeded' ? 0 : 1);
 }

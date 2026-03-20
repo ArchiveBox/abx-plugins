@@ -24,7 +24,7 @@ from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import load_config
+from base.utils import emit_archive_result_record, load_config
 
 import rich_click as click
 
@@ -148,12 +148,10 @@ def main(url: str, snapshot_id: str):
     if error:
         print(f"ERROR: {error}", file=sys.stderr)
 
-    result = {
-        "type": "ArchiveResult",
-        "status": status,
-        "output_str": f"{PLUGIN_DIR}/{output}" if output else (error or ""),
-    }
-    print(json.dumps(result))
+    emit_archive_result_record(
+        status,
+        f"{PLUGIN_DIR}/{output}" if output else (error or ""),
+    )
 
     sys.exit(0 if status == "succeeded" else 1)
 

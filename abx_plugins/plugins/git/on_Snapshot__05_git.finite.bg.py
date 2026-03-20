@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import load_config
+from base.utils import emit_archive_result_record, load_config
 
 import rich_click as click
 
@@ -103,15 +103,7 @@ def main(url: str, snapshot_id: str):
         # Check if URL looks like a git repo
         if not is_git_url(url):
             print(f"Skipping git clone for non-git URL: {url}", file=sys.stderr)
-            print(
-                json.dumps(
-                    {
-                        "type": "ArchiveResult",
-                        "status": "noresults",
-                        "output_str": "Not a git URL",
-                    }
-                )
-            )
+            emit_archive_result_record("noresults", "Not a git URL")
             sys.exit(0)
 
         config = load_config()
@@ -130,12 +122,7 @@ def main(url: str, snapshot_id: str):
         print(f"ERROR: {error}", file=sys.stderr)
 
     # Output clean JSONL (no RESULT_JSON= prefix)
-    result = {
-        "type": "ArchiveResult",
-        "status": status,
-        "output_str": rel_output(output) or error or "",
-    }
-    print(json.dumps(result))
+    emit_archive_result_record(status, rel_output(output) or error or "")
 
     sys.exit(0 if status == "succeeded" else 1)
 

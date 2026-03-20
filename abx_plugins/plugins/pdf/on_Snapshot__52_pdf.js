@@ -18,7 +18,7 @@ const {
     getEnvBool,
     getEnvInt,
     parseArgs,
-    emitArchiveResult,
+    emitArchiveResultRecord,
     hasStaticFileOutput,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
@@ -33,7 +33,7 @@ function tempPathFor(filePath) {
 // Check if PDF is enabled BEFORE requiring puppeteer
 if (!getEnvBool('PDF_ENABLED', true)) {
     console.error('Skipping PDF (PDF_ENABLED=False)');
-    emitArchiveResult('skipped', 'PDF_ENABLED=False');
+    emitArchiveResultRecord('skipped', 'PDF_ENABLED=False');
     process.exit(0);
 }
 
@@ -107,7 +107,7 @@ async function main() {
 
     if (!url || !snapshotId) {
         console.error('Usage: on_Snapshot__52_pdf.js --url=<url> --snapshot-id=<uuid>');
-        emitArchiveResult('failed', 'missing required args');
+        emitArchiveResultRecord('failed', 'missing required args');
         process.exit(1);
     }
 
@@ -115,7 +115,7 @@ async function main() {
         // Check if staticfile extractor already handled this (permanent skip)
         if (hasStaticFileOutput()) {
             console.error(`Skipping PDF - staticfile extractor already downloaded this`);
-            emitArchiveResult('noresults', 'staticfile already handled');
+            emitArchiveResultRecord('noresults', 'staticfile already handled');
             process.exit(0);
         }
 
@@ -127,22 +127,22 @@ async function main() {
             // Success - emit ArchiveResult
             const size = fs.statSync(path.join(OUTPUT_DIR, result.output)).size;
             console.error(`PDF saved (${size} bytes)`);
-            emitArchiveResult('succeeded', `${PLUGIN_DIR}/${result.output}`);
+            emitArchiveResultRecord('succeeded', `${PLUGIN_DIR}/${result.output}`);
             process.exit(0);
         } else {
             console.error(`ERROR: ${result.error}`);
-            emitArchiveResult('failed', result.error);
+            emitArchiveResultRecord('failed', result.error);
             process.exit(1);
         }
     } catch (e) {
         console.error(`ERROR: ${e.name}: ${e.message}`);
-        emitArchiveResult('failed', `${e.name}: ${e.message}`);
+        emitArchiveResultRecord('failed', `${e.name}: ${e.message}`);
         process.exit(1);
     }
 }
 
 main().catch(e => {
     console.error(`Fatal error: ${e.message}`);
-    emitArchiveResult('failed', `${e.name}: ${e.message}`);
+    emitArchiveResultRecord('failed', `${e.name}: ${e.message}`);
     process.exit(1);
 });
