@@ -19,7 +19,7 @@ wheels = [
 
 [[package]]
 name = "abx-plugins"
-version = "1.9.18"
+version = "1.10.5"
 source = { editable = "." }
 dependencies = [
     { name = "abx-pkg" },
