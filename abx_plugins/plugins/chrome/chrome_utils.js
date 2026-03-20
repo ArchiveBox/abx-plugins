@@ -143,7 +143,7 @@ function findFreePort() {
 function waitForDebugPort(port, timeout = 30000) {
     const startTime = Date.now();
     let lastFailure = 'no response yet';
-    const host = '127.0.0.1';
+    const hosts = ['127.0.0.1', '::1', 'localhost'];
 
     const normalizeWsUrl = (rawWsUrl) => {
         try {
@@ -155,7 +155,7 @@ function waitForDebugPort(port, timeout = 30000) {
         }
     };
 
-    const probeDebugPort = () => new Promise((resolve, reject) => {
+    const probeDebugPort = (host) => new Promise((resolve, reject) => {
         const req = http.request(
             {
                 host,
@@ -204,12 +204,14 @@ function waitForDebugPort(port, timeout = 30000) {
                 return;
             }
 
-            try {
-                const info = await probeDebugPort();
-                resolve(info);
-                return;
-            } catch (error) {
-                lastFailure = `${host}: ${error.message}`;
+            for (const host of hosts) {
+                try {
+                    const info = await probeDebugPort(host);
+                    resolve(info);
+                    return;
+                } catch (error) {
+                    lastFailure = `${host}: ${error.message}`;
+                }
             }
 
             setTimeout(tryConnect, 100);

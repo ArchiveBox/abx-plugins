@@ -261,14 +261,26 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
     for source_file in sources:
         print(f"[opendataloader] Processing: {source_file.name}", file=sys.stderr)
         try:
-            md_content, text_content = _extract_single_pdf(
-                binary, source_file, timeout, extra_args, runtime_env,
-            )
+            try:
+                md_content, text_content = _extract_single_pdf(
+                    binary, source_file, timeout, extra_args, runtime_env,
+                )
+            except OpendataloaderRunError:
+                if not force_ocr or base_args == extra_args:
+                    raise
+                print(
+                    f"[opendataloader] Hybrid CLI failed for {source_file.name}, "
+                    "retrying without hybrid flags",
+                    file=sys.stderr,
+                )
+                md_content, text_content = _extract_single_pdf(
+                    binary, source_file, timeout, base_args, runtime_env,
+                )
 
             # If hybrid extraction produced nothing, retry without hybrid flags
             if force_ocr and not md_content and not text_content and base_args != extra_args:
                 print(
-                    f"[opendataloader] Hybrid extraction failed for {source_file.name}, "
+                    f"[opendataloader] Hybrid extraction produced no content for {source_file.name}, "
                     "retrying without hybrid flags",
                     file=sys.stderr,
                 )
