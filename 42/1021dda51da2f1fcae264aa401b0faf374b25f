@@ -1,0 +1,31 @@
+docs/index.html
+  751f9f3248055509 7875,7891,7975,7978,8823,8838,8903,8906,9647
+abx_plugins/plugins/npm/on_Crawl__01_npm_install.py
+  751f9f3248055509 1-49
+abx_plugins/plugins/env/on_Binary__00_env_discover.py
+  751f9f3248055509 1-75
+abx_plugins/plugins/npm/tests/test_npm_provider.py
+  751f9f3248055509 27,49-54
+abx_plugins/plugins/env/tests/test_env_provider.py
+  751f9f3248055509 52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "421021dda51da2f1fcae264aa401b0faf374b25f",
+  "prompts": {
+    "751f9f3248055509": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d0a07-45d6-7f72-ad65-e0632dcf2995",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 141,
+      "total_deletions": 133,
+      "accepted_lines": 141,
+      "overriden_lines": 0
+    }
+  }
+}
