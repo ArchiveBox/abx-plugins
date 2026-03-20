@@ -230,6 +230,208 @@
         margin-top: 28px;
       }
 
+      .hero-example {
+        position: relative;
+        z-index: 1;
+        margin-top: 24px;
+        padding: 20px;
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.72);
+        backdrop-filter: blur(8px);
+      }
+
+      .hero-example-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+
+      .hero-example-title {
+        margin: 0;
+        font-size: 0.82rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--warm);
+      }
+
+      .hero-example-copy {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+        line-height: 1.55;
+      }
+
+      .hero-runner-links {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .hero-runner-links span {
+        color: var(--muted);
+        font-size: 0.84rem;
+      }
+
+      .runner-link {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 12px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 253, 248, 0.94);
+        color: var(--accent);
+        text-decoration: none;
+        font-size: 0.84rem;
+      }
+
+      .runner-link:hover {
+        transform: translateY(-1px);
+      }
+
+      .hero-code-block {
+        margin-top: 16px;
+        overflow: hidden;
+        border: 1px solid rgba(22, 35, 31, 0.14);
+        border-radius: 22px;
+        background: linear-gradient(180deg, #233633, #162321);
+        color: #f7f1e6;
+      }
+
+      .hero-code-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+      }
+
+      .hero-code-meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .hero-code-kicker {
+        color: rgba(247, 241, 230, 0.72);
+        font-size: 0.78rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .hero-code-meta code {
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff7ea;
+        font-size: 0.84rem;
+      }
+
+      .copy-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 82px;
+        padding: 9px 13px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff7ea;
+        font: inherit;
+        font-size: 0.84rem;
+        cursor: pointer;
+      }
+
+      .copy-button:hover {
+        background: rgba(255, 255, 255, 0.16);
+      }
+
+      .hero-code-block pre {
+        margin: 0;
+        padding: 16px;
+        overflow-x: auto;
+        font-size: 0.9rem;
+        line-height: 1.7;
+      }
+
+      .hero-code-block code {
+        display: block;
+        min-width: min-content;
+      }
+
+      .code-comment {
+        color: rgba(247, 241, 230, 0.48);
+      }
+
+      .code-command {
+        color: #7dd3fc;
+      }
+
+      .code-option {
+        color: #fbbf24;
+      }
+
+      .code-string {
+        color: #bef264;
+      }
+
+      .code-env {
+        color: #fda4af;
+      }
+
+      .code-boolean {
+        color: #fdba74;
+      }
+
+      .code-value {
+        color: #cbd5e1;
+      }
+
+      .install-details {
+        margin-top: 14px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.62);
+      }
+
+      .install-details summary {
+        cursor: pointer;
+        list-style: none;
+        padding: 14px 16px;
+        font-size: 0.92rem;
+        font-weight: 500;
+      }
+
+      .install-details summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .install-details summary::after {
+        content: "+";
+        float: right;
+        color: var(--accent);
+        font-family: "IBM Plex Mono", monospace;
+      }
+
+      .install-details[open] summary::after {
+        content: "-";
+      }
+
+      .install-details pre {
+        margin: 0;
+        padding: 0 16px 16px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 0.86rem;
+        line-height: 1.65;
+      }
+
       .searchbox {
         display: flex;
         align-items: center;
@@ -808,6 +1010,16 @@
           padding: 24px;
         }
 
+        .hero-example-header,
+        .hero-code-toolbar {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .copy-button {
+          width: 100%;
+        }
+
         .toolbar,
         .plugin-card summary {
           grid-template-columns: 1fr;
@@ -861,6 +1073,42 @@
           </div>
         </div>
 
+        <section class="hero-example" aria-labelledby="quickstart-heading">
+          <div class="hero-example-header">
+            <div>
+              <h2 class="hero-example-title" id="quickstart-heading">Run The Selected Plugin</h2>
+              <p class="hero-example-copy">
+                Pick some plugins below and copy the command to run them.
+              </p>
+            </div>
+            <div class="hero-runner-links">
+              <span>Get:</span>
+              <a class="runner-link" href="https://github.com/ArchiveBox/abx-dl#readme" target="_blank" rel="noreferrer">abx-dl</a>
+              <a class="runner-link" href="https://github.com/ArchiveBox/ArchiveBox#readme" target="_blank" rel="noreferrer">ArchiveBox</a>
+            </div>
+          </div>
+
+          <div class="hero-code-block">
+            <div class="hero-code-toolbar">
+              <div class="hero-code-meta">
+                <span class="hero-code-kicker">Quick Start</span>
+                <code id="selected-plugin-name">ytdlp</code>
+              </div>
+              <button type="button" class="copy-button" id="copy-example-button">Copy</button>
+            </div>
+            <pre><code id="hero-command-example" aria-live="polite"></code></pre>
+          </div>
+
+          <details class="install-details">
+            <summary>Expand to see pip install details</summary>
+            <pre><code>pip install abx-dl
+abx-dl install
+mkdir archive
+cd archive
+abx-dl dl 'https://example.com'</code></pre>
+          </details>
+        </section>
+
         <div class="toolbar">
           <label class="searchbox" for="plugin-search">
             <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -885,6 +1133,9 @@
           id="{{ plugin.name }}"
           class="plugin-card{% if 'Snapshot' in plugin.phases %} plugin-card--snapshot{% elif plugin.phases == ['Crawl'] %} plugin-card--crawl-only{% elif plugin.phases == ['Binary'] %} plugin-card--binary-only{% endif %}"
           data-search="{{ plugin.search_text }}"
+          data-hero-plugin="{{ plugin.name }}"
+          data-hero-abx-command="{% if 'Snapshot' in plugin.phases %}uvx abx-dl --plugins {{ plugin.name }} 'https://example.com'{% else %}uvx {{ plugin.commands.abx_dl }}{% endif %}"
+          data-hero-archivebox-command="{{ plugin.commands.archivebox }}"
         >
           <summary>
             <div class="plugin-main">
@@ -1286,7 +1537,98 @@
       const cards = Array.from(document.querySelectorAll(".plugin-card"));
       const visibleCount = document.getElementById("visible-count");
       const emptyState = document.getElementById("empty-state");
+      const selectedPluginName = document.getElementById("selected-plugin-name");
+      const heroCommandExample = document.getElementById("hero-command-example");
+      const copyExampleButton = document.getElementById("copy-example-button");
       const interactiveSelector = "a, button, input, textarea, select, summary, code, pre";
+      let selectedCard = null;
+      const accumulatedPlugins = [];
+      let copyFeedbackTimer = null;
+
+      const escapeHtml = (value) =>
+        value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+      const highlightShell = (line) => {
+        const tokenPattern = /('[^']*'|"[^"]*"|--[\w-]+(?:=[^\s'"]+)?|\b(?:uvx|abx-dl|archivebox)\b|\b[A-Z0-9_]+(?==)|\b(?:true|false)\b)/g;
+        let html = "";
+        let lastIndex = 0;
+
+        for (const match of line.matchAll(tokenPattern)) {
+          const token = match[0];
+          const index = match.index ?? 0;
+          html += escapeHtml(line.slice(lastIndex, index));
+
+          let className = "code-value";
+          if (token.startsWith("'") || token.startsWith('"')) {
+            className = "code-string";
+          } else if (token.startsWith("--")) {
+            className = "code-option";
+          } else if (token === "uvx" || token === "abx-dl" || token === "archivebox") {
+            className = "code-command";
+          } else if (token === "true" || token === "false") {
+            className = "code-boolean";
+          } else if (/^[A-Z0-9_]+$/.test(token)) {
+            className = "code-env";
+          }
+
+          html += `<span class="${className}">${escapeHtml(token)}</span>`;
+          lastIndex = index + token.length;
+        }
+
+        html += escapeHtml(line.slice(lastIndex));
+        return html;
+      };
+
+      const getHeroExample = (card) => {
+        if (!card) return null;
+
+        const plugin = card.dataset.heroPlugin || card.id || "plugin";
+        if (!accumulatedPlugins.includes(plugin)) {
+          accumulatedPlugins.push(plugin);
+        }
+
+        return {
+          plugin,
+          abx: `uvx abx-dl --plugins=${accumulatedPlugins.join(",")} 'https://example.com'`,
+          archivebox: card.dataset.heroArchiveboxCommand || "archivebox add 'https://example.com'",
+        };
+      };
+
+      const renderHeroExample = (example) => {
+        const lines = [
+          '<span class="code-comment"># run inside a new empty dir somewhere:</span>',
+          highlightShell(example.abx),
+          "",
+          '<span class="code-comment"># or with ArchiveBox:</span>',
+          highlightShell(example.archivebox),
+        ];
+        return lines.join("\n");
+      };
+
+      const heroExampleText = (example) =>
+        ["# abx-dl", example.abx, "", "# ArchiveBox", example.archivebox].join("\n");
+
+      const setHeroExample = (card) => {
+        const example = getHeroExample(card);
+        if (!example) return;
+
+        selectedCard = card;
+        selectedPluginName.textContent = example.plugin;
+        heroCommandExample.innerHTML = renderHeroExample(example);
+        copyExampleButton.dataset.copyText = heroExampleText(example);
+      };
+
+      const syncHeroExample = () => {
+        if (selectedCard) {
+          setHeroExample(selectedCard);
+          return;
+        }
+
+        const fallback = cards.find((card) => card.open && !card.hidden) || cards.find((card) => !card.hidden) || cards[0];
+        if (fallback) {
+          setHeroExample(fallback);
+        }
+      };
 
       const applyFilter = () => {
         const query = searchInput.value.trim().toLowerCase();
@@ -1320,6 +1662,7 @@
           searchInput.value = "";
           applyFilter();
           target.open = true;
+          setHeroExample(target);
           target.scrollIntoView({ behavior: "smooth", block: "start" });
         } else {
           searchInput.value = hash;
@@ -1328,9 +1671,46 @@
         }
       };
 
+      const setCopyButtonLabel = (label) => {
+        copyExampleButton.textContent = label;
+        if (copyFeedbackTimer) {
+          clearTimeout(copyFeedbackTimer);
+        }
+        copyFeedbackTimer = window.setTimeout(() => {
+          copyExampleButton.textContent = "Copy";
+        }, 1600);
+      };
+
+      const copyText = async (text) => {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+          return;
+        }
+
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "absolute";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        textarea.remove();
+      };
+
       searchInput.addEventListener("input", () => {
         applyFilter();
+        syncHeroExample();
         setHash(searchInput.value.trim());
+      });
+
+      copyExampleButton.addEventListener("click", async () => {
+        try {
+          await copyText(copyExampleButton.dataset.copyText || "");
+          setCopyButtonLabel("Copied");
+        } catch (error) {
+          setCopyButtonLabel("Copy failed");
+        }
       });
 
       for (const card of cards) {
@@ -1343,12 +1723,14 @@
         card.addEventListener("toggle", () => {
           if (card.open) {
             setHash(card.id);
+            setHeroExample(card);
           }
         });
       }
 
       applyFilter();
       navigateToHash();
+      syncHeroExample();
       window.addEventListener("hashchange", navigateToHash);
     </script>
   </body>

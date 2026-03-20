@@ -230,6 +230,208 @@
         margin-top: 28px;
       }
 
+      .hero-example {
+        position: relative;
+        z-index: 1;
+        margin-top: 24px;
+        padding: 20px;
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.72);
+        backdrop-filter: blur(8px);
+      }
+
+      .hero-example-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+
+      .hero-example-title {
+        margin: 0;
+        font-size: 0.82rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--warm);
+      }
+
+      .hero-example-copy {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+        line-height: 1.55;
+      }
+
+      .hero-runner-links {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .hero-runner-links span {
+        color: var(--muted);
+        font-size: 0.84rem;
+      }
+
+      .runner-link {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 12px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 253, 248, 0.94);
+        color: var(--accent);
+        text-decoration: none;
+        font-size: 0.84rem;
+      }
+
+      .runner-link:hover {
+        transform: translateY(-1px);
+      }
+
+      .hero-code-block {
+        margin-top: 16px;
+        overflow: hidden;
+        border: 1px solid rgba(22, 35, 31, 0.14);
+        border-radius: 22px;
+        background: linear-gradient(180deg, #233633, #162321);
+        color: #f7f1e6;
+      }
+
+      .hero-code-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+      }
+
+      .hero-code-meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .hero-code-kicker {
+        color: rgba(247, 241, 230, 0.72);
+        font-size: 0.78rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .hero-code-meta code {
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff7ea;
+        font-size: 0.84rem;
+      }
+
+      .copy-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 82px;
+        padding: 9px 13px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff7ea;
+        font: inherit;
+        font-size: 0.84rem;
+        cursor: pointer;
+      }
+
+      .copy-button:hover {
+        background: rgba(255, 255, 255, 0.16);
+      }
+
+      .hero-code-block pre {
+        margin: 0;
+        padding: 16px;
+        overflow-x: auto;
+        font-size: 0.9rem;
+        line-height: 1.7;
+      }
+
+      .hero-code-block code {
+        display: block;
+        min-width: min-content;
+      }
+
+      .code-comment {
+        color: rgba(247, 241, 230, 0.48);
+      }
+
+      .code-command {
+        color: #7dd3fc;
+      }
+
+      .code-option {
+        color: #fbbf24;
+      }
+
+      .code-string {
+        color: #bef264;
+      }
+
+      .code-env {
+        color: #fda4af;
+      }
+
+      .code-boolean {
+        color: #fdba74;
+      }
+
+      .code-value {
+        color: #cbd5e1;
+      }
+
+      .install-details {
+        margin-top: 14px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.62);
+      }
+
+      .install-details summary {
+        cursor: pointer;
+        list-style: none;
+        padding: 14px 16px;
+        font-size: 0.92rem;
+        font-weight: 500;
+      }
+
+      .install-details summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .install-details summary::after {
+        content: "+";
+        float: right;
+        color: var(--accent);
+        font-family: "IBM Plex Mono", monospace;
+      }
+
+      .install-details[open] summary::after {
+        content: "-";
+      }
+
+      .install-details pre {
+        margin: 0;
+        padding: 0 16px 16px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 0.86rem;
+        line-height: 1.65;
+      }
+
       .searchbox {
         display: flex;
         align-items: center;
@@ -808,6 +1010,16 @@
           padding: 24px;
         }
 
+        .hero-example-header,
+        .hero-code-toolbar {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .copy-button {
+          width: 100%;
+        }
+
         .toolbar,
         .plugin-card summary {
           grid-template-columns: 1fr;
@@ -855,11 +1067,47 @@
               <span>Hook scripts</span>
             </div>
             <div class="stat">
-              <strong>206</strong>
+              <strong>207</strong>
               <span>Config Options</span>
             </div>
           </div>
         </div>
+
+        <section class="hero-example" aria-labelledby="quickstart-heading">
+          <div class="hero-example-header">
+            <div>
+              <h2 class="hero-example-title" id="quickstart-heading">Run The Selected Plugin</h2>
+              <p class="hero-example-copy">
+                Pick some plugins below and copy the command to run them.
+              </p>
+            </div>
+            <div class="hero-runner-links">
+              <span>Get:</span>
+              <a class="runner-link" href="https://github.com/ArchiveBox/abx-dl#readme" target="_blank" rel="noreferrer">abx-dl</a>
+              <a class="runner-link" href="https://github.com/ArchiveBox/ArchiveBox#readme" target="_blank" rel="noreferrer">ArchiveBox</a>
+            </div>
+          </div>
+
+          <div class="hero-code-block">
+            <div class="hero-code-toolbar">
+              <div class="hero-code-meta">
+                <span class="hero-code-kicker">Quick Start</span>
+                <code id="selected-plugin-name">ytdlp</code>
+              </div>
+              <button type="button" class="copy-button" id="copy-example-button">Copy</button>
+            </div>
+            <pre><code id="hero-command-example" aria-live="polite"></code></pre>
+          </div>
+
+          <details class="install-details">
+            <summary>Expand to see pip install details</summary>
+            <pre><code>pip install abx-dl
+abx-dl install
+mkdir archive
+cd archive
+abx-dl dl 'https://example.com'</code></pre>
+          </details>
+        </section>
 
         <div class="toolbar">
           <label class="searchbox" for="plugin-search">
@@ -884,6 +1132,9 @@
           id="ytdlp"
           class="plugin-card plugin-card--snapshot"
           data-search="ytdlp crawl snapshot yt-dlp download video and audio media with metadata, subtitles, thumbnails, and description sidecars. python snapshot embed fullscreen yt-dlp node ffmpeg audio/ video/ image/ application/x-subrip text/vtt application/json text/plain on_crawl__15_ytdlp_install.finite.bg.py on_snapshot__02_ytdlp.finite.bg.py ytdlp_enabled enable video/audio downloading with yt-dlp ytdlp_binary path to yt-dlp binary ytdlp_node_binary path to node.js binary for yt-dlp js runtime ytdlp_timeout timeout for yt-dlp downloads in seconds ytdlp_cookies_file path to cookies file ytdlp_max_size maximum file size for yt-dlp downloads ytdlp_check_ssl_validity whether to verify ssl certificates ytdlp_args default yt-dlp arguments ytdlp_args_extra extra arguments to append to yt-dlp command"
+          data-hero-plugin="ytdlp"
+          data-hero-abx-command="uvx abx-dl --plugins ytdlp 'https://example.com'"
+          data-hero-archivebox-command="YTDLP_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -1126,6 +1377,9 @@
           id="gallerydl"
           class="plugin-card plugin-card--snapshot"
           data-search="gallerydl crawl snapshot gallery-dl download image and media galleries along with metadata sidecars from supported sites. python snapshot embed fullscreen gallery-dl image/ video/ application/json text/plain application/zip on_crawl__20_gallerydl_install.finite.bg.py on_snapshot__03_gallerydl.finite.bg.py gallerydl_enabled enable gallery downloading with gallery-dl gallerydl_binary path to gallery-dl binary gallerydl_timeout timeout for gallery downloads in seconds gallerydl_cookies_file path to cookies file gallerydl_check_ssl_validity whether to verify ssl certificates gallerydl_args default gallery-dl arguments gallerydl_args_extra extra arguments to append to gallery-dl command"
+          data-hero-plugin="gallerydl"
+          data-hero-abx-command="uvx abx-dl --plugins gallerydl 'https://example.com'"
+          data-hero-archivebox-command="GALLERYDL_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -1325,6 +1579,9 @@
           id="forumdl"
           class="plugin-card plugin-card--snapshot"
           data-search="forumdl crawl snapshot forum-dl download forum threads and exports in jsonl, warc, and mailbox-style archive formats. python snapshot embed fullscreen forum-dl application/x-ndjson application/warc message/rfc822 on_crawl__25_forumdl_install.finite.bg.py on_snapshot__04_forumdl.finite.bg.py forumdl_enabled enable forum downloading with forum-dl forumdl_binary path to forum-dl binary forumdl_timeout timeout for forum downloads in seconds forumdl_output_format output format for forum downloads forumdl_args default forum-dl arguments forumdl_args_extra extra arguments to append to forum-dl command"
+          data-hero-plugin="forumdl"
+          data-hero-abx-command="uvx abx-dl --plugins forumdl 'https://example.com'"
+          data-hero-archivebox-command="FORUMDL_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -1509,6 +1766,9 @@
           id="git"
           class="plugin-card plugin-card--snapshot"
           data-search="git crawl snapshot git clone git repositories from supported repository urls into the snapshot output directory. python snapshot embed git text/ application/ image/ audio/ video/ font/ on_crawl__05_git_install.finite.bg.py on_snapshot__05_git.finite.bg.py git_enabled enable git repository cloning git_binary path to git binary git_timeout timeout for git operations in seconds git_domains comma-separated list of domains to treat as git repositories git_args default git arguments git_args_extra extra arguments to append to git command"
+          data-hero-plugin="git"
+          data-hero-abx-command="uvx abx-dl --plugins git 'https://example.com'"
+          data-hero-archivebox-command="GIT_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -1698,6 +1958,9 @@
           id="wget"
           class="plugin-card plugin-card--snapshot"
           data-search="wget crawl snapshot wget archive pages and their requisites with wget, optionally writing warc captures. python snapshot embed wget text/html application/warc image/ text/css application/javascript font/ audio/ video/ on_crawl__10_wget_install.finite.bg.py on_snapshot__06_wget.finite.bg.py wget_enabled enable wget archiving wget_warc_enabled save warc archive file wget_binary path to wget binary wget_timeout timeout for wget in seconds wget_user_agent user agent string for wget wget_cookies_file path to cookies file wget_check_ssl_validity whether to verify ssl certificates wget_args default wget arguments wget_args_extra extra arguments to append to wget command"
+          data-hero-plugin="wget"
+          data-hero-abx-command="uvx abx-dl --plugins wget 'https://example.com'"
+          data-hero-archivebox-command="WGET_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -1929,6 +2192,9 @@
           id="archivedotorg"
           class="plugin-card plugin-card--snapshot"
           data-search="archivedotorg snapshot archive.org submit urls to the internet archive wayback machine and save the resulting archive link. python snapshot embed text/plain on_snapshot__08_archivedotorg.finite.bg.py archivedotorg_enabled submit urls to archive.org wayback machine archivedotorg_timeout timeout for archive.org submission in seconds archivedotorg_user_agent user agent string"
+          data-hero-plugin="archivedotorg"
+          data-hero-abx-command="uvx abx-dl --plugins archivedotorg 'https://example.com'"
+          data-hero-archivebox-command="ARCHIVEDOTORG_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -2063,6 +2329,9 @@
           id="favicon"
           class="plugin-card plugin-card--snapshot"
           data-search="favicon snapshot favicon fetch and save the site favicon or touch icon. python snapshot embed image/ on_snapshot__11_favicon.finite.bg.py favicon_enabled enable favicon downloading favicon_timeout timeout for favicon fetch in seconds favicon_user_agent user agent string"
+          data-hero-plugin="favicon"
+          data-hero-abx-command="uvx abx-dl --plugins favicon 'https://example.com'"
+          data-hero-archivebox-command="FAVICON_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -2197,6 +2466,9 @@
           id="modalcloser"
           class="plugin-card plugin-card--snapshot"
           data-search="modalcloser snapshot modal closer automatically dismiss dialogs, cookie banners, and framework modals while the page is being archived. javascript snapshot chrome chrome on_snapshot__15_modalcloser.daemon.bg.js modalcloser_enabled enable automatic modal and dialog closing modalcloser_timeout delay before auto-closing dialogs (ms) modalcloser_poll_interval how often to check for css modals (ms)"
+          data-hero-plugin="modalcloser"
+          data-hero-abx-command="uvx abx-dl --plugins modalcloser 'https://example.com'"
+          data-hero-archivebox-command="MODALCLOSER_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -2330,6 +2602,9 @@
           id="consolelog"
           class="plugin-card plugin-card--snapshot"
           data-search="consolelog snapshot console log capture browser console messages emitted while the page loads. javascript snapshot chrome chrome application/x-ndjson on_snapshot__21_consolelog.daemon.bg.js consolelog_enabled enable console log capture consolelog_timeout timeout for console log capture in seconds"
+          data-hero-plugin="consolelog"
+          data-hero-abx-command="uvx abx-dl --plugins consolelog 'https://example.com'"
+          data-hero-archivebox-command="CONSOLELOG_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -2457,6 +2732,9 @@
           id="dns"
           class="plugin-card plugin-card--snapshot"
           data-search="dns snapshot dns record dns activity observed while loading the page in chrome. javascript snapshot chrome chrome application/x-ndjson on_snapshot__22_dns.daemon.bg.js dns_enabled enable dns traffic recording during page load dns_timeout timeout for dns recording in seconds"
+          data-hero-plugin="dns"
+          data-hero-abx-command="uvx abx-dl --plugins dns 'https://example.com'"
+          data-hero-archivebox-command="DNS_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -2584,6 +2862,9 @@
           id="ssl"
           class="plugin-card plugin-card--snapshot"
           data-search="ssl snapshot ssl capture tls certificate and connection metadata for the loaded page. javascript snapshot chrome chrome application/x-ndjson on_snapshot__23_ssl.daemon.bg.js ssl_enabled enable ssl certificate capture ssl_timeout timeout for ssl capture in seconds"
+          data-hero-plugin="ssl"
+          data-hero-abx-command="uvx abx-dl --plugins ssl 'https://example.com'"
+          data-hero-archivebox-command="SSL_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -2711,6 +2992,9 @@
           id="responses"
           class="plugin-card plugin-card--snapshot"
           data-search="responses snapshot responses capture http response metadata for requests made during page load. javascript snapshot chrome chrome application/x-ndjson text/ image/ audio/ video/ application/ font/ on_snapshot__24_responses.daemon.bg.js responses_enabled enable http response capture responses_timeout timeout for response capture in seconds"
+          data-hero-plugin="responses"
+          data-hero-abx-command="uvx abx-dl --plugins responses 'https://example.com'"
+          data-hero-archivebox-command="RESPONSES_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -2844,6 +3128,9 @@
           id="redirects"
           class="plugin-card plugin-card--snapshot"
           data-search="redirects snapshot redirects capture the redirect chain encountered while loading the page. javascript snapshot chrome chrome application/x-ndjson on_snapshot__25_redirects.daemon.bg.js redirects_enabled enable redirect chain capture redirects_timeout timeout for redirect capture in seconds"
+          data-hero-plugin="redirects"
+          data-hero-abx-command="uvx abx-dl --plugins redirects 'https://example.com'"
+          data-hero-archivebox-command="REDIRECTS_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -2971,6 +3258,9 @@
           id="staticfile"
           class="plugin-card plugin-card--snapshot"
           data-search="staticfile snapshot static file detect and download static-file responses directly when a url resolves to a non-html asset. javascript snapshot embed chrome chrome application/pdf application/epub+zip image/ audio/ video/ application/json application/xml text/csv text/xml application/zip application/octet-stream application/x- on_snapshot__26_staticfile.daemon.bg.js staticfile_enabled enable static file detection staticfile_timeout timeout for static file detection in seconds"
+          data-hero-plugin="staticfile"
+          data-hero-abx-command="uvx abx-dl --plugins staticfile 'https://example.com'"
+          data-hero-archivebox-command="STATICFILE_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -3110,6 +3400,9 @@
           id="headers"
           class="plugin-card plugin-card--snapshot"
           data-search="headers snapshot headers capture http headers for the main document response. javascript snapshot chrome chrome application/json on_snapshot__27_headers.daemon.bg.js headers_enabled enable http headers capture headers_timeout timeout for headers capture in seconds"
+          data-hero-plugin="headers"
+          data-hero-abx-command="uvx abx-dl --plugins headers 'https://example.com'"
+          data-hero-archivebox-command="HEADERS_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -3237,6 +3530,9 @@
           id="chrome"
           class="plugin-card plugin-card--snapshot"
           data-search="chrome crawl snapshot chrome launch and manage a shared chromium session for browser-driven plugins. javascript snapshot chrome text/plain application/json on_crawl__70_chrome_install.finite.bg.py on_crawl__90_chrome_launch.daemon.bg.js on_crawl__91_chrome_wait.js on_snapshot__09_chrome_launch.daemon.bg.js on_snapshot__10_chrome_tab.daemon.bg.js on_snapshot__11_chrome_wait.js on_snapshot__30_chrome_navigate.js chrome_enabled enable chromium browser integration for archiving chrome_binary path to chromium binary chrome_node_binary path to node.js binary (for puppeteer) chrome_timeout timeout for chrome operations in seconds chrome_headless run chrome in headless mode chrome_sandbox enable chrome sandbox (disable in docker with --no-sandbox) chrome_resolution browser viewport resolution (width,height) chrome_user_data_dir path to chrome user data directory for persistent sessions (derived from active_persona if not set) chrome_user_agent user agent string for chrome chrome_cdp_url connect to an already-running browser over cdp instead of launching a new local chromium process chrome_is_local whether the managed browser process is local and should have a live chrome.pid marker chrome_keepalive keep the browser alive after the owning crawl/snapshot hook exits instead of closing it during cleanup chrome_isolation whether chrome runs as one shared browser per crawl or a separate browser per snapshot chrome_args default chrome command-line arguments (static flags only, dynamic args like --user-data-dir are added at runtime) chrome_args_extra extra arguments to append to chrome command (for user customization) chrome_pageload_timeout timeout for page navigation/load in seconds chrome_wait_for page load completion condition (domcontentloaded, load, networkidle0, networkidle2) chrome_delay_after_load extra delay in seconds after page load completes before archiving (useful for js-heavy spas) chrome_check_ssl_validity whether to verify ssl certificates (disable for self-signed certs)"
+          data-hero-plugin="chrome"
+          data-hero-abx-command="uvx abx-dl --plugins chrome 'https://example.com'"
+          data-hero-archivebox-command="CHROME_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -3668,6 +3964,9 @@
           id="seo"
           class="plugin-card plugin-card--snapshot"
           data-search="seo snapshot seo capture seo-related metadata such as meta tags and open graph fields. javascript snapshot chrome chrome application/json on_snapshot__38_seo.js seo_enabled enable seo metadata capture seo_timeout timeout for seo capture in seconds"
+          data-hero-plugin="seo"
+          data-hero-abx-command="uvx abx-dl --plugins seo 'https://example.com'"
+          data-hero-archivebox-command="SEO_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -3794,6 +4093,9 @@
           id="accessibility"
           class="plugin-card plugin-card--snapshot"
           data-search="accessibility snapshot accessibility capture the browser accessibility tree for the archived page. javascript snapshot chrome chrome application/json on_snapshot__39_accessibility.js accessibility_enabled enable accessibility tree capture accessibility_timeout timeout for accessibility capture in seconds"
+          data-hero-plugin="accessibility"
+          data-hero-abx-command="uvx abx-dl --plugins accessibility 'https://example.com'"
+          data-hero-archivebox-command="ACCESSIBILITY_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -3920,6 +4222,9 @@
           id="infiniscroll"
           class="plugin-card plugin-card--snapshot"
           data-search="infiniscroll snapshot infinite scroll expand infinite-scroll pages and load additional content before downstream capture plugins run. javascript snapshot chrome chrome on_snapshot__45_infiniscroll.js infiniscroll_enabled enable infinite scroll page expansion infiniscroll_timeout maximum timeout for scrolling in seconds infiniscroll_scroll_delay delay between scrolls in milliseconds infiniscroll_scroll_distance distance to scroll per step in pixels infiniscroll_scroll_limit maximum number of scroll steps infiniscroll_min_height minimum page height to scroll to in pixels infiniscroll_expand_details expand <details> elements and click 'load more' buttons for comments"
+          data-hero-plugin="infiniscroll"
+          data-hero-abx-command="uvx abx-dl --plugins infiniscroll 'https://example.com'"
+          data-hero-archivebox-command="INFINISCROLL_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -4092,6 +4397,9 @@
           id="claudechrome"
           class="plugin-card plugin-card--snapshot"
           data-search="claudechrome crawl snapshot claude chrome use claude computer-use to interact with pages in chrome via cdp screenshots and the anthropic api. javascript snapshot embed fullscreen chrome node application/json image/png on_crawl__84_claudechrome_install.finite.bg.js on_crawl__96_claudechrome_config.js on_snapshot__47_claudechrome.js claudechrome_enabled enable claude for chrome browser extension for ai-driven page interaction claudechrome_prompt prompt for claude to execute on the page. claude can click buttons, fill forms, download files, and interact with any page element. claudechrome_timeout timeout for claude for chrome operations in seconds claudechrome_model claude model to use (e.g. sonnet, opus, haiku). availability depends on your plan. claudechrome_max_actions maximum number of agentic loop iterations (screenshots + actions) per page anthropic_api_key anthropic api key for claude for chrome authentication"
+          data-hero-plugin="claudechrome"
+          data-hero-abx-command="uvx abx-dl --plugins claudechrome 'https://example.com'"
+          data-hero-archivebox-command="CLAUDECHROME_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -4286,6 +4594,9 @@
           id="singlefile"
           class="plugin-card plugin-card--snapshot"
           data-search="singlefile crawl snapshot singlefile save a complete page as a single self-contained html file using the singlefile extension or cli. python snapshot embed chrome chrome single-file-cli text/html on_crawl__45_singlefile_install.finite.bg.py on_crawl__82_singlefile_install.finite.bg.js on_snapshot__50_singlefile.py singlefile_enabled enable singlefile archiving singlefile_binary path to single-file binary singlefile_node_binary path to node.js binary singlefile_chrome_binary path to chromium binary singlefile_timeout timeout for singlefile in seconds singlefile_user_agent user agent string singlefile_cookies_file path to cookies file singlefile_check_ssl_validity whether to verify ssl certificates singlefile_chrome_args chrome command-line arguments for singlefile singlefile_args default single-file arguments singlefile_args_extra extra arguments to append to single-file command"
+          data-hero-plugin="singlefile"
+          data-hero-abx-command="uvx abx-dl --plugins singlefile 'https://example.com'"
+          data-hero-archivebox-command="SINGLEFILE_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -4537,6 +4848,9 @@
           id="screenshot"
           class="plugin-card plugin-card--snapshot"
           data-search="screenshot snapshot screenshot capture a png screenshot of the rendered page. javascript snapshot embed fullscreen chrome chrome image/png on_snapshot__51_screenshot.js screenshot_enabled enable screenshot capture screenshot_timeout timeout for screenshot capture in seconds screenshot_resolution screenshot resolution (width,height)"
+          data-hero-plugin="screenshot"
+          data-hero-abx-command="uvx abx-dl --plugins screenshot 'https://example.com'"
+          data-hero-archivebox-command="SCREENSHOT_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -4676,6 +4990,9 @@
           id="pdf"
           class="plugin-card plugin-card--snapshot"
           data-search="pdf snapshot pdf render the current page to pdf using the shared chrome session. javascript snapshot embed fullscreen chrome chrome application/pdf on_snapshot__52_pdf.js pdf_enabled enable pdf generation pdf_timeout timeout for pdf generation in seconds pdf_resolution pdf page resolution (width,height)"
+          data-hero-plugin="pdf"
+          data-hero-abx-command="uvx abx-dl --plugins pdf 'https://example.com'"
+          data-hero-archivebox-command="PDF_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -4815,6 +5132,9 @@
           id="dom"
           class="plugin-card plugin-card--snapshot"
           data-search="dom snapshot dom save the fully rendered dom html from the live page. javascript snapshot embed chrome chrome text/html on_snapshot__53_dom.js dom_enabled enable dom capture dom_timeout timeout for dom capture in seconds"
+          data-hero-plugin="dom"
+          data-hero-abx-command="uvx abx-dl --plugins dom 'https://example.com'"
+          data-hero-archivebox-command="DOM_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -4942,6 +5262,9 @@
           id="title"
           class="plugin-card plugin-card--snapshot"
           data-search="title snapshot title capture the final document title from the rendered page. javascript snapshot chrome chrome text/plain on_snapshot__54_title.js title_enabled enable title extraction title_timeout timeout for title extraction in seconds"
+          data-hero-plugin="title"
+          data-hero-abx-command="uvx abx-dl --plugins title 'https://example.com'"
+          data-hero-archivebox-command="TITLE_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -5068,6 +5391,9 @@
           id="readability"
           class="plugin-card plugin-card--snapshot"
           data-search="readability crawl snapshot readability extract article html, text, and metadata using mozilla readability. python snapshot embed fullscreen readability-extractor text/html text/plain application/json on_crawl__35_readability_install.finite.bg.py on_snapshot__56_readability.py readability_enabled enable readability text extraction readability_binary path to readability-extractor binary readability_timeout timeout for readability in seconds readability_args default readability arguments readability_args_extra extra arguments to append to readability command"
+          data-hero-plugin="readability"
+          data-hero-abx-command="uvx abx-dl --plugins readability 'https://example.com'"
+          data-hero-archivebox-command="READABILITY_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -5241,6 +5567,9 @@
           id="defuddle"
           class="plugin-card plugin-card--snapshot"
           data-search="defuddle crawl snapshot defuddle extract cleaned article html, text, and metadata from archived html using defuddle. python snapshot defuddle text/html text/plain application/json on_crawl__41_defuddle_install.finite.bg.py on_snapshot__57_defuddle.py defuddle_enabled enable defuddle text extraction defuddle_binary path to defuddle binary defuddle_timeout timeout for defuddle in seconds defuddle_args default defuddle arguments defuddle_args_extra extra arguments to append to defuddle command"
+          data-hero-plugin="defuddle"
+          data-hero-abx-command="uvx abx-dl --plugins defuddle 'https://example.com'"
+          data-hero-archivebox-command="DEFUDDLE_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -5412,6 +5741,9 @@
           id="mercury"
           class="plugin-card plugin-card--snapshot"
           data-search="mercury crawl snapshot mercury extract article html, text, and metadata using the postlight mercury parser. python snapshot embed postlight-parser text/html text/plain application/json on_crawl__40_mercury_install.finite.bg.py on_snapshot__57_mercury.py mercury_enabled enable mercury text extraction mercury_binary path to mercury/postlight parser binary mercury_timeout timeout for mercury in seconds mercury_args default mercury parser arguments mercury_args_extra extra arguments to append to mercury parser command"
+          data-hero-plugin="mercury"
+          data-hero-abx-command="uvx abx-dl --plugins mercury 'https://example.com'"
+          data-hero-archivebox-command="MERCURY_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -5585,6 +5917,9 @@
           id="claudecodeextract"
           class="plugin-card plugin-card--snapshot"
           data-search="claudecodeextract snapshot claude code extract use claude code to generate clean markdown from snapshot extractor outputs. python snapshot embed fullscreen claudecode claude text/markdown on_snapshot__58_claudecodeextract.py claudecodeextract_enabled enable claude code ai extraction claudecodeextract_timeout timeout for claude code extraction in seconds claudecodeextract_prompt custom prompt for claude code extraction. use this to define what claude should extract or generate from the snapshot. claudecodeextract_model claude model to use for extraction (e.g. sonnet, opus, haiku) claudecodeextract_max_turns maximum number of agentic turns for extraction"
+          data-hero-plugin="claudecodeextract"
+          data-hero-abx-command="uvx abx-dl --plugins claudecodeextract 'https://example.com'"
+          data-hero-archivebox-command="CLAUDECODEEXTRACT_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -5745,6 +6080,9 @@
           id="htmltotext"
           class="plugin-card plugin-card--snapshot"
           data-search="htmltotext snapshot html to text convert archived html from other extractors into plain text for indexing and analysis. python snapshot text/plain on_snapshot__58_htmltotext.py htmltotext_enabled enable html to text conversion htmltotext_timeout timeout for html to text conversion in seconds"
+          data-hero-plugin="htmltotext"
+          data-hero-abx-command="uvx abx-dl --plugins htmltotext 'https://example.com'"
+          data-hero-archivebox-command="HTMLTOTEXT_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -5867,6 +6205,9 @@
           id="trafilatura"
           class="plugin-card plugin-card--snapshot"
           data-search="trafilatura crawl snapshot trafilatura extract article content from archived html into text, markdown, html, csv, json, and xml formats. python snapshot trafilatura text/plain text/markdown text/html text/csv application/json application/xml application/tei+xml on_crawl__41_trafilatura_install.finite.bg.py on_snapshot__59_trafilatura.py trafilatura_enabled enable trafilatura extraction trafilatura_binary path to trafilatura binary trafilatura_timeout timeout for trafilatura in seconds trafilatura_output_txt write plain text output (content.txt) trafilatura_output_markdown write markdown output (content.md) trafilatura_output_html write html output (content.html) trafilatura_output_csv write csv output (content.csv) trafilatura_output_json write json output (content.json) trafilatura_output_xml write xml output (content.xml) trafilatura_output_xmltei write xml tei output (content.xmltei)"
+          data-hero-plugin="trafilatura"
+          data-hero-abx-command="uvx abx-dl --plugins trafilatura 'https://example.com'"
+          data-hero-archivebox-command="TRAFILATURA_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -6084,7 +6425,10 @@
         <details
           id="opendataloader"
           class="plugin-card plugin-card--snapshot"
-          data-search="opendataloader crawl snapshot opendataloader extract structured text, tables, and metadata from pdfs using opendataloader-pdf. supports ocr for scanned pdfs via hybrid backend. python snapshot opendataloader-pdf text/plain text/markdown application/json on_crawl__42_opendataloader_install.finite.bg.py on_snapshot__60_opendataloader.py opendataloader_enabled enable pdf text extraction with opendataloader-pdf opendataloader_binary path to opendataloader-pdf binary opendataloader_timeout timeout for pdf extraction in seconds opendataloader_force_ocr use hybrid ocr backend (--hybrid docling-fast) for scanned/image-based pdfs. requires opendataloader-pdf-hybrid server running. opendataloader_hybrid_url url of the opendataloader-pdf-hybrid server (e.g. http://localhost:5002). if empty, uses the default built-in url. opendataloader_args default opendataloader-pdf arguments opendataloader_args_extra extra arguments to append to opendataloader-pdf command"
+          data-search="opendataloader crawl snapshot opendataloader extract structured text, tables, and metadata from pdfs using opendataloader-pdf. supports ocr for scanned pdfs via hybrid backend. python snapshot opendataloader-pdf java text/plain text/markdown application/json on_crawl__42_opendataloader_install.finite.bg.py on_snapshot__60_opendataloader.py opendataloader_enabled enable pdf text extraction with opendataloader-pdf opendataloader_binary path to opendataloader-pdf binary opendataloader_java_binary path to the java runtime used by opendataloader-pdf opendataloader_timeout timeout for pdf extraction in seconds opendataloader_force_ocr use hybrid ocr backend (--hybrid docling-fast) for scanned/image-based pdfs. requires opendataloader-pdf-hybrid server running. opendataloader_hybrid_url url of the opendataloader-pdf-hybrid server (e.g. http://localhost:5002). if empty, uses the default built-in url. opendataloader_args default opendataloader-pdf arguments opendataloader_args_extra extra arguments to append to opendataloader-pdf command"
+          data-hero-plugin="opendataloader"
+          data-hero-abx-command="uvx abx-dl --plugins opendataloader 'https://example.com'"
+          data-hero-archivebox-command="OPENDATALOADER_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -6097,7 +6441,7 @@
                 <span class="chip">Crawl</span>
                 <span class="chip">Snapshot</span>
                 <span class="chip">2 hooks</span>
-                <span class="chip">7 config fields</span>
+                <span class="chip">8 config fields</span>
               </div>
               <div class="plugin-header-meta">
                 <span class="plugin-order">#60</span>
@@ -6111,7 +6455,7 @@
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> opendataloader-pdf</div>
+                <div><strong>Needs binaries:</strong> opendataloader-pdf, java</div>
                 <div><strong>Outputs:</strong> text/plain, text/markdown, application/json</div>
               </div>
             </div>
@@ -6148,6 +6492,7 @@
                 <span>Required Binaries</span>
                 <div class="pill-list">
                   <span class="chip">opendataloader-pdf</span>
+                  <span class="chip">java</span>
                 </div>
               </article>
               <article class="plugin-info-card">
@@ -6227,6 +6572,16 @@
               </article>
               <article class="config-card">
                 <span>Config key</span>
+                <strong><code>OPENDATALOADER_JAVA_BINARY</code></strong>
+                <p>Path to the Java runtime used by opendataloader-pdf</p>
+                <div class="config-meta">
+                  <div>Type: <code>string</code></div>
+                  <div>Fallback: <code>JAVA_BINARY</code></div>
+                </div>
+                <pre><code>"java"</code></pre>
+              </article>
+              <article class="config-card">
+                <span>Config key</span>
                 <strong><code>OPENDATALOADER_TIMEOUT</code></strong>
                 <p>Timeout for PDF extraction in seconds</p>
                 <div class="config-meta">
@@ -6281,6 +6636,9 @@
           id="liteparse"
           class="plugin-card plugin-card--snapshot"
           data-search="liteparse crawl snapshot liteparse extract text and metadata from pdfs and documents using liteparse (by llamaindex). supports ocr via tesseract.js. python snapshot lit text/plain application/json on_crawl__43_liteparse_install.finite.bg.py on_snapshot__61_liteparse.py liteparse_enabled enable liteparse document extraction liteparse_binary path to lit binary liteparse_timeout timeout for liteparse extraction in seconds liteparse_args default liteparse arguments liteparse_args_extra extra arguments to append to liteparse command"
+          data-hero-plugin="liteparse"
+          data-hero-abx-command="uvx abx-dl --plugins liteparse 'https://example.com'"
+          data-hero-archivebox-command="LITEPARSE_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -6458,6 +6816,9 @@
           id="papersdl"
           class="plugin-card plugin-card--snapshot"
           data-search="papersdl crawl snapshot papers-dl fetch downloadable academic papers from paper urls and doi targets. python snapshot embed fullscreen papers-dl application/pdf on_crawl__30_papersdl_install.finite.bg.py on_snapshot__66_papersdl.finite.bg.py papersdl_enabled enable paper downloading with papers-dl papersdl_binary path to papers-dl binary papersdl_timeout timeout for paper downloads in seconds papersdl_args default papers-dl arguments papersdl_args_extra extra arguments to append to papers-dl command"
+          data-hero-plugin="papersdl"
+          data-hero-abx-command="uvx abx-dl --plugins papersdl 'https://example.com'"
+          data-hero-archivebox-command="PAPERSDL_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -6632,6 +6993,9 @@
           id="parse_html_urls"
           class="plugin-card plugin-card--snapshot"
           data-search="parse_html_urls snapshot parse html urls parse html documents and emit discovered links as jsonl snapshot records. python snapshot application/x-ndjson on_snapshot__70_parse_html_urls.py parse_html_urls_enabled enable html url parsing"
+          data-hero-plugin="parse_html_urls"
+          data-hero-abx-command="uvx abx-dl --plugins parse_html_urls 'https://example.com'"
+          data-hero-archivebox-command="PARSE_HTML_URLS_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -6743,6 +7107,9 @@
           id="parse_txt_urls"
           class="plugin-card plugin-card--snapshot"
           data-search="parse_txt_urls snapshot parse text urls parse plain text documents and emit discovered urls as jsonl snapshot records. python snapshot application/x-ndjson on_snapshot__71_parse_txt_urls.py parse_txt_urls_enabled enable plain text url parsing"
+          data-hero-plugin="parse_txt_urls"
+          data-hero-abx-command="uvx abx-dl --plugins parse_txt_urls 'https://example.com'"
+          data-hero-archivebox-command="PARSE_TXT_URLS_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -6854,6 +7221,9 @@
           id="parse_rss_urls"
           class="plugin-card plugin-card--snapshot"
           data-search="parse_rss_urls snapshot parse rss urls parse rss and atom feeds and emit discovered entry urls as jsonl snapshot records. python snapshot application/x-ndjson on_snapshot__72_parse_rss_urls.py parse_rss_urls_enabled enable rss/atom feed url parsing"
+          data-hero-plugin="parse_rss_urls"
+          data-hero-abx-command="uvx abx-dl --plugins parse_rss_urls 'https://example.com'"
+          data-hero-archivebox-command="PARSE_RSS_URLS_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -6965,6 +7335,9 @@
           id="parse_netscape_urls"
           class="plugin-card plugin-card--snapshot"
           data-search="parse_netscape_urls snapshot parse netscape urls parse netscape bookmark html exports and emit discovered urls as jsonl snapshot records. python snapshot application/x-ndjson on_snapshot__73_parse_netscape_urls.py parse_netscape_urls_enabled enable netscape bookmarks html url parsing"
+          data-hero-plugin="parse_netscape_urls"
+          data-hero-abx-command="uvx abx-dl --plugins parse_netscape_urls 'https://example.com'"
+          data-hero-archivebox-command="PARSE_NETSCAPE_URLS_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -7076,6 +7449,9 @@
           id="parse_jsonl_urls"
           class="plugin-card plugin-card--snapshot"
           data-search="parse_jsonl_urls snapshot parse jsonl urls parse jsonl bookmark exports and emit discovered urls as jsonl snapshot records. python snapshot application/x-ndjson on_snapshot__74_parse_jsonl_urls.py parse_jsonl_urls_enabled enable json lines url parsing"
+          data-hero-plugin="parse_jsonl_urls"
+          data-hero-abx-command="uvx abx-dl --plugins parse_jsonl_urls 'https://example.com'"
+          data-hero-archivebox-command="PARSE_JSONL_URLS_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -7187,6 +7563,9 @@
           id="parse_dom_outlinks"
           class="plugin-card plugin-card--snapshot"
           data-search="parse_dom_outlinks snapshot parse dom outlinks extract crawlable links from the rendered dom and emit them as jsonl records. javascript snapshot chrome chrome application/x-ndjson on_snapshot__75_parse_dom_outlinks.js parse_dom_outlinks_enabled enable dom outlinks parsing from archived pages parse_dom_outlinks_timeout timeout for dom outlinks parsing in seconds"
+          data-hero-plugin="parse_dom_outlinks"
+          data-hero-abx-command="uvx abx-dl --plugins parse_dom_outlinks 'https://example.com'"
+          data-hero-archivebox-command="PARSE_DOM_OUTLINKS_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -7313,6 +7692,9 @@
           id="search_backend_sqlite"
           class="plugin-card plugin-card--snapshot"
           data-search="search_backend_sqlite snapshot sqlite search index archived snapshot content into a sqlite fts database for local search. python snapshot application/vnd.sqlite3 on_snapshot__90_index_sqlite.py search_backend_sqlite_db sqlite fts database filename search_backend_sqlite_separate_database use separate database file for fts index search_backend_sqlite_tokenizers fts5 tokenizer configuration"
+          data-hero-plugin="search_backend_sqlite"
+          data-hero-abx-command="uvx abx-dl --plugins search_backend_sqlite 'https://example.com'"
+          data-hero-archivebox-command="archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -7444,6 +7826,9 @@
           id="search_backend_sonic"
           class="plugin-card plugin-card--snapshot"
           data-search="search_backend_sonic snapshot sonic search index archived snapshot content into a sonic search backend. python snapshot on_snapshot__91_index_sonic.py search_backend_sonic_host_name sonic server hostname search_backend_sonic_port sonic server port search_backend_sonic_password sonic server password search_backend_sonic_collection sonic collection name search_backend_sonic_bucket sonic bucket name"
+          data-hero-plugin="search_backend_sonic"
+          data-hero-abx-command="uvx abx-dl --plugins search_backend_sonic 'https://example.com'"
+          data-hero-archivebox-command="archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -7591,6 +7976,9 @@
           id="claudecodecleanup"
           class="plugin-card plugin-card--snapshot"
           data-search="claudecodecleanup snapshot claude code cleanup use claude code to deduplicate and clean up redundant snapshot extractor outputs. python snapshot embed fullscreen claudecode claude text/plain on_snapshot__92_claudecodecleanup.py claudecodecleanup_enabled enable claude code ai cleanup of snapshot files claudecodecleanup_timeout timeout for claude code cleanup in seconds claudecodecleanup_prompt custom prompt for claude code cleanup. defines what claude should clean up and how to determine which duplicates to keep. claudecodecleanup_model claude model to use for cleanup (e.g. sonnet, opus, haiku) claudecodecleanup_max_turns maximum number of agentic turns for cleanup"
+          data-hero-plugin="claudecodecleanup"
+          data-hero-abx-command="uvx abx-dl --plugins claudecodecleanup 'https://example.com'"
+          data-hero-archivebox-command="CLAUDECODECLEANUP_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -7751,6 +8139,9 @@
           id="hashes"
           class="plugin-card plugin-card--snapshot"
           data-search="hashes snapshot hashes generate a hash manifest for files produced in the snapshot directory. python snapshot application/json on_snapshot__93_hashes.py hashes_enabled enable merkle tree hash generation hashes_timeout timeout for merkle tree generation in seconds"
+          data-hero-plugin="hashes"
+          data-hero-abx-command="uvx abx-dl --plugins hashes 'https://example.com'"
+          data-hero-archivebox-command="HASHES_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -7873,6 +8264,9 @@
           id="npm"
           class="plugin-card"
           data-search="npm crawl binary npm install binaries from npm packages and expose node module paths. python crawl node npm on_binary__10_npm_install.py on_crawl__01_npm_install.py"
+          data-hero-plugin="npm"
+          data-hero-abx-command="uvx abx-dl plugins --install npm"
+          data-hero-archivebox-command="archivebox init --setup"
         >
           <summary>
             <div class="plugin-main">
@@ -7988,6 +8382,9 @@
           id="claudecode"
           class="plugin-card plugin-card--crawl-only"
           data-search="claudecode crawl claude code run claude code ai agent on snapshots to extract, analyze, or transform archived content. python crawl embed fullscreen node claude application/json on_crawl__35_claudecode_install.finite.bg.py claudecode_enabled enable claude code ai agent integration. controls the crawl-time claude binary install hook; child plugins still need the claudecode plugin installed and a working claude binary. claudecode_binary path to claude code cli binary claudecode_timeout timeout for claude code operations in seconds anthropic_api_key anthropic api key for claude code authentication claudecode_model claude model to use (e.g. sonnet, opus, haiku) claudecode_max_turns maximum number of agentic turns per invocation"
+          data-hero-plugin="claudecode"
+          data-hero-abx-command="uvx abx-dl plugins --install claudecode"
+          data-hero-archivebox-command="CLAUDECODE_ENABLED=true archivebox init --setup"
         >
           <summary>
             <div class="plugin-main">
@@ -8154,6 +8551,9 @@
           id="search_backend_ripgrep"
           class="plugin-card plugin-card--crawl-only"
           data-search="search_backend_ripgrep crawl ripgrep search search archived snapshot files directly with ripgrep instead of maintaining an index. python crawl ripgrep on_crawl__50_ripgrep_install.finite.bg.py ripgrep_binary path to ripgrep binary ripgrep_timeout search timeout in seconds ripgrep_args default ripgrep arguments ripgrep_args_extra extra arguments to append to ripgrep command"
+          data-hero-plugin="search_backend_ripgrep"
+          data-hero-abx-command="uvx abx-dl plugins --install search_backend_ripgrep"
+          data-hero-archivebox-command="archivebox init --setup"
         >
           <summary>
             <div class="plugin-main">
@@ -8301,6 +8701,9 @@
           id="puppeteer"
           class="plugin-card"
           data-search="puppeteer crawl binary puppeteer install and manage chromium through the puppeteer toolchain. python crawl puppeteer chrome on_binary__12_puppeteer_install.py on_crawl__60_puppeteer_install.py"
+          data-hero-plugin="puppeteer"
+          data-hero-abx-command="uvx abx-dl plugins --install puppeteer"
+          data-hero-archivebox-command="archivebox init --setup"
         >
           <summary>
             <div class="plugin-main">
@@ -8416,6 +8819,9 @@
           id="ublock"
           class="plugin-card plugin-card--crawl-only"
           data-search="ublock crawl ublock origin install the ublock origin extension to block ads, trackers, and other page clutter during archiving. javascript crawl chrome chrome on_crawl__80_install_ublock_extension.finite.bg.js ublock_enabled enable ublock origin browser extension for ad blocking"
+          data-hero-plugin="ublock"
+          data-hero-abx-command="uvx abx-dl plugins --install ublock"
+          data-hero-archivebox-command="UBLOCK_ENABLED=true archivebox init --setup"
         >
           <summary>
             <div class="plugin-main">
@@ -8529,6 +8935,9 @@
           id="istilldontcareaboutcookies"
           class="plugin-card plugin-card--crawl-only"
           data-search="istilldontcareaboutcookies crawl i still don't care about cookies install the i still don't care about cookies extension to dismiss cookie banners during archiving. javascript crawl chrome chrome on_crawl__81_install_istilldontcareaboutcookies_extension.finite.bg.js istilldontcareaboutcookies_enabled enable i still don't care about cookies browser extension"
+          data-hero-plugin="istilldontcareaboutcookies"
+          data-hero-abx-command="uvx abx-dl plugins --install istilldontcareaboutcookies"
+          data-hero-archivebox-command="ISTILLDONTCAREABOUTCOOKIES_ENABLED=true archivebox init --setup"
         >
           <summary>
             <div class="plugin-main">
@@ -8642,6 +9051,9 @@
           id="twocaptcha"
           class="plugin-card plugin-card--crawl-only"
           data-search="twocaptcha crawl 2captcha install and configure the 2captcha extension to solve captchas during browser-based archiving. javascript crawl chrome chrome on_crawl__83_twocaptcha_install.finite.bg.js on_crawl__95_twocaptcha_config.js twocaptcha_enabled enable 2captcha browser extension for automatic captcha solving twocaptcha_api_key 2captcha api key for captcha solving service (get from https://2captcha.com) twocaptcha_retry_count number of times to retry captcha solving on error twocaptcha_retry_delay delay in seconds between captcha solving retries twocaptcha_timeout timeout for captcha solving in seconds twocaptcha_auto_submit automatically submit forms after captcha is solved"
+          data-hero-plugin="twocaptcha"
+          data-hero-abx-command="uvx abx-dl plugins --install twocaptcha"
+          data-hero-archivebox-command="TWOCAPTCHA_ENABLED=true archivebox init --setup"
         >
           <summary>
             <div class="plugin-main">
@@ -8821,6 +9233,9 @@
           id="env"
           class="plugin-card plugin-card--binary-only"
           data-search="env binary environment discover binaries that are already available on the system path. python binary on_binary__00_env_discover.py"
+          data-hero-plugin="env"
+          data-hero-abx-command="uvx abx-dl plugins --install env"
+          data-hero-archivebox-command="archivebox init --setup"
         >
           <summary>
             <div class="plugin-main">
@@ -8916,6 +9331,9 @@
           id="pip"
           class="plugin-card plugin-card--binary-only"
           data-search="pip binary pip install python-based binaries into a managed virtual environment. python binary python pip on_binary__11_pip_install.py"
+          data-hero-plugin="pip"
+          data-hero-abx-command="uvx abx-dl plugins --install pip"
+          data-hero-archivebox-command="archivebox init --setup"
         >
           <summary>
             <div class="plugin-main">
@@ -9017,6 +9435,9 @@
           id="brew"
           class="plugin-card plugin-card--binary-only"
           data-search="brew binary homebrew install binaries through the homebrew package manager. python binary brew on_binary__12_brew_install.py"
+          data-hero-plugin="brew"
+          data-hero-abx-command="uvx abx-dl plugins --install brew"
+          data-hero-archivebox-command="archivebox init --setup"
         >
           <summary>
             <div class="plugin-main">
@@ -9117,6 +9538,9 @@
           id="apt"
           class="plugin-card plugin-card--binary-only"
           data-search="apt binary apt install binaries through the debian and ubuntu apt package manager. python binary apt on_binary__13_apt_install.py"
+          data-hero-plugin="apt"
+          data-hero-abx-command="uvx abx-dl plugins --install apt"
+          data-hero-archivebox-command="archivebox init --setup"
         >
           <summary>
             <div class="plugin-main">
@@ -9217,6 +9641,9 @@
           id="custom"
           class="plugin-card plugin-card--binary-only"
           data-search="custom binary custom install binaries using an arbitrary custom shell command. python binary on_binary__14_custom_install.py"
+          data-hero-plugin="custom"
+          data-hero-abx-command="uvx abx-dl plugins --install custom"
+          data-hero-archivebox-command="archivebox init --setup"
         >
           <summary>
             <div class="plugin-main">
@@ -9312,6 +9739,9 @@
           id="base"
           class="plugin-card"
           data-search="base base provide shared utilities, helpers, and test support used by other plugins."
+          data-hero-plugin="base"
+          data-hero-abx-command="uvx abx-dl plugins base"
+          data-hero-archivebox-command="archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -9383,6 +9813,9 @@
           id="media"
           class="plugin-card"
           data-search="media media provide a shared namespace for media-related plugin outputs and helpers."
+          data-hero-plugin="media"
+          data-hero-abx-command="uvx abx-dl plugins media"
+          data-hero-archivebox-command="archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
@@ -9644,7 +10077,7 @@
 
         <div class="footer-meta">
           <span>Generated from <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">ArchiveBox/abx-plugins</a> at ref <code>main</code>.</span>
-          <span>Updated 2026-03-20 07:22 UTC</span>
+          <span>Updated 2026-03-20 11:11 UTC</span>
         </div>
       </footer>
     </div>
@@ -9654,7 +10087,98 @@
       const cards = Array.from(document.querySelectorAll(".plugin-card"));
       const visibleCount = document.getElementById("visible-count");
       const emptyState = document.getElementById("empty-state");
+      const selectedPluginName = document.getElementById("selected-plugin-name");
+      const heroCommandExample = document.getElementById("hero-command-example");
+      const copyExampleButton = document.getElementById("copy-example-button");
       const interactiveSelector = "a, button, input, textarea, select, summary, code, pre";
+      let selectedCard = null;
+      const accumulatedPlugins = [];
+      let copyFeedbackTimer = null;
+
+      const escapeHtml = (value) =>
+        value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+      const highlightShell = (line) => {
+        const tokenPattern = /('[^']*'|"[^"]*"|--[\w-]+(?:=[^\s'"]+)?|\b(?:uvx|abx-dl|archivebox)\b|\b[A-Z0-9_]+(?==)|\b(?:true|false)\b)/g;
+        let html = "";
+        let lastIndex = 0;
+
+        for (const match of line.matchAll(tokenPattern)) {
+          const token = match[0];
+          const index = match.index ?? 0;
+          html += escapeHtml(line.slice(lastIndex, index));
+
+          let className = "code-value";
+          if (token.startsWith("'") || token.startsWith('"')) {
+            className = "code-string";
+          } else if (token.startsWith("--")) {
+            className = "code-option";
+          } else if (token === "uvx" || token === "abx-dl" || token === "archivebox") {
+            className = "code-command";
+          } else if (token === "true" || token === "false") {
+            className = "code-boolean";
+          } else if (/^[A-Z0-9_]+$/.test(token)) {
+            className = "code-env";
+          }
+
+          html += `<span class="${className}">${escapeHtml(token)}</span>`;
+          lastIndex = index + token.length;
+        }
+
+        html += escapeHtml(line.slice(lastIndex));
+        return html;
+      };
+
+      const getHeroExample = (card) => {
+        if (!card) return null;
+
+        const plugin = card.dataset.heroPlugin || card.id || "plugin";
+        if (!accumulatedPlugins.includes(plugin)) {
+          accumulatedPlugins.push(plugin);
+        }
+
+        return {
+          plugin,
+          abx: `uvx abx-dl --plugins=${accumulatedPlugins.join(",")} 'https://example.com'`,
+          archivebox: card.dataset.heroArchiveboxCommand || "archivebox add 'https://example.com'",
+        };
+      };
+
+      const renderHeroExample = (example) => {
+        const lines = [
+          '<span class="code-comment"># run inside a new empty dir somewhere:</span>',
+          highlightShell(example.abx),
+          "",
+          '<span class="code-comment"># or with ArchiveBox:</span>',
+          highlightShell(example.archivebox),
+        ];
+        return lines.join("\n");
+      };
+
+      const heroExampleText = (example) =>
+        ["# abx-dl", example.abx, "", "# ArchiveBox", example.archivebox].join("\n");
+
+      const setHeroExample = (card) => {
+        const example = getHeroExample(card);
+        if (!example) return;
+
+        selectedCard = card;
+        selectedPluginName.textContent = example.plugin;
+        heroCommandExample.innerHTML = renderHeroExample(example);
+        copyExampleButton.dataset.copyText = heroExampleText(example);
+      };
+
+      const syncHeroExample = () => {
+        if (selectedCard) {
+          setHeroExample(selectedCard);
+          return;
+        }
+
+        const fallback = cards.find((card) => card.open && !card.hidden) || cards.find((card) => !card.hidden) || cards[0];
+        if (fallback) {
+          setHeroExample(fallback);
+        }
+      };
 
       const applyFilter = () => {
         const query = searchInput.value.trim().toLowerCase();
@@ -9688,6 +10212,7 @@
           searchInput.value = "";
           applyFilter();
           target.open = true;
+          setHeroExample(target);
           target.scrollIntoView({ behavior: "smooth", block: "start" });
         } else {
           searchInput.value = hash;
@@ -9696,9 +10221,46 @@
         }
       };
 
+      const setCopyButtonLabel = (label) => {
+        copyExampleButton.textContent = label;
+        if (copyFeedbackTimer) {
+          clearTimeout(copyFeedbackTimer);
+        }
+        copyFeedbackTimer = window.setTimeout(() => {
+          copyExampleButton.textContent = "Copy";
+        }, 1600);
+      };
+
+      const copyText = async (text) => {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+          return;
+        }
+
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "absolute";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        textarea.remove();
+      };
+
       searchInput.addEventListener("input", () => {
         applyFilter();
+        syncHeroExample();
         setHash(searchInput.value.trim());
+      });
+
+      copyExampleButton.addEventListener("click", async () => {
+        try {
+          await copyText(copyExampleButton.dataset.copyText || "");
+          setCopyButtonLabel("Copied");
+        } catch (error) {
+          setCopyButtonLabel("Copy failed");
+        }
       });
 
       for (const card of cards) {
@@ -9711,12 +10273,14 @@
         card.addEventListener("toggle", () => {
           if (card.open) {
             setHash(card.id);
+            setHeroExample(card);
           }
         });
       }
 
       applyFilter();
       navigateToHash();
+      syncHeroExample();
       window.addEventListener("hashchange", navigateToHash);
     </script>
   </body>
