@@ -114,6 +114,7 @@ jobs:
             test_name=$(basename $test_file .py | sed 's/^test_//')
             name="$test_name"
             needs_chromium=false
+            needs_brew=false
             if [[ "$test_file" == abx_plugins/plugins/*/tests/* ]]; then
               plugin_dir="${test_file%/tests/*}"
               if grep -Riq "chrom" "$plugin_dir"; then
@@ -123,7 +124,11 @@ jobs:
               needs_chromium=true
             fi
 
-            json_array+="{\"path\":\"$test_file\",\"name\":\"$name\",\"needs_chromium\":$needs_chromium}"
+            if [[ "$test_file" == abx_plugins/plugins/brew/tests/* ]]; then
+              needs_brew=true
+            fi
+
+            json_array+="{\"path\":\"$test_file\",\"name\":\"$name\",\"needs_chromium\":$needs_chromium,\"needs_brew\":$needs_brew}"
           done
           json_array+="]"
 
@@ -186,6 +191,24 @@ jobs:
             libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 \
             python3-minimal gnupg2 curl python3-ldap python3-msgpack \
             python3-mutagen python3-regex python3-pycryptodome procps
+
+      - name: Install Homebrew
+        if: ${{ matrix.test.needs_brew }}
+        env:
+          NONINTERACTIVE: "1"
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          echo "$HOMEBREW_PREFIX/bin" >> $GITHUB_PATH
+          echo "$HOMEBREW_PREFIX/sbin" >> $GITHUB_PATH
+          echo "PATH=$PATH" >> $GITHUB_ENV
+          echo "HOMEBREW_PREFIX=$HOMEBREW_PREFIX" >> $GITHUB_ENV
+          echo "HOMEBREW_CELLAR=$HOMEBREW_CELLAR" >> $GITHUB_ENV
+          echo "HOMEBREW_REPOSITORY=$HOMEBREW_REPOSITORY" >> $GITHUB_ENV
+          echo "MANPATH=$MANPATH" >> $GITHUB_ENV
+          echo "INFOPATH=$INFOPATH" >> $GITHUB_ENV
+          echo "XDG_DATA_DIRS=$XDG_DATA_DIRS" >> $GITHUB_ENV
+          brew --version
 
       - name: Install dependencies with uv
         run: |

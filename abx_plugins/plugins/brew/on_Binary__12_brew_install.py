@@ -20,9 +20,7 @@
 from __future__ import annotations
 
 import json
-import shutil
 import sys
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import rich_click as click
@@ -32,35 +30,6 @@ from abx_plugins.plugins.base.utils import emit_binary_record
 
 if TYPE_CHECKING:
     from abx_pkg.binprovider import BinProvider, HandlerDict
-
-
-def get_brew_prefix(provider: BrewProvider) -> Path | None:
-    brew_bin = getattr(provider, "INSTALLER_BIN_ABSPATH", None) or shutil.which(
-        provider.INSTALLER_BIN
-    )
-    if not brew_bin:
-        return None
-    return Path(brew_bin).resolve().parent.parent
-
-
-def get_package_bin_dirs(
-    provider: BrewProvider, install_args: list[object]
-) -> tuple[list[str], list[Path]]:
-    brew_prefix = get_brew_prefix(provider)
-    if not brew_prefix:
-        return [], []
-
-    package_names: list[str] = []
-    bin_dirs: list[Path] = []
-    for package in install_args:
-        if not isinstance(package, str) or package.startswith("-"):
-            continue
-        package_names.append(package)
-        bin_dirs.append(brew_prefix / "opt" / package / "bin")
-        bin_dirs.extend((brew_prefix / "Cellar" / package).glob("*/bin"))
-
-    return package_names, bin_dirs
-
 
 @click.command()
 @click.option("--machine-id", required=True, help="Machine UUID")
@@ -91,7 +60,7 @@ def main(
 
     # Use abx-pkg BrewProvider to install binary
     provider = BrewProvider()
-    if not provider.INSTALLER_BIN:
+    if not provider.INSTALLER_BIN_ABSPATH:
         click.echo("brew not available on this system", err=True)
         sys.exit(1)
 
@@ -126,29 +95,6 @@ def main(
         providers: list[BinProvider] = [provider]
         if "env" in allowed_providers:
             providers.insert(0, EnvProvider())
-
-        brew_overrides: HandlerDict = {}
-        if "brew" in overrides_dict:
-            brew_overrides = overrides_dict["brew"]
-        install_args = brew_overrides.get("install_args")
-        if (
-            isinstance(install_args, list)
-            and install_args
-            and "abspath" not in brew_overrides
-        ):
-            package_names, bin_dirs = get_package_bin_dirs(provider, install_args)
-            if bin_dirs:
-                search_paths = [str(path) for path in bin_dirs]
-                abspath = shutil.which(name, path=":".join(search_paths))
-                if abspath:
-                    brew_overrides["abspath"] = abspath
-                elif len(package_names) == 1:
-                    # For keg-only formulae like openjdk, the binary may only exist
-                    # at /opt/<formula>/bin/<name> after the install completes.
-                    brew_overrides["abspath"] = str(bin_dirs[0] / name)
-
-                if "abspath" in brew_overrides:
-                    overrides_dict["brew"] = brew_overrides
 
         binary = Binary(
             name=name,
