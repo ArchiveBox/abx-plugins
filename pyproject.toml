@@ -1,6 +1,6 @@
 [project]
 name = "abx-plugins"
-version = "1.10.6"
+version = "1.10.7"
 description = "ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)"
 authors = [{name = "Nick Sweeting", email = "pyproject.toml+abx-plugins@archivebox.io"}]
 requires-python = ">=3.11"
@@ -21,7 +21,6 @@ classifiers = [
 dependencies = [
     "abx-pkg>=1.9.10",
     "feedparser>=6.0.0",
-    "jinja2>=3.1.0",
     "pydantic-settings>=2.0.0",
     "pyright>=1.1.408",
     "pytest>=9.0.2",
