@@ -126,11 +126,6 @@ def find_snapshot_env_path_collisions(
         if path == snap_dir:
             collisions.append(f"{key} must not equal SNAP_DIR ({snap_dir})")
             continue
-        if path in snap_dir.parents:
-            collisions.append(
-                f"{key} must not contain SNAP_DIR ({path} contains {snap_dir})",
-            )
-            continue
         if snap_dir in path.parents:
             collisions.append(f"{key} must not be nested under SNAP_DIR ({path})")
 

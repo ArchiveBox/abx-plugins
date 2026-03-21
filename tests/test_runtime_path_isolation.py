@@ -21,10 +21,21 @@ def test_assert_isolated_snapshot_env_allows_separate_sibling_dirs(
 def test_assert_isolated_snapshot_env_rejects_nested_home_and_snap(
     tmp_path: Path,
 ) -> None:
-    with pytest.raises(AssertionError, match="HOME must not contain SNAP_DIR"):
+    with pytest.raises(AssertionError, match="HOME must not be nested under SNAP_DIR"):
         assert_isolated_snapshot_env(
             {
-                "HOME": str(tmp_path),
+                "HOME": str(tmp_path / "snap" / "home"),
                 "SNAP_DIR": str(tmp_path / "snap"),
             },
         )
+
+
+def test_assert_isolated_snapshot_env_allows_ambient_home_ancestor_of_snap(
+    tmp_path: Path,
+) -> None:
+    assert_isolated_snapshot_env(
+        {
+            "HOME": str(tmp_path),
+            "SNAP_DIR": str(tmp_path / "snap"),
+        },
+    )
