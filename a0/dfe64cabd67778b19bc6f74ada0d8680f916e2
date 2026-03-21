@@ -1,0 +1,25 @@
+abx_plugins/plugins/search_backend_sqlite/on_Snapshot__90_index_sqlite.py
+  5bb44e3da650d10a 49-51,78-95,115,122
+abx_plugins/plugins/search_backend_sonic/on_Snapshot__91_index_sonic.py
+  5bb44e3da650d10a 53-55,82-99,119,126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "a0dfe64cabd67778b19bc6f74ada0d8680f916e2",
+  "prompts": {
+    "5bb44e3da650d10a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d0eae-e200-76e0-9a77-f5f5cd8d38a5",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 48,
+      "total_deletions": 2,
+      "accepted_lines": 48,
+      "overriden_lines": 0
+    }
+  }
+}
