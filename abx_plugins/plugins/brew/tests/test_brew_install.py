@@ -11,16 +11,14 @@ BINARY_HOOK = PLUGIN_DIR / "on_Binary__12_brew_install.py"
 HOOK_TIMEOUT = 600 if platform.system().lower() == "linux" else 120
 
 
-def test_brew_hook_respects_brew_only_and_maps_gnu_time():
+def test_brew_hook_respects_brew_only_and_installs_tree():
     prefix_result = subprocess.run(
         ["brew", "--prefix"],
         capture_output=True,
         text=True,
         check=True,
     )
-    expected_gtime = (
-        Path(prefix_result.stdout.strip()) / "opt" / "gnu-time" / "bin" / "gtime"
-    )
+    expected_tree = Path(prefix_result.stdout.strip()) / "opt" / "tree" / "bin" / "tree"
 
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
@@ -33,9 +31,9 @@ def test_brew_hook_respects_brew_only_and_maps_gnu_time():
                 "--binary-id=test-binary",
                 "--plugin-name=test-suite",
                 "--hook-name=test_brew_install",
-                "--name=gtime",
+                "--name=tree",
                 "--binproviders=brew",
-                '--overrides={"brew":{"install_args":["gnu-time"]}}',
+                '--overrides={"brew":{"install_args":["tree"]}}',
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -51,8 +49,6 @@ def test_brew_hook_respects_brew_only_and_maps_gnu_time():
     ]
     assert records, result.stdout
     assert records[0]["type"] == "Binary"
-    assert expected_gtime.is_file(), (
-        f"Expected Homebrew gtime binary at {expected_gtime}"
-    )
-    assert records[0]["abspath"] == str(expected_gtime)
+    assert expected_tree.is_file(), f"Expected Homebrew tree binary at {expected_tree}"
+    assert records[0]["abspath"] == str(expected_tree)
     assert records[0]["binprovider"] == "brew"
