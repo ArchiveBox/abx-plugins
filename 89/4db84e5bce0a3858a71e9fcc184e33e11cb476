@@ -1,0 +1,39 @@
+abx_plugins/plugins/dns/tests/test_dns.py
+  455ae8aefaae3e1d 32-37,39-46,145-146,148,150-152
+abx_plugins/plugins/dns/on_Snapshot__22_dns.daemon.bg.js
+  455ae8aefaae3e1d 10-11,16,54,65-72,77,155,207
+  13b496b95a082675 9,267-268
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.17",
+  "base_commit_sha": "894db84e5bce0a3858a71e9fcc184e33e11cb476",
+  "prompts": {
+    "13b496b95a082675": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d0f98-69fa-7640-b37f-b4bafa2fd6f5",
+        "model": "gpt-5.3-codex"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 4,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    },
+    "455ae8aefaae3e1d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d0f7b-ceaa-74a0-9804-d84355a29952",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 30,
+      "total_deletions": 1,
+      "accepted_lines": 35,
+      "overriden_lines": 2
+    }
+  }
+}
