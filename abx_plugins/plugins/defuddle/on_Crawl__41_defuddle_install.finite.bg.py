@@ -1,19 +1,22 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = []
+# dependencies = [
+#   "pydantic-settings",
+#   "abx-plugins",
+# ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 """
 Emit defuddle Binary dependency for the crawl.
 """
 
-import json
 import os
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env_bool, output_binary
+from abx_plugins.plugins.base.utils import emit_binary_record, get_env_bool
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
@@ -26,7 +29,11 @@ def main():
     if not get_env_bool("DEFUDDLE_ENABLED", True):
         sys.exit(0)
 
-    output_binary(name="defuddle", binproviders="env,npm", overrides={"npm": {"install_args": ["defuddle"]}})
+    emit_binary_record(
+        name="defuddle",
+        binproviders="env,npm",
+        overrides={"npm": {"install_args": ["defuddle"]}},
+    )
     sys.exit(0)
 
 

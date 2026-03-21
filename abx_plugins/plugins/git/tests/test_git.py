@@ -8,7 +8,6 @@ Tests verify:
 3. Standalone git extractor execution
 """
 
-import json
 import shutil
 import subprocess
 import sys
@@ -17,8 +16,7 @@ import time
 from pathlib import Path
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 PLUGIN_DIR = Path(__file__).parent.parent
 _GIT_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_git.*"), None)
@@ -44,7 +42,8 @@ def test_verify_deps_with_abx_pkg():
         pytest.fail(f"System package providers unavailable in this runtime: {exc}")
 
     git_binary = Binary(
-        name="git", binproviders=[apt_provider, brew_provider, env_provider]
+        name="git",
+        binproviders=[apt_provider, brew_provider, env_provider],
     )
     git_loaded = git_binary.load()
 
@@ -55,7 +54,9 @@ def test_reports_missing_git():
     with tempfile.TemporaryDirectory() as tmpdir:
         env = {"PATH": "/nonexistent"}
         result = subprocess.run(
-            [sys.executable, str(GIT_HOOK),
+            [
+                sys.executable,
+                str(GIT_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -80,7 +81,8 @@ def test_handles_non_git_url():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         result = subprocess.run(
-            [str(GIT_HOOK),
+            [
+                str(GIT_HOOK),
                 "--url",
                 "https://example.com",
                 "--snapshot-id",
@@ -123,7 +125,8 @@ def test_real_git_repo():
 
         start_time = time.time()
         result = subprocess.run(
-            [str(GIT_HOOK),
+            [
+                str(GIT_HOOK),
                 "--url",
                 git_url,
                 "--snapshot-id",

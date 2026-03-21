@@ -19,7 +19,7 @@ const {
     getEnvBool,
     getEnvInt,
     parseArgs,
-    emitArchiveResult,
+    emitArchiveResultRecord,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer-core');
@@ -333,14 +333,15 @@ async function setupStaticFileListener() {
 }
 
 function emitResult(result) {
-    return new Promise((resolve) => {
-        const line = JSON.stringify(result) + '\n';
-        if (!process.stdout.write(line)) {
-            process.stdout.once('drain', resolve);
-        } else {
-            setImmediate(resolve);
-        }
-    });
+    emitArchiveResultRecord(
+        result.status,
+        result.output_str,
+        {
+            plugin: result.plugin,
+            content_type: result.content_type,
+        },
+    );
+    return Promise.resolve();
 }
 
 async function handleShutdown(signal) {
@@ -367,7 +368,7 @@ async function main() {
 
     if (!getEnvBool('STATICFILE_ENABLED', true)) {
         console.error('Skipping (STATICFILE_ENABLED=False)');
-        emitArchiveResult('skipped', 'STATICFILE_ENABLED=False');
+        emitArchiveResultRecord('skipped', 'STATICFILE_ENABLED=False');
         process.exit(0);
     }
 

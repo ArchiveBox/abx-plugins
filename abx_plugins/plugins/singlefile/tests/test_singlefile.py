@@ -13,22 +13,23 @@ Tests verify:
 import os
 import json
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
-    get_test_env,
-    get_plugin_dir,
+from abx_plugins.plugins.base.test_utils import (
     get_hook_script,
-    chrome_session,
+    get_plugin_dir,
     parse_jsonl_output,
+)
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    chrome_session,
+    get_test_env,
     wait_for_extensions_metadata,
 )
+
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
@@ -88,7 +89,7 @@ def ensure_singlefile_extension_installed() -> dict[str, Path]:
             "CHROME_EXTENSIONS_DIR": str(extensions_dir),
             "CHROME_DOWNLOADS_DIR": str(downloads_dir),
             "CHROME_USER_DATA_DIR": str(user_data_dir),
-        }
+        },
     )
 
     result = subprocess.run(
@@ -178,7 +179,7 @@ def test_singlefile_cli_archives_example_com():
                 "PERSONAS_DIR": str(personas_dir),
                 "CHROME_EXTENSIONS_DIR": str(extensions_dir),
                 "CHROME_DOWNLOADS_DIR": str(downloads_dir),
-            }
+            },
         )
 
         result = subprocess.run(
@@ -212,7 +213,8 @@ def test_singlefile_cli_archives_example_com():
 
                 # Run singlefile snapshot hook
                 result = subprocess.run(
-                    [str(SNAPSHOT_HOOK),
+                    [
+                        str(SNAPSHOT_HOOK),
                         f"--url={TEST_URL}",
                         "--snapshot-id=test789",
                     ],
@@ -283,7 +285,8 @@ def test_singlefile_with_chrome_session():
 
                 # Run singlefile - it should find and use the existing Chrome session
                 result = subprocess.run(
-                    [str(SNAPSHOT_HOOK),
+                    [
+                        str(SNAPSHOT_HOOK),
                         f"--url={TEST_URL}",
                         "--snapshot-id=singlefile-test-snap",
                     ],
@@ -339,7 +342,7 @@ def test_singlefile_with_extension_uses_existing_chrome():
                 "PERSONAS_DIR": str(personas_dir),
                 "CHROME_EXTENSIONS_DIR": str(extensions_dir),
                 "CHROME_DOWNLOADS_DIR": str(downloads_dir),
-            }
+            },
         )
 
         # Install SingleFile extension cache before launching Chrome
@@ -388,7 +391,8 @@ def test_singlefile_with_extension_uses_existing_chrome():
                 downloads_mtime_before = downloads_dir.stat().st_mtime_ns
 
                 result = subprocess.run(
-                    [str(SNAPSHOT_HOOK),
+                    [
+                        str(SNAPSHOT_HOOK),
                         f"--url={TEST_URL}",
                         "--snapshot-id=singlefile-ext-snap",
                     ],
@@ -453,9 +457,7 @@ def test_singlefile_extension_loader_prefers_cached_background_target():
                     snapshot_chrome_dir,
                     timeout_seconds=20,
                 )
-                entry = next(
-                    ext for ext in metadata if ext.get("name") == "singlefile"
-                )
+                entry = next(ext for ext in metadata if ext.get("name") == "singlefile")
                 cdp_url = (snapshot_chrome_dir / "cdp_url.txt").read_text().strip()
                 script = r"""
 process.env.NODE_PATH = process.env.NODE_MODULES_DIR;
@@ -614,7 +616,8 @@ def test_singlefile_disabled_skips():
         env["SINGLEFILE_ENABLED"] = "False"
 
         result = subprocess.run(
-            [str(SNAPSHOT_HOOK),
+            [
+                str(SNAPSHOT_HOOK),
                 f"--url={TEST_URL}",
                 "--snapshot-id=test-disabled",
             ],

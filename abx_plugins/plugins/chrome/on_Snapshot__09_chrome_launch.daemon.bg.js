@@ -9,7 +9,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ensureNodeModuleResolution, parseArgs } = require('../base/utils.js');
+const { ensureNodeModuleResolution, parseArgs, emitArchiveResultRecord } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer');
 const {
@@ -78,11 +78,7 @@ async function main() {
             }
             releaseLock();
             releaseLock = null;
-            console.log(JSON.stringify({
-                type: 'ArchiveResult',
-                status: 'succeeded',
-                output_str: 'crawl isolation active',
-            }));
+            emitArchiveResultRecord('succeeded', 'crawl isolation active');
             process.exit(0);
         }
 
@@ -98,11 +94,7 @@ async function main() {
         chromeCdpUrl = session.cdpUrl;
         shouldCloseOnCleanup = !keepAlive;
 
-        console.log(JSON.stringify({
-            type: 'ArchiveResult',
-            status: 'succeeded',
-            output_str: `pid=${chromePid || 'external'} port=${session.port || '?'}`,
-        }));
+        emitArchiveResultRecord('succeeded', `pid=${chromePid || 'external'} port=${session.port || '?'}`);
         releaseLock();
         releaseLock = null;
 

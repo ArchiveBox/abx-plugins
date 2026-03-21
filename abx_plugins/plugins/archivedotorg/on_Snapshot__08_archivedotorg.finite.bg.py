@@ -4,7 +4,10 @@
 # dependencies = [
 #   "pydantic-settings",
 #   "rich-click",
+#   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Submit a URL to archive.org for archiving and save the resulting archive.org link.
@@ -12,15 +15,13 @@
 # Usage:
 #     ./on_Snapshot__08_archivedotorg.finite.bg.py --url=<url> --snapshot-id=<uuid> > events.jsonl
 
-import json
 import os
 import sys
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import load_config
+from abx_plugins.plugins.base.utils import emit_archive_result_record, load_config
 
 import rich_click as click
 
@@ -47,7 +48,9 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
 
     config = load_config()
     timeout = config.ARCHIVEDOTORG_TIMEOUT
-    user_agent = config.ARCHIVEDOTORG_USER_AGENT or "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
+    user_agent = (
+        config.ARCHIVEDOTORG_USER_AGENT or "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
+    )
 
     submit_url = f"https://web.archive.org/save/{url}"
     log(f"Submitting to Wayback Machine (timeout={timeout}s)")
@@ -120,11 +123,7 @@ def main(url: str, snapshot_id: str):
             "Skipping archive.org submission (ARCHIVEDOTORG_ENABLED=False)",
             file=sys.stderr,
         )
-        print(json.dumps({
-            "type": "ArchiveResult",
-            "status": "skipped",
-            "output_str": "ARCHIVEDOTORG_ENABLED=False",
-        }))
+        emit_archive_result_record("skipped", "ARCHIVEDOTORG_ENABLED=False")
         sys.exit(0)
 
     try:
@@ -133,30 +132,20 @@ def main(url: str, snapshot_id: str):
 
         if success:
             # Success - emit ArchiveResult with output file
-            result = {
-                "type": "ArchiveResult",
-                "status": "succeeded",
-                "output_str": f"{PLUGIN_DIR}/{OUTPUT_FILE}" if output else "",
-            }
-            print(json.dumps(result))
+            emit_archive_result_record(
+                "succeeded",
+                f"{PLUGIN_DIR}/{OUTPUT_FILE}" if output else "",
+            )
             sys.exit(0)
         else:
             print(f"ERROR: {error}", file=sys.stderr)
-            print(json.dumps({
-                "type": "ArchiveResult",
-                "status": "failed",
-                "output_str": error or "",
-            }))
+            emit_archive_result_record("failed", error or "")
             sys.exit(1)
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"
         print(f"ERROR: {error}", file=sys.stderr)
-        print(json.dumps({
-            "type": "ArchiveResult",
-            "status": "failed",
-            "output_str": error,
-        }))
+        emit_archive_result_record("failed", error)
         sys.exit(1)
 
 

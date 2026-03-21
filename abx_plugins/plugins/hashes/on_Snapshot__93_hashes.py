@@ -3,7 +3,10 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #   "click",
+#   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Generate a cryptographic Merkle hash tree of all files in a snapshot directory.
@@ -18,7 +21,7 @@ import json
 import hashlib
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Any
 
 import click
 
@@ -48,8 +51,9 @@ def sha256_data(data: bytes) -> str:
 
 
 def collect_files(
-    snapshot_dir: Path, exclude_dirs: Optional[List[str]] = None
-) -> List[Tuple[Path, str, int]]:
+    snapshot_dir: Path,
+    exclude_dirs: list[str] | None = None,
+) -> list[tuple[Path, str, int]]:
     """Recursively collect all files in snapshot directory."""
     exclude_dirs = exclude_dirs or ["hashes", ".git", "__pycache__"]
     files = []
@@ -72,7 +76,7 @@ def collect_files(
     return files
 
 
-def build_merkle_tree(file_hashes: List[str]) -> Tuple[str, List[List[str]]]:
+def build_merkle_tree(file_hashes: list[str]) -> tuple[str, list[list[str]]]:
     """Build a Merkle tree from a list of leaf hashes."""
     if not file_hashes:
         return sha256_data(b""), [[]]
@@ -100,7 +104,7 @@ def build_merkle_tree(file_hashes: List[str]) -> Tuple[str, List[List[str]]]:
     return root_hash, tree_levels
 
 
-def create_hashes(snapshot_dir: Path) -> Dict[str, Any]:
+def create_hashes(snapshot_dir: Path) -> dict[str, Any]:
     """Create a complete Merkle hash tree of all files in snapshot directory."""
     files = collect_files(snapshot_dir)
     file_hashes = [file_hash for _, file_hash, _ in files]
@@ -137,10 +141,8 @@ def format_output_str(total_size: int, root_hash: str | None) -> str:
 def main(url: str, snapshot_id: str):
     """Generate Merkle tree of all archived outputs."""
     status = "failed"
-    output = None
     error = ""
     root_hash = None
-    file_count = 0
     total_size = 0
 
     try:
@@ -154,11 +156,15 @@ def main(url: str, snapshot_id: str):
 
         if not save_hashes:
             status = "skipped"
-            click.echo(json.dumps({
-                "type": "ArchiveResult",
-                "status": status,
-                "output_str": "HASHES_ENABLED=False",
-            }))
+            click.echo(
+                json.dumps(
+                    {
+                        "type": "ArchiveResult",
+                        "status": status,
+                        "output_str": "HASHES_ENABLED=False",
+                    },
+                ),
+            )
             sys.exit(0)
 
         # Working directory is the extractor output dir (e.g., <snapshot>/hashes/)
@@ -181,9 +187,7 @@ def main(url: str, snapshot_id: str):
             json.dump(merkle_data, f, indent=2)
 
         status = "succeeded"
-        output = "hashes.json"
         root_hash = merkle_data["root_hash"]
-        file_count = merkle_data["metadata"]["file_count"]
         total_size = merkle_data["metadata"]["total_size"]
 
     except Exception as e:
@@ -191,7 +195,11 @@ def main(url: str, snapshot_id: str):
         status = "failed"
         click.echo(f"Error: {error}", err=True)
 
-    output_str = format_output_str(total_size, root_hash) if status == "succeeded" else (error or "")
+    output_str = (
+        format_output_str(total_size, root_hash)
+        if status == "succeeded"
+        else (error or "")
+    )
     result = {
         "type": "ArchiveResult",
         "status": status,

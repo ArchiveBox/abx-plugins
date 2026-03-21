@@ -50,9 +50,7 @@ def test_every_plugin_has_config_json_with_required_metadata() -> None:
 
         description = config.get("description")
         if not isinstance(description, str) or not description.strip():
-            failures.append(
-                f"{plugin_name}: 'description' must be a non-empty string"
-            )
+            failures.append(f"{plugin_name}: 'description' must be a non-empty string")
 
         for field in ("required_plugins", "required_binaries", "output_mimetypes"):
             value = config.get(field)
@@ -61,7 +59,7 @@ def test_every_plugin_has_config_json_with_required_metadata() -> None:
                 continue
             if any(not isinstance(item, str) or not item.strip() for item in value):
                 failures.append(
-                    f"{plugin_name}: {field!r} must contain only non-empty strings"
+                    f"{plugin_name}: {field!r} must contain only non-empty strings",
                 )
 
         required_plugins = config.get("required_plugins", [])
@@ -69,13 +67,13 @@ def test_every_plugin_has_config_json_with_required_metadata() -> None:
             for dependency in required_plugins:
                 if dependency == plugin_name:
                     failures.append(
-                        f"{plugin_name}: 'required_plugins' must not include itself"
+                        f"{plugin_name}: 'required_plugins' must not include itself",
                     )
                 elif not (PLUGINS_ROOT / dependency).is_dir():
                     failures.append(
-                        f"{plugin_name}: 'required_plugins' references unknown plugin {dependency!r}"
+                        f"{plugin_name}: 'required_plugins' references unknown plugin {dependency!r}",
                     )
 
     assert not failures, "Plugin config metadata validation failed:\n" + "\n".join(
-        failures
+        failures,
     )

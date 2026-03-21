@@ -25,7 +25,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvBool, getEnvInt } = require('../base/utils.js');
+const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvBool, getEnvInt, emitArchiveResultRecord } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const {
     acquireSessionLock,
@@ -97,11 +97,7 @@ async function main() {
             console.error('[*] CHROME_ISOLATION=snapshot, skipping crawl-scoped browser launch');
             releaseLock();
             releaseLock = null;
-            console.log(JSON.stringify({
-                type: 'ArchiveResult',
-                status: 'succeeded',
-                output_str: 'snapshot isolation active',
-            }));
+            emitArchiveResultRecord('succeeded', 'snapshot isolation active');
             process.exit(0);
         }
 
@@ -151,11 +147,7 @@ async function main() {
         console.error(`[+] Chromium session started for crawl ${crawlId}`);
         console.error(`[+] CDP URL: ${chromeCdpUrl}`);
         console.error(`[+] PID: ${chromePid || 'external'}`);
-        console.log(JSON.stringify({
-            type: 'ArchiveResult',
-            status: 'succeeded',
-            output_str: `pid=${chromePid || 'external'} port=${getPortFromCdpUrl(chromeCdpUrl) || '?'}`,
-        }));
+        emitArchiveResultRecord('succeeded', `pid=${chromePid || 'external'} port=${getPortFromCdpUrl(chromeCdpUrl) || '?'}`);
         releaseLock();
         releaseLock = null;
 

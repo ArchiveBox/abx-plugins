@@ -2,9 +2,13 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#   "pydantic-settings",
 #   "rich-click",
 #   "abx-pkg",
+#   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Install a binary using npm package manager and configure PATH and NODE_MODULES_DIR environment variables.
@@ -17,11 +21,14 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import enforce_lib_permissions
+from abx_plugins.plugins.base.utils import (
+    emit_binary_record,
+    emit_machine_record,
+    enforce_lib_permissions,
+)
 
 import rich_click as click
-from abx_pkg import Binary, EnvProvider, NpmProvider
+from abx_pkg import Binary, EnvProvider, NpmProvider, SemVer
 
 
 def _resolve_node_modules_dir(binary_abspath: str | Path, npm_prefix: Path) -> Path:
@@ -29,7 +36,10 @@ def _resolve_node_modules_dir(binary_abspath: str | Path, npm_prefix: Path) -> P
     binary_path = Path(binary_abspath)
 
     # Typical npm CLI binaries live in <prefix>/node_modules/.bin/<name>.
-    if binary_path.parent.name == ".bin" and binary_path.parent.parent.name == "node_modules":
+    if (
+        binary_path.parent.name == ".bin"
+        and binary_path.parent.parent.name == "node_modules"
+    ):
         return binary_path.parent.parent
 
     return npm_prefix / "node_modules"
@@ -38,15 +48,21 @@ def _resolve_node_modules_dir(binary_abspath: str | Path, npm_prefix: Path) -> P
 @click.command()
 @click.option("--machine-id", required=True, help="Machine UUID")
 @click.option("--binary-id", required=True, help="Dependency UUID")
+@click.option("--plugin-name", required=True, help="Requesting plugin name")
+@click.option("--hook-name", required=True, help="Requesting hook name")
 @click.option("--name", required=True, help="Binary name to install")
 @click.option("--binproviders", default="*", help="Allowed providers (comma-separated)")
+@click.option("--min-version", default="", help="Minimum acceptable version")
 @click.option("--custom-cmd", default=None, help="Custom install command")
 @click.option("--overrides", default=None, help="JSON-encoded overrides dict")
 def main(
     binary_id: str,
     machine_id: str,
+    plugin_name: str,
+    hook_name: str,
     name: str,
     binproviders: str,
+    min_version: str,
     custom_cmd: str | None,
     overrides: str | None,
 ):
@@ -80,15 +96,18 @@ def main(
             try:
                 overrides_dict = json.loads(overrides)
                 click.echo(
-                    f"Using custom install overrides: {overrides_dict}", err=True
+                    f"Using custom install overrides: {overrides_dict}",
+                    err=True,
                 )
             except json.JSONDecodeError:
                 click.echo(
-                    f"Warning: Failed to parse overrides JSON: {overrides}", err=True
+                    f"Warning: Failed to parse overrides JSON: {overrides}",
+                    err=True,
                 )
 
         binary = Binary(
             name=name,
+            min_version=SemVer(min_version) if min_version else None,
             binproviders=[EnvProvider(), provider],
             overrides=overrides_dict or {},
         ).load_or_install()
@@ -103,17 +122,17 @@ def main(
     machine_id = machine_id.strip() or os.environ.get("MACHINE_ID", "").strip()
 
     # Output Binary JSONL record to stdout
-    record = {
-        "type": "Binary",
-        "name": name,
-        "abspath": str(binary.abspath),
-        "version": str(binary.version) if binary.version else "",
-        "sha256": binary.sha256 or "",
-        "binprovider": "npm",
-        "machine_id": machine_id,
-        "binary_id": binary_id,
-    }
-    print(json.dumps(record))
+    emit_binary_record(
+        name=name,
+        abspath=str(binary.abspath),
+        version=str(binary.version) if binary.version else "",
+        sha256=binary.sha256 or "",
+        binprovider="npm",
+        machine_id=machine_id,
+        binary_id=binary_id,
+        plugin_name=plugin_name,
+        hook_name=hook_name,
+    )
 
     # Emit PATH update for npm bin dirs (node_modules/.bin preferred)
     npm_bin_dirs = [
@@ -129,30 +148,20 @@ def main(
             new_path = f"{npm_bin_dir}:{new_path}" if new_path else npm_bin_dir
             path_dirs.insert(0, npm_bin_dir)
 
-    print(
-        json.dumps(
-            {
-                "type": "Machine",
-                "config": {
-                    "PATH": new_path,
-                },
-            }
-        )
+    emit_machine_record(
+        {
+            "PATH": new_path,
+        },
     )
 
     # Emit JS module resolution env vars for downstream node-based hooks.
     node_modules_dir = str(_resolve_node_modules_dir(binary.abspath, npm_prefix))
-    print(
-        json.dumps(
-            {
-                "type": "Machine",
-                "config": {
-                    "NODE_MODULES_DIR": node_modules_dir,
-                    "NODE_MODULE_DIR": node_modules_dir,
-                    "NODE_PATH": node_modules_dir,
-                },
-            }
-        )
+    emit_machine_record(
+        {
+            "NODE_MODULES_DIR": node_modules_dir,
+            "NODE_MODULE_DIR": node_modules_dir,
+            "NODE_PATH": node_modules_dir,
+        },
     )
 
     # Log human-readable info to stderr

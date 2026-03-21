@@ -12,14 +12,14 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     setup_test_env,
     launch_chromium_session,
     kill_chromium_session,
     wait_for_extensions_metadata,
 )
+
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
@@ -320,7 +320,7 @@ const puppeteer = require('puppeteer-core');
     ]
     if not output_lines:
         raise RuntimeError(
-            f"No JSON output from ad check: {result.stdout}\nstderr: {result.stderr}"
+            f"No JSON output from ad check: {result.stdout}\nstderr: {result.stderr}",
         )
 
     return json.loads(output_lines[-1])
@@ -399,14 +399,14 @@ def test_extension_loads_in_chromium():
             )
         except Exception as exc:
             raise RuntimeError(
-                f"Chromium launch failed after waiting up to {CHROME_STARTUP_TIMEOUT_SECONDS}s"
+                f"Chromium launch failed after waiting up to {CHROME_STARTUP_TIMEOUT_SECONDS}s",
             ) from exc
 
         print(f"[test] Chromium launched with CDP URL: {cdp_url}", flush=True)
 
         loaded_exts = wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
         print(
-            f"Extensions loaded by chrome hook: {[e.get('name') for e in loaded_exts]}"
+            f"Extensions loaded by chrome hook: {[e.get('name') for e in loaded_exts]}",
         )
         ext_entry = next((e for e in loaded_exts if e.get("name") == "ublock"), None)
         assert ext_entry, f"ublock not present in extensions metadata: {loaded_exts}"
@@ -461,7 +461,10 @@ const puppeteer = require('puppeteer-core');
 }})();
 """
             script_path = tmpdir / "test_ublock.js"
-            script_path.write_text(f"#!/usr/bin/env node\n{test_script}", encoding="utf-8")
+            script_path.write_text(
+                f"#!/usr/bin/env node\n{test_script}",
+                encoding="utf-8",
+            )
             script_path.chmod(0o755)
 
             result = subprocess.run(
@@ -526,10 +529,11 @@ def test_blocks_ads_on_yahoo_com():
 
         env_no_ext = env_base.copy()
         env_no_ext["CHROME_EXTENSIONS_DIR"] = str(
-            personas_dir / "Default" / "empty_extensions"
+            personas_dir / "Default" / "empty_extensions",
         )
         (personas_dir / "Default" / "empty_extensions").mkdir(
-            parents=True, exist_ok=True
+            parents=True,
+            exist_ok=True,
         )
 
         # Launch baseline Chromium in crawls directory
@@ -553,12 +557,15 @@ def test_blocks_ads_on_yahoo_com():
             time.sleep(2)
 
             baseline_result = check_ad_blocking(
-                baseline_cdp_url, TEST_URL, env_no_ext, tmpdir
+                baseline_cdp_url,
+                TEST_URL,
+                env_no_ext,
+                tmpdir,
             )
 
             print(
                 f"Baseline result: {baseline_result['adElementsVisible']} visible ads "
-                f"(found {baseline_result['adElementsFound']} ad elements)"
+                f"(found {baseline_result['adElementsFound']} ad elements)",
             )
 
         finally:
@@ -569,17 +576,17 @@ def test_blocks_ads_on_yahoo_com():
         if baseline_result["adElementsFound"] == 0:
             pytest.fail(
                 f"Baseline must find ad elements on {TEST_URL}, but found none. "
-                f"This test requires a real ad-heavy page."
+                f"This test requires a real ad-heavy page.",
             )
 
         if baseline_result["adElementsVisible"] == 0:
             pytest.fail(
                 f"Baseline must have visible ads on {TEST_URL}, but none were visible. "
-                f"This likely means another ad blocker is active or network-level blocking is in effect."
+                f"This likely means another ad blocker is active or network-level blocking is in effect.",
             )
 
         print(
-            f"\n✓ Baseline confirmed: {baseline_result['adElementsVisible']} visible ads without extension"
+            f"\n✓ Baseline confirmed: {baseline_result['adElementsVisible']} visible ads without extension",
         )
 
         # ============================================================
@@ -630,11 +637,13 @@ def test_blocks_ads_on_yahoo_com():
             print(f"Extension Chromium launched: {ext_cdp_url}")
 
             loaded_exts = wait_for_extensions_metadata(
-                ext_chrome_dir, timeout_seconds=10
+                ext_chrome_dir,
+                timeout_seconds=10,
             )
             print(f"Extensions loaded: {[e.get('name') for e in loaded_exts]}")
             ext_entry = next(
-                (e for e in loaded_exts if e.get("name") == "ublock"), None
+                (e for e in loaded_exts if e.get("name") == "ublock"),
+                None,
             )
             assert ext_entry, (
                 f"ublock not present in extensions metadata: {loaded_exts}"
@@ -682,7 +691,7 @@ const puppeteer = require('{env_base["NODE_MODULES_DIR"]}/puppeteer-core');
 
             print(
                 f"Extension result: {ext_result['adElementsVisible']} visible ads "
-                f"(found {ext_result['adElementsFound']} ad elements)"
+                f"(found {ext_result['adElementsFound']} ad elements)",
             )
 
         finally:
@@ -696,7 +705,7 @@ const puppeteer = require('{env_base["NODE_MODULES_DIR"]}/puppeteer-core');
         print("STEP 4: COMPARISON")
         print("=" * 60)
         print(
-            f"Baseline (no extension): {baseline_result['adElementsVisible']} visible ads"
+            f"Baseline (no extension): {baseline_result['adElementsVisible']} visible ads",
         )
         print(f"With extension: {ext_result['adElementsVisible']} visible ads")
 
@@ -711,7 +720,7 @@ const puppeteer = require('{env_base["NODE_MODULES_DIR"]}/puppeteer-core');
         )
 
         print(
-            f"Reduction: {ads_blocked} fewer visible ads ({reduction_percent:.0f}% reduction)"
+            f"Reduction: {ads_blocked} fewer visible ads ({reduction_percent:.0f}% reduction)",
         )
 
         # Extension should significantly reduce visible ads

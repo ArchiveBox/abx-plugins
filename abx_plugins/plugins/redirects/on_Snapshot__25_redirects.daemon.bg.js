@@ -19,7 +19,7 @@ const {
     getEnvBool,
     getEnvInt,
     parseArgs,
-    emitArchiveResult,
+    emitArchiveResultRecord,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer-core');
@@ -235,14 +235,18 @@ async function settleForLateRedirects(page, durationMs, intervalMs = 500) {
 }
 
 function emitResult(result) {
-    return new Promise((resolve) => {
-        const line = JSON.stringify(result) + '\n';
-        if (!process.stdout.write(line)) {
-            process.stdout.once('drain', resolve);
-        } else {
-            setImmediate(resolve);
-        }
-    });
+    emitArchiveResultRecord(
+        result.status,
+        result.output_str,
+        {
+            plugin: result.plugin,
+            original_url: result.original_url,
+            final_url: result.final_url,
+            redirect_count: result.redirect_count,
+            is_redirect: result.is_redirect,
+        },
+    );
+    return Promise.resolve();
 }
 
 async function handleShutdown(signal) {
@@ -278,7 +282,7 @@ async function main() {
 
     if (!getEnvBool('REDIRECTS_ENABLED', true)) {
         console.error('Skipping (REDIRECTS_ENABLED=False)');
-        emitArchiveResult('skipped', 'REDIRECTS_ENABLED=False');
+        emitArchiveResultRecord('skipped', 'REDIRECTS_ENABLED=False');
         process.exit(0);
     }
 

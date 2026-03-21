@@ -14,14 +14,13 @@ Tests verify:
 import json
 import os
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 import pytest
 
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
-    get_plugin_dir,
+from abx_plugins.plugins.base.test_utils import (
     get_hook_script,
+    get_plugin_dir,
     parse_jsonl_output,
 )
 
@@ -106,7 +105,8 @@ def test_extracts_with_mercury_parser(httpserver):
 
         # Run mercury extraction hook
         result = subprocess.run(
-            [str(MERCURY_HOOK),
+            [
+                str(MERCURY_HOOK),
                 "--url",
                 test_url,
                 "--snapshot-id",
@@ -164,7 +164,8 @@ def test_extracts_with_local_html_source_present(httpserver):
         env["MERCURY_BINARY"] = binary_path
 
         result = subprocess.run(
-            [str(MERCURY_HOOK),
+            [
+                str(MERCURY_HOOK),
                 "--url",
                 test_url,
                 "--snapshot-id",
@@ -218,7 +219,8 @@ def test_config_save_mercury_false_skips():
         env["SNAP_DIR"] = str(snap_dir)
 
         result = subprocess.run(
-            [str(MERCURY_HOOK),
+            [
+                str(MERCURY_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -266,7 +268,8 @@ def test_extracts_without_local_html_source(httpserver):
         env["MERCURY_BINARY"] = binary_path
         env["SNAP_DIR"] = str(tmpdir)
         result = subprocess.run(
-            [str(MERCURY_HOOK),
+            [
+                str(MERCURY_HOOK),
                 "--url",
                 test_url,
                 "--snapshot-id",

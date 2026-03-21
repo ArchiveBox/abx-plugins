@@ -17,7 +17,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvInt } = require('../base/utils.js');
+const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvInt, emitArchiveResultRecord } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 
 const PLUGIN_DIR = path.basename(__dirname);
@@ -51,7 +51,7 @@ async function main() {
 
     if (isolation === 'snapshot') {
         console.error('[chrome_wait:crawl] CHROME_ISOLATION=snapshot, skipping crawl-scoped wait');
-        console.log(JSON.stringify({ type: 'ArchiveResult', status: 'succeeded', output_str: 'snapshot isolation active' }));
+        emitArchiveResultRecord('succeeded', 'snapshot isolation active');
         process.exit(0);
     }
 
@@ -66,7 +66,7 @@ async function main() {
     if (!readySession?.cdpUrl) {
         const error = CHROME_SESSION_REQUIRED_ERROR;
         console.error(`[chrome_wait:crawl] ERROR: ${error}`);
-        console.log(JSON.stringify({ type: 'ArchiveResult', status: 'failed', output_str: error }));
+        emitArchiveResultRecord('failed', error);
         process.exit(1);
     }
 
@@ -78,7 +78,7 @@ async function main() {
     } catch (error) {}
 
     console.error(`[chrome_wait:crawl] Chrome session ready (verified CDP connection, pid=${pid}, cdp_url=${readySession.cdpUrl.slice(0, 32)}...).`);
-    console.log(JSON.stringify({ type: 'ArchiveResult', status: 'succeeded', output_str: `browser ready pid=${pid} port=${port}` }));
+    emitArchiveResultRecord('succeeded', `browser ready pid=${pid} port=${port}`);
     process.exit(0);
 }
 

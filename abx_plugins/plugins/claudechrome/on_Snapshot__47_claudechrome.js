@@ -29,7 +29,7 @@ const path = require('path');
 const os = require('os');
 const {
     ensureNodeModuleResolution,
-    emitArchiveResult,
+    emitArchiveResultRecord,
     getEnv,
     getEnvBool,
     getEnvInt,
@@ -44,14 +44,14 @@ const {
 // Check if enabled BEFORE requiring puppeteer
 if (!getEnvBool('CLAUDECHROME_ENABLED', false)) {
     console.error('Skipping Claude for Chrome (CLAUDECHROME_ENABLED=False)');
-    emitArchiveResult('skipped', 'CLAUDECHROME_ENABLED=False');
+    emitArchiveResultRecord('skipped', 'CLAUDECHROME_ENABLED=False');
     process.exit(0);
 }
 
 // Check for API key BEFORE requiring puppeteer (so tests can run without node deps)
 if (!getEnv('ANTHROPIC_API_KEY')) {
     console.error('ERROR: ANTHROPIC_API_KEY not set');
-    emitArchiveResult('failed', 'ANTHROPIC_API_KEY not set');
+    emitArchiveResultRecord('failed', 'ANTHROPIC_API_KEY not set');
     process.exit(1);
 }
 
@@ -641,14 +641,14 @@ async function main() {
 
         const outputStr = `${result.actionCount} actions, ${outputFiles.join(', ')}`;
 
-        emitArchiveResult(result.success ? 'succeeded' : 'failed', outputStr);
+        emitArchiveResultRecord(result.success ? 'succeeded' : 'failed', outputStr);
 
         process.exit(result.success ? 0 : 1);
 
     } catch (e) {
         if (browser) browser.disconnect();
         console.error(`ERROR: ${e.name}: ${e.message}`);
-        emitArchiveResult('failed', `${e.name}: ${e.message}`);
+        emitArchiveResultRecord('failed', `${e.name}: ${e.message}`);
         process.exit(1);
     }
 }

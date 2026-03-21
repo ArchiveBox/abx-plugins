@@ -12,14 +12,12 @@ Tests verify:
 
 import json
 import os
-import sys
 import tempfile
 from pathlib import Path
 
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import (
+from abx_plugins.plugins.base.test_utils import (
     get_plugin_dir,
     get_hook_script,
     parse_jsonl_output,
@@ -33,7 +31,6 @@ if _EXTRACT_HOOK is None:
     raise FileNotFoundError(f"Extract hook not found in {PLUGIN_DIR}")
 EXTRACT_HOOK = _EXTRACT_HOOK
 TEST_URL = "https://example.com"
-
 
 
 def create_fake_snapshot(snap_dir: Path) -> None:
@@ -51,20 +48,24 @@ def create_fake_snapshot(snap_dir: Path) -> None:
     (readability_dir / "content.txt").write_text(
         "Example Domain\n\n"
         "This domain is for use in illustrative examples in documents.\n"
-        "You may use this domain in literature without prior coordination.\n"
+        "You may use this domain in literature without prior coordination.\n",
     )
-    (readability_dir / "article.json").write_text(json.dumps({
-        "title": "Example Domain",
-        "byline": None,
-        "siteName": "example.com",
-    }))
+    (readability_dir / "article.json").write_text(
+        json.dumps(
+            {
+                "title": "Example Domain",
+                "byline": None,
+                "siteName": "example.com",
+            },
+        ),
+    )
 
     # htmltotext output
     htmltotext_dir = snap_dir / "htmltotext"
     htmltotext_dir.mkdir()
     (htmltotext_dir / "content.txt").write_text(
         "Example Domain\n"
-        "This domain is for use in illustrative examples in documents.\n"
+        "This domain is for use in illustrative examples in documents.\n",
     )
 
     # dom output
@@ -128,8 +129,12 @@ class TestClaudeCodeExtractPlugin:
             env["CLAUDECODEEXTRACT_ENABLED"] = "false"
 
             returncode, stdout, stderr = run_hook(
-                EXTRACT_HOOK, TEST_URL, "test-snapshot",
-                cwd=output_dir, env=env, timeout=30,
+                EXTRACT_HOOK,
+                TEST_URL,
+                "test-snapshot",
+                cwd=output_dir,
+                env=env,
+                timeout=30,
             )
 
             assert returncode == 0, f"Hook failed: {stderr}"
@@ -151,8 +156,12 @@ class TestClaudeCodeExtractPlugin:
             env.pop("ANTHROPIC_API_KEY", None)
 
             returncode, stdout, stderr = run_hook(
-                EXTRACT_HOOK, TEST_URL, "test-snapshot",
-                cwd=output_dir, env=env, timeout=30,
+                EXTRACT_HOOK,
+                TEST_URL,
+                "test-snapshot",
+                cwd=output_dir,
+                env=env,
+                timeout=30,
             )
 
             assert returncode == 1
@@ -176,8 +185,12 @@ class TestClaudeCodeExtractPlugin:
             env["CLAUDECODE_BINARY"] = "/nonexistent/claude"
 
             returncode, stdout, stderr = run_hook(
-                EXTRACT_HOOK, TEST_URL, "test-snapshot",
-                cwd=output_dir, env=env, timeout=30,
+                EXTRACT_HOOK,
+                TEST_URL,
+                "test-snapshot",
+                cwd=output_dir,
+                env=env,
+                timeout=30,
             )
 
             assert returncode == 1
@@ -215,12 +228,18 @@ class TestClaudeCodeExtractIntegration:
             env["CLAUDECODEEXTRACT_TIMEOUT"] = "90"
 
             returncode, stdout, stderr = run_hook(
-                EXTRACT_HOOK, TEST_URL, "test-extract-integration",
-                cwd=output_dir, env=env, timeout=120,
+                EXTRACT_HOOK,
+                TEST_URL,
+                "test-extract-integration",
+                cwd=output_dir,
+                env=env,
+                timeout=120,
             )
 
             result = parse_jsonl_output(stdout)
-            assert result is not None, f"No ArchiveResult in output. stderr: {stderr[:500]}"
+            assert result is not None, (
+                f"No ArchiveResult in output. stderr: {stderr[:500]}"
+            )
             assert result["status"] == "succeeded", (
                 f"Extract should succeed. status={result['status']}, "
                 f"output={result.get('output_str', '')}, stderr: {stderr[:500]}"
@@ -262,8 +281,12 @@ class TestClaudeCodeExtractIntegration:
             )
 
             returncode, stdout, stderr = run_hook(
-                EXTRACT_HOOK, TEST_URL, "test-custom-prompt",
-                cwd=output_dir, env=env, timeout=120,
+                EXTRACT_HOOK,
+                TEST_URL,
+                "test-custom-prompt",
+                cwd=output_dir,
+                env=env,
+                timeout=120,
             )
 
             result = parse_jsonl_output(stdout)

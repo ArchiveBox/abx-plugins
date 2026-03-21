@@ -29,7 +29,11 @@ class TestPipProviderHook:
     def setup_method(self, _method=None):
         """Set up test environment."""
         self.temp_dir = tempfile.mkdtemp()
+        self.home_dir = Path(self.temp_dir) / "home"
+        self.snap_dir = Path(self.temp_dir) / "snap"
         self.output_dir = Path(self.temp_dir) / "output"
+        self.home_dir.mkdir(parents=True, exist_ok=True)
+        self.snap_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir()
 
     def teardown_method(self, _method=None):
@@ -57,16 +61,19 @@ class TestPipProviderHook:
     def test_hook_finds_pip(self):
         """Hook should find pip binary."""
         env = os.environ.copy()
-        env["SNAP_DIR"] = self.temp_dir
-        env["HOME"] = self.temp_dir
+        env["SNAP_DIR"] = str(self.snap_dir)
+        env["HOME"] = str(self.home_dir)
         env.pop("LIB_DIR", None)
 
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=pip",
                 "--binproviders=pip",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                "--plugin-name=testplugin",
+                "--hook-name=on_Crawl__00_test",
             ],
             capture_output=True,
             text=True,
@@ -100,16 +107,19 @@ class TestPipProviderHook:
     def test_hook_unknown_package(self):
         """Hook should handle unknown packages gracefully."""
         env = os.environ.copy()
-        env["SNAP_DIR"] = self.temp_dir
-        env["HOME"] = self.temp_dir
+        env["SNAP_DIR"] = str(self.snap_dir)
+        env["HOME"] = str(self.home_dir)
         env.pop("LIB_DIR", None)
 
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=nonexistent_package_xyz123",
                 "--binproviders=pip",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                "--plugin-name=testplugin",
+                "--hook-name=on_Crawl__00_test",
             ],
             capture_output=True,
             text=True,
@@ -122,6 +132,40 @@ class TestPipProviderHook:
         assert "Traceback" not in result.stderr
         # May have non-zero exit code for missing package
 
+    def test_hook_repairs_partial_shared_venv(self):
+        """Hook should repair a partially created shared pip venv before install."""
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(self.snap_dir)
+        env["HOME"] = str(self.home_dir)
+        env["LIB_DIR"] = str(Path(self.temp_dir) / "lib")
+
+        broken_venv = Path(env["LIB_DIR"]) / "pip" / "venv" / "bin"
+        broken_venv.mkdir(parents=True, exist_ok=True)
+        python_path = broken_venv / "python"
+        python_path.write_text("broken")
+        python_path.chmod(0o755)
+
+        result = subprocess.run(
+            [
+                str(INSTALL_HOOK),
+                "--name=opendataloader-pdf",
+                "--binproviders=pip",
+                "--binary-id=test-uuid",
+                "--machine-id=test-machine",
+                "--plugin-name=testplugin",
+                "--hook-name=on_Crawl__00_test",
+                '--overrides={"pip":{"install_args":["opendataloader-pdf"]}}',
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(self.output_dir),
+            env=env,
+            timeout=120,
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert '"type": "Binary"' in result.stdout
+
 
 class TestPipProviderIntegration:
     """Integration tests for pip provider with real packages."""
@@ -129,7 +173,11 @@ class TestPipProviderIntegration:
     def setup_method(self, _method=None):
         """Set up test environment."""
         self.temp_dir = tempfile.mkdtemp()
+        self.home_dir = Path(self.temp_dir) / "home"
+        self.snap_dir = Path(self.temp_dir) / "snap"
         self.output_dir = Path(self.temp_dir) / "output"
+        self.home_dir.mkdir(parents=True, exist_ok=True)
+        self.snap_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir()
 
     def teardown_method(self, _method=None):
@@ -147,17 +195,20 @@ class TestPipProviderIntegration:
         )
         assert pip_check.returncode == 0, "pip not available"
         env = os.environ.copy()
-        env["SNAP_DIR"] = self.temp_dir
-        env["HOME"] = self.temp_dir
+        env["SNAP_DIR"] = str(self.snap_dir)
+        env["HOME"] = str(self.home_dir)
         env.pop("LIB_DIR", None)
 
         # Try to find 'pip' itself which should be available
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=pip",
                 "--binproviders=pip,env",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                "--plugin-name=testplugin",
+                "--hook-name=on_Crawl__00_test",
             ],
             capture_output=True,
             text=True,
@@ -173,7 +224,8 @@ class TestPipProviderIntegration:
                 try:
                     record = json.loads(line)
                     if record.get("type") == "Binary" and "pip" in record.get(
-                        "name", ""
+                        "name",
+                        "",
                     ):
                         # Found pip binary
                         assert record.get("abspath")

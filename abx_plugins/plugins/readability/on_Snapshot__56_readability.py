@@ -4,7 +4,10 @@
 # dependencies = [
 #     "pydantic-settings",
 #     "rich-click",
+#     "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 """
 Extract article content using Mozilla's Readability.
@@ -29,8 +32,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import load_config, emit_archive_result, write_text_atomic, find_html_source
+from abx_plugins.plugins.base.utils import (
+    load_config,
+    emit_archive_result_record,
+    write_text_atomic,
+    find_html_source,
+)
 
 from urllib.parse import urlparse
 
@@ -49,7 +56,6 @@ os.chdir(OUTPUT_DIR)
 OUTPUT_FILE = "content.html"
 TEXT_FILE = "content.txt"
 METADATA_FILE = "article.json"
-
 
 
 def extract_readability(url: str, binary: str) -> tuple[str, str]:
@@ -92,7 +98,8 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
         # Extract and save content
         # readability-extractor uses camelCase field names (textContent, content)
         text_content = result_json.pop(
-            "textContent", result_json.pop("text-content", "")
+            "textContent",
+            result_json.pop("text-content", ""),
         )
         html_content = result_json.pop("content", result_json.pop("html-content", ""))
 
@@ -101,9 +108,7 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
 
         write_text_atomic(output_dir / OUTPUT_FILE, html_content)
         write_text_atomic(output_dir / TEXT_FILE, text_content)
-        write_text_atomic(
-            output_dir / METADATA_FILE, json.dumps(result_json, indent=2)
-        )
+        write_text_atomic(output_dir / METADATA_FILE, json.dumps(result_json, indent=2))
 
         # Link images/ to responses capture (if available)
         try:
@@ -121,7 +126,8 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
                             responses_images = None
                     if responses_images:
                         rel_target = os.path.relpath(
-                            str(responses_images), str(output_dir)
+                            str(responses_images),
+                            str(output_dir),
                         )
                         link_path.symlink_to(rel_target)
         except Exception:
@@ -146,7 +152,7 @@ def main(url: str, snapshot_id: str):
 
         if not config.READABILITY_ENABLED:
             print("Skipping readability (READABILITY_ENABLED=False)", file=sys.stderr)
-            emit_archive_result("skipped", "READABILITY_ENABLED=False")
+            emit_archive_result_record("skipped", "READABILITY_ENABLED=False")
             sys.exit(0)
 
         # Get binary from environment
@@ -156,13 +162,13 @@ def main(url: str, snapshot_id: str):
         status, output = extract_readability(url, binary)
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)
-        emit_archive_result(status, output)
+        emit_archive_result_record(status, output)
         sys.exit(0 if status != "failed" else 1)
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"
         print(f"ERROR: {error}", file=sys.stderr)
-        emit_archive_result("failed", error)
+        emit_archive_result_record("failed", error)
         sys.exit(1)
 
 

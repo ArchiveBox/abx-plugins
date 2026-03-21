@@ -2,8 +2,12 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#     "pydantic-settings",
 #     "rich-click",
+#     "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 """
 Extract or transform snapshot content using Claude Code AI agent.
@@ -25,7 +29,6 @@ Environment variables:
     ANTHROPIC_API_KEY: API key for Claude
 """
 
-import json
 import os
 import sys
 from pathlib import Path
@@ -33,9 +36,16 @@ from pathlib import Path
 import rich_click as click
 
 # Add parent directory to path for imports
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_archive_result, get_env, get_env_bool, get_env_int
-from claudecode.claudecode_utils import build_system_prompt, run_claude_code
+from abx_plugins.plugins.base.utils import (
+    emit_archive_result_record,
+    get_env,
+    get_env_bool,
+    get_env_int,
+)
+from abx_plugins.plugins.claudecode.claudecode_utils import (
+    build_system_prompt,
+    run_claude_code,
+)
 
 
 # Extractor metadata
@@ -65,22 +75,34 @@ def main(url: str, snapshot_id: str):
     try:
         # Check if enabled
         if not get_env_bool("CLAUDECODEEXTRACT_ENABLED", False):
-            print("Skipping Claude Code extraction (CLAUDECODEEXTRACT_ENABLED=False)", file=sys.stderr)
-            emit_archive_result("skipped", "CLAUDECODEEXTRACT_ENABLED=False")
+            print(
+                "Skipping Claude Code extraction (CLAUDECODEEXTRACT_ENABLED=False)",
+                file=sys.stderr,
+            )
+            emit_archive_result_record("skipped", "CLAUDECODEEXTRACT_ENABLED=False")
             sys.exit(0)
 
         # Check for API key
         api_key = get_env("ANTHROPIC_API_KEY")
         if not api_key:
             print("ERROR: ANTHROPIC_API_KEY not set", file=sys.stderr)
-            emit_archive_result("failed", "ANTHROPIC_API_KEY not set")
+            emit_archive_result_record("failed", "ANTHROPIC_API_KEY not set")
             sys.exit(1)
 
         # Get configuration
         user_prompt = get_env("CLAUDECODEEXTRACT_PROMPT", DEFAULT_PROMPT)
-        timeout = get_env_int("CLAUDECODEEXTRACT_TIMEOUT") or get_env_int("CLAUDECODE_TIMEOUT", 120)
-        model = get_env("CLAUDECODEEXTRACT_MODEL") or get_env("CLAUDECODE_MODEL", "sonnet")
-        max_turns = get_env_int("CLAUDECODEEXTRACT_MAX_TURNS") or get_env_int("CLAUDECODE_MAX_TURNS", 10)
+        timeout = get_env_int("CLAUDECODEEXTRACT_TIMEOUT") or get_env_int(
+            "CLAUDECODE_TIMEOUT",
+            120,
+        )
+        model = get_env("CLAUDECODEEXTRACT_MODEL") or get_env(
+            "CLAUDECODE_MODEL",
+            "sonnet",
+        )
+        max_turns = get_env_int("CLAUDECODEEXTRACT_MAX_TURNS") or get_env_int(
+            "CLAUDECODE_MAX_TURNS",
+            10,
+        )
 
         # Build system prompt with snapshot context
         system_prompt = build_system_prompt(
@@ -93,13 +115,14 @@ def main(url: str, snapshot_id: str):
                 f"Your output directory: {OUTPUT_DIR}\n\n"
                 "## Scope & Permissions\n"
                 f"You may READ any files within the snapshot directory: {SNAP_DIR}\n"
-                f"You MUST WRITE all output files to exactly: {OUTPUT_DIR}\n"
-                "Do NOT write files anywhere else. Do NOT print output to stdout instead of writing files.\n\n"
+                f"You may CREATE and UPDATE files inside your output directory: {OUTPUT_DIR}\n"
+                "Do NOT modify source extractor outputs outside your output directory.\n"
+                "Do NOT print output to stdout instead of writing files.\n\n"
                 "## Required Deliverable\n"
                 "You must complete the task exactly as requested in the user prompt.\n"
                 "Do not merely describe the output in your response. You must use the Write/Edit tools to create the file or files themselves.\n"
                 "Before finishing, verify the output file or files exist and are non-empty by reading them or listing them from the filesystem.\n\n"
-                "CRITICAL RESTRICTION: You MUST NOT read, write, or modify anything "
+                "CRITICAL RESTRICTION: You MUST NOT read from or write to any path "
                 f"outside of {SNAP_DIR}. Do not use absolute paths to other directories. "
                 "Do not use .. to escape the snapshot directory."
             ),
@@ -145,29 +168,34 @@ def main(url: str, snapshot_id: str):
             response_path.write_text(stdout, encoding="utf-8")
 
         if returncode != 0:
-            error_detail = stderr.strip().split("\n")[-1] if stderr else f"exit={returncode}"
-            emit_archive_result("failed", f"Claude Code failed: {error_detail}")
+            error_detail = (
+                stderr.strip().split("\n")[-1] if stderr else f"exit={returncode}"
+            )
+            emit_archive_result_record("failed", f"Claude Code failed: {error_detail}")
             sys.exit(1)
 
         # Check what files were created (exclude metadata files that aren't actual extraction output)
         METADATA_FILES = {"response.txt", "session.json"}
         output_files = [
-            f"{PLUGIN_DIR}/{f.name}" for f in OUTPUT_DIR.iterdir()
-            if f.is_file() and not f.name.startswith(".") and f.name not in METADATA_FILES
+            f"{PLUGIN_DIR}/{f.name}"
+            for f in OUTPUT_DIR.iterdir()
+            if f.is_file()
+            and not f.name.startswith(".")
+            and f.name not in METADATA_FILES
         ]
         if not output_files:
-            emit_archive_result("noresults", "No output files generated")
+            emit_archive_result_record("noresults", "No output files generated")
             sys.exit(0)
 
         output_str = ", ".join(sorted(output_files))
         print(f"[+] Claude Code generated: {output_str}", file=sys.stderr)
-        emit_archive_result("succeeded", output_str)
+        emit_archive_result_record("succeeded", output_str)
         sys.exit(0)
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"
         print(f"ERROR: {error}", file=sys.stderr)
-        emit_archive_result("failed", error)
+        emit_archive_result_record("failed", error)
         sys.exit(1)
 
 

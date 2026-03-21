@@ -14,13 +14,13 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+from abx_plugins.plugins.base.test_utils import get_hook_script, get_plugin_dir
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
-    chrome_session,
     CHROME_NAVIGATE_HOOK,
-    get_plugin_dir,
-    get_hook_script,
+    chrome_session,
 )
+
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 # Get the path to the DNS hook
@@ -66,7 +66,8 @@ class TestDNSWithChrome:
             dns_dir.mkdir(exist_ok=True)
 
             result = subprocess.Popen(
-                [str(DNS_HOOK),
+                [
+                    str(DNS_HOOK),
                     f"--url={test_url}",
                     f"--snapshot-id={snapshot_id}",
                 ],
@@ -78,7 +79,8 @@ class TestDNSWithChrome:
             )
 
             nav_result = subprocess.run(
-                [str(CHROME_NAVIGATE_HOOK),
+                [
+                    str(CHROME_NAVIGATE_HOOK),
                     f"--url={test_url}",
                     f"--snapshot-id={snapshot_id}",
                 ],

@@ -12,17 +12,14 @@ Tests verify:
 7. Handles non-gallery URLs gracefully
 """
 
-import json
 import subprocess
-import sys
 import tempfile
 import time
 import os
 from pathlib import Path
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
@@ -91,7 +88,8 @@ def test_handles_non_gallery_url():
 
         # Run gallery-dl extraction hook on non-gallery URL
         result = subprocess.run(
-            [str(GALLERYDL_HOOK),
+            [
+                str(GALLERYDL_HOOK),
                 "--url",
                 "https://example.com",
                 "--snapshot-id",
@@ -128,7 +126,8 @@ def test_config_save_gallery_dl_false_skips():
         env["GALLERYDL_ENABLED"] = "False"
 
         result = subprocess.run(
-            [str(GALLERYDL_HOOK),
+            [
+                str(GALLERYDL_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -170,7 +169,8 @@ def test_config_timeout():
 
         start_time = time.time()
         result = subprocess.run(
-            [str(GALLERYDL_HOOK),
+            [
+                str(GALLERYDL_HOOK),
                 "--url",
                 "https://example.com",
                 "--snapshot-id",
@@ -214,7 +214,8 @@ def test_real_gallery_url():
 
             start_time = time.time()
             result = subprocess.run(
-                [str(GALLERYDL_HOOK),
+                [
+                    str(GALLERYDL_HOOK),
                     "--url",
                     gallery_url,
                     "--snapshot-id",
@@ -280,12 +281,12 @@ def test_real_gallery_url():
                 continue
 
             print(
-                f"Successfully extracted {len(image_files)} image(s) in {elapsed_time:.2f}s"
+                f"Successfully extracted {len(image_files)} image(s) in {elapsed_time:.2f}s",
             )
             return
 
     pytest.fail(
-        f"Live gallery download did not yield an image after {max_attempts} attempts. Last error: {last_error}"
+        f"Live gallery download did not yield an image after {max_attempts} attempts. Last error: {last_error}",
     )
 
 

@@ -123,7 +123,10 @@ class TestSqliteSearchBackend:
             "Advanced Python concepts",
         )
         self._index_snapshot(
-            "snap-003", "https://example.com/3", "JavaScript Basics", "Learn JavaScript"
+            "snap-003",
+            "https://example.com/3",
+            "JavaScript Basics",
+            "Learn JavaScript",
         )
 
         results = search("Python")
@@ -135,7 +138,10 @@ class TestSqliteSearchBackend:
     def test_search_title_match(self):
         """search should match against title."""
         self._index_snapshot(
-            "snap-001", "https://example.com", "Django Web Framework", "Content here"
+            "snap-001",
+            "https://example.com",
+            "Django Web Framework",
+            "Content here",
         )
 
         results = search("Django")
@@ -145,7 +151,10 @@ class TestSqliteSearchBackend:
     def test_search_url_match(self):
         """search should match against URL."""
         self._index_snapshot(
-            "snap-001", "https://archivebox.io/docs", "Title", "Content"
+            "snap-001",
+            "https://archivebox.io/docs",
+            "Title",
+            "Content",
         )
 
         results = search("archivebox")
@@ -166,7 +175,10 @@ class TestSqliteSearchBackend:
     def test_search_case_insensitive(self):
         """search should be case insensitive."""
         self._index_snapshot(
-            "snap-001", "https://example.com", "Title", "PYTHON programming"
+            "snap-001",
+            "https://example.com",
+            "Title",
+            "PYTHON programming",
         )
 
         results = search("python")
@@ -175,7 +187,10 @@ class TestSqliteSearchBackend:
     def test_search_stemming(self):
         """search should use porter stemmer for word stems."""
         self._index_snapshot(
-            "snap-001", "https://example.com", "Title", "Programming concepts"
+            "snap-001",
+            "https://example.com",
+            "Title",
+            "Programming concepts",
         )
 
         # 'program' should match 'programming' with porter stemmer
@@ -191,7 +206,10 @@ class TestSqliteSearchBackend:
             "Learn web development skills",
         )
         self._index_snapshot(
-            "snap-002", "https://example.com", "Web Design", "Design beautiful websites"
+            "snap-002",
+            "https://example.com",
+            "Web Design",
+            "Design beautiful websites",
         )
 
         results = search("web development")
@@ -202,10 +220,16 @@ class TestSqliteSearchBackend:
     def test_search_phrase(self):
         """search should support phrase queries."""
         self._index_snapshot(
-            "snap-001", "https://example.com", "Title", "machine learning algorithms"
+            "snap-001",
+            "https://example.com",
+            "Title",
+            "machine learning algorithms",
         )
         self._index_snapshot(
-            "snap-002", "https://example.com", "Title", "machine algorithms learning"
+            "snap-002",
+            "https://example.com",
+            "Title",
+            "machine algorithms learning",
         )
 
         # Phrase search with quotes
@@ -217,7 +241,10 @@ class TestSqliteSearchBackend:
         """search should return distinct snapshot IDs."""
         # Index same snapshot twice (could happen with multiple fields matching)
         self._index_snapshot(
-            "snap-001", "https://python.org", "Python", "Python programming language"
+            "snap-001",
+            "https://python.org",
+            "Python",
+            "Python programming language",
         )
 
         results = search("Python")
@@ -260,7 +287,10 @@ class TestSqliteSearchBackend:
     def test_search_special_characters(self):
         """search should handle special characters in queries."""
         self._index_snapshot(
-            "snap-001", "https://example.com", "C++ Programming", "Learn C++ basics"
+            "snap-001",
+            "https://example.com",
+            "C++ Programming",
+            "Learn C++ basics",
         )
 
         # FTS5 handles special chars
@@ -272,10 +302,16 @@ class TestSqliteSearchBackend:
     def test_search_unicode(self):
         """search should handle unicode content."""
         self._index_snapshot(
-            "snap-001", "https://example.com", "Titre Francais", "cafe resume"
+            "snap-001",
+            "https://example.com",
+            "Titre Francais",
+            "cafe resume",
         )
         self._index_snapshot(
-            "snap-002", "https://example.com", "Japanese", "Hello world"
+            "snap-002",
+            "https://example.com",
+            "Japanese",
+            "Hello world",
         )
 
         # With remove_diacritics, 'cafe' should match

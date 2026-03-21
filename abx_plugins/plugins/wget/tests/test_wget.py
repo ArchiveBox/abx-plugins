@@ -23,8 +23,7 @@ from pathlib import Path
 
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
@@ -97,7 +96,8 @@ def test_verify_deps_with_abx_pkg():
         pytest.fail(f"System package providers unavailable in this runtime: {exc}")
 
     wget_binary = Binary(
-        name="wget", binproviders=[apt_provider, brew_provider, env_provider]
+        name="wget",
+        binproviders=[apt_provider, brew_provider, env_provider],
     )
     wget_loaded = wget_binary.load()
 
@@ -135,7 +135,7 @@ def test_reports_missing_dependency_when_not_installed():
 
         # Should emit failed JSONL describing the missing dependency.
         result_json = parse_jsonl_output(result.stdout)
-        assert result_json, f"Expected failed JSONL output"
+        assert result_json, "Expected failed JSONL output"
         assert result_json["status"] == "failed", result_json
         assert "wget" in result_json["output_str"].lower(), result_json
 
@@ -167,11 +167,16 @@ def test_can_install_wget_via_provider():
     machine_id = str(uuid.uuid4())
 
     result = subprocess.run(
-        [str(provider_hook),
+        [
+            str(provider_hook),
             "--binary-id",
             binary_id,
             "--machine-id",
             machine_id,
+            "--plugin-name",
+            "wget",
+            "--hook-name",
+            "on_Crawl__10_wget_install.finite.bg",
             "--name",
             "wget",
             "--binproviders",
@@ -233,11 +238,16 @@ def test_archives_example_com():
 
     # Run installation (idempotent - will succeed if already installed)
     install_result = subprocess.run(
-        [str(provider_hook),
+        [
+            str(provider_hook),
             "--binary-id",
             str(uuid.uuid4()),
             "--machine-id",
             str(uuid.uuid4()),
+            "--plugin-name",
+            "wget",
+            "--hook-name",
+            "on_Crawl__10_wget_install.finite.bg",
             "--name",
             "wget",
             "--binproviders",
@@ -259,7 +269,8 @@ def test_archives_example_com():
 
         # Run wget extraction
         result = subprocess.run(
-            [str(WGET_HOOK),
+            [
+                str(WGET_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -332,7 +343,8 @@ def test_config_save_wget_false_skips():
         env["WGET_ENABLED"] = "False"
 
         result = subprocess.run(
-            [str(WGET_HOOK),
+            [
+                str(WGET_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -356,7 +368,7 @@ def test_config_save_wget_false_skips():
         )
 
         result_json = parse_jsonl_output(result.stdout)
-        assert result_json, f"Expected skipped JSONL output"
+        assert result_json, "Expected skipped JSONL output"
         assert result_json["status"] == "skipped", result_json
         assert result_json["output_str"] == "WGET_ENABLED=False", result_json
 
@@ -377,7 +389,8 @@ def test_config_save_warc():
         env["SNAP_DIR"] = str(tmpdir)
 
         result = subprocess.run(
-            [str(WGET_HOOK),
+            [
+                str(WGET_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -416,14 +429,15 @@ def test_staticfile_present_skips():
         staticfile_dir = tmpdir / "staticfile"
         staticfile_dir.mkdir()
         (staticfile_dir / "stdout.log").write_text(
-            '{"type":"ArchiveResult","status":"succeeded","output_str":"index.html"}\n'
+            '{"type":"ArchiveResult","status":"succeeded","output_str":"index.html"}\n',
         )
 
         wget_dir = tmpdir / "wget"
         wget_dir.mkdir()
 
         result = subprocess.run(
-            [str(WGET_HOOK),
+            [
+                str(WGET_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -437,12 +451,16 @@ def test_staticfile_present_skips():
         )
 
         # Should exit 0 with a noresults JSONL because another plugin already handled it.
-        assert result.returncode == 0, "Should exit 0 when staticfile already handled the URL"
+        assert result.returncode == 0, (
+            "Should exit 0 when staticfile already handled the URL"
+        )
 
         # Parse clean JSONL output
         result_json = parse_jsonl_output(result.stdout)
 
-        assert result_json, "Should emit ArchiveResult JSONL when staticfile already handled the URL"
+        assert result_json, (
+            "Should emit ArchiveResult JSONL when staticfile already handled the URL"
+        )
         assert result_json["status"] == "noresults", (
             f"Should have status='noresults': {result_json}"
         )
@@ -462,7 +480,8 @@ def test_handles_404_gracefully():
 
         # Try to download non-existent page
         result = subprocess.run(
-            [str(WGET_HOOK),
+            [
+                str(WGET_HOOK),
                 "--url",
                 "https://example.com/nonexistent-page-404",
                 "--snapshot-id",
@@ -500,7 +519,8 @@ def test_config_timeout_honored():
 
         # This should still succeed for example.com (it's fast)
         result = subprocess.run(
-            [str(WGET_HOOK),
+            [
+                str(WGET_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -531,7 +551,8 @@ def test_config_user_agent():
         env["WGET_USER_AGENT"] = "TestBot/1.0"
 
         result = subprocess.run(
-            [str(WGET_HOOK),
+            [
+                str(WGET_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",

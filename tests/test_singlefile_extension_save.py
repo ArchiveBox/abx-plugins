@@ -101,6 +101,8 @@ Module._load = function(request, parent, isMain) {
     )
 
     assert result.returncode == 0, result.stderr
-    assert output_path.exists(), "singlefile helper should emit the requested output file"
+    assert output_path.exists(), (
+        "singlefile helper should emit the requested output file"
+    )
     assert "Cannot find module 'puppeteer-core'" not in result.stderr
     assert "[singlefile] dependencies loaded" in result.stderr

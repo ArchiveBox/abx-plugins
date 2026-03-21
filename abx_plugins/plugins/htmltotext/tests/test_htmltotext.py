@@ -4,16 +4,13 @@ Integration tests for htmltotext plugin
 Tests verify standalone htmltotext extractor execution.
 """
 
-import json
 import os
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 PLUGIN_DIR = Path(__file__).parent.parent
 _HTMLTOTEXT_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_htmltotext.*"), None)
@@ -37,11 +34,12 @@ def test_extracts_text_from_html():
         # Create HTML source
         (snap_dir / "singlefile").mkdir(parents=True, exist_ok=True)
         (snap_dir / "singlefile" / "singlefile.html").write_text(
-            "<html><body><h1>Example Domain</h1><p>This domain is for examples.</p></body></html>"
+            "<html><body><h1>Example Domain</h1><p>This domain is for examples.</p></body></html>",
         )
 
         result = subprocess.run(
-            [str(HTMLTOTEXT_HOOK),
+            [
+                str(HTMLTOTEXT_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -79,7 +77,8 @@ def test_fails_gracefully_without_html():
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
         result = subprocess.run(
-            [str(HTMLTOTEXT_HOOK),
+            [
+                str(HTMLTOTEXT_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",

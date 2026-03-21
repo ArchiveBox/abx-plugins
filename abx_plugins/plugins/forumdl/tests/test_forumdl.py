@@ -12,17 +12,14 @@ Tests verify:
 7. Handles non-forum URLs gracefully
 """
 
-import json
 import os
 import subprocess
-import sys
 import tempfile
 import time
 from pathlib import Path
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
@@ -75,8 +72,8 @@ def get_forumdl_binary_path() -> str | None:
                     "six",
                     "html2text",
                     "warcio",
-                ]
-            }
+                ],
+            },
         },
     ).load_or_install()
     if binary and binary.abspath:
@@ -101,7 +98,6 @@ def test_verify_deps_with_abx_pkg():
 
 def test_handles_non_forum_url(local_http_base_url):
     """Test that forum-dl extractor handles non-forum URLs gracefully via hook."""
-    import os
 
     binary_path = require_forumdl_binary()
 
@@ -115,7 +111,8 @@ def test_handles_non_forum_url(local_http_base_url):
 
         # Run forum-dl extraction hook on non-forum URL
         result = subprocess.run(
-            [str(FORUMDL_HOOK),
+            [
+                str(FORUMDL_HOOK),
                 "--url",
                 local_http_base_url,
                 "--snapshot-id",
@@ -145,7 +142,6 @@ def test_handles_non_forum_url(local_http_base_url):
 
 def test_config_save_forumdl_false_skips():
     """Test that FORUMDL_ENABLED=False exits without emitting JSONL."""
-    import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
@@ -154,7 +150,8 @@ def test_config_save_forumdl_false_skips():
         env.pop("LIB_DIR", None)
 
         result = subprocess.run(
-            [str(FORUMDL_HOOK),
+            [
+                str(FORUMDL_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -184,7 +181,6 @@ def test_config_save_forumdl_false_skips():
 
 def test_config_timeout():
     """Test that FORUMDL_TIMEOUT config is respected."""
-    import os
 
     binary_path = require_forumdl_binary()
 
@@ -197,7 +193,8 @@ def test_config_timeout():
 
         start_time = time.time()
         result = subprocess.run(
-            [str(FORUMDL_HOOK),
+            [
+                str(FORUMDL_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -225,7 +222,6 @@ def test_real_forum_url():
 
     Uses our Pydantic v2 compatible wrapper to fix forum-dl 0.3.0's incompatibility.
     """
-    import os
 
     binary_path = require_forumdl_binary()
 
@@ -245,7 +241,8 @@ def test_real_forum_url():
 
         start_time = time.time()
         result = subprocess.run(
-            [str(FORUMDL_HOOK),
+            [
+                str(FORUMDL_HOOK),
                 "--url",
                 forum_url,
                 "--snapshot-id",
@@ -286,7 +283,7 @@ def test_real_forum_url():
         assert jsonl_file.stat().st_size > 0, "forum.jsonl should not be empty"
 
         print(
-            f"Successfully extracted {len(forum_files)} file(s) in {elapsed_time:.2f}s"
+            f"Successfully extracted {len(forum_files)} file(s) in {elapsed_time:.2f}s",
         )
 
 

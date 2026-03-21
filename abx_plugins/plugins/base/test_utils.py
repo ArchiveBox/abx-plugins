@@ -7,9 +7,7 @@ Provides common helpers used across plugin test files:
 
 Usage::
 
-    import sys
-    sys.path.append(str(Path(__file__).resolve().parent.parent))
-    from base.test_utils import (
+    from abx_plugins.plugins.base.test_utils import (
         get_plugin_dir, get_hook_script,
         parse_jsonl_output, parse_jsonl_records,
         run_hook, run_hook_and_parse,
@@ -21,8 +19,11 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
+
+SNAPSHOT_ISOLATION_ENV_KEYS = ("HOME", "SNAP_DIR", "LIB_DIR", "PERSONAS_DIR")
 
 
 def get_plugin_dir(test_file: str) -> Path:
@@ -58,7 +59,8 @@ def get_hook_script(plugin_dir: Path, pattern: str) -> Path | None:
 
 
 def parse_jsonl_output(
-    stdout: str, record_type: str = "ArchiveResult"
+    stdout: str,
+    record_type: str = "ArchiveResult",
 ) -> dict[str, Any] | None:
     """Parse JSONL output from hook stdout and return the first matching record.
 
@@ -101,6 +103,47 @@ def parse_jsonl_records(stdout: str) -> list[dict[str, Any]]:
     return records
 
 
+def find_snapshot_env_path_collisions(
+    env: Mapping[str, str | os.PathLike[str]],
+) -> list[str]:
+    """Return collisions where runtime support dirs overlap with SNAP_DIR."""
+    raw_paths = {
+        key: value for key in SNAPSHOT_ISOLATION_ENV_KEYS if (value := env.get(key))
+    }
+    if "SNAP_DIR" not in raw_paths:
+        return []
+
+    paths = {
+        key: Path(value).expanduser().resolve(strict=False)
+        for key, value in raw_paths.items()
+    }
+    snap_dir = paths["SNAP_DIR"]
+    collisions: list[str] = []
+
+    for key, path in paths.items():
+        if key == "SNAP_DIR":
+            continue
+        if path == snap_dir:
+            collisions.append(f"{key} must not equal SNAP_DIR ({snap_dir})")
+            continue
+        if snap_dir in path.parents:
+            collisions.append(f"{key} must not be nested under SNAP_DIR ({path})")
+
+    return collisions
+
+
+def assert_isolated_snapshot_env(
+    env: Mapping[str, str | os.PathLike[str]],
+) -> None:
+    """Assert that support dirs cannot pollute SNAP_DIR in tests."""
+    collisions = find_snapshot_env_path_collisions(env)
+    if collisions:
+        details = "; ".join(collisions)
+        raise AssertionError(
+            f"Test runtime directories must stay isolated from SNAP_DIR. {details}",
+        )
+
+
 def run_hook(
     hook_script: Path,
     url: str,
@@ -132,6 +175,8 @@ def run_hook(
     """
     if env is None:
         env = os.environ.copy()
+
+    assert_isolated_snapshot_env(env)
 
     cmd = [str(hook_script)]
 
@@ -168,8 +213,13 @@ def run_hook_and_parse(
         Tuple of (returncode, parsed_record_or_None, stderr)
     """
     returncode, stdout, stderr = run_hook(
-        hook_script, url, snapshot_id,
-        cwd=cwd, env=env, timeout=timeout, extra_args=extra_args,
+        hook_script,
+        url,
+        snapshot_id,
+        cwd=cwd,
+        env=env,
+        timeout=timeout,
+        extra_args=extra_args,
     )
     record = parse_jsonl_output(stdout, record_type=record_type)
     return returncode, record, stderr

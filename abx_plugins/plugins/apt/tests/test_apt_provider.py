@@ -10,7 +10,6 @@ Tests cover:
 import json
 import shutil
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
@@ -20,6 +19,8 @@ import pytest
 # Get the path to the apt provider hook
 PLUGIN_DIR = Path(__file__).parent.parent
 INSTALL_HOOK = next(PLUGIN_DIR.glob("on_Binary__*_apt_install.py"), None)
+PLUGIN_NAME = "apt"
+HOOK_NAME = "on_Binary__13_apt_install"
 
 
 def apt_available() -> bool:
@@ -52,10 +53,13 @@ class TestAptProviderHook:
     def test_hook_skips_when_apt_not_allowed(self):
         """Hook should skip when apt not in allowed binproviders."""
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=wget",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                "--plugin-name=apt",
+                "--hook-name=on_Binary__13_apt_install",
                 "--binproviders=pip,npm",  # apt not allowed
             ],
             capture_output=True,
@@ -72,10 +76,13 @@ class TestAptProviderHook:
         """Hook should detect apt binary when available."""
         assert apt_available(), "apt not installed"
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=nonexistent-pkg-xyz123",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                "--plugin-name=apt",
+                "--hook-name=on_Binary__13_apt_install",
             ],
             capture_output=True,
             text=True,
@@ -90,10 +97,13 @@ class TestAptProviderHook:
         overrides = json.dumps({"apt": {"install_args": ["custom-package-name"]}})
 
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=test-pkg",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                "--plugin-name=apt",
+                "--hook-name=on_Binary__13_apt_install",
                 f"--overrides={overrides}",
             ],
             capture_output=True,
@@ -114,10 +124,13 @@ class TestAptProviderSystemBinaries:
         assert apt_available(), "apt not installed"
         # Check for a binary that's almost certainly installed (like 'ls' or 'bash')
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=bash",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                "--plugin-name=apt",
+                "--hook-name=on_Binary__13_apt_install",
             ],
             capture_output=True,
             text=True,

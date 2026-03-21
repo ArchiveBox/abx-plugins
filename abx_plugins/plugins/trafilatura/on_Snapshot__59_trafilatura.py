@@ -3,21 +3,22 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #   "pydantic-settings",
+#   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 """Extract article content using trafilatura from local HTML snapshots."""
 
 import argparse
-import json
 import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import (
-    emit_archive_result,
+from abx_plugins.plugins.base.utils import (
+    emit_archive_result_record,
     find_html_source,
     load_config,
     write_text_atomic,
@@ -74,13 +75,18 @@ def get_enabled_formats() -> list[str]:
     """
     config = load_config()
     return [
-        fmt for env_name, fmt in OUTPUT_ENV_TO_FORMAT.items()
+        fmt
+        for env_name, fmt in OUTPUT_ENV_TO_FORMAT.items()
         if getattr(config, env_name)
     ]
 
 
 def run_trafilatura(
-    binary: str, html_source: str, url: str, fmt: str, timeout: int
+    binary: str,
+    html_source: str,
+    url: str,
+    fmt: str,
+    timeout: int,
 ) -> tuple[bool, str]:
     resolved_binary = shutil.which(binary) or binary
     binary_path = Path(resolved_binary)
@@ -89,7 +95,10 @@ def run_trafilatura(
         binary_path.with_name("python"),
         binary_path.with_name("python3"),
     )
-    python_bin = next((candidate for candidate in python_candidates if candidate.exists()), Path(sys.executable))
+    python_bin = next(
+        (candidate for candidate in python_candidates if candidate.exists()),
+        Path(sys.executable),
+    )
 
     cmd = [
         str(python_bin),
@@ -101,8 +110,7 @@ def run_trafilatura(
     ]
     result = subprocess.run(
         cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         text=True,
         timeout=timeout,
     )
@@ -146,25 +154,25 @@ def main() -> None:
         config = load_config()
 
         if not config.TRAFILATURA_ENABLED:
-            emit_archive_result("skipped", "TRAFILATURA_ENABLED=False")
+            emit_archive_result_record("skipped", "TRAFILATURA_ENABLED=False")
             sys.exit(0)
 
         status, output = extract_trafilatura(args.url, config.TRAFILATURA_BINARY)
 
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)
-        emit_archive_result(status, output)
+        emit_archive_result_record(status, output)
         sys.exit(0 if status != "failed" else 1)
 
     except subprocess.TimeoutExpired as err:
         error = f"Timed out after {err.timeout} seconds"
         print(f"ERROR: {error}", file=sys.stderr)
-        emit_archive_result("failed", error)
+        emit_archive_result_record("failed", error)
         sys.exit(1)
     except Exception as err:
         error = f"{type(err).__name__}: {err}"
         print(f"ERROR: {error}", file=sys.stderr)
-        emit_archive_result("failed", error)
+        emit_archive_result_record("failed", error)
         sys.exit(1)
 
 

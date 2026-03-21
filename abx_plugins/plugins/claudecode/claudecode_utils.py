@@ -11,14 +11,24 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import NotRequired, TypedDict
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_archive_result, get_env, get_env_bool, get_env_int
+from abx_plugins.plugins.base.utils import get_env
 
 
-def get_crawl_metadata(crawl_dir: Path) -> dict:
+class ExtractorOutput(TypedDict):
+    name: str
+    files: list[str]
+
+
+class SnapshotMetadata(TypedDict):
+    snap_dir: str
+    extractor_outputs: NotRequired[list[ExtractorOutput]]
+
+
+def get_crawl_metadata(crawl_dir: Path) -> dict[str, object]:
     """Read crawl metadata from the crawl directory."""
-    metadata = {
+    metadata: dict[str, object] = {
         "crawl_dir": str(crawl_dir),
     }
 
@@ -34,26 +44,28 @@ def get_crawl_metadata(crawl_dir: Path) -> dict:
     return metadata
 
 
-def get_snapshot_metadata(snap_dir: Path) -> dict:
+def get_snapshot_metadata(snap_dir: Path) -> SnapshotMetadata:
     """Read snapshot metadata from the snapshot directory."""
-    metadata = {
+    metadata: SnapshotMetadata = {
         "snap_dir": str(snap_dir),
     }
 
     # List existing extractor output directories
     if snap_dir.exists():
-        extractor_dirs = []
+        extractor_dirs: list[ExtractorOutput] = []
         for item in sorted(snap_dir.iterdir()):
             if item.is_dir() and not item.name.startswith("."):
-                files = []
+                files: list[str] = []
                 try:
                     files = [f.name for f in item.iterdir() if f.is_file()]
                 except OSError:
                     pass
-                extractor_dirs.append({
-                    "name": item.name,
-                    "files": files,
-                })
+                extractor_dirs.append(
+                    {
+                        "name": item.name,
+                        "files": files,
+                    },
+                )
         metadata["extractor_outputs"] = extractor_dirs
 
     return metadata
@@ -69,7 +81,7 @@ def build_system_prompt(
 
     parts.append(
         "You are an AI agent running inside ArchiveBox, a self-hosted web archiving tool. "
-        "You have access to the filesystem and can read/write files."
+        "You have access to the filesystem and can read/write files.",
     )
 
     parts.append(
@@ -78,20 +90,25 @@ def build_system_prompt(
         "- **Crawl directory** (`CRAWL_DIR`): The top-level directory for a crawl job. "
         "Contains crawl-wide config, logs, and plugin outputs.\n"
         "- **Snapshot directory** (`SNAP_DIR`): Each URL being archived gets its own snapshot directory "
-        "inside the crawl. Contains per-URL extractor outputs.\n"
+        "inside the crawl. Contains per-URL extractor outputs.\n",
     )
 
     if crawl_dir and crawl_dir.exists():
         crawl_meta = get_crawl_metadata(crawl_dir)
-        parts.append(f"\n## Current Crawl\n```\nCRAWL_DIR={crawl_meta['crawl_dir']}\n```\n")
+        parts.append(
+            f"\n## Current Crawl\n```\nCRAWL_DIR={crawl_meta['crawl_dir']}\n```\n",
+        )
 
     if snap_dir and snap_dir.exists():
         snap_meta = get_snapshot_metadata(snap_dir)
-        parts.append(f"\n## Current Snapshot\n```\nSNAP_DIR={snap_meta['snap_dir']}\n```\n")
+        parts.append(
+            f"\n## Current Snapshot\n```\nSNAP_DIR={snap_meta['snap_dir']}\n```\n",
+        )
 
-        if snap_meta.get("extractor_outputs"):
+        extractor_outputs = snap_meta.get("extractor_outputs", [])
+        if extractor_outputs:
             parts.append("### Extractor Outputs Available\n")
-            for ext in snap_meta["extractor_outputs"]:
+            for ext in extractor_outputs:
                 file_list = ", ".join(ext["files"][:10])
                 if len(ext["files"]) > 10:
                     file_list += f", ... (+{len(ext['files']) - 10} more)"
@@ -117,7 +134,7 @@ def build_system_prompt(
         "  headers/           # HTTP headers\n"
         "  hashes/            # File hashes (Merkle tree)\n"
         "  ...\n"
-        "```\n"
+        "```\n",
     )
 
     if extra_context:
@@ -188,15 +205,25 @@ def run_claude_code(
     # Filter out sensitive env vars to avoid leaking secrets into the agent session
     DENIED_ENV_VARS = {
         # Secrets and credentials that should not be passed to the agent
-        "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN",
-        "GITHUB_TOKEN", "GH_TOKEN", "GITLAB_TOKEN",
-        "DATABASE_URL", "DB_PASSWORD", "DB_PASS",
-        "SECRET_KEY", "DJANGO_SECRET_KEY",
-        "SMTP_PASSWORD", "EMAIL_PASSWORD",
-        "TWOCAPTCHA_API_KEY", "API_KEY_2CAPTCHA",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+        "GITHUB_TOKEN",
+        "GH_TOKEN",
+        "GITLAB_TOKEN",
+        "DATABASE_URL",
+        "DB_PASSWORD",
+        "DB_PASS",
+        "SECRET_KEY",
+        "DJANGO_SECRET_KEY",
+        "SMTP_PASSWORD",
+        "EMAIL_PASSWORD",
+        "TWOCAPTCHA_API_KEY",
+        "API_KEY_2CAPTCHA",
         "OPENAI_API_KEY",
-        "COOKIES_TXT_FILE", "COOKIES_FILE",
-        "SSH_AUTH_SOCK", "SSH_AGENT_PID",
+        "COOKIES_TXT_FILE",
+        "COOKIES_FILE",
+        "SSH_AUTH_SOCK",
+        "SSH_AGENT_PID",
         "GPG_AGENT_INFO",
     }
     env = {k: v for k, v in os.environ.items() if k not in DENIED_ENV_VARS}
@@ -207,7 +234,10 @@ def run_claude_code(
         env["ANTHROPIC_API_KEY"] = api_key
 
     print(f"[*] Running Claude Code in {work_dir}...", file=sys.stderr)
-    print(f"[*] Model: {model}, Max turns: {max_turns}, Timeout: {timeout}s", file=sys.stderr)
+    print(
+        f"[*] Model: {model}, Max turns: {max_turns}, Timeout: {timeout}s",
+        file=sys.stderr,
+    )
 
     try:
         result = subprocess.run(
@@ -240,7 +270,10 @@ def run_claude_code(
                             content = msg.get("content", [])
                             if isinstance(content, list):
                                 for block in content:
-                                    if isinstance(block, dict) and block.get("type") == "text":
+                                    if (
+                                        isinstance(block, dict)
+                                        and block.get("type") == "text"
+                                    ):
                                         text_response += block.get("text", "")
                             elif isinstance(content, str):
                                 text_response += content

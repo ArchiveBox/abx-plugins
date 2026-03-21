@@ -4,7 +4,10 @@
 # dependencies = [
 #     "pydantic-settings",
 #     "rich-click",
+#     "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 """
 Download video/audio from a URL using yt-dlp.
@@ -24,15 +27,17 @@ Environment variables:
     YTDLP_ARGS_EXTRA: Extra arguments to append (JSON array)
 """
 
-import json
 import os
 import subprocess
 import sys
 import threading
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import load_config, has_staticfile_output
+from abx_plugins.plugins.base.utils import (
+    emit_archive_result_record,
+    has_staticfile_output,
+    load_config,
+)
 
 import rich_click as click
 
@@ -172,7 +177,9 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
             for f in output_dir.glob("*")
             if f.is_file()
             and f.suffix.lower() in media_extensions
-            and not any(f.name.endswith(suffix) for suffix in EXECUTOR_ARTIFACT_SUFFIXES)
+            and not any(
+                f.name.endswith(suffix) for suffix in EXECUTOR_ARTIFACT_SUFFIXES
+            )
         ]
 
         if downloaded_files:
@@ -236,11 +243,7 @@ def main(url: str, snapshot_id: str):
         # Check if yt-dlp downloading is enabled
         if not config.YTDLP_ENABLED:
             print("Skipping ytdlp (YTDLP_ENABLED=False)", file=sys.stderr)
-            print(json.dumps({
-                "type": "ArchiveResult",
-                "status": "skipped",
-                "output_str": "YTDLP_ENABLED=False",
-            }))
+            emit_archive_result_record("skipped", "YTDLP_ENABLED=False")
             sys.exit(0)
 
         # Check if staticfile extractor already handled this (permanent skip)
@@ -249,15 +252,7 @@ def main(url: str, snapshot_id: str):
                 "Skipping ytdlp - staticfile extractor already downloaded this",
                 file=sys.stderr,
             )
-            print(
-                json.dumps(
-                    {
-                        "type": "ArchiveResult",
-                        "status": "succeeded",
-                        "output_str": "staticfile already handled",
-                    }
-                )
-            )
+            emit_archive_result_record("succeeded", "staticfile already handled")
             sys.exit(0)
 
         # Get binary from environment
@@ -269,30 +264,17 @@ def main(url: str, snapshot_id: str):
         if success:
             status = "noresults" if output == "No media found" else "succeeded"
             # Success - emit ArchiveResult
-            result = {
-                "type": "ArchiveResult",
-                "status": status,
-                "output_str": rel_output(output) or "",
-            }
-            print(json.dumps(result))
+            emit_archive_result_record(status, rel_output(output) or "")
             sys.exit(0)
         else:
             print(f"ERROR: {error}", file=sys.stderr)
-            print(json.dumps({
-                "type": "ArchiveResult",
-                "status": "failed",
-                "output_str": error or "",
-            }))
+            emit_archive_result_record("failed", error or "")
             sys.exit(1)
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"
         print(f"ERROR: {error}", file=sys.stderr)
-        print(json.dumps({
-            "type": "ArchiveResult",
-            "status": "failed",
-            "output_str": error,
-        }))
+        emit_archive_result_record("failed", error)
         sys.exit(1)
 
 

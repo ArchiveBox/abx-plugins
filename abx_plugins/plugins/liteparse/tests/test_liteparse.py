@@ -14,15 +14,13 @@ Tests verify:
 import json
 import os
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
 import pytest
 import requests
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
@@ -98,7 +96,9 @@ def _download_pdf(url: str) -> bytes:
 
 def test_hook_scripts_exist():
     assert LITEPARSE_HOOK.exists(), f"Snapshot hook not found: {LITEPARSE_HOOK}"
-    assert LITEPARSE_CRAWL_HOOK.exists(), f"Crawl hook not found: {LITEPARSE_CRAWL_HOOK}"
+    assert LITEPARSE_CRAWL_HOOK.exists(), (
+        f"Crawl hook not found: {LITEPARSE_CRAWL_HOOK}"
+    )
 
 
 def test_crawl_hook_emits_lit_binary_record():
@@ -114,13 +114,17 @@ def test_crawl_hook_emits_lit_binary_record():
     assert binary, "Expected crawl hook to emit Binary record"
     assert binary.get("type") == "Binary"
     assert binary.get("name") == "lit"
-    assert binary.get("overrides", {}).get("npm", {}).get("install_args") == ["@llamaindex/liteparse"]
+    assert binary.get("overrides", {}).get("npm", {}).get("install_args") == [
+        "@llamaindex/liteparse",
+    ]
 
 
 def test_verify_deps_with_install_hooks():
     """Verify lit binary can be installed and resolved via abx_pkg and hooks."""
     binary_path = require_liteparse_binary()
-    assert Path(binary_path).is_file(), f"Binary path must be a valid file: {binary_path}"
+    assert Path(binary_path).is_file(), (
+        f"Binary path must be a valid file: {binary_path}"
+    )
 
 
 def test_config_disabled_skips():
@@ -130,9 +134,12 @@ def test_config_disabled_skips():
         env["LITEPARSE_ENABLED"] = "False"
 
         result = subprocess.run(
-            [str(LITEPARSE_HOOK),
-                "--url", TEST_URL,
-                "--snapshot-id", "test-disabled",
+            [
+                str(LITEPARSE_HOOK),
+                "--url",
+                TEST_URL,
+                "--snapshot-id",
+                "test-disabled",
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -162,9 +169,12 @@ def test_noresults_without_sources():
         env["LITEPARSE_BINARY"] = binary_path
 
         result = subprocess.run(
-            [str(LITEPARSE_HOOK),
-                "--url", TEST_URL,
-                "--snapshot-id", "test-nosources",
+            [
+                str(LITEPARSE_HOOK),
+                "--url",
+                TEST_URL,
+                "--snapshot-id",
+                "test-nosources",
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -203,9 +213,12 @@ def test_extract_single_pdf():
         env["LITEPARSE_BINARY"] = binary_path
 
         result = subprocess.run(
-            [str(LITEPARSE_HOOK),
-                "--url", PDF_URL_B,
-                "--snapshot-id", "test-single-pdf",
+            [
+                str(LITEPARSE_HOOK),
+                "--url",
+                PDF_URL_B,
+                "--snapshot-id",
+                "test-single-pdf",
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -218,7 +231,9 @@ def test_extract_single_pdf():
 
         record = parse_jsonl_output(result.stdout)
         assert record, "Should have ArchiveResult JSONL output"
-        assert record["status"] == "succeeded", f"Should succeed: {record}. stderr: {result.stderr}"
+        assert record["status"] == "succeeded", (
+            f"Should succeed: {record}. stderr: {result.stderr}"
+        )
 
         output_dir = snap_dir / "liteparse"
         assert (output_dir / "content.txt").exists(), "content.txt not created"
@@ -275,9 +290,12 @@ def test_extract_multiple_pdfs():
         env["LITEPARSE_BINARY"] = binary_path
 
         result = subprocess.run(
-            [str(LITEPARSE_HOOK),
-                "--url", "https://example.com/docs",
-                "--snapshot-id", "test-multi-pdf",
+            [
+                str(LITEPARSE_HOOK),
+                "--url",
+                "https://example.com/docs",
+                "--snapshot-id",
+                "test-multi-pdf",
             ],
             cwd=tmpdir,
             capture_output=True,

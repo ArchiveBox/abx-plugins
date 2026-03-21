@@ -1,7 +1,12 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = []
+# dependencies = [
+#   "pydantic-settings",
+#   "abx-plugins",
+# ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Emits gallery-dl as a Binary dependency for the crawl, configured via environment variables.
@@ -9,13 +14,11 @@
 # Usage:
 #     ./on_Crawl__20_gallerydl_install.py > events.jsonl
 
-import json
 import os
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, get_env_bool, output_binary
+from abx_plugins.plugins.base.utils import emit_binary_record, get_env_bool
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
@@ -30,7 +33,7 @@ def main():
     if not gallerydl_enabled:
         sys.exit(0)
 
-    output_binary(name="gallery-dl", binproviders="env,pip,brew,apt")
+    emit_binary_record(name="gallery-dl", binproviders="env,pip,brew,apt")
 
     sys.exit(0)
 

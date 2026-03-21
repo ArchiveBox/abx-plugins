@@ -10,19 +10,16 @@ Tests verify:
 6. Handles non-video URLs gracefully
 """
 
-import json
 import io
 import os
 import subprocess
-import sys
 import tempfile
 import time
 import wave
 from pathlib import Path
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
@@ -139,7 +136,8 @@ def test_handles_non_video_url(non_video_test_url):
 
         # Run ytdlp extraction hook on non-video URL
         result = subprocess.run(
-            [str(YTDLP_HOOK),
+            [
+                str(YTDLP_HOOK),
                 "--url",
                 non_video_test_url,
                 "--snapshot-id",
@@ -176,7 +174,8 @@ def test_config_ytdlp_enabled_false_skips():
         env["YTDLP_ENABLED"] = "False"
 
         result = subprocess.run(
-            [str(YTDLP_HOOK),
+            [
+                str(YTDLP_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -199,7 +198,7 @@ def test_config_ytdlp_enabled_false_skips():
         )
 
         result_json = parse_jsonl_output(result.stdout)
-        assert result_json, f"Expected skipped JSONL output"
+        assert result_json, "Expected skipped JSONL output"
         assert result_json["status"] == "skipped", result_json
         assert result_json["output_str"] == "YTDLP_ENABLED=False", result_json
 
@@ -216,7 +215,8 @@ def test_config_timeout(non_video_test_url):
 
         start_time = time.time()
         result = subprocess.run(
-            [str(YTDLP_HOOK),
+            [
+                str(YTDLP_HOOK),
                 "--url",
                 non_video_test_url,
                 "--snapshot-id",
@@ -253,7 +253,8 @@ def test_extracts_local_media_url(media_test_url):
 
         start_time = time.time()
         result = subprocess.run(
-            [str(YTDLP_HOOK),
+            [
+                str(YTDLP_HOOK),
                 "--url",
                 media_test_url,
                 "--snapshot-id",
@@ -304,7 +305,7 @@ def test_extracts_local_media_url(media_test_url):
         )
 
         print(
-            f"Successfully extracted {len(media_files)} file(s) in {elapsed_time:.2f}s"
+            f"Successfully extracted {len(media_files)} file(s) in {elapsed_time:.2f}s",
         )
 
 

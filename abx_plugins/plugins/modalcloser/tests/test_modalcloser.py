@@ -21,13 +21,13 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-
 # Import shared Chrome test helpers
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
     chrome_session,
 )
+
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
@@ -54,7 +54,8 @@ def _modal_page_url(httpserver) -> str:
 </html>
 """
     httpserver.expect_request("/modal").respond_with_data(
-        html, content_type="text/html; charset=utf-8"
+        html,
+        content_type="text/html; charset=utf-8",
     )
     return httpserver.url_for("/modal")
 
@@ -87,7 +88,8 @@ def test_config_modalcloser_disabled_skips():
         env["MODALCLOSER_ENABLED"] = "False"
 
         result = subprocess.run(
-            [str(MODALCLOSER_HOOK),
+            [
+                str(MODALCLOSER_HOOK),
                 f"--url={TEST_URL}",
                 "--snapshot-id=test-disabled",
             ],
@@ -125,7 +127,8 @@ def test_fails_gracefully_without_chrome_session():
         modalcloser_dir.mkdir(parents=True, exist_ok=True)
 
         result = subprocess.run(
-            [str(MODALCLOSER_HOOK),
+            [
+                str(MODALCLOSER_HOOK),
                 f"--url={TEST_URL}",
                 "--snapshot-id=test-no-chrome",
             ],
@@ -166,7 +169,8 @@ def test_background_script_handles_sigterm(httpserver):
                 env["MODALCLOSER_POLL_INTERVAL"] = "200"  # Faster polling for test
 
                 modalcloser_process = subprocess.Popen(
-                    [str(MODALCLOSER_HOOK),
+                    [
+                        str(MODALCLOSER_HOOK),
                         f"--url={test_url}",
                         "--snapshot-id=snap-modalcloser",
                     ],
@@ -254,7 +258,8 @@ def test_dialog_handler_logs_dialogs(httpserver):
                 env["MODALCLOSER_POLL_INTERVAL"] = "200"
 
                 modalcloser_process = subprocess.Popen(
-                    [str(MODALCLOSER_HOOK),
+                    [
+                        str(MODALCLOSER_HOOK),
                         f"--url={test_url}",
                         "--snapshot-id=snap-dialog",
                     ],
@@ -311,7 +316,8 @@ def test_config_poll_interval(httpserver):
                 env["MODALCLOSER_POLL_INTERVAL"] = "100"  # 100ms
 
                 modalcloser_process = subprocess.Popen(
-                    [str(MODALCLOSER_HOOK),
+                    [
+                        str(MODALCLOSER_HOOK),
                         f"--url={test_url}",
                         "--snapshot-id=snap-poll",
                     ],
@@ -352,7 +358,8 @@ def test_config_poll_interval(httpserver):
                 )
                 output_str = result_json.get("output_str", "").lower()
                 assert (
-                    output_str.endswith("modals closed") and output_str.split()[0].isdigit()
+                    output_str.endswith("modals closed")
+                    and output_str.split()[0].isdigit()
                 ), f"Should report closing modals/dialogs: {result_json}"
 
         finally:

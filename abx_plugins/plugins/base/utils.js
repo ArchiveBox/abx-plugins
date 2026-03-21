@@ -4,7 +4,7 @@
  * Provides common helpers used across multiple plugins:
  * - Environment variable parsing (getEnv, getEnvBool, getEnvInt, getEnvArray)
  * - CLI argument parsing (parseArgs)
- * - JSONL record emission (emitArchiveResult)
+ * - JSONL record emission (emitArchiveResultRecord, emitSnapshotRecord)
  * - Atomic file writing (writeFileAtomic)
  * - Sibling plugin output checking (hasStaticFileOutput)
  */
@@ -12,6 +12,26 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+
+function fsyncIfRegularFile(fd) {
+    try {
+        const stats = fs.fstatSync(fd);
+        if (stats.isFile()) {
+            fs.fsyncSync(fd);
+        }
+    } catch (error) {
+        return;
+    }
+}
+
+function writeFdFully(fd, text) {
+    const buffer = Buffer.from(text, 'utf8');
+    let offset = 0;
+    while (offset < buffer.length) {
+        offset += fs.writeSync(fd, buffer, offset, buffer.length - offset);
+    }
+    fsyncIfRegularFile(fd);
+}
 
 // ---------------------------------------------------------------------------
 // Environment variable helpers
@@ -50,7 +70,7 @@ function getEnvArray(name, defaultValue = []) {
         } catch (e) {
             // Warn when a value looks like JSON but fails to parse, then
             // fall through to comma-separated parsing below.
-            process.stderr.write(`[base/utils.js] Warning: ${name} looks like JSON but failed to parse: ${e.message}\n`);
+            writeFdFully(2, `[base/utils.js] Warning: ${name} looks like JSON but failed to parse: ${e.message}\n`);
         }
     }
 
@@ -112,12 +132,20 @@ function parseArgs() {
 // JSONL record emission
 // ---------------------------------------------------------------------------
 
-function emitArchiveResult(status, outputStr) {
-    console.log(JSON.stringify({
+function emitArchiveResultRecord(status, outputStr, extra = {}) {
+    writeFdFully(1, `${JSON.stringify({
         type: 'ArchiveResult',
         status,
         output_str: outputStr,
-    }));
+        ...extra,
+    })}\n`);
+}
+
+function emitSnapshotRecord(record) {
+    writeFdFully(1, `${JSON.stringify({
+        type: 'Snapshot',
+        ...record,
+    })}\n`);
 }
 
 // ---------------------------------------------------------------------------
@@ -163,7 +191,8 @@ module.exports = {
     getNodeModulesDir,
     ensureNodeModuleResolution,
     parseArgs,
-    emitArchiveResult,
+    emitArchiveResultRecord,
+    emitSnapshotRecord,
     writeFileAtomic,
     hasStaticFileOutput,
 };

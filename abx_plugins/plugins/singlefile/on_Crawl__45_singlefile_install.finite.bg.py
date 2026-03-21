@@ -2,20 +2,21 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#   "pydantic-settings",
+#   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Emit single-file Binary dependency for the crawl.
 #
 
-import json
 import os
 import sys
 from pathlib import Path
-from typing import Any
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, get_env_bool, output_binary
+from abx_plugins.plugins.base.utils import emit_binary_record, get_env_bool
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
@@ -30,7 +31,7 @@ def main():
     if not singlefile_enabled:
         sys.exit(0)
 
-    output_binary(
+    emit_binary_record(
         name="single-file",
         binproviders="env,npm",
         overrides={"npm": {"install_args": ["single-file-cli"]}},

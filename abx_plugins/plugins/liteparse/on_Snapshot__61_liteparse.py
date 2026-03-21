@@ -4,7 +4,10 @@
 # dependencies = [
 #   "pydantic-settings",
 #   "rich-click",
+#   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 """
 Extract text and metadata from PDFs using LiteParse (lit CLI by LlamaIndex).
@@ -30,8 +33,11 @@ import sys
 import tempfile
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import load_config, emit_archive_result, write_text_atomic
+from abx_plugins.plugins.base.utils import (
+    load_config,
+    emit_archive_result_record,
+    write_text_atomic,
+)
 
 import rich_click as click
 
@@ -78,22 +84,46 @@ def find_pdf_sources() -> list[Path]:
     return found
 
 
-def _run_liteparse(binary: str, source_file: Path, fmt: str, output_path: Path, timeout: int, extra_args: list[str]) -> bool:
+def _run_liteparse(
+    binary: str,
+    source_file: Path,
+    fmt: str,
+    output_path: Path,
+    timeout: int,
+    extra_args: list[str],
+) -> bool:
     """Run lit parse on a single file, return True on success."""
-    cmd = [binary, "parse", str(source_file), "--format", fmt, "-o", str(output_path), *extra_args]
+    cmd = [
+        binary,
+        "parse",
+        str(source_file),
+        "--format",
+        fmt,
+        "-o",
+        str(output_path),
+        *extra_args,
+    ]
     result = subprocess.run(
         cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         timeout=timeout,
         text=True,
     )
     if result.stderr:
         print(result.stderr, file=sys.stderr, end="")
-    return result.returncode == 0 and output_path.is_file() and output_path.stat().st_size > 0
+    return (
+        result.returncode == 0
+        and output_path.is_file()
+        and output_path.stat().st_size > 0
+    )
 
 
-def _extract_single_pdf(binary: str, source_file: Path, timeout: int, extra_args: list[str]) -> tuple[str, str]:
+def _extract_single_pdf(
+    binary: str,
+    source_file: Path,
+    timeout: int,
+    extra_args: list[str],
+) -> tuple[str, str]:
     """Run text + JSON extraction on a single PDF, return (text_content, json_content)."""
     text_content = ""
     json_content = ""
@@ -142,7 +172,10 @@ def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
         print(f"[liteparse] Processing: {source_file.name}", file=sys.stderr)
         try:
             text_content, json_content = _extract_single_pdf(
-                binary, source_file, timeout, extra_args,
+                binary,
+                source_file,
+                timeout,
+                extra_args,
             )
 
             if not text_content and not json_content:
@@ -153,15 +186,19 @@ def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
                 continue
 
             if text_content:
-                all_text_parts.append(f"<!-- source: {source_file.name} -->\n{text_content}")
+                all_text_parts.append(
+                    f"<!-- source: {source_file.name} -->\n{text_content}",
+                )
             if json_content:
                 all_json_parts.append(json_content)
 
-            metadata_records.append({
-                "source_file": str(source_file.name),
-                "source_path": str(source_file),
-                "chars_extracted": len(text_content or json_content),
-            })
+            metadata_records.append(
+                {
+                    "source_file": str(source_file.name),
+                    "source_path": str(source_file),
+                    "chars_extracted": len(text_content or json_content),
+                },
+            )
 
         except subprocess.TimeoutExpired:
             print(
@@ -204,7 +241,10 @@ def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
                     parsed_jsons.append(json.loads(jp))
                 except json.JSONDecodeError:
                     parsed_jsons.append(jp)
-            write_text_atomic(output_dir / JSON_FILE, json.dumps(parsed_jsons, indent=2))
+            write_text_atomic(
+                output_dir / JSON_FILE,
+                json.dumps(parsed_jsons, indent=2),
+            )
 
     write_text_atomic(
         output_dir / METADATA_FILE,
@@ -234,7 +274,7 @@ def main(url: str, snapshot_id: str):
 
         if not config.LITEPARSE_ENABLED:
             print("Skipping liteparse (LITEPARSE_ENABLED=False)", file=sys.stderr)
-            emit_archive_result("skipped", "LITEPARSE_ENABLED=False")
+            emit_archive_result_record("skipped", "LITEPARSE_ENABLED=False")
             sys.exit(0)
 
         binary = config.LITEPARSE_BINARY
@@ -242,13 +282,13 @@ def main(url: str, snapshot_id: str):
         status, output = extract_liteparse(url, binary)
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)
-        emit_archive_result(status, output)
+        emit_archive_result_record(status, output)
         sys.exit(0 if status != "failed" else 1)
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"
         print(f"ERROR: {error}", file=sys.stderr)
-        emit_archive_result("failed", error)
+        emit_archive_result_record("failed", error)
         sys.exit(1)
 
 

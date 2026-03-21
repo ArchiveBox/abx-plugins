@@ -4,7 +4,10 @@
 # dependencies = [
 #     "pydantic-settings",
 #     "rich-click",
+#     "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 """
 Archive a URL using SingleFile.
@@ -31,8 +34,11 @@ import sys
 import threading
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import load_config, emit_archive_result, has_staticfile_output
+from abx_plugins.plugins.base.utils import (
+    load_config,
+    emit_archive_result_record,
+    has_staticfile_output,
+)
 
 import rich_click as click
 
@@ -77,7 +83,11 @@ def summarize_error(detail: str) -> str:
     return preferred_lines[-1]
 
 
-def run_chrome_utils(command: str, *args: str, timeout: int) -> subprocess.CompletedProcess[str]:
+def run_chrome_utils(
+    command: str,
+    *args: str,
+    timeout: int,
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [str(CHROME_UTILS_SCRIPT), command, *args],
         cwd=str(OUTPUT_DIR),
@@ -87,7 +97,10 @@ def run_chrome_utils(command: str, *args: str, timeout: int) -> subprocess.Compl
     )
 
 
-def get_browser_server_url(timeout: int, require_target: bool = True) -> tuple[str | None, str]:
+def get_browser_server_url(
+    timeout: int,
+    require_target: bool = True,
+) -> tuple[str | None, str]:
     timeout_ms = max(1000, timeout * 1000)
     result = run_chrome_utils(
         "getBrowserServerUrl",
@@ -128,9 +141,16 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
         require_target=True,
     )
     if not cdp_remote_url:
-        return False, None, error or "No Chrome session found (chrome plugin must run first)"
+        return (
+            False,
+            None,
+            error or "No Chrome session found (chrome plugin must run first)",
+        )
 
-    print(f"[singlefile] Using existing Chrome session: {cdp_remote_url}", file=sys.stderr)
+    print(
+        f"[singlefile] Using existing Chrome session: {cdp_remote_url}",
+        file=sys.stderr,
+    )
     cmd.extend(["--browser-server", cdp_remote_url])
 
     # SSL handling
@@ -212,7 +232,8 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
 
 
 def save_singlefile_with_extension(
-    url: str, timeout: int
+    url: str,
+    timeout: int,
 ) -> tuple[bool, str | None, str]:
     """Save using the SingleFile Chrome extension via existing Chrome session."""
     print(f"[singlefile] Extension mode start url={url}", file=sys.stderr)
@@ -224,7 +245,6 @@ def save_singlefile_with_extension(
         )
         return False, None, "SingleFile extension helper script missing"
 
-    config = load_config()
     output_path = Path(OUTPUT_DIR) / OUTPUT_FILE
     temp_output_path = temp_path_for(output_path)
     cmd = [
@@ -294,10 +314,12 @@ def save_singlefile_with_extension(
 
     print(f"[singlefile] helper_returncode={result_returncode}", file=sys.stderr)
     print(
-        f"[singlefile] helper_stdout_len={len(result_stdout or b'')}", file=sys.stderr
+        f"[singlefile] helper_stdout_len={len(result_stdout or b'')}",
+        file=sys.stderr,
     )
     print(
-        f"[singlefile] helper_stderr_len={len(result_stderr or b'')}", file=sys.stderr
+        f"[singlefile] helper_stderr_len={len(result_stderr or b'')}",
+        file=sys.stderr,
     )
 
     if result_returncode == 0:
@@ -334,7 +356,7 @@ def main(url: str, snapshot_id: str):
         # Check if SingleFile is enabled
         if not config.SINGLEFILE_ENABLED:
             print("Skipping SingleFile (SINGLEFILE_ENABLED=False)", file=sys.stderr)
-            emit_archive_result("skipped", "SINGLEFILE_ENABLED=False")
+            emit_archive_result_record("skipped", "SINGLEFILE_ENABLED=False")
             sys.exit(0)
 
         # Check if staticfile extractor already handled this (permanent skip)
@@ -343,7 +365,7 @@ def main(url: str, snapshot_id: str):
                 "Skipping SingleFile - staticfile extractor already downloaded this",
                 file=sys.stderr,
             )
-            emit_archive_result("noresults", "staticfile already handled")
+            emit_archive_result_record("noresults", "staticfile already handled")
             sys.exit(0)
 
         # Prefer SingleFile extension via existing Chrome session
@@ -358,7 +380,7 @@ def main(url: str, snapshot_id: str):
     if error:
         print(f"ERROR: {error}", file=sys.stderr)
 
-    emit_archive_result(status, output or error or "")
+    emit_archive_result_record(status, output or error or "")
 
     sys.exit(0 if status != "failed" else 1)
 

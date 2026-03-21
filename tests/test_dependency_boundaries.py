@@ -54,7 +54,8 @@ def _collect_forbidden_imports(path: Path) -> list[tuple[int, str]]:
                 continue
             first_arg = node.args[0]
             if not isinstance(first_arg, ast.Constant) or not isinstance(
-                first_arg.value, str
+                first_arg.value,
+                str,
             ):
                 continue
 

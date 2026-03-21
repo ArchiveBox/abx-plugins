@@ -3,7 +3,6 @@
 
 import json
 import subprocess
-import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -986,7 +985,7 @@ class TestEdgeCases:
     def test_very_long_url(self, tmp_path):
         """Test very long URLs (2000+ characters)."""
         long_url = "https://example.com/path?" + "&".join(
-            [f"param{i}=value{i}" for i in range(100)]
+            [f"param{i}=value{i}" for i in range(100)],
         )
         input_file = tmp_path / "bookmarks.html"
         input_file.write_text(f'''
@@ -1051,14 +1050,14 @@ class TestEdgeCases:
         bookmarks = []
         for i in range(1000):
             bookmarks.append(
-                f'<DT><A HREF="https://example.com/page{i}" ADD_DATE="1609459200" TAGS="tag{i % 10}">Bookmark {i}</A>'
+                f'<DT><A HREF="https://example.com/page{i}" ADD_DATE="1609459200" TAGS="tag{i % 10}">Bookmark {i}</A>',
             )
 
         input_file = tmp_path / "bookmarks.html"
         input_file.write_text(
             "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<DL><p>\n"
             + "\n".join(bookmarks)
-            + "\n</DL><p>"
+            + "\n</DL><p>",
         )
 
         result = subprocess.run(

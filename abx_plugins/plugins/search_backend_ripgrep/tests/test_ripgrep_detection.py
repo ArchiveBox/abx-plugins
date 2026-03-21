@@ -8,7 +8,6 @@ Guards against regressions in:
 """
 
 import os
-import sys
 import json
 import shutil
 import subprocess
@@ -19,7 +18,9 @@ import pytest
 
 def test_ripgrep_hook_detects_binary_from_path():
     """Test that ripgrep hook finds binary using abx-pkg when env var is just a name."""
-    hook_path = next(Path(__file__).parent.parent.glob("on_Crawl__50_ripgrep_install*.py"))
+    hook_path = next(
+        Path(__file__).parent.parent.glob("on_Crawl__50_ripgrep_install*.py"),
+    )
 
     assert shutil.which("rg"), "ripgrep not installed"
 
@@ -54,7 +55,9 @@ def test_ripgrep_hook_detects_binary_from_path():
 
 def test_ripgrep_hook_skips_when_backend_not_ripgrep():
     """Test that ripgrep hook exits silently when search backend is not ripgrep."""
-    hook_path = next(Path(__file__).parent.parent.glob("on_Crawl__50_ripgrep_install*.py"))
+    hook_path = next(
+        Path(__file__).parent.parent.glob("on_Crawl__50_ripgrep_install*.py"),
+    )
 
     env = os.environ.copy()
     env["SEARCH_BACKEND_ENGINE"] = "sqlite"  # Different backend
@@ -77,7 +80,9 @@ def test_ripgrep_hook_skips_when_backend_not_ripgrep():
 
 def test_ripgrep_hook_handles_absolute_path():
     """Test that ripgrep hook exits successfully when RIPGREP_BINARY is a valid absolute path."""
-    hook_path = next(Path(__file__).parent.parent.glob("on_Crawl__50_ripgrep_install*.py"))
+    hook_path = next(
+        Path(__file__).parent.parent.glob("on_Crawl__50_ripgrep_install*.py"),
+    )
 
     rg_path = shutil.which("rg")
     assert rg_path, "ripgrep not installed"
@@ -112,12 +117,13 @@ def test_ripgrep_only_detected_when_backend_enabled():
     Guards against ripgrep being detected when not needed.
     """
     import subprocess
-    import sys
     from pathlib import Path
 
     assert shutil.which("rg"), "ripgrep not installed"
 
-    hook_path = next(Path(__file__).parent.parent.glob("on_Crawl__50_ripgrep_install*.py"))
+    hook_path = next(
+        Path(__file__).parent.parent.glob("on_Crawl__50_ripgrep_install*.py"),
+    )
 
     # Test 1: With ripgrep backend - should output Binary record
     env1 = os.environ.copy()

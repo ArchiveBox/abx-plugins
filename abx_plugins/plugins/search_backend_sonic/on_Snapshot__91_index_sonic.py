@@ -2,8 +2,12 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#     "pydantic-settings",
 #     "sonic-client",
+#     "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 """
 Sonic search backend - indexes snapshot content in Sonic server.
@@ -32,8 +36,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, get_env_bool, get_env_int
+from abx_plugins.plugins.base.utils import get_env, get_env_bool, get_env_int
 
 
 # Extractor metadata
@@ -47,6 +50,9 @@ os.chdir(OUTPUT_DIR)
 INDEXABLE_EXTENSIONS = {".txt", ".md", ".html", ".htm"}
 # Directories to skip (search backends themselves, executor artifacts, non-text plugins)
 SKIP_DIRS = {"search_backend_sqlite", "search_backend_sonic", "search_backend_ripgrep"}
+# Nested runtime/build/cache directories that are never snapshot content
+SKIP_NESTED_DIRS = {".cache", ".venv", "__pycache__", "site-packages", "node_modules"}
+SKIP_NESTED_SUFFIXES = (".dist-info", ".egg-info")
 # Filename suffixes that are executor artifacts, not content
 EXECUTOR_ARTIFACT_SUFFIXES = (".stdout.log", ".stderr.log", ".pid", ".sh", ".meta.json")
 
@@ -59,7 +65,10 @@ def get_text_size_kb(texts: list[str]) -> int:
 def strip_html_tags(html: str) -> str:
     """Remove HTML tags, keeping text content."""
     html = re.sub(
-        r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE
+        r"<script[^>]*>.*?</script>",
+        "",
+        html,
+        flags=re.DOTALL | re.IGNORECASE,
     )
     html = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL | re.IGNORECASE)
     html = re.sub(r"<[^>]+>", " ", html)
@@ -68,6 +77,24 @@ def strip_html_tags(html: str) -> str:
     html = html.replace("&quot;", '"')
     html = re.sub(r"\s+", " ", html)
     return html.strip()
+
+
+def should_skip_plugin_dir(plugin_dir: Path) -> bool:
+    """Skip search outputs and test/runtime environment trees inside SNAP_DIR."""
+    name = plugin_dir.name
+    return name in SKIP_DIRS or name.startswith(".") or name.endswith("_env")
+
+
+def should_skip_source_path(source_path: Path, plugin_dir: Path) -> bool:
+    """Ignore cache/build artifacts nested under otherwise indexable directories."""
+    for part in source_path.relative_to(plugin_dir).parts[:-1]:
+        if (
+            part.startswith(".")
+            or part in SKIP_NESTED_DIRS
+            or part.endswith(SKIP_NESTED_SUFFIXES)
+        ):
+            return True
+    return False
 
 
 def find_indexable_content() -> list[tuple[str, str]]:
@@ -89,12 +116,14 @@ def find_indexable_content() -> list[tuple[str, str]]:
             continue
 
         extractor = plugin_dir.name
-        if extractor in SKIP_DIRS:
+        if should_skip_plugin_dir(plugin_dir):
             continue
 
         for ext in INDEXABLE_EXTENSIONS:
             for match in plugin_dir.rglob(f"*{ext}"):
                 if not match.is_file():
+                    continue
+                if should_skip_source_path(match, plugin_dir):
                     continue
                 if any(match.name.endswith(s) for s in EXECUTOR_ARTIFACT_SUFFIXES):
                     continue
@@ -159,7 +188,6 @@ def main() -> None:
     parser.add_argument("--url", required=True, help="URL that was archived")
     parser.add_argument("--snapshot-id", required=True, help="Snapshot UUID")
     args = parser.parse_args()
-    url = args.url
     snapshot_id = args.snapshot_id
 
     status = "failed"
@@ -209,8 +237,8 @@ def main() -> None:
                     "type": "ArchiveResult",
                     "status": status,
                     "output_str": output_str,
-                }
-            )
+                },
+            ),
         )
 
     sys.exit(0 if status in ("succeeded", "skipped", "noresults") else 1)

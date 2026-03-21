@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+from abx_plugins.plugins.base.test_utils import (
     get_plugin_dir,
     get_hook_script,
     parse_jsonl_output,
@@ -107,8 +107,8 @@ def get_readability_binary_path() -> str | None:
         binproviders=[NpmProvider(), EnvProvider()],
         overrides={
             "npm": {
-                "install_args": ["https://github.com/ArchiveBox/readability-extractor"]
-            }
+                "install_args": ["https://github.com/ArchiveBox/readability-extractor"],
+            },
         },
     ).load_or_install()
     if binary and binary.abspath:
@@ -128,16 +128,20 @@ def test_reports_missing_dependency_when_not_installed():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir / "snap"
+        home_dir = tmpdir / "home"
         snap_dir.mkdir(parents=True, exist_ok=True)
+        home_dir.mkdir(parents=True, exist_ok=True)
 
         # Create HTML source so it doesn't fail on missing HTML
         create_example_html(snap_dir)
 
         # Run with empty PATH so binary won't be found
-        env = {"PATH": "/nonexistent", "HOME": str(tmpdir), "SNAP_DIR": str(snap_dir)}
+        env = {"PATH": "/nonexistent", "HOME": str(home_dir), "SNAP_DIR": str(snap_dir)}
 
         result = subprocess.run(
-            [sys.executable, str(READABILITY_HOOK),
+            [
+                sys.executable,
+                str(READABILITY_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -189,7 +193,8 @@ def test_extracts_article_after_installation():
         env["SNAP_DIR"] = str(snap_dir)
         env["READABILITY_BINARY"] = binary_path
         result = subprocess.run(
-            [str(READABILITY_HOOK),
+            [
+                str(READABILITY_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -260,7 +265,8 @@ def test_fails_gracefully_without_html_source():
         env["SNAP_DIR"] = str(snap_dir)
         env["READABILITY_BINARY"] = binary_path
         result = subprocess.run(
-            [str(READABILITY_HOOK),
+            [
+                str(READABILITY_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",

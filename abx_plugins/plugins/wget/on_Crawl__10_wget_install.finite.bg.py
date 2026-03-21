@@ -3,7 +3,10 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #   "pydantic-settings",
+#   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Emit wget Binary dependency for the crawl.
@@ -15,8 +18,7 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import load_config, output_binary
+from abx_plugins.plugins.base.utils import emit_binary_record, load_config
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
@@ -38,11 +40,11 @@ def main():
         warnings.append(
             f"WGET_TIMEOUT={wget_timeout} is very low. "
             "wget may fail to archive sites if set to less than ~20 seconds. "
-            "Consider setting WGET_TIMEOUT=60 or higher."
+            "Consider setting WGET_TIMEOUT=60 or higher.",
         )
 
     if wget_enabled:
-        output_binary(name="wget", binproviders="env,apt,brew")
+        emit_binary_record(name="wget", binproviders="env,apt,brew")
 
     for warning in warnings:
         print(f"WARNING:{warning}", file=sys.stderr)

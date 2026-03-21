@@ -25,7 +25,7 @@ const {
     getEnvBool,
     getEnvInt,
     parseArgs,
-    emitArchiveResult,
+    emitArchiveResultRecord,
     writeFileAtomic,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
@@ -194,7 +194,7 @@ async function main() {
 
     if (!url || !snapshotId) {
         console.error('Usage: on_Snapshot__75_parse_dom_outlinks.js --url=<url> --snapshot-id=<uuid>');
-        emitArchiveResult('failed', 'missing required args');
+        emitArchiveResultRecord('failed', 'missing required args');
         process.exit(1);
     }
 
@@ -206,7 +206,7 @@ async function main() {
         // Check if enabled
         if (!getEnvBool('PARSE_DOM_OUTLINKS_ENABLED', true)) {
             console.log('Skipping DOM outlinks (PARSE_DOM_OUTLINKS_ENABLED=False)');
-            emitArchiveResult('skipped', 'disabled by config');
+            emitArchiveResultRecord('skipped', 'disabled by config');
             process.exit(0);
         }
 
@@ -233,13 +233,13 @@ async function main() {
 
     if (error) console.error(`ERROR: ${error}`);
 
-    emitArchiveResult(status, output || error || '');
+    emitArchiveResultRecord(status, output || error || '');
 
     process.exit(status === 'failed' ? 1 : 0);
 }
 
 main().catch(e => {
     console.error(`Fatal error: ${e.message}`);
-    emitArchiveResult('failed', `${e.name}: ${e.message}`);
+    emitArchiveResultRecord('failed', `${e.name}: ${e.message}`);
     process.exit(1);
 });

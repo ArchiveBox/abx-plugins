@@ -1,8 +1,8 @@
 [project]
 name = "abx-plugins"
-version = "1.10.5"
+version = "1.10.10"
 description = "ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)"
-authors = [{name = "Nick Sweeting", email = "pyproject.toml+abx-plugins@archivebox.io"}]
+authors = [{name = "Nick Sweeting"}, {name = "ArchiveBox"}]
 requires-python = ">=3.11"
 license = {text = "MIT"}
 readme = "README.md"
@@ -11,33 +11,31 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "License :: OSI Approved :: MIT License",
     "Intended Audience :: Developers",
     "Environment :: Console",
 ]
 dependencies = [
-    "abx-pkg>=1.9.10",
+    "abxbus>=2.4.2",
+    "abx-pkg>=1.9.14",
     "feedparser>=6.0.0",
     "pydantic-settings>=2.0.0",
-    "pyright>=1.1.408",
-    "pytest>=9.0.2",
-    "pytest-httpserver>=1.1.0",
     "rich-click>=1.9.7",
-    "ruff>=0.15.2",
-    "ty>=0.0.18",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0.0",
+    "pytest>=9.0.2",
     "pytest-httpserver>=1.1.0",
-    "rich-click>=1.9.7",
     "requests>=2.28.0",
-    "feedparser>=6.0.0",
-    "abx-pkg>=0.7.0",
+    "jinja2>=3.1.0",
+    "pyright>=1.1.408",
+    "ty>=0.0.18",
+    "ruff>=0.15.2",
 ]
 
 [build-system]
@@ -58,3 +56,12 @@ Documentation = "https://github.com/ArchiveBox/ArchiveBox"
 
 [tool.pytest.ini_options]
 testpaths = ["abx_plugins/plugins", "tests"]
+
+[tool.codespell]
+ignore-words-list = "abx,bu,wit,dont,cant,wont,re-use,re-used,re-using,re-usable,thats,doesnt,fith,FitH,doubleclick,administrar"
+skip = "*.json"
+
+[dependency-groups]
+dev = [
+    "prek>=0.3.6",
+]

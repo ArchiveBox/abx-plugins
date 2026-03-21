@@ -2,8 +2,12 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#   "pydantic-settings",
 #   "rich-click",
+#   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Convert HTML to plain text for search indexing.
@@ -12,15 +16,13 @@
 # Usage:
 #     ./on_Snapshot__58_htmltotext.py --url=<url> --snapshot-id=<snapshot-id> > events.jsonl
 
-import json
 import os
 import re
 import sys
 from html.parser import HTMLParser
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_archive_result, write_text_atomic
+from abx_plugins.plugins.base.utils import emit_archive_result_record, write_text_atomic
 
 import rich_click as click
 
@@ -69,10 +71,16 @@ def html_to_text(html: str) -> str:
     except Exception:
         # Fallback: strip HTML tags with regex
         text = re.sub(
-            r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE
+            r"<script[^>]*>.*?</script>",
+            "",
+            html,
+            flags=re.DOTALL | re.IGNORECASE,
         )
         text = re.sub(
-            r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL | re.IGNORECASE
+            r"<style[^>]*>.*?</style>",
+            "",
+            text,
+            flags=re.DOTALL | re.IGNORECASE,
         )
         text = re.sub(r"<[^>]+>", " ", text)
         text = re.sub(r"\s+", " ", text)
@@ -146,13 +154,13 @@ def main(url: str, snapshot_id: str):
         status, output = extract_htmltotext(url)
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)
-        emit_archive_result(status, output)
+        emit_archive_result_record(status, output)
         sys.exit(0 if status != "failed" else 1)
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"
         print(f"ERROR: {error}", file=sys.stderr)
-        emit_archive_result("failed", error)
+        emit_archive_result_record("failed", error)
         sys.exit(1)
 
 

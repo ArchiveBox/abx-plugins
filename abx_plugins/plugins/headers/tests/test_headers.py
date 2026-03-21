@@ -17,13 +17,13 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
     get_test_env,
     chrome_session,
 )
+
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 PLUGIN_DIR = Path(__file__).parent.parent
 _HEADERS_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_headers.*"), None)
@@ -76,6 +76,7 @@ def normalize_root_url(url: str) -> str:
 
 
 def run_headers_capture(headers_dir, snapshot_chrome_dir, env, url, snapshot_id):
+    headers_file = headers_dir / "headers.json"
     hook_proc = subprocess.Popen(
         [str(HEADERS_HOOK), f"--url={url}", f"--snapshot-id={snapshot_id}"],
         cwd=headers_dir,
@@ -84,6 +85,12 @@ def run_headers_capture(headers_dir, snapshot_chrome_dir, env, url, snapshot_id)
         text=True,
         env=env,
     )
+
+    for _ in range(20):
+        if headers_file.exists():
+            break
+        time.sleep(0.25)
+    assert headers_file.exists(), "Headers hook did not become ready before navigation"
 
     nav_result = subprocess.run(
         [
@@ -98,7 +105,6 @@ def run_headers_capture(headers_dir, snapshot_chrome_dir, env, url, snapshot_id)
         env=env,
     )
 
-    headers_file = headers_dir / "headers.json"
     wait_seconds = 60 if nav_result.returncode == 0 else 5
     for _ in range(wait_seconds):
         if headers_file.exists() and headers_file.stat().st_size > 0:
@@ -200,7 +206,7 @@ def test_extracts_headers_from_example_com(require_chrome_runtime, headers_test_
 
         assert "url" in headers_data, "Should have url field"
         assert normalize_root_url(headers_data["url"]) == normalize_root_url(
-            test_url
+            test_url,
         ), f"URL should be {test_url}"
 
         assert "status" in headers_data, "Should have status field"
@@ -233,7 +239,7 @@ def test_extracts_headers_from_example_com(require_chrome_runtime, headers_test_
         )
 
         assert headers_data["response_headers"].get(":status") == str(
-            headers_data["status"]
+            headers_data["status"],
         ), "Response headers should include :status pseudo header"
 
 
@@ -468,7 +474,7 @@ def test_handles_https_urls(require_chrome_runtime, chrome_test_https_url):
             assert headers_file.exists(), "headers.json not created for HTTPS page"
             output_data = json.loads(headers_file.read_text())
             assert normalize_root_url(output_data["url"]) == normalize_root_url(
-                chrome_test_https_url
+                chrome_test_https_url,
             )
             assert output_data["status"] == 200
         else:
@@ -541,12 +547,18 @@ def test_redirect_updates_headers_final_url(require_chrome_runtime, headers_test
         assert headers_file.exists(), "headers.json not created"
 
         output_data = json.loads(headers_file.read_text())
-        assert normalize_root_url(output_data["url"]) == normalize_root_url(redirect_url)
-        assert normalize_root_url(output_data["final_url"]) == normalize_root_url(final_url), (
+        assert normalize_root_url(output_data["url"]) == normalize_root_url(
+            redirect_url,
+        )
+        assert normalize_root_url(output_data["final_url"]) == normalize_root_url(
+            final_url,
+        ), (
             f"final_url should reflect the post-redirect destination, got {output_data['final_url']}"
         )
         assert output_data["status"] == 200, output_data
-        assert normalize_root_url(output_data["response_url"]) == normalize_root_url(final_url), output_data
+        assert normalize_root_url(output_data["response_url"]) == normalize_root_url(
+            final_url,
+        ), output_data
 
 
 if __name__ == "__main__":

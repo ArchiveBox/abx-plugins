@@ -18,7 +18,8 @@ const {
     ensureNodeModuleResolution,
     getEnvInt,
     parseArgs,
-    emitArchiveResult,
+    emitArchiveResultRecord,
+    emitSnapshotRecord,
     writeFileAtomic,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
@@ -88,7 +89,7 @@ async function main() {
 
     if (!url || !snapshotId) {
         console.error('Usage: on_Snapshot__10_title.js --url=<url> --snapshot-id=<uuid>');
-        emitArchiveResult('failed', 'missing required args');
+        emitArchiveResultRecord('failed', 'missing required args');
         process.exit(1);
     }
 
@@ -126,20 +127,19 @@ async function main() {
 
     // Update snapshot title via JSONL
     if (status === 'succeeded' && extractedTitle) {
-        console.log(JSON.stringify({
-            type: 'Snapshot',
+        emitSnapshotRecord({
             id: snapshotId,
-            title: extractedTitle
-        }));
+            title: extractedTitle,
+        });
     }
 
     // Output ArchiveResult JSONL
-    emitArchiveResult(status, extractedTitle || output || error || '');
+    emitArchiveResultRecord(status, extractedTitle || output || error || '');
     process.exit(status === 'failed' ? 1 : 0);
 }
 
 main().catch(e => {
     console.error(`Fatal error: ${e.message}`);
-    emitArchiveResult('failed', `${e.name}: ${e.message}`);
+    emitArchiveResultRecord('failed', `${e.name}: ${e.message}`);
     process.exit(1);
 });

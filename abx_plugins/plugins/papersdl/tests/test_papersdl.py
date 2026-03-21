@@ -14,14 +14,12 @@ Tests verify:
 import json
 import os
 import subprocess
-import sys
 import tempfile
 import uuid
 from pathlib import Path
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
@@ -35,6 +33,7 @@ TEST_URL = "https://example.com"
 _papersdl_binary_path = None
 _papersdl_install_error = None
 _papersdl_home_root = None
+_papersdl_snap_root = None
 
 
 def require_papersdl_binary() -> str:
@@ -50,7 +49,11 @@ def require_papersdl_binary() -> str:
 
 def get_papersdl_binary_path():
     """Get the installed papers-dl binary path from cache or by running installation."""
-    global _papersdl_binary_path, _papersdl_install_error, _papersdl_home_root
+    global \
+        _papersdl_binary_path, \
+        _papersdl_install_error, \
+        _papersdl_home_root, \
+        _papersdl_snap_root
     if _papersdl_binary_path:
         return _papersdl_binary_path
 
@@ -61,17 +64,24 @@ def get_papersdl_binary_path():
         machine_id = str(uuid.uuid4())
         if not _papersdl_home_root:
             _papersdl_home_root = tempfile.mkdtemp(prefix="papersdl-lib-")
+        if not _papersdl_snap_root:
+            _papersdl_snap_root = tempfile.mkdtemp(prefix="papersdl-snap-")
 
         env = os.environ.copy()
         env["HOME"] = str(_papersdl_home_root)
-        env["SNAP_DIR"] = str(Path(_papersdl_home_root) / "data")
+        env["SNAP_DIR"] = str(_papersdl_snap_root)
         env.pop("LIB_DIR", None)
 
-        cmd = [str(pip_hook),
+        cmd = [
+            str(pip_hook),
             "--binary-id",
             binary_id,
             "--machine-id",
             machine_id,
+            "--plugin-name",
+            "papersdl",
+            "--hook-name",
+            "on_Crawl__30_papersdl_install.finite.bg",
             "--name",
             "papers-dl",
         ]
@@ -133,7 +143,8 @@ def test_handles_non_paper_url():
 
         # Run papers-dl extraction hook on non-paper URL
         result = subprocess.run(
-            [str(PAPERSDL_HOOK),
+            [
+                str(PAPERSDL_HOOK),
                 "--url",
                 "https://example.com",
                 "--snapshot-id",
@@ -168,7 +179,8 @@ def test_config_save_papersdl_false_skips():
         env["PAPERSDL_ENABLED"] = "False"
 
         result = subprocess.run(
-            [str(PAPERSDL_HOOK),
+            [
+                str(PAPERSDL_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -206,7 +218,8 @@ def test_config_timeout():
         env["PAPERSDL_TIMEOUT"] = "5"
 
         result = subprocess.run(
-            [str(PAPERSDL_HOOK),
+            [
+                str(PAPERSDL_HOOK),
                 "--url",
                 "https://example.com",
                 "--snapshot-id",
@@ -242,7 +255,8 @@ def test_real_public_paper_download():
             env["SNAP_DIR"] = str(tmpdir)
 
             result = subprocess.run(
-                [str(PAPERSDL_HOOK),
+                [
+                    str(PAPERSDL_HOOK),
                     "--url",
                     paper_url,
                     "--snapshot-id",
@@ -255,11 +269,15 @@ def test_real_public_paper_download():
                 timeout=180,
             )
 
-            assert result.returncode == 0, f"Paper download should not crash: {result.stderr}"
+            assert result.returncode == 0, (
+                f"Paper download should not crash: {result.stderr}"
+            )
 
             result_json = parse_jsonl_output(result.stdout)
 
-            assert result_json, f"Should emit ArchiveResult JSONL. stdout: {result.stdout}"
+            assert result_json, (
+                f"Should emit ArchiveResult JSONL. stdout: {result.stdout}"
+            )
             attempts.append((paper_url, result_json))
             if result_json.get("status") != "succeeded":
                 continue
@@ -270,16 +288,23 @@ def test_real_public_paper_download():
             )
 
             downloaded_files = [
-                path for path in (tmpdir / "papersdl").iterdir()
-                if path.is_file()
+                path for path in (tmpdir / "papersdl").iterdir() if path.is_file()
             ]
-            assert downloaded_files, f"Downloaded paper path missing in {tmpdir / 'papersdl'}"
+            assert downloaded_files, (
+                f"Downloaded paper path missing in {tmpdir / 'papersdl'}"
+            )
             output_path = tmpdir / output_str
-            assert output_path.is_file(), f"Downloaded paper path missing: {output_path}"
-            assert output_path.stat().st_size > 0, f"Downloaded paper file is empty: {output_path}"
+            assert output_path.is_file(), (
+                f"Downloaded paper path missing: {output_path}"
+            )
+            assert output_path.stat().st_size > 0, (
+                f"Downloaded paper file is empty: {output_path}"
+            )
             return
 
-    raise AssertionError(f"Expected at least one live paper URL to download successfully, got: {attempts}")
+    raise AssertionError(
+        f"Expected at least one live paper URL to download successfully, got: {attempts}",
+    )
 
 
 if __name__ == "__main__":

@@ -18,15 +18,17 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
-    get_test_env,
-    get_plugin_dir,
+from abx_plugins.plugins.base.test_utils import (
     get_hook_script,
-    chrome_session,
+    get_plugin_dir,
     parse_jsonl_output,
 )
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    chrome_session,
+    get_test_env,
+)
+
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
@@ -75,7 +77,8 @@ def test_extracts_dom_from_example_com(require_chrome_runtime, chrome_test_url):
 
             # Run DOM extraction hook
             result = subprocess.run(
-                [str(DOM_HOOK),
+                [
+                    str(DOM_HOOK),
                     f"--url={chrome_test_url}",
                     "--snapshot-id=test789",
                 ],
@@ -161,7 +164,7 @@ def test_staticfile_present_skips():
         staticfile_dir = tmpdir / "staticfile"
         staticfile_dir.mkdir()
         (staticfile_dir / "stdout.log").write_text(
-            '{"type":"ArchiveResult","status":"succeeded","output_str":"index.html"}\n'
+            '{"type":"ArchiveResult","status":"succeeded","output_str":"index.html"}\n',
         )
 
         dom_dir = tmpdir / "dom"

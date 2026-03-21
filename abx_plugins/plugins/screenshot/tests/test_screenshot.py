@@ -18,16 +18,18 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
-    get_test_env,
-    get_plugin_dir,
+from abx_plugins.plugins.base.test_utils import (
     get_hook_script,
-    chrome_session,
-    CHROME_PLUGIN_DIR,
+    get_plugin_dir,
     parse_jsonl_output,
 )
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    CHROME_PLUGIN_DIR,
+    chrome_session,
+    get_test_env,
+)
+
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 PLUGIN_DIR = get_plugin_dir(__file__)
 _SCREENSHOT_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_screenshot.*")
@@ -45,7 +47,8 @@ if _CHROME_TAB_HOOK is None:
     raise FileNotFoundError(f"Chrome tab hook not found in {CHROME_PLUGIN_DIR}")
 CHROME_TAB_HOOK = _CHROME_TAB_HOOK
 _CHROME_NAVIGATE_HOOK = get_hook_script(
-    CHROME_PLUGIN_DIR, "on_Snapshot__*_chrome_navigate.*"
+    CHROME_PLUGIN_DIR,
+    "on_Snapshot__*_chrome_navigate.*",
 )
 if _CHROME_NAVIGATE_HOOK is None:
     raise FileNotFoundError(f"Chrome navigate hook not found in {CHROME_PLUGIN_DIR}")
@@ -132,7 +135,7 @@ def test_screenshot_with_chrome_session(chrome_test_url):
                 screenshot_dir3 = snapshot_chrome_dir.parent / "screenshot3"
                 screenshot_dir3.mkdir()
                 (snapshot_chrome_dir / "target_id.txt").write_text(
-                    "nonexistent-target-id"
+                    "nonexistent-target-id",
                 )
 
                 result = subprocess.run(
@@ -171,7 +174,7 @@ def test_skips_when_staticfile_exists(chrome_test_url):
         staticfile_dir = snapshot_dir / "staticfile"
         staticfile_dir.mkdir()
         (staticfile_dir / "stdout.log").write_text(
-            '{"type":"ArchiveResult","status":"succeeded","output_str":"index.html"}\n'
+            '{"type":"ArchiveResult","status":"succeeded","output_str":"index.html"}\n',
         )
 
         env = get_test_env() | {"SNAP_DIR": str(snapshot_dir)}
@@ -202,7 +205,7 @@ def test_config_save_screenshot_false_skips(chrome_test_url):
 
     # FIRST check what Python sees
     print(
-        f"\n[DEBUG PYTHON] NODE_V8_COVERAGE in os.environ: {'NODE_V8_COVERAGE' in os.environ}"
+        f"\n[DEBUG PYTHON] NODE_V8_COVERAGE in os.environ: {'NODE_V8_COVERAGE' in os.environ}",
     )
     print(f"[DEBUG PYTHON] Value: {os.environ.get('NODE_V8_COVERAGE', 'NOT SET')}")
 
@@ -295,7 +298,7 @@ def test_waits_for_navigation_timeout(chrome_test_url):
         chrome_dir = snap_dir / "chrome"
         chrome_dir.mkdir(parents=True, exist_ok=True)
         (chrome_dir / "cdp_url.txt").write_text(
-            "ws://chrome-cdp.localhost:9222/devtools/browser/test"
+            "ws://chrome-cdp.localhost:9222/devtools/browser/test",
         )
         (chrome_dir / "target_id.txt").write_text("test-target-id")
         # Intentionally NOT creating navigation.json to test timeout
@@ -446,7 +449,7 @@ def test_no_target_id_fails(chrome_test_url):
         chrome_dir.mkdir()
         # Create cdp_url.txt and navigation.json but NOT target_id.txt
         (chrome_dir / "cdp_url.txt").write_text(
-            "ws://chrome-cdp.localhost:9222/devtools/browser/test"
+            "ws://chrome-cdp.localhost:9222/devtools/browser/test",
         )
         (chrome_dir / "navigation.json").write_text("{}")
 

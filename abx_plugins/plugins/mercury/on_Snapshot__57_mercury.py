@@ -4,7 +4,10 @@
 # dependencies = [
 #   "pydantic-settings",
 #   "rich-click",
+#   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Extract article content using Postlight's Mercury Parser.
@@ -21,8 +24,11 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import load_config, emit_archive_result, write_text_atomic
+from abx_plugins.plugins.base.utils import (
+    load_config,
+    emit_archive_result_record,
+    write_text_atomic,
+)
 
 import rich_click as click
 
@@ -59,7 +65,10 @@ def extract_mercury(url: str, binary: str) -> tuple[str, str]:
         # Get text version
         cmd_text = [binary, *mercury_args, *mercury_args_extra, url, "--format=text"]
         result_text = subprocess.run(
-            cmd_text, stdout=subprocess.PIPE, timeout=timeout, text=True
+            cmd_text,
+            stdout=subprocess.PIPE,
+            timeout=timeout,
+            text=True,
         )
         if result_text.stdout:
             sys.stderr.write(result_text.stdout)
@@ -83,7 +92,10 @@ def extract_mercury(url: str, binary: str) -> tuple[str, str]:
         # Get HTML version
         cmd_html = [binary, *mercury_args, *mercury_args_extra, url, "--format=html"]
         result_html = subprocess.run(
-            cmd_html, stdout=subprocess.PIPE, timeout=timeout, text=True
+            cmd_html,
+            stdout=subprocess.PIPE,
+            timeout=timeout,
+            text=True,
         )
         if result_html.stdout:
             sys.stderr.write(result_html.stdout)
@@ -107,9 +119,7 @@ def extract_mercury(url: str, binary: str) -> tuple[str, str]:
 
         # Save article metadata
         metadata = {k: v for k, v in text_json.items() if k != "content"}
-        write_text_atomic(
-            output_dir / METADATA_FILE, json.dumps(metadata, indent=2)
-        )
+        write_text_atomic(output_dir / METADATA_FILE, json.dumps(metadata, indent=2))
 
         # Link images/ to responses capture (if available)
         try:
@@ -128,7 +138,8 @@ def extract_mercury(url: str, binary: str) -> tuple[str, str]:
                             responses_images = None
                     if responses_images:
                         rel_target = os.path.relpath(
-                            str(responses_images), str(output_dir)
+                            str(responses_images),
+                            str(output_dir),
                         )
                         link_path.symlink_to(rel_target)
         except Exception:
@@ -154,7 +165,7 @@ def main(url: str, snapshot_id: str):
         # Check if mercury extraction is enabled
         if not config.MERCURY_ENABLED:
             print("Skipping mercury (MERCURY_ENABLED=False)", file=sys.stderr)
-            emit_archive_result("skipped", "MERCURY_ENABLED=False")
+            emit_archive_result_record("skipped", "MERCURY_ENABLED=False")
             sys.exit(0)
 
         # Get binary from environment
@@ -164,13 +175,13 @@ def main(url: str, snapshot_id: str):
         status, output = extract_mercury(url, binary)
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)
-        emit_archive_result(status, output)
+        emit_archive_result_record(status, output)
         sys.exit(0 if status != "failed" else 1)
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"
         print(f"ERROR: {error}", file=sys.stderr)
-        emit_archive_result("failed", error)
+        emit_archive_result_record("failed", error)
         sys.exit(1)
 
 

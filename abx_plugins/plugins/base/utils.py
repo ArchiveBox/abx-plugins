@@ -3,19 +3,14 @@
 Provides common helpers used across multiple plugins:
 - Config loading from config.json using PydanticSettings (load_config)
 - Environment variable parsing (get_env, get_env_bool, get_env_int, get_env_array)
-- JSONL record emission (emit_archive_result, output_binary, output_machine_config)
+- JSONL record emission (emit_archive_result_record, emit_binary_record, emit_machine_record, emit_snapshot_record)
 - Atomic file writing (write_text_atomic)
 - HTML source discovery (find_html_source)
 - Sibling plugin output checking (has_staticfile_output)
 
-IMPORTANT: All plugin hook scripts import this module via::
+Import directly via the package path::
 
-    sys.path.append(str(Path(__file__).resolve().parent.parent))
-    from base.utils import load_config
-
-We use ``sys.path.append()`` (not ``insert(0, ...)``) deliberately because
-``abx_plugins/plugins/`` contains an ``ssl/`` plugin directory that would
-shadow Python's stdlib ``ssl`` module if placed at the front of sys.path.
+    from abx_plugins.plugins.base.utils import load_config
 """
 
 from __future__ import annotations
@@ -24,6 +19,7 @@ import inspect
 import json
 import os
 import stat
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -98,8 +94,10 @@ def load_config(config_path: Path | str | None = None) -> Any:
     properties = schema.get("properties", {})
 
     if not properties:
+
         class _EmptyConfig(BaseSettings):
             model_config = SettingsConfigDict(extra="ignore")
+
         _config_model_cache[cache_key] = (_EmptyConfig, mtime)
         return _EmptyConfig()
 
@@ -143,6 +141,7 @@ def load_config(config_path: Path | str | None = None) -> Any:
 # Environment variable helpers
 # ---------------------------------------------------------------------------
 
+
 def get_env(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
 
@@ -177,53 +176,163 @@ def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
         return default if default is not None else []
 
 
+def _resolve_path(path_value: str) -> Path:
+    return Path(path_value).expanduser().resolve()
+
+
+def get_lib_dir() -> Path:
+    """Return library directory.
+
+    Priority: LIB_DIR env var, otherwise ~/.config/abx/lib.
+    """
+    lib_dir = os.environ.get("LIB_DIR", "").strip()
+    if lib_dir:
+        return _resolve_path(lib_dir)
+    return _resolve_path(str(Path.home() / ".config" / "abx" / "lib"))
+
+
+def get_personas_dir() -> Path:
+    """Return personas directory.
+
+    Priority: PERSONAS_DIR env var, otherwise ~/.config/abx/personas.
+    """
+    personas_dir = os.environ.get("PERSONAS_DIR", "").strip()
+    if personas_dir:
+        return _resolve_path(personas_dir)
+    return _resolve_path(str(Path.home() / ".config" / "abx" / "personas"))
+
+
 # ---------------------------------------------------------------------------
 # JSONL record emission
 # ---------------------------------------------------------------------------
 
-def emit_archive_result(status: str, output_str: str) -> None:
-    print(
-        json.dumps(
-            {
-                "type": "ArchiveResult",
-                "status": status,
-                "output_str": output_str,
-            }
-        )
-    )
+
+def _fsync_if_regular_file(fd: int) -> None:
+    try:
+        mode = os.fstat(fd).st_mode
+    except OSError:
+        return
+    if not stat.S_ISREG(mode):
+        return
+    try:
+        os.fsync(fd)
+    except OSError:
+        return
 
 
-def output_binary(
-    name: str, binproviders: str, overrides: dict[str, Any] | None = None
+def _write_stream_line_fully(stream: Any, text: str) -> None:
+    line = text if text.endswith("\n") else f"{text}\n"
+    try:
+        fd = stream.fileno()
+    except (AttributeError, OSError, ValueError):
+        stream.write(line)
+        stream.flush()
+        return
+
+    try:
+        stream.flush()
+    except Exception:
+        pass
+
+    encoding = getattr(stream, "encoding", None) or "utf-8"
+    payload = line.encode(encoding, errors="replace")
+    written = 0
+    while written < len(payload):
+        written += os.write(fd, payload[written:])
+
+    try:
+        stream.flush()
+    except Exception:
+        pass
+
+    _fsync_if_regular_file(fd)
+
+
+def emit_archive_result_record(
+    status: str,
+    output_str: str,
+    **extra: Any,
+) -> None:
+    record: dict[str, Any] = {
+        "type": "ArchiveResult",
+        "status": status,
+        "output_str": output_str,
+    }
+    if extra:
+        record.update(extra)
+    _write_stream_line_fully(sys.stdout, json.dumps(record))
+
+
+def emit_binary_record(
+    name: str,
+    binproviders: str | None = None,
+    overrides: dict[str, Any] | None = None,
+    min_version: str | None = None,
+    abspath: str | None = None,
+    version: str | None = None,
+    sha256: str | None = None,
+    binprovider: str | None = None,
+    machine_id: str | None = None,
+    binary_id: str | None = None,
+    plugin_name: str | None = None,
+    hook_name: str | None = None,
 ) -> None:
     """Output Binary JSONL record for a dependency."""
-    machine_id = os.environ.get("MACHINE_ID", "")
-
     record: dict[str, Any] = {
         "type": "Binary",
         "name": name,
-        "binproviders": binproviders,
-        "machine_id": machine_id,
     }
+    resolved_machine_id = (
+        machine_id if machine_id is not None else os.environ.get("MACHINE_ID", "")
+    )
+    record["machine_id"] = resolved_machine_id
+    if binproviders is not None:
+        record["binproviders"] = binproviders
     if overrides:
         record["overrides"] = overrides
-    print(json.dumps(record))
+    if min_version:
+        record["min_version"] = min_version
+    if abspath is not None:
+        record["abspath"] = abspath
+    if version is not None:
+        record["version"] = version
+    if sha256 is not None:
+        record["sha256"] = sha256
+    if binprovider is not None:
+        record["binprovider"] = binprovider
+    if binary_id is not None:
+        record["binary_id"] = binary_id
+    if plugin_name is not None:
+        record["plugin_name"] = plugin_name
+    if hook_name is not None:
+        record["hook_name"] = hook_name
+    _write_stream_line_fully(sys.stdout, json.dumps(record))
 
 
-def output_machine_config(config: dict) -> None:
-    """Output Machine config JSONL patch."""
-    if not config:
-        return
-    record = {
-        "type": "Machine",
-        "config": config,
+def emit_machine_record(config: dict[str, Any]) -> None:
+    _write_stream_line_fully(
+        sys.stdout,
+        json.dumps(
+            {
+                "type": "Machine",
+                "config": config,
+            },
+        ),
+    )
+
+
+def emit_snapshot_record(record: dict[str, Any]) -> None:
+    snapshot_record = {
+        "type": "Snapshot",
+        **{key: value for key, value in record.items() if key != "type"},
     }
-    print(json.dumps(record))
+    _write_stream_line_fully(sys.stdout, json.dumps(snapshot_record))
 
 
 # ---------------------------------------------------------------------------
 # Atomic file writing
 # ---------------------------------------------------------------------------
+
 
 def write_text_atomic(path: Path, text: str) -> None:
     tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
@@ -234,6 +343,7 @@ def write_text_atomic(path: Path, text: str) -> None:
 # ---------------------------------------------------------------------------
 # HTML source discovery (for extractors that process HTML from other plugins)
 # ---------------------------------------------------------------------------
+
 
 def find_html_source() -> str | None:
     """Find HTML content from other extractors in the snapshot directory."""
@@ -265,6 +375,7 @@ def find_html_source() -> str | None:
 # Sibling plugin output checking
 # ---------------------------------------------------------------------------
 
+
 def has_staticfile_output(staticfile_dir: str = "../staticfile") -> bool:
     """Check if staticfile extractor already downloaded this URL."""
     sf_dir = Path(staticfile_dir)
@@ -292,6 +403,7 @@ def has_staticfile_output(staticfile_dir: str = "../staticfile") -> bool:
 # ---------------------------------------------------------------------------
 # Config directory permission management
 # ---------------------------------------------------------------------------
+
 
 def enforce_lib_permissions(config_dir: Path | str | None = None) -> None:
     """Set permissions on ~/.config/abx so snapshot hooks can read but not write lib/.

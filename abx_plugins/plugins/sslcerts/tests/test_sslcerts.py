@@ -15,28 +15,27 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-
+from abx_plugins.plugins.base.test_utils import get_hook_script, get_plugin_dir
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
-    chrome_session,
     CHROME_NAVIGATE_HOOK,
-    get_plugin_dir,
-    get_hook_script,
+    chrome_session,
 )
+
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 # Get the path to the SSL hook
 PLUGIN_DIR = get_plugin_dir(__file__)
-SSL_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_ssl.*")
+SSLCERTS_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_sslcerts.*")
 
 
 class TestSSLPlugin:
     """Test the SSL plugin with real HTTPS URLs."""
 
-    def test_ssl_hook_exists(self):
+    def test_sslcerts_hook_exists(self):
         """SSL hook script should exist."""
-        assert SSL_HOOK is not None, "SSL hook not found in plugin directory"
-        assert SSL_HOOK.exists(), f"Hook not found: {SSL_HOOK}"
+        assert SSLCERTS_HOOK is not None, "SSL hook not found in plugin directory"
+        assert SSLCERTS_HOOK.exists(), f"Hook not found: {SSLCERTS_HOOK}"
 
 
 class TestSSLWithChrome:
@@ -66,12 +65,13 @@ class TestSSLWithChrome:
                 navigate=False,
                 timeout=30,
             ) as (chrome_process, chrome_pid, snapshot_chrome_dir, env):
-                ssl_dir = snapshot_chrome_dir.parent / "ssl"
+                ssl_dir = snapshot_chrome_dir.parent / "sslcerts"
                 ssl_dir.mkdir(exist_ok=True)
 
                 # Run SSL hook with the active Chrome session (background hook)
                 result = subprocess.Popen(
-                    [str(SSL_HOOK),
+                    [
+                        str(SSLCERTS_HOOK),
                         f"--url={test_url}",
                         f"--snapshot-id={snapshot_id}",
                     ],
@@ -83,7 +83,8 @@ class TestSSLWithChrome:
                 )
 
                 nav_result = subprocess.run(
-                    [str(CHROME_NAVIGATE_HOOK),
+                    [
+                        str(CHROME_NAVIGATE_HOOK),
                         f"--url={test_url}",
                         f"--snapshot-id={snapshot_id}",
                     ],
@@ -98,7 +99,7 @@ class TestSSLWithChrome:
                 )
 
                 # Check for output file
-                ssl_output = ssl_dir / "ssl.jsonl"
+                ssl_output = ssl_dir / "sslcerts.jsonl"
                 for _ in range(30):
                     if ssl_output.exists() and ssl_output.stat().st_size > 0:
                         break

@@ -2,9 +2,13 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#     "pydantic-settings",
 #     "rich-click",
 #     "abx-pkg",
+#     "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 """
 Install Chromium via the Puppeteer CLI.
@@ -23,6 +27,8 @@ from pathlib import Path
 import rich_click as click
 from abx_pkg import Binary, EnvProvider, NpmProvider
 
+from abx_plugins.plugins.base.utils import emit_binary_record, emit_machine_record
+
 CLAUDE_SANDBOX_NO_PROXY = (
     "localhost,127.0.0.1,169.254.169.254,metadata.google.internal,"
     ".svc.cluster.local,.local"
@@ -32,11 +38,19 @@ CLAUDE_SANDBOX_NO_PROXY = (
 @click.command()
 @click.option("--machine-id", required=True, help="Machine UUID")
 @click.option("--binary-id", required=True, help="Binary UUID")
+@click.option("--plugin-name", required=True, help="Requesting plugin name")
+@click.option("--hook-name", required=True, help="Requesting hook name")
 @click.option("--name", required=True, help="Binary name to install")
 @click.option("--binproviders", default="*", help="Allowed providers (comma-separated)")
 @click.option("--overrides", default=None, help="JSON-encoded overrides dict")
 def main(
-    machine_id: str, binary_id: str, name: str, binproviders: str, overrides: str | None
+    machine_id: str,
+    binary_id: str,
+    plugin_name: str,
+    hook_name: str,
+    name: str,
+    binproviders: str,
+    overrides: str | None,
 ) -> None:
     if binproviders != "*" and "puppeteer" not in binproviders.split(","):
         sys.exit(0)
@@ -65,20 +79,17 @@ def main(
                 binary=existing_binary,
                 machine_id=machine_id,
                 binary_id=binary_id,
+                plugin_name=plugin_name,
+                hook_name=hook_name,
                 name=name,
             )
-            print(
-                json.dumps(
-                    {
-                        "type": "Machine",
-                        "config": {
-                            "CHROME_BINARY": str(existing_binary.abspath),
-                            "CHROMIUM_VERSION": str(existing_binary.version)
-                            if existing_binary.version
-                            else "",
-                        },
-                    }
-                )
+            emit_machine_record(
+                {
+                    "CHROME_BINARY": str(existing_binary.abspath),
+                    "CHROMIUM_VERSION": str(existing_binary.version)
+                    if existing_binary.version
+                    else "",
+                },
             )
             sys.exit(0)
 
@@ -90,15 +101,19 @@ def main(
 
     if not puppeteer_binary.abspath:
         click.echo(
-            "ERROR: puppeteer binary not found (install puppeteer first)", err=True
+            "ERROR: puppeteer binary not found (install puppeteer first)",
+            err=True,
         )
         sys.exit(1)
 
     install_args = _parse_override_install_args(
-        overrides, default=[f"{name}@latest", "--install-deps"]
+        overrides,
+        default=[f"{name}@latest", "--install-deps"],
     )
     proc = _run_puppeteer_install(
-        binary=puppeteer_binary, install_args=install_args, cache_dir=cache_dir
+        binary=puppeteer_binary,
+        install_args=install_args,
+        cache_dir=cache_dir,
     )
     if proc.returncode != 0:
         click.echo(proc.stdout.strip(), err=True)
@@ -109,9 +124,7 @@ def main(
         click.echo(f"ERROR: puppeteer install failed ({proc.returncode})", err=True)
         sys.exit(1)
 
-    chromium_binary = _load_browser_binary(
-        proc.stdout + "\n" + proc.stderr, name=name
-    )
+    chromium_binary = _load_browser_binary(proc.stdout + "\n" + proc.stderr, name=name)
     if not chromium_binary or not chromium_binary.abspath:
         click.echo("ERROR: failed to locate Chromium after install", err=True)
         sys.exit(1)
@@ -120,6 +133,8 @@ def main(
         binary=chromium_binary,
         machine_id=machine_id,
         binary_id=binary_id,
+        plugin_name=plugin_name,
+        hook_name=hook_name,
         name=name,
     )
 
@@ -130,19 +145,15 @@ def main(
         else "",
     }
 
-    print(
-        json.dumps(
-            {
-                "type": "Machine",
-                "config": config_patch,
-            }
-        )
-    )
+    emit_machine_record(config_patch)
 
     sys.exit(0)
 
 
-def _parse_override_install_args(overrides: str | None, default: list[str]) -> list[str]:
+def _parse_override_install_args(
+    overrides: str | None,
+    default: list[str],
+) -> list[str]:
     if not overrides:
         return default
     try:
@@ -193,7 +204,9 @@ def _run_puppeteer_install(binary: Binary, install_args: list[str], cache_dir: P
 
 
 def _run_puppeteer_install_with_sudo(
-    binary: Binary, install_args: list[str], cache_dir: Path
+    binary: Binary,
+    install_args: list[str],
+    cache_dir: Path,
 ):
     """Re-run puppeteer install via sudo so --install-deps can install system libs."""
     import subprocess as _subprocess
@@ -203,12 +216,21 @@ def _run_puppeteer_install_with_sudo(
         return None
 
     sudo_cmd = [
-        "sudo", "-E", abspath, "browsers", "install", *install_args,
+        "sudo",
+        "-E",
+        abspath,
+        "browsers",
+        "install",
+        *install_args,
     ]
     env = os.environ.copy()
     env.setdefault("PUPPETEER_CACHE_DIR", str(cache_dir))
     proc = _subprocess.run(
-        sudo_cmd, capture_output=True, text=True, timeout=300, env=env,
+        sudo_cmd,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        env=env,
     )
 
     # Fix ownership: sudo may have written root-owned files into the
@@ -229,7 +251,8 @@ def _cleanup_partial_chromium_cache(install_output: str, cache_dir: Path) -> boo
     chromium_cache_dir = cache_dir / "chromium"
 
     missing_dir_match = re.search(
-        r"browser folder \(([^)]+)\) exists but the executable", install_output
+        r"browser folder \(([^)]+)\) exists but the executable",
+        install_output,
     )
     if missing_dir_match:
         targets.add(Path(missing_dir_match.group(1)))
@@ -239,7 +262,8 @@ def _cleanup_partial_chromium_cache(install_output: str, cache_dir: Path) -> boo
         targets.add(Path(missing_zip_match.group(1)))
 
     build_id_match = re.search(
-        r"All providers failed for chromium (\d+)", install_output
+        r"All providers failed for chromium (\d+)",
+        install_output,
     )
     if build_id_match and chromium_cache_dir.exists():
         build_id = build_id_match.group(1)
@@ -288,19 +312,24 @@ def _get_install_failure_hint(install_output: str) -> str | None:
 
 
 def _emit_browser_binary_record(
-    binary: Binary, machine_id: str, binary_id: str, name: str
+    binary: Binary,
+    machine_id: str,
+    binary_id: str,
+    plugin_name: str,
+    hook_name: str,
+    name: str,
 ) -> None:
-    record = {
-        "type": "Binary",
-        "name": name,
-        "abspath": str(binary.abspath),
-        "version": str(binary.version) if binary.version else "",
-        "sha256": binary.sha256 or "",
-        "binprovider": "puppeteer",
-        "machine_id": machine_id,
-        "binary_id": binary_id,
-    }
-    print(json.dumps(record))
+    emit_binary_record(
+        name=name,
+        abspath=str(binary.abspath),
+        version=str(binary.version) if binary.version else "",
+        sha256=binary.sha256 or "",
+        binprovider="puppeteer",
+        machine_id=machine_id,
+        binary_id=binary_id,
+        plugin_name=plugin_name,
+        hook_name=hook_name,
+    )
 
 
 def _resolve_binary_reference(binary_ref: str) -> str | None:
@@ -348,7 +377,7 @@ def _load_browser_binary(output: str, name: str) -> Binary | None:
         [
             home / ".cache" / "puppeteer",
             home / "Library" / "Caches" / "puppeteer",
-        ]
+        ],
     )
 
     for base in cache_dirs:
@@ -360,8 +389,8 @@ def _load_browser_binary(output: str, name: str) -> Binary | None:
             try:
                 candidates.extend(
                     root.rglob(
-                        "Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
-                    )
+                        "Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+                    ),
                 )
             except Exception:
                 pass

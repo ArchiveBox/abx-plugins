@@ -37,7 +37,7 @@ const {
     getEnvBool,
     getEnvInt,
     parseArgs,
-    emitArchiveResult,
+    emitArchiveResultRecord,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 
@@ -49,7 +49,7 @@ const {
 // Check if modalcloser is enabled BEFORE requiring puppeteer
 if (!getEnvBool('MODALCLOSER_ENABLED', true)) {
     console.error('Skipping modalcloser (MODALCLOSER_ENABLED=False)');
-    emitArchiveResult('skipped', 'MODALCLOSER_ENABLED=False');
+    emitArchiveResultRecord('skipped', 'MODALCLOSER_ENABLED=False');
     process.exit(0);
 }
 
@@ -261,7 +261,7 @@ async function main() {
 
         const outputStr = `${total} modals closed`;
 
-        emitArchiveResult('succeeded', outputStr);
+        emitArchiveResultRecord('succeeded', outputStr);
 
         if (browser) browser.disconnect();
         process.exit(0);

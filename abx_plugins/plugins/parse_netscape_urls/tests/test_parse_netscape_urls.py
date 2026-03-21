@@ -4,7 +4,6 @@
 import json
 import os
 import subprocess
-import sys
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -148,14 +147,22 @@ class TestParseNetscapeUrls:
             def log_message(self, format, *args):
                 return
 
-        server = ThreadingHTTPServer(("127.0.0.1", 0), lambda *args, **kwargs: QuietHandler(*args, directory=str(tmp_path), **kwargs))
+        server = ThreadingHTTPServer(
+            ("127.0.0.1", 0),
+            lambda *args, **kwargs: QuietHandler(
+                *args,
+                directory=str(tmp_path),
+                **kwargs,
+            ),
+        )
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
 
         try:
             base_url = f"http://127.0.0.1:{server.server_address[1]}/bookmarks.html"
             result = subprocess.run(
-                [str(SCRIPT_PATH),
+                [
+                    str(SCRIPT_PATH),
                     "--url",
                     base_url,
                 ],
@@ -180,7 +187,9 @@ class TestParseNetscapeUrls:
         assert len(lines) == 2
 
         entries = [json.loads(line) for line in lines]
-        expected_root_relative = f"http://127.0.0.1:{server.server_address[1]}/about.html"
+        expected_root_relative = (
+            f"http://127.0.0.1:{server.server_address[1]}/about.html"
+        )
         expected_path_relative = (
             f"http://127.0.0.1:{server.server_address[1]}/docs/page.html"
         )
@@ -218,7 +227,8 @@ class TestParseNetscapeUrls:
     def test_exits_1_when_file_not_found(self, tmp_path):
         """Test that script exits with code 1 when file doesn't exist."""
         result = subprocess.run(
-            [str(SCRIPT_PATH),
+            [
+                str(SCRIPT_PATH),
                 "--url",
                 "file:///nonexistent/bookmarks.html",
             ],
@@ -315,7 +325,9 @@ class TestParseNetscapeUrls:
         )
 
         assert result.returncode == 0
-        file_lines = [line for line in urls_file.read_text().splitlines() if line.strip()]
+        file_lines = [
+            line for line in urls_file.read_text().splitlines() if line.strip()
+        ]
         assert len(file_lines) == 1
         entry = json.loads(file_lines[0])
         assert entry["url"] == "https://fresh.example.com"

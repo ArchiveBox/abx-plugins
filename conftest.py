@@ -8,14 +8,18 @@ import shlex
 import shutil
 import subprocess
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 
-pytest_plugins = ["abx_plugins.plugins.chrome.tests.chrome_test_helpers"]
+from abx_plugins.plugins.base.test_utils import (
+    assert_isolated_snapshot_env,
+    parse_jsonl_output,
+    parse_jsonl_records,
+)
 
-from abx_plugins.plugins.base.test_utils import parse_jsonl_output, parse_jsonl_records
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_lib_dir
+pytest_plugins = ["abx_plugins.plugins.chrome.tests.chrome_test_helpers"]
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +85,7 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]):
 @pytest.fixture(autouse=True)
 def tee_captured_subprocess_output_on_failure(
     request: pytest.FixtureRequest,
-) -> None:
+) -> Iterator[None]:
     # Pytest only auto-shows output it captured itself. Many tests in this repo
     # call subprocess.run(..., capture_output=True), which hides child-process
     # stdout/stderr from pytest entirely unless the test manually includes it in
@@ -126,10 +130,15 @@ def tee_captured_subprocess_output_on_failure(
 
 @pytest.fixture(autouse=True)
 def isolated_test_env(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path_factory: pytest.TempPathFactory,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> dict[str, Path]:
     """Apply per-test env overrides and let monkeypatch restore global state after each test."""
-    test_root = tmp_path / "abx_plugins_env"
+    from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_lib_dir
+
+    # Keep runtime HOME/cache state outside any test-owned snapshot tmp_path so
+    # hook subprocesses cannot pollute SNAP_DIR with uv/npm/browser artifacts.
+    test_root = tmp_path_factory.mktemp("abx_plugins_env")
     home_dir = test_root / "home"
     run_dir = test_root / "run"
     lib_dir = test_root / "lib"
@@ -140,10 +149,9 @@ def isolated_test_env(
 
     # Resolve LIB_DIR BEFORE monkeypatching HOME, so path helpers
     # (chrome_utils.js / Path.home()) see the real home directory.
-    if "LIB_DIR" not in os.environ:
-        from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_lib_dir
-
-        resolved_lib = get_lib_dir()
+    resolved_lib = (
+        Path(os.environ["LIB_DIR"]) if "LIB_DIR" in os.environ else get_lib_dir()
+    )
 
     monkeypatch.setenv("HOME", str(home_dir))
     # Mirror abx-dl runtime semantics: both resolve to the current run directory.
@@ -156,6 +164,15 @@ def isolated_test_env(
         monkeypatch.setenv("PERSONAS_DIR", str(personas_dir))
     if "TWOCAPTCHA_API_KEY" not in os.environ and "API_KEY_2CAPTCHA" not in os.environ:
         print("WARNING: TWOCAPTCHA_API_KEY not found in env, 2captcha tests will fail")
+
+    assert_isolated_snapshot_env(
+        {
+            "HOME": str(home_dir),
+            "SNAP_DIR": str(run_dir),
+            "LIB_DIR": os.environ["LIB_DIR"],
+            "PERSONAS_DIR": os.environ["PERSONAS_DIR"],
+        },
+    )
 
     return {
         "root": test_root,
@@ -179,8 +196,7 @@ def ensure_chrome_test_prereqs(ensure_chromium_and_puppeteer_installed):
     return ensure_chromium_and_puppeteer_installed
 
 
-@pytest.fixture(scope="session")
-def ensure_chromium_and_puppeteer_installed(tmp_path_factory):
+def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
     """Install Chromium and Puppeteer once via hook-based install.
 
     Overrides the default from chrome_test_helpers only to auto-disable
@@ -195,7 +211,7 @@ def ensure_chromium_and_puppeteer_installed(tmp_path_factory):
         os.environ["SNAP_DIR"] = str(tmp_path_factory.mktemp("chrome_test_data"))
     if not os.environ.get("PERSONAS_DIR"):
         os.environ["PERSONAS_DIR"] = str(
-            tmp_path_factory.mktemp("chrome_test_personas")
+            tmp_path_factory.mktemp("chrome_test_personas"),
         )
 
     env = get_test_env()
@@ -219,6 +235,11 @@ def ensure_chromium_and_puppeteer_installed(tmp_path_factory):
     return chromium_binary
 
 
+ensure_chromium_and_puppeteer_installed = pytest.fixture(scope="session")(
+    ensure_chromium_and_puppeteer_installed_impl,
+)
+
+
 @pytest.fixture(scope="session")
 def ensure_claude_code_prereqs(tmp_path_factory):
     """Ensure Claude Code CLI is installed and ANTHROPIC_API_KEY is set.
@@ -226,6 +247,7 @@ def ensure_claude_code_prereqs(tmp_path_factory):
     Used by Claude Code integration tests. Skips the dependent tests when
     live Anthropic credentials are unavailable.
     """
+
     def apply_machine_updates(records: list[dict], env: dict[str, str]) -> None:
         for record in records:
             if record.get("type") != "Machine":
@@ -235,9 +257,14 @@ def ensure_claude_code_prereqs(tmp_path_factory):
                 env.update({str(key): str(value) for key, value in config.items()})
 
     def install_claude_code_with_hooks() -> str:
+        from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_lib_dir
+
         env = os.environ.copy()
         env.setdefault("LIB_DIR", str(get_lib_dir()))
-        env.setdefault("CRAWL_DIR", str(tmp_path_factory.mktemp("claudecode_test_data")))
+        env.setdefault(
+            "CRAWL_DIR",
+            str(tmp_path_factory.mktemp("claudecode_test_data")),
+        )
         env["CLAUDECODE_ENABLED"] = "true"
 
         lib_dir = Path(env["LIB_DIR"])
@@ -256,16 +283,23 @@ def ensure_claude_code_prereqs(tmp_path_factory):
             )
             if install_result.returncode != 0:
                 raise RuntimeError(
-                    f"Claude Code install hook failed: {install_result.stderr or install_result.stdout}"
+                    f"Claude Code install hook failed: {install_result.stderr or install_result.stdout}",
                 )
 
-            binary_record = parse_jsonl_output(install_result.stdout, record_type="Binary") or {}
+            binary_record = (
+                parse_jsonl_output(install_result.stdout, record_type="Binary") or {}
+            )
             if binary_record.get("name") != "claude":
-                raise RuntimeError("Claude Code install hook did not emit a claude Binary record")
+                raise RuntimeError(
+                    "Claude Code install hook did not emit a claude Binary record",
+                )
 
-            npm_cmd = [str(NPM_BINARY_HOOK),
+            npm_cmd = [
+                str(NPM_BINARY_HOOK),
                 "--machine-id=test-machine",
                 "--binary-id=test-claude",
+                "--plugin-name=claudecode",
+                "--hook-name=on_Crawl__35_claudecode_install.finite.bg",
                 "--name=claude",
                 f"--binproviders={binary_record.get('binproviders', '*')}",
             ]
@@ -282,7 +316,7 @@ def ensure_claude_code_prereqs(tmp_path_factory):
             )
             if npm_result.returncode != 0:
                 raise RuntimeError(
-                    f"Claude Code npm install failed:\nstdout: {npm_result.stdout}\nstderr: {npm_result.stderr}"
+                    f"Claude Code npm install failed:\nstdout: {npm_result.stdout}\nstderr: {npm_result.stderr}",
                 )
 
             records = parse_jsonl_records(npm_result.stdout)
@@ -297,11 +331,15 @@ def ensure_claude_code_prereqs(tmp_path_factory):
                 None,
             )
             if not claude_record:
-                raise RuntimeError("Claude Code npm install did not emit a resolved claude Binary record")
+                raise RuntimeError(
+                    "Claude Code npm install did not emit a resolved claude Binary record",
+                )
 
             claude_bin = claude_record.get("abspath")
             if not isinstance(claude_bin, str) or not Path(claude_bin).exists():
-                raise RuntimeError(f"Claude Code binary not found after install: {claude_bin}")
+                raise RuntimeError(
+                    f"Claude Code binary not found after install: {claude_bin}",
+                )
 
             os.environ.update(env)
             os.environ["CLAUDECODE_BINARY"] = claude_bin
@@ -322,7 +360,7 @@ def ensure_claude_code_prereqs(tmp_path_factory):
     if not api_key:
         pytest.fail(
             "ANTHROPIC_API_KEY not set.  Claude Code integration tests "
-            "require a valid API key."
+            "require a valid API key.",
         )
 
     # Quick smoke test: claude --version
@@ -333,7 +371,9 @@ def ensure_claude_code_prereqs(tmp_path_factory):
         timeout=10,
     )
     if result.returncode != 0:
-        pytest.fail(f"'claude --version' failed (rc={result.returncode}): {result.stderr}")
+        pytest.fail(
+            f"'claude --version' failed (rc={result.returncode}): {result.stderr}",
+        )
 
     return claude_bin
 
@@ -348,13 +388,12 @@ def ensure_anthropic_api_key():
     if not api_key:
         pytest.fail(
             "ANTHROPIC_API_KEY not set.  Integration tests that call the "
-            "Anthropic API require a valid API key."
+            "Anthropic API require a valid API key.",
         )
     return api_key
 
 
-@pytest.fixture(scope="module")
-def require_chrome_runtime():
+def require_chrome_runtime_impl() -> None:
     """Require chrome runtime prerequisites for integration tests.
 
     Validates that node and npm resolve through abx-pkg before running
@@ -372,3 +411,6 @@ def require_chrome_runtime():
             f"Chrome integration prerequisites unavailable: {exc}",
             pytrace=False,
         )
+
+
+require_chrome_runtime = pytest.fixture(scope="module")(require_chrome_runtime_impl)

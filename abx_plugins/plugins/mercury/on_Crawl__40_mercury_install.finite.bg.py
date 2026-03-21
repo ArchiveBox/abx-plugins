@@ -2,7 +2,11 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#   "pydantic-settings",
+#   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Emit postlight-parser Binary dependency for the crawl if mercury is enabled.
@@ -10,14 +14,12 @@
 # Usage:
 #     ./on_Crawl__40_mercury_install.py > events.jsonl
 
-import json
 import os
 import shutil
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, get_env_bool, output_binary
+from abx_plugins.plugins.base.utils import emit_binary_record, get_env, get_env_bool
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
@@ -36,11 +38,19 @@ def main():
     mercury_binary_path = shutil.which(mercury_binary)
     if mercury_binary_path:
         # Emit pre-resolved binary location
-        machine_id = os.environ.get("MACHINE_ID", "")
-        print(json.dumps({"type": "Binary", "name": "postlight-parser", "abspath": mercury_binary_path, "binprovider": "env", "machine_id": machine_id}))
+        emit_binary_record(
+            name="postlight-parser",
+            abspath=mercury_binary_path,
+            binprovider="env",
+            machine_id=os.environ.get("MACHINE_ID", ""),
+        )
         sys.exit(0)
 
-    output_binary(name="postlight-parser", binproviders="env,npm", overrides={"npm": {"install_args": ["@postlight/parser"]}})
+    emit_binary_record(
+        name="postlight-parser",
+        binproviders="env,npm",
+        overrides={"npm": {"install_args": ["@postlight/parser"]}},
+    )
 
     sys.exit(0)
 

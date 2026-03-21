@@ -5,7 +5,6 @@ import os
 import platform
 import signal
 import subprocess
-import sys
 import time
 from pathlib import Path
 
@@ -86,21 +85,21 @@ def _wait_for_file(path: Path, process: subprocess.Popen[str], timeout: int) -> 
         if process.poll() is not None:
             stdout, stderr = process.communicate(timeout=5)
             pytest.fail(
-                f"{path.name} was not created.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+                f"{path.name} was not created.\nstdout:\n{stdout}\nstderr:\n{stderr}",
             )
         time.sleep(0.25)
     try:
         stdout, stderr = process.communicate(timeout=5)
     except subprocess.TimeoutExpired:
         stdout = stderr = "(process still running)"
-    pytest.fail(
-        f"Timed out waiting for {path}.\nstdout:\n{stdout}\nstderr:\n{stderr}"
-    )
+    pytest.fail(f"Timed out waiting for {path}.\nstdout:\n{stdout}\nstderr:\n{stderr}")
 
 
 @pytest.mark.parametrize("browser_name", ["chrome", "chromium"])
 def test_live_install_and_screenshot_extraction_respects_chrome_binary(
-    tmp_path: Path, chrome_test_url: str, browser_name: str
+    tmp_path: Path,
+    chrome_test_url: str,
+    browser_name: str,
 ):
     machine_type = _machine_type()
     crawl_id = f"browser-install-{browser_name}"
@@ -132,7 +131,7 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
             "MACHINE_TYPE": machine_type,
             "PUPPETEER_CACHE_DIR": str(lib_dir / "puppeteer" / "chrome"),
             "PATH": _browserless_path(tmp_path, browser_name),
-        }
+        },
     )
     if hasattr(os, "geteuid") and os.geteuid() == 0:
         env["CHROME_SANDBOX"] = "false"
@@ -155,9 +154,12 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     assert puppeteer_record, stdout
 
     npm_result = subprocess.run(
-        [str(NPM_BINARY_HOOK),
+        [
+            str(NPM_BINARY_HOOK),
             "--machine-id=test-machine",
             "--binary-id=test-puppeteer",
+            "--plugin-name=puppeteer",
+            "--hook-name=on_Crawl__60_puppeteer_install",
             "--name=puppeteer",
             f"--binproviders={puppeteer_record.get('binproviders', '*')}",
             "--overrides=" + json.dumps(puppeteer_record.get("overrides") or {}),
@@ -192,9 +194,12 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     assert chrome_record["name"] == browser_name
 
     browser_result = subprocess.run(
-        [str(PUPPETEER_BINARY_HOOK),
+        [
+            str(PUPPETEER_BINARY_HOOK),
             "--machine-id=test-machine",
             f"--binary-id=test-{browser_name}",
+            "--plugin-name=chrome",
+            "--hook-name=on_Crawl__70_chrome_install.finite.bg",
             f"--name={chrome_record['name']}",
             f"--binproviders={chrome_record.get('binproviders', '*')}",
             "--overrides=" + json.dumps(chrome_record.get("overrides") or {}),

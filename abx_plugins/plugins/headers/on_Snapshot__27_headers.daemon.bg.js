@@ -19,7 +19,7 @@ const {
     getEnvBool,
     getEnvInt,
     parseArgs,
-    emitArchiveResult,
+    emitArchiveResultRecord,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer-core');
@@ -133,7 +133,9 @@ function writeHeadersFile(navigationState = null, forceRewrite = false) {
 }
 
 async function setupListener(url) {
+    const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
     const timeout = getEnvInt('HEADERS_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
+    try { fs.unlinkSync(outputPath); } catch (error) {}
     const { browser, page } = await connectToPage({
         chromeSessionDir: CHROME_SESSION_DIR,
         timeoutMs: timeout,
@@ -179,25 +181,18 @@ async function setupListener(url) {
         }
     });
 
+    // Create the output file only after listeners are attached so callers can
+    // use its existence as a readiness signal before triggering navigation.
+    fs.closeSync(fs.openSync(outputPath, 'a'));
+
     return { browser, page };
 }
 
 function emitResult(status = 'succeeded', outputStr = OUTPUT_PATH_STR) {
     if (shuttingDown) return Promise.resolve();
     shuttingDown = true;
-
-    const line = JSON.stringify({
-        type: 'ArchiveResult',
-        status,
-        output_str: outputStr,
-    }) + '\n';
-    return new Promise((resolve) => {
-        if (!process.stdout.write(line)) {
-            process.stdout.once('drain', resolve);
-        } else {
-            setImmediate(resolve);
-        }
-    });
+    emitArchiveResultRecord(status, outputStr);
+    return Promise.resolve();
 }
 
 async function handleShutdown(signal) {
@@ -233,7 +228,7 @@ async function main() {
 
     if (!getEnvBool('HEADERS_ENABLED', true)) {
         console.error('Skipping (HEADERS_ENABLED=False)');
-        emitArchiveResult('skipped', 'HEADERS_ENABLED=False');
+        emitArchiveResultRecord('skipped', 'HEADERS_ENABLED=False');
         process.exit(0);
     }
 

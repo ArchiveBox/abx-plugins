@@ -2,9 +2,13 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#   "pydantic-settings",
 #   "feedparser",
 #   "rich-click",
+#   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 """
 Parse RSS/Atom feeds and extract URLs.
@@ -31,8 +35,11 @@ from time import mktime
 from typing import Any
 from urllib.parse import urlparse
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import write_text_atomic
+from abx_plugins.plugins.base.utils import (
+    emit_archive_result_record,
+    emit_snapshot_record,
+    write_text_atomic,
+)
 
 import rich_click as click
 
@@ -58,12 +65,13 @@ def fetch_content(url: str) -> str:
 
     if parsed.scheme == "file":
         file_path = parsed.path
-        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+        with open(file_path, encoding="utf-8", errors="replace") as f:
             return f.read()
     else:
         timeout = int(os.environ.get("TIMEOUT", "60"))
         user_agent = os.environ.get(
-            "USER_AGENT", "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
+            "USER_AGENT",
+            "Mozilla/5.0 (compatible; ArchiveBox/1.0)",
         )
 
         import urllib.request
@@ -73,17 +81,9 @@ def fetch_content(url: str) -> str:
             return response.read().decode("utf-8", errors="replace")
 
 
-def emit_archive_result(status: str, output_str: str) -> None:
+def emit_result(status: str, output_str: str) -> None:
     """Emit final ArchiveResult JSONL plus a short stderr summary."""
-    print(
-        json.dumps(
-            {
-                "type": "ArchiveResult",
-                "status": status,
-                "output_str": output_str,
-            }
-        )
-    )
+    emit_archive_result_record(status, output_str)
     if output_str:
         click.echo(output_str, err=True)
 
@@ -92,7 +92,8 @@ def persist_records(records: list[dict]) -> tuple[str, str]:
     """Write extracted URLs when present, otherwise clear stale output after success."""
     if records:
         write_text_atomic(
-            URLS_FILE, "\n".join(json.dumps(record) for record in records) + "\n"
+            URLS_FILE,
+            "\n".join(json.dumps(record) for record in records) + "\n",
         )
         return "succeeded", f"{len(records)} URLs parsed"
 
@@ -121,13 +122,13 @@ def main(
     crawl_id = crawl_id or os.environ.get("CRAWL_ID")
 
     if feedparser is None:
-        emit_archive_result("failed", "feedparser library not installed")
+        emit_result("failed", "feedparser library not installed")
         sys.exit(1)
 
     try:
         content = fetch_content(url)
     except Exception as e:
-        emit_archive_result("failed", f"Failed to fetch {url}: {e}")
+        emit_result("failed", f"Failed to fetch {url}: {e}")
         sys.exit(1)
 
     # Parse the feed
@@ -151,11 +152,13 @@ def main(
             bookmarked_at = None
             if hasattr(item, "published_parsed") and item.published_parsed:
                 bookmarked_at = datetime.fromtimestamp(
-                    mktime(item.published_parsed), tz=timezone.utc
+                    mktime(item.published_parsed),
+                    tz=timezone.utc,
                 ).isoformat()
             elif hasattr(item, "updated_parsed") and item.updated_parsed:
                 bookmarked_at = datetime.fromtimestamp(
-                    mktime(item.updated_parsed), tz=timezone.utc
+                    mktime(item.updated_parsed),
+                    tz=timezone.utc,
                 ).isoformat()
 
             # Get tags
@@ -198,17 +201,17 @@ def main(
                 {
                     "type": "Tag",
                     "name": tag_name,
-                }
-            )
+                },
+            ),
         )
 
     # Emit Snapshot records (to stdout as JSONL)
     for entry in urls_found:
-        print(json.dumps(entry))
+        emit_snapshot_record(entry)
 
     # Emit ArchiveResult record to mark completion
     status, output_str = persist_records(urls_found)
-    emit_archive_result(status, output_str)
+    emit_result(status, output_str)
     sys.exit(0)
 
 

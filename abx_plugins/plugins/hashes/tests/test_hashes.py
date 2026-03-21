@@ -7,14 +7,12 @@ Tests the real merkle tree generation with actual files.
 import json
 import os
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 
 # Get the path to the hashes hook
@@ -43,7 +41,7 @@ class TestHashesPlugin:
             # Create some test files
             (snap_dir / "index.html").write_text("<html><body>Test</body></html>")
             (snap_dir / "screenshot.png").write_bytes(
-                b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+                b"\x89PNG\r\n\x1a\n" + b"\x00" * 100,
             )
 
             subdir = snap_dir / "media"
@@ -56,7 +54,8 @@ class TestHashesPlugin:
             env["SNAP_DIR"] = str(snap_dir)
 
             result = subprocess.run(
-                [str(HASHES_HOOK),
+                [
+                    str(HASHES_HOOK),
                     "--url=https://example.com",
                     "--snapshot-id=test-snapshot",
                 ],
@@ -83,6 +82,7 @@ class TestHashesPlugin:
             assert "metadata" in data
 
             result_json = parse_jsonl_output(result.stdout)
+            assert result_json is not None
             assert result_json["type"] == "ArchiveResult"
             assert result_json["status"] == "succeeded"
 
@@ -95,7 +95,10 @@ class TestHashesPlugin:
             assert data["metadata"]["file_count"] > 0
             assert data["metadata"]["total_size"] > 0
             total_size_mb = data["metadata"]["total_size"] / 1_000_000
-            assert result_json["output_str"] == f'{total_size_mb:.1f}MB {data["root_hash"][:12]}'
+            assert (
+                result_json["output_str"]
+                == f"{total_size_mb:.1f}MB {data['root_hash'][:12]}"
+            )
 
     def test_hashes_skips_when_disabled(self):
         """Hashes hook should skip when HASHES_ENABLED=false."""
@@ -110,7 +113,8 @@ class TestHashesPlugin:
             env["SNAP_DIR"] = str(snap_dir)
 
             result = subprocess.run(
-                [str(HASHES_HOOK),
+                [
+                    str(HASHES_HOOK),
                     "--url=https://example.com",
                     "--snapshot-id=test-snapshot",
                 ],
@@ -138,7 +142,8 @@ class TestHashesPlugin:
             env["SNAP_DIR"] = str(snap_dir)
 
             result = subprocess.run(
-                [str(HASHES_HOOK),
+                [
+                    str(HASHES_HOOK),
                     "--url=https://example.com",
                     "--snapshot-id=test-snapshot",
                 ],

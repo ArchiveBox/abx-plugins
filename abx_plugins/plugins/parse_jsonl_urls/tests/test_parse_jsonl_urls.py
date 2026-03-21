@@ -4,7 +4,6 @@
 import json
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -22,7 +21,7 @@ class TestParseJsonlUrls:
         input_file.write_text(
             '{"url": "https://example.com", "title": "Example"}\n'
             '{"url": "https://foo.bar/page", "title": "Foo Bar"}\n'
-            '{"url": "https://test.org", "title": "Test Org"}\n'
+            '{"url": "https://test.org", "title": "Test Org"}\n',
         )
 
         result = subprocess.run(
@@ -80,7 +79,7 @@ class TestParseJsonlUrls:
         """Test that 'description' field is used as title fallback."""
         input_file = tmp_path / "bookmarks.jsonl"
         input_file.write_text(
-            '{"url": "https://example.com", "description": "A description"}\n'
+            '{"url": "https://example.com", "description": "A description"}\n',
         )
 
         result = subprocess.run(
@@ -104,7 +103,7 @@ class TestParseJsonlUrls:
         """Test parsing of different timestamp field names."""
         input_file = tmp_path / "bookmarks.jsonl"
         input_file.write_text(
-            '{"url": "https://example.com", "timestamp": 1609459200000000}\n'
+            '{"url": "https://example.com", "timestamp": 1609459200000000}\n',
         )
 
         result = subprocess.run(
@@ -129,7 +128,7 @@ class TestParseJsonlUrls:
         """Test parsing tags as comma-separated string."""
         input_file = tmp_path / "bookmarks.jsonl"
         input_file.write_text(
-            '{"url": "https://example.com", "tags": "tech,news,reading"}\n'
+            '{"url": "https://example.com", "tags": "tech,news,reading"}\n',
         )
 
         result = subprocess.run(
@@ -149,7 +148,7 @@ class TestParseJsonlUrls:
         """Test parsing tags as JSON array."""
         input_file = tmp_path / "bookmarks.jsonl"
         input_file.write_text(
-            '{"url": "https://example.com", "tags": ["tech", "news"]}\n'
+            '{"url": "https://example.com", "tags": ["tech", "news"]}\n',
         )
 
         result = subprocess.run(
@@ -171,7 +170,7 @@ class TestParseJsonlUrls:
         input_file.write_text(
             '{"url": "https://valid.com"}\n'
             "not valid json\n"
-            '{"url": "https://also-valid.com"}\n'
+            '{"url": "https://also-valid.com"}\n',
         )
 
         result = subprocess.run(
@@ -196,7 +195,7 @@ class TestParseJsonlUrls:
         input_file.write_text(
             '{"url": "https://valid.com"}\n'
             '{"title": "No URL here"}\n'
-            '{"url": "https://also-valid.com"}\n'
+            '{"url": "https://also-valid.com"}\n',
         )
 
         result = subprocess.run(
@@ -236,7 +235,8 @@ class TestParseJsonlUrls:
     def test_exits_1_when_file_not_found(self, tmp_path):
         """Test that script exits with code 1 when file doesn't exist."""
         result = subprocess.run(
-            [str(SCRIPT_PATH),
+            [
+                str(SCRIPT_PATH),
                 "--url",
                 "file:///nonexistent/bookmarks.jsonl",
             ],
@@ -253,7 +253,7 @@ class TestParseJsonlUrls:
         """Test that HTML entities in URLs and titles are decoded."""
         input_file = tmp_path / "bookmarks.jsonl"
         input_file.write_text(
-            '{"url": "https://example.com/page?a=1&amp;b=2", "title": "Test &amp; Title"}\n'
+            '{"url": "https://example.com/page?a=1&amp;b=2", "title": "Test &amp; Title"}\n',
         )
 
         result = subprocess.run(
@@ -278,7 +278,7 @@ class TestParseJsonlUrls:
         """Test that empty lines are skipped."""
         input_file = tmp_path / "bookmarks.jsonl"
         input_file.write_text(
-            '{"url": "https://example.com"}\n\n   \n{"url": "https://other.com"}\n'
+            '{"url": "https://example.com"}\n\n   \n{"url": "https://other.com"}\n',
         )
 
         result = subprocess.run(
@@ -324,7 +324,9 @@ class TestParseJsonlUrls:
     def test_overwrites_stale_urls_file_on_rerun(self, tmp_path):
         """Test that reruns overwrite stale parser output instead of skipping."""
         input_file = tmp_path / "bookmarks.jsonl"
-        input_file.write_text('{"url": "https://fresh.example.com", "title": "Fresh"}\n')
+        input_file.write_text(
+            '{"url": "https://fresh.example.com", "title": "Fresh"}\n',
+        )
 
         urls_dir = tmp_path / "parse_jsonl_urls"
         urls_dir.mkdir(parents=True, exist_ok=True)
@@ -342,7 +344,9 @@ class TestParseJsonlUrls:
         )
 
         assert result.returncode == 0
-        file_lines = [line for line in urls_file.read_text().splitlines() if line.strip()]
+        file_lines = [
+            line for line in urls_file.read_text().splitlines() if line.strip()
+        ]
         assert len(file_lines) == 1
         entry = json.loads(file_lines[0])
         assert entry["url"] == "https://fresh.example.com"

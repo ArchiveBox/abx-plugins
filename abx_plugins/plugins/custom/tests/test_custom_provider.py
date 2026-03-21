@@ -7,7 +7,6 @@ Tests the custom bash binary installer with safe commands.
 import json
 import os
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
@@ -17,6 +16,8 @@ import pytest
 # Get the path to the custom provider hook
 PLUGIN_DIR = Path(__file__).parent.parent
 INSTALL_HOOK = next(PLUGIN_DIR.glob("on_Binary__*_custom_install.py"), None)
+REQUEST_PLUGIN = "test-suite"
+REQUEST_HOOK = "test_custom_provider"
 
 
 class TestCustomProviderHook:
@@ -42,10 +43,13 @@ class TestCustomProviderHook:
         env["SNAP_DIR"] = self.temp_dir
 
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=echo",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                f"--plugin-name={REQUEST_PLUGIN}",
+                f"--hook-name={REQUEST_HOOK}",
                 "--binproviders=pip,apt",  # custom not allowed
                 "--custom-cmd=echo hello",
             ],
@@ -67,10 +71,13 @@ class TestCustomProviderHook:
         # Use a simple echo command that doesn't actually install anything
         # Then check for 'echo' which is already in PATH
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=echo",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                f"--plugin-name={REQUEST_PLUGIN}",
+                f"--hook-name={REQUEST_HOOK}",
                 '--custom-cmd=echo "custom install simulation"',
             ],
             capture_output=True,
@@ -103,10 +110,13 @@ class TestCustomProviderHook:
         env["SNAP_DIR"] = self.temp_dir
 
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=nonexistent_binary_xyz123",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                f"--plugin-name={REQUEST_PLUGIN}",
+                f"--hook-name={REQUEST_HOOK}",
                 '--custom-cmd=echo "failed install"',  # Doesn't actually install
             ],
             capture_output=True,
@@ -125,10 +135,13 @@ class TestCustomProviderHook:
         env["SNAP_DIR"] = self.temp_dir
 
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=echo",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
+                f"--plugin-name={REQUEST_PLUGIN}",
+                f"--hook-name={REQUEST_HOOK}",
                 "--custom-cmd=exit 1",  # Command that fails
             ],
             capture_output=True,
