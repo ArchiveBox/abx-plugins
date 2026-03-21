@@ -63,7 +63,7 @@ function truncateIssuerName(value, maxLen = 40) {
 
 async function setupListener(url) {
   const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
-  const timeout = getEnvInt("SSL_TIMEOUT", 30) * 1000;
+  const timeout = getEnvInt("SSLCERTS_TIMEOUT", 30) * 1000;
   let targetHost = null;
 
   fs.writeFileSync(outputPath, "");
@@ -228,7 +228,7 @@ async function main() {
 
     // Wait for chrome_navigate to complete (non-fatal)
     try {
-      const timeout = getEnvInt("SSL_TIMEOUT", 30) * 1000;
+      const timeout = getEnvInt("SSLCERTS_TIMEOUT", 30) * 1000;
       await waitForNavigationComplete(CHROME_SESSION_DIR, timeout * 4);
     } catch (e) {
       console.error(`WARN: ${e.message}`);
