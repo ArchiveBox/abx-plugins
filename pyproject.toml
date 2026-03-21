@@ -2,7 +2,7 @@
 name = "abx-plugins"
 version = "1.10.9"
 description = "ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)"
-authors = [{name = "Nick Sweeting", email = "pyproject.toml+abx-plugins@archivebox.io"}]
+authors = [{name = "Nick Sweeting"}, {name = "ArchiveBox"}]
 requires-python = ">=3.11"
 license = {text = "MIT"}
 readme = "README.md"
