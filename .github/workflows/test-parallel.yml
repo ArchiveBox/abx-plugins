@@ -141,7 +141,7 @@ jobs:
 
     strategy:
       fail-fast: false
-      max-parallel: 8
+      max-parallel: 20
       matrix:
         test: ${{ fromJson(needs.discover-tests.outputs.test-files) }}
         python: ["3.13"]
