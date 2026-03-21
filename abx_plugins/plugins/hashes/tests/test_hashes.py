@@ -127,6 +127,44 @@ class TestHashesPlugin:
             assert result.returncode == 0
             assert "skipped" in result.stdout
 
+    def test_hashes_merges_extra_context_into_archive_result(self):
+        """Hashes hook should merge orchestrator-provided extra context into JSONL output."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            snap_dir = Path(temp_dir) / "snap"
+            snap_dir.mkdir(parents=True, exist_ok=True)
+            output_dir = snap_dir / "hashes"
+            output_dir.mkdir()
+            (snap_dir / "index.html").write_text("<html><body>Test</body></html>")
+
+            env = os.environ.copy()
+            env["HASHES_ENABLED"] = "true"
+            env["SNAP_DIR"] = str(snap_dir)
+            env["EXTRA_CONTEXT"] = json.dumps(
+                {
+                    "snapshot_id": "snap-123",
+                    "machine_id": "machine-123",
+                },
+            )
+
+            result = subprocess.run(
+                [
+                    str(HASHES_HOOK),
+                    "--url=https://example.com",
+                ],
+                capture_output=True,
+                text=True,
+                cwd=str(output_dir),
+                env=env,
+                timeout=30,
+            )
+
+            assert result.returncode == 0, f"Hook failed: {result.stderr}"
+            result_json = parse_jsonl_output(result.stdout)
+            assert result_json is not None
+            assert result_json["type"] == "ArchiveResult"
+            assert result_json["snapshot_id"] == "snap-123"
+            assert result_json["machine_id"] == "machine-123"
+
     def test_hashes_handles_empty_directory(self):
         """Hashes hook should handle empty snapshot directory."""
         with tempfile.TemporaryDirectory() as temp_dir:

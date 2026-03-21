@@ -25,6 +25,8 @@ from typing import Any
 
 import click
 
+from abx_plugins.plugins.base.utils import emit_archive_result_record
+
 
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
@@ -157,15 +159,7 @@ def main(url: str):
 
         if not save_hashes:
             status = "skipped"
-            click.echo(
-                json.dumps(
-                    {
-                        "type": "ArchiveResult",
-                        "status": status,
-                        "output_str": "HASHES_ENABLED=False",
-                    },
-                ),
-            )
+            emit_archive_result_record(status, "HASHES_ENABLED=False")
             sys.exit(0)
 
         # Working directory is the extractor output dir (e.g., <snapshot>/hashes/)
@@ -201,12 +195,7 @@ def main(url: str):
         if status == "succeeded"
         else (error or "")
     )
-    result = {
-        "type": "ArchiveResult",
-        "status": status,
-        "output_str": output_str,
-    }
-    click.echo(json.dumps(result))
+    emit_archive_result_record(status, output_str)
 
     sys.exit(0 if status in ("succeeded", "skipped") else 1)
 

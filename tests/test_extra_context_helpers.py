@@ -2,11 +2,14 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_binary_record,
 )
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def test_python_emit_archive_result_merges_extra_context_from_cli(capfd, monkeypatch):
@@ -67,7 +70,7 @@ def test_js_emit_snapshot_record_merges_extra_context_from_env():
                 "emitSnapshotRecord({ title: 'Example Title' });"
             ),
         ],
-        cwd="/Users/squash/Local/Code/archiveboxes/new/abx-plugins",
+        cwd=str(REPO_ROOT),
         env=env,
         capture_output=True,
         text=True,
