@@ -1,0 +1,27 @@
+abx_plugins/plugins/brew/tests/test_brew_install.py
+  35d28c4f6c2ee699 14,19,50
+abx_plugins/plugins/brew/on_Binary__12_brew_install.py
+  35d28c4f6c2ee699 37-64,139-141,145-150
+pyproject.toml
+  35d28c4f6c2ee699 42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "47e4924ba07491c06db728522736ca3d5795cef3",
+  "prompts": {
+    "35d28c4f6c2ee699": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d0ead-99ab-73e2-b67d-1b4d0e20a1f2",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 41,
+      "total_deletions": 17,
+      "accepted_lines": 41,
+      "overriden_lines": 0
+    }
+  }
+}
