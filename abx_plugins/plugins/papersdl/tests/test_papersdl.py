@@ -49,7 +49,11 @@ def require_papersdl_binary() -> str:
 
 def get_papersdl_binary_path():
     """Get the installed papers-dl binary path from cache or by running installation."""
-    global _papersdl_binary_path, _papersdl_install_error, _papersdl_home_root, _papersdl_snap_root
+    global \
+        _papersdl_binary_path, \
+        _papersdl_install_error, \
+        _papersdl_home_root, \
+        _papersdl_snap_root
     if _papersdl_binary_path:
         return _papersdl_binary_path
 

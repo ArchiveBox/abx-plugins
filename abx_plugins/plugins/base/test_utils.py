@@ -108,9 +108,7 @@ def find_snapshot_env_path_collisions(
 ) -> list[str]:
     """Return collisions where runtime support dirs overlap with SNAP_DIR."""
     raw_paths = {
-        key: value
-        for key in SNAPSHOT_ISOLATION_ENV_KEYS
-        if (value := env.get(key))
+        key: value for key in SNAPSHOT_ISOLATION_ENV_KEYS if (value := env.get(key))
     }
     if "SNAP_DIR" not in raw_paths:
         return []
@@ -129,7 +127,9 @@ def find_snapshot_env_path_collisions(
             collisions.append(f"{key} must not equal SNAP_DIR ({snap_dir})")
             continue
         if path in snap_dir.parents:
-            collisions.append(f"{key} must not contain SNAP_DIR ({path} contains {snap_dir})")
+            collisions.append(
+                f"{key} must not contain SNAP_DIR ({path} contains {snap_dir})",
+            )
             continue
         if snap_dir in path.parents:
             collisions.append(f"{key} must not be nested under SNAP_DIR ({path})")
@@ -145,8 +145,7 @@ def assert_isolated_snapshot_env(
     if collisions:
         details = "; ".join(collisions)
         raise AssertionError(
-            "Test runtime directories must stay isolated from SNAP_DIR. "
-            f"{details}",
+            f"Test runtime directories must stay isolated from SNAP_DIR. {details}",
         )
 
 

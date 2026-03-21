@@ -31,6 +31,7 @@ from abx_plugins.plugins.base.utils import emit_binary_record
 if TYPE_CHECKING:
     from abx_pkg.binprovider import BinProvider, HandlerDict
 
+
 @click.command()
 @click.option("--machine-id", required=True, help="Machine UUID")
 @click.option("--binary-id", required=True, help="Dependency UUID")

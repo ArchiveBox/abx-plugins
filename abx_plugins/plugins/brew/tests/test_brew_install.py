@@ -16,7 +16,9 @@ def test_brew_hook_respects_brew_only_and_maps_openjdk():
         text=True,
         check=True,
     )
-    expected_java = Path(prefix_result.stdout.strip()) / "opt" / "openjdk" / "bin" / "java"
+    expected_java = (
+        Path(prefix_result.stdout.strip()) / "opt" / "openjdk" / "bin" / "java"
+    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
