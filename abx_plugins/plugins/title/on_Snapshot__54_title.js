@@ -5,7 +5,7 @@
  * Requires a Chrome session (from chrome plugin) and connects to it via CDP
  * to get the page title (which includes JS-rendered content).
  *
- * Usage: on_Snapshot__10_title.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__10_title.js --url=<url>
  * Output: Writes title/title.txt
  *
  * Environment variables:
@@ -85,10 +85,9 @@ async function extractTitle(url) {
 async function main() {
     const args = parseArgs();
     const url = args.url;
-    const snapshotId = args.snapshot_id;
 
-    if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__10_title.js --url=<url> --snapshot-id=<uuid>');
+    if (!url) {
+        console.error('Usage: on_Snapshot__10_title.js --url=<url>');
         emitArchiveResultRecord('failed', 'missing required args');
         process.exit(1);
     }
@@ -128,7 +127,6 @@ async function main() {
     // Update snapshot title via JSONL
     if (status === 'succeeded' && extractedTitle) {
         emitSnapshotRecord({
-            id: snapshotId,
             title: extractedTitle,
         });
     }

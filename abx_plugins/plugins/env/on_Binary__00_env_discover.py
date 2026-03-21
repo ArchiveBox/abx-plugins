@@ -15,9 +15,8 @@
 # This simple provider discovers binaries that are already installed without installing anything.
 #
 # Usage:
-#     ./on_Binary__00_env_discover.py --binary-id=<uuid> --machine-id=<uuid> --name=<name> > events.jsonl
+#     ./on_Binary__00_env_discover.py --name=<name> > events.jsonl
 
-import os
 import sys
 
 from abx_plugins.plugins.base.utils import emit_binary_record
@@ -26,20 +25,14 @@ import rich_click as click
 from abx_pkg import Binary, EnvProvider, SemVer
 
 
-@click.command()
-@click.option("--machine-id", required=True, help="Machine UUID")
-@click.option("--binary-id", required=True, help="Dependency UUID")
-@click.option("--plugin-name", required=True, help="Requesting plugin name")
-@click.option("--hook-name", required=True, help="Requesting hook name")
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--name", required=True, help="Binary name to find")
 @click.option("--binproviders", default="*", help="Allowed providers (comma-separated)")
 @click.option("--min-version", default="", help="Minimum acceptable version")
 @click.option("--overrides", default=None, help="JSON-encoded overrides dict (unused)")
 def main(
-    binary_id: str,
-    machine_id: str,
-    plugin_name: str,
-    hook_name: str,
     name: str,
     binproviders: str,
     min_version: str,
@@ -68,8 +61,6 @@ def main(
         click.echo(f"{name} not found in PATH", err=True)
         sys.exit(1)
 
-    machine_id = machine_id.strip() or os.environ.get("MACHINE_ID", "").strip()
-
     # Output Binary JSONL record to stdout
     emit_binary_record(
         name=name,
@@ -77,10 +68,6 @@ def main(
         version=str(binary.version) if binary.version else "",
         sha256=binary.sha256 or "",
         binprovider="env",
-        machine_id=machine_id,
-        binary_id=binary_id,
-        plugin_name=plugin_name,
-        hook_name=hook_name,
     )
 
     # Log human-readable info to stderr

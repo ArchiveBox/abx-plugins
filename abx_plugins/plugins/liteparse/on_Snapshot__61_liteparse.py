@@ -16,7 +16,7 @@ Finds all PDF files produced by other plugins (pdf, responses, staticfile)
 and extracts text content from each one using the ``lit parse`` command.
 Processes every PDF found, combining results into content.txt and metadata.json.
 
-Usage: on_Snapshot__61_liteparse.py --url=<url> --snapshot-id=<uuid> > events.jsonl
+Usage: on_Snapshot__61_liteparse.py --url=<url> > events.jsonl
 
 Environment variables:
     LITEPARSE_BINARY: Path to lit binary
@@ -263,10 +263,11 @@ def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
     return "succeeded", f"{PLUGIN_DIR}/{JSON_FILE}"
 
 
-@click.command()
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--url", required=True, help="URL being archived")
-@click.option("--snapshot-id", required=True, help="Snapshot UUID")
-def main(url: str, snapshot_id: str):
+def main(url: str):
     """Extract text from PDFs using LiteParse."""
 
     try:

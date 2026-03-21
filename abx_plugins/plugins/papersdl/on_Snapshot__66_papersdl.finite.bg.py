@@ -12,7 +12,7 @@
 """
 Download scientific papers from a URL using papers-dl.
 
-Usage: on_Snapshot__papersdl.py --url=<url> --snapshot-id=<uuid>
+Usage: on_Snapshot__papersdl.py --url=<url>
 Output: Downloads paper PDFs to $PWD/
 
 Environment variables:
@@ -171,10 +171,11 @@ def save_paper(url: str, binary: str) -> tuple[bool, int, str]:
         return False, 0, f"{type(e).__name__}: {e}"
 
 
-@click.command()
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--url", required=True, help="URL to download paper from")
-@click.option("--snapshot-id", required=True, help="Snapshot UUID")
-def main(url: str, snapshot_id: str):
+def main(url: str):
     """Download scientific paper from a URL using papers-dl."""
 
     downloaded_count = 0

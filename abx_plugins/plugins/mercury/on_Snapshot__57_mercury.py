@@ -153,10 +153,11 @@ def extract_mercury(url: str, binary: str) -> tuple[str, str]:
         return "failed", f"{type(e).__name__}: {e}"
 
 
-@click.command()
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--url", required=True, help="URL to extract article from")
-@click.option("--snapshot-id", required=True, help="Snapshot UUID")
-def main(url: str, snapshot_id: str):
+def main(url: str):
     """Extract article content using Postlight's Mercury Parser."""
 
     try:

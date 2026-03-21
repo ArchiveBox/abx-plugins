@@ -6,12 +6,14 @@
  * then waits for navigation to complete. The listeners capture all DNS
  * resolutions by extracting hostname/IP pairs from network responses.
  *
- * Usage: on_Snapshot__22_dns.daemon.bg.js --url=<url> --snapshot-id=<uuid>
- * Output: Writes dns.jsonl with one line per DNS resolution record
+ * Usage: on_Snapshot__22_dns.daemon.bg.js --url=<url>
+ * Output: Writes dns.jsonl with one line per DNS resolution record, including
+ * the configured nameservers available to Chrome's resolver on this system
  */
 
 const fs = require('fs');
 const path = require('path');
+const dns = require('dns');
 
 // Import generic helpers from base/utils.js
 const {
@@ -49,6 +51,7 @@ let primaryHostname = '';
 let primaryIp = '';
 let firstResolvedIp = '';
 let keepAliveTimer = null;
+let configuredNameservers = [];
 
 function extractHostname(url) {
     try {
@@ -59,10 +62,19 @@ function extractHostname(url) {
     }
 }
 
+function getConfiguredNameservers() {
+    try {
+        return dns.getServers().filter(Boolean);
+    } catch (e) {
+        return [];
+    }
+}
+
 async function setupListener(targetUrl) {
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
     const timeout = getEnvInt('DNS_TIMEOUT', 30) * 1000;
     primaryHostname = extractHostname(targetUrl) || '';
+    configuredNameservers = getConfiguredNameservers();
 
     // Initialize output file
     fs.writeFileSync(outputPath, '');
@@ -140,6 +152,7 @@ async function setupListener(targetUrl) {
                 protocol: url.startsWith('https://') ? 'https' : 'http',
                 url: url,
                 requestId: params.requestId,
+                nameservers: [...configuredNameservers],
             };
 
             // Append to output file
@@ -191,6 +204,7 @@ async function setupListener(targetUrl) {
                     url: url,
                     requestId: requestId,
                     error: errorText,
+                    nameservers: [...configuredNameservers],
                 };
 
                 fs.appendFileSync(outputPath, JSON.stringify(dnsRecord) + '\n');
@@ -249,10 +263,9 @@ async function handleShutdown(signal) {
 async function main() {
     const args = parseArgs();
     const url = args.url;
-    const snapshotId = args.snapshot_id;
 
-    if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__22_dns.daemon.bg.js --url=<url> --snapshot-id=<uuid>');
+    if (!url) {
+        console.error('Usage: on_Snapshot__22_dns.daemon.bg.js --url=<url>');
         process.exit(1);
     }
 

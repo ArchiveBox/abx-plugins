@@ -19,8 +19,6 @@ import pytest
 # Get the path to the apt provider hook
 PLUGIN_DIR = Path(__file__).parent.parent
 INSTALL_HOOK = next(PLUGIN_DIR.glob("on_Binary__*_apt_install.py"), None)
-PLUGIN_NAME = "apt"
-HOOK_NAME = "on_Binary__13_apt_install"
 
 
 def apt_available() -> bool:
@@ -56,10 +54,6 @@ class TestAptProviderHook:
             [
                 str(INSTALL_HOOK),
                 "--name=wget",
-                "--binary-id=test-uuid",
-                "--machine-id=test-machine",
-                "--plugin-name=apt",
-                "--hook-name=on_Binary__13_apt_install",
                 "--binproviders=pip,npm",  # apt not allowed
             ],
             capture_output=True,
@@ -79,10 +73,6 @@ class TestAptProviderHook:
             [
                 str(INSTALL_HOOK),
                 "--name=nonexistent-pkg-xyz123",
-                "--binary-id=test-uuid",
-                "--machine-id=test-machine",
-                "--plugin-name=apt",
-                "--hook-name=on_Binary__13_apt_install",
             ],
             capture_output=True,
             text=True,
@@ -100,10 +90,6 @@ class TestAptProviderHook:
             [
                 str(INSTALL_HOOK),
                 "--name=test-pkg",
-                "--binary-id=test-uuid",
-                "--machine-id=test-machine",
-                "--plugin-name=apt",
-                "--hook-name=on_Binary__13_apt_install",
                 f"--overrides={overrides}",
             ],
             capture_output=True,
@@ -127,10 +113,6 @@ class TestAptProviderSystemBinaries:
             [
                 str(INSTALL_HOOK),
                 "--name=bash",
-                "--binary-id=test-uuid",
-                "--machine-id=test-machine",
-                "--plugin-name=apt",
-                "--hook-name=on_Binary__13_apt_install",
             ],
             capture_output=True,
             text=True,

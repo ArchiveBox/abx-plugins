@@ -8,7 +8,7 @@
  * NOTE: We use Chromium instead of Chrome because Chrome 137+ removed support for
  * --load-extension and --disable-extensions-except flags.
  *
- * Usage: on_Crawl__90_chrome_launch.daemon.bg.js --crawl-id=<uuid> --source-url=<url>
+ * Usage: on_Crawl__90_chrome_launch.daemon.bg.js
  * Output: Writes to current directory (executor creates chrome/ dir):
  *   - cdp_url.txt: WebSocket/HTTP URL for CDP connection
  *   - chrome.pid: Chromium process ID (for cleanup)
@@ -25,7 +25,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvBool, getEnvInt, emitArchiveResultRecord } = require('../base/utils.js');
+const { ensureNodeModuleResolution, getEnv, getEnvBool, getEnvInt, emitArchiveResultRecord } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const {
     acquireSessionLock,
@@ -78,8 +78,6 @@ process.on('SIGTERM', cleanup);
 process.on('SIGINT', cleanup);
 
 async function main() {
-    const args = parseArgs();
-    const crawlId = args.crawl_id;
     let releaseLock = null;
 
     try {
@@ -144,7 +142,7 @@ async function main() {
             console.error(`[*] Reusing live Chromium session in ${OUTPUT_DIR}`);
         }
 
-        console.error(`[+] Chromium session started for crawl ${crawlId}`);
+        console.error('[+] Chromium session started');
         console.error(`[+] CDP URL: ${chromeCdpUrl}`);
         console.error(`[+] PID: ${chromePid || 'external'}`);
         emitArchiveResultRecord('succeeded', `pid=${chromePid || 'external'} port=${getPortFromCdpUrl(chromeCdpUrl) || '?'}`);

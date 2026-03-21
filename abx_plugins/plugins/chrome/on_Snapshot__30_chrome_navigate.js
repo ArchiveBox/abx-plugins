@@ -6,7 +6,7 @@
  * Pre-load hooks (21-29) should set up their own CDP listeners.
  * Post-load hooks (31+) can then read from the loaded page.
  *
- * Usage: on_Snapshot__30_chrome_navigate.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__30_chrome_navigate.js --url=<url>
  * Output: Writes navigation.json when navigation completes
  *
  * Environment variables:
@@ -106,10 +106,9 @@ async function navigate(url) {
 async function main() {
     const args = parseArgs();
     const url = args.url;
-    const snapshotId = args.snapshot_id;
 
-    if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__30_chrome_navigate.js --url=<url> --snapshot-id=<uuid>');
+    if (!url) {
+        console.error('Usage: on_Snapshot__30_chrome_navigate.js --url=<url>');
         process.exit(1);
     }
 

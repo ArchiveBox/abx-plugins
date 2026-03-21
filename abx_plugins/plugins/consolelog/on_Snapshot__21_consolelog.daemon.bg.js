@@ -6,7 +6,7 @@
  * then waits for navigation to complete. The listeners stay active through
  * navigation and capture all console output.
  *
- * Usage: on_Snapshot__21_consolelog.daemon.bg.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__21_consolelog.daemon.bg.js --url=<url>
  * Output: Writes console.jsonl
  */
 
@@ -159,10 +159,9 @@ async function handleShutdown(signal) {
 async function main() {
     const args = parseArgs();
     const url = args.url;
-    const snapshotId = args.snapshot_id;
 
-    if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__21_consolelog.daemon.bg.js --url=<url> --snapshot-id=<uuid>');
+    if (!url) {
+        console.error('Usage: on_Snapshot__21_consolelog.daemon.bg.js --url=<url>');
         process.exit(1);
     }
 

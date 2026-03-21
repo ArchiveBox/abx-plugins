@@ -177,9 +177,11 @@ class TestAccessibilityWithChrome:
         # Should fail with non-zero exit code
         assert result.returncode != 0, "Should fail when URL missing"
 
-    def test_accessibility_missing_snapshot_id_argument(self, chrome_test_url):
-        """Test that missing --snapshot-id argument causes error."""
+    def test_accessibility_url_only_without_snapshot_id(self, chrome_test_url):
+        """Test that --snapshot-id is not required."""
         test_url = chrome_test_url
+        env = get_test_env() | {"SNAP_DIR": str(self.snap_dir)}
+        env["ACCESSIBILITY_ENABLED"] = "False"
 
         result = subprocess.run(
             [str(ACCESSIBILITY_HOOK), f"--url={test_url}"],
@@ -187,11 +189,11 @@ class TestAccessibilityWithChrome:
             capture_output=True,
             text=True,
             timeout=30,
-            env=get_test_env() | {"SNAP_DIR": str(self.snap_dir)},
+            env=env,
         )
 
-        # Should fail with non-zero exit code
-        assert result.returncode != 0, "Should fail when snapshot-id missing"
+        # Should succeed without requiring --snapshot-id
+        assert result.returncode == 0, "Should not require snapshot-id"
 
     def test_accessibility_with_no_chrome_session(self, chrome_test_url):
         """Test that hook fails gracefully when no Chrome session exists."""

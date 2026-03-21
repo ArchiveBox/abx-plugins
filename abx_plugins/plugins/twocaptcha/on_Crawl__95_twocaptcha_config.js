@@ -334,10 +334,9 @@ async function configure2Captcha() {
 async function main() {
     const args = parseArgs();
     const url = args.url;
-    const snapshotId = args.snapshot_id;
 
-    if (!url || !snapshotId) {
-        console.error('Usage: on_Crawl__95_twocaptcha_config.js --url=<url> --snapshot-id=<uuid>');
+    if (!url) {
+        console.error('Usage: on_Crawl__95_twocaptcha_config.js --url=<url>');
         process.exit(1);
     }
 

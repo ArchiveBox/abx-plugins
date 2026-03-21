@@ -8,7 +8,7 @@
  *
  * Optionally expands <details> elements and clicks "load more" buttons.
  *
- * Usage: on_Snapshot__45_infiniscroll.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__45_infiniscroll.js --url=<url>
  * Output: JSONL with scroll stats (no files created)
  *
  * Environment variables:
@@ -290,10 +290,9 @@ async function scrollDown(page, options = {}) {
 async function main() {
     const args = parseArgs();
     const url = args.url;
-    const snapshotId = args.snapshot_id;
 
-    if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__45_infiniscroll.js --url=<url> --snapshot-id=<uuid>');
+    if (!url) {
+        console.error('Usage: on_Snapshot__45_infiniscroll.js --url=<url>');
         process.exit(1);
     }
 

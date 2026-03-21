@@ -14,7 +14,7 @@
 # Reads HTML from other extractors (wget, singlefile, dom) and converts to plain text for full-text search.
 #
 # Usage:
-#     ./on_Snapshot__58_htmltotext.py --url=<url> --snapshot-id=<snapshot-id> > events.jsonl
+#     ./on_Snapshot__58_htmltotext.py --url=<url> > events.jsonl
 
 import os
 import re
@@ -143,10 +143,11 @@ def extract_htmltotext(url: str) -> tuple[str, str]:
     return "succeeded", f"{PLUGIN_DIR}/{OUTPUT_FILE}"
 
 
-@click.command()
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--url", required=True, help="URL that was archived")
-@click.option("--snapshot-id", required=True, help="Snapshot UUID")
-def main(url: str, snapshot_id: str):
+def main(url: str):
     """Convert HTML to plain text for search indexing."""
 
     try:

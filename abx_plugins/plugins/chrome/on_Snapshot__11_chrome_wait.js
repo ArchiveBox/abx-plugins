@@ -11,7 +11,7 @@
  * downstream snapshot hooks do not all need to reimplement their own manual
  * ordering and blocking checks before connecting to the published page target.
  *
- * Usage: on_Snapshot__11_chrome_wait.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__11_chrome_wait.js --url=<url>
  */
 
 const fs = require('fs');
@@ -38,10 +38,9 @@ const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin mu
 async function main() {
     const args = parseArgs();
     const url = args.url;
-    const snapshotId = args.snapshot_id;
 
-    if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__11_chrome_wait.js --url=<url> --snapshot-id=<uuid>');
+    if (!url) {
+        console.error('Usage: on_Snapshot__11_chrome_wait.js --url=<url>');
         process.exit(1);
     }
 

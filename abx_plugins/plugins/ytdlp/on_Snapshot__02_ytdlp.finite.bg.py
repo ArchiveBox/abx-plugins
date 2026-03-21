@@ -12,7 +12,7 @@
 """
 Download video/audio from a URL using yt-dlp.
 
-Usage: on_Snapshot__02_ytdlp.finite.bg.py --url=<url> --snapshot-id=<uuid>
+Usage: on_Snapshot__02_ytdlp.finite.bg.py --url=<url>
 Output: Downloads video/audio files to SNAP_DIR/ytdlp/
 
 Environment variables:
@@ -231,10 +231,11 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
         return False, None, f"{type(e).__name__}: {e}"
 
 
-@click.command()
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--url", required=True, help="URL to download video/audio from")
-@click.option("--snapshot-id", required=True, help="Snapshot UUID")
-def main(url: str, snapshot_id: str):
+def main(url: str):
     """Download video/audio from a URL using yt-dlp."""
 
     try:

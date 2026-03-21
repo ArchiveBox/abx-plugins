@@ -4,7 +4,7 @@ requires-python = ">=3.11"
 
 [[package]]
 name = "abx-pkg"
-version = "1.9.10"
+version = "1.9.14"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pip" },
@@ -12,36 +12,31 @@ dependencies = [
     { name = "pydantic" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7e/84/a528426ba28f1d408d41419636bf8690785d0d2e6cb11ab72f0f71bed584/abx_pkg-1.9.10.tar.gz", hash = "sha256:d6231097d07f776bba48851ffe83a390903b4889ef43332677a0cf7f018b1d2b", size = 137191, upload-time = "2026-03-16T00:38:39.942Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f9/6e/4465d44686b40ab0361d153160e2bd0167f588756518084308a8e8d08d8c/abx_pkg-1.9.14.tar.gz", hash = "sha256:b94d42cdbc6dde88635903cf14977b34e552d807a72c03d60f27f075deb59952", size = 146811, upload-time = "2026-03-21T07:44:12.158Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d5/70/142c7f42fd5de703e4832a8769c654028bc9e74c61ce3a145d4b94f8efdf/abx_pkg-1.9.10-py3-none-any.whl", hash = "sha256:5066bf0299e3488937a78ed76a044a47927f73440f10bdb08734baaed87bd873", size = 62022, upload-time = "2026-03-16T00:38:38.639Z" },
+    { url = "https://files.pythonhosted.org/packages/56/af/8e65a23d44e5ccc069c344a7a626f575498b3c1a3ccacb17e941b36ecd35/abx_pkg-1.9.14-py3-none-any.whl", hash = "sha256:cf89dc4c5737e2078cb05fa7e33683718d540391a018445b6e54aa22666f25e0", size = 63511, upload-time = "2026-03-21T07:44:11.038Z" },
 ]
 
 [[package]]
 name = "abx-plugins"
-version = "1.10.8"
+version = "1.10.12"
 source = { editable = "." }
 dependencies = [
     { name = "abx-pkg" },
-    { name = "feedparser" },
     { name = "pydantic-settings" },
-    { name = "pyright" },
-    { name = "pytest" },
-    { name = "pytest-httpserver" },
     { name = "rich-click" },
-    { name = "ruff" },
-    { name = "ty" },
 ]
 
 [package.optional-dependencies]
 dev = [
-    { name = "abx-pkg" },
     { name = "feedparser" },
     { name = "jinja2" },
+    { name = "pyright" },
     { name = "pytest" },
     { name = "pytest-httpserver" },
     { name = "requests" },
-    { name = "rich-click" },
+    { name = "ruff" },
+    { name = "ty" },
 ]
 
 [package.dev-dependencies]
@@ -51,22 +46,17 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx-pkg", specifier = ">=1.9.10" },
-    { name = "abx-pkg", marker = "extra == 'dev'", specifier = ">=0.7.0" },
-    { name = "feedparser", specifier = ">=6.0.0" },
+    { name = "abx-pkg", specifier = ">=1.9.14" },
     { name = "feedparser", marker = "extra == 'dev'", specifier = ">=6.0.0" },
     { name = "jinja2", marker = "extra == 'dev'", specifier = ">=3.1.0" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },
-    { name = "pyright", specifier = ">=1.1.408" },
-    { name = "pytest", specifier = ">=9.0.2" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
-    { name = "pytest-httpserver", specifier = ">=1.1.0" },
+    { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.408" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.2" },
     { name = "pytest-httpserver", marker = "extra == 'dev'", specifier = ">=1.1.0" },
     { name = "requests", marker = "extra == 'dev'", specifier = ">=2.28.0" },
     { name = "rich-click", specifier = ">=1.9.7" },
-    { name = "rich-click", marker = "extra == 'dev'", specifier = ">=1.9.7" },
-    { name = "ruff", specifier = ">=0.15.2" },
-    { name = "ty", specifier = ">=0.0.18" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.2" },
+    { name = "ty", marker = "extra == 'dev'", specifier = ">=0.0.18" },
 ]
 provides-extras = ["dev"]
 

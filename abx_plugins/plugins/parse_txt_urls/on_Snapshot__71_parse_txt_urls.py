@@ -143,15 +143,13 @@ def persist_records(records: list[dict]) -> tuple[str, str]:
     return "noresults", NORESULTS_OUTPUT
 
 
-@click.command()
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--url", required=True, help="URL to parse (file:// or https://)")
-@click.option("--snapshot-id", required=False, help="Parent Snapshot UUID")
-@click.option("--crawl-id", required=False, help="Crawl UUID")
 @click.option("--depth", type=int, default=0, help="Current depth level")
 def main(
     url: str,
-    snapshot_id: str | None = None,
-    crawl_id: str | None = None,
     depth: int = 0,
 ):
     """Parse plain text and extract URLs."""
@@ -161,8 +159,6 @@ def main(
             depth = int(env_depth)
         except Exception:
             pass
-    crawl_id = crawl_id or os.environ.get("CRAWL_ID")
-
     try:
         content = fetch_content(url)
     except Exception as e:
@@ -186,10 +182,6 @@ def main(
             "plugin": PLUGIN_NAME,
             "depth": depth + 1,
         }
-        if snapshot_id:
-            record["parent_snapshot_id"] = snapshot_id
-        if crawl_id:
-            record["crawl_id"] = crawl_id
         records.append(record)
         emit_snapshot_record(record)
 

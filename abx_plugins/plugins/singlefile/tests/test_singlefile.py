@@ -216,7 +216,6 @@ def test_singlefile_cli_archives_example_com():
                     [
                         str(SNAPSHOT_HOOK),
                         f"--url={TEST_URL}",
-                        "--snapshot-id=test789",
                     ],
                     cwd=singlefile_output_dir,
                     capture_output=True,
@@ -288,7 +287,6 @@ def test_singlefile_with_chrome_session():
                     [
                         str(SNAPSHOT_HOOK),
                         f"--url={TEST_URL}",
-                        "--snapshot-id=singlefile-test-snap",
                     ],
                     cwd=str(singlefile_output_dir),
                     capture_output=True,
@@ -394,7 +392,6 @@ def test_singlefile_with_extension_uses_existing_chrome():
                     [
                         str(SNAPSHOT_HOOK),
                         f"--url={TEST_URL}",
-                        "--snapshot-id=singlefile-ext-snap",
                     ],
                     cwd=str(singlefile_output_dir),
                     capture_output=True,
@@ -619,7 +616,6 @@ def test_singlefile_disabled_skips():
             [
                 str(SNAPSHOT_HOOK),
                 f"--url={TEST_URL}",
-                "--snapshot-id=test-disabled",
             ],
             cwd=tmpdir,
             capture_output=True,

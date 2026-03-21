@@ -147,8 +147,6 @@ def test_handles_non_paper_url():
                 str(PAPERSDL_HOOK),
                 "--url",
                 "https://example.com",
-                "--snapshot-id",
-                "test789",
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -183,8 +181,6 @@ def test_config_save_papersdl_false_skips():
                 str(PAPERSDL_HOOK),
                 "--url",
                 TEST_URL,
-                "--snapshot-id",
-                "test999",
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -222,8 +218,6 @@ def test_config_timeout():
                 str(PAPERSDL_HOOK),
                 "--url",
                 "https://example.com",
-                "--snapshot-id",
-                "testtimeout",
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -245,7 +239,7 @@ def test_real_public_paper_download():
     ]
     attempts = []
 
-    for paper_url, snapshot_id in paper_urls:
+    for paper_url, _snapshot_id in paper_urls:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
 
@@ -259,8 +253,6 @@ def test_real_public_paper_download():
                     str(PAPERSDL_HOOK),
                     "--url",
                     paper_url,
-                    "--snapshot-id",
-                    snapshot_id,
                 ],
                 cwd=tmpdir,
                 capture_output=True,

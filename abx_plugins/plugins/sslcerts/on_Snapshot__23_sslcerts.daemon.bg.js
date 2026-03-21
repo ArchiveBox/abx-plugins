@@ -6,7 +6,7 @@
  * then waits for navigation to complete. The listener captures SSL details
  * during the navigation request.
  *
- * Usage: on_Snapshot__23_sslcerts.daemon.bg.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__23_sslcerts.daemon.bg.js --url=<url>
  * Output: Writes sslcerts.jsonl
  */
 
@@ -201,11 +201,10 @@ async function handleShutdown(signal) {
 async function main() {
   const args = parseArgs();
   const url = args.url;
-  const snapshotId = args.snapshot_id;
 
-  if (!url || !snapshotId) {
+  if (!url) {
     console.error(
-      "Usage: on_Snapshot__23_sslcerts.daemon.bg.js --url=<url> --snapshot-id=<uuid>",
+      "Usage: on_Snapshot__23_sslcerts.daemon.bg.js --url=<url>",
     );
     process.exit(1);
   }

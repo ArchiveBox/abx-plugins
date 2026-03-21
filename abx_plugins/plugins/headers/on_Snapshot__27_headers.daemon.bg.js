@@ -6,7 +6,7 @@
  * then waits for navigation to complete. It records the first top-level
  * request headers and the corresponding response headers (with :status).
  *
- * Usage: on_Snapshot__27_headers.daemon.bg.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__27_headers.daemon.bg.js --url=<url>
  * Output: Writes headers.json
  */
 
@@ -217,10 +217,9 @@ async function handleShutdown(signal) {
 async function main() {
     const args = parseArgs();
     const url = args.url;
-    const snapshotId = args.snapshot_id;
 
-    if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__27_headers.daemon.bg.js --url=<url> --snapshot-id=<uuid>');
+    if (!url) {
+        console.error('Usage: on_Snapshot__27_headers.daemon.bg.js --url=<url>');
         process.exit(1);
     }
 

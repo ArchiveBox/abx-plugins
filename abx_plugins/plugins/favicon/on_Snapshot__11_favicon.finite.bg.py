@@ -14,7 +14,7 @@
 # Supports multiple favicon sources including HTML link tags and Google's favicon service.
 #
 # Usage:
-#     ./on_Snapshot__11_favicon.finite.bg.py --url=<url> --snapshot-id=<snapshot-id>
+#     ./on_Snapshot__11_favicon.finite.bg.py --url=<url>
 
 import os
 import re
@@ -117,10 +117,11 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
     return False, None, "No favicon found"
 
 
-@click.command()
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--url", required=True, help="URL to extract favicon from")
-@click.option("--snapshot-id", required=True, help="Snapshot UUID")
-def main(url: str, snapshot_id: str):
+def main(url: str):
     """Extract favicon from a URL."""
     output = None
     status = "failed"

@@ -248,6 +248,60 @@ def _write_stream_line_fully(stream: Any, text: str) -> None:
     _fsync_if_regular_file(fd)
 
 
+def _parse_extra_context(raw: str, source: str) -> dict[str, Any]:
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as err:
+        print(
+            f"WARNING: ignoring invalid extra context from {source}: {err}",
+            file=sys.stderr,
+        )
+        return {}
+
+    if not isinstance(parsed, dict):
+        print(
+            f"WARNING: ignoring non-object extra context from {source}",
+            file=sys.stderr,
+        )
+        return {}
+
+    return parsed
+
+
+def get_extra_context() -> dict[str, Any]:
+    context: dict[str, Any] = {}
+
+    env_raw = os.environ.get("EXTRA_CONTEXT", "").strip()
+    if env_raw:
+        context.update(_parse_extra_context(env_raw, "EXTRA_CONTEXT"))
+
+    argv = sys.argv[1:]
+    for index, arg in enumerate(argv):
+        if arg == "--extra-context":
+            if index + 1 >= len(argv):
+                print(
+                    "WARNING: ignoring missing value for --extra-context",
+                    file=sys.stderr,
+                )
+                return context
+            context.update(_parse_extra_context(argv[index + 1], "--extra-context"))
+            return context
+        if arg.startswith("--extra-context="):
+            context.update(
+                _parse_extra_context(arg.split("=", 1)[1], "--extra-context"),
+            )
+            return context
+
+    return context
+
+
+def _merge_extra_context(record: dict[str, Any]) -> dict[str, Any]:
+    extra_context = get_extra_context()
+    if not extra_context:
+        return record
+    return {**extra_context, **record}
+
+
 def emit_archive_result_record(
     status: str,
     output_str: str,
@@ -260,7 +314,7 @@ def emit_archive_result_record(
     }
     if extra:
         record.update(extra)
-    _write_stream_line_fully(sys.stdout, json.dumps(record))
+    _write_stream_line_fully(sys.stdout, json.dumps(_merge_extra_context(record)))
 
 
 def emit_binary_record(
@@ -272,20 +326,12 @@ def emit_binary_record(
     version: str | None = None,
     sha256: str | None = None,
     binprovider: str | None = None,
-    machine_id: str | None = None,
-    binary_id: str | None = None,
-    plugin_name: str | None = None,
-    hook_name: str | None = None,
 ) -> None:
     """Output Binary JSONL record for a dependency."""
     record: dict[str, Any] = {
         "type": "Binary",
         "name": name,
     }
-    resolved_machine_id = (
-        machine_id if machine_id is not None else os.environ.get("MACHINE_ID", "")
-    )
-    record["machine_id"] = resolved_machine_id
     if binproviders is not None:
         record["binproviders"] = binproviders
     if overrides:
@@ -300,32 +346,30 @@ def emit_binary_record(
         record["sha256"] = sha256
     if binprovider is not None:
         record["binprovider"] = binprovider
-    if binary_id is not None:
-        record["binary_id"] = binary_id
-    if plugin_name is not None:
-        record["plugin_name"] = plugin_name
-    if hook_name is not None:
-        record["hook_name"] = hook_name
-    _write_stream_line_fully(sys.stdout, json.dumps(record))
+    _write_stream_line_fully(sys.stdout, json.dumps(_merge_extra_context(record)))
 
 
 def emit_machine_record(config: dict[str, Any]) -> None:
     _write_stream_line_fully(
         sys.stdout,
         json.dumps(
-            {
-                "type": "Machine",
-                "config": config,
-            },
+            _merge_extra_context(
+                {
+                    "type": "Machine",
+                    "config": config,
+                },
+            ),
         ),
     )
 
 
 def emit_snapshot_record(record: dict[str, Any]) -> None:
-    snapshot_record = {
-        "type": "Snapshot",
-        **{key: value for key, value in record.items() if key != "type"},
-    }
+    snapshot_record = _merge_extra_context(
+        {
+            "type": "Snapshot",
+            **{key: value for key, value in record.items() if key != "type"},
+        },
+    )
     _write_stream_line_fully(sys.stdout, json.dumps(snapshot_record))
 
 

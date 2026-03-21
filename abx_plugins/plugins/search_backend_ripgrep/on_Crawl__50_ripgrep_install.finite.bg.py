@@ -38,7 +38,6 @@ def main():
         overrides={
             "apt": {"install_args": ["ripgrep"]},
         },
-        machine_id=os.environ.get("MACHINE_ID", ""),
     )
     sys.exit(0)
 

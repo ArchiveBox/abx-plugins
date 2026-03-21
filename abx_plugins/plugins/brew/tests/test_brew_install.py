@@ -27,10 +27,6 @@ def test_brew_hook_respects_brew_only_and_installs_tree():
         result = subprocess.run(
             [
                 str(BINARY_HOOK),
-                "--machine-id=test-machine",
-                "--binary-id=test-binary",
-                "--plugin-name=test-suite",
-                "--hook-name=test_brew_install",
                 "--name=tree",
                 "--binproviders=brew",
                 '--overrides={"brew":{"install_args":["tree"]}}',
