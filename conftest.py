@@ -230,6 +230,7 @@ def ensure_claude_code_prereqs(tmp_path_factory):
     Used by Claude Code integration tests. Skips the dependent tests when
     live Anthropic credentials are unavailable.
     """
+
     def apply_machine_updates(records: list[dict], env: dict[str, str]) -> None:
         for record in records:
             if record.get("type") != "Machine":
@@ -241,7 +242,9 @@ def ensure_claude_code_prereqs(tmp_path_factory):
     def install_claude_code_with_hooks() -> str:
         env = os.environ.copy()
         env.setdefault("LIB_DIR", str(get_lib_dir()))
-        env.setdefault("CRAWL_DIR", str(tmp_path_factory.mktemp("claudecode_test_data")))
+        env.setdefault(
+            "CRAWL_DIR", str(tmp_path_factory.mktemp("claudecode_test_data"))
+        )
         env["CLAUDECODE_ENABLED"] = "true"
 
         lib_dir = Path(env["LIB_DIR"])
@@ -263,11 +266,16 @@ def ensure_claude_code_prereqs(tmp_path_factory):
                     f"Claude Code install hook failed: {install_result.stderr or install_result.stdout}"
                 )
 
-            binary_record = parse_jsonl_output(install_result.stdout, record_type="Binary") or {}
+            binary_record = (
+                parse_jsonl_output(install_result.stdout, record_type="Binary") or {}
+            )
             if binary_record.get("name") != "claude":
-                raise RuntimeError("Claude Code install hook did not emit a claude Binary record")
+                raise RuntimeError(
+                    "Claude Code install hook did not emit a claude Binary record"
+                )
 
-            npm_cmd = [str(NPM_BINARY_HOOK),
+            npm_cmd = [
+                str(NPM_BINARY_HOOK),
                 "--machine-id=test-machine",
                 "--binary-id=test-claude",
                 "--plugin-name=claudecode",
@@ -303,11 +311,15 @@ def ensure_claude_code_prereqs(tmp_path_factory):
                 None,
             )
             if not claude_record:
-                raise RuntimeError("Claude Code npm install did not emit a resolved claude Binary record")
+                raise RuntimeError(
+                    "Claude Code npm install did not emit a resolved claude Binary record"
+                )
 
             claude_bin = claude_record.get("abspath")
             if not isinstance(claude_bin, str) or not Path(claude_bin).exists():
-                raise RuntimeError(f"Claude Code binary not found after install: {claude_bin}")
+                raise RuntimeError(
+                    f"Claude Code binary not found after install: {claude_bin}"
+                )
 
             os.environ.update(env)
             os.environ["CLAUDECODE_BINARY"] = claude_bin
@@ -339,7 +351,9 @@ def ensure_claude_code_prereqs(tmp_path_factory):
         timeout=10,
     )
     if result.returncode != 0:
-        pytest.fail(f"'claude --version' failed (rc={result.returncode}): {result.stderr}")
+        pytest.fail(
+            f"'claude --version' failed (rc={result.returncode}): {result.stderr}"
+        )
 
     return claude_bin
 

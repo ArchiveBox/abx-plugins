@@ -1,7 +1,9 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = []
+# dependencies = [
+#     "abx-plugins",
+# ]
 # ///
 #
 # Ripgrep search backend - searches files directly without indexing.
@@ -19,7 +21,7 @@ import os
 import subprocess
 import shutil
 from pathlib import Path
-from typing import Iterable, List
+from collections.abc import Iterable
 
 from abx_plugins.plugins.base.utils import get_env, get_env_int, get_env_array
 
@@ -31,7 +33,7 @@ def _get_archive_dir() -> Path:
     return Path.cwd()
 
 
-def search(query: str) -> List[str]:
+def search(query: str) -> list[str]:
     """Search for snapshots using ripgrep."""
     rg_binary = get_env("RIPGREP_BINARY", "rg")
     rg_binary = shutil.which(rg_binary) or rg_binary

@@ -3,6 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #   "pydantic-settings",
+#   "abx-plugins",
 # ]
 # ///
 """
@@ -106,7 +107,9 @@ def find_indexable_content() -> list[tuple[str, str, Path]]:
                     if not content.strip():
                         continue
                     rel_path = match.relative_to(plugin_dir)
-                    results.append((f"{extractor}/{rel_path.as_posix()}", content, match))
+                    results.append(
+                        (f"{extractor}/{rel_path.as_posix()}", content, match)
+                    )
                 except Exception:
                     continue
 

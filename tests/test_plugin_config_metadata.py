@@ -50,9 +50,7 @@ def test_every_plugin_has_config_json_with_required_metadata() -> None:
 
         description = config.get("description")
         if not isinstance(description, str) or not description.strip():
-            failures.append(
-                f"{plugin_name}: 'description' must be a non-empty string"
-            )
+            failures.append(f"{plugin_name}: 'description' must be a non-empty string")
 
         for field in ("required_plugins", "required_binaries", "output_mimetypes"):
             value = config.get(field)

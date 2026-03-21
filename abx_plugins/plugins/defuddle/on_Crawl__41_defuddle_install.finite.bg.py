@@ -3,6 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #   "pydantic-settings",
+#   "abx-plugins",
 # ]
 # ///
 """
@@ -26,7 +27,11 @@ def main():
     if not get_env_bool("DEFUDDLE_ENABLED", True):
         sys.exit(0)
 
-    emit_binary_record(name="defuddle", binproviders="env,npm", overrides={"npm": {"install_args": ["defuddle"]}})
+    emit_binary_record(
+        name="defuddle",
+        binproviders="env,npm",
+        overrides={"npm": {"install_args": ["defuddle"]}},
+    )
     sys.exit(0)
 
 

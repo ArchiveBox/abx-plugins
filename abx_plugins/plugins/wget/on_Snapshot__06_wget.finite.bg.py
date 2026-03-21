@@ -4,6 +4,7 @@
 # dependencies = [
 #   "pydantic-settings",
 #   "rich-click",
+#   "abx-plugins",
 # ]
 # ///
 #
@@ -31,7 +32,11 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_archive_result_record, has_staticfile_output, load_config
+from abx_plugins.plugins.base.utils import (
+    emit_archive_result_record,
+    has_staticfile_output,
+    load_config,
+)
 
 import rich_click as click
 

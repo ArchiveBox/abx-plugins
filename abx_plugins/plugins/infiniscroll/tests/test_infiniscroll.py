@@ -20,13 +20,13 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-
 # Import shared Chrome test helpers
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
     chrome_session,
 )
+
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
@@ -143,7 +143,8 @@ def test_config_infiniscroll_disabled_skips():
         env["INFINISCROLL_ENABLED"] = "False"
 
         result = subprocess.run(
-            [str(INFINISCROLL_HOOK),
+            [
+                str(INFINISCROLL_HOOK),
                 f"--url={TEST_URL}",
                 "--snapshot-id=test-disabled",
             ],
@@ -181,7 +182,8 @@ def test_fails_gracefully_without_chrome_session():
         infiniscroll_dir.mkdir(parents=True, exist_ok=True)
 
         result = subprocess.run(
-            [str(INFINISCROLL_HOOK),
+            [
+                str(INFINISCROLL_HOOK),
                 f"--url={TEST_URL}",
                 "--snapshot-id=test-no-chrome",
             ],
@@ -221,7 +223,8 @@ def test_scrolls_page_and_outputs_stats(infiniscroll_test_url):
             env["INFINISCROLL_MIN_HEIGHT"] = "1000"  # Lower threshold for test
 
             result = subprocess.run(
-                [str(INFINISCROLL_HOOK),
+                [
+                    str(INFINISCROLL_HOOK),
                     f"--url={infiniscroll_test_url}",
                     "--snapshot-id=snap-infiniscroll",
                 ],
@@ -293,7 +296,8 @@ def test_config_scroll_limit_honored(infiniscroll_test_url):
             )
 
             result = subprocess.run(
-                [str(INFINISCROLL_HOOK),
+                [
+                    str(INFINISCROLL_HOOK),
                     f"--url={infiniscroll_test_url}",
                     "--snapshot-id=snap-limit",
                 ],
@@ -353,7 +357,8 @@ def test_config_timeout_honored(infiniscroll_test_url):
 
             start_time = time.time()
             result = subprocess.run(
-                [str(INFINISCROLL_HOOK),
+                [
+                    str(INFINISCROLL_HOOK),
                     f"--url={infiniscroll_test_url}",
                     "--snapshot-id=snap-timeout",
                 ],

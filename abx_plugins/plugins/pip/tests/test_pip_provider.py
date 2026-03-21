@@ -62,7 +62,8 @@ class TestPipProviderHook:
         env.pop("LIB_DIR", None)
 
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=pip",
                 "--binproviders=pip",
                 "--binary-id=test-uuid",
@@ -107,7 +108,8 @@ class TestPipProviderHook:
         env.pop("LIB_DIR", None)
 
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=nonexistent_package_xyz123",
                 "--binproviders=pip",
                 "--binary-id=test-uuid",
@@ -148,7 +150,7 @@ class TestPipProviderHook:
                 "--machine-id=test-machine",
                 "--plugin-name=testplugin",
                 "--hook-name=on_Crawl__00_test",
-                "--overrides={\"pip\":{\"install_args\":[\"opendataloader-pdf\"]}}",
+                '--overrides={"pip":{"install_args":["opendataloader-pdf"]}}',
             ],
             capture_output=True,
             text=True,
@@ -191,7 +193,8 @@ class TestPipProviderIntegration:
 
         # Try to find 'pip' itself which should be available
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=pip",
                 "--binproviders=pip,env",
                 "--binary-id=test-uuid",

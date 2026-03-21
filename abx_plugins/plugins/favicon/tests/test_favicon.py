@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+from abx_plugins.plugins.base.test_utils import (
     get_plugin_dir,
     get_hook_script,
     parse_jsonl_output,
@@ -77,7 +77,8 @@ def test_extracts_favicon_from_example_com():
 
         # Run favicon extraction
         result = subprocess.run(
-            [str(FAVICON_HOOK),
+            [
+                str(FAVICON_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -149,7 +150,8 @@ def test_config_timeout_honored():
         env["SNAP_DIR"] = str(tmpdir)
 
         result = subprocess.run(
-            [str(FAVICON_HOOK),
+            [
+                str(FAVICON_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -186,7 +188,8 @@ def test_config_user_agent():
         env["SNAP_DIR"] = str(tmpdir)
 
         result = subprocess.run(
-            [str(FAVICON_HOOK),
+            [
+                str(FAVICON_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -225,7 +228,8 @@ def test_handles_https_urls():
         env = os.environ.copy()
         env["SNAP_DIR"] = str(tmpdir)
         result = subprocess.run(
-            [str(FAVICON_HOOK),
+            [
+                str(FAVICON_HOOK),
                 "--url",
                 "https://example.org",
                 "--snapshot-id",
@@ -264,7 +268,8 @@ def test_handles_missing_favicon_gracefully():
         env = os.environ.copy()
         env["SNAP_DIR"] = str(tmpdir)
         result = subprocess.run(
-            [str(FAVICON_HOOK),
+            [
+                str(FAVICON_HOOK),
                 "--url",
                 "https://example.com/nonexistent",
                 "--snapshot-id",
@@ -283,6 +288,7 @@ def test_handles_missing_favicon_gracefully():
         if result.returncode != 0:
             combined = result.stdout + result.stderr
             assert "No favicon found" in combined or "ERROR=" in combined
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

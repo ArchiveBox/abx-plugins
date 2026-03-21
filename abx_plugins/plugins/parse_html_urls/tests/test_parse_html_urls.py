@@ -242,7 +242,9 @@ class TestParseHtmlUrls:
 
         dom_urls_dir = tmp_path / "parse_dom_outlinks"
         dom_urls_dir.mkdir(parents=True, exist_ok=True)
-        (dom_urls_dir / "urls.jsonl").write_text('{"type":"Snapshot","url":"https://stale.example/outlink"}\n')
+        (dom_urls_dir / "urls.jsonl").write_text(
+            '{"type":"Snapshot","url":"https://stale.example/outlink"}\n'
+        )
 
         env = os.environ.copy()
         env["SNAP_DIR"] = str(tmp_path)
@@ -260,7 +262,9 @@ class TestParseHtmlUrls:
 
         urls_file = tmp_path / "parse_html_urls" / "urls.jsonl"
         assert urls_file.exists(), "parse_html_urls urls.jsonl not created"
-        file_lines = [line for line in urls_file.read_text().splitlines() if line.strip()]
+        file_lines = [
+            line for line in urls_file.read_text().splitlines() if line.strip()
+        ]
         assert len(file_lines) == 1
         entry = json.loads(file_lines[0])
         assert entry["url"] == "https://example.com/from-html"

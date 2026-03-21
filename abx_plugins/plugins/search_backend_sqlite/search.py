@@ -1,7 +1,9 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = []
+# dependencies = [
+#     "abx-plugins",
+# ]
 # ///
 """
 SQLite FTS5 search backend - search and flush operations.
@@ -17,7 +19,7 @@ Environment variables:
 import os
 import sqlite3
 from pathlib import Path
-from typing import List, Iterable
+from collections.abc import Iterable
 
 
 # Config with old var names for backwards compatibility
@@ -44,7 +46,7 @@ def get_db_path() -> Path:
     return _get_data_dir() / SQLITEFTS_DB
 
 
-def search(query: str) -> List[str]:
+def search(query: str) -> list[str]:
     """Search for snapshots matching the query."""
     db_path = get_db_path()
     if not db_path.exists():

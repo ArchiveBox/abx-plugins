@@ -236,7 +236,9 @@ https://other.com
         )
 
         assert result.returncode == 0
-        file_lines = [line for line in urls_file.read_text().splitlines() if line.strip()]
+        file_lines = [
+            line for line in urls_file.read_text().splitlines() if line.strip()
+        ]
         assert len(file_lines) == 1
         entry = json.loads(file_lines[0])
         assert entry["url"] == "https://fresh.example.com"

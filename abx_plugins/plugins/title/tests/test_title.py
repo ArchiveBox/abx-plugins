@@ -16,16 +16,18 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
-    get_plugin_dir,
+from abx_plugins.plugins.base.test_utils import (
     get_hook_script,
-    get_test_env,
-    chrome_session,
-    CHROME_NAVIGATE_HOOK,
+    get_plugin_dir,
     parse_jsonl_output,
 )
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    CHROME_NAVIGATE_HOOK,
+    chrome_session,
+    get_test_env,
+)
+
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)

@@ -4,6 +4,7 @@
 # dependencies = [
 #   "pydantic-settings",
 #   "rich-click",
+#   "abx-plugins",
 # ]
 # ///
 #
@@ -45,7 +46,9 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
 
     config = load_config()
     timeout = config.ARCHIVEDOTORG_TIMEOUT
-    user_agent = config.ARCHIVEDOTORG_USER_AGENT or "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
+    user_agent = (
+        config.ARCHIVEDOTORG_USER_AGENT or "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
+    )
 
     submit_url = f"https://web.archive.org/save/{url}"
     log(f"Submitting to Wayback Machine (timeout={timeout}s)")

@@ -111,7 +111,8 @@ def test_handles_non_forum_url(local_http_base_url):
 
         # Run forum-dl extraction hook on non-forum URL
         result = subprocess.run(
-            [str(FORUMDL_HOOK),
+            [
+                str(FORUMDL_HOOK),
                 "--url",
                 local_http_base_url,
                 "--snapshot-id",
@@ -149,7 +150,8 @@ def test_config_save_forumdl_false_skips():
         env.pop("LIB_DIR", None)
 
         result = subprocess.run(
-            [str(FORUMDL_HOOK),
+            [
+                str(FORUMDL_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -191,7 +193,8 @@ def test_config_timeout():
 
         start_time = time.time()
         result = subprocess.run(
-            [str(FORUMDL_HOOK),
+            [
+                str(FORUMDL_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -238,7 +241,8 @@ def test_real_forum_url():
 
         start_time = time.time()
         result = subprocess.run(
-            [str(FORUMDL_HOOK),
+            [
+                str(FORUMDL_HOOK),
                 "--url",
                 forum_url,
                 "--snapshot-id",

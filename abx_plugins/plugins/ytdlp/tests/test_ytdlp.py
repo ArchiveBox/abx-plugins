@@ -136,7 +136,8 @@ def test_handles_non_video_url(non_video_test_url):
 
         # Run ytdlp extraction hook on non-video URL
         result = subprocess.run(
-            [str(YTDLP_HOOK),
+            [
+                str(YTDLP_HOOK),
                 "--url",
                 non_video_test_url,
                 "--snapshot-id",
@@ -173,7 +174,8 @@ def test_config_ytdlp_enabled_false_skips():
         env["YTDLP_ENABLED"] = "False"
 
         result = subprocess.run(
-            [str(YTDLP_HOOK),
+            [
+                str(YTDLP_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -213,7 +215,8 @@ def test_config_timeout(non_video_test_url):
 
         start_time = time.time()
         result = subprocess.run(
-            [str(YTDLP_HOOK),
+            [
+                str(YTDLP_HOOK),
                 "--url",
                 non_video_test_url,
                 "--snapshot-id",
@@ -250,7 +253,8 @@ def test_extracts_local_media_url(media_test_url):
 
         start_time = time.time()
         result = subprocess.run(
-            [str(YTDLP_HOOK),
+            [
+                str(YTDLP_HOOK),
                 "--url",
                 media_test_url,
                 "--snapshot-id",

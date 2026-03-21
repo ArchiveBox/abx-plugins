@@ -5,6 +5,7 @@
 #   "pydantic-settings",
 #   "rich-click",
 #   "abx-pkg",
+#   "abx-plugins",
 # ]
 # ///
 #
@@ -33,7 +34,10 @@ def _resolve_node_modules_dir(binary_abspath: str | Path, npm_prefix: Path) -> P
     binary_path = Path(binary_abspath)
 
     # Typical npm CLI binaries live in <prefix>/node_modules/.bin/<name>.
-    if binary_path.parent.name == ".bin" and binary_path.parent.parent.name == "node_modules":
+    if (
+        binary_path.parent.name == ".bin"
+        and binary_path.parent.parent.name == "node_modules"
+    ):
         return binary_path.parent.parent
 
     return npm_prefix / "node_modules"

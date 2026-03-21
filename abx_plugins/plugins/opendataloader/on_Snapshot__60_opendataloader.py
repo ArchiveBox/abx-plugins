@@ -4,6 +4,7 @@
 # dependencies = [
 #   "pydantic-settings",
 #   "rich-click",
+#   "abx-plugins",
 # ]
 # ///
 """
@@ -39,7 +40,11 @@ import sys
 import tempfile
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import load_config, emit_archive_result_record, write_text_atomic
+from abx_plugins.plugins.base.utils import (
+    load_config,
+    emit_archive_result_record,
+    write_text_atomic,
+)
 
 import rich_click as click
 
@@ -78,7 +83,11 @@ def _opendataloader_env(java_binary: str) -> dict[str, str] | None:
     java_bin_dir = str(java_path.parent)
     current_path = env.get("PATH", "")
     if java_bin_dir not in current_path.split(os.pathsep):
-        env["PATH"] = f"{java_bin_dir}{os.pathsep}{current_path}" if current_path else java_bin_dir
+        env["PATH"] = (
+            f"{java_bin_dir}{os.pathsep}{current_path}"
+            if current_path
+            else java_bin_dir
+        )
 
     java_home = java_path.parent.parent
     if (java_home / "bin" / "java").is_file():
@@ -134,8 +143,7 @@ def _run_opendataloader(
     cmd = [binary, "-f", fmt, "-o", str(out_dir), "-q", *extra_args, str(source_file)]
     result = subprocess.run(
         cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         timeout=timeout,
         text=True,
         env=env,
@@ -143,7 +151,11 @@ def _run_opendataloader(
     if result.stderr:
         print(result.stderr, file=sys.stderr, end="")
     if result.returncode != 0:
-        error = result.stderr.strip() or result.stdout.strip() or f"exit code {result.returncode}"
+        error = (
+            result.stderr.strip()
+            or result.stdout.strip()
+            or f"exit code {result.returncode}"
+        )
         raise OpendataloaderRunError(
             f"opendataloader-pdf failed for {source_file.name} ({fmt}): {error}"
         )
@@ -174,7 +186,9 @@ def _extract_single_pdf(
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         try:
-            md_out = _run_opendataloader(binary, source_file, "markdown", tmp, timeout, extra_args, env)
+            md_out = _run_opendataloader(
+                binary, source_file, "markdown", tmp, timeout, extra_args, env
+            )
         except OpendataloaderRunError as err:
             errors.append(err)
             md_out = None
@@ -183,7 +197,9 @@ def _extract_single_pdf(
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         try:
-            txt_out = _run_opendataloader(binary, source_file, "text", tmp, timeout, extra_args, env)
+            txt_out = _run_opendataloader(
+                binary, source_file, "text", tmp, timeout, extra_args, env
+            )
         except OpendataloaderRunError as err:
             errors.append(err)
             txt_out = None
@@ -216,7 +232,9 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
     # When FORCE_OCR is enabled, use hybrid backend for scanned/image-based PDFs
     if force_ocr:
         # Only add if user hasn't already specified --hybrid in ARGS
-        has_hybrid = any(a == "--hybrid" or a.startswith("--hybrid=") for a in extra_args)
+        has_hybrid = any(
+            a == "--hybrid" or a.startswith("--hybrid=") for a in extra_args
+        )
         if not has_hybrid:
             extra_args.extend(["--hybrid", "docling-fast"])
         if hybrid_url:
@@ -262,7 +280,11 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
         try:
             try:
                 md_content, text_content = _extract_single_pdf(
-                    binary, source_file, timeout, extra_args, runtime_env,
+                    binary,
+                    source_file,
+                    timeout,
+                    extra_args,
+                    runtime_env,
                 )
             except OpendataloaderRunError:
                 if not force_ocr or base_args == extra_args:
@@ -273,18 +295,31 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
                     file=sys.stderr,
                 )
                 md_content, text_content = _extract_single_pdf(
-                    binary, source_file, timeout, base_args, runtime_env,
+                    binary,
+                    source_file,
+                    timeout,
+                    base_args,
+                    runtime_env,
                 )
 
             # If hybrid extraction produced nothing, retry without hybrid flags
-            if force_ocr and not md_content and not text_content and base_args != extra_args:
+            if (
+                force_ocr
+                and not md_content
+                and not text_content
+                and base_args != extra_args
+            ):
                 print(
                     f"[opendataloader] Hybrid extraction produced no content for {source_file.name}, "
                     "retrying without hybrid flags",
                     file=sys.stderr,
                 )
                 md_content, text_content = _extract_single_pdf(
-                    binary, source_file, timeout, base_args, runtime_env,
+                    binary,
+                    source_file,
+                    timeout,
+                    base_args,
+                    runtime_env,
                 )
 
             if not md_content and not text_content:
@@ -295,15 +330,19 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
                 continue
 
             if md_content:
-                all_md_parts.append(f"<!-- source: {source_file.name} -->\n{md_content}")
+                all_md_parts.append(
+                    f"<!-- source: {source_file.name} -->\n{md_content}"
+                )
             if text_content:
                 all_text_parts.append(text_content)
 
-            metadata_records.append({
-                "source_file": str(source_file.name),
-                "source_path": str(source_file),
-                "chars_extracted": len(md_content or text_content),
-            })
+            metadata_records.append(
+                {
+                    "source_file": str(source_file.name),
+                    "source_path": str(source_file),
+                    "chars_extracted": len(md_content or text_content),
+                }
+            )
 
         except subprocess.TimeoutExpired:
             print(
@@ -375,7 +414,10 @@ def main(url: str, snapshot_id: str):
         config = load_config()
 
         if not config.OPENDATALOADER_ENABLED:
-            print("Skipping opendataloader (OPENDATALOADER_ENABLED=False)", file=sys.stderr)
+            print(
+                "Skipping opendataloader (OPENDATALOADER_ENABLED=False)",
+                file=sys.stderr,
+            )
             emit_archive_result_record("skipped", "OPENDATALOADER_ENABLED=False")
             sys.exit(0)
 

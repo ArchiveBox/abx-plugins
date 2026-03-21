@@ -3,6 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #   "pydantic-settings",
+#   "abx-plugins",
 # ]
 # ///
 """Extract article content using trafilatura from local HTML snapshots."""
@@ -72,7 +73,8 @@ def get_enabled_formats() -> list[str]:
     """
     config = load_config()
     return [
-        fmt for env_name, fmt in OUTPUT_ENV_TO_FORMAT.items()
+        fmt
+        for env_name, fmt in OUTPUT_ENV_TO_FORMAT.items()
         if getattr(config, env_name)
     ]
 
@@ -87,7 +89,10 @@ def run_trafilatura(
         binary_path.with_name("python"),
         binary_path.with_name("python3"),
     )
-    python_bin = next((candidate for candidate in python_candidates if candidate.exists()), Path(sys.executable))
+    python_bin = next(
+        (candidate for candidate in python_candidates if candidate.exists()),
+        Path(sys.executable),
+    )
 
     cmd = [
         str(python_bin),
@@ -99,8 +104,7 @@ def run_trafilatura(
     ]
     result = subprocess.run(
         cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         text=True,
         timeout=timeout,
     )

@@ -8,14 +8,9 @@ Provides common helpers used across multiple plugins:
 - HTML source discovery (find_html_source)
 - Sibling plugin output checking (has_staticfile_output)
 
-IMPORTANT: All plugin hook scripts import this module via::
+Import directly via the package path::
 
-    sys.path.append(str(Path(__file__).resolve().parent.parent))
     from abx_plugins.plugins.base.utils import load_config
-
-We use ``sys.path.append()`` (not ``insert(0, ...)``) deliberately because
-``abx_plugins/plugins/`` contains an ``ssl/`` plugin directory that would
-shadow Python's stdlib ``ssl`` module if placed at the front of sys.path.
 """
 
 from __future__ import annotations
@@ -99,8 +94,10 @@ def load_config(config_path: Path | str | None = None) -> Any:
     properties = schema.get("properties", {})
 
     if not properties:
+
         class _EmptyConfig(BaseSettings):
             model_config = SettingsConfigDict(extra="ignore")
+
         _config_model_cache[cache_key] = (_EmptyConfig, mtime)
         return _EmptyConfig()
 
@@ -143,6 +140,7 @@ def load_config(config_path: Path | str | None = None) -> Any:
 # ---------------------------------------------------------------------------
 # Environment variable helpers
 # ---------------------------------------------------------------------------
+
 
 def get_env(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
@@ -284,7 +282,9 @@ def emit_binary_record(
         "type": "Binary",
         "name": name,
     }
-    resolved_machine_id = machine_id if machine_id is not None else os.environ.get("MACHINE_ID", "")
+    resolved_machine_id = (
+        machine_id if machine_id is not None else os.environ.get("MACHINE_ID", "")
+    )
     record["machine_id"] = resolved_machine_id
     if binproviders is not None:
         record["binproviders"] = binproviders
@@ -333,6 +333,7 @@ def emit_snapshot_record(record: dict[str, Any]) -> None:
 # Atomic file writing
 # ---------------------------------------------------------------------------
 
+
 def write_text_atomic(path: Path, text: str) -> None:
     tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     tmp_path.write_text(text, encoding="utf-8")
@@ -342,6 +343,7 @@ def write_text_atomic(path: Path, text: str) -> None:
 # ---------------------------------------------------------------------------
 # HTML source discovery (for extractors that process HTML from other plugins)
 # ---------------------------------------------------------------------------
+
 
 def find_html_source() -> str | None:
     """Find HTML content from other extractors in the snapshot directory."""
@@ -373,6 +375,7 @@ def find_html_source() -> str | None:
 # Sibling plugin output checking
 # ---------------------------------------------------------------------------
 
+
 def has_staticfile_output(staticfile_dir: str = "../staticfile") -> bool:
     """Check if staticfile extractor already downloaded this URL."""
     sf_dir = Path(staticfile_dir)
@@ -400,6 +403,7 @@ def has_staticfile_output(staticfile_dir: str = "../staticfile") -> bool:
 # ---------------------------------------------------------------------------
 # Config directory permission management
 # ---------------------------------------------------------------------------
+
 
 def enforce_lib_permissions(config_dir: Path | str | None = None) -> None:
     """Set permissions on ~/.config/abx so snapshot hooks can read but not write lib/.

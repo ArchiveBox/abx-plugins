@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+from abx_plugins.plugins.base.test_utils import (
     get_plugin_dir,
     get_hook_script,
     parse_jsonl_output,
@@ -137,7 +137,9 @@ def test_reports_missing_dependency_when_not_installed():
         env = {"PATH": "/nonexistent", "HOME": str(tmpdir), "SNAP_DIR": str(snap_dir)}
 
         result = subprocess.run(
-            [sys.executable, str(READABILITY_HOOK),
+            [
+                sys.executable,
+                str(READABILITY_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -189,7 +191,8 @@ def test_extracts_article_after_installation():
         env["SNAP_DIR"] = str(snap_dir)
         env["READABILITY_BINARY"] = binary_path
         result = subprocess.run(
-            [str(READABILITY_HOOK),
+            [
+                str(READABILITY_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -260,7 +263,8 @@ def test_fails_gracefully_without_html_source():
         env["SNAP_DIR"] = str(snap_dir)
         env["READABILITY_BINARY"] = binary_path
         result = subprocess.run(
-            [str(READABILITY_HOOK),
+            [
+                str(READABILITY_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",

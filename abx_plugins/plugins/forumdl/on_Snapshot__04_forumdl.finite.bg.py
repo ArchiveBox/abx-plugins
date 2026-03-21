@@ -4,6 +4,7 @@
 # dependencies = [
 #   "pydantic-settings",
 #   "rich-click",
+#   "abx-plugins",
 # ]
 # ///
 #

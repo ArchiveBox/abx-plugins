@@ -18,16 +18,18 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
-    get_test_env,
-    get_plugin_dir,
+from abx_plugins.plugins.base.test_utils import (
     get_hook_script,
-    PLUGINS_ROOT,
-    chrome_session,
+    get_plugin_dir,
     parse_jsonl_output,
 )
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    PLUGINS_ROOT,
+    chrome_session,
+    get_test_env,
+)
+
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
@@ -72,7 +74,8 @@ def test_extracts_pdf_from_example_com(chrome_test_url):
 
             # Run PDF extraction hook
             result = subprocess.run(
-                [str(PDF_HOOK),
+                [
+                    str(PDF_HOOK),
                     f"--url={chrome_test_url}",
                     "--snapshot-id=test789",
                 ],
@@ -192,7 +195,8 @@ def test_runs_with_shared_chrome_session(chrome_test_url):
             pdf_dir.mkdir(exist_ok=True)
 
             result = subprocess.run(
-                [str(PDF_HOOK),
+                [
+                    str(PDF_HOOK),
                     f"--url={chrome_test_url}",
                     "--snapshot-id=testtimeout",
                 ],

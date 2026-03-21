@@ -5,6 +5,7 @@
 #   "pydantic-settings",
 #   "rich-click",
 #   "abx-pkg",
+#   "abx-plugins",
 # ]
 # ///
 #

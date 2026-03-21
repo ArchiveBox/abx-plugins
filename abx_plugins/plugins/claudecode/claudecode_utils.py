@@ -60,10 +60,12 @@ def get_snapshot_metadata(snap_dir: Path) -> SnapshotMetadata:
                     files = [f.name for f in item.iterdir() if f.is_file()]
                 except OSError:
                     pass
-                extractor_dirs.append({
-                    "name": item.name,
-                    "files": files,
-                })
+                extractor_dirs.append(
+                    {
+                        "name": item.name,
+                        "files": files,
+                    }
+                )
         metadata["extractor_outputs"] = extractor_dirs
 
     return metadata
@@ -93,11 +95,15 @@ def build_system_prompt(
 
     if crawl_dir and crawl_dir.exists():
         crawl_meta = get_crawl_metadata(crawl_dir)
-        parts.append(f"\n## Current Crawl\n```\nCRAWL_DIR={crawl_meta['crawl_dir']}\n```\n")
+        parts.append(
+            f"\n## Current Crawl\n```\nCRAWL_DIR={crawl_meta['crawl_dir']}\n```\n"
+        )
 
     if snap_dir and snap_dir.exists():
         snap_meta = get_snapshot_metadata(snap_dir)
-        parts.append(f"\n## Current Snapshot\n```\nSNAP_DIR={snap_meta['snap_dir']}\n```\n")
+        parts.append(
+            f"\n## Current Snapshot\n```\nSNAP_DIR={snap_meta['snap_dir']}\n```\n"
+        )
 
         extractor_outputs = snap_meta.get("extractor_outputs", [])
         if extractor_outputs:
@@ -199,15 +205,25 @@ def run_claude_code(
     # Filter out sensitive env vars to avoid leaking secrets into the agent session
     DENIED_ENV_VARS = {
         # Secrets and credentials that should not be passed to the agent
-        "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN",
-        "GITHUB_TOKEN", "GH_TOKEN", "GITLAB_TOKEN",
-        "DATABASE_URL", "DB_PASSWORD", "DB_PASS",
-        "SECRET_KEY", "DJANGO_SECRET_KEY",
-        "SMTP_PASSWORD", "EMAIL_PASSWORD",
-        "TWOCAPTCHA_API_KEY", "API_KEY_2CAPTCHA",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+        "GITHUB_TOKEN",
+        "GH_TOKEN",
+        "GITLAB_TOKEN",
+        "DATABASE_URL",
+        "DB_PASSWORD",
+        "DB_PASS",
+        "SECRET_KEY",
+        "DJANGO_SECRET_KEY",
+        "SMTP_PASSWORD",
+        "EMAIL_PASSWORD",
+        "TWOCAPTCHA_API_KEY",
+        "API_KEY_2CAPTCHA",
         "OPENAI_API_KEY",
-        "COOKIES_TXT_FILE", "COOKIES_FILE",
-        "SSH_AUTH_SOCK", "SSH_AGENT_PID",
+        "COOKIES_TXT_FILE",
+        "COOKIES_FILE",
+        "SSH_AUTH_SOCK",
+        "SSH_AGENT_PID",
         "GPG_AGENT_INFO",
     }
     env = {k: v for k, v in os.environ.items() if k not in DENIED_ENV_VARS}
@@ -218,7 +234,10 @@ def run_claude_code(
         env["ANTHROPIC_API_KEY"] = api_key
 
     print(f"[*] Running Claude Code in {work_dir}...", file=sys.stderr)
-    print(f"[*] Model: {model}, Max turns: {max_turns}, Timeout: {timeout}s", file=sys.stderr)
+    print(
+        f"[*] Model: {model}, Max turns: {max_turns}, Timeout: {timeout}s",
+        file=sys.stderr,
+    )
 
     try:
         result = subprocess.run(
@@ -251,7 +270,10 @@ def run_claude_code(
                             content = msg.get("content", [])
                             if isinstance(content, list):
                                 for block in content:
-                                    if isinstance(block, dict) and block.get("type") == "text":
+                                    if (
+                                        isinstance(block, dict)
+                                        and block.get("type") == "text"
+                                    ):
                                         text_response += block.get("text", "")
                             elif isinstance(content, str):
                                 text_response += content

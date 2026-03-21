@@ -4,6 +4,7 @@
 # dependencies = [
 #   "pydantic-settings",
 #   "rich-click",
+#   "abx-plugins",
 # ]
 # ///
 #
@@ -21,7 +22,11 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-from abx_plugins.plugins.base.utils import load_config, emit_archive_result_record, write_text_atomic
+from abx_plugins.plugins.base.utils import (
+    load_config,
+    emit_archive_result_record,
+    write_text_atomic,
+)
 
 import rich_click as click
 
@@ -106,9 +111,7 @@ def extract_mercury(url: str, binary: str) -> tuple[str, str]:
 
         # Save article metadata
         metadata = {k: v for k, v in text_json.items() if k != "content"}
-        write_text_atomic(
-            output_dir / METADATA_FILE, json.dumps(metadata, indent=2)
-        )
+        write_text_atomic(output_dir / METADATA_FILE, json.dumps(metadata, indent=2))
 
         # Link images/ to responses capture (if available)
         try:

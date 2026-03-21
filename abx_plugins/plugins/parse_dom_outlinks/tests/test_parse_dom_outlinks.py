@@ -13,13 +13,10 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+from abx_plugins.plugins.base.test_utils import get_hook_script, get_plugin_dir
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
 
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
-    chrome_session,
-    get_plugin_dir,
-    get_hook_script,
-)
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 def chrome_available() -> bool:
@@ -75,7 +72,8 @@ class TestParseDomOutlinksWithChrome:
 
                 # Run outlinks hook with the active Chrome session
                 result = subprocess.run(
-                    [str(OUTLINKS_HOOK),
+                    [
+                        str(OUTLINKS_HOOK),
                         f"--url={test_url}",
                         f"--snapshot-id={snapshot_id}",
                     ],
@@ -99,7 +97,11 @@ class TestParseDomOutlinksWithChrome:
                 assert archive_result["status"] == "succeeded"
 
                 assert urls_output.exists(), "urls.jsonl not created"
-                urls_data = [json.loads(line) for line in urls_output.read_text().splitlines() if line.strip()]
+                urls_data = [
+                    json.loads(line)
+                    for line in urls_output.read_text().splitlines()
+                    if line.strip()
+                ]
                 assert urls_data, "urls.jsonl should contain at least one URL"
                 assert all(entry["type"] == "Snapshot" for entry in urls_data)
                 assert archive_result["output_str"] == f"{len(urls_data)} URLs parsed"
@@ -131,7 +133,8 @@ class TestParseDomOutlinksWithChrome:
                 timeout=30,
             ) as (_chrome_process, _chrome_pid, snapshot_chrome_dir, env):
                 result = subprocess.run(
-                    [str(OUTLINKS_HOOK),
+                    [
+                        str(OUTLINKS_HOOK),
                         f"--url={test_url}",
                         f"--snapshot-id={snapshot_id}",
                     ],

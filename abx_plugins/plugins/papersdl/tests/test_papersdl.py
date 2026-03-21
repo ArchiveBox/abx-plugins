@@ -65,7 +65,8 @@ def get_papersdl_binary_path():
         env["SNAP_DIR"] = str(Path(_papersdl_home_root) / "data")
         env.pop("LIB_DIR", None)
 
-        cmd = [str(pip_hook),
+        cmd = [
+            str(pip_hook),
             "--binary-id",
             binary_id,
             "--machine-id",
@@ -135,7 +136,8 @@ def test_handles_non_paper_url():
 
         # Run papers-dl extraction hook on non-paper URL
         result = subprocess.run(
-            [str(PAPERSDL_HOOK),
+            [
+                str(PAPERSDL_HOOK),
                 "--url",
                 "https://example.com",
                 "--snapshot-id",
@@ -170,7 +172,8 @@ def test_config_save_papersdl_false_skips():
         env["PAPERSDL_ENABLED"] = "False"
 
         result = subprocess.run(
-            [str(PAPERSDL_HOOK),
+            [
+                str(PAPERSDL_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -208,7 +211,8 @@ def test_config_timeout():
         env["PAPERSDL_TIMEOUT"] = "5"
 
         result = subprocess.run(
-            [str(PAPERSDL_HOOK),
+            [
+                str(PAPERSDL_HOOK),
                 "--url",
                 "https://example.com",
                 "--snapshot-id",
@@ -244,7 +248,8 @@ def test_real_public_paper_download():
             env["SNAP_DIR"] = str(tmpdir)
 
             result = subprocess.run(
-                [str(PAPERSDL_HOOK),
+                [
+                    str(PAPERSDL_HOOK),
                     "--url",
                     paper_url,
                     "--snapshot-id",
@@ -257,11 +262,15 @@ def test_real_public_paper_download():
                 timeout=180,
             )
 
-            assert result.returncode == 0, f"Paper download should not crash: {result.stderr}"
+            assert result.returncode == 0, (
+                f"Paper download should not crash: {result.stderr}"
+            )
 
             result_json = parse_jsonl_output(result.stdout)
 
-            assert result_json, f"Should emit ArchiveResult JSONL. stdout: {result.stdout}"
+            assert result_json, (
+                f"Should emit ArchiveResult JSONL. stdout: {result.stdout}"
+            )
             attempts.append((paper_url, result_json))
             if result_json.get("status") != "succeeded":
                 continue
@@ -272,16 +281,23 @@ def test_real_public_paper_download():
             )
 
             downloaded_files = [
-                path for path in (tmpdir / "papersdl").iterdir()
-                if path.is_file()
+                path for path in (tmpdir / "papersdl").iterdir() if path.is_file()
             ]
-            assert downloaded_files, f"Downloaded paper path missing in {tmpdir / 'papersdl'}"
+            assert downloaded_files, (
+                f"Downloaded paper path missing in {tmpdir / 'papersdl'}"
+            )
             output_path = tmpdir / output_str
-            assert output_path.is_file(), f"Downloaded paper path missing: {output_path}"
-            assert output_path.stat().st_size > 0, f"Downloaded paper file is empty: {output_path}"
+            assert output_path.is_file(), (
+                f"Downloaded paper path missing: {output_path}"
+            )
+            assert output_path.stat().st_size > 0, (
+                f"Downloaded paper file is empty: {output_path}"
+            )
             return
 
-    raise AssertionError(f"Expected at least one live paper URL to download successfully, got: {attempts}")
+    raise AssertionError(
+        f"Expected at least one live paper URL to download successfully, got: {attempts}"
+    )
 
 
 if __name__ == "__main__":

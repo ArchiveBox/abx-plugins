@@ -18,7 +18,12 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.test_utils import get_plugin_dir, get_hook_script, parse_jsonl_output, run_hook
+from abx_plugins.plugins.base.test_utils import (
+    get_plugin_dir,
+    get_hook_script,
+    parse_jsonl_output,
+    run_hook,
+)
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
@@ -88,17 +93,27 @@ class TestClaudeChromePlugin:
 
     def test_hook_exists(self):
         """All hook scripts should exist."""
-        assert _INSTALL_HOOK is not None and _INSTALL_HOOK.exists(), "Install hook not found"
-        assert _CONFIG_HOOK is not None and _CONFIG_HOOK.exists(), "Config hook not found"
+        assert _INSTALL_HOOK is not None and _INSTALL_HOOK.exists(), (
+            "Install hook not found"
+        )
+        assert _CONFIG_HOOK is not None and _CONFIG_HOOK.exists(), (
+            "Config hook not found"
+        )
         assert SNAPSHOT_HOOK.exists(), "Snapshot hook not found"
 
     def test_hook_runs_at_correct_priorities(self):
         """Hooks should run at the expected priorities."""
         assert _INSTALL_HOOK is not None
         assert _CONFIG_HOOK is not None
-        assert "__84_" in _INSTALL_HOOK.name, f"Install hook should be priority 84: {_INSTALL_HOOK.name}"
-        assert "__96_" in _CONFIG_HOOK.name, f"Config hook should be priority 96: {_CONFIG_HOOK.name}"
-        assert "__47_" in SNAPSHOT_HOOK.name, f"Snapshot hook should be priority 47: {SNAPSHOT_HOOK.name}"
+        assert "__84_" in _INSTALL_HOOK.name, (
+            f"Install hook should be priority 84: {_INSTALL_HOOK.name}"
+        )
+        assert "__96_" in _CONFIG_HOOK.name, (
+            f"Config hook should be priority 96: {_CONFIG_HOOK.name}"
+        )
+        assert "__47_" in SNAPSHOT_HOOK.name, (
+            f"Snapshot hook should be priority 47: {SNAPSHOT_HOOK.name}"
+        )
 
     def test_snapshot_runs_after_infiniscroll_before_singlefile(self):
         """Snapshot hook priority 47 is after infiniscroll (45) and before singlefile (50)."""
@@ -185,8 +200,12 @@ class TestClaudeChromePlugin:
         with tempfile.TemporaryDirectory() as tmpdir:
             env["SNAP_DIR"] = tmpdir
             returncode, stdout, stderr = run_hook(
-                SNAPSHOT_HOOK, TEST_URL, "test-snapshot",
-                cwd=tmpdir, env=env, timeout=30,
+                SNAPSHOT_HOOK,
+                TEST_URL,
+                "test-snapshot",
+                cwd=tmpdir,
+                env=env,
+                timeout=30,
             )
 
             assert returncode == 0, f"Hook failed: {stderr}"
@@ -203,8 +222,12 @@ class TestClaudeChromePlugin:
         with tempfile.TemporaryDirectory() as tmpdir:
             env["SNAP_DIR"] = tmpdir
             returncode, stdout, stderr = run_hook(
-                SNAPSHOT_HOOK, TEST_URL, "test-snapshot",
-                cwd=tmpdir, env=env, timeout=30,
+                SNAPSHOT_HOOK,
+                TEST_URL,
+                "test-snapshot",
+                cwd=tmpdir,
+                env=env,
+                timeout=30,
             )
 
             assert returncode == 1
@@ -222,8 +245,12 @@ class TestClaudeChromePlugin:
         with tempfile.TemporaryDirectory() as tmpdir:
             env["SNAP_DIR"] = tmpdir
             returncode, stdout, stderr = run_hook(
-                SNAPSHOT_HOOK, TEST_URL, "test-no-chrome",
-                cwd=tmpdir, env=env, timeout=30,
+                SNAPSHOT_HOOK,
+                TEST_URL,
+                "test-no-chrome",
+                cwd=tmpdir,
+                env=env,
+                timeout=30,
             )
 
             assert returncode != 0, "Should fail when no Chrome session exists"
@@ -234,9 +261,9 @@ class TestClaudeChromePlugin:
                 assert result["status"] == "failed"
             else:
                 err_lower = stderr.lower()
-                assert any(x in err_lower for x in ["chrome", "cdp", "puppeteer", "module"]), (
-                    f"Should mention chrome/CDP/puppeteer in error: {stderr}"
-                )
+                assert any(
+                    x in err_lower for x in ["chrome", "cdp", "puppeteer", "module"]
+                ), f"Should mention chrome/CDP/puppeteer in error: {stderr}"
 
 
 @pytest.mark.usefixtures("ensure_chrome_test_prereqs", "ensure_anthropic_api_key")
@@ -310,7 +337,9 @@ class TestClaudeChromeIntegration:
 
                 # Verify screenshots are valid PNGs (start with PNG magic bytes)
                 initial_png = (output_dir / "screenshot_initial.png").read_bytes()
-                assert initial_png[:4] == b"\x89PNG", "Initial screenshot should be valid PNG"
+                assert initial_png[:4] == b"\x89PNG", (
+                    "Initial screenshot should be valid PNG"
+                )
 
 
 if __name__ == "__main__":

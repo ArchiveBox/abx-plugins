@@ -4,6 +4,7 @@
 # dependencies = [
 #     "pydantic-settings",
 #     "sonic-client",
+#     "abx-plugins",
 # ]
 # ///
 """

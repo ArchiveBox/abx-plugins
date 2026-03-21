@@ -122,7 +122,8 @@ class TestTwoCaptcha:
                 chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
 
                 result = subprocess.run(
-                    [str(CONFIG_SCRIPT),
+                    [
+                        str(CONFIG_SCRIPT),
                         "--url=https://example.com",
                         "--snapshot-id=test",
                     ],
@@ -178,7 +179,9 @@ const puppeteer = require('puppeteer-core');
 }})();
 """
                 script_path = tmpdir / "v.js"
-                script_path.write_text(f"#!/usr/bin/env node\n{script}", encoding="utf-8")
+                script_path.write_text(
+                    f"#!/usr/bin/env node\n{script}", encoding="utf-8"
+                )
                 script_path.chmod(0o755)
                 r = subprocess.run(
                     [str(script_path)],
@@ -276,7 +279,8 @@ const puppeteer = require('puppeteer-core');
                 wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
 
                 config_result = subprocess.run(
-                    [str(CONFIG_SCRIPT),
+                    [
+                        str(CONFIG_SCRIPT),
                         f"--url={TEST_URL}",
                         "--snapshot-id=solve",
                     ],

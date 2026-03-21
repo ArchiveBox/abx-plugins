@@ -19,7 +19,8 @@ class TestParseRssUrls:
         """Test parsing a real RSS feed from the web."""
         # Use httpbin.org which provides a sample RSS feed
         result = subprocess.run(
-            [str(SCRIPT_PATH),
+            [
+                str(SCRIPT_PATH),
                 "--url",
                 "https://news.ycombinator.com/rss",
             ],
@@ -246,7 +247,9 @@ class TestParseRssUrls:
         urls_dir = tmp_path / "parse_rss_urls"
         urls_dir.mkdir(parents=True, exist_ok=True)
         urls_file = urls_dir / "urls.jsonl"
-        urls_file.write_text('{"type":"Snapshot","url":"https://stale.example.com/post"}\n')
+        urls_file.write_text(
+            '{"type":"Snapshot","url":"https://stale.example.com/post"}\n'
+        )
         env = os.environ.copy()
         env["SNAP_DIR"] = str(tmp_path)
 
@@ -259,7 +262,9 @@ class TestParseRssUrls:
         )
 
         assert result.returncode == 0
-        file_lines = [line for line in urls_file.read_text().splitlines() if line.strip()]
+        file_lines = [
+            line for line in urls_file.read_text().splitlines() if line.strip()
+        ]
         assert len(file_lines) == 1
         entry = json.loads(file_lines[0])
         assert entry["url"] == "https://fresh.example.com/post"

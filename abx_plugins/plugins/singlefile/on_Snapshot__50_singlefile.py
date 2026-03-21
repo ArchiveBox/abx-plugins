@@ -4,6 +4,7 @@
 # dependencies = [
 #     "pydantic-settings",
 #     "rich-click",
+#     "abx-plugins",
 # ]
 # ///
 """
@@ -31,7 +32,11 @@ import sys
 import threading
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import load_config, emit_archive_result_record, has_staticfile_output
+from abx_plugins.plugins.base.utils import (
+    load_config,
+    emit_archive_result_record,
+    has_staticfile_output,
+)
 
 import rich_click as click
 
@@ -76,7 +81,9 @@ def summarize_error(detail: str) -> str:
     return preferred_lines[-1]
 
 
-def run_chrome_utils(command: str, *args: str, timeout: int) -> subprocess.CompletedProcess[str]:
+def run_chrome_utils(
+    command: str, *args: str, timeout: int
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [str(CHROME_UTILS_SCRIPT), command, *args],
         cwd=str(OUTPUT_DIR),
@@ -86,7 +93,9 @@ def run_chrome_utils(command: str, *args: str, timeout: int) -> subprocess.Compl
     )
 
 
-def get_browser_server_url(timeout: int, require_target: bool = True) -> tuple[str | None, str]:
+def get_browser_server_url(
+    timeout: int, require_target: bool = True
+) -> tuple[str | None, str]:
     timeout_ms = max(1000, timeout * 1000)
     result = run_chrome_utils(
         "getBrowserServerUrl",
@@ -127,9 +136,15 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
         require_target=True,
     )
     if not cdp_remote_url:
-        return False, None, error or "No Chrome session found (chrome plugin must run first)"
+        return (
+            False,
+            None,
+            error or "No Chrome session found (chrome plugin must run first)",
+        )
 
-    print(f"[singlefile] Using existing Chrome session: {cdp_remote_url}", file=sys.stderr)
+    print(
+        f"[singlefile] Using existing Chrome session: {cdp_remote_url}", file=sys.stderr
+    )
     cmd.extend(["--browser-server", cdp_remote_url])
 
     # SSL handling
@@ -223,7 +238,6 @@ def save_singlefile_with_extension(
         )
         return False, None, "SingleFile extension helper script missing"
 
-    load_config()
     output_path = Path(OUTPUT_DIR) / OUTPUT_FILE
     temp_output_path = temp_path_for(output_path)
     cmd = [

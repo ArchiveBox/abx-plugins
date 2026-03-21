@@ -4,6 +4,7 @@
 # dependencies = [
 #     "pydantic-settings",
 #     "rich-click",
+#     "abx-plugins",
 # ]
 # ///
 """
@@ -29,7 +30,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import load_config, emit_archive_result_record, write_text_atomic, find_html_source
+from abx_plugins.plugins.base.utils import (
+    load_config,
+    emit_archive_result_record,
+    write_text_atomic,
+    find_html_source,
+)
 
 from urllib.parse import urlparse
 
@@ -48,7 +54,6 @@ os.chdir(OUTPUT_DIR)
 OUTPUT_FILE = "content.html"
 TEXT_FILE = "content.txt"
 METADATA_FILE = "article.json"
-
 
 
 def extract_readability(url: str, binary: str) -> tuple[str, str]:
@@ -100,9 +105,7 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
 
         write_text_atomic(output_dir / OUTPUT_FILE, html_content)
         write_text_atomic(output_dir / TEXT_FILE, text_content)
-        write_text_atomic(
-            output_dir / METADATA_FILE, json.dumps(result_json, indent=2)
-        )
+        write_text_atomic(output_dir / METADATA_FILE, json.dumps(result_json, indent=2))
 
         # Link images/ to responses capture (if available)
         try:

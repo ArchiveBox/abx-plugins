@@ -118,8 +118,7 @@ The `base/` plugin provides shared Python and JS helpers that all other plugins 
 
 **Python** (`base/utils.py`):
 ```python
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import load_config, emit_archive_result, get_env
+from abx_plugins.plugins.base.utils import load_config, emit_archive_result, get_env
 ```
 
 - `load_config()` — load `config.json` via PydanticSettings with env var + alias resolution
@@ -152,9 +151,9 @@ from base.test_utils import parse_jsonl_output, run_hook, get_hook_script
 
 - all plugins should:
   - *overwrite* existing files cleanly if re-run in the same dir, do not skip if files are already present (do not delete and then download, because if a process fails we want to leave previous output intact).
-  - the exception to always overwriting files is: chrome.pid. target_id.txt, navigation.json, etc. chrome state which gets re-used if it's not stale. we should detect if any of it is stale during chrome launch and tab creation, and clear all of it together if it is stale to prevent subtle drift errors / reuse of stale values.
+  - the exception to always overwriting files is: chrome.pid. target_id.txt, navigation.json, etc. chrome state which gets reused if it's not stale. we should detect if any of it is stale during chrome launch and tab creation, and clear all of it together if it is stale to prevent subtle drift errors / reuse of stale values.
   - status `succeeded` if they ran and produced output
-  - status `noresults` if they ran succesfully but produced no meaningful output (e.g. git on a non-github url, ytdlp on a site with no media, paperdl on a site with no pdfs, etc.)
+  - status `noresults` if they ran successfully but produced no meaningful output (e.g. git on a non-github url, ytdlp on a site with no media, paperdl on a site with no pdfs, etc.)
   - status `skipped` if only if *config* caused them not to run (e.g. `YTDLP_ENABLED=False`)
   - status `failed` if any hard dependencies are missing/invalid (e.g. chrome) or if the process exited non-0 / raised an exception
   - return a short, meaningful `output_str` e.g. the page title, mimetype, return status code, or the relative path of the primary output file produced like `output.pdf` or `0 modals closed` or `The Page Title Verbatim` or `favicon.io` or `Not a git URL`

@@ -54,7 +54,8 @@ class TestHashesPlugin:
             env["SNAP_DIR"] = str(snap_dir)
 
             result = subprocess.run(
-                [str(HASHES_HOOK),
+                [
+                    str(HASHES_HOOK),
                     "--url=https://example.com",
                     "--snapshot-id=test-snapshot",
                 ],
@@ -94,7 +95,10 @@ class TestHashesPlugin:
             assert data["metadata"]["file_count"] > 0
             assert data["metadata"]["total_size"] > 0
             total_size_mb = data["metadata"]["total_size"] / 1_000_000
-            assert result_json["output_str"] == f'{total_size_mb:.1f}MB {data["root_hash"][:12]}'
+            assert (
+                result_json["output_str"]
+                == f"{total_size_mb:.1f}MB {data['root_hash'][:12]}"
+            )
 
     def test_hashes_skips_when_disabled(self):
         """Hashes hook should skip when HASHES_ENABLED=false."""
@@ -109,7 +113,8 @@ class TestHashesPlugin:
             env["SNAP_DIR"] = str(snap_dir)
 
             result = subprocess.run(
-                [str(HASHES_HOOK),
+                [
+                    str(HASHES_HOOK),
                     "--url=https://example.com",
                     "--snapshot-id=test-snapshot",
                 ],
@@ -137,7 +142,8 @@ class TestHashesPlugin:
             env["SNAP_DIR"] = str(snap_dir)
 
             result = subprocess.run(
-                [str(HASHES_HOOK),
+                [
+                    str(HASHES_HOOK),
                     "--url=https://example.com",
                     "--snapshot-id=test-snapshot",
                 ],

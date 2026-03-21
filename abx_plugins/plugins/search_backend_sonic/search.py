@@ -3,6 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #   "sonic-client",
+#   "abx-plugins",
 # ]
 # ///
 #
@@ -12,7 +13,8 @@
 
 import os
 from importlib import import_module
-from typing import Any, Iterable, List
+from typing import Any
+from collections.abc import Iterable
 
 
 def get_sonic_config() -> dict:
@@ -26,7 +28,7 @@ def get_sonic_config() -> dict:
     }
 
 
-def search(query: str) -> List[str]:
+def search(query: str) -> list[str]:
     """Search for snapshots in Sonic."""
     try:
         sonic = import_module("sonic")

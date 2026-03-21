@@ -5,6 +5,7 @@
 #   "pydantic-settings",
 #   "feedparser",
 #   "rich-click",
+#   "abx-plugins",
 # ]
 # ///
 """
@@ -32,7 +33,11 @@ from time import mktime
 from typing import Any
 from urllib.parse import urlparse
 
-from abx_plugins.plugins.base.utils import emit_archive_result_record, emit_snapshot_record, write_text_atomic
+from abx_plugins.plugins.base.utils import (
+    emit_archive_result_record,
+    emit_snapshot_record,
+    write_text_atomic,
+)
 
 import rich_click as click
 
@@ -58,7 +63,7 @@ def fetch_content(url: str) -> str:
 
     if parsed.scheme == "file":
         file_path = parsed.path
-        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+        with open(file_path, encoding="utf-8", errors="replace") as f:
             return f.read()
     else:
         timeout = int(os.environ.get("TIMEOUT", "60"))

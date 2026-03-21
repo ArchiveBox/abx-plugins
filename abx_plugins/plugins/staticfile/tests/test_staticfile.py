@@ -12,15 +12,17 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-
+from abx_plugins.plugins.base.test_utils import (
+    get_hook_script,
+    get_plugin_dir,
+    parse_jsonl_output,
+)
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
-    get_plugin_dir,
-    get_hook_script,
-    parse_jsonl_output,
     chrome_session,
 )
+
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 # Get the path to the staticfile hook
@@ -68,7 +70,8 @@ def staticfile_test_urls(httpserver):
 def run_staticfile_capture(staticfile_dir, snapshot_chrome_dir, env, url, snapshot_id):
     """Launch staticfile hook, navigate, and collect its self-emitted final JSONL."""
     hook_proc = subprocess.Popen(
-        [str(STATICFILE_HOOK),
+        [
+            str(STATICFILE_HOOK),
             f"--url={url}",
             f"--snapshot-id={snapshot_id}",
         ],
@@ -83,7 +86,8 @@ def run_staticfile_capture(staticfile_dir, snapshot_chrome_dir, env, url, snapsh
     time.sleep(1)
 
     nav_result = subprocess.run(
-        [str(CHROME_NAVIGATE_HOOK),
+        [
+            str(CHROME_NAVIGATE_HOOK),
             f"--url={url}",
             f"--snapshot-id={snapshot_id}",
         ],
@@ -212,7 +216,9 @@ class TestStaticfileWithChrome:
 
         assert archive_result.get("output_str") == "application/json", archive_result
         output_files = [path for path in staticfile_dir.iterdir() if path.is_file()]
-        assert len(output_files) == 1, f"Expected exactly one downloaded file, got: {output_files}"
+        assert len(output_files) == 1, (
+            f"Expected exactly one downloaded file, got: {output_files}"
+        )
         output_file = output_files[0]
         assert output_file.exists(), f"Expected downloaded file at {output_file}"
         output_bytes = output_file.read_bytes()
@@ -234,12 +240,14 @@ class TestStaticfileWithChrome:
             staticfile_dir = snapshot_chrome_dir.parent / "staticfile"
             staticfile_dir.mkdir(exist_ok=True)
 
-            hook_code, stdout, stderr, nav_result, archive_result = run_staticfile_capture(
-                staticfile_dir,
-                snapshot_chrome_dir,
-                env,
-                test_url,
-                snapshot_id,
+            hook_code, stdout, stderr, nav_result, archive_result = (
+                run_staticfile_capture(
+                    staticfile_dir,
+                    snapshot_chrome_dir,
+                    env,
+                    test_url,
+                    snapshot_id,
+                )
             )
 
         assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
@@ -248,7 +256,9 @@ class TestStaticfileWithChrome:
         assert archive_result.get("status") == "succeeded", archive_result
         assert archive_result.get("content_type") == "application/json", archive_result
 
-    def test_staticfile_handles_redirected_html_pages_as_noresults(self, staticfile_test_urls):
+    def test_staticfile_handles_redirected_html_pages_as_noresults(
+        self, staticfile_test_urls
+    ):
         """Staticfile hook should emit noresults for redirected HTML main documents."""
         test_url = staticfile_test_urls["redirect_html_url"]
         snapshot_id = "test-staticfile-redirect-html"
@@ -264,19 +274,23 @@ class TestStaticfileWithChrome:
             staticfile_dir = snapshot_chrome_dir.parent / "staticfile"
             staticfile_dir.mkdir(exist_ok=True)
 
-            hook_code, stdout, stderr, nav_result, archive_result = run_staticfile_capture(
-                staticfile_dir,
-                snapshot_chrome_dir,
-                env,
-                test_url,
-                snapshot_id,
+            hook_code, stdout, stderr, nav_result, archive_result = (
+                run_staticfile_capture(
+                    staticfile_dir,
+                    snapshot_chrome_dir,
+                    env,
+                    test_url,
+                    snapshot_id,
+                )
             )
 
         assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
         assert hook_code == 0, f"Staticfile hook failed: {stderr}"
         assert archive_result is not None, f"Missing ArchiveResult in stdout:\n{stdout}"
         assert archive_result.get("status") == "noresults", archive_result
-        assert archive_result.get("content_type", "").startswith("text/html"), archive_result
+        assert archive_result.get("content_type", "").startswith("text/html"), (
+            archive_result
+        )
 
 
 if __name__ == "__main__":

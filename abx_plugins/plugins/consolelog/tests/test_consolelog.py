@@ -14,13 +14,13 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+from abx_plugins.plugins.base.test_utils import get_hook_script, get_plugin_dir
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
-    chrome_session,
     CHROME_NAVIGATE_HOOK,
-    get_plugin_dir,
-    get_hook_script,
+    chrome_session,
 )
+
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 # Get the path to the consolelog hook
@@ -70,7 +70,8 @@ class TestConsolelogWithChrome:
 
             # Run consolelog hook with the active Chrome session (background hook)
             result = subprocess.Popen(
-                [str(CONSOLELOG_HOOK),
+                [
+                    str(CONSOLELOG_HOOK),
                     f"--url={test_url}",
                     f"--snapshot-id={snapshot_id}",
                 ],
@@ -86,10 +87,13 @@ class TestConsolelogWithChrome:
                 if console_output.exists():
                     break
                 time.sleep(0.25)
-            assert console_output.exists(), "Consolelog hook did not become ready before navigation"
+            assert console_output.exists(), (
+                "Consolelog hook did not become ready before navigation"
+            )
 
             nav_result = subprocess.run(
-                [str(CHROME_NAVIGATE_HOOK),
+                [
+                    str(CHROME_NAVIGATE_HOOK),
                     f"--url={test_url}",
                     f"--snapshot-id={snapshot_id}",
                 ],

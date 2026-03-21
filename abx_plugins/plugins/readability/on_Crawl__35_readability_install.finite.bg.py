@@ -3,6 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #   "pydantic-settings",
+#   "abx-plugins",
 # ]
 # ///
 """
@@ -28,7 +29,15 @@ def main():
     if not readability_enabled:
         sys.exit(0)
 
-    emit_binary_record(name="readability-extractor", binproviders="env,npm", overrides={"npm": {"install_args": ["https://github.com/ArchiveBox/readability-extractor"]}})
+    emit_binary_record(
+        name="readability-extractor",
+        binproviders="env,npm",
+        overrides={
+            "npm": {
+                "install_args": ["https://github.com/ArchiveBox/readability-extractor"]
+            }
+        },
+    )
 
     sys.exit(0)
 

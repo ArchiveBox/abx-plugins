@@ -3,6 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #   "pydantic-settings",
+#   "abx-plugins",
 # ]
 # ///
 """Emit trafilatura Binary dependency for the crawl if enabled."""

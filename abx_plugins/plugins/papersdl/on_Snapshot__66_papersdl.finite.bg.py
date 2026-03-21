@@ -4,6 +4,7 @@
 # dependencies = [
 #     "pydantic-settings",
 #     "rich-click",
+#     "abx-plugins",
 # ]
 # ///
 """
@@ -80,11 +81,7 @@ def save_paper(url: str, binary: str) -> tuple[bool, int, str]:
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(OUTPUT_DIR)
-    files_before = {
-        path.resolve()
-        for path in output_dir.iterdir()
-        if path.is_file()
-    }
+    files_before = {path.resolve() for path in output_dir.iterdir() if path.is_file()}
 
     # Try to extract DOI from URL
     doi = extract_doi_from_url(url)
@@ -133,7 +130,8 @@ def save_paper(url: str, binary: str) -> tuple[bool, int, str]:
         reader.join(timeout=1)
         combined_output = "".join(output_lines)
         downloaded_files = [
-            path for path in output_dir.iterdir()
+            path
+            for path in output_dir.iterdir()
             if path.is_file() and path.resolve() not in files_before
         ]
 
@@ -151,7 +149,11 @@ def save_paper(url: str, binary: str) -> tuple[bool, int, str]:
             if "no results" in stderr_lower or "no results" in stdout_lower:
                 return True, 0, ""  # No paper found - success, no output
             if process.returncode == 0:
-                return (True, 0, "")  # papers-dl exited cleanly, just no paper - success
+                return (
+                    True,
+                    0,
+                    "",
+                )  # papers-dl exited cleanly, just no paper - success
 
             # These ARE errors - something went wrong
             if "404" in stderr or "404" in stdout:
@@ -197,9 +199,11 @@ def main(url: str, snapshot_id: str):
             emit_archive_result_record(
                 status,
                 (
-                    f"{PLUGIN_DIR}/{pdfs[0]}" if len(pdfs) == 1 else
-                    f"{downloaded_count} PDFs downloaded" if downloaded_count else
-                    "No papers found"
+                    f"{PLUGIN_DIR}/{pdfs[0]}"
+                    if len(pdfs) == 1
+                    else f"{downloaded_count} PDFs downloaded"
+                    if downloaded_count
+                    else "No papers found"
                 ),
             )
             sys.exit(0)

@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 import requests
 
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+from abx_plugins.plugins.base.test_utils import (
     get_hook_script,
     get_plugin_dir,
     parse_jsonl_output,
@@ -128,7 +128,9 @@ def require_trafilatura_binary() -> str:
         "trafilatura installation failed. Install hook should install "
         "the binary automatically in this test environment."
     )
-    assert Path(binary_path).is_file(), f"trafilatura binary path invalid: {binary_path}"
+    assert Path(binary_path).is_file(), (
+        f"trafilatura binary path invalid: {binary_path}"
+    )
     return binary_path
 
 
@@ -138,7 +140,9 @@ def test_hook_script_exists():
 
 def test_verify_deps_with_install_hooks():
     binary_path = require_trafilatura_binary()
-    assert Path(binary_path).is_file(), f"Binary path must be a valid file: {binary_path}"
+    assert Path(binary_path).is_file(), (
+        f"Binary path must be a valid file: {binary_path}"
+    )
 
 
 def test_extracts_local_html_outputs_with_real_binary(httpserver):
@@ -170,7 +174,8 @@ def test_extracts_local_html_outputs_with_real_binary(httpserver):
         env["TRAFILATURA_OUTPUT_JSON"] = "true"
 
         result = subprocess.run(
-            [str(TRAFILATURA_HOOK),
+            [
+                str(TRAFILATURA_HOOK),
                 "--url",
                 test_url,
                 "--snapshot-id",
@@ -206,10 +211,18 @@ def test_extracts_local_html_outputs_with_real_binary(httpserver):
         html_content = html_file.read_text(errors="ignore").lower()
         json_content = json_file.read_text(errors="ignore").lower()
 
-        assert "example domain" in txt_content, "Expected article content in text output"
-        assert "example domain" in md_content, "Expected article content in markdown output"
-        assert "example domain" in html_content, "Expected article content in html output"
-        assert "example domain" in json_content, "Expected article content in json output"
+        assert "example domain" in txt_content, (
+            "Expected article content in text output"
+        )
+        assert "example domain" in md_content, (
+            "Expected article content in markdown output"
+        )
+        assert "example domain" in html_content, (
+            "Expected article content in html output"
+        )
+        assert "example domain" in json_content, (
+            "Expected article content in json output"
+        )
 
 
 def test_extracts_local_html_with_binary_resolved_from_path(chrome_test_url):
@@ -232,7 +245,8 @@ def test_extracts_local_html_with_binary_resolved_from_path(chrome_test_url):
         env["PATH"] = f"{Path(binary_path).parent}:{env.get('PATH', '')}"
 
         result = subprocess.run(
-            [str(TRAFILATURA_HOOK),
+            [
+                str(TRAFILATURA_HOOK),
                 "--url",
                 test_url,
                 "--snapshot-id",
@@ -246,10 +260,15 @@ def test_extracts_local_html_with_binary_resolved_from_path(chrome_test_url):
         )
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
-        assert (snap_dir / "trafilatura" / "content.txt").exists(), "content.txt not created"
-        assert "example domain" in (snap_dir / "trafilatura" / "content.txt").read_text(
-            errors="ignore"
-        ).lower()
+        assert (snap_dir / "trafilatura" / "content.txt").exists(), (
+            "content.txt not created"
+        )
+        assert (
+            "example domain"
+            in (snap_dir / "trafilatura" / "content.txt")
+            .read_text(errors="ignore")
+            .lower()
+        )
 
 
 def test_output_format_toggles_map_to_expected_files(httpserver):
@@ -287,7 +306,8 @@ def test_output_format_toggles_map_to_expected_files(httpserver):
         env["TRAFILATURA_OUTPUT_XMLTEI"] = "true"
 
         result = subprocess.run(
-            [str(TRAFILATURA_HOOK),
+            [
+                str(TRAFILATURA_HOOK),
                 "--url",
                 test_url,
                 "--snapshot-id",
@@ -306,18 +326,25 @@ def test_output_format_toggles_map_to_expected_files(httpserver):
         assert (output_dir / "content.csv").exists(), "content.csv not created"
         assert (output_dir / "content.xml").exists(), "content.xml not created"
         assert (output_dir / "content.xmltei").exists(), "content.xmltei not created"
-        assert not (output_dir / "content.txt").exists(), "content.txt should be disabled"
+        assert not (output_dir / "content.txt").exists(), (
+            "content.txt should be disabled"
+        )
         assert not (output_dir / "content.md").exists(), "content.md should be disabled"
-        assert not (output_dir / "content.html").exists(), "content.html should be disabled"
-        assert not (output_dir / "content.json").exists(), "content.json should be disabled"
+        assert not (output_dir / "content.html").exists(), (
+            "content.html should be disabled"
+        )
+        assert not (output_dir / "content.json").exists(), (
+            "content.json should be disabled"
+        )
 
-        assert "format coverage" in (output_dir / "content.csv").read_text(
-            errors="ignore"
-        ).lower()
+        assert (
+            "format coverage"
+            in (output_dir / "content.csv").read_text(errors="ignore").lower()
+        )
         assert "<doc" in (output_dir / "content.xml").read_text(errors="ignore").lower()
-        assert "<tei" in (output_dir / "content.xmltei").read_text(
-            errors="ignore"
-        ).lower()
+        assert (
+            "<tei" in (output_dir / "content.xmltei").read_text(errors="ignore").lower()
+        )
 
 
 def test_outputs_all_supported_formats_together(httpserver):
@@ -354,7 +381,8 @@ def test_outputs_all_supported_formats_together(httpserver):
         env["TRAFILATURA_OUTPUT_XMLTEI"] = "true"
 
         result = subprocess.run(
-            [str(TRAFILATURA_HOOK),
+            [
+                str(TRAFILATURA_HOOK),
                 "--url",
                 test_url,
                 "--snapshot-id",
@@ -389,7 +417,8 @@ def test_fails_without_html_source():
         env["SNAP_DIR"] = str(snap_dir)
         env["TRAFILATURA_BINARY"] = binary_path
         result = subprocess.run(
-            [str(TRAFILATURA_HOOK),
+            [
+                str(TRAFILATURA_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",

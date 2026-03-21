@@ -61,7 +61,8 @@ class TestNpmProviderHook:
         env["HOME"] = self.temp_dir
 
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=some-package",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
@@ -85,7 +86,8 @@ class TestNpmProviderHook:
         env.pop("LIB_DIR", None)
 
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=some-package",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
@@ -111,7 +113,8 @@ class TestNpmProviderHook:
 
         # Even if installation fails, the npm prefix should be created
         subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=nonexistent-xyz123",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
@@ -137,7 +140,8 @@ class TestNpmProviderHook:
 
         # Just verify it doesn't crash with overrides
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=test-pkg",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
@@ -212,19 +216,13 @@ def test_hook_emits_node_module_aliases(tmp_path, monkeypatch):
     assert result.exit_code == 0, result.output
 
     records = [
-        json.loads(line)
-        for line in result.output.splitlines()
-        if line.startswith("{")
+        json.loads(line) for line in result.output.splitlines() if line.startswith("{")
     ]
     machine_configs = [
-        record["config"]
-        for record in records
-        if record.get("type") == "Machine"
+        record["config"] for record in records if record.get("type") == "Machine"
     ]
     node_config = next(
-        config
-        for config in machine_configs
-        if "NODE_MODULES_DIR" in config
+        config for config in machine_configs if "NODE_MODULES_DIR" in config
     )
 
     assert node_config["NODE_MODULES_DIR"] == node_config["NODE_MODULE_DIR"]
@@ -286,14 +284,13 @@ def test_hook_uses_resolved_binary_path_for_node_module_aliases(tmp_path, monkey
     assert result.exit_code == 0, result.output
 
     records = [
-        json.loads(line)
-        for line in result.output.splitlines()
-        if line.startswith("{")
+        json.loads(line) for line in result.output.splitlines() if line.startswith("{")
     ]
     node_config = next(
         record["config"]
         for record in records
-        if record.get("type") == "Machine" and "NODE_MODULES_DIR" in record.get("config", {})
+        if record.get("type") == "Machine"
+        and "NODE_MODULES_DIR" in record.get("config", {})
     )
 
     assert node_config["NODE_MODULES_DIR"] == str(resolved_node_modules)

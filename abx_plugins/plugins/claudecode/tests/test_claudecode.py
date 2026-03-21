@@ -13,13 +13,29 @@ Tests verify:
 
 import json
 import os
-import sys
 import tempfile
 from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.test_utils import get_plugin_dir, get_hook_script, parse_jsonl_records, run_hook
+from abx_plugins.plugins.base.utils import (
+    emit_archive_result_record,
+    get_env,
+    get_env_bool,
+    get_env_int,
+)
+from abx_plugins.plugins.base.test_utils import (
+    get_plugin_dir,
+    get_hook_script,
+    parse_jsonl_records,
+    run_hook,
+)
+from abx_plugins.plugins.claudecode.claudecode_utils import (
+    build_system_prompt,
+    get_crawl_metadata,
+    get_snapshot_metadata,
+    run_claude_code,
+)
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
@@ -27,7 +43,6 @@ _INSTALL_HOOK = get_hook_script(PLUGIN_DIR, "on_Crawl__*_claudecode_install*")
 if _INSTALL_HOOK is None:
     raise FileNotFoundError(f"Install hook not found in {PLUGIN_DIR}")
 INSTALL_HOOK = _INSTALL_HOOK
-
 
 
 class TestClaudeCodePlugin:
@@ -72,8 +87,12 @@ class TestClaudeCodePlugin:
             env["ANTHROPIC_API_KEY"] = "sk-ant-test-key"
 
             returncode, stdout, stderr = run_hook(
-                INSTALL_HOOK, "https://example.com", "test-install",
-                cwd=tmpdir, env=env, timeout=30,
+                INSTALL_HOOK,
+                "https://example.com",
+                "test-install",
+                cwd=tmpdir,
+                env=env,
+                timeout=30,
             )
 
             assert returncode == 0, f"Hook failed: {stderr}"
@@ -82,13 +101,19 @@ class TestClaudeCodePlugin:
 
             # Should emit Binary record for claude
             binary_records = [r for r in records if r.get("type") == "Binary"]
-            assert len(binary_records) == 1, f"Expected 1 Binary record, got {len(binary_records)}"
+            assert len(binary_records) == 1, (
+                f"Expected 1 Binary record, got {len(binary_records)}"
+            )
             assert binary_records[0]["name"] == "claude"
             assert "npm" in binary_records[0]["binproviders"]
-            assert binary_records[0]["overrides"]["npm"]["install_args"] == ["@anthropic-ai/claude-code"]
+            assert binary_records[0]["overrides"]["npm"]["install_args"] == [
+                "@anthropic-ai/claude-code"
+            ]
 
             archive_results = [r for r in records if r.get("type") == "ArchiveResult"]
-            assert archive_results == [], f"on_Crawl hook must not emit ArchiveResult: {archive_results}"
+            assert archive_results == [], (
+                f"on_Crawl hook must not emit ArchiveResult: {archive_results}"
+            )
 
     def test_install_hook_skips_when_disabled(self):
         """Install hook should exit cleanly when CLAUDECODE_ENABLED=false."""
@@ -98,8 +123,12 @@ class TestClaudeCodePlugin:
             env["CLAUDECODE_ENABLED"] = "false"
 
             returncode, stdout, stderr = run_hook(
-                INSTALL_HOOK, "https://example.com", "test-disabled",
-                cwd=tmpdir, env=env, timeout=30,
+                INSTALL_HOOK,
+                "https://example.com",
+                "test-disabled",
+                cwd=tmpdir,
+                env=env,
+                timeout=30,
             )
 
             assert returncode == 0, f"Hook failed: {stderr}"
@@ -116,14 +145,20 @@ class TestClaudeCodePlugin:
             env.pop("CLAUDECODE_ENABLED", None)
 
             returncode, stdout, stderr = run_hook(
-                INSTALL_HOOK, "https://example.com", "test-default",
-                cwd=tmpdir, env=env, timeout=30,
+                INSTALL_HOOK,
+                "https://example.com",
+                "test-default",
+                cwd=tmpdir,
+                env=env,
+                timeout=30,
             )
 
             assert returncode == 0, f"Hook failed: {stderr}"
             records = parse_jsonl_records(stdout)
             binary_records = [r for r in records if r.get("type") == "Binary"]
-            assert len(binary_records) == 0, "Should not emit Binary when disabled by default"
+            assert len(binary_records) == 0, (
+                "Should not emit Binary when disabled by default"
+            )
             assert stdout.strip() == "SKIPPED: CLAUDECODE_ENABLED=False"
 
     def test_install_hook_warns_missing_api_key(self):
@@ -135,8 +170,12 @@ class TestClaudeCodePlugin:
             env.pop("ANTHROPIC_API_KEY", None)
 
             returncode, stdout, stderr = run_hook(
-                INSTALL_HOOK, "https://example.com", "test-no-key",
-                cwd=tmpdir, env=env, timeout=30,
+                INSTALL_HOOK,
+                "https://example.com",
+                "test-no-key",
+                cwd=tmpdir,
+                env=env,
+                timeout=30,
             )
 
             assert returncode == 0
@@ -148,98 +187,61 @@ class TestClaudeCodeUtils:
 
     def test_import_utils(self):
         """Should be able to import claudecode_utils."""
-        sys.path.insert(0, str(PLUGIN_DIR.parent))
-        try:
-            from abx_plugins.plugins.claudecode.claudecode_utils import (
-                build_system_prompt,
-                emit_archive_result_record,
-                get_env,
-                get_env_bool,
-                get_env_int,
-                get_crawl_metadata,
-                get_snapshot_metadata,
-            )
-            assert callable(build_system_prompt)
-            assert callable(emit_archive_result_record)
-            assert callable(get_env)
-            assert callable(get_env_bool)
-            assert callable(get_env_int)
-            assert callable(get_crawl_metadata)
-            assert callable(get_snapshot_metadata)
-        finally:
-            sys.path.pop(0)
+        assert callable(build_system_prompt)
+        assert callable(emit_archive_result_record)
+        assert callable(get_env)
+        assert callable(get_env_bool)
+        assert callable(get_env_int)
+        assert callable(get_crawl_metadata)
+        assert callable(get_snapshot_metadata)
 
     def test_build_system_prompt_basic(self):
         """System prompt should contain key sections."""
-        sys.path.insert(0, str(PLUGIN_DIR.parent))
-        try:
-            from abx_plugins.plugins.claudecode.claudecode_utils import build_system_prompt
-
-            prompt = build_system_prompt()
-            assert "ArchiveBox" in prompt
-            assert "Directory Layout" in prompt
-            assert "Snapshot Directory Layout" in prompt
-            assert "CRAWL_DIR" in prompt
-            assert "SNAP_DIR" in prompt
-        finally:
-            sys.path.pop(0)
+        prompt = build_system_prompt()
+        assert "ArchiveBox" in prompt
+        assert "Directory Layout" in prompt
+        assert "Snapshot Directory Layout" in prompt
+        assert "CRAWL_DIR" in prompt
+        assert "SNAP_DIR" in prompt
 
     def test_build_system_prompt_with_snap_dir(self):
         """System prompt should include snapshot metadata when snap_dir provided."""
-        sys.path.insert(0, str(PLUGIN_DIR.parent))
-        try:
-            from abx_plugins.plugins.claudecode.claudecode_utils import build_system_prompt
+        with tempfile.TemporaryDirectory() as tmpdir:
+            snap_dir = Path(tmpdir) / "snap"
+            snap_dir.mkdir()
 
-            with tempfile.TemporaryDirectory() as tmpdir:
-                snap_dir = Path(tmpdir) / "snap"
-                snap_dir.mkdir()
+            # Create some fake extractor dirs
+            (snap_dir / "readability").mkdir()
+            (snap_dir / "readability" / "content.html").write_text("<p>test</p>")
+            (snap_dir / "readability" / "content.txt").write_text("test")
+            (snap_dir / "screenshot").mkdir()
+            (snap_dir / "screenshot" / "screenshot.png").write_bytes(b"PNG")
 
-                # Create some fake extractor dirs
-                (snap_dir / "readability").mkdir()
-                (snap_dir / "readability" / "content.html").write_text("<p>test</p>")
-                (snap_dir / "readability" / "content.txt").write_text("test")
-                (snap_dir / "screenshot").mkdir()
-                (snap_dir / "screenshot" / "screenshot.png").write_bytes(b"PNG")
-
-                prompt = build_system_prompt(snap_dir=snap_dir)
-                assert "readability" in prompt
-                assert "screenshot" in prompt
-                assert "content.html" in prompt
-        finally:
-            sys.path.pop(0)
+            prompt = build_system_prompt(snap_dir=snap_dir)
+            assert "readability" in prompt
+            assert "screenshot" in prompt
+            assert "content.html" in prompt
 
     def test_build_system_prompt_with_extra_context(self):
         """System prompt should include extra context when provided."""
-        sys.path.insert(0, str(PLUGIN_DIR.parent))
-        try:
-            from abx_plugins.plugins.claudecode.claudecode_utils import build_system_prompt
-
-            prompt = build_system_prompt(extra_context="Custom instructions here")
-            assert "Custom instructions here" in prompt
-            assert "Additional Instructions" in prompt
-        finally:
-            sys.path.pop(0)
+        prompt = build_system_prompt(extra_context="Custom instructions here")
+        assert "Custom instructions here" in prompt
+        assert "Additional Instructions" in prompt
 
     def test_get_snapshot_metadata(self):
         """Should collect snapshot directory metadata."""
-        sys.path.insert(0, str(PLUGIN_DIR.parent))
-        try:
-            from abx_plugins.plugins.claudecode.claudecode_utils import get_snapshot_metadata
+        with tempfile.TemporaryDirectory() as tmpdir:
+            snap_dir = Path(tmpdir)
+            (snap_dir / "dom").mkdir()
+            (snap_dir / "dom" / "output.html").write_text("<html>test</html>")
+            (snap_dir / "mercury").mkdir()
+            (snap_dir / "mercury" / "content.txt").write_text("text")
 
-            with tempfile.TemporaryDirectory() as tmpdir:
-                snap_dir = Path(tmpdir)
-                (snap_dir / "dom").mkdir()
-                (snap_dir / "dom" / "output.html").write_text("<html>test</html>")
-                (snap_dir / "mercury").mkdir()
-                (snap_dir / "mercury" / "content.txt").write_text("text")
-
-                meta = get_snapshot_metadata(snap_dir)
-                assert "extractor_outputs" in meta
-                names = [e["name"] for e in meta["extractor_outputs"]]
-                assert "dom" in names
-                assert "mercury" in names
-        finally:
-            sys.path.pop(0)
+            meta = get_snapshot_metadata(snap_dir)
+            assert "extractor_outputs" in meta
+            names = [e["name"] for e in meta["extractor_outputs"]]
+            assert "dom" in names
+            assert "mercury" in names
 
 
 @pytest.mark.usefixtures("ensure_claude_code_prereqs")
@@ -251,97 +253,79 @@ class TestClaudeCodeIntegration:
 
     def test_run_claude_code_simple_prompt(self):
         """Claude Code CLI should respond to a simple prompt."""
-        sys.path.insert(0, str(PLUGIN_DIR.parent))
-        try:
-            from abx_plugins.plugins.claudecode.claudecode_utils import run_claude_code
+        with tempfile.TemporaryDirectory() as tmpdir:
+            stdout, stderr, returncode = run_claude_code(
+                prompt="Respond with exactly: ARCHIVEBOX_TEST_OK",
+                work_dir=tmpdir,
+                timeout=60,
+                max_turns=1,
+                model="haiku",
+            )
 
-            with tempfile.TemporaryDirectory() as tmpdir:
-                stdout, stderr, returncode = run_claude_code(
-                    prompt="Respond with exactly: ARCHIVEBOX_TEST_OK",
-                    work_dir=tmpdir,
-                    timeout=60,
-                    max_turns=1,
-                    model="haiku",
-                )
-
-                assert returncode == 0, f"Claude Code failed (rc={returncode}): {stderr}"
-                assert len(stdout.strip()) > 0, "Claude Code returned empty response"
-                assert "ARCHIVEBOX_TEST_OK" in stdout, (
-                    f"Expected 'ARCHIVEBOX_TEST_OK' in response, got: {stdout[:200]}"
-                )
-        finally:
-            sys.path.pop(0)
+            assert returncode == 0, f"Claude Code failed (rc={returncode}): {stderr}"
+            assert len(stdout.strip()) > 0, "Claude Code returned empty response"
+            assert "ARCHIVEBOX_TEST_OK" in stdout, (
+                f"Expected 'ARCHIVEBOX_TEST_OK' in response, got: {stdout[:200]}"
+            )
 
     def test_run_claude_code_with_system_prompt(self):
         """Claude Code CLI should respect system prompts."""
-        sys.path.insert(0, str(PLUGIN_DIR.parent))
-        try:
-            from abx_plugins.plugins.claudecode.claudecode_utils import run_claude_code, build_system_prompt
+        with tempfile.TemporaryDirectory() as tmpdir:
+            snap_dir = Path(tmpdir)
+            (snap_dir / "readability").mkdir()
+            (snap_dir / "readability" / "content.txt").write_text(
+                "This is example.com content about domains."
+            )
 
-            with tempfile.TemporaryDirectory() as tmpdir:
-                snap_dir = Path(tmpdir)
-                (snap_dir / "readability").mkdir()
-                (snap_dir / "readability" / "content.txt").write_text(
-                    "This is example.com content about domains."
-                )
+            system_prompt = build_system_prompt(snap_dir=snap_dir)
 
-                system_prompt = build_system_prompt(snap_dir=snap_dir)
+            stdout, stderr, returncode = run_claude_code(
+                prompt=(
+                    "List the extractor output directories you can see in "
+                    "the snapshot. Respond with just the directory names, "
+                    "one per line."
+                ),
+                work_dir=tmpdir,
+                system_prompt=system_prompt,
+                timeout=60,
+                max_turns=5,
+                model="haiku",
+            )
 
-                stdout, stderr, returncode = run_claude_code(
-                    prompt=(
-                        "List the extractor output directories you can see in "
-                        "the snapshot. Respond with just the directory names, "
-                        "one per line."
-                    ),
-                    work_dir=tmpdir,
-                    system_prompt=system_prompt,
-                    timeout=60,
-                    max_turns=5,
-                    model="haiku",
-                )
-
-                assert returncode == 0, f"Claude Code failed (rc={returncode}): {stderr}"
-                assert "readability" in stdout.lower(), (
-                    f"Claude should see readability dir, got: {stdout[:200]}"
-                )
-        finally:
-            sys.path.pop(0)
+            assert returncode == 0, f"Claude Code failed (rc={returncode}): {stderr}"
+            assert "readability" in stdout.lower(), (
+                f"Claude should see readability dir, got: {stdout[:200]}"
+            )
 
     def test_run_claude_code_writes_file(self):
         """Claude Code CLI should be able to write output files."""
-        sys.path.insert(0, str(PLUGIN_DIR.parent))
-        try:
-            from abx_plugins.plugins.claudecode.claudecode_utils import run_claude_code
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir) / "output"
+            output_dir.mkdir()
 
-            with tempfile.TemporaryDirectory() as tmpdir:
-                output_dir = Path(tmpdir) / "output"
-                output_dir.mkdir()
+            stdout, stderr, returncode = run_claude_code(
+                prompt=(
+                    f"Write the text 'hello from claude' to the file "
+                    f"{output_dir}/test_output.txt"
+                ),
+                work_dir=tmpdir,
+                timeout=60,
+                max_turns=3,
+                model="haiku",
+                allowed_tools=["Read", "Write", "Bash(cat:*)"],
+            )
 
-                stdout, stderr, returncode = run_claude_code(
-                    prompt=(
-                        f"Write the text 'hello from claude' to the file "
-                        f"{output_dir}/test_output.txt"
-                    ),
-                    work_dir=tmpdir,
-                    timeout=60,
-                    max_turns=3,
-                    model="haiku",
-                    allowed_tools=["Read", "Write", "Bash(cat:*)"],
-                )
+            assert returncode == 0, f"Claude Code failed (rc={returncode}): {stderr}"
 
-                assert returncode == 0, f"Claude Code failed (rc={returncode}): {stderr}"
-
-                output_file = output_dir / "test_output.txt"
-                assert output_file.exists(), (
-                    f"Claude should have created test_output.txt. "
-                    f"stdout: {stdout[:300]}, stderr: {stderr[:300]}"
-                )
-                content = output_file.read_text()
-                assert "hello from claude" in content.lower(), (
-                    f"Expected 'hello from claude' in file, got: {content[:200]}"
-                )
-        finally:
-            sys.path.pop(0)
+            output_file = output_dir / "test_output.txt"
+            assert output_file.exists(), (
+                f"Claude should have created test_output.txt. "
+                f"stdout: {stdout[:300]}, stderr: {stderr[:300]}"
+            )
+            content = output_file.read_text()
+            assert "hello from claude" in content.lower(), (
+                f"Expected 'hello from claude' in file, got: {content[:200]}"
+            )
 
 
 if __name__ == "__main__":

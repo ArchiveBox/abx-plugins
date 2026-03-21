@@ -7,7 +7,9 @@ from pathlib import Path
 HOOK = Path(__file__).parent.parent / "on_Snapshot__90_index_sqlite.py"
 
 
-def run_hook(tmp_path: Path, snapshot_id: str = "snap-001") -> subprocess.CompletedProcess[str]:
+def run_hook(
+    tmp_path: Path, snapshot_id: str = "snap-001"
+) -> subprocess.CompletedProcess[str]:
     output_dir = tmp_path / "search_backend_sqlite"
     output_dir.mkdir(parents=True, exist_ok=True)
 

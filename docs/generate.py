@@ -93,7 +93,9 @@ def parse_hook_filename(filename: str) -> dict[str, Any]:
     extension = pieces[-1] if len(pieces) > 1 else ""
     stem_pieces = pieces[:-1] if extension else pieces
     is_background = "bg" in stem_pieces
-    base_parts = [part for part in stem_pieces if part not in {"daemon", "finite", "bg"}]
+    base_parts = [
+        part for part in stem_pieces if part not in {"daemon", "finite", "bg"}
+    ]
     base_name = ".".join(base_parts)
     order_text, _, slug = base_name.partition("_")
     order = int(order_text) if order_text.isdigit() else None
@@ -123,7 +125,9 @@ def collect_hooks(plugin_dir: Path) -> list[dict[str, Any]]:
     return hooks
 
 
-def collect_config_fields(plugin_dir: Path, config_schema: dict[str, Any]) -> list[dict[str, Any]]:
+def collect_config_fields(
+    plugin_dir: Path, config_schema: dict[str, Any]
+) -> list[dict[str, Any]]:
     properties = config_schema.get("properties", {})
     fields: list[dict[str, Any]] = []
     for key, details in properties.items():
@@ -132,7 +136,9 @@ def collect_config_fields(plugin_dir: Path, config_schema: dict[str, Any]) -> li
                 "key": key,
                 "type": normalize_type(details.get("type")),
                 "description": details.get("description", ""),
-                "default": format_json_value(details.get("default")) if "default" in details else None,
+                "default": format_json_value(details.get("default"))
+                if "default" in details
+                else None,
                 "aliases": list(details.get("x-aliases", [])),
                 "fallback": details.get("x-fallback"),
                 "minimum": details.get("minimum"),
@@ -143,10 +149,15 @@ def collect_config_fields(plugin_dir: Path, config_schema: dict[str, Any]) -> li
     return fields
 
 
-def build_commands(plugin_name: str, hooks: list[dict[str, Any]], config_fields: list[dict[str, Any]]) -> dict[str, str]:
+def build_commands(
+    plugin_name: str, hooks: list[dict[str, Any]], config_fields: list[dict[str, Any]]
+) -> dict[str, str]:
     has_snapshot = any(hook["phase"] == "Snapshot" for hook in hooks)
     has_setup = any(hook["phase"] in {"Crawl", "Binary"} for hook in hooks)
-    enable_key = next((field["key"] for field in config_fields if field["key"].endswith("_ENABLED")), None)
+    enable_key = next(
+        (field["key"] for field in config_fields if field["key"].endswith("_ENABLED")),
+        None,
+    )
     env_prefix = f"{enable_key}=true " if enable_key else ""
 
     if has_snapshot:
@@ -189,13 +200,19 @@ def dominant_language(hooks: list[dict[str, Any]]) -> str | None:
 
 
 def highest_hook_order_for_phase(hooks: list[dict[str, Any]], phase: str) -> int | None:
-    orders = [hook["order"] for hook in hooks if hook["phase"] == phase and hook["order"] is not None]
+    orders = [
+        hook["order"]
+        for hook in hooks
+        if hook["phase"] == phase and hook["order"] is not None
+    ]
     if not orders:
         return None
     return max(orders)
 
 
-def plugin_sort_metadata(hooks: list[dict[str, Any]]) -> tuple[int, int | float, str, int | None]:
+def plugin_sort_metadata(
+    hooks: list[dict[str, Any]],
+) -> tuple[int, int | float, str, int | None]:
     snapshot_order = highest_hook_order_for_phase(hooks, "Snapshot")
     crawl_order = highest_hook_order_for_phase(hooks, "Crawl")
     binary_order = highest_hook_order_for_phase(hooks, "Binary")
@@ -282,7 +299,13 @@ def collect_plugins() -> list[dict[str, Any]]:
         if not plugin_dir.is_dir() or plugin_dir.name in EXCLUDED_PLUGIN_DIRS:
             continue
         plugins.append(build_plugin(plugin_dir))
-    plugins.sort(key=lambda plugin: (plugin["sort_group"], plugin["sort_order"], plugin["name"].lower()))
+    plugins.sort(
+        key=lambda plugin: (
+            plugin["sort_group"],
+            plugin["sort_order"],
+            plugin["name"].lower(),
+        )
+    )
     return plugins
 
 
@@ -315,7 +338,9 @@ def render_marketplace(output_dir: Path, template_name: str) -> Path:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Build the abx-plugins marketplace site.")
+    parser = argparse.ArgumentParser(
+        description="Build the abx-plugins marketplace site."
+    )
     parser.add_argument(
         "--output-dir",
         default=str(DEFAULT_OUTPUT_DIR),

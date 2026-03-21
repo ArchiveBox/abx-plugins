@@ -34,7 +34,6 @@ CLEANUP_HOOK = _CLEANUP_HOOK
 TEST_URL = "https://example.com"
 
 
-
 def create_snapshot_with_duplicates(snap_dir: Path) -> dict:
     """Create a snapshot directory with intentionally redundant/duplicate outputs.
 
@@ -62,19 +61,23 @@ def create_snapshot_with_duplicates(snap_dir: Path) -> dict:
         "or asking for permission.\n\n"
         "More information about example domains can be found at the IANA website.\n"
     )
-    (readability_dir / "article.json").write_text(json.dumps({
-        "title": "Example Domain",
-        "byline": None,
-        "siteName": "example.com",
-    }, indent=2))
+    (readability_dir / "article.json").write_text(
+        json.dumps(
+            {
+                "title": "Example Domain",
+                "byline": None,
+                "siteName": "example.com",
+            },
+            indent=2,
+        )
+    )
     created["dirs"].append("readability")
 
     # htmltotext - lower quality text extraction (subset of readability)
     htmltotext_dir = snap_dir / "htmltotext"
     htmltotext_dir.mkdir()
     (htmltotext_dir / "content.txt").write_text(
-        "Example Domain\n"
-        "This domain is for use in illustrative examples.\n"
+        "Example Domain\nThis domain is for use in illustrative examples.\n"
     )
     created["dirs"].append("htmltotext")
 
@@ -88,10 +91,15 @@ def create_snapshot_with_duplicates(snap_dir: Path) -> dict:
     (mercury_dir / "content.txt").write_text(
         "Example Domain\nThis domain is for use in illustrative examples.\n"
     )
-    (mercury_dir / "article.json").write_text(json.dumps({
-        "title": "Example Domain",
-        "content": "<p>This domain is for use in illustrative examples.</p>",
-    }, indent=2))
+    (mercury_dir / "article.json").write_text(
+        json.dumps(
+            {
+                "title": "Example Domain",
+                "content": "<p>This domain is for use in illustrative examples.</p>",
+            },
+            indent=2,
+        )
+    )
     created["dirs"].append("mercury")
 
     # dom - raw DOM dump (large, mostly noise)
@@ -118,11 +126,15 @@ def create_snapshot_with_duplicates(snap_dir: Path) -> dict:
     # hashes - should NOT be deleted
     hashes_dir = snap_dir / "hashes"
     hashes_dir.mkdir()
-    (hashes_dir / "hashes.json").write_text(json.dumps({
-        "root_hash": "abc123",
-        "files": [],
-        "metadata": {"file_count": 0},
-    }))
+    (hashes_dir / "hashes.json").write_text(
+        json.dumps(
+            {
+                "root_hash": "abc123",
+                "files": [],
+                "metadata": {"file_count": 0},
+            }
+        )
+    )
     created["dirs"].append("hashes")
 
     return created
@@ -137,7 +149,9 @@ class TestClaudeCodeCleanupPlugin:
 
     def test_hook_runs_at_priority_92(self):
         """Hook should be at priority 92 (after extractors, before hashes at 93)."""
-        assert "__92_" in CLEANUP_HOOK.name, f"Expected priority 92 in hook name: {CLEANUP_HOOK.name}"
+        assert "__92_" in CLEANUP_HOOK.name, (
+            f"Expected priority 92 in hook name: {CLEANUP_HOOK.name}"
+        )
 
     def test_config_json_exists_and_valid(self):
         """config.json should exist and declare claudecode dependency."""
@@ -159,7 +173,10 @@ class TestClaudeCodeCleanupPlugin:
         config = json.loads(config_path.read_text())
         default_prompt = config["properties"]["CLAUDECODECLEANUP_PROMPT"]["default"]
         assert len(default_prompt) > 50, "Default prompt should be meaningful"
-        assert "duplicate" in default_prompt.lower() or "redundant" in default_prompt.lower()
+        assert (
+            "duplicate" in default_prompt.lower()
+            or "redundant" in default_prompt.lower()
+        )
 
     def test_config_has_higher_max_turns_than_extract(self):
         """Cleanup should have higher default max turns than extract."""
@@ -167,8 +184,12 @@ class TestClaudeCodeCleanupPlugin:
         extract_config_path = PLUGIN_DIR.parent / "claudecodeextract" / "config.json"
         extract_config = json.loads(extract_config_path.read_text())
 
-        cleanup_max = cleanup_config["properties"]["CLAUDECODECLEANUP_MAX_TURNS"]["default"]
-        extract_max = extract_config["properties"]["CLAUDECODEEXTRACT_MAX_TURNS"]["default"]
+        cleanup_max = cleanup_config["properties"]["CLAUDECODECLEANUP_MAX_TURNS"][
+            "default"
+        ]
+        extract_max = extract_config["properties"]["CLAUDECODEEXTRACT_MAX_TURNS"][
+            "default"
+        ]
         assert cleanup_max > extract_max, (
             f"Cleanup max_turns ({cleanup_max}) should exceed extract max_turns ({extract_max})"
         )
@@ -193,8 +214,12 @@ class TestClaudeCodeCleanupPlugin:
             env["CLAUDECODECLEANUP_ENABLED"] = "false"
 
             returncode, stdout, stderr = run_hook(
-                CLEANUP_HOOK, TEST_URL, "test-snapshot",
-                cwd=output_dir, env=env, timeout=30,
+                CLEANUP_HOOK,
+                TEST_URL,
+                "test-snapshot",
+                cwd=output_dir,
+                env=env,
+                timeout=30,
             )
 
             assert returncode == 0, f"Hook failed: {stderr}"
@@ -216,8 +241,12 @@ class TestClaudeCodeCleanupPlugin:
             env.pop("ANTHROPIC_API_KEY", None)
 
             returncode, stdout, stderr = run_hook(
-                CLEANUP_HOOK, TEST_URL, "test-snapshot",
-                cwd=output_dir, env=env, timeout=30,
+                CLEANUP_HOOK,
+                TEST_URL,
+                "test-snapshot",
+                cwd=output_dir,
+                env=env,
+                timeout=30,
             )
 
             assert returncode == 1
@@ -241,8 +270,12 @@ class TestClaudeCodeCleanupPlugin:
             env["CLAUDECODE_BINARY"] = "/nonexistent/claude"
 
             returncode, stdout, stderr = run_hook(
-                CLEANUP_HOOK, TEST_URL, "test-snapshot",
-                cwd=output_dir, env=env, timeout=30,
+                CLEANUP_HOOK,
+                TEST_URL,
+                "test-snapshot",
+                cwd=output_dir,
+                env=env,
+                timeout=30,
             )
 
             assert returncode == 1
@@ -280,8 +313,12 @@ class TestClaudeCodeCleanupIntegration:
             env["CLAUDECODECLEANUP_TIMEOUT"] = "120"
 
             returncode, stdout, stderr = run_hook(
-                CLEANUP_HOOK, TEST_URL, "test-cleanup-integration",
-                cwd=output_dir, env=env, timeout=180,
+                CLEANUP_HOOK,
+                TEST_URL,
+                "test-cleanup-integration",
+                cwd=output_dir,
+                env=env,
+                timeout=180,
             )
 
             result = parse_jsonl_output(stdout)
@@ -301,7 +338,9 @@ class TestClaudeCodeCleanupIntegration:
 
             # hashes/ directory should NOT be deleted
             assert (snap_dir / "hashes").exists(), "hashes/ should be preserved"
-            assert (snap_dir / "hashes" / "hashes.json").exists(), "hashes.json should be preserved"
+            assert (snap_dir / "hashes" / "hashes.json").exists(), (
+                "hashes.json should be preserved"
+            )
 
     def test_cleanup_preserves_hashes(self):
         """Cleanup should delete redundant outputs but never delete hashes/."""
@@ -328,15 +367,17 @@ class TestClaudeCodeCleanupIntegration:
             )
 
             returncode, stdout, stderr = run_hook(
-                CLEANUP_HOOK, TEST_URL, "test-preserve-hashes",
-                cwd=output_dir, env=env, timeout=180,
+                CLEANUP_HOOK,
+                TEST_URL,
+                "test-preserve-hashes",
+                cwd=output_dir,
+                env=env,
+                timeout=180,
             )
 
             result = parse_jsonl_output(stdout)
             assert result is not None, f"No ArchiveResult. stderr: {stderr[:500]}"
-            assert result["status"] == "succeeded", (
-                f"Should succeed: {stderr[:500]}"
-            )
+            assert result["status"] == "succeeded", f"Should succeed: {stderr[:500]}"
 
             # Verify broken_extractor/ was actually deleted
             assert not (snap_dir / "broken_extractor").exists(), (
@@ -345,7 +386,9 @@ class TestClaudeCodeCleanupIntegration:
 
             # Verify hashes preserved (must survive even when deletion is enabled)
             assert (snap_dir / "hashes").exists(), "hashes/ must be preserved"
-            assert (snap_dir / "hashes" / "hashes.json").exists(), "hashes.json must be preserved"
+            assert (snap_dir / "hashes" / "hashes.json").exists(), (
+                "hashes.json must be preserved"
+            )
 
             # Verify cleanup report was written
             report_file = output_dir / "cleanup_report.txt"

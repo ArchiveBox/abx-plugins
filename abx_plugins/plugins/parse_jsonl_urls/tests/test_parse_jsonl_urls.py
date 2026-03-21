@@ -235,7 +235,8 @@ class TestParseJsonlUrls:
     def test_exits_1_when_file_not_found(self, tmp_path):
         """Test that script exits with code 1 when file doesn't exist."""
         result = subprocess.run(
-            [str(SCRIPT_PATH),
+            [
+                str(SCRIPT_PATH),
                 "--url",
                 "file:///nonexistent/bookmarks.jsonl",
             ],
@@ -323,7 +324,9 @@ class TestParseJsonlUrls:
     def test_overwrites_stale_urls_file_on_rerun(self, tmp_path):
         """Test that reruns overwrite stale parser output instead of skipping."""
         input_file = tmp_path / "bookmarks.jsonl"
-        input_file.write_text('{"url": "https://fresh.example.com", "title": "Fresh"}\n')
+        input_file.write_text(
+            '{"url": "https://fresh.example.com", "title": "Fresh"}\n'
+        )
 
         urls_dir = tmp_path / "parse_jsonl_urls"
         urls_dir.mkdir(parents=True, exist_ok=True)
@@ -341,7 +344,9 @@ class TestParseJsonlUrls:
         )
 
         assert result.returncode == 0
-        file_lines = [line for line in urls_file.read_text().splitlines() if line.strip()]
+        file_lines = [
+            line for line in urls_file.read_text().splitlines() if line.strip()
+        ]
         assert len(file_lines) == 1
         entry = json.loads(file_lines[0])
         assert entry["url"] == "https://fresh.example.com"

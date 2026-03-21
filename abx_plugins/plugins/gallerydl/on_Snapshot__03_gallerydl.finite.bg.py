@@ -4,6 +4,7 @@
 # dependencies = [
 #   "pydantic-settings",
 #   "rich-click",
+#   "abx-plugins",
 # ]
 # ///
 #
@@ -19,7 +20,11 @@ import sys
 import threading
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_archive_result_record, has_staticfile_output, load_config
+from abx_plugins.plugins.base.utils import (
+    emit_archive_result_record,
+    has_staticfile_output,
+    load_config,
+)
 
 import rich_click as click
 
@@ -148,7 +153,9 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
             for f in output_dir.rglob("*")
             if f.is_file()
             and f.suffix.lower() in gallery_extensions
-            and not any(f.name.endswith(suffix) for suffix in EXECUTOR_ARTIFACT_SUFFIXES)
+            and not any(
+                f.name.endswith(suffix) for suffix in EXECUTOR_ARTIFACT_SUFFIXES
+            )
         ]
 
         if downloaded_files:

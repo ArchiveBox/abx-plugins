@@ -8,7 +8,7 @@ from urllib.request import urlopen
 
 import pytest
 
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+from abx_plugins.plugins.base.test_utils import (
     get_hook_script,
     get_plugin_dir,
     parse_jsonl_output,
@@ -92,7 +92,9 @@ def test_crawl_hook_emits_defuddle_binary_record():
     assert binary, "Expected crawl hook to emit Binary record"
     assert binary.get("type") == "Binary"
     assert binary.get("name") == "defuddle"
-    assert binary.get("overrides", {}).get("npm", {}).get("install_args") == ["defuddle"]
+    assert binary.get("overrides", {}).get("npm", {}).get("install_args") == [
+        "defuddle"
+    ]
 
 
 def test_reports_missing_dependency_when_not_installed():
@@ -104,7 +106,9 @@ def test_reports_missing_dependency_when_not_installed():
 
         env = {"PATH": "/nonexistent", "HOME": str(tmpdir), "SNAP_DIR": str(snap_dir)}
         result = subprocess.run(
-            [sys.executable, str(DEFUDDLE_HOOK),
+            [
+                sys.executable,
+                str(DEFUDDLE_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -160,7 +164,8 @@ def test_extracts_article_with_real_binary(httpserver):
         env["DEFUDDLE_BINARY"] = binary_path
 
         result = subprocess.run(
-            [str(DEFUDDLE_HOOK),
+            [
+                str(DEFUDDLE_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -180,12 +185,14 @@ def test_extracts_article_with_real_binary(httpserver):
         assert (output_dir / "content.txt").exists()
         assert (output_dir / "article.json").exists()
 
-        assert "defuddle parser integration" in (
-            output_dir / "content.html"
-        ).read_text(encoding="utf-8").lower()
-        assert "defuddle parser integration" in (
-            output_dir / "content.txt"
-        ).read_text(encoding="utf-8").lower()
+        assert (
+            "defuddle parser integration"
+            in (output_dir / "content.html").read_text(encoding="utf-8").lower()
+        )
+        assert (
+            "defuddle parser integration"
+            in (output_dir / "content.txt").read_text(encoding="utf-8").lower()
+        )
         metadata = json.loads((output_dir / "article.json").read_text(encoding="utf-8"))
         assert metadata.get("title")
 

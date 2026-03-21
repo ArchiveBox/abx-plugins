@@ -18,16 +18,18 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
-    get_test_env,
-    get_plugin_dir,
+from abx_plugins.plugins.base.test_utils import (
     get_hook_script,
-    chrome_session,
-    CHROME_PLUGIN_DIR,
+    get_plugin_dir,
     parse_jsonl_output,
 )
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    CHROME_PLUGIN_DIR,
+    chrome_session,
+    get_test_env,
+)
+
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 PLUGIN_DIR = get_plugin_dir(__file__)
 _SCREENSHOT_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_screenshot.*")

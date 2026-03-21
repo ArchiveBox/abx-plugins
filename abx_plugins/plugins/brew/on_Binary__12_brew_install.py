@@ -5,6 +5,7 @@
 #   "pydantic-settings",
 #   "rich-click",
 #   "abx-pkg",
+#   "abx-plugins",
 # ]
 # ///
 #
@@ -83,7 +84,11 @@ def main(
 
         brew_overrides: HandlerDict = (overrides_dict or {}).get("brew", {})
         install_args = brew_overrides.get("install_args")
-        if isinstance(install_args, list) and install_args and "abspath" not in brew_overrides:
+        if (
+            isinstance(install_args, list)
+            and install_args
+            and "abspath" not in brew_overrides
+        ):
             search_paths: list[str] = []
             for package in install_args:
                 if not isinstance(package, str) or package.startswith("-"):
@@ -93,7 +98,10 @@ def main(
                         continue
                     prefix = Path(bin_dir).parent
                     search_paths.append(str(prefix / "opt" / package / "bin"))
-                    search_paths.extend(str(path) for path in (prefix / "Cellar" / package).glob("*/bin"))
+                    search_paths.extend(
+                        str(path)
+                        for path in (prefix / "Cellar" / package).glob("*/bin")
+                    )
             if search_paths:
                 abspath = shutil.which(name, path=":".join(search_paths))
                 if abspath:

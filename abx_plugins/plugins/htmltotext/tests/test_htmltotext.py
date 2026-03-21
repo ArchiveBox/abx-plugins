@@ -38,7 +38,8 @@ def test_extracts_text_from_html():
         )
 
         result = subprocess.run(
-            [str(HTMLTOTEXT_HOOK),
+            [
+                str(HTMLTOTEXT_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -76,7 +77,8 @@ def test_fails_gracefully_without_html():
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
         result = subprocess.run(
-            [str(HTMLTOTEXT_HOOK),
+            [
+                str(HTMLTOTEXT_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",

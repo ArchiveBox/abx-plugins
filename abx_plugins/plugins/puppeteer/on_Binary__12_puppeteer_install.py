@@ -5,6 +5,7 @@
 #     "pydantic-settings",
 #     "rich-click",
 #     "abx-pkg",
+#     "abx-plugins",
 # ]
 # ///
 """
@@ -117,9 +118,7 @@ def main(
         click.echo(f"ERROR: puppeteer install failed ({proc.returncode})", err=True)
         sys.exit(1)
 
-    chromium_binary = _load_browser_binary(
-        proc.stdout + "\n" + proc.stderr, name=name
-    )
+    chromium_binary = _load_browser_binary(proc.stdout + "\n" + proc.stderr, name=name)
     if not chromium_binary or not chromium_binary.abspath:
         click.echo("ERROR: failed to locate Chromium after install", err=True)
         sys.exit(1)
@@ -145,7 +144,9 @@ def main(
     sys.exit(0)
 
 
-def _parse_override_install_args(overrides: str | None, default: list[str]) -> list[str]:
+def _parse_override_install_args(
+    overrides: str | None, default: list[str]
+) -> list[str]:
     if not overrides:
         return default
     try:
@@ -206,12 +207,21 @@ def _run_puppeteer_install_with_sudo(
         return None
 
     sudo_cmd = [
-        "sudo", "-E", abspath, "browsers", "install", *install_args,
+        "sudo",
+        "-E",
+        abspath,
+        "browsers",
+        "install",
+        *install_args,
     ]
     env = os.environ.copy()
     env.setdefault("PUPPETEER_CACHE_DIR", str(cache_dir))
     proc = _subprocess.run(
-        sudo_cmd, capture_output=True, text=True, timeout=300, env=env,
+        sudo_cmd,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        env=env,
     )
 
     # Fix ownership: sudo may have written root-owned files into the

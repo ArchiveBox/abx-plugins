@@ -6,6 +6,7 @@
 #   "click",
 #   "rich-click",
 #   "abx-pkg",
+#   "abx-plugins",
 # ]
 # ///
 #
@@ -154,10 +155,13 @@ def main(
                     overrides_dict = json.loads(overrides)
                     # Extract pip-specific overrides
                     overrides_dict = overrides_dict.get("pip", {})
-                    click.echo(f"Using pip install overrides: {overrides_dict}", err=True)
+                    click.echo(
+                        f"Using pip install overrides: {overrides_dict}", err=True
+                    )
                 except json.JSONDecodeError:
                     click.echo(
-                        f"Warning: Failed to parse overrides JSON: {overrides}", err=True
+                        f"Warning: Failed to parse overrides JSON: {overrides}",
+                        err=True,
                     )
 
             binary = Binary(

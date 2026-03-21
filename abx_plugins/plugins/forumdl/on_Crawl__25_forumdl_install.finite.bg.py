@@ -3,6 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #   "pydantic-settings",
+#   "abx-plugins",
 # ]
 # ///
 #
@@ -23,6 +24,8 @@ CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
 OUTPUT_DIR = CRAWL_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
+
+
 def main():
     forumdl_enabled = get_env_bool("FORUMDL_ENABLED", True)
 

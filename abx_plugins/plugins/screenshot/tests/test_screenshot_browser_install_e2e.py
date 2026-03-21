@@ -92,9 +92,7 @@ def _wait_for_file(path: Path, process: subprocess.Popen[str], timeout: int) -> 
         stdout, stderr = process.communicate(timeout=5)
     except subprocess.TimeoutExpired:
         stdout = stderr = "(process still running)"
-    pytest.fail(
-        f"Timed out waiting for {path}.\nstdout:\n{stdout}\nstderr:\n{stderr}"
-    )
+    pytest.fail(f"Timed out waiting for {path}.\nstdout:\n{stdout}\nstderr:\n{stderr}")
 
 
 @pytest.mark.parametrize("browser_name", ["chrome", "chromium"])
@@ -154,7 +152,8 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     assert puppeteer_record, stdout
 
     npm_result = subprocess.run(
-        [str(NPM_BINARY_HOOK),
+        [
+            str(NPM_BINARY_HOOK),
             "--machine-id=test-machine",
             "--binary-id=test-puppeteer",
             "--plugin-name=puppeteer",
@@ -193,7 +192,8 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     assert chrome_record["name"] == browser_name
 
     browser_result = subprocess.run(
-        [str(PUPPETEER_BINARY_HOOK),
+        [
+            str(PUPPETEER_BINARY_HOOK),
             "--machine-id=test-machine",
             f"--binary-id=test-{browser_name}",
             "--plugin-name=chrome",

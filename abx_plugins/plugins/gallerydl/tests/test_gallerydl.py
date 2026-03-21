@@ -88,7 +88,8 @@ def test_handles_non_gallery_url():
 
         # Run gallery-dl extraction hook on non-gallery URL
         result = subprocess.run(
-            [str(GALLERYDL_HOOK),
+            [
+                str(GALLERYDL_HOOK),
                 "--url",
                 "https://example.com",
                 "--snapshot-id",
@@ -125,7 +126,8 @@ def test_config_save_gallery_dl_false_skips():
         env["GALLERYDL_ENABLED"] = "False"
 
         result = subprocess.run(
-            [str(GALLERYDL_HOOK),
+            [
+                str(GALLERYDL_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -167,7 +169,8 @@ def test_config_timeout():
 
         start_time = time.time()
         result = subprocess.run(
-            [str(GALLERYDL_HOOK),
+            [
+                str(GALLERYDL_HOOK),
                 "--url",
                 "https://example.com",
                 "--snapshot-id",
@@ -211,7 +214,8 @@ def test_real_gallery_url():
 
             start_time = time.time()
             result = subprocess.run(
-                [str(GALLERYDL_HOOK),
+                [
+                    str(GALLERYDL_HOOK),
                     "--url",
                     gallery_url,
                     "--snapshot-id",

@@ -58,7 +58,8 @@ class TestEnvProviderHook:
         env["SNAP_DIR"] = self.temp_dir
 
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=python3",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
@@ -99,7 +100,8 @@ class TestEnvProviderHook:
         env["SNAP_DIR"] = self.temp_dir
 
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=bash",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
@@ -136,7 +138,8 @@ class TestEnvProviderHook:
         env["SNAP_DIR"] = self.temp_dir
 
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=nonexistent_binary_xyz123",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",
@@ -159,7 +162,8 @@ class TestEnvProviderHook:
         env["SNAP_DIR"] = self.temp_dir
 
         result = subprocess.run(
-            [str(INSTALL_HOOK),
+            [
+                str(INSTALL_HOOK),
                 "--name=python3",
                 "--binary-id=test-uuid",
                 "--machine-id=test-machine",

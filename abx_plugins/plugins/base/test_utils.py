@@ -7,8 +7,6 @@ Provides common helpers used across plugin test files:
 
 Usage::
 
-    import sys
-    sys.path.append(str(Path(__file__).resolve().parent.parent))
     from abx_plugins.plugins.base.test_utils import (
         get_plugin_dir, get_hook_script,
         parse_jsonl_output, parse_jsonl_records,
@@ -168,8 +166,13 @@ def run_hook_and_parse(
         Tuple of (returncode, parsed_record_or_None, stderr)
     """
     returncode, stdout, stderr = run_hook(
-        hook_script, url, snapshot_id,
-        cwd=cwd, env=env, timeout=timeout, extra_args=extra_args,
+        hook_script,
+        url,
+        snapshot_id,
+        cwd=cwd,
+        env=env,
+        timeout=timeout,
+        extra_args=extra_args,
     )
     record = parse_jsonl_output(stdout, record_type=record_type)
     return returncode, record, stderr

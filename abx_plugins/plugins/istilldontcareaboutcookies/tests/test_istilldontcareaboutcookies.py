@@ -13,14 +13,14 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     setup_test_env,
     launch_chromium_session,
     kill_chromium_session,
     wait_for_extensions_metadata,
 )
+
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
@@ -284,7 +284,9 @@ const puppeteer = require('puppeteer-core');
 }})();
 """
             script_path = tmpdir / "test_extension.js"
-            script_path.write_text(f"#!/usr/bin/env node\n{test_script}", encoding="utf-8")
+            script_path.write_text(
+                f"#!/usr/bin/env node\n{test_script}", encoding="utf-8"
+            )
             script_path.chmod(0o755)
 
             result = subprocess.run(

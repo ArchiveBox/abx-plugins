@@ -4,6 +4,7 @@
 # dependencies = [
 #   "pydantic-settings",
 #   "rich-click",
+#   "abx-plugins",
 # ]
 # ///
 #
@@ -18,7 +19,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import load_config, emit_archive_result_record, write_text_atomic, find_html_source
+from abx_plugins.plugins.base.utils import (
+    load_config,
+    emit_archive_result_record,
+    write_text_atomic,
+    find_html_source,
+)
 
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
@@ -52,8 +58,7 @@ def extract_defuddle(url: str, binary: str) -> tuple[str, str]:
             cmd.append("--json")
         result = subprocess.run(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             timeout=timeout,
             text=True,
         )
@@ -102,9 +107,7 @@ def extract_defuddle(url: str, binary: str) -> tuple[str, str]:
 
         write_text_atomic(output_dir / HTML_FILE, html_content)
         write_text_atomic(output_dir / TEXT_FILE, text_content)
-        write_text_atomic(
-            output_dir / METADATA_FILE, json.dumps(metadata, indent=2)
-        )
+        write_text_atomic(output_dir / METADATA_FILE, json.dumps(metadata, indent=2))
 
         return "succeeded", f"{PLUGIN_DIR}/{HTML_FILE}"
     except subprocess.TimeoutExpired:

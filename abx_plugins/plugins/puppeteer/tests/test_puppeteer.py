@@ -9,14 +9,10 @@ from pathlib import Path
 
 import pytest
 
+from abx_plugins.plugins.base.test_utils import get_hook_script, get_plugin_dir
 from abx_plugins.plugins.puppeteer.on_Binary__12_puppeteer_install import (
     _get_install_failure_hint,
     _resolve_binary_reference,
-)
-
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
-    get_plugin_dir,
-    get_hook_script,
 )
 
 
@@ -24,7 +20,9 @@ PLUGIN_DIR = get_plugin_dir(__file__)
 CRAWL_HOOK = get_hook_script(PLUGIN_DIR, "on_Crawl__*_puppeteer_install*.py")
 BINARY_HOOK = get_hook_script(PLUGIN_DIR, "on_Binary__*_puppeteer_install.py")
 NPM_BINARY_HOOK = PLUGIN_DIR.parent / "npm" / "on_Binary__10_npm_install.py"
-CHROME_CRAWL_HOOK = PLUGIN_DIR.parent / "chrome" / "on_Crawl__70_chrome_install.finite.bg.py"
+CHROME_CRAWL_HOOK = (
+    PLUGIN_DIR.parent / "chrome" / "on_Crawl__70_chrome_install.finite.bg.py"
+)
 
 
 def test_hook_scripts_exist():
@@ -75,7 +73,10 @@ Error: getaddrinfo EAI_AGAIN storage.googleapis.com
     hint = _get_install_failure_hint(output)
     assert hint is not None
     assert "Claude sandboxes" in hint
-    assert 'NO_PROXY="localhost,127.0.0.1,169.254.169.254,metadata.google.internal,.svc.cluster.local,.local"' in hint
+    assert (
+        'NO_PROXY="localhost,127.0.0.1,169.254.169.254,metadata.google.internal,.svc.cluster.local,.local"'
+        in hint
+    )
     assert 'no_proxy="$NO_PROXY"' in hint
 
 
@@ -166,7 +167,8 @@ def test_puppeteer_installs_chromium():
         )
 
         npm_result = subprocess.run(
-            [str(NPM_BINARY_HOOK),
+            [
+                str(NPM_BINARY_HOOK),
                 "--machine-id=test-machine",
                 "--binary-id=test-puppeteer",
                 "--plugin-name=puppeteer",
@@ -188,7 +190,8 @@ def test_puppeteer_installs_chromium():
         )
 
         result = subprocess.run(
-            [str(BINARY_HOOK),
+            [
+                str(BINARY_HOOK),
                 "--machine-id=test-machine",
                 "--binary-id=test-binary",
                 "--plugin-name=chrome",

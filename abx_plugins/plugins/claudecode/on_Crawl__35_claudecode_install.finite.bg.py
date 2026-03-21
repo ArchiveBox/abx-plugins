@@ -3,6 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #   "pydantic-settings",
+#   "abx-plugins",
 # ]
 # ///
 """
@@ -32,7 +33,10 @@ def main():
     # Check for API key
     api_key = get_env("ANTHROPIC_API_KEY")
     if not api_key:
-        print("WARNING: ANTHROPIC_API_KEY not set, Claude Code will not be functional", file=sys.stderr)
+        print(
+            "WARNING: ANTHROPIC_API_KEY not set, Claude Code will not be functional",
+            file=sys.stderr,
+        )
 
     # Honor custom binary path - skip npm install if user provides their own
     custom_binary = get_env("CLAUDECODE_BINARY")

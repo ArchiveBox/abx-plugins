@@ -63,7 +63,9 @@ def require_opendataloader_binary() -> str:
         "opendataloader-pdf installation failed. Install hook should install "
         "the binary automatically in this test environment."
     )
-    assert Path(binary_path).is_file(), f"opendataloader-pdf binary path invalid: {binary_path}"
+    assert Path(binary_path).is_file(), (
+        f"opendataloader-pdf binary path invalid: {binary_path}"
+    )
     return binary_path
 
 
@@ -93,7 +95,9 @@ def get_java_binary_path() -> str | None:
 
 def require_java_binary() -> str:
     binary_path = get_java_binary_path()
-    assert binary_path, "Java 11+ installation failed for opendataloader integration tests."
+    assert binary_path, (
+        "Java 11+ installation failed for opendataloader integration tests."
+    )
     assert Path(binary_path).is_file(), f"Java binary path invalid: {binary_path}"
     return binary_path
 
@@ -120,7 +124,9 @@ def test_hook_script_exists():
 
 def test_verify_deps_with_install_hooks():
     binary_path = require_opendataloader_binary()
-    assert Path(binary_path).is_file(), f"Binary path must be a valid file: {binary_path}"
+    assert Path(binary_path).is_file(), (
+        f"Binary path must be a valid file: {binary_path}"
+    )
 
 
 def test_install_hook_requests_java_dependency():
@@ -138,7 +144,11 @@ def test_install_hook_requests_java_dependency():
         )
 
         assert result.returncode == 0, result.stderr
-        records = [json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")]
+        records = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.startswith("{")
+        ]
         java_record = next(record for record in records if record.get("name") == "java")
         assert java_record["min_version"] == "11.0.0"
         assert java_record["overrides"]["brew"]["install_args"] == ["openjdk"]
@@ -155,7 +165,9 @@ def test_opendataloader_env_sets_java_home_and_path(tmp_path):
     original_modules = {name: sys.modules.get(name) for name in monkeypatch_modules}
     sys.modules.update(monkeypatch_modules)
 
-    spec = importlib.util.spec_from_file_location("opendataloader_hook", OPENDATALOADER_HOOK)
+    spec = importlib.util.spec_from_file_location(
+        "opendataloader_hook", OPENDATALOADER_HOOK
+    )
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     try:
@@ -185,7 +197,8 @@ def test_config_disabled_skips():
         env["OPENDATALOADER_ENABLED"] = "False"
 
         result = subprocess.run(
-            [str(OPENDATALOADER_HOOK),
+            [
+                str(OPENDATALOADER_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -219,7 +232,8 @@ def test_noresults_without_sources():
         env["OPENDATALOADER_BINARY"] = binary_path
 
         result = subprocess.run(
-            [str(OPENDATALOADER_HOOK),
+            [
+                str(OPENDATALOADER_HOOK),
                 "--url",
                 TEST_URL,
                 "--snapshot-id",
@@ -258,7 +272,8 @@ def test_extract_single_pdf():
         env["JAVA_BINARY"] = java_binary
 
         result = subprocess.run(
-            [str(OPENDATALOADER_HOOK),
+            [
+                str(OPENDATALOADER_HOOK),
                 "--url",
                 "https://example.com/test.pdf",
                 "--snapshot-id",
@@ -275,7 +290,9 @@ def test_extract_single_pdf():
 
         record = parse_jsonl_output(result.stdout)
         assert record, "Should have ArchiveResult JSONL output"
-        assert record["status"] == "succeeded", f"Should succeed: {record}. stderr: {result.stderr}"
+        assert record["status"] == "succeeded", (
+            f"Should succeed: {record}. stderr: {result.stderr}"
+        )
         assert record["output_str"].startswith("opendataloader/"), record
 
         output_dir = snap_dir / "opendataloader"
@@ -321,7 +338,8 @@ def test_extract_multiple_pdfs():
         env["JAVA_BINARY"] = java_binary
 
         result = subprocess.run(
-            [str(OPENDATALOADER_HOOK),
+            [
+                str(OPENDATALOADER_HOOK),
                 "--url",
                 "https://example.com/docs",
                 "--snapshot-id",
@@ -380,7 +398,8 @@ def test_force_ocr_adds_hybrid_flag():
         env["OPENDATALOADER_FORCE_OCR"] = "true"
 
         result = subprocess.run(
-            [str(OPENDATALOADER_HOOK),
+            [
+                str(OPENDATALOADER_HOOK),
                 "--url",
                 "https://example.com/scanned.pdf",
                 "--snapshot-id",
@@ -409,7 +428,9 @@ def test_force_ocr_adds_hybrid_flag():
         output_file = snap_dir / record["output_str"]
         assert output_file.exists(), f"Output file {record['output_str']} not created"
         content = output_file.read_text(errors="ignore")
-        assert len(content) > 10, f"Output too short, extraction may be broken: {content!r}"
+        assert len(content) > 10, (
+            f"Output too short, extraction may be broken: {content!r}"
+        )
 
 
 def test_cli_runtime_failure_reports_failed_status():
@@ -425,9 +446,7 @@ def test_cli_runtime_failure_reports_failed_status():
 
         failing_binary = tmpdir / "fake-opendataloader"
         failing_binary.write_text(
-            "#!/bin/sh\n"
-            "echo 'simulated CLI failure' 1>&2\n"
-            "exit 1\n",
+            "#!/bin/sh\necho 'simulated CLI failure' 1>&2\nexit 1\n",
             encoding="utf-8",
         )
         failing_binary.chmod(0o755)
@@ -437,7 +456,8 @@ def test_cli_runtime_failure_reports_failed_status():
         env["OPENDATALOADER_BINARY"] = str(failing_binary)
 
         result = subprocess.run(
-            [str(OPENDATALOADER_HOOK),
+            [
+                str(OPENDATALOADER_HOOK),
                 "--url",
                 "https://example.com/bad.pdf",
                 "--snapshot-id",
@@ -450,7 +470,9 @@ def test_cli_runtime_failure_reports_failed_status():
             env=env,
         )
 
-        assert result.returncode == 1, f"Hook should fail on CLI runtime error: {result.stderr}"
+        assert result.returncode == 1, (
+            f"Hook should fail on CLI runtime error: {result.stderr}"
+        )
         record = parse_jsonl_output(result.stdout)
         assert record, "Should emit ArchiveResult JSONL output"
         assert record["status"] == "failed", record

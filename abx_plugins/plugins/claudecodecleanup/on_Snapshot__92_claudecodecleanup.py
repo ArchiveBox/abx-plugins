@@ -4,6 +4,7 @@
 # dependencies = [
 #     "pydantic-settings",
 #     "rich-click",
+#     "abx-plugins",
 # ]
 # ///
 """
@@ -34,8 +35,16 @@ from pathlib import Path
 import rich_click as click
 
 # Add parent directory to path for imports
-from abx_plugins.plugins.base.utils import emit_archive_result_record, get_env, get_env_bool, get_env_int
-from abx_plugins.plugins.claudecode.claudecode_utils import build_system_prompt, run_claude_code
+from abx_plugins.plugins.base.utils import (
+    emit_archive_result_record,
+    get_env,
+    get_env_bool,
+    get_env_int,
+)
+from abx_plugins.plugins.claudecode.claudecode_utils import (
+    build_system_prompt,
+    run_claude_code,
+)
 
 
 # Extractor metadata
@@ -69,7 +78,10 @@ def main(url: str, snapshot_id: str):
     try:
         # Check if enabled
         if not get_env_bool("CLAUDECODECLEANUP_ENABLED", False):
-            print("Skipping Claude Code cleanup (CLAUDECODECLEANUP_ENABLED=False)", file=sys.stderr)
+            print(
+                "Skipping Claude Code cleanup (CLAUDECODECLEANUP_ENABLED=False)",
+                file=sys.stderr,
+            )
             emit_archive_result_record("skipped", "CLAUDECODECLEANUP_ENABLED=False")
             sys.exit(0)
 
@@ -82,9 +94,15 @@ def main(url: str, snapshot_id: str):
 
         # Get configuration
         user_prompt = get_env("CLAUDECODECLEANUP_PROMPT", DEFAULT_PROMPT)
-        timeout = get_env_int("CLAUDECODECLEANUP_TIMEOUT") or get_env_int("CLAUDECODE_TIMEOUT", 120)
-        model = get_env("CLAUDECODECLEANUP_MODEL") or get_env("CLAUDECODE_MODEL", "sonnet")
-        max_turns = get_env_int("CLAUDECODECLEANUP_MAX_TURNS") or get_env_int("CLAUDECODE_MAX_TURNS", 15)
+        timeout = get_env_int("CLAUDECODECLEANUP_TIMEOUT") or get_env_int(
+            "CLAUDECODE_TIMEOUT", 120
+        )
+        model = get_env("CLAUDECODECLEANUP_MODEL") or get_env(
+            "CLAUDECODE_MODEL", "sonnet"
+        )
+        max_turns = get_env_int("CLAUDECODECLEANUP_MAX_TURNS") or get_env_int(
+            "CLAUDECODE_MAX_TURNS", 15
+        )
 
         # Build system prompt with snapshot context
         system_prompt = build_system_prompt(
@@ -169,7 +187,9 @@ def main(url: str, snapshot_id: str):
             response_path.write_text(stdout, encoding="utf-8")
 
         if returncode != 0:
-            error_detail = stderr.strip().split("\n")[-1] if stderr else f"exit={returncode}"
+            error_detail = (
+                stderr.strip().split("\n")[-1] if stderr else f"exit={returncode}"
+            )
             emit_archive_result_record("failed", f"Claude Code failed: {error_detail}")
             sys.exit(1)
 

@@ -17,13 +17,13 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
     get_test_env,
     chrome_session,
 )
+
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 PLUGIN_DIR = Path(__file__).parent.parent
 _HEADERS_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_headers.*"), None)
@@ -547,12 +547,18 @@ def test_redirect_updates_headers_final_url(require_chrome_runtime, headers_test
         assert headers_file.exists(), "headers.json not created"
 
         output_data = json.loads(headers_file.read_text())
-        assert normalize_root_url(output_data["url"]) == normalize_root_url(redirect_url)
-        assert normalize_root_url(output_data["final_url"]) == normalize_root_url(final_url), (
+        assert normalize_root_url(output_data["url"]) == normalize_root_url(
+            redirect_url
+        )
+        assert normalize_root_url(output_data["final_url"]) == normalize_root_url(
+            final_url
+        ), (
             f"final_url should reflect the post-redirect destination, got {output_data['final_url']}"
         )
         assert output_data["status"] == 200, output_data
-        assert normalize_root_url(output_data["response_url"]) == normalize_root_url(final_url), output_data
+        assert normalize_root_url(output_data["response_url"]) == normalize_root_url(
+            final_url
+        ), output_data
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #   "pydantic-settings",
+#   "abx-plugins",
 # ]
 # ///
 #
@@ -43,7 +44,11 @@ def main():
         )
         sys.exit(0)
 
-    emit_binary_record(name="postlight-parser", binproviders="env,npm", overrides={"npm": {"install_args": ["@postlight/parser"]}})
+    emit_binary_record(
+        name="postlight-parser",
+        binproviders="env,npm",
+        overrides={"npm": {"install_args": ["@postlight/parser"]}},
+    )
 
     sys.exit(0)
 

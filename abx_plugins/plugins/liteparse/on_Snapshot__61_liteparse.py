@@ -4,6 +4,7 @@
 # dependencies = [
 #   "pydantic-settings",
 #   "rich-click",
+#   "abx-plugins",
 # ]
 # ///
 """
@@ -30,7 +31,11 @@ import sys
 import tempfile
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import load_config, emit_archive_result_record, write_text_atomic
+from abx_plugins.plugins.base.utils import (
+    load_config,
+    emit_archive_result_record,
+    write_text_atomic,
+)
 
 import rich_click as click
 
@@ -77,22 +82,43 @@ def find_pdf_sources() -> list[Path]:
     return found
 
 
-def _run_liteparse(binary: str, source_file: Path, fmt: str, output_path: Path, timeout: int, extra_args: list[str]) -> bool:
+def _run_liteparse(
+    binary: str,
+    source_file: Path,
+    fmt: str,
+    output_path: Path,
+    timeout: int,
+    extra_args: list[str],
+) -> bool:
     """Run lit parse on a single file, return True on success."""
-    cmd = [binary, "parse", str(source_file), "--format", fmt, "-o", str(output_path), *extra_args]
+    cmd = [
+        binary,
+        "parse",
+        str(source_file),
+        "--format",
+        fmt,
+        "-o",
+        str(output_path),
+        *extra_args,
+    ]
     result = subprocess.run(
         cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         timeout=timeout,
         text=True,
     )
     if result.stderr:
         print(result.stderr, file=sys.stderr, end="")
-    return result.returncode == 0 and output_path.is_file() and output_path.stat().st_size > 0
+    return (
+        result.returncode == 0
+        and output_path.is_file()
+        and output_path.stat().st_size > 0
+    )
 
 
-def _extract_single_pdf(binary: str, source_file: Path, timeout: int, extra_args: list[str]) -> tuple[str, str]:
+def _extract_single_pdf(
+    binary: str, source_file: Path, timeout: int, extra_args: list[str]
+) -> tuple[str, str]:
     """Run text + JSON extraction on a single PDF, return (text_content, json_content)."""
     text_content = ""
     json_content = ""
@@ -141,7 +167,10 @@ def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
         print(f"[liteparse] Processing: {source_file.name}", file=sys.stderr)
         try:
             text_content, json_content = _extract_single_pdf(
-                binary, source_file, timeout, extra_args,
+                binary,
+                source_file,
+                timeout,
+                extra_args,
             )
 
             if not text_content and not json_content:
@@ -152,15 +181,19 @@ def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
                 continue
 
             if text_content:
-                all_text_parts.append(f"<!-- source: {source_file.name} -->\n{text_content}")
+                all_text_parts.append(
+                    f"<!-- source: {source_file.name} -->\n{text_content}"
+                )
             if json_content:
                 all_json_parts.append(json_content)
 
-            metadata_records.append({
-                "source_file": str(source_file.name),
-                "source_path": str(source_file),
-                "chars_extracted": len(text_content or json_content),
-            })
+            metadata_records.append(
+                {
+                    "source_file": str(source_file.name),
+                    "source_path": str(source_file),
+                    "chars_extracted": len(text_content or json_content),
+                }
+            )
 
         except subprocess.TimeoutExpired:
             print(
@@ -203,7 +236,9 @@ def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
                     parsed_jsons.append(json.loads(jp))
                 except json.JSONDecodeError:
                     parsed_jsons.append(jp)
-            write_text_atomic(output_dir / JSON_FILE, json.dumps(parsed_jsons, indent=2))
+            write_text_atomic(
+                output_dir / JSON_FILE, json.dumps(parsed_jsons, indent=2)
+            )
 
     write_text_atomic(
         output_dir / METADATA_FILE,

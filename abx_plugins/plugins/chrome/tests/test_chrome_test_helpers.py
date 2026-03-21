@@ -11,6 +11,11 @@ import pytest
 import tempfile
 from pathlib import Path
 
+from abx_plugins.plugins.base.test_utils import (
+    get_hook_script,
+    get_plugin_dir,
+    parse_jsonl_output,
+)
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     _call_chrome_utils,
     CHROME_UTILS,
@@ -21,9 +26,6 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_node_modules_dir,
     get_extensions_dir,
     find_chromium_binary,
-    get_plugin_dir,
-    get_hook_script,
-    parse_jsonl_output,
     install_chromium_with_hooks,
     setup_test_env,
 )
@@ -349,7 +351,9 @@ const chromeSessionDir = process.argv[2];
             assert result.returncode == 0, result.stderr
             payload = json.loads(result.stdout)
             assert payload["ok"] is False
-            assert payload["error"] == "setBrowserDownloadBehavior requires downloadPath"
+            assert (
+                payload["error"] == "setBrowserDownloadBehavior requires downloadPath"
+            )
             assert payload["pageUrl"].startswith(TEST_URL)
 
 
