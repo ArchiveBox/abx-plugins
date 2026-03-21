@@ -775,7 +775,6 @@ def get_test_env() -> dict:
     env.setdefault("SNAP_DIR", str(Path.cwd()))
     env.setdefault("CRAWL_DIR", str(Path.cwd()))
     env.setdefault("PERSONAS_DIR", str(get_personas_dir()))
-    assert_isolated_snapshot_env(env)
     return env
 
 

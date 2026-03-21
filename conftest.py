@@ -130,25 +130,6 @@ def tee_captured_subprocess_output_on_failure(
 
 
 @pytest.fixture(autouse=True)
-def validate_subprocess_snapshot_env_isolation(
-    monkeypatch: pytest.MonkeyPatch,
-) -> Iterator[None]:
-    real_run = subprocess.run
-
-    def wrapped_run(*args, **kwargs):
-        env = kwargs.get("env")
-        if env is not None:
-            assert_isolated_snapshot_env(env)
-        return real_run(*args, **kwargs)
-
-    monkeypatch.setattr(subprocess, "run", wrapped_run)
-    try:
-        yield
-    finally:
-        monkeypatch.undo()
-
-
-@pytest.fixture(autouse=True)
 def isolated_test_env(
     tmp_path_factory: pytest.TempPathFactory,
     monkeypatch: pytest.MonkeyPatch,

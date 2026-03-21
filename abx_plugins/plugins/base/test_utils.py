@@ -181,6 +181,8 @@ def run_hook(
     if env is None:
         env = os.environ.copy()
 
+    assert_isolated_snapshot_env(env)
+
     cmd = [str(hook_script)]
 
     cmd.extend([f"--url={url}", f"--snapshot-id={snapshot_id}"])
