@@ -18,7 +18,7 @@ def test_require_chrome_runtime_loads_node_and_npm(monkeypatch: pytest.MonkeyPat
 
     monkeypatch.setattr(Binary, "load", fake_load)
 
-    conftest.require_chrome_runtime.__wrapped__()
+    conftest.require_chrome_runtime_impl()
 
     assert loaded == ["node", "npm"]
 
@@ -36,7 +36,7 @@ def test_require_chrome_runtime_fails_when_binary_resolution_fails(
     caplog.set_level("ERROR")
 
     with pytest.raises(Failed, match="Chrome integration prerequisites unavailable: node missing") as excinfo:
-        conftest.require_chrome_runtime.__wrapped__()
+        conftest.require_chrome_runtime_impl()
 
     assert caplog.messages == [
         "Chrome integration prerequisites unavailable: node missing"

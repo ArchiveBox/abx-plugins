@@ -11,14 +11,25 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import TypedDict
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from base.utils import emit_archive_result_record, get_env, get_env_bool, get_env_int
 
 
-def get_crawl_metadata(crawl_dir: Path) -> dict:
+class ExtractorOutput(TypedDict):
+    name: str
+    files: list[str]
+
+
+class SnapshotMetadata(TypedDict, total=False):
+    snap_dir: str
+    extractor_outputs: list[ExtractorOutput]
+
+
+def get_crawl_metadata(crawl_dir: Path) -> dict[str, object]:
     """Read crawl metadata from the crawl directory."""
-    metadata = {
+    metadata: dict[str, object] = {
         "crawl_dir": str(crawl_dir),
     }
 
@@ -34,18 +45,18 @@ def get_crawl_metadata(crawl_dir: Path) -> dict:
     return metadata
 
 
-def get_snapshot_metadata(snap_dir: Path) -> dict:
+def get_snapshot_metadata(snap_dir: Path) -> SnapshotMetadata:
     """Read snapshot metadata from the snapshot directory."""
-    metadata = {
+    metadata: SnapshotMetadata = {
         "snap_dir": str(snap_dir),
     }
 
     # List existing extractor output directories
     if snap_dir.exists():
-        extractor_dirs = []
+        extractor_dirs: list[ExtractorOutput] = []
         for item in sorted(snap_dir.iterdir()):
             if item.is_dir() and not item.name.startswith("."):
-                files = []
+                files: list[str] = []
                 try:
                     files = [f.name for f in item.iterdir() if f.is_file()]
                 except OSError:
@@ -89,9 +100,10 @@ def build_system_prompt(
         snap_meta = get_snapshot_metadata(snap_dir)
         parts.append(f"\n## Current Snapshot\n```\nSNAP_DIR={snap_meta['snap_dir']}\n```\n")
 
-        if snap_meta.get("extractor_outputs"):
+        extractor_outputs = snap_meta.get("extractor_outputs", [])
+        if extractor_outputs:
             parts.append("### Extractor Outputs Available\n")
-            for ext in snap_meta["extractor_outputs"]:
+            for ext in extractor_outputs:
                 file_list = ", ".join(ext["files"][:10])
                 if len(ext["files"]) > 10:
                     file_list += f", ... (+{len(ext['files']) - 10} more)"

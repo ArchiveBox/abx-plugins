@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 import rich_click as click
-from abx_pkg import Binary, BrewProvider, EnvProvider
+from abx_pkg import Binary, BinProvider, BrewProvider, EnvProvider, HandlerDict, SemVer
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from base.utils import emit_binary_record
@@ -63,7 +63,7 @@ def main(
 
     try:
         # Parse overrides if provided
-        overrides_dict = None
+        overrides_dict: dict[str, HandlerDict] | None = None
         if overrides:
             try:
                 overrides_dict = json.loads(overrides)
@@ -75,14 +75,16 @@ def main(
                     f"Warning: Failed to parse overrides JSON: {overrides}", err=True
                 )
 
-        allowed_providers = set(binproviders.split(",")) if binproviders != "*" else {"env", "brew"}
-        providers = [provider]
+        allowed_providers = (
+            set(binproviders.split(",")) if binproviders != "*" else {"env", "brew"}
+        )
+        providers: list[BinProvider] = [provider]
         if "env" in allowed_providers:
             providers.insert(0, EnvProvider())
 
-        brew_overrides = (overrides_dict or {}).get("brew", {})
-        install_args = brew_overrides.get("install_args") or []
-        if install_args and "abspath" not in brew_overrides:
+        brew_overrides: HandlerDict = (overrides_dict or {}).get("brew", {})
+        install_args = brew_overrides.get("install_args")
+        if isinstance(install_args, list) and install_args and "abspath" not in brew_overrides:
             search_paths: list[str] = []
             for package in install_args:
                 if not isinstance(package, str) or package.startswith("-"):
@@ -101,7 +103,7 @@ def main(
 
         binary = Binary(
             name=name,
-            min_version=min_version or None,
+            min_version=SemVer(min_version) if min_version else None,
             binproviders=providers,
             overrides=overrides_dict or {},
         ).load_or_install()

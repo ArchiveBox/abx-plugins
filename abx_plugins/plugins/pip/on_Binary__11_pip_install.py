@@ -28,10 +28,14 @@ from pathlib import Path
 import fcntl
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_binary_record, emit_machine_record, enforce_lib_permissions
+from base.utils import (
+    emit_binary_record,
+    emit_machine_record,
+    enforce_lib_permissions,
+)
 
 import rich_click as click
-from abx_pkg import Binary, EnvProvider, PipProvider
+from abx_pkg import Binary, EnvProvider, PipProvider, SemVer
 
 
 def _is_executable(path: Path) -> bool:
@@ -159,7 +163,7 @@ def main(
 
             binary = Binary(
                 name=name,
-                min_version=min_version or None,
+                min_version=SemVer(min_version) if min_version else None,
                 binproviders=[EnvProvider(), provider],
                 overrides={"pip": overrides_dict} if overrides_dict else {},
             ).load_or_install()

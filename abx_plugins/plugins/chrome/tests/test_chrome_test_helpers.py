@@ -546,7 +546,7 @@ def test_session_fixture_preserves_runtime_chrome_binary_override(
         lambda env: str(installed_binary),
     )
 
-    resolved = helpers.ensure_chromium_and_puppeteer_installed.__wrapped__(
+    resolved = helpers.ensure_chromium_and_puppeteer_installed_impl(
         DummyTmpPathFactory()
     )
 

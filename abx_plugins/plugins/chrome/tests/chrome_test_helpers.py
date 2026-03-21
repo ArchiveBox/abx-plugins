@@ -62,30 +62,26 @@ import signal
 import ssl
 import fcntl
 import subprocess
-import sys
 import threading
 import time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Tuple, Optional, List, Dict, Any
+from typing import Tuple, Optional, List, Dict, Any, TextIO
 from contextlib import contextmanager
 
 import pytest
 from _pytest.fixtures import FixtureLookupError
 
-from abx_plugins.plugins.path_utils import get_personas_dir
-
-# Generic test helpers delegated to base.test_utils (re-exported for backward compat)
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import (  # noqa: E402, F401
-    get_plugin_dir,
+from abx_plugins.plugins.base.test_utils import (
     get_hook_script,
+    get_plugin_dir,
     parse_jsonl_output,
     parse_jsonl_records,
     run_hook as _base_run_hook,
     run_hook_and_parse as _base_run_hook_and_parse,
 )
+from abx_plugins.plugins.base.utils import get_personas_dir
 
 # Plugin directory locations
 CHROME_PLUGIN_DIR = Path(__file__).parent.parent
@@ -123,6 +119,14 @@ _ROOT_URL_FIXTURE_NAMES = (
     "local_url",
     "test_url",
 )
+
+
+class LoggedPopen(subprocess.Popen[str]):
+    _stdout_handle: TextIO
+    _stderr_handle: TextIO
+    _stdout_log: Path
+    _stderr_log: Path
+    _chrome_pid: int | None
 
 
 class _DeterministicTestRequestHandler(BaseHTTPRequestHandler):
@@ -407,8 +411,7 @@ def _coerce_upstream_urls(value: Any) -> Optional[Dict[str, str]]:
     return urls
 
 
-@pytest.fixture(scope="session")
-def ensure_chromium_and_puppeteer_installed(tmp_path_factory):
+def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
     """Install Chromium and Puppeteer once for test sessions that require Chrome."""
     os.environ["SNAP_DIR"] = str(tmp_path_factory.mktemp("chrome_test_data"))
     os.environ["PERSONAS_DIR"] = str(tmp_path_factory.mktemp("chrome_test_personas"))
@@ -430,6 +433,11 @@ def ensure_chromium_and_puppeteer_installed(tmp_path_factory):
         if env.get(key):
             os.environ[key] = env[key]
     return chromium_binary
+
+
+ensure_chromium_and_puppeteer_installed = pytest.fixture(scope="session")(
+    ensure_chromium_and_puppeteer_installed_impl
+)
 
 
 @pytest.fixture(scope="session")
@@ -1174,7 +1182,7 @@ def setup_test_env(tmpdir: Path) -> dict:
 
 def launch_chromium_session(
     env: dict, chrome_dir: Path, crawl_id: str, timeout: int = 30
-) -> Tuple[subprocess.Popen, str]:
+) -> Tuple[LoggedPopen, str]:
     """Launch the crawl-level Chrome hook and return ``(process, cdp_url)``.
 
     This waits for the crawl hook to publish ``cdp_url.txt`` in the crawl's
@@ -1207,7 +1215,7 @@ def launch_chromium_session(
     stdout_handle = open(stdout_log, "w+", encoding="utf-8")
     stderr_handle = open(stderr_log, "w+", encoding="utf-8")
 
-    chrome_launch_process = subprocess.Popen(
+    chrome_launch_process = LoggedPopen(
         [str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
         cwd=str(chrome_dir),
         stdout=stdout_handle,
@@ -1263,7 +1271,7 @@ def launch_chromium_session(
 
 
 def kill_chromium_session(
-    chrome_launch_process: subprocess.Popen, chrome_dir: Path
+    chrome_launch_process: subprocess.Popen[str], chrome_dir: Path
 ) -> None:
     """Clean up Chromium process launched by launch_chromium_session.
 
@@ -1370,7 +1378,7 @@ def launch_snapshot_tab(
     crawl_id: str,
     timeout: int = 60,
     require_pid: bool | None = None,
-) -> subprocess.Popen:
+) -> LoggedPopen:
     """Launch the snapshot tab hook and wait for snapshot-level session markers.
 
     This waits only for tab/session marker publication. By default it requires
@@ -1383,7 +1391,7 @@ def launch_snapshot_tab(
     stderr_log = snapshot_chrome_dir / "chrome_tab.stderr.log"
     stdout_handle = open(stdout_log, "w+", encoding="utf-8")
     stderr_handle = open(stderr_log, "w+", encoding="utf-8")
-    tab_process = subprocess.Popen(
+    tab_process = LoggedPopen(
         [str(CHROME_TAB_HOOK),
             f"--url={test_url}",
             f"--snapshot-id={snapshot_id}",
@@ -1569,7 +1577,7 @@ def chrome_session(
         stderr_log = chrome_dir / "chrome_launch.stderr.log"
         stdout_handle = open(stdout_log, "w+", encoding="utf-8")
         stderr_handle = open(stderr_log, "w+", encoding="utf-8")
-        chrome_launch_process = subprocess.Popen(
+        chrome_launch_process = LoggedPopen(
             [str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
             cwd=str(chrome_dir),
             stdout=stdout_handle,

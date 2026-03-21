@@ -83,6 +83,7 @@ class TestHashesPlugin:
             assert "metadata" in data
 
             result_json = parse_jsonl_output(result.stdout)
+            assert result_json is not None
             assert result_json["type"] == "ArchiveResult"
             assert result_json["status"] == "succeeded"
 

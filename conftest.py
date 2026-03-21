@@ -8,14 +8,15 @@ import shlex
 import shutil
 import subprocess
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 
-pytest_plugins = ["abx_plugins.plugins.chrome.tests.chrome_test_helpers"]
-
 from abx_plugins.plugins.base.test_utils import parse_jsonl_output, parse_jsonl_records
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_lib_dir
+
+pytest_plugins = ["abx_plugins.plugins.chrome.tests.chrome_test_helpers"]
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,7 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]):
 @pytest.fixture(autouse=True)
 def tee_captured_subprocess_output_on_failure(
     request: pytest.FixtureRequest,
-) -> None:
+) -> Iterator[None]:
     # Pytest only auto-shows output it captured itself. Many tests in this repo
     # call subprocess.run(..., capture_output=True), which hides child-process
     # stdout/stderr from pytest entirely unless the test manually includes it in
@@ -140,10 +141,9 @@ def isolated_test_env(
 
     # Resolve LIB_DIR BEFORE monkeypatching HOME, so path helpers
     # (chrome_utils.js / Path.home()) see the real home directory.
-    if "LIB_DIR" not in os.environ:
-        from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_lib_dir
-
-        resolved_lib = get_lib_dir()
+    resolved_lib = (
+        Path(os.environ["LIB_DIR"]) if "LIB_DIR" in os.environ else get_lib_dir()
+    )
 
     monkeypatch.setenv("HOME", str(home_dir))
     # Mirror abx-dl runtime semantics: both resolve to the current run directory.
@@ -179,8 +179,7 @@ def ensure_chrome_test_prereqs(ensure_chromium_and_puppeteer_installed):
     return ensure_chromium_and_puppeteer_installed
 
 
-@pytest.fixture(scope="session")
-def ensure_chromium_and_puppeteer_installed(tmp_path_factory):
+def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
     """Install Chromium and Puppeteer once via hook-based install.
 
     Overrides the default from chrome_test_helpers only to auto-disable
@@ -217,6 +216,11 @@ def ensure_chromium_and_puppeteer_installed(tmp_path_factory):
     os.environ.setdefault("CHROME_BINARY", chromium_binary)
 
     return chromium_binary
+
+
+ensure_chromium_and_puppeteer_installed = pytest.fixture(scope="session")(
+    ensure_chromium_and_puppeteer_installed_impl
+)
 
 
 @pytest.fixture(scope="session")
@@ -355,8 +359,7 @@ def ensure_anthropic_api_key():
     return api_key
 
 
-@pytest.fixture(scope="module")
-def require_chrome_runtime():
+def require_chrome_runtime_impl() -> None:
     """Require chrome runtime prerequisites for integration tests.
 
     Validates that node and npm resolve through abx-pkg before running
@@ -374,3 +377,6 @@ def require_chrome_runtime():
             f"Chrome integration prerequisites unavailable: {exc}",
             pytrace=False,
         )
+
+
+require_chrome_runtime = pytest.fixture(scope="module")(require_chrome_runtime_impl)

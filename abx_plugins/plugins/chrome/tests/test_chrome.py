@@ -20,31 +20,33 @@ import json
 import os
 import signal
 import subprocess
+import tempfile
 import time
-import urllib.request
 import urllib.parse
+import urllib.request
 from pathlib import Path
+
 import pytest
 
-pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-import tempfile
-
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
-    get_test_env,
-    find_chromium_binary,
-    launch_chromium_session,
-    kill_chromium_session,
-    kill_chrome,
-    launch_snapshot_tab,
-    wait_for_extensions_metadata,
     CHROME_LAUNCH_HOOK,
     CHROME_CRAWL_WAIT_HOOK,
-    CHROME_SNAPSHOT_LAUNCH_HOOK,
-    CHROME_TAB_HOOK,
     CHROME_WAIT_HOOK,
     CHROME_NAVIGATE_HOOK,
+    CHROME_SNAPSHOT_LAUNCH_HOOK,
+    CHROME_TAB_HOOK,
     CHROME_UTILS,
+    LoggedPopen,
+    find_chromium_binary,
+    get_test_env,
+    kill_chrome,
+    kill_chromium_session,
+    launch_chromium_session,
+    launch_snapshot_tab,
+    wait_for_extensions_metadata,
 )
+
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 TEST_EXTENSION_NAME = "chrome_test_extension"
 TEST_EXTENSION_VERSION = "1.0.0"
@@ -280,7 +282,7 @@ const browser = {
 
 
 def _cleanup_launch_process(
-    chrome_launch_process: subprocess.Popen | None, chrome_dir: Path
+    chrome_launch_process: subprocess.Popen[str] | None, chrome_dir: Path
 ) -> None:
     if chrome_launch_process is not None:
         kill_chromium_session(chrome_launch_process, chrome_dir)
@@ -359,12 +361,12 @@ def _launch_snapshot_tab_allowing_optional_pid(
     crawl_id: str,
     require_pid: bool,
     timeout: int = 60,
-) -> subprocess.Popen:
+) -> LoggedPopen:
     stdout_log = snapshot_chrome_dir / "chrome_tab.stdout.log"
     stderr_log = snapshot_chrome_dir / "chrome_tab.stderr.log"
     stdout_handle = open(stdout_log, "w+", encoding="utf-8")
     stderr_handle = open(stderr_log, "w+", encoding="utf-8")
-    tab_process = subprocess.Popen(
+    tab_process = LoggedPopen(
         [
             str(CHROME_TAB_HOOK),
             f"--url={test_url}",
@@ -2643,6 +2645,7 @@ def test_target_crash_mid_navigation_recovers_with_fresh_tab(chrome_test_urls):
             )
             time.sleep(1.0)
             _close_target_via_cdp(cdp_url, target_before)
+            remaining_targets: set[str] = set()
             for _ in range(30):
                 remaining_targets = {
                     target["id"]

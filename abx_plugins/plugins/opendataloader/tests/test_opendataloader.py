@@ -74,11 +74,11 @@ def get_java_binary_path() -> str | None:
     if _java_binary_path and Path(_java_binary_path).is_file():
         return _java_binary_path
 
-    from abx_pkg import AptProvider, Binary, BrewProvider, EnvProvider
+    from abx_pkg import AptProvider, Binary, BrewProvider, EnvProvider, SemVer
 
     binary = Binary(
         name="java",
-        min_version="11.0.0",
+        min_version=SemVer("11.0.0"),
         binproviders=[EnvProvider(), BrewProvider(), AptProvider()],
         overrides={
             "brew": {"install_args": ["openjdk"]},

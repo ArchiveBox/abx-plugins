@@ -97,6 +97,7 @@ class TestClaudeChromePlugin:
     def test_hook_runs_at_correct_priorities(self):
         """Hooks should run at the expected priorities."""
         assert _INSTALL_HOOK is not None
+        assert _CONFIG_HOOK is not None
         assert "__84_" in _INSTALL_HOOK.name, f"Install hook should be priority 84: {_INSTALL_HOOK.name}"
         assert "__96_" in _CONFIG_HOOK.name, f"Config hook should be priority 96: {_CONFIG_HOOK.name}"
         assert "__47_" in SNAPSHOT_HOOK.name, f"Snapshot hook should be priority 47: {SNAPSHOT_HOOK.name}"

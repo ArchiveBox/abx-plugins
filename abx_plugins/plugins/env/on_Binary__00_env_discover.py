@@ -23,7 +23,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 from base.utils import emit_binary_record
 
 import rich_click as click
-from abx_pkg import Binary, EnvProvider
+from abx_pkg import Binary, EnvProvider, SemVer
 
 
 @click.command()
@@ -57,7 +57,7 @@ def main(
     try:
         binary = Binary(
             name=name,
-            min_version=min_version or None,
+            min_version=SemVer(min_version) if min_version else None,
             binproviders=[provider],
         ).load()
     except Exception as e:

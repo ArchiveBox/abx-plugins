@@ -21,7 +21,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 from base.utils import emit_binary_record
 
 import rich_click as click
-from abx_pkg import AptProvider, Binary, EnvProvider
+from abx_pkg import AptProvider, Binary, EnvProvider, SemVer
 
 
 @click.command()
@@ -75,7 +75,7 @@ def main(
         # Prefer already-installed binaries found in PATH, then fall back to apt install.
         binary = Binary(
             name=name,
-            min_version=min_version or None,
+            min_version=SemVer(min_version) if min_version else None,
             binproviders=[EnvProvider(), provider],
             overrides={"apt": overrides_dict} if overrides_dict else {},
         ).load_or_install()

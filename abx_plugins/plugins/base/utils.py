@@ -24,6 +24,7 @@ import inspect
 import json
 import os
 import stat
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -177,9 +178,77 @@ def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
         return default if default is not None else []
 
 
+def _resolve_path(path_value: str) -> Path:
+    return Path(path_value).expanduser().resolve()
+
+
+def get_lib_dir() -> Path:
+    """Return library directory.
+
+    Priority: LIB_DIR env var, otherwise ~/.config/abx/lib.
+    """
+    lib_dir = os.environ.get("LIB_DIR", "").strip()
+    if lib_dir:
+        return _resolve_path(lib_dir)
+    return _resolve_path(str(Path.home() / ".config" / "abx" / "lib"))
+
+
+def get_personas_dir() -> Path:
+    """Return personas directory.
+
+    Priority: PERSONAS_DIR env var, otherwise ~/.config/abx/personas.
+    """
+    personas_dir = os.environ.get("PERSONAS_DIR", "").strip()
+    if personas_dir:
+        return _resolve_path(personas_dir)
+    return _resolve_path(str(Path.home() / ".config" / "abx" / "personas"))
+
+
 # ---------------------------------------------------------------------------
 # JSONL record emission
 # ---------------------------------------------------------------------------
+
+
+def _fsync_if_regular_file(fd: int) -> None:
+    try:
+        mode = os.fstat(fd).st_mode
+    except OSError:
+        return
+    if not stat.S_ISREG(mode):
+        return
+    try:
+        os.fsync(fd)
+    except OSError:
+        return
+
+
+def _write_stream_line_fully(stream: Any, text: str) -> None:
+    line = text if text.endswith("\n") else f"{text}\n"
+    try:
+        fd = stream.fileno()
+    except (AttributeError, OSError, ValueError):
+        stream.write(line)
+        stream.flush()
+        return
+
+    try:
+        stream.flush()
+    except Exception:
+        pass
+
+    encoding = getattr(stream, "encoding", None) or "utf-8"
+    payload = line.encode(encoding, errors="replace")
+    written = 0
+    while written < len(payload):
+        written += os.write(fd, payload[written:])
+
+    try:
+        stream.flush()
+    except Exception:
+        pass
+
+    _fsync_if_regular_file(fd)
+
 
 def emit_archive_result_record(
     status: str,
@@ -193,7 +262,7 @@ def emit_archive_result_record(
     }
     if extra:
         record.update(extra)
-    print(json.dumps(record))
+    _write_stream_line_fully(sys.stdout, json.dumps(record))
 
 
 def emit_binary_record(
@@ -237,22 +306,27 @@ def emit_binary_record(
         record["plugin_name"] = plugin_name
     if hook_name is not None:
         record["hook_name"] = hook_name
-    print(json.dumps(record))
+    _write_stream_line_fully(sys.stdout, json.dumps(record))
+
+
 def emit_machine_record(config: dict[str, Any]) -> None:
-    print(
+    _write_stream_line_fully(
+        sys.stdout,
         json.dumps(
             {
                 "type": "Machine",
                 "config": config,
             }
-        )
+        ),
     )
+
+
 def emit_snapshot_record(record: dict[str, Any]) -> None:
     snapshot_record = {
         "type": "Snapshot",
         **{key: value for key, value in record.items() if key != "type"},
     }
-    print(json.dumps(snapshot_record))
+    _write_stream_line_fully(sys.stdout, json.dumps(snapshot_record))
 
 
 # ---------------------------------------------------------------------------
