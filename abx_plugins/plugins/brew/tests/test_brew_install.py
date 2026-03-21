@@ -11,13 +11,12 @@ BINARY_HOOK = PLUGIN_DIR / "on_Binary__12_brew_install.py"
 
 def test_brew_hook_respects_brew_only_and_maps_openjdk():
     prefix_result = subprocess.run(
-        ["brew", "--prefix", "openjdk"],
+        ["brew", "--prefix"],
         capture_output=True,
         text=True,
         check=True,
     )
-    expected_java = Path(prefix_result.stdout.strip()) / "bin" / "java"
-    assert expected_java.is_file(), f"Expected Homebrew java binary at {expected_java}"
+    expected_java = Path(prefix_result.stdout.strip()) / "opt" / "openjdk" / "bin" / "java"
 
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
@@ -48,5 +47,6 @@ def test_brew_hook_respects_brew_only_and_maps_openjdk():
     ]
     assert records, result.stdout
     assert records[0]["type"] == "Binary"
+    assert expected_java.is_file(), f"Expected Homebrew java binary at {expected_java}"
     assert records[0]["abspath"] == str(expected_java)
     assert records[0]["binprovider"] == "brew"

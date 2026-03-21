@@ -39,6 +39,7 @@ dev = [
     "feedparser>=6.0.0",
     "jinja2>=3.1.0",
     "abx-pkg>=0.7.0",
+    "abxbus>=2.4.2",
 ]
 
 [build-system]
