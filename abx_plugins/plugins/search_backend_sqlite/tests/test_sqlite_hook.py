@@ -48,6 +48,10 @@ def test_hook_indexes_sibling_outputs_and_symlinks_sources(tmp_path: Path) -> No
     title_link = output_dir / "title__title.txt"
     assert body_link.is_symlink()
     assert title_link.is_symlink()
+    assert {path.name for path in output_dir.iterdir() if path.is_symlink()} == {
+        "readability__content.txt",
+        "title__title.txt",
+    }
     assert body_link.resolve() == (tmp_path / "readability" / "content.txt").resolve()
     assert title_link.resolve() == (tmp_path / "title" / "title.txt").resolve()
 

@@ -50,6 +50,9 @@ os.chdir(OUTPUT_DIR)
 INDEXABLE_EXTENSIONS = {".txt", ".md", ".html", ".htm"}
 # Directories to skip (search backends themselves, executor artifacts, non-text plugins)
 SKIP_DIRS = {"search_backend_sqlite", "search_backend_sonic", "search_backend_ripgrep"}
+# Nested runtime/build/cache directories that are never snapshot content
+SKIP_NESTED_DIRS = {".cache", ".venv", "__pycache__", "site-packages", "node_modules"}
+SKIP_NESTED_SUFFIXES = (".dist-info", ".egg-info")
 # Filename suffixes that are executor artifacts, not content
 EXECUTOR_ARTIFACT_SUFFIXES = (".stdout.log", ".stderr.log", ".pid", ".sh", ".meta.json")
 
@@ -76,6 +79,24 @@ def strip_html_tags(html: str) -> str:
     return html.strip()
 
 
+def should_skip_plugin_dir(plugin_dir: Path) -> bool:
+    """Skip search outputs and test/runtime environment trees inside SNAP_DIR."""
+    name = plugin_dir.name
+    return name in SKIP_DIRS or name.startswith(".") or name.endswith("_env")
+
+
+def should_skip_source_path(source_path: Path, plugin_dir: Path) -> bool:
+    """Ignore cache/build artifacts nested under otherwise indexable directories."""
+    for part in source_path.relative_to(plugin_dir).parts[:-1]:
+        if (
+            part.startswith(".")
+            or part in SKIP_NESTED_DIRS
+            or part.endswith(SKIP_NESTED_SUFFIXES)
+        ):
+            return True
+    return False
+
+
 def find_indexable_content() -> list[tuple[str, str]]:
     """Auto-discover text content to index from all plugin output directories.
 
@@ -95,12 +116,14 @@ def find_indexable_content() -> list[tuple[str, str]]:
             continue
 
         extractor = plugin_dir.name
-        if extractor in SKIP_DIRS:
+        if should_skip_plugin_dir(plugin_dir):
             continue
 
         for ext in INDEXABLE_EXTENSIONS:
             for match in plugin_dir.rglob(f"*{ext}"):
                 if not match.is_file():
+                    continue
+                if should_skip_source_path(match, plugin_dir):
                     continue
                 if any(match.name.endswith(s) for s in EXECUTOR_ARTIFACT_SUFFIXES):
                     continue
