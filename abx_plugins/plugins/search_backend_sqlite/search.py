@@ -4,6 +4,8 @@
 # dependencies = [
 #     "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 """
 SQLite FTS5 search backend - search and flush operations.

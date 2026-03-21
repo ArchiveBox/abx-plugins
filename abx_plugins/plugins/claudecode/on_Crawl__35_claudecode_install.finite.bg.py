@@ -5,6 +5,8 @@
 #   "pydantic-settings",
 #   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 """
 Emit @anthropic-ai/claude-code Binary dependency for the crawl.

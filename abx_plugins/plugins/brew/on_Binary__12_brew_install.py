@@ -7,6 +7,8 @@
 #   "abx-pkg",
 #   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Install a binary using Homebrew package manager and output a Binary JSONL record.
@@ -15,15 +17,21 @@
 #     ./on_Binary__12_brew_install.py [...] > events.jsonl
 #
 
+from __future__ import annotations
+
 import json
 import shutil
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import rich_click as click
-from abx_pkg import Binary, BinProvider, BrewProvider, EnvProvider, HandlerDict, SemVer
+from abx_pkg import Binary, BrewProvider, EnvProvider, SemVer
 
 from abx_plugins.plugins.base.utils import emit_binary_record
+
+if TYPE_CHECKING:
+    from abx_pkg.binprovider import BinProvider, HandlerDict
 
 
 @click.command()
@@ -63,10 +71,17 @@ def main(
 
     try:
         # Parse overrides if provided
-        overrides_dict: dict[str, HandlerDict] | None = None
+        overrides_dict: dict[str, HandlerDict] = {}
         if overrides:
             try:
-                overrides_dict = json.loads(overrides)
+                parsed_overrides = json.loads(overrides)
+                if not isinstance(parsed_overrides, dict):
+                    raise json.JSONDecodeError(
+                        "overrides must be an object",
+                        overrides,
+                        0,
+                    )
+                overrides_dict = parsed_overrides
                 click.echo(
                     f"Using custom install overrides: {overrides_dict}",
                     err=True,
@@ -84,7 +99,9 @@ def main(
         if "env" in allowed_providers:
             providers.insert(0, EnvProvider())
 
-        brew_overrides: HandlerDict = (overrides_dict or {}).get("brew", {})
+        brew_overrides: HandlerDict = {}
+        if "brew" in overrides_dict:
+            brew_overrides = overrides_dict["brew"]
         install_args = brew_overrides.get("install_args")
         if (
             isinstance(install_args, list)
@@ -107,14 +124,14 @@ def main(
             if search_paths:
                 abspath = shutil.which(name, path=":".join(search_paths))
                 if abspath:
-                    brew_overrides = {**brew_overrides, "abspath": abspath}
-                    overrides_dict = {**(overrides_dict or {}), "brew": brew_overrides}
+                    brew_overrides["abspath"] = abspath
+                    overrides_dict["brew"] = brew_overrides
 
         binary = Binary(
             name=name,
             min_version=SemVer(min_version) if min_version else None,
             binproviders=providers,
-            overrides=overrides_dict or {},
+            overrides=overrides_dict,
         ).load_or_install()
     except Exception as e:
         click.echo(f"brew install failed: {e}", err=True)

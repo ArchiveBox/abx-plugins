@@ -5,6 +5,8 @@
 #   "pydantic-settings",
 #   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Emit forum-dl Binary dependency for the crawl, outputting a JSONL record to stdout.

@@ -16,6 +16,7 @@ def test_brew_hook_respects_brew_only_and_maps_openjdk(monkeypatch, tmp_path):
         Binary=object,
         BrewProvider=object,
         EnvProvider=object,
+        SemVer=str,
     )
     monkeypatch.setitem(sys.modules, "rich_click", __import__("click"))
     monkeypatch.setitem(sys.modules, "abx_pkg", fake_abx_pkg)

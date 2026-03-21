@@ -6,6 +6,8 @@
 #     "rich-click",
 #     "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 """
 Clean up redundant/duplicate snapshot outputs using Claude Code AI agent.

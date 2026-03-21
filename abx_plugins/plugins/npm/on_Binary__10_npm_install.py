@@ -7,6 +7,8 @@
 #   "abx-pkg",
 #   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Install a binary using npm package manager and configure PATH and NODE_MODULES_DIR environment variables.

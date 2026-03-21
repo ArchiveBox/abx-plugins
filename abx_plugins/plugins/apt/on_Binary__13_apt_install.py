@@ -7,6 +7,8 @@
 #   "abx-pkg",
 #   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Install a binary using apt package manager. Outputs a Binary JSONL record to stdout after installation.

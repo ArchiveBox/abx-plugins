@@ -5,6 +5,8 @@
 #   "pydantic-settings",
 #   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 """
 Emit defuddle Binary dependency for the crawl.

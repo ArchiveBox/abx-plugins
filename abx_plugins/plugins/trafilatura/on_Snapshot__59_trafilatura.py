@@ -5,6 +5,8 @@
 #   "pydantic-settings",
 #   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 """Extract article content using trafilatura from local HTML snapshots."""
 

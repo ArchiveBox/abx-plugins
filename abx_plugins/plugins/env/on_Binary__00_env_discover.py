@@ -7,6 +7,8 @@
 #   "abx-pkg",
 #   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Check if a binary is available in the system PATH and output its Binary record.

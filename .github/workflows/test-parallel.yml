@@ -48,7 +48,7 @@ jobs:
           echo "$HOME/.local/share/pnpm" >> $GITHUB_PATH
 
       - name: Install JS tooling
-        run: pnpm add -g prettier eslint
+        run: pnpm add -g prettier
 
       - name: Cache uv
         uses: actions/cache@v4

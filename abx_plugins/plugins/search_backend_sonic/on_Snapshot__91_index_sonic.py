@@ -6,6 +6,8 @@
 #     "sonic-client",
 #     "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 """
 Sonic search backend - indexes snapshot content in Sonic server.

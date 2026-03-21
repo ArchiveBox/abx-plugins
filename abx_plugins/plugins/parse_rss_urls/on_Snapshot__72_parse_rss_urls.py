@@ -7,6 +7,8 @@
 #   "rich-click",
 #   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 """
 Parse RSS/Atom feeds and extract URLs.

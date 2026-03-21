@@ -6,6 +6,8 @@
 #   "rich-click",
 #   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 """
 Parse plain text files and extract URLs.

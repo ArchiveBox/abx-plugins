@@ -6,6 +6,8 @@
 #     "rich-click",
 #     "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 """
 Parse JSONL bookmark files and extract URLs.

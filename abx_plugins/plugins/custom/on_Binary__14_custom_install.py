@@ -7,6 +7,8 @@
 #   "abx-pkg",
 #   "abx-plugins",
 # ]
+# [tool.uv.sources]
+# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Install a binary using a custom bash command. This provider runs arbitrary shell commands
