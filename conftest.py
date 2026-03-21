@@ -18,7 +18,6 @@ from abx_plugins.plugins.base.test_utils import (
     parse_jsonl_output,
     parse_jsonl_records,
 )
-from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_lib_dir
 
 pytest_plugins = ["abx_plugins.plugins.chrome.tests.chrome_test_helpers"]
 
@@ -135,6 +134,8 @@ def isolated_test_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> dict[str, Path]:
     """Apply per-test env overrides and let monkeypatch restore global state after each test."""
+    from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_lib_dir
+
     # Keep runtime HOME/cache state outside any test-owned snapshot tmp_path so
     # hook subprocesses cannot pollute SNAP_DIR with uv/npm/browser artifacts.
     test_root = tmp_path_factory.mktemp("abx_plugins_env")
@@ -256,6 +257,8 @@ def ensure_claude_code_prereqs(tmp_path_factory):
                 env.update({str(key): str(value) for key, value in config.items()})
 
     def install_claude_code_with_hooks() -> str:
+        from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_lib_dir
+
         env = os.environ.copy()
         env.setdefault("LIB_DIR", str(get_lib_dir()))
         env.setdefault(

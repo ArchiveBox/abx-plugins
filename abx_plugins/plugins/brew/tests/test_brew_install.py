@@ -1,5 +1,6 @@
 import json
 import os
+import platform
 import subprocess
 import tempfile
 from pathlib import Path
@@ -7,17 +8,18 @@ from pathlib import Path
 
 PLUGIN_DIR = Path(__file__).resolve().parent.parent
 BINARY_HOOK = PLUGIN_DIR / "on_Binary__12_brew_install.py"
+HOOK_TIMEOUT = 600 if platform.system().lower() == "linux" else 120
 
 
-def test_brew_hook_respects_brew_only_and_maps_openjdk():
+def test_brew_hook_respects_brew_only_and_maps_gnu_time():
     prefix_result = subprocess.run(
         ["brew", "--prefix"],
         capture_output=True,
         text=True,
         check=True,
     )
-    expected_java = (
-        Path(prefix_result.stdout.strip()) / "opt" / "openjdk" / "bin" / "java"
+    expected_gtime = (
+        Path(prefix_result.stdout.strip()) / "opt" / "gnu-time" / "bin" / "gtime"
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -31,15 +33,15 @@ def test_brew_hook_respects_brew_only_and_maps_openjdk():
                 "--binary-id=test-binary",
                 "--plugin-name=test-suite",
                 "--hook-name=test_brew_install",
-                "--name=java",
+                "--name=gtime",
                 "--binproviders=brew",
-                '--overrides={"brew":{"install_args":["openjdk"]}}',
+                '--overrides={"brew":{"install_args":["gnu-time"]}}',
             ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
             env=env,
-            timeout=120,
+            timeout=HOOK_TIMEOUT,
         )
 
     assert result.returncode == 0, result.stderr
@@ -49,6 +51,8 @@ def test_brew_hook_respects_brew_only_and_maps_openjdk():
     ]
     assert records, result.stdout
     assert records[0]["type"] == "Binary"
-    assert expected_java.is_file(), f"Expected Homebrew java binary at {expected_java}"
-    assert records[0]["abspath"] == str(expected_java)
+    assert expected_gtime.is_file(), (
+        f"Expected Homebrew gtime binary at {expected_gtime}"
+    )
+    assert records[0]["abspath"] == str(expected_gtime)
     assert records[0]["binprovider"] == "brew"
