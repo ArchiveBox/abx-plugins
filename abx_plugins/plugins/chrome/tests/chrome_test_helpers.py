@@ -65,6 +65,7 @@ import pytest
 from _pytest.fixtures import FixtureLookupError
 
 from abx_plugins.plugins.base.test_utils import (
+    assert_isolated_snapshot_env,
     parse_jsonl_output,
     parse_jsonl_records,
     run_hook as _base_run_hook,
@@ -774,6 +775,7 @@ def get_test_env() -> dict:
     env.setdefault("SNAP_DIR", str(Path.cwd()))
     env.setdefault("CRAWL_DIR", str(Path.cwd()))
     env.setdefault("PERSONAS_DIR", str(get_personas_dir()))
+    assert_isolated_snapshot_env(env)
     return env
 
 
@@ -1195,6 +1197,8 @@ def setup_test_env(tmpdir: Path) -> dict:
     # Only set headless if not already in environment (allow override for debugging)
     if "CHROME_HEADLESS" not in os.environ:
         env["CHROME_HEADLESS"] = "true"
+
+    assert_isolated_snapshot_env(env)
 
     try:
         install_chromium_with_hooks(env)

@@ -13,7 +13,11 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.test_utils import parse_jsonl_output, parse_jsonl_records
+from abx_plugins.plugins.base.test_utils import (
+    assert_isolated_snapshot_env,
+    parse_jsonl_output,
+    parse_jsonl_records,
+)
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_lib_dir
 
 pytest_plugins = ["abx_plugins.plugins.chrome.tests.chrome_test_helpers"]
@@ -126,12 +130,33 @@ def tee_captured_subprocess_output_on_failure(
 
 
 @pytest.fixture(autouse=True)
+def validate_subprocess_snapshot_env_isolation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[None]:
+    real_run = subprocess.run
+
+    def wrapped_run(*args, **kwargs):
+        env = kwargs.get("env")
+        if env is not None:
+            assert_isolated_snapshot_env(env)
+        return real_run(*args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", wrapped_run)
+    try:
+        yield
+    finally:
+        monkeypatch.undo()
+
+
+@pytest.fixture(autouse=True)
 def isolated_test_env(
-    tmp_path: Path,
+    tmp_path_factory: pytest.TempPathFactory,
     monkeypatch: pytest.MonkeyPatch,
 ) -> dict[str, Path]:
     """Apply per-test env overrides and let monkeypatch restore global state after each test."""
-    test_root = tmp_path / "abx_plugins_env"
+    # Keep runtime HOME/cache state outside any test-owned snapshot tmp_path so
+    # hook subprocesses cannot pollute SNAP_DIR with uv/npm/browser artifacts.
+    test_root = tmp_path_factory.mktemp("abx_plugins_env")
     home_dir = test_root / "home"
     run_dir = test_root / "run"
     lib_dir = test_root / "lib"
@@ -157,6 +182,15 @@ def isolated_test_env(
         monkeypatch.setenv("PERSONAS_DIR", str(personas_dir))
     if "TWOCAPTCHA_API_KEY" not in os.environ and "API_KEY_2CAPTCHA" not in os.environ:
         print("WARNING: TWOCAPTCHA_API_KEY not found in env, 2captcha tests will fail")
+
+    assert_isolated_snapshot_env(
+        {
+            "HOME": str(home_dir),
+            "SNAP_DIR": str(run_dir),
+            "LIB_DIR": os.environ["LIB_DIR"],
+            "PERSONAS_DIR": os.environ["PERSONAS_DIR"],
+        },
+    )
 
     return {
         "root": test_root,

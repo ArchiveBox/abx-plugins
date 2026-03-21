@@ -33,6 +33,7 @@ TEST_URL = "https://example.com"
 _papersdl_binary_path = None
 _papersdl_install_error = None
 _papersdl_home_root = None
+_papersdl_snap_root = None
 
 
 def require_papersdl_binary() -> str:
@@ -48,7 +49,7 @@ def require_papersdl_binary() -> str:
 
 def get_papersdl_binary_path():
     """Get the installed papers-dl binary path from cache or by running installation."""
-    global _papersdl_binary_path, _papersdl_install_error, _papersdl_home_root
+    global _papersdl_binary_path, _papersdl_install_error, _papersdl_home_root, _papersdl_snap_root
     if _papersdl_binary_path:
         return _papersdl_binary_path
 
@@ -59,10 +60,12 @@ def get_papersdl_binary_path():
         machine_id = str(uuid.uuid4())
         if not _papersdl_home_root:
             _papersdl_home_root = tempfile.mkdtemp(prefix="papersdl-lib-")
+        if not _papersdl_snap_root:
+            _papersdl_snap_root = tempfile.mkdtemp(prefix="papersdl-snap-")
 
         env = os.environ.copy()
         env["HOME"] = str(_papersdl_home_root)
-        env["SNAP_DIR"] = str(Path(_papersdl_home_root) / "data")
+        env["SNAP_DIR"] = str(_papersdl_snap_root)
         env.pop("LIB_DIR", None)
 
         cmd = [

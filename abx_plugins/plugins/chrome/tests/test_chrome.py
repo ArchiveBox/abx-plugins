@@ -45,6 +45,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     launch_snapshot_tab,
     wait_for_extensions_metadata,
 )
+from abx_plugins.plugins.base.test_utils import assert_isolated_snapshot_env
 
 pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
@@ -479,6 +480,7 @@ def _isolated_test_env(tmpdir: str | Path, **updates: str) -> dict:
         },
     )
     env.update(updates)
+    assert_isolated_snapshot_env(env)
     return env
 
 

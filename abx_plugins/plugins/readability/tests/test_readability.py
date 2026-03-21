@@ -128,13 +128,15 @@ def test_reports_missing_dependency_when_not_installed():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir / "snap"
+        home_dir = tmpdir / "home"
         snap_dir.mkdir(parents=True, exist_ok=True)
+        home_dir.mkdir(parents=True, exist_ok=True)
 
         # Create HTML source so it doesn't fail on missing HTML
         create_example_html(snap_dir)
 
         # Run with empty PATH so binary won't be found
-        env = {"PATH": "/nonexistent", "HOME": str(tmpdir), "SNAP_DIR": str(snap_dir)}
+        env = {"PATH": "/nonexistent", "HOME": str(home_dir), "SNAP_DIR": str(snap_dir)}
 
         result = subprocess.run(
             [

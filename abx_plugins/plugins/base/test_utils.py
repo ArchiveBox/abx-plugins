@@ -19,8 +19,11 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
+
+SNAPSHOT_ISOLATION_ENV_KEYS = ("HOME", "SNAP_DIR", "LIB_DIR", "PERSONAS_DIR")
 
 
 def get_plugin_dir(test_file: str) -> Path:
@@ -98,6 +101,53 @@ def parse_jsonl_records(stdout: str) -> list[dict[str, Any]]:
         except json.JSONDecodeError:
             continue
     return records
+
+
+def find_snapshot_env_path_collisions(
+    env: Mapping[str, str | os.PathLike[str]],
+) -> list[str]:
+    """Return collisions where runtime support dirs overlap with SNAP_DIR."""
+    raw_paths = {
+        key: value
+        for key in SNAPSHOT_ISOLATION_ENV_KEYS
+        if (value := env.get(key))
+    }
+    if "SNAP_DIR" not in raw_paths:
+        return []
+
+    paths = {
+        key: Path(value).expanduser().resolve(strict=False)
+        for key, value in raw_paths.items()
+    }
+    snap_dir = paths["SNAP_DIR"]
+    collisions: list[str] = []
+
+    for key, path in paths.items():
+        if key == "SNAP_DIR":
+            continue
+        if path == snap_dir:
+            collisions.append(f"{key} must not equal SNAP_DIR ({snap_dir})")
+            continue
+        if path in snap_dir.parents:
+            collisions.append(f"{key} must not contain SNAP_DIR ({path} contains {snap_dir})")
+            continue
+        if snap_dir in path.parents:
+            collisions.append(f"{key} must not be nested under SNAP_DIR ({path})")
+
+    return collisions
+
+
+def assert_isolated_snapshot_env(
+    env: Mapping[str, str | os.PathLike[str]],
+) -> None:
+    """Assert that support dirs cannot pollute SNAP_DIR in tests."""
+    collisions = find_snapshot_env_path_collisions(env)
+    if collisions:
+        details = "; ".join(collisions)
+        raise AssertionError(
+            "Test runtime directories must stay isolated from SNAP_DIR. "
+            f"{details}",
+        )
 
 
 def run_hook(
