@@ -9,7 +9,7 @@ Usage::
 
     import sys
     sys.path.append(str(Path(__file__).resolve().parent.parent))
-    from base.test_utils import (
+    from abx_plugins.plugins.base.test_utils import (
         get_plugin_dir, get_hook_script,
         parse_jsonl_output, parse_jsonl_records,
         run_hook, run_hook_and_parse,

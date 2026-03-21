@@ -30,8 +30,7 @@ from datetime import datetime
 from html import unescape
 from urllib.parse import urlparse
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_archive_result_record, emit_snapshot_record, write_text_atomic
+from abx_plugins.plugins.base.utils import emit_archive_result_record, emit_snapshot_record, write_text_atomic
 
 import rich_click as click
 

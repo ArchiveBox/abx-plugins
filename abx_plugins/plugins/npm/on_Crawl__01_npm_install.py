@@ -12,14 +12,11 @@
 # Usage:
 #     ./on_Crawl__01_npm_install.py > events.jsonl
 
-import json
 import os
 import sys
 from pathlib import Path
-from typing import Any
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_binary_record, get_env
+from abx_plugins.plugins.base.utils import emit_binary_record
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()

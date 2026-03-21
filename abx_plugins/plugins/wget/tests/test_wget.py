@@ -23,8 +23,7 @@ from pathlib import Path
 
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
@@ -135,7 +134,7 @@ def test_reports_missing_dependency_when_not_installed():
 
         # Should emit failed JSONL describing the missing dependency.
         result_json = parse_jsonl_output(result.stdout)
-        assert result_json, f"Expected failed JSONL output"
+        assert result_json, "Expected failed JSONL output"
         assert result_json["status"] == "failed", result_json
         assert "wget" in result_json["output_str"].lower(), result_json
 
@@ -364,7 +363,7 @@ def test_config_save_wget_false_skips():
         )
 
         result_json = parse_jsonl_output(result.stdout)
-        assert result_json, f"Expected skipped JSONL output"
+        assert result_json, "Expected skipped JSONL output"
         assert result_json["status"] == "skipped", result_json
         assert result_json["output_str"] == "WGET_ENABLED=False", result_json
 

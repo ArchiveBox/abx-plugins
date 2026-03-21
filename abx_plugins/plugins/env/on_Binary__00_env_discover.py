@@ -14,13 +14,10 @@
 # Usage:
 #     ./on_Binary__00_env_discover.py --binary-id=<uuid> --machine-id=<uuid> --name=<name> > events.jsonl
 
-import json
 import os
 import sys
-from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_binary_record
+from abx_plugins.plugins.base.utils import emit_binary_record
 
 import rich_click as click
 from abx_pkg import Binary, EnvProvider, SemVer

@@ -10,19 +10,16 @@ Tests verify:
 6. Handles non-video URLs gracefully
 """
 
-import json
 import io
 import os
 import subprocess
-import sys
 import tempfile
 import time
 import wave
 from pathlib import Path
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
@@ -199,7 +196,7 @@ def test_config_ytdlp_enabled_false_skips():
         )
 
         result_json = parse_jsonl_output(result.stdout)
-        assert result_json, f"Expected skipped JSONL output"
+        assert result_json, "Expected skipped JSONL output"
         assert result_json["status"] == "skipped", result_json
         assert result_json["output_str"] == "YTDLP_ENABLED=False", result_json
 

@@ -24,7 +24,6 @@
 #     WGET_ARGS_EXTRA: Extra arguments to append (JSON array)
 #
 
-import json
 import os
 import re
 import subprocess
@@ -32,8 +31,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_archive_result_record, has_staticfile_output, load_config
+from abx_plugins.plugins.base.utils import emit_archive_result_record, has_staticfile_output, load_config
 
 import rich_click as click
 

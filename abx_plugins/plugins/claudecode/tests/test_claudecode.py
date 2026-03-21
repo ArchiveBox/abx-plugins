@@ -19,8 +19,7 @@ from pathlib import Path
 
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import get_plugin_dir, get_hook_script, parse_jsonl_records, run_hook
+from abx_plugins.plugins.base.test_utils import get_plugin_dir, get_hook_script, parse_jsonl_records, run_hook
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
@@ -151,7 +150,7 @@ class TestClaudeCodeUtils:
         """Should be able to import claudecode_utils."""
         sys.path.insert(0, str(PLUGIN_DIR.parent))
         try:
-            from claudecode.claudecode_utils import (
+            from abx_plugins.plugins.claudecode.claudecode_utils import (
                 build_system_prompt,
                 emit_archive_result_record,
                 get_env,
@@ -174,7 +173,7 @@ class TestClaudeCodeUtils:
         """System prompt should contain key sections."""
         sys.path.insert(0, str(PLUGIN_DIR.parent))
         try:
-            from claudecode.claudecode_utils import build_system_prompt
+            from abx_plugins.plugins.claudecode.claudecode_utils import build_system_prompt
 
             prompt = build_system_prompt()
             assert "ArchiveBox" in prompt
@@ -189,7 +188,7 @@ class TestClaudeCodeUtils:
         """System prompt should include snapshot metadata when snap_dir provided."""
         sys.path.insert(0, str(PLUGIN_DIR.parent))
         try:
-            from claudecode.claudecode_utils import build_system_prompt
+            from abx_plugins.plugins.claudecode.claudecode_utils import build_system_prompt
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 snap_dir = Path(tmpdir) / "snap"
@@ -213,7 +212,7 @@ class TestClaudeCodeUtils:
         """System prompt should include extra context when provided."""
         sys.path.insert(0, str(PLUGIN_DIR.parent))
         try:
-            from claudecode.claudecode_utils import build_system_prompt
+            from abx_plugins.plugins.claudecode.claudecode_utils import build_system_prompt
 
             prompt = build_system_prompt(extra_context="Custom instructions here")
             assert "Custom instructions here" in prompt
@@ -225,7 +224,7 @@ class TestClaudeCodeUtils:
         """Should collect snapshot directory metadata."""
         sys.path.insert(0, str(PLUGIN_DIR.parent))
         try:
-            from claudecode.claudecode_utils import get_snapshot_metadata
+            from abx_plugins.plugins.claudecode.claudecode_utils import get_snapshot_metadata
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 snap_dir = Path(tmpdir)
@@ -254,7 +253,7 @@ class TestClaudeCodeIntegration:
         """Claude Code CLI should respond to a simple prompt."""
         sys.path.insert(0, str(PLUGIN_DIR.parent))
         try:
-            from claudecode.claudecode_utils import run_claude_code
+            from abx_plugins.plugins.claudecode.claudecode_utils import run_claude_code
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 stdout, stderr, returncode = run_claude_code(
@@ -277,7 +276,7 @@ class TestClaudeCodeIntegration:
         """Claude Code CLI should respect system prompts."""
         sys.path.insert(0, str(PLUGIN_DIR.parent))
         try:
-            from claudecode.claudecode_utils import run_claude_code, build_system_prompt
+            from abx_plugins.plugins.claudecode.claudecode_utils import run_claude_code, build_system_prompt
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 snap_dir = Path(tmpdir)
@@ -312,7 +311,7 @@ class TestClaudeCodeIntegration:
         """Claude Code CLI should be able to write output files."""
         sys.path.insert(0, str(PLUGIN_DIR.parent))
         try:
-            from claudecode.claudecode_utils import run_claude_code
+            from abx_plugins.plugins.claudecode.claudecode_utils import run_claude_code
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 output_dir = Path(tmpdir) / "output"

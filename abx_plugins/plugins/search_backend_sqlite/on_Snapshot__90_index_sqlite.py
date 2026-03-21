@@ -29,8 +29,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, get_env_bool
+from abx_plugins.plugins.base.utils import get_env, get_env_bool
 
 
 # Extractor metadata

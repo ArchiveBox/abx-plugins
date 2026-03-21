@@ -13,7 +13,6 @@ Tests verify:
 import os
 import json
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 

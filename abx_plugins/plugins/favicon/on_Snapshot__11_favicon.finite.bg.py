@@ -13,7 +13,6 @@
 # Usage:
 #     ./on_Snapshot__11_favicon.finite.bg.py --url=<url> --snapshot-id=<snapshot-id>
 
-import json
 import os
 import re
 import sys
@@ -23,8 +22,7 @@ from urllib.error import HTTPError
 from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_archive_result_record, load_config
+from abx_plugins.plugins.base.utils import emit_archive_result_record, load_config
 
 import rich_click as click
 

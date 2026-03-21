@@ -15,10 +15,8 @@
 
 import json
 import sys
-from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_binary_record
+from abx_plugins.plugins.base.utils import emit_binary_record
 
 import rich_click as click
 from abx_pkg import AptProvider, Binary, EnvProvider, SemVer

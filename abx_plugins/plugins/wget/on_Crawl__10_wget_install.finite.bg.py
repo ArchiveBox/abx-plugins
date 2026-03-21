@@ -15,8 +15,7 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_binary_record, load_config
+from abx_plugins.plugins.base.utils import emit_binary_record, load_config
 
 PLUGIN_DIR = Path(__file__).parent.name
 CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()

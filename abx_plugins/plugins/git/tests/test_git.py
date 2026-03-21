@@ -8,7 +8,6 @@ Tests verify:
 3. Standalone git extractor execution
 """
 
-import json
 import shutil
 import subprocess
 import sys
@@ -17,8 +16,7 @@ import time
 from pathlib import Path
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 PLUGIN_DIR = Path(__file__).parent.parent
 _GIT_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_git.*"), None)

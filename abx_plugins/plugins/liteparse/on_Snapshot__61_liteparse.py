@@ -30,8 +30,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import load_config, emit_archive_result_record, write_text_atomic
+from abx_plugins.plugins.base.utils import load_config, emit_archive_result_record, write_text_atomic
 
 import rich_click as click
 

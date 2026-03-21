@@ -26,7 +26,6 @@ Environment variables:
     ANTHROPIC_API_KEY: API key for Claude
 """
 
-import json
 import os
 import sys
 from pathlib import Path
@@ -34,9 +33,8 @@ from pathlib import Path
 import rich_click as click
 
 # Add parent directory to path for imports
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_archive_result_record, get_env, get_env_bool, get_env_int
-from claudecode.claudecode_utils import build_system_prompt, run_claude_code
+from abx_plugins.plugins.base.utils import emit_archive_result_record, get_env, get_env_bool, get_env_int
+from abx_plugins.plugins.claudecode.claudecode_utils import build_system_prompt, run_claude_code
 
 
 # Extractor metadata

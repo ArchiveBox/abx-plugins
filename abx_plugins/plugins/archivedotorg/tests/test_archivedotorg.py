@@ -4,15 +4,12 @@ Integration tests for archivedotorg plugin
 Tests verify standalone archive.org extractor execution.
 """
 
-import json
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 PLUGIN_DIR = Path(__file__).parent.parent
 _ARCHIVEDOTORG_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_archivedotorg.*"), None)
@@ -98,7 +95,7 @@ def test_config_save_archivedotorg_false_skips():
         )
 
         result_json = parse_jsonl_output(result.stdout)
-        assert result_json, f"Expected skipped JSONL output"
+        assert result_json, "Expected skipped JSONL output"
         assert result_json["status"] == "skipped", result_json
         assert result_json["output_str"] == "ARCHIVEDOTORG_ENABLED=False", result_json
 

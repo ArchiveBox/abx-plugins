@@ -12,17 +12,14 @@ Tests verify:
 7. Handles non-gallery URLs gracefully
 """
 
-import json
 import subprocess
-import sys
 import tempfile
 import time
 import os
 from pathlib import Path
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent

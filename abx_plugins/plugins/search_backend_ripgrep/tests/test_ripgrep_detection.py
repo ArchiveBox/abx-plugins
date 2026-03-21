@@ -8,7 +8,6 @@ Guards against regressions in:
 """
 
 import os
-import sys
 import json
 import shutil
 import subprocess
@@ -112,7 +111,6 @@ def test_ripgrep_only_detected_when_backend_enabled():
     Guards against ripgrep being detected when not needed.
     """
     import subprocess
-    import sys
     from pathlib import Path
 
     assert shutil.which("rg"), "ripgrep not installed"

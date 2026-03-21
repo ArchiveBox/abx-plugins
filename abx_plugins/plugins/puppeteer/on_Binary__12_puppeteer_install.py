@@ -24,8 +24,7 @@ from pathlib import Path
 import rich_click as click
 from abx_pkg import Binary, EnvProvider, NpmProvider
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_binary_record, emit_machine_record
+from abx_plugins.plugins.base.utils import emit_binary_record, emit_machine_record
 
 CLAUDE_SANDBOX_NO_PROXY = (
     "localhost,127.0.0.1,169.254.169.254,metadata.google.internal,"

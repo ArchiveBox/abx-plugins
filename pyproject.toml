@@ -60,6 +60,3 @@ Documentation = "https://github.com/ArchiveBox/ArchiveBox"
 
 [tool.pytest.ini_options]
 testpaths = ["abx_plugins/plugins", "tests"]
-
-[tool.ty.environment]
-extra-paths = ["abx_plugins/plugins"]

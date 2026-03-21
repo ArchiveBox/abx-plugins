@@ -13,14 +13,12 @@
 # Usage:
 #     ./on_Snapshot__05_git.finite.bg.py --url=<url> --snapshot-id=<uuid> > events.jsonl
 
-import json
 import os
 import subprocess
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_archive_result_record, load_config
+from abx_plugins.plugins.base.utils import emit_archive_result_record, load_config
 
 import rich_click as click
 

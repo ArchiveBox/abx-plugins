@@ -11,7 +11,7 @@ Provides common helpers used across multiple plugins:
 IMPORTANT: All plugin hook scripts import this module via::
 
     sys.path.append(str(Path(__file__).resolve().parent.parent))
-    from base.utils import load_config
+    from abx_plugins.plugins.base.utils import load_config
 
 We use ``sys.path.append()`` (not ``insert(0, ...)``) deliberately because
 ``abx_plugins/plugins/`` contains an ``ssl/`` plugin directory that would

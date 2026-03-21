@@ -15,16 +15,13 @@
 #     RIPGREP_ARGS_EXTRA: Extra arguments to append (JSON array)
 #     RIPGREP_TIMEOUT: Search timeout in seconds (default: 90)
 
-import json
 import os
 import subprocess
 import shutil
-import sys
 from pathlib import Path
 from typing import Iterable, List
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import get_env, get_env_int, get_env_array
+from abx_plugins.plugins.base.utils import get_env, get_env_int, get_env_array
 
 
 def _get_archive_dir() -> Path:

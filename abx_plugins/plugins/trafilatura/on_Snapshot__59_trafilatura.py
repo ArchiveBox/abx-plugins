@@ -8,15 +8,13 @@
 """Extract article content using trafilatura from local HTML snapshots."""
 
 import argparse
-import json
 import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import (
+from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     find_html_source,
     load_config,

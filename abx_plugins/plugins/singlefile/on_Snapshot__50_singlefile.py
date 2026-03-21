@@ -31,8 +31,7 @@ import sys
 import threading
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import load_config, emit_archive_result_record, has_staticfile_output
+from abx_plugins.plugins.base.utils import load_config, emit_archive_result_record, has_staticfile_output
 
 import rich_click as click
 

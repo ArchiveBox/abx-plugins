@@ -74,8 +74,6 @@ import pytest
 from _pytest.fixtures import FixtureLookupError
 
 from abx_plugins.plugins.base.test_utils import (
-    get_hook_script,
-    get_plugin_dir,
     parse_jsonl_output,
     parse_jsonl_records,
     run_hook as _base_run_hook,

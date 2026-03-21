@@ -22,8 +22,7 @@ from pathlib import Path
 import rich_click as click
 from abx_pkg import Binary, BinProvider, BrewProvider, EnvProvider, HandlerDict, SemVer
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_binary_record
+from abx_plugins.plugins.base.utils import emit_binary_record
 
 
 @click.command()

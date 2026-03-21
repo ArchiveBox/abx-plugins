@@ -11,10 +11,9 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_archive_result_record, get_env, get_env_bool, get_env_int
+from abx_plugins.plugins.base.utils import get_env
 
 
 class ExtractorOutput(TypedDict):
@@ -22,9 +21,9 @@ class ExtractorOutput(TypedDict):
     files: list[str]
 
 
-class SnapshotMetadata(TypedDict, total=False):
+class SnapshotMetadata(TypedDict):
     snap_dir: str
-    extractor_outputs: list[ExtractorOutput]
+    extractor_outputs: NotRequired[list[ExtractorOutput]]
 
 
 def get_crawl_metadata(crawl_dir: Path) -> dict[str, object]:

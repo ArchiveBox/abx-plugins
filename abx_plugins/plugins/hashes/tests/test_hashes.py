@@ -7,14 +7,12 @@ Tests the real merkle tree generation with actual files.
 import json
 import os
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 
 # Get the path to the hashes hook

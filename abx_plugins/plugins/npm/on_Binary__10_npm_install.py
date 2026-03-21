@@ -18,8 +18,7 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import (
+from abx_plugins.plugins.base.utils import (
     emit_binary_record,
     emit_machine_record,
     enforce_lib_permissions,

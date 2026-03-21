@@ -15,12 +15,10 @@ import json
 import tempfile
 from pathlib import Path
 
-import sys
 
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import get_plugin_dir, get_hook_script, parse_jsonl_output, run_hook
+from abx_plugins.plugins.base.test_utils import get_plugin_dir, get_hook_script, parse_jsonl_output, run_hook
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,

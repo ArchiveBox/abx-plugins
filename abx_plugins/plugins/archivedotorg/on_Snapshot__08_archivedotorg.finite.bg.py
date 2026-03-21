@@ -12,15 +12,13 @@
 # Usage:
 #     ./on_Snapshot__08_archivedotorg.finite.bg.py --url=<url> --snapshot-id=<uuid> > events.jsonl
 
-import json
 import os
 import sys
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_archive_result_record, load_config
+from abx_plugins.plugins.base.utils import emit_archive_result_record, load_config
 
 import rich_click as click
 

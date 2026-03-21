@@ -13,14 +13,12 @@ Tests verify:
 
 import json
 import os
-import sys
 import tempfile
 from pathlib import Path
 
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import (
+from abx_plugins.plugins.base.test_utils import (
     get_plugin_dir,
     get_hook_script,
     parse_jsonl_output,

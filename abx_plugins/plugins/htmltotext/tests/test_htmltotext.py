@@ -4,16 +4,13 @@ Integration tests for htmltotext plugin
 Tests verify standalone htmltotext extractor execution.
 """
 
-import json
 import os
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 PLUGIN_DIR = Path(__file__).parent.parent
 _HTMLTOTEXT_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_htmltotext.*"), None)

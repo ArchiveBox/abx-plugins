@@ -18,8 +18,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import load_config, emit_archive_result_record, write_text_atomic, find_html_source
+from abx_plugins.plugins.base.utils import load_config, emit_archive_result_record, write_text_atomic, find_html_source
 
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()

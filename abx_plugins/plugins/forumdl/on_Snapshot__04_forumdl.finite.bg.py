@@ -13,7 +13,6 @@
 # Usage:
 #     ./on_Snapshot__04_forumdl.finite.bg.py --url=<url> --snapshot-id=<snapshot-id>
 
-import json
 import os
 import shutil
 import subprocess
@@ -23,8 +22,7 @@ import textwrap
 import threading
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from base.utils import emit_archive_result_record, load_config
+from abx_plugins.plugins.base.utils import emit_archive_result_record, load_config
 
 import rich_click as click
 
