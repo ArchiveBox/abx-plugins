@@ -19,12 +19,11 @@ wheels = [
 
 [[package]]
 name = "abx-plugins"
-version = "1.10.6"
+version = "1.10.7"
 source = { editable = "." }
 dependencies = [
     { name = "abx-pkg" },
     { name = "feedparser" },
-    { name = "jinja2" },
     { name = "pydantic-settings" },
     { name = "pyright" },
     { name = "pytest" },
@@ -51,7 +50,6 @@ requires-dist = [
     { name = "abx-pkg", marker = "extra == 'dev'", specifier = ">=0.7.0" },
     { name = "feedparser", specifier = ">=6.0.0" },
     { name = "feedparser", marker = "extra == 'dev'", specifier = ">=6.0.0" },
-    { name = "jinja2", specifier = ">=3.1.0" },
     { name = "jinja2", marker = "extra == 'dev'", specifier = ">=3.1.0" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },
     { name = "pyright", specifier = ">=1.1.408" },
