@@ -56,7 +56,8 @@ def get_hook_script(plugin_dir: Path, pattern: str) -> Path | None:
 
 
 def parse_jsonl_output(
-    stdout: str, record_type: str = "ArchiveResult"
+    stdout: str,
+    record_type: str = "ArchiveResult",
 ) -> dict[str, Any] | None:
     """Parse JSONL output from hook stdout and return the first matching record.
 

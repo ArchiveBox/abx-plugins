@@ -80,7 +80,11 @@ def get_enabled_formats() -> list[str]:
 
 
 def run_trafilatura(
-    binary: str, html_source: str, url: str, fmt: str, timeout: int
+    binary: str,
+    html_source: str,
+    url: str,
+    fmt: str,
+    timeout: int,
 ) -> tuple[bool, str]:
     resolved_binary = shutil.which(binary) or binary
     binary_path = Path(resolved_binary)

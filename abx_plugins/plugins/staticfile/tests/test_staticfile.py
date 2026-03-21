@@ -257,7 +257,8 @@ class TestStaticfileWithChrome:
         assert archive_result.get("content_type") == "application/json", archive_result
 
     def test_staticfile_handles_redirected_html_pages_as_noresults(
-        self, staticfile_test_urls
+        self,
+        staticfile_test_urls,
     ):
         """Staticfile hook should emit noresults for redirected HTML main documents."""
         test_url = staticfile_test_urls["redirect_html_url"]

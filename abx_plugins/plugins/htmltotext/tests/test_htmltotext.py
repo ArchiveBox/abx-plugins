@@ -34,7 +34,7 @@ def test_extracts_text_from_html():
         # Create HTML source
         (snap_dir / "singlefile").mkdir(parents=True, exist_ok=True)
         (snap_dir / "singlefile" / "singlefile.html").write_text(
-            "<html><body><h1>Example Domain</h1><p>This domain is for examples.</p></body></html>"
+            "<html><body><h1>Example Domain</h1><p>This domain is for examples.</p></body></html>",
         )
 
         result = subprocess.run(

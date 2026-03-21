@@ -85,7 +85,7 @@ def _wait_for_file(path: Path, process: subprocess.Popen[str], timeout: int) -> 
         if process.poll() is not None:
             stdout, stderr = process.communicate(timeout=5)
             pytest.fail(
-                f"{path.name} was not created.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+                f"{path.name} was not created.\nstdout:\n{stdout}\nstderr:\n{stderr}",
             )
         time.sleep(0.25)
     try:
@@ -97,7 +97,9 @@ def _wait_for_file(path: Path, process: subprocess.Popen[str], timeout: int) -> 
 
 @pytest.mark.parametrize("browser_name", ["chrome", "chromium"])
 def test_live_install_and_screenshot_extraction_respects_chrome_binary(
-    tmp_path: Path, chrome_test_url: str, browser_name: str
+    tmp_path: Path,
+    chrome_test_url: str,
+    browser_name: str,
 ):
     machine_type = _machine_type()
     crawl_id = f"browser-install-{browser_name}"
@@ -129,7 +131,7 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
             "MACHINE_TYPE": machine_type,
             "PUPPETEER_CACHE_DIR": str(lib_dir / "puppeteer" / "chrome"),
             "PATH": _browserless_path(tmp_path, browser_name),
-        }
+        },
     )
     if hasattr(os, "geteuid") and os.geteuid() == 0:
         env["CHROME_SANDBOX"] = "false"

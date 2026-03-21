@@ -39,7 +39,7 @@ def main() -> None:
         overrides={
             "npm": {
                 "install_args": ["puppeteer"],
-            }
+            },
         },
     )
     sys.exit(0)

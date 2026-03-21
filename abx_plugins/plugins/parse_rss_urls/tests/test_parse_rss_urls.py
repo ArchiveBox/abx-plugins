@@ -248,7 +248,7 @@ class TestParseRssUrls:
         urls_dir.mkdir(parents=True, exist_ok=True)
         urls_file = urls_dir / "urls.jsonl"
         urls_file.write_text(
-            '{"type":"Snapshot","url":"https://stale.example.com/post"}\n'
+            '{"type":"Snapshot","url":"https://stale.example.com/post"}\n',
         )
         env = os.environ.copy()
         env["SNAP_DIR"] = str(tmp_path)

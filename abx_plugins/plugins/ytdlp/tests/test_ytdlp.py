@@ -305,7 +305,7 @@ def test_extracts_local_media_url(media_test_url):
         )
 
         print(
-            f"Successfully extracted {len(media_files)} file(s) in {elapsed_time:.2f}s"
+            f"Successfully extracted {len(media_files)} file(s) in {elapsed_time:.2f}s",
         )
 
 

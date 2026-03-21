@@ -42,7 +42,8 @@ def test_verify_deps_with_abx_pkg():
         pytest.fail(f"System package providers unavailable in this runtime: {exc}")
 
     git_binary = Binary(
-        name="git", binproviders=[apt_provider, brew_provider, env_provider]
+        name="git",
+        binproviders=[apt_provider, brew_provider, env_provider],
     )
     git_loaded = git_binary.load()
 

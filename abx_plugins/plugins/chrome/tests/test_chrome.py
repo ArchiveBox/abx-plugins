@@ -73,7 +73,8 @@ def _port_from_cdp_url(cdp_url: str) -> int:
 def _fetch_devtools_targets(cdp_url: str) -> list[dict]:
     port = _port_from_cdp_url(cdp_url)
     with urllib.request.urlopen(
-        f"http://127.0.0.1:{port}/json/list", timeout=10
+        f"http://127.0.0.1:{port}/json/list",
+        timeout=10,
     ) as response:
         return json.loads(response.read().decode("utf-8"))
 
@@ -137,7 +138,10 @@ const puppeteer = require('puppeteer');
 
 
 def _cleanup_session_artifacts(
-    session_dir: Path, env: dict, *, require_target_id: bool = False
+    session_dir: Path,
+    env: dict,
+    *,
+    require_target_id: bool = False,
 ) -> dict:
     script = """
 const path = require('path');
@@ -206,7 +210,7 @@ def _write_test_extension_cache(extensions_dir: Path) -> dict:
     }
     (unpacked_dir / "manifest.json").write_text(json.dumps(manifest))
     (unpacked_dir / "service_worker.js").write_text(
-        "chrome.runtime.onInstalled.addListener(() => {});\n"
+        "chrome.runtime.onInstalled.addListener(() => {});\n",
     )
 
     cache_data = {
@@ -293,7 +297,8 @@ const browser = {
 
 
 def _cleanup_launch_process(
-    chrome_launch_process: subprocess.Popen[str] | None, chrome_dir: Path
+    chrome_launch_process: subprocess.Popen[str] | None,
+    chrome_dir: Path,
 ) -> None:
     if chrome_launch_process is not None:
         kill_chromium_session(chrome_launch_process, chrome_dir)
@@ -405,7 +410,7 @@ def _launch_snapshot_tab_allowing_optional_pid(
             stdout_handle.close()
             stderr_handle.close()
             raise RuntimeError(
-                f"Tab creation exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                f"Tab creation exited early:\nStdout: {stdout}\nStderr: {stderr}",
             )
         cdp_ready = (snapshot_chrome_dir / "cdp_url.txt").exists()
         target_ready = (snapshot_chrome_dir / "target_id.txt").exists()
@@ -426,7 +431,7 @@ def _launch_snapshot_tab_allowing_optional_pid(
     stdout_handle.close()
     stderr_handle.close()
     raise RuntimeError(
-        f"Tab creation timed out after {timeout}s\nStdout: {stdout}\nStderr: {stderr}"
+        f"Tab creation timed out after {timeout}s\nStdout: {stdout}\nStderr: {stderr}",
     )
 
 
@@ -471,7 +476,7 @@ def _isolated_test_env(tmpdir: str | Path, **updates: str) -> dict:
             "CHROME_EXTENSIONS_DIR": str(chrome_extensions_dir),
             "CHROME_DOWNLOADS_DIR": str(chrome_downloads_dir),
             "CHROME_USER_DATA_DIR": str(chrome_user_data_dir),
-        }
+        },
     )
     env.update(updates)
     return env
@@ -503,7 +508,10 @@ def test_verify_chromium_available():
 
     # Verify it's actually Chromium by checking version
     result = subprocess.run(
-        [chromium_binary, "--version"], capture_output=True, text=True, timeout=10
+        [chromium_binary, "--version"],
+        capture_output=True,
+        text=True,
+        timeout=10,
     )
     assert result.returncode == 0, f"Failed to get Chromium version: {result.stderr}"
     assert "Chromium" in result.stdout or "Chrome" in result.stdout, (
@@ -525,7 +533,9 @@ def test_chrome_launch_respects_sandbox_env():
         )
 
         chrome_launch_process, _cdp_url = launch_chromium_session(
-            env, chrome_dir, "test-sandbox-disabled"
+            env,
+            chrome_dir,
+            "test-sandbox-disabled",
         )
         try:
             cmd_contents = (chrome_dir / "cmd.sh").read_text()
@@ -554,12 +564,15 @@ def test_chrome_launch_configures_downloads_via_cdp_not_profile_prefs():
         )
 
         chrome_launch_process, _cdp_url = launch_chromium_session(
-            env, chrome_dir, "test-downloads-via-cdp"
+            env,
+            chrome_dir,
+            "test-downloads-via-cdp",
         )
         try:
             chrome_launch_process._stderr_handle.flush()
             stderr = chrome_launch_process._stderr_log.read_text(
-                encoding="utf-8", errors="replace"
+                encoding="utf-8",
+                errors="replace",
             )
             assert "Configured Chrome download directory via CDP" in stderr, stderr
             assert "Set Chrome download directory:" not in stderr, stderr
@@ -568,7 +581,7 @@ def test_chrome_launch_configures_downloads_via_cdp_not_profile_prefs():
             if prefs_path.exists():
                 prefs = json.loads(prefs_path.read_text())
                 assert prefs.get("download", {}).get("default_directory") != str(
-                    downloads_dir
+                    downloads_dir,
                 ), prefs
         finally:
             kill_chromium_session(chrome_launch_process, chrome_dir)
@@ -702,7 +715,8 @@ def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):
                 stdout_lines = [
                     line.strip()
                     for line in stdout_log.read_text(
-                        encoding="utf-8", errors="replace"
+                        encoding="utf-8",
+                        errors="replace",
                     ).splitlines()
                     if line.strip()
                 ]
@@ -721,7 +735,8 @@ def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):
                     stdout_lines = [
                         line.strip()
                         for line in stdout_log.read_text(
-                            encoding="utf-8", errors="replace"
+                            encoding="utf-8",
+                            errors="replace",
                         ).splitlines()
                         if line.strip()
                     ]
@@ -779,7 +794,7 @@ def test_chrome_can_adopt_existing_cdp_url_without_local_pid(chrome_test_url):
                 if provider_process.poll() is not None:
                     stdout, stderr = provider_process.communicate()
                     pytest.fail(
-                        f"provider chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                        f"provider chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
                     )
                 if (provider_chrome_dir / "cdp_url.txt").exists() and (
                     provider_chrome_dir / "chrome.pid"
@@ -867,7 +882,7 @@ def test_chrome_can_adopt_existing_cdp_url_without_local_pid(chrome_test_url):
                     if tab_process.poll() is not None:
                         stdout, stderr = tab_process.communicate()
                         pytest.fail(
-                            f"adopted snapshot tab exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                            f"adopted snapshot tab exited early:\nStdout: {stdout}\nStderr: {stderr}",
                         )
                     if (snapshot_chrome_dir / "cdp_url.txt").exists() and (
                         snapshot_chrome_dir / "target_id.txt"
@@ -1035,7 +1050,7 @@ def test_snapshot_isolation_launches_and_cleans_up_local_browser(chrome_test_url
             if launch_process.poll() is not None:
                 stdout, stderr = launch_process.communicate()
                 pytest.fail(
-                    f"snapshot-isolated launch hook exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                    f"snapshot-isolated launch hook exited early:\nStdout: {stdout}\nStderr: {stderr}",
                 )
             if (snapshot_chrome_dir / "cdp_url.txt").exists() and (
                 snapshot_chrome_dir / "chrome.pid"
@@ -1061,7 +1076,7 @@ def test_snapshot_isolation_launches_and_cleans_up_local_browser(chrome_test_url
             if tab_process.poll() is not None:
                 stdout, stderr = tab_process.communicate()
                 pytest.fail(
-                    f"snapshot-isolated tab hook exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                    f"snapshot-isolated tab hook exited early:\nStdout: {stdout}\nStderr: {stderr}",
                 )
             if (
                 (snapshot_chrome_dir / "cdp_url.txt").exists()
@@ -1330,7 +1345,7 @@ def test_crawl_isolation_external_cdp_keepalive_false_closes_adopted_browser_on_
                 if adopt_process.poll() is not None:
                     stdout, stderr = adopt_process.communicate()
                     pytest.fail(
-                        f"adopted crawl launch exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                        f"adopted crawl launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
                     )
                 if (adopted_chrome_dir / "cdp_url.txt").exists():
                     break
@@ -1529,7 +1544,7 @@ def test_snapshot_isolation_external_cdp_keepalive_false_closes_adopted_browser_
                 if launch_process.poll() is not None:
                     stdout, stderr = launch_process.communicate()
                     pytest.fail(
-                        f"snapshot launch exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                        f"snapshot launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
                     )
                 if (snapshot_chrome_dir / "cdp_url.txt").exists():
                     break
@@ -1657,7 +1672,7 @@ def test_cdp_url_is_not_published_before_extensions_metadata():
                 if chrome_launch_process.poll() is not None:
                     stdout, stderr = chrome_launch_process.communicate()
                     pytest.fail(
-                        f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                        f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
                     )
 
                 saw_extensions = extensions_file.exists()
@@ -1665,7 +1680,7 @@ def test_cdp_url_is_not_published_before_extensions_metadata():
 
                 if saw_cdp and not saw_extensions:
                     pytest.fail(
-                        "chrome launch published cdp_url.txt before extensions.json was ready"
+                        "chrome launch published cdp_url.txt before extensions.json was ready",
                     )
 
                 if saw_cdp and saw_extensions:
@@ -1710,7 +1725,7 @@ def test_crawl_wait_accepts_http_cdp_url_for_external_browser(chrome_test_url):
                 if provider_process.poll() is not None:
                     stdout, stderr = provider_process.communicate()
                     pytest.fail(
-                        f"provider launch exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                        f"provider launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
                     )
                 if (provider_chrome_dir / "cdp_url.txt").exists() and (
                     provider_chrome_dir / "chrome.pid"
@@ -1794,8 +1809,8 @@ def test_cookies_imported_on_launch():
                     "",
                     "example.com\tTRUE\t/\tFALSE\t2147483647\tabx_test_cookie\thello",
                     "",
-                ]
-            )
+                ],
+            ),
         )
 
         profile_dir = Path(tmpdir) / "profile"
@@ -1806,7 +1821,7 @@ def test_cookies_imported_on_launch():
                 "CHROME_USER_DATA_DIR": str(profile_dir),
                 "COOKIES_TXT_FILE": str(cookies_file),
                 "CRAWL_DIR": str(crawl_dir),
-            }
+            },
         )
 
         chrome_launch_process = subprocess.Popen(
@@ -1968,7 +1983,7 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
                 if chrome_launch_process.poll() is not None:
                     stdout, stderr = chrome_launch_process.communicate()
                     pytest.fail(
-                        f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                        f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
                     )
                 if all(path.exists() for path in shared_files.values()):
                     break
@@ -2152,7 +2167,7 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
                 "navigation should keep the same target alive"
             )
             assert navigated_target.get("url", "").rstrip(
-                "/"
+                "/",
             ) == chrome_test_url.rstrip("/")
         finally:
             if tab_process is not None:
@@ -2216,7 +2231,7 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
                 if chrome_launch_process.poll() is not None:
                     stdout, stderr = chrome_launch_process.communicate()
                     pytest.fail(
-                        f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                        f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
                     )
                 if extensions_file.exists() and (chrome_dir / "cdp_url.txt").exists():
                     break
@@ -2296,7 +2311,7 @@ def test_chrome_wait_rejects_stale_cdp_markers(chrome_test_url):
         snapshot_chrome_dir.mkdir()
 
         snapshot_chrome_dir.joinpath("cdp_url.txt").write_text(
-            "ws://127.0.0.1:9/devtools/browser/stale-session"
+            "ws://127.0.0.1:9/devtools/browser/stale-session",
         )
         snapshot_chrome_dir.joinpath("target_id.txt").write_text("stale-target-id")
 
@@ -2352,7 +2367,7 @@ def test_crawl_wait_retries_until_published_cdp_endpoint_becomes_connectable(
             adopted_chrome_dir = adopted_dir / "chrome"
             adopted_chrome_dir.mkdir()
             adopted_chrome_dir.joinpath("cdp_url.txt").write_text(
-                "ws://127.0.0.1:9/devtools/browser/not-ready-yet"
+                "ws://127.0.0.1:9/devtools/browser/not-ready-yet",
             )
 
             adopted_env = _isolated_test_env(
@@ -2401,7 +2416,7 @@ def test_cleanup_stale_chrome_session_artifacts_only_when_stale():
         session_dir = Path(tmpdir) / "chrome"
         session_dir.mkdir()
         session_dir.joinpath("cdp_url.txt").write_text(
-            "ws://127.0.0.1:9/devtools/browser/stale-session"
+            "ws://127.0.0.1:9/devtools/browser/stale-session",
         )
         session_dir.joinpath("target_id.txt").write_text("stale-target-id")
         session_dir.joinpath("chrome.pid").write_text("999999")
@@ -2450,7 +2465,7 @@ def test_cleanup_stale_chrome_session_artifacts_keeps_live_session():
                 if chrome_launch_process.poll() is not None:
                     stdout, stderr = chrome_launch_process.communicate()
                     pytest.fail(
-                        f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                        f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
                     )
                 time.sleep(1)
 
@@ -2554,7 +2569,7 @@ def test_snapshot_wait_survives_idle_delay_with_shared_dirs(chrome_test_url):
             if chrome_launch_process.poll() is not None:
                 stdout, stderr = chrome_launch_process.communicate()
                 pytest.fail(
-                    f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                    f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
                 )
             time.sleep(1)
 
@@ -2896,14 +2911,16 @@ def test_popup_focus_theft_keeps_followup_hooks_on_canonical_target(chrome_test_
                 f"navigate should succeed on popup page:\nStdout: {navigate.stdout}\nStderr: {navigate.stderr}"
             )
             popup_target_info = _create_target_via_cdp(
-                cdp_url, chrome_test_urls["popup_child_url"]
+                cdp_url,
+                chrome_test_urls["popup_child_url"],
             )
             time.sleep(0.5)
 
             target_id = (chrome_dir / "target_id.txt").read_text().strip()
             targets = _fetch_devtools_targets(cdp_url)
             canonical_target = next(
-                (target for target in targets if target.get("id") == target_id), None
+                (target for target in targets if target.get("id") == target_id),
+                None,
             )
             popup_target = next(
                 (
@@ -3061,7 +3078,7 @@ def test_chrome_cleanup_on_crawl_end():
             if chrome_launch_process.poll() is not None:
                 stdout, stderr = chrome_launch_process.communicate()
                 pytest.fail(
-                    f"Chrome launch process exited early:\nStdout: {stdout}\nStderr: {stderr}"
+                    f"Chrome launch process exited early:\nStdout: {stdout}\nStderr: {stderr}",
                 )
             if (chrome_dir / "cdp_url.txt").exists() and (
                 chrome_dir / "chrome.pid"

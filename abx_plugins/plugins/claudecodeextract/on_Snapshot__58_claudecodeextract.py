@@ -90,13 +90,16 @@ def main(url: str, snapshot_id: str):
         # Get configuration
         user_prompt = get_env("CLAUDECODEEXTRACT_PROMPT", DEFAULT_PROMPT)
         timeout = get_env_int("CLAUDECODEEXTRACT_TIMEOUT") or get_env_int(
-            "CLAUDECODE_TIMEOUT", 120
+            "CLAUDECODE_TIMEOUT",
+            120,
         )
         model = get_env("CLAUDECODEEXTRACT_MODEL") or get_env(
-            "CLAUDECODE_MODEL", "sonnet"
+            "CLAUDECODE_MODEL",
+            "sonnet",
         )
         max_turns = get_env_int("CLAUDECODEEXTRACT_MAX_TURNS") or get_env_int(
-            "CLAUDECODE_MAX_TURNS", 10
+            "CLAUDECODE_MAX_TURNS",
+            10,
         )
 
         # Build system prompt with snapshot context

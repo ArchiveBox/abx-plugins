@@ -39,7 +39,7 @@ def search(query: str) -> list[str]:
     rg_binary = shutil.which(rg_binary) or rg_binary
     if not rg_binary or not Path(rg_binary).exists():
         raise RuntimeError(
-            "ripgrep binary not found. Install with: apt install ripgrep"
+            "ripgrep binary not found. Install with: apt install ripgrep",
         )
 
     timeout = get_env_int("RIPGREP_TIMEOUT", 90)

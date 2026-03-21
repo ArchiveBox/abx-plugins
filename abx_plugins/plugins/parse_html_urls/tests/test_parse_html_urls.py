@@ -243,7 +243,7 @@ class TestParseHtmlUrls:
         dom_urls_dir = tmp_path / "parse_dom_outlinks"
         dom_urls_dir.mkdir(parents=True, exist_ok=True)
         (dom_urls_dir / "urls.jsonl").write_text(
-            '{"type":"Snapshot","url":"https://stale.example/outlink"}\n'
+            '{"type":"Snapshot","url":"https://stale.example/outlink"}\n',
         )
 
         env = os.environ.copy()

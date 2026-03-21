@@ -112,7 +112,8 @@ def parse_timestamp(timestamp_str: str) -> datetime | None:
     if 8 <= num_digits <= 11:
         try:
             dt = datetime.fromtimestamp(
-                timestamp_num + MAC_COCOA_EPOCH, tz=timezone.utc
+                timestamp_num + MAC_COCOA_EPOCH,
+                tz=timezone.utc,
             )
             if MIN_REASONABLE_YEAR <= dt.year <= MAX_REASONABLE_YEAR:
                 candidates.append((dt, "mac_seconds", 90))
@@ -132,7 +133,8 @@ def parse_timestamp(timestamp_str: str) -> datetime | None:
     if 11 <= num_digits <= 14:
         try:
             dt = datetime.fromtimestamp(
-                (timestamp_num / 1000) + MAC_COCOA_EPOCH, tz=timezone.utc
+                (timestamp_num / 1000) + MAC_COCOA_EPOCH,
+                tz=timezone.utc,
             )
             if MIN_REASONABLE_YEAR <= dt.year <= MAX_REASONABLE_YEAR:
                 candidates.append((dt, "mac_milliseconds", 85))
@@ -152,7 +154,8 @@ def parse_timestamp(timestamp_str: str) -> datetime | None:
     if 14 <= num_digits <= 18:
         try:
             dt = datetime.fromtimestamp(
-                (timestamp_num / 1_000_000) + MAC_COCOA_EPOCH, tz=timezone.utc
+                (timestamp_num / 1_000_000) + MAC_COCOA_EPOCH,
+                tz=timezone.utc,
             )
             if MIN_REASONABLE_YEAR <= dt.year <= MAX_REASONABLE_YEAR:
                 candidates.append((dt, "mac_microseconds", 80))
@@ -181,7 +184,8 @@ def fetch_content(url: str) -> str:
     else:
         timeout = int(os.environ.get("TIMEOUT", "60"))
         user_agent = os.environ.get(
-            "USER_AGENT", "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
+            "USER_AGENT",
+            "Mozilla/5.0 (compatible; ArchiveBox/1.0)",
         )
 
         import urllib.request
@@ -210,7 +214,8 @@ def persist_records(records: list[dict]) -> tuple[str, str]:
     """Write extracted URLs when present, otherwise clear stale output after success."""
     if records:
         write_text_atomic(
-            URLS_FILE, "\n".join(json.dumps(record) for record in records) + "\n"
+            URLS_FILE,
+            "\n".join(json.dumps(record) for record in records) + "\n",
         )
         return "succeeded", f"{len(records)} URLs parsed"
 
@@ -291,8 +296,8 @@ def main(
                 {
                     "type": "Tag",
                     "name": tag_name,
-                }
-            )
+                },
+            ),
         )
 
     # Emit Snapshot records (to stdout as JSONL)

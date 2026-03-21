@@ -54,7 +54,8 @@ def _modal_page_url(httpserver) -> str:
 </html>
 """
     httpserver.expect_request("/modal").respond_with_data(
-        html, content_type="text/html; charset=utf-8"
+        html,
+        content_type="text/html; charset=utf-8",
     )
     return httpserver.url_for("/modal")
 

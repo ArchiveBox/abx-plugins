@@ -68,7 +68,8 @@ def fetch_content(url: str) -> str:
     else:
         timeout = int(os.environ.get("TIMEOUT", "60"))
         user_agent = os.environ.get(
-            "USER_AGENT", "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
+            "USER_AGENT",
+            "Mozilla/5.0 (compatible; ArchiveBox/1.0)",
         )
 
         import urllib.request
@@ -89,7 +90,8 @@ def persist_records(records: list[dict]) -> tuple[str, str]:
     """Write extracted URLs when present, otherwise clear stale output after success."""
     if records:
         write_text_atomic(
-            URLS_FILE, "\n".join(json.dumps(record) for record in records) + "\n"
+            URLS_FILE,
+            "\n".join(json.dumps(record) for record in records) + "\n",
         )
         return "succeeded", f"{len(records)} URLs parsed"
 
@@ -148,11 +150,13 @@ def main(
             bookmarked_at = None
             if hasattr(item, "published_parsed") and item.published_parsed:
                 bookmarked_at = datetime.fromtimestamp(
-                    mktime(item.published_parsed), tz=timezone.utc
+                    mktime(item.published_parsed),
+                    tz=timezone.utc,
                 ).isoformat()
             elif hasattr(item, "updated_parsed") and item.updated_parsed:
                 bookmarked_at = datetime.fromtimestamp(
-                    mktime(item.updated_parsed), tz=timezone.utc
+                    mktime(item.updated_parsed),
+                    tz=timezone.utc,
                 ).isoformat()
 
             # Get tags
@@ -195,8 +199,8 @@ def main(
                 {
                     "type": "Tag",
                     "name": tag_name,
-                }
-            )
+                },
+            ),
         )
 
     # Emit Snapshot records (to stdout as JSONL)

@@ -39,10 +39,15 @@ def search(query: str) -> list[str]:
     config = get_sonic_config()
 
     with search_client_cls(
-        config["host"], config["port"], config["password"]
+        config["host"],
+        config["port"],
+        config["password"],
     ) as search_client:
         results = search_client.query(
-            config["collection"], config["bucket"], query, limit=100
+            config["collection"],
+            config["bucket"],
+            query,
+            limit=100,
         )
         return results
 
@@ -58,7 +63,9 @@ def flush(snapshot_ids: Iterable[str]) -> None:
     config = get_sonic_config()
 
     with ingest_client_cls(
-        config["host"], config["port"], config["password"]
+        config["host"],
+        config["port"],
+        config["password"],
     ) as ingest:
         for snapshot_id in snapshot_ids:
             try:

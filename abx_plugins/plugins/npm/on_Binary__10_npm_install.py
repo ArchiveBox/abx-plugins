@@ -94,11 +94,13 @@ def main(
             try:
                 overrides_dict = json.loads(overrides)
                 click.echo(
-                    f"Using custom install overrides: {overrides_dict}", err=True
+                    f"Using custom install overrides: {overrides_dict}",
+                    err=True,
                 )
             except json.JSONDecodeError:
                 click.echo(
-                    f"Warning: Failed to parse overrides JSON: {overrides}", err=True
+                    f"Warning: Failed to parse overrides JSON: {overrides}",
+                    err=True,
                 )
 
         binary = Binary(
@@ -147,7 +149,7 @@ def main(
     emit_machine_record(
         {
             "PATH": new_path,
-        }
+        },
     )
 
     # Emit JS module resolution env vars for downstream node-based hooks.
@@ -157,7 +159,7 @@ def main(
             "NODE_MODULES_DIR": node_modules_dir,
             "NODE_MODULE_DIR": node_modules_dir,
             "NODE_PATH": node_modules_dir,
-        }
+        },
     )
 
     # Log human-readable info to stderr

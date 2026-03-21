@@ -71,8 +71,8 @@ def main():
                     "six",
                     "html2text",
                     "warcio",
-                ]
-            }
+                ],
+            },
         },
     )
 

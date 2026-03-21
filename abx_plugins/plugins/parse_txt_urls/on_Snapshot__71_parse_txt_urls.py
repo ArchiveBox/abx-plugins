@@ -110,7 +110,8 @@ def fetch_content(url: str) -> str:
         # Remote URL
         timeout = int(os.environ.get("TIMEOUT", "60"))
         user_agent = os.environ.get(
-            "USER_AGENT", "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
+            "USER_AGENT",
+            "Mozilla/5.0 (compatible; ArchiveBox/1.0)",
         )
 
         import urllib.request
@@ -131,7 +132,8 @@ def persist_records(records: list[dict]) -> tuple[str, str]:
     """Write extracted URLs when present, otherwise clear stale output after success."""
     if records:
         write_text_atomic(
-            URLS_FILE, "\n".join(json.dumps(record) for record in records) + "\n"
+            URLS_FILE,
+            "\n".join(json.dumps(record) for record in records) + "\n",
         )
         return "succeeded", f"{len(records)} URLs parsed"
 

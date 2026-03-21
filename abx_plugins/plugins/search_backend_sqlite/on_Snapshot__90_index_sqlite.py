@@ -56,7 +56,10 @@ def get_text_size_kb(texts: list[str]) -> int:
 def strip_html_tags(html: str) -> str:
     """Remove HTML tags, keeping text content."""
     html = re.sub(
-        r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE
+        r"<script[^>]*>.*?</script>",
+        "",
+        html,
+        flags=re.DOTALL | re.IGNORECASE,
     )
     html = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL | re.IGNORECASE)
     html = re.sub(r"<[^>]+>", " ", html)
@@ -108,7 +111,7 @@ def find_indexable_content() -> list[tuple[str, str, Path]]:
                         continue
                     rel_path = match.relative_to(plugin_dir)
                     results.append(
-                        (f"{extractor}/{rel_path.as_posix()}", content, match)
+                        (f"{extractor}/{rel_path.as_posix()}", content, match),
                     )
                 except Exception:
                     continue
@@ -251,8 +254,8 @@ def main() -> None:
                     "type": "ArchiveResult",
                     "status": status,
                     "output_str": output_str,
-                }
-            )
+                },
+            ),
         )
 
     sys.exit(0 if status in ("succeeded", "skipped", "noresults") else 1)

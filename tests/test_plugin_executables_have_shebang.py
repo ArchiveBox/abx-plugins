@@ -42,7 +42,8 @@ def test_all_plugin_scripts_are_executable_and_have_shebang() -> None:
 
         if True:
             first_line = script_path.read_text(
-                encoding="utf-8", errors="ignore"
+                encoding="utf-8",
+                errors="ignore",
             ).splitlines()
             if not first_line or not first_line[0].startswith("#!"):
                 failures.append(f"{rel_path}: missing shebang")

@@ -150,7 +150,9 @@ class TestParseNetscapeUrls:
         server = ThreadingHTTPServer(
             ("127.0.0.1", 0),
             lambda *args, **kwargs: QuietHandler(
-                *args, directory=str(tmp_path), **kwargs
+                *args,
+                directory=str(tmp_path),
+                **kwargs,
             ),
         )
         thread = threading.Thread(target=server.serve_forever, daemon=True)

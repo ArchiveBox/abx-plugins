@@ -63,7 +63,10 @@ def extract_mercury(url: str, binary: str) -> tuple[str, str]:
         # Get text version
         cmd_text = [binary, *mercury_args, *mercury_args_extra, url, "--format=text"]
         result_text = subprocess.run(
-            cmd_text, stdout=subprocess.PIPE, timeout=timeout, text=True
+            cmd_text,
+            stdout=subprocess.PIPE,
+            timeout=timeout,
+            text=True,
         )
         if result_text.stdout:
             sys.stderr.write(result_text.stdout)
@@ -87,7 +90,10 @@ def extract_mercury(url: str, binary: str) -> tuple[str, str]:
         # Get HTML version
         cmd_html = [binary, *mercury_args, *mercury_args_extra, url, "--format=html"]
         result_html = subprocess.run(
-            cmd_html, stdout=subprocess.PIPE, timeout=timeout, text=True
+            cmd_html,
+            stdout=subprocess.PIPE,
+            timeout=timeout,
+            text=True,
         )
         if result_html.stdout:
             sys.stderr.write(result_html.stdout)
@@ -130,7 +136,8 @@ def extract_mercury(url: str, binary: str) -> tuple[str, str]:
                             responses_images = None
                     if responses_images:
                         rel_target = os.path.relpath(
-                            str(responses_images), str(output_dir)
+                            str(responses_images),
+                            str(output_dir),
                         )
                         link_path.symlink_to(rel_target)
         except Exception:

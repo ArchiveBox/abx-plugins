@@ -93,7 +93,7 @@ def test_crawl_hook_emits_defuddle_binary_record():
     assert binary.get("type") == "Binary"
     assert binary.get("name") == "defuddle"
     assert binary.get("overrides", {}).get("npm", {}).get("install_args") == [
-        "defuddle"
+        "defuddle",
     ]
 
 

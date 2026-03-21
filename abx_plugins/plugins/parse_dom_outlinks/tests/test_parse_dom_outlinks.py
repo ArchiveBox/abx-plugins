@@ -118,7 +118,7 @@ class TestParseDomOutlinksWithChrome:
 <head><title>No Links</title></head>
 <body><p>No crawlable links on this page.</p></body>
 </html>
-"""
+""",
         )
         test_url = input_file.resolve().as_uri()
         snapshot_id = "test-outlinks-empty"

@@ -69,7 +69,7 @@ def parse_bookmarked_at(link: dict) -> str | None:
         elif link.get("timestamp"):
             # Chrome/Firefox histories use microseconds
             return to_iso(
-                datetime.fromtimestamp(link["timestamp"] / 1000000, tz=timezone.utc)
+                datetime.fromtimestamp(link["timestamp"] / 1000000, tz=timezone.utc),
             )
         elif link.get("time"):
             return to_iso(json_date(link["time"]))
@@ -142,7 +142,8 @@ def fetch_content(url: str) -> str:
     else:
         timeout = int(os.environ.get("TIMEOUT", "60"))
         user_agent = os.environ.get(
-            "USER_AGENT", "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
+            "USER_AGENT",
+            "Mozilla/5.0 (compatible; ArchiveBox/1.0)",
         )
 
         import urllib.request
@@ -163,7 +164,8 @@ def persist_records(records: list[dict]) -> tuple[str, str]:
     """Write extracted URLs when present, otherwise clear stale output after success."""
     if records:
         write_text_atomic(
-            URLS_FILE, "\n".join(json.dumps(record) for record in records) + "\n"
+            URLS_FILE,
+            "\n".join(json.dumps(record) for record in records) + "\n",
         )
         return "succeeded", f"{len(records)} URLs parsed"
 
@@ -235,8 +237,8 @@ def main(
                 {
                     "type": "Tag",
                     "name": tag_name,
-                }
-            )
+                },
+            ),
         )
 
     # Emit Snapshot records (to stdout as JSONL)

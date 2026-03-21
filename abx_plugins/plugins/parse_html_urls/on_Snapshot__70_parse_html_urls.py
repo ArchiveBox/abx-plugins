@@ -116,7 +116,7 @@ def normalize_url(url: str, root_url: str | None = None) -> str:
         return _normalize_trailing_slash(url)
 
     url_is_absolute = url.lower().startswith("http://") or url.lower().startswith(
-        "https://"
+        "https://",
     )
 
     if url_is_absolute:
@@ -152,7 +152,7 @@ def _normalize_trailing_slash(url: str) -> str:
                     parsed.params,
                     parsed.query,
                     parsed.fragment,
-                )
+                ),
             )
     except Exception:
         pass
@@ -190,7 +190,8 @@ def fetch_content(url: str) -> str:
     else:
         timeout = int(os.environ.get("TIMEOUT", "60"))
         user_agent = os.environ.get(
-            "USER_AGENT", "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
+            "USER_AGENT",
+            "Mozilla/5.0 (compatible; ArchiveBox/1.0)",
         )
 
         import urllib.request
@@ -211,7 +212,8 @@ def persist_records(records: list[dict]) -> tuple[str, str]:
     """Write extracted URLs when present, otherwise clear stale output after success."""
     if records:
         write_text_atomic(
-            URLS_FILE, "\n".join(json.dumps(record) for record in records) + "\n"
+            URLS_FILE,
+            "\n".join(json.dumps(record) for record in records) + "\n",
         )
         return "succeeded", f"{len(records)} URLs parsed"
 
@@ -296,7 +298,7 @@ def main(
         for href in parser.urls:
             normalized = normalize_url(href, root_url=url)
             if normalized.lower().startswith(
-                "http://"
+                "http://",
             ) or normalized.lower().startswith("https://"):
                 if normalized != url:
                     urls_found.add(unescape(normalized))
@@ -305,7 +307,7 @@ def main(
         for match in URL_REGEX.findall(content):
             normalized = normalize_url(match, root_url=url)
             if normalized.lower().startswith(
-                "http://"
+                "http://",
             ) or normalized.lower().startswith("https://"):
                 if normalized != url:
                     urls_found.add(unescape(normalized))

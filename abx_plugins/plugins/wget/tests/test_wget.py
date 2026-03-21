@@ -96,7 +96,8 @@ def test_verify_deps_with_abx_pkg():
         pytest.fail(f"System package providers unavailable in this runtime: {exc}")
 
     wget_binary = Binary(
-        name="wget", binproviders=[apt_provider, brew_provider, env_provider]
+        name="wget",
+        binproviders=[apt_provider, brew_provider, env_provider],
     )
     wget_loaded = wget_binary.load()
 
@@ -428,7 +429,7 @@ def test_staticfile_present_skips():
         staticfile_dir = tmpdir / "staticfile"
         staticfile_dir.mkdir()
         (staticfile_dir / "stdout.log").write_text(
-            '{"type":"ArchiveResult","status":"succeeded","output_str":"index.html"}\n'
+            '{"type":"ArchiveResult","status":"succeeded","output_str":"index.html"}\n',
         )
 
         wget_dir = tmpdir / "wget"

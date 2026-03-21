@@ -49,7 +49,8 @@ def sha256_data(data: bytes) -> str:
 
 
 def collect_files(
-    snapshot_dir: Path, exclude_dirs: list[str] | None = None
+    snapshot_dir: Path,
+    exclude_dirs: list[str] | None = None,
 ) -> list[tuple[Path, str, int]]:
     """Recursively collect all files in snapshot directory."""
     exclude_dirs = exclude_dirs or ["hashes", ".git", "__pycache__"]
@@ -159,8 +160,8 @@ def main(url: str, snapshot_id: str):
                         "type": "ArchiveResult",
                         "status": status,
                         "output_str": "HASHES_ENABLED=False",
-                    }
-                )
+                    },
+                ),
             )
             sys.exit(0)
 

@@ -64,7 +64,7 @@ def get_snapshot_metadata(snap_dir: Path) -> SnapshotMetadata:
                     {
                         "name": item.name,
                         "files": files,
-                    }
+                    },
                 )
         metadata["extractor_outputs"] = extractor_dirs
 
@@ -81,7 +81,7 @@ def build_system_prompt(
 
     parts.append(
         "You are an AI agent running inside ArchiveBox, a self-hosted web archiving tool. "
-        "You have access to the filesystem and can read/write files."
+        "You have access to the filesystem and can read/write files.",
     )
 
     parts.append(
@@ -90,19 +90,19 @@ def build_system_prompt(
         "- **Crawl directory** (`CRAWL_DIR`): The top-level directory for a crawl job. "
         "Contains crawl-wide config, logs, and plugin outputs.\n"
         "- **Snapshot directory** (`SNAP_DIR`): Each URL being archived gets its own snapshot directory "
-        "inside the crawl. Contains per-URL extractor outputs.\n"
+        "inside the crawl. Contains per-URL extractor outputs.\n",
     )
 
     if crawl_dir and crawl_dir.exists():
         crawl_meta = get_crawl_metadata(crawl_dir)
         parts.append(
-            f"\n## Current Crawl\n```\nCRAWL_DIR={crawl_meta['crawl_dir']}\n```\n"
+            f"\n## Current Crawl\n```\nCRAWL_DIR={crawl_meta['crawl_dir']}\n```\n",
         )
 
     if snap_dir and snap_dir.exists():
         snap_meta = get_snapshot_metadata(snap_dir)
         parts.append(
-            f"\n## Current Snapshot\n```\nSNAP_DIR={snap_meta['snap_dir']}\n```\n"
+            f"\n## Current Snapshot\n```\nSNAP_DIR={snap_meta['snap_dir']}\n```\n",
         )
 
         extractor_outputs = snap_meta.get("extractor_outputs", [])
@@ -134,7 +134,7 @@ def build_system_prompt(
         "  headers/           # HTTP headers\n"
         "  hashes/            # File hashes (Merkle tree)\n"
         "  ...\n"
-        "```\n"
+        "```\n",
     )
 
     if extra_context:

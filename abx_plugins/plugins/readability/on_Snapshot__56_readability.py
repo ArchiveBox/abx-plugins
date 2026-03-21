@@ -96,7 +96,8 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
         # Extract and save content
         # readability-extractor uses camelCase field names (textContent, content)
         text_content = result_json.pop(
-            "textContent", result_json.pop("text-content", "")
+            "textContent",
+            result_json.pop("text-content", ""),
         )
         html_content = result_json.pop("content", result_json.pop("html-content", ""))
 
@@ -123,7 +124,8 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
                             responses_images = None
                     if responses_images:
                         rel_target = os.path.relpath(
-                            str(responses_images), str(output_dir)
+                            str(responses_images),
+                            str(output_dir),
                         )
                         link_path.symlink_to(rel_target)
         except Exception:

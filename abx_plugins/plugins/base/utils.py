@@ -316,7 +316,7 @@ def emit_machine_record(config: dict[str, Any]) -> None:
             {
                 "type": "Machine",
                 "config": config,
-            }
+            },
         ),
     )
 

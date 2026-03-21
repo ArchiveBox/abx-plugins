@@ -26,7 +26,9 @@ def _node_binary() -> str:
 
 
 def _write_stub_module(
-    node_modules_dir: Path, package_name: str, contents: str
+    node_modules_dir: Path,
+    package_name: str,
+    contents: str,
 ) -> None:
     package_dir = node_modules_dir / package_name
     package_dir.mkdir(parents=True, exist_ok=True)
@@ -38,7 +40,8 @@ def test_title_hook_respects_node_module_dir_alias(tmp_path: Path) -> None:
     chrome_dir = snap_dir / "chrome"
     chrome_dir.mkdir(parents=True)
     (chrome_dir / "cdp_url.txt").write_text(
-        "ws://127.0.0.1:9222/devtools/browser/test\n", encoding="utf-8"
+        "ws://127.0.0.1:9222/devtools/browser/test\n",
+        encoding="utf-8",
     )
     (chrome_dir / "target_id.txt").write_text("target-1\n", encoding="utf-8")
 
@@ -171,14 +174,15 @@ def test_chrome_launch_prerequisites_wait_for_late_installs(tmp_path: Path) -> N
     puppeteer_dir = node_modules_dir / "puppeteer"
     chrome_binary = tmp_path / "bin" / "chromium"
     chrome_utils_path = json.dumps(
-        str(REPO_ROOT / "abx_plugins" / "plugins" / "chrome" / "chrome_utils.js")
+        str(REPO_ROOT / "abx_plugins" / "plugins" / "chrome" / "chrome_utils.js"),
     )
 
     def materialize_prereqs() -> None:
         time.sleep(0.5)
         puppeteer_dir.mkdir(parents=True, exist_ok=True)
         (puppeteer_dir / "index.js").write_text(
-            "module.exports = { launch: async () => ({}) };\n", encoding="utf-8"
+            "module.exports = { launch: async () => ({}) };\n",
+            encoding="utf-8",
         )
         chrome_binary.parent.mkdir(parents=True, exist_ok=True)
         chrome_binary.write_text("#!/bin/sh\necho Chromium 123\n", encoding="utf-8")

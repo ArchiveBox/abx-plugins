@@ -328,7 +328,7 @@ class TestClaudeChromeIntegration:
 
                 # Verify conversation.json structure
                 conversation_data = json.loads(
-                    (output_dir / "conversation.json").read_text()
+                    (output_dir / "conversation.json").read_text(),
                 )
                 assert conversation_data["url"] == claudechrome_test_url
                 assert conversation_data["success"] is True

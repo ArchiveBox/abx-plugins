@@ -59,7 +59,7 @@ def create_snapshot_with_duplicates(snap_dir: Path) -> dict:
         "This domain is for use in illustrative examples in documents. "
         "You may use this domain in literature without prior coordination "
         "or asking for permission.\n\n"
-        "More information about example domains can be found at the IANA website.\n"
+        "More information about example domains can be found at the IANA website.\n",
     )
     (readability_dir / "article.json").write_text(
         json.dumps(
@@ -69,7 +69,7 @@ def create_snapshot_with_duplicates(snap_dir: Path) -> dict:
                 "siteName": "example.com",
             },
             indent=2,
-        )
+        ),
     )
     created["dirs"].append("readability")
 
@@ -77,7 +77,7 @@ def create_snapshot_with_duplicates(snap_dir: Path) -> dict:
     htmltotext_dir = snap_dir / "htmltotext"
     htmltotext_dir.mkdir()
     (htmltotext_dir / "content.txt").write_text(
-        "Example Domain\nThis domain is for use in illustrative examples.\n"
+        "Example Domain\nThis domain is for use in illustrative examples.\n",
     )
     created["dirs"].append("htmltotext")
 
@@ -86,10 +86,10 @@ def create_snapshot_with_duplicates(snap_dir: Path) -> dict:
     mercury_dir.mkdir()
     (mercury_dir / "content.html").write_text(
         "<div><h1>Example Domain</h1>"
-        "<p>This domain is for use in illustrative examples.</p></div>"
+        "<p>This domain is for use in illustrative examples.</p></div>",
     )
     (mercury_dir / "content.txt").write_text(
-        "Example Domain\nThis domain is for use in illustrative examples.\n"
+        "Example Domain\nThis domain is for use in illustrative examples.\n",
     )
     (mercury_dir / "article.json").write_text(
         json.dumps(
@@ -98,7 +98,7 @@ def create_snapshot_with_duplicates(snap_dir: Path) -> dict:
                 "content": "<p>This domain is for use in illustrative examples.</p>",
             },
             indent=2,
-        )
+        ),
     )
     created["dirs"].append("mercury")
 
@@ -132,8 +132,8 @@ def create_snapshot_with_duplicates(snap_dir: Path) -> dict:
                 "root_hash": "abc123",
                 "files": [],
                 "metadata": {"file_count": 0},
-            }
-        )
+            },
+        ),
     )
     created["dirs"].append("hashes")
 

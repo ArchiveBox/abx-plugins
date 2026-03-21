@@ -38,7 +38,7 @@ def main():
         warnings.append(
             f"WGET_TIMEOUT={wget_timeout} is very low. "
             "wget may fail to archive sites if set to less than ~20 seconds. "
-            "Consider setting WGET_TIMEOUT=60 or higher."
+            "Consider setting WGET_TIMEOUT=60 or higher.",
         )
 
     if wget_enabled:

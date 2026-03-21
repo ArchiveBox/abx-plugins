@@ -8,7 +8,8 @@ HOOK = Path(__file__).parent.parent / "on_Snapshot__90_index_sqlite.py"
 
 
 def run_hook(
-    tmp_path: Path, snapshot_id: str = "snap-001"
+    tmp_path: Path,
+    snapshot_id: str = "snap-001",
 ) -> subprocess.CompletedProcess[str]:
     output_dir = tmp_path / "search_backend_sqlite"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -19,7 +20,7 @@ def run_hook(
             "SNAP_DIR": str(tmp_path),
             "SEARCH_BACKEND_ENGINE": "sqlite",
             "USE_INDEXING_BACKEND": "true",
-        }
+        },
     )
     return subprocess.run(
         [str(HOOK), "--url=https://example.com", f"--snapshot-id={snapshot_id}"],
@@ -53,7 +54,7 @@ def test_hook_indexes_sibling_outputs_and_symlinks_sources(tmp_path: Path) -> No
     conn = sqlite3.connect(str(tmp_path / "search.sqlite3"))
     try:
         row = conn.execute(
-            "SELECT snapshot_id, url, title, content FROM search_index"
+            "SELECT snapshot_id, url, title, content FROM search_index",
         ).fetchone()
     finally:
         conn.close()

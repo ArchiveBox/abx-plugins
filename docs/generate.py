@@ -46,7 +46,7 @@ def fallback_icon(plugin_name: str) -> Markup:
             <text x="12" y="16" text-anchor="middle" font-size="11" font-family="IBM Plex Mono, monospace" fill="currentColor">{letter}</text>
           </svg>
         </span>
-        """
+        """,
     )
 
 
@@ -126,7 +126,8 @@ def collect_hooks(plugin_dir: Path) -> list[dict[str, Any]]:
 
 
 def collect_config_fields(
-    plugin_dir: Path, config_schema: dict[str, Any]
+    plugin_dir: Path,
+    config_schema: dict[str, Any],
 ) -> list[dict[str, Any]]:
     properties = config_schema.get("properties", {})
     fields: list[dict[str, Any]] = []
@@ -144,13 +145,15 @@ def collect_config_fields(
                 "minimum": details.get("minimum"),
                 "pattern": details.get("pattern"),
                 "enum": list(details.get("enum", [])),
-            }
+            },
         )
     return fields
 
 
 def build_commands(
-    plugin_name: str, hooks: list[dict[str, Any]], config_fields: list[dict[str, Any]]
+    plugin_name: str,
+    hooks: list[dict[str, Any]],
+    config_fields: list[dict[str, Any]],
 ) -> dict[str, str]:
     has_snapshot = any(hook["phase"] == "Snapshot" for hook in hooks)
     has_setup = any(hook["phase"] in {"Crawl", "Binary"} for hook in hooks)
@@ -304,7 +307,7 @@ def collect_plugins() -> list[dict[str, Any]]:
             plugin["sort_group"],
             plugin["sort_order"],
             plugin["name"].lower(),
-        )
+        ),
     )
     return plugins
 
@@ -327,7 +330,7 @@ def render_marketplace(output_dir: Path, template_name: str) -> Path:
             "hook_count": sum(plugin["hook_count"] for plugin in plugins),
             "config_count": sum(plugin["config_count"] for plugin in plugins),
             "plugins": plugins,
-        }
+        },
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -339,7 +342,7 @@ def render_marketplace(output_dir: Path, template_name: str) -> Path:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Build the abx-plugins marketplace site."
+        description="Build the abx-plugins marketplace site.",
     )
     parser.add_argument(
         "--output-dir",

@@ -118,7 +118,9 @@ def test_crawl_hook_respects_configured_chrome_binary(browser_name):
 
 @pytest.mark.parametrize("browser_name", ["chrome", "chromium"])
 def test_resolve_binary_reference_accepts_command_names(
-    tmp_path: Path, monkeypatch, browser_name: str
+    tmp_path: Path,
+    monkeypatch,
+    browser_name: str,
 ):
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir(parents=True, exist_ok=True)

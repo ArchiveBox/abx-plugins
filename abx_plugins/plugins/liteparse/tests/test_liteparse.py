@@ -115,7 +115,7 @@ def test_crawl_hook_emits_lit_binary_record():
     assert binary.get("type") == "Binary"
     assert binary.get("name") == "lit"
     assert binary.get("overrides", {}).get("npm", {}).get("install_args") == [
-        "@llamaindex/liteparse"
+        "@llamaindex/liteparse",
     ]
 
 

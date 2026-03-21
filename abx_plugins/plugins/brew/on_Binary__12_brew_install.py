@@ -68,11 +68,13 @@ def main(
             try:
                 overrides_dict = json.loads(overrides)
                 click.echo(
-                    f"Using custom install overrides: {overrides_dict}", err=True
+                    f"Using custom install overrides: {overrides_dict}",
+                    err=True,
                 )
             except json.JSONDecodeError:
                 click.echo(
-                    f"Warning: Failed to parse overrides JSON: {overrides}", err=True
+                    f"Warning: Failed to parse overrides JSON: {overrides}",
+                    err=True,
                 )
 
         allowed_providers = (

@@ -34,8 +34,8 @@ def main():
         binproviders="env,npm",
         overrides={
             "npm": {
-                "install_args": ["https://github.com/ArchiveBox/readability-extractor"]
-            }
+                "install_args": ["https://github.com/ArchiveBox/readability-extractor"],
+            },
         },
     )
 

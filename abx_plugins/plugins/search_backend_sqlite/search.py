@@ -30,7 +30,8 @@ FTS_SEPARATE_DATABASE = os.environ.get("FTS_SEPARATE_DATABASE", "true").lower() 
     "yes",
 )
 FTS_TOKENIZERS = os.environ.get(
-    "FTS_TOKENIZERS", "porter unicode61 remove_diacritics 2"
+    "FTS_TOKENIZERS",
+    "porter unicode61 remove_diacritics 2",
 ).strip()
 
 
@@ -76,7 +77,8 @@ def flush(snapshot_ids: Iterable[str]) -> None:
     try:
         for snapshot_id in snapshot_ids:
             conn.execute(
-                "DELETE FROM search_index WHERE snapshot_id = ?", (snapshot_id,)
+                "DELETE FROM search_index WHERE snapshot_id = ?",
+                (snapshot_id,),
             )
         conn.commit()
     except sqlite3.OperationalError:

@@ -69,10 +69,16 @@ def html_to_text(html: str) -> str:
     except Exception:
         # Fallback: strip HTML tags with regex
         text = re.sub(
-            r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE
+            r"<script[^>]*>.*?</script>",
+            "",
+            html,
+            flags=re.DOTALL | re.IGNORECASE,
         )
         text = re.sub(
-            r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL | re.IGNORECASE
+            r"<style[^>]*>.*?</style>",
+            "",
+            text,
+            flags=re.DOTALL | re.IGNORECASE,
         )
         text = re.sub(r"<[^>]+>", " ", text)
         text = re.sub(r"\s+", " ", text)

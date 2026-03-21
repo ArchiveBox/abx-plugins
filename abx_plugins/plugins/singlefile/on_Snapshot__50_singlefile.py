@@ -82,7 +82,9 @@ def summarize_error(detail: str) -> str:
 
 
 def run_chrome_utils(
-    command: str, *args: str, timeout: int
+    command: str,
+    *args: str,
+    timeout: int,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [str(CHROME_UTILS_SCRIPT), command, *args],
@@ -94,7 +96,8 @@ def run_chrome_utils(
 
 
 def get_browser_server_url(
-    timeout: int, require_target: bool = True
+    timeout: int,
+    require_target: bool = True,
 ) -> tuple[str | None, str]:
     timeout_ms = max(1000, timeout * 1000)
     result = run_chrome_utils(
@@ -143,7 +146,8 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
         )
 
     print(
-        f"[singlefile] Using existing Chrome session: {cdp_remote_url}", file=sys.stderr
+        f"[singlefile] Using existing Chrome session: {cdp_remote_url}",
+        file=sys.stderr,
     )
     cmd.extend(["--browser-server", cdp_remote_url])
 
@@ -226,7 +230,8 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
 
 
 def save_singlefile_with_extension(
-    url: str, timeout: int
+    url: str,
+    timeout: int,
 ) -> tuple[bool, str | None, str]:
     """Save using the SingleFile Chrome extension via existing Chrome session."""
     print(f"[singlefile] Extension mode start url={url}", file=sys.stderr)
@@ -307,10 +312,12 @@ def save_singlefile_with_extension(
 
     print(f"[singlefile] helper_returncode={result_returncode}", file=sys.stderr)
     print(
-        f"[singlefile] helper_stdout_len={len(result_stdout or b'')}", file=sys.stderr
+        f"[singlefile] helper_stdout_len={len(result_stdout or b'')}",
+        file=sys.stderr,
     )
     print(
-        f"[singlefile] helper_stderr_len={len(result_stderr or b'')}", file=sys.stderr
+        f"[singlefile] helper_stderr_len={len(result_stderr or b'')}",
+        file=sys.stderr,
     )
 
     if result_returncode == 0:

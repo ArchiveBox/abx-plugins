@@ -87,7 +87,7 @@ def main(
                     "CHROMIUM_VERSION": str(existing_binary.version)
                     if existing_binary.version
                     else "",
-                }
+                },
             )
             sys.exit(0)
 
@@ -99,15 +99,19 @@ def main(
 
     if not puppeteer_binary.abspath:
         click.echo(
-            "ERROR: puppeteer binary not found (install puppeteer first)", err=True
+            "ERROR: puppeteer binary not found (install puppeteer first)",
+            err=True,
         )
         sys.exit(1)
 
     install_args = _parse_override_install_args(
-        overrides, default=[f"{name}@latest", "--install-deps"]
+        overrides,
+        default=[f"{name}@latest", "--install-deps"],
     )
     proc = _run_puppeteer_install(
-        binary=puppeteer_binary, install_args=install_args, cache_dir=cache_dir
+        binary=puppeteer_binary,
+        install_args=install_args,
+        cache_dir=cache_dir,
     )
     if proc.returncode != 0:
         click.echo(proc.stdout.strip(), err=True)
@@ -145,7 +149,8 @@ def main(
 
 
 def _parse_override_install_args(
-    overrides: str | None, default: list[str]
+    overrides: str | None,
+    default: list[str],
 ) -> list[str]:
     if not overrides:
         return default
@@ -197,7 +202,9 @@ def _run_puppeteer_install(binary: Binary, install_args: list[str], cache_dir: P
 
 
 def _run_puppeteer_install_with_sudo(
-    binary: Binary, install_args: list[str], cache_dir: Path
+    binary: Binary,
+    install_args: list[str],
+    cache_dir: Path,
 ):
     """Re-run puppeteer install via sudo so --install-deps can install system libs."""
     import subprocess as _subprocess
@@ -242,7 +249,8 @@ def _cleanup_partial_chromium_cache(install_output: str, cache_dir: Path) -> boo
     chromium_cache_dir = cache_dir / "chromium"
 
     missing_dir_match = re.search(
-        r"browser folder \(([^)]+)\) exists but the executable", install_output
+        r"browser folder \(([^)]+)\) exists but the executable",
+        install_output,
     )
     if missing_dir_match:
         targets.add(Path(missing_dir_match.group(1)))
@@ -252,7 +260,8 @@ def _cleanup_partial_chromium_cache(install_output: str, cache_dir: Path) -> boo
         targets.add(Path(missing_zip_match.group(1)))
 
     build_id_match = re.search(
-        r"All providers failed for chromium (\d+)", install_output
+        r"All providers failed for chromium (\d+)",
+        install_output,
     )
     if build_id_match and chromium_cache_dir.exists():
         build_id = build_id_match.group(1)
@@ -366,7 +375,7 @@ def _load_browser_binary(output: str, name: str) -> Binary | None:
         [
             home / ".cache" / "puppeteer",
             home / "Library" / "Caches" / "puppeteer",
-        ]
+        ],
     )
 
     for base in cache_dirs:
@@ -378,8 +387,8 @@ def _load_browser_binary(output: str, name: str) -> Binary | None:
             try:
                 candidates.extend(
                     root.rglob(
-                        "Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
-                    )
+                        "Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+                    ),
                 )
             except Exception:
                 pass

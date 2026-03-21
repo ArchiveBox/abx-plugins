@@ -157,7 +157,7 @@ def _run_opendataloader(
             or f"exit code {result.returncode}"
         )
         raise OpendataloaderRunError(
-            f"opendataloader-pdf failed for {source_file.name} ({fmt}): {error}"
+            f"opendataloader-pdf failed for {source_file.name} ({fmt}): {error}",
         )
 
     # opendataloader-pdf writes {input_stem}.{ext} in the output dir
@@ -187,7 +187,13 @@ def _extract_single_pdf(
         tmp = Path(tmpdir)
         try:
             md_out = _run_opendataloader(
-                binary, source_file, "markdown", tmp, timeout, extra_args, env
+                binary,
+                source_file,
+                "markdown",
+                tmp,
+                timeout,
+                extra_args,
+                env,
             )
         except OpendataloaderRunError as err:
             errors.append(err)
@@ -198,7 +204,13 @@ def _extract_single_pdf(
         tmp = Path(tmpdir)
         try:
             txt_out = _run_opendataloader(
-                binary, source_file, "text", tmp, timeout, extra_args, env
+                binary,
+                source_file,
+                "text",
+                tmp,
+                timeout,
+                extra_args,
+                env,
             )
         except OpendataloaderRunError as err:
             errors.append(err)
@@ -331,7 +343,7 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
 
             if md_content:
                 all_md_parts.append(
-                    f"<!-- source: {source_file.name} -->\n{md_content}"
+                    f"<!-- source: {source_file.name} -->\n{md_content}",
                 )
             if text_content:
                 all_text_parts.append(text_content)
@@ -341,7 +353,7 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
                     "source_file": str(source_file.name),
                     "source_path": str(source_file),
                     "chars_extracted": len(md_content or text_content),
-                }
+                },
             )
 
         except subprocess.TimeoutExpired:

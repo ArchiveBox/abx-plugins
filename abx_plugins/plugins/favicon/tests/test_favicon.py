@@ -63,7 +63,8 @@ def test_extracts_favicon_from_example_com():
 
     # Check requests is available
     check_result = subprocess.run(
-        [sys.executable, "-c", "import requests"], capture_output=True
+        [sys.executable, "-c", "import requests"],
+        capture_output=True,
     )
     if check_result.returncode != 0:
         pass
@@ -134,7 +135,8 @@ def test_config_timeout_honored():
     """Test that TIMEOUT config is respected."""
 
     check_result = subprocess.run(
-        [sys.executable, "-c", "import requests"], capture_output=True
+        [sys.executable, "-c", "import requests"],
+        capture_output=True,
     )
     if check_result.returncode != 0:
         pass
@@ -172,7 +174,8 @@ def test_config_user_agent():
     """Test that USER_AGENT config is used."""
 
     check_result = subprocess.run(
-        [sys.executable, "-c", "import requests"], capture_output=True
+        [sys.executable, "-c", "import requests"],
+        capture_output=True,
     )
     if check_result.returncode != 0:
         pass
@@ -217,7 +220,8 @@ def test_handles_https_urls():
     """Test that HTTPS URLs work correctly."""
 
     check_result = subprocess.run(
-        [sys.executable, "-c", "import requests"], capture_output=True
+        [sys.executable, "-c", "import requests"],
+        capture_output=True,
     )
     if check_result.returncode != 0:
         pass
@@ -256,7 +260,8 @@ def test_handles_missing_favicon_gracefully():
     """
 
     check_result = subprocess.run(
-        [sys.executable, "-c", "import requests"], capture_output=True
+        [sys.executable, "-c", "import requests"],
+        capture_output=True,
     )
     if check_result.returncode != 0:
         pass

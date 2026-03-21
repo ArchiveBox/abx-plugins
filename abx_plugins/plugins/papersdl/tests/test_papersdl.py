@@ -296,7 +296,7 @@ def test_real_public_paper_download():
             return
 
     raise AssertionError(
-        f"Expected at least one live paper URL to download successfully, got: {attempts}"
+        f"Expected at least one live paper URL to download successfully, got: {attempts}",
     )
 
 

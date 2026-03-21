@@ -60,7 +60,10 @@ def get_text_size_kb(texts: list[str]) -> int:
 def strip_html_tags(html: str) -> str:
     """Remove HTML tags, keeping text content."""
     html = re.sub(
-        r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE
+        r"<script[^>]*>.*?</script>",
+        "",
+        html,
+        flags=re.DOTALL | re.IGNORECASE,
     )
     html = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL | re.IGNORECASE)
     html = re.sub(r"<[^>]+>", " ", html)
@@ -209,8 +212,8 @@ def main() -> None:
                     "type": "ArchiveResult",
                     "status": status,
                     "output_str": output_str,
-                }
-            )
+                },
+            ),
         )
 
     sys.exit(0 if status in ("succeeded", "skipped", "noresults") else 1)

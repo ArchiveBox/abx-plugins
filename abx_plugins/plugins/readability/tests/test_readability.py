@@ -107,8 +107,8 @@ def get_readability_binary_path() -> str | None:
         binproviders=[NpmProvider(), EnvProvider()],
         overrides={
             "npm": {
-                "install_args": ["https://github.com/ArchiveBox/readability-extractor"]
-            }
+                "install_args": ["https://github.com/ArchiveBox/readability-extractor"],
+            },
         },
     ).load_or_install()
     if binary and binary.abspath:

@@ -13,7 +13,9 @@ BINARY_HOOK = PLUGIN_DIR / "on_Binary__12_brew_install.py"
 
 def test_brew_hook_respects_brew_only_and_maps_openjdk(monkeypatch, tmp_path):
     fake_abx_pkg = types.SimpleNamespace(
-        Binary=object, BrewProvider=object, EnvProvider=object
+        Binary=object,
+        BrewProvider=object,
+        EnvProvider=object,
     )
     monkeypatch.setitem(sys.modules, "rich_click", __import__("click"))
     monkeypatch.setitem(sys.modules, "abx_pkg", fake_abx_pkg)

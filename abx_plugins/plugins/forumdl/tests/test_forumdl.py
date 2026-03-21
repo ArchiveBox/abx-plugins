@@ -72,8 +72,8 @@ def get_forumdl_binary_path() -> str | None:
                     "six",
                     "html2text",
                     "warcio",
-                ]
-            }
+                ],
+            },
         },
     ).load_or_install()
     if binary and binary.abspath:
@@ -283,7 +283,7 @@ def test_real_forum_url():
         assert jsonl_file.stat().st_size > 0, "forum.jsonl should not be empty"
 
         print(
-            f"Successfully extracted {len(forum_files)} file(s) in {elapsed_time:.2f}s"
+            f"Successfully extracted {len(forum_files)} file(s) in {elapsed_time:.2f}s",
         )
 
 

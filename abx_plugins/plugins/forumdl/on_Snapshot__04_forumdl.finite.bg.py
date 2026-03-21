@@ -103,7 +103,7 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
                 JsonlWriter._serialize_entry = _patched_serialize_entry
         except Exception:
             pass
-        """
+        """,
     ).strip()
     cmd = [
         resolved_binary,

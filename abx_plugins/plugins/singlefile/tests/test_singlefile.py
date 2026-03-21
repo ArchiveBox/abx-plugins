@@ -89,7 +89,7 @@ def ensure_singlefile_extension_installed() -> dict[str, Path]:
             "CHROME_EXTENSIONS_DIR": str(extensions_dir),
             "CHROME_DOWNLOADS_DIR": str(downloads_dir),
             "CHROME_USER_DATA_DIR": str(user_data_dir),
-        }
+        },
     )
 
     result = subprocess.run(
@@ -179,7 +179,7 @@ def test_singlefile_cli_archives_example_com():
                 "PERSONAS_DIR": str(personas_dir),
                 "CHROME_EXTENSIONS_DIR": str(extensions_dir),
                 "CHROME_DOWNLOADS_DIR": str(downloads_dir),
-            }
+            },
         )
 
         result = subprocess.run(
@@ -342,7 +342,7 @@ def test_singlefile_with_extension_uses_existing_chrome():
                 "PERSONAS_DIR": str(personas_dir),
                 "CHROME_EXTENSIONS_DIR": str(extensions_dir),
                 "CHROME_DOWNLOADS_DIR": str(downloads_dir),
-            }
+            },
         )
 
         # Install SingleFile extension cache before launching Chrome

@@ -281,12 +281,12 @@ def test_real_gallery_url():
                 continue
 
             print(
-                f"Successfully extracted {len(image_files)} image(s) in {elapsed_time:.2f}s"
+                f"Successfully extracted {len(image_files)} image(s) in {elapsed_time:.2f}s",
             )
             return
 
     pytest.fail(
-        f"Live gallery download did not yield an image after {max_attempts} attempts. Last error: {last_error}"
+        f"Live gallery download did not yield an image after {max_attempts} attempts. Last error: {last_error}",
     )
 
 

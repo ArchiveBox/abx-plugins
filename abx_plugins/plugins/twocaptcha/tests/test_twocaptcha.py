@@ -34,7 +34,7 @@ LIVE_SOLVE_MAX_ATTEMPTS = 5
 LIVE_SOLVE_TIMEOUT_SECONDS = 180
 LIVE_SOLVE_POLL_INTERVAL_SECONDS = 5
 LIVE_API_KEY = os.environ.get("TWOCAPTCHA_API_KEY") or os.environ.get(
-    "API_KEY_2CAPTCHA"
+    "API_KEY_2CAPTCHA",
 )
 
 
@@ -81,7 +81,10 @@ class TestTwoCaptcha:
             chrome_dir = crawl_dir / "chrome"
             env["CRAWL_DIR"] = str(crawl_dir)
             process, cdp_url = launch_chrome(
-                env, chrome_dir, crawl_id, timeout=CHROME_STARTUP_TIMEOUT_SECONDS
+                env,
+                chrome_dir,
+                crawl_id,
+                timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
             )
 
             try:
@@ -90,7 +93,7 @@ class TestTwoCaptcha:
                     f"twocaptcha not loaded: {exts}"
                 )
                 print(
-                    f"[+] Extension loaded: id={next(e['id'] for e in exts if e['name'] == 'twocaptcha')}"
+                    f"[+] Extension loaded: id={next(e['id'] for e in exts if e['name'] == 'twocaptcha')}",
                 )
             finally:
                 kill_chrome(process, chrome_dir)
@@ -105,7 +108,10 @@ class TestTwoCaptcha:
             env["TWOCAPTCHA_RETRY_DELAY"] = "10"
 
             subprocess.run(
-                [str(INSTALL_SCRIPT)], env=env, timeout=120, capture_output=True
+                [str(INSTALL_SCRIPT)],
+                env=env,
+                timeout=120,
+                capture_output=True,
             )
 
             # Launch Chromium in crawls directory
@@ -114,7 +120,10 @@ class TestTwoCaptcha:
             chrome_dir = crawl_dir / "chrome"
             env["CRAWL_DIR"] = str(crawl_dir)
             process, cdp_url = launch_chrome(
-                env, chrome_dir, crawl_id, timeout=CHROME_STARTUP_TIMEOUT_SECONDS
+                env,
+                chrome_dir,
+                crawl_id,
+                timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
             )
 
             try:
@@ -138,7 +147,7 @@ class TestTwoCaptcha:
                 # Verify config via options.html and Config.getAll()
                 # Get the actual extension ID from the config marker (Chrome computes IDs differently)
                 config_marker = json.loads(
-                    (chrome_dir / ".twocaptcha_configured").read_text()
+                    (chrome_dir / ".twocaptcha_configured").read_text(),
                 )
                 ext_id = config_marker["extensionId"]
                 script = f"""
@@ -180,7 +189,8 @@ const puppeteer = require('puppeteer-core');
 """
                 script_path = tmpdir / "v.js"
                 script_path.write_text(
-                    f"#!/usr/bin/env node\n{script}", encoding="utf-8"
+                    f"#!/usr/bin/env node\n{script}",
+                    encoding="utf-8",
                 )
                 script_path.chmod(0o755)
                 r = subprocess.run(
@@ -263,7 +273,10 @@ const puppeteer = require('puppeteer-core');
             env["TWOCAPTCHA_API_KEY"] = self.api_key
 
             subprocess.run(
-                [str(INSTALL_SCRIPT)], env=env, timeout=120, capture_output=True
+                [str(INSTALL_SCRIPT)],
+                env=env,
+                timeout=120,
+                capture_output=True,
             )
 
             # Launch Chromium in crawls directory
@@ -272,7 +285,10 @@ const puppeteer = require('puppeteer-core');
             chrome_dir = crawl_dir / "chrome"
             env["CRAWL_DIR"] = str(crawl_dir)
             process, cdp_url = launch_chrome(
-                env, chrome_dir, crawl_id, timeout=CHROME_STARTUP_TIMEOUT_SECONDS
+                env,
+                chrome_dir,
+                crawl_id,
+                timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
             )
 
             try:
@@ -346,16 +362,16 @@ const puppeteer = require('puppeteer-core');
                             f"Invalid solve token: {token}"
                         )
                         print(
-                            f"[+] SUCCESS! Received 2captcha token prefix: {token[:24]}..."
+                            f"[+] SUCCESS! Received 2captcha token prefix: {token[:24]}...",
                         )
                         break
                     except Exception as exc:
                         attempt_errors.append(
-                            f"attempt {attempt}: {type(exc).__name__}: {exc}"
+                            f"attempt {attempt}: {type(exc).__name__}: {exc}",
                         )
                         if attempt < LIVE_SOLVE_MAX_ATTEMPTS:
                             print(
-                                f"[!] 2captcha live solve attempt {attempt}/{LIVE_SOLVE_MAX_ATTEMPTS} failed, retrying..."
+                                f"[!] 2captcha live solve attempt {attempt}/{LIVE_SOLVE_MAX_ATTEMPTS} failed, retrying...",
                             )
                             time.sleep(2)
 
@@ -363,7 +379,7 @@ const puppeteer = require('puppeteer-core');
                     pytest.fail(
                         "2captcha live solve failed after "
                         f"{LIVE_SOLVE_MAX_ATTEMPTS} attempts:\n"
-                        + "\n".join(attempt_errors)
+                        + "\n".join(attempt_errors),
                     )
             finally:
                 kill_chrome(process, chrome_dir)

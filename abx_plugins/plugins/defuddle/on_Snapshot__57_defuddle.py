@@ -85,7 +85,7 @@ def extract_defuddle(url: str, binary: str) -> tuple[str, str]:
                 parsed.get("textContent")
                 or parsed.get("text")
                 or parsed.get("markdown")
-                or ""
+                or "",
             )
             metadata = {
                 key: value

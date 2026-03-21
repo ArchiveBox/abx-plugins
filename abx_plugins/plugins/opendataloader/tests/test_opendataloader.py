@@ -166,7 +166,8 @@ def test_opendataloader_env_sets_java_home_and_path(tmp_path):
     sys.modules.update(monkeypatch_modules)
 
     spec = importlib.util.spec_from_file_location(
-        "opendataloader_hook", OPENDATALOADER_HOOK
+        "opendataloader_hook",
+        OPENDATALOADER_HOOK,
     )
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)

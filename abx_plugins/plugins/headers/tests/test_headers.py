@@ -206,7 +206,7 @@ def test_extracts_headers_from_example_com(require_chrome_runtime, headers_test_
 
         assert "url" in headers_data, "Should have url field"
         assert normalize_root_url(headers_data["url"]) == normalize_root_url(
-            test_url
+            test_url,
         ), f"URL should be {test_url}"
 
         assert "status" in headers_data, "Should have status field"
@@ -239,7 +239,7 @@ def test_extracts_headers_from_example_com(require_chrome_runtime, headers_test_
         )
 
         assert headers_data["response_headers"].get(":status") == str(
-            headers_data["status"]
+            headers_data["status"],
         ), "Response headers should include :status pseudo header"
 
 
@@ -474,7 +474,7 @@ def test_handles_https_urls(require_chrome_runtime, chrome_test_https_url):
             assert headers_file.exists(), "headers.json not created for HTTPS page"
             output_data = json.loads(headers_file.read_text())
             assert normalize_root_url(output_data["url"]) == normalize_root_url(
-                chrome_test_https_url
+                chrome_test_https_url,
             )
             assert output_data["status"] == 200
         else:
@@ -548,16 +548,16 @@ def test_redirect_updates_headers_final_url(require_chrome_runtime, headers_test
 
         output_data = json.loads(headers_file.read_text())
         assert normalize_root_url(output_data["url"]) == normalize_root_url(
-            redirect_url
+            redirect_url,
         )
         assert normalize_root_url(output_data["final_url"]) == normalize_root_url(
-            final_url
+            final_url,
         ), (
             f"final_url should reflect the post-redirect destination, got {output_data['final_url']}"
         )
         assert output_data["status"] == 200, output_data
         assert normalize_root_url(output_data["response_url"]) == normalize_root_url(
-            final_url
+            final_url,
         ), output_data
 
 

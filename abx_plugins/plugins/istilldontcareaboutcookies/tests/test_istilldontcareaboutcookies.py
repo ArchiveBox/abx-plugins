@@ -25,7 +25,8 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 PLUGIN_DIR = Path(__file__).parent.parent
 _INSTALL_SCRIPT = next(
-    PLUGIN_DIR.glob("on_Crawl__*_install_istilldontcareaboutcookies_extension.*"), None
+    PLUGIN_DIR.glob("on_Crawl__*_install_istilldontcareaboutcookies_extension.*"),
+    None,
 )
 if _INSTALL_SCRIPT is None:
     raise FileNotFoundError(f"Install script not found in {PLUGIN_DIR}")
@@ -216,7 +217,7 @@ def test_extension_loads_in_chromium():
             )
         except Exception as exc:
             raise RuntimeError(
-                f"Chromium launch failed after waiting up to {CHROME_STARTUP_TIMEOUT_SECONDS}s"
+                f"Chromium launch failed after waiting up to {CHROME_STARTUP_TIMEOUT_SECONDS}s",
             ) from exc
 
         print(f"Chromium launched with CDP URL: {cdp_url}")
@@ -285,7 +286,8 @@ const puppeteer = require('puppeteer-core');
 """
             script_path = tmpdir / "test_extension.js"
             script_path.write_text(
-                f"#!/usr/bin/env node\n{test_script}", encoding="utf-8"
+                f"#!/usr/bin/env node\n{test_script}",
+                encoding="utf-8",
             )
             script_path.chmod(0o755)
 
@@ -322,7 +324,10 @@ const puppeteer = require('puppeteer-core');
 
 
 def check_cookie_consent_visibility(
-    cdp_url: str, test_url: str, env: dict, script_dir: Path
+    cdp_url: str,
+    test_url: str,
+    env: dict,
+    script_dir: Path,
 ) -> dict:
     """Check if cookie consent elements are visible on a page.
 
@@ -455,7 +460,7 @@ const puppeteer = require('puppeteer-core');
     ]
     if not output_lines:
         raise RuntimeError(
-            f"No JSON output from cookie check: {result.stdout}\nstderr: {result.stderr}"
+            f"No JSON output from cookie check: {result.stdout}\nstderr: {result.stderr}",
         )
 
     return json.loads(output_lines[-1])
@@ -497,10 +502,11 @@ def test_hides_cookie_consent_on_static_page(httpserver):
 
         env_no_ext = env_base.copy()
         env_no_ext["CHROME_EXTENSIONS_DIR"] = str(
-            personas_dir / "Default" / "empty_extensions"
+            personas_dir / "Default" / "empty_extensions",
         )
         (personas_dir / "Default" / "empty_extensions").mkdir(
-            parents=True, exist_ok=True
+            parents=True,
+            exist_ok=True,
         )
 
         # Launch baseline Chromium in crawls directory
@@ -524,12 +530,15 @@ def test_hides_cookie_consent_on_static_page(httpserver):
             time.sleep(2)
 
             baseline_result = check_cookie_consent_visibility(
-                baseline_cdp_url, test_url, env_no_ext, tmpdir
+                baseline_cdp_url,
+                test_url,
+                env_no_ext,
+                tmpdir,
             )
 
             print(
                 f"Baseline result: visible={baseline_result['visible']}, "
-                f"elements_found={len(baseline_result['elements_found'])}"
+                f"elements_found={len(baseline_result['elements_found'])}",
             )
 
             if baseline_result["elements_found"]:
@@ -537,7 +546,7 @@ def test_hides_cookie_consent_on_static_page(httpserver):
                 for el in baseline_result["elements_found"][:5]:  # Show first 5
                     print(
                         f"  - {el['selector']}: visible={el['visible']}, "
-                        f"display={el['display']}, size={el['width']}x{el['height']}"
+                        f"display={el['display']}, size={el['width']}x{el['height']}",
                     )
 
         finally:
@@ -553,18 +562,18 @@ def test_hides_cookie_consent_on_static_page(httpserver):
             # - Our selectors don't match this site
             print("\nWARNING: No cookie consent visible in baseline!")
             print(
-                f"HTML has cookie keywords: {baseline_result.get('has_cookie_keyword_in_html')}"
+                f"HTML has cookie keywords: {baseline_result.get('has_cookie_keyword_in_html')}",
             )
             print(f"HTML snippet: {baseline_result.get('html_snippet', '')[:200]}")
 
             pytest.fail(
                 f"Cannot test extension: no cookie consent visible in baseline on {test_url}. "
                 f"Elements found: {len(baseline_result['elements_found'])}. "
-                "The fixture HTML may need to be updated."
+                "The fixture HTML may need to be updated.",
             )
 
         print(
-            f"\n✓ Baseline confirmed: Cookie consent IS visible (selector: {baseline_result['selector']})"
+            f"\n✓ Baseline confirmed: Cookie consent IS visible (selector: {baseline_result['selector']})",
         )
 
         # ============================================================
@@ -617,7 +626,8 @@ def test_hides_cookie_consent_on_static_page(httpserver):
             print(f"Extension Chromium launched: {ext_cdp_url}")
 
             loaded_exts = wait_for_extensions_metadata(
-                ext_chrome_dir, timeout_seconds=10
+                ext_chrome_dir,
+                timeout_seconds=10,
             )
             print(f"Extensions loaded: {[e.get('name') for e in loaded_exts]}")
 
@@ -625,12 +635,15 @@ def test_hides_cookie_consent_on_static_page(httpserver):
             time.sleep(3)
 
             ext_result = check_cookie_consent_visibility(
-                ext_cdp_url, test_url, env_with_ext, tmpdir
+                ext_cdp_url,
+                test_url,
+                env_with_ext,
+                tmpdir,
             )
 
             print(
                 f"Extension result: visible={ext_result['visible']}, "
-                f"elements_found={len(ext_result['elements_found'])}"
+                f"elements_found={len(ext_result['elements_found'])}",
             )
 
             if ext_result["elements_found"]:
@@ -638,7 +651,7 @@ def test_hides_cookie_consent_on_static_page(httpserver):
                 for el in ext_result["elements_found"][:5]:
                     print(
                         f"  - {el['selector']}: visible={el['visible']}, "
-                        f"display={el['display']}, size={el['width']}x{el['height']}"
+                        f"display={el['display']}, size={el['width']}x{el['height']}",
                     )
 
         finally:
@@ -652,7 +665,7 @@ def test_hides_cookie_consent_on_static_page(httpserver):
         print("STEP 4: COMPARISON")
         print("=" * 60)
         print(
-            f"Baseline (no extension): cookie consent visible = {baseline_result['visible']}"
+            f"Baseline (no extension): cookie consent visible = {baseline_result['visible']}",
         )
         print(f"With extension: cookie consent visible = {ext_result['visible']}")
 

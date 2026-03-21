@@ -68,7 +68,8 @@ def main(
                 click.echo(f"Using apt install overrides: {overrides_dict}", err=True)
             except json.JSONDecodeError:
                 click.echo(
-                    f"Warning: Failed to parse overrides JSON: {overrides}", err=True
+                    f"Warning: Failed to parse overrides JSON: {overrides}",
+                    err=True,
                 )
 
         # Prefer already-installed binaries found in PATH, then fall back to apt install.

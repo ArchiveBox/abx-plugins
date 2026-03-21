@@ -117,7 +117,10 @@ def _run_liteparse(
 
 
 def _extract_single_pdf(
-    binary: str, source_file: Path, timeout: int, extra_args: list[str]
+    binary: str,
+    source_file: Path,
+    timeout: int,
+    extra_args: list[str],
 ) -> tuple[str, str]:
     """Run text + JSON extraction on a single PDF, return (text_content, json_content)."""
     text_content = ""
@@ -182,7 +185,7 @@ def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
 
             if text_content:
                 all_text_parts.append(
-                    f"<!-- source: {source_file.name} -->\n{text_content}"
+                    f"<!-- source: {source_file.name} -->\n{text_content}",
                 )
             if json_content:
                 all_json_parts.append(json_content)
@@ -192,7 +195,7 @@ def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
                     "source_file": str(source_file.name),
                     "source_path": str(source_file),
                     "chars_extracted": len(text_content or json_content),
-                }
+                },
             )
 
         except subprocess.TimeoutExpired:
@@ -237,7 +240,8 @@ def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
                 except json.JSONDecodeError:
                     parsed_jsons.append(jp)
             write_text_atomic(
-                output_dir / JSON_FILE, json.dumps(parsed_jsons, indent=2)
+                output_dir / JSON_FILE,
+                json.dumps(parsed_jsons, indent=2),
             )
 
     write_text_atomic(

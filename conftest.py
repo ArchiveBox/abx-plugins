@@ -127,7 +127,8 @@ def tee_captured_subprocess_output_on_failure(
 
 @pytest.fixture(autouse=True)
 def isolated_test_env(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> dict[str, Path]:
     """Apply per-test env overrides and let monkeypatch restore global state after each test."""
     test_root = tmp_path / "abx_plugins_env"
@@ -194,7 +195,7 @@ def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
         os.environ["SNAP_DIR"] = str(tmp_path_factory.mktemp("chrome_test_data"))
     if not os.environ.get("PERSONAS_DIR"):
         os.environ["PERSONAS_DIR"] = str(
-            tmp_path_factory.mktemp("chrome_test_personas")
+            tmp_path_factory.mktemp("chrome_test_personas"),
         )
 
     env = get_test_env()
@@ -219,7 +220,7 @@ def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
 
 
 ensure_chromium_and_puppeteer_installed = pytest.fixture(scope="session")(
-    ensure_chromium_and_puppeteer_installed_impl
+    ensure_chromium_and_puppeteer_installed_impl,
 )
 
 
@@ -243,7 +244,8 @@ def ensure_claude_code_prereqs(tmp_path_factory):
         env = os.environ.copy()
         env.setdefault("LIB_DIR", str(get_lib_dir()))
         env.setdefault(
-            "CRAWL_DIR", str(tmp_path_factory.mktemp("claudecode_test_data"))
+            "CRAWL_DIR",
+            str(tmp_path_factory.mktemp("claudecode_test_data")),
         )
         env["CLAUDECODE_ENABLED"] = "true"
 
@@ -263,7 +265,7 @@ def ensure_claude_code_prereqs(tmp_path_factory):
             )
             if install_result.returncode != 0:
                 raise RuntimeError(
-                    f"Claude Code install hook failed: {install_result.stderr or install_result.stdout}"
+                    f"Claude Code install hook failed: {install_result.stderr or install_result.stdout}",
                 )
 
             binary_record = (
@@ -271,7 +273,7 @@ def ensure_claude_code_prereqs(tmp_path_factory):
             )
             if binary_record.get("name") != "claude":
                 raise RuntimeError(
-                    "Claude Code install hook did not emit a claude Binary record"
+                    "Claude Code install hook did not emit a claude Binary record",
                 )
 
             npm_cmd = [
@@ -296,7 +298,7 @@ def ensure_claude_code_prereqs(tmp_path_factory):
             )
             if npm_result.returncode != 0:
                 raise RuntimeError(
-                    f"Claude Code npm install failed:\nstdout: {npm_result.stdout}\nstderr: {npm_result.stderr}"
+                    f"Claude Code npm install failed:\nstdout: {npm_result.stdout}\nstderr: {npm_result.stderr}",
                 )
 
             records = parse_jsonl_records(npm_result.stdout)
@@ -312,13 +314,13 @@ def ensure_claude_code_prereqs(tmp_path_factory):
             )
             if not claude_record:
                 raise RuntimeError(
-                    "Claude Code npm install did not emit a resolved claude Binary record"
+                    "Claude Code npm install did not emit a resolved claude Binary record",
                 )
 
             claude_bin = claude_record.get("abspath")
             if not isinstance(claude_bin, str) or not Path(claude_bin).exists():
                 raise RuntimeError(
-                    f"Claude Code binary not found after install: {claude_bin}"
+                    f"Claude Code binary not found after install: {claude_bin}",
                 )
 
             os.environ.update(env)
@@ -340,7 +342,7 @@ def ensure_claude_code_prereqs(tmp_path_factory):
     if not api_key:
         pytest.fail(
             "ANTHROPIC_API_KEY not set.  Claude Code integration tests "
-            "require a valid API key."
+            "require a valid API key.",
         )
 
     # Quick smoke test: claude --version
@@ -352,7 +354,7 @@ def ensure_claude_code_prereqs(tmp_path_factory):
     )
     if result.returncode != 0:
         pytest.fail(
-            f"'claude --version' failed (rc={result.returncode}): {result.stderr}"
+            f"'claude --version' failed (rc={result.returncode}): {result.stderr}",
         )
 
     return claude_bin
@@ -368,7 +370,7 @@ def ensure_anthropic_api_key():
     if not api_key:
         pytest.fail(
             "ANTHROPIC_API_KEY not set.  Integration tests that call the "
-            "Anthropic API require a valid API key."
+            "Anthropic API require a valid API key.",
         )
     return api_key
 

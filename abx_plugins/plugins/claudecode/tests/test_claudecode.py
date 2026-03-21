@@ -107,7 +107,7 @@ class TestClaudeCodePlugin:
             assert binary_records[0]["name"] == "claude"
             assert "npm" in binary_records[0]["binproviders"]
             assert binary_records[0]["overrides"]["npm"]["install_args"] == [
-                "@anthropic-ai/claude-code"
+                "@anthropic-ai/claude-code",
             ]
 
             archive_results = [r for r in records if r.get("type") == "ArchiveResult"]
@@ -274,7 +274,7 @@ class TestClaudeCodeIntegration:
             snap_dir = Path(tmpdir)
             (snap_dir / "readability").mkdir()
             (snap_dir / "readability" / "content.txt").write_text(
-                "This is example.com content about domains."
+                "This is example.com content about domains.",
             )
 
             system_prompt = build_system_prompt(snap_dir=snap_dir)

@@ -173,7 +173,7 @@ def test_find_chromium_uses_canonical_managed_puppeteer_cache_dir(tmp_path: Path
         {
             "LIB_DIR": str(tmp_path / "lib"),
             "HOME": str(tmp_path / "home"),
-        }
+        },
     )
     env.pop("CHROME_BINARY", None)
 
@@ -188,7 +188,9 @@ def test_find_chromium_uses_canonical_managed_puppeteer_cache_dir(tmp_path: Path
     [("chrome", "Google Chrome"), ("chromium", "Chromium")],
 )
 def test_find_chromium_accepts_command_name_chrome_binary(
-    tmp_path: Path, browser_name: str, label: str
+    tmp_path: Path,
+    browser_name: str,
+    label: str,
 ):
     """CHROME_BINARY should accept command names, not only filesystem paths."""
     binary_path = tmp_path / "bin" / browser_name
@@ -199,7 +201,7 @@ def test_find_chromium_accepts_command_name_chrome_binary(
         {
             "CHROME_BINARY": browser_name,
             "PATH": f"{binary_path.parent}{os.pathsep}{env.get('PATH', '')}",
-        }
+        },
     )
 
     returncode, stdout, stderr = _call_chrome_utils("findChromium", env=env)
@@ -489,7 +491,7 @@ def test_install_chromium_with_hooks_reuses_existing_chromium_via_env(tmp_path: 
     puppeteer_dir = node_modules_dir / "puppeteer"
     puppeteer_dir.mkdir(parents=True, exist_ok=True)
     (puppeteer_dir / "package.json").write_text(
-        '{"name":"puppeteer","version":"0.0.0","main":"index.js"}\n'
+        '{"name":"puppeteer","version":"0.0.0","main":"index.js"}\n',
     )
     (puppeteer_dir / "index.js").write_text("module.exports = {};\n")
 
@@ -500,7 +502,7 @@ def test_install_chromium_with_hooks_reuses_existing_chromium_via_env(tmp_path: 
             "LIB_DIR": str(tmp_path / "lib"),
             "NODE_MODULES_DIR": str(node_modules_dir),
             "NODE_PATH": str(node_modules_dir),
-        }
+        },
     )
     resolved = install_chromium_with_hooks(env, timeout=1)
 
@@ -524,7 +526,8 @@ def test_setup_test_env_provisions_extension_runtime_dirs(tmp_path: Path):
 
 
 def test_session_fixture_preserves_runtime_chrome_binary_override(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     """Session fixture should default CHROME_BINARY, not overwrite explicit overrides."""
     import abx_plugins.plugins.chrome.tests.chrome_test_helpers as helpers
@@ -551,7 +554,7 @@ def test_session_fixture_preserves_runtime_chrome_binary_override(
     )
 
     resolved = helpers.ensure_chromium_and_puppeteer_installed_impl(
-        DummyTmpPathFactory()
+        DummyTmpPathFactory(),
     )
 
     assert resolved == str(installed_binary)

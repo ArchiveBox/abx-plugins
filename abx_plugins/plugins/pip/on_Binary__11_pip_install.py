@@ -44,7 +44,7 @@ def _is_executable(path: Path) -> bool:
 
 def _pip_venv_is_ready(pip_venv_path: Path) -> bool:
     return _is_executable(pip_venv_path / "bin" / "python") and _is_executable(
-        pip_venv_path / "bin" / "pip"
+        pip_venv_path / "bin" / "pip",
     )
 
 
@@ -156,7 +156,8 @@ def main(
                     # Extract pip-specific overrides
                     overrides_dict = overrides_dict.get("pip", {})
                     click.echo(
-                        f"Using pip install overrides: {overrides_dict}", err=True
+                        f"Using pip install overrides: {overrides_dict}",
+                        err=True,
                     )
                 except json.JSONDecodeError:
                     click.echo(
@@ -203,7 +204,7 @@ def main(
     emit_machine_record(
         {
             "PATH": new_path,
-        }
+        },
     )
 
     # Log human-readable info to stderr

@@ -47,7 +47,8 @@ if _CHROME_TAB_HOOK is None:
     raise FileNotFoundError(f"Chrome tab hook not found in {CHROME_PLUGIN_DIR}")
 CHROME_TAB_HOOK = _CHROME_TAB_HOOK
 _CHROME_NAVIGATE_HOOK = get_hook_script(
-    CHROME_PLUGIN_DIR, "on_Snapshot__*_chrome_navigate.*"
+    CHROME_PLUGIN_DIR,
+    "on_Snapshot__*_chrome_navigate.*",
 )
 if _CHROME_NAVIGATE_HOOK is None:
     raise FileNotFoundError(f"Chrome navigate hook not found in {CHROME_PLUGIN_DIR}")
@@ -134,7 +135,7 @@ def test_screenshot_with_chrome_session(chrome_test_url):
                 screenshot_dir3 = snapshot_chrome_dir.parent / "screenshot3"
                 screenshot_dir3.mkdir()
                 (snapshot_chrome_dir / "target_id.txt").write_text(
-                    "nonexistent-target-id"
+                    "nonexistent-target-id",
                 )
 
                 result = subprocess.run(
@@ -173,7 +174,7 @@ def test_skips_when_staticfile_exists(chrome_test_url):
         staticfile_dir = snapshot_dir / "staticfile"
         staticfile_dir.mkdir()
         (staticfile_dir / "stdout.log").write_text(
-            '{"type":"ArchiveResult","status":"succeeded","output_str":"index.html"}\n'
+            '{"type":"ArchiveResult","status":"succeeded","output_str":"index.html"}\n',
         )
 
         env = get_test_env() | {"SNAP_DIR": str(snapshot_dir)}
@@ -204,7 +205,7 @@ def test_config_save_screenshot_false_skips(chrome_test_url):
 
     # FIRST check what Python sees
     print(
-        f"\n[DEBUG PYTHON] NODE_V8_COVERAGE in os.environ: {'NODE_V8_COVERAGE' in os.environ}"
+        f"\n[DEBUG PYTHON] NODE_V8_COVERAGE in os.environ: {'NODE_V8_COVERAGE' in os.environ}",
     )
     print(f"[DEBUG PYTHON] Value: {os.environ.get('NODE_V8_COVERAGE', 'NOT SET')}")
 
@@ -297,7 +298,7 @@ def test_waits_for_navigation_timeout(chrome_test_url):
         chrome_dir = snap_dir / "chrome"
         chrome_dir.mkdir(parents=True, exist_ok=True)
         (chrome_dir / "cdp_url.txt").write_text(
-            "ws://chrome-cdp.localhost:9222/devtools/browser/test"
+            "ws://chrome-cdp.localhost:9222/devtools/browser/test",
         )
         (chrome_dir / "target_id.txt").write_text("test-target-id")
         # Intentionally NOT creating navigation.json to test timeout
@@ -448,7 +449,7 @@ def test_no_target_id_fails(chrome_test_url):
         chrome_dir.mkdir()
         # Create cdp_url.txt and navigation.json but NOT target_id.txt
         (chrome_dir / "cdp_url.txt").write_text(
-            "ws://chrome-cdp.localhost:9222/devtools/browser/test"
+            "ws://chrome-cdp.localhost:9222/devtools/browser/test",
         )
         (chrome_dir / "navigation.json").write_text("{}")
 

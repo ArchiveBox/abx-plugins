@@ -216,7 +216,8 @@ class TestPipProviderIntegration:
                 try:
                     record = json.loads(line)
                     if record.get("type") == "Binary" and "pip" in record.get(
-                        "name", ""
+                        "name",
+                        "",
                     ):
                         # Found pip binary
                         assert record.get("abspath")

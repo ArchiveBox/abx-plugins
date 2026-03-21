@@ -41,7 +41,7 @@ class TestHashesPlugin:
             # Create some test files
             (snap_dir / "index.html").write_text("<html><body>Test</body></html>")
             (snap_dir / "screenshot.png").write_bytes(
-                b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+                b"\x89PNG\r\n\x1a\n" + b"\x00" * 100,
             )
 
             subdir = snap_dir / "media"

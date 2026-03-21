@@ -48,7 +48,7 @@ def create_fake_snapshot(snap_dir: Path) -> None:
     (readability_dir / "content.txt").write_text(
         "Example Domain\n\n"
         "This domain is for use in illustrative examples in documents.\n"
-        "You may use this domain in literature without prior coordination.\n"
+        "You may use this domain in literature without prior coordination.\n",
     )
     (readability_dir / "article.json").write_text(
         json.dumps(
@@ -56,8 +56,8 @@ def create_fake_snapshot(snap_dir: Path) -> None:
                 "title": "Example Domain",
                 "byline": None,
                 "siteName": "example.com",
-            }
-        )
+            },
+        ),
     )
 
     # htmltotext output
@@ -65,7 +65,7 @@ def create_fake_snapshot(snap_dir: Path) -> None:
     htmltotext_dir.mkdir()
     (htmltotext_dir / "content.txt").write_text(
         "Example Domain\n"
-        "This domain is for use in illustrative examples in documents.\n"
+        "This domain is for use in illustrative examples in documents.\n",
     )
 
     # dom output
