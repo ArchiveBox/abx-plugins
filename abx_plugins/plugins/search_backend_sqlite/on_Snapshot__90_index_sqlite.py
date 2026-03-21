@@ -14,7 +14,7 @@ SQLite FTS5 search backend - indexes snapshot content for full-text search.
 This hook runs after all extractors and indexes text content in SQLite FTS5.
 Only runs if SEARCH_BACKEND_ENGINE=sqlite.
 
-Usage: on_Snapshot__90_index_sqlite.py --url=<url> --snapshot-id=<uuid>
+Usage: on_Snapshot__90_index_sqlite.py --url=<url>
 
 Environment variables:
     SEARCH_BACKEND_ENGINE: Must be 'sqlite' for this hook to run
@@ -25,14 +25,18 @@ Environment variables:
 """
 
 import argparse
-import json
 import os
 import re
 import sqlite3
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import get_env, get_env_bool
+from abx_plugins.plugins.base.utils import (
+    emit_archive_result_record,
+    get_env,
+    get_env_bool,
+    get_extra_context,
+)
 
 
 # Extractor metadata
@@ -217,14 +221,19 @@ def index_in_sqlite(snapshot_id: str, url: str, title: str, texts: list[str]) ->
         conn.close()
 
 
+def get_snapshot_id_from_context() -> str:
+    extra_context = get_extra_context()
+    return str(
+        extra_context.get("snapshot_id") or extra_context.get("id") or "",
+    ).strip()
+
+
 def main() -> None:
     """Index snapshot content in SQLite FTS5."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", required=True, help="URL that was archived")
-    parser.add_argument("--snapshot-id", required=True, help="Snapshot UUID")
-    args = parser.parse_args()
+    args, _unknown_args = parser.parse_known_args()
     url = args.url
-    snapshot_id = args.snapshot_id
 
     status = "failed"
     error = ""
@@ -246,6 +255,10 @@ def main() -> None:
             status = "skipped"
             output_str = "USE_INDEXING_BACKEND=False"
         else:
+            snapshot_id = get_snapshot_id_from_context()
+            if not snapshot_id:
+                raise RuntimeError("missing snapshot_id in extra context")
+
             contents = find_indexable_content()
 
             if not contents:
@@ -273,15 +286,7 @@ def main() -> None:
         print(f"ERROR: {error}", file=sys.stderr)
 
     if status in ("succeeded", "skipped", "noresults"):
-        print(
-            json.dumps(
-                {
-                    "type": "ArchiveResult",
-                    "status": status,
-                    "output_str": output_str,
-                },
-            ),
-        )
+        emit_archive_result_record(status, output_str)
 
     sys.exit(0 if status in ("succeeded", "skipped", "noresults") else 1)
 

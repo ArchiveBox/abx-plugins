@@ -57,7 +57,6 @@ class TestHashesPlugin:
                 [
                     str(HASHES_HOOK),
                     "--url=https://example.com",
-                    "--snapshot-id=test-snapshot",
                 ],
                 capture_output=True,
                 text=True,
@@ -116,7 +115,6 @@ class TestHashesPlugin:
                 [
                     str(HASHES_HOOK),
                     "--url=https://example.com",
-                    "--snapshot-id=test-snapshot",
                 ],
                 capture_output=True,
                 text=True,
@@ -145,7 +143,6 @@ class TestHashesPlugin:
                 [
                     str(HASHES_HOOK),
                     "--url=https://example.com",
-                    "--snapshot-id=test-snapshot",
                 ],
                 capture_output=True,
                 text=True,

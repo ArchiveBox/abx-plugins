@@ -75,7 +75,6 @@ class TestParseDomOutlinksWithChrome:
                     [
                         str(OUTLINKS_HOOK),
                         f"--url={test_url}",
-                        f"--snapshot-id={snapshot_id}",
                     ],
                     cwd=str(snapshot_chrome_dir),
                     capture_output=True,
@@ -136,7 +135,6 @@ class TestParseDomOutlinksWithChrome:
                     [
                         str(OUTLINKS_HOOK),
                         f"--url={test_url}",
-                        f"--snapshot-id={snapshot_id}",
                     ],
                     cwd=str(snapshot_chrome_dir),
                     capture_output=True,

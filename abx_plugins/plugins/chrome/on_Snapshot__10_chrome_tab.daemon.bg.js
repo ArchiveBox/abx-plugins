@@ -5,7 +5,7 @@
  * Connects to the crawl-level Chrome session (from on_Crawl__90_chrome_launch.daemon.bg.js)
  * and creates a new tab. This hook does NOT launch its own Chrome instance.
  *
- * Usage: on_Snapshot__10_chrome_tab.daemon.bg.js --url=<url> --snapshot-id=<uuid> --crawl-id=<uuid>
+ * Usage: on_Snapshot__10_chrome_tab.daemon.bg.js --url=<url>
  * Output: Creates chrome/ directory under snapshot output dir with:
  *   - cdp_url.txt: WebSocket URL for CDP connection
  *   - chrome.pid: Chrome process ID (from crawl)
@@ -213,12 +213,10 @@ process.on('SIGINT', () => cleanup('SIGINT'));
 async function main() {
     const args = parseArgs();
     const url = args.url;
-    const snapshotId = args.snapshot_id;
-    const crawlId = args.crawl_id || getEnv('CRAWL_ID', '');
     let releaseLock = null;
 
-    if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__10_chrome_tab.daemon.bg.js --url=<url> --snapshot-id=<uuid> [--crawl-id=<uuid>]');
+    if (!url) {
+        console.error('Usage: on_Snapshot__10_chrome_tab.daemon.bg.js --url=<url>');
         process.exit(1);
     }
 
@@ -352,7 +350,7 @@ async function main() {
             if (!crawlSession?.cdpUrl) {
                 throw new Error('No Chrome session found (chrome plugin must run first)');
             }
-            console.log(`[*] Found existing Chrome session from crawl ${crawlId}`);
+            console.log('[*] Found existing Chrome session');
             currentCdpUrl = crawlSession.cdpUrl;
 
             if (existingTargetId) {

@@ -101,15 +101,13 @@ def persist_records(records: list[dict]) -> tuple[str, str]:
     return "noresults", NORESULTS_OUTPUT
 
 
-@click.command()
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--url", required=True, help="RSS/Atom feed URL to parse")
-@click.option("--snapshot-id", required=False, help="Parent Snapshot UUID")
-@click.option("--crawl-id", required=False, help="Crawl UUID")
 @click.option("--depth", type=int, default=0, help="Current depth level")
 def main(
     url: str,
-    snapshot_id: str | None = None,
-    crawl_id: str | None = None,
     depth: int = 0,
 ):
     """Parse RSS/Atom feed and extract article URLs."""
@@ -119,8 +117,6 @@ def main(
             depth = int(env_depth)
         except Exception:
             pass
-    crawl_id = crawl_id or os.environ.get("CRAWL_ID")
-
     if feedparser is None:
         emit_result("failed", "feedparser library not installed")
         sys.exit(1)
@@ -182,10 +178,6 @@ def main(
                 "plugin": PLUGIN_NAME,
                 "depth": depth + 1,
             }
-            if snapshot_id:
-                entry["parent_snapshot_id"] = snapshot_id
-            if crawl_id:
-                entry["crawl_id"] = crawl_id
             if title:
                 entry["title"] = unescape(title)
             if bookmarked_at:

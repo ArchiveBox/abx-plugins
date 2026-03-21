@@ -12,7 +12,7 @@
 """
 Archive a URL using SingleFile.
 
-Usage: on_Snapshot__singlefile.py --url=<url> --snapshot-id=<uuid>
+Usage: on_Snapshot__singlefile.py --url=<url>
 Output: Writes singlefile.html to $PWD
 
 Environment variables:
@@ -339,10 +339,11 @@ def save_singlefile_with_extension(
     return False, None, summarize_error(detail) or "SingleFile extension failed"
 
 
-@click.command()
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--url", required=True, help="URL to archive")
-@click.option("--snapshot-id", required=True, help="Snapshot UUID")
-def main(url: str, snapshot_id: str):
+def main(url: str):
     """Archive a URL using SingleFile."""
 
     print(f"[singlefile] Hook starting pid={os.getpid()} url={url}", file=sys.stderr)

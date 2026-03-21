@@ -14,7 +14,7 @@
 # Install a binary using npm package manager and configure PATH and NODE_MODULES_DIR environment variables.
 #
 # Usage:
-#     ./on_Binary__10_npm_install.py --machine-id=<uuid> --binary-id=<uuid> --name=<name> [...] > events.jsonl
+#     ./on_Binary__10_npm_install.py --name=<name> [...] > events.jsonl
 
 import json
 import os
@@ -45,21 +45,15 @@ def _resolve_node_modules_dir(binary_abspath: str | Path, npm_prefix: Path) -> P
     return npm_prefix / "node_modules"
 
 
-@click.command()
-@click.option("--machine-id", required=True, help="Machine UUID")
-@click.option("--binary-id", required=True, help="Dependency UUID")
-@click.option("--plugin-name", required=True, help="Requesting plugin name")
-@click.option("--hook-name", required=True, help="Requesting hook name")
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--name", required=True, help="Binary name to install")
 @click.option("--binproviders", default="*", help="Allowed providers (comma-separated)")
 @click.option("--min-version", default="", help="Minimum acceptable version")
 @click.option("--custom-cmd", default=None, help="Custom install command")
 @click.option("--overrides", default=None, help="JSON-encoded overrides dict")
 def main(
-    binary_id: str,
-    machine_id: str,
-    plugin_name: str,
-    hook_name: str,
     name: str,
     binproviders: str,
     min_version: str,
@@ -119,8 +113,6 @@ def main(
         click.echo(f"{name} not found after npm install", err=True)
         sys.exit(1)
 
-    machine_id = machine_id.strip() or os.environ.get("MACHINE_ID", "").strip()
-
     # Output Binary JSONL record to stdout
     emit_binary_record(
         name=name,
@@ -128,10 +120,6 @@ def main(
         version=str(binary.version) if binary.version else "",
         sha256=binary.sha256 or "",
         binprovider="npm",
-        machine_id=machine_id,
-        binary_id=binary_id,
-        plugin_name=plugin_name,
-        hook_name=hook_name,
     )
 
     # Emit PATH update for npm bin dirs (node_modules/.bin preferred)

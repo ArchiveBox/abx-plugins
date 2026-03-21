@@ -6,7 +6,7 @@
  * redirect chain from the initial request. It stays alive through navigation
  * and emits JSONL on SIGTERM.
  *
- * Usage: on_Snapshot__25_redirects.daemon.bg.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__25_redirects.daemon.bg.js --url=<url>
  * Output: Writes redirects.jsonl
  */
 
@@ -271,10 +271,9 @@ async function handleShutdown(signal) {
 async function main() {
     const args = parseArgs();
     const url = args.url;
-    const snapshotId = args.snapshot_id;
 
-    if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__25_redirects.daemon.bg.js --url=<url> --snapshot-id=<uuid>');
+    if (!url) {
+        console.error('Usage: on_Snapshot__25_redirects.daemon.bg.js --url=<url>');
         process.exit(1);
     }
 

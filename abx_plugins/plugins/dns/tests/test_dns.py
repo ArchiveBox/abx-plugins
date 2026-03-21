@@ -29,6 +29,21 @@ DNS_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_dns.*")
 TEST_URL = "https://example.com"
 
 
+def get_system_nameservers():
+    """Return the nameservers Node sees for the current runtime."""
+    result = subprocess.run(
+        [
+            "node",
+            "-e",
+            "const dns=require('dns'); console.log(JSON.stringify(dns.getServers()))",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return json.loads(result.stdout.strip())
+
+
 class TestDNSPlugin:
     """Test the DNS plugin."""
 
@@ -127,6 +142,14 @@ class TestDNSWithChrome:
             assert records, "No DNS records parsed"
             has_ip_record = any(r.get("hostname") and r.get("ip") for r in records)
             assert has_ip_record, f"No DNS record with hostname + ip: {records}"
+            expected_nameservers = get_system_nameservers()
+            assert all("nameservers" in record for record in records), records
+            assert all(isinstance(record["nameservers"], list) for record in records), (
+                records
+            )
+            assert all(
+                record["nameservers"] == expected_nameservers for record in records
+            ), records
 
             archive_result = None
             for line in stdout.split("\n"):

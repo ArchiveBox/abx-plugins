@@ -19,7 +19,7 @@ found, combining results into content.md, content.txt, and metadata.json.
 For scanned/image-based PDFs, set OPENDATALOADER_FORCE_OCR=true to use the
 hybrid OCR backend (requires opendataloader-pdf-hybrid server running).
 
-Usage: on_Snapshot__60_opendataloader.py --url=<url> --snapshot-id=<uuid> > events.jsonl
+Usage: on_Snapshot__60_opendataloader.py --url=<url> > events.jsonl
 
 Environment variables:
     OPENDATALOADER_BINARY: Path to opendataloader-pdf binary
@@ -418,10 +418,11 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
     return "succeeded", f"{PLUGIN_DIR}/{TEXT_FILE}"
 
 
-@click.command()
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--url", required=True, help="URL being archived")
-@click.option("--snapshot-id", required=True, help="Snapshot UUID")
-def main(url: str, snapshot_id: str):
+def main(url: str):
     """Extract structured text from PDFs using opendataloader-pdf."""
 
     try:

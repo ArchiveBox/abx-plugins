@@ -132,20 +132,69 @@ function parseArgs() {
 // JSONL record emission
 // ---------------------------------------------------------------------------
 
+function parseExtraContext(raw, source) {
+    try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            return parsed;
+        }
+        writeFdFully(2, `[base/utils.js] Warning: ignoring non-object extra context from ${source}\n`);
+    } catch (error) {
+        writeFdFully(2, `[base/utils.js] Warning: ignoring invalid extra context from ${source}: ${error.message}\n`);
+    }
+    return {};
+}
+
+function getExtraContext() {
+    const context = {};
+    const envRaw = getEnv('EXTRA_CONTEXT');
+    if (envRaw) {
+        Object.assign(context, parseExtraContext(envRaw, 'EXTRA_CONTEXT'));
+    }
+
+    const argv = process.argv.slice(2);
+    for (let i = 0; i < argv.length; i += 1) {
+        const arg = argv[i];
+        if (arg === '--extra-context') {
+            const value = argv[i + 1];
+            if (value === undefined) {
+                writeFdFully(2, '[base/utils.js] Warning: ignoring missing value for --extra-context\n');
+                return context;
+            }
+            Object.assign(context, parseExtraContext(value, '--extra-context'));
+            return context;
+        }
+        if (arg.startsWith('--extra-context=')) {
+            Object.assign(context, parseExtraContext(arg.slice('--extra-context='.length), '--extra-context'));
+            return context;
+        }
+    }
+
+    return context;
+}
+
+function mergeExtraContext(record) {
+    const extraContext = getExtraContext();
+    if (!Object.keys(extraContext).length) {
+        return record;
+    }
+    return { ...extraContext, ...record };
+}
+
 function emitArchiveResultRecord(status, outputStr, extra = {}) {
-    writeFdFully(1, `${JSON.stringify({
+    writeFdFully(1, `${JSON.stringify(mergeExtraContext({
         type: 'ArchiveResult',
         status,
         output_str: outputStr,
         ...extra,
-    })}\n`);
+    }))}\n`);
 }
 
 function emitSnapshotRecord(record) {
-    writeFdFully(1, `${JSON.stringify({
+    writeFdFully(1, `${JSON.stringify(mergeExtraContext({
         type: 'Snapshot',
         ...record,
-    })}\n`);
+    }))}\n`);
 }
 
 // ---------------------------------------------------------------------------

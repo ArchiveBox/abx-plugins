@@ -14,7 +14,7 @@
 # cookies, and timeout configurations via environment variables.
 #
 # Usage:
-#     ./on_Snapshot__03_gallerydl.finite.bg.py --url=<url> --snapshot-id=<uuid> > events.jsonl
+#     ./on_Snapshot__03_gallerydl.finite.bg.py --url=<url> > events.jsonl
 
 import os
 import subprocess
@@ -199,10 +199,11 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
         return False, None, f"{type(e).__name__}: {e}"
 
 
-@click.command()
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--url", required=True, help="URL to download gallery from")
-@click.option("--snapshot-id", required=True, help="Snapshot UUID")
-def main(url: str, snapshot_id: str):
+def main(url: str):
     """Download image gallery from a URL using gallery-dl."""
 
     output = None

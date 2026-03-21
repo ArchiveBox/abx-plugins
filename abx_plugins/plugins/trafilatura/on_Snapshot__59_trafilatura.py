@@ -147,8 +147,7 @@ def extract_trafilatura(url: str, binary: str) -> tuple[str, str]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", required=True, help="URL to extract article from")
-    parser.add_argument("--snapshot-id", required=True, help="Snapshot UUID")
-    args = parser.parse_args()
+    args, _unknown = parser.parse_known_args()
 
     try:
         config = load_config()

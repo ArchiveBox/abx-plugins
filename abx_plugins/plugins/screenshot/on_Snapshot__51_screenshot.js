@@ -5,7 +5,7 @@
  * Requires chrome plugin to have already created a Chrome session.
  * Connects to the existing session via CDP and takes a screenshot.
  *
- * Usage: on_Snapshot__51_screenshot.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__51_screenshot.js --url=<url>
  * Output: Writes screenshot/screenshot.png
  *
  * Environment variables:
@@ -117,10 +117,9 @@ async function takeScreenshot(url) {
 async function main() {
     const args = parseArgs();
     const url = args.url;
-    const snapshotId = args.snapshot_id;
 
-    if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__51_screenshot.js --url=<url> --snapshot-id=<uuid>');
+    if (!url) {
+        console.error('Usage: on_Snapshot__51_screenshot.js --url=<url>');
         emitArchiveResultRecord('failed', 'missing required args');
         flushCoverageAndExit(1);
     }

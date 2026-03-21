@@ -11,7 +11,7 @@
  * - iframes: <iframe src>
  * - links: <link> tags with rel/href
  *
- * Usage: on_Snapshot__75_parse_dom_outlinks.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__75_parse_dom_outlinks.js --url=<url>
  * Output: Writes parse_dom_outlinks/urls.jsonl
  *
  * Environment variables:
@@ -52,7 +52,7 @@ function unlinkIfExists(filePath) {
 }
 
 // Extract outlinks
-async function extractOutlinks(url, snapshotId, crawlId, depth, timeoutMs) {
+async function extractOutlinks(url, depth, timeoutMs) {
     // Output directory is current directory (hook already runs in output dir)
     let browser = null;
 
@@ -162,8 +162,6 @@ async function extractOutlinks(url, snapshotId, crawlId, depth, timeoutMs) {
             url: href,
             plugin: PLUGIN_NAME,
             depth: depth + 1,
-            parent_snapshot_id: snapshotId || undefined,
-            crawl_id: crawlId || undefined,
         })).join('\n');
 
         writeFileAtomic(urlsPath, urlsJsonl + '\n');
@@ -188,12 +186,10 @@ async function extractOutlinks(url, snapshotId, crawlId, depth, timeoutMs) {
 async function main() {
     const args = parseArgs();
     const url = args.url;
-    const snapshotId = args.snapshot_id;
-    const crawlId = args.crawl_id || process.env.CRAWL_ID;
     const depth = parseInt(args.depth || process.env.SNAPSHOT_DEPTH || '0', 10) || 0;
 
-    if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__75_parse_dom_outlinks.js --url=<url> --snapshot-id=<uuid>');
+    if (!url) {
+        console.error('Usage: on_Snapshot__75_parse_dom_outlinks.js --url=<url>');
         emitArchiveResultRecord('failed', 'missing required args');
         process.exit(1);
     }
@@ -212,7 +208,7 @@ async function main() {
 
         const timeoutMs = getEnvInt('PARSE_DOM_OUTLINKS_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
 
-        const result = await extractOutlinks(url, snapshotId, crawlId, depth, timeoutMs);
+        const result = await extractOutlinks(url, depth, timeoutMs);
 
         if (result.success) {
             status = result.status;

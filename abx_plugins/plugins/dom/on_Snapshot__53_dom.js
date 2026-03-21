@@ -4,7 +4,7 @@
  *
  * Requires a Chrome session (from chrome plugin) and connects to it via CDP.
  *
- * Usage: on_Snapshot__53_dom.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__53_dom.js --url=<url>
  * Output: Writes dom/output.html
  *
  * Environment variables:
@@ -86,10 +86,9 @@ async function dumpDom(url, timeoutMs) {
 async function main() {
     const args = parseArgs();
     const url = args.url;
-    const snapshotId = args.snapshot_id;
 
-    if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__53_dom.js --url=<url> --snapshot-id=<uuid>');
+    if (!url) {
+        console.error('Usage: on_Snapshot__53_dom.js --url=<url>');
         emitArchiveResultRecord('failed', 'missing required args');
         process.exit(1);
     }

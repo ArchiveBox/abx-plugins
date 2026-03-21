@@ -14,7 +14,7 @@
 # Supports configurable git arguments and timeout via environment variables.
 #
 # Usage:
-#     ./on_Snapshot__05_git.finite.bg.py --url=<url> --snapshot-id=<uuid> > events.jsonl
+#     ./on_Snapshot__05_git.finite.bg.py --url=<url> > events.jsonl
 
 import os
 import subprocess
@@ -90,10 +90,11 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
         return False, None, f"{type(e).__name__}: {e}"
 
 
-@click.command()
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--url", required=True, help="Git repository URL")
-@click.option("--snapshot-id", required=True, help="Snapshot UUID")
-def main(url: str, snapshot_id: str):
+def main(url: str):
     """Clone a git repository from a URL."""
 
     output = None

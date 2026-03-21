@@ -385,14 +385,15 @@ def test_missing_url_argument():
         assert "Usage:" in result.stderr or "url" in result.stderr.lower()
 
 
-def test_missing_snapshot_id_argument(chrome_test_url):
-    """Test that hook fails gracefully when snapshot-id argument is missing."""
+def test_url_only_without_snapshot_id_argument(chrome_test_url):
+    """Test that hook accepts URL without snapshot-id."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
         snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
         env = get_test_env() | {"SNAP_DIR": str(snap_dir)}
+        env["SCREENSHOT_ENABLED"] = "False"
         result = subprocess.run(
             [str(SCREENSHOT_HOOK), f"--url={chrome_test_url}"],
             cwd=tmpdir,
@@ -402,9 +403,8 @@ def test_missing_snapshot_id_argument(chrome_test_url):
             env=env,
         )
 
-        # Should exit with error
-        assert result.returncode != 0, "Should fail when snapshot-id is missing"
-        assert "Usage:" in result.stderr or "snapshot" in result.stderr.lower()
+        # Should skip successfully and not require --snapshot-id
+        assert result.returncode == 0, "Should not require snapshot-id"
 
 
 def test_no_cdp_url_fails(chrome_test_url):

@@ -14,7 +14,7 @@
 # Outputs forum data to $PWD/ and emits ArchiveResult events to stdout.
 #
 # Usage:
-#     ./on_Snapshot__04_forumdl.finite.bg.py --url=<url> --snapshot-id=<snapshot-id>
+#     ./on_Snapshot__04_forumdl.finite.bg.py --url=<url>
 
 import os
 import shutil
@@ -197,10 +197,11 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
         return False, None, f"{type(e).__name__}: {e}"
 
 
-@click.command()
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--url", required=True, help="URL to download forum from")
-@click.option("--snapshot-id", required=True, help="Snapshot UUID")
-def main(url: str, snapshot_id: str):
+def main(url: str):
     """Download forum content from a URL using forum-dl."""
 
     output = None

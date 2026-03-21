@@ -13,7 +13,7 @@
 # Submit a URL to archive.org for archiving and save the resulting archive.org link.
 #
 # Usage:
-#     ./on_Snapshot__08_archivedotorg.finite.bg.py --url=<url> --snapshot-id=<uuid> > events.jsonl
+#     ./on_Snapshot__08_archivedotorg.finite.bg.py --url=<url> > events.jsonl
 
 import os
 import sys
@@ -109,10 +109,11 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
         return False, None, f"{type(e).__name__}: {e}"
 
 
-@click.command()
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--url", required=True, help="URL to submit to archive.org")
-@click.option("--snapshot-id", required=True, help="Snapshot UUID")
-def main(url: str, snapshot_id: str):
+def main(url: str):
     """Submit a URL to archive.org for archiving."""
 
     config = load_config()

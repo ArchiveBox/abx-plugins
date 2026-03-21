@@ -71,7 +71,9 @@ DEFAULT_PROMPT = (
 )
 
 
-@click.command()
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--url", required=True, help="URL being archived")
 @click.option("--snapshot-id", required=True, help="Snapshot UUID")
 def main(url: str, snapshot_id: str):

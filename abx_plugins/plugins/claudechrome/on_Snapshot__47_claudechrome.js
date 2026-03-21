@@ -12,7 +12,7 @@
  * Priority: 47 - After twocaptcha (crawl-level) and infiniscroll (45), before
  *               singlefile (50), screenshot (51), and other extractors.
  *
- * Usage: on_Snapshot__47_claudechrome.js --url=<url> --snapshot-id=<uuid>
+ * Usage: on_Snapshot__47_claudechrome.js --url=<url>
  * Output: Creates claudechrome/ directory with conversation log and any downloads
  *
  * Environment variables:
@@ -547,10 +547,9 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
 async function main() {
     const args = parseArgs();
     const url = args.url;
-    const snapshotId = args.snapshot_id;
 
-    if (!url || !snapshotId) {
-        console.error('Usage: on_Snapshot__47_claudechrome.js --url=<url> --snapshot-id=<uuid>');
+    if (!url) {
+        console.error('Usage: on_Snapshot__47_claudechrome.js --url=<url>');
         process.exit(1);
     }
 
@@ -608,7 +607,6 @@ async function main() {
         const logPath = path.join(OUTPUT_DIR, 'conversation.json');
         fs.writeFileSync(logPath, JSON.stringify({
             url,
-            snapshotId,
             prompt,
             model,
             timestamp: new Date().toISOString(),

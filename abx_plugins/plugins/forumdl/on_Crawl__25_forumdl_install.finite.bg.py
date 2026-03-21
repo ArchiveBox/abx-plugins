@@ -41,7 +41,6 @@ def main():
             name="forum-dl",
             abspath=forumdl_binary_path,
             binprovider="env",
-            machine_id=os.environ.get("MACHINE_ID", ""),
         )
         sys.exit(0)
 

@@ -13,7 +13,7 @@
 """
 Install Chromium via the Puppeteer CLI.
 
-Usage: on_Binary__12_puppeteer_install.py --binary-id=<uuid> --machine-id=<uuid> --name=<name>
+Usage: on_Binary__12_puppeteer_install.py --name=<name>
 Output: Binary JSONL record to stdout after installation
 """
 
@@ -35,19 +35,13 @@ CLAUDE_SANDBOX_NO_PROXY = (
 )
 
 
-@click.command()
-@click.option("--machine-id", required=True, help="Machine UUID")
-@click.option("--binary-id", required=True, help="Binary UUID")
-@click.option("--plugin-name", required=True, help="Requesting plugin name")
-@click.option("--hook-name", required=True, help="Requesting hook name")
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--name", required=True, help="Binary name to install")
 @click.option("--binproviders", default="*", help="Allowed providers (comma-separated)")
 @click.option("--overrides", default=None, help="JSON-encoded overrides dict")
 def main(
-    machine_id: str,
-    binary_id: str,
-    plugin_name: str,
-    hook_name: str,
     name: str,
     binproviders: str,
     overrides: str | None,
@@ -77,10 +71,6 @@ def main(
         if existing_binary and existing_binary.abspath:
             _emit_browser_binary_record(
                 binary=existing_binary,
-                machine_id=machine_id,
-                binary_id=binary_id,
-                plugin_name=plugin_name,
-                hook_name=hook_name,
                 name=name,
             )
             emit_machine_record(
@@ -131,10 +121,6 @@ def main(
 
     _emit_browser_binary_record(
         binary=chromium_binary,
-        machine_id=machine_id,
-        binary_id=binary_id,
-        plugin_name=plugin_name,
-        hook_name=hook_name,
         name=name,
     )
 
@@ -313,10 +299,6 @@ def _get_install_failure_hint(install_output: str) -> str | None:
 
 def _emit_browser_binary_record(
     binary: Binary,
-    machine_id: str,
-    binary_id: str,
-    plugin_name: str,
-    hook_name: str,
     name: str,
 ) -> None:
     emit_binary_record(
@@ -325,10 +307,6 @@ def _emit_browser_binary_record(
         version=str(binary.version) if binary.version else "",
         sha256=binary.sha256 or "",
         binprovider="puppeteer",
-        machine_id=machine_id,
-        binary_id=binary_id,
-        plugin_name=plugin_name,
-        hook_name=hook_name,
     )
 
 

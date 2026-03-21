@@ -1,3 +1,4 @@
+import json
 import os
 import sqlite3
 import subprocess
@@ -20,10 +21,11 @@ def run_hook(
             "SNAP_DIR": str(tmp_path),
             "SEARCH_BACKEND_ENGINE": "sqlite",
             "USE_INDEXING_BACKEND": "true",
+            "EXTRA_CONTEXT": json.dumps({"snapshot_id": snapshot_id}),
         },
     )
     return subprocess.run(
-        [str(HOOK), "--url=https://example.com", f"--snapshot-id={snapshot_id}"],
+        [str(HOOK), "--url=https://example.com"],
         cwd=str(output_dir),
         env=env,
         capture_output=True,

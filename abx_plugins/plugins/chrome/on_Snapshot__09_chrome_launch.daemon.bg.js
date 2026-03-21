@@ -9,7 +9,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ensureNodeModuleResolution, parseArgs, emitArchiveResultRecord } = require('../base/utils.js');
+const { ensureNodeModuleResolution, emitArchiveResultRecord } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer');
 const {
@@ -52,14 +52,7 @@ process.on('SIGTERM', cleanup);
 process.on('SIGINT', cleanup);
 
 async function main() {
-    const args = parseArgs();
-    const snapshotId = args.snapshot_id;
     let releaseLock = null;
-
-    if (!snapshotId) {
-        console.error('Usage: on_Snapshot__09_chrome_launch.daemon.bg.js --snapshot-id=<uuid> [--url=<url>]');
-        process.exit(1);
-    }
 
     try {
         releaseLock = await acquireSessionLock(path.join(OUTPUT_DIR, '.launch.lock'));

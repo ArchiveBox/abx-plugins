@@ -12,7 +12,7 @@
 #
 # Archive a URL using wget.
 #
-# Usage: on_Snapshot__06_wget.finite.bg.py --url=<url> --snapshot-id=<uuid>
+# Usage: on_Snapshot__06_wget.finite.bg.py --url=<url>
 # Output: Downloads files to $PWD
 #
 # Environment variables:
@@ -149,10 +149,11 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
         return False, None, f"{type(e).__name__}: {e}"
 
 
-@click.command()
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
 @click.option("--url", required=True, help="URL to archive")
-@click.option("--snapshot-id", required=True, help="Snapshot UUID")
-def main(url: str, snapshot_id: str):
+def main(url: str):
     """Archive a URL using wget."""
 
     output = None

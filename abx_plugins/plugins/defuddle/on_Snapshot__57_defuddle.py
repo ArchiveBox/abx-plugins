@@ -122,8 +122,7 @@ def main():
     try:
         parser = argparse.ArgumentParser()
         parser.add_argument("--url", required=True, help="URL to extract article from")
-        parser.add_argument("--snapshot-id", required=True, help="Snapshot UUID")
-        args = parser.parse_args()
+        args, _unknown = parser.parse_known_args()
 
         config = load_config()
 

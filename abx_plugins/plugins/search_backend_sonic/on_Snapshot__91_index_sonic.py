@@ -15,7 +15,7 @@ Sonic search backend - indexes snapshot content in Sonic server.
 This hook runs after all extractors and indexes text content in Sonic.
 Only runs if SEARCH_BACKEND_ENGINE=sonic.
 
-Usage: on_Snapshot__91_index_sonic.py --url=<url> --snapshot-id=<uuid>
+Usage: on_Snapshot__91_index_sonic.py --url=<url>
 
 Environment variables:
     SEARCH_BACKEND_ENGINE: Must be 'sonic' for this hook to run
@@ -28,7 +28,6 @@ Environment variables:
 """
 
 import argparse
-import json
 import os
 import re
 import sys
@@ -36,7 +35,13 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-from abx_plugins.plugins.base.utils import get_env, get_env_bool, get_env_int
+from abx_plugins.plugins.base.utils import (
+    emit_archive_result_record,
+    get_env,
+    get_env_bool,
+    get_env_int,
+    get_extra_context,
+)
 
 
 # Extractor metadata
@@ -182,13 +187,18 @@ def index_in_sonic(snapshot_id: str, texts: list[str]) -> None:
             ingest.push(config["collection"], config["bucket"], snapshot_id, chunk)
 
 
+def get_snapshot_id_from_context() -> str:
+    extra_context = get_extra_context()
+    return str(
+        extra_context.get("snapshot_id") or extra_context.get("id") or "",
+    ).strip()
+
+
 def main() -> None:
     """Index snapshot content in Sonic."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", required=True, help="URL that was archived")
-    parser.add_argument("--snapshot-id", required=True, help="Snapshot UUID")
-    args = parser.parse_args()
-    snapshot_id = args.snapshot_id
+    args, _unknown_args = parser.parse_known_args()
 
     status = "failed"
     error = ""
@@ -210,6 +220,10 @@ def main() -> None:
             status = "skipped"
             output_str = "USE_INDEXING_BACKEND=False"
         else:
+            snapshot_id = get_snapshot_id_from_context()
+            if not snapshot_id:
+                raise RuntimeError("missing snapshot_id in extra context")
+
             contents = find_indexable_content()
 
             if not contents:
@@ -231,15 +245,7 @@ def main() -> None:
         print(f"ERROR: {error}", file=sys.stderr)
 
     if status in ("succeeded", "skipped", "noresults"):
-        print(
-            json.dumps(
-                {
-                    "type": "ArchiveResult",
-                    "status": status,
-                    "output_str": output_str,
-                },
-            ),
-        )
+        emit_archive_result_record(status, output_str)
 
     sys.exit(0 if status in ("succeeded", "skipped", "noresults") else 1)
 
