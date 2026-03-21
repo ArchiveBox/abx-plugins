@@ -159,7 +159,6 @@ def main() -> None:
     parser.add_argument("--url", required=True, help="URL that was archived")
     parser.add_argument("--snapshot-id", required=True, help="Snapshot UUID")
     args = parser.parse_args()
-    url = args.url
     snapshot_id = args.snapshot_id
 
     status = "failed"

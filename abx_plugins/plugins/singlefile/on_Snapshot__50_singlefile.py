@@ -223,7 +223,7 @@ def save_singlefile_with_extension(
         )
         return False, None, "SingleFile extension helper script missing"
 
-    config = load_config()
+    load_config()
     output_path = Path(OUTPUT_DIR) / OUTPUT_FILE
     temp_output_path = temp_path_for(output_path)
     cmd = [

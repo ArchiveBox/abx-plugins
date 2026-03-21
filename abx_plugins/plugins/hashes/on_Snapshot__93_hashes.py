@@ -137,10 +137,8 @@ def format_output_str(total_size: int, root_hash: str | None) -> str:
 def main(url: str, snapshot_id: str):
     """Generate Merkle tree of all archived outputs."""
     status = "failed"
-    output = None
     error = ""
     root_hash = None
-    file_count = 0
     total_size = 0
 
     try:
@@ -181,9 +179,8 @@ def main(url: str, snapshot_id: str):
             json.dump(merkle_data, f, indent=2)
 
         status = "succeeded"
-        output = "hashes.json"
         root_hash = merkle_data["root_hash"]
-        file_count = merkle_data["metadata"]["file_count"]
+        merkle_data["metadata"]["file_count"]
         total_size = merkle_data["metadata"]["total_size"]
 
     except Exception as e:

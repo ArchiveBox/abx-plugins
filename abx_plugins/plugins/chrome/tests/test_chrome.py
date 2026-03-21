@@ -1635,7 +1635,6 @@ def test_crawl_wait_accepts_http_cdp_url_for_external_browser(chrome_test_url):
             env=provider_env,
         )
 
-        adopted_process = None
         try:
             for _ in range(30):
                 if provider_process.poll() is not None:
@@ -1748,7 +1747,7 @@ def test_cookies_imported_on_launch():
             time.sleep(1)
 
         assert (chrome_dir / "cdp_url.txt").exists(), "cdp_url.txt should exist"
-        chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
+        int((chrome_dir / "chrome.pid").read_text().strip())
         port = _port_from_cdp_url((chrome_dir / "cdp_url.txt").read_text().strip())
 
         cookie_found = False
@@ -2444,7 +2443,7 @@ def test_snapshot_wait_survives_idle_delay_with_shared_dirs(chrome_test_url):
                 )
             time.sleep(1)
 
-        chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
+        int((chrome_dir / "chrome.pid").read_text().strip())
         tab_process = launch_snapshot_tab(
             snapshot_chrome_dir=chrome_dir,
             tab_env=env,
