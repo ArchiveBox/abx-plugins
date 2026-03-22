@@ -1,0 +1,191 @@
+abx_plugins/plugins/hashes/on_Snapshot__93_hashes.py
+  3d699cb8c628aeec 28,32-33
+abx_plugins/plugins/papersdl/on_Snapshot__66_papersdl.finite.bg.py
+  3d699cb8c628aeec 48-49
+abx_plugins/plugins/infiniscroll/on_Snapshot__45_infiniscroll.js
+  3d699cb8c628aeec 26,29-30
+abx_plugins/plugins/claudecodeextract/on_Snapshot__58_claudecodeextract.py
+  3d699cb8c628aeec 43,54-56
+abx_plugins/plugins/gallerydl/on_Snapshot__03_gallerydl.finite.bg.py
+  3d699cb8c628aeec 39-40
+abx_plugins/plugins/forumdl/on_Snapshot__04_forumdl.finite.bg.py
+  3d699cb8c628aeec 41-42
+abx_plugins/plugins/chrome/on_Snapshot__11_chrome_wait.js
+  3d699cb8c628aeec 19,24-25
+abx_plugins/plugins/mercury/on_Crawl__40_mercury_install.finite.bg.py
+  3d699cb8c628aeec 21-26,29-30
+abx_plugins/plugins/parse_netscape_urls/on_Snapshot__73_parse_netscape_urls.py
+  3d699cb8c628aeec 37,45-46,189-190,237-238
+abx_plugins/plugins/defuddle/on_Crawl__41_defuddle_install.finite.bg.py
+  3d699cb8c628aeec 19,22-23
+abx_plugins/plugins/readability/on_Crawl__35_readability_install.finite.bg.py
+  3d699cb8c628aeec 19,22-23
+abx_plugins/plugins/defuddle/on_Snapshot__57_defuddle.py
+  3d699cb8c628aeec 32-33
+abx_plugins/plugins/git/on_Crawl__05_git_install.finite.bg.py
+  3d699cb8c628aeec 21,24-25
+abx_plugins/plugins/search_backend_sqlite/on_Snapshot__90_index_sqlite.py
+  3d699cb8c628aeec 39,46-47
+abx_plugins/plugins/base/utils.js
+  3d699cb8c628aeec 16-18,43-178,221,290,375
+abx_plugins/plugins/ublock/on_Crawl__80_install_ublock_extension.js
+  3d699cb8c628aeec 23,26-27
+abx_plugins/plugins/claudecode/on_Crawl__35_claudecode_install.finite.bg.py
+  3d699cb8c628aeec 22-23,30-31,38
+abx_plugins/plugins/claudecodecleanup/on_Snapshot__92_claudecodecleanup.py
+  3d699cb8c628aeec 44,55-57
+abx_plugins/plugins/parse_dom_outlinks/on_Snapshot__75_parse_dom_outlinks.js
+  3d699cb8c628aeec 27,39-40,191
+abx_plugins/plugins/singlefile/on_Crawl__82_singlefile_install.js
+  3d699cb8c628aeec 25,38-41,45
+abx_plugins/plugins/singlefile/on_Snapshot__50_singlefile.py
+  3d699cb8c628aeec 51-52
+abx_plugins/plugins/chrome/on_Crawl__91_chrome_wait.js
+  3d699cb8c628aeec 20,24-25
+abx_plugins/plugins/parse_html_urls/on_Snapshot__70_parse_html_urls.py
+  3d699cb8c628aeec 37,45-46,195-196,272-273
+abx_plugins/plugins/parse_txt_urls/on_Snapshot__71_parse_txt_urls.py
+  3d699cb8c628aeec 37,45-46,115-116,155-156
+abx_plugins/plugins/git/on_Snapshot__05_git.finite.bg.py
+  3d699cb8c628aeec 34-35
+abx_plugins/plugins/puppeteer/config.json
+  3d699cb8c628aeec 13-24
+abx_plugins/plugins/chrome/on_Snapshot__09_chrome_launch.daemon.bg.js
+  3d699cb8c628aeec 12,26-27
+abx_plugins/plugins/claudechrome/on_Crawl__84_claudechrome_install.js
+  3d699cb8c628aeec 19,22-23,49
+abx_plugins/plugins/pdf/on_Snapshot__52_pdf.js
+  3d699cb8c628aeec 20,27,48
+abx_plugins/plugins/forumdl/on_Crawl__25_forumdl_install.finite.bg.py
+  3d699cb8c628aeec 21-26,29-30
+abx_plugins/plugins/dom/on_Snapshot__53_dom.js
+  3d699cb8c628aeec 20,28,43
+abx_plugins/plugins/archivedotorg/on_Snapshot__08_archivedotorg.finite.bg.py
+  3d699cb8c628aeec 32-33
+abx_plugins/plugins/pip/config.json
+  3d699cb8c628aeec 13-19
+abx_plugins/plugins/base/config.json
+  3d699cb8c628aeec 10-106
+abx_plugins/plugins/chrome/on_Snapshot__30_chrome_navigate.js
+  3d699cb8c628aeec 20,30-31
+abx_plugins/plugins/parse_jsonl_urls/on_Snapshot__74_parse_jsonl_urls.py
+  3d699cb8c628aeec 39,47-48,147-148,187-188
+abx_plugins/plugins/redirects/on_Snapshot__25_redirects.daemon.bg.js
+  3d699cb8c628aeec 21,36-37
+abx_plugins/plugins/search_backend_sonic/on_Snapshot__91_index_sonic.py
+  3d699cb8c628aeec 44,51-52
+abx_plugins/plugins/accessibility/on_Snapshot__39_accessibility.js
+  3d699cb8c628aeec 24,35-36
+.github/workflows/release.yml
+  3d699cb8c628aeec 1-42,44
+abx_plugins/plugins/claudechrome/on_Snapshot__47_claudechrome.js
+  3d699cb8c628aeec 36,63-64,72-74
+abx_plugins/plugins/gallerydl/on_Crawl__20_gallerydl_install.finite.bg.py
+  3d699cb8c628aeec 21,24-25
+abx_plugins/plugins/ytdlp/on_Snapshot__02_ytdlp.finite.bg.py
+  3d699cb8c628aeec 46-47
+abx_plugins/plugins/mercury/on_Snapshot__57_mercury.py
+  3d699cb8c628aeec 41-42
+abx_plugins/plugins/parse_rss_urls/on_Snapshot__72_parse_rss_urls.py
+  3d699cb8c628aeec 41,49-50,73-74,113-114
+abx_plugins/plugins/chrome/on_Crawl__70_chrome_install.finite.bg.py
+  3d699cb8c628aeec 24,27-28,35-36,38,41
+abx_plugins/plugins/readability/on_Snapshot__56_readability.py
+  3d699cb8c628aeec 52-53
+abx_plugins/plugins/title/on_Snapshot__54_title.js
+  3d699cb8c628aeec 20,33-34
+abx_plugins/plugins/seo/on_Snapshot__38_seo.js
+  3d699cb8c628aeec 26,39-40
+abx_plugins/plugins/npm/on_Crawl__01_npm_install.py
+  3d699cb8c628aeec 22,25-26
+abx_plugins/plugins/liteparse/on_Crawl__43_liteparse_install.finite.bg.py
+  3d699cb8c628aeec 19,22-23
+abx_plugins/plugins/sslcerts/on_Snapshot__23_sslcerts.daemon.bg.js
+  3d699cb8c628aeec 21,36-37
+abx_plugins/plugins/liteparse/on_Snapshot__61_liteparse.py
+  3d699cb8c628aeec 49-50
+abx_plugins/plugins/search_backend_ripgrep/config.json
+  3d699cb8c628aeec 13-17
+abx_plugins/plugins/ytdlp/on_Crawl__15_ytdlp_install.finite.bg.py
+  3d699cb8c628aeec 21,24-25
+abx_plugins/plugins/papersdl/on_Crawl__30_papersdl_install.finite.bg.py
+  3d699cb8c628aeec 21,24-25
+abx_plugins/plugins/consolelog/on_Snapshot__21_consolelog.daemon.bg.js
+  3d699cb8c628aeec 21,36-37
+abx_plugins/plugins/twocaptcha/on_Crawl__83_twocaptcha_install.js
+  3d699cb8c628aeec 21,24-25,53
+abx_plugins/plugins/staticfile/on_Snapshot__26_staticfile.daemon.bg.js
+  3d699cb8c628aeec 21,33-34
+abx_plugins/plugins/trafilatura/on_Snapshot__59_trafilatura.py
+  3d699cb8c628aeec 28-29
+abx_plugins/plugins/dns/on_Snapshot__22_dns.daemon.bg.js
+  3d699cb8c628aeec 23,38-39
+abx_plugins/plugins/npm/on_Binary__10_npm_install.py
+  3d699cb8c628aeec 27,64,71,131
+abx_plugins/plugins/favicon/on_Snapshot__11_favicon.finite.bg.py
+  3d699cb8c628aeec 36-37
+abx_plugins/plugins/puppeteer/on_Binary__12_puppeteer_install.py
+  3d699cb8c628aeec 33,54-55,62,75,97,115,117-129,322-323,325-326,379
+abx_plugins/plugins/screenshot/on_Snapshot__51_screenshot.js
+  3d699cb8c628aeec 21,28,32,62
+abx_plugins/plugins/wget/on_Snapshot__06_wget.finite.bg.py
+  3d699cb8c628aeec 51-52
+abx_plugins/plugins/headers/on_Snapshot__27_headers.daemon.bg.js
+  3d699cb8c628aeec 21,36-37
+abx_plugins/plugins/chrome/on_Snapshot__10_chrome_tab.daemon.bg.js
+  3d699cb8c628aeec 26,42-43
+abx_plugins/plugins/opendataloader/on_Crawl__42_opendataloader_install.finite.bg.py
+  3d699cb8c628aeec 21,24-25
+abx_plugins/plugins/puppeteer/on_Crawl__60_puppeteer_install.py
+  3d699cb8c628aeec 19,22-23,30
+abx_plugins/plugins/modalcloser/on_Snapshot__15_modalcloser.daemon.bg.js
+  3d699cb8c628aeec 25,28-29
+abx_plugins/plugins/wget/on_Crawl__10_wget_install.finite.bg.py
+  3d699cb8c628aeec 24-25
+abx_plugins/plugins/responses/on_Snapshot__24_responses.daemon.bg.js
+  3d699cb8c628aeec 23,38-39
+abx_plugins/plugins/istilldontcareaboutcookies/on_Crawl__81_install_istilldontcareaboutcookies_extension.js
+  3d699cb8c628aeec 22,25-26
+abx_plugins/plugins/chrome/on_Crawl__90_chrome_launch.daemon.bg.js
+  3d699cb8c628aeec 28,40-41
+abx_plugins/plugins/claudechrome/on_Crawl__96_claudechrome_config.js
+  3d699cb8c628aeec 20,38-39,47
+abx_plugins/plugins/singlefile/on_Crawl__45_singlefile_install.finite.bg.py
+  3d699cb8c628aeec 19,22-23
+abx_plugins/plugins/htmltotext/on_Snapshot__58_htmltotext.py
+  3d699cb8c628aeec 25-29,37-38
+abx_plugins/plugins/base/utils.py
+  3d699cb8c628aeec 31,35-36,39-48,56-58,98-100,103-106,109-110,114-116,118-121,128,140,145-146,165,227-228,239-240,315-316,528-529
+abx_plugins/plugins/search_backend_ripgrep/on_Crawl__50_ripgrep_install.finite.bg.py
+  3d699cb8c628aeec 19,22-23,30-31,33
+abx_plugins/plugins/trafilatura/on_Crawl__41_trafilatura_install.finite.bg.py
+  3d699cb8c628aeec 17,20-21
+abx_plugins/plugins/pip/on_Binary__11_pip_install.py
+  3d699cb8c628aeec 36,90,98,108,193
+abx_plugins/plugins/opendataloader/on_Snapshot__60_opendataloader.py
+  3d699cb8c628aeec 59-60
+abx_plugins/plugins/twocaptcha/on_Crawl__95_twocaptcha_config.js
+  3d699cb8c628aeec 31,42-43,51
+README.md
+  3d699cb8c628aeec 124,136,139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.17",
+  "base_commit_sha": "18aafca4668675242ab22f18324d4b999988e9cf",
+  "prompts": {
+    "3d699cb8c628aeec": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d150e-6a08-7263-a6d9-ec5243191f4d",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 698,
+      "total_deletions": 219,
+      "accepted_lines": 699,
+      "overriden_lines": 3
+    }
+  }
+}
