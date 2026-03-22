@@ -28,11 +28,24 @@ from typing import Any
 # Config loading from config.json using PydanticSettings
 # ---------------------------------------------------------------------------
 
-# Cache: config_path -> (model_class, schema_mtime)
+# Cache: config_path -> (model_class, (plugin_schema_mtime, base_schema_mtime))
 # The model class is reused across calls to avoid re-parsing the JSON schema
 # and re-creating the Pydantic model on every call.  A fresh *instance* is
 # returned each time so that environment variable changes are picked up.
-_config_model_cache: dict[str, tuple[type, float]] = {}
+BASE_CONFIG_PATH = Path(__file__).with_name("config.json")
+_config_model_cache: dict[str, tuple[type, tuple[float, float]]] = {}
+
+
+def _normalize_schema_type(prop: dict[str, Any]) -> tuple[str, bool]:
+    schema_type = prop.get("type", "string")
+    nullable = False
+
+    if isinstance(schema_type, list):
+        nullable = "null" in schema_type
+        non_null_types = [item for item in schema_type if item != "null"]
+        schema_type = non_null_types[0] if non_null_types else "string"
+
+    return str(schema_type), nullable
 
 
 def load_config(config_path: Path | str | None = None) -> Any:
@@ -40,6 +53,9 @@ def load_config(config_path: Path | str | None = None) -> Any:
 
     Reads the JSON Schema config file and creates a BaseSettings model that
     auto-resolves environment variables, x-aliases, and x-fallback values.
+    The shared `base/config.json` properties are merged into every plugin
+    config so common runtime keys like `SNAP_DIR`, `CRAWL_DIR`, `LIB_DIR`,
+    `PERSONAS_DIR`, and `EXTRA_CONTEXT` are always available.
 
     The model *class* is cached per config_path (keyed by resolved absolute
     path) so repeated calls within the same plugin avoid redundant schema
@@ -79,26 +95,37 @@ def load_config(config_path: Path | str | None = None) -> Any:
     else:
         config_path = Path(config_path)
 
-    cache_key = str(config_path.resolve())
+    config_path = config_path.resolve()
+    base_config_path = BASE_CONFIG_PATH.resolve()
+    cache_key = str(config_path)
 
     # Check cache ----------------------------------------------------------
-    mtime = config_path.stat().st_mtime
+    schema_mtimes = (
+        config_path.stat().st_mtime,
+        base_config_path.stat().st_mtime,
+    )
     cached = _config_model_cache.get(cache_key)
     if cached is not None:
-        model_cls, cached_mtime = cached
-        if cached_mtime == mtime:
+        model_cls, cached_mtimes = cached
+        if cached_mtimes == schema_mtimes:
             return model_cls()  # fresh instance picks up env changes
 
     # Build model class ----------------------------------------------------
+    base_schema = json.loads(base_config_path.read_text())
+    base_properties = base_schema.get("properties", {})
+
     schema = json.loads(config_path.read_text())
-    properties = schema.get("properties", {})
+    if config_path == base_config_path:
+        properties = base_properties
+    else:
+        properties = {**base_properties, **schema.get("properties", {})}
 
     if not properties:
 
         class _EmptyConfig(BaseSettings):
             model_config = SettingsConfigDict(extra="ignore")
 
-        _config_model_cache[cache_key] = (_EmptyConfig, mtime)
+        _config_model_cache[cache_key] = (_EmptyConfig, schema_mtimes)
         return _EmptyConfig()
 
     JSON_TYPE_MAP: dict[str, type] = {
@@ -110,11 +137,13 @@ def load_config(config_path: Path | str | None = None) -> Any:
 
     field_definitions: dict[str, Any] = {}
     for name, prop in properties.items():
-        schema_type = prop.get("type", "string")
+        schema_type, nullable = _normalize_schema_type(prop)
         if schema_type == "array":
-            python_type: type = list
+            python_type: Any = list
         else:
             python_type = JSON_TYPE_MAP.get(schema_type, str)
+        if nullable:
+            python_type = python_type | None
 
         default = prop.get("default")
 
@@ -133,7 +162,7 @@ def load_config(config_path: Path | str | None = None) -> Any:
         model_config = SettingsConfigDict(extra="ignore")
 
     model_cls = create_model("PluginConfig", __base__=_ConfigBase, **field_definitions)
-    _config_model_cache[cache_key] = (model_cls, mtime)
+    _config_model_cache[cache_key] = (model_cls, schema_mtimes)
     return model_cls()
 
 
@@ -195,7 +224,8 @@ def get_lib_dir() -> Path:
 
     Priority: LIB_DIR env var, otherwise ~/.config/abx/lib.
     """
-    lib_dir = os.environ.get("LIB_DIR", "").strip()
+    config = load_config(BASE_CONFIG_PATH)
+    lib_dir = (config.LIB_DIR or "").strip()
     if lib_dir:
         return _resolve_path(lib_dir)
     return _resolve_path(str(Path.home() / ".config" / "abx" / "lib"))
@@ -206,7 +236,8 @@ def get_personas_dir() -> Path:
 
     Priority: PERSONAS_DIR env var, otherwise ~/.config/abx/personas.
     """
-    personas_dir = os.environ.get("PERSONAS_DIR", "").strip()
+    config = load_config(BASE_CONFIG_PATH)
+    personas_dir = (config.PERSONAS_DIR or "").strip()
     if personas_dir:
         return _resolve_path(personas_dir)
     return _resolve_path(str(Path.home() / ".config" / "abx" / "personas"))
@@ -281,7 +312,8 @@ def _parse_extra_context(raw: str, source: str) -> dict[str, Any]:
 def get_extra_context() -> dict[str, Any]:
     context: dict[str, Any] = {}
 
-    env_raw = os.environ.get("EXTRA_CONTEXT", "").strip()
+    config = load_config(BASE_CONFIG_PATH)
+    env_raw = (config.EXTRA_CONTEXT or "").strip()
     if env_raw:
         context.update(_parse_extra_context(env_raw, "EXTRA_CONTEXT"))
 
@@ -493,7 +525,8 @@ def enforce_lib_permissions(config_dir: Path | str | None = None) -> None:
 
     # Determine target uid/gid from SNAP_DIR or CRAWL_DIR ownership
     # (these represent the "data user" that snapshot hooks run as)
-    data_dir = os.environ.get("SNAP_DIR") or os.environ.get("CRAWL_DIR")
+    config = load_config(BASE_CONFIG_PATH)
+    data_dir = config.SNAP_DIR or config.CRAWL_DIR
     if data_dir and Path(data_dir).exists():
         data_stat = Path(data_dir).stat()
         target_uid = data_stat.st_uid

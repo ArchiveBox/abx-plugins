@@ -17,7 +17,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvInt, emitArchiveResultRecord, writeFileAtomic } = require('../base/utils.js');
+const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvInt, loadConfig, emitArchiveResultRecord, writeFileAtomic } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const puppeteer = require('puppeteer');
 const {
@@ -27,7 +27,8 @@ const {
 const PLUGIN_NAME = 'chrome_navigate';
 const CHROME_SESSION_DIR = '.';
 const PLUGIN_DIR = path.basename(__dirname);
-const SNAP_DIR = path.resolve((process.env.SNAP_DIR || '.').trim());
+const hookConfig = loadConfig();
+const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || '.').trim());
 const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
 if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });

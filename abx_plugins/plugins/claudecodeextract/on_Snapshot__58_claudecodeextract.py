@@ -29,7 +29,6 @@ Environment variables:
     ANTHROPIC_API_KEY: API key for Claude
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -41,6 +40,7 @@ from abx_plugins.plugins.base.utils import (
     get_env,
     get_env_bool,
     get_env_int,
+    load_config,
 )
 from abx_plugins.plugins.claudecode.claudecode_utils import (
     build_system_prompt,
@@ -51,8 +51,9 @@ from abx_plugins.plugins.claudecode.claudecode_utils import (
 # Extractor metadata
 PLUGIN_NAME = "claudecodeextract"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
-CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", SNAP_DIR.parent)).resolve()
+CONFIG = load_config()
+SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
+CRAWL_DIR = Path(CONFIG.CRAWL_DIR or SNAP_DIR.parent).resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 # NOTE: OUTPUT_DIR is created after building the system prompt so that
 # get_snapshot_metadata() doesn't list our own empty dir as an extractor output

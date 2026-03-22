@@ -17,12 +17,14 @@ const {
     ensureNodeModuleResolution,
     getEnvBool,
     getEnvInt,
+    loadConfig,
     parseArgs,
     emitArchiveResultRecord,
     hasStaticFileOutput,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 const { connectToPage } = require('../chrome/chrome_utils.js');
+const hookConfig = loadConfig();
 
 function tempPathFor(filePath) {
     const dir = path.dirname(filePath);
@@ -43,7 +45,7 @@ const puppeteer = require('puppeteer-core');
 // Extractor metadata
 const PLUGIN_NAME = 'pdf';
 const PLUGIN_DIR = path.basename(__dirname);
-const SNAP_DIR = path.resolve((process.env.SNAP_DIR || '.').trim());
+const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || '.').trim());
 const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
 if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });

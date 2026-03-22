@@ -16,19 +16,21 @@ import os
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_binary_record
+from abx_plugins.plugins.base.utils import emit_binary_record, load_config
 
 PLUGIN_DIR = Path(__file__).parent.name
-CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
+CONFIG = load_config()
+CRAWL_DIR = Path(CONFIG.CRAWL_DIR or ".").resolve()
 OUTPUT_DIR = CRAWL_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 
 
 def main():
+    config = load_config()
+
     # Only proceed if ripgrep backend is enabled
-    search_backend_engine = os.environ.get("SEARCH_BACKEND_ENGINE", "ripgrep").strip()
-    if search_backend_engine != "ripgrep":
+    if config.SEARCH_BACKEND_ENGINE != "ripgrep":
         # Not using ripgrep, exit successfully without output
         sys.exit(0)
 

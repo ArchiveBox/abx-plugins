@@ -16,23 +16,18 @@ import os
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_binary_record
+from abx_plugins.plugins.base.utils import emit_binary_record, load_config
 
 PLUGIN_DIR = Path(__file__).parent.name
-CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
+CONFIG = load_config()
+CRAWL_DIR = Path(CONFIG.CRAWL_DIR or ".").resolve()
 OUTPUT_DIR = CRAWL_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 
 
 def main() -> None:
-    enabled = os.environ.get("PUPPETEER_ENABLED", "true").lower() not in (
-        "false",
-        "0",
-        "no",
-        "off",
-    )
-    if not enabled:
+    if not load_config().PUPPETEER_ENABLED:
         sys.exit(0)
 
     emit_binary_record(

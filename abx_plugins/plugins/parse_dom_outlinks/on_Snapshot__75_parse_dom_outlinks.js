@@ -24,6 +24,7 @@ const {
     ensureNodeModuleResolution,
     getEnvBool,
     getEnvInt,
+    loadConfig,
     parseArgs,
     emitArchiveResultRecord,
     writeFileAtomic,
@@ -35,7 +36,8 @@ const { connectToPage } = require('../chrome/chrome_utils.js');
 // Extractor metadata
 const PLUGIN_NAME = 'parse_dom_outlinks';
 const PLUGIN_DIR = path.basename(__dirname);
-const SNAP_DIR = path.resolve((process.env.SNAP_DIR || '.').trim());
+const hookConfig = loadConfig();
+const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || '.').trim());
 const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
 if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -186,7 +188,7 @@ async function extractOutlinks(url, depth, timeoutMs) {
 async function main() {
     const args = parseArgs();
     const url = args.url;
-    const depth = parseInt(args.depth || process.env.SNAPSHOT_DEPTH || '0', 10) || 0;
+    const depth = parseInt(args.depth || String(hookConfig.SNAPSHOT_DEPTH ?? 0), 10) || 0;
 
     if (!url) {
         console.error('Usage: on_Snapshot__75_parse_dom_outlinks.js --url=<url>');

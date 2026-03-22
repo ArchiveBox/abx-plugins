@@ -21,27 +21,24 @@ import os
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_binary_record
+from abx_plugins.plugins.base.utils import emit_binary_record, load_config
 
 PLUGIN_DIR = Path(__file__).parent.name
-CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
+CONFIG = load_config()
+CRAWL_DIR = Path(CONFIG.CRAWL_DIR or ".").resolve()
 OUTPUT_DIR = CRAWL_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 
 
 def main():
+    config = load_config()
+
     # Check if Chrome is enabled
-    chrome_enabled = os.environ.get("CHROME_ENABLED", "true").lower() not in (
-        "false",
-        "0",
-        "no",
-        "off",
-    )
-    if not chrome_enabled:
+    if not config.CHROME_ENABLED:
         sys.exit(0)
 
-    configured_binary = os.environ.get("CHROME_BINARY", "").strip()
+    configured_binary = (config.CHROME_BINARY or "").strip()
     configured_name = Path(configured_binary).name.lower() if configured_binary else ""
     if configured_name in ("chrome", "google-chrome"):
         browser_name = "chrome"

@@ -33,6 +33,7 @@ const {
     getEnv,
     getEnvBool,
     getEnvInt,
+    loadConfig,
     parseArgs,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
@@ -59,7 +60,8 @@ const puppeteer = require('puppeteer-core');
 const { execFileSync } = require('child_process');
 
 const PLUGIN_DIR = path.basename(__dirname);
-const SNAP_DIR = path.resolve((process.env.SNAP_DIR || '.').trim());
+const hookConfig = loadConfig();
+const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || '.').trim());
 const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
 if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -67,9 +69,9 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 process.chdir(OUTPUT_DIR);
 
 const CHROME_SESSION_DIR = '../chrome';
-const DOWNLOADS_DIR = process.env.CHROME_DOWNLOADS_DIR ||
-    path.join(process.env.PERSONAS_DIR || path.join(os.homedir(), '.config', 'abx', 'personas'),
-        process.env.ACTIVE_PERSONA || 'Default',
+const DOWNLOADS_DIR = hookConfig.CHROME_DOWNLOADS_DIR ||
+    path.join(hookConfig.PERSONAS_DIR || path.join(os.homedir(), '.config', 'abx', 'personas'),
+        hookConfig.ACTIVE_PERSONA || 'Default',
         'chrome_downloads');
 
 const DEFAULT_PROMPT = 'Look at the current page. If there are any "expand", "show more", ' +

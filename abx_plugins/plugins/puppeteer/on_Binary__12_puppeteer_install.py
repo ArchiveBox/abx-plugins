@@ -30,6 +30,7 @@ from abx_pkg import Binary, EnvProvider, NpmProvider
 from abx_plugins.plugins.base.utils import (
     emit_binary_record,
     emit_machine_record,
+    load_config,
     resolve_binary_path,
 )
 
@@ -50,13 +51,15 @@ def main(
     binproviders: str,
     overrides: str | None,
 ) -> None:
+    config = load_config()
+
     if binproviders != "*" and "puppeteer" not in binproviders.split(","):
         sys.exit(0)
 
     if name not in ("chromium", "chrome"):
         sys.exit(0)
 
-    lib_dir = os.environ.get("LIB_DIR", "").strip()
+    lib_dir = (config.LIB_DIR or "").strip()
     if not lib_dir:
         lib_dir = str(Path.home() / ".config" / "abx" / "lib")
 
@@ -69,7 +72,7 @@ def main(
 
     # Fast-path: if CHROME_BINARY is already available in env, reuse it and avoid
     # a full `puppeteer browsers install` call for this invocation.
-    existing_chrome_binary = os.environ.get("CHROME_BINARY", "").strip()
+    existing_chrome_binary = (config.CHROME_BINARY or "").strip()
     if existing_chrome_binary:
         existing_binary = _load_binary_from_path(existing_chrome_binary, name=name)
         if existing_binary and existing_binary.abspath:
@@ -91,7 +94,7 @@ def main(
         name="puppeteer",
         binproviders=[npm_provider],
         overrides={"npm": {"install_args": ["puppeteer"]}},
-    ).load()
+    ).load_or_install()
 
     if not puppeteer_binary.abspath:
         click.echo(
@@ -109,6 +112,21 @@ def main(
         install_args=install_args,
         cache_dir=cache_dir,
     )
+    if proc.returncode != 0 and _should_repair_puppeteer_install(
+        proc.stdout + "\n" + proc.stderr,
+    ):
+        click.echo("Detected broken puppeteer CLI, reinstalling package...", err=True)
+        npm_provider.install("puppeteer")
+        puppeteer_binary = Binary(
+            name="puppeteer",
+            binproviders=[npm_provider],
+            overrides={"npm": {"install_args": ["puppeteer"]}},
+        ).load()
+        proc = _run_puppeteer_install(
+            binary=puppeteer_binary,
+            install_args=install_args,
+            cache_dir=cache_dir,
+        )
     if proc.returncode != 0:
         click.echo(proc.stdout.strip(), err=True)
         click.echo(proc.stderr.strip(), err=True)
@@ -301,6 +319,14 @@ def _get_install_failure_hint(install_output: str) -> str | None:
     return None
 
 
+def _should_repair_puppeteer_install(output: str) -> bool:
+    lowered = (output or "").lower()
+    return (
+        "this.shim.parser.camelcase is not a function" in lowered
+        or "yargs/build/lib/command.js" in lowered
+    )
+
+
 def _emit_browser_binary_record(
     binary: Binary,
     name: str,
@@ -350,7 +376,7 @@ def _load_browser_binary(output: str, name: str) -> Binary | None:
         candidates.append(Path(match.group(1)))
 
     cache_dirs: list[Path] = []
-    cache_env = os.environ.get("PUPPETEER_CACHE_DIR")
+    cache_env = load_config().PUPPETEER_CACHE_DIR
     if cache_env:
         cache_dirs.append(Path(cache_env))
 

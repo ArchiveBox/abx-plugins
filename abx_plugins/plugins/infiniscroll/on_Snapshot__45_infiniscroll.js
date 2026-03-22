@@ -23,9 +23,11 @@
 
 const fs = require('fs');
 const path = require('path');
+const { loadConfig } = require('../base/utils.js');
 
 const PLUGIN_DIR = path.basename(__dirname);
-const SNAP_DIR = path.resolve((process.env.SNAP_DIR || '.').trim());
+const hookConfig = loadConfig();
+const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || '.').trim());
 const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
 if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });

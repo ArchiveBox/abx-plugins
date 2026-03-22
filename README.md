@@ -121,7 +121,7 @@ The `base/` plugin provides shared Python and JS helpers that all other plugins 
 from abx_plugins.plugins.base.utils import load_config, emit_archive_result, get_env
 ```
 
-- `load_config()` — load `config.json` via PydanticSettings with env var + alias resolution
+- `load_config()` — load plugin `config.json` via PydanticSettings with env var + alias resolution, merged with shared base/common runtime vars like `SNAP_DIR`, `CRAWL_DIR`, `LIB_DIR`, `PERSONAS_DIR`, `EXTRA_CONTEXT`, `TIMEOUT`, and `USER_AGENT`
 - `emit_archive_result(status, output_str)` — print `{"type":"ArchiveResult",...}` JSONL to stdout
 - `output_binary(name, abspath, version, ...)` — emit `Binary` JSONL record
 - `output_machine_config(config_dict)` — emit `Machine` config patch
@@ -133,8 +133,10 @@ from abx_plugins.plugins.base.utils import load_config, emit_archive_result, get
 
 **JS** (`base/utils.js`):
 ```javascript
-const { getEnv, getEnvBool, getEnvInt, getEnvArray, emitArchiveResult } = require('../base/utils.js');
+const { loadConfig, getEnv, getEnvBool, getEnvInt, getEnvArray, emitArchiveResult } = require('../base/utils.js');
 ```
+
+- `loadConfig()` — load plugin `config.json` merged with shared base/common runtime vars using env var + alias + fallback resolution
 
 **Test helpers** (`base/test_utils.py`):
 ```python

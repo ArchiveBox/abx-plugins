@@ -36,7 +36,8 @@ PLUGIN_NAME = "gallerydl"
 BIN_NAME = "gallery-dl"
 BIN_PROVIDERS = "env,pip"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
+CONFIG = load_config()
+SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)

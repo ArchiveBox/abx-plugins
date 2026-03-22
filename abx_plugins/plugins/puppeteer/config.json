@@ -10,5 +10,16 @@
     "chrome"
   ],
   "output_mimetypes": [],
-  "properties": {}
+  "properties": {
+    "PUPPETEER_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable Puppeteer dependency installation during crawl setup"
+    },
+    "PUPPETEER_CACHE_DIR": {
+      "type": "string",
+      "default": "",
+      "description": "Override the Puppeteer browser cache directory"
+    }
+  }
 }

@@ -22,7 +22,11 @@ import sys
 from html.parser import HTMLParser
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_archive_result_record, write_text_atomic
+from abx_plugins.plugins.base.utils import (
+    emit_archive_result_record,
+    load_config,
+    write_text_atomic,
+)
 
 import rich_click as click
 
@@ -30,7 +34,8 @@ import rich_click as click
 # Extractor metadata
 PLUGIN_NAME = "htmltotext"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
+CONFIG = load_config()
+SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)

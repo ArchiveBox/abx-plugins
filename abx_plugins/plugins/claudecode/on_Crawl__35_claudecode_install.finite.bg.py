@@ -16,24 +16,26 @@ import os
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_binary_record, get_env, get_env_bool
+from abx_plugins.plugins.base.utils import emit_binary_record, get_env, load_config
 
 PLUGIN_DIR = Path(__file__).parent.name
-CRAWL_DIR = Path(os.environ.get("CRAWL_DIR", ".")).resolve()
+CONFIG = load_config()
+CRAWL_DIR = Path(CONFIG.CRAWL_DIR or ".").resolve()
 OUTPUT_DIR = CRAWL_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 
 
 def main():
-    claudecode_enabled = get_env_bool("CLAUDECODE_ENABLED", False)
+    config = load_config()
+    claudecode_enabled = config.CLAUDECODE_ENABLED
 
     if not claudecode_enabled:
         print("SKIPPED: CLAUDECODE_ENABLED=False")
         sys.exit(0)
 
     # Check for API key
-    api_key = get_env("ANTHROPIC_API_KEY")
+    api_key = config.ANTHROPIC_API_KEY
     if not api_key:
         print(
             "WARNING: ANTHROPIC_API_KEY not set, Claude Code will not be functional",

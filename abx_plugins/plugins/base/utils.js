@@ -13,6 +13,9 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+const BASE_CONFIG_PATH = path.join(__dirname, 'config.json');
+const configCache = new Map();
+
 function fsyncIfRegularFile(fd) {
     try {
         const stats = fs.fstatSync(fd);
@@ -36,6 +39,143 @@ function writeFdFully(fd, text) {
 // ---------------------------------------------------------------------------
 // Environment variable helpers
 // ---------------------------------------------------------------------------
+
+function getCallerFile(skipFn) {
+    const original = Error.prepareStackTrace;
+    try {
+        Error.prepareStackTrace = (_, stack) => stack;
+        const err = new Error();
+        Error.captureStackTrace(err, skipFn);
+        const stack = err.stack || [];
+        for (const site of stack) {
+            const fileName = site && typeof site.getFileName === 'function' ? site.getFileName() : null;
+            if (fileName && fileName !== __filename) {
+                return fileName;
+            }
+        }
+    } finally {
+        Error.prepareStackTrace = original;
+    }
+    return null;
+}
+
+function normalizeSchemaType(prop = {}) {
+    const rawType = prop.type || 'string';
+    if (Array.isArray(rawType)) {
+        const nonNullTypes = rawType.filter(typeName => typeName !== 'null');
+        return {
+            schemaType: nonNullTypes[0] || 'string',
+            nullable: rawType.includes('null'),
+        };
+    }
+    return {
+        schemaType: rawType,
+        nullable: false,
+    };
+}
+
+function parseArrayValue(rawValue, defaultValue) {
+    const trimmed = String(rawValue || '').trim();
+    if (!trimmed) return defaultValue;
+    if (trimmed.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) return parsed.map(item => String(item));
+        } catch (error) {}
+    }
+    return trimmed.split(',').map(item => item.trim()).filter(Boolean);
+}
+
+function parseConfigValue(rawValue, prop = {}) {
+    const { schemaType, nullable } = normalizeSchemaType(prop);
+    const defaultValue = Object.prototype.hasOwnProperty.call(prop, 'default')
+        ? prop.default
+        : (nullable ? null : undefined);
+
+    if (rawValue === undefined) {
+        return defaultValue;
+    }
+
+    const trimmed = String(rawValue).trim();
+    if (nullable && trimmed === '') {
+        return null;
+    }
+
+    if (schemaType === 'boolean') {
+        const lowered = trimmed.toLowerCase();
+        if (['true', '1', 'yes', 'on'].includes(lowered)) return true;
+        if (['false', '0', 'no', 'off'].includes(lowered)) return false;
+        return defaultValue;
+    }
+
+    if (schemaType === 'integer') {
+        const parsed = parseInt(trimmed, 10);
+        return Number.isNaN(parsed) ? defaultValue : parsed;
+    }
+
+    if (schemaType === 'number') {
+        const parsed = Number(trimmed);
+        return Number.isNaN(parsed) ? defaultValue : parsed;
+    }
+
+    if (schemaType === 'array') {
+        return parseArrayValue(trimmed, defaultValue || []);
+    }
+
+    return trimmed;
+}
+
+function resolveConfigPath(configPath = null) {
+    if (configPath) return path.resolve(configPath);
+    const callerFile = getCallerFile(loadConfig);
+    if (!callerFile) return BASE_CONFIG_PATH;
+    return path.join(path.dirname(path.resolve(callerFile)), 'config.json');
+}
+
+function loadConfig(configPath = null) {
+    const pluginConfigPath = resolveConfigPath(configPath);
+    const pluginMtime = fs.statSync(pluginConfigPath).mtimeMs;
+    const baseMtime = fs.statSync(BASE_CONFIG_PATH).mtimeMs;
+    const cacheKey = pluginConfigPath;
+    const cached = configCache.get(cacheKey);
+    if (cached && cached.pluginMtime === pluginMtime && cached.baseMtime === baseMtime) {
+        return { ...cached.config };
+    }
+
+    const baseSchema = JSON.parse(fs.readFileSync(BASE_CONFIG_PATH, 'utf8'));
+    const pluginSchema = pluginConfigPath === BASE_CONFIG_PATH
+        ? baseSchema
+        : JSON.parse(fs.readFileSync(pluginConfigPath, 'utf8'));
+
+    const properties = pluginConfigPath === BASE_CONFIG_PATH
+        ? (baseSchema.properties || {})
+        : { ...(baseSchema.properties || {}), ...(pluginSchema.properties || {}) };
+
+    const config = {};
+    for (const [name, prop] of Object.entries(properties)) {
+        const choices = [name, ...(prop['x-aliases'] || [])];
+        if (prop['x-fallback']) {
+            choices.push(prop['x-fallback']);
+        }
+
+        let rawValue;
+        for (const choice of choices) {
+            if (Object.prototype.hasOwnProperty.call(process.env, choice)) {
+                rawValue = process.env[choice];
+                break;
+            }
+        }
+
+        config[name] = parseConfigValue(rawValue, prop);
+    }
+
+    configCache.set(cacheKey, {
+        config,
+        pluginMtime,
+        baseMtime,
+    });
+    return { ...config };
+}
 
 function getEnv(name, defaultValue = '') {
     return (process.env[name] || defaultValue).trim();
@@ -78,7 +218,7 @@ function getEnvArray(name, defaultValue = []) {
 }
 
 function getLibDir() {
-    const configured = getEnv('LIB_DIR');
+    const configured = (loadConfig(BASE_CONFIG_PATH).LIB_DIR || '').trim();
     if (configured) return path.resolve(configured);
     return path.resolve(path.join(os.homedir(), '.config', 'abx', 'lib'));
 }
@@ -147,7 +287,7 @@ function parseExtraContext(raw, source) {
 
 function getExtraContext() {
     const context = {};
-    const envRaw = getEnv('EXTRA_CONTEXT');
+    const envRaw = (loadConfig(BASE_CONFIG_PATH).EXTRA_CONTEXT || '').trim();
     if (envRaw) {
         Object.assign(context, parseExtraContext(envRaw, 'EXTRA_CONTEXT'));
     }
@@ -232,6 +372,7 @@ function hasStaticFileOutput(staticfileDir = '../staticfile') {
 }
 
 module.exports = {
+    loadConfig,
     getEnv,
     getEnvBool,
     getEnvInt,

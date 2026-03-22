@@ -10,5 +10,11 @@
     "pip"
   ],
   "output_mimetypes": [],
-  "properties": {}
+  "properties": {
+    "PIP_VENV_PYTHON": {
+      "type": "string",
+      "default": "",
+      "description": "Preferred Python interpreter for creating the shared pip virtualenv"
+    }
+  }
 }

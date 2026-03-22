@@ -17,7 +17,6 @@
 #     ./on_Binary__10_npm_install.py --name=<name> [...] > events.jsonl
 
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -25,6 +24,7 @@ from abx_plugins.plugins.base.utils import (
     emit_binary_record,
     emit_machine_record,
     enforce_lib_permissions,
+    load_config,
 )
 
 import rich_click as click
@@ -61,13 +61,14 @@ def main(
     overrides: str | None,
 ):
     """Install binary using npm."""
+    config = load_config()
 
     if binproviders != "*" and "npm" not in binproviders.split(","):
         click.echo(f"npm provider not allowed for {name}", err=True)
         sys.exit(0)
 
     # Get LIB_DIR from environment (optional)
-    lib_dir = os.environ.get("LIB_DIR", "").strip()
+    lib_dir = (config.LIB_DIR or "").strip()
     if not lib_dir:
         lib_dir = str(Path.home() / ".config" / "abx" / "lib")
 
@@ -127,7 +128,7 @@ def main(
         str(npm_prefix / "node_modules" / ".bin"),
         str(npm_prefix / "bin"),
     ]
-    current_path = os.environ.get("PATH", "")
+    current_path = config.PATH or ""
     path_dirs = current_path.split(":") if current_path else []
     new_path = current_path
 

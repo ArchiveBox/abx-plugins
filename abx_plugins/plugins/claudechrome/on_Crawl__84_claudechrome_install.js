@@ -16,10 +16,11 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getEnvBool } = require('../base/utils.js');
+const { getEnvBool, loadConfig } = require('../base/utils.js');
 
 const PLUGIN_DIR = path.basename(__dirname);
-const CRAWL_DIR = path.resolve((process.env.CRAWL_DIR || '.').trim());
+const hookConfig = loadConfig();
+const CRAWL_DIR = path.resolve((hookConfig.CRAWL_DIR || '.').trim());
 const OUTPUT_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
 if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -45,7 +46,7 @@ async function main() {
     const extension = await installExtensionWithCache(EXTENSION);
 
     if (extension) {
-        const apiKey = process.env.ANTHROPIC_API_KEY;
+        const apiKey = hookConfig.ANTHROPIC_API_KEY;
         if (!apiKey) {
             console.warn('[!] Claude for Chrome installed but ANTHROPIC_API_KEY not set');
             console.warn('[!] The extension may require manual login or API key configuration');

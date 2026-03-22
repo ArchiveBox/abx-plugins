@@ -36,13 +36,15 @@ from abx_plugins.plugins.base.utils import (
     get_env,
     get_env_bool,
     get_extra_context,
+    load_config,
 )
 
 
 # Extractor metadata
 PLUGIN_NAME = "index_sqlite"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
+CONFIG = load_config()
+SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)

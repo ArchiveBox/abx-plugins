@@ -18,6 +18,7 @@ const {
     ensureNodeModuleResolution,
     getEnvBool,
     getEnvInt,
+    loadConfig,
     parseArgs,
     emitArchiveResultRecord,
 } = require('../base/utils.js');
@@ -29,7 +30,8 @@ const { connectToPage } = require('../chrome/chrome_utils.js');
 
 const PLUGIN_NAME = 'staticfile';
 const PLUGIN_DIR = path.basename(__dirname);
-const SNAP_DIR = path.resolve((process.env.SNAP_DIR || '.').trim());
+const hookConfig = loadConfig();
+const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || '.').trim());
 const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
 if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });

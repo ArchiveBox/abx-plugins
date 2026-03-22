@@ -33,6 +33,7 @@ from abx_plugins.plugins.base.utils import (
     emit_binary_record,
     emit_machine_record,
     enforce_lib_permissions,
+    load_config,
     resolve_binary_path,
 )
 
@@ -86,6 +87,7 @@ def main(
     overrides: str | None,
 ):
     """Install binary using pip."""
+    config = load_config()
 
     # Check if pip provider is allowed
     if binproviders != "*" and "pip" not in binproviders.split(","):
@@ -93,7 +95,7 @@ def main(
         sys.exit(0)
 
     # Get LIB_DIR from environment (optional)
-    lib_dir = os.environ.get("LIB_DIR", "").strip()
+    lib_dir = (config.LIB_DIR or "").strip()
     if not lib_dir:
         lib_dir = str(Path.home() / ".config" / "abx" / "lib")
 
@@ -103,7 +105,7 @@ def main(
     pip_lock_path = pip_venv_path.parent / ".venv.lock"
 
     # Seed the pip venv with the same interpreter running this hook unless explicitly overridden.
-    preferred_python = os.environ.get("PIP_VENV_PYTHON", "").strip()
+    preferred_python = (config.PIP_VENV_PYTHON or "").strip()
     if not preferred_python and sys.version_info[:2] >= (3, 14):
         for candidate in ("python3.12", "python3.11", "python3.13"):
             candidate_path = resolve_binary_path(candidate)
@@ -188,7 +190,7 @@ def main(
 
     # Emit PATH update for pip bin dir
     pip_bin_dir = str(pip_venv_path / "bin")
-    current_path = os.environ.get("PATH", "")
+    current_path = config.PATH or ""
 
     # Check if pip_bin_dir is already in PATH
     path_dirs = current_path.split(":")

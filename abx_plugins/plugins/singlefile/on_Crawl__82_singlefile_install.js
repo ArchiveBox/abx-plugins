@@ -22,6 +22,7 @@ const fs = require('fs');
 const os = require('os');
 const { promisify } = require('util');
 const { exec } = require('child_process');
+const { loadConfig } = require('../base/utils.js');
 
 const execAsync = promisify(exec);
 
@@ -34,13 +35,14 @@ const EXTENSION = {
     name: 'singlefile',
 };
 
-const CHROME_DOWNLOADS_DIR = process.env.CHROME_DOWNLOADS_DIR ||
-    path.join(process.env.PERSONAS_DIR || path.join(os.homedir(), '.config', 'abx', 'personas'),
-        process.env.ACTIVE_PERSONA || 'Default',
+const hookConfig = loadConfig();
+const CHROME_DOWNLOADS_DIR = hookConfig.CHROME_DOWNLOADS_DIR ||
+    path.join(hookConfig.PERSONAS_DIR || path.join(os.homedir(), '.config', 'abx', 'personas'),
+        hookConfig.ACTIVE_PERSONA || 'Default',
         'chrome_downloads');
 
 const PLUGIN_DIR = path.basename(__dirname);
-const CRAWL_DIR = path.resolve((process.env.CRAWL_DIR || '.').trim());
+const CRAWL_DIR = path.resolve((hookConfig.CRAWL_DIR || '.').trim());
 const OUTPUT_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
 if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });

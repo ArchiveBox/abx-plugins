@@ -36,6 +36,7 @@ from urllib.parse import urlparse
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
+    load_config,
     write_text_atomic,
 )
 
@@ -43,7 +44,8 @@ import rich_click as click
 
 PLUGIN_NAME = "parse_jsonl_urls"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-SNAP_DIR = Path(os.environ.get("SNAP_DIR", ".")).resolve()
+CONFIG = load_config()
+SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
@@ -142,11 +144,8 @@ def fetch_content(url: str) -> str:
         with open(file_path, encoding="utf-8", errors="replace") as f:
             return f.read()
     else:
-        timeout = int(os.environ.get("TIMEOUT", "60"))
-        user_agent = os.environ.get(
-            "USER_AGENT",
-            "Mozilla/5.0 (compatible; ArchiveBox/1.0)",
-        )
+        timeout = CONFIG.TIMEOUT
+        user_agent = CONFIG.USER_AGENT
 
         import urllib.request
 
@@ -185,12 +184,8 @@ def main(
     depth: int = 0,
 ):
     """Parse JSONL bookmark file and extract URLs."""
-    env_depth = os.environ.get("SNAPSHOT_DEPTH")
-    if env_depth is not None:
-        try:
-            depth = int(env_depth)
-        except Exception:
-            pass
+    if CONFIG.SNAPSHOT_DEPTH is not None:
+        depth = CONFIG.SNAPSHOT_DEPTH
     try:
         content = fetch_content(url)
     except Exception as e:

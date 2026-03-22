@@ -10,6 +10,11 @@
   ],
   "output_mimetypes": [],
   "properties": {
+    "SEARCH_BACKEND_ENGINE": {
+      "type": "string",
+      "default": "ripgrep",
+      "description": "Selected search backend implementation"
+    },
     "RIPGREP_BINARY": {
       "type": "string",
       "default": "rg",
