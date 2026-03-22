@@ -36,7 +36,6 @@ Note: opendataloader-pdf handles PDF files only. Standalone images (JPG, PNG)
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -45,6 +44,7 @@ from pathlib import Path
 from abx_plugins.plugins.base.utils import (
     load_config,
     emit_archive_result_record,
+    resolve_binary_path,
     write_text_atomic,
 )
 
@@ -74,12 +74,10 @@ def _opendataloader_env(java_binary: str) -> dict[str, str] | None:
     if not java_binary:
         return None
 
-    java_path = Path(java_binary)
-    if not java_path.is_file():
-        resolved = shutil.which(java_binary)
-        if not resolved:
-            return None
-        java_path = Path(resolved)
+    resolved = resolve_binary_path(java_binary)
+    if not resolved:
+        return None
+    java_path = Path(resolved)
 
     env = os.environ.copy()
     java_bin_dir = str(java_path.parent)

@@ -12,7 +12,6 @@
 
 import argparse
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -21,6 +20,7 @@ from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     find_html_source,
     load_config,
+    resolve_binary_path,
     write_text_atomic,
 )
 
@@ -88,7 +88,7 @@ def run_trafilatura(
     fmt: str,
     timeout: int,
 ) -> tuple[bool, str]:
-    resolved_binary = shutil.which(binary) or binary
+    resolved_binary = resolve_binary_path(binary) or binary
     binary_path = Path(resolved_binary)
 
     python_candidates = (

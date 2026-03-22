@@ -1059,7 +1059,7 @@
           </div>
           <div class="hero-meta">
             <div class="stat">
-              <strong>58</strong>
+              <strong>59</strong>
               <span>Plugins</span>
             </div>
             <div class="stat">
@@ -1123,7 +1123,7 @@ abx-dl dl 'https://example.com'</code></pre>
               spellcheck="false"
             >
           </label>
-          <div class="result-count"><span id="visible-count">58</span> / 58 visible</div>
+          <div class="result-count"><span id="visible-count">59</span> / 59 visible</div>
         </div>
       </section>
 
@@ -2859,19 +2859,19 @@ abx-dl dl 'https://example.com'</code></pre>
           </div>
         </details>
         <details
-          id="ssl"
+          id="sslcerts"
           class="plugin-card plugin-card--snapshot"
-          data-search="ssl snapshot ssl capture tls certificate and connection metadata for the loaded page. javascript snapshot chrome chrome application/x-ndjson on_snapshot__23_ssl.daemon.bg.js ssl_enabled enable ssl certificate capture ssl_timeout timeout for ssl capture in seconds"
-          data-hero-plugin="ssl"
-          data-hero-abx-command="uvx abx-dl --plugins ssl 'https://example.com'"
-          data-hero-archivebox-command="SSL_ENABLED=true archivebox add 'https://example.com'"
+          data-search="sslcerts snapshot ssl certificates capture tls certificate and connection metadata for the loaded page. javascript snapshot chrome chrome application/x-ndjson on_snapshot__23_sslcerts.daemon.bg.js sslcerts_enabled enable ssl certificate capture sslcerts_timeout timeout for ssl capture in seconds"
+          data-hero-plugin="sslcerts"
+          data-hero-abx-command="uvx abx-dl --plugins sslcerts 'https://example.com'"
+          data-hero-archivebox-command="SSLCERTS_ENABLED=true archivebox add 'https://example.com'"
         >
           <summary>
             <div class="plugin-main">
               <div class="plugin-title-row">
-                <h2>SSL</h2>
+                <h2>SSL Certificates</h2>
               </div>
-              <div class="plugin-slug"><code>ssl</code></div>
+              <div class="plugin-slug"><code>sslcerts</code></div>
               <p class="plugin-summary-description">Capture TLS certificate and connection metadata for the loaded page.</p>
               <div class="plugin-subline">
                 <span class="chip">Snapshot</span>
@@ -2894,21 +2894,21 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
-              <div class="plugin-icon"><span class="abx-output-icon abx-output-icon--ssl" title="SSL"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span></div>
+              <div class="plugin-icon"><span class="abx-output-icon abx-output-icon--sslcerts" title="SSL Certificates"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span></div>
             </div>
           </summary>
 
           <div class="plugin-body">
             <div class="actions">
-              <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/ssl" target="_blank" rel="noreferrer">Source on GitHub</a>
+              <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/sslcerts" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
             <h3 class="section-title">Plugin Info</h3>
             <div class="plugin-info-grid">
               <article class="plugin-info-card">
                 <span>Plugin</span>
-                <p><strong>SSL</strong></p>
-                <p><code>ssl</code></p>
+                <p><strong>SSL Certificates</strong></p>
+                <p><code>sslcerts</code></p>
                 <p>Capture TLS certificate and connection metadata for the loaded page.</p>
               </article>
               <article class="plugin-info-card">
@@ -2935,11 +2935,11 @@ abx-dl dl 'https://example.com'</code></pre>
             <div class="command-grid">
               <div class="command-card">
                 <span>ArchiveBox</span>
-                <pre><code>SSL_ENABLED=true archivebox add 'https://example.com'</code></pre>
+                <pre><code>SSLCERTS_ENABLED=true archivebox add 'https://example.com'</code></pre>
               </div>
               <div class="command-card">
                 <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=ssl 'https://example.com'</code></pre>
+                <pre><code>abx-dl dl --plugins=sslcerts 'https://example.com'</code></pre>
               </div>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
@@ -2949,7 +2949,7 @@ abx-dl dl 'https://example.com'</code></pre>
               <article class="hook-card">
                 <div>
                   <span>Snapshot hook</span>
-                  <strong>ssl</strong>
+                  <strong>sslcerts</strong>
                 </div>
                 <div class="hook-meta">
                   <span class="chip">JavaScript</span>
@@ -2957,7 +2957,7 @@ abx-dl dl 'https://example.com'</code></pre>
                   <span class="chip">background</span>
                 </div>
                 <p class="hook-file">
-                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/ssl/on_Snapshot__23_ssl.daemon.bg.js" target="_blank" rel="noreferrer"><code>on_Snapshot__23_ssl.daemon.bg.js</code></a>
+                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/sslcerts/on_Snapshot__23_sslcerts.daemon.bg.js" target="_blank" rel="noreferrer"><code>on_Snapshot__23_sslcerts.daemon.bg.js</code></a>
                 </p>
               </article>
             </div>
@@ -2966,11 +2966,11 @@ abx-dl dl 'https://example.com'</code></pre>
             <div class="config-grid">
               <article class="config-card">
                 <span>Config key</span>
-                <strong><code>SSL_ENABLED</code></strong>
+                <strong><code>SSLCERTS_ENABLED</code></strong>
                 <p>Enable SSL certificate capture</p>
                 <div class="config-meta">
                   <div>Type: <code>boolean</code></div>
-                  <div>Aliases: <code>SAVE_SSL, USE_SSL</code></div>
+                  <div>Aliases: <code>SAVE_SSLCERTS, USE_SSLCERTS</code></div>
                 </div>
                 <pre><code>true</code></pre>
               </article>
@@ -4396,7 +4396,7 @@ abx-dl dl 'https://example.com'</code></pre>
         <details
           id="claudechrome"
           class="plugin-card plugin-card--snapshot"
-          data-search="claudechrome crawl snapshot claude chrome use claude computer-use to interact with pages in chrome via cdp screenshots and the anthropic api. javascript snapshot embed fullscreen chrome node application/json image/png on_crawl__84_claudechrome_install.finite.bg.js on_crawl__96_claudechrome_config.js on_snapshot__47_claudechrome.js claudechrome_enabled enable claude for chrome browser extension for ai-driven page interaction claudechrome_prompt prompt for claude to execute on the page. claude can click buttons, fill forms, download files, and interact with any page element. claudechrome_timeout timeout for claude for chrome operations in seconds claudechrome_model claude model to use (e.g. sonnet, opus, haiku). availability depends on your plan. claudechrome_max_actions maximum number of agentic loop iterations (screenshots + actions) per page anthropic_api_key anthropic api key for claude for chrome authentication"
+          data-search="claudechrome crawl snapshot claude chrome use claude computer-use to interact with pages in chrome via cdp screenshots and the anthropic api. javascript snapshot embed fullscreen chrome node application/json image/png on_crawl__84_claudechrome_install.js on_crawl__96_claudechrome_config.js on_snapshot__47_claudechrome.js claudechrome_enabled enable claude for chrome browser extension for ai-driven page interaction claudechrome_prompt prompt for claude to execute on the page. claude can click buttons, fill forms, download files, and interact with any page element. claudechrome_timeout timeout for claude for chrome operations in seconds claudechrome_model claude model to use (e.g. sonnet, opus, haiku). availability depends on your plan. claudechrome_max_actions maximum number of agentic loop iterations (screenshots + actions) per page anthropic_api_key anthropic api key for claude for chrome authentication"
           data-hero-plugin="claudechrome"
           data-hero-abx-command="uvx abx-dl --plugins claudechrome 'https://example.com'"
           data-hero-archivebox-command="CLAUDECHROME_ENABLED=true archivebox add 'https://example.com'"
@@ -4493,10 +4493,9 @@ abx-dl dl 'https://example.com'</code></pre>
                 <div class="hook-meta">
                   <span class="chip">JavaScript</span>
                   <span class="chip">order 84</span>
-                  <span class="chip">background</span>
                 </div>
                 <p class="hook-file">
-                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/claudechrome/on_Crawl__84_claudechrome_install.finite.bg.js" target="_blank" rel="noreferrer"><code>on_Crawl__84_claudechrome_install.finite.bg.js</code></a>
+                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/claudechrome/on_Crawl__84_claudechrome_install.js" target="_blank" rel="noreferrer"><code>on_Crawl__84_claudechrome_install.js</code></a>
                 </p>
               </article>
               <article class="hook-card">
@@ -4593,7 +4592,7 @@ abx-dl dl 'https://example.com'</code></pre>
         <details
           id="singlefile"
           class="plugin-card plugin-card--snapshot"
-          data-search="singlefile crawl snapshot singlefile save a complete page as a single self-contained html file using the singlefile extension or cli. python snapshot embed chrome chrome single-file-cli text/html on_crawl__45_singlefile_install.finite.bg.py on_crawl__82_singlefile_install.finite.bg.js on_snapshot__50_singlefile.py singlefile_enabled enable singlefile archiving singlefile_binary path to single-file binary singlefile_node_binary path to node.js binary singlefile_chrome_binary path to chromium binary singlefile_timeout timeout for singlefile in seconds singlefile_user_agent user agent string singlefile_cookies_file path to cookies file singlefile_check_ssl_validity whether to verify ssl certificates singlefile_chrome_args chrome command-line arguments for singlefile singlefile_args default single-file arguments singlefile_args_extra extra arguments to append to single-file command"
+          data-search="singlefile crawl snapshot singlefile save a complete page as a single self-contained html file using the singlefile extension or cli. python snapshot embed chrome chrome single-file-cli text/html on_crawl__45_singlefile_install.finite.bg.py on_crawl__82_singlefile_install.js on_snapshot__50_singlefile.py singlefile_enabled enable singlefile archiving singlefile_binary path to single-file binary singlefile_node_binary path to node.js binary singlefile_chrome_binary path to chromium binary singlefile_timeout timeout for singlefile in seconds singlefile_user_agent user agent string singlefile_cookies_file path to cookies file singlefile_check_ssl_validity whether to verify ssl certificates singlefile_chrome_args chrome command-line arguments for singlefile singlefile_args default single-file arguments singlefile_args_extra extra arguments to append to single-file command"
           data-hero-plugin="singlefile"
           data-hero-abx-command="uvx abx-dl --plugins singlefile 'https://example.com'"
           data-hero-archivebox-command="SINGLEFILE_ENABLED=true archivebox add 'https://example.com'"
@@ -4705,10 +4704,9 @@ abx-dl dl 'https://example.com'</code></pre>
                 <div class="hook-meta">
                   <span class="chip">JavaScript</span>
                   <span class="chip">order 82</span>
-                  <span class="chip">background</span>
                 </div>
                 <p class="hook-file">
-                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/singlefile/on_Crawl__82_singlefile_install.finite.bg.js" target="_blank" rel="noreferrer"><code>on_Crawl__82_singlefile_install.finite.bg.js</code></a>
+                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/singlefile/on_Crawl__82_singlefile_install.js" target="_blank" rel="noreferrer"><code>on_Crawl__82_singlefile_install.js</code></a>
                 </p>
               </article>
               <article class="hook-card">
@@ -5875,7 +5873,6 @@ abx-dl dl 'https://example.com'</code></pre>
                 <p>Path to Mercury/Postlight parser binary</p>
                 <div class="config-meta">
                   <div>Type: <code>string</code></div>
-                  <div>Aliases: <code>POSTLIGHT_PARSER_BINARY</code></div>
                 </div>
                 <pre><code>"postlight-parser"</code></pre>
               </article>
@@ -8818,7 +8815,7 @@ abx-dl dl 'https://example.com'</code></pre>
         <details
           id="ublock"
           class="plugin-card plugin-card--crawl-only"
-          data-search="ublock crawl ublock origin install the ublock origin extension to block ads, trackers, and other page clutter during archiving. javascript crawl chrome chrome on_crawl__80_install_ublock_extension.finite.bg.js ublock_enabled enable ublock origin browser extension for ad blocking"
+          data-search="ublock crawl ublock origin install the ublock origin extension to block ads, trackers, and other page clutter during archiving. javascript crawl chrome chrome on_crawl__80_install_ublock_extension.js ublock_enabled enable ublock origin browser extension for ad blocking"
           data-hero-plugin="ublock"
           data-hero-abx-command="uvx abx-dl plugins --install ublock"
           data-hero-archivebox-command="UBLOCK_ENABLED=true archivebox init --setup"
@@ -8908,10 +8905,9 @@ abx-dl dl 'https://example.com'</code></pre>
                 <div class="hook-meta">
                   <span class="chip">JavaScript</span>
                   <span class="chip">order 80</span>
-                  <span class="chip">background</span>
                 </div>
                 <p class="hook-file">
-                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/ublock/on_Crawl__80_install_ublock_extension.finite.bg.js" target="_blank" rel="noreferrer"><code>on_Crawl__80_install_ublock_extension.finite.bg.js</code></a>
+                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/ublock/on_Crawl__80_install_ublock_extension.js" target="_blank" rel="noreferrer"><code>on_Crawl__80_install_ublock_extension.js</code></a>
                 </p>
               </article>
             </div>
@@ -8934,7 +8930,7 @@ abx-dl dl 'https://example.com'</code></pre>
         <details
           id="istilldontcareaboutcookies"
           class="plugin-card plugin-card--crawl-only"
-          data-search="istilldontcareaboutcookies crawl i still don't care about cookies install the i still don't care about cookies extension to dismiss cookie banners during archiving. javascript crawl chrome chrome on_crawl__81_install_istilldontcareaboutcookies_extension.finite.bg.js istilldontcareaboutcookies_enabled enable i still don't care about cookies browser extension"
+          data-search="istilldontcareaboutcookies crawl i still don't care about cookies install the i still don't care about cookies extension to dismiss cookie banners during archiving. javascript crawl chrome chrome on_crawl__81_install_istilldontcareaboutcookies_extension.js istilldontcareaboutcookies_enabled enable i still don't care about cookies browser extension"
           data-hero-plugin="istilldontcareaboutcookies"
           data-hero-abx-command="uvx abx-dl plugins --install istilldontcareaboutcookies"
           data-hero-archivebox-command="ISTILLDONTCAREABOUTCOOKIES_ENABLED=true archivebox init --setup"
@@ -9024,10 +9020,9 @@ abx-dl dl 'https://example.com'</code></pre>
                 <div class="hook-meta">
                   <span class="chip">JavaScript</span>
                   <span class="chip">order 81</span>
-                  <span class="chip">background</span>
                 </div>
                 <p class="hook-file">
-                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/istilldontcareaboutcookies/on_Crawl__81_install_istilldontcareaboutcookies_extension.finite.bg.js" target="_blank" rel="noreferrer"><code>on_Crawl__81_install_istilldontcareaboutcookies_extension.finite.bg.js</code></a>
+                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/istilldontcareaboutcookies/on_Crawl__81_install_istilldontcareaboutcookies_extension.js" target="_blank" rel="noreferrer"><code>on_Crawl__81_install_istilldontcareaboutcookies_extension.js</code></a>
                 </p>
               </article>
             </div>
@@ -9050,7 +9045,7 @@ abx-dl dl 'https://example.com'</code></pre>
         <details
           id="twocaptcha"
           class="plugin-card plugin-card--crawl-only"
-          data-search="twocaptcha crawl 2captcha install and configure the 2captcha extension to solve captchas during browser-based archiving. javascript crawl chrome chrome on_crawl__83_twocaptcha_install.finite.bg.js on_crawl__95_twocaptcha_config.js twocaptcha_enabled enable 2captcha browser extension for automatic captcha solving twocaptcha_api_key 2captcha api key for captcha solving service (get from https://2captcha.com) twocaptcha_retry_count number of times to retry captcha solving on error twocaptcha_retry_delay delay in seconds between captcha solving retries twocaptcha_timeout timeout for captcha solving in seconds twocaptcha_auto_submit automatically submit forms after captcha is solved"
+          data-search="twocaptcha crawl 2captcha install and configure the 2captcha extension to solve captchas during browser-based archiving. javascript crawl chrome chrome on_crawl__83_twocaptcha_install.js on_crawl__95_twocaptcha_config.js twocaptcha_enabled enable 2captcha browser extension for automatic captcha solving twocaptcha_api_key 2captcha api key for captcha solving service (get from https://2captcha.com) twocaptcha_retry_count number of times to retry captcha solving on error twocaptcha_retry_delay delay in seconds between captcha solving retries twocaptcha_timeout timeout for captcha solving in seconds twocaptcha_auto_submit automatically submit forms after captcha is solved"
           data-hero-plugin="twocaptcha"
           data-hero-abx-command="uvx abx-dl plugins --install twocaptcha"
           data-hero-archivebox-command="TWOCAPTCHA_ENABLED=true archivebox init --setup"
@@ -9140,10 +9135,9 @@ abx-dl dl 'https://example.com'</code></pre>
                 <div class="hook-meta">
                   <span class="chip">JavaScript</span>
                   <span class="chip">order 83</span>
-                  <span class="chip">background</span>
                 </div>
                 <p class="hook-file">
-                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/twocaptcha/on_Crawl__83_twocaptcha_install.finite.bg.js" target="_blank" rel="noreferrer"><code>on_Crawl__83_twocaptcha_install.finite.bg.js</code></a>
+                  <a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/twocaptcha/on_Crawl__83_twocaptcha_install.js" target="_blank" rel="noreferrer"><code>on_Crawl__83_twocaptcha_install.js</code></a>
                 </p>
               </article>
               <article class="hook-card">
@@ -9883,6 +9877,85 @@ abx-dl dl 'https://example.com'</code></pre>
             <div class="empty-state">This plugin does not define a <code>config.json</code> schema.</div>
           </div>
         </details>
+        <details
+          id="ssl"
+          class="plugin-card"
+          data-search="ssl ssl"
+          data-hero-plugin="ssl"
+          data-hero-abx-command="uvx abx-dl plugins ssl"
+          data-hero-archivebox-command="archivebox add 'https://example.com'"
+        >
+          <summary>
+            <div class="plugin-main">
+              <div class="plugin-title-row">
+                <h2>ssl</h2>
+              </div>
+              <div class="plugin-slug"><code>ssl</code></div>
+              <div class="plugin-subline">
+                <span class="chip">0 hooks</span>
+                <span class="chip">0 config fields</span>
+              </div>
+              <div class="plugin-header-meta">
+              </div>
+            </div>
+            <div class="plugin-corner-icon" aria-hidden="true">
+              <div class="plugin-icon">
+        <span class="abx-output-icon abx-output-icon--fallback" title="ssl">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <rect x="3" y="3" width="18" height="18" rx="6" fill="currentColor" opacity="0.18"></rect>
+            <text x="12" y="16" text-anchor="middle" font-size="11" font-family="IBM Plex Mono, monospace" fill="currentColor">S</text>
+          </svg>
+        </span>
+        </div>
+            </div>
+          </summary>
+
+          <div class="plugin-body">
+            <div class="actions">
+              <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/ssl" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Plugin Info</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Plugin</span>
+                <p><strong>ssl</strong></p>
+                <p><code>ssl</code></p>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <p>No plugin dependencies declared.</p>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <p>No binary dependencies declared.</p>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <p>No output mimetypes declared.</p>
+              </article>
+            </div>
+
+            <h3 class="section-title">Run It</h3>
+            <div class="command-grid">
+              <div class="command-card">
+                <span>ArchiveBox</span>
+                <pre><code>archivebox add 'https://example.com'</code></pre>
+              </div>
+              <div class="command-card">
+                <span>abx-dl</span>
+                <pre><code>abx-dl plugins ssl</code></pre>
+              </div>
+            </div>
+            <p class="note">Utility plugins are typically consumed indirectly, so the example shows the closest inspection workflow.</p>
+
+            <h3 class="section-title">Hook Scripts</h3>
+            <div class="empty-state">No hook scripts are defined in this plugin directory.</div>
+
+            <h3 class="section-title">Config Options</h3>
+            <div class="empty-state">This plugin does not define a <code>config.json</code> schema.</div>
+          </div>
+        </details>
       </main>
 
       <div class="empty-state" id="empty-state" hidden>No plugins match the current filter.</div>
@@ -10077,7 +10150,7 @@ abx-dl dl 'https://example.com'</code></pre>
 
         <div class="footer-meta">
           <span>Generated from <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">ArchiveBox/abx-plugins</a> at ref <code>main</code>.</span>
-          <span>Updated 2026-03-20 11:11 UTC</span>
+          <span>Updated 2026-03-22 09:20 UTC</span>
         </div>
       </footer>
     </div>

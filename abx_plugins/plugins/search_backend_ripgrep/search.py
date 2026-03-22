@@ -21,11 +21,15 @@
 
 import os
 import subprocess
-import shutil
 from pathlib import Path
 from collections.abc import Iterable
 
-from abx_plugins.plugins.base.utils import get_env, get_env_int, get_env_array
+from abx_plugins.plugins.base.utils import (
+    get_env,
+    get_env_int,
+    get_env_array,
+    resolve_binary_path,
+)
 
 
 def _get_archive_dir() -> Path:
@@ -38,7 +42,7 @@ def _get_archive_dir() -> Path:
 def search(query: str) -> list[str]:
     """Search for snapshots using ripgrep."""
     rg_binary = get_env("RIPGREP_BINARY", "rg")
-    rg_binary = shutil.which(rg_binary) or rg_binary
+    rg_binary = resolve_binary_path(rg_binary) or rg_binary
     if not rg_binary or not Path(rg_binary).exists():
         raise RuntimeError(
             "ripgrep binary not found. Install with: apt install ripgrep",

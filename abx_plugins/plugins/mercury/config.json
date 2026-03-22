@@ -17,7 +17,6 @@
     "MERCURY_BINARY": {
       "type": "string",
       "default": "postlight-parser",
-      "x-aliases": ["POSTLIGHT_PARSER_BINARY"],
       "description": "Path to Mercury/Postlight parser binary"
     },
     "MERCURY_TIMEOUT": {

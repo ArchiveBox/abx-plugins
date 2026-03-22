@@ -21,15 +21,11 @@ from __future__ import annotations
 
 import json
 import sys
-from typing import TYPE_CHECKING
-
 import rich_click as click
-from abx_pkg import Binary, BrewProvider, EnvProvider, SemVer
+from abx_pkg import Binary, BrewProvider, SemVer
 
 from abx_plugins.plugins.base.utils import emit_binary_record
-
-if TYPE_CHECKING:
-    from abx_pkg.binprovider import BinProvider, HandlerDict
+from abx_pkg.binprovider import HandlerDict
 
 
 @click.command(
@@ -84,17 +80,10 @@ def main(
                     err=True,
                 )
 
-        allowed_providers = (
-            set(binproviders.split(",")) if binproviders != "*" else {"env", "brew"}
-        )
-        providers: list[BinProvider] = [provider]
-        if "env" in allowed_providers:
-            providers.insert(0, EnvProvider())
-
         binary = Binary(
             name=name,
             min_version=SemVer(min_version) if min_version else None,
-            binproviders=providers,
+            binproviders=[provider],
             overrides=overrides_dict,
         ).load_or_install()
     except Exception as e:

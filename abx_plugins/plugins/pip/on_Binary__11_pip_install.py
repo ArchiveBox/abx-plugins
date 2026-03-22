@@ -22,7 +22,6 @@
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 from contextlib import contextmanager
@@ -34,10 +33,11 @@ from abx_plugins.plugins.base.utils import (
     emit_binary_record,
     emit_machine_record,
     enforce_lib_permissions,
+    resolve_binary_path,
 )
 
 import rich_click as click
-from abx_pkg import Binary, EnvProvider, PipProvider, SemVer
+from abx_pkg import Binary, PipProvider, SemVer
 
 
 def _is_executable(path: Path) -> bool:
@@ -106,7 +106,7 @@ def main(
     preferred_python = os.environ.get("PIP_VENV_PYTHON", "").strip()
     if not preferred_python and sys.version_info[:2] >= (3, 14):
         for candidate in ("python3.12", "python3.11", "python3.13"):
-            candidate_path = shutil.which(candidate)
+            candidate_path = resolve_binary_path(candidate)
             if candidate_path:
                 preferred_python = candidate_path
                 break
@@ -115,7 +115,9 @@ def main(
         if current_python.is_file():
             preferred_python = str(current_python)
         else:
-            current_python = shutil.which(Path(sys.executable).name) or sys.executable
+            current_python = (
+                resolve_binary_path(Path(sys.executable).name) or sys.executable
+            )
             if current_python:
                 preferred_python = current_python
     if not preferred_python:
@@ -126,7 +128,7 @@ def main(
             "python3.13",
             "python3.14",
         ):
-            candidate_path = shutil.which(candidate)
+            candidate_path = resolve_binary_path(candidate)
             if candidate_path:
                 preferred_python = candidate_path
                 break
@@ -164,7 +166,7 @@ def main(
             binary = Binary(
                 name=name,
                 min_version=SemVer(min_version) if min_version else None,
-                binproviders=[EnvProvider(), provider],
+                binproviders=[provider],
                 overrides={"pip": overrides_dict} if overrides_dict else {},
             ).load_or_install()
         except Exception as e:

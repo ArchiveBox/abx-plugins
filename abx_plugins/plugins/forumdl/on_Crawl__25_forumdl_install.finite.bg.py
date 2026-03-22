@@ -15,7 +15,6 @@
 #     ./on_Crawl__25_forumdl_install.py > events.jsonl
 
 import os
-import shutil
 import sys
 from pathlib import Path
 
@@ -35,19 +34,14 @@ def main():
         sys.exit(0)
 
     forumdl_binary = get_env("FORUMDL_BINARY", "forum-dl")
-    forumdl_binary_path = shutil.which(forumdl_binary)
-    if forumdl_binary_path:
-        emit_binary_record(
-            name="forum-dl",
-            abspath=forumdl_binary_path,
-            binprovider="env",
-        )
-        sys.exit(0)
 
     emit_binary_record(
         name="forum-dl",
         binproviders="env,pip",
         overrides={
+            "env": (
+                {"abspath": forumdl_binary} if forumdl_binary != "forum-dl" else {}
+            ),
             "pip": {
                 "install_args": [
                     "--no-deps",

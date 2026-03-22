@@ -37,7 +37,7 @@ _SNAPSHOT_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_singlefile.py")
 if _SNAPSHOT_HOOK is None:
     raise FileNotFoundError(f"Snapshot hook not found in {PLUGIN_DIR}")
 SNAPSHOT_HOOK = _SNAPSHOT_HOOK
-INSTALL_SCRIPT = PLUGIN_DIR / "on_Crawl__82_singlefile_install.finite.bg.js"
+INSTALL_SCRIPT = PLUGIN_DIR / "on_Crawl__82_singlefile_install.js"
 TEST_URL = "https://example.com"
 
 # Module-level cache for extension install location

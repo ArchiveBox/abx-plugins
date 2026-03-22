@@ -50,7 +50,7 @@ async function main() {
         const {
             EXTENSION,
             saveSinglefileWithExtension,
-        } = require('./on_Crawl__82_singlefile_install.finite.bg.js');
+        } = require('./on_Crawl__82_singlefile_install.js');
         if (process.cwd() !== SNAPSHOT_OUTPUT_DIR) {
             process.chdir(SNAPSHOT_OUTPUT_DIR);
         }

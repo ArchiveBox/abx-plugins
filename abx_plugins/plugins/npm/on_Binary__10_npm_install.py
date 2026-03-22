@@ -28,7 +28,7 @@ from abx_plugins.plugins.base.utils import (
 )
 
 import rich_click as click
-from abx_pkg import Binary, EnvProvider, NpmProvider, SemVer
+from abx_pkg import Binary, NpmProvider, SemVer
 
 
 def _resolve_node_modules_dir(binary_abspath: str | Path, npm_prefix: Path) -> Path:
@@ -102,7 +102,7 @@ def main(
         binary = Binary(
             name=name,
             min_version=SemVer(min_version) if min_version else None,
-            binproviders=[EnvProvider(), provider],
+            binproviders=[provider],
             overrides=overrides_dict or {},
         ).load_or_install()
     except Exception as e:

@@ -43,7 +43,11 @@ def main():
     # Honor custom binary path - skip npm install if user provides their own
     custom_binary = get_env("CLAUDECODE_BINARY")
     if custom_binary and custom_binary != "claude":
-        emit_binary_record(name=Path(custom_binary).name, binproviders="env")
+        emit_binary_record(
+            name="claude",
+            binproviders="env",
+            overrides={"env": {"abspath": custom_binary}},
+        )
     else:
         emit_binary_record(
             name="claude",

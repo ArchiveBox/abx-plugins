@@ -27,7 +27,11 @@ from pathlib import Path
 import rich_click as click
 from abx_pkg import Binary, EnvProvider, NpmProvider
 
-from abx_plugins.plugins.base.utils import emit_binary_record, emit_machine_record
+from abx_plugins.plugins.base.utils import (
+    emit_binary_record,
+    emit_machine_record,
+    resolve_binary_path,
+)
 
 CLAUDE_SANDBOX_NO_PROXY = (
     "localhost,127.0.0.1,169.254.169.254,metadata.google.internal,"
@@ -174,7 +178,7 @@ def _run_puppeteer_install(binary: Binary, install_args: list[str], cache_dir: P
         "--install-deps" in install_args
         and "requires root privileges" in install_output
         and os.geteuid() != 0
-        and shutil.which("sudo")
+        and resolve_binary_path("sudo")
     ):
         sudo_proc = _run_puppeteer_install_with_sudo(binary, install_args, cache_dir)
         if sudo_proc is not None and sudo_proc.returncode == 0:
@@ -197,7 +201,7 @@ def _run_puppeteer_install_with_sudo(
     """Re-run puppeteer install via sudo so --install-deps can install system libs."""
     import subprocess as _subprocess
 
-    abspath = str(binary.abspath or shutil.which("puppeteer") or "")
+    abspath = str(binary.abspath or resolve_binary_path("puppeteer") or "")
     if not abspath:
         return None
 
@@ -311,7 +315,7 @@ def _emit_browser_binary_record(
 
 
 def _resolve_binary_reference(binary_ref: str) -> str | None:
-    resolved_ref = shutil.which(binary_ref)
+    resolved_ref = resolve_binary_path(binary_ref)
     if resolved_ref:
         return resolved_ref
 

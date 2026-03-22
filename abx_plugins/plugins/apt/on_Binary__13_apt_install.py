@@ -22,7 +22,7 @@ import sys
 from abx_plugins.plugins.base.utils import emit_binary_record
 
 import rich_click as click
-from abx_pkg import AptProvider, Binary, EnvProvider, SemVer
+from abx_pkg import AptProvider, Binary, SemVer
 
 
 @click.command(
@@ -68,11 +68,10 @@ def main(
                     err=True,
                 )
 
-        # Prefer already-installed binaries found in PATH, then fall back to apt install.
         binary = Binary(
             name=name,
             min_version=SemVer(min_version) if min_version else None,
-            binproviders=[EnvProvider(), provider],
+            binproviders=[provider],
             overrides={"apt": overrides_dict} if overrides_dict else {},
         ).load_or_install()
     except Exception as e:

@@ -15,7 +15,6 @@
 #     ./on_Crawl__40_mercury_install.py > events.jsonl
 
 import os
-import shutil
 import sys
 from pathlib import Path
 
@@ -35,19 +34,27 @@ def main():
         sys.exit(0)
 
     mercury_binary = get_env("MERCURY_BINARY", "postlight-parser")
-    mercury_binary_path = shutil.which(mercury_binary)
-    if mercury_binary_path:
-        # Emit pre-resolved binary location
+    mercury_binary_name = Path(mercury_binary).name if mercury_binary else ""
+
+    # A cached absolute path to the default CLI should still use the normal
+    # npm->env resolution path so npm can report package metadata correctly.
+    # Only treat MERCURY_BINARY as an explicit custom override when it points
+    # to a different executable name entirely.
+    if (
+        mercury_binary
+        and mercury_binary_name
+        and mercury_binary_name != "postlight-parser"
+    ):
         emit_binary_record(
             name="postlight-parser",
-            abspath=mercury_binary_path,
-            binprovider="env",
+            binproviders="env",
+            overrides={"env": {"abspath": mercury_binary}},
         )
         sys.exit(0)
 
     emit_binary_record(
         name="postlight-parser",
-        binproviders="env,npm",
+        binproviders="npm,env",
         overrides={"npm": {"install_args": ["@postlight/parser"]}},
     )
 

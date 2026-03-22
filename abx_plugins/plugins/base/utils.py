@@ -176,6 +176,16 @@ def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
         return default if default is not None else []
 
 
+def resolve_binary_path(binary: str, PATH: str | None = None) -> str | None:
+    """Resolve an executable name or absolute path using abx-pkg path rules."""
+    if not binary:
+        return None
+    from abx_pkg import bin_abspath
+
+    resolved = bin_abspath(binary, PATH=PATH)
+    return str(resolved) if resolved else None
+
+
 def _resolve_path(path_value: str) -> Path:
     return Path(path_value).expanduser().resolve()
 

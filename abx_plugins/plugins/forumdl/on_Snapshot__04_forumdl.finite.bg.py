@@ -17,7 +17,6 @@
 #     ./on_Snapshot__04_forumdl.finite.bg.py --url=<url>
 
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -25,7 +24,11 @@ import textwrap
 import threading
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_archive_result_record, load_config
+from abx_plugins.plugins.base.utils import (
+    emit_archive_result_record,
+    load_config,
+    resolve_binary_path as resolve_binary_ref,
+)
 
 import rich_click as click
 
@@ -56,11 +59,7 @@ def rel_output(path_str: str | None) -> str | None:
 
 def resolve_binary_path(binary: str) -> str | None:
     """Resolve binary to an absolute path if possible."""
-    if not binary:
-        return None
-    if Path(binary).is_file():
-        return binary
-    return shutil.which(binary)
+    return resolve_binary_ref(binary)
 
 
 def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
