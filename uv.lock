@@ -4,7 +4,7 @@ requires-python = ">=3.11"
 
 [[package]]
 name = "abx-pkg"
-version = "1.9.14"
+version = "1.9.18"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pip" },
@@ -12,9 +12,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f9/6e/4465d44686b40ab0361d153160e2bd0167f588756518084308a8e8d08d8c/abx_pkg-1.9.14.tar.gz", hash = "sha256:b94d42cdbc6dde88635903cf14977b34e552d807a72c03d60f27f075deb59952", size = 146811, upload-time = "2026-03-21T07:44:12.158Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/cb/77/cbf74c7e0f7aff8e6d21ce764f2c97f84b5f5c75f2c5e72442e7f66921da/abx_pkg-1.9.18.tar.gz", hash = "sha256:fcdc80e6ea56cc6dc663aec123d9b49b5aa6ef5b2a38899608c59cf3f36ef93c", size = 152094, upload-time = "2026-03-22T10:49:30.707Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/56/af/8e65a23d44e5ccc069c344a7a626f575498b3c1a3ccacb17e941b36ecd35/abx_pkg-1.9.14-py3-none-any.whl", hash = "sha256:cf89dc4c5737e2078cb05fa7e33683718d540391a018445b6e54aa22666f25e0", size = 63511, upload-time = "2026-03-21T07:44:11.038Z" },
+    { url = "https://files.pythonhosted.org/packages/29/64/efec7abb013b1ab344a87dc86147795635a72dc4df6d98d4de1538da127d/abx_pkg-1.9.18-py3-none-any.whl", hash = "sha256:c7edfc829f1caa4f4bbcb0a5ca065994aac399cfdfae39cf5113e599c8b934c4", size = 64767, upload-time = "2026-03-22T10:49:29.306Z" },
 ]
 
 [[package]]
@@ -46,7 +46,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx-pkg", specifier = ">=1.9.14" },
+    { name = "abx-pkg", specifier = ">=1.9.18" },
     { name = "feedparser", marker = "extra == 'dev'", specifier = ">=6.0.0" },
     { name = "jinja2", marker = "extra == 'dev'", specifier = ">=3.1.0" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },

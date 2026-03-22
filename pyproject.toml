@@ -20,7 +20,7 @@ classifiers = [
     "Environment :: Console",
 ]
 dependencies = [
-    "abx-pkg>=1.9.14",
+    "abx-pkg>=1.9.18",
     "pydantic-settings>=2.0.0",
     "rich-click>=1.9.7",
 ]
