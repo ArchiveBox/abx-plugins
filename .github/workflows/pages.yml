@@ -37,7 +37,7 @@ jobs:
       - name: Build marketplace
         env:
           ABX_MARKETPLACE_GITHUB_REF: ${{ github.ref_name }}
-        run: uv run --with jinja2 python3 docs/generate.py
+        run: uv run --no-sources --with jinja2 python3 docs/generate.py
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3

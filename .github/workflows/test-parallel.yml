@@ -70,11 +70,11 @@ jobs:
       - name: Install dependencies with uv
         run: |
           uv venv
-          uv sync --dev --all-extras
-          uv pip install -e ".[dev]"
+          uv sync --dev --all-extras --no-sources
+          uv pip install --no-deps -e ".[dev]"
 
       - name: Run prek
-        run: uv run prek run --all-files
+        run: uv run --no-sync prek run --all-files
 
   discover-tests:
     name: Discover test files
@@ -213,8 +213,8 @@ jobs:
       - name: Install dependencies with uv
         run: |
           uv venv
-          uv sync --dev --all-extras
-          uv pip install -e ".[dev]"
+          uv sync --dev --all-extras --no-sources
+          uv pip install --no-deps -e ".[dev]"
 
       - name: Verify Chromium launch
         if: ${{ matrix.test.needs_chromium }}
@@ -222,7 +222,7 @@ jobs:
 
       - name: Run test - ${{ matrix.test.name }}
         run: |
-          uv run pytest -xvs -rA "${{ matrix.test.path }}" --basetemp="$RUNNER_TEMP/pytest-out"
+          uv run --no-sync pytest -xvs -rA "${{ matrix.test.path }}" --basetemp="$RUNNER_TEMP/pytest-out"
         env:
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           CHROME_SANDBOX: "false"
