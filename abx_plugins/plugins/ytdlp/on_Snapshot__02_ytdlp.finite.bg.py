@@ -19,6 +19,7 @@ Environment variables:
     YTDLP_ENABLED: Enable yt-dlp extraction (default: True)
     YTDLP_BINARY: Path to yt-dlp binary (default: yt-dlp)
     YTDLP_NODE_BINARY: Path to Node.js binary (x-fallback: NODE_BINARY)
+    FFMPEG_BINARY: Path to ffmpeg binary
     YTDLP_TIMEOUT: Timeout in seconds (x-fallback: TIMEOUT)
     YTDLP_COOKIES_FILE: Path to cookies file (x-fallback: COOKIES_FILE)
     YTDLP_MAX_SIZE: Maximum file size (default: 750m)
@@ -83,11 +84,13 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
     cookies_file = config.YTDLP_COOKIES_FILE
     max_size = config.YTDLP_MAX_SIZE
     node_binary = config.YTDLP_NODE_BINARY
+    ffmpeg_binary = (os.environ.get("FFMPEG_BINARY") or "").strip()
     ytdlp_args = config.YTDLP_ARGS
     ytdlp_args_extra = config.YTDLP_ARGS_EXTRA
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(".")
+    process_env = os.environ.copy()
 
     # Build command (later options take precedence)
     cmd = [
@@ -97,6 +100,14 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
         f"--format=(bv*+ba/b)[filesize<={max_size}][filesize_approx<=?{max_size}]/(bv*+ba/b)",
         f"--js-runtimes=node:{node_binary}",
     ]
+
+    ffmpeg_path = Path(ffmpeg_binary).expanduser()
+    if ffmpeg_binary and ffmpeg_path.is_file():
+        ffmpeg_dir = str(ffmpeg_path.parent.resolve())
+        existing_path = process_env.get("PATH", "")
+        process_env["PATH"] = os.pathsep.join(
+            [ffmpeg_dir, *([existing_path] if existing_path else [])],
+        )
 
     if not check_ssl:
         cmd.append("--no-check-certificate")
@@ -122,6 +133,7 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            env=process_env,
         )
 
         def _read_output() -> None:

@@ -11,7 +11,7 @@
 # ///
 #
 # Extract favicon from a URL and save it to the local filesystem.
-# Supports multiple favicon sources including HTML link tags and Google's favicon service.
+# Supports multiple favicon sources including HTML link tags and a configurable fallback provider.
 #
 # Usage:
 #     ./on_Snapshot__11_favicon.finite.bg.py --url=<url>
@@ -22,10 +22,10 @@ import sys
 
 from pathlib import Path
 from urllib.error import HTTPError
-from urllib.parse import urljoin, urlparse
+from urllib.parse import quote, urljoin, urlparse
 from urllib.request import Request, urlopen
 
-from abx_plugins.plugins.base.utils import emit_archive_result_record, load_config
+from abx_plugins.plugins.base.utils import emit_archive_result_record, get_config
 
 import rich_click as click
 
@@ -33,12 +33,13 @@ import rich_click as click
 # Extractor metadata
 PLUGIN_NAME = "favicon"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-CONFIG = load_config()
+CONFIG = get_config()
 SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 OUTPUT_FILE = "favicon.ico"
+SUCCESS_OUTPUT = f"{PLUGIN_DIR}/{OUTPUT_FILE}"
 
 
 def http_get(url: str, headers: dict[str, str], timeout: int) -> tuple[int, bytes]:
@@ -50,6 +51,24 @@ def http_get(url: str, headers: dict[str, str], timeout: int) -> tuple[int, byte
         return e.code, e.read()
 
 
+def save_favicon(body: bytes) -> str:
+    Path(OUTPUT_FILE).write_bytes(body)
+    return OUTPUT_FILE
+
+
+def build_provider_url(provider_template: str, domain: str) -> str:
+    if not provider_template:
+        return ""
+
+    if "{domain}" in provider_template:
+        return provider_template.format(domain=quote(domain, safe=""))
+
+    if "{}" in provider_template:
+        return provider_template.format(quote(domain, safe=""))
+
+    return provider_template
+
+
 def get_favicon(url: str) -> tuple[bool, str | None, str]:
     """
     Fetch favicon from URL.
@@ -57,14 +76,16 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
     Returns: (success, output_path, error_message)
     """
 
-    config = load_config()
+    config = get_config()
     timeout = config.FAVICON_TIMEOUT
     user_agent = config.FAVICON_USER_AGENT or "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
+    provider_template = (config.FAVICON_PROVIDER or "").strip()
     headers = {"User-Agent": user_agent}
 
     # Build list of possible favicon URLs
     parsed = urlparse(url)
     base_url = f"{parsed.scheme}://{parsed.netloc}"
+    domain = parsed.hostname or parsed.netloc
 
     favicon_urls = [
         urljoin(base_url, "/favicon.ico"),
@@ -98,22 +119,21 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
     # Try each URL until we find one that works
     for favicon_url in favicon_urls:
         try:
-            status_code, body = http_get(favicon_url, headers=headers, timeout=15)
+            status_code, body = http_get(favicon_url, headers=headers, timeout=timeout)
             if 200 <= status_code < 300 and body:
-                Path(OUTPUT_FILE).write_bytes(body)
-                return True, OUTPUT_FILE, ""
+                return True, save_favicon(body), ""
         except Exception:
             continue
 
-    # Try Google's favicon service as fallback
-    try:
-        google_url = f"https://www.google.com/s2/favicons?domain={parsed.netloc}"
-        status_code, body = http_get(google_url, headers=headers, timeout=15)
-        if 200 <= status_code < 300 and body:
-            Path(OUTPUT_FILE).write_bytes(body)
-            return True, OUTPUT_FILE, ""
-    except Exception:
-        pass
+    # Try configured provider as final fallback.
+    provider_url = build_provider_url(provider_template, domain)
+    if provider_url:
+        try:
+            status_code, body = http_get(provider_url, headers=headers, timeout=timeout)
+            if 200 <= status_code < 300 and body:
+                return True, save_favicon(body), ""
+        except Exception:
+            pass
 
     return False, None, "No favicon found"
 
@@ -153,7 +173,7 @@ def main(url: str):
 
     emit_archive_result_record(
         status,
-        f"{PLUGIN_DIR}/{output}" if output else (error or ""),
+        SUCCESS_OUTPUT if output else (error or ""),
     )
 
     sys.exit(0 if status == "succeeded" else 1)

@@ -3,20 +3,22 @@ Integration tests for favicon plugin
 
 Tests verify:
 1. Plugin script exists
-2. requests library is available
-3. Favicon extraction works for real example.com
-4. Output file is actual image data
-5. Tries multiple favicon URLs
-6. Falls back to Google's favicon service
-7. Config options work (TIMEOUT, USER_AGENT)
-8. Handles failures gracefully
+2. Favicon extraction works for real example.com
+3. Output file is actual image data
+4. Tries multiple favicon URLs
+5. Falls back to a configured favicon provider
+6. Config options work (TIMEOUT, USER_AGENT)
+7. Handles failures gracefully
 """
 
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os
 import subprocess
-import sys
 import tempfile
+import threading
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
@@ -33,6 +35,7 @@ if _FAVICON_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 FAVICON_HOOK = _FAVICON_HOOK
 TEST_URL = "https://example.com"
+TEST_ICO_BYTES = b"\x00\x00\x01\x00mock-ico"
 
 
 def test_hook_script_exists():
@@ -40,34 +43,63 @@ def test_hook_script_exists():
     assert FAVICON_HOOK.exists(), f"Hook script not found: {FAVICON_HOOK}"
 
 
-def test_requests_library_available():
-    """Test that requests library is available."""
-    result = subprocess.run(
-        [sys.executable, "-c", "import requests; print(requests.__version__)"],
-        capture_output=True,
-        text=True,
-    )
+@contextmanager
+def run_favicon_test_server():
+    requests: list[str] = []
 
-    if result.returncode != 0:
-        pass
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            requests.append(self.path)
+            parsed = urlparse(self.path)
 
-    assert len(result.stdout.strip()) > 0, "Should report requests version"
+            if parsed.path == "/":
+                body = b"<html><head><title>favicon test</title></head><body></body></html>"
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+
+            if parsed.path in ("/favicon.ico", "/favicon.png", "/apple-touch-icon.png"):
+                self.send_response(404)
+                self.end_headers()
+                return
+
+            if parsed.path == "/provider":
+                query = parse_qs(parsed.query)
+                if query.get("domain") == ["127.0.0.1"]:
+                    body = TEST_ICO_BYTES
+                    self.send_response(200)
+                    self.send_header("Content-Type", "image/x-icon")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return
+
+            self.send_response(404)
+            self.end_headers()
+
+        def log_message(self, format, *args):
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield server, requests
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
 
 
 def test_extracts_favicon_from_example_com():
     """Test full workflow: extract favicon from real example.com.
 
-    Note: example.com doesn't have a favicon and Google's service may also fail,
+    Note: example.com doesn't have a favicon and the fallback provider may also fail,
     so we test that the extraction completes and reports appropriate status.
     """
-
-    # Check requests is available
-    check_result = subprocess.run(
-        [sys.executable, "-c", "import requests"],
-        capture_output=True,
-    )
-    if check_result.returncode != 0:
-        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -90,7 +122,7 @@ def test_extracts_favicon_from_example_com():
             env=env,
         )
 
-        # May succeed (if Google service works) or fail (if no favicon)
+        # May succeed (if fallback provider works) or fail (if no favicon)
         assert result.returncode in (0, 1), "Should complete extraction attempt"
 
         # Parse clean JSONL output
@@ -132,13 +164,6 @@ def test_extracts_favicon_from_example_com():
 def test_config_timeout_honored():
     """Test that TIMEOUT config is respected."""
 
-    check_result = subprocess.run(
-        [sys.executable, "-c", "import requests"],
-        capture_output=True,
-    )
-    if check_result.returncode != 0:
-        pass
-
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
@@ -168,13 +193,6 @@ def test_config_timeout_honored():
 
 def test_config_user_agent():
     """Test that USER_AGENT config is used."""
-
-    check_result = subprocess.run(
-        [sys.executable, "-c", "import requests"],
-        capture_output=True,
-    )
-    if check_result.returncode != 0:
-        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -213,13 +231,6 @@ def test_config_user_agent():
 def test_handles_https_urls():
     """Test that HTTPS URLs work correctly."""
 
-    check_result = subprocess.run(
-        [sys.executable, "-c", "import requests"],
-        capture_output=True,
-    )
-    if check_result.returncode != 0:
-        pass
-
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
@@ -244,19 +255,55 @@ def test_handles_https_urls():
                 assert favicon_file.stat().st_size > 0
 
 
+def test_falls_back_to_configured_provider_and_emits_relative_output_path():
+    """Configured provider fallback should save favicon.ico and emit a relative path."""
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        snap_dir = tmpdir / "snap"
+        snap_dir.mkdir(parents=True, exist_ok=True)
+
+        with run_favicon_test_server() as (server, requests):
+            env = os.environ.copy()
+            env["SNAP_DIR"] = str(snap_dir)
+            env["FAVICON_PROVIDER"] = (
+                f"http://127.0.0.1:{server.server_port}/provider?domain={{}}"
+            )
+
+            result = subprocess.run(
+                [
+                    str(FAVICON_HOOK),
+                    "--url",
+                    f"http://127.0.0.1:{server.server_port}/",
+                ],
+                cwd=tmpdir,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=env,
+            )
+
+        assert result.returncode == 0, result.stderr
+
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json, "Should emit ArchiveResult JSONL output"
+        assert result_json["status"] == "succeeded"
+        assert result_json["output_str"] == "favicon/favicon.ico"
+
+        favicon_file = snap_dir / "favicon" / "favicon.ico"
+        assert favicon_file.exists(), "favicon.ico not created"
+        assert favicon_file.read_bytes() == TEST_ICO_BYTES
+        assert any(
+            path.startswith("/provider?domain=127.0.0.1") for path in requests
+        ), "Configured fallback provider was not called"
+
+
 def test_handles_missing_favicon_gracefully():
     """Test that favicon plugin handles sites without favicons gracefully.
 
-    Note: The plugin falls back to Google's favicon service, which generates
-    a generic icon even if the site doesn't have one, so extraction usually succeeds.
+    Note: The plugin falls back to the configured favicon provider, which may
+    return a generic icon even if the site doesn't have one.
     """
-
-    check_result = subprocess.run(
-        [sys.executable, "-c", "import requests"],
-        capture_output=True,
-    )
-    if check_result.returncode != 0:
-        pass
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -277,7 +324,7 @@ def test_handles_missing_favicon_gracefully():
             env=env,
         )
 
-        # May succeed (Google fallback) or fail gracefully
+        # May succeed (provider fallback) or fail gracefully
         assert result.returncode in (0, 1), "Should complete (may succeed or fail)"
 
         if result.returncode != 0:

@@ -177,6 +177,10 @@ function loadConfig(configPath = null) {
     return { ...config };
 }
 
+function getConfig(configPath = null) {
+    return loadConfig(configPath);
+}
+
 function getEnv(name, defaultValue = '') {
     return (process.env[name] || defaultValue).trim();
 }
@@ -372,6 +376,7 @@ function hasStaticFileOutput(staticfileDir = '../staticfile') {
 }
 
 module.exports = {
+    getConfig,
     loadConfig,
     getEnv,
     getEnvBool,

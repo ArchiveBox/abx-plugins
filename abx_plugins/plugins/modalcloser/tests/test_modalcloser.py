@@ -30,7 +30,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
-PLUGIN_DIR = Path(__file__).parent.parent
+PLUGIN_DIR = Path(__file__).resolve().parent.parent
 MODALCLOSER_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_modalcloser.*"), None)
 TEST_URL = "https://www.singsing.movie/"
 COOKIE_CONSENT_TEST_URL = "https://www.filmin.es/"
@@ -58,6 +58,26 @@ def _modal_page_url(httpserver) -> str:
         content_type="text/html; charset=utf-8",
     )
     return httpserver.url_for("/modal")
+
+
+def _plain_page_url(httpserver) -> str:
+    """Serve a deterministic page with no dismissible modals or banners."""
+    html = """<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Plain Fixture</title>
+</head>
+<body>
+  <main><h1>Plain Fixture</h1><p>No modal elements are present here.</p></main>
+</body>
+</html>
+"""
+    httpserver.expect_request("/plain").respond_with_data(
+        html,
+        content_type="text/html; charset=utf-8",
+    )
+    return httpserver.url_for("/plain")
 
 
 def test_hook_script_exists():
@@ -185,6 +205,13 @@ def test_background_script_handles_sigterm(httpserver):
                 time.sleep(2)
 
                 # Verify it's still running (background script)
+                if modalcloser_process.poll() is not None:
+                    stdout, stderr = modalcloser_process.communicate(timeout=5)
+                    raise AssertionError(
+                        "Modalcloser exited early.\n"
+                        f"Stdout: {stdout}\n"
+                        f"Stderr: {stderr}",
+                    )
                 assert modalcloser_process.poll() is None, (
                     "Modalcloser should still be running as background process"
                 )
@@ -231,6 +258,81 @@ def test_background_script_handles_sigterm(httpserver):
                 assert len(output_files) == 0, (
                     f"Should not create any files, but found: {output_files}"
                 )
+
+        finally:
+            if modalcloser_process and modalcloser_process.poll() is None:
+                modalcloser_process.kill()
+
+
+def test_background_script_reports_noresults_when_nothing_closed(httpserver):
+    """Test that SIGTERM reports noresults when no dialogs or modals were closed."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        modalcloser_process = None
+        try:
+            test_url = _plain_page_url(httpserver)
+            with chrome_session(
+                Path(tmpdir),
+                crawl_id="test-modalcloser-noresults",
+                snapshot_id="snap-modalcloser-noresults",
+                test_url=test_url,
+                timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+            ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
+                modalcloser_dir = snapshot_chrome_dir.parent / "modalcloser"
+                modalcloser_dir.mkdir()
+                env["MODALCLOSER_POLL_INTERVAL"] = "200"
+
+                modalcloser_process = subprocess.Popen(
+                    [
+                        str(MODALCLOSER_HOOK),
+                        f"--url={test_url}",
+                        "--snapshot-id=snap-modalcloser-noresults",
+                    ],
+                    cwd=str(modalcloser_dir),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    env=env,
+                )
+
+                time.sleep(1.5)
+
+                if modalcloser_process.poll() is not None:
+                    stdout, stderr = modalcloser_process.communicate(timeout=5)
+                    raise AssertionError(
+                        "Modalcloser exited early.\n"
+                        f"Stdout: {stdout}\n"
+                        f"Stderr: {stderr}",
+                    )
+                assert modalcloser_process.poll() is None, (
+                    "Modalcloser should still be running as background process"
+                )
+
+                modalcloser_process.send_signal(signal.SIGTERM)
+                stdout, stderr = modalcloser_process.communicate(timeout=5)
+
+                assert modalcloser_process.returncode == 0, (
+                    f"Should exit 0 on SIGTERM: {stderr}"
+                )
+
+                result_json = None
+                for line in stdout.strip().split("\n"):
+                    line = line.strip()
+                    if line.startswith("{"):
+                        try:
+                            record = json.loads(line)
+                            if record.get("type") == "ArchiveResult":
+                                result_json = record
+                                break
+                        except json.JSONDecodeError:
+                            pass
+
+                assert result_json is not None, (
+                    f"Should have ArchiveResult JSONL output. Stdout: {stdout}"
+                )
+                assert result_json["status"] == "noresults", (
+                    f"Should report noresults when nothing was closed: {result_json}"
+                )
+                assert result_json["output_str"] == "0 modals closed", result_json
 
         finally:
             if modalcloser_process and modalcloser_process.poll() is None:
@@ -371,7 +473,21 @@ def test_hides_cookie_consent_on_filmin():
     """Live test: verify modalcloser hides cookie consent popup on filmin.es."""
     # Create a test script that uses puppeteer directly
     test_script = """
-const puppeteer = require('puppeteer-core');
+if (!process.env.NODE_PATH && process.env.NODE_MODULES_DIR) {
+    process.env.NODE_PATH = process.env.NODE_MODULES_DIR;
+    require('module').Module._initPaths();
+}
+
+function resolvePuppeteer() {
+    for (const moduleName of ['puppeteer-core', 'puppeteer']) {
+        try {
+            return require(moduleName);
+        } catch (error) {}
+    }
+    throw new Error('Missing puppeteer dependency (need puppeteer-core or puppeteer)');
+}
+
+const puppeteer = resolvePuppeteer();
 
 async function closeModals(page) {
     return page.evaluate(() => {

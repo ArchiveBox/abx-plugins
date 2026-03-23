@@ -1,7 +1,7 @@
 """Shared utilities for abx plugins.
 
 Provides common helpers used across multiple plugins:
-- Config loading from config.json using PydanticSettings (load_config)
+- Config loading from config.json using PydanticSettings (load_config/get_config)
 - Environment variable parsing (get_env, get_env_bool, get_env_int, get_env_array)
 - JSONL record emission (emit_archive_result_record, emit_binary_request_record, emit_installed_binary_record, emit_machine_record, emit_snapshot_record)
 - Atomic file writing (write_text_atomic)
@@ -10,7 +10,7 @@ Provides common helpers used across multiple plugins:
 
 Import directly via the package path::
 
-    from abx_plugins.plugins.base.utils import load_config
+    from abx_plugins.plugins.base.utils import get_config
 """
 
 from __future__ import annotations
@@ -164,6 +164,15 @@ def load_config(config_path: Path | str | None = None) -> Any:
     model_cls = create_model("PluginConfig", __base__=_ConfigBase, **field_definitions)
     _config_model_cache[cache_key] = (model_cls, schema_mtimes)
     return model_cls()
+
+
+def get_config(config_path: Path | str | None = None) -> Any:
+    """Alias for load_config() that preserves direct-caller config lookup."""
+    if config_path is not None:
+        return load_config(config_path)
+
+    caller_file = inspect.stack()[1].filename
+    return load_config(Path(caller_file).parent / "config.json")
 
 
 # ---------------------------------------------------------------------------

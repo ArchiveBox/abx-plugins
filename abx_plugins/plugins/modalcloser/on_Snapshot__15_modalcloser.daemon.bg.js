@@ -48,6 +48,15 @@ const {
     connectToPage,
 } = require('../chrome/chrome_utils.js');
 
+function resolvePuppeteer() {
+    for (const moduleName of ['puppeteer-core', 'puppeteer']) {
+        try {
+            return require(moduleName);
+        } catch (error) {}
+    }
+    throw new Error('Missing puppeteer dependency (need puppeteer-core or puppeteer)');
+}
+
 // Check if modalcloser is enabled BEFORE requiring puppeteer
 if (!getEnvBool('MODALCLOSER_ENABLED', true)) {
     console.error('Skipping modalcloser (MODALCLOSER_ENABLED=False)');
@@ -55,7 +64,7 @@ if (!getEnvBool('MODALCLOSER_ENABLED', true)) {
     process.exit(0);
 }
 
-const puppeteer = require('puppeteer-core');
+const puppeteer = resolvePuppeteer();
 
 const PLUGIN_NAME = 'modalcloser';
 const CHROME_SESSION_DIR = path.join(SNAP_DIR, 'chrome');
@@ -261,8 +270,9 @@ async function main() {
         console.error(`Modalcloser exiting: closed ${dialogsClosed} dialogs, ${cssModalsClosed} CSS modals`);
 
         const outputStr = `${total} modals closed`;
+        const status = total > 0 ? 'succeeded' : 'noresults';
 
-        emitArchiveResultRecord('succeeded', outputStr);
+        emitArchiveResultRecord(status, outputStr);
 
         if (browser) browser.disconnect();
         process.exit(0);

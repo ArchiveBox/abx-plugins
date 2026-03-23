@@ -101,19 +101,33 @@ def build_config_text(config, sonic_dir: Path) -> str:
     )
 
 
+def emit_skipped(reason: str) -> None:
+    print(reason)
+
+
+def emit_listening_summary(host: str, port: int) -> None:
+    print(f"{host}:{port}")
+
+
 def main() -> None:
     config = load_config()
 
     if config.ABX_RUNTIME != "archivebox":
+        emit_skipped(f"ABX_RUNTIME={config.ABX_RUNTIME}")
         sys.exit(0)
 
     if config.SEARCH_BACKEND_ENGINE != "sonic":
+        emit_skipped(f"SEARCH_BACKEND_ENGINE={config.SEARCH_BACKEND_ENGINE}")
+        sys.exit(0)
+
+    if not config.USE_INDEXING_BACKEND:
+        emit_skipped("USE_INDEXING_BACKEND=False")
         sys.exit(0)
 
     host = config.SEARCH_BACKEND_SONIC_HOST_NAME
     port = int(config.SEARCH_BACKEND_SONIC_PORT)
     if is_port_listening(host, port):
-        print(f"Sonic already listening on {host}:{port}", file=sys.stderr)
+        emit_listening_summary(host, port)
         sys.exit(0)
 
     sonic_dir = get_sonic_dir(config)
@@ -130,9 +144,7 @@ def main() -> None:
         "hook_args": ["-c", str(config_path)],
         "is_background": True,
         "daemon": True,
-        "daemon_startup_host": host,
-        "daemon_startup_port": port,
-        "daemon_startup_timeout": 10.0,
+        "url": f"tcp://{host}:{port}",
         "output_dir": str(sonic_dir),
         "env": {},
         "timeout": 0,
@@ -143,6 +155,7 @@ def main() -> None:
         "event_handler_timeout": 150.0,
     }
     sys.stdout.write(json.dumps(record) + "\n")
+    emit_listening_summary(host, port)
     sys.stdout.flush()
 
 

@@ -111,6 +111,22 @@ def get_ytdlp_binary_path() -> str | None:
     return None
 
 
+def require_ffmpeg_binary() -> str:
+    """Return ffmpeg binary path or fail with actionable context."""
+    from abx_pkg import AptProvider, Binary, BrewProvider, EnvProvider
+
+    binary = Binary(
+        name="ffmpeg",
+        binproviders=[EnvProvider(), BrewProvider(), AptProvider()],
+    ).load_or_install()
+    assert binary and binary.abspath, (
+        "ffmpeg installation failed. ytdlp tests require a real ffmpeg binary."
+    )
+    ffmpeg_path = str(binary.abspath)
+    assert Path(ffmpeg_path).is_file(), f"ffmpeg binary path invalid: {ffmpeg_path}"
+    return ffmpeg_path
+
+
 def test_hook_script_exists():
     """Verify on_Snapshot hook exists."""
     assert YTDLP_HOOK.exists(), f"Hook not found: {YTDLP_HOOK}"
@@ -299,6 +315,47 @@ def test_extracts_local_media_url(media_test_url):
         print(
             f"Successfully extracted {len(media_files)} file(s) in {elapsed_time:.2f}s",
         )
+
+
+def test_uses_real_ffmpeg_binary_from_env_when_not_on_path(media_test_url):
+    """Hook should use FFMPEG_BINARY explicitly instead of relying on PATH probing."""
+    ytdlp_binary = require_ytdlp_binary()
+    ffmpeg_binary = require_ffmpeg_binary()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(tmpdir_path)
+        env["YTDLP_BINARY"] = ytdlp_binary
+        env["FFMPEG_BINARY"] = ffmpeg_binary
+        env["YTDLP_ARGS_EXTRA"] = '["--downloader","ffmpeg"]'
+        ffmpeg_dir = str(Path(ffmpeg_binary).parent.resolve())
+        env["PATH"] = os.pathsep.join(
+            path
+            for path in env.get("PATH", "").split(os.pathsep)
+            if path and str(Path(path).resolve()) != ffmpeg_dir
+        )
+
+        result = subprocess.run(
+            [
+                str(YTDLP_HOOK),
+                "--url",
+                media_test_url,
+            ],
+            cwd=tmpdir_path,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=90,
+        )
+
+        assert result.returncode == 0, result.stderr
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json, (
+            f"Should have ArchiveResult JSONL output. stdout: {result.stdout}"
+        )
+        assert result_json["status"] == "succeeded", result_json
 
 
 if __name__ == "__main__":

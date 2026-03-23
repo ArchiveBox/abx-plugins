@@ -31,6 +31,11 @@
       "default": "",
       "x-fallback": "USER_AGENT",
       "description": "User agent string"
+    },
+    "FAVICON_PROVIDER": {
+      "type": "string",
+      "default": "https://www.google.com/s2/favicons?domain={}&format=ico",
+      "description": "Fallback favicon provider URL template. Supports either {} or {domain} placeholders."
     }
   }
 }

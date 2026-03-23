@@ -1,17 +1,22 @@
 #!/usr/bin/env node
 /**
- * Detect and download static files using CDP during initial request.
+ * Detect static-file main responses using CDP during initial request.
  *
  * This hook sets up CDP listeners BEFORE chrome_navigate to capture the
  * Content-Type from the initial response. If it's a static file (PDF, image, etc.),
- * it downloads the content directly using CDP.
+ * it prefers the artifact saved by the responses hook and only falls back to
+ * saving its own copy when that artifact is unavailable.
  *
  * Usage: on_Snapshot__26_staticfile.daemon.bg.js --url=<url>
- * Output: Downloads static file
+ * Output: Emits the saved main-response path
  */
 
 const fs = require('fs');
 const path = require('path');
+const {
+    getExtensionFromMimeType,
+    getExtensionFromUrl,
+} = require('../responses/filename_utils.js');
 
 // Import generic helpers from base/utils.js
 const {
@@ -33,6 +38,7 @@ const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
 const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || '.').trim());
 const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
+const RESPONSES_INDEX_PATH = path.join(SNAP_DIR, 'responses', 'index.jsonl');
 if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
@@ -120,7 +126,7 @@ const STATIC_CONTENT_TYPE_PREFIXES = [
 let originalUrl = '';
 let detectedContentType = null;
 let isStaticFile = false;
-let downloadedFilePath = null;
+let savedOutputPath = null;
 let downloadError = null;
 let page = null;
 let browser = null;
@@ -169,6 +175,78 @@ function normalizeUrl(url) {
     }
 }
 
+function getOutputPathRelativeToSnapshot(filePath) {
+    if (!filePath) return null;
+    return path.posix.join(PLUGIN_DIR, String(filePath).split(path.sep).join('/'));
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function getResponsesOutputInfo(url, mimeType) {
+    try {
+        const urlObj = new URL(url);
+        const hostname = urlObj.hostname;
+        const pathname = urlObj.pathname || '/';
+        const extension = getExtensionFromMimeType(mimeType) || getExtensionFromUrl(url);
+        const filename = path.basename(pathname) || `index${extension ? `.${extension}` : ''}`;
+        const dirPathRaw = path.dirname(pathname);
+        const dirPath = dirPathRaw === '.' ? '' : dirPathRaw.replace(/^\/+/, '');
+        const relativePath = path.posix.join(
+            'responses',
+            hostname,
+            dirPath.split(path.sep).join('/'),
+            filename,
+        );
+        return {
+            relativePath,
+            absolutePath: path.join(SNAP_DIR, ...relativePath.split('/')),
+        };
+    } catch (error) {
+        return null;
+    }
+}
+
+function isSavedResponseReady(filePath) {
+    if (!filePath || !fs.existsSync(filePath)) return false;
+
+    try {
+        const stats = fs.statSync(filePath);
+        return stats.isFile() && stats.size > 0;
+    } catch (error) {
+        return false;
+    }
+}
+
+async function waitForResponsesOutput(outputInfo, timeoutMs) {
+    if (!outputInfo) return null;
+
+    const startupDeadline = Date.now() + Math.min(timeoutMs, 2000);
+    while (Date.now() < startupDeadline) {
+        if (fs.existsSync(RESPONSES_INDEX_PATH)) break;
+        await sleep(100);
+    }
+
+    if (!fs.existsSync(RESPONSES_INDEX_PATH)) {
+        return null;
+    }
+
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        if (isSavedResponseReady(outputInfo.absolutePath)) {
+            return outputInfo.relativePath;
+        }
+        await sleep(100);
+    }
+
+    if (isSavedResponseReady(outputInfo.absolutePath)) {
+        return outputInfo.relativePath;
+    }
+
+    return null;
+}
+
 function buildArchiveResult() {
     const outputMimeType = detectedContentType || 'unknown';
 
@@ -185,7 +263,9 @@ function buildArchiveResult() {
         return {
             type: 'ArchiveResult',
             status: 'noresults',
-            output_str: outputMimeType,
+            output_str: detectedContentType.startsWith('text/html')
+                ? 'Page is HTML (not staticfile)'
+                : outputMimeType,
             plugin: PLUGIN_NAME,
             content_type: detectedContentType,
         };
@@ -201,11 +281,11 @@ function buildArchiveResult() {
         };
     }
 
-    if (downloadedFilePath) {
+    if (savedOutputPath) {
         return {
             type: 'ArchiveResult',
             status: 'succeeded',
-            output_str: outputMimeType,
+            output_str: savedOutputPath,
             plugin: PLUGIN_NAME,
             content_type: detectedContentType,
         };
@@ -278,7 +358,24 @@ async function setupStaticFileListener() {
             }
 
             isStaticFile = true;
-            console.error('Static file detected, downloading...');
+            console.error('Static file detected, waiting for saved output...');
+
+            const responsesEnabled = getEnvBool('RESPONSES_ENABLED', true);
+            if (responsesEnabled) {
+                const responsesOutputInfo = getResponsesOutputInfo(url, detectedContentType);
+                const waitedOutputPath = await waitForResponsesOutput(responsesOutputInfo, timeout);
+                if (waitedOutputPath) {
+                    savedOutputPath = waitedOutputPath;
+                    console.error(`Using responses output: ${savedOutputPath}`);
+                    finish();
+                    return;
+                }
+                console.error('Responses output unavailable in time, falling back to staticfile save');
+            } else {
+                console.error('RESPONSES_ENABLED=False, falling back to staticfile save');
+            }
+
+            console.error('Saving static file fallback locally...');
 
             // Download the file
             const maxSize = getEnvInt('STATICFILE_MAX_SIZE', 1024 * 1024 * 1024); // 1GB default
@@ -305,7 +402,7 @@ async function setupStaticFileListener() {
             const outputPath = path.join(OUTPUT_DIR, filename);
             fs.writeFileSync(outputPath, buffer);
 
-            downloadedFilePath = filename;
+            savedOutputPath = getOutputPathRelativeToSnapshot(filename);
             console.error(`Static file downloaded (${buffer.length} bytes): ${filename}`);
             finish();
 
