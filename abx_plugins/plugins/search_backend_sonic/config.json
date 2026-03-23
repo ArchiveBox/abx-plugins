@@ -5,9 +5,31 @@
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
-  "required_binaries": [],
+  "required_binaries": [
+    "sonic"
+  ],
   "output_mimetypes": [],
   "properties": {
+    "SEARCH_BACKEND_ENGINE": {
+      "type": "string",
+      "default": "sonic",
+      "description": "Selected search backend implementation"
+    },
+    "USE_INDEXING_BACKEND": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable search indexing for archived snapshots"
+    },
+    "SONIC_BINARY": {
+      "type": "string",
+      "default": "sonic",
+      "description": "Path to Sonic server binary"
+    },
+    "SONIC_DIR": {
+      "type": "string",
+      "default": "",
+      "description": "Directory used to store the Sonic config, logs, and index data"
+    },
     "SEARCH_BACKEND_SONIC_HOST_NAME": {
       "type": "string",
       "default": "127.0.0.1",

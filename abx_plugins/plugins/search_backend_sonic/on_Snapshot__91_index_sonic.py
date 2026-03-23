@@ -37,9 +37,6 @@ from typing import Any
 
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
-    get_env,
-    get_env_bool,
-    get_env_int,
     get_extra_context,
     load_config,
 )
@@ -153,18 +150,7 @@ def find_indexable_content() -> list[tuple[str, str]]:
     return results
 
 
-def get_sonic_config() -> dict:
-    """Get Sonic connection configuration."""
-    return {
-        "host": get_env("SEARCH_BACKEND_HOST_NAME", "127.0.0.1"),
-        "port": get_env_int("SEARCH_BACKEND_PORT", 1491),
-        "password": get_env("SEARCH_BACKEND_PASSWORD", "SecretPassword"),
-        "collection": get_env("SONIC_COLLECTION", "archivebox"),
-        "bucket": get_env("SONIC_BUCKET", "snapshots"),
-    }
-
-
-def index_in_sonic(snapshot_id: str, texts: list[str]) -> None:
+def index_in_sonic(snapshot_id: str, texts: list[str], config: Any) -> None:
     """Index texts in Sonic."""
     try:
         sonic = import_module("sonic")
@@ -172,12 +158,18 @@ def index_in_sonic(snapshot_id: str, texts: list[str]) -> None:
         raise RuntimeError("sonic-client not installed. Run: pip install sonic-client")
     ingest_client: Any = sonic.IngestClient
 
-    config = get_sonic_config()
-
-    with ingest_client(config["host"], config["port"], config["password"]) as ingest:
+    with ingest_client(
+        config.SEARCH_BACKEND_SONIC_HOST_NAME,
+        config.SEARCH_BACKEND_SONIC_PORT,
+        config.SEARCH_BACKEND_SONIC_PASSWORD,
+    ) as ingest:
         # Flush existing content
         try:
-            ingest.flush_object(config["collection"], config["bucket"], snapshot_id)
+            ingest.flush_object(
+                config.SEARCH_BACKEND_SONIC_COLLECTION,
+                config.SEARCH_BACKEND_SONIC_BUCKET,
+                snapshot_id,
+            )
         except Exception:
             pass
 
@@ -186,7 +178,12 @@ def index_in_sonic(snapshot_id: str, texts: list[str]) -> None:
         chunk_size = 10000
         for i in range(0, len(content), chunk_size):
             chunk = content[i : i + chunk_size]
-            ingest.push(config["collection"], config["bucket"], snapshot_id, chunk)
+            ingest.push(
+                config.SEARCH_BACKEND_SONIC_COLLECTION,
+                config.SEARCH_BACKEND_SONIC_BUCKET,
+                snapshot_id,
+                chunk,
+            )
 
 
 def get_snapshot_id_from_context() -> str:
@@ -208,16 +205,21 @@ def main() -> None:
     text_size_kb = 0
 
     try:
+        config = load_config()
+
+        if config.ABX_RUNTIME != "archivebox":
+            print("Skipping Sonic indexing (ABX_RUNTIME!=archivebox)", file=sys.stderr)
+            status = "skipped"
+            output_str = f"ABX_RUNTIME={config.ABX_RUNTIME}"
         # Check if this backend is enabled (permanent skips - don't retry)
-        backend = get_env("SEARCH_BACKEND_ENGINE", "sqlite")
-        if backend != "sonic":
+        elif config.SEARCH_BACKEND_ENGINE != "sonic":
             print(
-                f"Skipping Sonic indexing (SEARCH_BACKEND_ENGINE={backend})",
+                f"Skipping Sonic indexing (SEARCH_BACKEND_ENGINE={config.SEARCH_BACKEND_ENGINE})",
                 file=sys.stderr,
             )
             status = "skipped"
-            output_str = f"SEARCH_BACKEND_ENGINE={backend}"
-        elif not get_env_bool("USE_INDEXING_BACKEND", True):
+            output_str = f"SEARCH_BACKEND_ENGINE={config.SEARCH_BACKEND_ENGINE}"
+        elif not bool(config.USE_INDEXING_BACKEND):
             print("Skipping indexing (USE_INDEXING_BACKEND=False)", file=sys.stderr)
             status = "skipped"
             output_str = "USE_INDEXING_BACKEND=False"
@@ -235,7 +237,7 @@ def main() -> None:
             else:
                 texts = [content for _, content in contents]
                 text_size_kb = get_text_size_kb(texts)
-                index_in_sonic(snapshot_id, texts)
+                index_in_sonic(snapshot_id, texts, config)
                 status = "succeeded"
                 output_str = f"{text_size_kb}kb text indexed"
 

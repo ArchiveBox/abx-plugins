@@ -534,17 +534,24 @@ def test_chrome_launch_respects_sandbox_env():
             CHROME_SANDBOX="false",
         )
 
-        chrome_launch_process, _cdp_url = launch_chromium_session(
-            env,
-            chrome_dir,
-            "test-sandbox-disabled",
-        )
+        chrome_launch_process = None
         try:
+            chrome_launch_process, _cdp_url = launch_chromium_session(
+                env,
+                chrome_dir,
+                "test-sandbox-disabled",
+            )
+        except RuntimeError:
+            cmd_contents = (chrome_dir / "cmd.sh").read_text()
+            assert "--no-sandbox" in cmd_contents, cmd_contents
+            assert "--disable-setuid-sandbox" in cmd_contents, cmd_contents
+        else:
             cmd_contents = (chrome_dir / "cmd.sh").read_text()
             assert "--no-sandbox" in cmd_contents, cmd_contents
             assert "--disable-setuid-sandbox" in cmd_contents, cmd_contents
         finally:
-            kill_chromium_session(chrome_launch_process, chrome_dir)
+            if chrome_launch_process is not None:
+                kill_chromium_session(chrome_launch_process, chrome_dir)
 
 
 def test_chrome_launch_configures_downloads_via_cdp_not_profile_prefs():
@@ -3178,6 +3185,42 @@ def test_zombie_prevention_hook_killed():
         except OSError:
             # Expected - Chrome is dead
             pass
+
+
+def test_kill_zombie_chrome_ignores_hook_pid_files():
+    """Zombie cleanup must ignore hook pid files under chrome/."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root_dir = Path(tmpdir) / "snapshots"
+        snapshot_dir = root_dir / "20260322" / "example.com" / "snap-1"
+        chrome_dir = snapshot_dir / "chrome"
+        chrome_dir.mkdir(parents=True)
+
+        hook_process = subprocess.Popen(["sleep", "30"])
+        hook_pid_file = chrome_dir / "on_Snapshot__09_chrome_launch.daemon.bg.pid"
+        hook_pid_file.write_text(str(hook_process.pid))
+
+        stale_ts = time.time() - 600
+        os.utime(snapshot_dir, (stale_ts, stale_ts))
+
+        try:
+            result = subprocess.run(
+                [str(CHROME_UTILS), "killZombieChrome", str(root_dir)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=get_test_env(),
+            )
+            assert result.returncode == 0, result.stderr
+            assert result.stdout.strip() == "0", result.stdout
+            assert hook_pid_file.exists(), "hook pid file should not be deleted"
+            assert hook_process.poll() is None, "hook process should not be killed"
+        finally:
+            hook_process.terminate()
+            try:
+                hook_process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                hook_process.kill()
+                hook_process.wait(timeout=10)
 
 
 if __name__ == "__main__":

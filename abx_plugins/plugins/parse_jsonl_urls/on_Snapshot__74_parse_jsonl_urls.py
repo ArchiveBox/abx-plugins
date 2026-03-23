@@ -33,6 +33,7 @@ from datetime import datetime
 from html import unescape
 from urllib.parse import urlparse
 
+from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
@@ -99,10 +100,13 @@ def json_object_to_entry(link: dict) -> dict | None:
     url = link.get("href") or link.get("url") or link.get("URL")
     if not url:
         return None
+    cleaned_url = sanitize_extracted_url(url)
+    if not cleaned_url:
+        return None
 
     entry = {
         "type": "Snapshot",
-        "url": unescape(url),
+        "url": cleaned_url,
         "plugin": PLUGIN_NAME,
     }
 

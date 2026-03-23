@@ -11,42 +11,23 @@
 SQLite FTS5 search backend - search and flush operations.
 
 This module provides the search interface for the SQLite FTS backend.
-
-Environment variables:
-    SQLITEFTS_DB: Database filename (default: search.sqlite3)
-    FTS_SEPARATE_DATABASE: Use separate database file (default: true)
-    FTS_TOKENIZERS: FTS5 tokenizer config (default: porter unicode61 remove_diacritics 2)
 """
 
-import os
-import sqlite3
-from pathlib import Path
 from collections.abc import Iterable
+from pathlib import Path
+import sqlite3
+
+from abx_plugins.plugins.base.utils import load_config
 
 
-# Config with old var names for backwards compatibility
-SQLITEFTS_DB = os.environ.get("SQLITEFTS_DB", "search.sqlite3").strip()
-FTS_SEPARATE_DATABASE = os.environ.get("FTS_SEPARATE_DATABASE", "true").lower() in (
-    "true",
-    "1",
-    "yes",
-)
-FTS_TOKENIZERS = os.environ.get(
-    "FTS_TOKENIZERS",
-    "porter unicode61 remove_diacritics 2",
-).strip()
-
-
-def _get_data_dir() -> Path:
-    data_dir = os.environ.get("SNAP_DIR", "").strip()
-    if data_dir:
-        return Path(data_dir)
-    return Path.cwd()
+CONFIG_PATH = Path(__file__).with_name("config.json")
 
 
 def get_db_path() -> Path:
-    """Get path to the search index database."""
-    return _get_data_dir() / SQLITEFTS_DB
+    """Get path to the shared collection search index database."""
+    config = load_config(CONFIG_PATH)
+    data_dir = Path(config.DATA_DIR or Path.cwd()).resolve()
+    return data_dir / config.SEARCH_BACKEND_SQLITE_DB
 
 
 def search(query: str) -> list[str]:
@@ -63,7 +44,6 @@ def search(query: str) -> list[str]:
         )
         return [row[0] for row in cursor.fetchall()]
     except sqlite3.OperationalError:
-        # Table doesn't exist yet
         return []
     finally:
         conn.close()
@@ -84,6 +64,6 @@ def flush(snapshot_ids: Iterable[str]) -> None:
             )
         conn.commit()
     except sqlite3.OperationalError:
-        pass  # Table doesn't exist
+        pass
     finally:
         conn.close()

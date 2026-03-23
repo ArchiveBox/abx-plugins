@@ -133,6 +133,51 @@ def test_resolve_binary_reference_accepts_command_names(
     assert _resolve_binary_reference(browser_name) == str(binary_path)
 
 
+def test_binary_hook_fast_path_does_not_emit_chromium_version(tmp_path: Path):
+    fake_browser = tmp_path / "fake-chromium"
+    fake_browser.write_text(
+        "#!/bin/sh\necho 'Chromium 123.4.5'\n",
+    )
+    fake_browser.chmod(0o755)
+
+    env = os.environ.copy()
+    env["CHROME_BINARY"] = str(fake_browser)
+
+    result = subprocess.run(
+        [str(BINARY_HOOK), "--name=chromium", "--binproviders=puppeteer"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, (
+        "puppeteer binary hook fast path failed\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )
+    records = [
+        json.loads(line)
+        for line in result.stdout.splitlines()
+        if line.strip().startswith("{")
+    ]
+    binary_record = next(
+        (
+            r
+            for r in records
+            if r.get("type") == "Binary" and r.get("name") == "chromium"
+        ),
+        None,
+    )
+    machine_record = next((r for r in records if r.get("type") == "Machine"), None)
+
+    assert binary_record is not None, f"Expected Binary record, got: {records}"
+    assert machine_record is not None, f"Expected Machine record, got: {records}"
+    assert machine_record["config"]["CHROME_BINARY"] == str(fake_browser)
+    assert "CHROMIUM_VERSION" not in machine_record["config"]
+
+
 def test_puppeteer_installs_chromium():
     assert shutil.which("npm"), "npm is required for puppeteer installation"
     with tempfile.TemporaryDirectory() as tmpdir:

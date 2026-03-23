@@ -18,6 +18,8 @@ def run_hook(
     env = os.environ.copy()
     env.update(
         {
+            "ABX_RUNTIME": "archivebox",
+            "DATA_DIR": str(tmp_path),
             "SNAP_DIR": str(tmp_path),
             "SEARCH_BACKEND_ENGINE": "sqlite",
             "USE_INDEXING_BACKEND": "true",

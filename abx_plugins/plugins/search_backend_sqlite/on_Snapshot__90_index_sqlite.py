@@ -33,8 +33,6 @@ from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
-    get_env,
-    get_env_bool,
     get_extra_context,
     load_config,
 )
@@ -44,6 +42,7 @@ from abx_plugins.plugins.base.utils import (
 PLUGIN_NAME = "index_sqlite"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 CONFIG = load_config()
+DATA_DIR = Path(CONFIG.DATA_DIR or ".").resolve()
 SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -152,9 +151,7 @@ def find_indexable_content() -> list[tuple[str, str, Path]]:
 
 def get_db_path() -> Path:
     """Get path to the search index database."""
-    snap_dir = get_env("SNAP_DIR", str(Path.cwd().parent))
-    db_name = get_env("SQLITEFTS_DB", "search.sqlite3")
-    return Path(snap_dir) / db_name
+    return DATA_DIR / CONFIG.SEARCH_BACKEND_SQLITE_DB
 
 
 def get_snapshot_title(contents: list[tuple[str, str, Path]], url: str) -> str:
@@ -203,7 +200,7 @@ def ensure_index_schema(conn: sqlite3.Connection, tokenizers: str) -> None:
 def index_in_sqlite(snapshot_id: str, url: str, title: str, texts: list[str]) -> None:
     """Index texts in SQLite FTS5."""
     db_path = get_db_path()
-    tokenizers = get_env("FTS_TOKENIZERS", "porter unicode61 remove_diacritics 2")
+    tokenizers = CONFIG.SEARCH_BACKEND_SQLITE_TOKENIZERS
     conn = sqlite3.connect(str(db_path))
 
     try:
@@ -243,16 +240,19 @@ def main() -> None:
     text_size_kb = 0
 
     try:
+        if CONFIG.ABX_RUNTIME != "archivebox":
+            print("Skipping SQLite indexing (ABX_RUNTIME!=archivebox)", file=sys.stderr)
+            status = "skipped"
+            output_str = f"ABX_RUNTIME={CONFIG.ABX_RUNTIME}"
         # Check if this backend is enabled (permanent skips - don't retry)
-        backend = get_env("SEARCH_BACKEND_ENGINE", "sqlite")
-        if backend != "sqlite":
+        elif CONFIG.SEARCH_BACKEND_ENGINE != "sqlite":
             print(
-                f"Skipping SQLite indexing (SEARCH_BACKEND_ENGINE={backend})",
+                f"Skipping SQLite indexing (SEARCH_BACKEND_ENGINE={CONFIG.SEARCH_BACKEND_ENGINE})",
                 file=sys.stderr,
             )
             status = "skipped"
-            output_str = f"SEARCH_BACKEND_ENGINE={backend}"
-        elif not get_env_bool("USE_INDEXING_BACKEND", True):
+            output_str = f"SEARCH_BACKEND_ENGINE={CONFIG.SEARCH_BACKEND_ENGINE}"
+        elif not bool(CONFIG.USE_INDEXING_BACKEND):
             print("Skipping indexing (USE_INDEXING_BACKEND=False)", file=sys.stderr)
             status = "skipped"
             output_str = "USE_INDEXING_BACKEND=False"

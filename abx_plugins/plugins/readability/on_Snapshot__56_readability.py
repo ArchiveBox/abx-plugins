@@ -36,7 +36,7 @@ from abx_plugins.plugins.base.utils import (
     load_config,
     emit_archive_result_record,
     write_text_atomic,
-    find_html_source,
+    find_article_html_source,
 )
 
 from urllib.parse import urlparse
@@ -71,7 +71,7 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
     readability_args_extra = config.READABILITY_ARGS_EXTRA
 
     # Find HTML source
-    html_source = find_html_source()
+    html_source = find_article_html_source()
     if not html_source:
         return "noresults", "No HTML source found"
 

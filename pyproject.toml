@@ -64,3 +64,6 @@ skip = "*.json"
 dev = [
     "prek>=0.3.6",
 ]
+
+[tool.uv.sources]
+abx-pkg = { path = "../abx-pkg", editable = true }

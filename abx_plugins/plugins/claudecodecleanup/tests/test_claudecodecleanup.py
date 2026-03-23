@@ -227,6 +227,34 @@ class TestClaudeCodeCleanupPlugin:
             assert result is not None, f"Expected JSONL output, got: {stdout}"
             assert result["status"] == "skipped"
 
+    def test_hook_reads_snapshot_id_from_extra_context_when_cli_flag_missing(self):
+        """Hook should not require --snapshot-id when EXTRA_CONTEXT provides it."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            snap_dir = Path(tmpdir) / "snap"
+            snap_dir.mkdir()
+            output_dir = snap_dir / "claudecodecleanup"
+            output_dir.mkdir()
+
+            env = os.environ.copy()
+            env["SNAP_DIR"] = str(snap_dir)
+            env["CLAUDECODECLEANUP_ENABLED"] = "false"
+            env["EXTRA_CONTEXT"] = json.dumps({"snapshot_id": "ctx-snapshot"})
+
+            returncode, stdout, stderr = run_hook(
+                CLEANUP_HOOK,
+                TEST_URL,
+                None,
+                cwd=output_dir,
+                env=env,
+                timeout=30,
+            )
+
+            assert returncode == 0, f"Hook failed: {stderr}"
+            assert "Missing option '--snapshot-id'" not in stderr
+            result = parse_jsonl_output(stdout)
+            assert result is not None, f"Expected JSONL output, got: {stdout}"
+            assert result["status"] == "skipped"
+
     def test_hook_fails_without_api_key(self):
         """Hook should fail when ANTHROPIC_API_KEY is not set."""
         with tempfile.TemporaryDirectory() as tmpdir:

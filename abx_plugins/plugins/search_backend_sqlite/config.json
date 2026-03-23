@@ -10,6 +10,16 @@
     "application/vnd.sqlite3"
   ],
   "properties": {
+    "SEARCH_BACKEND_ENGINE": {
+      "type": "string",
+      "default": "sqlite",
+      "description": "Selected search backend implementation"
+    },
+    "USE_INDEXING_BACKEND": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable search indexing for archived snapshots"
+    },
     "SEARCH_BACKEND_SQLITE_DB": {
       "type": "string",
       "default": "search.sqlite3",

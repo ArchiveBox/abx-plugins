@@ -18,7 +18,7 @@ and keep only the best version of each.
 
 Requires the claudecode plugin to have installed Claude Code CLI.
 
-Usage: on_Snapshot__92_claudecodecleanup.py --url=<url> --snapshot-id=<uuid>
+Usage: on_Snapshot__92_claudecodecleanup.py --url=<url>
 Output: Creates claudecodecleanup/ directory with cleanup_report.txt
 
 Environment variables:
@@ -41,6 +41,7 @@ from abx_plugins.plugins.base.utils import (
     get_env,
     get_env_bool,
     get_env_int,
+    get_extra_context,
     load_config,
 )
 from abx_plugins.plugins.claudecode.claudecode_utils import (
@@ -76,11 +77,17 @@ DEFAULT_PROMPT = (
     context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
 )
 @click.option("--url", required=True, help="URL being archived")
-@click.option("--snapshot-id", required=True, help="Snapshot UUID")
+@click.option(
+    "--snapshot-id",
+    default="",
+    help="Snapshot UUID override from EXTRA_CONTEXT (rarely needed)",
+)
 def main(url: str, snapshot_id: str):
     """Clean up redundant snapshot outputs using Claude Code AI agent."""
 
     try:
+        snapshot_id = snapshot_id or str(get_extra_context().get("snapshot_id") or "")
+
         # Check if enabled
         if not get_env_bool("CLAUDECODECLEANUP_ENABLED", False):
             print(

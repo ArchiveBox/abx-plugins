@@ -195,6 +195,36 @@ class TestParseRssUrls:
         entry = json.loads(lines[0])
         assert entry["url"] == "https://example.com/page?a=1&b=2"
 
+    def test_trims_quote_garbage_from_feed_links(self, tmp_path):
+        """Malformed feed links should stop at entity-decoded quotes."""
+        input_file = tmp_path / "feed.rss"
+        input_file.write_text("""<?xml version="1.0"?>
+<rss version="2.0">
+  <channel>
+    <item>
+      <title>Broken Link</title>
+      <link>https://example.com&quot;&gt;&lt;img</link>
+    </item>
+  </channel>
+</rss>
+        """)
+
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if '"type": "Snapshot"' in line
+        ]
+        entry = json.loads(lines[0])
+        assert entry["url"] == "https://example.com"
+
     def test_includes_optional_metadata(self, tmp_path):
         """Test that title and timestamp are included when present."""
         input_file = tmp_path / "feed.rss"

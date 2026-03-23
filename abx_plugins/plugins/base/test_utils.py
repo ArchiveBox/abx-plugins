@@ -147,7 +147,7 @@ def assert_isolated_snapshot_env(
 def run_hook(
     hook_script: Path,
     url: str,
-    snapshot_id: str,
+    snapshot_id: str | None,
     cwd: Path | str | None = None,
     env: dict[str, str] | None = None,
     timeout: int = 60,
@@ -164,7 +164,7 @@ def run_hook(
     Args:
         hook_script: Path to the hook script
         url: URL to process
-        snapshot_id: Snapshot ID
+        snapshot_id: Snapshot ID (optional, use None to rely on EXTRA_CONTEXT)
         cwd: Working directory (default: current dir)
         env: Environment dict (default: os.environ copy)
         timeout: Timeout in seconds
@@ -180,7 +180,9 @@ def run_hook(
 
     cmd = [str(hook_script)]
 
-    cmd.extend([f"--url={url}", f"--snapshot-id={snapshot_id}"])
+    cmd.append(f"--url={url}")
+    if snapshot_id is not None:
+        cmd.append(f"--snapshot-id={snapshot_id}")
     if extra_args:
         cmd.extend(extra_args)
 
@@ -198,7 +200,7 @@ def run_hook(
 def run_hook_and_parse(
     hook_script: Path,
     url: str,
-    snapshot_id: str,
+    snapshot_id: str | None,
     cwd: Path | str | None = None,
     env: dict[str, str] | None = None,
     timeout: int = 60,

@@ -25,18 +25,11 @@ const fs = require('fs');
 const {
     ensureNodeModuleResolution,
     parseArgs,
-    getEnv,
     getEnvBool,
     getEnvInt,
     loadConfig,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
-const puppeteer = require('puppeteer-core');
-const {
-    waitForChromeSessionState,
-    findExtensionMetadataByName,
-    connectToBrowserEndpoint,
-} = require('../chrome/chrome_utils.js');
 
 const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
@@ -55,12 +48,17 @@ function getCrawlChromeSessionDir() {
 const CHROME_SESSION_DIR = getCrawlChromeSessionDir();
 const CONFIG_MARKER = path.join(CHROME_SESSION_DIR, '.twocaptcha_configured');
 
+function hasConfiguredApiKey() {
+    const apiKey = (hookConfig.TWOCAPTCHA_API_KEY || '').trim();
+    return !!apiKey && apiKey !== 'YOUR_API_KEY_HERE';
+}
+
 /**
  * Get 2captcha configuration from environment variables.
  * Supports both TWOCAPTCHA_* and legacy API_KEY_2CAPTCHA naming.
  */
 function getTwoCaptchaConfig() {
-    const apiKey = getEnv('TWOCAPTCHA_API_KEY') || getEnv('API_KEY_2CAPTCHA') || getEnv('CAPTCHA2_API_KEY');
+    const apiKey = (hookConfig.TWOCAPTCHA_API_KEY || '').trim();
     const isEnabled = getEnvBool('TWOCAPTCHA_ENABLED', true);
     const retryCount = getEnvInt('TWOCAPTCHA_RETRY_COUNT', 3);
     const retryDelay = getEnvInt('TWOCAPTCHA_RETRY_DELAY', 5);
@@ -132,6 +130,18 @@ function getTwoCaptchaConfig() {
 }
 
 async function configure2Captcha() {
+    if (!hasConfiguredApiKey()) {
+        console.error('[*] TWOCAPTCHA_API_KEY not configured, skipping 2captcha setup');
+        return { success: true, skipped: true };
+    }
+
+    const puppeteer = require('puppeteer-core');
+    const {
+        waitForChromeSessionState,
+        findExtensionMetadataByName,
+        connectToBrowserEndpoint,
+    } = require('../chrome/chrome_utils.js');
+
     // Check if already configured in this session
     if (fs.existsSync(CONFIG_MARKER)) {
         console.error('[*] 2captcha already configured in this browser session');

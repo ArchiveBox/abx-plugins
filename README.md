@@ -144,7 +144,7 @@ from base.test_utils import parse_jsonl_output, run_hook, get_hook_script
 ```
 
 - `parse_jsonl_output(stdout)` — extract first matching JSONL record from hook stdout
-- `run_hook(hook_script, url, snapshot_id)` — run a hook subprocess with standard args
+- `run_hook(hook_script, url, snapshot_id=None)` — run a hook subprocess with standard args, optionally relying on `EXTRA_CONTEXT` for snapshot metadata
 - `get_hook_script(plugin_dir, pattern)` — find hook script by glob pattern
 
 > **Note:** Use `sys.path.append()` (not `insert(0, ...)`) because the `ssl/` plugin directory would shadow Python's stdlib `ssl` module.

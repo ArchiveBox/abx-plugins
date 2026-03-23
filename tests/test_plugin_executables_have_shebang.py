@@ -18,6 +18,8 @@ def _iter_plugin_scripts() -> list[Path]:
 
 
 def _requires_shebang(script_path: Path) -> bool:
+    if not script_path.name.startswith("on_"):
+        return False
     if script_path.name == "__init__.py":
         return False
     if "tests" in script_path.parts:

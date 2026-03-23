@@ -143,6 +143,31 @@ def test_snapshot_hook_priority():
     )
 
 
+def test_singlefile_download_wait_budget_tracks_configured_timeout():
+    """SingleFile extension download polling should follow SINGLEFILE_TIMEOUT, not a fixed 30s cap."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        script = f"""
+const {{ getSinglefileDownloadWaitTimeoutMs }} = require({json.dumps(str(INSTALL_SCRIPT))});
+const freshBudget = getSinglefileDownloadWaitTimeoutMs({{ SINGLEFILE_TIMEOUT: 60 }}, 0);
+const elapsedBudget = getSinglefileDownloadWaitTimeoutMs({{ SINGLEFILE_TIMEOUT: 60 }}, 15000);
+const minimumBudget = getSinglefileDownloadWaitTimeoutMs({{ SINGLEFILE_TIMEOUT: 10 }}, 9000);
+process.stdout.write(JSON.stringify({{ freshBudget, elapsedBudget, minimumBudget }}));
+"""
+        result = subprocess.run(
+            ["node", "-e", script],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["freshBudget"] == 50000
+    assert payload["elapsedBudget"] == 35000
+    assert payload["minimumBudget"] == 3000
+
+
 def test_verify_deps_with_abx_pkg():
     """Verify dependencies are available via abx-pkg."""
     from abx_pkg import Binary, EnvProvider

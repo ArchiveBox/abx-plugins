@@ -35,6 +35,7 @@ from time import mktime
 from typing import Any
 from urllib.parse import urlparse
 
+from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
@@ -136,6 +137,9 @@ def main(
             item_url = getattr(item, "link", None)
             if not item_url:
                 continue
+            item_url = sanitize_extracted_url(item_url)
+            if not item_url:
+                continue
 
             title = getattr(item, "title", None)
 
@@ -169,7 +173,7 @@ def main(
 
             entry = {
                 "type": "Snapshot",
-                "url": unescape(item_url),
+                "url": item_url,
                 "plugin": PLUGIN_NAME,
                 "depth": depth + 1,
             }

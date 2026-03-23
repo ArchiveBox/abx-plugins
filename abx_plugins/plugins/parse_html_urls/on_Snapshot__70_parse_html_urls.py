@@ -31,6 +31,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urljoin, urlparse, urlunparse
 
+from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
@@ -165,7 +166,7 @@ def _normalize_trailing_slash(url: str) -> str:
 
 def clean_url_candidate(url: str) -> str:
     """Strip obvious surrounding/trailing punctuation from extracted URLs."""
-    cleaned = (url or "").strip()
+    cleaned = sanitize_extracted_url(url)
     if not cleaned:
         return cleaned
 

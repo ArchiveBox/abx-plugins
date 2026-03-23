@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required_plugins": [],
   "required_binaries": ["wget"],
-  "output_mimetypes": ["text/html", "application/warc", "image/", "text/css", "application/javascript", "font/", "audio/", "video/"],
+  "output_mimetypes": ["text/html", "application/warc", "application/gzip", "image/", "text/css", "application/javascript", "font/", "audio/", "video/"],
   "properties": {
     "WGET_ENABLED": {
       "type": "boolean",

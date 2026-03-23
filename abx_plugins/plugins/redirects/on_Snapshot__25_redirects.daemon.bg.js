@@ -98,7 +98,6 @@ async function setupRedirectListener() {
                 return;
             }
 
-            const requestId = request._requestId || null;
             const redirectChain = request.redirectChain();
 
             if (!initialRecorded) {
@@ -108,7 +107,6 @@ async function setupRedirectListener() {
                     to_url: requestUrl,
                     status: null,
                     type: 'initial',
-                    request_id: requestId,
                 });
                 initialRecorded = true;
             }
@@ -122,7 +120,6 @@ async function setupRedirectListener() {
                     to_url: requestUrl,
                     status: previousResponse.status(),
                     type: 'http',
-                    request_id: requestId,
                 });
             }
 

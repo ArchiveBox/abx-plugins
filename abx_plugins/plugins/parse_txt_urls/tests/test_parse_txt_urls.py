@@ -91,7 +91,7 @@ Also see https://github.com/user/repo for the code.
         input_file = tmp_path / "markdown.txt"
         input_file.write_text("""
 [Example](https://example.com/page)
-[Wiki](https://en.wikipedia.org/wiki/Article_(Disambiguation))
+[Wiki](https://en.wikipedia.org/wiki/Classification_(machine_learning))
         """)
 
         result = subprocess.run(
@@ -110,7 +110,54 @@ Also see https://github.com/user/repo for the code.
         urls = {json.loads(line)["url"] for line in lines}
 
         assert "https://example.com/page" in urls
-        assert any("wikipedia.org" in u for u in urls)
+        assert "https://en.wikipedia.org/wiki/Classification_(machine_learning)" in urls
+
+    def test_extracts_comma_separated_urls_without_merging_them(self, tmp_path):
+        """Test that adjacent CSV-style URLs are emitted separately."""
+        input_file = tmp_path / "csv.txt"
+        input_file.write_text("https://sweeting.me,https://google.com")
+
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if '"type": "Snapshot"' in line
+        ]
+        urls = {json.loads(line)["url"] for line in lines}
+
+        assert urls == {"https://sweeting.me", "https://google.com"}
+
+    def test_stops_at_html_quote_garbage(self, tmp_path):
+        """Entity-decoded quote garbage should not become part of the URL."""
+        input_file = tmp_path / "quoted.txt"
+        input_file.write_text(
+            "https://example.com&quot;&gt;<img src=x> and https://other.test/path",
+        )
+
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if '"type": "Snapshot"' in line
+        ]
+        urls = {json.loads(line)["url"] for line in lines}
+        assert "https://example.com" in urls
+        assert "https://other.test/path" in urls
+        assert all('"' not in url for url in urls)
 
     def test_skips_when_no_urls_found(self, tmp_path):
         """Test that script succeeds without output when no URLs are found."""

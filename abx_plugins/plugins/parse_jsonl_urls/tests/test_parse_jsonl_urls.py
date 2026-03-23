@@ -75,6 +75,29 @@ class TestParseJsonlUrls:
         entry = json.loads(lines[0])
         assert entry["url"] == "https://example.com"
 
+    def test_trims_trailing_quote_garbage_in_url_fields(self, tmp_path):
+        """Malformed exported URL fields should stop at quote garbage."""
+        input_file = tmp_path / "bookmarks.jsonl"
+        input_file.write_text(
+            '{"url": "https://example.com\\"><img", "title": "Broken"}\n',
+        )
+
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if '"type": "Snapshot"' in line
+        ]
+        entry = json.loads(lines[0])
+        assert entry["url"] == "https://example.com"
+
     def test_supports_description_as_title(self, tmp_path):
         """Test that 'description' field is used as title fallback."""
         input_file = tmp_path / "bookmarks.jsonl"

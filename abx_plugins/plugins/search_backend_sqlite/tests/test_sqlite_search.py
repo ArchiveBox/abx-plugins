@@ -20,9 +20,11 @@ from abx_plugins.plugins.search_backend_sqlite.search import (
     get_db_path,
     search,
     flush,
-    SQLITEFTS_DB,
-    FTS_TOKENIZERS,
 )
+
+
+SQLITEFTS_DB = "search.sqlite3"
+FTS_TOKENIZERS = "porter unicode61 remove_diacritics 2"
 
 
 class TestSqliteSearchBackend:
@@ -33,8 +35,8 @@ class TestSqliteSearchBackend:
         self.temp_dir = tempfile.mkdtemp()
         self.db_path = Path(self.temp_dir) / SQLITEFTS_DB
 
-        self._orig_data_dir = os.environ.get("SNAP_DIR")
-        os.environ["SNAP_DIR"] = self.temp_dir
+        self._orig_data_dir = os.environ.get("DATA_DIR")
+        os.environ["DATA_DIR"] = self.temp_dir
 
         # Create FTS5 table
         self._create_index()
@@ -42,9 +44,9 @@ class TestSqliteSearchBackend:
     def teardown_method(self, _method=None):
         """Clean up temporary directory."""
         if self._orig_data_dir is None:
-            os.environ.pop("SNAP_DIR", None)
+            os.environ.pop("DATA_DIR", None)
         else:
-            os.environ["SNAP_DIR"] = self._orig_data_dir
+            os.environ["DATA_DIR"] = self._orig_data_dir
         import shutil
 
         shutil.rmtree(self.temp_dir, ignore_errors=True)
@@ -82,7 +84,7 @@ class TestSqliteSearchBackend:
     def test_get_db_path(self):
         """get_db_path should return correct path."""
         path = get_db_path()
-        assert path == Path(self.temp_dir) / SQLITEFTS_DB
+        assert path == (Path(self.temp_dir) / SQLITEFTS_DB).resolve()
 
     def test_search_empty_index(self):
         """search should return empty list for empty index."""
@@ -327,8 +329,8 @@ class TestSqliteSearchWithRealData:
         self.temp_dir = tempfile.mkdtemp()
         self.db_path = Path(self.temp_dir) / SQLITEFTS_DB
 
-        self._orig_data_dir = os.environ.get("SNAP_DIR")
-        os.environ["SNAP_DIR"] = self.temp_dir
+        self._orig_data_dir = os.environ.get("DATA_DIR")
+        os.environ["DATA_DIR"] = self.temp_dir
 
         # Create index
         conn = sqlite3.connect(str(self.db_path))
@@ -387,9 +389,9 @@ class TestSqliteSearchWithRealData:
     def teardown_method(self, _method=None):
         """Clean up."""
         if self._orig_data_dir is None:
-            os.environ.pop("SNAP_DIR", None)
+            os.environ.pop("DATA_DIR", None)
         else:
-            os.environ["SNAP_DIR"] = self._orig_data_dir
+            os.environ["DATA_DIR"] = self._orig_data_dir
         import shutil
 
         shutil.rmtree(self.temp_dir, ignore_errors=True)

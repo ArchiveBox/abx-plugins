@@ -26,8 +26,18 @@ const {
     emitArchiveResultRecord,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
-const puppeteer = require('puppeteer-core');
 const { connectToPage } = require('../chrome/chrome_utils.js');
+
+function resolvePuppeteer() {
+    for (const moduleName of ['puppeteer-core', 'puppeteer']) {
+        try {
+            return require(moduleName);
+        } catch (error) {}
+    }
+    throw new Error('Missing puppeteer dependency (need puppeteer-core or puppeteer)');
+}
+
+const puppeteer = resolvePuppeteer();
 
 // Extractor metadata
 const PLUGIN_NAME = 'accessibility';

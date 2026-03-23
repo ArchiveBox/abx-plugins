@@ -431,21 +431,30 @@ def write_text_atomic(path: Path, text: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def find_html_source() -> str | None:
+def find_html_source(*, prefer_dom: bool = False) -> str | None:
     """Find HTML content from other extractors in the snapshot directory."""
-    search_patterns = [
-        "singlefile/singlefile.html",
-        "*_singlefile/singlefile.html",
-        "singlefile/*.html",
-        "*_singlefile/*.html",
+    dom_patterns = [
         "dom/output.html",
         "*_dom/output.html",
         "dom/*.html",
         "*_dom/*.html",
+    ]
+    singlefile_patterns = [
+        "singlefile/singlefile.html",
+        "*_singlefile/singlefile.html",
+        "singlefile/*.html",
+        "*_singlefile/*.html",
+    ]
+    wget_patterns = [
         "wget/**/*.html",
         "*_wget/**/*.html",
         "wget/**/*.htm",
         "*_wget/**/*.htm",
+    ]
+    search_patterns = [
+        *(dom_patterns if prefer_dom else singlefile_patterns),
+        *(singlefile_patterns if prefer_dom else dom_patterns),
+        *wget_patterns,
     ]
 
     for base in (Path.cwd(), Path.cwd().parent):
@@ -455,6 +464,16 @@ def find_html_source() -> str | None:
                     return str(match)
 
     return None
+
+
+def find_article_html_source() -> str | None:
+    """Find the best HTML source for article/text extraction.
+
+    For article extractors, the live DOM is usually a cleaner input than the
+    SingleFile artifact because SingleFile can inline large amounts of CSS,
+    images, and templated app-shell markup.
+    """
+    return find_html_source(prefer_dom=True)
 
 
 # ---------------------------------------------------------------------------

@@ -427,5 +427,65 @@ def test_fails_without_html_source():
         assert record and record["status"] == "noresults"
 
 
+def test_prefers_dom_output_over_singlefile_when_both_exist():
+    binary_path = require_trafilatura_binary()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        snap_dir = tmpdir / "snap"
+        snap_dir.mkdir(parents=True, exist_ok=True)
+
+        dom_dir = snap_dir / "dom"
+        dom_dir.mkdir(parents=True, exist_ok=True)
+        (dom_dir / "output.html").write_text(
+            "<html><head><title>DOM Version</title></head><body>"
+            "<article><h1>DOM Version</h1>"
+            "<p>Prefer this dom article content for trafilatura extraction.</p>"
+            "<p>This text is long enough for extraction.</p>"
+            "</article></body></html>",
+            encoding="utf-8",
+        )
+
+        singlefile_dir = snap_dir / "singlefile"
+        singlefile_dir.mkdir(parents=True, exist_ok=True)
+        (singlefile_dir / "singlefile.html").write_text(
+            "<html><head><title>SingleFile Version</title></head><body>"
+            "<article><h1>SingleFile Version</h1>"
+            "<p>Do not prefer this singlefile content.</p>"
+            "<p>This text is long enough for extraction.</p>"
+            "</article></body></html>",
+            encoding="utf-8",
+        )
+
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(snap_dir)
+        env["TRAFILATURA_BINARY"] = binary_path
+
+        result = subprocess.run(
+            [
+                str(TRAFILATURA_HOOK),
+                "--url",
+                TEST_URL,
+            ],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=env,
+        )
+
+        assert result.returncode == 0, f"Extraction failed: {result.stderr}"
+
+        content_txt = (
+            (snap_dir / "trafilatura" / "content.txt")
+            .read_text(
+                errors="ignore",
+            )
+            .lower()
+        )
+        assert "prefer this dom article content" in content_txt
+        assert "do not prefer this singlefile content" not in content_txt
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -23,6 +23,10 @@ from abx_plugins.plugins.search_backend_ripgrep.search import (
     get_env,
     get_env_int,
     get_env_array,
+    _extract_snapshot_id,
+    _get_search_roots,
+    DEFAULT_CONTENT_EXCLUDES,
+    DEEP_EXCLUDES,
 )
 
 
@@ -226,6 +230,54 @@ class TestRipgrepSearch:
             results = search("Python")
             assert isinstance(results, list)
 
+    def test_search_contents_excludes_noncontent_files_and_strips_follow_flags(self):
+        rg_path = shutil.which("rg")
+        assert rg_path
+
+        with (
+            patch.dict(
+                os.environ,
+                {"RIPGREP_ARGS": '["--follow"]', "RIPGREP_ARGS_EXTRA": '["-L", "-i"]'},
+            ),
+            patch(
+                "abx_plugins.plugins.search_backend_ripgrep.search.resolve_binary_path",
+                return_value=rg_path,
+            ),
+            patch(
+                "abx_plugins.plugins.search_backend_ripgrep.search.subprocess.run",
+            ) as run,
+        ):
+            run.return_value = type("Result", (), {"stdout": ""})()
+            search("Python", search_mode="contents")
+
+        cmd = run.call_args[0][0]
+        assert "--follow" not in cmd
+        assert "-L" not in cmd
+        for glob in DEFAULT_CONTENT_EXCLUDES:
+            assert f"!{glob}" in cmd
+
+    def test_search_deep_reincludes_json_and_logs(self):
+        rg_path = shutil.which("rg")
+        assert rg_path
+
+        with (
+            patch(
+                "abx_plugins.plugins.search_backend_ripgrep.search.resolve_binary_path",
+                return_value=rg_path,
+            ),
+            patch(
+                "abx_plugins.plugins.search_backend_ripgrep.search.subprocess.run",
+            ) as run,
+        ):
+            run.return_value = type("Result", (), {"stdout": ""})()
+            search("Python", search_mode="deep")
+
+        cmd = run.call_args[0][0]
+        for glob in DEEP_EXCLUDES:
+            assert f"!{glob}" in cmd
+        for glob in ("*.json", "*.jsonl", "*.log"):
+            assert f"!{glob}" not in cmd
+
 
 class TestRipgrepSearchIntegration:
     """Integration tests with realistic archive structure."""
@@ -303,6 +355,53 @@ class TestRipgrepSearchIntegration:
         """Search for installation command."""
         results = search("pip install")
         assert "1704067200.123456" in results
+
+
+class TestRipgrepSearchCurrentArchiveBoxLayout:
+    def setup_method(self, _method=None):
+        self.temp_dir = tempfile.mkdtemp()
+        self.data_dir = Path(self.temp_dir)
+        self.snapshot_id = "019cf48c-aa86-72f0-9f8f-e4ea80226fc6"
+        self.snapshot_root = (
+            self.data_dir
+            / "users"
+            / "system"
+            / "snapshots"
+            / "20260316"
+            / "example.com"
+            / self.snapshot_id
+        )
+        (self.snapshot_root / "wget").mkdir(parents=True, exist_ok=True)
+        (self.snapshot_root / "wget" / "index.html").write_text(
+            "<html><body>google search page</body></html>",
+        )
+
+        lib_dir = self.data_dir / "lib"
+        lib_dir.mkdir(parents=True, exist_ok=True)
+        (lib_dir / "big.txt").write_text("google " * 1000)
+
+        self._orig_snap_dir = os.environ.get("SNAP_DIR")
+        os.environ["SNAP_DIR"] = str(self.data_dir)
+
+    def teardown_method(self, _method=None):
+        if self._orig_snap_dir is None:
+            os.environ.pop("SNAP_DIR", None)
+        else:
+            os.environ["SNAP_DIR"] = self._orig_snap_dir
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_search_roots_prefer_snapshot_content_dirs(self):
+        roots = _get_search_roots()
+        assert roots == [self.data_dir / "users" / "system" / "snapshots"]
+
+    def test_search_finds_snapshot_in_current_layout(self):
+        results = search("google")
+        assert results == [self.snapshot_id]
+
+    def test_extract_snapshot_id_ignores_non_snapshot_segments(self):
+        roots = [self.data_dir / "users" / "system" / "snapshots"]
+        match_path = self.snapshot_root / "wget" / "index.html"
+        assert _extract_snapshot_id(match_path, roots) == self.snapshot_id
 
 
 if __name__ == "__main__":

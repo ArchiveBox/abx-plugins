@@ -5,16 +5,43 @@ requires-python = ">=3.11"
 [[package]]
 name = "abx-pkg"
 version = "1.9.18"
-source = { registry = "https://pypi.org/simple" }
+source = { editable = "../abx-pkg" }
 dependencies = [
     { name = "pip" },
     { name = "platformdirs" },
     { name = "pydantic" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cb/77/cbf74c7e0f7aff8e6d21ce764f2c97f84b5f5c75f2c5e72442e7f66921da/abx_pkg-1.9.18.tar.gz", hash = "sha256:fcdc80e6ea56cc6dc663aec123d9b49b5aa6ef5b2a38899608c59cf3f36ef93c", size = 152094, upload-time = "2026-03-22T10:49:30.707Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/29/64/efec7abb013b1ab344a87dc86147795635a72dc4df6d98d4de1538da127d/abx_pkg-1.9.18-py3-none-any.whl", hash = "sha256:c7edfc829f1caa4f4bbcb0a5ca065994aac399cfdfae39cf5113e599c8b934c4", size = 64767, upload-time = "2026-03-22T10:49:29.306Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "abx-pkg", extras = ["rich", "pyinfra", "ansible"], marker = "extra == 'all'" },
+    { name = "ansible", marker = "extra == 'ansible'", specifier = ">=12.3.0" },
+    { name = "ansible-core", marker = "extra == 'ansible'", specifier = ">=2.0.0" },
+    { name = "ansible-runner", marker = "extra == 'ansible'", specifier = ">=2.4.2" },
+    { name = "pip", specifier = ">=26.0.1" },
+    { name = "platformdirs", specifier = ">=4.9.2" },
+    { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "pyinfra", marker = "extra == 'pyinfra'", specifier = ">=3.6.1" },
+    { name = "rich", marker = "extra == 'rich'", specifier = ">=14.0.0" },
+    { name = "typing-extensions", specifier = ">=4.15.0" },
+]
+provides-extras = ["rich", "pyinfra", "ansible", "all"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "django", specifier = ">=4.0" },
+    { name = "django-admin-data-views", specifier = ">=0.3.1" },
+    { name = "django-jsonform", specifier = ">=2.22.0" },
+    { name = "django-pydantic-field", specifier = ">=0.3.9" },
+    { name = "django-stubs", specifier = ">=5.0.0" },
+    { name = "mypy", specifier = ">=1.19.1" },
+    { name = "prek", specifier = ">=0.3.6" },
+    { name = "pyright" },
+    { name = "pytest", specifier = ">=9.0.2" },
+    { name = "rich", specifier = ">=14.0.0" },
+    { name = "ruff", specifier = ">=0.15.7" },
+    { name = "ty", specifier = ">=0.0.24" },
 ]
 
 [[package]]
@@ -46,7 +73,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx-pkg", specifier = ">=1.9.18" },
+    { name = "abx-pkg", editable = "../abx-pkg" },
     { name = "feedparser", marker = "extra == 'dev'", specifier = ">=6.0.0" },
     { name = "jinja2", marker = "extra == 'dev'", specifier = ">=3.1.0" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },

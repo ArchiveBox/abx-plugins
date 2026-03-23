@@ -80,14 +80,7 @@ def main(
                 binary=existing_binary,
                 name=name,
             )
-            emit_machine_record(
-                {
-                    "CHROME_BINARY": str(existing_binary.abspath),
-                    "CHROMIUM_VERSION": str(existing_binary.version)
-                    if existing_binary.version
-                    else "",
-                },
-            )
+            _emit_browser_machine_config(existing_binary)
             sys.exit(0)
 
     puppeteer_binary = Binary(
@@ -146,14 +139,7 @@ def main(
         name=name,
     )
 
-    config_patch = {
-        "CHROME_BINARY": str(chromium_binary.abspath),
-        "CHROMIUM_VERSION": str(chromium_binary.version)
-        if chromium_binary.version
-        else "",
-    }
-
-    emit_machine_record(config_patch)
+    _emit_browser_machine_config(chromium_binary)
 
     sys.exit(0)
 
@@ -337,6 +323,16 @@ def _emit_browser_binary_record(
         version=str(binary.version) if binary.version else "",
         sha256=binary.sha256 or "",
         binprovider="puppeteer",
+    )
+
+
+def _emit_browser_machine_config(binary: Binary) -> None:
+    # Persist stable runtime config only. Browser version metadata already
+    # lives on the Binary record and should not be promoted into Machine.config.
+    emit_machine_record(
+        {
+            "CHROME_BINARY": str(binary.abspath),
+        },
     )
 
 

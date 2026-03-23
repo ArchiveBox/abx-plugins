@@ -13,6 +13,11 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const {
+    buildUniqueFilename,
+    getExtensionFromMimeType,
+    getExtensionFromUrl,
+} = require('./filename_utils.js');
 
 // Import generic helpers from base/utils.js
 const {
@@ -48,56 +53,12 @@ let browser = null;
 let page = null;
 let responseCount = 0;
 let shuttingDown = false;
+let mainOutputPath = '';
+let preferredOutputPath = '';
+let preferredOutputSize = -1;
 
 // Resource types to capture (by default, capture everything)
 const DEFAULT_TYPES = ['document', 'script', 'stylesheet', 'font', 'image', 'media', 'xhr', 'websocket'];
-
-function getExtensionFromMimeType(mimeType) {
-    const mimeMap = {
-        'text/html': 'html',
-        'text/css': 'css',
-        'text/javascript': 'js',
-        'application/javascript': 'js',
-        'application/x-javascript': 'js',
-        'application/json': 'json',
-        'application/xml': 'xml',
-        'text/xml': 'xml',
-        'image/png': 'png',
-        'image/jpeg': 'jpg',
-        'image/gif': 'gif',
-        'image/svg+xml': 'svg',
-        'image/webp': 'webp',
-        'font/woff': 'woff',
-        'font/woff2': 'woff2',
-        'font/ttf': 'ttf',
-        'font/otf': 'otf',
-        'application/font-woff': 'woff',
-        'application/font-woff2': 'woff2',
-        'video/mp4': 'mp4',
-        'video/webm': 'webm',
-        'audio/mpeg': 'mp3',
-        'audio/ogg': 'ogg',
-    };
-
-    const mimeBase = (mimeType || '').split(';')[0].trim().toLowerCase();
-    return mimeMap[mimeBase] || '';
-}
-
-function getExtensionFromUrl(url) {
-    try {
-        const pathname = new URL(url).pathname;
-        const match = pathname.match(/\.([a-z0-9]+)$/i);
-        return match ? match[1].toLowerCase() : '';
-    } catch (e) {
-        return '';
-    }
-}
-
-function sanitizeFilename(str, maxLen = 200) {
-    return str
-        .replace(/[^a-zA-Z0-9._-]/g, '_')
-        .slice(0, maxLen);
-}
 
 async function createSymlink(target, linkPath) {
     try {
@@ -168,18 +129,40 @@ async function setupListener() {
                 return;
             }
 
+            const isMainNavigationResponse = (
+                request.isNavigationRequest?.() === true
+                && request.frame?.() === page.mainFrame()
+            );
+
             // Determine file extension
             const mimeType = response.headers()['content-type'] || '';
+            const mimeBase = mimeType.split(';')[0].trim().toLowerCase();
             let extension = getExtensionFromMimeType(mimeType) || getExtensionFromUrl(url);
 
             // Create timestamp-based unique filename
             const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '');
-            const urlHash = sanitizeFilename(encodeURIComponent(url).slice(0, 64));
-            const uniqueFilename = `${timestamp}__${method}__${urlHash}${extension ? '.' + extension : ''}`;
+            const uniqueFilename = buildUniqueFilename({ timestamp, method, url, extension });
             const uniquePath = path.join(allDir, uniqueFilename);
 
             // Save to unique file
             fs.writeFileSync(uniquePath, bodyBuffer);
+
+            const relativeOutputPath = path.posix.join(
+                PLUGIN_DIR,
+                path.relative(OUTPUT_DIR, uniquePath).split(path.sep).join('/'),
+            );
+            const isHtmlResponse = mimeBase === 'text/html' || ['html', 'htm'].includes((extension || '').toLowerCase());
+            let candidateMainOutputPath = relativeOutputPath;
+            if (isHtmlResponse) {
+                const bodySize = bodyBuffer.length;
+                if (
+                    bodySize > preferredOutputSize
+                    || (bodySize === preferredOutputSize && (!preferredOutputPath || relativeOutputPath < preferredOutputPath))
+                ) {
+                    preferredOutputPath = relativeOutputPath;
+                    preferredOutputSize = bodySize;
+                }
+            }
 
             // Create URL-organized symlink
             try {
@@ -198,8 +181,13 @@ async function setupListener() {
                 const siteDir = path.join(OUTPUT_DIR, hostname, dirPath);
                 const sitePath = path.join(siteDir, filename);
                 await createSymlink(uniquePath, sitePath);
+                candidateMainOutputPath = path.posix.join(PLUGIN_DIR, hostname, dirPath.split(path.sep).join('/'), filename);
             } catch (e) {
                 // URL parsing or symlink creation failed, skip
+            }
+
+            if (isMainNavigationResponse) {
+                mainOutputPath = candidateMainOutputPath;
             }
 
             // Calculate SHA256
@@ -214,7 +202,7 @@ async function setupListener() {
                 urlSha256,
                 status,
                 resourceType,
-                mimeType: mimeType.split(';')[0],
+                mimeType: mimeBase,
                 responseSha256: sha256,
                 path: './' + path.relative(OUTPUT_DIR, uniquePath),
                 extension,
@@ -231,7 +219,7 @@ async function setupListener() {
     return { browser, page };
 }
 
-function emitResult(status = 'succeeded', outputStr = `${responseCount} responses`) {
+function emitResult(status = 'succeeded', outputStr = mainOutputPath || preferredOutputPath || `${responseCount} responses`) {
     if (shuttingDown) return Promise.resolve();
     shuttingDown = true;
     emitArchiveResultRecord(status, outputStr);

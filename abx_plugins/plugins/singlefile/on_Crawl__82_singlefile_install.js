@@ -49,12 +49,25 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 }
 process.chdir(OUTPUT_DIR);
 const OUTPUT_FILE = 'singlefile.html';
+const DOWNLOAD_POLL_INTERVAL_MS = 3000;
+const DOWNLOAD_WAIT_RESERVE_MS = 10000;
 
 /**
  * Wait for a specified amount of time
  */
 function wait(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function getSinglefileDownloadWaitTimeoutMs(config = hookConfig, elapsedMs = process.uptime() * 1000) {
+    const configuredTimeoutSeconds = Number(config.SINGLEFILE_TIMEOUT || config.TIMEOUT || 60);
+    const totalTimeoutMs = Number.isFinite(configuredTimeoutSeconds) && configuredTimeoutSeconds > 0
+        ? configuredTimeoutSeconds * 1000
+        : 60000;
+    return Math.max(
+        DOWNLOAD_POLL_INTERVAL_MS,
+        totalTimeoutMs - DOWNLOAD_WAIT_RESERVE_MS - Math.max(0, elapsedMs)
+    );
 }
 
 /**
@@ -118,13 +131,14 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     }
 
     // Wait for file to appear in downloads directory
-    const check_delay = 3000; // 3 seconds
-    const max_tries = 10;
+    const waitTimeoutMs = getSinglefileDownloadWaitTimeoutMs();
+    const deadline = Date.now() + waitTimeoutMs;
     let files_new = [];
 
-    console.error(`[singlefile] Waiting up to ${(check_delay * max_tries) / 1000}s for download...`);
-    for (let attempt = 0; attempt < max_tries; attempt++) {
-        await wait(check_delay);
+    console.error(`[singlefile] Waiting up to ${Math.ceil(waitTimeoutMs / 1000)}s for download...`);
+    for (let attempt = 1; Date.now() < deadline; attempt++) {
+        const remainingBeforeSleepMs = Math.max(1, deadline - Date.now());
+        await wait(Math.min(DOWNLOAD_POLL_INTERVAL_MS, remainingBeforeSleepMs));
 
         const files_after = (await fs.promises.readdir(downloadsDir))
             .filter(fn => fn.toLowerCase().endsWith('.html') || fn.toLowerCase().endsWith('.htm'));
@@ -132,7 +146,8 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
         files_new = files_after.filter(file => !files_before.has(file));
 
         if (files_new.length === 0) {
-            console.error(`[singlefile] No new downloads yet (${attempt + 1}/${max_tries})`);
+            const remainingAfterPollSeconds = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+            console.error(`[singlefile] No new downloads yet (${attempt}, ${remainingAfterPollSeconds}s remaining)`);
             continue;
         }
 
@@ -204,7 +219,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
         }
     }
 
-    console.error(`[singlefile] Failed to find SingleFile HTML in ${downloadsDir} after ${(check_delay * max_tries) / 1000}s`);
+    console.error(`[singlefile] Failed to find SingleFile HTML in ${downloadsDir} after ${Math.ceil(waitTimeoutMs / 1000)}s`);
     console.error(`[singlefile] New files seen: ${files_new.join(', ')}`);
     return null;
 }
@@ -285,6 +300,7 @@ async function main() {
 // Export functions for use by other plugins
 module.exports = {
     EXTENSION,
+    getSinglefileDownloadWaitTimeoutMs,
     saveSinglefileWithExtension,
     saveSinglefileWithCLI,
 };

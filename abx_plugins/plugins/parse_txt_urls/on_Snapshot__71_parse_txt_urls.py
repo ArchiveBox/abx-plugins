@@ -27,10 +27,10 @@ import json
 import os
 import re
 import sys
-from html import unescape
 from pathlib import Path
 from urllib.parse import urlparse
 
+from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
@@ -95,10 +95,40 @@ def fix_url_from_markdown(url_str: str) -> str:
     return url_str
 
 
+def split_comma_separated_urls(url: str):
+    """Split combined matches like https://a,https://b without breaking balanced symbol handling."""
+    offset = 0
+    while True:
+        http_index = url.find("http://", 1)
+        https_index = url.find("https://", 1)
+        next_indices = [idx for idx in (http_index, https_index) if idx != -1]
+        if not next_indices:
+            yield offset, url
+            return
+
+        next_index = min(next_indices)
+        if url[next_index - 1] != ",":
+            yield offset, url
+            return
+
+        yield offset, url[: next_index - 1]
+        offset += next_index
+        url = url[next_index:]
+
+
 def find_all_urls(text: str):
     """Find all URLs in a text string."""
-    for url in re.findall(URL_REGEX, text):
-        yield fix_url_from_markdown(url)
+    skipped_starts = set()
+    for match in re.finditer(URL_REGEX, text):
+        if match.start() in skipped_starts:
+            continue
+
+        for offset, url in split_comma_separated_urls(
+            fix_url_from_markdown(match.group(1)),
+        ):
+            if offset:
+                skipped_starts.add(match.start() + offset)
+            yield url
 
 
 def fetch_content(url: str) -> str:
@@ -163,9 +193,9 @@ def main(
 
     urls_found = set()
     for found_url in find_all_urls(content):
-        cleaned_url = unescape(found_url)
+        cleaned_url = sanitize_extracted_url(found_url)
         # Skip the source URL itself
-        if cleaned_url != url:
+        if cleaned_url and cleaned_url != url:
             urls_found.add(cleaned_url)
 
     # Emit Snapshot records to stdout (JSONL)

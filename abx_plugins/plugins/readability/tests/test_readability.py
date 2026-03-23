@@ -284,5 +284,81 @@ def test_fails_gracefully_without_html_source():
         assert record and record["status"] == "noresults"
 
 
+def test_prefers_dom_output_over_singlefile_when_both_exist():
+    binary_path = require_readability_binary()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        snap_dir = tmpdir / "snap"
+        snap_dir.mkdir(parents=True, exist_ok=True)
+
+        dom_dir = snap_dir / "dom"
+        dom_dir.mkdir(parents=True, exist_ok=True)
+        (dom_dir / "output.html").write_text(
+            """
+<!DOCTYPE html>
+<html>
+<head><title>DOM Version</title></head>
+<body>
+    <article>
+        <h1>DOM Version</h1>
+        <p>Prefer this dom article content for readability extraction.</p>
+        <p>This text is intentionally long enough for article scoring.</p>
+    </article>
+</body>
+</html>
+            """,
+            encoding="utf-8",
+        )
+
+        singlefile_dir = snap_dir / "singlefile"
+        singlefile_dir.mkdir(parents=True, exist_ok=True)
+        (singlefile_dir / "singlefile.html").write_text(
+            """
+<!DOCTYPE html>
+<html>
+<head><title>SingleFile Version</title></head>
+<body>
+    <article>
+        <h1>SingleFile Version</h1>
+        <p>Do not prefer this singlefile content.</p>
+        <p>This text is intentionally long enough for article scoring.</p>
+    </article>
+</body>
+</html>
+            """,
+            encoding="utf-8",
+        )
+
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(snap_dir)
+        env["READABILITY_BINARY"] = binary_path
+
+        result = subprocess.run(
+            [
+                str(READABILITY_HOOK),
+                "--url",
+                TEST_URL,
+            ],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
+        )
+
+        assert result.returncode == 0, f"Extraction failed: {result.stderr}"
+
+        output_dir = snap_dir / "readability"
+        html_content = (output_dir / "content.html").read_text(encoding="utf-8").lower()
+        txt_content = (output_dir / "content.txt").read_text(encoding="utf-8").lower()
+        assert "prefer this dom article content" in html_content
+        assert "prefer this dom article content" in txt_content
+        assert "do not prefer this singlefile content" not in html_content
+        assert "do not prefer this singlefile content" not in txt_content
+        metadata = json.loads((output_dir / "article.json").read_text(encoding="utf-8"))
+        assert isinstance(metadata, dict)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

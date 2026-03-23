@@ -8,6 +8,16 @@
   "required_binaries": [],
   "output_mimetypes": [],
   "properties": {
+    "DATA_DIR": {
+      "type": "string",
+      "default": "",
+      "description": "Base data directory for the current runtime"
+    },
+    "ABX_RUNTIME": {
+      "type": "string",
+      "default": "abx-dl",
+      "description": "Current host runtime name, eg. abx-dl or archivebox"
+    },
     "SNAP_DIR": {
       "type": "string",
       "default": "",

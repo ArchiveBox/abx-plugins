@@ -17,7 +17,7 @@ Runs a user-configurable prompt against the snapshot directory,
 allowing Claude to read existing extractor outputs and generate
 new derived content.
 
-Usage: on_Snapshot__58_claudecodeextract.py --url=<url> --snapshot-id=<uuid>
+Usage: on_Snapshot__58_claudecodeextract.py --url=<url>
 Output: Creates claudecodeextract/ directory with AI-generated output files
 
 Environment variables:
@@ -40,6 +40,7 @@ from abx_plugins.plugins.base.utils import (
     get_env,
     get_env_bool,
     get_env_int,
+    get_extra_context,
     load_config,
 )
 from abx_plugins.plugins.claudecode.claudecode_utils import (
@@ -71,11 +72,17 @@ DEFAULT_PROMPT = (
     context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
 )
 @click.option("--url", required=True, help="URL being archived")
-@click.option("--snapshot-id", required=True, help="Snapshot UUID")
+@click.option(
+    "--snapshot-id",
+    default="",
+    help="Snapshot UUID override from EXTRA_CONTEXT (rarely needed)",
+)
 def main(url: str, snapshot_id: str):
     """Extract or transform content using Claude Code AI agent."""
 
     try:
+        snapshot_id = snapshot_id or str(get_extra_context().get("snapshot_id") or "")
+
         # Check if enabled
         if not get_env_bool("CLAUDECODEEXTRACT_ENABLED", False):
             print(

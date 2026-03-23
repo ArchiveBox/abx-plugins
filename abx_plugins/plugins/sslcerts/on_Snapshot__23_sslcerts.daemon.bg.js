@@ -12,6 +12,8 @@
 
 const fs = require("fs");
 const path = require("path");
+const tls = require("tls");
+const crypto = require("crypto");
 
 // Import generic helpers from base/utils.js
 const {
@@ -63,6 +65,130 @@ function truncateIssuerName(value, maxLen = 40) {
   return `${text.slice(0, maxLen - 3)}...`;
 }
 
+function normalizeFingerprint(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  return text.replace(/:/g, "").toLowerCase();
+}
+
+function sha256Hex(buffer) {
+  return crypto.createHash("sha256").update(buffer).digest("hex");
+}
+
+function derToPem(rawBuffer) {
+  const body = rawBuffer.toString("base64").match(/.{1,64}/g)?.join("\n") || "";
+  return `-----BEGIN CERTIFICATE-----\n${body}\n-----END CERTIFICATE-----\n`;
+}
+
+function formatDn(value) {
+  if (!value || typeof value !== "object") return "";
+  return Object.entries(value)
+    .filter(([, part]) => part !== undefined && part !== null && String(part).trim())
+    .map(([key, part]) => `${key}=${String(part).trim()}`)
+    .join(", ");
+}
+
+function tlsDateToEpochSeconds(value) {
+  const timestamp = Date.parse(String(value || ""));
+  return Number.isFinite(timestamp) ? Math.floor(timestamp / 1000) : null;
+}
+
+function buildCtSearchUrl(fingerprint256) {
+  const normalized = normalizeFingerprint(fingerprint256);
+  return normalized ? `https://crt.sh/?q=${encodeURIComponent(normalized)}` : null;
+}
+
+function getPositionLabel(index, total) {
+  if (index === 0) return "leaf";
+  if (index === total - 1) return "root";
+  return "intermediate";
+}
+
+function writePemFile(filename, pemText) {
+  const outputPath = path.join(OUTPUT_DIR, filename);
+  fs.writeFileSync(outputPath, pemText);
+  return `${PLUGIN_DIR}/${filename}`;
+}
+
+async function fetchCertificateChain(originUrl, timeoutMs) {
+  const origin = new URL(originUrl);
+  const host = origin.hostname;
+  const port = origin.port ? Number(origin.port) : 443;
+
+  return await new Promise((resolve, reject) => {
+    const socket = tls.connect({
+      host,
+      port,
+      servername: host,
+      rejectUnauthorized: false,
+    });
+
+    const cleanup = () => {
+      socket.removeAllListeners("secureConnect");
+      socket.removeAllListeners("error");
+      socket.removeAllListeners("timeout");
+    };
+
+    socket.setTimeout(timeoutMs);
+
+    socket.once("secureConnect", () => {
+      try {
+        let current = socket.getPeerCertificate(true);
+        const chain = [];
+        const seenFingerprints = new Set();
+
+        while (current && current.raw && current.raw.length > 0) {
+          const fingerprint256 =
+            normalizeFingerprint(current.fingerprint256) || sha256Hex(current.raw);
+          if (seenFingerprints.has(fingerprint256)) break;
+          seenFingerprints.add(fingerprint256);
+
+          chain.push({
+            raw: current.raw,
+            subject: current.subject || null,
+            issuer: current.issuer || null,
+            subjectText: formatDn(current.subject),
+            issuerText: formatDn(current.issuer),
+            commonName: current.subject?.CN || "",
+            issuerCommonName: current.issuer?.CN || "",
+            subjectAltName: current.subjectaltname || "",
+            serialNumber: current.serialNumber || "",
+            validFrom: tlsDateToEpochSeconds(current.valid_from),
+            validTo: tlsDateToEpochSeconds(current.valid_to),
+            fingerprint256,
+            fingerprint512: normalizeFingerprint(current.fingerprint512),
+            ctSearchUrl: buildCtSearchUrl(fingerprint256),
+          });
+
+          if (!current.issuerCertificate || current.issuerCertificate === current) {
+            break;
+          }
+          current = current.issuerCertificate;
+        }
+
+        cleanup();
+        socket.end();
+        resolve(chain);
+      } catch (error) {
+        cleanup();
+        socket.destroy();
+        reject(error);
+      }
+    });
+
+    socket.once("timeout", () => {
+      cleanup();
+      socket.destroy(new Error(`Timed out fetching certificate chain for ${origin.origin}`));
+    });
+
+    socket.once("error", (error) => {
+      cleanup();
+      socket.destroy();
+      reject(error);
+    });
+  });
+}
+
 async function setupListener(url) {
   const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
   const timeout = getEnvInt("SSLCERTS_TIMEOUT", 30) * 1000;
@@ -88,7 +214,7 @@ async function setupListener(url) {
     puppeteer,
   });
 
-  page.on("response", (response) => {
+  page.on("response", async (response) => {
     try {
       if (sslCaptured) return;
       const request = response.request();
@@ -115,7 +241,14 @@ async function setupListener(url) {
       let sslInfo = { url: responseUrl };
 
       if (securityDetails) {
+        sslCaptured = true;
         const protocol = readSecurityDetail(securityDetails, "protocol") || "";
+        const keyExchange =
+          readSecurityDetail(securityDetails, "keyExchange") || "";
+        const keyExchangeGroup =
+          readSecurityDetail(securityDetails, "keyExchangeGroup") || "";
+        const cipher = readSecurityDetail(securityDetails, "cipher") || "";
+        const mac = readSecurityDetail(securityDetails, "mac") || "";
         const subjectName =
           readSecurityDetail(securityDetails, "subjectName") || "";
         const issuer = readSecurityDetail(securityDetails, "issuer") || "";
@@ -126,6 +259,20 @@ async function setupListener(url) {
           readSecurityDetail(securityDetails, "subjectAlternativeNames") ||
           readSecurityDetail(securityDetails, "sanList") ||
           [];
+        const certificateId =
+          readSecurityDetail(securityDetails, "certificateId") || null;
+        const signedCertificateTimestampList =
+          readSecurityDetail(securityDetails, "signedCertificateTimestampList") ||
+          [];
+        const certificateTransparencyCompliance =
+          readSecurityDetail(
+            securityDetails,
+            "certificateTransparencyCompliance",
+          ) || "";
+        const serverSignatureAlgorithm =
+          readSecurityDetail(securityDetails, "serverSignatureAlgorithm") || null;
+        const encryptedClientHello =
+          readSecurityDetail(securityDetails, "encryptedClientHello");
         const certKey = JSON.stringify([
           responseHostFromUrl(responseUrl),
           protocol,
@@ -141,28 +288,89 @@ async function setupListener(url) {
         seenCertificates.add(certKey);
         certCount += 1;
         sslInfo.protocol = protocol;
+        if (keyExchange) sslInfo.keyExchange = keyExchange;
+        if (keyExchangeGroup) sslInfo.keyExchangeGroup = keyExchangeGroup;
+        if (cipher) sslInfo.cipher = cipher;
+        if (mac) sslInfo.mac = mac;
         sslInfo.subjectName = subjectName;
         sslInfo.issuer = issuer;
         sslIssuer = issuer || subjectName || null;
         sslInfo.validFrom = validFrom;
         sslInfo.validTo = validTo;
-        sslInfo.certificateId = subjectName;
+        sslInfo.certificateId = certificateId;
         sslInfo.securityState = "secure";
         sslInfo.schemeIsCryptographic = true;
         if (sanList && sanList.length > 0) {
           sslInfo.subjectAlternativeNames = sanList;
         }
+        if (signedCertificateTimestampList.length > 0) {
+          sslInfo.signedCertificateTimestampList = signedCertificateTimestampList;
+        }
+        if (certificateTransparencyCompliance) {
+          sslInfo.certificateTransparencyCompliance =
+            certificateTransparencyCompliance;
+        }
+        if (serverSignatureAlgorithm !== null) {
+          sslInfo.serverSignatureAlgorithm = serverSignatureAlgorithm;
+        }
+        if (typeof encryptedClientHello === "boolean") {
+          sslInfo.encryptedClientHello = encryptedClientHello;
+        }
+
+        try {
+          const chain = await fetchCertificateChain(responseUrl, timeout);
+          if (chain.length > 0) {
+            const chainPem = chain.map((cert) => derToPem(cert.raw)).join("");
+            const leafPemPath = writePemFile("leaf.pem", derToPem(chain[0].raw));
+            const rootPemPath = writePemFile(
+              "root.pem",
+              derToPem(chain[chain.length - 1].raw),
+            );
+            const chainPemPath = writePemFile("chain.pem", chainPem);
+
+            sslInfo.leafPemPath = leafPemPath;
+            sslInfo.rootPemPath = rootPemPath;
+            sslInfo.chainPemPath = chainPemPath;
+            sslInfo.leafFingerprint256 = chain[0].fingerprint256;
+            sslInfo.leafCtSearchUrl = chain[0].ctSearchUrl;
+            sslInfo.certificateChain = chain.map((cert, index) => ({
+              position: getPositionLabel(index, chain.length),
+              subject: cert.subject,
+              issuer: cert.issuer,
+              subjectText: cert.subjectText,
+              issuerText: cert.issuerText,
+              commonName: cert.commonName,
+              issuerCommonName: cert.issuerCommonName,
+              subjectAltName: cert.subjectAltName,
+              serialNumber: cert.serialNumber,
+              validFrom: cert.validFrom,
+              validTo: cert.validTo,
+              fingerprint256: cert.fingerprint256,
+              fingerprint512: cert.fingerprint512 || null,
+              pemPath:
+                index === 0
+                  ? leafPemPath
+                  : index === chain.length - 1
+                    ? rootPemPath
+                    : null,
+              ctSearchUrl: cert.ctSearchUrl,
+            }));
+          }
+        } catch (error) {
+          sslInfo.chainError = `${error.name}: ${error.message}`;
+        }
       } else if (responseUrl.startsWith("https://")) {
+        sslCaptured = true;
         sslInfo.securityState = "unknown";
         sslInfo.schemeIsCryptographic = true;
         sslInfo.error = "No security details available";
       } else {
+        sslCaptured = true;
         sslInfo.securityState = "insecure";
         sslInfo.schemeIsCryptographic = false;
       }
 
       fs.appendFileSync(outputPath, JSON.stringify(sslInfo) + "\n");
-      sslCaptured = true;
     } catch (e) {
       // Ignore errors
     }

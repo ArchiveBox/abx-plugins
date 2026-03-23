@@ -31,6 +31,7 @@ from datetime import datetime, timezone
 from html import unescape
 from urllib.parse import urljoin, urlparse
 
+from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
@@ -198,7 +199,7 @@ def fetch_content(url: str) -> str:
 
 def normalize_bookmark_url(bookmark_url: str, root_url: str) -> str:
     """Resolve relative bookmark URLs against the source page URL."""
-    cleaned = unescape((bookmark_url or "").strip())
+    cleaned = sanitize_extracted_url(bookmark_url)
     if not cleaned:
         return cleaned
     return urljoin(root_url, cleaned)

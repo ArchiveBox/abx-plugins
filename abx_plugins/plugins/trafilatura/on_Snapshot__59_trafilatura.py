@@ -18,7 +18,7 @@ from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
-    find_html_source,
+    find_article_html_source,
     load_config,
     resolve_binary_path,
     write_text_atomic,
@@ -128,7 +128,7 @@ def run_trafilatura(
 def extract_trafilatura(url: str, binary: str) -> tuple[str, str]:
     config = load_config()
     timeout = config.TRAFILATURA_TIMEOUT
-    html_source = find_html_source()
+    html_source = find_article_html_source()
     if not html_source:
         return "noresults", "No HTML source found"
 

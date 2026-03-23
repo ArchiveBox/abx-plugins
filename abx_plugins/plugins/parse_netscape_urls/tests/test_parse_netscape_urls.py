@@ -135,6 +135,29 @@ class TestParseNetscapeUrls:
         assert entry["url"] == "https://example.com/page?a=1&b=2"
         assert entry["title"] == "Test & Title"
 
+    def test_trims_quote_garbage_from_bookmark_href(self, tmp_path):
+        """Malformed bookmark HREFs should stop at entity-decoded quotes."""
+        input_file = tmp_path / "bookmarks.html"
+        input_file.write_text("""
+<DT><A HREF="https://example.com&quot;&gt;&lt;img" ADD_DATE="1609459200">Broken</A>
+        """)
+
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if '"type": "Snapshot"' in line
+        ]
+        entry = json.loads(lines[0])
+        assert entry["url"] == "https://example.com"
+
     def test_resolves_relative_urls_against_source_page_url(self, tmp_path):
         """Test that relative bookmark HREFs are emitted as absolute URLs."""
         input_file = tmp_path / "bookmarks.html"

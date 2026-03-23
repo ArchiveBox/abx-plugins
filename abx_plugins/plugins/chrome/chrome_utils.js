@@ -227,7 +227,7 @@ function waitForDebugPort(port, timeout = 30000) {
 
 /**
  * Kill zombie Chrome processes from stale crawls.
- * Recursively scans SNAP_DIR for any .../chrome/...pid files from stale crawls.
+ * Recursively scans SNAP_DIR for any .../chrome/chrome.pid files from stale crawls.
  * Does not assume specific directory structure - works with nested paths.
  * @param {string} [snapDir] - Snapshot directory (defaults to SNAP_DIR env or cwd)
  * @param {Object} [options={}] - Cleanup options
@@ -242,6 +242,13 @@ function killZombieChrome(snapDir = null, options = {}) {
     const excludeCrawlDirs = new Set(
         (options.excludeCrawlDirs || []).map(dir => path.resolve(dir))
     );
+    const excludeSessionDirs = new Set(
+        [
+            ...((options.excludeSessionDirs || []).map(dir => path.resolve(dir))),
+            path.resolve(getSnapDir()),
+            path.resolve(getCrawlDir()),
+        ]
+    );
 
     console.error('[*] Checking for zombie Chrome processes...');
 
@@ -251,7 +258,7 @@ function killZombieChrome(snapDir = null, options = {}) {
     }
 
     /**
-     * Recursively find all chrome/.pid files in directory tree
+     * Recursively find all chrome/chrome.pid files in directory tree
      * @param {string} dir - Directory to search
      * @param {number} depth - Current recursion depth (limit to 10)
      * @returns {Array<{pidFile: string, crawlDir: string}>} - Array of PID file info
@@ -268,15 +275,14 @@ function killZombieChrome(snapDir = null, options = {}) {
 
                 const fullPath = path.join(dir, entry.name);
 
-                // Found a chrome directory - check for .pid files
+                // Found a chrome directory - only consider the shared browser marker.
                 if (entry.name === 'chrome') {
                     try {
-                        const pidFiles = fs.readdirSync(fullPath).filter(f => f.endsWith('.pid'));
                         const crawlDir = dir;  // Parent of chrome/ is the crawl dir
-
-                        for (const pidFileName of pidFiles) {
+                        const chromePidFile = path.join(fullPath, 'chrome.pid');
+                        if (fs.existsSync(chromePidFile)) {
                             results.push({
-                                pidFile: path.join(fullPath, pidFileName),
+                                pidFile: chromePidFile,
                                 crawlDir: crawlDir,
                             });
                         }
@@ -303,6 +309,9 @@ function killZombieChrome(snapDir = null, options = {}) {
             const resolvedCrawlDir = path.resolve(crawlDir);
 
             if (excludeCrawlDirs.has(resolvedCrawlDir)) {
+                continue;
+            }
+            if (excludeSessionDirs.has(resolvedCrawlDir)) {
                 continue;
             }
 

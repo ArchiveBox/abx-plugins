@@ -168,6 +168,36 @@ class TestParseHtmlUrls:
         entry = json.loads(lines[0])
         assert entry["url"] == "https://example.com/page?a=1&b=2"
 
+    def test_text_url_stops_at_entity_decoded_quote(self, tmp_path):
+        """Regex-discovered text URLs should stop at entity-decoded quotes."""
+        input_file = tmp_path / "page.html"
+        input_file.write_text("""
+<html>
+<body>
+    https://example.com&quot;&gt;<img src="x">
+</body>
+</html>
+        """)
+
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        assert result.returncode == 0
+        lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if '"type": "Snapshot"' in line
+        ]
+        entry = json.loads(lines[0])
+        assert entry["url"] == "https://example.com"
+
     def test_deduplicates_urls(self, tmp_path):
         """Test that duplicate URLs are deduplicated."""
         input_file = tmp_path / "page.html"

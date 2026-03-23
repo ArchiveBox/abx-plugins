@@ -25,7 +25,7 @@ from abx_plugins.plugins.base.utils import (
     load_config,
     emit_archive_result_record,
     write_text_atomic,
-    find_html_source,
+    find_article_html_source,
 )
 
 PLUGIN_DIR = Path(__file__).resolve().parent.name
@@ -45,7 +45,7 @@ def extract_defuddle(url: str, binary: str) -> tuple[str, str]:
     defuddle_args = config.DEFUDDLE_ARGS
     defuddle_args_extra = config.DEFUDDLE_ARGS_EXTRA
     output_dir = Path(OUTPUT_DIR)
-    html_source = find_html_source()
+    html_source = find_article_html_source()
     if not html_source:
         return "noresults", "No HTML source found"
 
