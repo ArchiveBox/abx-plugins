@@ -3,7 +3,7 @@ Integration tests for liteparse plugin.
 
 Tests verify:
 1. Hook scripts exist
-2. Crawl hook emits correct Binary record for lit
+2. Crawl hook emits correct BinaryRequest record for lit
 3. Install hooks can install lit binary via npm
 4. Extraction runs with real lit binary on a real live PDF
 5. Config options work (enabled/disabled)
@@ -30,7 +30,7 @@ if _LITEPARSE_HOOK is None:
     raise FileNotFoundError(f"Snapshot hook not found in {PLUGIN_DIR}")
 LITEPARSE_HOOK = _LITEPARSE_HOOK
 
-_LITEPARSE_CRAWL_HOOK = next(PLUGIN_DIR.glob("on_Crawl__*_liteparse_install.*"), None)
+_LITEPARSE_CRAWL_HOOK = next(PLUGIN_DIR.glob("on_Install__*_liteparse.*"), None)
 if _LITEPARSE_CRAWL_HOOK is None:
     raise FileNotFoundError(f"Crawl hook not found in {PLUGIN_DIR}")
 LITEPARSE_CRAWL_HOOK = _LITEPARSE_CRAWL_HOOK
@@ -101,7 +101,7 @@ def test_hook_scripts_exist():
     )
 
 
-def test_crawl_hook_emits_lit_binary_record():
+def test_crawl_hook_emits_lit_binary_request_record():
     result = subprocess.run(
         [str(LITEPARSE_CRAWL_HOOK)],
         capture_output=True,
@@ -110,9 +110,9 @@ def test_crawl_hook_emits_lit_binary_record():
     )
 
     assert result.returncode == 0
-    binary = parse_jsonl_output(result.stdout, record_type="Binary")
-    assert binary, "Expected crawl hook to emit Binary record"
-    assert binary.get("type") == "Binary"
+    binary = parse_jsonl_output(result.stdout, record_type="BinaryRequest")
+    assert binary, "Expected crawl hook to emit BinaryRequest record"
+    assert binary.get("type") == "BinaryRequest"
     assert binary.get("name") == "lit"
     assert binary.get("overrides", {}).get("npm", {}).get("install_args") == [
         "@llamaindex/liteparse",

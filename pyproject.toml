@@ -1,6 +1,6 @@
 [project]
 name = "abx-plugins"
-version = "1.10.14"
+version = "1.10.19"
 description = "ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)"
 authors = [{name = "Nick Sweeting"}, {name = "ArchiveBox"}]
 requires-python = ">=3.11"
@@ -20,7 +20,7 @@ classifiers = [
     "Environment :: Console",
 ]
 dependencies = [
-    "abx-pkg>=1.9.18",
+    "abx-pkg>=1.9.19",
     "pydantic-settings>=2.0.0",
     "rich-click>=1.9.7",
 ]

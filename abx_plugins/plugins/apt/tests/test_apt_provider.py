@@ -18,7 +18,7 @@ import pytest
 
 # Get the path to the apt provider hook
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_HOOK = next(PLUGIN_DIR.glob("on_Binary__*_apt_install.py"), None)
+INSTALL_HOOK = next(PLUGIN_DIR.glob("on_BinaryRequest__*_apt.py"), None)
 
 
 def apt_available() -> bool:

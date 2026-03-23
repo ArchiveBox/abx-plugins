@@ -22,7 +22,9 @@ without symlinks or environment-variable tricks.
 Each plugin lives under `plugins/<name>/` and may include:
 
 - `config.json` config schema
-- `on_Crawl__...` per-crawl hook scripts (optional) - install dependencies / set up shared resources
+- `on_Install__...` install-phase hook scripts (optional) - declare binary dependencies
+- `on_CrawlSetup__...` crawl setup hook scripts (optional) - shared setup/process startup
+- `on_BinaryRequest__...` binary provider hooks (optional) - resolve/install one requested binary
 - `on_Snapshot__...` per-snapshot hooks - for each URL: do xyz...
 
 Hooks run with:
@@ -45,16 +47,16 @@ Hooks run with:
 
 Lifecycle:
 
-1. `on_Crawl__*install*` declares crawl dependencies.
-2. `on_Binary__*install*` resolves/installs one binary with one provider.
+1. `on_Install__*` declares crawl dependencies.
+2. `on_BinaryRequest__*` resolves/installs one binary with one provider.
 
-`on_Crawl` output (dependency declaration):
+`on_Install` output (dependency declaration):
 
 ```json
-{"type":"Binary","name":"yt-dlp","binproviders":"pip,brew,apt,env","overrides":{"pip":{"install_args":["yt-dlp[default]"]}},"machine_id":"<optional>"}
+{"type":"BinaryRequest","name":"yt-dlp","binproviders":"pip,brew,apt,env","overrides":{"pip":{"install_args":["yt-dlp[default]"]}},"machine_id":"<optional>"}
 ```
 
-`on_Binary` input/output:
+`on_BinaryRequest` input/output:
 
 - CLI input should accept `--binary-id`, `--machine-id`, `--name` (plus optional provider args).
 - Output should emit installed facts like:

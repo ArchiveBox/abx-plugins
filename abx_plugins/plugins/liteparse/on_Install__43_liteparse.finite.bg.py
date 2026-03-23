@@ -8,17 +8,19 @@
 # [tool.uv.sources]
 # abx-plugins = { path = "../../..", editable = true }
 # ///
-#
-# Emits gallery-dl as a Binary dependency for the crawl, configured via environment variables.
-#
-# Usage:
-#     ./on_Crawl__20_gallerydl_install.py > events.jsonl
+"""
+Emit lit (LiteParse) Binary dependency for the crawl.
+"""
 
 import os
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_binary_record, get_env_bool, load_config
+from abx_plugins.plugins.base.utils import (
+    emit_binary_request_record,
+    get_env_bool,
+    load_config,
+)
 
 PLUGIN_DIR = Path(__file__).parent.name
 CONFIG = load_config()
@@ -29,13 +31,14 @@ os.chdir(OUTPUT_DIR)
 
 
 def main():
-    gallerydl_enabled = get_env_bool("GALLERYDL_ENABLED", default=True)
-
-    if not gallerydl_enabled:
+    if not get_env_bool("LITEPARSE_ENABLED", True):
         sys.exit(0)
 
-    emit_binary_record(name="gallery-dl", binproviders="env,pip,brew,apt")
-
+    emit_binary_request_record(
+        name="lit",
+        binproviders="env,npm",
+        overrides={"npm": {"install_args": ["@llamaindex/liteparse"]}},
+    )
     sys.exit(0)
 
 

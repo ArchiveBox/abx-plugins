@@ -10,28 +10,26 @@ from pathlib import Path
 import pytest
 
 from abx_plugins.plugins.base.test_utils import get_hook_script, get_plugin_dir
-from abx_plugins.plugins.puppeteer.on_Binary__12_puppeteer_install import (
+from abx_plugins.plugins.puppeteer.on_BinaryRequest__12_puppeteer import (
     _get_install_failure_hint,
     _resolve_binary_reference,
 )
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
-CRAWL_HOOK = get_hook_script(PLUGIN_DIR, "on_Crawl__*_puppeteer_install*.py")
-BINARY_HOOK = get_hook_script(PLUGIN_DIR, "on_Binary__*_puppeteer_install.py")
-NPM_BINARY_HOOK = PLUGIN_DIR.parent / "npm" / "on_Binary__10_npm_install.py"
-CHROME_CRAWL_HOOK = (
-    PLUGIN_DIR.parent / "chrome" / "on_Crawl__70_chrome_install.finite.bg.py"
-)
+CRAWL_HOOK = get_hook_script(PLUGIN_DIR, "on_Install__*_puppeteer*.py")
+BINARY_HOOK = get_hook_script(PLUGIN_DIR, "on_BinaryRequest__*_puppeteer.py")
+NPM_BINARY_HOOK = PLUGIN_DIR.parent / "npm" / "on_BinaryRequest__10_npm.py"
+CHROME_CRAWL_HOOK = PLUGIN_DIR.parent / "chrome" / "on_Install__70_chrome.finite.bg.py"
 
 
 def test_hook_scripts_exist():
     assert CRAWL_HOOK and CRAWL_HOOK.exists(), f"Hook not found: {CRAWL_HOOK}"
     assert BINARY_HOOK and BINARY_HOOK.exists(), f"Hook not found: {BINARY_HOOK}"
-    assert CRAWL_HOOK.name == "on_Crawl__60_puppeteer_install.py"
+    assert CRAWL_HOOK.name == "on_Install__60_puppeteer.py"
 
 
-def test_crawl_hook_emits_puppeteer_binary():
+def test_crawl_hook_emits_puppeteer_binary_request():
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
         result = subprocess.run(
@@ -52,9 +50,9 @@ def test_crawl_hook_emits_puppeteer_binary():
         binaries = [
             r
             for r in records
-            if r.get("type") == "Binary" and r.get("name") == "puppeteer"
+            if r.get("type") == "BinaryRequest" and r.get("name") == "puppeteer"
         ]
-        assert binaries, f"Expected Binary record for puppeteer, got: {records}"
+        assert binaries, f"Expected BinaryRequest record for puppeteer, got: {records}"
         assert "npm" in binaries[0].get("binproviders", ""), (
             "puppeteer should be installable via npm provider"
         )
@@ -95,17 +93,19 @@ def test_crawl_hook_respects_configured_chrome_binary(browser_name):
             timeout=30,
         )
 
-        assert result.returncode == 0, f"crawl hook failed: {result.stderr}"
+        assert result.returncode == 0, f"install hook failed: {result.stderr}"
         records = [
             json.loads(line)
             for line in result.stdout.splitlines()
             if line.strip().startswith("{")
         ]
         binary_record = next(
-            (r for r in records if r.get("type") == "Binary"),
+            (r for r in records if r.get("type") == "BinaryRequest"),
             None,
         )
-        assert binary_record is not None, f"Expected Binary record, got: {records}"
+        assert binary_record is not None, (
+            f"Expected BinaryRequest record, got: {records}"
+        )
         assert not any(r.get("type") == "ArchiveResult" for r in records), (
             f"Chrome crawl hook must not emit ArchiveResult: {records}"
         )
@@ -166,7 +166,7 @@ def test_binary_hook_fast_path_does_not_emit_chromium_version(tmp_path: Path):
         (
             r
             for r in records
-            if r.get("type") == "Binary" and r.get("name") == "chromium"
+            if (r.get("type") == "Binary" and r.get("name") == "chromium")
         ),
         None,
     )
@@ -195,7 +195,9 @@ def test_puppeteer_installs_chromium():
             env=env,
             timeout=30,
         )
-        assert crawl_result.returncode == 0, f"crawl hook failed: {crawl_result.stderr}"
+        assert crawl_result.returncode == 0, (
+            f"install hook failed: {crawl_result.stderr}"
+        )
         crawl_records = [
             json.loads(line)
             for line in crawl_result.stdout.splitlines()
@@ -205,12 +207,12 @@ def test_puppeteer_installs_chromium():
             (
                 r
                 for r in crawl_records
-                if r.get("type") == "Binary" and r.get("name") == "puppeteer"
+                if (r.get("type") == "BinaryRequest" and r.get("name") == "puppeteer")
             ),
             None,
         )
         assert puppeteer_record, (
-            f"Expected puppeteer Binary record, got: {crawl_records}"
+            f"Expected puppeteer BinaryRequest record, got: {crawl_records}"
         )
 
         npm_result = subprocess.run(
@@ -261,7 +263,7 @@ def test_puppeteer_installs_chromium():
         binaries = [
             r
             for r in records
-            if r.get("type") == "Binary" and r.get("name") == "chromium"
+            if (r.get("type") == "Binary" and r.get("name") == "chromium")
         ]
         assert binaries, f"Expected Binary record for chromium, got: {records}"
         abspath = binaries[0].get("abspath")

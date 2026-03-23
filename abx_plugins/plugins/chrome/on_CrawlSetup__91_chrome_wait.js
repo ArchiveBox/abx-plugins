@@ -3,7 +3,7 @@
  * Wait for the crawl-level Chrome browser session to become CDP-connectable.
  *
  * This is a foreground crawl hook that blocks later crawl hooks until the
- * shared browser launched by on_Crawl__90_chrome_launch.daemon.bg.js is actually
+ * shared browser launched by on_CrawlSetup__90_chrome_launch.daemon.bg.js is actually
  * reachable over CDP.
  *
  * This hook exists primarily as a foreground barrier. The launch hook is a
@@ -12,12 +12,12 @@
  * hooks do not all need to reimplement their own "wait until Chrome is ready"
  * ordering logic before touching the shared browser session.
  *
- * Usage: on_Crawl__91_chrome_wait.js --url=<url>
+ * Usage: on_CrawlSetup__91_chrome_wait.js --url=<url>
  */
 
 const fs = require('fs');
 const path = require('path');
-const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvInt, loadConfig, emitArchiveResultRecord } = require('../base/utils.js');
+const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvInt, loadConfig } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 
 const PLUGIN_DIR = path.basename(__dirname);
@@ -41,7 +41,7 @@ async function main() {
     const url = args.url;
 
     if (!url) {
-        console.error('Usage: on_Crawl__91_chrome_wait.js --url=<url>');
+        console.error('Usage: on_CrawlSetup__91_chrome_wait.js --url=<url>');
         process.exit(1);
     }
 
@@ -51,7 +51,6 @@ async function main() {
 
     if (isolation === 'snapshot') {
         console.error('[chrome_wait:crawl] CHROME_ISOLATION=snapshot, skipping crawl-scoped wait');
-        emitArchiveResultRecord('succeeded', 'snapshot isolation active');
         process.exit(0);
     }
 
@@ -66,7 +65,6 @@ async function main() {
     if (!readySession?.cdpUrl) {
         const error = CHROME_SESSION_REQUIRED_ERROR;
         console.error(`[chrome_wait:crawl] ERROR: ${error}`);
-        emitArchiveResultRecord('failed', error);
         process.exit(1);
     }
 
@@ -78,7 +76,6 @@ async function main() {
     } catch (error) {}
 
     console.error(`[chrome_wait:crawl] Chrome session ready (verified CDP connection, pid=${pid}, cdp_url=${readySession.cdpUrl.slice(0, 32)}...).`);
-    emitArchiveResultRecord('succeeded', `browser ready pid=${pid} port=${port}`);
     process.exit(0);
 }
 

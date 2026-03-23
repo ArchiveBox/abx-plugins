@@ -34,8 +34,8 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 PLUGIN_DIR = get_plugin_dir(__file__)
 
 # Find hooks
-_INSTALL_HOOK = get_hook_script(PLUGIN_DIR, "on_Crawl__*_claudechrome_install*")
-_CONFIG_HOOK = get_hook_script(PLUGIN_DIR, "on_Crawl__*_claudechrome_config*")
+_INSTALL_HOOK = get_hook_script(PLUGIN_DIR, "on_Install__*_claudechrome*")
+_CONFIG_HOOK = get_hook_script(PLUGIN_DIR, "on_CrawlSetup__*_claudechrome_config*")
 _SNAPSHOT_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_claudechrome*")
 
 if _SNAPSHOT_HOOK is None:

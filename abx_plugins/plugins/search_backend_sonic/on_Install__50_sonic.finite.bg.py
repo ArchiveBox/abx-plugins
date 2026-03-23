@@ -16,7 +16,7 @@ import os
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_binary_record, load_config
+from abx_plugins.plugins.base.utils import emit_binary_request_record, load_config
 
 PLUGIN_DIR = Path(__file__).parent.name
 CONFIG = load_config()
@@ -38,13 +38,13 @@ def main():
     sonic_binary = config.SONIC_BINARY
 
     if sonic_binary and sonic_binary != "sonic":
-        emit_binary_record(
+        emit_binary_request_record(
             name="sonic",
             binproviders="env",
             overrides={"env": {"abspath": sonic_binary}},
         )
     else:
-        emit_binary_record(
+        emit_binary_request_record(
             name="sonic",
             binproviders="env,apt,brew,cargo",
             overrides={

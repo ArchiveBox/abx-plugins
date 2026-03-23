@@ -29,7 +29,7 @@ _OPENDATALOADER_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_opendataloader.*"), 
 if _OPENDATALOADER_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 OPENDATALOADER_HOOK = _OPENDATALOADER_HOOK
-INSTALL_HOOK = PLUGIN_DIR / "on_Crawl__42_opendataloader_install.finite.bg.py"
+INSTALL_HOOK = PLUGIN_DIR / "on_Install__42_opendataloader.finite.bg.py"
 TEST_URL = "https://example.com"
 
 # Module-level cache for binary path

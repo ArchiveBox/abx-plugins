@@ -12,14 +12,14 @@
 # Emit forum-dl Binary dependency for the crawl, outputting a JSONL record to stdout.
 #
 # Usage:
-#     ./on_Crawl__25_forumdl_install.py > events.jsonl
+#     ./on_Install__25_forumdl.finite.bg.py > events.jsonl
 
 import os
 import sys
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
-    emit_binary_record,
+    emit_binary_request_record,
     get_env,
     get_env_bool,
     load_config,
@@ -41,7 +41,7 @@ def main():
 
     forumdl_binary = get_env("FORUMDL_BINARY", "forum-dl")
 
-    emit_binary_record(
+    emit_binary_request_record(
         name="forum-dl",
         binproviders="env,pip",
         overrides={

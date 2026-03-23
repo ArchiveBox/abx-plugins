@@ -8,15 +8,21 @@
 # [tool.uv.sources]
 # abx-plugins = { path = "../../..", editable = true }
 # ///
-"""
-Emit lit (LiteParse) Binary dependency for the crawl.
-"""
+#
+# Emit git Binary dependency for the crawl.
+#
+# Usage:
+#     ./on_Install__05_git.finite.bg.py > events.jsonl
 
 import os
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_binary_record, get_env_bool, load_config
+from abx_plugins.plugins.base.utils import (
+    emit_binary_request_record,
+    get_env_bool,
+    load_config,
+)
 
 PLUGIN_DIR = Path(__file__).parent.name
 CONFIG = load_config()
@@ -27,14 +33,13 @@ os.chdir(OUTPUT_DIR)
 
 
 def main():
-    if not get_env_bool("LITEPARSE_ENABLED", True):
+    git_enabled = get_env_bool("GIT_ENABLED", True)
+
+    if not git_enabled:
         sys.exit(0)
 
-    emit_binary_record(
-        name="lit",
-        binproviders="env,npm",
-        overrides={"npm": {"install_args": ["@llamaindex/liteparse"]}},
-    )
+    emit_binary_request_record(name="git", binproviders="env,apt,brew")
+
     sys.exit(0)
 
 

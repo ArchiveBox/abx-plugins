@@ -28,10 +28,10 @@ from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
-WGET_CRAWL_HOOK = next(PLUGIN_DIR.glob("on_Crawl__*_wget_install*"), None)
+WGET_CRAWL_HOOK = next(PLUGIN_DIR.glob("on_Install__*_wget*"), None)
 WGET_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_wget.*"))
-BREW_HOOK = next((PLUGINS_ROOT / "brew").glob("on_Binary__*_brew_install.py"), None)
-APT_HOOK = next((PLUGINS_ROOT / "apt").glob("on_Binary__*_apt_install.py"), None)
+BREW_HOOK = next((PLUGINS_ROOT / "brew").glob("on_BinaryRequest__*_brew.py"), None)
+APT_HOOK = next((PLUGINS_ROOT / "apt").glob("on_BinaryRequest__*_apt.py"), None)
 TEST_URL = "https://example.com"
 
 
@@ -73,11 +73,13 @@ def test_wget_declares_only_env_apt_brew_providers():
         (
             record
             for record in records
-            if record.get("type") == "Binary" and record.get("name") == "wget"
+            if (record.get("type") == "BinaryRequest" and record.get("name") == "wget")
         ),
         None,
     )
-    assert binary_record is not None, f"Expected wget Binary record: {result.stdout}"
+    assert binary_record is not None, (
+        f"Expected wget BinaryRequest record: {result.stdout}"
+    )
     assert binary_record["binproviders"] == "env,apt,brew"
     assert not any(record.get("type") == "Machine" for record in records), (
         f"Crawl hook must not emit Machine config patches: {records}"
@@ -174,7 +176,7 @@ def test_can_install_wget_via_provider():
             "--plugin-name",
             "wget",
             "--hook-name",
-            "on_Crawl__10_wget_install.finite.bg",
+            "on_Install__10_wget.finite.bg",
             "--name",
             "wget",
             "--binproviders",
@@ -245,7 +247,7 @@ def test_archives_example_com():
             "--plugin-name",
             "wget",
             "--hook-name",
-            "on_Crawl__10_wget_install.finite.bg",
+            "on_Install__10_wget.finite.bg",
             "--name",
             "wget",
             "--binproviders",

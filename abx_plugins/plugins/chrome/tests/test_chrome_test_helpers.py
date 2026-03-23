@@ -377,7 +377,7 @@ def test_get_hook_script_finds_existing_hook():
     from abx_plugins.plugins.chrome.tests.chrome_test_helpers import CHROME_PLUGIN_DIR
 
     # Try to find the chrome launch hook
-    hook = get_hook_script(CHROME_PLUGIN_DIR, "on_Crawl__*_chrome_launch.*")
+    hook = get_hook_script(CHROME_PLUGIN_DIR, "on_CrawlSetup__*_chrome_launch.*")
 
     if hook:  # May not exist in all test environments
         assert hook.exists()

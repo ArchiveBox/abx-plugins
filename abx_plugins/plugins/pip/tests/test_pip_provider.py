@@ -20,7 +20,7 @@ import pytest
 
 # Get the path to the pip provider hook
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_HOOK = next(PLUGIN_DIR.glob("on_Binary__*_pip_install.py"), None)
+INSTALL_HOOK = next(PLUGIN_DIR.glob("on_BinaryRequest__*_pip.py"), None)
 
 
 class TestPipProviderHook:

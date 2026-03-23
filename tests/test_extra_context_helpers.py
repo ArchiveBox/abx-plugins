@@ -6,7 +6,7 @@ from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
-    emit_binary_record,
+    emit_installed_binary_record,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -29,7 +29,10 @@ def test_python_emit_archive_result_merges_extra_context_from_cli(capfd, monkeyp
     assert record["snapshot_id"] == "snap-123"
 
 
-def test_python_emit_binary_record_merges_extra_context_from_env(capfd, monkeypatch):
+def test_python_emit_installed_binary_record_merges_extra_context_from_env(
+    capfd,
+    monkeypatch,
+):
     monkeypatch.setenv(
         "EXTRA_CONTEXT",
         json.dumps(
@@ -43,7 +46,13 @@ def test_python_emit_binary_record_merges_extra_context_from_env(capfd, monkeypa
     )
     monkeypatch.setattr(sys, "argv", ["hook.py"])
 
-    emit_binary_record(name="rg", binprovider="env", abspath="/usr/bin/rg")
+    emit_installed_binary_record(
+        name="rg",
+        binprovider="env",
+        abspath="/usr/bin/rg",
+        version="1.0.0",
+        sha256="deadbeef",
+    )
 
     stdout, _stderr = capfd.readouterr()
     record = json.loads(stdout.strip())

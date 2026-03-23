@@ -38,7 +38,10 @@ if _SCREENSHOT_HOOK is None:
 SCREENSHOT_HOOK = _SCREENSHOT_HOOK
 
 # Get Chrome hooks for setting up sessions
-_CHROME_LAUNCH_HOOK = get_hook_script(CHROME_PLUGIN_DIR, "on_Crawl__*_chrome_launch.*")
+_CHROME_LAUNCH_HOOK = get_hook_script(
+    CHROME_PLUGIN_DIR,
+    "on_CrawlSetup__*_chrome_launch.*",
+)
 if _CHROME_LAUNCH_HOOK is None:
     raise FileNotFoundError(f"Chrome launch hook not found in {CHROME_PLUGIN_DIR}")
 CHROME_LAUNCH_HOOK = _CHROME_LAUNCH_HOOK

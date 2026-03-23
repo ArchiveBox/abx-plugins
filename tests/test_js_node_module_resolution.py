@@ -14,7 +14,11 @@ TITLE_HOOK = (
     REPO_ROOT / "abx_plugins" / "plugins" / "title" / "on_Snapshot__54_title.js"
 )
 CHROME_WAIT_HOOK = (
-    REPO_ROOT / "abx_plugins" / "plugins" / "chrome" / "on_Crawl__91_chrome_wait.js"
+    REPO_ROOT
+    / "abx_plugins"
+    / "plugins"
+    / "chrome"
+    / "on_CrawlSetup__91_chrome_wait.js"
 )
 
 
@@ -164,7 +168,7 @@ Module._load = function(request, parent, isMain) {
     )
 
     assert result.returncode == 0, result.stderr
-    assert "browser ready pid=4321" in result.stdout
+    assert "pid=4321" in result.stderr
     assert "Cannot find module 'puppeteer'" not in result.stderr
 
 

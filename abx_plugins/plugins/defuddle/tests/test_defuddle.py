@@ -22,7 +22,7 @@ if _DEFUDDLE_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 DEFUDDLE_HOOK = _DEFUDDLE_HOOK
 
-_DEFUDDLE_CRAWL_HOOK = get_hook_script(PLUGIN_DIR, "on_Crawl__*_defuddle_install.*")
+_DEFUDDLE_CRAWL_HOOK = get_hook_script(PLUGIN_DIR, "on_Install__*_defuddle.*")
 if _DEFUDDLE_CRAWL_HOOK is None:
     raise FileNotFoundError(f"Crawl hook not found in {PLUGIN_DIR}")
 DEFUDDLE_CRAWL_HOOK = _DEFUDDLE_CRAWL_HOOK
@@ -79,7 +79,7 @@ def test_hook_script_exists():
     assert DEFUDDLE_HOOK.exists(), f"Hook script not found: {DEFUDDLE_HOOK}"
 
 
-def test_crawl_hook_emits_defuddle_binary_record():
+def test_crawl_hook_emits_defuddle_binary_request_record():
     result = subprocess.run(
         [str(DEFUDDLE_CRAWL_HOOK)],
         capture_output=True,
@@ -88,9 +88,9 @@ def test_crawl_hook_emits_defuddle_binary_record():
     )
 
     assert result.returncode == 0
-    binary = parse_jsonl_output(result.stdout, record_type="Binary")
-    assert binary, "Expected crawl hook to emit Binary record"
-    assert binary.get("type") == "Binary"
+    binary = parse_jsonl_output(result.stdout, record_type="BinaryRequest")
+    assert binary, "Expected crawl hook to emit BinaryRequest record"
+    assert binary.get("type") == "BinaryRequest"
     assert binary.get("name") == "defuddle"
     assert binary.get("overrides", {}).get("npm", {}).get("install_args") == [
         "defuddle",

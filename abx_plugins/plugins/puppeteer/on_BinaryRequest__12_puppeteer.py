@@ -13,7 +13,7 @@
 """
 Install Chromium via the Puppeteer CLI.
 
-Usage: on_Binary__12_puppeteer_install.py --name=<name>
+Usage: on_BinaryRequest__12_puppeteer.py --name=<name>
 Output: Binary JSONL record to stdout after installation
 """
 
@@ -25,10 +25,11 @@ import sys
 from pathlib import Path
 
 import rich_click as click
+from abx_pkg.semver import bin_version
 from abx_pkg import Binary, EnvProvider, NpmProvider
 
 from abx_plugins.plugins.base.utils import (
-    emit_binary_record,
+    emit_installed_binary_record,
     emit_machine_record,
     load_config,
     resolve_binary_path,
@@ -317,10 +318,18 @@ def _emit_browser_binary_record(
     binary: Binary,
     name: str,
 ) -> None:
-    emit_binary_record(
+    version = str(binary.version) if binary.version else ""
+    if not version and binary.abspath:
+        try:
+            detected_version = bin_version(binary.abspath)
+        except Exception:
+            detected_version = None
+        if detected_version:
+            version = str(detected_version)
+    emit_installed_binary_record(
         name=name,
         abspath=str(binary.abspath),
-        version=str(binary.version) if binary.version else "",
+        version=version,
         sha256=binary.sha256 or "",
         binprovider="puppeteer",
     )

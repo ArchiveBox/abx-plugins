@@ -25,7 +25,7 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 PLUGIN_DIR = Path(__file__).parent.parent
 _INSTALL_SCRIPT = next(
-    PLUGIN_DIR.glob("on_Crawl__*_install_istilldontcareaboutcookies_extension.*"),
+    PLUGIN_DIR.glob("on_Install__*_istilldontcareaboutcookies_extension.*"),
     None,
 )
 if _INSTALL_SCRIPT is None:

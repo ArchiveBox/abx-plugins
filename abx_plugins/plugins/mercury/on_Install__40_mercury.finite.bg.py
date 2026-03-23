@@ -12,14 +12,14 @@
 # Emit postlight-parser Binary dependency for the crawl if mercury is enabled.
 #
 # Usage:
-#     ./on_Crawl__40_mercury_install.py > events.jsonl
+#     ./on_Install__40_mercury.finite.bg.py > events.jsonl
 
 import os
 import sys
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
-    emit_binary_record,
+    emit_binary_request_record,
     get_env,
     get_env_bool,
     load_config,
@@ -51,14 +51,14 @@ def main():
         and mercury_binary_name
         and mercury_binary_name != "postlight-parser"
     ):
-        emit_binary_record(
+        emit_binary_request_record(
             name="postlight-parser",
             binproviders="env",
             overrides={"env": {"abspath": mercury_binary}},
         )
         sys.exit(0)
 
-    emit_binary_record(
+    emit_binary_request_record(
         name="postlight-parser",
         binproviders="npm,env",
         overrides={"npm": {"install_args": ["@postlight/parser"]}},

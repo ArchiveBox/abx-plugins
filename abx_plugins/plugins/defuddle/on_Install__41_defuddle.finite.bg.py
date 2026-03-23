@@ -16,7 +16,11 @@ import os
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_binary_record, get_env_bool, load_config
+from abx_plugins.plugins.base.utils import (
+    emit_binary_request_record,
+    get_env_bool,
+    load_config,
+)
 
 PLUGIN_DIR = Path(__file__).parent.name
 CONFIG = load_config()
@@ -30,7 +34,7 @@ def main():
     if not get_env_bool("DEFUDDLE_ENABLED", True):
         sys.exit(0)
 
-    emit_binary_record(
+    emit_binary_request_record(
         name="defuddle",
         binproviders="env,npm",
         overrides={"npm": {"install_args": ["defuddle"]}},

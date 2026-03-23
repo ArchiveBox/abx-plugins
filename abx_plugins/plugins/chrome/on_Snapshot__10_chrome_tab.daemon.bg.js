@@ -2,7 +2,7 @@
 /**
  * Create a Chrome tab for this snapshot in the shared crawl Chrome session.
  *
- * Connects to the crawl-level Chrome session (from on_Crawl__90_chrome_launch.daemon.bg.js)
+ * Connects to the crawl-level Chrome session (from on_CrawlSetup__90_chrome_launch.daemon.bg.js)
  * and creates a new tab. This hook does NOT launch its own Chrome instance.
  *
  * Usage: on_Snapshot__10_chrome_tab.daemon.bg.js --url=<url>

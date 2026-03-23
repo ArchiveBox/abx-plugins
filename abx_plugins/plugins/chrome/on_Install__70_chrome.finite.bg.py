@@ -15,13 +15,13 @@
 # loading unpacked extensions in headless mode.
 #
 # Usage:
-#     ./on_Crawl__70_chrome_install.py > events.jsonl
+#     ./on_Install__70_chrome.finite.bg.py > events.jsonl
 
 import os
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_binary_record, load_config
+from abx_plugins.plugins.base.utils import emit_binary_request_record, load_config
 
 PLUGIN_DIR = Path(__file__).parent.name
 CONFIG = load_config()
@@ -47,7 +47,7 @@ def main():
     else:
         browser_name = "chromium"
 
-    emit_binary_record(
+    emit_binary_request_record(
         name=browser_name,
         binproviders="puppeteer",
         overrides={

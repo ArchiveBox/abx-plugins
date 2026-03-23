@@ -9,16 +9,17 @@
 # abx-plugins = { path = "../../..", editable = true }
 # ///
 #
-# Emit yt-dlp (and related) Binary dependencies for the crawl.
+# Emit node/npm binary dependencies for the crawl.
+# This hook runs early in the Crawl lifecycle so node/npm are installed before any npm-based extractors (e.g., puppeteer) run.
 #
 # Usage:
-#     ./on_Crawl__15_ytdlp_install.py > events.jsonl
+#     ./on_Install__01_npm.py > events.jsonl
 
 import os
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_binary_record, get_env_bool, load_config
+from abx_plugins.plugins.base.utils import emit_binary_request_record, load_config
 
 PLUGIN_DIR = Path(__file__).parent.name
 CONFIG = load_config()
@@ -28,27 +29,21 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 
 
-def main():
-    ytdlp_enabled = get_env_bool("YTDLP_ENABLED", True)
-
-    if not ytdlp_enabled:
-        sys.exit(0)
-
-    emit_binary_record(
-        name="yt-dlp",
-        binproviders="env,pip,brew,apt",
-        overrides={"pip": {"install_args": ["yt-dlp[default]"]}},
-    )
-
-    # Node.js (required by several JS-based extractors)
-    emit_binary_record(
+def main() -> None:
+    emit_binary_request_record(
         name="node",
         binproviders="env,apt,brew",
         overrides={"apt": {"install_args": ["nodejs"]}},
     )
 
-    # ffmpeg (used by media extraction)
-    emit_binary_record(name="ffmpeg", binproviders="env,apt,brew")
+    emit_binary_request_record(
+        name="npm",
+        binproviders="env,apt,brew",
+        overrides={
+            "apt": {"install_args": ["nodejs", "npm"]},
+            "brew": {"install_args": ["node"]},
+        },
+    )
 
     sys.exit(0)
 

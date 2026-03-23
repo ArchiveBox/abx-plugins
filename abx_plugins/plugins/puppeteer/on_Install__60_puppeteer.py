@@ -9,14 +9,14 @@
 # abx-plugins = { path = "../../..", editable = true }
 # ///
 """
-Emit ripgrep Binary dependency for the crawl.
+Emit Puppeteer Binary dependency for the crawl.
 """
 
 import os
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_binary_record, load_config
+from abx_plugins.plugins.base.utils import emit_binary_request_record, load_config
 
 PLUGIN_DIR = Path(__file__).parent.name
 CONFIG = load_config()
@@ -26,19 +26,17 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 
 
-def main():
-    config = load_config()
-
-    # Only proceed if ripgrep backend is enabled
-    if config.SEARCH_BACKEND_ENGINE != "ripgrep":
-        # Not using ripgrep, exit successfully without output
+def main() -> None:
+    if not load_config().PUPPETEER_ENABLED:
         sys.exit(0)
 
-    emit_binary_record(
-        name="rg",
-        binproviders="env,apt,brew",
+    emit_binary_request_record(
+        name="puppeteer",
+        binproviders="npm",
         overrides={
-            "apt": {"install_args": ["ripgrep"]},
+            "npm": {
+                "install_args": ["puppeteer"],
+            },
         },
     )
     sys.exit(0)

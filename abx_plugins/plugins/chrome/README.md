@@ -84,8 +84,8 @@ Defined in [config.json](./config.json).
 
 Ownership:
 
-- [on_Crawl__90_chrome_launch.daemon.bg.js](./on_Crawl__90_chrome_launch.daemon.bg.js) owns the browser session
-- [on_Crawl__91_chrome_wait.js](./on_Crawl__91_chrome_wait.js) verifies the crawl-scoped session is connectable
+- [on_CrawlSetup__90_chrome_launch.daemon.bg.js](./on_CrawlSetup__90_chrome_launch.daemon.bg.js) owns the browser session
+- [on_CrawlSetup__91_chrome_wait.js](./on_CrawlSetup__91_chrome_wait.js) verifies the crawl-scoped session is connectable
 - [on_Snapshot__10_chrome_tab.daemon.bg.js](./on_Snapshot__10_chrome_tab.daemon.bg.js) creates one page/tab per snapshot
 
 Contract:
@@ -158,10 +158,10 @@ This is useful when:
 
 | Hook | Priority | Purpose |
 |---|---:|---|
-| `on_Crawl__70_chrome_install.finite.bg.py` | 70 | Emit local Chromium dependency metadata. |
-| `on_Crawl__80_*_install*.js` / `on_Crawl__82_singlefile_install*.js` | 80-82 | Prepare extension cache metadata before browser startup. |
-| `on_Crawl__90_chrome_launch.daemon.bg.js` | 90 | Launch/adopt crawl-scoped browser when `CHROME_ISOLATION=crawl`. No-op when `snapshot`. |
-| `on_Crawl__91_chrome_wait.js` | 91 | Wait for a connectable crawl session when `crawl`. Reports `"snapshot isolation active"` when `snapshot`. |
+| `on_Install__70_chrome.finite.bg.py` | 70 | Emit local Chromium dependency metadata. |
+| `on_Install__80_*_extension.js` / `on_Install__82_singlefile.js` | 80-82 | Prepare extension cache metadata before browser startup. |
+| `on_CrawlSetup__90_chrome_launch.daemon.bg.js` | 90 | Launch/adopt crawl-scoped browser when `CHROME_ISOLATION=crawl`. No-op when `snapshot`. |
+| `on_CrawlSetup__91_chrome_wait.js` | 91 | Wait for a connectable crawl session when `crawl`. Reports `"snapshot isolation active"` when `snapshot`. |
 
 ### Snapshot hooks
 

@@ -9,14 +9,20 @@
 # abx-plugins = { path = "../../..", editable = true }
 # ///
 #
-# Emit single-file Binary dependency for the crawl.
+# Emits gallery-dl as a Binary dependency for the crawl, configured via environment variables.
 #
+# Usage:
+#     ./on_Install__20_gallerydl.finite.bg.py > events.jsonl
 
 import os
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_binary_record, get_env_bool, load_config
+from abx_plugins.plugins.base.utils import (
+    emit_binary_request_record,
+    get_env_bool,
+    load_config,
+)
 
 PLUGIN_DIR = Path(__file__).parent.name
 CONFIG = load_config()
@@ -27,16 +33,12 @@ os.chdir(OUTPUT_DIR)
 
 
 def main():
-    singlefile_enabled = get_env_bool("SINGLEFILE_ENABLED", True)
+    gallerydl_enabled = get_env_bool("GALLERYDL_ENABLED", default=True)
 
-    if not singlefile_enabled:
+    if not gallerydl_enabled:
         sys.exit(0)
 
-    emit_binary_record(
-        name="single-file",
-        binproviders="env,npm",
-        overrides={"npm": {"install_args": ["single-file-cli"]}},
-    )
+    emit_binary_request_record(name="gallery-dl", binproviders="env,pip,brew,apt")
 
     sys.exit(0)
 

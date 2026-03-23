@@ -4,7 +4,7 @@ Tests for the claudecode base plugin.
 Tests verify:
 1. Hook scripts and utility modules exist
 2. Config schema is valid
-3. Install hook emits correct Binary JSONL
+3. Install hook emits correct BinaryRequest JSONL
 4. Install hook respects CLAUDECODE_ENABLED
 5. Install hook warns when ANTHROPIC_API_KEY is missing
 6. Utility functions work correctly (system prompt building, metadata)
@@ -39,7 +39,7 @@ from abx_plugins.plugins.claudecode.claudecode_utils import (
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
-_INSTALL_HOOK = get_hook_script(PLUGIN_DIR, "on_Crawl__*_claudecode_install*")
+_INSTALL_HOOK = get_hook_script(PLUGIN_DIR, "on_Install__*_claudecode*")
 if _INSTALL_HOOK is None:
     raise FileNotFoundError(f"Install hook not found in {PLUGIN_DIR}")
 INSTALL_HOOK = _INSTALL_HOOK
@@ -78,8 +78,8 @@ class TestClaudeCodePlugin:
         assert (templates_dir / "card.html").exists()
         assert (templates_dir / "full.html").exists()
 
-    def test_install_hook_emits_binary_record(self):
-        """Install hook should emit Binary JSONL for claude."""
+    def test_install_hook_emits_binary_request_record(self):
+        """Install hook should emit BinaryRequest JSONL for claude."""
         with tempfile.TemporaryDirectory() as tmpdir:
             env = os.environ.copy()
             env["CRAWL_DIR"] = tmpdir
@@ -99,10 +99,10 @@ class TestClaudeCodePlugin:
 
             records = parse_jsonl_records(stdout)
 
-            # Should emit Binary record for claude
-            binary_records = [r for r in records if r.get("type") == "Binary"]
+            # Should emit BinaryRequest record for claude
+            binary_records = [r for r in records if r.get("type") == "BinaryRequest"]
             assert len(binary_records) == 1, (
-                f"Expected 1 Binary record, got {len(binary_records)}"
+                f"Expected 1 BinaryRequest record, got {len(binary_records)}"
             )
             assert binary_records[0]["name"] == "claude"
             assert "npm" in binary_records[0]["binproviders"]
@@ -112,7 +112,7 @@ class TestClaudeCodePlugin:
 
             archive_results = [r for r in records if r.get("type") == "ArchiveResult"]
             assert archive_results == [], (
-                f"on_Crawl hook must not emit ArchiveResult: {archive_results}"
+                f"on_Install hook must not emit ArchiveResult: {archive_results}"
             )
 
     def test_install_hook_skips_when_disabled(self):
@@ -133,8 +133,10 @@ class TestClaudeCodePlugin:
 
             assert returncode == 0, f"Hook failed: {stderr}"
             records = parse_jsonl_records(stdout)
-            binary_records = [r for r in records if r.get("type") == "Binary"]
-            assert len(binary_records) == 0, "Should not emit Binary when disabled"
+            binary_records = [r for r in records if r.get("type") == "BinaryRequest"]
+            assert len(binary_records) == 0, (
+                "Should not emit BinaryRequest when disabled"
+            )
             assert stdout.strip() == "SKIPPED: CLAUDECODE_ENABLED=False"
 
     def test_install_hook_skips_by_default(self):
@@ -155,9 +157,9 @@ class TestClaudeCodePlugin:
 
             assert returncode == 0, f"Hook failed: {stderr}"
             records = parse_jsonl_records(stdout)
-            binary_records = [r for r in records if r.get("type") == "Binary"]
+            binary_records = [r for r in records if r.get("type") == "BinaryRequest"]
             assert len(binary_records) == 0, (
-                "Should not emit Binary when disabled by default"
+                "Should not emit BinaryRequest when disabled by default"
             )
             assert stdout.strip() == "SKIPPED: CLAUDECODE_ENABLED=False"
 

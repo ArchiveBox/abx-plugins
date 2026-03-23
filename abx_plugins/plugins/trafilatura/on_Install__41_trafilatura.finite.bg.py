@@ -8,15 +8,17 @@
 # [tool.uv.sources]
 # abx-plugins = { path = "../../..", editable = true }
 # ///
-"""
-Emit readability-extractor Binary dependency for the crawl.
-"""
+"""Emit trafilatura Binary dependency for the crawl if enabled."""
 
 import os
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_binary_record, get_env_bool, load_config
+from abx_plugins.plugins.base.utils import (
+    emit_binary_request_record,
+    get_env_bool,
+    load_config,
+)
 
 PLUGIN_DIR = Path(__file__).parent.name
 CONFIG = load_config()
@@ -26,22 +28,15 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 
 
-def main():
-    readability_enabled = get_env_bool("READABILITY_ENABLED", True)
-
-    if not readability_enabled:
+def main() -> None:
+    if not get_env_bool("TRAFILATURA_ENABLED", True):
         sys.exit(0)
 
-    emit_binary_record(
-        name="readability-extractor",
-        binproviders="env,npm",
-        overrides={
-            "npm": {
-                "install_args": ["https://github.com/ArchiveBox/readability-extractor"],
-            },
-        },
+    emit_binary_request_record(
+        name="trafilatura",
+        binproviders="env,pip",
+        overrides={"pip": {"install_args": ["trafilatura"]}},
     )
-
     sys.exit(0)
 
 

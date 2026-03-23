@@ -12,13 +12,17 @@
 # Emits opendataloader-pdf as a Binary dependency for the crawl, configured via environment variables.
 #
 # Usage:
-#     ./on_Crawl__42_opendataloader_install.py > events.jsonl
+#     ./on_Install__42_opendataloader.finite.bg.py > events.jsonl
 
 import os
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_binary_record, get_env_bool, load_config
+from abx_plugins.plugins.base.utils import (
+    emit_binary_request_record,
+    get_env_bool,
+    load_config,
+)
 
 PLUGIN_DIR = Path(__file__).parent.name
 CONFIG = load_config()
@@ -34,13 +38,13 @@ def main():
     if not opendataloader_enabled:
         sys.exit(0)
 
-    emit_binary_record(
+    emit_binary_request_record(
         name="opendataloader-pdf",
         binproviders="env,pip",
         overrides={"pip": {"install_args": ["opendataloader-pdf"]}},
     )
 
-    emit_binary_record(
+    emit_binary_request_record(
         name="java",
         binproviders="env,brew" if sys.platform == "darwin" else "env,apt,brew",
         overrides={

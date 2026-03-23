@@ -8,15 +8,21 @@
 # [tool.uv.sources]
 # abx-plugins = { path = "../../..", editable = true }
 # ///
-"""
-Emit Puppeteer Binary dependency for the crawl.
-"""
+#
+# Emit papers-dl Binary dependency for the crawl.
+#
+# Usage:
+#     ./on_Install__30_papersdl.py > events.jsonl
 
 import os
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_binary_record, load_config
+from abx_plugins.plugins.base.utils import (
+    emit_binary_request_record,
+    get_env_bool,
+    load_config,
+)
 
 PLUGIN_DIR = Path(__file__).parent.name
 CONFIG = load_config()
@@ -26,19 +32,14 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 
 
-def main() -> None:
-    if not load_config().PUPPETEER_ENABLED:
+def main():
+    papersdl_enabled = get_env_bool("PAPERSDL_ENABLED", True)
+
+    if not papersdl_enabled:
         sys.exit(0)
 
-    emit_binary_record(
-        name="puppeteer",
-        binproviders="npm",
-        overrides={
-            "npm": {
-                "install_args": ["puppeteer"],
-            },
-        },
-    )
+    emit_binary_request_record(name="papers-dl", binproviders="env,pip")
+
     sys.exit(0)
 
 

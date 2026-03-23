@@ -15,12 +15,12 @@
 # to install binaries that don't fit into standard package managers, outputting a Binary JSONL record to stdout.
 #
 # Usage:
-#     ./on_Binary__14_custom_install.py [...] > events.jsonl
+#     ./on_BinaryRequest__14_custom.py [...] > events.jsonl
 
 import subprocess
 import sys
 
-from abx_plugins.plugins.base.utils import emit_binary_record
+from abx_plugins.plugins.base.utils import emit_installed_binary_record
 
 import rich_click as click
 from abx_pkg import Binary, EnvProvider
@@ -86,7 +86,7 @@ def main(
         sys.exit(1)
 
     # Output Binary JSONL record to stdout
-    emit_binary_record(
+    emit_installed_binary_record(
         name=name,
         abspath=str(binary.abspath),
         version=str(binary.version) if binary.version else "",

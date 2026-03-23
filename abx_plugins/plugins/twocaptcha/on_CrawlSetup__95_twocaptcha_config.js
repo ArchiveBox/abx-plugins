@@ -348,7 +348,7 @@ async function main() {
     const url = args.url;
 
     if (!url) {
-        console.error('Usage: on_Crawl__95_twocaptcha_config.js --url=<url>');
+        console.error('Usage: on_CrawlSetup__95_twocaptcha_config.js --url=<url>');
         process.exit(1);
     }
 

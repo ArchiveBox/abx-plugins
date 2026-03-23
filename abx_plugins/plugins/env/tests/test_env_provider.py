@@ -15,7 +15,7 @@ import pytest
 
 # Get the path to the env provider hook
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_HOOK = next(PLUGIN_DIR.glob("on_Binary__*_env_discover.py"), None)
+INSTALL_HOOK = next(PLUGIN_DIR.glob("on_BinaryRequest__*_env.py"), None)
 
 
 class TestEnvProviderHook:
@@ -38,7 +38,7 @@ class TestEnvProviderHook:
     def test_hook_runs_before_other_binary_provider_hooks(self):
         """Env discovery should sort before install-capable provider hooks."""
         other_provider_hooks = [
-            next((PLUGIN_DIR.parent / provider).glob("on_Binary__*.py"), None)
+            next((PLUGIN_DIR.parent / provider).glob("on_BinaryRequest__*.py"), None)
             for provider in ("npm", "pip", "brew", "apt", "custom")
         ]
 
@@ -48,7 +48,7 @@ class TestEnvProviderHook:
             assert INSTALL_HOOK.name < hook.name, (
                 f"{INSTALL_HOOK.name} should sort before {hook.name}"
             )
-        assert INSTALL_HOOK.name.startswith("on_Binary__00_"), INSTALL_HOOK.name
+        assert INSTALL_HOOK.name.startswith("on_BinaryRequest__00_"), INSTALL_HOOK.name
 
     def test_hook_finds_python(self):
         """Hook should find python3 binary in PATH."""

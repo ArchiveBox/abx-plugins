@@ -14,14 +14,14 @@
 # Install a binary using npm package manager and configure PATH and NODE_MODULES_DIR environment variables.
 #
 # Usage:
-#     ./on_Binary__10_npm_install.py --name=<name> [...] > events.jsonl
+#     ./on_BinaryRequest__10_npm.py --name=<name> [...] > events.jsonl
 
 import json
 import sys
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
-    emit_binary_record,
+    emit_installed_binary_record,
     emit_machine_record,
     enforce_lib_permissions,
     load_config,
@@ -115,7 +115,7 @@ def main(
         sys.exit(1)
 
     # Output Binary JSONL record to stdout
-    emit_binary_record(
+    emit_installed_binary_record(
         name=name,
         abspath=str(binary.abspath),
         version=str(binary.version) if binary.version else "",

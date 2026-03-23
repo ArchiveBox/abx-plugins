@@ -9,16 +9,18 @@
 # abx-plugins = { path = "../../..", editable = true }
 # ///
 #
-# Emit papers-dl Binary dependency for the crawl.
+# Emit single-file Binary dependency for the crawl.
 #
-# Usage:
-#     ./on_Crawl__30_papersdl_install.py > events.jsonl
 
 import os
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_binary_record, get_env_bool, load_config
+from abx_plugins.plugins.base.utils import (
+    emit_binary_request_record,
+    get_env_bool,
+    load_config,
+)
 
 PLUGIN_DIR = Path(__file__).parent.name
 CONFIG = load_config()
@@ -29,12 +31,16 @@ os.chdir(OUTPUT_DIR)
 
 
 def main():
-    papersdl_enabled = get_env_bool("PAPERSDL_ENABLED", True)
+    singlefile_enabled = get_env_bool("SINGLEFILE_ENABLED", True)
 
-    if not papersdl_enabled:
+    if not singlefile_enabled:
         sys.exit(0)
 
-    emit_binary_record(name="papers-dl", binproviders="env,pip")
+    emit_binary_request_record(
+        name="single-file",
+        binproviders="env,npm",
+        overrides={"npm": {"install_args": ["single-file-cli"]}},
+    )
 
     sys.exit(0)
 

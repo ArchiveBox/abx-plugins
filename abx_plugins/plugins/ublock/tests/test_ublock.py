@@ -23,7 +23,7 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
-_INSTALL_SCRIPT = next(PLUGIN_DIR.glob("on_Crawl__*_install_ublock_extension.*"), None)
+_INSTALL_SCRIPT = next(PLUGIN_DIR.glob("on_Install__*_ublock_extension.*"), None)
 if _INSTALL_SCRIPT is None:
     raise FileNotFoundError(f"Install script not found in {PLUGIN_DIR}")
 INSTALL_SCRIPT = _INSTALL_SCRIPT

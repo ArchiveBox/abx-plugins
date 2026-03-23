@@ -64,7 +64,7 @@ Module._load = function(request, parent, isMain) {
         };
     }
 
-    if (request === './on_Crawl__82_singlefile_install.js') {
+    if (request === './on_Install__82_singlefile.js') {
         return {
             EXTENSION: { name: 'singlefile' },
             saveSinglefileWithExtension: async (_page, _extension, options) => {

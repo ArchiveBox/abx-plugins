@@ -1794,8 +1794,8 @@ def test_crawl_wait_accepts_http_cdp_url_for_external_browser(chrome_test_url):
                 f"crawl wait should succeed for adopted HTTP endpoint:\n"
                 f"Stdout: {crawl_wait.stdout}\nStderr: {crawl_wait.stderr}"
             )
-            assert "pid=external" in crawl_wait.stdout
-            assert f"port={_port_from_cdp_url(provider_cdp_url)}" in crawl_wait.stdout
+            assert "pid=external" in crawl_wait.stderr
+            assert provider_http_url in crawl_wait.stderr
         finally:
             _cleanup_launch_process(provider_process, provider_chrome_dir)
 
@@ -2033,8 +2033,8 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
                 f"crawl wait should succeed before snapshot setup:\n"
                 f"Stdout: {crawl_wait.stdout}\nStderr: {crawl_wait.stderr}"
             )
-            assert f"pid={chrome_pid_before}" in crawl_wait.stdout
-            assert f"port={port_before}" in crawl_wait.stdout
+            assert f"pid={chrome_pid_before}" in crawl_wait.stderr
+            assert f"127.0.0.1:{port_before}" in crawl_wait.stderr
             assert not any(path.exists() for path in snapshot_files.values()), (
                 "crawl wait should not create snapshot-scoped files"
             )

@@ -48,8 +48,8 @@ def get_trafilatura_binary_path() -> str | None:
     if _trafilatura_binary_path and Path(_trafilatura_binary_path).is_file():
         return _trafilatura_binary_path
 
-    pip_hook = PLUGINS_ROOT / "pip" / "on_Binary__11_pip_install.py"
-    crawl_hook = PLUGIN_DIR / "on_Crawl__41_trafilatura_install.finite.bg.py"
+    pip_hook = PLUGINS_ROOT / "pip" / "on_BinaryRequest__11_pip.py"
+    crawl_hook = PLUGIN_DIR / "on_Install__41_trafilatura.finite.bg.py"
     if not pip_hook.exists():
         return None
 
@@ -70,7 +70,10 @@ def get_trafilatura_binary_path() -> str | None:
                 record = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if record.get("type") == "Binary" and record.get("name") == "trafilatura":
+            if (
+                record.get("type") == "BinaryRequest"
+                and record.get("name") == "trafilatura"
+            ):
                 binproviders = record.get("binproviders", "*")
                 overrides = record.get("overrides")
                 break
@@ -93,7 +96,7 @@ def get_trafilatura_binary_path() -> str | None:
         "--plugin-name",
         "trafilatura",
         "--hook-name",
-        "on_Crawl__41_trafilatura_install.finite.bg",
+        "on_Install__41_trafilatura.finite.bg",
         "--name",
         "trafilatura",
         f"--binproviders={binproviders}",

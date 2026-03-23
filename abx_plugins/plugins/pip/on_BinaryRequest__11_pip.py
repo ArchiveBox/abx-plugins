@@ -14,7 +14,7 @@
 #
 # Install a binary using pip package manager.
 #
-# Usage: on_Binary__11_pip_install.py --name=<name>
+# Usage: on_BinaryRequest__11_pip.py --name=<name>
 # Output: Binary JSONL record to stdout after installation
 #
 # Environment variables:
@@ -30,7 +30,7 @@ from pathlib import Path
 import fcntl
 
 from abx_plugins.plugins.base.utils import (
-    emit_binary_record,
+    emit_installed_binary_record,
     emit_machine_record,
     enforce_lib_permissions,
     load_config,
@@ -180,7 +180,7 @@ def main(
         sys.exit(1)
 
     # Output Binary JSONL record to stdout
-    emit_binary_record(
+    emit_installed_binary_record(
         name=name,
         abspath=str(binary.abspath),
         version=str(binary.version) if binary.version else "",

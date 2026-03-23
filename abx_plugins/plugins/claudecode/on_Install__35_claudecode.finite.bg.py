@@ -16,7 +16,11 @@ import os
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_binary_record, get_env, load_config
+from abx_plugins.plugins.base.utils import (
+    emit_binary_request_record,
+    get_env,
+    load_config,
+)
 
 PLUGIN_DIR = Path(__file__).parent.name
 CONFIG = load_config()
@@ -45,13 +49,13 @@ def main():
     # Honor custom binary path - skip npm install if user provides their own
     custom_binary = get_env("CLAUDECODE_BINARY")
     if custom_binary and custom_binary != "claude":
-        emit_binary_record(
+        emit_binary_request_record(
             name="claude",
             binproviders="env",
             overrides={"env": {"abspath": custom_binary}},
         )
     else:
-        emit_binary_record(
+        emit_binary_request_record(
             name="claude",
             binproviders="env,npm",
             overrides={"npm": {"install_args": ["@anthropic-ai/claude-code"]}},

@@ -78,9 +78,9 @@ CHROME_PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = CHROME_PLUGIN_DIR.parent
 
 # Hook script locations
-CHROME_INSTALL_HOOK = CHROME_PLUGIN_DIR / "on_Crawl__70_chrome_install.finite.bg.py"
-CHROME_LAUNCH_HOOK = CHROME_PLUGIN_DIR / "on_Crawl__90_chrome_launch.daemon.bg.js"
-CHROME_CRAWL_WAIT_HOOK = CHROME_PLUGIN_DIR / "on_Crawl__91_chrome_wait.js"
+CHROME_INSTALL_HOOK = CHROME_PLUGIN_DIR / "on_Install__70_chrome.finite.bg.py"
+CHROME_LAUNCH_HOOK = CHROME_PLUGIN_DIR / "on_CrawlSetup__90_chrome_launch.daemon.bg.js"
+CHROME_CRAWL_WAIT_HOOK = CHROME_PLUGIN_DIR / "on_CrawlSetup__91_chrome_wait.js"
 CHROME_SNAPSHOT_LAUNCH_HOOK = (
     CHROME_PLUGIN_DIR / "on_Snapshot__09_chrome_launch.daemon.bg.js"
 )
@@ -96,11 +96,9 @@ if _CHROME_NAVIGATE_HOOK is None:
     )
 CHROME_NAVIGATE_HOOK = _CHROME_NAVIGATE_HOOK
 CHROME_UTILS = CHROME_PLUGIN_DIR / "chrome_utils.js"
-PUPPETEER_BINARY_HOOK = (
-    PLUGINS_ROOT / "puppeteer" / "on_Binary__12_puppeteer_install.py"
-)
-PUPPETEER_CRAWL_HOOK = PLUGINS_ROOT / "puppeteer" / "on_Crawl__60_puppeteer_install.py"
-NPM_BINARY_HOOK = PLUGINS_ROOT / "npm" / "on_Binary__10_npm_install.py"
+PUPPETEER_BINARY_HOOK = PLUGINS_ROOT / "puppeteer" / "on_BinaryRequest__12_puppeteer.py"
+PUPPETEER_CRAWL_HOOK = PLUGINS_ROOT / "puppeteer" / "on_Install__60_puppeteer.py"
+NPM_BINARY_HOOK = PLUGINS_ROOT / "npm" / "on_BinaryRequest__10_npm.py"
 
 
 # Prefer root-level URL fixtures if they exist, otherwise fall back to a local server.
@@ -947,17 +945,19 @@ def _ensure_puppeteer_with_hooks(env: dict, timeout: int) -> None:
         )
 
     puppeteer_record = (
-        parse_jsonl_output(puppeteer_result.stdout, record_type="Binary") or {}
+        parse_jsonl_output(puppeteer_result.stdout, record_type="BinaryRequest") or {}
     )
     if not puppeteer_record or puppeteer_record.get("name") != "puppeteer":
-        raise RuntimeError("Puppeteer Binary record not emitted by crawl hook")
+        raise RuntimeError(
+            "Puppeteer BinaryRequest record not emitted by install hook",
+        )
 
     npm_cmd = [
         str(NPM_BINARY_HOOK),
         "--machine-id=test-machine",
         "--binary-id=test-puppeteer",
         "--plugin-name=puppeteer",
-        "--hook-name=on_Crawl__60_puppeteer_install",
+        "--hook-name=on_Install__60_puppeteer",
         "--name=puppeteer",
         f"--binproviders={puppeteer_record.get('binproviders', '*')}",
     ]
@@ -993,7 +993,7 @@ def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
     The order matters:
     1. ensure the ``puppeteer`` JS package exists
     2. reuse an existing Chromium if one is already valid for this env
-    3. otherwise emit the Chrome Binary record and satisfy it via the Puppeteer
+    3. otherwise emit the Chrome BinaryRequest record and satisfy it via the Puppeteer
        binary hook
 
     Any Machine updates emitted by hooks are folded back into ``env`` so later
@@ -1022,17 +1022,19 @@ def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
             raise RuntimeError(f"Chrome install hook failed: {chrome_result.stderr}")
 
         chrome_record = (
-            parse_jsonl_output(chrome_result.stdout, record_type="Binary") or {}
+            parse_jsonl_output(chrome_result.stdout, record_type="BinaryRequest") or {}
         )
         if not chrome_record or chrome_record.get("name") not in ("chromium", "chrome"):
-            raise RuntimeError("Chrome Binary record not emitted by crawl hook")
+            raise RuntimeError(
+                "Chrome BinaryRequest record not emitted by install hook",
+            )
 
         chromium_cmd = [
             str(PUPPETEER_BINARY_HOOK),
             "--machine-id=test-machine",
             "--binary-id=test-chromium",
             "--plugin-name=chrome",
-            "--hook-name=on_Crawl__70_chrome_install.finite.bg",
+            "--hook-name=on_Install__70_chrome.finite.bg",
             f"--name={chrome_record.get('name', 'chromium')}",
             f"--binproviders={chrome_record.get('binproviders', '*')}",
         ]
@@ -1062,7 +1064,10 @@ def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
                     chromium_record = record
                     break
         if not chromium_record:
-            chromium_record = parse_jsonl_output(result.stdout, record_type="Binary")
+            chromium_record = parse_jsonl_output(
+                result.stdout,
+                record_type="Binary",
+            )
         if not chromium_record:
             raise RuntimeError("Chromium Binary record not found after install")
 

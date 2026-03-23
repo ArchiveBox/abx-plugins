@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 PLUGIN_DIR = Path(__file__).resolve().parent.parent
-BINARY_HOOK = PLUGIN_DIR / "on_Binary__12_brew_install.py"
+BINARY_HOOK = PLUGIN_DIR / "on_BinaryRequest__12_brew.py"
 HOOK_TIMEOUT = 600 if platform.system().lower() == "linux" else 120
 
 

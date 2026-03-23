@@ -19,13 +19,13 @@ PUPPETEER_PLUGIN_DIR = SCREENSHOT_PLUGIN_DIR.parent / "puppeteer"
 NPM_PLUGIN_DIR = SCREENSHOT_PLUGIN_DIR.parent / "npm"
 
 SCREENSHOT_HOOK = next(SCREENSHOT_PLUGIN_DIR.glob("on_Snapshot__*_screenshot.*"))
-CHROME_INSTALL_HOOK = CHROME_PLUGIN_DIR / "on_Crawl__70_chrome_install.finite.bg.py"
-CHROME_LAUNCH_HOOK = CHROME_PLUGIN_DIR / "on_Crawl__90_chrome_launch.daemon.bg.js"
+CHROME_INSTALL_HOOK = CHROME_PLUGIN_DIR / "on_Install__70_chrome.finite.bg.py"
+CHROME_LAUNCH_HOOK = CHROME_PLUGIN_DIR / "on_CrawlSetup__90_chrome_launch.daemon.bg.js"
 CHROME_TAB_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__10_chrome_tab.daemon.bg.js"
 CHROME_NAVIGATE_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__30_chrome_navigate.js"
-PUPPETEER_CRAWL_HOOK = PUPPETEER_PLUGIN_DIR / "on_Crawl__60_puppeteer_install.py"
-PUPPETEER_BINARY_HOOK = PUPPETEER_PLUGIN_DIR / "on_Binary__12_puppeteer_install.py"
-NPM_BINARY_HOOK = NPM_PLUGIN_DIR / "on_Binary__10_npm_install.py"
+PUPPETEER_CRAWL_HOOK = PUPPETEER_PLUGIN_DIR / "on_Install__60_puppeteer.py"
+PUPPETEER_BINARY_HOOK = PUPPETEER_PLUGIN_DIR / "on_BinaryRequest__12_puppeteer.py"
+NPM_BINARY_HOOK = NPM_PLUGIN_DIR / "on_BinaryRequest__10_npm.py"
 
 
 def _machine_type() -> str:
@@ -147,7 +147,10 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
         (
             record
             for record in parse_jsonl_records(stdout)
-            if record.get("type") == "Binary" and record.get("name") == "puppeteer"
+            if (
+                record.get("type") == "BinaryRequest"
+                and record.get("name") == "puppeteer"
+            )
         ),
         None,
     )
@@ -159,7 +162,7 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
             "--machine-id=test-machine",
             "--binary-id=test-puppeteer",
             "--plugin-name=puppeteer",
-            "--hook-name=on_Crawl__60_puppeteer_install",
+            "--hook-name=on_Install__60_puppeteer",
             "--name=puppeteer",
             f"--binproviders={puppeteer_record.get('binproviders', '*')}",
             "--overrides=" + json.dumps(puppeteer_record.get("overrides") or {}),
@@ -186,7 +189,7 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
         (
             record
             for record in parse_jsonl_records(stdout)
-            if record.get("type") == "Binary"
+            if record.get("type") == "BinaryRequest"
         ),
         None,
     )
@@ -199,7 +202,7 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
             "--machine-id=test-machine",
             f"--binary-id=test-{browser_name}",
             "--plugin-name=chrome",
-            "--hook-name=on_Crawl__70_chrome_install.finite.bg",
+            "--hook-name=on_Install__70_chrome.finite.bg",
             f"--name={chrome_record['name']}",
             f"--binproviders={chrome_record.get('binproviders', '*')}",
             "--overrides=" + json.dumps(chrome_record.get("overrides") or {}),

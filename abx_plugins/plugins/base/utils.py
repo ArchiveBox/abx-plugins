@@ -3,7 +3,7 @@
 Provides common helpers used across multiple plugins:
 - Config loading from config.json using PydanticSettings (load_config)
 - Environment variable parsing (get_env, get_env_bool, get_env_int, get_env_array)
-- JSONL record emission (emit_archive_result_record, emit_binary_record, emit_machine_record, emit_snapshot_record)
+- JSONL record emission (emit_archive_result_record, emit_binary_request_record, emit_installed_binary_record, emit_machine_record, emit_snapshot_record)
 - Atomic file writing (write_text_atomic)
 - HTML source discovery (find_html_source)
 - Sibling plugin output checking (has_staticfile_output)
@@ -359,35 +359,41 @@ def emit_archive_result_record(
     _write_stream_line_fully(sys.stdout, json.dumps(_merge_extra_context(record)))
 
 
-def emit_binary_record(
+def emit_binary_request_record(
     name: str,
-    binproviders: str | None = None,
+    binproviders: str,
     overrides: dict[str, Any] | None = None,
     min_version: str | None = None,
-    abspath: str | None = None,
-    version: str | None = None,
-    sha256: str | None = None,
-    binprovider: str | None = None,
 ) -> None:
-    """Output Binary JSONL record for a dependency."""
+    """Output BinaryRequest JSONL record for a dependency."""
     record: dict[str, Any] = {
-        "type": "Binary",
+        "type": "BinaryRequest",
         "name": name,
+        "binproviders": binproviders,
     }
-    if binproviders is not None:
-        record["binproviders"] = binproviders
     if overrides:
         record["overrides"] = overrides
     if min_version:
         record["min_version"] = min_version
-    if abspath is not None:
-        record["abspath"] = abspath
-    if version is not None:
-        record["version"] = version
-    if sha256 is not None:
-        record["sha256"] = sha256
-    if binprovider is not None:
-        record["binprovider"] = binprovider
+    _write_stream_line_fully(sys.stdout, json.dumps(_merge_extra_context(record)))
+
+
+def emit_installed_binary_record(
+    name: str,
+    abspath: str,
+    version: str,
+    sha256: str,
+    binprovider: str,
+) -> None:
+    """Output Binary JSONL record for a resolved dependency."""
+    record: dict[str, Any] = {
+        "type": "Binary",
+        "name": name,
+        "abspath": abspath,
+        "version": version,
+        "sha256": sha256,
+        "binprovider": binprovider,
+    }
     _write_stream_line_fully(sys.stdout, json.dumps(_merge_extra_context(record)))
 
 

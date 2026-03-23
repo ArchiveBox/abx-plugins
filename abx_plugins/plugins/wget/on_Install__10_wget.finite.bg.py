@@ -12,13 +12,13 @@
 # Emit wget Binary dependency for the crawl.
 #
 # Usage:
-#     ./on_Crawl__10_wget_install.py > events.jsonl
+#     ./on_Install__10_wget.py > events.jsonl
 
 import os
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_binary_record, load_config
+from abx_plugins.plugins.base.utils import emit_binary_request_record, load_config
 
 PLUGIN_DIR = Path(__file__).parent.name
 CONFIG = load_config()
@@ -45,7 +45,7 @@ def main():
         )
 
     if wget_enabled:
-        emit_binary_record(name="wget", binproviders="env,apt,brew")
+        emit_binary_request_record(name="wget", binproviders="env,apt,brew")
 
     for warning in warnings:
         print(f"WARNING:{warning}", file=sys.stderr)

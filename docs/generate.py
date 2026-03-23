@@ -117,7 +117,14 @@ def collect_hooks(plugin_dir: Path) -> list[dict[str, Any]]:
     for path in sorted(plugin_dir.iterdir()):
         if not path.is_file():
             continue
-        if not path.name.startswith(("on_Crawl__", "on_Snapshot__", "on_Binary__")):
+        if not path.name.startswith(
+            (
+                "on_Install__",
+                "on_CrawlSetup__",
+                "on_Snapshot__",
+                "on_BinaryRequest__",
+            ),
+        ):
             continue
         hook = parse_hook_filename(path.name)
         hook["source_url"] = github_blob_url(path.relative_to(REPO_ROOT).as_posix())
@@ -156,7 +163,9 @@ def build_commands(
     config_fields: list[dict[str, Any]],
 ) -> dict[str, str]:
     has_snapshot = any(hook["phase"] == "Snapshot" for hook in hooks)
-    has_setup = any(hook["phase"] in {"Crawl", "Binary"} for hook in hooks)
+    has_setup = any(
+        hook["phase"] in {"Install", "CrawlSetup", "BinaryRequest"} for hook in hooks
+    )
     enable_key = next(
         (field["key"] for field in config_fields if field["key"].endswith("_ENABLED")),
         None,

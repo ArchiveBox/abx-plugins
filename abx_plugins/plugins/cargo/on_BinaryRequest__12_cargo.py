@@ -14,7 +14,7 @@
 # Install a binary using Cargo and output a Binary JSONL record.
 #
 # Usage:
-#     ./on_Binary__12_cargo_install.py [...] > events.jsonl
+#     ./on_BinaryRequest__12_cargo.py [...] > events.jsonl
 #
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ import rich_click as click
 from abx_pkg import Binary, CargoProvider, SemVer
 from abx_pkg.binprovider import HandlerDict
 
-from abx_plugins.plugins.base.utils import emit_binary_record
+from abx_plugins.plugins.base.utils import emit_installed_binary_record
 
 
 @click.command(
@@ -97,7 +97,7 @@ def main(
     else:
         resolved_provider_name = getattr(resolved_provider, "name", "") or ""
 
-    emit_binary_record(
+    emit_installed_binary_record(
         name=name,
         abspath=str(binary.abspath),
         version=str(binary.version) if binary.version else "",

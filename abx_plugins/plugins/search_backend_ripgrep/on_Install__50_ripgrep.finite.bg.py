@@ -8,17 +8,15 @@
 # [tool.uv.sources]
 # abx-plugins = { path = "../../..", editable = true }
 # ///
-#
-# Emit git Binary dependency for the crawl.
-#
-# Usage:
-#     ./on_Crawl__05_git_install.py > events.jsonl
+"""
+Emit ripgrep Binary dependency for the crawl.
+"""
 
 import os
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import emit_binary_record, get_env_bool, load_config
+from abx_plugins.plugins.base.utils import emit_binary_request_record, load_config
 
 PLUGIN_DIR = Path(__file__).parent.name
 CONFIG = load_config()
@@ -29,13 +27,20 @@ os.chdir(OUTPUT_DIR)
 
 
 def main():
-    git_enabled = get_env_bool("GIT_ENABLED", True)
+    config = load_config()
 
-    if not git_enabled:
+    # Only proceed if ripgrep backend is enabled
+    if config.SEARCH_BACKEND_ENGINE != "ripgrep":
+        # Not using ripgrep, exit successfully without output
         sys.exit(0)
 
-    emit_binary_record(name="git", binproviders="env,apt,brew")
-
+    emit_binary_request_record(
+        name="rg",
+        binproviders="env,apt,brew",
+        overrides={
+            "apt": {"install_args": ["ripgrep"]},
+        },
+    )
     sys.exit(0)
 
 

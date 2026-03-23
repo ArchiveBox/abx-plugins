@@ -17,8 +17,8 @@ FORBIDDEN_TOKENS = (
     r"\bfrom abx_pkg\b",
     r"\bimport abx_pkg\b",
     r"\bshutil\.which\(",
-    r"\bemit_binary_record\([^)]*abspath=",
-    r"\bemit_binary_record\([^)]*binprovider=",
+    r"\bemit_installed_binary_record\([^)]*abspath=",
+    r"\bemit_installed_binary_record\([^)]*binprovider=",
 )
 
 
@@ -32,7 +32,7 @@ def _iter_non_test_hook_files() -> list[Path]:
         rel_parts = path.relative_to(PLUGINS_ROOT).parts
         if "tests" in rel_parts:
             continue
-        if path.name.startswith("on_Binary__"):
+        if path.name.startswith("on_BinaryRequest__"):
             continue
         if not path.name.startswith("on_"):
             continue
@@ -66,9 +66,9 @@ def test_non_binary_hooks_only_emit_binary_events() -> None:
                 failures.append(f"{rel}:{match.start()} matched /{pattern}/")
 
     assert not failures, (
-        "Non-on_Binary hooks must not instantiate abx_pkg Binary/provider objects "
-        "or import abx_pkg directly. They should emit Binary events and let the "
-        "on_Binary hooks resolve/install them:\n" + "\n".join(failures)
+        "Non-on_BinaryRequest hooks must not instantiate abx_pkg Binary/provider objects "
+        "or import abx_pkg directly. They should emit BinaryRequest events and let the "
+        "on_BinaryRequest hooks resolve/install them:\n" + "\n".join(failures)
     )
 
 

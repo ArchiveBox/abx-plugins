@@ -58,7 +58,7 @@ def get_papersdl_binary_path():
         return _papersdl_binary_path
 
     # Always validate installation path by running the real pip hook.
-    pip_hook = PLUGINS_ROOT / "pip" / "on_Binary__11_pip_install.py"
+    pip_hook = PLUGINS_ROOT / "pip" / "on_BinaryRequest__11_pip.py"
     if pip_hook and pip_hook.exists():
         binary_id = str(uuid.uuid4())
         machine_id = str(uuid.uuid4())
@@ -81,7 +81,7 @@ def get_papersdl_binary_path():
             "--plugin-name",
             "papersdl",
             "--hook-name",
-            "on_Crawl__30_papersdl_install.finite.bg",
+            "on_Install__30_papersdl.finite.bg",
             "--name",
             "papers-dl",
         ]

@@ -37,7 +37,9 @@ _PDF_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_pdf.*")
 if _PDF_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 PDF_HOOK = _PDF_HOOK
-NPM_PROVIDER_HOOK = PLUGINS_ROOT / "npm" / "on_Binary__install_using_npm_provider.py"
+NPM_PROVIDER_HOOK = (
+    PLUGINS_ROOT / "npm" / "on_BinaryRequest__install_using_npm_provider.py"
+)
 TEST_URL = "https://example.com"
 
 

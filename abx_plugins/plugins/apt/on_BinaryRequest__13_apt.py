@@ -14,12 +14,12 @@
 # Install a binary using apt package manager. Outputs a Binary JSONL record to stdout after installation.
 #
 # Usage:
-#     ./on_Binary__13_apt_install.py [...] > events.jsonl
+#     ./on_BinaryRequest__13_apt.py [...] > events.jsonl
 
 import json
 import sys
 
-from abx_plugins.plugins.base.utils import emit_binary_record
+from abx_plugins.plugins.base.utils import emit_installed_binary_record
 
 import rich_click as click
 from abx_pkg import AptProvider, Binary, SemVer
@@ -89,7 +89,7 @@ def main(
         resolved_provider_name = getattr(resolved_provider, "name", "") or ""
 
     # Output Binary JSONL record to stdout
-    emit_binary_record(
+    emit_installed_binary_record(
         name=name,
         abspath=str(binary.abspath),
         version=str(binary.version) if binary.version else "",

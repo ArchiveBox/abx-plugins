@@ -26,9 +26,9 @@ logger = logging.getLogger(__name__)
 
 PLUGINS_ROOT = Path(__file__).resolve().parent / "abx_plugins" / "plugins"
 CLAUDECODE_INSTALL_HOOK = (
-    PLUGINS_ROOT / "claudecode" / "on_Crawl__35_claudecode_install.finite.bg.py"
+    PLUGINS_ROOT / "claudecode" / "on_Install__35_claudecode.finite.bg.py"
 )
-NPM_BINARY_HOOK = PLUGINS_ROOT / "npm" / "on_Binary__10_npm_install.py"
+NPM_BINARY_HOOK = PLUGINS_ROOT / "npm" / "on_BinaryRequest__10_npm.py"
 
 
 def _tee_subprocess_output_enabled() -> bool:
@@ -287,11 +287,15 @@ def ensure_claude_code_prereqs(tmp_path_factory):
                 )
 
             binary_record = (
-                parse_jsonl_output(install_result.stdout, record_type="Binary") or {}
+                parse_jsonl_output(
+                    install_result.stdout,
+                    record_type="BinaryRequest",
+                )
+                or {}
             )
             if binary_record.get("name") != "claude":
                 raise RuntimeError(
-                    "Claude Code install hook did not emit a claude Binary record",
+                    "Claude Code install hook did not emit a claude BinaryRequest record",
                 )
 
             npm_cmd = [
@@ -299,7 +303,7 @@ def ensure_claude_code_prereqs(tmp_path_factory):
                 "--machine-id=test-machine",
                 "--binary-id=test-claude",
                 "--plugin-name=claudecode",
-                "--hook-name=on_Crawl__35_claudecode_install.finite.bg",
+                "--hook-name=on_Install__35_claudecode.finite.bg",
                 "--name=claude",
                 f"--binproviders={binary_record.get('binproviders', '*')}",
             ]

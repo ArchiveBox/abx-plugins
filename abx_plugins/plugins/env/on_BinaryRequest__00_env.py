@@ -11,15 +11,15 @@
 # abx-plugins = { path = "../../..", editable = true }
 # ///
 #
-# Check if a binary is available in the system PATH and output its Binary record.
+# Check if a binary is available in the system PATH and output an Binary record.
 # This simple provider discovers binaries that are already installed without installing anything.
 #
 # Usage:
-#     ./on_Binary__00_env_discover.py --name=<name> > events.jsonl
+#     ./on_BinaryRequest__00_env.py --name=<name> > events.jsonl
 
 import sys
 
-from abx_plugins.plugins.base.utils import emit_binary_record
+from abx_plugins.plugins.base.utils import emit_installed_binary_record
 
 import rich_click as click
 from abx_pkg import Binary, EnvProvider, SemVer
@@ -62,7 +62,7 @@ def main(
         sys.exit(1)
 
     # Output Binary JSONL record to stdout
-    emit_binary_record(
+    emit_installed_binary_record(
         name=name,
         abspath=str(binary.abspath),
         version=str(binary.version) if binary.version else "",
