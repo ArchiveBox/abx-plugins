@@ -1626,53 +1626,12 @@ def chrome_session(
             chrome_binary = install_chromium_with_hooks(env)
             env["CHROME_BINARY"] = chrome_binary
 
-        # Launch Chrome at crawl level
-        stdout_log = chrome_dir / "chrome_launch.stdout.log"
-        stderr_log = chrome_dir / "chrome_launch.stderr.log"
-        stdout_handle = open(stdout_log, "w+", encoding="utf-8")
-        stderr_handle = open(stderr_log, "w+", encoding="utf-8")
-        chrome_launch_process = LoggedPopen(
-            [str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
-            cwd=str(chrome_dir),
-            stdout=stdout_handle,
-            stderr=stderr_handle,
-            text=True,
+        chrome_launch_process, _cdp_url = launch_chromium_session(
             env=env,
+            chrome_dir=chrome_dir,
+            crawl_id=crawl_id,
+            timeout=startup_timeout,
         )
-        chrome_launch_process._stdout_handle = stdout_handle
-        chrome_launch_process._stderr_handle = stderr_handle
-
-        # Wait for crawl-level launch state files.
-        # Use monotonic deadlines to avoid off-by-one races near timeout boundaries.
-        deadline = time.monotonic() + startup_timeout
-        while True:
-            if chrome_launch_process.poll() is not None:
-                stdout_handle.flush()
-                stderr_handle.flush()
-                stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
-                stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
-                raise RuntimeError(
-                    f"Chrome launch failed:\nStdout: {stdout}\nStderr: {stderr}",
-                )
-            if (chrome_dir / "cdp_url.txt").exists() and (
-                chrome_dir / "chrome.pid"
-            ).exists():
-                break
-            if time.monotonic() >= deadline:
-                break
-            time.sleep(0.2)
-
-        if not (chrome_dir / "cdp_url.txt").exists():
-            stdout_handle.flush()
-            stderr_handle.flush()
-            stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
-            stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
-            stdout_handle.close()
-            stderr_handle.close()
-            raise RuntimeError(
-                f"Chrome CDP URL not found after {startup_timeout}s\nStdout: {stdout}\nStderr: {stderr}",
-            )
-
         chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
 
         # Create snapshot directory structure
