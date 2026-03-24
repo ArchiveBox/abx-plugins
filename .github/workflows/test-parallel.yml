@@ -18,7 +18,8 @@ jobs:
     name: Pre-commit checks
     runs-on: ubuntu-22.04
     env:
-      PYTHONPATH: ${{ github.workspace }}/abx-pkg
+      ABX_PKG_DIR: ${{ runner.temp }}/abx-pkg
+      PYTHONPATH: ${{ runner.temp }}/abx-pkg
 
     steps:
       - name: Checkout repository
@@ -31,7 +32,7 @@ jobs:
           git checkout --detach FETCH_HEAD
 
       - name: Clone abx-pkg
-        run: git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git abx-pkg
+        run: git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git "$ABX_PKG_DIR"
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
@@ -77,6 +78,7 @@ jobs:
         run: |
           uv venv
           uv sync --dev --all-extras --no-sources
+          uv pip install --no-deps -e "$ABX_PKG_DIR"
           uv pip install --no-deps -e ".[dev]"
 
       - name: Run prek
@@ -149,7 +151,8 @@ jobs:
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       ABX_PYTEST_TEE_SUBPROCESS_OUTPUT: "1"
-      PYTHONPATH: ${{ github.workspace }}/abx-pkg
+      ABX_PKG_DIR: ${{ runner.temp }}/abx-pkg
+      PYTHONPATH: ${{ runner.temp }}/abx-pkg
 
     strategy:
       fail-fast: false
@@ -169,7 +172,7 @@ jobs:
           git checkout --detach FETCH_HEAD
 
       - name: Clone abx-pkg
-        run: git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git abx-pkg
+        run: git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git "$ABX_PKG_DIR"
 
       - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v5
@@ -224,6 +227,7 @@ jobs:
         run: |
           uv venv
           uv sync --dev --all-extras --no-sources
+          uv pip install --no-deps -e "$ABX_PKG_DIR"
           uv pip install --no-deps -e ".[dev]"
 
       - name: Verify Chromium launch
