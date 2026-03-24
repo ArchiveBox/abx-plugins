@@ -1,0 +1,68 @@
+abx_plugins/plugins/base/test_utils.py
+  87c0fd6fb0a16ff6 58-62
+  359ea6664cab470e 5,66-102
+tests/test_singlefile_extension_save.py
+  87c0fd6fb0a16ff6 20,30,53,57,63-68,104
+abx_plugins/plugins/responses/on_Snapshot__24_responses.daemon.bg.js
+  87c0fd6fb0a16ff6 31,95
+  359ea6664cab470e 38,41
+abx_plugins/plugins/singlefile/singlefile_extension_save.js
+  359ea6664cab470e 11,27-30,206
+  87c0fd6fb0a16ff6 20-24,34-109,111-185,310-315
+abx_plugins/plugins/singlefile/tests/test_singlefile.py
+  87c0fd6fb0a16ff6 38,41-42,44-45,49,117,119-136,181,250,252-267,431,433-448
+  359ea6664cab470e 13,46,116,118,249,251,430,432
+  ffc5c063dd8d2daa 47,572-573,575,577-579,634,645-647,658
+abx_plugins/plugins/singlefile/on_Snapshot__50_singlefile.py
+  87c0fd6fb0a16ff6 30,258-274,281
+abx_plugins/plugins/twocaptcha/tests/test_twocaptcha.py
+  87c0fd6fb0a16ff6 11,22,31-32,38-39,62,64,77-120,309-323,325-380,382,384-386
+  359ea6664cab470e 20,33-36,56-61,63,65-74,139,179,422
+  ffc5c063dd8d2daa 37,218,220-221,223,225-227,232,239,243,246-254
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.17",
+  "base_commit_sha": "ac467f3748131d130420a0a302f1ee033081b007",
+  "prompts": {
+    "359ea6664cab470e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d1c71-904f-7610-b0d8-d6f3e6a4ffe4",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 129,
+      "total_deletions": 100,
+      "accepted_lines": 92,
+      "overriden_lines": 0
+    },
+    "87c0fd6fb0a16ff6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d1c6c-ba8a-7c60-a5cb-e46a3d352e8f",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 709,
+      "total_deletions": 940,
+      "accepted_lines": 410,
+      "overriden_lines": 3
+    },
+    "ffc5c063dd8d2daa": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d1cf8-a111-7f00-a3ec-2723a70edeaf",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 58,
+      "total_deletions": 53,
+      "accepted_lines": 38,
+      "overriden_lines": 0
+    }
+  }
+}
