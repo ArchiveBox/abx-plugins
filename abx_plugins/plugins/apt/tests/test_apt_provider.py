@@ -26,13 +26,6 @@ def apt_available() -> bool:
     return shutil.which("apt") is not None or shutil.which("apt-get") is not None
 
 
-def is_linux() -> bool:
-    """Check if running on Linux."""
-    import platform
-
-    return platform.system().lower() == "linux"
-
-
 class TestAptProviderHook:
     """Test the apt binary provider installation hook."""
 
@@ -65,10 +58,8 @@ class TestAptProviderHook:
         assert "apt provider not allowed" in result.stderr
         assert result.returncode == 0
 
-    @pytest.mark.skipif(not is_linux(), reason="apt only available on Linux")
     def test_hook_detects_apt(self):
         """Hook should detect apt binary when available."""
-        assert apt_available(), "apt not installed"
         result = subprocess.run(
             [
                 str(INSTALL_HOOK),
@@ -79,8 +70,14 @@ class TestAptProviderHook:
             timeout=30,
         )
 
-        # Should not say apt is not available
-        assert "apt not available" not in result.stderr
+        if apt_available():
+            assert "apt not available" not in result.stderr
+        else:
+            assert result.returncode == 1
+            assert (
+                "AptProvider.INSTALLER_BIN is not available on this host"
+                in result.stderr
+            )
 
     def test_hook_handles_overrides(self):
         """Hook should accept overrides JSON."""
@@ -101,14 +98,11 @@ class TestAptProviderHook:
         assert "Traceback" not in result.stderr
 
 
-@pytest.mark.skipif(not is_linux(), reason="apt only available on Linux")
 class TestAptProviderSystemBinaries:
     """Test apt provider with system binaries."""
 
     def test_detect_existing_binary(self):
         """apt provider should detect already-installed system binaries."""
-        assert apt_available(), "apt not installed"
-        # Check for a binary that's almost certainly installed (like 'ls' or 'bash')
         result = subprocess.run(
             [
                 str(INSTALL_HOOK),
@@ -118,6 +112,14 @@ class TestAptProviderSystemBinaries:
             text=True,
             timeout=60,
         )
+
+        if not apt_available():
+            assert result.returncode == 1
+            assert (
+                "AptProvider.INSTALLER_BIN is not available on this host"
+                in result.stderr
+            )
+            return
 
         # Parse JSONL output
         for line in result.stdout.split("\n"):

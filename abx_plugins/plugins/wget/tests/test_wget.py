@@ -28,11 +28,11 @@ from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
-WGET_CRAWL_HOOK = next(PLUGIN_DIR.glob("on_Install__*_wget*"), None)
 WGET_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_wget.*"))
 BREW_HOOK = next((PLUGINS_ROOT / "brew").glob("on_BinaryRequest__*_brew.py"), None)
 APT_HOOK = next((PLUGINS_ROOT / "apt").glob("on_BinaryRequest__*_apt.py"), None)
 TEST_URL = "https://example.com"
+PLUGIN_CONFIG = json.loads((PLUGIN_DIR / "config.json").read_text())
 
 
 def _provider_runtime_unavailable(proc: subprocess.CompletedProcess[str]) -> bool:
@@ -47,43 +47,23 @@ def _provider_runtime_unavailable(proc: subprocess.CompletedProcess[str]) -> boo
 def test_hook_script_exists():
     """Verify hook script exists."""
     assert WGET_HOOK.exists(), f"Hook script not found: {WGET_HOOK}"
-    assert WGET_CRAWL_HOOK and WGET_CRAWL_HOOK.exists(), (
-        f"Crawl hook not found: {WGET_CRAWL_HOOK}"
-    )
 
 
 def test_wget_declares_only_env_apt_brew_providers():
-    """Crawl hook should not advertise pip installation for wget."""
-    result = subprocess.run(
-        [str(WGET_CRAWL_HOOK)],
-        capture_output=True,
-        text=True,
-        timeout=30,
-        env=os.environ.copy(),
-    )
-
-    assert result.returncode == 0, f"Crawl hook failed: {result.stderr}"
-
-    records = [
-        json.loads(line)
-        for line in result.stdout.splitlines()
-        if line.strip().startswith("{")
-    ]
+    """required_binaries should declare wget via env,apt,brew only."""
+    required_binaries = PLUGIN_CONFIG["required_binaries"]
     binary_record = next(
         (
             record
-            for record in records
-            if (record.get("type") == "BinaryRequest" and record.get("name") == "wget")
+            for record in required_binaries
+            if record.get("name") == "{WGET_BINARY}"
         ),
         None,
     )
     assert binary_record is not None, (
-        f"Expected wget BinaryRequest record: {result.stdout}"
+        f"Expected wget required_binaries entry: {required_binaries}"
     )
     assert binary_record["binproviders"] == "env,apt,brew"
-    assert not any(record.get("type") == "Machine" for record in records), (
-        f"Crawl hook must not emit Machine config patches: {records}"
-    )
 
 
 def test_verify_deps_with_abx_pkg():
@@ -221,8 +201,19 @@ def test_can_install_wget_via_provider():
     assert result.returncode == 0, "wget should be available after installation"
 
 
-def test_archives_example_com():
-    """Test full workflow: ensure wget installed then archive example.com."""
+@pytest.fixture
+def local_example_url(httpserver):
+    html = """<!doctype html><html><head><title>Example Domain</title></head><body><h1>Example Domain</h1><p>This domain is for use in illustrative examples in documents.</p><a href=\"https://iana.org/\">More information</a></body></html>"""
+    httpserver.expect_request("/").respond_with_data(
+        html,
+        status=200,
+        content_type="text/html",
+    )
+    return httpserver.url_for("/")
+
+
+def test_archives_example_com(local_example_url):
+    """Test full workflow: ensure wget installed then archive a real HTML page."""
 
     # First ensure wget is installed via provider
     if shutil.which("brew"):
@@ -272,7 +263,7 @@ def test_archives_example_com():
             [
                 str(WGET_HOOK),
                 "--url",
-                TEST_URL,
+                local_example_url,
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -461,7 +452,7 @@ def test_staticfile_present_skips():
         )
 
 
-def test_handles_404_gracefully():
+def test_handles_404_gracefully(httpserver):
     """Test that wget fails gracefully on 404."""
 
     if not shutil.which("wget"):
@@ -475,7 +466,7 @@ def test_handles_404_gracefully():
             [
                 str(WGET_HOOK),
                 "--url",
-                "https://example.com/nonexistent-page-404",
+                httpserver.url_for("/nonexistent-page-404"),
             ],
             cwd=tmpdir,
             capture_output=True,

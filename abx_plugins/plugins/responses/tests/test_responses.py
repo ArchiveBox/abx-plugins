@@ -45,8 +45,7 @@ class TestResponsesPlugin:
     def test_unique_filename_does_not_duplicate_existing_suffix(self):
         """Short encoded URLs should not get .ext appended twice."""
         node_binary = shutil.which("node")
-        if not node_binary:
-            pytest.skip("Node.js is required for JS filename helper tests")
+        assert node_binary, "Node.js is required for JS filename helper tests"
 
         result = subprocess.run(
             [

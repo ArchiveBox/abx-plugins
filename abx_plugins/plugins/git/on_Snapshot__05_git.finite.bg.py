@@ -3,11 +3,10 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #   "pydantic-settings",
+#   "jambo",
 #   "rich-click",
 #   "abx-plugins",
 # ]
-# [tool.uv.sources]
-# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Clones a git repository from a provided URL into the current working directory.

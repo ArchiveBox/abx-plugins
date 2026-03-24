@@ -5,8 +5,6 @@
 #   "click",
 #   "abx-plugins",
 # ]
-# [tool.uv.sources]
-# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Generate a cryptographic Merkle hash tree of all files in a snapshot directory.

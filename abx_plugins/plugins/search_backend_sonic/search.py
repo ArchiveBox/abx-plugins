@@ -5,8 +5,6 @@
 #   "sonic-client",
 #   "abx-plugins",
 # ]
-# [tool.uv.sources]
-# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Sonic search backend - search and flush operations.

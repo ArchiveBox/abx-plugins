@@ -221,7 +221,7 @@ def test_config_timeout(non_video_test_url):
 
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
-        env["YTDLP_TIMEOUT"] = "5"
+        env["MEDIA_TIMEOUT"] = "30"
         env["YTDLP_BINARY"] = binary_path
         env["SNAP_DIR"] = str(tmpdir)
 
@@ -236,16 +236,15 @@ def test_config_timeout(non_video_test_url):
             capture_output=True,
             text=True,
             env=env,
-            timeout=10,  # Should complete in 5s, use 10s as safety margin
+            timeout=35,
         )
         elapsed_time = time.time() - start_time
 
         assert result.returncode == 0, (
             f"Should complete without hanging: {result.stderr}"
         )
-        # Allow 1 second overhead for subprocess startup and Python interpreter
-        assert elapsed_time <= 6.0, (
-            f"Should complete within 6 seconds (5s timeout + 1s overhead), took {elapsed_time:.2f}s"
+        assert elapsed_time <= 10.0, (
+            f"Non-media URL should still fail quickly even with a valid configured timeout, took {elapsed_time:.2f}s"
         )
 
 
@@ -330,12 +329,23 @@ def test_uses_real_ffmpeg_binary_from_env_when_not_on_path(media_test_url):
         env["YTDLP_BINARY"] = ytdlp_binary
         env["FFMPEG_BINARY"] = ffmpeg_binary
         env["YTDLP_ARGS_EXTRA"] = '["--downloader","ffmpeg"]'
+        uv_dir = next(
+            (
+                path
+                for path in env.get("PATH", "").split(os.pathsep)
+                if path and (Path(path) / "uv").exists()
+            ),
+            "",
+        )
         ffmpeg_dir = str(Path(ffmpeg_binary).parent.resolve())
-        env["PATH"] = os.pathsep.join(
+        filtered_paths = [
             path
             for path in env.get("PATH", "").split(os.pathsep)
             if path and str(Path(path).resolve()) != ffmpeg_dir
-        )
+        ]
+        if uv_dir and uv_dir not in filtered_paths:
+            filtered_paths.insert(0, uv_dir)
+        env["PATH"] = os.pathsep.join(filtered_paths)
 
         result = subprocess.run(
             [

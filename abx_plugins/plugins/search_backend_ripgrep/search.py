@@ -4,8 +4,6 @@
 # dependencies = [
 #     "abx-plugins",
 # ]
-# [tool.uv.sources]
-# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Ripgrep search backend - searches files directly without indexing.

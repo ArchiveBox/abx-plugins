@@ -3,11 +3,10 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #   "pydantic-settings",
+#   "jambo",
 #   "rich-click",
 #   "abx-plugins",
 # ]
-# [tool.uv.sources]
-# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Download forum content from a URL using forum-dl with Pydantic v2 compatibility.

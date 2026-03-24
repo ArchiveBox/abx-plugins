@@ -3,13 +3,12 @@
 # requires-python = ">=3.11"
 # dependencies = [
 #   "pydantic-settings",
+#   "jambo",
 #   "click",
 #   "rich-click",
 #   "abx-pkg",
 #   "abx-plugins",
 # ]
-# [tool.uv.sources]
-# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Install a binary using pip package manager.

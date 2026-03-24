@@ -3,11 +3,10 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #   "pydantic-settings",
+#   "jambo",
 #   "rich-click",
 #   "abx-plugins",
 # ]
-# [tool.uv.sources]
-# abx-plugins = { path = "../../..", editable = true }
 # ///
 #
 # Submit a URL to archive.org for archiving and save the resulting archive.org link.

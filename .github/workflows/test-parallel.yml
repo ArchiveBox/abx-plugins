@@ -11,11 +11,14 @@ env:
   PYTHONIOENCODING: utf-8
   PYTHONLEGACYWINDOWSSTDIO: utf-8
   USE_COLOR: False
+  UV_NO_SOURCES: "1"
 
 jobs:
   prek:
     name: Pre-commit checks
     runs-on: ubuntu-22.04
+    env:
+      PYTHONPATH: ${{ github.workspace }}/abx-pkg
 
     steps:
       - name: Checkout repository
@@ -26,6 +29,9 @@ jobs:
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git fetch --depth=1 origin "${GITHUB_SHA}"
           git checkout --detach FETCH_HEAD
+
+      - name: Clone abx-pkg
+        run: git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git abx-pkg
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
@@ -74,7 +80,7 @@ jobs:
           uv pip install --no-deps -e ".[dev]"
 
       - name: Run prek
-        run: uv run --no-sync prek run --all-files
+        run: uv run --no-sync --no-sources prek run --all-files
 
   discover-tests:
     name: Discover test files
@@ -143,6 +149,7 @@ jobs:
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       ABX_PYTEST_TEE_SUBPROCESS_OUTPUT: "1"
+      PYTHONPATH: ${{ github.workspace }}/abx-pkg
 
     strategy:
       fail-fast: false
@@ -160,6 +167,9 @@ jobs:
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git fetch --depth=1 origin "${GITHUB_SHA}"
           git checkout --detach FETCH_HEAD
+
+      - name: Clone abx-pkg
+        run: git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git abx-pkg
 
       - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v5
@@ -222,7 +232,7 @@ jobs:
 
       - name: Run test - ${{ matrix.test.name }}
         run: |
-          uv run --no-sync pytest -xvs -rA "${{ matrix.test.path }}" --basetemp="$RUNNER_TEMP/pytest-out"
+          uv run --no-sync --no-sources pytest -xvs -rA "${{ matrix.test.path }}" --basetemp="$RUNNER_TEMP/pytest-out"
         env:
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           CHROME_SANDBOX: "false"

@@ -3,12 +3,11 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #     "pydantic-settings",
+#     "jambo",
 #     "rich-click",
 #     "abx-pkg",
 #     "abx-plugins",
 # ]
-# [tool.uv.sources]
-# abx-plugins = { path = "../../..", editable = true }
 # ///
 """
 Install Chromium via the Puppeteer CLI.
