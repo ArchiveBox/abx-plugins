@@ -4,14 +4,38 @@
   "description": "Use Claude Code to deduplicate and clean up redundant snapshot extractor outputs.",
   "type": "object",
   "additionalProperties": false,
-  "required_plugins": ["claudecode"],
-  "required_binaries": ["claude"],
-  "output_mimetypes": ["text/plain"],
+  "required_plugins": [
+    "claudecode"
+  ],
+  "required_binaries": [
+    {
+      "name": "{CLAUDECODE_BINARY}",
+      "binproviders": "env,npm",
+      "min_version": null,
+      "overrides": {
+        "npm": {
+          "install_args": [
+            "@anthropic-ai/claude-code"
+          ]
+        }
+      }
+    }
+  ],
+  "output_mimetypes": [
+    "text/plain"
+  ],
   "properties": {
+    "CLAUDECODE_BINARY": {
+      "type": "string",
+      "default": "claude",
+      "description": "Path to Claude Code CLI binary"
+    },
     "CLAUDECODECLEANUP_ENABLED": {
       "type": "boolean",
       "default": false,
-      "x-aliases": ["USE_CLAUDECODECLEANUP"],
+      "x-aliases": [
+        "USE_CLAUDECODECLEANUP"
+      ],
       "description": "Enable Claude Code AI cleanup of snapshot files"
     },
     "CLAUDECODECLEANUP_TIMEOUT": {

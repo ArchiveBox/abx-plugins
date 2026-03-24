@@ -26,12 +26,7 @@ import re
 from pathlib import Path
 from collections.abc import Iterable
 
-from abx_plugins.plugins.base.utils import (
-    get_env,
-    get_env_int,
-    get_env_array,
-    resolve_binary_path,
-)
+from abx_plugins.plugins.base.utils import load_config
 
 
 LEGACY_TIMESTAMP_RE = re.compile(r"^\d{10}(?:\.\d+)?$")
@@ -99,23 +94,18 @@ def _extract_snapshot_id(match_path: Path, search_roots: list[Path]) -> str | No
 
 def search(query: str, search_mode: str = "contents") -> list[str]:
     """Search for snapshots using ripgrep."""
-    rg_binary = get_env("RIPGREP_BINARY", "rg")
-    rg_binary = resolve_binary_path(rg_binary) or rg_binary
-    if not rg_binary or not Path(rg_binary).exists():
+    config = load_config(Path(__file__).with_name("config.json"))
+
+    rg_binary = str(config.RIPGREP_BINARY or "")
+    if not rg_binary or not Path(rg_binary).expanduser().is_file():
         raise RuntimeError(
             "ripgrep binary not found. Install with: apt install ripgrep",
         )
 
-    timeout = get_env_int("RIPGREP_TIMEOUT", 15)
-    ripgrep_args = [
-        arg
-        for arg in get_env_array("RIPGREP_ARGS", [])
-        if arg not in {"--follow", "-L"}
-    ]
+    timeout = int(config.RIPGREP_TIMEOUT)
+    ripgrep_args = [arg for arg in config.RIPGREP_ARGS if arg not in {"--follow", "-L"}]
     ripgrep_args_extra = [
-        arg
-        for arg in get_env_array("RIPGREP_ARGS_EXTRA", [])
-        if arg not in {"--follow", "-L"}
+        arg for arg in config.RIPGREP_ARGS_EXTRA if arg not in {"--follow", "-L"}
     ]
 
     search_roots = _get_search_roots()

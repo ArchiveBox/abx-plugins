@@ -20,8 +20,9 @@ classifiers = [
     "Environment :: Console",
 ]
 dependencies = [
+    "abxbus>=2.4.9",
     "abx-pkg>=1.9.19",
-    "pydantic-settings>=2.0.0",
+    "jambo>=0.1.7",
     "rich-click>=1.9.7",
 ]
 
@@ -55,6 +56,7 @@ Documentation = "https://github.com/ArchiveBox/ArchiveBox"
 
 [tool.pytest.ini_options]
 testpaths = ["abx_plugins/plugins", "tests"]
+addopts = ["-p", "abx_plugins.pytest_bootstrap", "-p", "no:cacheprovider"]
 
 [tool.codespell]
 ignore-words-list = "abx,bu,wit,dont,cant,wont,re-use,re-used,re-using,re-usable,thats,doesnt,fith,FitH,doubleclick,administrar"
@@ -66,4 +68,5 @@ dev = [
 ]
 
 [tool.uv.sources]
+abxbus = { path = "../abxbus", editable = true }
 abx-pkg = { path = "../abx-pkg", editable = true }

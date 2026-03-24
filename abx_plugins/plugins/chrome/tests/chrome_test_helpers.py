@@ -66,6 +66,7 @@ from _pytest.fixtures import FixtureLookupError
 
 from abx_plugins.plugins.base.test_utils import (
     assert_isolated_snapshot_env,
+    get_hydrated_required_binaries,
     parse_jsonl_output,
     parse_jsonl_records,
     run_hook as _base_run_hook,
@@ -78,7 +79,6 @@ CHROME_PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = CHROME_PLUGIN_DIR.parent
 
 # Hook script locations
-CHROME_INSTALL_HOOK = CHROME_PLUGIN_DIR / "on_Install__70_chrome.finite.bg.py"
 CHROME_LAUNCH_HOOK = CHROME_PLUGIN_DIR / "on_CrawlSetup__90_chrome_launch.daemon.bg.js"
 CHROME_CRAWL_WAIT_HOOK = CHROME_PLUGIN_DIR / "on_CrawlSetup__91_chrome_wait.js"
 CHROME_SNAPSHOT_LAUNCH_HOOK = (
@@ -97,7 +97,6 @@ if _CHROME_NAVIGATE_HOOK is None:
 CHROME_NAVIGATE_HOOK = _CHROME_NAVIGATE_HOOK
 CHROME_UTILS = CHROME_PLUGIN_DIR / "chrome_utils.js"
 PUPPETEER_BINARY_HOOK = PLUGINS_ROOT / "puppeteer" / "on_BinaryRequest__12_puppeteer.py"
-PUPPETEER_CRAWL_HOOK = PLUGINS_ROOT / "puppeteer" / "on_Install__60_puppeteer.py"
 NPM_BINARY_HOOK = PLUGINS_ROOT / "npm" / "on_BinaryRequest__10_npm.py"
 
 
@@ -922,42 +921,36 @@ def _has_puppeteer_module(env: dict) -> bool:
     return result.returncode == 0
 
 
+def _required_binary_record(
+    plugin_dir: Path, name: str, env: dict[str, str]
+) -> dict[str, Any]:
+    for record in get_hydrated_required_binaries(plugin_dir, env=env):
+        if record.get("name") == name:
+            return record
+    raise RuntimeError(
+        f"{plugin_dir.name} config did not declare required_binaries entry for {name}"
+    )
+
+
 def _ensure_puppeteer_with_hooks(env: dict, timeout: int) -> None:
     """Install the JS ``puppeteer`` package through the plugin hook chain.
 
-    The Chrome JS hooks require ``require('puppeteer')`` to succeed even when a
-    browser binary already exists on disk, so test setup must ensure the npm
-    package lifecycle is complete before attempting any launch/install flow.
+    The Chrome JS hooks resolve Puppeteer from the shared runtime loader even
+    when a browser binary already exists on disk, so test setup must ensure the
+    npm package lifecycle is complete before attempting any launch/install flow.
     """
     if _has_puppeteer_module(env):
         return
 
-    puppeteer_result = subprocess.run(
-        [str(PUPPETEER_CRAWL_HOOK)],
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        env=env,
+    puppeteer_record = _required_binary_record(
+        PLUGINS_ROOT / "puppeteer", "puppeteer", env
     )
-    if puppeteer_result.returncode != 0:
-        raise RuntimeError(
-            f"Puppeteer crawl hook failed: {puppeteer_result.stderr or puppeteer_result.stdout}",
-        )
-
-    puppeteer_record = (
-        parse_jsonl_output(puppeteer_result.stdout, record_type="BinaryRequest") or {}
-    )
-    if not puppeteer_record or puppeteer_record.get("name") != "puppeteer":
-        raise RuntimeError(
-            "Puppeteer BinaryRequest record not emitted by install hook",
-        )
 
     npm_cmd = [
         str(NPM_BINARY_HOOK),
         "--machine-id=test-machine",
         "--binary-id=test-puppeteer",
         "--plugin-name=puppeteer",
-        "--hook-name=on_Install__60_puppeteer",
         "--name=puppeteer",
         f"--binproviders={puppeteer_record.get('binproviders', '*')}",
     ]
@@ -1003,7 +996,7 @@ def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
     """
     with _chromium_install_lock(env):
         # Always ensure JS dependency exists, even if Chromium already exists
-        # on the host. chrome_launch requires `require('puppeteer')`.
+        # on the host. chrome_launch resolves Puppeteer at runtime.
         _ensure_puppeteer_with_hooks(env, timeout=timeout)
 
         existing = _resolve_existing_chromium(env)
@@ -1011,30 +1004,14 @@ def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
             env["CHROME_BINARY"] = existing
             return existing
 
-        chrome_result = subprocess.run(
-            [str(CHROME_INSTALL_HOOK)],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=env,
-        )
-        if chrome_result.returncode != 0:
-            raise RuntimeError(f"Chrome install hook failed: {chrome_result.stderr}")
-
-        chrome_record = (
-            parse_jsonl_output(chrome_result.stdout, record_type="BinaryRequest") or {}
-        )
-        if not chrome_record or chrome_record.get("name") not in ("chromium", "chrome"):
-            raise RuntimeError(
-                "Chrome BinaryRequest record not emitted by install hook",
-            )
+        chrome_name = env.get("CHROME_BINARY") or "chromium"
+        chrome_record = _required_binary_record(CHROME_PLUGIN_DIR, chrome_name, env)
 
         chromium_cmd = [
             str(PUPPETEER_BINARY_HOOK),
             "--machine-id=test-machine",
             "--binary-id=test-chromium",
             "--plugin-name=chrome",
-            "--hook-name=on_Install__70_chrome.finite.bg",
             f"--name={chrome_record.get('name', 'chromium')}",
             f"--binproviders={chrome_record.get('binproviders', '*')}",
         ]
@@ -1246,62 +1223,86 @@ def launch_chromium_session(
     env["CRAWL_DIR"] = str(crawl_dir)
     stdout_log = chrome_dir / "chrome_launch.stdout.log"
     stderr_log = chrome_dir / "chrome_launch.stderr.log"
-    stdout_handle = open(stdout_log, "w+", encoding="utf-8")
-    stderr_handle = open(stderr_log, "w+", encoding="utf-8")
+    max_launch_attempts = 3
 
-    chrome_launch_process = LoggedPopen(
-        [str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
-        cwd=str(chrome_dir),
-        stdout=stdout_handle,
-        stderr=stderr_handle,
-        text=True,
-        env=launch_env,
-    )
-    chrome_launch_process._stdout_handle = stdout_handle
-    chrome_launch_process._stderr_handle = stderr_handle
-    chrome_launch_process._stdout_log = stdout_log
-    chrome_launch_process._stderr_log = stderr_log
+    for attempt in range(1, max_launch_attempts + 1):
+        stdout_handle = open(stdout_log, "w+", encoding="utf-8")
+        stderr_handle = open(stderr_log, "w+", encoding="utf-8")
 
-    # Wait for Chromium to launch and CDP URL to be available
-    cdp_url = None
-    for _ in range(timeout):
-        if chrome_launch_process.poll() is not None:
+        chrome_launch_process = LoggedPopen(
+            [str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
+            cwd=str(chrome_dir),
+            stdout=stdout_handle,
+            stderr=stderr_handle,
+            text=True,
+            env=launch_env,
+        )
+        chrome_launch_process._stdout_handle = stdout_handle
+        chrome_launch_process._stderr_handle = stderr_handle
+        chrome_launch_process._stdout_log = stdout_log
+        chrome_launch_process._stderr_log = stderr_log
+
+        cdp_url = None
+        launch_failed = False
+        launch_stdout = ""
+        launch_stderr = ""
+
+        for _ in range(timeout):
+            if chrome_launch_process.poll() is not None:
+                stdout_handle.flush()
+                stderr_handle.flush()
+                launch_stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
+                launch_stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
+                launch_failed = True
+                break
+            cdp_file = chrome_dir / "cdp_url.txt"
+            if cdp_file.exists():
+                cdp_url = cdp_file.read_text().strip()
+                if cdp_url:
+                    break
+            time.sleep(1)
+
+        if cdp_url:
+            chrome_pid_file = chrome_dir / "chrome.pid"
+            if chrome_pid_file.exists():
+                try:
+                    chrome_launch_process._chrome_pid = int(
+                        chrome_pid_file.read_text().strip(),
+                    )
+                except (ValueError, FileNotFoundError):
+                    chrome_launch_process._chrome_pid = None
+            else:
+                chrome_launch_process._chrome_pid = None
+            return chrome_launch_process, cdp_url
+
+        if not launch_failed:
+            chrome_launch_process.kill()
             stdout_handle.flush()
             stderr_handle.flush()
-            stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
-            stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
-            raise RuntimeError(
-                f"Chromium launch failed:\nStdout: {stdout}\nStderr: {stderr}",
-            )
-        cdp_file = chrome_dir / "cdp_url.txt"
-        if cdp_file.exists():
-            cdp_url = cdp_file.read_text().strip()
-            if cdp_url:
-                break
-        time.sleep(1)
+            launch_stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
+            launch_stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
 
-    if not cdp_url:
-        chrome_launch_process.kill()
-        stdout_handle.flush()
-        stderr_handle.flush()
-        stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
-        stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
         stdout_handle.close()
         stderr_handle.close()
+
+        if (
+            attempt < max_launch_attempts
+            and "signal=SIGTRAP" in launch_stderr
+            and "Chromium exited before opening the debug port" in launch_stderr
+        ):
+            time.sleep(1)
+            continue
+
+        if launch_failed:
+            raise RuntimeError(
+                f"Chromium launch failed:\nStdout: {launch_stdout}\nStderr: {launch_stderr}",
+            )
+
         raise RuntimeError(
-            f"Chromium CDP URL not found after {timeout}s\nStdout: {stdout}\nStderr: {stderr}",
+            f"Chromium CDP URL not found after {timeout}s\nStdout: {launch_stdout}\nStderr: {launch_stderr}",
         )
 
-    chrome_pid_file = chrome_dir / "chrome.pid"
-    if chrome_pid_file.exists():
-        try:
-            chrome_launch_process._chrome_pid = int(chrome_pid_file.read_text().strip())
-        except (ValueError, FileNotFoundError):
-            chrome_launch_process._chrome_pid = None
-    else:
-        chrome_launch_process._chrome_pid = None
-
-    return chrome_launch_process, cdp_url
+    raise RuntimeError("Chromium launch failed unexpectedly after retry loop")
 
 
 def kill_chromium_session(

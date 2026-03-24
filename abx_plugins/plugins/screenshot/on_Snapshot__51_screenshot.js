@@ -24,7 +24,7 @@ const {
     hasStaticFileOutput,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
-const { connectToPage } = require('../chrome/chrome_utils.js');
+const { connectToPage, resolvePuppeteerModule } = require('../chrome/chrome_utils.js');
 const hookConfig = loadConfig();
 
 // Flush V8 coverage before exiting (for NODE_V8_COVERAGE support)
@@ -54,7 +54,7 @@ if (!getEnvBool('SCREENSHOT_ENABLED', true)) {
 }
 
 // Now safe to require puppeteer
-const puppeteer = require('puppeteer-core');
+const puppeteer = resolvePuppeteerModule();
 
 // Extractor metadata
 const PLUGIN_NAME = 'screenshot';

@@ -28,10 +28,10 @@ const {
     emitArchiveResultRecord,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
-const puppeteer = require('puppeteer-core');
 
 // Import chrome-specific utilities from chrome_utils.js
-const { connectToPage } = require('../chrome/chrome_utils.js');
+const { connectToPage, resolvePuppeteerModule } = require('../chrome/chrome_utils.js');
+const puppeteer = resolvePuppeteerModule();
 
 // Extractor metadata
 const PLUGIN_NAME = 'seo';

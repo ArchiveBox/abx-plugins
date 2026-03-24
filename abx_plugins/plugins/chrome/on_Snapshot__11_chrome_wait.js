@@ -18,7 +18,6 @@ const fs = require('fs');
 const path = require('path');
 const { ensureNodeModuleResolution, parseArgs, getEnvInt, loadConfig, emitArchiveResultRecord } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
-const puppeteer = require('puppeteer');
 
 const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
@@ -30,8 +29,10 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 process.chdir(OUTPUT_DIR);
 
 const {
+    resolvePuppeteerModule,
     waitForChromeSessionState,
 } = require('./chrome_utils.js');
+const puppeteer = resolvePuppeteerModule();
 
 const CHROME_SESSION_DIR = path.join(SNAP_DIR, 'chrome');
 const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';

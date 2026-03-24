@@ -4,14 +4,42 @@
   "description": "Render the current page to PDF using the shared Chrome session.",
   "type": "object",
   "additionalProperties": false,
-  "required_plugins": ["chrome"],
-  "required_binaries": ["chrome"],
-  "output_mimetypes": ["application/pdf"],
+  "required_plugins": [
+    "chrome"
+  ],
+  "required_binaries": [
+    {
+      "name": "{CHROME_BINARY}",
+      "binproviders": "env,puppeteer",
+      "min_version": null,
+      "overrides": {
+        "puppeteer": [
+          "chromium@latest",
+          "--install-deps"
+        ]
+      }
+    }
+  ],
+  "output_mimetypes": [
+    "application/pdf"
+  ],
   "properties": {
+    "CHROME_BINARY": {
+      "type": "string",
+      "default": "chromium",
+      "x-aliases": [
+        "CHROMIUM_BINARY",
+        "GOOGLE_CHROME_BINARY"
+      ],
+      "description": "Path to Chromium binary"
+    },
     "PDF_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SAVE_PDF", "USE_PDF"],
+      "x-aliases": [
+        "SAVE_PDF",
+        "USE_PDF"
+      ],
       "description": "Enable PDF generation"
     },
     "PDF_TIMEOUT": {

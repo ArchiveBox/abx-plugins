@@ -6,6 +6,7 @@ Tests invoke the plugin hook as an external process and verify outputs/side effe
 
 import json
 import os
+import signal
 import subprocess
 import tempfile
 import time
@@ -13,7 +14,9 @@ from pathlib import Path
 
 import pytest
 
+from abx_plugins.plugins.base.test_utils import parse_jsonl_records
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    chrome_session,
     setup_test_env,
     launch_chromium_session,
     kill_chromium_session,
@@ -24,45 +27,48 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
-_INSTALL_SCRIPT = next(
-    PLUGIN_DIR.glob("on_Install__*_istilldontcareaboutcookies_extension.*"),
-    None,
+CHROMEWEBSTORE_HOOK = (
+    PLUGIN_DIR.parent / "chromewebstore" / "on_BinaryRequest__90_chromewebstore.py"
 )
-if _INSTALL_SCRIPT is None:
-    raise FileNotFoundError(f"Install script not found in {PLUGIN_DIR}")
-INSTALL_SCRIPT = _INSTALL_SCRIPT
+SNAPSHOT_HOOK = PLUGIN_DIR / "on_Snapshot__13_istilldontcareaboutcookies.daemon.bg.js"
+NAVIGATE_HOOK = PLUGIN_DIR.parent / "chrome" / "on_Snapshot__30_chrome_navigate.js"
+BASE_UTILS_JS = PLUGIN_DIR.parent / "base" / "utils.js"
+CHROME_UTILS_JS = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
 CHROME_STARTUP_TIMEOUT_SECONDS = 45
+EXTENSION_NAME = "istilldontcareaboutcookies"
+EXTENSION_WEBSTORE_ID = "edibdbjcniadpccecjdfdjjppcpchdlm"
 
 
-def test_install_script_exists():
-    """Verify install script exists"""
-    assert INSTALL_SCRIPT.exists(), f"Install script not found: {INSTALL_SCRIPT}"
+def install_cookie_extension(
+    env: dict[str, str],
+) -> subprocess.CompletedProcess[str]:
+    provider_result = subprocess.run(
+        [
+            str(CHROMEWEBSTORE_HOOK),
+            f"--name={EXTENSION_NAME}",
+            "--binproviders=chromewebstore",
+            f"--overrides={json.dumps({'chromewebstore': {'install_args': [EXTENSION_WEBSTORE_ID, f'--name={EXTENSION_NAME}']}})}",
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=180,
+    )
+    assert provider_result.returncode == 0, (
+        f"Provider install failed: {provider_result.stderr}\nstdout: {provider_result.stdout}"
+    )
+    return provider_result
+
+
+def test_chromewebstore_provider_exists():
+    assert CHROMEWEBSTORE_HOOK.exists(), (
+        f"Provider hook not found: {CHROMEWEBSTORE_HOOK}"
+    )
 
 
 def test_extension_metadata():
-    """Test that extension has correct metadata"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        env = os.environ.copy()
-        env["CHROME_EXTENSIONS_DIR"] = str(Path(tmpdir) / "chrome_extensions")
-
-        result = subprocess.run(
-            [
-                "node",
-                "-e",
-                f"const ext = require('{INSTALL_SCRIPT}'); console.log(JSON.stringify(ext.EXTENSION))",
-            ],
-            capture_output=True,
-            text=True,
-            env=env,
-        )
-
-        assert result.returncode == 0, (
-            f"Failed to load extension metadata: {result.stderr}"
-        )
-
-        metadata = json.loads(result.stdout)
-        assert metadata["webstore_id"] == "edibdbjcniadpccecjdfdjjppcpchdlm"
-        assert metadata["name"] == "istilldontcareaboutcookies"
+    assert EXTENSION_NAME == "istilldontcareaboutcookies"
+    assert EXTENSION_WEBSTORE_ID == "edibdbjcniadpccecjdfdjjppcpchdlm"
 
 
 def test_install_creates_cache():
@@ -74,18 +80,11 @@ def test_install_creates_cache():
         env = os.environ.copy()
         env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
 
-        result = subprocess.run(
-            [str(INSTALL_SCRIPT)],
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=60,
-        )
+        result = install_cookie_extension(env)
 
         # Check output mentions installation
         assert (
-            "Installing" in result.stdout
-            or "installed" in result.stdout
+            "Resolved extension istilldontcareaboutcookies" in result.stderr
             or "istilldontcareaboutcookies" in result.stdout
         )
 
@@ -117,13 +116,7 @@ def test_install_uses_existing_cache():
         env = os.environ.copy()
         env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
 
-        result = subprocess.run(
-            [str(INSTALL_SCRIPT)],
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=30,
-        )
+        result = install_cookie_extension(env)
 
         # Should use cache or install successfully
         assert result.returncode == 0
@@ -139,16 +132,95 @@ def test_no_configuration_required():
         env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
         # No special env vars needed - works out of the box
 
-        result = subprocess.run(
-            [str(INSTALL_SCRIPT)],
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=60,
-        )
+        result = install_cookie_extension(env)
 
         # Should not require any API keys or configuration
         assert "API" not in (result.stdout + result.stderr) or result.returncode == 0
+
+
+def test_snapshot_hook_reports_skipped_when_disabled():
+    env = os.environ.copy()
+    env["ISTILLDONTCAREABOUTCOOKIES_ENABLED"] = "false"
+
+    result = subprocess.run(
+        [str(SNAPSHOT_HOOK), "--url=https://example.com"],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr
+    records = parse_jsonl_records(result.stdout)
+    archive_result = next(
+        record for record in records if record.get("type") == "ArchiveResult"
+    )
+    assert archive_result["status"] == "skipped", archive_result
+    assert archive_result["output_str"] == "ISTILLDONTCAREABOUTCOOKIES_ENABLED=False", (
+        archive_result
+    )
+
+
+def test_snapshot_hook_reports_noresults_on_blank_page():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        with chrome_session(
+            tmpdir,
+            crawl_id="cookie-noresults",
+            snapshot_id="cookie-noresults-snap",
+            test_url="about:blank",
+            navigate=False,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        ) as (_chrome_launch_process, _chrome_pid, snapshot_chrome_dir, env):
+            hook_dir = snapshot_chrome_dir.parent / "istilldontcareaboutcookies"
+            hook_dir.mkdir(parents=True, exist_ok=True)
+
+            hook_process = subprocess.Popen(
+                [
+                    str(SNAPSHOT_HOOK),
+                    "--url=about:blank",
+                    "--snapshot-id=cookie-noresults-snap",
+                ],
+                cwd=str(hook_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env,
+            )
+
+            try:
+                navigate = subprocess.run(
+                    [
+                        str(NAVIGATE_HOOK),
+                        "--url=about:blank",
+                        "--snapshot-id=cookie-noresults-snap",
+                    ],
+                    cwd=str(snapshot_chrome_dir),
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=60,
+                )
+                assert navigate.returncode == 0, navigate.stderr
+
+                time.sleep(2)
+                hook_process.send_signal(signal.SIGTERM)
+                stdout, stderr = hook_process.communicate(timeout=15)
+
+                assert hook_process.returncode == 0, stderr
+                records = parse_jsonl_records(stdout)
+                archive_result = next(
+                    record
+                    for record in records
+                    if record.get("type") == "ArchiveResult"
+                )
+                assert archive_result["status"] == "noresults", archive_result
+                assert (
+                    archive_result["output_str"] == "0 cookie consent popups hidden"
+                ), archive_result
+            finally:
+                if hook_process.poll() is None:
+                    hook_process.kill()
 
 
 COOKIE_TEST_PATH = "/cookie-consent-test"
@@ -182,14 +254,7 @@ def test_extension_loads_in_chromium():
         ext_dir = Path(env["CHROME_EXTENSIONS_DIR"])
 
         # Step 1: Install the extension
-        result = subprocess.run(
-            [str(INSTALL_SCRIPT)],
-            cwd=str(tmpdir),
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=120,
-        )
+        result = install_cookie_extension(env)
         assert result.returncode == 0, f"Extension install failed: {result.stderr}"
 
         # Verify extension cache was created
@@ -237,51 +302,53 @@ def test_extension_loads_in_chromium():
         try:
             # Step 3: Connect to Chromium and verify extension loaded via options page
             test_script = f"""
-if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
-const puppeteer = require('puppeteer-core');
+const chromeUtils = require('{CHROME_UTILS_JS}');
 
 (async () => {{
-    const browser = await puppeteer.connect({{ browserWSEndpoint: '{cdp_url}' }});
+    const puppeteer = chromeUtils.resolvePuppeteerModule();
+    const result = await chromeUtils.withConnectedBrowser(
+        {{ puppeteer, browserWSEndpoint: '{cdp_url}' }},
+        async (browser) => {{
+            // Wait for extension to initialize
+            await new Promise(r => setTimeout(r, 2000));
+            const extId = '{ext_id}';
+            console.error('Extension ID from extensions.json:', extId);
 
-    // Wait for extension to initialize
-    await new Promise(r => setTimeout(r, 2000));
-    const extId = '{ext_id}';
-    console.error('Extension ID from extensions.json:', extId);
+            // Try to navigate to the extension's options.html page
+            const page = await browser.newPage();
+            const optionsUrl = 'chrome-extension://' + extId + '/options.html';
+            console.error('Navigating to options page:', optionsUrl);
 
-    // Try to navigate to the extension's options.html page
-    const page = await browser.newPage();
-    const optionsUrl = 'chrome-extension://' + extId + '/options.html';
-    console.error('Navigating to options page:', optionsUrl);
+            try {{
+                await page.goto(optionsUrl, {{ waitUntil: 'domcontentloaded', timeout: 10000 }});
+                const pageContent = await page.content();
+                const pageTitle = await page.title();
 
-    try {{
-        await page.goto(optionsUrl, {{ waitUntil: 'domcontentloaded', timeout: 10000 }});
-        const pageContent = await page.content();
-        const pageTitle = await page.title();
+                // Check if extension name appears in the page
+                const hasExtensionName = pageContent.toLowerCase().includes('cookie') ||
+                                        pageContent.toLowerCase().includes('idontcareaboutcookies') ||
+                                        pageTitle.toLowerCase().includes('cookie');
 
-        // Check if extension name appears in the page
-        const hasExtensionName = pageContent.toLowerCase().includes('cookie') ||
-                                pageContent.toLowerCase().includes('idontcareaboutcookies') ||
-                                pageTitle.toLowerCase().includes('cookie');
-
-        console.log(JSON.stringify({{
-            loaded: true,
-            extensionId: extId,
-            optionsPageLoaded: true,
-            pageTitle: pageTitle,
-            hasExtensionName: hasExtensionName,
-            contentLength: pageContent.length
-        }}));
-    }} catch (e) {{
-        // options.html may not exist, but extension is still loaded
-        console.log(JSON.stringify({{
-            loaded: true,
-            extensionId: extId,
-            optionsPageLoaded: false,
-            error: e.message
-        }}));
-    }}
-
-            browser.disconnect();
+                return {{
+                    loaded: true,
+                    extensionId: extId,
+                    optionsPageLoaded: true,
+                    pageTitle: pageTitle,
+                    hasExtensionName: hasExtensionName,
+                    contentLength: pageContent.length
+                }};
+            }} catch (e) {{
+                // options.html may not exist, but extension is still loaded
+                return {{
+                    loaded: true,
+                    extensionId: extId,
+                    optionsPageLoaded: false,
+                    error: e.message
+                }};
+            }}
+        }},
+    );
+    console.log(JSON.stringify(result));
 }})();
 """
             script_path = tmpdir / "test_extension.js"
@@ -338,106 +405,104 @@ def check_cookie_consent_visibility(
         - html_snippet: str - snippet of the page HTML for debugging
     """
     test_script = f"""
-if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
-const puppeteer = require('puppeteer-core');
+const chromeUtils = require('{CHROME_UTILS_JS}');
 
 (async () => {{
-    const browser = await puppeteer.connect({{ browserWSEndpoint: '{cdp_url}' }});
+    const puppeteer = chromeUtils.resolvePuppeteerModule();
+    const result = await chromeUtils.withConnectedBrowser(
+        {{ puppeteer, browserWSEndpoint: '{cdp_url}' }},
+        async (browser) => {{
+            const page = await browser.newPage();
+            await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+            await page.setViewport({{ width: 1440, height: 900 }});
 
-    const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    await page.setViewport({{ width: 1440, height: 900 }});
+            console.error('Navigating to {test_url}...');
+            await page.goto('{test_url}', {{ waitUntil: 'networkidle2', timeout: 30000 }});
+            await new Promise(r => setTimeout(r, 3000));
 
-    console.error('Navigating to {test_url}...');
-    await page.goto('{test_url}', {{ waitUntil: 'networkidle2', timeout: 30000 }});
+            const evaluation = await page.evaluate(() => {{
+                const selectors = [
+                    '.cky-consent-container', '.cky-popup-center', '.cky-overlay', '.cky-modal',
+                    '#onetrust-consent-sdk', '#onetrust-banner-sdk', '.onetrust-pc-dark-filter',
+                    '#CybotCookiebotDialog', '#CybotCookiebotDialogBodyUnderlay',
+                    '[class*="cookie-consent"]', '[class*="cookie-banner"]', '[class*="cookie-notice"]',
+                    '[class*="cookie-popup"]', '[class*="cookie-modal"]', '[class*="cookie-dialog"]',
+                    '[id*="cookie-consent"]', '[id*="cookie-banner"]', '[id*="cookie-notice"]',
+                    '[id*="cookieconsent"]', '[id*="cookie-law"]',
+                    '[class*="gdpr"]', '[id*="gdpr"]',
+                    '[class*="consent-banner"]', '[class*="consent-modal"]', '[class*="consent-popup"]',
+                    '[class*="privacy-banner"]', '[class*="privacy-notice"]',
+                    '.cc-window', '.cc-banner', '#cc-main',
+                    '.qc-cmp2-container',
+                    '.sp-message-container',
+                ];
 
-    // Wait for page to fully render and any cookie scripts to run
-    await new Promise(r => setTimeout(r, 3000));
+                const elementsFound = [];
+                let visibleElement = null;
 
-    // Check cookie consent visibility using multiple common selectors
-    const result = await page.evaluate(() => {{
-        // Common cookie consent selectors used by various consent management platforms
-        const selectors = [
-            // CookieYes
-            '.cky-consent-container', '.cky-popup-center', '.cky-overlay', '.cky-modal',
-            // OneTrust
-            '#onetrust-consent-sdk', '#onetrust-banner-sdk', '.onetrust-pc-dark-filter',
-            // Cookiebot
-            '#CybotCookiebotDialog', '#CybotCookiebotDialogBodyUnderlay',
-            // Generic cookie banners
-            '[class*="cookie-consent"]', '[class*="cookie-banner"]', '[class*="cookie-notice"]',
-            '[class*="cookie-popup"]', '[class*="cookie-modal"]', '[class*="cookie-dialog"]',
-            '[id*="cookie-consent"]', '[id*="cookie-banner"]', '[id*="cookie-notice"]',
-            '[id*="cookieconsent"]', '[id*="cookie-law"]',
-            // GDPR banners
-            '[class*="gdpr"]', '[id*="gdpr"]',
-            // Consent banners
-            '[class*="consent-banner"]', '[class*="consent-modal"]', '[class*="consent-popup"]',
-            // Privacy banners
-            '[class*="privacy-banner"]', '[class*="privacy-notice"]',
-            // Common frameworks
-            '.cc-window', '.cc-banner', '#cc-main',  // Cookie Consent by Insites
-            '.qc-cmp2-container',  // Quantcast
-            '.sp-message-container',  // SourcePoint
-        ];
+                for (const sel of selectors) {{
+                    try {{
+                        const elements = document.querySelectorAll(sel);
+                        for (const el of elements) {{
+                            const style = window.getComputedStyle(el);
+                            const rect = el.getBoundingClientRect();
+                            const isVisible = style.display !== 'none' &&
+                                             style.visibility !== 'hidden' &&
+                                             style.opacity !== '0' &&
+                                             rect.width > 0 && rect.height > 0;
 
-        const elementsFound = [];
-        let visibleElement = null;
+                            elementsFound.push({{
+                                selector: sel,
+                                visible: isVisible,
+                                display: style.display,
+                                visibility: style.visibility,
+                                opacity: style.opacity,
+                                width: rect.width,
+                                height: rect.height,
+                            }});
 
-        for (const sel of selectors) {{
-            try {{
-                const elements = document.querySelectorAll(sel);
-                for (const el of elements) {{
-                    const style = window.getComputedStyle(el);
-                    const rect = el.getBoundingClientRect();
-                    const isVisible = style.display !== 'none' &&
-                                     style.visibility !== 'hidden' &&
-                                     style.opacity !== '0' &&
-                                     rect.width > 0 && rect.height > 0;
-
-                    elementsFound.push({{
-                        selector: sel,
-                        visible: isVisible,
-                        display: style.display,
-                        visibility: style.visibility,
-                        opacity: style.opacity,
-                        width: rect.width,
-                        height: rect.height
-                    }});
-
-                    if (isVisible && !visibleElement) {{
-                        visibleElement = {{ selector: sel, width: rect.width, height: rect.height }};
+                            if (isVisible && !visibleElement) {{
+                                visibleElement = {{
+                                    selector: sel,
+                                    width: rect.width,
+                                    height: rect.height,
+                                }};
+                            }}
+                        }}
+                    }} catch (error) {{
                     }}
                 }}
-            }} catch (e) {{
-                // Invalid selector, skip
-            }}
-        }}
 
-        // Also grab a snippet of the HTML to help debug
-        const bodyHtml = document.body.innerHTML.slice(0, 2000);
-        const hasCookieKeyword = bodyHtml.toLowerCase().includes('cookie') ||
-                                  bodyHtml.toLowerCase().includes('consent') ||
-                                  bodyHtml.toLowerCase().includes('gdpr');
+                const bodyHtml = document.body.innerHTML.slice(0, 2000);
+                const hasCookieKeyword =
+                    bodyHtml.toLowerCase().includes('cookie') ||
+                    bodyHtml.toLowerCase().includes('consent') ||
+                    bodyHtml.toLowerCase().includes('gdpr');
 
-        return {{
-            visible: visibleElement !== null,
-            selector: visibleElement ? visibleElement.selector : null,
-            elements_found: elementsFound,
-            has_cookie_keyword_in_html: hasCookieKeyword,
-            html_snippet: bodyHtml.slice(0, 500)
-        }};
-    }});
+                return {{
+                    visible: visibleElement !== null,
+                    selector: visibleElement ? visibleElement.selector : null,
+                    elements_found: elementsFound,
+                    has_cookie_keyword_in_html: hasCookieKeyword,
+                    html_snippet: bodyHtml.slice(0, 500),
+                }};
+            }});
+
+            await page.close();
+            return evaluation;
+        }},
+    );
 
     console.error('Cookie consent check result:', JSON.stringify({{
         visible: result.visible,
         selector: result.selector,
-        elements_found_count: result.elements_found.length
+        elements_found_count: result.elements_found.length,
     }}));
-
-    browser.disconnect();
     console.log(JSON.stringify(result));
-}})();
+}})().catch(error => {{
+    console.error(error && (error.stack || error.message || String(error)));
+    process.exit(1);
+}});
 """
     script_path = script_dir / "check_cookies.js"
     script_path.write_text(f"#!/usr/bin/env node\n{test_script}", encoding="utf-8")
@@ -464,6 +529,78 @@ const puppeteer = require('puppeteer-core');
         )
 
     return json.loads(output_lines[-1])
+
+
+def test_snapshot_hook_reports_hidden_cookie_popups(httpserver):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        install_env = setup_test_env(tmpdir)
+        install_env["CHROME_HEADLESS"] = "true"
+        install_result = install_cookie_extension(install_env)
+        assert install_result.returncode == 0, install_result.stderr
+
+        httpserver.expect_request(COOKIE_TEST_PATH).respond_with_data(
+            COOKIE_TEST_HTML_STUB,
+            content_type="text/html",
+        )
+        test_url = httpserver.url_for(COOKIE_TEST_PATH)
+
+        with chrome_session(
+            tmpdir,
+            crawl_id="cookie-output",
+            snapshot_id="cookie-output-snap",
+            test_url=test_url,
+            navigate=False,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        ) as (_chrome_launch_process, _chrome_pid, snapshot_chrome_dir, env):
+            hook_dir = snapshot_chrome_dir.parent / "istilldontcareaboutcookies"
+            hook_dir.mkdir(parents=True, exist_ok=True)
+
+            hook_process = subprocess.Popen(
+                [
+                    str(SNAPSHOT_HOOK),
+                    f"--url={test_url}",
+                    "--snapshot-id=cookie-output-snap",
+                ],
+                cwd=str(hook_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env,
+            )
+
+            try:
+                navigate = subprocess.run(
+                    [
+                        str(NAVIGATE_HOOK),
+                        f"--url={test_url}",
+                        "--snapshot-id=cookie-output-snap",
+                    ],
+                    cwd=str(snapshot_chrome_dir),
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=60,
+                )
+                assert navigate.returncode == 0, navigate.stderr
+
+                time.sleep(5)
+                hook_process.send_signal(signal.SIGTERM)
+                stdout, stderr = hook_process.communicate(timeout=15)
+
+                assert hook_process.returncode == 0, stderr
+                records = parse_jsonl_records(stdout)
+                archive_result = next(
+                    record
+                    for record in records
+                    if record.get("type") == "ArchiveResult"
+                )
+                assert archive_result["status"] == "succeeded", archive_result
+                hidden_count = int(archive_result["output_str"].split()[0])
+                assert hidden_count > 0, archive_result
+            finally:
+                if hook_process.poll() is None:
+                    hook_process.kill()
 
 
 def test_hides_cookie_consent_on_static_page(httpserver):
@@ -586,14 +723,7 @@ def test_hides_cookie_consent_on_static_page(httpserver):
         env_with_ext = env_base.copy()
         env_with_ext["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
 
-        result = subprocess.run(
-            [str(INSTALL_SCRIPT)],
-            cwd=str(tmpdir),
-            capture_output=True,
-            text=True,
-            env=env_with_ext,
-            timeout=60,
-        )
+        result = install_cookie_extension(env_with_ext)
         assert result.returncode == 0, f"Extension install failed: {result.stderr}"
 
         cache_file = ext_dir / "istilldontcareaboutcookies.extension.json"

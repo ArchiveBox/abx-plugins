@@ -2,6 +2,7 @@
 
 Provides common helpers used across plugin test files:
 - Plugin/hook discovery (get_plugin_dir, get_hook_script)
+- Plugin config helpers (load_plugin_config, get_required_binaries)
 - JSONL output parsing (parse_jsonl_output, parse_jsonl_records)
 - Hook execution (run_hook, run_hook_and_parse)
 
@@ -54,8 +55,51 @@ def get_hook_script(plugin_dir: Path, pattern: str) -> Path | None:
     Returns:
         Path to the hook script or None if not found
     """
-    matches = list(plugin_dir.glob(pattern))
+    matches = [
+        path
+        for path in plugin_dir.glob(pattern)
+        if path.is_file() and os.access(path, os.X_OK)
+    ]
     return matches[0] if matches else None
+
+
+def load_plugin_config(plugin_dir: Path) -> dict[str, Any]:
+    """Load a plugin's config.json."""
+    return json.loads((plugin_dir / "config.json").read_text(encoding="utf-8"))
+
+
+def get_required_binaries(plugin_dir: Path) -> list[dict[str, Any]]:
+    """Return normalized required_binaries entries from config.json."""
+    config = load_plugin_config(plugin_dir)
+    required_binaries = config.get("required_binaries")
+    if not isinstance(required_binaries, list):
+        return []
+    return [item for item in required_binaries if isinstance(item, dict)]
+
+
+def get_hydrated_required_binaries(
+    plugin_dir: Path,
+    env: Mapping[str, str] | None = None,
+) -> list[dict[str, Any]]:
+    """Return required_binaries with `{PLACEHOLDER}` names formatted from config defaults + env."""
+    config = load_plugin_config(plugin_dir)
+    properties = config.get("properties") or {}
+    context: dict[str, Any] = {
+        key: value.get("default")
+        for key, value in properties.items()
+        if isinstance(value, dict) and "default" in value
+    }
+    if env:
+        context.update({key: value for key, value in env.items() if value is not None})
+
+    hydrated: list[dict[str, Any]] = []
+    for item in get_required_binaries(plugin_dir):
+        record = dict(item)
+        name = record.get("name")
+        if isinstance(name, str):
+            record["name"] = name.format(**context)
+        hydrated.append(record)
+    return hydrated
 
 
 def parse_jsonl_output(

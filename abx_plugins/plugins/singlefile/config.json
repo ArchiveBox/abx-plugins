@@ -4,33 +4,91 @@
   "description": "Save a complete page as a single self-contained HTML file using the SingleFile extension or CLI.",
   "type": "object",
   "additionalProperties": false,
-  "required_plugins": ["chrome"],
-  "required_binaries": ["chrome", "single-file-cli"],
-  "output_mimetypes": ["text/html"],
+  "required_plugins": [
+    "chrome"
+  ],
+  "required_binaries": [
+    {
+      "name": "{CHROME_BINARY}",
+      "binproviders": "env,puppeteer",
+      "min_version": null,
+      "overrides": {
+        "puppeteer": [
+          "chromium@latest",
+          "--install-deps"
+        ]
+      }
+    },
+    {
+      "name": "{SINGLEFILE_BINARY}",
+      "binproviders": "env,npm",
+      "min_version": null,
+      "overrides": {
+        "npm": {
+          "install_args": [
+            "single-file-cli"
+          ]
+        }
+      }
+    },
+    {
+      "name": "singlefile",
+      "binproviders": "chromewebstore",
+      "min_version": null,
+      "overrides": {
+        "chromewebstore": {
+          "install_args": [
+            "mpiodijhokgodhhofbcjdecpffjipkle",
+            "--name=singlefile"
+          ]
+        }
+      }
+    }
+  ],
+  "output_mimetypes": [
+    "text/html"
+  ],
   "properties": {
+    "CHROME_BINARY": {
+      "type": "string",
+      "default": "chromium",
+      "x-aliases": [
+        "CHROMIUM_BINARY",
+        "GOOGLE_CHROME_BINARY"
+      ],
+      "description": "Path to Chromium binary"
+    },
+    "PERSONAS_DIR": {
+      "type": "string",
+      "default": "",
+      "description": "Shared Chrome/browser personas root"
+    },
+    "ACTIVE_PERSONA": {
+      "type": "string",
+      "default": "Default",
+      "description": "Active browser persona name"
+    },
     "SINGLEFILE_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SAVE_SINGLEFILE", "USE_SINGLEFILE"],
+      "x-aliases": [
+        "SAVE_SINGLEFILE",
+        "USE_SINGLEFILE"
+      ],
       "description": "Enable SingleFile archiving"
     },
     "SINGLEFILE_BINARY": {
       "type": "string",
       "default": "single-file",
-      "x-aliases": ["SINGLE_FILE_BINARY"],
+      "x-aliases": [
+        "SINGLE_FILE_BINARY"
+      ],
       "description": "Path to single-file binary"
     },
-    "SINGLEFILE_NODE_BINARY": {
+    "NODE_BINARY": {
       "type": "string",
       "default": "node",
-      "x-fallback": "NODE_BINARY",
       "description": "Path to Node.js binary"
-    },
-    "SINGLEFILE_CHROME_BINARY": {
-      "type": "string",
-      "default": "",
-      "x-fallback": "CHROME_BINARY",
-      "description": "Path to Chromium binary"
     },
     "SINGLEFILE_TIMEOUT": {
       "type": "integer",
@@ -59,23 +117,35 @@
     },
     "SINGLEFILE_CHROME_ARGS": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {
+        "type": "string"
+      },
       "default": [],
       "x-fallback": "CHROME_ARGS",
       "description": "Chrome command-line arguments for SingleFile"
     },
     "SINGLEFILE_ARGS": {
       "type": "array",
-      "items": {"type": "string"},
-      "default": ["--browser-headless"],
-      "x-aliases": ["SINGLEFILE_DEFAULT_ARGS"],
+      "items": {
+        "type": "string"
+      },
+      "default": [
+        "--browser-headless"
+      ],
+      "x-aliases": [
+        "SINGLEFILE_DEFAULT_ARGS"
+      ],
       "description": "Default single-file arguments"
     },
     "SINGLEFILE_ARGS_EXTRA": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {
+        "type": "string"
+      },
       "default": [],
-      "x-aliases": ["SINGLEFILE_EXTRA_ARGS"],
+      "x-aliases": [
+        "SINGLEFILE_EXTRA_ARGS"
+      ],
       "description": "Extra arguments to append to single-file command"
     }
   }

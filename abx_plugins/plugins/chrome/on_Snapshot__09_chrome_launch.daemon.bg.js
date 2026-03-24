@@ -11,7 +11,6 @@ const fs = require('fs');
 const path = require('path');
 const { ensureNodeModuleResolution, loadConfig, emitArchiveResultRecord } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
-const puppeteer = require('puppeteer');
 const {
     getEnv,
     getEnvBool,
@@ -20,7 +19,9 @@ const {
     waitForChromeSessionState,
     ensureChromeSession,
     closeBrowserInChromeSession,
+    resolvePuppeteerModule,
 } = require('./chrome_utils.js');
+const puppeteer = resolvePuppeteerModule();
 
 const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();

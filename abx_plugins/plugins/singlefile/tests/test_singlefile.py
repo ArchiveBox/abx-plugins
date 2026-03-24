@@ -10,6 +10,7 @@ Tests verify:
 6. Works with extensions loaded (ublock, etc.)
 """
 
+import ast
 import os
 import json
 import subprocess
@@ -34,10 +35,19 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 PLUGIN_DIR = get_plugin_dir(__file__)
 _SNAPSHOT_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_singlefile.py")
+_INSTALL_HOOK = get_hook_script(PLUGIN_DIR, "on_Install__82_singlefile.*")
 if _SNAPSHOT_HOOK is None:
     raise FileNotFoundError(f"Snapshot hook not found in {PLUGIN_DIR}")
+if _INSTALL_HOOK is None:
+    raise FileNotFoundError(f"Install hook not found in {PLUGIN_DIR}")
 SNAPSHOT_HOOK = _SNAPSHOT_HOOK
-INSTALL_SCRIPT = PLUGIN_DIR / "on_Install__82_singlefile.js"
+INSTALL_SCRIPT = _INSTALL_HOOK
+SINGLEFILE_HELPER = PLUGIN_DIR / "singlefile_extension_save.js"
+BASE_UTILS = PLUGIN_DIR.parent / "base" / "utils.js"
+CHROME_UTILS = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
+CHROMEWEBSTORE_HOOK = (
+    PLUGIN_DIR.parent / "chromewebstore" / "on_BinaryRequest__90_chromewebstore.py"
+)
 TEST_URL = "https://example.com"
 
 # Module-level cache for extension install location
@@ -103,6 +113,27 @@ def ensure_singlefile_extension_installed() -> dict[str, Path]:
         f"SingleFile extension install hook failed: {result.stderr}\nstdout: {result.stdout}"
     )
 
+    required_binaries = ast.literal_eval(result.stdout)
+    extension_request = next(
+        binary for binary in required_binaries if binary.get("name") == "singlefile"
+    )
+
+    provider_result = subprocess.run(
+        [
+            str(CHROMEWEBSTORE_HOOK),
+            "--name=singlefile",
+            "--binproviders=chromewebstore",
+            f"--overrides={json.dumps(extension_request.get('overrides', {}))}",
+        ],
+        capture_output=True,
+        text=True,
+        env=env_install,
+        timeout=180,
+    )
+    assert provider_result.returncode == 0, (
+        f"SingleFile extension provider hook failed: {provider_result.stderr}\nstdout: {provider_result.stdout}"
+    )
+
     cache_file = extensions_dir / "singlefile.extension.json"
     assert cache_file.exists(), f"Extension cache file not created: {cache_file}"
 
@@ -147,7 +178,7 @@ def test_singlefile_download_wait_budget_tracks_configured_timeout():
     """SingleFile extension download polling should follow SINGLEFILE_TIMEOUT, not a fixed 30s cap."""
     with tempfile.TemporaryDirectory() as tmpdir:
         script = f"""
-const {{ getSinglefileDownloadWaitTimeoutMs }} = require({json.dumps(str(INSTALL_SCRIPT))});
+const {{ getSinglefileDownloadWaitTimeoutMs }} = require({json.dumps(str(SINGLEFILE_HELPER))});
 const freshBudget = getSinglefileDownloadWaitTimeoutMs({{ SINGLEFILE_TIMEOUT: 60 }}, 0);
 const elapsedBudget = getSinglefileDownloadWaitTimeoutMs({{ SINGLEFILE_TIMEOUT: 60 }}, 15000);
 const minimumBudget = getSinglefileDownloadWaitTimeoutMs({{ SINGLEFILE_TIMEOUT: 10 }}, 9000);
@@ -215,6 +246,25 @@ def test_singlefile_cli_archives_example_com():
             timeout=120,
         )
         assert result.returncode == 0, f"Extension install failed: {result.stderr}"
+        required_binaries = ast.literal_eval(result.stdout)
+        extension_request = next(
+            binary for binary in required_binaries if binary.get("name") == "singlefile"
+        )
+        provider_result = subprocess.run(
+            [
+                str(CHROMEWEBSTORE_HOOK),
+                "--name=singlefile",
+                "--binproviders=chromewebstore",
+                f"--overrides={json.dumps(extension_request.get('overrides', {}))}",
+            ],
+            capture_output=True,
+            text=True,
+            env=env_install,
+            timeout=180,
+        )
+        assert provider_result.returncode == 0, (
+            f"SingleFile extension provider hook failed: {provider_result.stderr}\nstdout: {provider_result.stdout}"
+        )
 
         old_env = os.environ.copy()
         os.environ["CHROME_USER_DATA_DIR"] = str(user_data_dir)
@@ -377,6 +427,25 @@ def test_singlefile_with_extension_uses_existing_chrome():
             timeout=120,
         )
         assert result.returncode == 0, f"Extension install failed: {result.stderr}"
+        required_binaries = ast.literal_eval(result.stdout)
+        extension_request = next(
+            binary for binary in required_binaries if binary.get("name") == "singlefile"
+        )
+        provider_result = subprocess.run(
+            [
+                str(CHROMEWEBSTORE_HOOK),
+                "--name=singlefile",
+                "--binproviders=chromewebstore",
+                f"--overrides={json.dumps(extension_request.get('overrides', {}))}",
+            ],
+            capture_output=True,
+            text=True,
+            env=env_install,
+            timeout=180,
+        )
+        assert provider_result.returncode == 0, (
+            f"SingleFile extension provider hook failed: {provider_result.stderr}\nstdout: {provider_result.stdout}"
+        )
 
         # Launch Chrome session with extensions loaded
         old_env = os.environ.copy()
@@ -456,8 +525,6 @@ def test_singlefile_with_extension_uses_existing_chrome():
 def test_singlefile_extension_loader_prefers_cached_background_target():
     """SingleFile loader should prefer the cached background target over the offscreen page."""
     install_state = ensure_singlefile_extension_installed()
-    chrome_utils = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
-
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
@@ -482,9 +549,6 @@ def test_singlefile_extension_loader_prefers_cached_background_target():
                 entry = next(ext for ext in metadata if ext.get("name") == "singlefile")
                 cdp_url = (snapshot_chrome_dir / "cdp_url.txt").read_text().strip()
                 script = r"""
-process.env.NODE_PATH = process.env.NODE_MODULES_DIR;
-require('module').Module._initPaths();
-const puppeteer = require('puppeteer-core');
 const chromeUtils = require(process.argv[1]);
 const cdpUrl = process.argv[2];
 const extensionId = process.argv[3];
@@ -505,8 +569,14 @@ function collectTargets(browser, extensionId) {
 }
 
 (async () => {
-    const browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl, defaultViewport: null });
-    try {
+    const puppeteer = chromeUtils.resolvePuppeteerModule();
+    const payload = await chromeUtils.withConnectedBrowser(
+        {
+            puppeteer,
+            browserWSEndpoint: cdpUrl,
+            connectOptions: { defaultViewport: null },
+        },
+        async (browser) => {
         const offscreenPage = await browser.newPage();
         await offscreenPage.goto(
             `chrome-extension://${extensionId}${OFFSCREEN_PATH}`,
@@ -561,7 +631,7 @@ function collectTargets(browser, extensionId) {
         );
         const loaded = await chromeUtils.loadExtensionFromTarget([extension], target);
 
-        process.stdout.write(JSON.stringify({
+        return {
             closeResult,
             beforeClose,
             afterClose,
@@ -571,10 +641,10 @@ function collectTargets(browser, extensionId) {
             loaded: Boolean(loaded),
             hasDispatchAction: typeof extension.dispatchAction === 'function',
             manifestVersion: extension.manifest?.manifest_version || loaded?.manifest_version || null,
-        }));
-    } finally {
-        await browser.disconnect();
-    }
+        };
+    },
+    );
+    process.stdout.write(JSON.stringify(payload));
 })().catch(error => {
     console.error(error && (error.stack || error.message || String(error)));
     process.exit(1);
@@ -585,7 +655,7 @@ function collectTargets(browser, extensionId) {
                         "node",
                         "-e",
                         script,
-                        str(chrome_utils),
+                        str(CHROME_UTILS),
                         cdp_url,
                         entry["id"],
                         entry["unpacked_path"],

@@ -1,16 +1,15 @@
 """Shared utilities for abx plugins.
 
 Provides common helpers used across multiple plugins:
-- Config loading from config.json using PydanticSettings (load_config/get_config)
-- Environment variable parsing (get_env, get_env_bool, get_env_int, get_env_array)
-- JSONL record emission (emit_archive_result_record, emit_binary_request_record, emit_installed_binary_record, emit_machine_record, emit_snapshot_record)
-- Atomic file writing (write_text_atomic)
-- HTML source discovery (find_html_source)
-- Sibling plugin output checking (has_staticfile_output)
+- Config loading from `config.json` using `jambo` with `x-aliases` and `x-fallback`
+- JSONL record emission (archive results, binary requests, installed binaries)
+- Atomic file writing (`write_text_atomic`, `write_file_atomic`)
+- HTML source discovery (`find_html_source`)
+- Sibling plugin output checking (`has_staticfile_output`)
 
 Import directly via the package path::
 
-    from abx_plugins.plugins.base.utils import get_config
+    from abx_plugins.plugins.base.utils import load_config, get_config
 """
 
 from __future__ import annotations
@@ -20,208 +19,322 @@ import json
 import os
 import stat
 import sys
+from collections.abc import Mapping
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from jambo import SchemaConverter
+from pydantic import ConfigDict
+
 
 # ---------------------------------------------------------------------------
-# Config loading from config.json using PydanticSettings
+# Shared config resolution
 # ---------------------------------------------------------------------------
 
-# Cache: config_path -> (model_class, (plugin_schema_mtime, base_schema_mtime))
-# The model class is reused across calls to avoid re-parsing the JSON schema
-# and re-creating the Pydantic model on every call.  A fresh *instance* is
-# returned each time so that environment variable changes are picked up.
 BASE_CONFIG_PATH = Path(__file__).with_name("config.json")
-_config_model_cache: dict[str, tuple[type, tuple[float, float]]] = {}
+PLUGINS_DIR = BASE_CONFIG_PATH.parent.parent
 
 
-def _normalize_schema_type(prop: dict[str, Any]) -> tuple[str, bool]:
-    schema_type = prop.get("type", "string")
-    nullable = False
-
-    if isinstance(schema_type, list):
-        nullable = "null" in schema_type
-        non_null_types = [item for item in schema_type if item != "null"]
-        schema_type = non_null_types[0] if non_null_types else "string"
-
-    return str(schema_type), nullable
+def normalize_config_value(value: Any) -> Any:
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, list):
+        return [normalize_config_value(item) for item in value]
+    if isinstance(value, dict):
+        return {key: normalize_config_value(val) for key, val in value.items()}
+    return value
 
 
-def load_config(config_path: Path | str | None = None) -> Any:
-    """Load plugin config from config.json using PydanticSettings.
+def _parse_config_value(value: str) -> Any:
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return value
 
-    Reads the JSON Schema config file and creates a BaseSettings model that
-    auto-resolves environment variables, x-aliases, and x-fallback values.
-    The shared `base/config.json` properties are merged into every plugin
-    config so common runtime keys like `SNAP_DIR`, `CRAWL_DIR`, `LIB_DIR`,
-    `PERSONAS_DIR`, and `EXTRA_CONTEXT` are always available.
 
-    The model *class* is cached per config_path (keyed by resolved absolute
-    path) so repeated calls within the same plugin avoid redundant schema
-    parsing and ``create_model()`` overhead.  A new *instance* is created on
-    every call so that env var changes between calls are always reflected.
+def _schema_types(prop: Mapping[str, Any]) -> set[str]:
+    raw_type = prop.get("type")
+    if isinstance(raw_type, str):
+        return {raw_type}
+    if isinstance(raw_type, list):
+        return {str(item) for item in raw_type}
+    return set()
 
-    Args:
-        config_path: Path to config.json. If None, auto-detects from the
-                     **direct caller's** directory using ``inspect.stack()``.
-                     Only pass None when calling from a top-level hook script
-                     that lives next to its own config.json.  Helpers or
-                     wrappers that call ``load_config()`` on behalf of a
-                     plugin must pass the path explicitly.
 
-    Returns:
-        A PydanticSettings instance with typed, validated config values.
-        Field names match the env var names from config.json (e.g. config.WGET_TIMEOUT).
-
-    Example::
-
-        config = load_config()
-        timeout = config.WGET_TIMEOUT      # int, auto-resolved with x-fallback
-        enabled = config.WGET_ENABLED       # bool, auto-resolved with x-aliases
-        args = config.WGET_ARGS             # list[str], parsed from JSON env var
-    """
-    from pydantic import AliasChoices, Field, create_model
-    from pydantic_settings import BaseSettings, SettingsConfigDict
-
-    # Resolve config_path -------------------------------------------------
-    # When config_path is None we walk up one frame to find the caller's
-    # directory.  This is safe because every hook script lives alongside its
-    # own config.json and calls load_config() directly (never via a shared
-    # helper that would add extra stack frames).
+def _resolve_config_path(
+    config_path: Path | str | None, *, stack_depth: int = 1
+) -> Path:
     if config_path is None:
-        caller_file = inspect.stack()[1].filename
-        config_path = Path(caller_file).parent / "config.json"
-    else:
-        config_path = Path(config_path)
+        caller_file = inspect.stack()[stack_depth].filename
+        return (Path(caller_file).parent / "config.json").resolve()
+    return Path(config_path).resolve()
 
-    config_path = config_path.resolve()
-    base_config_path = BASE_CONFIG_PATH.resolve()
-    cache_key = str(config_path)
 
-    # Check cache ----------------------------------------------------------
-    schema_mtimes = (
-        config_path.stat().st_mtime,
-        base_config_path.stat().st_mtime,
+def _load_schema(path: Path) -> dict[str, Any]:
+    return json.loads(path.read_text())
+
+
+def _collect_required_schema_paths(
+    config_path: Path, seen: set[Path] | None = None
+) -> list[Path]:
+    seen = seen or set()
+    resolved = config_path.resolve()
+    if resolved in seen:
+        return []
+    seen.add(resolved)
+
+    schema = _load_schema(resolved)
+    paths: list[Path] = []
+    for required_plugin in schema.get("required_plugins", []):
+        required_path = (PLUGINS_DIR / str(required_plugin) / "config.json").resolve()
+        if required_path.exists():
+            paths.extend(_collect_required_schema_paths(required_path, seen))
+    paths.append(resolved)
+    return paths
+
+
+@lru_cache(maxsize=None)
+def _build_merged_properties(config_path_str: str) -> tuple[str, dict[str, Any]]:
+    config_path = Path(config_path_str)
+    root_schema = _load_schema(config_path)
+    properties: dict[str, Any] = {}
+    paths = [BASE_CONFIG_PATH.resolve(), *_collect_required_schema_paths(config_path)]
+    for path in paths:
+        properties.update(_load_schema(path).get("properties", {}))
+    return str(root_schema.get("title", "PluginConfig")), properties
+
+
+def _lookup_raw_value(
+    keys: list[str],
+    *,
+    environ: Mapping[str, str],
+    user_config: Mapping[str, str] | None = None,
+) -> tuple[Any, bool, bool]:
+    for key in keys:
+        if key in environ:
+            return environ[key], True, False
+    if user_config:
+        for key in keys:
+            if key in user_config:
+                return user_config[key], True, True
+    return None, False, False
+
+
+def _coerce_raw_value(
+    raw_value: Any, prop: Mapping[str, Any], *, persisted: bool
+) -> Any:
+    if not isinstance(raw_value, str):
+        return raw_value
+    if persisted:
+        return _parse_config_value(raw_value)
+    if _schema_types(prop) & {"array", "object"}:
+        return _parse_config_value(raw_value)
+    return raw_value
+
+
+def resolve_alias(
+    key: str, plugin_schemas: dict[str, dict[str, Any]] | None = None
+) -> str:
+    if plugin_schemas is None:
+        return key
+
+    for schema in plugin_schemas.values():
+        if key in schema:
+            return key
+        for canonical_key, prop in schema.items():
+            if key in prop.get("x-aliases", []):
+                return canonical_key
+    return key
+
+
+def _resolve_schema_payload(
+    properties: dict[str, Any],
+    *,
+    resolved_config: dict[str, Any] | None = None,
+    user_config: Mapping[str, str] | None = None,
+    environ: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    environ = environ or os.environ
+    resolved = {
+        key: normalize_config_value(value)
+        for key, value in (resolved_config or {}).items()
+    }
+    payload: dict[str, Any] = {}
+
+    for _ in range(max(len(properties), 1) + 1):
+        changed = False
+        for key, prop in properties.items():
+            aliases = [key, *(str(alias) for alias in prop.get("x-aliases", []))]
+            raw_value, found, persisted = _lookup_raw_value(
+                aliases,
+                environ=environ,
+                user_config=user_config,
+            )
+            if found:
+                resolved_value = _coerce_raw_value(raw_value, prop, persisted=persisted)
+                if payload.get(key) != resolved_value:
+                    payload[key] = resolved_value
+                    resolved[key] = resolved_value
+                    changed = True
+                continue
+
+            fallback_key = prop.get("x-fallback")
+            if fallback_key and fallback_key in resolved:
+                fallback_value = resolved[fallback_key]
+                if payload.get(key) != fallback_value:
+                    payload[key] = fallback_value
+                    resolved[key] = fallback_value
+                    changed = True
+                continue
+
+            if "default" in prop and payload.get(key) != prop["default"]:
+                payload[key] = prop["default"]
+                resolved[key] = prop["default"]
+                changed = True
+                continue
+
+            if key in resolved and payload.get(key) != resolved[key]:
+                payload[key] = resolved[key]
+                changed = True
+        if not changed:
+            break
+
+    return payload
+
+
+@lru_cache(maxsize=None)
+def _schema_model(schema_json: str) -> type[Any]:
+    model = SchemaConverter.build(json.loads(schema_json))
+    model.model_config = ConfigDict(
+        validate_assignment=True,
+        use_enum_values=True,
+        validate_default=True,
     )
-    cached = _config_model_cache.get(cache_key)
-    if cached is not None:
-        model_cls, cached_mtimes = cached
-        if cached_mtimes == schema_mtimes:
-            return model_cls()  # fresh instance picks up env changes
+    model.model_rebuild(force=True)
+    return model
 
-    # Build model class ----------------------------------------------------
-    base_schema = json.loads(base_config_path.read_text())
-    base_properties = base_schema.get("properties", {})
 
-    schema = json.loads(config_path.read_text())
-    if config_path == base_config_path:
-        properties = base_properties
-    else:
-        properties = {**base_properties, **schema.get("properties", {})}
-
-    if not properties:
-
-        class _EmptyConfig(BaseSettings):
-            model_config = SettingsConfigDict(extra="ignore")
-
-        _config_model_cache[cache_key] = (_EmptyConfig, schema_mtimes)
-        return _EmptyConfig()
-
-    JSON_TYPE_MAP: dict[str, type] = {
-        "boolean": bool,
-        "string": str,
-        "integer": int,
-        "number": float,
+def resolve_plugin_configs(
+    plugin_schemas: dict[str, dict[str, Any]],
+    *,
+    global_config: dict[str, Any] | None = None,
+    user_config: Mapping[str, str] | None = None,
+    environ: Mapping[str, str] | None = None,
+) -> dict[str, dict[str, Any]]:
+    resolved_sections: dict[str, dict[str, Any]] = {}
+    resolved_values = {
+        key: normalize_config_value(value)
+        for key, value in (global_config or {}).items()
     }
 
-    field_definitions: dict[str, Any] = {}
-    for name, prop in properties.items():
-        schema_type, nullable = _normalize_schema_type(prop)
-        if schema_type == "array":
-            python_type: Any = list
-        else:
-            python_type = JSON_TYPE_MAP.get(schema_type, str)
-        if nullable:
-            python_type = python_type | None
+    for _ in range(max(len(plugin_schemas), 1) + 1):
+        changed = False
+        for plugin_name, schema in sorted(plugin_schemas.items()):
+            payload = _resolve_schema_payload(
+                schema,
+                resolved_config=resolved_values,
+                user_config=user_config,
+                environ=environ,
+            )
+            model = _schema_model(
+                json.dumps(
+                    {
+                        "title": plugin_name,
+                        "type": "object",
+                        "properties": schema,
+                    },
+                    sort_keys=True,
+                ),
+            )
+            plugin_config = normalize_config_value(
+                model.model_validate(payload).model_dump(mode="json")
+            )
+            if resolved_sections.get(plugin_name) != plugin_config:
+                resolved_sections[plugin_name] = plugin_config
+                changed = True
+            for key, value in plugin_config.items():
+                if resolved_values.get(key) != value:
+                    resolved_values[key] = value
+                    changed = True
+        if not changed:
+            break
 
-        default = prop.get("default")
-
-        # Build alias choices: primary name > x-aliases > x-fallback
-        choices = [name]
-        choices.extend(prop.get("x-aliases", []))
-        if fallback := prop.get("x-fallback"):
-            choices.append(fallback)
-
-        field_definitions[name] = (
-            python_type,
-            Field(default=default, validation_alias=AliasChoices(*choices)),
-        )
-
-    class _ConfigBase(BaseSettings):
-        model_config = SettingsConfigDict(extra="ignore")
-
-    model_cls = create_model("PluginConfig", __base__=_ConfigBase, **field_definitions)
-    _config_model_cache[cache_key] = (model_cls, schema_mtimes)
-    return model_cls()
-
-
-def get_config(config_path: Path | str | None = None) -> Any:
-    """Alias for load_config() that preserves direct-caller config lookup."""
-    if config_path is not None:
-        return load_config(config_path)
-
-    caller_file = inspect.stack()[1].filename
-    return load_config(Path(caller_file).parent / "config.json")
+    return resolved_sections
 
 
-# ---------------------------------------------------------------------------
-# Environment variable helpers
-# ---------------------------------------------------------------------------
+def resolve_plugin_config(
+    plugin_name: str,
+    schema: dict[str, Any],
+    *,
+    global_config: dict[str, Any] | None = None,
+    user_config: Mapping[str, str] | None = None,
+    environ: Mapping[str, str] | None = None,
+    all_plugin_schemas: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    plugin_schemas = all_plugin_schemas or {plugin_name: schema}
+    return resolve_plugin_configs(
+        plugin_schemas,
+        global_config=global_config,
+        user_config=user_config,
+        environ=environ,
+    ).get(plugin_name, {})
 
 
-def get_env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default).strip()
+def load_config(
+    config_path: Path | str | None = None,
+    *,
+    global_config: Mapping[str, Any] | None = None,
+    user_config: Mapping[str, str] | None = None,
+    environ: Mapping[str, str] | None = None,
+) -> Any:
+    """Load typed plugin config using `jambo` plus `x-aliases` and `x-fallback`.
+
+    The resolved config always includes shared `base/config.json` properties plus any
+    `required_plugins` config it depends on. Values are resolved in this order:
+
+    1. process environment
+    2. explicit `user_config`
+    3. `x-fallback`
+    4. schema defaults
+    """
+    resolved_path = _resolve_config_path(config_path, stack_depth=2)
+    title, properties = _build_merged_properties(str(resolved_path))
+    payload = _resolve_schema_payload(
+        properties,
+        resolved_config=dict(global_config or {}),
+        user_config=user_config,
+        environ=environ,
+    )
+    model = _schema_model(
+        json.dumps(
+            {
+                "title": title,
+                "type": "object",
+                "properties": properties,
+            },
+            sort_keys=True,
+        ),
+    )
+    return model.model_validate(payload)
 
 
-def get_env_bool(name: str, default: bool = False) -> bool:
-    val = get_env(name, "").lower()
-    if val in ("true", "1", "yes", "on"):
-        return True
-    if val in ("false", "0", "no", "off"):
-        return False
-    return default
-
-
-def get_env_int(name: str, default: int = 0) -> int:
-    try:
-        return int(get_env(name, str(default)))
-    except ValueError:
-        return default
-
-
-def get_env_array(name: str, default: list[str] | None = None) -> list[str]:
-    """Parse a JSON array from environment variable."""
-    val = get_env(name, "")
-    if not val:
-        return default if default is not None else []
-    try:
-        result = json.loads(val)
-        if isinstance(result, list):
-            return [str(item) for item in result]
-        return default if default is not None else []
-    except json.JSONDecodeError:
-        return default if default is not None else []
-
-
-def resolve_binary_path(binary: str, PATH: str | None = None) -> str | None:
-    """Resolve an executable name or absolute path using abx-pkg path rules."""
-    if not binary:
-        return None
-    from abx_pkg import bin_abspath
-
-    resolved = bin_abspath(binary, PATH=PATH)
-    return str(resolved) if resolved else None
+def get_config(
+    config_path: Path | str | None = None,
+    *,
+    global_config: Mapping[str, Any] | None = None,
+    user_config: Mapping[str, str] | None = None,
+    environ: Mapping[str, str] | None = None,
+) -> Any:
+    """Alias for `load_config()` that preserves direct-caller config lookup."""
+    if config_path is None:
+        config_path = _resolve_config_path(None, stack_depth=2)
+    return load_config(
+        config_path,
+        global_config=global_config,
+        user_config=user_config,
+        environ=environ,
+    )
 
 
 def _resolve_path(path_value: str) -> Path:
@@ -234,7 +347,7 @@ def get_lib_dir() -> Path:
     Priority: LIB_DIR env var, otherwise ~/.config/abx/lib.
     """
     config = load_config(BASE_CONFIG_PATH)
-    lib_dir = (config.LIB_DIR or "").strip()
+    lib_dir = str(config.LIB_DIR or "").strip()
     if lib_dir:
         return _resolve_path(lib_dir)
     return _resolve_path(str(Path.home() / ".config" / "abx" / "lib"))
@@ -243,13 +356,13 @@ def get_lib_dir() -> Path:
 def get_personas_dir() -> Path:
     """Return personas directory.
 
-    Priority: PERSONAS_DIR env var, otherwise ~/.config/abx/personas.
+    Returns the configured personas directory from load_config().
     """
     config = load_config(BASE_CONFIG_PATH)
-    personas_dir = (config.PERSONAS_DIR or "").strip()
-    if personas_dir:
-        return _resolve_path(personas_dir)
-    return _resolve_path(str(Path.home() / ".config" / "abx" / "personas"))
+    personas_dir = str(
+        config.PERSONAS_DIR or Path.home() / ".config" / "abx" / "personas"
+    )
+    return Path(personas_dir).expanduser().resolve()
 
 
 # ---------------------------------------------------------------------------
@@ -270,7 +383,7 @@ def _fsync_if_regular_file(fd: int) -> None:
         return
 
 
-def _write_stream_line_fully(stream: Any, text: str) -> None:
+def print_and_flush(stream: Any, text: str) -> None:
     line = text if text.endswith("\n") else f"{text}\n"
     try:
         fd = stream.fileno()
@@ -346,7 +459,7 @@ def get_extra_context() -> dict[str, Any]:
     return context
 
 
-def _merge_extra_context(record: dict[str, Any]) -> dict[str, Any]:
+def merge_EXTRA_CONTEXT(record: dict[str, Any]) -> dict[str, Any]:
     extra_context = get_extra_context()
     if not extra_context:
         return record
@@ -365,7 +478,7 @@ def emit_archive_result_record(
     }
     if extra:
         record.update(extra)
-    _write_stream_line_fully(sys.stdout, json.dumps(_merge_extra_context(record)))
+    print_and_flush(sys.stdout, json.dumps(merge_EXTRA_CONTEXT(record)))
 
 
 def emit_binary_request_record(
@@ -384,7 +497,7 @@ def emit_binary_request_record(
         record["overrides"] = overrides
     if min_version:
         record["min_version"] = min_version
-    _write_stream_line_fully(sys.stdout, json.dumps(_merge_extra_context(record)))
+    print_and_flush(sys.stdout, json.dumps(merge_EXTRA_CONTEXT(record)))
 
 
 def emit_installed_binary_record(
@@ -403,31 +516,17 @@ def emit_installed_binary_record(
         "sha256": sha256,
         "binprovider": binprovider,
     }
-    _write_stream_line_fully(sys.stdout, json.dumps(_merge_extra_context(record)))
-
-
-def emit_machine_record(config: dict[str, Any]) -> None:
-    _write_stream_line_fully(
-        sys.stdout,
-        json.dumps(
-            _merge_extra_context(
-                {
-                    "type": "Machine",
-                    "config": config,
-                },
-            ),
-        ),
-    )
+    print_and_flush(sys.stdout, json.dumps(merge_EXTRA_CONTEXT(record)))
 
 
 def emit_snapshot_record(record: dict[str, Any]) -> None:
-    snapshot_record = _merge_extra_context(
+    snapshot_record = merge_EXTRA_CONTEXT(
         {
             "type": "Snapshot",
             **{key: value for key, value in record.items() if key != "type"},
         },
     )
-    _write_stream_line_fully(sys.stdout, json.dumps(snapshot_record))
+    print_and_flush(sys.stdout, json.dumps(snapshot_record))
 
 
 # ---------------------------------------------------------------------------

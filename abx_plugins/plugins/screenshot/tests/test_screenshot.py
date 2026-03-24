@@ -177,7 +177,7 @@ def test_skips_when_staticfile_exists(chrome_test_url):
         staticfile_dir = snapshot_dir / "staticfile"
         staticfile_dir.mkdir()
         (staticfile_dir / "stdout.log").write_text(
-            '{"type":"ArchiveResult","status":"succeeded","output_str":"index.html"}\n',
+            '{"type":"ArchiveResult","status":"succeeded","output_str":"responses/example.com/test.json","content_type":"application/json"}\n',
         )
 
         env = get_test_env() | {"SNAP_DIR": str(snapshot_dir)}

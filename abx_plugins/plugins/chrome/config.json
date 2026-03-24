@@ -6,7 +6,29 @@
   "additionalProperties": false,
   "required_plugins": [],
   "required_binaries": [
-    "chrome"
+    {
+      "name": "{NODE_BINARY}",
+      "binproviders": "env,apt,brew",
+      "min_version": null,
+      "overrides": {
+        "apt": {
+          "install_args": [
+            "nodejs"
+          ]
+        }
+      }
+    },
+    {
+      "name": "{CHROME_BINARY}",
+      "binproviders": "env,puppeteer",
+      "min_version": null,
+      "overrides": {
+        "puppeteer": [
+          "chromium@latest",
+          "--install-deps"
+        ]
+      }
+    }
   ],
   "output_mimetypes": [
     "text/plain",
@@ -30,11 +52,10 @@
       ],
       "description": "Path to Chromium binary"
     },
-    "CHROME_NODE_BINARY": {
+    "NODE_BINARY": {
       "type": "string",
       "default": "node",
-      "x-fallback": "NODE_BINARY",
-      "description": "Path to Node.js binary (for Puppeteer)"
+      "description": "Path to Node.js binary"
     },
     "CHROME_TIMEOUT": {
       "type": "integer",
@@ -47,6 +68,16 @@
       "type": "boolean",
       "default": true,
       "description": "Run Chrome in headless mode"
+    },
+    "PERSONAS_DIR": {
+      "type": "string",
+      "default": "",
+      "description": "Shared Chrome/browser personas root"
+    },
+    "ACTIVE_PERSONA": {
+      "type": "string",
+      "default": "Default",
+      "description": "Active browser persona name"
     },
     "CHROME_SANDBOX": {
       "type": "boolean",

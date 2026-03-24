@@ -47,6 +47,7 @@ ensureNodeModuleResolution(module);
 // Import chrome-specific utilities from chrome_utils.js
 const {
     connectToPage,
+    resolvePuppeteerModule,
 } = require('../chrome/chrome_utils.js');
 
 // Check if infiniscroll is enabled BEFORE requiring puppeteer
@@ -56,7 +57,7 @@ if (!getEnvBool('INFINISCROLL_ENABLED', true)) {
     process.exit(0);
 }
 
-const puppeteer = require('puppeteer-core');
+const puppeteer = resolvePuppeteerModule();
 
 const PLUGIN_NAME = 'infiniscroll';
 const CHROME_SESSION_DIR = '../chrome';

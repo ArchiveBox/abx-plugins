@@ -13,7 +13,10 @@ import sys
 from pathlib import Path
 from typing import NotRequired, TypedDict
 
-from abx_plugins.plugins.base.utils import get_env
+from abx_plugins.plugins.base.utils import load_config
+
+
+CONFIG = load_config(Path(__file__).with_name("config.json"))
 
 
 class ExtractorOutput(TypedDict):
@@ -162,7 +165,7 @@ def run_claude_code(
 
     Returns: (stdout, stderr, returncode)
     """
-    binary = get_env("CLAUDECODE_BINARY", "claude")
+    binary = str(CONFIG.CLAUDECODE_BINARY)
 
     cmd = [binary]
 
@@ -229,7 +232,7 @@ def run_claude_code(
     env = {k: v for k, v in os.environ.items() if k not in DENIED_ENV_VARS}
 
     # Ensure API key is set
-    api_key = get_env("ANTHROPIC_API_KEY")
+    api_key = str(CONFIG.ANTHROPIC_API_KEY or "")
     if api_key:
         env["ANTHROPIC_API_KEY"] = api_key
 

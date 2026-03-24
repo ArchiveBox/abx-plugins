@@ -26,7 +26,6 @@ const { execSync } = require('child_process');
 const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvBool, getEnvInt, loadConfig, emitArchiveResultRecord } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 
-const puppeteer = require('puppeteer');
 const {
     openTabInChromeSession,
     acquireSessionLock,
@@ -34,7 +33,9 @@ const {
     connectToPage,
     waitForChromeSessionState,
     closeTabInChromeSession,
+    resolvePuppeteerModule,
 } = require('./chrome_utils.js');
+const puppeteer = resolvePuppeteerModule();
 
 // Extractor metadata
 const PLUGIN_NAME = 'chrome_tab';

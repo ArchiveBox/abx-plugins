@@ -24,6 +24,7 @@ const {
     waitForChromeSessionState,
     findExtensionMetadataByName,
     connectToBrowserEndpoint,
+    resolvePuppeteerModule,
 } = require('../chrome/chrome_utils.js');
 
 // Check if enabled
@@ -32,7 +33,7 @@ if (!getEnvBool('CLAUDECHROME_ENABLED', false)) {
     process.exit(0);
 }
 
-const puppeteer = require('puppeteer-core');
+const puppeteer = resolvePuppeteerModule();
 
 const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();

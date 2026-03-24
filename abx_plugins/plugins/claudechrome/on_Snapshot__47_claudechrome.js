@@ -26,7 +26,6 @@
 
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const {
     ensureNodeModuleResolution,
     emitArchiveResultRecord,
@@ -39,6 +38,7 @@ const {
 ensureNodeModuleResolution(module);
 const {
     connectToPage,
+    resolvePuppeteerModule,
     setBrowserDownloadBehavior,
 } = require('../chrome/chrome_utils.js');
 
@@ -56,7 +56,7 @@ if (!getEnv('ANTHROPIC_API_KEY')) {
     process.exit(1);
 }
 
-const puppeteer = require('puppeteer-core');
+const puppeteer = resolvePuppeteerModule();
 const { execFileSync } = require('child_process');
 
 const PLUGIN_DIR = path.basename(__dirname);
@@ -70,8 +70,8 @@ process.chdir(OUTPUT_DIR);
 
 const CHROME_SESSION_DIR = '../chrome';
 const DOWNLOADS_DIR = hookConfig.CHROME_DOWNLOADS_DIR ||
-    path.join(hookConfig.PERSONAS_DIR || path.join(os.homedir(), '.config', 'abx', 'personas'),
-        hookConfig.ACTIVE_PERSONA || 'Default',
+    path.join(hookConfig.PERSONAS_DIR,
+        hookConfig.ACTIVE_PERSONA,
         'chrome_downloads');
 
 const DEFAULT_PROMPT = 'Look at the current page. If there are any "expand", "show more", ' +

@@ -5,7 +5,13 @@
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
-  "required_binaries": ["git"],
+  "required_binaries": [
+    {
+      "name": "{GIT_BINARY}",
+      "binproviders": "env,apt,brew",
+      "min_version": null
+    }
+  ],
   "output_mimetypes": [
     "text/",
     "application/",
@@ -18,7 +24,10 @@
     "GIT_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SAVE_GIT", "USE_GIT"],
+      "x-aliases": [
+        "SAVE_GIT",
+        "USE_GIT"
+      ],
       "description": "Enable git repository cloning"
     },
     "GIT_BINARY": {
@@ -40,16 +49,28 @@
     },
     "GIT_ARGS": {
       "type": "array",
-      "items": {"type": "string"},
-      "default": ["clone", "--depth=1", "--recursive"],
-      "x-aliases": ["GIT_DEFAULT_ARGS"],
+      "items": {
+        "type": "string"
+      },
+      "default": [
+        "clone",
+        "--depth=1",
+        "--recursive"
+      ],
+      "x-aliases": [
+        "GIT_DEFAULT_ARGS"
+      ],
       "description": "Default git arguments"
     },
     "GIT_ARGS_EXTRA": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {
+        "type": "string"
+      },
       "default": [],
-      "x-aliases": ["GIT_EXTRA_ARGS"],
+      "x-aliases": [
+        "GIT_EXTRA_ARGS"
+      ],
       "description": "Extra arguments to append to git command"
     }
   }

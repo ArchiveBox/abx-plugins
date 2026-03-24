@@ -5,13 +5,32 @@
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
-  "required_binaries": ["lit"],
-  "output_mimetypes": ["text/plain", "application/json"],
+  "required_binaries": [
+    {
+      "name": "{LITEPARSE_BINARY}",
+      "binproviders": "env,npm",
+      "min_version": null,
+      "overrides": {
+        "npm": {
+          "install_args": [
+            "@llamaindex/liteparse"
+          ]
+        }
+      }
+    }
+  ],
+  "output_mimetypes": [
+    "text/plain",
+    "application/json"
+  ],
   "properties": {
     "LITEPARSE_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SAVE_LITEPARSE", "USE_LITEPARSE"],
+      "x-aliases": [
+        "SAVE_LITEPARSE",
+        "USE_LITEPARSE"
+      ],
       "description": "Enable LiteParse document extraction"
     },
     "LITEPARSE_BINARY": {
@@ -28,16 +47,24 @@
     },
     "LITEPARSE_ARGS": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {
+        "type": "string"
+      },
       "default": [],
-      "x-aliases": ["LITEPARSE_DEFAULT_ARGS"],
+      "x-aliases": [
+        "LITEPARSE_DEFAULT_ARGS"
+      ],
       "description": "Default LiteParse arguments"
     },
     "LITEPARSE_ARGS_EXTRA": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {
+        "type": "string"
+      },
       "default": [],
-      "x-aliases": ["LITEPARSE_EXTRA_ARGS"],
+      "x-aliases": [
+        "LITEPARSE_EXTRA_ARGS"
+      ],
       "description": "Extra arguments to append to LiteParse command"
     }
   }

@@ -471,12 +471,12 @@ def test_config_poll_interval(httpserver):
 
 def test_hides_cookie_consent_on_filmin():
     """Live test: verify modalcloser hides cookie consent popup on filmin.es."""
+    base_utils_path = (PLUGIN_DIR.parent / "base" / "utils.js").resolve()
+
     # Create a test script that uses puppeteer directly
     test_script = """
-if (!process.env.NODE_PATH && process.env.NODE_MODULES_DIR) {
-    process.env.NODE_PATH = process.env.NODE_MODULES_DIR;
-    require('module').Module._initPaths();
-}
+const { ensureNodeModuleResolution } = require(__BASE_UTILS_PATH__);
+ensureNodeModuleResolution(module);
 
 function resolvePuppeteer() {
     for (const moduleName of ['puppeteer-core', 'puppeteer']) {
@@ -613,6 +613,10 @@ main().catch(e => {
     process.exit(1);
 });
 """
+    test_script = test_script.replace(
+        "__BASE_UTILS_PATH__",
+        json.dumps(str(base_utils_path)),
+    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)

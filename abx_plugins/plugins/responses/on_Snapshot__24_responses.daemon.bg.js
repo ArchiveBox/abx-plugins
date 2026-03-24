@@ -28,15 +28,17 @@ const {
     loadConfig,
     parseArgs,
     emitArchiveResultRecord,
+    writeFileAtomic,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
-const puppeteer = require('puppeteer-core');
 
 // Import chrome-specific utilities from chrome_utils.js
 const {
     connectToPage,
+    resolvePuppeteerModule,
     waitForNavigationComplete,
 } = require('../chrome/chrome_utils.js');
+const puppeteer = resolvePuppeteerModule();
 
 const PLUGIN_NAME = 'responses';
 const PLUGIN_DIR = path.basename(__dirname);
@@ -90,7 +92,7 @@ async function setupListener() {
     }
 
     const indexPath = path.join(OUTPUT_DIR, 'index.jsonl');
-    fs.writeFileSync(indexPath, '');
+    writeFileAtomic(indexPath, '');
 
     // Connect to Chrome page using shared utility
     const { browser, page } = await connectToPage({

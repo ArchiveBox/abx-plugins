@@ -70,6 +70,48 @@ def as_string_list(value: Any) -> list[str]:
     return [str(item) for item in value if item not in (None, "")]
 
 
+def as_required_binary_list(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    items: list[dict[str, Any]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        binproviders = item.get("binproviders")
+        if not isinstance(name, str) or not name:
+            continue
+        if not isinstance(binproviders, str) or not binproviders:
+            continue
+        normalized = dict(item)
+        overrides = normalized.get("overrides")
+        overrides_summary = ""
+        if isinstance(overrides, dict) and overrides:
+            overrides_summary = json.dumps(
+                overrides, ensure_ascii=False, sort_keys=True
+            )
+        min_version = normalized.get("min_version")
+        summary_parts = [f"providers={binproviders}"]
+        if min_version:
+            summary_parts.append(f"min={min_version}")
+        if overrides_summary:
+            summary_parts.append(f"overrides={overrides_summary}")
+        normalized["overrides_summary"] = overrides_summary
+        normalized["summary"] = " | ".join(summary_parts)
+        normalized["title"] = "\n".join(
+            part
+            for part in (
+                str(name),
+                f"providers: {binproviders}",
+                f"min_version: {min_version}" if min_version else None,
+                f"overrides: {overrides_summary}" if overrides_summary else None,
+            )
+            if part
+        )
+        items.append(normalized)
+    return items
+
+
 def format_json_value(value: Any) -> str:
     if value is None:
         return "null"
@@ -119,7 +161,6 @@ def collect_hooks(plugin_dir: Path) -> list[dict[str, Any]]:
             continue
         if not path.name.startswith(
             (
-                "on_Install__",
                 "on_CrawlSetup__",
                 "on_Snapshot__",
                 "on_BinaryRequest__",
@@ -163,9 +204,7 @@ def build_commands(
     config_fields: list[dict[str, Any]],
 ) -> dict[str, str]:
     has_snapshot = any(hook["phase"] == "Snapshot" for hook in hooks)
-    has_setup = any(
-        hook["phase"] in {"Install", "CrawlSetup", "BinaryRequest"} for hook in hooks
-    )
+    has_setup = any(hook["phase"] in {"CrawlSetup", "BinaryRequest"} for hook in hooks)
     enable_key = next(
         (field["key"] for field in config_fields if field["key"].endswith("_ENABLED")),
         None,
@@ -261,7 +300,11 @@ def build_plugin(plugin_dir: Path) -> dict[str, Any]:
     display_title = str(config_schema.get("title") or plugin_dir.name)
     description = str(config_schema.get("description") or "").strip()
     required_plugins = as_string_list(config_schema.get("required_plugins"))
-    required_binaries = as_string_list(config_schema.get("required_binaries"))
+    required_binaries = as_required_binary_list(config_schema.get("required_binaries"))
+    required_binary_names = [item["name"] for item in required_binaries]
+    required_binary_summaries = [
+        f"{item['name']} ({item['summary']})" for item in required_binaries
+    ]
     output_mimetypes = as_string_list(config_schema.get("output_mimetypes"))
     search_parts = [plugin_dir.name, *phases]
     search_parts.append(display_title)
@@ -273,7 +316,16 @@ def build_plugin(plugin_dir: Path) -> dict[str, Any]:
         search_parts.append(sort_phase)
     search_parts.extend(template_labels)
     search_parts.extend(required_plugins)
-    search_parts.extend(required_binaries)
+    search_parts.extend(required_binary_names)
+    search_parts.extend(item["binproviders"] for item in required_binaries)
+    search_parts.extend(
+        str(item.get("min_version") or "") for item in required_binaries
+    )
+    search_parts.extend(
+        item["overrides_summary"]
+        for item in required_binaries
+        if item.get("overrides_summary")
+    )
     search_parts.extend(output_mimetypes)
     search_parts.extend(hook["filename"] for hook in hooks)
     for field in config_fields:
@@ -297,6 +349,8 @@ def build_plugin(plugin_dir: Path) -> dict[str, Any]:
         "template_labels": template_labels,
         "required_plugins": required_plugins,
         "required_binaries": required_binaries,
+        "required_binary_names": required_binary_names,
+        "required_binary_summaries": required_binary_summaries,
         "output_mimetypes": output_mimetypes,
         "display_order": display_order,
         "sort_group": sort_group,

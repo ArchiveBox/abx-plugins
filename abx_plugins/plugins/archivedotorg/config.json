@@ -6,12 +6,18 @@
   "additionalProperties": false,
   "required_plugins": [],
   "required_binaries": [],
-  "output_mimetypes": ["text/plain"],
+  "output_mimetypes": [
+    "text/plain"
+  ],
   "properties": {
     "ARCHIVEDOTORG_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SAVE_ARCHIVEDOTORG", "USE_ARCHIVEDOTORG", "SUBMIT_ARCHIVEDOTORG"],
+      "x-aliases": [
+        "SAVE_ARCHIVEDOTORG",
+        "USE_ARCHIVEDOTORG",
+        "SUBMIT_ARCHIVEDOTORG"
+      ],
       "description": "Submit URLs to archive.org Wayback Machine"
     },
     "ARCHIVEDOTORG_TIMEOUT": {

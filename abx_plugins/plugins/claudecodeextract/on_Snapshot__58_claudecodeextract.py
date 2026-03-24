@@ -37,9 +37,6 @@ import rich_click as click
 # Add parent directory to path for imports
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
-    get_env,
-    get_env_bool,
-    get_env_int,
     get_extra_context,
     load_config,
 )
@@ -84,7 +81,7 @@ def main(url: str, snapshot_id: str):
         snapshot_id = snapshot_id or str(get_extra_context().get("snapshot_id") or "")
 
         # Check if enabled
-        if not get_env_bool("CLAUDECODEEXTRACT_ENABLED", False):
+        if not CONFIG.CLAUDECODEEXTRACT_ENABLED:
             print(
                 "Skipping Claude Code extraction (CLAUDECODEEXTRACT_ENABLED=False)",
                 file=sys.stderr,
@@ -93,26 +90,17 @@ def main(url: str, snapshot_id: str):
             sys.exit(0)
 
         # Check for API key
-        api_key = get_env("ANTHROPIC_API_KEY")
+        api_key = str(CONFIG.ANTHROPIC_API_KEY or "")
         if not api_key:
             print("ERROR: ANTHROPIC_API_KEY not set", file=sys.stderr)
             emit_archive_result_record("failed", "ANTHROPIC_API_KEY not set")
             sys.exit(1)
 
         # Get configuration
-        user_prompt = get_env("CLAUDECODEEXTRACT_PROMPT", DEFAULT_PROMPT)
-        timeout = get_env_int("CLAUDECODEEXTRACT_TIMEOUT") or get_env_int(
-            "CLAUDECODE_TIMEOUT",
-            120,
-        )
-        model = get_env("CLAUDECODEEXTRACT_MODEL") or get_env(
-            "CLAUDECODE_MODEL",
-            "sonnet",
-        )
-        max_turns = get_env_int("CLAUDECODEEXTRACT_MAX_TURNS") or get_env_int(
-            "CLAUDECODE_MAX_TURNS",
-            10,
-        )
+        user_prompt = str(CONFIG.CLAUDECODEEXTRACT_PROMPT or DEFAULT_PROMPT)
+        timeout = int(CONFIG.CLAUDECODEEXTRACT_TIMEOUT)
+        model = str(CONFIG.CLAUDECODEEXTRACT_MODEL)
+        max_turns = int(CONFIG.CLAUDECODEEXTRACT_MAX_TURNS)
 
         # Build system prompt with snapshot context
         system_prompt = build_system_prompt(

@@ -27,10 +27,22 @@ const {
     getEnvArray,
     getNodeModulesDir: getNodeModulesDirFromBaseUtils,
     ensureNodeModuleResolution,
+    loadConfig,
     parseArgs,
 } = require('../base/utils.js');
 
 ensureNodeModuleResolution(module);
+
+let retry;
+try {
+    ({ retry } = require('abxbus/retry'));
+} catch (error) {
+    const localRetryPath = path.resolve(__dirname, '../../../../abxbus/abxbus-ts/dist/cjs/retry.js');
+    if (!fs.existsSync(localRetryPath)) {
+        throw error;
+    }
+    ({ retry } = require(localRetryPath));
+}
 
 const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
 
@@ -60,14 +72,13 @@ function getCrawlDir() {
 
 /**
  * Get the personas directory.
- * Priority: PERSONAS_DIR, or ~/.config/abx/personas
+ * Returns the configured personas directory from loadConfig().
  *
  * @returns {string} - Absolute path to personas directory
  */
 function getPersonasDir() {
-    const personasDir = getEnv('PERSONAS_DIR');
-    if (personasDir) return path.resolve(personasDir);
-    return path.resolve(path.join(os.homedir(), '.config', 'abx', 'personas'));
+    const config = loadConfig(path.join(__dirname, 'config.json'));
+    return path.resolve(config.PERSONAS_DIR);
 }
 
 /**
@@ -540,7 +551,14 @@ async function launchChromium(options = {}) {
     let recentStderr = '';
     let recentStdout = '';
 
-    try {
+    const launchWithSemaphore = retry({
+        max_attempts: 1,
+        semaphore_limit: 1,
+        semaphore_name: 'abx_plugins.chrome.launchChromium',
+        semaphore_scope: 'multiprocess',
+        semaphore_timeout: getEnvInt('CHROME_LAUNCH_LOCK_TIMEOUT_MS', 120000) / 1000,
+        semaphore_lax: false,
+    })(async () => {
         console.error(`[*] Spawning Chromium (headless=${headless})...`);
         chromiumProcess = spawn(binary, chromiumArgs, {
             stdio: ['ignore', 'pipe', 'pipe'],
@@ -618,6 +636,10 @@ async function launchChromium(options = {}) {
         }
 
         return result;
+    });
+
+    try {
+        return await launchWithSemaphore();
     } catch (e) {
         if (chromePid) {
             await cleanupLaunchArtifacts(outputDir, chromePid);
@@ -1727,10 +1749,9 @@ function findAnyChromiumBinary() {
  * @returns {string} - Absolute path to extensions directory
  */
 function getExtensionsDir() {
-    const personasDir = getPersonasDir();
-    const persona = getEnv('ACTIVE_PERSONA', 'Default');
-    return getEnv('CHROME_EXTENSIONS_DIR') ||
-        path.join(personasDir, persona, 'chrome_extensions');
+    const config = loadConfig(path.join(__dirname, 'config.json'));
+    return config.CHROME_EXTENSIONS_DIR ||
+        path.join(getPersonasDir(), config.ACTIVE_PERSONA, 'chrome_extensions');
 }
 
 /**
@@ -1808,6 +1829,7 @@ function getTestEnv() {
         SNAP_DIR: snapDir,
         CRAWL_DIR: crawlDir,
         PERSONAS_DIR: getPersonasDir(),
+        ACTIVE_PERSONA: loadConfig(path.join(__dirname, 'config.json')).ACTIVE_PERSONA,
         MACHINE_TYPE: machineType,
         LIB_DIR: libDir,
         NODE_MODULES_DIR: nodeModulesDir,
@@ -3488,7 +3510,9 @@ module.exports = {
     loadAllExtensionsFromBrowser,
     waitForExtensionTargetHandle,
     // New puppeteer best-practices helpers
+    resolvePuppeteerModule,
     connectToBrowserEndpoint,
+    withConnectedBrowser,
     getExtensionPaths,
     waitForExtensionTarget,
     getExtensionTargets,

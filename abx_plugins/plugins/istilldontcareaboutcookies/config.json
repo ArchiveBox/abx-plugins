@@ -4,14 +4,52 @@
   "description": "Install the I Still Don't Care About Cookies extension to dismiss cookie banners during archiving.",
   "type": "object",
   "additionalProperties": false,
-  "required_plugins": ["chrome"],
-  "required_binaries": ["chrome"],
+  "required_plugins": [
+    "chrome"
+  ],
+  "required_binaries": [
+    {
+      "name": "{CHROME_BINARY}",
+      "binproviders": "env,puppeteer",
+      "min_version": null,
+      "overrides": {
+        "puppeteer": [
+          "chromium@latest",
+          "--install-deps"
+        ]
+      }
+    },
+    {
+      "name": "istilldontcareaboutcookies",
+      "binproviders": "chromewebstore",
+      "min_version": null,
+      "overrides": {
+        "chromewebstore": {
+          "install_args": [
+            "edibdbjcniadpccecjdfdjjppcpchdlm",
+            "--name=istilldontcareaboutcookies"
+          ]
+        }
+      }
+    }
+  ],
   "output_mimetypes": [],
   "properties": {
+    "CHROME_BINARY": {
+      "type": "string",
+      "default": "chromium",
+      "x-aliases": [
+        "CHROMIUM_BINARY",
+        "GOOGLE_CHROME_BINARY"
+      ],
+      "description": "Path to Chromium binary"
+    },
     "ISTILLDONTCAREABOUTCOOKIES_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["USE_ISTILLDONTCAREABOUTCOOKIES"],
+      "x-aliases": [
+        "USE_ISTILLDONTCAREABOUTCOOKIES"
+      ],
       "description": "Enable I Still Don't Care About Cookies browser extension"
     }
   }

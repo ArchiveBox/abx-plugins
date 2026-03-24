@@ -5,19 +5,41 @@
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
-  "required_binaries": ["wget"],
-  "output_mimetypes": ["text/html", "application/warc", "application/gzip", "image/", "text/css", "application/javascript", "font/", "audio/", "video/"],
+  "required_binaries": [
+    {
+      "name": "{WGET_BINARY}",
+      "binproviders": "env,apt,brew",
+      "min_version": null
+    }
+  ],
+  "output_mimetypes": [
+    "text/html",
+    "application/warc",
+    "application/gzip",
+    "image/",
+    "text/css",
+    "application/javascript",
+    "font/",
+    "audio/",
+    "video/"
+  ],
   "properties": {
     "WGET_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SAVE_WGET", "USE_WGET"],
+      "x-aliases": [
+        "SAVE_WGET",
+        "USE_WGET"
+      ],
       "description": "Enable wget archiving"
     },
     "WGET_WARC_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SAVE_WARC", "WGET_SAVE_WARC"],
+      "x-aliases": [
+        "SAVE_WARC",
+        "WGET_SAVE_WARC"
+      ],
       "description": "Save WARC archive file"
     },
     "WGET_BINARY": {
@@ -52,7 +74,9 @@
     },
     "WGET_ARGS": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {
+        "type": "string"
+      },
       "default": [
         "--no-verbose",
         "--adjust-extension",
@@ -64,16 +88,23 @@
         "--page-requisites",
         "--restrict-file-names=windows",
         "--tries=2",
-        "-e", "robots=off"
+        "-e",
+        "robots=off"
       ],
-      "x-aliases": ["WGET_DEFAULT_ARGS"],
+      "x-aliases": [
+        "WGET_DEFAULT_ARGS"
+      ],
       "description": "Default wget arguments"
     },
     "WGET_ARGS_EXTRA": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {
+        "type": "string"
+      },
       "default": [],
-      "x-aliases": ["WGET_EXTRA_ARGS"],
+      "x-aliases": [
+        "WGET_EXTRA_ARGS"
+      ],
       "description": "Extra arguments to append to wget command"
     }
   }

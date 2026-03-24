@@ -10,7 +10,11 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.test_utils import parse_jsonl_output, parse_jsonl_records
+from abx_plugins.plugins.base.test_utils import (
+    get_hydrated_required_binaries,
+    parse_jsonl_output,
+    parse_jsonl_records,
+)
 
 
 SCREENSHOT_PLUGIN_DIR = Path(__file__).resolve().parent.parent
@@ -19,11 +23,9 @@ PUPPETEER_PLUGIN_DIR = SCREENSHOT_PLUGIN_DIR.parent / "puppeteer"
 NPM_PLUGIN_DIR = SCREENSHOT_PLUGIN_DIR.parent / "npm"
 
 SCREENSHOT_HOOK = next(SCREENSHOT_PLUGIN_DIR.glob("on_Snapshot__*_screenshot.*"))
-CHROME_INSTALL_HOOK = CHROME_PLUGIN_DIR / "on_Install__70_chrome.finite.bg.py"
 CHROME_LAUNCH_HOOK = CHROME_PLUGIN_DIR / "on_CrawlSetup__90_chrome_launch.daemon.bg.js"
 CHROME_TAB_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__10_chrome_tab.daemon.bg.js"
 CHROME_NAVIGATE_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__30_chrome_navigate.js"
-PUPPETEER_CRAWL_HOOK = PUPPETEER_PLUGIN_DIR / "on_Install__60_puppeteer.py"
 PUPPETEER_BINARY_HOOK = PUPPETEER_PLUGIN_DIR / "on_BinaryRequest__12_puppeteer.py"
 NPM_BINARY_HOOK = NPM_PLUGIN_DIR / "on_BinaryRequest__10_npm.py"
 
@@ -46,6 +48,15 @@ def _apply_machine_updates(records: list[dict], env: dict[str, str]) -> None:
         if not isinstance(config, dict):
             continue
         env.update({str(key): str(value) for key, value in config.items()})
+
+
+def _required_binary_record(plugin_dir: Path, name: str, env: dict[str, str]) -> dict:
+    for record in get_hydrated_required_binaries(plugin_dir, env=env):
+        if record.get("name") == name:
+            return record
+    raise AssertionError(
+        f"{plugin_dir.name} config missing required_binaries entry for {name}"
+    )
 
 
 def _browserless_path(tmp_path: Path, browser_name: str) -> str:
@@ -136,25 +147,7 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     if hasattr(os, "geteuid") and os.geteuid() == 0:
         env["CHROME_SANDBOX"] = "false"
 
-    returncode, stdout, stderr = _run_hook(
-        PUPPETEER_CRAWL_HOOK,
-        env,
-        root_dir,
-        timeout=60,
-    )
-    assert returncode == 0, stderr
-    puppeteer_record = next(
-        (
-            record
-            for record in parse_jsonl_records(stdout)
-            if (
-                record.get("type") == "BinaryRequest"
-                and record.get("name") == "puppeteer"
-            )
-        ),
-        None,
-    )
-    assert puppeteer_record, stdout
+    puppeteer_record = _required_binary_record(PUPPETEER_PLUGIN_DIR, "puppeteer", env)
 
     npm_result = subprocess.run(
         [
@@ -162,7 +155,6 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
             "--machine-id=test-machine",
             "--binary-id=test-puppeteer",
             "--plugin-name=puppeteer",
-            "--hook-name=on_Install__60_puppeteer",
             "--name=puppeteer",
             f"--binproviders={puppeteer_record.get('binproviders', '*')}",
             "--overrides=" + json.dumps(puppeteer_record.get("overrides") or {}),
@@ -178,22 +170,7 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     )
     _apply_machine_updates(parse_jsonl_records(npm_result.stdout), env)
 
-    returncode, stdout, stderr = _run_hook(
-        CHROME_INSTALL_HOOK,
-        env,
-        chrome_dir,
-        timeout=60,
-    )
-    assert returncode == 0, stderr
-    chrome_record = next(
-        (
-            record
-            for record in parse_jsonl_records(stdout)
-            if record.get("type") == "BinaryRequest"
-        ),
-        None,
-    )
-    assert chrome_record, stdout
+    chrome_record = _required_binary_record(CHROME_PLUGIN_DIR, browser_name, env)
     assert chrome_record["name"] == browser_name
 
     browser_result = subprocess.run(
@@ -202,7 +179,6 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
             "--machine-id=test-machine",
             f"--binary-id=test-{browser_name}",
             "--plugin-name=chrome",
-            "--hook-name=on_Install__70_chrome.finite.bg",
             f"--name={chrome_record['name']}",
             f"--binproviders={chrome_record.get('binproviders', '*')}",
             "--overrides=" + json.dumps(chrome_record.get("overrides") or {}),

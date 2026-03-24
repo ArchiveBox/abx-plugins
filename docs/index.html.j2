@@ -660,6 +660,29 @@
         letter-spacing: 0.06em;
       }
 
+      .chip--binary {
+        display: inline-grid;
+        gap: 4px;
+        align-items: start;
+        padding: 10px 12px;
+        border-radius: 16px;
+        text-transform: none;
+        letter-spacing: normal;
+      }
+
+      .chip--binary strong,
+      .chip--binary code {
+        color: var(--ink);
+      }
+
+      .chip--binary small {
+        display: block;
+        color: var(--muted);
+        font-size: 0.72rem;
+        line-height: 1.45;
+        word-break: break-word;
+      }
+
       .plugin-corner-icon {
         position: absolute;
         top: 18px;
@@ -1184,7 +1207,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 <div><strong>Needs plugins:</strong> {{ plugin.required_plugins|join(", ") }}</div>
                 {% endif %}
                 {% if plugin.required_binaries %}
-                <div><strong>Needs binaries:</strong> {{ plugin.required_binaries|join(", ") }}</div>
+                <div><strong>Needs binaries:</strong> {{ plugin.required_binary_summaries[:2]|join("; ") }}{% if plugin.required_binary_summaries|length > 2 %} +{{ plugin.required_binary_summaries|length - 2 }} more{% endif %}</div>
                 {% endif %}
                 {% if plugin.output_mimetypes %}
                 <div><strong>Outputs:</strong> {{ plugin.output_mimetypes[:4]|join(", ") }}{% if plugin.output_mimetypes|length > 4 %} +{{ plugin.output_mimetypes|length - 4 }} more{% endif %}</div>
@@ -1229,7 +1252,16 @@ abx-dl dl 'https://example.com'</code></pre>
                 {% if plugin.required_binaries %}
                 <div class="pill-list">
                   {% for item in plugin.required_binaries %}
-                  <span class="chip">{{ item }}</span>
+                  <span class="chip chip--binary" title="{{ item.title }}">
+                    <code>{{ item.name }}</code>
+                    <small>providers={{ item.binproviders }}</small>
+                    {% if item.min_version %}
+                    <small>min_version={{ item.min_version }}</small>
+                    {% endif %}
+                    {% if item.overrides_summary %}
+                    <small>overrides={{ item.overrides_summary }}</small>
+                    {% endif %}
+                  </span>
                   {% endfor %}
                 </div>
                 {% else %}

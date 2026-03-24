@@ -30,9 +30,7 @@ from abx_pkg import Binary, EnvProvider, NpmProvider
 
 from abx_plugins.plugins.base.utils import (
     emit_installed_binary_record,
-    emit_machine_record,
     load_config,
-    resolve_binary_path,
 )
 
 CLAUDE_SANDBOX_NO_PROXY = (
@@ -67,9 +65,11 @@ def main(
     npm_prefix = Path(lib_dir) / "npm"
     npm_prefix.mkdir(parents=True, exist_ok=True)
     npm_provider = NpmProvider(npm_prefix=npm_prefix)
-    cache_dir = Path(lib_dir) / "puppeteer" / "chrome"
+    cache_dir = Path(
+        (config.PUPPETEER_CACHE_DIR or "").strip() or str(Path(lib_dir) / "puppeteer")
+    )
     cache_dir.mkdir(parents=True, exist_ok=True)
-    os.environ.setdefault("PUPPETEER_CACHE_DIR", str(cache_dir))
+    os.environ["PUPPETEER_CACHE_DIR"] = str(cache_dir)
 
     # Fast-path: if CHROME_BINARY is already available in env, reuse it and avoid
     # a full `puppeteer browsers install` call for this invocation.
@@ -81,7 +81,6 @@ def main(
                 binary=existing_binary,
                 name=name,
             )
-            _emit_browser_machine_config(existing_binary)
             sys.exit(0)
 
     puppeteer_binary = Binary(
@@ -140,8 +139,6 @@ def main(
         name=name,
     )
 
-    _emit_browser_machine_config(chromium_binary)
-
     sys.exit(0)
 
 
@@ -172,7 +169,15 @@ def _parse_override_install_args(
 
 def _run_puppeteer_install(binary: Binary, install_args: list[str], cache_dir: Path):
     cmd = ["browsers", "install", *install_args]
-    proc = binary.exec(cmd=cmd, timeout=300)
+    proc = binary.exec(
+        cmd=cmd,
+        cwd=str(cache_dir),
+        timeout=300,
+        env={
+            **os.environ,
+            "PUPPETEER_CACHE_DIR": str(cache_dir),
+        },
+    )
     if proc.returncode == 0:
         return proc
 
@@ -183,7 +188,7 @@ def _run_puppeteer_install(binary: Binary, install_args: list[str], cache_dir: P
         "--install-deps" in install_args
         and "requires root privileges" in install_output
         and os.geteuid() != 0
-        and resolve_binary_path("sudo")
+        and _load_binary_from_path("sudo", name="sudo")
     ):
         sudo_proc = _run_puppeteer_install_with_sudo(binary, install_args, cache_dir)
         if sudo_proc is not None and sudo_proc.returncode == 0:
@@ -195,7 +200,15 @@ def _run_puppeteer_install(binary: Binary, install_args: list[str], cache_dir: P
     if not _cleanup_partial_chromium_cache(install_output, cache_dir):
         return proc
 
-    return binary.exec(cmd=cmd, timeout=300)
+    return binary.exec(
+        cmd=cmd,
+        cwd=str(cache_dir),
+        timeout=300,
+        env={
+            **os.environ,
+            "PUPPETEER_CACHE_DIR": str(cache_dir),
+        },
+    )
 
 
 def _run_puppeteer_install_with_sudo(
@@ -206,7 +219,7 @@ def _run_puppeteer_install_with_sudo(
     """Re-run puppeteer install via sudo so --install-deps can install system libs."""
     import subprocess as _subprocess
 
-    abspath = str(binary.abspath or resolve_binary_path("puppeteer") or "")
+    abspath = str(binary.abspath or "")
     if not abspath:
         return None
 
@@ -225,6 +238,7 @@ def _run_puppeteer_install_with_sudo(
         capture_output=True,
         text=True,
         timeout=300,
+        cwd=str(cache_dir),
         env=env,
     )
 
@@ -335,37 +349,21 @@ def _emit_browser_binary_record(
     )
 
 
-def _emit_browser_machine_config(binary: Binary) -> None:
-    # Persist stable runtime config only. Browser version metadata already
-    # lives on the Binary record and should not be promoted into Machine.config.
-    emit_machine_record(
-        {
-            "CHROME_BINARY": str(binary.abspath),
-        },
-    )
-
-
-def _resolve_binary_reference(binary_ref: str) -> str | None:
-    resolved_ref = resolve_binary_path(binary_ref)
-    if resolved_ref:
-        return resolved_ref
-
-    path_obj = Path(binary_ref).expanduser()
-    if path_obj.is_absolute() or path_obj.parent != Path("."):
-        return str(path_obj.resolve(strict=False))
-
-    return None
-
-
 def _load_binary_from_path(path: str, name: str) -> Binary | None:
-    resolved_path = _resolve_binary_reference(path)
-    if not resolved_path:
+    raw_path = str(path or "").strip()
+    if not raw_path:
         return None
+    path_obj = Path(raw_path).expanduser()
+    overrides = (
+        {"env": {"abspath": str(path_obj)}}
+        if raw_path.startswith(("~", ".", "/")) or "/" in raw_path or "\\" in raw_path
+        else {}
+    )
     try:
         binary = Binary(
-            name=name,
+            name=path_obj.name if overrides else (name or raw_path),
             binproviders=[EnvProvider()],
-            overrides={"env": {"abspath": resolved_path}},
+            overrides=overrides,
         ).load()
     except Exception:
         return None

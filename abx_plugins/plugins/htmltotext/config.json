@@ -6,12 +6,17 @@
   "additionalProperties": false,
   "required_plugins": [],
   "required_binaries": [],
-  "output_mimetypes": ["text/plain"],
+  "output_mimetypes": [
+    "text/plain"
+  ],
   "properties": {
     "HTMLTOTEXT_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SAVE_HTMLTOTEXT", "USE_HTMLTOTEXT"],
+      "x-aliases": [
+        "SAVE_HTMLTOTEXT",
+        "USE_HTMLTOTEXT"
+      ],
       "description": "Enable HTML to text conversion"
     },
     "HTMLTOTEXT_TIMEOUT": {

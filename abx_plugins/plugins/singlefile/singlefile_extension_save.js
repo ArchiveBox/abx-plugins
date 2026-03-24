@@ -8,8 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
-const { ensureNodeModuleResolution, parseArgs } = require('../base/utils.js');
+const { ensureNodeModuleResolution, loadConfig, parseArgs } = require('../base/utils.js');
 
 // Match the rest of the JS hook lifecycle: ArchiveBox resolves provider-owned
 // node_modules once and passes NODE_MODULES_DIR to hook subprocesses. Helper
@@ -18,14 +17,172 @@ const { ensureNodeModuleResolution, parseArgs } = require('../base/utils.js');
 // hook already has them available.
 ensureNodeModuleResolution(module);
 
+const EXTENSION = {
+    webstore_id: 'mpiodijhokgodhhofbcjdecpffjipkle',
+    name: 'singlefile',
+};
+
 const SNAPSHOT_OUTPUT_DIR = process.cwd();
 const CHROME_SESSION_DIR = path.resolve(SNAPSHOT_OUTPUT_DIR, '..', 'chrome');
-const DOWNLOADS_DIR = process.env.CHROME_DOWNLOADS_DIR ||
-    path.join(process.env.PERSONAS_DIR || path.join(os.homedir(), '.config', 'abx', 'personas'),
-        process.env.ACTIVE_PERSONA || 'Default',
+const hookConfig = loadConfig();
+const DOWNLOADS_DIR = hookConfig.CHROME_DOWNLOADS_DIR ||
+    path.join(hookConfig.PERSONAS_DIR,
+        hookConfig.ACTIVE_PERSONA,
         'chrome_downloads');
 
 process.env.CHROME_DOWNLOADS_DIR = DOWNLOADS_DIR;
+const DOWNLOAD_POLL_INTERVAL_MS = 3000;
+const DOWNLOAD_WAIT_RESERVE_MS = 10000;
+
+function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function getSinglefileDownloadWaitTimeoutMs(config = process.env, elapsedMs = process.uptime() * 1000) {
+    const configuredTimeoutSeconds = Number(config.SINGLEFILE_TIMEOUT || config.TIMEOUT || 60);
+    const totalTimeoutMs = Number.isFinite(configuredTimeoutSeconds) && configuredTimeoutSeconds > 0
+        ? configuredTimeoutSeconds * 1000
+        : 60000;
+    return Math.max(
+        DOWNLOAD_POLL_INTERVAL_MS,
+        totalTimeoutMs - DOWNLOAD_WAIT_RESERVE_MS - Math.max(0, elapsedMs)
+    );
+}
+
+async function saveSinglefileWithExtension(page, extension, options = {}) {
+    if (!extension || !extension.version) {
+        throw new Error('SingleFile extension not found or not loaded');
+    }
+
+    const url = await page.url();
+    console.error(`[singlefile] Triggering extension for: ${url}`);
+
+    const URL_SCHEMES_IGNORED = ['about', 'chrome', 'chrome-extension', 'data', 'javascript', 'blob'];
+    const scheme = url.split(':')[0];
+    if (URL_SCHEMES_IGNORED.includes(scheme)) {
+        console.log(`[⚠️] Skipping SingleFile for URL scheme: ${scheme}`);
+        return null;
+    }
+
+    const downloadsDir = options.downloadsDir || DOWNLOADS_DIR;
+    console.error(`[singlefile] Watching downloads dir: ${downloadsDir}`);
+
+    await fs.promises.mkdir(downloadsDir, { recursive: true });
+
+    const files_before = new Set(
+        (await fs.promises.readdir(downloadsDir))
+            .filter(fn => fn.toLowerCase().endsWith('.html') || fn.toLowerCase().endsWith('.htm'))
+    );
+
+    const out_path = options.outputPath || path.join(SNAPSHOT_OUTPUT_DIR, 'singlefile.html');
+
+    console.error(`[singlefile] Saving via extension (${extension.id})...`);
+    await page.bringToFront();
+
+    console.error('[singlefile] Dispatching extension action...');
+    try {
+        const actionTimeoutMs = options.actionTimeoutMs || 5000;
+        const actionPromise = extension.dispatchAction();
+        const actionResult = await Promise.race([
+            actionPromise,
+            wait(actionTimeoutMs).then(() => 'timeout'),
+        ]);
+        if (actionResult === 'timeout') {
+            console.error(`[singlefile] Extension action did not resolve within ${actionTimeoutMs}ms, continuing...`);
+        }
+    } catch (err) {
+        console.error(`[singlefile] Extension action error: ${err.message || err}`);
+    }
+
+    const waitTimeoutMs = getSinglefileDownloadWaitTimeoutMs();
+    const deadline = Date.now() + waitTimeoutMs;
+    let files_new = [];
+
+    console.error(`[singlefile] Waiting up to ${Math.ceil(waitTimeoutMs / 1000)}s for download...`);
+    for (let attempt = 1; Date.now() < deadline; attempt++) {
+        const remainingBeforeSleepMs = Math.max(1, deadline - Date.now());
+        await wait(Math.min(DOWNLOAD_POLL_INTERVAL_MS, remainingBeforeSleepMs));
+
+        const files_after = (await fs.promises.readdir(downloadsDir))
+            .filter(fn => fn.toLowerCase().endsWith('.html') || fn.toLowerCase().endsWith('.htm'));
+
+        files_new = files_after.filter(file => !files_before.has(file));
+
+        if (files_new.length === 0) {
+            const remainingAfterPollSeconds = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+            console.error(`[singlefile] No new downloads yet (${attempt}, ${remainingAfterPollSeconds}s remaining)`);
+            continue;
+        }
+
+        console.error(`[singlefile] New download(s) detected: ${files_new.join(', ')}`);
+
+        const url_variants = new Set([url]);
+        if (url.endsWith('/')) {
+            url_variants.add(url.slice(0, -1));
+        } else {
+            url_variants.add(`${url}/`);
+        }
+
+        const scored = [];
+        for (const file of files_new) {
+            const dl_path = path.join(downloadsDir, file);
+            let header = '';
+            try {
+                const dl_text = await fs.promises.readFile(dl_path, 'utf-8');
+                header = dl_text.slice(0, 200000);
+                const stat = await fs.promises.stat(dl_path);
+                console.error(`[singlefile] Download ${file} size=${stat.size} bytes`);
+            } catch (err) {
+                continue;
+            }
+
+            const header_lower = header.toLowerCase();
+            const has_url = Array.from(url_variants).some(v => header.includes(v));
+            const has_singlefile_marker = header_lower.includes('singlefile') || header_lower.includes('single-file');
+            const score = (has_url ? 2 : 0) + (has_singlefile_marker ? 1 : 0);
+            scored.push({ file, dl_path, score });
+        }
+
+        scored.sort((a, b) => b.score - a.score);
+
+        if (scored.length > 0) {
+            const best = scored[0];
+            if (best.score > 0 || files_new.length === 1) {
+                console.error(`[singlefile] Moving download from ${best.file} -> ${out_path}`);
+                await fs.promises.rename(best.dl_path, out_path);
+                const out_stat = await fs.promises.stat(out_path);
+                console.error(`[singlefile] Moved file size=${out_stat.size} bytes`);
+                return out_path;
+            }
+        }
+
+        if (files_new.length > 0) {
+            let newest = null;
+            let newest_mtime = -1;
+            for (const file of files_new) {
+                const dl_path = path.join(downloadsDir, file);
+                try {
+                    const stat = await fs.promises.stat(dl_path);
+                    if (stat.mtimeMs > newest_mtime) {
+                        newest_mtime = stat.mtimeMs;
+                        newest = { file, dl_path };
+                    }
+                } catch (err) {}
+            }
+            if (newest) {
+                console.error(`[singlefile] Moving newest download from ${newest.file} -> ${out_path}`);
+                await fs.promises.rename(newest.dl_path, out_path);
+                const out_stat = await fs.promises.stat(out_path);
+                console.error(`[singlefile] Moved file size=${out_stat.size} bytes`);
+                return out_path;
+            }
+        }
+    }
+
+    console.error(`[singlefile] Failed to find SingleFile HTML in ${downloadsDir} after ${Math.ceil(waitTimeoutMs / 1000)}s`);
+    console.error(`[singlefile] New files seen: ${files_new.join(', ')}`);
+    return null;
+}
 
 async function main() {
     const args = parseArgs();
@@ -45,12 +202,8 @@ async function main() {
 
     try {
         console.error('[singlefile] loading dependencies...');
-        const puppeteer = require('puppeteer-core');
         const chromeUtils = require('../chrome/chrome_utils.js');
-        const {
-            EXTENSION,
-            saveSinglefileWithExtension,
-        } = require('./on_Install__82_singlefile.js');
+        const puppeteer = chromeUtils.resolvePuppeteerModule();
         if (process.cwd() !== SNAPSHOT_OUTPUT_DIR) {
             process.chdir(SNAPSHOT_OUTPUT_DIR);
         }
@@ -154,3 +307,9 @@ async function main() {
 if (require.main === module) {
     main();
 }
+
+module.exports = {
+    EXTENSION,
+    getSinglefileDownloadWaitTimeoutMs,
+    saveSinglefileWithExtension,
+};

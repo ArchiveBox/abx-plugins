@@ -5,9 +5,7 @@
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
-  "required_binaries": [
-    "cargo"
-  ],
+  "required_binaries": [],
   "output_mimetypes": [],
   "properties": {}
 }

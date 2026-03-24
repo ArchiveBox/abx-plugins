@@ -5,8 +5,46 @@
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
-  "required_binaries": ["yt-dlp", "node", "ffmpeg"],
-  "output_mimetypes": ["audio/", "video/", "image/", "application/x-subrip", "text/vtt", "application/json", "text/plain"],
+  "required_binaries": [
+    {
+      "name": "{YTDLP_BINARY}",
+      "binproviders": "env,pip,brew,apt",
+      "min_version": null,
+      "overrides": {
+        "pip": {
+          "install_args": [
+            "yt-dlp[default]"
+          ]
+        }
+      }
+    },
+    {
+      "name": "{NODE_BINARY}",
+      "binproviders": "env,apt,brew",
+      "min_version": null,
+      "overrides": {
+        "apt": {
+          "install_args": [
+            "nodejs"
+          ]
+        }
+      }
+    },
+    {
+      "name": "ffmpeg",
+      "binproviders": "env,apt,brew",
+      "min_version": null
+    }
+  ],
+  "output_mimetypes": [
+    "audio/",
+    "video/",
+    "image/",
+    "application/x-subrip",
+    "text/vtt",
+    "application/json",
+    "text/plain"
+  ],
   "properties": {
     "YTDLP_ENABLED": {
       "type": "boolean",
@@ -24,13 +62,15 @@
     "YTDLP_BINARY": {
       "type": "string",
       "default": "yt-dlp",
-      "x-aliases": ["YOUTUBEDL_BINARY", "YOUTUBE_DL_BINARY"],
+      "x-aliases": [
+        "YOUTUBEDL_BINARY",
+        "YOUTUBE_DL_BINARY"
+      ],
       "description": "Path to yt-dlp binary"
     },
-    "YTDLP_NODE_BINARY": {
+    "NODE_BINARY": {
       "type": "string",
       "default": "node",
-      "x-fallback": "NODE_BINARY",
       "description": "Path to Node.js binary for yt-dlp JS runtime"
     },
     "YTDLP_TIMEOUT": {
@@ -38,7 +78,9 @@
       "default": 3600,
       "minimum": 30,
       "x-fallback": "TIMEOUT",
-      "x-aliases": ["MEDIA_TIMEOUT"],
+      "x-aliases": [
+        "MEDIA_TIMEOUT"
+      ],
       "description": "Timeout for yt-dlp downloads in seconds"
     },
     "YTDLP_COOKIES_FILE": {
@@ -51,7 +93,9 @@
       "type": "string",
       "default": "750m",
       "pattern": "^\\d+[kmgKMG]?$",
-      "x-aliases": ["MEDIA_MAX_SIZE"],
+      "x-aliases": [
+        "MEDIA_MAX_SIZE"
+      ],
       "description": "Maximum file size for yt-dlp downloads"
     },
     "YTDLP_CHECK_SSL_VALIDITY": {
@@ -62,7 +106,9 @@
     },
     "YTDLP_ARGS": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "default": [
         "--restrict-filenames",
         "--trim-filenames=128",
@@ -83,14 +129,20 @@
         "-o",
         "%(title)s.%(ext)s"
       ],
-      "x-aliases": ["YTDLP_DEFAULT_ARGS"],
+      "x-aliases": [
+        "YTDLP_DEFAULT_ARGS"
+      ],
       "description": "Default yt-dlp arguments"
     },
     "YTDLP_ARGS_EXTRA": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "default": [],
-      "x-aliases": ["YTDLP_EXTRA_ARGS"],
+      "x-aliases": [
+        "YTDLP_EXTRA_ARGS"
+      ],
       "description": "Extra arguments to append to yt-dlp command"
     }
   }

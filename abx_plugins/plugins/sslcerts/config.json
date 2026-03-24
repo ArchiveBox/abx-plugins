@@ -4,14 +4,42 @@
   "description": "Capture TLS certificate and connection metadata for the loaded page.",
   "type": "object",
   "additionalProperties": false,
-  "required_plugins": ["chrome"],
-  "required_binaries": ["chrome"],
-  "output_mimetypes": ["application/x-ndjson"],
+  "required_plugins": [
+    "chrome"
+  ],
+  "required_binaries": [
+    {
+      "name": "{CHROME_BINARY}",
+      "binproviders": "env,puppeteer",
+      "min_version": null,
+      "overrides": {
+        "puppeteer": [
+          "chromium@latest",
+          "--install-deps"
+        ]
+      }
+    }
+  ],
+  "output_mimetypes": [
+    "application/x-ndjson"
+  ],
   "properties": {
+    "CHROME_BINARY": {
+      "type": "string",
+      "default": "chromium",
+      "x-aliases": [
+        "CHROMIUM_BINARY",
+        "GOOGLE_CHROME_BINARY"
+      ],
+      "description": "Path to Chromium binary"
+    },
     "SSLCERTS_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SAVE_SSLCERTS", "USE_SSLCERTS"],
+      "x-aliases": [
+        "SAVE_SSLCERTS",
+        "USE_SSLCERTS"
+      ],
       "description": "Enable SSL certificate capture"
     },
     "SSLCERTS_TIMEOUT": {

@@ -4,14 +4,38 @@
   "description": "Use Claude Code to generate clean Markdown from snapshot extractor outputs.",
   "type": "object",
   "additionalProperties": false,
-  "required_plugins": ["claudecode"],
-  "required_binaries": ["claude"],
-  "output_mimetypes": ["text/markdown"],
+  "required_plugins": [
+    "claudecode"
+  ],
+  "required_binaries": [
+    {
+      "name": "{CLAUDECODE_BINARY}",
+      "binproviders": "env,npm",
+      "min_version": null,
+      "overrides": {
+        "npm": {
+          "install_args": [
+            "@anthropic-ai/claude-code"
+          ]
+        }
+      }
+    }
+  ],
+  "output_mimetypes": [
+    "text/markdown"
+  ],
   "properties": {
+    "CLAUDECODE_BINARY": {
+      "type": "string",
+      "default": "claude",
+      "description": "Path to Claude Code CLI binary"
+    },
     "CLAUDECODEEXTRACT_ENABLED": {
       "type": "boolean",
       "default": false,
-      "x-aliases": ["USE_CLAUDECODEEXTRACT"],
+      "x-aliases": [
+        "USE_CLAUDECODEEXTRACT"
+      ],
       "description": "Enable Claude Code AI extraction"
     },
     "CLAUDECODEEXTRACT_TIMEOUT": {

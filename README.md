@@ -22,7 +22,6 @@ without symlinks or environment-variable tricks.
 Each plugin lives under `plugins/<name>/` and may include:
 
 - `config.json` config schema
-- `on_Install__...` install-phase hook scripts (optional) - declare binary dependencies
 - `on_CrawlSetup__...` crawl setup hook scripts (optional) - shared setup/process startup
 - `on_BinaryRequest__...` binary provider hooks (optional) - resolve/install one requested binary
 - `on_Snapshot__...` per-snapshot hooks - for each URL: do xyz...
@@ -43,17 +42,17 @@ Hooks run with:
 - `PERSONAS_DIR` - persona profiles root (default: `~/.config/abx/personas`)
 - `ACTIVE_PERSONA` - persona name (default: `Default`)
 
-### Install hook contract (concise)
+### Binary dependency contract (concise)
 
 Lifecycle:
 
-1. `on_Install__*` declares crawl dependencies.
+1. `config.json > required_binaries` declares plugin dependencies.
 2. `on_BinaryRequest__*` resolves/installs one binary with one provider.
 
-`on_Install` output (dependency declaration):
+`config.json` declaration:
 
 ```json
-{"type":"BinaryRequest","name":"yt-dlp","binproviders":"pip,brew,apt,env","overrides":{"pip":{"install_args":["yt-dlp[default]"]}},"machine_id":"<optional>"}
+[{"name":"{YTDLP_BINARY}","binproviders":"pip,brew,apt,env","min_version":null,"overrides":{"pip":{"install_args":["yt-dlp[default]"]}}}]
 ```
 
 `on_BinaryRequest` input/output:
@@ -68,7 +67,7 @@ Lifecycle:
 Optional machine patch record:
 
 ```json
-{"type":"Machine","config":{"PATH":"...","NODE_MODULES_DIR":"...","CHROME_BINARY":"..."}}
+{"type":"Machine","config":{"SOME_RUNTIME_FLAG":"value"}}
 ```
 
 Semantics:
@@ -120,17 +119,16 @@ The `base/` plugin provides shared Python and JS helpers that all other plugins 
 
 **Python** (`base/utils.py`):
 ```python
-from abx_plugins.plugins.base.utils import load_config, emit_archive_result, get_env
+from abx_plugins.plugins.base.utils import load_config, emit_archive_result
 ```
 
-- `load_config()` — load plugin `config.json` via PydanticSettings with env var + alias resolution, merged with shared base/common runtime vars like `SNAP_DIR`, `CRAWL_DIR`, `LIB_DIR`, `PERSONAS_DIR`, `EXTRA_CONTEXT`, `TIMEOUT`, and `USER_AGENT`
+- `load_config()` — load plugin `config.json` via jambo with env var + alias + fallback resolution, merged with shared base/common runtime vars like `SNAP_DIR`, `CRAWL_DIR`, `LIB_DIR`, `PERSONAS_DIR`, `EXTRA_CONTEXT`, `TIMEOUT`, and `USER_AGENT`
 - `emit_archive_result(status, output_str)` — print `{"type":"ArchiveResult",...}` JSONL to stdout
 - `output_binary(name, abspath, version, ...)` — emit `Binary` JSONL record
 - `output_machine_config(config_dict)` — emit `Machine` config patch
 - `write_text_atomic(path, content)` — write file atomically (temp + rename)
 - `find_html_source(snap_dir, ...)` — locate HTML from sibling plugins
 - `has_staticfile_output(snap_dir, path)` — check if a sibling plugin produced a file
-- `get_env(name, default)`, `get_env_bool`, `get_env_int`, `get_env_array` — typed env helpers
 - `enforce_lib_permissions()` — lock down `LIB_DIR` so snapshot hooks can read/execute but not write
 
 **JS** (`base/utils.js`):

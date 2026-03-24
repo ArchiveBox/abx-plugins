@@ -423,7 +423,7 @@ def test_staticfile_present_skips():
         staticfile_dir = tmpdir / "staticfile"
         staticfile_dir.mkdir()
         (staticfile_dir / "stdout.log").write_text(
-            '{"type":"ArchiveResult","status":"succeeded","output_str":"index.html"}\n',
+            '{"type":"ArchiveResult","status":"succeeded","output_str":"responses/example.com/test.json","content_type":"application/json"}\n',
         )
 
         wget_dir = tmpdir / "wget"

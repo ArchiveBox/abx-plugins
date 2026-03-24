@@ -31,14 +31,12 @@ import fcntl
 
 from abx_plugins.plugins.base.utils import (
     emit_installed_binary_record,
-    emit_machine_record,
     enforce_lib_permissions,
     load_config,
-    resolve_binary_path,
 )
 
 import rich_click as click
-from abx_pkg import Binary, PipProvider, SemVer
+from abx_pkg import Binary, EnvProvider, PipProvider, SemVer
 
 
 def _is_executable(path: Path) -> bool:
@@ -60,6 +58,32 @@ def _seed_pip_venv(pip_venv_path: Path, preferred_python: str) -> bool:
     except Exception:
         return False
     return _pip_venv_is_ready(pip_venv_path)
+
+
+def _load_env_binary_abspath(binary_ref: str) -> str | None:
+    raw_ref = str(binary_ref or "").strip()
+    if not raw_ref:
+        return None
+
+    path_ref = Path(raw_ref).expanduser()
+    overrides = (
+        {"env": {"abspath": str(path_ref)}}
+        if raw_ref.startswith(("~", ".", "/")) or "/" in raw_ref or "\\" in raw_ref
+        else {}
+    )
+    lookup_name = path_ref.name if overrides else raw_ref
+
+    try:
+        binary = Binary(
+            name=lookup_name,
+            binproviders=[EnvProvider()],
+            overrides=overrides,
+        ).load()
+    except Exception:
+        return None
+    if not binary or not binary.abspath:
+        return None
+    return str(binary.abspath)
 
 
 @contextmanager
@@ -108,7 +132,7 @@ def main(
     preferred_python = (config.PIP_VENV_PYTHON or "").strip()
     if not preferred_python and sys.version_info[:2] >= (3, 14):
         for candidate in ("python3.12", "python3.11", "python3.13"):
-            candidate_path = resolve_binary_path(candidate)
+            candidate_path = _load_env_binary_abspath(candidate)
             if candidate_path:
                 preferred_python = candidate_path
                 break
@@ -117,9 +141,7 @@ def main(
         if current_python.is_file():
             preferred_python = str(current_python)
         else:
-            current_python = (
-                resolve_binary_path(Path(sys.executable).name) or sys.executable
-            )
+            current_python = _load_env_binary_abspath(Path(sys.executable).name) or sys.executable
             if current_python:
                 preferred_python = current_python
     if not preferred_python:
@@ -130,7 +152,7 @@ def main(
             "python3.13",
             "python3.14",
         ):
-            candidate_path = resolve_binary_path(candidate)
+            candidate_path = _load_env_binary_abspath(candidate)
             if candidate_path:
                 preferred_python = candidate_path
                 break
@@ -186,21 +208,6 @@ def main(
         version=str(binary.version) if binary.version else "",
         sha256=binary.sha256 or "",
         binprovider="pip",
-    )
-
-    # Emit PATH update for pip bin dir
-    pip_bin_dir = str(pip_venv_path / "bin")
-    current_path = config.PATH or ""
-
-    # Check if pip_bin_dir is already in PATH
-    path_dirs = current_path.split(":")
-    new_path = f"{pip_bin_dir}:{current_path}" if current_path else pip_bin_dir
-    if pip_bin_dir in path_dirs:
-        new_path = current_path
-    emit_machine_record(
-        {
-            "PATH": new_path,
-        },
     )
 
     # Log human-readable info to stderr

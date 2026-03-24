@@ -41,10 +41,10 @@ import sys
 import tempfile
 from pathlib import Path
 
+from abx_pkg import AptProvider, Binary, BrewProvider, EnvProvider, SemVer
 from abx_plugins.plugins.base.utils import (
     load_config,
     emit_archive_result_record,
-    resolve_binary_path,
     write_text_atomic,
 )
 
@@ -71,14 +71,22 @@ class OpendataloaderRunError(RuntimeError):
 
 
 def _opendataloader_env(java_binary: str) -> dict[str, str] | None:
-    java_binary = java_binary.strip()
-    if not java_binary:
-        return None
+    provider_order = [EnvProvider(), BrewProvider()]
+    if sys.platform != "darwin":
+        provider_order.append(AptProvider())
 
-    resolved = resolve_binary_path(java_binary)
-    if not resolved:
+    java = Binary(
+        name=java_binary,
+        min_version=SemVer("11.0.0"),
+        binproviders=provider_order,
+        overrides={
+            "brew": {"install_args": ["openjdk"]},
+            "apt": {"install_args": ["default-jre"]},
+        },
+    ).load_or_install()
+    if not java or not java.abspath:
         return None
-    java_path = Path(resolved)
+    java_path = Path(java.abspath)
 
     env = os.environ.copy()
     java_bin_dir = str(java_path.parent)

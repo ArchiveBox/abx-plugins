@@ -169,6 +169,10 @@ function loadConfig(configPath = null) {
         config[name] = parseConfigValue(rawValue, prop);
     }
 
+    if (!config.PERSONAS_DIR) {
+        config.PERSONAS_DIR = path.join(os.homedir(), '.config', 'abx', 'personas');
+    }
+
     configCache.set(cacheKey, {
         config,
         pluginMtime,

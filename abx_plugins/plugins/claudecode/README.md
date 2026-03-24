@@ -38,7 +38,7 @@ Imported by child plugins:
 
 - `build_system_prompt(snap_dir, crawl_dir, extra_context)` — Builds a system prompt describing the ArchiveBox directory layout and current snapshot metadata.
 - `run_claude_code(prompt, work_dir, ...)` — Spawns the Claude Code CLI as a subprocess with the given prompt, model, timeout, allowed tools, and env filtering.
-- `get_env()`, `get_env_bool()`, `get_env_int()` — Typed env var helpers.
+- `load_config()` — Loads typed Claude/child-plugin config with aliases and fallbacks already resolved.
 - `emit_archive_result(status, output_str)` — Prints a JSON `ArchiveResult` record to stdout.
 
 ## Usage

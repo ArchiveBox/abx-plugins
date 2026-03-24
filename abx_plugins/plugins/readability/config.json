@@ -5,13 +5,33 @@
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
-  "required_binaries": ["readability-extractor"],
-  "output_mimetypes": ["text/html", "text/plain", "application/json"],
+  "required_binaries": [
+    {
+      "name": "{READABILITY_BINARY}",
+      "binproviders": "env,npm",
+      "min_version": null,
+      "overrides": {
+        "npm": {
+          "install_args": [
+            "https://github.com/ArchiveBox/readability-extractor"
+          ]
+        }
+      }
+    }
+  ],
+  "output_mimetypes": [
+    "text/html",
+    "text/plain",
+    "application/json"
+  ],
   "properties": {
     "READABILITY_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SAVE_READABILITY", "USE_READABILITY"],
+      "x-aliases": [
+        "SAVE_READABILITY",
+        "USE_READABILITY"
+      ],
       "description": "Enable Readability text extraction"
     },
     "READABILITY_BINARY": {
@@ -28,16 +48,24 @@
     },
     "READABILITY_ARGS": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {
+        "type": "string"
+      },
       "default": [],
-      "x-aliases": ["READABILITY_DEFAULT_ARGS"],
+      "x-aliases": [
+        "READABILITY_DEFAULT_ARGS"
+      ],
       "description": "Default Readability arguments"
     },
     "READABILITY_ARGS_EXTRA": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {
+        "type": "string"
+      },
       "default": [],
-      "x-aliases": ["READABILITY_EXTRA_ARGS"],
+      "x-aliases": [
+        "READABILITY_EXTRA_ARGS"
+      ],
       "description": "Extra arguments to append to Readability command"
     }
   }

@@ -153,7 +153,9 @@ def test_extracts_local_html_outputs_with_real_binary(httpserver):
     test_url = httpserver.url_for("/trafilatura-article")
 
     httpserver.expect_request("/trafilatura-article").respond_with_data(
-        "<html><head><title>Trafilatura Test Article</title></head><body>"
+        "<html><head><title>Trafilatura Test Article</title>"
+        '<meta property="article:tag" content="alpha">'
+        '<meta property="article:tag" content="beta"></head><body>'
         "<article><h1>Example Domain</h1>"
         "<p>This domain is for use in illustrative examples in documents.</p>"
         "<p>More information can be found in the docs.</p>"
@@ -174,7 +176,7 @@ def test_extracts_local_html_outputs_with_real_binary(httpserver):
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
         env["TRAFILATURA_BINARY"] = binary_path
-        env["TRAFILATURA_OUTPUT_JSON"] = "true"
+        env["TRAFILATURA_OUTPUT_FORMATS"] = "txt,markdown,html,json"
 
         result = subprocess.run(
             [
@@ -296,13 +298,7 @@ def test_output_format_toggles_map_to_expected_files(httpserver):
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
         env["TRAFILATURA_BINARY"] = binary_path
-        env["TRAFILATURA_OUTPUT_TXT"] = "false"
-        env["TRAFILATURA_OUTPUT_MARKDOWN"] = "false"
-        env["TRAFILATURA_OUTPUT_HTML"] = "false"
-        env["TRAFILATURA_OUTPUT_JSON"] = "false"
-        env["TRAFILATURA_OUTPUT_CSV"] = "true"
-        env["TRAFILATURA_OUTPUT_XML"] = "true"
-        env["TRAFILATURA_OUTPUT_XMLTEI"] = "true"
+        env["TRAFILATURA_OUTPUT_FORMATS"] = "csv,xml,xmltei"
 
         result = subprocess.run(
             [
@@ -369,13 +365,7 @@ def test_outputs_all_supported_formats_together(httpserver):
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
         env["TRAFILATURA_BINARY"] = binary_path
-        env["TRAFILATURA_OUTPUT_TXT"] = "true"
-        env["TRAFILATURA_OUTPUT_MARKDOWN"] = "true"
-        env["TRAFILATURA_OUTPUT_HTML"] = "true"
-        env["TRAFILATURA_OUTPUT_CSV"] = "true"
-        env["TRAFILATURA_OUTPUT_JSON"] = "true"
-        env["TRAFILATURA_OUTPUT_XML"] = "true"
-        env["TRAFILATURA_OUTPUT_XMLTEI"] = "true"
+        env["TRAFILATURA_OUTPUT_FORMATS"] = "txt,markdown,html,csv,json,xml,xmltei"
 
         result = subprocess.run(
             [

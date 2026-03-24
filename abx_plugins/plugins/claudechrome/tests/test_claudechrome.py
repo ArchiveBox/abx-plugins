@@ -11,6 +11,7 @@ Tests verify:
 7. Full integration: launches Chrome, runs Claude computer-use, produces output files
 """
 
+import ast
 import json
 import tempfile
 from pathlib import Path
@@ -152,11 +153,10 @@ class TestClaudeChromePlugin:
         assert (templates_dir / "card.html").exists()
         assert (templates_dir / "full.html").exists()
 
-    def test_install_hook_reports_skipped_when_disabled(self):
-        """Install hook should not run when CLAUDECHROME_ENABLED=false."""
+    def test_install_hook_reports_required_binaries(self):
+        """Install hook should emit the required_binaries array for claudechrome."""
         assert _INSTALL_HOOK is not None
         env = get_test_env()
-        env["CLAUDECHROME_ENABLED"] = "false"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             env["CRAWL_DIR"] = tmpdir
@@ -170,7 +170,13 @@ class TestClaudeChromePlugin:
             )
 
             assert returncode == 0, f"Hook failed: {stderr}"
-            assert stdout.strip() == "SKIPPED: CLAUDECHROME_ENABLED=False"
+            required_binaries = ast.literal_eval(stdout)
+            claudechrome_binary = next(
+                binary
+                for binary in required_binaries
+                if binary.get("name") == "claudechrome"
+            )
+            assert claudechrome_binary["binproviders"] == "chromewebstore"
 
     def test_config_hook_reports_skipped_when_disabled(self):
         """Config hook should report skipped when CLAUDECHROME_ENABLED=false."""

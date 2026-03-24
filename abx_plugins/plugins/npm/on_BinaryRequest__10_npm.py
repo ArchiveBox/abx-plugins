@@ -11,7 +11,7 @@
 # abx-plugins = { path = "../../..", editable = true }
 # ///
 #
-# Install a binary using npm package manager and configure PATH and NODE_MODULES_DIR environment variables.
+# Install a binary using npm package manager.
 #
 # Usage:
 #     ./on_BinaryRequest__10_npm.py --name=<name> [...] > events.jsonl
@@ -22,27 +22,12 @@ from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
     emit_installed_binary_record,
-    emit_machine_record,
     enforce_lib_permissions,
     load_config,
 )
 
 import rich_click as click
 from abx_pkg import Binary, NpmProvider, SemVer
-
-
-def _resolve_node_modules_dir(binary_abspath: str | Path, npm_prefix: Path) -> Path:
-    """Infer the node_modules directory that actually owns the resolved binary."""
-    binary_path = Path(binary_abspath)
-
-    # Typical npm CLI binaries live in <prefix>/node_modules/.bin/<name>.
-    if (
-        binary_path.parent.name == ".bin"
-        and binary_path.parent.parent.name == "node_modules"
-    ):
-        return binary_path.parent.parent
-
-    return npm_prefix / "node_modules"
 
 
 @click.command(
@@ -121,36 +106,6 @@ def main(
         version=str(binary.version) if binary.version else "",
         sha256=binary.sha256 or "",
         binprovider="npm",
-    )
-
-    # Emit PATH update for npm bin dirs (node_modules/.bin preferred)
-    npm_bin_dirs = [
-        str(npm_prefix / "node_modules" / ".bin"),
-        str(npm_prefix / "bin"),
-    ]
-    current_path = config.PATH or ""
-    path_dirs = current_path.split(":") if current_path else []
-    new_path = current_path
-
-    for npm_bin_dir in npm_bin_dirs:
-        if npm_bin_dir and npm_bin_dir not in path_dirs:
-            new_path = f"{npm_bin_dir}:{new_path}" if new_path else npm_bin_dir
-            path_dirs.insert(0, npm_bin_dir)
-
-    emit_machine_record(
-        {
-            "PATH": new_path,
-        },
-    )
-
-    # Emit JS module resolution env vars for downstream node-based hooks.
-    node_modules_dir = str(_resolve_node_modules_dir(binary.abspath, npm_prefix))
-    emit_machine_record(
-        {
-            "NODE_MODULES_DIR": node_modules_dir,
-            "NODE_MODULE_DIR": node_modules_dir,
-            "NODE_PATH": node_modules_dir,
-        },
     )
 
     # Log human-readable info to stderr

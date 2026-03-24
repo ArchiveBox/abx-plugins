@@ -18,7 +18,6 @@ Output: Writes singlefile.html to $PWD
 Environment variables:
     SINGLEFILE_ENABLED: Enable SingleFile archiving (default: True)
     SINGLEFILE_BINARY: Path to SingleFile binary (default: single-file)
-    SINGLEFILE_CHROME_BINARY: Path to Chrome binary (x-fallback: CHROME_BINARY) [unused; shared Chrome session required]
     SINGLEFILE_TIMEOUT: Timeout in seconds (x-fallback: TIMEOUT)
     SINGLEFILE_USER_AGENT: User agent string (x-fallback: USER_AGENT)
     SINGLEFILE_COOKIES_FILE: Path to cookies file (x-fallback: COOKIES_FILE)
@@ -28,6 +27,7 @@ Environment variables:
     SINGLEFILE_ARGS_EXTRA: Extra arguments to append (JSON array)
 """
 
+import json
 import os
 import subprocess
 import sys
@@ -255,12 +255,30 @@ def save_singlefile_with_extension(
     ]
     print(f"[singlefile] helper_cmd={' '.join(cmd)}", file=sys.stderr)
 
+    helper_env = os.environ.copy()
+    runtime_env_result = run_chrome_utils(
+        "getTestEnv",
+        timeout=max(10, min(timeout, 30)),
+    )
+    if runtime_env_result.returncode == 0 and runtime_env_result.stdout.strip():
+        try:
+            helper_env.update(
+                {
+                    key: str(value)
+                    for key, value in json.loads(runtime_env_result.stdout).items()
+                    if value not in (None, "")
+                },
+            )
+        except Exception:
+            pass
+
     try:
         output_lines: list[str] = []
         error_lines: list[str] = []
         process = subprocess.Popen(
             cmd,
             cwd=str(OUTPUT_DIR),
+            env=helper_env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,

@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Chrome Web Store Provider",
+  "description": "Resolve Chrome Web Store extensions as installable binary-like artifacts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [
+    "chrome"
+  ],
+  "output_mimetypes": [],
+  "properties": {
+    "NODE_BINARY": {
+      "type": "string",
+      "default": "node",
+      "description": "Path to Node.js binary"
+    },
+    "PERSONAS_DIR": {
+      "type": "string",
+      "default": "",
+      "description": "Shared Chrome/browser personas root"
+    },
+    "ACTIVE_PERSONA": {
+      "type": "string",
+      "default": "Default",
+      "description": "Active browser persona name"
+    },
+    "CHROME_EXTENSIONS_DIR": {
+      "type": "string",
+      "default": "",
+      "description": "Path to installed Chrome extensions directory"
+    }
+  },
+  "required_binaries": [
+    {
+      "name": "{NODE_BINARY}",
+      "binproviders": "env,apt,brew",
+      "min_version": null,
+      "overrides": {
+        "apt": {
+          "install_args": [
+            "nodejs"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -6,12 +6,16 @@
   "additionalProperties": false,
   "required_plugins": [],
   "required_binaries": [],
-  "output_mimetypes": ["application/x-ndjson"],
+  "output_mimetypes": [
+    "application/x-ndjson"
+  ],
   "properties": {
     "PARSE_HTML_URLS_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["USE_PARSE_HTML_URLS"],
+      "x-aliases": [
+        "USE_PARSE_HTML_URLS"
+      ],
       "description": "Enable HTML URL parsing"
     }
   }

@@ -5,13 +5,33 @@
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
-  "required_binaries": ["postlight-parser"],
-  "output_mimetypes": ["text/html", "text/plain", "application/json"],
+  "required_binaries": [
+    {
+      "name": "{MERCURY_BINARY}",
+      "binproviders": "npm,env",
+      "min_version": null,
+      "overrides": {
+        "npm": {
+          "install_args": [
+            "@postlight/parser"
+          ]
+        }
+      }
+    }
+  ],
+  "output_mimetypes": [
+    "text/html",
+    "text/plain",
+    "application/json"
+  ],
   "properties": {
     "MERCURY_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SAVE_MERCURY", "USE_MERCURY"],
+      "x-aliases": [
+        "SAVE_MERCURY",
+        "USE_MERCURY"
+      ],
       "description": "Enable Mercury text extraction"
     },
     "MERCURY_BINARY": {
@@ -28,16 +48,24 @@
     },
     "MERCURY_ARGS": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {
+        "type": "string"
+      },
       "default": [],
-      "x-aliases": ["MERCURY_DEFAULT_ARGS"],
+      "x-aliases": [
+        "MERCURY_DEFAULT_ARGS"
+      ],
       "description": "Default Mercury parser arguments"
     },
     "MERCURY_ARGS_EXTRA": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {
+        "type": "string"
+      },
       "default": [],
-      "x-aliases": ["MERCURY_EXTRA_ARGS"],
+      "x-aliases": [
+        "MERCURY_EXTRA_ARGS"
+      ],
       "description": "Extra arguments to append to Mercury parser command"
     }
   }

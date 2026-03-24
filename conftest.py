@@ -15,7 +15,6 @@ import pytest
 
 from abx_plugins.plugins.base.test_utils import (
     assert_isolated_snapshot_env,
-    parse_jsonl_output,
     parse_jsonl_records,
 )
 
@@ -25,9 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 PLUGINS_ROOT = Path(__file__).resolve().parent / "abx_plugins" / "plugins"
-CLAUDECODE_INSTALL_HOOK = (
-    PLUGINS_ROOT / "claudecode" / "on_Install__35_claudecode.finite.bg.py"
-)
+CLAUDECODE_CONFIG = PLUGINS_ROOT / "claudecode" / "config.json"
 NPM_BINARY_HOOK = PLUGINS_ROOT / "npm" / "on_BinaryRequest__10_npm.py"
 
 
@@ -152,11 +149,22 @@ def isolated_test_env(
     resolved_lib = (
         Path(os.environ["LIB_DIR"]) if "LIB_DIR" in os.environ else get_lib_dir()
     )
+    resolved_uv_cache = Path(
+        os.environ.get(
+            "UV_CACHE_DIR",
+            str(
+                Path(os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache")))
+                / "uv"
+            ),
+        ),
+    )
+    resolved_uv_cache.mkdir(parents=True, exist_ok=True)
 
     monkeypatch.setenv("HOME", str(home_dir))
     # Mirror abx-dl runtime semantics: both resolve to the current run directory.
     monkeypatch.setenv("CRAWL_DIR", str(run_dir))
     monkeypatch.setenv("SNAP_DIR", str(run_dir))
+    monkeypatch.setenv("UV_CACHE_DIR", str(resolved_uv_cache))
 
     if "LIB_DIR" not in os.environ:
         monkeypatch.setenv("LIB_DIR", str(resolved_lib))
@@ -274,28 +282,22 @@ def ensure_claude_code_prereqs(tmp_path_factory):
         with lock_path.open("w") as lock_file:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
 
-            install_result = subprocess.run(
-                [str(CLAUDECODE_INSTALL_HOOK)],
-                capture_output=True,
-                text=True,
-                timeout=300,
-                env=env,
+            config = json.loads(CLAUDECODE_CONFIG.read_text())
+            required_binaries = config.get("required_binaries") or []
+            binary_record = next(
+                (
+                    dict(record)
+                    for record in required_binaries
+                    if isinstance(record, dict)
+                    and record.get("name") == "{CLAUDECODE_BINARY}"
+                ),
+                {},
             )
-            if install_result.returncode != 0:
-                raise RuntimeError(
-                    f"Claude Code install hook failed: {install_result.stderr or install_result.stdout}",
-                )
-
-            binary_record = (
-                parse_jsonl_output(
-                    install_result.stdout,
-                    record_type="BinaryRequest",
-                )
-                or {}
-            )
+            if binary_record.get("name") == "{CLAUDECODE_BINARY}":
+                binary_record["name"] = "claude"
             if binary_record.get("name") != "claude":
                 raise RuntimeError(
-                    "Claude Code install hook did not emit a claude BinaryRequest record",
+                    "Claude Code config did not declare a claude BinaryRequest record",
                 )
 
             npm_cmd = [
@@ -303,7 +305,6 @@ def ensure_claude_code_prereqs(tmp_path_factory):
                 "--machine-id=test-machine",
                 "--binary-id=test-claude",
                 "--plugin-name=claudecode",
-                "--hook-name=on_Install__35_claudecode.finite.bg",
                 "--name=claude",
                 f"--binproviders={binary_record.get('binproviders', '*')}",
             ]

@@ -20,7 +20,6 @@ from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     find_article_html_source,
     load_config,
-    resolve_binary_path,
     write_text_atomic,
 )
 
@@ -40,77 +39,40 @@ FORMAT_TO_FILE = {
     "xml": "content.xml",
     "xmltei": "content.xmltei",
 }
-OUTPUT_ENV_TO_FORMAT = {
-    "TRAFILATURA_OUTPUT_TXT": "txt",
-    "TRAFILATURA_OUTPUT_MARKDOWN": "markdown",
-    "TRAFILATURA_OUTPUT_HTML": "html",
-    "TRAFILATURA_OUTPUT_CSV": "csv",
-    "TRAFILATURA_OUTPUT_JSON": "json",
-    "TRAFILATURA_OUTPUT_XML": "xml",
-    "TRAFILATURA_OUTPUT_XMLTEI": "xmltei",
-}
-
-TRAFILATURA_EXTRACT_SCRIPT = """
-import sys
-from pathlib import Path
-import trafilatura
-
-html = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
-url = sys.argv[2]
-fmt = sys.argv[3]
-result = trafilatura.extract(
-    html,
-    output_format=fmt,
-    with_metadata=True,
-    url=url,
-) or ""
-sys.stdout.write(result)
-"""
 
 
 def get_enabled_formats() -> list[str]:
-    """Return list of output formats enabled via config (e.g. TRAFILATURA_OUTPUT_TXT=true).
-
-    Defaults come from config.json: txt, markdown, html are enabled;
-    csv, json, xml, xmltei are disabled.
-    """
+    """Return enabled output formats from TRAFILATURA_OUTPUT_FORMATS CSV config."""
     config = load_config()
-    return [
-        fmt
-        for env_name, fmt in OUTPUT_ENV_TO_FORMAT.items()
-        if getattr(config, env_name)
-    ]
+    formats = []
+    for fmt in config.TRAFILATURA_OUTPUT_FORMATS.split(","):
+        fmt = fmt.strip()
+        if fmt and fmt in FORMAT_TO_FILE and fmt not in formats:
+            formats.append(fmt)
+    return formats
 
 
 def run_trafilatura(
     binary: str,
     html_source: str,
-    url: str,
     fmt: str,
     timeout: int,
 ) -> tuple[bool, str]:
-    resolved_binary = resolve_binary_path(binary) or binary
-    binary_path = Path(resolved_binary)
-
-    python_candidates = (
-        binary_path.with_name("python"),
-        binary_path.with_name("python3"),
-    )
-    python_bin = next(
-        (candidate for candidate in python_candidates if candidate.exists()),
-        Path(sys.executable),
-    )
+    html = Path(html_source).read_text(encoding="utf-8", errors="replace")
 
     cmd = [
-        str(python_bin),
-        "-c",
-        TRAFILATURA_EXTRACT_SCRIPT,
-        html_source,
-        url,
+        binary,
+        "--output-format",
         fmt,
     ]
+    if fmt != "html":
+        # trafilatura 2.0.0 can emit a traceback and empty output for HTML when
+        # metadata contains list values, so only request metadata on formats
+        # that serialize it correctly.
+        cmd.append("--with-metadata")
     result = subprocess.run(
         cmd,
+        input=html,
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -137,7 +99,7 @@ def extract_trafilatura(url: str, binary: str) -> tuple[str, str]:
         return "noresults", "No output formats enabled"
 
     for fmt in formats:
-        success, error = run_trafilatura(binary, html_source, url, fmt, timeout)
+        success, error = run_trafilatura(binary, html_source, fmt, timeout)
         if not success:
             return "failed", error
 

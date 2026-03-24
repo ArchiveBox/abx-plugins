@@ -27,7 +27,6 @@ from pathlib import Path
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     load_config,
-    resolve_binary_path as resolve_binary_ref,
 )
 
 import rich_click as click
@@ -58,11 +57,6 @@ def rel_output(path_str: str | None) -> str | None:
         return path.name or path_str
 
 
-def resolve_binary_path(binary: str) -> str | None:
-    """Resolve binary to an absolute path if possible."""
-    return resolve_binary_ref(binary)
-
-
 def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
     """
     Download forum using forum-dl.
@@ -91,7 +85,6 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
     else:
         output_file = output_dir / f"forum.{output_format}"
 
-    resolved_binary = resolve_binary_path(binary) or binary
     # Inject a sitecustomize shim via PYTHONPATH so forum-dl can still run as a
     # black-box executable while we patch its Pydantic v2 incompatibility.
     sitecustomize_code = textwrap.dedent(
@@ -108,7 +101,7 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
         """,
     ).strip()
     cmd = [
-        resolved_binary,
+        binary,
         *forumdl_args,
         "-f",
         output_format,

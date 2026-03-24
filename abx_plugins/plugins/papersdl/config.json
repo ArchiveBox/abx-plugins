@@ -5,13 +5,24 @@
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
-  "required_binaries": ["papers-dl"],
-  "output_mimetypes": ["application/pdf"],
+  "required_binaries": [
+    {
+      "name": "{PAPERSDL_BINARY}",
+      "binproviders": "env,pip",
+      "min_version": null
+    }
+  ],
+  "output_mimetypes": [
+    "application/pdf"
+  ],
   "properties": {
     "PAPERSDL_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SAVE_PAPERSDL", "USE_PAPERSDL"],
+      "x-aliases": [
+        "SAVE_PAPERSDL",
+        "USE_PAPERSDL"
+      ],
       "description": "Enable paper downloading with papers-dl"
     },
     "PAPERSDL_BINARY": {
@@ -28,16 +39,26 @@
     },
     "PAPERSDL_ARGS": {
       "type": "array",
-      "items": {"type": "string"},
-      "default": ["fetch"],
-      "x-aliases": ["PAPERSDL_DEFAULT_ARGS"],
+      "items": {
+        "type": "string"
+      },
+      "default": [
+        "fetch"
+      ],
+      "x-aliases": [
+        "PAPERSDL_DEFAULT_ARGS"
+      ],
       "description": "Default papers-dl arguments"
     },
     "PAPERSDL_ARGS_EXTRA": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {
+        "type": "string"
+      },
       "default": [],
-      "x-aliases": ["PAPERSDL_EXTRA_ARGS"],
+      "x-aliases": [
+        "PAPERSDL_EXTRA_ARGS"
+      ],
       "description": "Extra arguments to append to papers-dl command"
     }
   }

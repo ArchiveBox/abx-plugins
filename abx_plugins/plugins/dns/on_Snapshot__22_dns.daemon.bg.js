@@ -25,13 +25,14 @@ const {
     emitArchiveResultRecord,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
-const puppeteer = require('puppeteer-core');
 
 // Import chrome-specific utilities from chrome_utils.js
 const {
     connectToPage,
+    resolvePuppeteerModule,
     waitForNavigationComplete,
 } = require('../chrome/chrome_utils.js');
+const puppeteer = resolvePuppeteerModule();
 
 const PLUGIN_NAME = 'dns';
 const PLUGIN_DIR = path.basename(__dirname);

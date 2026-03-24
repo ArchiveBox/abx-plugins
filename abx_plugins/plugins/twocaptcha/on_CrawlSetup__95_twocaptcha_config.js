@@ -135,12 +135,13 @@ async function configure2Captcha() {
         return { success: true, skipped: true };
     }
 
-    const puppeteer = require('puppeteer-core');
     const {
         waitForChromeSessionState,
         findExtensionMetadataByName,
         connectToBrowserEndpoint,
+        resolvePuppeteerModule,
     } = require('../chrome/chrome_utils.js');
+    const puppeteer = resolvePuppeteerModule();
 
     // Check if already configured in this session
     if (fs.existsSync(CONFIG_MARKER)) {

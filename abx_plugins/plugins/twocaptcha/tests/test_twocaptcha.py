@@ -8,6 +8,7 @@ NOTE: Chrome 137+ removed --load-extension support, so these tests MUST use Chro
 
 import json
 import os
+import signal
 import subprocess
 import tempfile
 import time
@@ -16,17 +17,26 @@ from pathlib import Path
 import pytest
 import requests
 
+from abx_plugins.plugins.base.test_utils import parse_jsonl_records
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    chrome_session,
     setup_test_env,
     launch_chromium_session,
     kill_chromium_session,
     wait_for_extensions_metadata,
 )
 
-
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_SCRIPT = next(PLUGIN_DIR.glob("on_Install__83_twocaptcha*.js"))
 CONFIG_SCRIPT = PLUGIN_DIR / "on_CrawlSetup__95_twocaptcha_config.js"
+SNAPSHOT_HOOK = PLUGIN_DIR / "on_Snapshot__14_twocaptcha.daemon.bg.js"
+NAVIGATE_HOOK = PLUGIN_DIR.parent / "chrome" / "on_Snapshot__30_chrome_navigate.js"
+CHROMEWEBSTORE_HOOK = (
+    PLUGIN_DIR.parent / "chromewebstore" / "on_BinaryRequest__90_chromewebstore.py"
+)
+BASE_UTILS_JS = PLUGIN_DIR.parent / "base" / "utils.js"
+CHROME_UTILS_JS = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
+EXTENSION_NAME = "twocaptcha"
+EXTENSION_WEBSTORE_ID = "ifibfemgeogfhoebkmokieepdoobkbpo"
 
 TEST_URL = "https://www.google.com/recaptcha/api2/demo"
 CHROME_STARTUP_TIMEOUT_SECONDS = 45
@@ -41,6 +51,71 @@ LIVE_API_KEY = os.environ.get("TWOCAPTCHA_API_KEY") or os.environ.get(
 # Alias for backward compatibility with existing test names
 launch_chrome = launch_chromium_session
 kill_chrome = kill_chromium_session
+
+
+def install_twocaptcha_extension(
+    env: dict[str, str],
+) -> subprocess.CompletedProcess[str]:
+    provider_result = subprocess.run(
+        [
+            str(CHROMEWEBSTORE_HOOK),
+            f"--name={EXTENSION_NAME}",
+            "--binproviders=chromewebstore",
+            f"--overrides={json.dumps({'chromewebstore': {'install_args': [EXTENSION_WEBSTORE_ID, f'--name={EXTENSION_NAME}']}})}",
+        ],
+        env=env,
+        timeout=180,
+        capture_output=True,
+        text=True,
+    )
+    assert provider_result.returncode == 0, (
+        f"Provider install failed: {provider_result.stderr}\nstdout: {provider_result.stdout}"
+    )
+    return provider_result
+
+
+def test_snapshot_hook_reports_skipped_when_disabled():
+    env = os.environ.copy()
+    env["TWOCAPTCHA_ENABLED"] = "false"
+
+    result = subprocess.run(
+        [str(SNAPSHOT_HOOK), "--url=https://example.com"],
+        env=env,
+        timeout=30,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    records = parse_jsonl_records(result.stdout)
+    archive_result = next(
+        record for record in records if record.get("type") == "ArchiveResult"
+    )
+    assert archive_result["status"] == "skipped", archive_result
+    assert archive_result["output_str"] == "TWOCAPTCHA_ENABLED=False", archive_result
+
+
+def test_snapshot_hook_reports_skipped_when_api_key_missing():
+    env = os.environ.copy()
+    env["TWOCAPTCHA_ENABLED"] = "true"
+    env.pop("TWOCAPTCHA_API_KEY", None)
+    env.pop("API_KEY_2CAPTCHA", None)
+
+    result = subprocess.run(
+        [str(SNAPSHOT_HOOK), "--url=https://example.com"],
+        env=env,
+        timeout=30,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    records = parse_jsonl_records(result.stdout)
+    archive_result = next(
+        record for record in records if record.get("type") == "ArchiveResult"
+    )
+    assert archive_result["status"] == "skipped", archive_result
+    assert archive_result["output_str"] == "TWOCAPTCHA_API_KEY=None", archive_result
 
 
 class TestTwoCaptcha:
@@ -61,13 +136,7 @@ class TestTwoCaptcha:
             env["TWOCAPTCHA_API_KEY"] = self.api_key
 
             # Install
-            result = subprocess.run(
-                [str(INSTALL_SCRIPT)],
-                env=env,
-                timeout=120,
-                capture_output=True,
-                text=True,
-            )
+            result = install_twocaptcha_extension(env)
             assert result.returncode == 0, f"Install failed: {result.stderr}"
 
             cache = Path(env["CHROME_EXTENSIONS_DIR"]) / "twocaptcha.extension.json"
@@ -107,12 +176,7 @@ class TestTwoCaptcha:
             env["TWOCAPTCHA_RETRY_COUNT"] = "5"
             env["TWOCAPTCHA_RETRY_DELAY"] = "10"
 
-            subprocess.run(
-                [str(INSTALL_SCRIPT)],
-                env=env,
-                timeout=120,
-                capture_output=True,
-            )
+            install_twocaptcha_extension(env)
 
             # Launch Chromium in crawls directory
             crawl_id = "cfg"
@@ -151,39 +215,43 @@ class TestTwoCaptcha:
                 )
                 ext_id = config_marker["extensionId"]
                 script = f"""
-if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
-const puppeteer = require('puppeteer-core');
+const chromeUtils = require('{CHROME_UTILS_JS}');
 (async () => {{
-    const browser = await puppeteer.connect({{
-        browserWSEndpoint: '{cdp_url}',
-        protocolTimeout: 180000,
-    }});
+    const puppeteer = chromeUtils.resolvePuppeteerModule();
+    const cfg = await chromeUtils.withConnectedBrowser(
+        {{
+            puppeteer,
+            browserWSEndpoint: '{cdp_url}',
+            connectOptions: {{ protocolTimeout: 180000 }},
+        }},
+        async (browser) => {{
+            // Load options.html and use Config.getAll() to verify
+            const optionsUrl = 'chrome-extension://{ext_id}/options/options.html';
+            const page = await browser.newPage();
+            console.error('[*] Loading options page:', optionsUrl);
 
-    // Load options.html and use Config.getAll() to verify
-    const optionsUrl = 'chrome-extension://{ext_id}/options/options.html';
-    const page = await browser.newPage();
-    console.error('[*] Loading options page:', optionsUrl);
+            // Navigate - catch error but continue since page may still load
+            try {{
+                await page.goto(optionsUrl, {{ waitUntil: 'networkidle0', timeout: 10000 }});
+            }} catch (e) {{
+                console.error('[*] Navigation threw error (may still work):', e.message);
+            }}
 
-    // Navigate - catch error but continue since page may still load
-    try {{
-        await page.goto(optionsUrl, {{ waitUntil: 'networkidle0', timeout: 10000 }});
-    }} catch (e) {{
-        console.error('[*] Navigation threw error (may still work):', e.message);
-    }}
+            // Wait for page to settle
+            await new Promise(r => setTimeout(r, 2000));
+            console.error('[*] Current URL:', page.url());
 
-    // Wait for page to settle
-    await new Promise(r => setTimeout(r, 2000));
-    console.error('[*] Current URL:', page.url());
+            // Wait for Config object to be available
+            await page.waitForFunction(() => typeof Config !== 'undefined', {{ timeout: 5000 }});
 
-    // Wait for Config object to be available
-    await page.waitForFunction(() => typeof Config !== 'undefined', {{ timeout: 5000 }});
+            // Call Config.getAll() - the extension's own API (returns a Promise)
+            const cfg = await page.evaluate(async () => await Config.getAll());
+            console.error('[*] Config.getAll() returned:', JSON.stringify(cfg));
 
-    // Call Config.getAll() - the extension's own API (returns a Promise)
-    const cfg = await page.evaluate(async () => await Config.getAll());
-    console.error('[*] Config.getAll() returned:', JSON.stringify(cfg));
-
-    await page.close();
-    browser.disconnect();
+            await page.close();
+            return cfg;
+        }},
+    );
     console.log(JSON.stringify(cfg));
 }})();
 """
@@ -238,6 +306,85 @@ const puppeteer = require('puppeteer-core');
             finally:
                 kill_chrome(process, chrome_dir)
 
+    def test_snapshot_hook_reports_noresults_without_captcha(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = Path(tmpdir)
+            install_env = setup_test_env(tmpdir)
+            install_env["TWOCAPTCHA_API_KEY"] = self.api_key
+            install_twocaptcha_extension(install_env)
+
+            with chrome_session(
+                tmpdir,
+                crawl_id="twocaptcha-noresults",
+                snapshot_id="twocaptcha-noresults-snap",
+                test_url="https://example.com",
+                navigate=False,
+                timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+            ) as (_chrome_launch_process, _chrome_pid, snapshot_chrome_dir, env):
+                env["TWOCAPTCHA_API_KEY"] = str(self.api_key)
+                config = subprocess.run(
+                    [
+                        str(CONFIG_SCRIPT),
+                        "--url=https://example.com",
+                        "--snapshot-id=twocaptcha-noresults-snap",
+                    ],
+                    env=env,
+                    timeout=30,
+                    capture_output=True,
+                    text=True,
+                )
+                assert config.returncode == 0, config.stderr
+
+                hook_dir = snapshot_chrome_dir.parent / "twocaptcha"
+                hook_dir.mkdir(parents=True, exist_ok=True)
+
+                hook_process = subprocess.Popen(
+                    [
+                        str(SNAPSHOT_HOOK),
+                        "--url=https://example.com",
+                        "--snapshot-id=twocaptcha-noresults-snap",
+                    ],
+                    cwd=str(hook_dir),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    env=env,
+                )
+
+                try:
+                    navigate = subprocess.run(
+                        [
+                            str(NAVIGATE_HOOK),
+                            "--url=https://example.com",
+                            "--snapshot-id=twocaptcha-noresults-snap",
+                        ],
+                        cwd=str(snapshot_chrome_dir),
+                        env=env,
+                        timeout=60,
+                        capture_output=True,
+                        text=True,
+                    )
+                    assert navigate.returncode == 0, navigate.stderr
+
+                    time.sleep(5)
+                    hook_process.send_signal(signal.SIGTERM)
+                    stdout, stderr = hook_process.communicate(timeout=20)
+
+                    assert hook_process.returncode == 0, stderr
+                    records = parse_jsonl_records(stdout)
+                    archive_result = next(
+                        record
+                        for record in records
+                        if record.get("type") == "ArchiveResult"
+                    )
+                    assert archive_result["status"] == "noresults", archive_result
+                    assert archive_result["output_str"] == "0 captchas solved", (
+                        archive_result
+                    )
+                finally:
+                    if hook_process.poll() is None:
+                        hook_process.kill()
+
     def test_solves_recaptcha(self):
         """Extension attempts to solve CAPTCHA on demo page.
 
@@ -272,12 +419,7 @@ const puppeteer = require('puppeteer-core');
             env = setup_test_env(tmpdir)
             env["TWOCAPTCHA_API_KEY"] = self.api_key
 
-            subprocess.run(
-                [str(INSTALL_SCRIPT)],
-                env=env,
-                timeout=120,
-                capture_output=True,
-            )
+            install_twocaptcha_extension(env)
 
             # Launch Chromium in crawls directory
             crawl_id = "solve"

@@ -4,14 +4,82 @@
   "description": "Use Claude computer-use to interact with pages in Chrome via CDP screenshots and the Anthropic API.",
   "type": "object",
   "additionalProperties": false,
-  "required_plugins": ["chrome"],
-  "required_binaries": ["node"],
-  "output_mimetypes": ["application/json", "image/png"],
+  "required_plugins": [
+    "chrome"
+  ],
+  "required_binaries": [
+    {
+      "name": "{CHROME_BINARY}",
+      "binproviders": "env,puppeteer",
+      "min_version": null,
+      "overrides": {
+        "puppeteer": [
+          "chromium@latest",
+          "--install-deps"
+        ]
+      }
+    },
+    {
+      "name": "{NODE_BINARY}",
+      "binproviders": "env,apt,brew",
+      "min_version": null,
+      "overrides": {
+        "apt": {
+          "install_args": [
+            "nodejs"
+          ]
+        }
+      }
+    },
+    {
+      "name": "claudechrome",
+      "binproviders": "chromewebstore",
+      "min_version": null,
+      "overrides": {
+        "chromewebstore": {
+          "install_args": [
+            "fcoeoabgfenejglbffodgkkbkcdhcgfn",
+            "--name=claudechrome"
+          ]
+        }
+      }
+    }
+  ],
+  "output_mimetypes": [
+    "application/json",
+    "image/png"
+  ],
   "properties": {
+    "CHROME_BINARY": {
+      "type": "string",
+      "default": "chromium",
+      "x-aliases": [
+        "CHROMIUM_BINARY",
+        "GOOGLE_CHROME_BINARY"
+      ],
+      "description": "Path to Chromium binary"
+    },
+    "NODE_BINARY": {
+      "type": "string",
+      "default": "node",
+      "description": "Path to Node.js binary"
+    },
+    "PERSONAS_DIR": {
+      "type": "string",
+      "default": "",
+      "description": "Shared Chrome/browser personas root"
+    },
+    "ACTIVE_PERSONA": {
+      "type": "string",
+      "default": "Default",
+      "description": "Active browser persona name"
+    },
     "CLAUDECHROME_ENABLED": {
       "type": "boolean",
       "default": false,
-      "x-aliases": ["USE_CLAUDECHROME"],
+      "x-aliases": [
+        "USE_CLAUDECHROME"
+      ],
       "description": "Enable Claude for Chrome browser extension for AI-driven page interaction"
     },
     "CLAUDECHROME_PROMPT": {

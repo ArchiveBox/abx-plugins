@@ -5,13 +5,47 @@
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
-  "required_binaries": ["node", "claude"],
-  "output_mimetypes": ["application/json"],
+  "required_binaries": [
+    {
+      "name": "{NODE_BINARY}",
+      "binproviders": "env,apt,brew",
+      "min_version": null,
+      "overrides": {
+        "apt": {
+          "install_args": [
+            "nodejs"
+          ]
+        }
+      }
+    },
+    {
+      "name": "{CLAUDECODE_BINARY}",
+      "binproviders": "env,npm",
+      "min_version": null,
+      "overrides": {
+        "npm": {
+          "install_args": [
+            "@anthropic-ai/claude-code"
+          ]
+        }
+      }
+    }
+  ],
+  "output_mimetypes": [
+    "application/json"
+  ],
   "properties": {
+    "NODE_BINARY": {
+      "type": "string",
+      "default": "node",
+      "description": "Path to Node.js binary"
+    },
     "CLAUDECODE_ENABLED": {
       "type": "boolean",
       "default": false,
-      "x-aliases": ["USE_CLAUDECODE"],
+      "x-aliases": [
+        "USE_CLAUDECODE"
+      ],
       "description": "Enable Claude Code AI agent integration. Controls the crawl-time Claude binary install hook; child plugins still need the claudecode plugin installed and a working Claude binary."
     },
     "CLAUDECODE_BINARY": {

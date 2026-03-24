@@ -20,15 +20,9 @@ import pytest
 
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
-    get_env,
-    get_env_bool,
-    get_env_int,
 )
 from abx_plugins.plugins.base.test_utils import (
     get_plugin_dir,
-    get_hook_script,
-    parse_jsonl_records,
-    run_hook,
 )
 from abx_plugins.plugins.claudecode.claudecode_utils import (
     build_system_prompt,
@@ -39,18 +33,10 @@ from abx_plugins.plugins.claudecode.claudecode_utils import (
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
-_INSTALL_HOOK = get_hook_script(PLUGIN_DIR, "on_Install__*_claudecode*")
-if _INSTALL_HOOK is None:
-    raise FileNotFoundError(f"Install hook not found in {PLUGIN_DIR}")
-INSTALL_HOOK = _INSTALL_HOOK
 
 
 class TestClaudeCodePlugin:
     """Test the claudecode base plugin."""
-
-    def test_install_hook_exists(self):
-        """Install hook script should exist."""
-        assert INSTALL_HOOK.exists(), f"Hook not found: {INSTALL_HOOK}"
 
     def test_config_json_exists_and_valid(self):
         """config.json should exist and be valid JSON schema."""
@@ -78,111 +64,6 @@ class TestClaudeCodePlugin:
         assert (templates_dir / "card.html").exists()
         assert (templates_dir / "full.html").exists()
 
-    def test_install_hook_emits_binary_request_record(self):
-        """Install hook should emit BinaryRequest JSONL for claude."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            env = os.environ.copy()
-            env["CRAWL_DIR"] = tmpdir
-            env["CLAUDECODE_ENABLED"] = "true"
-            env["ANTHROPIC_API_KEY"] = "sk-ant-test-key"
-
-            returncode, stdout, stderr = run_hook(
-                INSTALL_HOOK,
-                "https://example.com",
-                "test-install",
-                cwd=tmpdir,
-                env=env,
-                timeout=30,
-            )
-
-            assert returncode == 0, f"Hook failed: {stderr}"
-
-            records = parse_jsonl_records(stdout)
-
-            # Should emit BinaryRequest record for claude
-            binary_records = [r for r in records if r.get("type") == "BinaryRequest"]
-            assert len(binary_records) == 1, (
-                f"Expected 1 BinaryRequest record, got {len(binary_records)}"
-            )
-            assert binary_records[0]["name"] == "claude"
-            assert "npm" in binary_records[0]["binproviders"]
-            assert binary_records[0]["overrides"]["npm"]["install_args"] == [
-                "@anthropic-ai/claude-code",
-            ]
-
-            archive_results = [r for r in records if r.get("type") == "ArchiveResult"]
-            assert archive_results == [], (
-                f"on_Install hook must not emit ArchiveResult: {archive_results}"
-            )
-
-    def test_install_hook_skips_when_disabled(self):
-        """Install hook should exit cleanly when CLAUDECODE_ENABLED=false."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            env = os.environ.copy()
-            env["CRAWL_DIR"] = tmpdir
-            env["CLAUDECODE_ENABLED"] = "false"
-
-            returncode, stdout, stderr = run_hook(
-                INSTALL_HOOK,
-                "https://example.com",
-                "test-disabled",
-                cwd=tmpdir,
-                env=env,
-                timeout=30,
-            )
-
-            assert returncode == 0, f"Hook failed: {stderr}"
-            records = parse_jsonl_records(stdout)
-            binary_records = [r for r in records if r.get("type") == "BinaryRequest"]
-            assert len(binary_records) == 0, (
-                "Should not emit BinaryRequest when disabled"
-            )
-            assert stdout.strip() == "SKIPPED: CLAUDECODE_ENABLED=False"
-
-    def test_install_hook_skips_by_default(self):
-        """Install hook should skip when CLAUDECODE_ENABLED is not set (default=false)."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            env = os.environ.copy()
-            env["CRAWL_DIR"] = tmpdir
-            env.pop("CLAUDECODE_ENABLED", None)
-
-            returncode, stdout, stderr = run_hook(
-                INSTALL_HOOK,
-                "https://example.com",
-                "test-default",
-                cwd=tmpdir,
-                env=env,
-                timeout=30,
-            )
-
-            assert returncode == 0, f"Hook failed: {stderr}"
-            records = parse_jsonl_records(stdout)
-            binary_records = [r for r in records if r.get("type") == "BinaryRequest"]
-            assert len(binary_records) == 0, (
-                "Should not emit BinaryRequest when disabled by default"
-            )
-            assert stdout.strip() == "SKIPPED: CLAUDECODE_ENABLED=False"
-
-    def test_install_hook_warns_missing_api_key(self):
-        """Install hook should warn when ANTHROPIC_API_KEY is not set."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            env = os.environ.copy()
-            env["CRAWL_DIR"] = tmpdir
-            env["CLAUDECODE_ENABLED"] = "true"
-            env.pop("ANTHROPIC_API_KEY", None)
-
-            returncode, stdout, stderr = run_hook(
-                INSTALL_HOOK,
-                "https://example.com",
-                "test-no-key",
-                cwd=tmpdir,
-                env=env,
-                timeout=30,
-            )
-
-            assert returncode == 0
-            assert "ANTHROPIC_API_KEY" in stderr, "Should warn about missing API key"
-
 
 class TestClaudeCodeUtils:
     """Test the claudecode_utils module."""
@@ -191,9 +72,6 @@ class TestClaudeCodeUtils:
         """Should be able to import claudecode_utils."""
         assert callable(build_system_prompt)
         assert callable(emit_archive_result_record)
-        assert callable(get_env)
-        assert callable(get_env_bool)
-        assert callable(get_env_int)
         assert callable(get_crawl_metadata)
         assert callable(get_snapshot_metadata)
 

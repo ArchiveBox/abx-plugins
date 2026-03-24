@@ -6,11 +6,30 @@
   "additionalProperties": false,
   "required_plugins": [],
   "required_binaries": [
-    "puppeteer",
-    "chrome"
+    {
+      "name": "puppeteer",
+      "binproviders": "npm",
+      "min_version": null,
+      "overrides": {
+        "npm": {
+          "install_args": [
+            "puppeteer"
+          ]
+        }
+      }
+    }
   ],
   "output_mimetypes": [],
   "properties": {
+    "CHROME_BINARY": {
+      "type": "string",
+      "default": "chromium",
+      "x-aliases": [
+        "CHROMIUM_BINARY",
+        "GOOGLE_CHROME_BINARY"
+      ],
+      "description": "Path to Chromium binary"
+    },
     "PUPPETEER_ENABLED": {
       "type": "boolean",
       "default": true,

@@ -8,7 +8,17 @@
     "chrome"
   ],
   "required_binaries": [
-    "chrome"
+    {
+      "name": "{CHROME_BINARY}",
+      "binproviders": "env,puppeteer",
+      "min_version": null,
+      "overrides": {
+        "puppeteer": [
+          "chromium@latest",
+          "--install-deps"
+        ]
+      }
+    }
   ],
   "output_mimetypes": [
     "application/pdf",
@@ -25,6 +35,15 @@
     "application/x-"
   ],
   "properties": {
+    "CHROME_BINARY": {
+      "type": "string",
+      "default": "chromium",
+      "x-aliases": [
+        "CHROMIUM_BINARY",
+        "GOOGLE_CHROME_BINARY"
+      ],
+      "description": "Path to Chromium binary"
+    },
     "STATICFILE_ENABLED": {
       "type": "boolean",
       "default": true,

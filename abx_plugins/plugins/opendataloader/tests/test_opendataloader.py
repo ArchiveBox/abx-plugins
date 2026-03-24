@@ -16,12 +16,15 @@ import os
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
+from unittest import mock
 from pathlib import Path
 
 import pytest
 import requests
 
 from abx_plugins.plugins.base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import get_hydrated_required_binaries
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
@@ -29,7 +32,6 @@ _OPENDATALOADER_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_opendataloader.*"), 
 if _OPENDATALOADER_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 OPENDATALOADER_HOOK = _OPENDATALOADER_HOOK
-INSTALL_HOOK = PLUGIN_DIR / "on_Install__42_opendataloader.finite.bg.py"
 TEST_URL = "https://example.com"
 
 # Module-level cache for binary path
@@ -130,32 +132,11 @@ def test_verify_deps_with_install_hooks():
 
 
 def test_install_hook_requests_java_dependency():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        env = os.environ.copy()
-        env["CRAWL_DIR"] = tmpdir
-
-        result = subprocess.run(
-            [str(INSTALL_HOOK)],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            timeout=30,
-            env=env,
-        )
-
-        assert result.returncode == 0, result.stderr
-        records = [
-            json.loads(line)
-            for line in result.stdout.splitlines()
-            if line.startswith("{")
-        ]
-        java_record = next(record for record in records if record.get("name") == "java")
-        assert java_record["min_version"] == "11.0.0"
-        assert java_record["overrides"]["brew"]["install_args"] == ["openjdk"]
-        if sys.platform == "darwin":
-            assert java_record["binproviders"] == "env,brew"
-        else:
-            assert java_record["binproviders"] == "env,apt,brew"
+    records = get_hydrated_required_binaries(PLUGIN_DIR)
+    java_record = next(record for record in records if record.get("name") == "java")
+    assert java_record["min_version"] == "11.0.0"
+    assert java_record["overrides"]["brew"]["install_args"] == ["openjdk"]
+    assert java_record["binproviders"] == "env,apt,brew"
 
 
 def test_opendataloader_env_sets_java_home_and_path(tmp_path):
@@ -185,10 +166,57 @@ def test_opendataloader_env_sets_java_home_and_path(tmp_path):
     java_bin.write_text("", encoding="utf-8")
     java_bin.chmod(0o755)
 
-    env = module._opendataloader_env(str(java_bin))
+    with mock.patch.object(
+        module.Binary,
+        "load_or_install",
+        return_value=SimpleNamespace(abspath=java_bin),
+    ):
+        env = module._opendataloader_env("java")
     assert env is not None
     assert env["JAVA_HOME"] == str(java_bin.parent.parent)
     assert env["PATH"].split(os.pathsep)[0] == str(java_bin.parent)
+
+
+def test_opendataloader_env_uses_abx_pkg_java_resolution(tmp_path):
+    monkeypatch_modules = {
+        "rich_click": __import__("click"),
+    }
+    original_modules = {name: sys.modules.get(name) for name in monkeypatch_modules}
+    sys.modules.update(monkeypatch_modules)
+
+    spec = importlib.util.spec_from_file_location(
+        "opendataloader_hook",
+        OPENDATALOADER_HOOK,
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        for name, value in original_modules.items():
+            if value is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = value
+
+    java_bin = tmp_path / "jdk" / "bin" / "java"
+    java_bin.parent.mkdir(parents=True, exist_ok=True)
+    java_bin.write_text("", encoding="utf-8")
+    java_bin.chmod(0o755)
+
+    binary_mock = mock.Mock()
+    binary_mock.load_or_install.return_value = SimpleNamespace(abspath=java_bin)
+
+    with mock.patch.object(module, "Binary", return_value=binary_mock) as binary_cls:
+        env = module._opendataloader_env("java")
+
+    assert env is not None
+    assert env["JAVA_HOME"] == str(java_bin.parent.parent)
+    assert env["PATH"].split(os.pathsep)[0] == str(java_bin.parent)
+    binary_cls.assert_called_once()
+    _, kwargs = binary_cls.call_args
+    assert kwargs["name"] == "java"
+    assert str(kwargs["min_version"]) == "11.0.0"
 
 
 def test_config_disabled_skips():

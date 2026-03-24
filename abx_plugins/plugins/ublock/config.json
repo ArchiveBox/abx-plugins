@@ -4,14 +4,52 @@
   "description": "Install the uBlock Origin extension to block ads, trackers, and other page clutter during archiving.",
   "type": "object",
   "additionalProperties": false,
-  "required_plugins": ["chrome"],
-  "required_binaries": ["chrome"],
+  "required_plugins": [
+    "chrome"
+  ],
+  "required_binaries": [
+    {
+      "name": "{CHROME_BINARY}",
+      "binproviders": "env,puppeteer",
+      "min_version": null,
+      "overrides": {
+        "puppeteer": [
+          "chromium@latest",
+          "--install-deps"
+        ]
+      }
+    },
+    {
+      "name": "ublock",
+      "binproviders": "chromewebstore",
+      "min_version": null,
+      "overrides": {
+        "chromewebstore": {
+          "install_args": [
+            "cjpalhdlnbpafiamejdnhcphjbkeiagm",
+            "--name=ublock"
+          ]
+        }
+      }
+    }
+  ],
   "output_mimetypes": [],
   "properties": {
+    "CHROME_BINARY": {
+      "type": "string",
+      "default": "chromium",
+      "x-aliases": [
+        "CHROMIUM_BINARY",
+        "GOOGLE_CHROME_BINARY"
+      ],
+      "description": "Path to Chromium binary"
+    },
     "UBLOCK_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["USE_UBLOCK"],
+      "x-aliases": [
+        "USE_UBLOCK"
+      ],
       "description": "Enable uBlock Origin browser extension for ad blocking"
     }
   }

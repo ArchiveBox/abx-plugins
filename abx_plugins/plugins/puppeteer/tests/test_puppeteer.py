@@ -170,12 +170,8 @@ def test_binary_hook_fast_path_does_not_emit_chromium_version(tmp_path: Path):
         ),
         None,
     )
-    machine_record = next((r for r in records if r.get("type") == "Machine"), None)
-
     assert binary_record is not None, f"Expected Binary record, got: {records}"
-    assert machine_record is not None, f"Expected Machine record, got: {records}"
-    assert machine_record["config"]["CHROME_BINARY"] == str(fake_browser)
-    assert "CHROMIUM_VERSION" not in machine_record["config"]
+    assert not any(r.get("type") == "Machine" for r in records), records
 
 
 def test_puppeteer_installs_chromium():

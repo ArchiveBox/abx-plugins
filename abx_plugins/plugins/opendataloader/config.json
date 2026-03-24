@@ -5,13 +5,50 @@
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
-  "required_binaries": ["opendataloader-pdf", "java"],
-  "output_mimetypes": ["text/plain", "text/markdown", "application/json"],
+  "required_binaries": [
+    {
+      "name": "{OPENDATALOADER_BINARY}",
+      "binproviders": "env,pip",
+      "min_version": null,
+      "overrides": {
+        "pip": {
+          "install_args": [
+            "opendataloader-pdf"
+          ]
+        }
+      }
+    },
+    {
+      "name": "{OPENDATALOADER_JAVA_BINARY}",
+      "binproviders": "env,apt,brew",
+      "min_version": "11.0.0",
+      "overrides": {
+        "brew": {
+          "install_args": [
+            "openjdk"
+          ]
+        },
+        "apt": {
+          "install_args": [
+            "default-jre"
+          ]
+        }
+      }
+    }
+  ],
+  "output_mimetypes": [
+    "text/plain",
+    "text/markdown",
+    "application/json"
+  ],
   "properties": {
     "OPENDATALOADER_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SAVE_OPENDATALOADER", "USE_OPENDATALOADER"],
+      "x-aliases": [
+        "SAVE_OPENDATALOADER",
+        "USE_OPENDATALOADER"
+      ],
       "description": "Enable PDF text extraction with opendataloader-pdf"
     },
     "OPENDATALOADER_BINARY": {
@@ -22,6 +59,7 @@
     "OPENDATALOADER_JAVA_BINARY": {
       "type": "string",
       "default": "java",
+      "bin_version": "11.0.0",
       "x-fallback": "JAVA_BINARY",
       "description": "Path to the Java runtime used by opendataloader-pdf"
     },
@@ -44,16 +82,24 @@
     },
     "OPENDATALOADER_ARGS": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {
+        "type": "string"
+      },
       "default": [],
-      "x-aliases": ["OPENDATALOADER_DEFAULT_ARGS"],
+      "x-aliases": [
+        "OPENDATALOADER_DEFAULT_ARGS"
+      ],
       "description": "Default opendataloader-pdf arguments"
     },
     "OPENDATALOADER_ARGS_EXTRA": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {
+        "type": "string"
+      },
       "default": [],
-      "x-aliases": ["OPENDATALOADER_EXTRA_ARGS"],
+      "x-aliases": [
+        "OPENDATALOADER_EXTRA_ARGS"
+      ],
       "description": "Extra arguments to append to opendataloader-pdf command"
     }
   }

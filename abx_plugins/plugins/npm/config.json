@@ -6,9 +6,30 @@
   "additionalProperties": false,
   "required_plugins": [],
   "required_binaries": [
-    "node",
-    "npm"
+    {
+      "name": "{NODE_BINARY}",
+      "binproviders": "env,apt,brew",
+      "min_version": null,
+      "overrides": {
+        "apt": {
+          "install_args": [
+            "nodejs"
+          ]
+        }
+      }
+    }
   ],
   "output_mimetypes": [],
-  "properties": {}
+  "properties": {
+    "NODE_BINARY": {
+      "type": "string",
+      "default": "node",
+      "description": "Path to Node.js binary"
+    },
+    "NPM_BINARY": {
+      "type": "string",
+      "default": "npm",
+      "description": "Path to npm binary"
+    }
+  }
 }

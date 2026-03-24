@@ -19,10 +19,11 @@ const fs = require('fs');
 const path = require('path');
 const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvInt, loadConfig, emitArchiveResultRecord, writeFileAtomic } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
-const puppeteer = require('puppeteer');
 const {
     connectToPage,
+    resolvePuppeteerModule,
 } = require('./chrome_utils.js');
+const puppeteer = resolvePuppeteerModule();
 
 const PLUGIN_NAME = 'chrome_navigate';
 const CHROME_SESSION_DIR = '.';

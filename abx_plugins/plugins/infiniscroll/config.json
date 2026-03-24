@@ -4,14 +4,40 @@
   "description": "Expand infinite-scroll pages and load additional content before downstream capture plugins run.",
   "type": "object",
   "additionalProperties": false,
-  "required_plugins": ["chrome"],
-  "required_binaries": ["chrome"],
+  "required_plugins": [
+    "chrome"
+  ],
+  "required_binaries": [
+    {
+      "name": "{CHROME_BINARY}",
+      "binproviders": "env,puppeteer",
+      "min_version": null,
+      "overrides": {
+        "puppeteer": [
+          "chromium@latest",
+          "--install-deps"
+        ]
+      }
+    }
+  ],
   "output_mimetypes": [],
   "properties": {
+    "CHROME_BINARY": {
+      "type": "string",
+      "default": "chromium",
+      "x-aliases": [
+        "CHROMIUM_BINARY",
+        "GOOGLE_CHROME_BINARY"
+      ],
+      "description": "Path to Chromium binary"
+    },
     "INFINISCROLL_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["SAVE_INFINISCROLL", "USE_INFINISCROLL"],
+      "x-aliases": [
+        "SAVE_INFINISCROLL",
+        "USE_INFINISCROLL"
+      ],
       "description": "Enable infinite scroll page expansion"
     },
     "INFINISCROLL_TIMEOUT": {

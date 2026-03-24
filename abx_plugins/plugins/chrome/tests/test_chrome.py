@@ -102,29 +102,30 @@ def _create_target_via_cdp(cdp_url: str, url: str) -> dict:
 
 
 def _probe_browser_page_via_cdp(cdp_url: str, env: dict) -> dict:
-    script = """
-const puppeteer = require('puppeteer');
-(async () => {
-  const browser = await puppeteer.connect({ browserWSEndpoint: process.argv[1], defaultViewport: null });
-  try {
-    const pages = await browser.pages();
-    const page = pages.find(candidate => candidate.url() === 'about:blank') || pages[0];
-    if (!page) {
-      throw new Error('No page available in browser');
-    }
-    process.stdout.write(JSON.stringify({
-      url: page.url(),
-      title: await page.title(),
-      targetId: page.target()._targetId || page.target()._targetInfo?.targetId || null,
-    }));
-  } finally {
-    await browser.disconnect();
-  }
-})().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
-"""
+    script = (
+        f"const chromeUtils = require({json.dumps(str(CHROME_UTILS))});\n"
+        "const puppeteer = chromeUtils.resolvePuppeteerModule();\n"
+        "(async () => {\n"
+        "  const browser = await puppeteer.connect({ browserWSEndpoint: process.argv[1], defaultViewport: null });\n"
+        "  try {\n"
+        "    const pages = await browser.pages();\n"
+        "    const page = pages.find(candidate => candidate.url() === 'about:blank') || pages[0];\n"
+        "    if (!page) {\n"
+        "      throw new Error('No page available in browser');\n"
+        "    }\n"
+        "    process.stdout.write(JSON.stringify({\n"
+        "      url: page.url(),\n"
+        "      title: await page.title(),\n"
+        "      targetId: page.target()._targetId || page.target()._targetInfo?.targetId || null,\n"
+        "    }));\n"
+        "  } finally {\n"
+        "    await browser.disconnect();\n"
+        "  }\n"
+        "})().catch((error) => {\n"
+        "  console.error(error);\n"
+        "  process.exit(1);\n"
+        "});\n"
+    )
     result = subprocess.run(
         ["node", "-e", script, cdp_url],
         capture_output=True,
@@ -226,11 +227,21 @@ def _write_test_extension_cache(extensions_dir: Path) -> dict:
 
 
 def _probe_current_snapshot_page(chrome_session_dir: Path, env: dict) -> dict:
+    base_utils = CHROME_UTILS.parent.parent / "base" / "utils.js"
     script = """
-if (process.env.NODE_MODULES_DIR) module.paths.unshift(process.env.NODE_MODULES_DIR);
-const utils = require(process.argv[1]);
-const chromeSessionDir = process.argv[2];
-const puppeteer = require('puppeteer-core');
+const { ensureNodeModuleResolution } = require(process.argv[1]);
+ensureNodeModuleResolution(module);
+const utils = require(process.argv[2]);
+const chromeSessionDir = process.argv[3];
+function resolvePuppeteer() {
+  for (const moduleName of ['puppeteer-core', 'puppeteer']) {
+    try {
+      return require(moduleName);
+    } catch (error) {}
+  }
+  throw new Error('Missing puppeteer dependency (need puppeteer-core or puppeteer)');
+}
+const puppeteer = resolvePuppeteer();
 (async () => {
   const { browser, page } = await utils.connectToPage({
     chromeSessionDir,
@@ -249,7 +260,14 @@ const puppeteer = require('puppeteer-core');
 });
 """
     result = subprocess.run(
-        ["node", "-e", script, str(CHROME_UTILS), str(chrome_session_dir)],
+        [
+            "node",
+            "-e",
+            script,
+            str(base_utils),
+            str(CHROME_UTILS),
+            str(chrome_session_dir),
+        ],
         capture_output=True,
         text=True,
         timeout=30,

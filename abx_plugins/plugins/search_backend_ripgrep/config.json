@@ -6,7 +6,18 @@
   "additionalProperties": false,
   "required_plugins": [],
   "required_binaries": [
-    "ripgrep"
+    {
+      "name": "{RIPGREP_BINARY}",
+      "binproviders": "env,apt,brew",
+      "min_version": null,
+      "overrides": {
+        "apt": {
+          "install_args": [
+            "ripgrep"
+          ]
+        }
+      }
+    }
   ],
   "output_mimetypes": [],
   "properties": {

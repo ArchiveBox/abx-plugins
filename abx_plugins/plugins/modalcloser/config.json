@@ -4,14 +4,40 @@
   "description": "Automatically dismiss dialogs, cookie banners, and framework modals while the page is being archived.",
   "type": "object",
   "additionalProperties": false,
-  "required_plugins": ["chrome"],
-  "required_binaries": ["chrome"],
+  "required_plugins": [
+    "chrome"
+  ],
+  "required_binaries": [
+    {
+      "name": "{CHROME_BINARY}",
+      "binproviders": "env,puppeteer",
+      "min_version": null,
+      "overrides": {
+        "puppeteer": [
+          "chromium@latest",
+          "--install-deps"
+        ]
+      }
+    }
+  ],
   "output_mimetypes": [],
   "properties": {
+    "CHROME_BINARY": {
+      "type": "string",
+      "default": "chromium",
+      "x-aliases": [
+        "CHROMIUM_BINARY",
+        "GOOGLE_CHROME_BINARY"
+      ],
+      "description": "Path to Chromium binary"
+    },
     "MODALCLOSER_ENABLED": {
       "type": "boolean",
       "default": true,
-      "x-aliases": ["CLOSE_MODALS", "AUTO_CLOSE_MODALS"],
+      "x-aliases": [
+        "CLOSE_MODALS",
+        "AUTO_CLOSE_MODALS"
+      ],
       "description": "Enable automatic modal and dialog closing"
     },
     "MODALCLOSER_TIMEOUT": {

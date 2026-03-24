@@ -24,7 +24,7 @@ const {
     hasStaticFileOutput,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
-const { connectToPage } = require('../chrome/chrome_utils.js');
+const { connectToPage, resolvePuppeteerModule } = require('../chrome/chrome_utils.js');
 const hookConfig = loadConfig();
 
 // Check if DOM is enabled BEFORE requiring puppeteer
@@ -35,7 +35,7 @@ if (!getEnvBool('DOM_ENABLED', true)) {
 }
 
 // Now safe to require puppeteer
-const puppeteer = require('puppeteer-core');
+const puppeteer = resolvePuppeteerModule();
 
 // Extractor metadata
 const PLUGIN_NAME = 'dom';

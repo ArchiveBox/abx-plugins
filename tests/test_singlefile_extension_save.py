@@ -17,7 +17,7 @@ SINGLEFILE_HELPER = (
 
 
 def test_singlefile_helper_honors_node_modules_dir(tmp_path: Path) -> None:
-    """singlefile helper should resolve puppeteer-core from NODE_MODULES_DIR."""
+    """singlefile helper should resolve puppeteer from NODE_MODULES_DIR."""
     node_binary = shutil.which("node")
     if not node_binary:
         raise AssertionError("Node.js is required for singlefile helper tests")
@@ -27,7 +27,7 @@ def test_singlefile_helper_honors_node_modules_dir(tmp_path: Path) -> None:
     output_path = run_dir / "singlefile.html"
 
     node_modules_dir = tmp_path / "node_modules"
-    puppeteer_dir = node_modules_dir / "puppeteer-core"
+    puppeteer_dir = node_modules_dir / "puppeteer"
     puppeteer_dir.mkdir(parents=True)
     (puppeteer_dir / "index.js").write_text(
         "module.exports = { connect: async () => ({}) };\n",
@@ -50,27 +50,24 @@ Module._load = function(request, parent, isMain) {
                 page: {
                     url: async () => process.env.TEST_URL,
                     goto: async () => {},
+                    bringToFront: async () => {},
                     createCDPSession: async () => ({ send: async () => {} }),
                     target: () => ({ createCDPSession: async () => ({ send: async () => {} }) }),
                 },
+                cdpSession: { send: async () => {} },
             }),
             readExtensionsMetadata: () => [{ name: 'singlefile', id: 'test-extension-id' }],
             findExtensionMetadataByName: () => ({ id: 'test-extension-id' }),
             waitForExtensionTargetHandle: async () => ({}),
             loadExtensionFromTarget: async (extensions) => {
-                extensions[0].dispatchAction = async () => {};
+                extensions[0].dispatchAction = async () => {
+                    fs.writeFileSync(
+                        `${process.env.CHROME_DOWNLOADS_DIR}/example.com.html`,
+                        '<!DOCTYPE html><html><body>ok</body></html>'
+                    );
+                };
             },
             setBrowserDownloadBehavior: async () => true,
-        };
-    }
-
-    if (request === './on_Install__82_singlefile.js') {
-        return {
-            EXTENSION: { name: 'singlefile' },
-            saveSinglefileWithExtension: async (_page, _extension, options) => {
-                fs.writeFileSync(options.outputPath, '<!DOCTYPE html><html><body>ok</body></html>');
-                return options.outputPath;
-            },
         };
     }
 
@@ -104,5 +101,5 @@ Module._load = function(request, parent, isMain) {
     assert output_path.exists(), (
         "singlefile helper should emit the requested output file"
     )
-    assert "Cannot find module 'puppeteer-core'" not in result.stderr
+    assert "Cannot find module 'puppeteer'" not in result.stderr
     assert "[singlefile] dependencies loaded" in result.stderr

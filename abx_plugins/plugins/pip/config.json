@@ -6,8 +6,11 @@
   "additionalProperties": false,
   "required_plugins": [],
   "required_binaries": [
-    "python",
-    "pip"
+    {
+      "name": "python",
+      "binproviders": "env",
+      "min_version": null
+    }
   ],
   "output_mimetypes": [],
   "properties": {

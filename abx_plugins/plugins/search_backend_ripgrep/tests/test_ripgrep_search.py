@@ -20,75 +20,11 @@ import pytest
 from abx_plugins.plugins.search_backend_ripgrep.search import (
     search,
     flush,
-    get_env,
-    get_env_int,
-    get_env_array,
     _extract_snapshot_id,
     _get_search_roots,
     DEFAULT_CONTENT_EXCLUDES,
     DEEP_EXCLUDES,
 )
-
-
-class TestEnvHelpers:
-    """Test environment variable helper functions."""
-
-    def test_get_env_default(self):
-        """get_env should return default for unset vars."""
-        result = get_env("NONEXISTENT_VAR_12345", "default")
-        assert result == "default"
-
-    def test_get_env_set(self):
-        """get_env should return value for set vars."""
-        with patch.dict(os.environ, {"TEST_VAR": "value"}):
-            result = get_env("TEST_VAR", "default")
-            assert result == "value"
-
-    def test_get_env_strips_whitespace(self):
-        """get_env should strip whitespace."""
-        with patch.dict(os.environ, {"TEST_VAR": "  value  "}):
-            result = get_env("TEST_VAR", "")
-            assert result == "value"
-
-    def test_get_env_int_default(self):
-        """get_env_int should return default for unset vars."""
-        result = get_env_int("NONEXISTENT_VAR_12345", 42)
-        assert result == 42
-
-    def test_get_env_int_valid(self):
-        """get_env_int should parse integer values."""
-        with patch.dict(os.environ, {"TEST_INT": "100"}):
-            result = get_env_int("TEST_INT", 0)
-            assert result == 100
-
-    def test_get_env_int_invalid(self):
-        """get_env_int should return default for invalid integers."""
-        with patch.dict(os.environ, {"TEST_INT": "not a number"}):
-            result = get_env_int("TEST_INT", 42)
-            assert result == 42
-
-    def test_get_env_array_default(self):
-        """get_env_array should return default for unset vars."""
-        result = get_env_array("NONEXISTENT_VAR_12345", ["default"])
-        assert result == ["default"]
-
-    def test_get_env_array_valid(self):
-        """get_env_array should parse JSON arrays."""
-        with patch.dict(os.environ, {"TEST_ARRAY": '["a", "b", "c"]'}):
-            result = get_env_array("TEST_ARRAY", [])
-            assert result == ["a", "b", "c"]
-
-    def test_get_env_array_invalid_json(self):
-        """get_env_array should return default for invalid JSON."""
-        with patch.dict(os.environ, {"TEST_ARRAY": "not json"}):
-            result = get_env_array("TEST_ARRAY", ["default"])
-            assert result == ["default"]
-
-    def test_get_env_array_not_array(self):
-        """get_env_array should return default for non-array JSON."""
-        with patch.dict(os.environ, {"TEST_ARRAY": '{"key": "value"}'}):
-            result = get_env_array("TEST_ARRAY", ["default"])
-            assert result == ["default"]
 
 
 class TestRipgrepFlush:

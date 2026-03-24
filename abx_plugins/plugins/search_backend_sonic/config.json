@@ -6,7 +6,28 @@
   "additionalProperties": false,
   "required_plugins": [],
   "required_binaries": [
-    "sonic"
+    {
+      "name": "{SONIC_BINARY}",
+      "binproviders": "env,apt,brew,cargo",
+      "min_version": null,
+      "overrides": {
+        "apt": {
+          "install_args": [
+            "sonic"
+          ]
+        },
+        "brew": {
+          "install_args": [
+            "sonic"
+          ]
+        },
+        "cargo": {
+          "install_args": [
+            "sonic-server"
+          ]
+        }
+      }
+    }
   ],
   "output_mimetypes": [],
   "properties": {

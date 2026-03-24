@@ -18,7 +18,7 @@ Output: Downloads video/audio files to SNAP_DIR/ytdlp/
 Environment variables:
     YTDLP_ENABLED: Enable yt-dlp extraction (default: True)
     YTDLP_BINARY: Path to yt-dlp binary (default: yt-dlp)
-    YTDLP_NODE_BINARY: Path to Node.js binary (x-fallback: NODE_BINARY)
+    NODE_BINARY: Path to Node.js binary
     FFMPEG_BINARY: Path to ffmpeg binary
     YTDLP_TIMEOUT: Timeout in seconds (x-fallback: TIMEOUT)
     YTDLP_COOKIES_FILE: Path to cookies file (x-fallback: COOKIES_FILE)
@@ -83,7 +83,7 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
     check_ssl = config.YTDLP_CHECK_SSL_VALIDITY
     cookies_file = config.YTDLP_COOKIES_FILE
     max_size = config.YTDLP_MAX_SIZE
-    node_binary = config.YTDLP_NODE_BINARY
+    node_binary = config.NODE_BINARY
     ffmpeg_binary = (os.environ.get("FFMPEG_BINARY") or "").strip()
     ytdlp_args = config.YTDLP_ARGS
     ytdlp_args_extra = config.YTDLP_ARGS_EXTRA
