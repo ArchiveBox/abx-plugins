@@ -91,9 +91,6 @@ async function setupListener() {
         fs.mkdirSync(allDir, { recursive: true });
     }
 
-    const indexPath = path.join(OUTPUT_DIR, 'index.jsonl');
-    writeFileAtomic(indexPath, '');
-
     // Connect to Chrome page using shared utility
     const { browser, page } = await connectToPage({
         chromeSessionDir: CHROME_SESSION_DIR,
@@ -217,6 +214,9 @@ async function setupListener() {
             // Ignore errors
         }
     });
+
+    const indexPath = path.join(OUTPUT_DIR, 'index.jsonl');
+    writeFileAtomic(indexPath, '');
 
     return { browser, page };
 }

@@ -111,6 +111,7 @@ class TestResponsesWithChrome:
         ) as (chrome_process, chrome_pid, snapshot_chrome_dir, env):
             responses_dir = snapshot_chrome_dir.parent / "responses"
             responses_dir.mkdir(exist_ok=True)
+            index_output = responses_dir / "index.jsonl"
 
             # Run responses hook with the active Chrome session (background hook)
             result = subprocess.Popen(
@@ -126,6 +127,12 @@ class TestResponsesWithChrome:
                 env=env,
             )
 
+            for _ in range(30):
+                if index_output.exists():
+                    break
+                time.sleep(1)
+            assert index_output.exists(), "Responses hook did not signal readiness"
+
             nav_result = subprocess.run(
                 [
                     str(CHROME_NAVIGATE_HOOK),
@@ -139,9 +146,6 @@ class TestResponsesWithChrome:
                 env=env,
             )
             assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
-
-            # Check for output directory and index file
-            index_output = responses_dir / "index.jsonl"
 
             # Wait briefly for background hook to write output
             for _ in range(30):
