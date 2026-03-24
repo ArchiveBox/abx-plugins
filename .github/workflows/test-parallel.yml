@@ -17,9 +17,6 @@ jobs:
   prek:
     name: Pre-commit checks
     runs-on: ubuntu-22.04
-    env:
-      ABX_PKG_DIR: ${{ runner.temp }}/abx-pkg
-      PYTHONPATH: ${{ runner.temp }}/abx-pkg
 
     steps:
       - name: Checkout repository
@@ -32,7 +29,7 @@ jobs:
           git checkout --detach FETCH_HEAD
 
       - name: Clone abx-pkg
-        run: git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git "$ABX_PKG_DIR"
+        run: git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git "${{ runner.temp }}/abx-pkg"
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
@@ -78,10 +75,12 @@ jobs:
         run: |
           uv venv
           uv sync --dev --all-extras --no-sources
-          uv pip install --no-deps -e "$ABX_PKG_DIR"
+          uv pip install --no-deps -e "${{ runner.temp }}/abx-pkg"
           uv pip install --no-deps -e ".[dev]"
 
       - name: Run prek
+        env:
+          PYTHONPATH: ${{ runner.temp }}/abx-pkg
         run: uv run --no-sync --no-sources prek run --all-files
 
   discover-tests:
@@ -151,8 +150,6 @@ jobs:
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       ABX_PYTEST_TEE_SUBPROCESS_OUTPUT: "1"
-      ABX_PKG_DIR: ${{ runner.temp }}/abx-pkg
-      PYTHONPATH: ${{ runner.temp }}/abx-pkg
 
     strategy:
       fail-fast: false
@@ -172,7 +169,7 @@ jobs:
           git checkout --detach FETCH_HEAD
 
       - name: Clone abx-pkg
-        run: git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git "$ABX_PKG_DIR"
+        run: git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git "${{ runner.temp }}/abx-pkg"
 
       - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v5
@@ -227,7 +224,7 @@ jobs:
         run: |
           uv venv
           uv sync --dev --all-extras --no-sources
-          uv pip install --no-deps -e "$ABX_PKG_DIR"
+          uv pip install --no-deps -e "${{ runner.temp }}/abx-pkg"
           uv pip install --no-deps -e ".[dev]"
 
       - name: Verify Chromium launch
@@ -235,9 +232,10 @@ jobs:
         uses: ./.github/actions/verify-chromium-launch
 
       - name: Run test - ${{ matrix.test.name }}
-        run: |
-          uv run --no-sync --no-sources pytest -xvs -rA "${{ matrix.test.path }}" --basetemp="$RUNNER_TEMP/pytest-out"
         env:
+          PYTHONPATH: ${{ runner.temp }}/abx-pkg
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           CHROME_SANDBOX: "false"
           CHROME_HEADLESS: "True"
+        run: |
+          uv run --no-sync --no-sources pytest -xvs -rA "${{ matrix.test.path }}" --basetemp="$RUNNER_TEMP/pytest-out"
