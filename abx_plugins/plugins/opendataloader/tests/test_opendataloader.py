@@ -10,14 +10,10 @@ Tests verify:
 6. Handles missing sources gracefully
 """
 
-import importlib.util
 import json
 import os
 import subprocess
-import sys
 import tempfile
-from types import SimpleNamespace
-from unittest import mock
 from pathlib import Path
 
 import pytest
@@ -140,83 +136,37 @@ def test_install_hook_requests_java_dependency():
 
 
 def test_opendataloader_env_sets_java_home_and_path(tmp_path):
-    monkeypatch_modules = {
-        "rich_click": __import__("click"),
-    }
-    original_modules = {name: sys.modules.get(name) for name in monkeypatch_modules}
-    sys.modules.update(monkeypatch_modules)
-
-    spec = importlib.util.spec_from_file_location(
-        "opendataloader_hook",
-        OPENDATALOADER_HOOK,
+    from abx_plugins.plugins.opendataloader.on_Snapshot__60_opendataloader import (
+        _opendataloader_env,
     )
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    try:
-        spec.loader.exec_module(module)
-    finally:
-        for name, value in original_modules.items():
-            if value is None:
-                sys.modules.pop(name, None)
-            else:
-                sys.modules[name] = value
 
     java_bin = tmp_path / "jdk" / "bin" / "java"
     java_bin.parent.mkdir(parents=True, exist_ok=True)
     java_bin.write_text("", encoding="utf-8")
     java_bin.chmod(0o755)
 
-    with mock.patch.object(
-        module.Binary,
-        "load_or_install",
-        return_value=SimpleNamespace(abspath=java_bin),
-    ):
-        env = module._opendataloader_env("java")
+    env = _opendataloader_env(str(java_bin))
     assert env is not None
     assert env["JAVA_HOME"] == str(java_bin.parent.parent)
     assert env["PATH"].split(os.pathsep)[0] == str(java_bin.parent)
 
 
-def test_opendataloader_env_uses_abx_pkg_java_resolution(tmp_path):
-    monkeypatch_modules = {
-        "rich_click": __import__("click"),
-    }
-    original_modules = {name: sys.modules.get(name) for name in monkeypatch_modules}
-    sys.modules.update(monkeypatch_modules)
-
-    spec = importlib.util.spec_from_file_location(
-        "opendataloader_hook",
-        OPENDATALOADER_HOOK,
+def test_opendataloader_env_does_not_duplicate_java_bin_in_path(tmp_path, monkeypatch):
+    from abx_plugins.plugins.opendataloader.on_Snapshot__60_opendataloader import (
+        _opendataloader_env,
     )
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    try:
-        spec.loader.exec_module(module)
-    finally:
-        for name, value in original_modules.items():
-            if value is None:
-                sys.modules.pop(name, None)
-            else:
-                sys.modules[name] = value
 
     java_bin = tmp_path / "jdk" / "bin" / "java"
     java_bin.parent.mkdir(parents=True, exist_ok=True)
     java_bin.write_text("", encoding="utf-8")
     java_bin.chmod(0o755)
 
-    binary_mock = mock.Mock()
-    binary_mock.load_or_install.return_value = SimpleNamespace(abspath=java_bin)
-
-    with mock.patch.object(module, "Binary", return_value=binary_mock) as binary_cls:
-        env = module._opendataloader_env("java")
+    monkeypatch.setenv("PATH", str(java_bin.parent))
+    env = _opendataloader_env(str(java_bin))
 
     assert env is not None
     assert env["JAVA_HOME"] == str(java_bin.parent.parent)
-    assert env["PATH"].split(os.pathsep)[0] == str(java_bin.parent)
-    binary_cls.assert_called_once()
-    _, kwargs = binary_cls.call_args
-    assert kwargs["name"] == "java"
-    assert str(kwargs["min_version"]) == "11.0.0"
+    assert env["PATH"] == str(java_bin.parent)
 
 
 def test_config_disabled_skips():

@@ -2427,9 +2427,8 @@ def test_crawl_wait_retries_until_published_cdp_endpoint_becomes_connectable(
                 "crawl wait should retry until the published endpoint becomes connectable:\n"
                 f"Stdout: {stdout}\nStderr: {stderr}"
             )
-            payload = json.loads(stdout.strip())
-            assert payload["status"] == "succeeded", payload
-            assert "browser ready" in payload["output_str"]
+            assert stdout.strip() == "", stdout
+            assert "Chrome session ready" in stderr, stderr
         finally:
             if wait_process is not None and wait_process.poll() is None:
                 wait_process.kill()

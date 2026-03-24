@@ -42,12 +42,23 @@ def _machine_type() -> str:
 
 def _apply_machine_updates(records: list[dict], env: dict[str, str]) -> None:
     for record in records:
-        if record.get("type") != "Machine":
+        if record.get("type") == "Machine":
+            config = record.get("config")
+            if isinstance(config, dict):
+                env.update({str(key): str(value) for key, value in config.items()})
             continue
-        config = record.get("config")
-        if not isinstance(config, dict):
+        if record.get("type") != "Binary":
             continue
-        env.update({str(key): str(value) for key, value in config.items()})
+        abspath = record.get("abspath")
+        if not isinstance(abspath, str) or not abspath:
+            continue
+        name = str(record.get("name") or "")
+        if name in {"chrome", "chromium"}:
+            env["CHROME_BINARY"] = abspath
+        elif name == "node":
+            env["NODE_BINARY"] = abspath
+        elif name == "npm":
+            env["NPM_BINARY"] = abspath
 
 
 def _required_binary_record(plugin_dir: Path, name: str, env: dict[str, str]) -> dict:

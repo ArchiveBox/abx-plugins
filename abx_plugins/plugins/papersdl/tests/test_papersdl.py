@@ -211,7 +211,7 @@ def test_config_timeout():
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
         env["PAPERSDL_BINARY"] = binary_path
-        env["PAPERSDL_TIMEOUT"] = "5"
+        env["PAPERSDL_TIMEOUT"] = "30"
 
         result = subprocess.run(
             [

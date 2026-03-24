@@ -103,7 +103,7 @@ def test_handles_timeout():
         import os
 
         env = os.environ.copy()
-        env["TIMEOUT"] = "1"
+        env["ARCHIVEDOTORG_TIMEOUT"] = "10"
 
         result = subprocess.run(
             [
@@ -121,7 +121,7 @@ def test_handles_timeout():
         # Timeout is a transient error - should exit 1 with failed JSONL
         assert result.returncode in (0, 1), "Should complete without hanging"
 
-        # With a 1s timeout the hook may time out or get an HTTP error from
+        # With a low-but-valid timeout the hook may time out or get an HTTP error from
         # archive.org (e.g. 403).  Either way it should emit proper JSONL.
         if result.returncode == 1:
             result_json = parse_jsonl_output(result.stdout)
