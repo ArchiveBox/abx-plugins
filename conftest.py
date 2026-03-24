@@ -154,7 +154,7 @@ def isolated_test_env(
             "UV_CACHE_DIR",
             str(
                 Path(os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache")))
-                / "uv"
+                / "uv",
             ),
         ),
     )

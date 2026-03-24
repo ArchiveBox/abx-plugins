@@ -55,7 +55,7 @@ def _required_binary_record(plugin_dir: Path, name: str, env: dict[str, str]) ->
         if record.get("name") == name:
             return record
     raise AssertionError(
-        f"{plugin_dir.name} config missing required_binaries entry for {name}"
+        f"{plugin_dir.name} config missing required_binaries entry for {name}",
     )
 
 

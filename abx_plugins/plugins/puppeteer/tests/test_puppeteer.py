@@ -12,7 +12,7 @@ import pytest
 from abx_plugins.plugins.base.test_utils import get_hook_script, get_plugin_dir
 from abx_plugins.plugins.puppeteer.on_BinaryRequest__12_puppeteer import (
     _get_install_failure_hint,
-    _resolve_binary_reference,
+    _load_binary_from_path,
 )
 
 
@@ -130,7 +130,9 @@ def test_resolve_binary_reference_accepts_command_names(
 
     monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}")
 
-    assert _resolve_binary_reference(browser_name) == str(binary_path)
+    binary = _load_binary_from_path(browser_name, browser_name)
+    assert binary is not None
+    assert str(binary.abspath) == str(binary_path)
 
 
 def test_binary_hook_fast_path_does_not_emit_chromium_version(tmp_path: Path):

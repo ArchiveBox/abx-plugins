@@ -63,7 +63,9 @@ def _schema_types(prop: Mapping[str, Any]) -> set[str]:
 
 
 def _resolve_config_path(
-    config_path: Path | str | None, *, stack_depth: int = 1
+    config_path: Path | str | None,
+    *,
+    stack_depth: int = 1,
 ) -> Path:
     if config_path is None:
         caller_file = inspect.stack()[stack_depth].filename
@@ -76,7 +78,8 @@ def _load_schema(path: Path) -> dict[str, Any]:
 
 
 def _collect_required_schema_paths(
-    config_path: Path, seen: set[Path] | None = None
+    config_path: Path,
+    seen: set[Path] | None = None,
 ) -> list[Path]:
     seen = seen or set()
     resolved = config_path.resolve()
@@ -122,7 +125,10 @@ def _lookup_raw_value(
 
 
 def _coerce_raw_value(
-    raw_value: Any, prop: Mapping[str, Any], *, persisted: bool
+    raw_value: Any,
+    prop: Mapping[str, Any],
+    *,
+    persisted: bool,
 ) -> Any:
     if not isinstance(raw_value, str):
         return raw_value
@@ -134,7 +140,8 @@ def _coerce_raw_value(
 
 
 def resolve_alias(
-    key: str, plugin_schemas: dict[str, dict[str, Any]] | None = None
+    key: str,
+    plugin_schemas: dict[str, dict[str, Any]] | None = None,
 ) -> str:
     if plugin_schemas is None:
         return key
@@ -248,7 +255,7 @@ def resolve_plugin_configs(
                 ),
             )
             plugin_config = normalize_config_value(
-                model.model_validate(payload).model_dump(mode="json")
+                model.model_validate(payload).model_dump(mode="json"),
             )
             if resolved_sections.get(plugin_name) != plugin_config:
                 resolved_sections[plugin_name] = plugin_config
@@ -360,7 +367,7 @@ def get_personas_dir() -> Path:
     """
     config = load_config(BASE_CONFIG_PATH)
     personas_dir = str(
-        config.PERSONAS_DIR or Path.home() / ".config" / "abx" / "personas"
+        config.PERSONAS_DIR or Path.home() / ".config" / "abx" / "personas",
     )
     return Path(personas_dir).expanduser().resolve()
 

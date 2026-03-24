@@ -41,7 +41,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from abx_pkg import AptProvider, Binary, BrewProvider, EnvProvider, SemVer
+from abx_pkg import AptProvider, Binary, BinProvider, BrewProvider, EnvProvider, SemVer
 from abx_plugins.plugins.base.utils import (
     load_config,
     emit_archive_result_record,
@@ -71,7 +71,7 @@ class OpendataloaderRunError(RuntimeError):
 
 
 def _opendataloader_env(java_binary: str) -> dict[str, str] | None:
-    provider_order = [EnvProvider(), BrewProvider()]
+    provider_order: list[BinProvider] = [EnvProvider(), BrewProvider()]
     if sys.platform != "darwin":
         provider_order.append(AptProvider())
 

@@ -922,13 +922,15 @@ def _has_puppeteer_module(env: dict) -> bool:
 
 
 def _required_binary_record(
-    plugin_dir: Path, name: str, env: dict[str, str]
+    plugin_dir: Path,
+    name: str,
+    env: dict[str, str],
 ) -> dict[str, Any]:
     for record in get_hydrated_required_binaries(plugin_dir, env=env):
         if record.get("name") == name:
             return record
     raise RuntimeError(
-        f"{plugin_dir.name} config did not declare required_binaries entry for {name}"
+        f"{plugin_dir.name} config did not declare required_binaries entry for {name}",
     )
 
 
@@ -943,7 +945,9 @@ def _ensure_puppeteer_with_hooks(env: dict, timeout: int) -> None:
         return
 
     puppeteer_record = _required_binary_record(
-        PLUGINS_ROOT / "puppeteer", "puppeteer", env
+        PLUGINS_ROOT / "puppeteer",
+        "puppeteer",
+        env,
     )
 
     npm_cmd = [

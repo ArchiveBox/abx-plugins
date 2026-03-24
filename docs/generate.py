@@ -88,7 +88,9 @@ def as_required_binary_list(value: Any) -> list[dict[str, Any]]:
         overrides_summary = ""
         if isinstance(overrides, dict) and overrides:
             overrides_summary = json.dumps(
-                overrides, ensure_ascii=False, sort_keys=True
+                overrides,
+                ensure_ascii=False,
+                sort_keys=True,
             )
         min_version = normalized.get("min_version")
         summary_parts = [f"providers={binproviders}"]

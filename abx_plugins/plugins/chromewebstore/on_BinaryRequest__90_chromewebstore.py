@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 import rich_click as click
-from abx_pkg import Binary, EnvProvider, SemVer
+from abx_pkg import Binary, BinProviderOverrides, EnvProvider, SemVer
 
 from abx_plugins.plugins.base.utils import emit_installed_binary_record, load_config
 
@@ -65,7 +65,7 @@ def _hash_file(path: Path) -> str:
 class ChromeWebstoreProvider(EnvProvider):
     name: str = "chromewebstore"
     INSTALLER_BIN: str = "node"
-    overrides: dict[str, dict[str, str]] = {
+    overrides: BinProviderOverrides = {
         "*": {
             "abspath": "self.chromewebstore_abspath_handler",
             "version": "self.chromewebstore_version_handler",
@@ -77,7 +77,9 @@ class ChromeWebstoreProvider(EnvProvider):
     }
 
     def chromewebstore_install_args_handler(
-        self, bin_name: str, **context
+        self,
+        bin_name: str,
+        **context,
     ) -> list[str]:
         return [bin_name, bin_name]
 
@@ -106,19 +108,20 @@ class ChromeWebstoreProvider(EnvProvider):
         cached = self._cached_extension(bin_name)
         install_args = list(self.get_install_args(bin_name, quiet=True))
         webstore_id = str(
-            cached.get("webstore_id") or (install_args[0] if install_args else bin_name)
+            cached.get("webstore_id")
+            or (install_args[0] if install_args else bin_name),
         )
         extension_name = str(
-            cached.get("name") or self._extension_name(bin_name, install_args)
+            cached.get("name") or self._extension_name(bin_name, install_args),
         )
         extensions_dir = _extensions_dir()
         unpacked_path = Path(
             cached.get("unpacked_path")
-            or (extensions_dir / f"{webstore_id}__{extension_name}")
+            or (extensions_dir / f"{webstore_id}__{extension_name}"),
         )
         crx_path = Path(
             cached.get("crx_path")
-            or (extensions_dir / f"{webstore_id}__{extension_name}.crx")
+            or (extensions_dir / f"{webstore_id}__{extension_name}.crx"),
         )
         manifest_path = unpacked_path / "manifest.json"
         return webstore_id, extension_name, unpacked_path, crx_path, manifest_path
@@ -141,16 +144,6 @@ class ChromeWebstoreProvider(EnvProvider):
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         return str(manifest.get("version") or "")
 
-    def get_sha256(
-        self, bin_name: str, abspath: str | Path | None = None, nocache: bool = False
-    ) -> str | None:
-        _, _, _, crx_path, manifest_path = self._extension_spec(bin_name)
-        if crx_path.exists():
-            return _hash_file(crx_path)
-        if manifest_path.exists():
-            return _hash_file(manifest_path)
-        return None
-
     def chromewebstore_install_handler(
         self,
         bin_name: str,
@@ -166,7 +159,7 @@ class ChromeWebstoreProvider(EnvProvider):
         node_binary = self.INSTALLER_BIN_ABSPATH
         if not node_binary:
             raise FileNotFoundError(
-                "node is required to install Chrome Web Store extensions"
+                "node is required to install Chrome Web Store extensions",
             )
 
         proc = subprocess.run(

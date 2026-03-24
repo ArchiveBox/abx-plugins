@@ -23,10 +23,11 @@ import re
 import shutil
 import sys
 from pathlib import Path
+from typing import cast
 
 import rich_click as click
+from abx_pkg import Binary, EnvProvider, HandlerDict, NpmProvider
 from abx_pkg.semver import bin_version
-from abx_pkg import Binary, EnvProvider, NpmProvider
 
 from abx_plugins.plugins.base.utils import (
     emit_installed_binary_record,
@@ -66,7 +67,7 @@ def main(
     npm_prefix.mkdir(parents=True, exist_ok=True)
     npm_provider = NpmProvider(npm_prefix=npm_prefix)
     cache_dir = Path(
-        (config.PUPPETEER_CACHE_DIR or "").strip() or str(Path(lib_dir) / "puppeteer")
+        (config.PUPPETEER_CACHE_DIR or "").strip() or str(Path(lib_dir) / "puppeteer"),
     )
     cache_dir.mkdir(parents=True, exist_ok=True)
     os.environ["PUPPETEER_CACHE_DIR"] = str(cache_dir)
@@ -354,10 +355,15 @@ def _load_binary_from_path(path: str, name: str) -> Binary | None:
     if not raw_path:
         return None
     path_obj = Path(raw_path).expanduser()
-    overrides = (
-        {"env": {"abspath": str(path_obj)}}
-        if raw_path.startswith(("~", ".", "/")) or "/" in raw_path or "\\" in raw_path
-        else {}
+    overrides = cast(
+        dict[str, HandlerDict],
+        (
+            {"env": {"abspath": str(path_obj)}}
+            if raw_path.startswith(("~", ".", "/"))
+            or "/" in raw_path
+            or "\\" in raw_path
+            else {}
+        ),
     )
     try:
         binary = Binary(

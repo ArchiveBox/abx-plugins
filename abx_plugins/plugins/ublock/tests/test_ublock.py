@@ -877,10 +877,10 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                 ):
                     print("\n✓ SUCCESS: uBlock correctly blocks ads!")
                     print(
-                        f"  - Baseline: {baseline_result['adElementsVisible']} visible ads"
+                        f"  - Baseline: {baseline_result['adElementsVisible']} visible ads",
                     )
                     print(
-                        f"  - With extension: {ext_result['adElementsVisible']} visible ads"
+                        f"  - With extension: {ext_result['adElementsVisible']} visible ads",
                     )
                     print(
                         f"  - Blocked: {ads_blocked} ads ({reduction_percent:.0f}% reduction)",

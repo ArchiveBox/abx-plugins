@@ -90,7 +90,10 @@ def test_every_plugin_has_config_json_with_required_metadata() -> None:
                     failures.append(
                         f"{label}.min_version must be null or a non-empty string",
                     )
-                if "overrides" in item_dict and not isinstance(item_dict["overrides"], dict):
+                if "overrides" in item_dict and not isinstance(
+                    item_dict["overrides"],
+                    dict,
+                ):
                     failures.append(f"{label}.overrides must be an object when present")
 
         required_plugins = config.get("required_plugins", [])

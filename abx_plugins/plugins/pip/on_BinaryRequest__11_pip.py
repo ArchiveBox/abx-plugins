@@ -26,6 +26,7 @@ import subprocess
 import sys
 from contextlib import contextmanager
 from pathlib import Path
+from typing import cast
 
 import fcntl
 
@@ -36,7 +37,7 @@ from abx_plugins.plugins.base.utils import (
 )
 
 import rich_click as click
-from abx_pkg import Binary, EnvProvider, PipProvider, SemVer
+from abx_pkg import Binary, EnvProvider, HandlerDict, PipProvider, SemVer
 
 
 def _is_executable(path: Path) -> bool:
@@ -66,10 +67,13 @@ def _load_env_binary_abspath(binary_ref: str) -> str | None:
         return None
 
     path_ref = Path(raw_ref).expanduser()
-    overrides = (
-        {"env": {"abspath": str(path_ref)}}
-        if raw_ref.startswith(("~", ".", "/")) or "/" in raw_ref or "\\" in raw_ref
-        else {}
+    overrides = cast(
+        dict[str, HandlerDict],
+        (
+            {"env": {"abspath": str(path_ref)}}
+            if raw_ref.startswith(("~", ".", "/")) or "/" in raw_ref or "\\" in raw_ref
+            else {}
+        ),
     )
     lookup_name = path_ref.name if overrides else raw_ref
 
@@ -141,7 +145,9 @@ def main(
         if current_python.is_file():
             preferred_python = str(current_python)
         else:
-            current_python = _load_env_binary_abspath(Path(sys.executable).name) or sys.executable
+            current_python = (
+                _load_env_binary_abspath(Path(sys.executable).name) or sys.executable
+            )
             if current_python:
                 preferred_python = current_python
     if not preferred_python:
