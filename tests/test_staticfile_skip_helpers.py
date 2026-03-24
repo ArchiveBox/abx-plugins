@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -55,10 +54,6 @@ def test_python_has_staticfile_output_rejects_html_noresults(tmp_path: Path) -> 
 def test_js_has_staticfile_output_accepts_succeeded_static_artifact(
     tmp_path: Path,
 ) -> None:
-    node_binary = shutil.which("node")
-    if not node_binary:
-        return
-
     staticfile_dir = tmp_path / "staticfile"
     staticfile_dir.mkdir()
     (staticfile_dir / "stdout.log").write_text(
@@ -76,7 +71,7 @@ def test_js_has_staticfile_output_accepts_succeeded_static_artifact(
 
     result = subprocess.run(
         [
-            node_binary,
+            "node",
             "-e",
             (
                 "const { hasStaticFileOutput } = require("
@@ -95,10 +90,6 @@ def test_js_has_staticfile_output_accepts_succeeded_static_artifact(
 
 
 def test_js_has_staticfile_output_rejects_html_noresults(tmp_path: Path) -> None:
-    node_binary = shutil.which("node")
-    if not node_binary:
-        return
-
     staticfile_dir = tmp_path / "staticfile"
     staticfile_dir.mkdir()
     (staticfile_dir / "stdout.log").write_text(
@@ -116,7 +107,7 @@ def test_js_has_staticfile_output_rejects_html_noresults(tmp_path: Path) -> None
 
     result = subprocess.run(
         [
-            node_binary,
+            "node",
             "-e",
             (
                 "const { hasStaticFileOutput } = require("
