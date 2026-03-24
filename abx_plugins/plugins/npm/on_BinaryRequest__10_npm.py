@@ -65,7 +65,7 @@ def main(
     provider = NpmProvider(npm_prefix=npm_prefix)
     if not provider.INSTALLER_BIN:
         click.echo("npm not available on this system", err=True)
-        sys.exit(1)
+        sys.exit(0)
 
     click.echo(f"Installing {name} via npm to {npm_prefix}...", err=True)
 

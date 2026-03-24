@@ -170,7 +170,7 @@ def main(
         provider = PipProvider(pip_venv=pip_venv_path)
         if not provider.INSTALLER_BIN:
             click.echo("pip not available on this system", err=True)
-            sys.exit(1)
+            sys.exit(0)
 
         click.echo(f"Installing {name} via pip to venv at {pip_venv_path}...", err=True)
 

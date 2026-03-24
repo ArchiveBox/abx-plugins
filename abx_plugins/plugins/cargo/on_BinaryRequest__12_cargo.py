@@ -50,7 +50,7 @@ def main(
     provider = CargoProvider()
     if not provider.INSTALLER_BIN_ABSPATH:
         click.echo("cargo not available on this system", err=True)
-        sys.exit(1)
+        sys.exit(0)
 
     click.echo(f"Resolving {name} via cargo (load or install)...", err=True)
 

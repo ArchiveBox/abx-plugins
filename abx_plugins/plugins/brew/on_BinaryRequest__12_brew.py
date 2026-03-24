@@ -52,7 +52,7 @@ def main(
     provider = BrewProvider()
     if not provider.INSTALLER_BIN_ABSPATH:
         click.echo("brew not available on this system", err=True)
-        sys.exit(1)
+        sys.exit(0)
 
     click.echo(f"Resolving {name} via brew (load or install)...", err=True)
 

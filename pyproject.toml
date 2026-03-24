@@ -58,6 +58,31 @@ Documentation = "https://github.com/ArchiveBox/ArchiveBox"
 testpaths = ["abx_plugins/plugins", "tests"]
 addopts = ["-p", "abx_plugins.pytest_bootstrap", "-p", "no:cacheprovider"]
 
+[tool.pyright]
+include = [
+    "abx_plugins",
+    "tests",
+    "examples",
+]
+extraPaths = [
+    "abx-pkg",
+    "../abx-pkg",
+    "abx-dl",
+    "../abx-dl",
+    "archivebox",
+    "../archivebox",
+]
+exclude = [
+    ".venv",
+    "**/*.pyi",
+    "**/node_modules",
+    "**/__pycache__",
+]
+reportMissingImports = true
+reportMissingTypeStubs = false
+pythonVersion = "3.11"
+pythonPlatform = "Linux"
+
 [tool.codespell]
 ignore-words-list = "abx,bu,wit,dont,cant,wont,re-use,re-used,re-using,re-usable,thats,doesnt,fith,FitH,doubleclick,administrar"
 skip = "*.json"

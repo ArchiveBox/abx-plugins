@@ -48,7 +48,7 @@ def main(
     provider = AptProvider()
     if not provider.INSTALLER_BIN:
         click.echo("apt not available on this system", err=True)
-        sys.exit(1)
+        sys.exit(0)
 
     click.echo(f"Resolving {name} via apt (load or install)...", err=True)
 

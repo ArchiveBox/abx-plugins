@@ -40,7 +40,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-from abx_pkg import AptProvider, Binary, BinProvider, BrewProvider, EnvProvider, SemVer
 from abx_plugins.plugins.base.utils import (
     load_config,
     emit_archive_result_record,
@@ -70,25 +69,12 @@ class OpendataloaderRunError(RuntimeError):
 
 
 def _opendataloader_env(java_binary: str) -> dict[str, str] | None:
-    provider_order: list[BinProvider] = [EnvProvider(), BrewProvider()]
-    if sys.platform != "darwin":
-        provider_order.append(AptProvider())
-
-    java = Binary(
-        name=java_binary,
-        min_version=SemVer("11.0.0"),
-        binproviders=provider_order,
-        overrides={
-            "brew": {"install_args": ["openjdk"]},
-            "apt": {"install_args": ["default-jre"]},
-        },
-    ).load_or_install()
-    if not java or not java.abspath:
+    java_path = Path(str(java_binary or "").strip()).expanduser()
+    if not str(java_path):
         return None
-    java_path = Path(java.abspath)
 
     env = os.environ.copy()
-    java_bin_dir = str(java_path.parent)
+    java_bin_dir = str(java_path.resolve(strict=False).parent)
     current_path = env.get("PATH", "")
     if java_bin_dir not in current_path.split(os.pathsep):
         env["PATH"] = (
@@ -97,7 +83,7 @@ def _opendataloader_env(java_binary: str) -> dict[str, str] | None:
             else java_bin_dir
         )
 
-    java_home = java_path.parent.parent
+    java_home = java_path.resolve(strict=False).parent.parent
     if (java_home / "bin" / "java").is_file():
         env["JAVA_HOME"] = str(java_home)
     return env
