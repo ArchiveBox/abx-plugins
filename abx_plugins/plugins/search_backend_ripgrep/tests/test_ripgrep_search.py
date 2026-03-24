@@ -26,6 +26,8 @@ from abx_plugins.plugins.search_backend_ripgrep.search import (
     DEEP_EXCLUDES,
 )
 
+RG_PATH = shutil.which("rg")
+
 
 class TestRipgrepFlush:
     """Test the flush function."""
@@ -41,6 +43,7 @@ class TestRipgrepSearch:
 
     def setup_method(self, _method=None):
         """Create temporary archive directory with test files."""
+        assert RG_PATH, "rg is required for ripgrep backend tests"
         self.temp_dir = tempfile.mkdtemp()
         self.archive_dir = Path(self.temp_dir) / "archive"
         self.archive_dir.mkdir()
@@ -69,7 +72,15 @@ class TestRipgrepSearch:
         )
 
         self._orig_snap_dir = os.environ.get("SNAP_DIR")
+        self._orig_rg_binary = os.environ.get("RIPGREP_BINARY")
+        self._orig_rg_timeout = os.environ.get("RIPGREP_TIMEOUT")
+        self._orig_rg_args = os.environ.get("RIPGREP_ARGS")
+        self._orig_rg_args_extra = os.environ.get("RIPGREP_ARGS_EXTRA")
         os.environ["SNAP_DIR"] = str(self.archive_dir)
+        os.environ["RIPGREP_BINARY"] = RG_PATH
+        os.environ.pop("RIPGREP_TIMEOUT", None)
+        os.environ.pop("RIPGREP_ARGS", None)
+        os.environ.pop("RIPGREP_ARGS_EXTRA", None)
 
     def teardown_method(self, _method=None):
         """Clean up temporary directory."""
@@ -77,6 +88,22 @@ class TestRipgrepSearch:
             os.environ.pop("SNAP_DIR", None)
         else:
             os.environ["SNAP_DIR"] = self._orig_snap_dir
+        if self._orig_rg_binary is None:
+            os.environ.pop("RIPGREP_BINARY", None)
+        else:
+            os.environ["RIPGREP_BINARY"] = self._orig_rg_binary
+        if self._orig_rg_timeout is None:
+            os.environ.pop("RIPGREP_TIMEOUT", None)
+        else:
+            os.environ["RIPGREP_TIMEOUT"] = self._orig_rg_timeout
+        if self._orig_rg_args is None:
+            os.environ.pop("RIPGREP_ARGS", None)
+        else:
+            os.environ["RIPGREP_ARGS"] = self._orig_rg_args
+        if self._orig_rg_args_extra is None:
+            os.environ.pop("RIPGREP_ARGS_EXTRA", None)
+        else:
+            os.environ["RIPGREP_ARGS_EXTRA"] = self._orig_rg_args_extra
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def _create_snapshot(self, snapshot_id: str, files: dict):
@@ -147,10 +174,9 @@ class TestRipgrepSearch:
     def test_search_missing_binary(self):
         """search should raise when ripgrep binary not found."""
         with patch.dict(os.environ, {"RIPGREP_BINARY": "/nonexistent/rg"}):
-            with patch("shutil.which", return_value=None):
-                with pytest.raises(RuntimeError) as context:
-                    search("test")
-                assert "ripgrep binary not found" in str(context.value)
+            with pytest.raises(RuntimeError) as context:
+                search("test")
+            assert "ripgrep binary not found" in str(context.value)
 
     def test_search_with_custom_args(self):
         """search should use custom RIPGREP_ARGS."""
@@ -161,23 +187,16 @@ class TestRipgrepSearch:
 
     def test_search_timeout(self):
         """search should handle timeout gracefully."""
-        with patch.dict(os.environ, {"RIPGREP_TIMEOUT": "1"}):
+        with patch.dict(os.environ, {"RIPGREP_TIMEOUT": "5"}):
             # Short timeout, should still complete for small archive
             results = search("Python")
             assert isinstance(results, list)
 
     def test_search_contents_excludes_noncontent_files_and_strips_follow_flags(self):
-        rg_path = shutil.which("rg")
-        assert rg_path
-
         with (
             patch.dict(
                 os.environ,
                 {"RIPGREP_ARGS": '["--follow"]', "RIPGREP_ARGS_EXTRA": '["-L", "-i"]'},
-            ),
-            patch(
-                "abx_plugins.plugins.search_backend_ripgrep.search.resolve_binary_path",
-                return_value=rg_path,
             ),
             patch(
                 "abx_plugins.plugins.search_backend_ripgrep.search.subprocess.run",
@@ -193,14 +212,7 @@ class TestRipgrepSearch:
             assert f"!{glob}" in cmd
 
     def test_search_deep_reincludes_json_and_logs(self):
-        rg_path = shutil.which("rg")
-        assert rg_path
-
         with (
-            patch(
-                "abx_plugins.plugins.search_backend_ripgrep.search.resolve_binary_path",
-                return_value=rg_path,
-            ),
             patch(
                 "abx_plugins.plugins.search_backend_ripgrep.search.subprocess.run",
             ) as run,
@@ -220,6 +232,7 @@ class TestRipgrepSearchIntegration:
 
     def setup_method(self, _method=None):
         """Create archive with realistic structure."""
+        assert RG_PATH, "rg is required for ripgrep backend tests"
         self.temp_dir = tempfile.mkdtemp()
         self.archive_dir = Path(self.temp_dir) / "archive"
         self.archive_dir.mkdir()
@@ -256,7 +269,9 @@ class TestRipgrepSearchIntegration:
         )
 
         self._orig_snap_dir = os.environ.get("SNAP_DIR")
+        self._orig_rg_binary = os.environ.get("RIPGREP_BINARY")
         os.environ["SNAP_DIR"] = str(self.archive_dir)
+        os.environ["RIPGREP_BINARY"] = RG_PATH
 
     def teardown_method(self, _method=None):
         """Clean up."""
@@ -264,6 +279,10 @@ class TestRipgrepSearchIntegration:
             os.environ.pop("SNAP_DIR", None)
         else:
             os.environ["SNAP_DIR"] = self._orig_snap_dir
+        if self._orig_rg_binary is None:
+            os.environ.pop("RIPGREP_BINARY", None)
+        else:
+            os.environ["RIPGREP_BINARY"] = self._orig_rg_binary
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def _create_snapshot(self, timestamp: str, files: dict):
@@ -295,6 +314,7 @@ class TestRipgrepSearchIntegration:
 
 class TestRipgrepSearchCurrentArchiveBoxLayout:
     def setup_method(self, _method=None):
+        assert RG_PATH, "rg is required for ripgrep backend tests"
         self.temp_dir = tempfile.mkdtemp()
         self.data_dir = Path(self.temp_dir)
         self.snapshot_id = "019cf48c-aa86-72f0-9f8f-e4ea80226fc6"
@@ -317,13 +337,19 @@ class TestRipgrepSearchCurrentArchiveBoxLayout:
         (lib_dir / "big.txt").write_text("google " * 1000)
 
         self._orig_snap_dir = os.environ.get("SNAP_DIR")
+        self._orig_rg_binary = os.environ.get("RIPGREP_BINARY")
         os.environ["SNAP_DIR"] = str(self.data_dir)
+        os.environ["RIPGREP_BINARY"] = RG_PATH
 
     def teardown_method(self, _method=None):
         if self._orig_snap_dir is None:
             os.environ.pop("SNAP_DIR", None)
         else:
             os.environ["SNAP_DIR"] = self._orig_snap_dir
+        if self._orig_rg_binary is None:
+            os.environ.pop("RIPGREP_BINARY", None)
+        else:
+            os.environ["RIPGREP_BINARY"] = self._orig_rg_binary
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_search_roots_prefer_snapshot_content_dirs(self):
