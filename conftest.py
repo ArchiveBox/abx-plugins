@@ -5,7 +5,6 @@ import json
 import logging
 import os
 import shlex
-import shutil
 import subprocess
 import sys
 from collections.abc import Iterator
@@ -23,9 +22,16 @@ pytest_plugins = ["abx_plugins.plugins.chrome.tests.chrome_test_helpers"]
 logger = logging.getLogger(__name__)
 
 
-PLUGINS_ROOT = Path(__file__).resolve().parent / "abx_plugins" / "plugins"
+REPO_ROOT = Path(__file__).resolve().parent
+PLUGINS_ROOT = REPO_ROOT / "abx_plugins" / "plugins"
 CLAUDECODE_CONFIG = PLUGINS_ROOT / "claudecode" / "config.json"
 NPM_BINARY_HOOK = PLUGINS_ROOT / "npm" / "on_BinaryRequest__10_npm.py"
+
+existing_pythonpath = os.environ.get("PYTHONPATH", "")
+pythonpath_entries = [str(REPO_ROOT)]
+if existing_pythonpath:
+    pythonpath_entries.append(existing_pythonpath)
+os.environ["PYTHONPATH"] = os.pathsep.join(pythonpath_entries)
 
 
 def _tee_subprocess_output_enabled() -> bool:
@@ -350,15 +356,15 @@ def ensure_claude_code_prereqs(tmp_path_factory):
             os.environ["CLAUDECODE_BINARY"] = claude_bin
             return claude_bin
 
-    # Check claude binary (honor CLAUDECODE_BINARY env var), otherwise install via hooks.
+    # Check claude binary from env, otherwise install via hooks.
     claude_bin = os.environ.get("CLAUDECODE_BINARY")
-    if not claude_bin or not Path(claude_bin).exists():
-        claude_bin = shutil.which("claude")
     if not claude_bin:
         try:
             claude_bin = install_claude_code_with_hooks()
         except Exception as exc:
             pytest.fail(f"Claude Code CLI install via hooks failed: {exc}")
+    elif not Path(claude_bin).exists():
+        pytest.fail(f"CLAUDECODE_BINARY is set but does not exist: {claude_bin}")
 
     # Check API key
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")

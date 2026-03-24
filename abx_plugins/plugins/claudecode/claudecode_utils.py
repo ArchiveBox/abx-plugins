@@ -16,9 +16,6 @@ from typing import NotRequired, TypedDict
 from abx_plugins.plugins.base.utils import load_config
 
 
-CONFIG = load_config(Path(__file__).with_name("config.json"))
-
-
 class ExtractorOutput(TypedDict):
     name: str
     files: list[str]
@@ -165,7 +162,8 @@ def run_claude_code(
 
     Returns: (stdout, stderr, returncode)
     """
-    binary = str(CONFIG.CLAUDECODE_BINARY)
+    config = load_config(Path(__file__).with_name("config.json"))
+    binary = str(config.CLAUDECODE_BINARY)
 
     cmd = [binary]
 
@@ -232,7 +230,7 @@ def run_claude_code(
     env = {k: v for k, v in os.environ.items() if k not in DENIED_ENV_VARS}
 
     # Ensure API key is set
-    api_key = str(CONFIG.ANTHROPIC_API_KEY or "")
+    api_key = str(config.ANTHROPIC_API_KEY or "")
     if api_key:
         env["ANTHROPIC_API_KEY"] = api_key
 

@@ -20,7 +20,10 @@ from pathlib import Path
 import pytest
 import requests
 
-from abx_plugins.plugins.base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import (
+    get_hydrated_required_binaries,
+    parse_jsonl_output,
+)
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
@@ -29,11 +32,6 @@ _LITEPARSE_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_liteparse.*"), None)
 if _LITEPARSE_HOOK is None:
     raise FileNotFoundError(f"Snapshot hook not found in {PLUGIN_DIR}")
 LITEPARSE_HOOK = _LITEPARSE_HOOK
-
-_LITEPARSE_CRAWL_HOOK = next(PLUGIN_DIR.glob("on_Install__*_liteparse.*"), None)
-if _LITEPARSE_CRAWL_HOOK is None:
-    raise FileNotFoundError(f"Crawl hook not found in {PLUGIN_DIR}")
-LITEPARSE_CRAWL_HOOK = _LITEPARSE_CRAWL_HOOK
 
 TEST_URL = "https://example.com"
 
@@ -96,23 +94,15 @@ def _download_pdf(url: str) -> bytes:
 
 def test_hook_scripts_exist():
     assert LITEPARSE_HOOK.exists(), f"Snapshot hook not found: {LITEPARSE_HOOK}"
-    assert LITEPARSE_CRAWL_HOOK.exists(), (
-        f"Crawl hook not found: {LITEPARSE_CRAWL_HOOK}"
-    )
 
 
 def test_crawl_hook_emits_lit_binary_request_record():
-    result = subprocess.run(
-        [str(LITEPARSE_CRAWL_HOOK)],
-        capture_output=True,
-        text=True,
-        timeout=30,
+    binary = next(
+        record
+        for record in get_hydrated_required_binaries(PLUGIN_DIR)
+        if record.get("name") == "lit"
     )
-
-    assert result.returncode == 0
-    binary = parse_jsonl_output(result.stdout, record_type="BinaryRequest")
-    assert binary, "Expected crawl hook to emit BinaryRequest record"
-    assert binary.get("type") == "BinaryRequest"
+    assert binary.get("type", "BinaryRequest") == "BinaryRequest"
     assert binary.get("name") == "lit"
     assert binary.get("overrides", {}).get("npm", {}).get("install_args") == [
         "@llamaindex/liteparse",

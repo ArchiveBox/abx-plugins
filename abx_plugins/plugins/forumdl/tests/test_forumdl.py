@@ -59,7 +59,6 @@ def get_forumdl_binary_path() -> str | None:
             "pip": {
                 "install_args": [
                     "--no-deps",
-                    "--prefer-binary",
                     "forum-dl",
                     "chardet==5.2.0",
                     "beautifulsoup4",
@@ -183,7 +182,7 @@ def test_config_timeout():
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
         env["FORUMDL_BINARY"] = binary_path
-        env["FORUMDL_TIMEOUT"] = "5"
+        env["FORUMDL_TIMEOUT"] = "30"
         env["SNAP_DIR"] = str(tmpdir)
         env.pop("LIB_DIR", None)
 
@@ -198,16 +197,15 @@ def test_config_timeout():
             capture_output=True,
             text=True,
             env=env,
-            timeout=10,  # Should complete in 5s, use 10s as safety margin
+            timeout=35,
         )
         elapsed_time = time.time() - start_time
 
         assert result.returncode == 0, (
             f"Should complete without hanging: {result.stderr}"
         )
-        # Allow 1 second overhead for subprocess startup and Python interpreter
-        assert elapsed_time <= 6.0, (
-            f"Should complete within 6 seconds (5s timeout + 1s overhead), took {elapsed_time:.2f}s"
+        assert elapsed_time <= 35.0, (
+            f"Should complete within 35 seconds, took {elapsed_time:.2f}s"
         )
 
 

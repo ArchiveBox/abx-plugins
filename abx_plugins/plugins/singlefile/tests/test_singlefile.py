@@ -10,7 +10,6 @@ Tests verify:
 6. Works with extensions loaded (ublock, etc.)
 """
 
-import ast
 import os
 import json
 import subprocess
@@ -20,6 +19,7 @@ from pathlib import Path
 import pytest
 
 from abx_plugins.plugins.base.test_utils import (
+    get_hydrated_required_binaries,
     get_hook_script,
     get_plugin_dir,
     parse_jsonl_output,
@@ -35,13 +35,9 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 PLUGIN_DIR = get_plugin_dir(__file__)
 _SNAPSHOT_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_singlefile.py")
-_INSTALL_HOOK = get_hook_script(PLUGIN_DIR, "on_Install__82_singlefile.*")
 if _SNAPSHOT_HOOK is None:
     raise FileNotFoundError(f"Snapshot hook not found in {PLUGIN_DIR}")
-if _INSTALL_HOOK is None:
-    raise FileNotFoundError(f"Install hook not found in {PLUGIN_DIR}")
 SNAPSHOT_HOOK = _SNAPSHOT_HOOK
-INSTALL_SCRIPT = _INSTALL_HOOK
 SINGLEFILE_HELPER = PLUGIN_DIR / "singlefile_extension_save.js"
 BASE_UTILS = PLUGIN_DIR.parent / "base" / "utils.js"
 CHROME_UTILS = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
@@ -102,18 +98,7 @@ def ensure_singlefile_extension_installed() -> dict[str, Path]:
         },
     )
 
-    result = subprocess.run(
-        [str(INSTALL_SCRIPT)],
-        capture_output=True,
-        text=True,
-        env=env_install,
-        timeout=180,
-    )
-    assert result.returncode == 0, (
-        f"SingleFile extension install hook failed: {result.stderr}\nstdout: {result.stdout}"
-    )
-
-    required_binaries = ast.literal_eval(result.stdout)
+    required_binaries = get_hydrated_required_binaries(PLUGIN_DIR, env=env_install)
     extension_request = next(
         binary for binary in required_binaries if binary.get("name") == "singlefile"
     )
@@ -238,15 +223,7 @@ def test_singlefile_cli_archives_example_com():
             },
         )
 
-        result = subprocess.run(
-            [str(INSTALL_SCRIPT)],
-            capture_output=True,
-            text=True,
-            env=env_install,
-            timeout=120,
-        )
-        assert result.returncode == 0, f"Extension install failed: {result.stderr}"
-        required_binaries = ast.literal_eval(result.stdout)
+        required_binaries = get_hydrated_required_binaries(PLUGIN_DIR, env=env_install)
         extension_request = next(
             binary for binary in required_binaries if binary.get("name") == "singlefile"
         )
@@ -419,15 +396,7 @@ def test_singlefile_with_extension_uses_existing_chrome():
         )
 
         # Install SingleFile extension cache before launching Chrome
-        result = subprocess.run(
-            [str(INSTALL_SCRIPT)],
-            capture_output=True,
-            text=True,
-            env=env_install,
-            timeout=120,
-        )
-        assert result.returncode == 0, f"Extension install failed: {result.stderr}"
-        required_binaries = ast.literal_eval(result.stdout)
+        required_binaries = get_hydrated_required_binaries(PLUGIN_DIR, env=env_install)
         extension_request = next(
             binary for binary in required_binaries if binary.get("name") == "singlefile"
         )

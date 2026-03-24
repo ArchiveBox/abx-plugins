@@ -9,6 +9,7 @@ from urllib.request import urlopen
 import pytest
 
 from abx_plugins.plugins.base.test_utils import (
+    get_hydrated_required_binaries,
     get_hook_script,
     get_plugin_dir,
     parse_jsonl_output,
@@ -21,12 +22,6 @@ _DEFUDDLE_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_defuddle.*")
 if _DEFUDDLE_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 DEFUDDLE_HOOK = _DEFUDDLE_HOOK
-
-_DEFUDDLE_CRAWL_HOOK = get_hook_script(PLUGIN_DIR, "on_Install__*_defuddle.*")
-if _DEFUDDLE_CRAWL_HOOK is None:
-    raise FileNotFoundError(f"Crawl hook not found in {PLUGIN_DIR}")
-DEFUDDLE_CRAWL_HOOK = _DEFUDDLE_CRAWL_HOOK
-
 
 TEST_URL = "https://example.com"
 _defuddle_binary_path = None
@@ -80,18 +75,12 @@ def test_hook_script_exists():
 
 
 def test_crawl_hook_emits_defuddle_binary_request_record():
-    result = subprocess.run(
-        [str(DEFUDDLE_CRAWL_HOOK)],
-        capture_output=True,
-        text=True,
-        timeout=30,
+    binary = next(
+        record
+        for record in get_hydrated_required_binaries(PLUGIN_DIR)
+        if record.get("name") == "defuddle"
     )
-
-    assert result.returncode == 0
-    binary = parse_jsonl_output(result.stdout, record_type="BinaryRequest")
-    assert binary, "Expected crawl hook to emit BinaryRequest record"
-    assert binary.get("type") == "BinaryRequest"
-    assert binary.get("name") == "defuddle"
+    assert binary.get("binproviders") == "env,npm"
     assert binary.get("overrides", {}).get("npm", {}).get("install_args") == [
         "defuddle",
     ]

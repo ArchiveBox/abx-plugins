@@ -11,7 +11,6 @@ Tests verify:
 7. Full integration: launches Chrome, runs Claude computer-use, produces output files
 """
 
-import ast
 import json
 import tempfile
 from pathlib import Path
@@ -20,6 +19,7 @@ from pathlib import Path
 import pytest
 
 from abx_plugins.plugins.base.test_utils import (
+    get_hydrated_required_binaries,
     get_plugin_dir,
     get_hook_script,
     parse_jsonl_output,
@@ -34,8 +34,6 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 
 PLUGIN_DIR = get_plugin_dir(__file__)
 
-# Find hooks
-_INSTALL_HOOK = get_hook_script(PLUGIN_DIR, "on_Install__*_claudechrome*")
 _CONFIG_HOOK = get_hook_script(PLUGIN_DIR, "on_CrawlSetup__*_claudechrome_config*")
 _SNAPSHOT_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_claudechrome*")
 
@@ -94,9 +92,6 @@ class TestClaudeChromePlugin:
 
     def test_hook_exists(self):
         """All hook scripts should exist."""
-        assert _INSTALL_HOOK is not None and _INSTALL_HOOK.exists(), (
-            "Install hook not found"
-        )
         assert _CONFIG_HOOK is not None and _CONFIG_HOOK.exists(), (
             "Config hook not found"
         )
@@ -104,11 +99,7 @@ class TestClaudeChromePlugin:
 
     def test_hook_runs_at_correct_priorities(self):
         """Hooks should run at the expected priorities."""
-        assert _INSTALL_HOOK is not None
         assert _CONFIG_HOOK is not None
-        assert "__84_" in _INSTALL_HOOK.name, (
-            f"Install hook should be priority 84: {_INSTALL_HOOK.name}"
-        )
         assert "__96_" in _CONFIG_HOOK.name, (
             f"Config hook should be priority 96: {_CONFIG_HOOK.name}"
         )
@@ -155,28 +146,14 @@ class TestClaudeChromePlugin:
 
     def test_install_hook_reports_required_binaries(self):
         """Install hook should emit the required_binaries array for claudechrome."""
-        assert _INSTALL_HOOK is not None
         env = get_test_env()
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            env["CRAWL_DIR"] = tmpdir
-            returncode, stdout, stderr = run_hook(
-                _INSTALL_HOOK,
-                TEST_URL,
-                "test-install-disabled",
-                cwd=tmpdir,
-                env=env,
-                timeout=30,
-            )
-
-            assert returncode == 0, f"Hook failed: {stderr}"
-            required_binaries = ast.literal_eval(stdout)
-            claudechrome_binary = next(
-                binary
-                for binary in required_binaries
-                if binary.get("name") == "claudechrome"
-            )
-            assert claudechrome_binary["binproviders"] == "chromewebstore"
+        required_binaries = get_hydrated_required_binaries(PLUGIN_DIR, env=env)
+        claudechrome_binary = next(
+            binary
+            for binary in required_binaries
+            if binary.get("name") == "claudechrome"
+        )
+        assert claudechrome_binary["binproviders"] == "chromewebstore"
 
     def test_config_hook_reports_skipped_when_disabled(self):
         """Config hook should report skipped when CLAUDECHROME_ENABLED=false."""

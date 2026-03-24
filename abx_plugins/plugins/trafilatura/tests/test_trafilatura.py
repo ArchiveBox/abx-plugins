@@ -19,6 +19,7 @@ import pytest
 import requests
 
 from abx_plugins.plugins.base.test_utils import (
+    get_hydrated_required_binaries,
     get_hook_script,
     get_plugin_dir,
     parse_jsonl_output,
@@ -49,34 +50,17 @@ def get_trafilatura_binary_path() -> str | None:
         return _trafilatura_binary_path
 
     pip_hook = PLUGINS_ROOT / "pip" / "on_BinaryRequest__11_pip.py"
-    crawl_hook = PLUGIN_DIR / "on_Install__41_trafilatura.finite.bg.py"
     if not pip_hook.exists():
         return None
 
     binproviders = "*"
     overrides = None
 
-    if crawl_hook.exists():
-        crawl_result = subprocess.run(
-            _script_cmd(crawl_hook),
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        for line in crawl_result.stdout.strip().split("\n"):
-            if not line.strip().startswith("{"):
-                continue
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if (
-                record.get("type") == "BinaryRequest"
-                and record.get("name") == "trafilatura"
-            ):
-                binproviders = record.get("binproviders", "*")
-                overrides = record.get("overrides")
-                break
+    for record in get_hydrated_required_binaries(PLUGIN_DIR):
+        if record.get("name") == "trafilatura":
+            binproviders = record.get("binproviders", "*")
+            overrides = record.get("overrides")
+            break
 
     global _trafilatura_lib_root
     if not _trafilatura_lib_root:
@@ -95,8 +79,6 @@ def get_trafilatura_binary_path() -> str | None:
         str(uuid.uuid4()),
         "--plugin-name",
         "trafilatura",
-        "--hook-name",
-        "on_Install__41_trafilatura.finite.bg",
         "--name",
         "trafilatura",
         f"--binproviders={binproviders}",

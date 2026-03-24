@@ -53,6 +53,11 @@ def main(
     if not provider.INSTALLER_BIN_ABSPATH:
         click.echo("brew not available on this system", err=True)
         sys.exit(0)
+    try:
+        Binary(name=provider.INSTALLER_BIN, binproviders=[provider]).load()
+    except Exception:
+        click.echo("brew not available on this system", err=True)
+        sys.exit(0)
 
     click.echo(f"Resolving {name} via brew (load or install)...", err=True)
 
