@@ -5,6 +5,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from abx_pkg import Binary, BrewProvider
+
 
 PLUGIN_DIR = Path(__file__).resolve().parent.parent
 BINARY_HOOK = PLUGIN_DIR / "on_BinaryRequest__12_brew.py"
@@ -12,13 +14,14 @@ HOOK_TIMEOUT = 600 if platform.system().lower() == "linux" else 120
 
 
 def test_brew_hook_respects_brew_only_and_installs_tree():
-    prefix_result = subprocess.run(
-        ["brew", "--prefix"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    expected_tree = Path(prefix_result.stdout.strip()) / "opt" / "tree" / "bin" / "tree"
+    provider = BrewProvider()
+    try:
+        brew_binary = Binary(
+            name=provider.INSTALLER_BIN,
+            binproviders=[provider],
+        ).load()
+    except Exception:
+        brew_binary = None
 
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
@@ -38,11 +41,26 @@ def test_brew_hook_respects_brew_only_and_installs_tree():
             timeout=HOOK_TIMEOUT,
         )
 
-    assert result.returncode == 0, result.stderr
-
     records = [
         json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")
     ]
+
+    if brew_binary is None:
+        assert result.returncode == 0, result.stderr
+        assert records == []
+        assert "brew not available on this system" in result.stderr
+        return
+
+    assert result.returncode == 0, result.stderr
+
+    prefix_result = subprocess.run(
+        [str(brew_binary.abspath), "--prefix"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    expected_tree = Path(prefix_result.stdout.strip()) / "opt" / "tree" / "bin" / "tree"
+
     assert records, result.stdout
     assert records[0]["type"] == "Binary"
     assert expected_tree.is_file(), f"Expected Homebrew tree binary at {expected_tree}"
