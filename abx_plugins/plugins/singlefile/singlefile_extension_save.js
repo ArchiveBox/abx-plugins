@@ -203,7 +203,6 @@ async function main() {
     try {
         console.error('[singlefile] loading dependencies...');
         const chromeUtils = require('../chrome/chrome_utils.js');
-        const puppeteer = chromeUtils.resolvePuppeteerModule();
         if (process.cwd() !== SNAPSHOT_OUTPUT_DIR) {
             process.chdir(SNAPSHOT_OUTPUT_DIR);
         }
@@ -228,7 +227,6 @@ async function main() {
             timeoutMs: 60000,
             requireTargetId: true,
             requireExtensionsLoaded: true,
-            puppeteer,
         });
         console.error('[singlefile] connected to chrome');
 

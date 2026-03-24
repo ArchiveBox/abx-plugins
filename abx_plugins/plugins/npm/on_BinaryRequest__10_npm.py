@@ -16,6 +16,7 @@
 #     ./on_BinaryRequest__10_npm.py --name=<name> [...] > events.jsonl
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -68,6 +69,8 @@ def main(
 
     click.echo(f"Installing {name} via npm to {npm_prefix}...", err=True)
 
+    prior_skip_download: str | None = None
+    prior_skip_chromium_download: str | None = None
     try:
         # Parse overrides if provided
         overrides_dict = None
@@ -84,6 +87,14 @@ def main(
                     err=True,
                 )
 
+        prior_skip_download = os.environ.get("PUPPETEER_SKIP_DOWNLOAD")
+        prior_skip_chromium_download = os.environ.get(
+            "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD",
+        )
+        if name == "puppeteer":
+            os.environ["PUPPETEER_SKIP_DOWNLOAD"] = "true"
+            os.environ["PUPPETEER_SKIP_CHROMIUM_DOWNLOAD"] = "true"
+
         binary = Binary(
             name=name,
             min_version=SemVer(min_version) if min_version else None,
@@ -93,6 +104,18 @@ def main(
     except Exception as e:
         click.echo(f"npm install failed: {e}", err=True)
         sys.exit(1)
+    finally:
+        if name == "puppeteer":
+            if prior_skip_download is None:
+                os.environ.pop("PUPPETEER_SKIP_DOWNLOAD", None)
+            else:
+                os.environ["PUPPETEER_SKIP_DOWNLOAD"] = prior_skip_download
+            if prior_skip_chromium_download is None:
+                os.environ.pop("PUPPETEER_SKIP_CHROMIUM_DOWNLOAD", None)
+            else:
+                os.environ["PUPPETEER_SKIP_CHROMIUM_DOWNLOAD"] = (
+                    prior_skip_chromium_download
+                )
 
     if not binary.abspath:
         click.echo(f"{name} not found after npm install", err=True)

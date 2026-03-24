@@ -33,17 +33,6 @@ const {
 
 ensureNodeModuleResolution(module);
 
-let retry;
-try {
-    ({ retry } = require('abxbus/retry'));
-} catch (error) {
-    const localRetryPath = path.resolve(__dirname, '../../../../abxbus/abxbus-ts/dist/cjs/retry.js');
-    if (!fs.existsSync(localRetryPath)) {
-        throw error;
-    }
-    ({ retry } = require(localRetryPath));
-}
-
 const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
 
 /**
@@ -551,14 +540,14 @@ async function launchChromium(options = {}) {
     let recentStderr = '';
     let recentStdout = '';
 
-    const launchWithSemaphore = retry({
-        max_attempts: 1,
-        semaphore_limit: 1,
-        semaphore_name: 'abx_plugins.chrome.launchChromium',
-        semaphore_scope: 'multiprocess',
-        semaphore_timeout: getEnvInt('CHROME_LAUNCH_LOCK_TIMEOUT_MS', 120000) / 1000,
-        semaphore_lax: false,
-    })(async () => {
+    const chromeLaunchLock = path.join(getPersonasDir(), '.chrome-launch.lock');
+    let releaseLaunchLock = null;
+
+    try {
+        releaseLaunchLock = await acquireSessionLock(
+            chromeLaunchLock,
+            getEnvInt('CHROME_LAUNCH_LOCK_TIMEOUT_MS', 120000)
+        );
         console.error(`[*] Spawning Chromium (headless=${headless})...`);
         chromiumProcess = spawn(binary, chromiumArgs, {
             stdio: ['ignore', 'pipe', 'pipe'],
@@ -636,10 +625,6 @@ async function launchChromium(options = {}) {
         }
 
         return result;
-    });
-
-    try {
-        return await launchWithSemaphore();
     } catch (e) {
         if (chromePid) {
             await cleanupLaunchArtifacts(outputDir, chromePid);
@@ -654,6 +639,10 @@ async function launchChromium(options = {}) {
                 ? `${e.name}: ${e.message} (${extraOutput})`
                 : `${e.name}: ${e.message}`,
         };
+    } finally {
+        if (releaseLaunchLock) {
+            releaseLaunchLock();
+        }
     }
 }
 

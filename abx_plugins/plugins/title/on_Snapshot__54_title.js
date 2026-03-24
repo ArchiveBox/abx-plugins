@@ -24,8 +24,7 @@ const {
     writeFileAtomic,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
-const { connectToPage, resolvePuppeteerModule } = require('../chrome/chrome_utils.js');
-const puppeteer = resolvePuppeteerModule();
+const { connectToPage } = require('../chrome/chrome_utils.js');
 
 // Extractor metadata
 const PLUGIN_NAME = 'title';
@@ -52,7 +51,6 @@ async function extractTitle(url) {
             timeoutMs,
             waitForNavigationComplete: true,
             postLoadDelayMs: 200,
-            puppeteer,
         });
         browser = connection.browser;
         const page = connection.page;
