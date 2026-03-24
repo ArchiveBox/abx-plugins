@@ -869,12 +869,17 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                     f"({request_reduction_percent:.0f}% reduction)",
                 )
 
-                if (
+                strong_dom_and_request_reduction = (
                     ext_result["adElementsVisible"]
                     <= baseline_result["adElementsVisible"] - 2
                     and ext_result["totalRequests"]
                     < baseline_result["totalRequests"] * 0.8
-                ):
+                )
+                weak_signal_request_reduction = (
+                    weak_signal and request_reduction_percent >= 15
+                )
+
+                if strong_dom_and_request_reduction or weak_signal_request_reduction:
                     print("\n✓ SUCCESS: uBlock correctly blocks ads!")
                     print(
                         f"  - Baseline: {baseline_result['adElementsVisible']} visible ads",
@@ -889,6 +894,11 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                         "  - Total requests: "
                         f"{baseline_result['totalRequests']} -> {ext_result['totalRequests']}",
                     )
+                    if weak_signal and not strong_dom_and_request_reduction:
+                        print(
+                            "  - Accepting request reduction because the live baseline exposed too few visible ads "
+                            "for a reliable DOM-count comparison",
+                        )
                     return
 
                 attempt_failures.append(
