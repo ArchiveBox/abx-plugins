@@ -43,7 +43,7 @@ def require_defuddle_binary() -> str:
     """Return defuddle binary path or fail with actionable context."""
     binary_path = get_defuddle_binary_path()
     assert binary_path, (
-        "defuddle installation failed. Install hook should install "
+        "defuddle dependency resolution failed. required_binaries should resolve "
         "the binary automatically in this test environment."
     )
     assert Path(binary_path).is_file(), f"defuddle binary path invalid: {binary_path}"

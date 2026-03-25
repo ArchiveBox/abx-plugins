@@ -144,8 +144,8 @@ class TestClaudeChromePlugin:
         assert (templates_dir / "card.html").exists()
         assert (templates_dir / "full.html").exists()
 
-    def test_install_hook_reports_required_binaries(self):
-        """Install hook should emit the required_binaries array for claudechrome."""
+    def test_required_binaries_include_claudechrome(self):
+        """required_binaries should declare the claudechrome extension asset."""
         env = get_test_env()
         required_binaries = get_hydrated_required_binaries(PLUGIN_DIR, env=env)
         claudechrome_binary = next(
@@ -172,8 +172,8 @@ class TestClaudeChromePlugin:
                 timeout=30,
             )
 
-            assert returncode == 0, f"Hook failed: {stderr}"
-            assert stdout.strip() == "SKIPPED: CLAUDECHROME_ENABLED=False"
+            assert returncode == 10, f"Hook failed: {stderr}"
+            assert stdout.strip() == "CLAUDECHROME_ENABLED=False"
 
     def test_snapshot_hook_skips_when_disabled(self):
         """Snapshot hook should skip when CLAUDECHROME_ENABLED=false."""

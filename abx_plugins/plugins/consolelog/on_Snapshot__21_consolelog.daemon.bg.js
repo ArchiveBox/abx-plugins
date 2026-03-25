@@ -49,6 +49,35 @@ let page = null;
 let errorCount = 0;
 let warningCount = 0;
 let shuttingDown = false;
+let lastProgressLine = '';
+let lastProgressAt = 0;
+let pendingProgressTimer = null;
+const PROGRESS_DEBOUNCE_MS = 3000;
+
+function emitProgress(force = false) {
+    const line = `${errorCount} console error${errorCount === 1 ? '' : 's'} | ${warningCount} warning${warningCount === 1 ? '' : 's'}`;
+    if (line === lastProgressLine && (!force || !pendingProgressTimer)) {
+        return;
+    }
+    const now = Date.now();
+    const emitLine = () => {
+        pendingProgressTimer = null;
+        lastProgressAt = Date.now();
+        lastProgressLine = line;
+        console.log(line);
+    };
+    if (force || lastProgressAt === 0 || now - lastProgressAt >= PROGRESS_DEBOUNCE_MS) {
+        if (pendingProgressTimer) {
+            clearTimeout(pendingProgressTimer);
+            pendingProgressTimer = null;
+        }
+        emitLine();
+        return;
+    }
+    if (!pendingProgressTimer) {
+        pendingProgressTimer = setTimeout(emitLine, PROGRESS_DEBOUNCE_MS - (now - lastProgressAt));
+    }
+}
 
 async function serializeArgs(args) {
     const serialized = [];
@@ -94,8 +123,10 @@ async function setupListeners() {
             fs.appendFileSync(outputPath, JSON.stringify(logEntry) + '\n');
             if (msgType === 'warning' || msgType === 'warn') {
                 warningCount += 1;
+                emitProgress();
             } else if (msgType === 'error' || msgType === 'assert') {
                 errorCount += 1;
+                emitProgress();
             }
         } catch (e) {
             // Ignore errors
@@ -112,6 +143,7 @@ async function setupListeners() {
             };
             fs.appendFileSync(outputPath, JSON.stringify(logEntry) + '\n');
             errorCount += 1;
+            emitProgress();
         } catch (e) {
             // Ignore
         }
@@ -129,6 +161,7 @@ async function setupListeners() {
             };
             fs.appendFileSync(outputPath, JSON.stringify(logEntry) + '\n');
             errorCount += 1;
+            emitProgress();
         } catch (e) {
             // Ignore
         }
@@ -144,6 +177,7 @@ async function setupListeners() {
 function emitResult(status = 'succeeded', outputStr = `${errorCount} errors | ${warningCount} warnings`) {
     if (shuttingDown) return Promise.resolve();
     shuttingDown = true;
+    emitProgress(true);
     emitArchiveResultRecord(status, outputStr);
     return Promise.resolve();
 }
@@ -179,6 +213,7 @@ async function main() {
         const connection = await setupListeners();
         browser = connection.browser;
         page = connection.page;
+        emitProgress();
 
         // Register signal handlers for graceful shutdown
         process.on('SIGTERM', () => handleShutdown('SIGTERM'));

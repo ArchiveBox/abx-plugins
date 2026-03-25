@@ -42,9 +42,12 @@ The snapshot hook runs an agentic loop:
 
 | Hook | Event | Priority | Type | Description |
 |---|---|---|---|---|
-| `on_Install__84_claudechrome.js` | `Crawl` | 84 | Foreground | (Optional) Downloads Claude for Chrome extension from CWS for manual use. |
 | `on_CrawlSetup__96_claudechrome_config.js` | `Crawl` | 96 | Foreground | (Optional) Injects `ANTHROPIC_API_KEY` into extension storage. |
 | `on_Snapshot__47_claudechrome.js` | `Snapshot` | 47 | Foreground | Runs Claude computer-use on the page via CDP screenshots + Anthropic API. |
+
+The optional Claude for Chrome extension asset is resolved during orchestrator
+preflight from `config.json > required_binaries`; it is not installed by a
+plugin hook family.
 
 ### Hook Execution Order (Snapshot)
 

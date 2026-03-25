@@ -17,7 +17,11 @@ import socket
 import sys
 from pathlib import Path
 
-from abx_plugins.plugins.base.utils import load_config, write_text_atomic
+from abx_plugins.plugins.base.utils import (
+    PROCESS_EXIT_SKIPPED,
+    load_config,
+    write_text_atomic,
+)
 
 
 PLUGIN_DIR = Path(__file__).parent.name
@@ -113,15 +117,15 @@ def main() -> None:
 
     if config.ABX_RUNTIME != "archivebox":
         emit_skipped(f"ABX_RUNTIME={config.ABX_RUNTIME}")
-        sys.exit(0)
+        sys.exit(PROCESS_EXIT_SKIPPED)
 
     if config.SEARCH_BACKEND_ENGINE != "sonic":
         emit_skipped(f"SEARCH_BACKEND_ENGINE={config.SEARCH_BACKEND_ENGINE}")
-        sys.exit(0)
+        sys.exit(PROCESS_EXIT_SKIPPED)
 
     if not config.USE_INDEXING_BACKEND:
         emit_skipped("USE_INDEXING_BACKEND=False")
-        sys.exit(0)
+        sys.exit(PROCESS_EXIT_SKIPPED)
 
     host = config.SEARCH_BACKEND_SONIC_HOST_NAME
     port = int(config.SEARCH_BACKEND_SONIC_PORT)

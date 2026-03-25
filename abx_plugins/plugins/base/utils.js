@@ -14,6 +14,7 @@ const os = require('os');
 const path = require('path');
 
 const BASE_CONFIG_PATH = path.join(__dirname, 'config.json');
+const PROCESS_EXIT_SKIPPED = 10;
 const configCache = new Map();
 
 function fsyncIfRegularFile(fd) {
@@ -339,10 +340,12 @@ function emitArchiveResultRecord(status, outputStr, extra = {}) {
 }
 
 function emitSnapshotRecord(record) {
-    writeFdFully(1, `${JSON.stringify(mergeExtraContext({
+    const snapshotRecord = mergeExtraContext({
         type: 'Snapshot',
         ...record,
-    }))}\n`);
+    });
+    snapshotRecord.id = snapshotRecord.id ? String(snapshotRecord.id) : '';
+    writeFdFully(1, `${JSON.stringify(snapshotRecord)}\n`);
 }
 
 // ---------------------------------------------------------------------------
@@ -380,12 +383,14 @@ function hasStaticFileOutput(staticfileDir = '../staticfile') {
 }
 
 module.exports = {
+    PROCESS_EXIT_SKIPPED,
     getConfig,
     loadConfig,
     getEnv,
     getEnvBool,
     getEnvInt,
     getEnvArray,
+    getExtraContext,
     getLibDir,
     getNodeModulesDir,
     ensureNodeModuleResolution,

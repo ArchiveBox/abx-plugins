@@ -118,9 +118,17 @@ async function main() {
     const timeoutMs = getEnvInt('CHROME_TIMEOUT', getEnvInt('TIMEOUT', 60)) * 1000;
     const pollIntervalMs = 1000;
 
-    let browser = null;
-    let running = true;
-    let hiddenPopups = 0;
+let browser = null;
+let running = true;
+let hiddenPopups = 0;
+let lastProgressLine = '';
+
+function emitProgress(line) {
+    if (line && line !== lastProgressLine) {
+        lastProgressLine = line;
+        console.log(line);
+    }
+}
 
     const emitAndExit = () => {
         const status = hiddenPopups > 0 ? 'succeeded' : 'noresults';
@@ -148,10 +156,12 @@ async function main() {
         const page = connection.page;
 
         await waitForNavigationComplete(CHROME_SESSION_DIR, timeoutMs, 0);
+        emitProgress(formatPopupCount(0));
 
         while (running) {
             try {
                 hiddenPopups = Math.max(hiddenPopups, await countHiddenCookiePopups(page));
+                emitProgress(formatPopupCount(hiddenPopups));
             } catch (error) {
                 if (!running) break;
             }

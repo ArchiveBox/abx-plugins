@@ -23,10 +23,12 @@
       "binproviders": "env,puppeteer",
       "min_version": null,
       "overrides": {
-        "puppeteer": [
-          "chromium@latest",
-          "--install-deps"
-        ]
+        "puppeteer": {
+          "install_args": [
+            "chromium@latest",
+            "--install-deps"
+          ]
+        }
       }
     }
   ],
@@ -63,6 +65,12 @@
       "minimum": 5,
       "x-fallback": "TIMEOUT",
       "description": "Timeout for Chrome operations in seconds"
+    },
+    "CHROME_LAUNCH_ATTEMPTS": {
+      "type": "integer",
+      "default": 3,
+      "minimum": 1,
+      "description": "Maximum Chromium launch attempts before failing on transient startup errors"
     },
     "CHROME_HEADLESS": {
       "type": "boolean",

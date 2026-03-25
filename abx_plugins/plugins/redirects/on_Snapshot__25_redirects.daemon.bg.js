@@ -54,6 +54,7 @@ let page = null;
 let initialRecorded = false;
 let lastObservedUrl = '';
 const seenTransitions = new Set();
+let lastProgressLine = '';
 
 function appendRedirectEntry(outputPath, entry) {
     const key = JSON.stringify([
@@ -70,6 +71,14 @@ function appendRedirectEntry(outputPath, entry) {
     if (entry.to_url && entry.to_url.startsWith('http')) {
         finalUrl = entry.to_url;
         lastObservedUrl = entry.to_url;
+    }
+    const redirectCount = redirectChain.filter((redirect) => redirect.type !== 'initial').length;
+    const progressLine = redirectCount === 0
+        ? '0 redirects'
+        : `${redirectCount} redirect${redirectCount === 1 ? '' : 's'} -> ${entry.to_url || finalUrl || originalUrl}`;
+    if (progressLine !== lastProgressLine) {
+        console.log(progressLine);
+        lastProgressLine = progressLine;
     }
     return true;
 }
@@ -278,6 +287,8 @@ async function main() {
     }
 
     originalUrl = url;
+    console.log('0 redirects');
+    lastProgressLine = '0 redirects';
 
     if (!getEnvBool('REDIRECTS_ENABLED', true)) {
         console.error('Skipping (REDIRECTS_ENABLED=False)');

@@ -37,7 +37,7 @@ def require_forumdl_binary() -> str:
     """Return forum-dl binary path or fail with actionable context."""
     binary_path = get_forumdl_binary_path()
     assert binary_path, (
-        "forum-dl installation failed. Install hook should install forum-dl automatically "
+        "forum-dl dependency resolution failed. required_binaries should resolve forum-dl automatically "
         "with macOS-compatible dependencies."
     )
     assert Path(binary_path).is_file(), f"forum-dl binary path invalid: {binary_path}"

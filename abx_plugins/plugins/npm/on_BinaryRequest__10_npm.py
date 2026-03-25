@@ -36,13 +36,11 @@ from abx_pkg import Binary, NpmProvider, SemVer
 @click.option("--name", required=True, help="Binary name to install")
 @click.option("--binproviders", default="*", help="Allowed providers (comma-separated)")
 @click.option("--min-version", default="", help="Minimum acceptable version")
-@click.option("--custom-cmd", default=None, help="Custom install command")
 @click.option("--overrides", default=None, help="JSON-encoded overrides dict")
 def main(
     name: str,
     binproviders: str,
     min_version: str,
-    custom_cmd: str | None,
     overrides: str | None,
 ):
     """Install binary using npm."""

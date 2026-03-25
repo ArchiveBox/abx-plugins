@@ -26,11 +26,11 @@ All env vars below also serve as defaults for child plugins (`claudecodeextract`
 | `CLAUDECODE_TIMEOUT` | int | `120` | Default timeout in seconds. Child plugins fall back to this. |
 | `CLAUDECODE_MAX_TURNS` | int | `10` | Default max agentic turns per invocation. Child plugins fall back to this. |
 
-## Hooks
+## Dependency Preflight
 
-| Hook | Event | Priority | Description |
-|---|---|---|---|
-| `on_Install__35_claudecode.finite.bg.py` | `Crawl` | 35 | Emits a `Binary` record requesting `claude` be installed via npm. Runs in the background (finite). |
+This plugin does not define runtime hooks of its own. The Claude CLI is resolved
+by the orchestrator from `config.json > required_binaries` during `InstallEvent`
+preflight before any crawl or snapshot work starts.
 
 ## Shared Utilities (`claudecode_utils.py`)
 

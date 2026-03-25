@@ -4,7 +4,7 @@ Integration tests for liteparse plugin.
 Tests verify:
 1. Hook scripts exist
 2. Crawl hook emits correct BinaryRequest record for lit
-3. Install hooks can install lit binary via npm
+3. required_binaries can resolve the lit binary via npm
 4. Extraction runs with real lit binary on a real live PDF
 5. Config options work (enabled/disabled)
 6. Handles missing sources gracefully
@@ -63,7 +63,7 @@ def require_liteparse_binary() -> str:
     """Return lit binary path or fail with actionable context."""
     binary_path = get_liteparse_binary_path()
     assert binary_path, (
-        "lit (LiteParse) installation failed. Install hook should install "
+        "lit (LiteParse) dependency resolution failed. required_binaries should resolve "
         "the binary automatically in this test environment."
     )
     assert Path(binary_path).is_file(), f"lit binary path invalid: {binary_path}"

@@ -3,7 +3,7 @@ Integration tests for trafilatura plugin.
 
 Tests verify:
 1. Hook script exists
-2. Install hooks can install trafilatura binary
+2. required_binaries can resolve the trafilatura binary
 3. Extraction runs with real trafilatura binary on local HTML sourced from pytest-httpserver
 """
 
@@ -110,7 +110,7 @@ def get_trafilatura_binary_path() -> str | None:
 def require_trafilatura_binary() -> str:
     binary_path = get_trafilatura_binary_path()
     assert binary_path, (
-        "trafilatura installation failed. Install hook should install "
+        "trafilatura dependency resolution failed. required_binaries should resolve "
         "the binary automatically in this test environment."
     )
     assert Path(binary_path).is_file(), (

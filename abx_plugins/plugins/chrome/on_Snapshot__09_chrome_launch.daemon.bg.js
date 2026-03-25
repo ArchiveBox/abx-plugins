@@ -73,10 +73,12 @@ async function main() {
             }
             releaseLock();
             releaseLock = null;
-            emitArchiveResultRecord('succeeded', 'crawl isolation active');
+            emitArchiveResultRecord('skipped', 'CHROME_ISOLATION=crawl');
             process.exit(0);
         }
 
+        // console.log('launching local chrome browser...');
+        console.log('chrome is launching...');
         const session = await ensureChromeSession({
             outputDir: OUTPUT_DIR,
             puppeteer,

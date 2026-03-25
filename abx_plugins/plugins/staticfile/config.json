@@ -13,10 +13,12 @@
       "binproviders": "env,puppeteer",
       "min_version": null,
       "overrides": {
-        "puppeteer": [
-          "chromium@latest",
-          "--install-deps"
-        ]
+        "puppeteer": {
+          "install_args": [
+            "chromium@latest",
+            "--install-deps"
+          ]
+        }
       }
     }
   ],

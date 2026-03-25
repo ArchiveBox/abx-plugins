@@ -22,10 +22,10 @@ import sys
 from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
 from jambo import SchemaConverter
-from pydantic import ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -34,6 +34,33 @@ from pydantic import ConfigDict
 
 BASE_CONFIG_PATH = Path(__file__).with_name("config.json")
 PLUGINS_DIR = BASE_CONFIG_PATH.parent.parent
+PROCESS_EXIT_SKIPPED = 10
+
+
+class ConfigSchemaDocument(BaseModel):
+    title: str = "PluginConfig"
+    description: str = ""
+    output_mimetypes: list[str] = Field(default_factory=list)
+    properties: dict[str, Any] = Field(default_factory=dict)
+    required_plugins: list[str] = Field(default_factory=list)
+    required_binaries: list[dict[str, Any]] = Field(default_factory=list)
+
+    @field_validator("required_binaries", mode="before")
+    @classmethod
+    def validate_required_binaries(cls, value: Any) -> list[dict[str, Any]]:
+        if not isinstance(value, list):
+            return []
+        return [
+            item
+            for item in value
+            if isinstance(item, dict)
+            and "name" in item
+            and isinstance(item["name"], str)
+            and item["name"]
+        ]
+
+
+ConfigSchemaDocument.model_rebuild()
 
 
 def normalize_config_value(value: Any) -> Any:
@@ -54,7 +81,7 @@ def _parse_config_value(value: str) -> Any:
 
 
 def _schema_types(prop: Mapping[str, Any]) -> set[str]:
-    raw_type = prop.get("type")
+    raw_type = prop["type"] if "type" in prop else None
     if isinstance(raw_type, str):
         return {raw_type}
     if isinstance(raw_type, list):
@@ -73,8 +100,8 @@ def _resolve_config_path(
     return Path(config_path).resolve()
 
 
-def _load_schema(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text())
+def _load_schema(path: Path) -> ConfigSchemaDocument:
+    return ConfigSchemaDocument.model_validate_json(path.read_text())
 
 
 def _collect_required_schema_paths(
@@ -89,7 +116,7 @@ def _collect_required_schema_paths(
 
     schema = _load_schema(resolved)
     paths: list[Path] = []
-    for required_plugin in schema.get("required_plugins", []):
+    for required_plugin in schema.required_plugins:
         required_path = (PLUGINS_DIR / str(required_plugin) / "config.json").resolve()
         if required_path.exists():
             paths.extend(_collect_required_schema_paths(required_path, seen))
@@ -104,8 +131,8 @@ def _build_merged_properties(config_path_str: str) -> tuple[str, dict[str, Any]]
     properties: dict[str, Any] = {}
     paths = [BASE_CONFIG_PATH.resolve(), *_collect_required_schema_paths(config_path)]
     for path in paths:
-        properties.update(_load_schema(path).get("properties", {}))
-    return str(root_schema.get("title", "PluginConfig")), properties
+        properties.update(_load_schema(path).properties)
+    return root_schema.title, properties
 
 
 def _lookup_raw_value(
@@ -150,7 +177,8 @@ def resolve_alias(
         if key in schema:
             return key
         for canonical_key, prop in schema.items():
-            if key in prop.get("x-aliases", []):
+            aliases = prop["x-aliases"] if "x-aliases" in prop else []
+            if key in aliases:
                 return canonical_key
     return key
 
@@ -172,7 +200,8 @@ def _resolve_schema_payload(
     for _ in range(max(len(properties), 1) + 1):
         changed = False
         for key, prop in properties.items():
-            aliases = [key, *(str(alias) for alias in prop.get("x-aliases", []))]
+            alias_values = prop["x-aliases"] if "x-aliases" in prop else []
+            aliases = [key, *(str(alias) for alias in alias_values)]
             raw_value, found, persisted = _lookup_raw_value(
                 aliases,
                 environ=environ,
@@ -186,7 +215,7 @@ def _resolve_schema_payload(
                     changed = True
                 continue
 
-            fallback_key = prop.get("x-fallback")
+            fallback_key = prop["x-fallback"] if "x-fallback" in prop else None
             if fallback_key and fallback_key in resolved:
                 fallback_value = resolved[fallback_key]
                 if payload.get(key) != fallback_value:
@@ -285,7 +314,7 @@ def resolve_plugin_config(
         global_config=global_config,
         user_config=user_config,
         environ=environ,
-    ).get(plugin_name, {})
+    )[plugin_name]
 
 
 def load_config(
@@ -354,10 +383,7 @@ def get_lib_dir() -> Path:
     Priority: LIB_DIR env var, otherwise ~/.config/abx/lib.
     """
     config = load_config(BASE_CONFIG_PATH)
-    lib_dir = str(config.LIB_DIR or "").strip()
-    if lib_dir:
-        return _resolve_path(lib_dir)
-    return _resolve_path(str(Path.home() / ".config" / "abx" / "lib"))
+    return _resolve_path(str(config.LIB_DIR))
 
 
 def get_personas_dir() -> Path:
@@ -366,10 +392,7 @@ def get_personas_dir() -> Path:
     Returns the configured personas directory from load_config().
     """
     config = load_config(BASE_CONFIG_PATH)
-    personas_dir = str(
-        config.PERSONAS_DIR or Path.home() / ".config" / "abx" / "personas",
-    )
-    return Path(personas_dir).expanduser().resolve()
+    return Path(str(config.PERSONAS_DIR)).expanduser().resolve()
 
 
 # ---------------------------------------------------------------------------
@@ -390,7 +413,7 @@ def _fsync_if_regular_file(fd: int) -> None:
         return
 
 
-def print_and_flush(stream: Any, text: str) -> None:
+def print_and_flush(stream: TextIO, text: str) -> None:
     line = text if text.endswith("\n") else f"{text}\n"
     try:
         fd = stream.fileno()
@@ -404,7 +427,7 @@ def print_and_flush(stream: Any, text: str) -> None:
     except Exception:
         pass
 
-    encoding = getattr(stream, "encoding", None) or "utf-8"
+    encoding = stream.encoding or "utf-8"
     payload = line.encode(encoding, errors="replace")
     written = 0
     while written < len(payload):
@@ -526,12 +549,22 @@ def emit_installed_binary_record(
     print_and_flush(sys.stdout, json.dumps(merge_EXTRA_CONTEXT(record)))
 
 
+def emit_tag_record(name: str) -> None:
+    record: dict[str, Any] = {
+        "type": "Tag",
+        "name": name,
+    }
+    print_and_flush(sys.stdout, json.dumps(merge_EXTRA_CONTEXT(record)))
+
+
 def emit_snapshot_record(record: dict[str, Any]) -> None:
-    snapshot_record = merge_EXTRA_CONTEXT(
-        {
-            "type": "Snapshot",
-            **{key: value for key, value in record.items() if key != "type"},
-        },
+    snapshot_record = {key: value for key, value in record.items() if key != "type"}
+    snapshot_record["type"] = "Snapshot"
+    snapshot_record = merge_EXTRA_CONTEXT(snapshot_record)
+    snapshot_record["id"] = (
+        str(snapshot_record["id"])
+        if "id" in snapshot_record and snapshot_record["id"]
+        else ""
     )
     print_and_flush(sys.stdout, json.dumps(snapshot_record))
 
@@ -634,7 +667,7 @@ def has_staticfile_output(staticfile_dir: str = "../staticfile") -> bool:
 def enforce_lib_permissions(config_dir: Path | str | None = None) -> None:
     """Set permissions on ~/.config/abx so snapshot hooks can read but not write lib/.
 
-    When running as root (e.g. during crawl/install hooks), this function
+    When running as root (e.g. during dependency preflight or crawl setup), this function
     sets ownership and permissions on the config directory so that:
       - lib/ and its contents are read+execute only (0o755 dirs, 0o644 files)
         for the data dir owner, preventing snapshot hooks from modifying
@@ -642,7 +675,7 @@ def enforce_lib_permissions(config_dir: Path | str | None = None) -> None:
       - Everything else under ~/.config/abx (personas, etc.) is writable by
         the data dir owner
 
-    This should be called at the end of crawl/install hooks that modify lib/.
+    This should be called at the end of preflight or crawl-setup work that modifies lib/.
     Snapshot hooks should NOT call this.
 
     Args:

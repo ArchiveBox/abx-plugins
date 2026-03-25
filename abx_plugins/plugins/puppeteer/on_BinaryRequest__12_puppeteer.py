@@ -16,7 +16,6 @@ Usage: on_BinaryRequest__12_puppeteer.py --name=<name>
 Output: Binary JSONL record to stdout after installation
 """
 
-import json
 import os
 import re
 import shutil
@@ -25,7 +24,8 @@ from pathlib import Path
 from typing import cast
 
 import rich_click as click
-from abx_pkg import Binary, EnvProvider, HandlerDict, NpmProvider
+from pydantic import ConfigDict, TypeAdapter
+from abx_pkg import Binary, BinaryOverrides, EnvProvider, HandlerDict, NpmProvider
 from abx_pkg.semver import bin_version
 
 from abx_plugins.plugins.base.utils import (
@@ -36,6 +36,10 @@ from abx_plugins.plugins.base.utils import (
 CLAUDE_SANDBOX_NO_PROXY = (
     "localhost,127.0.0.1,169.254.169.254,metadata.google.internal,"
     ".svc.cluster.local,.local"
+)
+OverridesDict = TypeAdapter(
+    BinaryOverrides,
+    config=ConfigDict(arbitrary_types_allowed=True),
 )
 
 
@@ -148,23 +152,13 @@ def _parse_override_install_args(
 ) -> list[str]:
     if not overrides:
         return default
-    try:
-        overrides_dict = json.loads(overrides)
-    except json.JSONDecodeError:
+    provider_overrides = OverridesDict.validate_json(overrides).get("puppeteer")
+    if not provider_overrides or "install_args" not in provider_overrides:
         return default
-
-    if isinstance(overrides_dict, dict):
-        provider_overrides = overrides_dict.get("puppeteer")
-        if isinstance(provider_overrides, dict):
-            install_args = provider_overrides.get("install_args")
-            if isinstance(install_args, list) and install_args:
-                return [str(arg) for arg in install_args]
-        if isinstance(provider_overrides, list) and provider_overrides:
-            return [str(arg) for arg in provider_overrides]
-    if isinstance(overrides_dict, list) and overrides_dict:
-        return [str(arg) for arg in overrides_dict]
-
-    return default
+    install_args = provider_overrides["install_args"]
+    if not isinstance(install_args, list) or not install_args:
+        raise TypeError("puppeteer overrides.install_args must be a non-empty list")
+    return [str(arg) for arg in install_args]
 
 
 def _run_puppeteer_install(binary: Binary, install_args: list[str], cache_dir: Path):

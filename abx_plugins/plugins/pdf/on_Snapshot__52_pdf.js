@@ -73,6 +73,7 @@ async function printToPdf(url, timeoutMs) {
         const page = connection.page;
 
         // Print to PDF
+        console.log('rendering page to PDF...');
         await page.pdf({
             path: tempOutputPath,
             format: 'A4',

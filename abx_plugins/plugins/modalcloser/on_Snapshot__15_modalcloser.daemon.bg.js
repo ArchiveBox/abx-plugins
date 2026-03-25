@@ -73,6 +73,19 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function formatClosedCount(count) {
+    return `${count} modal${count === 1 ? '' : 's'} closed`;
+}
+
+let lastProgressLine = '';
+
+function emitProgress(line) {
+    if (line && line !== lastProgressLine) {
+        lastProgressLine = line;
+        console.log(line);
+    }
+}
+
 /**
  * Close CSS modals using framework-specific dismiss methods.
  * Returns the number of modals closed.
@@ -287,6 +300,7 @@ async function main() {
         });
         browser = connection.browser;
         const page = connection.page;
+        emitProgress(formatClosedCount(0));
 
         // console.error(`Modalcloser listening on ${url}`);
 
@@ -301,6 +315,7 @@ async function main() {
             try {
                 await dialog.accept();
                 dialogsClosed++;
+                emitProgress(formatClosedCount(dialogsClosed + cssModalsClosed));
             } catch (e) {
                 // Dialog may have been dismissed by page
             }
@@ -313,6 +328,7 @@ async function main() {
                 if (closed > 0) {
                     console.error(`Closed ${closed} CSS modals`);
                     cssModalsClosed += closed;
+                    emitProgress(formatClosedCount(dialogsClosed + cssModalsClosed));
                 }
             } catch (e) {
                 // Page may have navigated or been closed

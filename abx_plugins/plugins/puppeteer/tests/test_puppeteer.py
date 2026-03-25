@@ -73,10 +73,12 @@ def test_crawl_hook_respects_configured_chrome_binary(browser_name):
     assert binary_record is not None
     assert binary_record.get("type", "BinaryRequest") == "BinaryRequest"
     assert binary_record["name"] == browser_name
-    assert binary_record["overrides"]["puppeteer"] == [
-        "chromium@latest",
-        "--install-deps",
-    ]
+    assert binary_record["overrides"]["puppeteer"] == {
+        "install_args": [
+            "chromium@latest",
+            "--install-deps",
+        ],
+    }
 
 
 @pytest.mark.parametrize("browser_name", ["chrome", "chromium"])
@@ -178,7 +180,13 @@ def test_puppeteer_installs_chromium():
                 "--name=chromium",
                 "--binproviders=puppeteer",
                 "--overrides="
-                + json.dumps({"puppeteer": ["chromium@latest", "--install-deps"]}),
+                + json.dumps(
+                    {
+                        "puppeteer": {
+                            "install_args": ["chromium@latest", "--install-deps"],
+                        },
+                    },
+                ),
             ],
             cwd=tmpdir,
             capture_output=True,

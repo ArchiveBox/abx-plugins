@@ -103,7 +103,7 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
     ffmpeg_path = Path(ffmpeg_binary).expanduser()
     if ffmpeg_binary and ffmpeg_path.is_file():
         ffmpeg_dir = str(ffmpeg_path.parent.resolve())
-        existing_path = process_env.get("PATH", "")
+        existing_path = process_env["PATH"] if "PATH" in process_env else ""
         process_env["PATH"] = os.pathsep.join(
             [ffmpeg_dir, *([existing_path] if existing_path else [])],
         )

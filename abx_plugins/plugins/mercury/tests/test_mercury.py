@@ -41,7 +41,7 @@ def require_mercury_binary() -> str:
     """Return postlight-parser binary path or fail with actionable context."""
     binary_path = get_mercury_binary_path()
     assert binary_path, (
-        "postlight-parser installation failed. Install hook should install "
+        "postlight-parser dependency resolution failed. required_binaries should resolve "
         "the binary automatically in this test environment."
     )
     assert Path(binary_path).is_file(), (
@@ -76,7 +76,7 @@ def test_hook_script_exists():
 
 
 def test_verify_deps_with_abx_pkg():
-    """Verify postlight-parser is installed by real plugin install hooks."""
+    """Verify postlight-parser resolves through the real dependency preflight."""
     binary_path = require_mercury_binary()
     assert Path(binary_path).is_file(), (
         f"Binary path must be a valid file: {binary_path}"

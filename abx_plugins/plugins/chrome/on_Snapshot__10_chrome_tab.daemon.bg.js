@@ -164,6 +164,7 @@ async function startTargetMonitor() {
         if (targetId !== expectedTargetId) {
             return;
         }
+        console.log('tab closed unexpectedly!')
         console.error(`[*] Snapshot target ${expectedTargetId} closed unexpectedly, clearing snapshot page markers`);
         targetId = null;
         cleanupSnapshotPageMarkers(`target ${expectedTargetId} disappeared`);
@@ -296,9 +297,7 @@ async function main() {
                 output = `target=${targetId} port=${getPortFromCdpUrl(currentCdpUrl)}`;
                 releaseLock();
                 releaseLock = null;
-                console.log('[*] Reusing existing live snapshot tab');
                 publishSuccess(output, version || '');
-                console.log('[*] Chrome tab created, waiting for cleanup signal...');
                 await startTargetMonitorBestEffort();
                 keepAliveTimer = setInterval(() => {}, 1000);
                 await new Promise(() => {});
@@ -436,7 +435,7 @@ async function main() {
         process.exit(1);
     }
 
-    console.log('[*] Chrome tab created, waiting for cleanup signal...');
+    // console.log('tab is loaded, waiting for cleanup...');
     keepAliveTimer = setInterval(() => {}, 1000);
     await new Promise(() => {}); // Keep alive until SIGTERM
 }

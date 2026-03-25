@@ -980,7 +980,7 @@ def _ensure_puppeteer_with_hooks(env: dict, timeout: int) -> None:
 
     if not _has_puppeteer_module(env):
         raise RuntimeError(
-            "Puppeteer install hook completed but require.resolve('puppeteer') still fails",
+            "Puppeteer dependency preflight completed but require.resolve('puppeteer') still fails",
         )
 
 
@@ -1227,86 +1227,73 @@ def launch_chromium_session(
     env["CRAWL_DIR"] = str(crawl_dir)
     stdout_log = chrome_dir / "chrome_launch.stdout.log"
     stderr_log = chrome_dir / "chrome_launch.stderr.log"
-    max_launch_attempts = 3
+    stdout_handle = open(stdout_log, "w+", encoding="utf-8")
+    stderr_handle = open(stderr_log, "w+", encoding="utf-8")
 
-    for attempt in range(1, max_launch_attempts + 1):
-        stdout_handle = open(stdout_log, "w+", encoding="utf-8")
-        stderr_handle = open(stderr_log, "w+", encoding="utf-8")
+    chrome_launch_process = LoggedPopen(
+        [str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
+        cwd=str(chrome_dir),
+        stdout=stdout_handle,
+        stderr=stderr_handle,
+        text=True,
+        env=launch_env,
+    )
+    chrome_launch_process._stdout_handle = stdout_handle
+    chrome_launch_process._stderr_handle = stderr_handle
+    chrome_launch_process._stdout_log = stdout_log
+    chrome_launch_process._stderr_log = stderr_log
 
-        chrome_launch_process = LoggedPopen(
-            [str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
-            cwd=str(chrome_dir),
-            stdout=stdout_handle,
-            stderr=stderr_handle,
-            text=True,
-            env=launch_env,
-        )
-        chrome_launch_process._stdout_handle = stdout_handle
-        chrome_launch_process._stderr_handle = stderr_handle
-        chrome_launch_process._stdout_log = stdout_log
-        chrome_launch_process._stderr_log = stderr_log
+    cdp_url = None
+    launch_failed = False
+    launch_stdout = ""
+    launch_stderr = ""
 
-        cdp_url = None
-        launch_failed = False
-        launch_stdout = ""
-        launch_stderr = ""
-
-        for _ in range(timeout):
-            if chrome_launch_process.poll() is not None:
-                stdout_handle.flush()
-                stderr_handle.flush()
-                launch_stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
-                launch_stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
-                launch_failed = True
-                break
-            cdp_file = chrome_dir / "cdp_url.txt"
-            if cdp_file.exists():
-                cdp_url = cdp_file.read_text().strip()
-                if cdp_url:
-                    break
-            time.sleep(1)
-
-        if cdp_url:
-            chrome_pid_file = chrome_dir / "chrome.pid"
-            if chrome_pid_file.exists():
-                try:
-                    chrome_launch_process._chrome_pid = int(
-                        chrome_pid_file.read_text().strip(),
-                    )
-                except (ValueError, FileNotFoundError):
-                    chrome_launch_process._chrome_pid = None
-            else:
-                chrome_launch_process._chrome_pid = None
-            return chrome_launch_process, cdp_url
-
-        if not launch_failed:
-            chrome_launch_process.kill()
+    for _ in range(timeout):
+        if chrome_launch_process.poll() is not None:
             stdout_handle.flush()
             stderr_handle.flush()
             launch_stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
             launch_stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
+            launch_failed = True
+            break
+        cdp_file = chrome_dir / "cdp_url.txt"
+        if cdp_file.exists():
+            cdp_url = cdp_file.read_text().strip()
+            if cdp_url:
+                break
+        time.sleep(1)
 
-        stdout_handle.close()
-        stderr_handle.close()
+    if cdp_url:
+        chrome_pid_file = chrome_dir / "chrome.pid"
+        if chrome_pid_file.exists():
+            try:
+                chrome_launch_process._chrome_pid = int(
+                    chrome_pid_file.read_text().strip(),
+                )
+            except (ValueError, FileNotFoundError):
+                chrome_launch_process._chrome_pid = None
+        else:
+            chrome_launch_process._chrome_pid = None
+        return chrome_launch_process, cdp_url
 
-        if (
-            attempt < max_launch_attempts
-            and "signal=SIGTRAP" in launch_stderr
-            and "Chromium exited before opening the debug port" in launch_stderr
-        ):
-            time.sleep(1)
-            continue
+    if not launch_failed:
+        chrome_launch_process.kill()
+        stdout_handle.flush()
+        stderr_handle.flush()
+        launch_stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
+        launch_stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
 
-        if launch_failed:
-            raise RuntimeError(
-                f"Chromium launch failed:\nStdout: {launch_stdout}\nStderr: {launch_stderr}",
-            )
+    stdout_handle.close()
+    stderr_handle.close()
 
+    if launch_failed:
         raise RuntimeError(
-            f"Chromium CDP URL not found after {timeout}s\nStdout: {launch_stdout}\nStderr: {launch_stderr}",
+            f"Chromium launch failed:\nStdout: {launch_stdout}\nStderr: {launch_stderr}",
         )
 
-    raise RuntimeError("Chromium launch failed unexpectedly after retry loop")
+    raise RuntimeError(
+        f"Chromium CDP URL not found after {timeout}s\nStdout: {launch_stdout}\nStderr: {launch_stderr}",
+    )
 
 
 def kill_chromium_session(

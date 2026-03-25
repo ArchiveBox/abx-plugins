@@ -55,6 +55,14 @@ let primaryIp = '';
 let firstResolvedIp = '';
 let keepAliveTimer = null;
 let configuredNameservers = [];
+let lastProgressLine = '';
+
+function emitProgress(line) {
+    if (line && line !== lastProgressLine) {
+        lastProgressLine = line;
+        console.log(line);
+    }
+}
 
 function extractHostname(url) {
     try {
@@ -161,6 +169,7 @@ async function setupListener(targetUrl) {
             // Append to output file
             fs.appendFileSync(outputPath, JSON.stringify(dnsRecord) + '\n');
             recordCount += 1;
+            emitProgress(`${recordCount} DNS record${recordCount === 1 ? '' : 's'}`);
 
         } catch (e) {
             // Ignore errors
@@ -212,6 +221,7 @@ async function setupListener(targetUrl) {
 
                 fs.appendFileSync(outputPath, JSON.stringify(dnsRecord) + '\n');
                 recordCount += 1;
+                emitProgress(`${recordCount} DNS record${recordCount === 1 ? '' : 's'}`);
             }
         } catch (e) {
             // Ignore errors
@@ -283,6 +293,7 @@ async function main() {
         const connection = await setupListener(url);
         browser = connection.browser;
         page = connection.page;
+        emitProgress('0 DNS records');
 
         // Register signal handlers for graceful shutdown
         process.on('SIGTERM', () => handleShutdown('SIGTERM'));

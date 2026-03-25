@@ -90,11 +90,8 @@ def main(
         click.echo(f"{name} not found after cargo install", err=True)
         sys.exit(1)
 
-    resolved_provider = getattr(binary, "binprovider", None)
-    if isinstance(resolved_provider, str):
-        resolved_provider_name = resolved_provider
-    else:
-        resolved_provider_name = getattr(resolved_provider, "name", "") or ""
+    resolved_provider = binary.loaded_binprovider
+    resolved_provider_name = resolved_provider.name if resolved_provider else ""
 
     emit_installed_binary_record(
         name=name,

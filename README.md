@@ -22,9 +22,10 @@ without symlinks or environment-variable tricks.
 Each plugin lives under `plugins/<name>/` and may include:
 
 - `config.json` config schema
-- `on_CrawlSetup__...` crawl setup hook scripts (optional) - shared setup/process startup
-- `on_BinaryRequest__...` binary provider hooks (optional) - resolve/install one requested binary
-- `on_Snapshot__...` per-snapshot hooks - for each URL: do xyz...
+- `config.json > required_binaries` binary dependency declarations (optional)
+- `on_BinaryRequest__...` binary provider hooks (optional) - resolve/install one requested binary and emit `Binary`
+- `on_CrawlSetup__...` crawl setup hook scripts (optional) - shared setup/process startup, emit no stdout JSONL records
+- `on_Snapshot__...` per-snapshot hooks - emit `ArchiveResult` and may also emit `Snapshot` / `Tag`
 
 Hooks run with:
 
@@ -47,27 +48,33 @@ Hooks run with:
 Lifecycle:
 
 1. `config.json > required_binaries` declares plugin dependencies.
-2. `on_BinaryRequest__*` resolves/installs one binary with one provider.
+2. During the orchestrator install phase, those declarations are turned into `BinaryRequest` events.
+3. `on_BinaryRequest__*` provider hooks resolve/install one requested binary and emit `Binary` records.
 
 `config.json` declaration:
 
 ```json
-[{"name":"{YTDLP_BINARY}","binproviders":"pip,brew,apt,env","min_version":null,"overrides":{"pip":{"install_args":["yt-dlp[default]"]}}}]
+[
+  {
+    "name": "{YTDLP_BINARY}",
+    "binproviders": "pip,brew,apt,env",
+    "min_version": null,
+    "overrides": {
+      "pip": {
+        "install_args": ["yt-dlp[default]"]
+      }
+    }
+  }
+]
 ```
 
 `on_BinaryRequest` input/output:
 
 - CLI input should accept `--binary-id`, `--machine-id`, `--name` (plus optional provider args).
-- Output should emit installed facts like:
+- Output should emit exactly one `Binary` fact like:
 
 ```json
 {"type":"Binary","name":"yt-dlp","abspath":"/abs/path","version":"2025.01.01","sha256":"<optional>","binprovider":"pip","machine_id":"<recommended>","binary_id":"<recommended>"}
-```
-
-Optional machine patch record:
-
-```json
-{"type":"Machine","config":{"SOME_RUNTIME_FLAG":"value"}}
 ```
 
 Semantics:
@@ -77,18 +84,27 @@ Semantics:
 - exit `0`: success or intentional skip
 - exit non-zero: hard failure
 
+Notes:
+
+- Install resolution is orchestrator-managed preflight work driven directly from `config.json > required_binaries`.
+- Only binprovider plugins should implement `on_BinaryRequest__*`.
+- `on_BinaryRequest__*` hooks emit `Binary` records only.
+- `on_BinaryRequest__*` hooks do not emit `Machine`, `Process`, `ArchiveResult`, `Snapshot`, or `Tag` records.
+- Standalone `abx-dl` stores derived binary cache entries in `derived.env`; ArchiveBox stores the equivalent cache in DB `machine_binary` rows. Plugins should stay unaware of both storage layers.
+
 State/OS:
 
 - working dir: `CRAWL_DIR/<plugin>/`
 - durable install root: `LIB_DIR` (e.g. npm prefix, pip venv, puppeteer cache)
 - providers: `apt` (Debian/Ubuntu), `brew` (macOS/Linux), many hooks currently assume POSIX paths
 
-### Snapshot hook contract (concise)
+### Hook family contract
 
 Lifecycle:
 
-- runs once per snapshot, typically after crawl setup
-- common Chrome flow: crawl browser/session -> `chrome_tab` -> `chrome_navigate` -> downstream extractors
+- `on_BinaryRequest__*` runs during install preflight and emits `Binary` records only
+- `on_CrawlSetup__*` runs before snapshot extraction and emits no stdout JSONL records
+- `on_Snapshot__*` runs once per snapshot and may emit `ArchiveResult`, `Snapshot`, and `Tag` records only
 
 State:
 
@@ -97,14 +113,13 @@ State:
 
 Output records:
 
-- terminal record is usually:
+- `on_Snapshot__*` should finish with an `ArchiveResult` record:
 
 ```json
 {"type":"ArchiveResult","status":"succeeded|noresults|skipped|failed","output_str":"path-or-message"}
 ```
 
-- discovery hooks may also emit `Snapshot` and `Tag` records before `ArchiveResult`
-- search indexing hooks are a known exception and may use exit code + stderr without `ArchiveResult`
+- `Snapshot` and `Tag` records may appear before the final `ArchiveResult`
 
 Semantics:
 
@@ -113,19 +128,29 @@ Semantics:
 - exit `0`: succeeded, noresults, or skipped
 - exit non-zero: failed
 
+Rules:
+
+- `on_CrawlSetup__*` hooks should communicate only through side effects such as files, sockets, or long-lived processes, not stdout JSONL records
+- `on_Snapshot__*` hooks should not emit `Machine`, `Process`, or `Binary` records
+
 ### Base plugin utilities
 
 The `base/` plugin provides shared Python and JS helpers that all other plugins import:
 
 **Python** (`base/utils.py`):
 ```python
-from abx_plugins.plugins.base.utils import load_config, emit_archive_result
+from abx_plugins.plugins.base.utils import (
+    load_config,
+    emit_archive_result_record,
+    emit_installed_binary_record,
+    emit_snapshot_record,
+)
 ```
 
 - `load_config()` — load plugin `config.json` via jambo with env var + alias + fallback resolution, merged with shared base/common runtime vars like `SNAP_DIR`, `CRAWL_DIR`, `LIB_DIR`, `PERSONAS_DIR`, `EXTRA_CONTEXT`, `TIMEOUT`, and `USER_AGENT`
-- `emit_archive_result(status, output_str)` — print `{"type":"ArchiveResult",...}` JSONL to stdout
-- `output_binary(name, abspath, version, ...)` — emit `Binary` JSONL record
-- `output_machine_config(config_dict)` — emit `Machine` config patch
+- `emit_archive_result_record(status, output_str)` — print `{"type":"ArchiveResult",...}` JSONL to stdout
+- `emit_installed_binary_record(name, abspath, version, ...)` — emit `Binary` JSONL record
+- `emit_snapshot_record(record)` — emit `{"type":"Snapshot",...}` JSONL to stdout
 - `write_text_atomic(path, content)` — write file atomically (temp + rename)
 - `find_html_source(snap_dir, ...)` — locate HTML from sibling plugins
 - `has_staticfile_output(snap_dir, path)` — check if a sibling plugin produced a file
@@ -133,10 +158,12 @@ from abx_plugins.plugins.base.utils import load_config, emit_archive_result
 
 **JS** (`base/utils.js`):
 ```javascript
-const { loadConfig, getEnv, getEnvBool, getEnvInt, getEnvArray, emitArchiveResult } = require('../base/utils.js');
+const { loadConfig, getEnv, getEnvBool, getEnvInt, getEnvArray, emitArchiveResultRecord, emitSnapshotRecord } = require('../base/utils.js');
 ```
 
 - `loadConfig()` — load plugin `config.json` merged with shared base/common runtime vars using env var + alias + fallback resolution
+- `emitArchiveResultRecord(status, outputStr)` — emit `ArchiveResult` JSONL to stdout
+- `emitSnapshotRecord(record)` — emit `Snapshot` JSONL to stdout
 
 **Test helpers** (`base/test_utils.py`):
 ```python
@@ -165,38 +192,12 @@ from base.test_utils import parse_jsonl_output, run_hook, get_hook_script
   - use rich_click for cli arg parsing with a uv file header when hooks are written in python. do not depend on archivebox or django, try to only depend on chrome or the output files of other plugins instead of importing code from them. the one exception is to always use chrome_utils.js as the interface for anything involving chrome.
 
 
-### Event JSONL interface (bbus-style, no dependency)
+### Hook JSONL interface
 
-Hooks emit JSONL events to stdout. They do **not** need to import `bbus`.
-The event envelope matches the bbus style so higher layers can stream/replay.
+Hooks emit plain JSONL records to stdout. The current hook families and records are:
 
-Minimal envelope:
+- `on_BinaryRequest__*` → `Binary`
+- `on_CrawlSetup__*` → no stdout JSONL records
+- `on_Snapshot__*` → `ArchiveResult`, `Snapshot`, `Tag`
 
-```json
-{
-  "event_id": "uuidv7",
-  "event_type": "SnapshotCreated",
-  "event_created_at": "2026-02-01T20:10:22Z",
-  "event_parent_id": "uuidv7-or-null",
-  "event_schema": "abx.events.v1",
-  "event_path": "abx-plugins",
-  "data": { "...": "event-specific fields" }
-}
-```
-
-Conventions:
-
-- Active verb names are **requests** (e.g. `BinaryInstall`, `ProcessLaunch`).
-- Past tense names are **facts** (e.g. `BinaryInstalled`, `ProcessExited`).
-- Plugins can emit additional fields inside `data` without coordination.
-
-Common event types emitted by hooks:
-
-- `ArchiveResultCreated` (status + output files)
-- `Binary` records (dependency detection/install)
-- `ProcessStarted` / `ProcessExited`
-
-Higher-level tools (abx-dl / ArchiveBox) can:
-
-- Parse these events from stdout
-- Persist or project them (SQLite/JSONL/Django) without plugins knowing
+`abx-dl` and ArchiveBox map those records into their own internal event systems. Plugins do not need to know or emit any bus envelope format.

@@ -105,7 +105,9 @@ def build_system_prompt(
             f"\n## Current Snapshot\n```\nSNAP_DIR={snap_meta['snap_dir']}\n```\n",
         )
 
-        extractor_outputs = snap_meta.get("extractor_outputs", [])
+        extractor_outputs = (
+            snap_meta["extractor_outputs"] if "extractor_outputs" in snap_meta else []
+        )
         if extractor_outputs:
             parts.append("### Extractor Outputs Available\n")
             for ext in extractor_outputs:
@@ -267,19 +269,28 @@ def run_claude_code(
                 if isinstance(session_data, list):
                     # Extract assistant text from conversation messages
                     for msg in session_data:
-                        if msg.get("role") == "assistant":
-                            content = msg.get("content", [])
+                        if "role" in msg and msg["role"] == "assistant":
+                            content = msg["content"] if "content" in msg else []
                             if isinstance(content, list):
                                 for block in content:
                                     if (
                                         isinstance(block, dict)
-                                        and block.get("type") == "text"
+                                        and "type" in block
+                                        and block["type"] == "text"
                                     ):
-                                        text_response += block.get("text", "")
+                                        text_response += (
+                                            str(block["text"])
+                                            if "text" in block
+                                            else ""
+                                        )
                             elif isinstance(content, str):
                                 text_response += content
                 elif isinstance(session_data, dict):
-                    text_response = session_data.get("result", result.stdout)
+                    text_response = (
+                        str(session_data["result"])
+                        if "result" in session_data
+                        else result.stdout
+                    )
             except (json.JSONDecodeError, KeyError):
                 text_response = result.stdout
 

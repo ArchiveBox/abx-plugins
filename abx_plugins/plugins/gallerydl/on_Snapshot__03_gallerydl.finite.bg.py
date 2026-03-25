@@ -100,6 +100,7 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
     cmd.append(url)
 
     try:
+        print("downloading gallery media...")
         print(f"[gallerydl] Starting download (timeout={timeout}s)", file=sys.stderr)
         output_lines: list[str] = []
         process = subprocess.Popen(

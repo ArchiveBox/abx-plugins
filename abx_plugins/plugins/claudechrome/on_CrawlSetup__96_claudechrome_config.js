@@ -17,7 +17,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const { ensureNodeModuleResolution, getEnv, getEnvBool, loadConfig } = require('../base/utils.js');
+const { PROCESS_EXIT_SKIPPED, ensureNodeModuleResolution, getEnv, getEnvBool, loadConfig } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 
 const {
@@ -29,8 +29,8 @@ const {
 
 // Check if enabled
 if (!getEnvBool('CLAUDECHROME_ENABLED', false)) {
-    console.log('SKIPPED: CLAUDECHROME_ENABLED=False');
-    process.exit(0);
+    console.log('CLAUDECHROME_ENABLED=False');
+    process.exit(PROCESS_EXIT_SKIPPED);
 }
 
 const puppeteer = resolvePuppeteerModule();

@@ -34,6 +34,7 @@ from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
+    get_extra_context,
     load_config,
     write_text_atomic,
 )
@@ -63,20 +64,52 @@ URL_REGEX = re.compile(
     r"))",
     re.IGNORECASE | re.UNICODE,
 )
+READ_CHUNK_SIZE = 262144
+URL_SCAN_OVERLAP = 8192
+HTTP_PREFIXES = ("http://", "https://")
+URL_EDGE_STRIP_CHARS = " \t\r\n\"''<>[]()"
+URL_TRAILING_ARTIFACTS = ".,;:!?)\\'\""
 
 
 class HrefParser(HTMLParser):
-    """Extract href attributes from anchor tags."""
+    """Extract href URLs and explicit absolute URLs while streaming one HTML source."""
 
-    def __init__(self):
+    def __init__(self, *, root_url: str, urls_found: set[str]):
         super().__init__()
-        self.urls = []
+        self.root_url = root_url
+        self.urls_found = urls_found
+        self.raw_tail = ""
+
+    def _add_url(self, url: str) -> None:
+        normalized = normalize_url(url, root_url=self.root_url)
+        lowered = normalized.lower()
+        if lowered.startswith(HTTP_PREFIXES):
+            if normalized != self.root_url:
+                self.urls_found.add(
+                    unescape(normalized) if "&" in normalized else normalized,
+                )
 
     def handle_starttag(self, tag, attrs):
         if tag == "a":
             for attr, value in attrs:
                 if attr == "href" and value:
-                    self.urls.append(value)
+                    self._add_url(value)
+
+    def scan_raw_chunk(self, chunk: str, *, final: bool = False) -> None:
+        text = self.raw_tail + chunk
+        scan_limit = len(text) if final else max(0, len(text) - URL_SCAN_OVERLAP)
+        if "://" not in text:
+            self.raw_tail = "" if final else text[scan_limit:]
+            return
+        for match in URL_REGEX.finditer(text):
+            start = match.start(1)
+            end = match.end(1)
+            if not final and start >= scan_limit:
+                break
+            if not final and end > scan_limit:
+                continue
+            self._add_url(match.group(1))
+        self.raw_tail = "" if final else text[scan_limit:]
 
 
 def did_urljoin_misbehave(root_url: str, relative_path: str, final_url: str) -> bool:
@@ -119,11 +152,7 @@ def normalize_url(url: str, root_url: str | None = None) -> str:
     if not root_url:
         return _normalize_trailing_slash(url)
 
-    url_is_absolute = url.lower().startswith("http://") or url.lower().startswith(
-        "https://",
-    )
-
-    if url_is_absolute:
+    if url.lower().startswith(HTTP_PREFIXES):
         return url
 
     # Resolve relative URL
@@ -138,6 +167,8 @@ def normalize_url(url: str, root_url: str | None = None) -> str:
 
 def _normalize_trailing_slash(url: str) -> str:
     """Drop trailing slash for non-root paths when no query/fragment."""
+    if not url.endswith("/") or "?" in url or "#" in url:
+        return url
     try:
         parsed = urlparse(url)
         path = parsed.path or ""
@@ -165,6 +196,9 @@ def _normalize_trailing_slash(url: str) -> str:
 
 def clean_url_candidate(url: str) -> str:
     """Strip obvious surrounding/trailing punctuation from extracted URLs."""
+    if _is_obviously_clean_url(url):
+        return url
+
     cleaned = sanitize_extracted_url(url)
     if not cleaned:
         return cleaned
@@ -183,23 +217,21 @@ def clean_url_candidate(url: str) -> str:
     return cleaned
 
 
-def fetch_content(url: str) -> str:
-    """Fetch content from a URL (supports file:// and https://)."""
-    parsed = urlparse(url)
-
-    if parsed.scheme == "file":
-        file_path = parsed.path
-        with open(file_path, encoding="utf-8", errors="replace") as f:
-            return f.read()
-    else:
-        timeout = CONFIG.TIMEOUT
-        user_agent = CONFIG.USER_AGENT
-
-        import urllib.request
-
-        req = urllib.request.Request(url, headers={"User-Agent": user_agent})
-        with urllib.request.urlopen(req, timeout=timeout) as response:
-            return response.read().decode("utf-8", errors="replace")
+def _is_obviously_clean_url(url: str) -> bool:
+    """Fast-path URLs that the cleanup logic would return unchanged."""
+    return bool(
+        url
+        and url[0] not in URL_EDGE_STRIP_CHARS
+        and url[-1] not in (URL_EDGE_STRIP_CHARS + URL_TRAILING_ARTIFACTS)
+        and '"' not in url
+        and "'" not in url
+        and "`" not in url
+        and "&" not in url
+        and "“" not in url
+        and "”" not in url
+        and "‘" not in url
+        and "’" not in url,
+    )
 
 
 def emit_result(status: str, output_str: str) -> None:
@@ -222,8 +254,8 @@ def persist_records(records: list[dict]) -> tuple[str, str]:
     return "noresults", NORESULTS_OUTPUT
 
 
-def find_html_sources() -> list[str]:
-    """Find HTML content from other extractors in the snapshot directory."""
+def iter_html_source_paths():
+    """Yield HTML source files from other extractors in the snapshot directory."""
     search_patterns = [
         "readability/content.html",
         "*_readability/content.html",
@@ -245,18 +277,29 @@ def find_html_sources() -> list[str]:
         "*_wget/**/*.htm*",
     ]
 
-    sources: list[str] = []
+    seen_paths: set[Path] = set()
     for base in (Path.cwd(), Path.cwd().parent):
         for pattern in search_patterns:
             for match in base.glob(pattern):
                 if not match.is_file() or match.stat().st_size == 0:
                     continue
-                try:
-                    sources.append(match.read_text(errors="ignore"))
-                except Exception:
+                resolved = match.resolve()
+                if resolved in seen_paths:
                     continue
+                seen_paths.add(resolved)
+                yield resolved
 
-    return sources
+
+def extract_urls_from_reader(reader, *, root_url: str, urls_found: set[str]) -> None:
+    parser = HrefParser(root_url=root_url, urls_found=urls_found)
+    while True:
+        chunk = reader.read(READ_CHUNK_SIZE)
+        if not chunk:
+            break
+        parser.feed(chunk)
+        parser.scan_raw_chunk(chunk)
+    parser.close()
+    parser.scan_raw_chunk("", final=True)
 
 
 @click.command(
@@ -269,41 +312,44 @@ def main(
     depth: int = 0,
 ):
     """Parse HTML and extract href URLs."""
-    if CONFIG.SNAPSHOT_DEPTH is not None:
-        depth = CONFIG.SNAPSHOT_DEPTH
-    contents = find_html_sources()
-    if not contents:
-        try:
-            contents = [fetch_content(url)]
-        except Exception as e:
-            emit_result("failed", f"Failed to fetch {url}: {e}")
-            sys.exit(1)
-
+    extra_context = get_extra_context()
+    if "snapshot_depth" in extra_context:
+        depth = int(extra_context["snapshot_depth"])
     urls_found = set()
-    for content in contents:
-        # Parse HTML for hrefs
-        parser = HrefParser()
-        try:
-            parser.feed(content)
-        except Exception:
-            pass
+    source_paths = tuple(iter_html_source_paths())
+    print(f"parsing {len(source_paths) if source_paths else 1} files for urls...")
+    try:
+        if source_paths:
+            for source_path in source_paths:
+                with source_path.open(encoding="utf-8", errors="replace") as reader:
+                    extract_urls_from_reader(
+                        reader,
+                        root_url=url,
+                        urls_found=urls_found,
+                    )
+        else:
+            parsed = urlparse(url)
+            if parsed.scheme == "file":
+                reader_cm = open(parsed.path, encoding="utf-8", errors="replace")
+            else:
+                timeout = CONFIG.TIMEOUT
+                user_agent = CONFIG.USER_AGENT
 
-        for href in parser.urls:
-            normalized = normalize_url(href, root_url=url)
-            if normalized.lower().startswith(
-                "http://",
-            ) or normalized.lower().startswith("https://"):
-                if normalized != url:
-                    urls_found.add(unescape(normalized))
+                import io
+                import urllib.request
 
-        # Also capture explicit URLs in the HTML text
-        for match in URL_REGEX.findall(content):
-            normalized = normalize_url(match, root_url=url)
-            if normalized.lower().startswith(
-                "http://",
-            ) or normalized.lower().startswith("https://"):
-                if normalized != url:
-                    urls_found.add(unescape(normalized))
+                req = urllib.request.Request(url, headers={"User-Agent": user_agent})
+                response = urllib.request.urlopen(req, timeout=timeout)
+                reader_cm = io.TextIOWrapper(
+                    response,
+                    encoding="utf-8",
+                    errors="replace",
+                )
+            with reader_cm as reader:
+                extract_urls_from_reader(reader, root_url=url, urls_found=urls_found)
+    except Exception as e:
+        emit_result("failed", f"Failed to fetch {url}: {e}")
+        sys.exit(1)
 
     # Emit Snapshot records to stdout (JSONL) and urls.jsonl for crawl system
     records = []
@@ -320,6 +366,7 @@ def main(
 
     # Emit ArchiveResult record to mark completion
     status, output_str = persist_records(records)
+    print(output_str)
     emit_result(status, output_str)
     sys.exit(0)
 

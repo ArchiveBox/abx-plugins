@@ -22,13 +22,26 @@ from pathlib import Path
 from typing import Any
 
 import rich_click as click
-from abx_pkg import Binary, BinProviderOverrides, EnvProvider, SemVer
+from pydantic import ConfigDict, TypeAdapter
+
+from abx_pkg import (
+    Binary,
+    BinaryOverrides,
+    BinProviderOverrides,
+    EnvProvider,
+    HandlerDict,
+    SemVer,
+)
 
 from abx_plugins.plugins.base.utils import emit_installed_binary_record, load_config
 
 
 CHROME_UTILS_PATH = (
     Path(__file__).resolve().parent.parent / "chrome" / "chrome_utils.js"
+)
+OverridesDict = TypeAdapter(
+    BinaryOverrides,
+    config=ConfigDict(arbitrary_types_allowed=True),
 )
 
 
@@ -41,16 +54,6 @@ def _extensions_dir() -> Path:
         / config.ACTIVE_PERSONA
         / "chrome_extensions"
     ).resolve()
-
-
-def _parse_overrides(raw_overrides: str | None) -> dict[str, Any]:
-    if not raw_overrides:
-        return {}
-    try:
-        parsed = json.loads(raw_overrides)
-    except json.JSONDecodeError:
-        return {}
-    return parsed if isinstance(parsed, dict) else {}
 
 
 def _hash_file(path: Path) -> str:
@@ -107,20 +110,25 @@ class ChromeWebstoreProvider(EnvProvider):
         cached = self._cached_extension(bin_name)
         install_args = list(self.get_install_args(bin_name, quiet=True))
         webstore_id = str(
-            cached.get("webstore_id")
-            or (install_args[0] if install_args else bin_name),
+            cached["webstore_id"]
+            if "webstore_id" in cached
+            else (install_args[0] if install_args else bin_name),
         )
         extension_name = str(
-            cached.get("name") or self._extension_name(bin_name, install_args),
+            cached["name"]
+            if "name" in cached
+            else self._extension_name(bin_name, install_args),
         )
         extensions_dir = _extensions_dir()
         unpacked_path = Path(
-            cached.get("unpacked_path")
-            or (extensions_dir / f"{webstore_id}__{extension_name}"),
+            cached["unpacked_path"]
+            if "unpacked_path" in cached
+            else (extensions_dir / f"{webstore_id}__{extension_name}"),
         )
         crx_path = Path(
-            cached.get("crx_path")
-            or (extensions_dir / f"{webstore_id}__{extension_name}.crx"),
+            cached["crx_path"]
+            if "crx_path" in cached
+            else (extensions_dir / f"{webstore_id}__{extension_name}.crx"),
         )
         manifest_path = unpacked_path / "manifest.json"
         return webstore_id, extension_name, unpacked_path, crx_path, manifest_path
@@ -197,8 +205,12 @@ def main(
     ]:
         sys.exit(0)
 
-    parsed_overrides = _parse_overrides(overrides)
-    provider_overrides = parsed_overrides.get("chromewebstore", {})
+    parsed_overrides = OverridesDict.validate_json(overrides) if overrides else {}
+    provider_overrides: HandlerDict = (
+        parsed_overrides["chromewebstore"]
+        if "chromewebstore" in parsed_overrides
+        else {}
+    )
 
     provider = ChromeWebstoreProvider()
     binary = Binary(

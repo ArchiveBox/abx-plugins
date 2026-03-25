@@ -86,6 +86,20 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function formatProgress(blockedRequests, hiddenElements) {
+    return `${blockedRequests} ad request${blockedRequests === 1 ? '' : 's'} blocked | ${hiddenElements} element${hiddenElements === 1 ? '' : 's'} hidden`;
+}
+
+let lastProgressLine = '';
+
+function emitProgress(blockedRequests, hiddenElements) {
+    const line = formatProgress(blockedRequests, hiddenElements);
+    if (line !== lastProgressLine) {
+        lastProgressLine = line;
+        console.log(line);
+    }
+}
+
 async function countHiddenAdElements(page) {
     return page.evaluate((selectors) => {
         let found = 0;
@@ -161,6 +175,7 @@ async function main() {
         });
         browser = connection.browser;
         const page = connection.page;
+        emitProgress(blockedRequests, hiddenElements);
 
         page.on('requestfailed', request => {
             const url = request.url().toLowerCase();
@@ -171,6 +186,7 @@ async function main() {
                 errorText.toUpperCase().includes('ERR_BLOCKED_BY_CLIENT')
             ) {
                 blockedRequests += 1;
+                emitProgress(blockedRequests, hiddenElements);
             }
         });
 
@@ -179,6 +195,7 @@ async function main() {
         while (running) {
             try {
                 hiddenElements = Math.max(hiddenElements, await countHiddenAdElements(page));
+                emitProgress(blockedRequests, hiddenElements);
             } catch (error) {
                 if (!running) break;
             }

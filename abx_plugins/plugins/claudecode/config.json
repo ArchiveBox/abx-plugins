@@ -46,7 +46,7 @@
       "x-aliases": [
         "USE_CLAUDECODE"
       ],
-      "description": "Enable Claude Code AI agent integration. Controls the crawl-time Claude binary install hook; child plugins still need the claudecode plugin installed and a working Claude binary."
+      "description": "Enable Claude Code AI agent integration. Controls whether the Claude CLI dependency is resolved for this plugin; child plugins still need the claudecode plugin enabled and a working Claude binary."
     },
     "CLAUDECODE_BINARY": {
       "type": "string",

@@ -53,6 +53,14 @@ let shuttingDown = false;
 let sslIssuer = null;
 const seenCertificates = new Set();
 let certCount = 0;
+let lastProgressLine = "";
+
+function emitProgress(line) {
+  if (line && line !== lastProgressLine) {
+    lastProgressLine = line;
+    console.log(line);
+  }
+}
 
 function readSecurityDetail(details, key) {
   const value = details?.[key];
@@ -195,8 +203,6 @@ async function setupListener(url) {
   const timeout = getEnvInt("SSLCERTS_TIMEOUT", 30) * 1000;
   let targetHost = null;
 
-  fs.writeFileSync(outputPath, "");
-
   // Only extract SSL for HTTPS URLs
   if (!url.startsWith("https://")) {
     throw new Error("URL is not HTTPS");
@@ -209,11 +215,94 @@ async function setupListener(url) {
   }
 
   // Connect to Chrome page using shared utility
-  const { browser, page } = await connectToPage({
+  const { browser, page, cdpSession } = await connectToPage({
     chromeSessionDir: CHROME_SESSION_DIR,
     timeoutMs: timeout,
     puppeteer,
   });
+
+  const writeSslRecord = async (sslInfo, recordUrl) => {
+    if (sslCaptured) return;
+
+    const resolvedUrl = recordUrl || url;
+    const resolvedHost = responseHostFromUrl(resolvedUrl);
+    if (targetHost && resolvedHost !== targetHost) {
+      return;
+    }
+
+    const record = { url: resolvedUrl, ...sslInfo };
+    const sanList = Array.isArray(record.subjectAlternativeNames)
+      ? record.subjectAlternativeNames
+      : [];
+    const certKey = JSON.stringify([
+      resolvedHost,
+      record.protocol || "",
+      record.subjectName || "",
+      record.issuer || "",
+      record.validFrom || "",
+      record.validTo || "",
+      ...sanList,
+    ]);
+    if (seenCertificates.has(certKey)) {
+      return;
+    }
+    seenCertificates.add(certKey);
+    certCount += 1;
+    sslCaptured = true;
+    sslIssuer = record.issuer || record.subjectName || sslIssuer;
+    emitProgress(`${certCount} SSL certificate${certCount === 1 ? "" : "s"}`);
+
+    if (
+      resolvedUrl.startsWith("https://") &&
+      !record.chainError &&
+      !record.certificateChain
+    ) {
+      try {
+        const chain = await fetchCertificateChain(resolvedUrl, timeout);
+        if (chain.length > 0) {
+          const chainPem = chain.map((cert) => derToPem(cert.raw)).join("");
+          const leafPemPath = writePemFile("leaf.pem", derToPem(chain[0].raw));
+          const rootPemPath = writePemFile(
+            "root.pem",
+            derToPem(chain[chain.length - 1].raw),
+          );
+          const chainPemPath = writePemFile("chain.pem", chainPem);
+
+          record.leafPemPath = leafPemPath;
+          record.rootPemPath = rootPemPath;
+          record.chainPemPath = chainPemPath;
+          record.leafFingerprint256 = chain[0].fingerprint256;
+          record.leafCtSearchUrl = chain[0].ctSearchUrl;
+          record.certificateChain = chain.map((cert, index) => ({
+            position: getPositionLabel(index, chain.length),
+            subject: cert.subject,
+            issuer: cert.issuer,
+            subjectText: cert.subjectText,
+            issuerText: cert.issuerText,
+            commonName: cert.commonName,
+            issuerCommonName: cert.issuerCommonName,
+            subjectAltName: cert.subjectAltName,
+            serialNumber: cert.serialNumber,
+            validFrom: cert.validFrom,
+            validTo: cert.validTo,
+            fingerprint256: cert.fingerprint256,
+            fingerprint512: cert.fingerprint512 || null,
+            pemPath:
+              index === 0
+                ? leafPemPath
+                : index === chain.length - 1
+                  ? rootPemPath
+                  : null,
+            ctSearchUrl: cert.ctSearchUrl,
+          }));
+        }
+      } catch (error) {
+        record.chainError = `${error.name}: ${error.message}`;
+      }
+    }
+
+    fs.appendFileSync(outputPath, JSON.stringify(record) + "\n");
+  };
 
   page.on("response", async (response) => {
     try {
@@ -239,10 +328,7 @@ async function setupListener(url) {
       }
 
       const securityDetails = response.securityDetails?.() || null;
-      let sslInfo = { url: responseUrl };
-
       if (securityDetails) {
-        sslCaptured = true;
         const protocol = readSecurityDetail(securityDetails, "protocol") || "";
         const keyExchange =
           readSecurityDetail(securityDetails, "keyExchange") || "";
@@ -274,20 +360,7 @@ async function setupListener(url) {
           readSecurityDetail(securityDetails, "serverSignatureAlgorithm") || null;
         const encryptedClientHello =
           readSecurityDetail(securityDetails, "encryptedClientHello");
-        const certKey = JSON.stringify([
-          responseHostFromUrl(responseUrl),
-          protocol,
-          subjectName,
-          issuer,
-          validFrom,
-          validTo,
-          ...sanList,
-        ]);
-        if (seenCertificates.has(certKey)) {
-          return;
-        }
-        seenCertificates.add(certKey);
-        certCount += 1;
+        const sslInfo = {};
         sslInfo.protocol = protocol;
         if (keyExchange) sslInfo.keyExchange = keyExchange;
         if (keyExchangeGroup) sslInfo.keyExchangeGroup = keyExchangeGroup;
@@ -317,65 +390,82 @@ async function setupListener(url) {
         if (typeof encryptedClientHello === "boolean") {
           sslInfo.encryptedClientHello = encryptedClientHello;
         }
-
-        try {
-          const chain = await fetchCertificateChain(responseUrl, timeout);
-          if (chain.length > 0) {
-            const chainPem = chain.map((cert) => derToPem(cert.raw)).join("");
-            const leafPemPath = writePemFile("leaf.pem", derToPem(chain[0].raw));
-            const rootPemPath = writePemFile(
-              "root.pem",
-              derToPem(chain[chain.length - 1].raw),
-            );
-            const chainPemPath = writePemFile("chain.pem", chainPem);
-
-            sslInfo.leafPemPath = leafPemPath;
-            sslInfo.rootPemPath = rootPemPath;
-            sslInfo.chainPemPath = chainPemPath;
-            sslInfo.leafFingerprint256 = chain[0].fingerprint256;
-            sslInfo.leafCtSearchUrl = chain[0].ctSearchUrl;
-            sslInfo.certificateChain = chain.map((cert, index) => ({
-              position: getPositionLabel(index, chain.length),
-              subject: cert.subject,
-              issuer: cert.issuer,
-              subjectText: cert.subjectText,
-              issuerText: cert.issuerText,
-              commonName: cert.commonName,
-              issuerCommonName: cert.issuerCommonName,
-              subjectAltName: cert.subjectAltName,
-              serialNumber: cert.serialNumber,
-              validFrom: cert.validFrom,
-              validTo: cert.validTo,
-              fingerprint256: cert.fingerprint256,
-              fingerprint512: cert.fingerprint512 || null,
-              pemPath:
-                index === 0
-                  ? leafPemPath
-                  : index === chain.length - 1
-                    ? rootPemPath
-                    : null,
-              ctSearchUrl: cert.ctSearchUrl,
-            }));
-          }
-        } catch (error) {
-          sslInfo.chainError = `${error.name}: ${error.message}`;
-        }
-      } else if (responseUrl.startsWith("https://")) {
-        sslCaptured = true;
-        sslInfo.securityState = "unknown";
-        sslInfo.schemeIsCryptographic = true;
-        sslInfo.error = "No security details available";
+        await writeSslRecord(sslInfo, responseUrl);
       } else {
-        sslCaptured = true;
-        sslInfo.securityState = "insecure";
-        sslInfo.schemeIsCryptographic = false;
+        await writeSslRecord(
+          responseUrl.startsWith("https://")
+            ? {
+                securityState: "unknown",
+                schemeIsCryptographic: true,
+                error: "No security details available",
+              }
+            : {
+                securityState: "insecure",
+                schemeIsCryptographic: false,
+              },
+          responseUrl,
+        );
       }
-
-      fs.appendFileSync(outputPath, JSON.stringify(sslInfo) + "\n");
     } catch (e) {
       // Ignore errors
     }
   });
+
+  if (cdpSession) {
+    try {
+      await cdpSession.send("Security.enable");
+      cdpSession.on("Security.visibleSecurityStateChanged", async (event) => {
+        try {
+          if (sslCaptured) return;
+          const visibleSecurityState = event?.visibleSecurityState || null;
+          const certificateSecurityState =
+            visibleSecurityState?.certificateSecurityState || null;
+          if (!certificateSecurityState) return;
+
+          const sslInfo = {
+            securityState: visibleSecurityState?.securityState || "secure",
+            schemeIsCryptographic:
+              visibleSecurityState?.schemeIsCryptographic !== false,
+            protocol: certificateSecurityState.protocol || "",
+            subjectName: certificateSecurityState.subjectName || "",
+            issuer: certificateSecurityState.issuer || "",
+            validFrom: certificateSecurityState.validFrom || "",
+            validTo: certificateSecurityState.validTo || "",
+          };
+          if (certificateSecurityState.keyExchange) {
+            sslInfo.keyExchange = certificateSecurityState.keyExchange;
+          }
+          if (certificateSecurityState.keyExchangeGroup) {
+            sslInfo.keyExchangeGroup =
+              certificateSecurityState.keyExchangeGroup;
+          }
+          if (certificateSecurityState.cipher) {
+            sslInfo.cipher = certificateSecurityState.cipher;
+          }
+          if (certificateSecurityState.mac) {
+            sslInfo.mac = certificateSecurityState.mac;
+          }
+          if (
+            Array.isArray(certificateSecurityState.sanList) &&
+            certificateSecurityState.sanList.length > 0
+          ) {
+            sslInfo.subjectAlternativeNames = certificateSecurityState.sanList;
+          }
+          if (certificateSecurityState.certificateNetworkError) {
+            sslInfo.certificateNetworkError =
+              certificateSecurityState.certificateNetworkError;
+          }
+          await writeSslRecord(sslInfo, url);
+        } catch (error) {
+          // Ignore errors
+        }
+      });
+    } catch (error) {
+      console.error(`WARN: Failed to enable CDP Security domain: ${error.message}`);
+    }
+  }
+
+  fs.writeFileSync(outputPath, "");
 
   return { browser, page };
 }
@@ -431,6 +521,7 @@ async function main() {
     const connection = await setupListener(url);
     browser = connection.browser;
     page = connection.page;
+    emitProgress("0 SSL certificates");
 
     // Register signal handlers for graceful shutdown
     process.on("SIGTERM", () => handleShutdown("SIGTERM"));

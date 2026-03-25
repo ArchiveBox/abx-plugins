@@ -23,6 +23,7 @@
 const path = require('path');
 const fs = require('fs');
 const {
+    PROCESS_EXIT_SKIPPED,
     ensureNodeModuleResolution,
     parseArgs,
     getEnvBool,
@@ -145,7 +146,7 @@ async function configure2Captcha() {
 
     // Check if already configured in this session
     if (fs.existsSync(CONFIG_MARKER)) {
-        console.error('[*] 2captcha already configured in this browser session');
+        console.error('2captcha already configured');
         return { success: true, skipped: true };
     }
 
@@ -159,13 +160,12 @@ async function configure2Captcha() {
         return { success: false, error: 'TWOCAPTCHA_API_KEY not configured' };
     }
 
-    console.error('[*] Configuring 2captcha extension...');
-    console.error(`[*]   API Key: ${config.apiKey.slice(0, 8)}...${config.apiKey.slice(-4)}`);
-    console.error(`[*]   Enabled: ${config.isPluginEnabled}`);
-    console.error(`[*]   Retry Count: ${config.repeatOnErrorTimes}`);
-    console.error(`[*]   Retry Delay: ${config.repeatOnErrorDelay}s`);
-    console.error(`[*]   Auto Submit: ${config.autoSubmitForms}`);
-    console.error(`[*]   Auto Solve: all CAPTCHA types enabled`);
+    console.error('Configuring 2captcha...');
+    console.error(`API Key: ${config.apiKey.slice(0, 6)}...${config.apiKey.slice(-4)}`);
+    // console.error(`[*]   Retry Count: ${config.repeatOnErrorTimes}`);
+    // console.error(`[*]   Retry Delay: ${config.repeatOnErrorDelay}s`);
+    // console.error(`[*]   Auto Submit: ${config.autoSubmitForms}`);
+    // console.error(`[*]   Auto Solve: all CAPTCHA types enabled`);
 
     try {
         const chromeSession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
@@ -180,9 +180,10 @@ async function configure2Captcha() {
 
         try {
             // First, navigate to a page to trigger extension content scripts and wake up service worker
-            console.error('[*] Waking up extension by visiting a page...');
+            // console.error('[*] Waking up extension by visiting a page...');
             const triggerPage = await browser.newPage();
             try {
+                // TODO: figure out how to do this without making a live request to google.com
                 await triggerPage.goto('https://www.google.com', { waitUntil: 'domcontentloaded', timeout: 10000 });
                 await new Promise(r => setTimeout(r, 3000)); // Give extension time to initialize
             } catch (e) {
@@ -204,10 +205,10 @@ async function configure2Captcha() {
             }
 
             const extensionId = captchaExt.id;
-            console.error(`[*] 2captcha Extension ID: ${extensionId}`);
+            console.error(`Extension ID: ${extensionId}`);
 
             // Configure via options page
-            console.error('[*] Configuring via options page...');
+            // console.error('[*] Configuring via options page...');
             const optionsUrl = `chrome-extension://${extensionId}/options/options.html`;
 
             let configPage = await browser.newPage();
@@ -235,14 +236,14 @@ async function configure2Captcha() {
                 }
 
                 const currentUrl = configPage.url();
-                console.error(`[*] Current URL: ${currentUrl}`);
+                // console.error(`[*] Current URL: ${currentUrl}`);
 
                 if (!currentUrl.startsWith(`chrome-extension://${extensionId}`)) {
                     return { success: false, error: `Failed to navigate to options page, got: ${currentUrl}` };
                 }
 
                 // Wait for Config object to be available
-                console.error('[*] Waiting for Config object...');
+                // console.error('[*] Waiting for Config object...');
                 await configPage.waitForFunction(() => typeof Config !== 'undefined', { timeout: 10000 });
 
                 // Merge onto extension defaults instead of replacing the whole object.
@@ -274,10 +275,10 @@ async function configure2Captcha() {
                 }, config);
 
                 if (result.success) {
-                    console.error(`[+] 2captcha configured via ${result.method}`);
+                    console.error(`Configured via ${result.method}`);
 
                     // Verify config was applied by reloading options page and checking form values
-                    console.error('[*] Verifying config by reloading options page...');
+                    // console.error('[*] Verifying config by reloading options page...');
                     try {
                         await configPage.reload({ waitUntil: 'networkidle0', timeout: 10000 });
                     } catch (e) {
@@ -310,10 +311,10 @@ async function configure2Captcha() {
                         return { success: false, error: 'Config verification failed - API key not set correctly' };
                     }
 
-                    console.error('[+] Config verified successfully!');
-                    console.error(`[+]   API Key: ${actualApiKey.slice(0, 8)}...${actualApiKey.slice(-4)}`);
-                    console.error(`[+]   Plugin Enabled: ${verifyConfig.isPluginEnabled}`);
-                    console.error(`[+]   Auto Solve Turnstile: ${verifyConfig.autoSolveTurnstile}`);
+                    console.error('Ready.');
+                    // console.error(`[+]   API Key: ${actualApiKey.slice(0, 8)}...${actualApiKey.slice(-4)}`);
+                    // console.error(`[+]   Plugin Enabled: ${verifyConfig.isPluginEnabled}`);
+                    // console.error(`[+]   Auto Solve Turnstile: ${verifyConfig.autoSolveTurnstile}`);
 
                     fs.writeFileSync(CONFIG_MARKER, JSON.stringify({
                         timestamp: new Date().toISOString(),
@@ -383,7 +384,7 @@ async function main() {
     // Config hooks don't emit JSONL - they're utility hooks for setup
     // Exit code indicates success/failure
 
-    process.exit(status === 'succeeded' || status === 'skipped' ? 0 : 1);
+    process.exit(status === 'skipped' ? PROCESS_EXIT_SKIPPED : status === 'succeeded' ? 0 : 1);
 }
 
 main().catch(e => {

@@ -10,8 +10,9 @@
 # ]
 # ///
 #
-# Install a binary using a custom bash command. This provider runs arbitrary shell commands
-# to install binaries that don't fit into standard package managers, outputting a Binary JSONL record to stdout.
+# Install a binary using a custom shell command defined in overrides.
+# This provider runs arbitrary shell commands to install binaries that don't fit
+# into standard package managers, outputting a Binary JSONL record to stdout.
 #
 # Usage:
 #     ./on_BinaryRequest__14_custom.py [...] > events.jsonl
@@ -22,7 +23,15 @@ import sys
 from abx_plugins.plugins.base.utils import emit_installed_binary_record
 
 import rich_click as click
-from abx_pkg import Binary, EnvProvider
+from pydantic import ConfigDict, TypeAdapter
+
+from abx_pkg import Binary, BinaryOverrides, EnvProvider
+
+
+OverridesDict = TypeAdapter(
+    BinaryOverrides,
+    config=ConfigDict(arbitrary_types_allowed=True),
+)
 
 
 @click.command(
@@ -31,14 +40,12 @@ from abx_pkg import Binary, EnvProvider
 @click.option("--name", required=True, help="Binary name to install")
 @click.option("--binproviders", default="*", help="Allowed providers (comma-separated)")
 @click.option("--min-version", default="", help="Minimum acceptable version")
-@click.option("--overrides", default=None, help="JSON-encoded overrides dict (unused)")
-@click.option("--custom-cmd", default=None, help="Custom bash command to run")
+@click.option("--overrides", required=True, help="JSON-encoded overrides dict")
 def main(
     name: str,
     binproviders: str,
     min_version: str,
-    overrides: str | None,
-    custom_cmd: str | None,
+    overrides: str,
 ):
     """Install binary using custom bash command."""
 
@@ -46,15 +53,17 @@ def main(
         click.echo(f"custom provider not allowed for {name}", err=True)
         sys.exit(0)
 
-    if not custom_cmd:
-        click.echo("custom provider requires --custom-cmd", err=True)
+    custom_overrides = OverridesDict.validate_json(overrides)["custom"]
+    if "install" not in custom_overrides:
+        click.echo("Custom provider requires overrides.custom.install", err=True)
         sys.exit(1)
+    install_command = str(custom_overrides["install"])
 
-    click.echo(f"Installing {name} via custom command: {custom_cmd}", err=True)
+    click.echo(f"Installing {name} via custom command: {install_command}", err=True)
 
     try:
         result = subprocess.run(
-            custom_cmd,
+            install_command,
             shell=True,
             timeout=600,  # 10 minute timeout for custom installs
         )

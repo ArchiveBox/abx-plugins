@@ -24,6 +24,7 @@ const {
     ensureNodeModuleResolution,
     getEnvBool,
     getEnvInt,
+    getExtraContext,
     loadConfig,
     parseArgs,
     emitArchiveResultRecord,
@@ -188,7 +189,9 @@ async function extractOutlinks(url, depth, timeoutMs) {
 async function main() {
     const args = parseArgs();
     const url = args.url;
-    const depth = parseInt(args.depth || String(hookConfig.SNAPSHOT_DEPTH ?? 0), 10) || 0;
+    const extraContext = getExtraContext();
+    const depthValue = args.depth ?? extraContext.snapshot_depth ?? 0;
+    const depth = parseInt(String(depthValue), 10) || 0;
 
     if (!url) {
         console.error('Usage: on_Snapshot__75_parse_dom_outlinks.js --url=<url>');
@@ -209,17 +212,14 @@ async function main() {
         }
 
         const timeoutMs = getEnvInt('PARSE_DOM_OUTLINKS_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
+        console.log('parsing 1 files for urls...');
 
         const result = await extractOutlinks(url, depth, timeoutMs);
 
         if (result.success) {
             status = result.status;
             output = result.output;
-            const total = result.outlinksData.hrefs.length;
-            const crawlable = result.crawlableCount;
-            const images = result.outlinksData.images.length;
-            const scripts = result.outlinksData.js_scripts.length;
-            console.log(`DOM outlinks extracted: ${total} links (${crawlable} crawlable), ${images} images, ${scripts} scripts`);
+            console.log(output);
         } else {
             status = 'failed';
             error = result.error;

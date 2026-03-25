@@ -102,7 +102,7 @@ def save_paper(url: str, binary: str) -> tuple[bool, int, str]:
         cmd.extend(papersdl_args_extra)
 
     try:
-        print(f"[papersdl] Starting download (timeout={timeout}s)", file=sys.stderr)
+        print("searching for DOI numbers & papers...")
         output_lines: list[str] = []
         process = subprocess.Popen(
             cmd,

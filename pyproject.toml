@@ -62,7 +62,6 @@ addopts = ["-p", "abx_plugins.pytest_bootstrap", "-p", "no:cacheprovider"]
 include = [
     "abx_plugins",
     "tests",
-    "examples",
 ]
 extraPaths = [
     "abx-pkg",

@@ -38,13 +38,13 @@ repos:
         name: ty-check
         entry: bash -lc 'ARGS=""; [ -d ./abx-pkg ] && ARGS="$ARGS --extra-search-path ./abx-pkg"; [ -d ../abx-pkg ] && ARGS="$ARGS --extra-search-path ../abx-pkg"; [ -d ./abx-dl ] && ARGS="$ARGS --extra-search-path ./abx-dl"; [ -d ../abx-dl ] && ARGS="$ARGS --extra-search-path ../abx-dl"; [ -d ./archivebox ] && ARGS="$ARGS --extra-search-path ./archivebox"; [ -d ../archivebox ] && ARGS="$ARGS --extra-search-path ../archivebox"; uv run --active --no-sources ty check $ARGS'
         language: system
-        files: ^(abx_plugins/|tests/|examples/)
+        files: ^(abx_plugins/|tests/)
         pass_filenames: false
       - id: pyright
         name: pyright
         entry: uv run --active --no-sources pyright
         language: system
-        files: ^(abx_plugins/|tests/|examples/)
+        files: ^(abx_plugins/|tests/)
         pass_filenames: false
       - id: ts-prettier
         name: ts-prettier

@@ -49,6 +49,7 @@ async function main() {
     const timeoutSeconds = getEnvInt('CHROME_TAB_TIMEOUT', getEnvInt('CHROME_TIMEOUT', getEnvInt('TIMEOUT', 60)));
     const timeoutMs = timeoutSeconds * 1000;
 
+    console.log('waiting for chrome to launch...');
     console.error(`[chrome_wait] Waiting for Chrome session (timeout=${timeoutSeconds}s)...`);
 
     const readySession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
@@ -59,6 +60,7 @@ async function main() {
         probeTimeoutMs: 1000,
         puppeteer,
     });
+    console.log('verifying chrome is ready...');
     if (!readySession?.cdpUrl || !readySession?.targetId) {
         const error = CHROME_SESSION_REQUIRED_ERROR;
         console.error(`[chrome_wait] ERROR: ${error}`);

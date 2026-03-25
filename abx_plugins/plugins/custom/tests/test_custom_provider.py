@@ -39,13 +39,14 @@ class TestCustomProviderHook:
         """Hook should skip when custom not in allowed binproviders."""
         env = os.environ.copy()
         env["SNAP_DIR"] = self.temp_dir
+        overrides = json.dumps({"custom": {"install": "echo hello"}})
 
         result = subprocess.run(
             [
                 str(INSTALL_HOOK),
                 "--name=echo",
                 "--binproviders=pip,apt",  # custom not allowed
-                "--custom-cmd=echo hello",
+                f"--overrides={overrides}",
             ],
             capture_output=True,
             text=True,
@@ -61,6 +62,9 @@ class TestCustomProviderHook:
         """Hook should run custom command and find the binary in PATH."""
         env = os.environ.copy()
         env["SNAP_DIR"] = self.temp_dir
+        overrides = json.dumps(
+            {"custom": {"install": 'echo "custom install simulation"'}},
+        )
 
         # Use a simple echo command that doesn't actually install anything
         # Then check for 'echo' which is already in PATH
@@ -68,7 +72,7 @@ class TestCustomProviderHook:
             [
                 str(INSTALL_HOOK),
                 "--name=echo",
-                '--custom-cmd=echo "custom install simulation"',
+                f"--overrides={overrides}",
             ],
             capture_output=True,
             text=True,
@@ -98,12 +102,13 @@ class TestCustomProviderHook:
         """Hook should fail if binary not found after running custom command."""
         env = os.environ.copy()
         env["SNAP_DIR"] = self.temp_dir
+        overrides = json.dumps({"custom": {"install": 'echo "failed install"'}})
 
         result = subprocess.run(
             [
                 str(INSTALL_HOOK),
                 "--name=nonexistent_binary_xyz123",
-                '--custom-cmd=echo "failed install"',  # Doesn't actually install
+                f"--overrides={overrides}",  # Doesn't actually install
             ],
             capture_output=True,
             text=True,
@@ -119,12 +124,13 @@ class TestCustomProviderHook:
         """Hook should fail if custom command returns non-zero exit code."""
         env = os.environ.copy()
         env["SNAP_DIR"] = self.temp_dir
+        overrides = json.dumps({"custom": {"install": "exit 1"}})
 
         result = subprocess.run(
             [
                 str(INSTALL_HOOK),
                 "--name=echo",
-                "--custom-cmd=exit 1",  # Command that fails
+                f"--overrides={overrides}",  # Command that fails
             ],
             capture_output=True,
             text=True,

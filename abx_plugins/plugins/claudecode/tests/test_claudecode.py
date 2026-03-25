@@ -4,9 +4,9 @@ Tests for the claudecode base plugin.
 Tests verify:
 1. Hook scripts and utility modules exist
 2. Config schema is valid
-3. Install hook emits correct BinaryRequest JSONL
-4. Install hook respects CLAUDECODE_ENABLED
-5. Install hook warns when ANTHROPIC_API_KEY is missing
+3. required_binaries declares the Claude CLI dependency correctly
+4. dependency preflight respects CLAUDECODE_ENABLED
+5. dependency preflight warns when ANTHROPIC_API_KEY is missing
 6. Utility functions work correctly (system prompt building, metadata)
 7. Claude Code CLI actually runs and responds (integration, requires ANTHROPIC_API_KEY)
 """

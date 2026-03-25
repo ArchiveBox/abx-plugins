@@ -15,13 +15,20 @@
 # Usage:
 #     ./on_BinaryRequest__13_apt.py [...] > events.jsonl
 
-import json
 import sys
 
 from abx_plugins.plugins.base.utils import emit_installed_binary_record
 
 import rich_click as click
-from abx_pkg import AptProvider, Binary, SemVer
+from pydantic import ConfigDict, TypeAdapter
+
+from abx_pkg import AptProvider, Binary, BinaryOverrides, HandlerDict, SemVer
+
+
+OverridesDict = TypeAdapter(
+    BinaryOverrides,
+    config=ConfigDict(arbitrary_types_allowed=True),
+)
 
 
 @click.command(
@@ -54,24 +61,21 @@ def main(
 
     try:
         # Parse overrides if provided
-        overrides_dict = None
+        provider_overrides: HandlerDict = {}
         if overrides:
-            try:
-                overrides_dict = json.loads(overrides)
-                # Extract apt-specific overrides
-                overrides_dict = overrides_dict.get("apt", {})
-                click.echo(f"Using apt install overrides: {overrides_dict}", err=True)
-            except json.JSONDecodeError:
-                click.echo(
-                    f"Warning: Failed to parse overrides JSON: {overrides}",
-                    err=True,
-                )
+            parsed_overrides = OverridesDict.validate_json(overrides)
+            if "apt" in parsed_overrides:
+                provider_overrides = parsed_overrides["apt"]
+            click.echo(
+                f"Using apt install overrides: {provider_overrides}",
+                err=True,
+            )
 
         binary = Binary(
             name=name,
             min_version=SemVer(min_version) if min_version else None,
             binproviders=[provider],
-            overrides={"apt": overrides_dict} if overrides_dict else {},
+            overrides={"apt": provider_overrides} if provider_overrides else {},
         ).load_or_install()
     except Exception as e:
         click.echo(f"apt install failed: {e}", err=True)
@@ -81,11 +85,8 @@ def main(
         click.echo(f"{name} not found after apt install", err=True)
         sys.exit(1)
 
-    resolved_provider = getattr(binary, "binprovider", None)
-    if isinstance(resolved_provider, str):
-        resolved_provider_name = resolved_provider
-    else:
-        resolved_provider_name = getattr(resolved_provider, "name", "") or ""
+    resolved_provider = binary.loaded_binprovider
+    resolved_provider_name = resolved_provider.name if resolved_provider else ""
 
     # Output Binary JSONL record to stdout
     emit_installed_binary_record(

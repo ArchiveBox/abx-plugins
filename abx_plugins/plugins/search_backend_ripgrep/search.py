@@ -33,7 +33,7 @@ DEEP_EXCLUDES = ("*.pid", "*.css", "*.js")
 
 
 def _get_archive_dir() -> Path:
-    snap_dir = os.environ.get("SNAP_DIR", "").strip()
+    snap_dir = os.environ["SNAP_DIR"].strip() if "SNAP_DIR" in os.environ else ""
     if snap_dir:
         return Path(snap_dir)
     return Path.cwd()

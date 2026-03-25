@@ -239,6 +239,7 @@ function killZombieChrome(snapDir = null, options = {}) {
     const now = Date.now();
     const fiveMinutesAgo = now - 300000;
     let killed = 0;
+    const quiet = Boolean(options.quiet);
     const excludeCrawlDirs = new Set(
         (options.excludeCrawlDirs || []).map(dir => path.resolve(dir))
     );
@@ -250,10 +251,10 @@ function killZombieChrome(snapDir = null, options = {}) {
         ]
     );
 
-    console.error('[*] Checking for zombie Chrome processes...');
+    if (!quiet) console.error('[*] Checking for zombie Chrome processes...');
 
     if (!fs.existsSync(snapDir)) {
-        console.error('[+] No snapshot directory found');
+        if (!quiet) console.error('[+] No snapshot directory found');
         return 0;
     }
 
@@ -340,28 +341,28 @@ function killZombieChrome(snapDir = null, options = {}) {
                 }
 
                 // Process alive and crawl is stale - zombie!
-                console.error(`[!] Found zombie (PID ${pid}) from stale crawl ${path.basename(resolvedCrawlDir)}`);
+                if (!quiet) console.error(`[!] Found zombie (PID ${pid}) from stale crawl ${path.basename(resolvedCrawlDir)}`);
 
                 try {
                     try { process.kill(-pid, 'SIGKILL'); } catch (e) { process.kill(pid, 'SIGKILL'); }
                     killed++;
-                    console.error(`[+] Killed zombie (PID ${pid})`);
+                    if (!quiet) console.error(`[+] Killed zombie (PID ${pid})`);
                     try { fs.unlinkSync(pidFile); } catch (e) {}
                 } catch (e) {
-                    console.error(`[!] Failed to kill PID ${pid}: ${e.message}`);
+                    if (!quiet) console.error(`[!] Failed to kill PID ${pid}: ${e.message}`);
                 }
             } catch (e) {
                 // Skip invalid PID files
             }
         }
     } catch (e) {
-        console.error(`[!] Error scanning for Chrome processes: ${e.message}`);
+        if (!quiet) console.error(`[!] Error scanning for Chrome processes: ${e.message}`);
     }
 
     if (killed > 0) {
-        console.error(`[+] Killed ${killed} zombie process(es)`);
+        if (!quiet) console.error(`[+] Killed ${killed} zombie process(es)`);
     } else {
-        console.error('[+] No zombies found');
+        if (!quiet) console.error('[+] No zombies found');
     }
 
     // Clean up stale SingletonLock files from persona chrome_user_data directories
@@ -378,7 +379,7 @@ function killZombieChrome(snapDir = null, options = {}) {
                 if (fs.existsSync(singletonLock)) {
                     try {
                         fs.unlinkSync(singletonLock);
-                        console.error(`[+] Removed stale SingletonLock: ${singletonLock}`);
+                        if (!quiet) console.error(`[+] Removed stale SingletonLock: ${singletonLock}`);
                     } catch (e) {
                         // Ignore - may be in use by active Chrome
                     }
@@ -420,7 +421,6 @@ function killZombieChrome(snapDir = null, options = {}) {
  * @param {boolean} [options.sandbox=true] - Enable Chrome sandbox
  * @param {boolean} [options.checkSsl=true] - Check SSL certificates
  * @param {string[]} [options.extensionPaths=[]] - Paths to unpacked extensions
- * @param {boolean} [options.killZombies=true] - Kill zombie processes first
  * @returns {Promise<Object>} - {success, cdpUrl, pid, port, process, error}
  */
 async function launchChromium(options = {}) {
@@ -434,18 +434,12 @@ async function launchChromium(options = {}) {
         sandbox = getEnvBool('CHROME_SANDBOX', true),
         checkSsl = getEnvBool('CHROME_CHECK_SSL_VALIDITY', getEnvBool('CHECK_SSL_VALIDITY', true)),
         extensionPaths = [],
-        killZombies = true,
     } = options;
+    const config = loadConfig(path.join(__dirname, 'config.json'));
+    const maxLaunchAttempts = Math.max(1, Number(config.CHROME_LAUNCH_ATTEMPTS) || 1);
 
     if (!binary) {
         return { success: false, error: 'Chrome binary not found' };
-    }
-
-    // Kill zombies first
-    if (killZombies) {
-        killZombieChrome(getSnapDir(), {
-            excludeCrawlDirs: [getCrawlDir()],
-        });
     }
 
     const { width, height } = parseResolution(resolution);
@@ -535,83 +529,104 @@ async function launchChromium(options = {}) {
     // Write command script for debugging
     writeCmdScript(path.join(outputDir, 'cmd.sh'), binary, chromiumArgs);
 
-    let chromiumProcess = null;
-    let chromePid = null;
-    let recentStderr = '';
-    let recentStdout = '';
-
     const chromeLaunchLock = path.join(getPersonasDir(), '.chrome-launch.lock');
-    let releaseLaunchLock = null;
+    let lastError = 'Unknown Chromium launch failure';
 
-    try {
-        releaseLaunchLock = await acquireSessionLock(
-            chromeLaunchLock,
-            getEnvInt('CHROME_LAUNCH_LOCK_TIMEOUT_MS', 120000)
-        );
-        console.error(`[*] Spawning Chromium (headless=${headless})...`);
-        chromiumProcess = spawn(binary, chromiumArgs, {
-            stdio: ['ignore', 'pipe', 'pipe'],
-            detached: true,
-        });
-
-        chromePid = chromiumProcess.pid;
-        const chromeStartTime = Date.now() / 1000;
-
-        if (chromePid) {
-            console.error(`[*] Chromium spawned (PID: ${chromePid})`);
-            writePidWithMtime(path.join(outputDir, 'chrome.pid'), chromePid, chromeStartTime);
-        }
-
-        // Pipe Chrome output to stderr
-        chromiumProcess.stdout.on('data', (data) => {
-            recentStdout = `${recentStdout}${String(data)}`.slice(-4000);
-            process.stderr.write(`[chromium:stdout] ${data}`);
-        });
-        chromiumProcess.stderr.on('data', (data) => {
-            recentStderr = `${recentStderr}${String(data)}`.slice(-4000);
-            process.stderr.write(`[chromium:stderr] ${data}`);
-        });
-
-        const chromiumExit = new Promise((_, reject) => {
-            chromiumProcess.once('error', (error) => {
-                reject(new Error(`Chromium process failed to start: ${error.message}`));
-            });
-            chromiumProcess.once('exit', (code, signal) => {
-                reject(new Error(
-                    `Chromium exited before opening the debug port (code=${code ?? 'null'}, signal=${signal || 'none'})`
-                ));
-            });
-        });
-        // Suppress unhandled rejection if chromiumExit loses the race but
-        // fires later when the browser eventually shuts down.
-        chromiumExit.catch(() => {});
-
-        // Wait for debug port
-        console.error(`[*] Waiting for debug port ${debugPort}...`);
-        const debugProbeTimeoutMs = getEnvInt('CHROME_DEBUG_PORT_TIMEOUT_MS', 30000);
-        const versionInfo = await Promise.race([
-            waitForDebugPort(debugPort, debugProbeTimeoutMs),
-            chromiumExit,
-        ]);
-        const wsUrl = versionInfo.webSocketDebuggerUrl;
-
-        console.error(`[+] Chromium ready: ${wsUrl}`);
-        // Do not publish cdp_url.txt here.
-        // Crawl-level callers finish additional startup work after the raw CDP
-        // socket comes up (extension discovery, cookie import, writing
-        // extensions.json, etc.). Downstream hooks treat cdp_url.txt as the
-        // readiness gate, so exposing it too early lets them race Chrome while
-        // it is still settling and can trigger native browser crashes.
-
-        const result = {
-            success: true,
-            cdpUrl: wsUrl,
-            pid: chromePid,
-            port: debugPort,
-            process: chromiumProcess,
-        };
+    // Chromium startup has two distinct phases:
+    // 1. process/bootstrap: the native browser process starts, initializes the
+    //    profile, binds the remote debugging port, and prints DevTools metadata
+    // 2. post-port stabilization: the browser remains alive long enough for a
+    //    real CDP client to attach and for the initial about:blank page to be
+    //    usable
+    //
+    // In principle this should be deterministic, but in practice we sometimes
+    // see first-launch native failures inside Chromium itself, especially when
+    // using a fresh profile and/or loading unpacked extensions in headless mode.
+    // Those crashes happen *after* we have already done our deterministic setup
+    // (profile dir creation, SingletonLock cleanup, debug port selection, args
+    // construction, launch locking), so there is no higher-level app signal we
+    // can check in advance to know the first attempt will die.
+    //
+    // The important boundary here is that we only retry failures that clearly
+    // occurred during Chromium's own early startup lifecycle:
+    // - the process exits before the DevTools port is ready
+    // - the process exits during the short post-launch settle window
+    // - the DevTools socket opens, but a real CDP session cannot be stabilized
+    //
+    // We intentionally do *not* retry arbitrary failures forever. Persistent
+    // config issues (bad binary path, invalid flags, broken permissions, etc.)
+    // should still fail deterministically on the first attempt.
+    for (let attempt = 1; attempt <= maxLaunchAttempts; attempt++) {
+        let chromiumProcess = null;
+        let chromePid = null;
+        let recentStderr = '';
+        let recentStdout = '';
+        let releaseLaunchLock = null;
 
         try {
+            releaseLaunchLock = await acquireSessionLock(
+                chromeLaunchLock,
+                getEnvInt('CHROME_LAUNCH_LOCK_TIMEOUT_MS', 120000)
+            );
+            console.error(`[*] Spawning Chromium (headless=${headless}) [attempt ${attempt}/${maxLaunchAttempts}]...`);
+            chromiumProcess = spawn(binary, chromiumArgs, {
+                stdio: ['ignore', 'pipe', 'pipe'],
+                detached: true,
+            });
+
+            chromePid = chromiumProcess.pid;
+            const chromeStartTime = Date.now() / 1000;
+
+            if (chromePid) {
+                console.error(`[*] Chromium spawned (PID: ${chromePid})`);
+                writePidWithMtime(path.join(outputDir, 'chrome.pid'), chromePid, chromeStartTime);
+            }
+
+            chromiumProcess.stdout.on('data', (data) => {
+                recentStdout = `${recentStdout}${String(data)}`.slice(-4000);
+                process.stderr.write(`[chromium:stdout] ${data}`);
+            });
+            chromiumProcess.stderr.on('data', (data) => {
+                recentStderr = `${recentStderr}${String(data)}`.slice(-4000);
+                process.stderr.write(`[chromium:stderr] ${data}`);
+            });
+
+            // This watches the raw spawned process before we have a reliable CDP
+            // session. If Chromium crashes here, all we know is the native exit
+            // code/signal and a small stderr tail.
+            const chromiumExit = new Promise((_, reject) => {
+                chromiumProcess.once('error', (error) => {
+                    reject(new Error(`Chromium process failed to start: ${error.message}`));
+                });
+                chromiumProcess.once('exit', (code, signal) => {
+                    reject(new Error(
+                        `Chromium exited before opening the debug port (code=${code ?? 'null'}, signal=${signal || 'none'})`
+                    ));
+                });
+            });
+            chromiumExit.catch(() => {});
+
+            // The DevTools port coming up is only a coarse readiness signal.
+            // Chromium can still crash immediately afterwards, so we follow this
+            // with verifyStableChromiumSession() before declaring success.
+            console.error(`[*] Waiting for debug port ${debugPort}...`);
+            const debugProbeTimeoutMs = getEnvInt('CHROME_DEBUG_PORT_TIMEOUT_MS', 30000);
+            const versionInfo = await Promise.race([
+                waitForDebugPort(debugPort, debugProbeTimeoutMs),
+                chromiumExit,
+            ]);
+            const wsUrl = versionInfo.webSocketDebuggerUrl;
+
+            console.error(`[+] Chromium ready: ${wsUrl}`);
+
+            const result = {
+                success: true,
+                cdpUrl: wsUrl,
+                pid: chromePid,
+                port: debugPort,
+                process: chromiumProcess,
+            };
+
             await verifyStableChromiumSession({
                 chromePid,
                 cdpUrl: wsUrl,
@@ -619,31 +634,43 @@ async function launchChromium(options = {}) {
                 headless,
                 extensionPaths,
             });
-        } catch (error) {
-            await cleanupLaunchArtifacts(outputDir, chromePid);
-            return { success: false, error: error.message };
-        }
 
-        return result;
-    } catch (e) {
-        if (chromePid) {
-            await cleanupLaunchArtifacts(outputDir, chromePid);
-        }
-        const extraOutput = [
-            recentStdout ? `stdout=${recentStdout.trim()}` : '',
-            recentStderr ? `stderr=${recentStderr.trim()}` : '',
-        ].filter(Boolean).join(' ');
-        return {
-            success: false,
-            error: extraOutput
+            return result;
+        } catch (e) {
+            if (chromePid) {
+                await cleanupLaunchArtifacts(outputDir, chromePid);
+            }
+            const extraOutput = [
+                recentStdout ? `stdout=${recentStdout.trim()}` : '',
+                recentStderr ? `stderr=${recentStderr.trim()}` : '',
+            ].filter(Boolean).join(' ');
+            lastError = extraOutput
                 ? `${e.name}: ${e.message} (${extraOutput})`
-                : `${e.name}: ${e.message}`,
-        };
-    } finally {
-        if (releaseLaunchLock) {
-            releaseLaunchLock();
+                : `${e.name}: ${e.message}`;
+            // Only retry failures that map to Chromium's startup/stabilization
+            // window. Everything else should bubble out directly so permanent
+            // misconfiguration still fails fast and loudly.
+            const isTransientStartupFailure =
+                lastError.includes('Chromium exited before opening the debug port') ||
+                lastError.includes('Chromium exited during startup') ||
+                lastError.includes('Chromium exited after opening the debug port') ||
+                lastError.includes('Chromium CDP session not stable after startup');
+            if (attempt >= maxLaunchAttempts || !isTransientStartupFailure) {
+                return {
+                    success: false,
+                    error: lastError,
+                };
+            }
+            console.error(`[!] Chromium launch attempt ${attempt}/${maxLaunchAttempts} failed, retrying...`);
+            await sleep(1000);
+        } finally {
+            if (releaseLaunchLock) {
+                releaseLaunchLock();
+            }
         }
     }
+
+    return { success: false, error: lastError };
 }
 
 /**
@@ -2007,7 +2034,7 @@ function getChromeDebugPortFromCdpUrl(cdpUrl) {
  * @param {string|null} cdpUrl - Browser websocket or HTTP endpoint
  * @returns {string|null} - HTTP(S) browser-server URL or null if invalid
  */
-function getBrowserServerUrlFromCdpUrl(cdpUrl) {
+function getBrowserCdpUrlFromCdpUrl(cdpUrl) {
     if (!cdpUrl) return null;
 
     try {
@@ -2039,7 +2066,7 @@ function getPuppeteerConnectOptionsForCdpUrl(cdpUrl) {
     try {
         const endpoint = new URL(cdpUrl);
         if (endpoint.protocol === 'http:' || endpoint.protocol === 'https:') {
-            return { browserURL: getBrowserServerUrlFromCdpUrl(cdpUrl) || cdpUrl };
+            return { browserURL: getBrowserCdpUrlFromCdpUrl(cdpUrl) || cdpUrl };
         }
         if (endpoint.protocol === 'ws:' || endpoint.protocol === 'wss:') {
             return { browserWSEndpoint: cdpUrl };
@@ -2534,6 +2561,18 @@ async function verifyStableChromiumSession(options = {}) {
     const settleMs = getEnvInt('CHROME_LAUNCH_SETTLE_MS', hasExtensions ? 1000 : 250);
     const stableMs = getEnvInt('CHROME_LAUNCH_STABILITY_MS', hasExtensions ? 2500 : 750);
 
+    // A ready DevTools websocket is not enough on its own. Chromium sometimes
+    // binds the port and then dies moments later while still finishing native
+    // startup work. This verification step defines the stricter contract that
+    // downstream hooks rely on:
+    // - the spawned PID is still alive after a short settle delay
+    // - a real CDP client can connect
+    // - there is a usable initial page target
+    // - the process stays alive for a brief post-connect stability window
+    //
+    // If any of those checks fail we classify it as an early startup failure,
+    // not a successful launch. The outer launch loop can then decide whether
+    // that failure is transient enough to retry.
     if (settleMs > 0) {
         await sleep(settleMs);
     }
@@ -2700,7 +2739,7 @@ async function resolvePageByTargetId(browser, targetId, timeoutMs = 0) {
  * @returns {Promise<string>} - Browser-server URL
  * @throws {Error} - If no reusable Chrome session is available
  */
-async function getBrowserServerUrl(chromeSessionDir = '../chrome', options = {}) {
+async function getBrowserCdpUrl(chromeSessionDir = '../chrome', options = {}) {
     const {
         timeoutMs = 60000,
         requireTargetId = true,
@@ -2724,7 +2763,7 @@ async function getBrowserServerUrl(chromeSessionDir = '../chrome', options = {})
         throw new Error(CHROME_SESSION_REQUIRED_ERROR);
     }
 
-    const browserServerUrl = getBrowserServerUrlFromCdpUrl(inspection.state.cdpUrl);
+    const browserServerUrl = getBrowserCdpUrlFromCdpUrl(inspection.state.cdpUrl);
     if (!browserServerUrl) {
         throw new Error('Invalid CDP URL in chrome session');
     }
@@ -3525,7 +3564,7 @@ module.exports = {
     cleanupStaleChromeSessionArtifacts,
     waitForChromeSessionState,
     waitForChromeLaunchPrerequisites,
-    getBrowserServerUrl,
+    getBrowserCdpUrl,
     openTabInChromeSession,
     closeTabInChromeSession,
     closeBrowserInChromeSession,
@@ -3550,7 +3589,7 @@ if (require.main === module) {
         console.log('  installPuppeteerCore      Install puppeteer-core npm package');
         console.log('  launchChromium            Launch Chrome with CDP debugging');
         console.log('  getCookiesViaCdp <port>  Read browser cookies via CDP port');
-        console.log('  getBrowserServerUrl      Resolve browser-server URL from session dir');
+        console.log('  getBrowserCdpUrl      Resolve browser-server URL from session dir');
         console.log('  killChrome <pid>          Kill Chrome process by PID');
         console.log('  killZombieChrome          Clean up zombie Chrome processes');
         console.log('');
@@ -3651,7 +3690,7 @@ if (require.main === module) {
                     break;
                 }
 
-                case 'getBrowserServerUrl': {
+                case 'getBrowserCdpUrl': {
                     const [
                         chromeSessionDir = '../chrome',
                         timeoutMsStr = '60000',
@@ -3665,7 +3704,7 @@ if (require.main === module) {
                     const requireTargetId = !['0', 'false', 'no'].includes(
                         String(requireTargetIdStr).toLowerCase(),
                     );
-                    const browserServerUrl = await getBrowserServerUrl(chromeSessionDir, {
+                    const browserServerUrl = await getBrowserCdpUrl(chromeSessionDir, {
                         timeoutMs,
                         requireTargetId,
                     });

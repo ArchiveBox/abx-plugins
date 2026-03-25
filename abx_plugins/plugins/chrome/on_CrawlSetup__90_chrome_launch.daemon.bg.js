@@ -16,7 +16,7 @@
  *
  * Environment variables:
  *     NODE_MODULES_DIR: Path to node_modules directory for module resolution
- *     CHROME_BINARY: Path to Chromium binary (falls back to auto-detection)
+ *     process.env.: Path to Chromium binary (falls back to auto-detection)
  *     CHROME_RESOLUTION: Page resolution (default: 1440,2000)
  *     CHROME_HEADLESS: Run in headless mode (default: true)
  *     CHROME_CHECK_SSL_VALIDITY: Whether to check SSL certificates (default: true)
@@ -44,6 +44,8 @@ if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 process.chdir(OUTPUT_DIR);
+const CHROME_BINARY = (process.env.CHROME_BINARY || 'chromium').split('/').at(-1);
+const PERSONA_DIR = process.env.PERSONA_DIR || ((process.env.PERSONAS_DIR || '~/.config/abx/personas') + '/' + (process.env.ACTIVE_PERSONA || 'Default'))
 
 // Global state for cleanup
 let chromePid = null;
@@ -61,7 +63,7 @@ function getPortFromCdpUrl(cdpUrl) {
 // Cleanup handler for SIGTERM
 async function cleanup() {
     if (shouldCloseOnCleanup) {
-        console.error('[*] Cleaning up Chrome session...');
+        console.log(`shutting down ${CHROME_BINARY} cleanly...`);
         await closeBrowserInChromeSession({
             cdpUrl: chromeCdpUrl,
             pid: chromePid,
@@ -69,8 +71,12 @@ async function cleanup() {
             puppeteer,
             processIsLocal: chromeProcessIsLocal,
         });
+        console.log(`${CHROME_BINARY} exited successfully`);
+        console.log(JSON.stringify({ succeeded: true, skipped: false }));  // we launched and we killed it (nothing was skipped)
+    } else {
+        console.log(`leaving ${CHROME_BINARY} running (CHROME_KEEPALIVE=True)`);
+        console.log(JSON.stringify({ succeeded: true, skipped: chromeCdpUrl ? true : false }));  // we didn't launch it (we connected over CDP), and we didn't kill it, so we skipped basically the whole hook
     }
-
     process.exit(0);
 }
 
@@ -82,6 +88,7 @@ async function main() {
     let releaseLock = null;
 
     try {
+        console.log('waiting for other chrome instances to finish launching...')
         releaseLock = await acquireSessionLock(path.join(OUTPUT_DIR, '.launch.lock'));
         const isolation = getEnv('CHROME_ISOLATION', 'crawl').toLowerCase() === 'snapshot' ? 'snapshot' : 'crawl';
         const keepAlive = getEnvBool('CHROME_KEEPALIVE', false);
@@ -93,18 +100,22 @@ async function main() {
         );
 
         if (isolation === 'snapshot') {
-            console.error('[*] CHROME_ISOLATION=snapshot, skipping crawl-scoped browser launch');
+            console.log('skipping crawl-scoped browser launch (CHROME_ISOLATION=snapshot)');
             releaseLock();
             releaseLock = null;
             process.exit(0);
         }
 
+        console.log(`waiting for ${CHROME_BINARY} to be installed...`)
         const prerequisites = await waitForChromeLaunchPrerequisites({
             requireLocalBinary: !cdpUrlOverride && chromeProcessIsLocal,
             timeoutMs: prerequisiteTimeoutMs,
         });
         puppeteer = prerequisites.puppeteer;
 
+        console.log(cdpUrlOverride
+            ? `connecting ${CHROME_BINARY} ${cdp_url}...`
+            : `launching ${CHROME_BINARY} ${PERSONA_DIR}...`)
         const session = await ensureChromeSession({
             outputDir: OUTPUT_DIR,
             puppeteer,
@@ -118,33 +129,15 @@ async function main() {
         chromeCdpUrl = session.cdpUrl;
         shouldCloseOnCleanup = !keepAlive;
 
-        if (session.binary) {
-            let version = '';
-            try {
-                const { execSync } = require('child_process');
-                version = execSync(`"${session.binary}" --version`, { encoding: 'utf8', timeout: 5000 })
-                    .trim()
-                    .slice(0, 64);
-            } catch (e) {}
-            console.error(`[*] Using browser: ${session.binary}`);
-            if (version) console.error(`[*] Version: ${version}`);
-        } else if (cdpUrlOverride) {
-            console.error(`[*] Adopting browser from CHROME_CDP_URL`);
-        }
-
         for (const extension of session.installedExtensions) {
-            console.error(`[*] Loading extension: ${extension.name || extension.id || extension.unpacked_path}`);
-        }
-        if (session.installedExtensions.length > 0) {
-            console.error(`[+] Found ${session.installedExtensions.length} extension(s) to load`);
+            console.log(`loading extension: ${extension.name || extension.id || extension.unpacked_path}...`);
         }
         if (session.reusedExisting) {
-            console.error(`[*] Reusing live Chromium session in ${OUTPUT_DIR}`);
+            console.log(`reusing live ${CHROME_BINARY} session in ${OUTPUT_DIR}`);
         }
 
-        console.error('[+] Chromium session started');
+        console.error(`[+] ${CHROME_BINARY} session started`);
         console.error(`[+] CDP URL: ${chromeCdpUrl}`);
-        console.error(`[+] PID: ${chromePid || 'external'}`);
         releaseLock();
         releaseLock = null;
 
@@ -152,7 +145,7 @@ async function main() {
             process.exit(0);
         }
 
-        console.log('[*] Chromium launch hook staying alive to handle cleanup...');
+        console.log(`${CHROME_BINARY} running pid=${chromePid || 'remote'}, waiting for cleanup...`);
         setInterval(() => {}, 1000000);
 
     } catch (e) {

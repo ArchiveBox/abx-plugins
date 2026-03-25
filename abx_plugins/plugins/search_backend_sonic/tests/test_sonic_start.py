@@ -61,19 +61,19 @@ def test_sonic_start_emits_worker_request_and_host_port_summary(tmp_path: Path) 
 def test_sonic_start_skips_outside_archivebox(tmp_path: Path) -> None:
     result = _run_hook(tmp_path, ABX_RUNTIME="abx-dl")
 
-    assert result.returncode == 0
+    assert result.returncode == 10
     assert result.stdout.strip() == "ABX_RUNTIME=abx-dl"
 
 
 def test_sonic_start_skips_when_backend_not_selected(tmp_path: Path) -> None:
     result = _run_hook(tmp_path, SEARCH_BACKEND_ENGINE="sqlite")
 
-    assert result.returncode == 0
+    assert result.returncode == 10
     assert result.stdout.strip() == "SEARCH_BACKEND_ENGINE=sqlite"
 
 
 def test_sonic_start_skips_when_indexing_disabled(tmp_path: Path) -> None:
     result = _run_hook(tmp_path, USE_INDEXING_BACKEND="false")
 
-    assert result.returncode == 0
+    assert result.returncode == 10
     assert result.stdout.strip() == "USE_INDEXING_BACKEND=False"

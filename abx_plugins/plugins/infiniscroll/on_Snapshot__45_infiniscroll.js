@@ -197,6 +197,7 @@ async function scrollDown(page, options = {}) {
         scrollDistance = 1600,
         scrollLimit = 10,
         minHeight = 16000,
+        expandedTotal = 0,
     } = options;
 
     const startTime = Date.now();
@@ -217,6 +218,7 @@ async function scrollDown(page, options = {}) {
     let scrollPosition = 0;
 
     console.error(`Initial page height: ${startingHeight}px`);
+    console.log(`Scrolled ${startingHeight.toLocaleString()}px | expanded ${expandedTotal.toLocaleString()} sections`);
 
     // Scroll to top first
     await page.evaluate(() => {
@@ -257,6 +259,7 @@ async function scrollDown(page, options = {}) {
         }
 
         lastHeight = newHeight;
+        console.log(`Scrolled ${lastHeight.toLocaleString()}px | expanded ${expandedTotal.toLocaleString()} sections`);
 
         // Check if we've reached minimum height and can stop
         if (lastHeight >= minHeight && scrollPosition >= lastHeight) {
@@ -323,6 +326,7 @@ async function main() {
         const page = connection.page;
 
         console.error(`Starting infinite scroll on ${url}`);
+        console.log('Scrolled 0px | expanded 0 sections | scrolling...');
 
         // Expand <details> and comments before scrolling (if enabled)
         let expandResult = { total: 0, detailsExpanded: 0, commentsExpanded: 0 };
@@ -341,6 +345,7 @@ async function main() {
             scrollDistance,
             scrollLimit,
             minHeight,
+            expandedTotal: expandResult.total,
         });
 
         // Expand again after scrolling (new content may have loaded)

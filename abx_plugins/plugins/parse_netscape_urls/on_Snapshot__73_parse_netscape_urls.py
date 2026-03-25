@@ -34,6 +34,8 @@ from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
+    emit_tag_record,
+    get_extra_context,
     load_config,
     write_text_atomic,
 )
@@ -234,8 +236,10 @@ def main(
     depth: int = 0,
 ):
     """Parse Netscape bookmark HTML and extract URLs."""
-    if CONFIG.SNAPSHOT_DEPTH is not None:
-        depth = CONFIG.SNAPSHOT_DEPTH
+    extra_context = get_extra_context()
+    if "snapshot_depth" in extra_context:
+        depth = int(extra_context["snapshot_depth"])
+    print("parsing 1 files for urls...")
     try:
         content = fetch_content(url)
     except Exception as e:
@@ -280,14 +284,7 @@ def main(
 
     # Emit Tag records first (to stdout as JSONL)
     for tag_name in sorted(all_tags):
-        print(
-            json.dumps(
-                {
-                    "type": "Tag",
-                    "name": tag_name,
-                },
-            ),
-        )
+        emit_tag_record(tag_name)
 
     # Emit Snapshot records (to stdout as JSONL)
     for entry in urls_found:
@@ -295,6 +292,7 @@ def main(
 
     # Emit ArchiveResult record to mark completion
     status, output_str = persist_records(urls_found)
+    print(output_str)
     emit_result(status, output_str)
     sys.exit(0)
 

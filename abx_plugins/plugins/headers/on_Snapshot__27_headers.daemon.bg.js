@@ -62,6 +62,7 @@ let originalUrl = null;
 let latestNavigationState = null;
 let headersReadyResolve = null;
 let headersReadyReject = null;
+let lastProgressLine = '';
 const headersReady = new Promise((resolve) => {
     headersReadyResolve = resolve;
 }).catch((error) => {
@@ -70,6 +71,12 @@ const headersReady = new Promise((resolve) => {
 const headersReadyFailure = new Promise((_, reject) => {
     headersReadyReject = reject;
 });
+
+function emitProgress(line) {
+    if (!line || line === lastProgressLine) return;
+    console.log(line);
+    lastProgressLine = line;
+}
 
 function getFinalUrl(navigationState = null) {
     return navigationState?.finalUrl || page?.url() || null;
@@ -87,7 +94,12 @@ function isMainNavigationRequest(request) {
         if (request.isNavigationRequest?.() === false) return false;
 
         const requestFrame = request.frame?.() || null;
-        if (requestFrame && page?.mainFrame && requestFrame !== page.mainFrame()) {
+        if (
+            requestFrame
+            && requestFrame.parentFrame?.() !== null
+            && page?.mainFrame
+            && requestFrame !== page.mainFrame()
+        ) {
             return false;
         }
 
@@ -130,6 +142,8 @@ function writeHeadersFile(navigationState = null, forceRewrite = false) {
     fs.writeFileSync(outputPath, JSON.stringify(record, null, 2));
     const wasWritten = headersWritten;
     headersWritten = true;
+    const headerCount = Object.keys(responseHeadersWithStatus).length;
+    emitProgress(`${headerCount} response headers saved`);
     if (!wasWritten && headersReadyResolve) {
         headersReadyResolve();
     }
@@ -159,11 +173,13 @@ async function setupListener(url) {
         try {
             const request = response.request();
             if (!isMainNavigationRequest(request)) return;
+            const status = response.status();
+            if (status >= 300 && status < 400) return;
 
             requestUrl = requestUrl || request.url();
             requestHeaders = request.headers() || {};
             responseHeaders = response.headers() || {};
-            responseStatus = response.status() || null;
+            responseStatus = status || null;
             responseStatusText = response.statusText ? response.statusText() : null;
             responseUrl = response.url() || null;
             writeHeadersFile(null, true);
@@ -227,6 +243,7 @@ async function main() {
     }
 
     originalUrl = url;
+    emitProgress('waiting for initial response...');
 
     if (!getEnvBool('HEADERS_ENABLED', true)) {
         console.error('Skipping (HEADERS_ENABLED=False)');

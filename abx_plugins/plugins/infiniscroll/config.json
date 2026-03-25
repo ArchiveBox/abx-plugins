@@ -13,10 +13,12 @@
       "binproviders": "env,puppeteer",
       "min_version": null,
       "overrides": {
-        "puppeteer": [
-          "chromium@latest",
-          "--install-deps"
-        ]
+        "puppeteer": {
+          "install_args": [
+            "chromium@latest",
+            "--install-deps"
+          ]
+        }
       }
     }
   ],
@@ -44,7 +46,6 @@
       "type": "integer",
       "default": 120,
       "minimum": 10,
-      "x-fallback": "TIMEOUT",
       "description": "Maximum timeout for scrolling in seconds"
     },
     "INFINISCROLL_SCROLL_DELAY": {

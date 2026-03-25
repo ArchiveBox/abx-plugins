@@ -20,7 +20,6 @@ const {
     loadConfig,
     parseArgs,
     emitArchiveResultRecord,
-    emitSnapshotRecord,
     writeFileAtomic,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
@@ -122,13 +121,6 @@ async function main() {
 
     if (error) {
         console.error(`ERROR: ${error}`);
-    }
-
-    // Update snapshot title via JSONL
-    if (status === 'succeeded' && extractedTitle) {
-        emitSnapshotRecord({
-            title: extractedTitle,
-        });
     }
 
     // Output ArchiveResult JSONL

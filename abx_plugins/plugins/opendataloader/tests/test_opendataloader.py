@@ -3,7 +3,7 @@ Integration tests for opendataloader plugin.
 
 Tests verify:
 1. Hook script exists
-2. Install hooks can install opendataloader-pdf binary
+2. required_binaries can resolve the opendataloader-pdf binary
 3. Extraction runs with real opendataloader-pdf binary on a real live PDF
 4. Multiple PDFs are all processed (not just the first)
 5. Config options work (enabled/disabled, FORCE_OCR)
@@ -58,7 +58,7 @@ def get_opendataloader_binary_path() -> str | None:
 def require_opendataloader_binary() -> str:
     binary_path = get_opendataloader_binary_path()
     assert binary_path, (
-        "opendataloader-pdf installation failed. Install hook should install "
+        "opendataloader-pdf dependency resolution failed. required_binaries should resolve "
         "the binary automatically in this test environment."
     )
     assert Path(binary_path).is_file(), (

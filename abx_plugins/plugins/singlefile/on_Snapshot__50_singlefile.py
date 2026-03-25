@@ -97,13 +97,13 @@ def run_chrome_utils(
     )
 
 
-def get_browser_server_url(
+def get_browser_cdp_url(
     timeout: int,
     require_target: bool = True,
 ) -> tuple[str | None, str]:
     timeout_ms = max(1000, timeout * 1000)
     result = run_chrome_utils(
-        "getBrowserServerUrl",
+        "getBrowserCdpUrl",
         CHROME_SESSION_DIR,
         str(timeout_ms),
         "true" if require_target else "false",
@@ -123,7 +123,7 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     Returns: (success, output_path, error_message)
     """
-    print(f"[singlefile] CLI mode start url={url}", file=sys.stderr)
+    print("saving singlefile.html using single-file-cli...")
     # Load config from config.json (auto-resolves x-aliases and x-fallback from env)
     config = load_config()
     timeout = config.SINGLEFILE_TIMEOUT
@@ -136,7 +136,7 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     cmd = [binary, *singlefile_args]
 
-    cdp_remote_url, error = get_browser_server_url(
+    cdp_remote_url, error = get_browser_cdp_url(
         timeout=min(10, max(1, timeout // 10)),
         require_target=True,
     )
@@ -236,7 +236,7 @@ def save_singlefile_with_extension(
     timeout: int,
 ) -> tuple[bool, str | None, str]:
     """Save using the SingleFile Chrome extension via existing Chrome session."""
-    print(f"[singlefile] Extension mode start url={url}", file=sys.stderr)
+    print("saving singlefile.html using extension...")
 
     if not EXTENSION_SAVE_SCRIPT.exists():
         print(
@@ -389,6 +389,7 @@ def main(url: str):
 
         # Prefer SingleFile extension via existing Chrome session
         timeout = config.SINGLEFILE_TIMEOUT
+        print("generating singlefile.html...")
         success, output, error = save_singlefile_with_extension(url, timeout)
         status = "succeeded" if success else "failed"
 

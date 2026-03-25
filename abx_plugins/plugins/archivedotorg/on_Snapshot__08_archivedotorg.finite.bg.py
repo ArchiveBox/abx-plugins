@@ -57,6 +57,7 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
     log(f"GET {submit_url}")
 
     try:
+        print("submitting to archive.org...")
         req = Request(submit_url, headers={"User-Agent": user_agent})
         response = urlopen(req, timeout=timeout)
         final_url = response.url
@@ -66,8 +67,12 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
         log(f"HTTP {status} final_url={final_url}")
 
         # Check for successful archive
-        content_location = headers.get("Content-Location", "")
-        x_archive_orig_url = headers.get("X-Archive-Orig-Url", "")
+        content_location = (
+            headers["Content-Location"] if "Content-Location" in headers else ""
+        )
+        x_archive_orig_url = (
+            headers["X-Archive-Orig-Url"] if "X-Archive-Orig-Url" in headers else ""
+        )
         if content_location:
             log(f"Content-Location: {content_location}")
         if x_archive_orig_url:

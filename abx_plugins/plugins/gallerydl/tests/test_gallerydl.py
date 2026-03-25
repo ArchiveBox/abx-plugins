@@ -37,7 +37,7 @@ def require_gallerydl_binary() -> str:
     """Return gallery-dl binary path or fail with actionable context."""
     binary_path = get_gallerydl_binary_path()
     assert binary_path, (
-        "gallery-dl installation failed. Install hook should install gallery-dl "
+        "gallery-dl dependency resolution failed. required_binaries should resolve gallery-dl "
         "automatically in this test environment."
     )
     assert Path(binary_path).is_file(), f"gallery-dl binary path invalid: {binary_path}"
@@ -69,7 +69,7 @@ def test_hook_script_exists():
 
 
 def test_verify_deps_with_abx_pkg():
-    """Verify gallery-dl is installed by real plugin install hooks."""
+    """Verify gallery-dl resolves through the real dependency preflight."""
     binary_path = require_gallerydl_binary()
     assert Path(binary_path).is_file(), (
         f"Binary path must be a valid file: {binary_path}"

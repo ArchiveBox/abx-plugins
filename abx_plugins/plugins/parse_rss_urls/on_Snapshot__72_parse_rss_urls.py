@@ -38,6 +38,8 @@ from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
+    emit_tag_record,
+    get_extra_context,
     load_config,
     write_text_atomic,
 )
@@ -110,12 +112,14 @@ def main(
     depth: int = 0,
 ):
     """Parse RSS/Atom feed and extract article URLs."""
-    if CONFIG.SNAPSHOT_DEPTH is not None:
-        depth = CONFIG.SNAPSHOT_DEPTH
+    extra_context = get_extra_context()
+    if "snapshot_depth" in extra_context:
+        depth = int(extra_context["snapshot_depth"])
     if feedparser is None:
         emit_result("failed", "feedparser library not installed")
         sys.exit(1)
 
+    print("parsing 1 files for urls...")
     try:
         content = fetch_content(url)
     except Exception as e:
@@ -133,23 +137,23 @@ def main(
         pass
     else:
         for item in feed.entries:
-            item_url = getattr(item, "link", None)
+            item_url = item["link"] if "link" in item else None
             if not item_url:
                 continue
             item_url = sanitize_extracted_url(item_url)
             if not item_url:
                 continue
 
-            title = getattr(item, "title", None)
+            title = item["title"] if "title" in item else None
 
             # Get bookmarked_at (published/updated date as ISO 8601)
             bookmarked_at = None
-            if hasattr(item, "published_parsed") and item.published_parsed:
+            if "published_parsed" in item and item.published_parsed:
                 bookmarked_at = datetime.fromtimestamp(
                     mktime(item.published_parsed),
                     tz=timezone.utc,
                 ).isoformat()
-            elif hasattr(item, "updated_parsed") and item.updated_parsed:
+            elif "updated_parsed" in item and item.updated_parsed:
                 bookmarked_at = datetime.fromtimestamp(
                     mktime(item.updated_parsed),
                     tz=timezone.utc,
@@ -157,11 +161,9 @@ def main(
 
             # Get tags
             tags = ""
-            if hasattr(item, "tags") and item.tags:
+            if "tags" in item and item.tags:
                 try:
-                    tags = ",".join(
-                        tag.term for tag in item.tags if hasattr(tag, "term")
-                    )
+                    tags = ",".join(tag["term"] for tag in item.tags if "term" in tag)
                     # Collect unique tags
                     for tag in tags.split(","):
                         tag = tag.strip()
@@ -186,14 +188,7 @@ def main(
 
     # Emit Tag records first (to stdout as JSONL)
     for tag_name in sorted(all_tags):
-        print(
-            json.dumps(
-                {
-                    "type": "Tag",
-                    "name": tag_name,
-                },
-            ),
-        )
+        emit_tag_record(tag_name)
 
     # Emit Snapshot records (to stdout as JSONL)
     for entry in urls_found:
@@ -201,6 +196,7 @@ def main(
 
     # Emit ArchiveResult record to mark completion
     status, output_str = persist_records(urls_found)
+    print(output_str)
     emit_result(status, output_str)
     sys.exit(0)
 

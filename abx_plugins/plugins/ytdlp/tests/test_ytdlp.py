@@ -84,7 +84,7 @@ def require_ytdlp_binary() -> str:
     """Return yt-dlp binary path or fail with actionable context."""
     binary_path = get_ytdlp_binary_path()
     assert binary_path, (
-        "yt-dlp installation failed. Install hook should install yt-dlp "
+        "yt-dlp dependency resolution failed. required_binaries should resolve yt-dlp "
         "automatically in this test environment."
     )
     assert Path(binary_path).is_file(), f"yt-dlp binary path invalid: {binary_path}"
@@ -133,7 +133,7 @@ def test_hook_script_exists():
 
 
 def test_verify_deps_with_abx_pkg():
-    """Verify yt-dlp is installed by real plugin install hooks."""
+    """Verify yt-dlp resolves through the real dependency preflight."""
     binary_path = require_ytdlp_binary()
     assert Path(binary_path).is_file(), (
         f"Binary path must be a valid file: {binary_path}"

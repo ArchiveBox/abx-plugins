@@ -158,10 +158,11 @@ This is useful when:
 
 | Hook | Priority | Purpose |
 |---|---:|---|
-| `on_Install__70_chrome.finite.bg.py` | 70 | Emit local Chromium dependency metadata. |
-| `on_Install__80_*_extension.js` / `on_Install__82_singlefile.js` | 80-82 | Prepare extension cache metadata before browser startup. |
 | `on_CrawlSetup__90_chrome_launch.daemon.bg.js` | 90 | Launch/adopt crawl-scoped browser when `CHROME_ISOLATION=crawl`. No-op when `snapshot`. |
 | `on_CrawlSetup__91_chrome_wait.js` | 91 | Wait for a connectable crawl session when `crawl`. Reports `"snapshot isolation active"` when `snapshot`. |
+
+Chromium and extension dependencies are resolved before crawl setup from
+`config.json > required_binaries` during orchestrator preflight.
 
 ### Snapshot hooks
 
@@ -334,7 +335,7 @@ Low-level session inspection used mainly by core Chrome hooks for reuse/stale cl
 
 Most downstream plugins should not need this directly.
 
-#### `getBrowserServerUrl(chromeSessionDir)`
+#### `getBrowserCdpUrl(chromeSessionDir)`
 
 Derives the SingleFile-style browser server URL from a published session directory.
 

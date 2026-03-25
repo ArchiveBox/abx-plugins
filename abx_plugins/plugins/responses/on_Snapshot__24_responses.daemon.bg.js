@@ -58,9 +58,58 @@ let shuttingDown = false;
 let mainOutputPath = '';
 let preferredOutputPath = '';
 let preferredOutputSize = -1;
+let lastProgressLine = '';
+let lastProgressAt = 0;
+let pendingProgressTimer = null;
+const PROGRESS_DEBOUNCE_MS = 3000;
 
 // Resource types to capture (by default, capture everything)
 const DEFAULT_TYPES = ['document', 'script', 'stylesheet', 'font', 'image', 'media', 'xhr', 'websocket'];
+
+function emitProgress(line) {
+    if (!line) {
+        return;
+    }
+    if (line === lastProgressLine) {
+        return;
+    }
+    const now = Date.now();
+    const emitLine = () => {
+        pendingProgressTimer = null;
+        lastProgressAt = Date.now();
+        lastProgressLine = line;
+        console.log(line);
+    };
+    if (lastProgressAt === 0 || now - lastProgressAt >= PROGRESS_DEBOUNCE_MS) {
+        if (pendingProgressTimer) {
+            clearTimeout(pendingProgressTimer);
+            pendingProgressTimer = null;
+        }
+        emitLine();
+        return;
+    }
+    if (!pendingProgressTimer) {
+        pendingProgressTimer = setTimeout(emitLine, PROGRESS_DEBOUNCE_MS - (now - lastProgressAt));
+    }
+}
+
+function emitResponseProgress(force = false) {
+    const line = `${responseCount} response${responseCount === 1 ? '' : 's'} captured`;
+    if (force) {
+        if (line === lastProgressLine && !pendingProgressTimer) {
+            return;
+        }
+        if (pendingProgressTimer) {
+            clearTimeout(pendingProgressTimer);
+            pendingProgressTimer = null;
+        }
+        lastProgressAt = Date.now();
+        lastProgressLine = line;
+        console.log(line);
+        return;
+    }
+    emitProgress(line);
+}
 
 async function createSymlink(target, linkPath) {
     try {
@@ -209,6 +258,7 @@ async function setupListener() {
 
             fs.appendFileSync(indexPath, JSON.stringify(indexEntry) + '\n');
             responseCount += 1;
+            emitResponseProgress();
 
         } catch (e) {
             // Ignore errors
@@ -224,6 +274,7 @@ async function setupListener() {
 function emitResult(status = 'succeeded', outputStr = mainOutputPath || preferredOutputPath || `${responseCount} responses`) {
     if (shuttingDown) return Promise.resolve();
     shuttingDown = true;
+    emitResponseProgress(true);
     emitArchiveResultRecord(status, outputStr);
     return Promise.resolve();
 }
@@ -259,6 +310,7 @@ async function main() {
         const connection = await setupListener();
         browser = connection.browser;
         page = connection.page;
+        emitResponseProgress(true);
 
         // Register signal handlers for graceful shutdown
         process.on('SIGTERM', () => handleShutdown('SIGTERM'));
@@ -268,6 +320,7 @@ async function main() {
         try {
             const timeout = getEnvInt('RESPONSES_TIMEOUT', 30) * 1000;
             await waitForNavigationComplete(CHROME_SESSION_DIR, timeout * 4, 1000);
+            emitResponseProgress(true);
         } catch (e) {
             console.error(`WARN: ${e.message}`);
         }

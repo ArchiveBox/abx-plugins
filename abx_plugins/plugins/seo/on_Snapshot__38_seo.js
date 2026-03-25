@@ -137,6 +137,7 @@ async function main() {
             process.exit(0);
         }
 
+        console.log('extracting seo metadata...');
         const result = await extractSeo(url);
 
         if (result.success) {

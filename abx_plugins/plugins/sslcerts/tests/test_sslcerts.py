@@ -82,6 +82,13 @@ class TestSSLWithChrome:
                     env=env,
                 )
 
+                ssl_output = ssl_dir / "sslcerts.jsonl"
+                for _ in range(30):
+                    if ssl_output.exists():
+                        break
+                    time.sleep(1)
+                assert ssl_output.exists(), "sslcerts hook never became ready"
+
                 nav_result = subprocess.run(
                     [
                         str(CHROME_NAVIGATE_HOOK),
@@ -98,8 +105,6 @@ class TestSSLWithChrome:
                     f"Navigation failed: {nav_result.stderr}"
                 )
 
-                # Check for output file
-                ssl_output = ssl_dir / "sslcerts.jsonl"
                 for _ in range(30):
                     if ssl_output.exists() and ssl_output.stat().st_size > 0:
                         break

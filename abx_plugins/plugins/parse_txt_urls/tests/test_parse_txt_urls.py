@@ -112,6 +112,30 @@ Also see https://github.com/user/repo for the code.
         assert "https://example.com/page" in urls
         assert "https://en.wikipedia.org/wiki/Classification_(machine_learning)" in urls
 
+    def test_trims_markdown_trailing_garbage_after_extra_closing_paren(self, tmp_path):
+        """Trailing garbage after an unmatched markdown close paren should be dropped."""
+        input_file = tmp_path / "markdown-garbage.txt"
+        input_file.write_text(
+            "https://example.com/article_(thing)?q=1).text and more text",
+        )
+
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if '"type": "Snapshot"' in line
+        ]
+        urls = {json.loads(line)["url"] for line in lines}
+
+        assert "https://example.com/article_(thing)?q=1" in urls
+
     def test_extracts_comma_separated_urls_without_merging_them(self, tmp_path):
         """Test that adjacent CSV-style URLs are emitted separately."""
         input_file = tmp_path / "csv.txt"

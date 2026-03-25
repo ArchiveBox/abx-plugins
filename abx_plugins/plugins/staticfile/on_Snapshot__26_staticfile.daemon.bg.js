@@ -175,6 +175,18 @@ function normalizeUrl(url) {
     }
 }
 
+function isTopLevelNavigationRequest(request) {
+    try {
+        if (!request || request.isNavigationRequest?.() !== true) return false;
+        const url = request.url?.() || '';
+        if (!url.startsWith('http')) return false;
+        const frame = request.frame?.() || null;
+        return !frame || frame.parentFrame?.() === null || frame === page?.mainFrame?.();
+    } catch (error) {
+        return false;
+    }
+}
+
 function getOutputPathRelativeToSnapshot(filePath) {
     if (!filePath) return null;
     return path.posix.join(PLUGIN_DIR, String(filePath).split(path.sep).join('/'));
@@ -341,9 +353,8 @@ async function setupStaticFileListener() {
             const status = response.status();
 
             // Only process the main document response
-            if (!request.isNavigationRequest()) return;
-            if (request.frame() !== page.mainFrame()) return;
             if (status < 200 || status >= 300) return;
+            if (!isTopLevelNavigationRequest(request)) return;
 
             firstResponseHandled = true;
             detectedContentType = contentType.split(';')[0].trim();
@@ -417,8 +428,7 @@ async function setupStaticFileListener() {
     page.on('requestfailed', (request) => {
         if (firstResponseHandled) return;
         try {
-            if (!request.isNavigationRequest()) return;
-            if (request.frame() !== page.mainFrame()) return;
+            if (!isTopLevelNavigationRequest(request)) return;
             firstResponseHandled = true;
             const failure = request.failure();
             downloadError = failure ? failure.errorText : 'Request failed';
@@ -463,6 +473,7 @@ async function main() {
     }
 
     originalUrl = url;
+    console.log('waiting for initial response...');
 
     if (!getEnvBool('STATICFILE_ENABLED', true)) {
         console.error('Skipping (STATICFILE_ENABLED=False)');

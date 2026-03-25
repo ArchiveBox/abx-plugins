@@ -75,7 +75,7 @@ def _opendataloader_env(java_binary: str) -> dict[str, str] | None:
 
     env = os.environ.copy()
     java_bin_dir = str(java_path.resolve(strict=False).parent)
-    current_path = env.get("PATH", "")
+    current_path = env["PATH"] if "PATH" in env else ""
     if java_bin_dir not in current_path.split(os.pathsep):
         env["PATH"] = (
             f"{java_bin_dir}{os.pathsep}{current_path}"
@@ -157,7 +157,7 @@ def _run_opendataloader(
     # opendataloader-pdf writes {input_stem}.{ext} in the output dir
     stem = source_file.stem
     ext_map = {"markdown": ".md", "text": ".txt", "json": ".json"}
-    expected = out_dir / f"{stem}{ext_map.get(fmt, '.md')}"
+    expected = out_dir / f"{stem}{ext_map[fmt]}"
     if expected.is_file() and expected.stat().st_size > 0:
         return expected
     # Fallback: find any new file in out_dir
@@ -249,11 +249,12 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
                 extra_args.extend(["--hybrid-url", hybrid_url])
 
     # Find all PDF sources from sibling plugins
+    print("finding PDFs to extract...")
     sources = find_pdf_sources()
     if not sources:
         return "noresults", "No PDF sources found"
 
-    print(f"[opendataloader] Found {len(sources)} PDF(s) to process", file=sys.stderr)
+    print(f"extracting content from {len(sources)} PDFs...")
 
     output_dir = Path(OUTPUT_DIR)
     all_md_parts: list[str] = []
@@ -282,7 +283,7 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
         base_args = _filtered
 
     for source_file in sources:
-        print(f"[opendataloader] Processing: {source_file.name}", file=sys.stderr)
+        print(f"processing {source_file.name}...")
         try:
             try:
                 md_content, text_content = _extract_single_pdf(

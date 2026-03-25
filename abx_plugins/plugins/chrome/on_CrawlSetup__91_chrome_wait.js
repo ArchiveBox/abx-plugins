@@ -24,6 +24,7 @@ const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
 const CRAWL_DIR = path.resolve((hookConfig.CRAWL_DIR || '.').trim());
 const OUTPUT_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
+const CHROME_BINARY = (process.env.CHROME_BINARY || 'chromium').split('/').at(-1);
 if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
@@ -50,11 +51,12 @@ async function main() {
     const isolation = getEnv('CHROME_ISOLATION', 'crawl').toLowerCase() === 'snapshot' ? 'snapshot' : 'crawl';
 
     if (isolation === 'snapshot') {
-        console.error('[chrome_wait:crawl] CHROME_ISOLATION=snapshot, skipping crawl-scoped wait');
-        process.exit(0);
+        console.error('CHROME_ISOLATION=snapshot, skipping crawl-scoped wait');
+        process.exit(10);
     }
 
-    console.error(`[chrome_wait:crawl] Waiting for crawl Chrome session (timeout=${timeoutSeconds}s)...`);
+    console.log(`waiting for ${CHROME_BINARY} to launch...`);
+    // console.error(`Waiting Chrome session...`);
 
     const readySession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
         timeoutMs,
@@ -62,9 +64,10 @@ async function main() {
         requireConnectable: true,
         probeTimeoutMs: 1000,
     });
+    console.log(`verifying ${CHROME_BINARY} is ready...`);
     if (!readySession?.cdpUrl) {
         const error = CHROME_SESSION_REQUIRED_ERROR;
-        console.error(`[chrome_wait:crawl] ERROR: ${error}`);
+        console.error(`ERROR: ${error}`);
         process.exit(1);
     }
 
@@ -75,7 +78,7 @@ async function main() {
         port = endpoint.port || (endpoint.protocol === 'https:' || endpoint.protocol === 'wss:' ? '443' : '80');
     } catch (error) {}
 
-    console.error(`[chrome_wait:crawl] Chrome session ready (verified CDP connection, pid=${pid}, cdp_url=${readySession.cdpUrl.slice(0, 32)}...).`);
+    console.log(`${CHROME_BINARY} ready pid=${pid} cdp=${readySession.cdpUrl.split('/devtools/')[0]}`);
     process.exit(0);
 }
 

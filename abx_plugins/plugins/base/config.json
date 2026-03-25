@@ -59,15 +59,6 @@
       "default": "Mozilla/5.0 (compatible; ArchiveBox/1.0)",
       "description": "Default user agent string for HTTP requests and browser automation"
     },
-    "SNAPSHOT_DEPTH": {
-      "type": [
-        "integer",
-        "null"
-      ],
-      "default": null,
-      "minimum": 0,
-      "description": "Current crawl depth override for discovery hooks"
-    },
     "PATH": {
       "type": "string",
       "default": "",

@@ -19,13 +19,11 @@
 # Environment variables:
 #     LIB_DIR: Library directory (default: ~/.config/abx/lib)
 
-import json
 import os
 import subprocess
 import sys
 from contextlib import contextmanager
 from pathlib import Path
-from typing import cast
 
 import fcntl
 
@@ -36,7 +34,22 @@ from abx_plugins.plugins.base.utils import (
 )
 
 import rich_click as click
-from abx_pkg import Binary, EnvProvider, HandlerDict, PipProvider, SemVer
+from pydantic import ConfigDict, TypeAdapter
+
+from abx_pkg import (
+    Binary,
+    BinaryOverrides,
+    EnvProvider,
+    HandlerDict,
+    PipProvider,
+    SemVer,
+)
+
+
+OverridesDict = TypeAdapter(
+    BinaryOverrides,
+    config=ConfigDict(arbitrary_types_allowed=True),
+)
 
 
 def _is_executable(path: Path) -> bool:
@@ -66,14 +79,9 @@ def _load_env_binary_abspath(binary_ref: str) -> str | None:
         return None
 
     path_ref = Path(raw_ref).expanduser()
-    overrides = cast(
-        dict[str, HandlerDict],
-        (
-            {"env": {"abspath": str(path_ref)}}
-            if raw_ref.startswith(("~", ".", "/")) or "/" in raw_ref or "\\" in raw_ref
-            else {}
-        ),
-    )
+    overrides: dict[str, HandlerDict] = {}
+    if raw_ref.startswith(("~", ".", "/")) or "/" in raw_ref or "\\" in raw_ref:
+        overrides = {"env": {"abspath": str(path_ref)}}
     lookup_name = path_ref.name if overrides else raw_ref
 
     try:
@@ -176,27 +184,21 @@ def main(
 
         try:
             # Parse overrides if provided
-            overrides_dict = None
+            provider_overrides: HandlerDict = {}
             if overrides:
-                try:
-                    overrides_dict = json.loads(overrides)
-                    # Extract pip-specific overrides
-                    overrides_dict = overrides_dict.get("pip", {})
-                    click.echo(
-                        f"Using pip install overrides: {overrides_dict}",
-                        err=True,
-                    )
-                except json.JSONDecodeError:
-                    click.echo(
-                        f"Warning: Failed to parse overrides JSON: {overrides}",
-                        err=True,
-                    )
+                parsed_overrides = OverridesDict.validate_json(overrides)
+                if "pip" in parsed_overrides:
+                    provider_overrides = parsed_overrides["pip"]
+                click.echo(
+                    f"Using pip install overrides: {provider_overrides}",
+                    err=True,
+                )
 
             binary = Binary(
                 name=name,
                 min_version=SemVer(min_version) if min_version else None,
                 binproviders=[provider],
-                overrides={"pip": overrides_dict} if overrides_dict else {},
+                overrides={"pip": provider_overrides} if provider_overrides else {},
             ).load_or_install()
         except Exception as e:
             click.echo(f"pip install failed: {e}", err=True)

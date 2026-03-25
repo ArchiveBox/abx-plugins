@@ -85,7 +85,7 @@ def require_readability_binary() -> str:
     """Return readability-extractor binary path or fail with actionable context."""
     binary_path = get_readability_binary_path()
     assert binary_path, (
-        "readability-extractor installation failed. Install hook should install "
+        "readability-extractor dependency resolution failed. required_binaries should resolve "
         "the binary automatically in this test environment."
     )
     assert Path(binary_path).is_file(), (
@@ -167,7 +167,7 @@ def test_reports_missing_dependency_when_not_installed():
 
 
 def test_verify_deps_with_abx_pkg():
-    """Verify readability-extractor is installed by real plugin install hooks."""
+    """Verify readability-extractor resolves through the real dependency preflight."""
     binary_path = require_readability_binary()
     assert Path(binary_path).is_file(), (
         f"Binary path must be a valid file: {binary_path}"

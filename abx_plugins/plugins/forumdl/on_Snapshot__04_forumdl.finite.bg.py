@@ -90,11 +90,9 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
         """
         try:
             from forum_dl.writers.jsonl import JsonlWriter
-            from pydantic import BaseModel
-            if hasattr(BaseModel, "model_dump_json"):
-                def _patched_serialize_entry(self, entry):
-                    return entry.model_dump_json()
-                JsonlWriter._serialize_entry = _patched_serialize_entry
+            def _patched_serialize_entry(self, entry):
+                return entry.model_dump_json()
+            JsonlWriter._serialize_entry = _patched_serialize_entry
         except Exception:
             pass
         """,
@@ -121,7 +119,7 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
             shim_path.write_text(sitecustomize_code, encoding="utf-8")
 
             env = os.environ.copy()
-            existing_pythonpath = env.get("PYTHONPATH", "")
+            existing_pythonpath = env["PYTHONPATH"] if "PYTHONPATH" in env else ""
             env["PYTHONPATH"] = (
                 f"{shim_dir}{os.pathsep}{existing_pythonpath}"
                 if existing_pythonpath

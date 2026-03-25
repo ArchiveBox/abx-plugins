@@ -40,7 +40,7 @@ def require_papersdl_binary() -> str:
     """Return papers-dl binary path or fail with actionable context."""
     binary_path = get_papersdl_binary_path()
     assert binary_path, (
-        "papers-dl installation failed. Install hook must install the real papers-dl package "
+        "papers-dl dependency resolution failed. required_binaries must resolve the real papers-dl package "
         f"from PyPI. {_papersdl_install_error or ''}".strip()
     )
     assert Path(binary_path).is_file(), f"papers-dl binary path invalid: {binary_path}"
@@ -81,7 +81,7 @@ def get_papersdl_binary_path():
             "--plugin-name",
             "papersdl",
             "--hook-name",
-            "on_Install__30_papersdl.finite.bg",
+            "required_binaries",
             "--name",
             "papers-dl",
         ]

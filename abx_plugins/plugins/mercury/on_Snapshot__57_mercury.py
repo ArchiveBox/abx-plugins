@@ -82,11 +82,11 @@ def extract_mercury(url: str, binary: str) -> tuple[str, str]:
         except json.JSONDecodeError:
             return "failed", "postlight-parser returned invalid JSON"
 
-        if text_json.get("failed"):
+        if "failed" in text_json and text_json["failed"]:
             return "noresults", "Mercury was not able to extract article"
 
         # Save text content
-        text_content = text_json.get("content", "")
+        text_content = str(text_json["content"]) if "content" in text_json else ""
         write_text_atomic(output_dir / TEXT_FILE, text_content)
 
         # Get HTML version
