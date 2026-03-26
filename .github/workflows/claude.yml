@@ -9,12 +9,6 @@ on:
     types: [opened, assigned]
   pull_request_review:
     types: [submitted]
-  workflow_dispatch:
-    inputs:
-      prompt:
-        required: true
-        description: Claude Code prompt to use
-        type: string
 
 jobs:
   claude:
@@ -22,102 +16,35 @@ jobs:
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude'))) ||
-      (github.event_name == 'workflow_dispatch')
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
-      issues: write
+      contents: read
+      pull-requests: read
+      issues: read
       id-token: write
-      actions: write # Required for Claude to read CI results on PRs
+      actions: read # Required for Claude to read CI results on PRs
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Clone abxbus, abx-pkg, abx-dl, archivebox
-        run: |
-          git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git "${{ runner.workspace }}/abx-pkg"
-          git clone --depth=1 https://github.com/ArchiveBox/abxbus.git "${{ runner.workspace }}/abxbus"
-          git clone --depth=1 https://github.com/ArchiveBox/abx-dl.git "${{ runner.workspace }}/abx-dl"
-          git clone --depth=1 https://github.com/ArchiveBox/ArchiveBox.git "${{ runner.workspace }}/archivebox"
-
-      - name: Set up Python 3.13
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
-      - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          activate-environment: "true"
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.33
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 25
-          cache: 'pnpm'
-          cache-dependency-path: pyproject.toml
-
-      - uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: |
-            git wget ripgrep build-essential python3-dev python3-setuptools \
-            libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 \
-            python3-minimal gnupg2 curl python3-ldap python3-msgpack \
-            python3-mutagen python3-regex python3-pycryptodome procps
-          version: 1.0
-
-      - name: Install JS tooling
-        run: pnpm add -g prettier
-
-      - name: Install dependencies with uv
-        run: |
-          uv sync --dev --all-extras --no-sources
-          uv pip install -e '../abxbus'
-          uv pip install -e '../abx-dl'
-          uv pip install -e '../abx-pkg'
-          uv pip install -e '../archivebox'
-          uv pip install --no-deps -e ".[dev]"
-          
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1
         with:
-          # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
           # This is an optional setting that allows Claude to read CI results on PRs
           additional_permissions: |
-            actions: write
-
-          # track_progress: true
+            actions: read
 
           # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
-          prompt: |
-            Always use `uv run` e.g. `uv run pytest ...` and never python directly. Always use `uv run ruff check`, `uv run pyright`, `uv run ty check` and never `py_compile` to check syntax.
-            You can `uv pip install -e ../{abx-pkg,abxbus,archivebox}` or explore the source of those related packages if needed to understand the orchestrator or abxbus interfaces,
-            but any changes to those repos will not be persisted. Use `abx-dl --plugins=pluginname --output=/some/tmp/dir 'https://example.com'` to test and dont rely on pytest alone.
+          # prompt: 'Update the pull request description to include a summary of changes.'
 
-            Plugin required_binaries install must succeed locally / in the test environment when running `abx-dl install pluginname` (uv pip install -e ../abx-dl.
-            Auto-install in macos/linux at runtime is a core part of the user-facing surface provided by plugins and must succeed in *all environments* including CI/sandboxes.
-            
-            Make sure any plugin changes are covered by a live integration test under the plugin's test dir that hits a real url like https://example.com.
-            Do not mock the url with a test server and do not mock the installation or execution of any required_binaries, tests must use the real user-facing code paths to install and run with real live urls.
-            Do not simply check that it runs without error, your tests must check that the content saved is actually correct for the live url.
-            
-            ${{inputs.prompt || ''}}
-
-          branch_prefix: 'claude-'
           # Optional: Add claude_args to customize behavior and configuration
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
-          claude_args: |
-            --allowed-tools mcp__github_inline_comment__create_inline_comment,Bash,View,Glob,GlobTool,GrepTool,Grep,BatchTool,WebSearch,LS,Edit,MultiEdit,Write,Read
+          # claude_args: '--allowed-tools Bash(gh pr:*)'
 
