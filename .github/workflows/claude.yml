@@ -80,9 +80,11 @@ jobs:
       - name: Install dependencies with uv
         run: |
           uv sync --dev --all-extras --no-sources
-          uv pip install --no-deps -e ".[dev]"
+          uv pip install -e '../abxbus'
           uv pip install -e '../abx-dl'
+          uv pip install -e '../abx-pkg'
           uv pip install -e '../archivebox'
+          uv pip install --no-deps -e ".[dev]"
           
       - name: Run Claude Code
         id: claude
@@ -109,7 +111,7 @@ jobs:
             Do not mock the url with a test server and do not mock the installation or execution of any required_binaries, tests must use the real user-facing code paths to install and run with real live urls.
             Do not simply check that it runs without error, your tests must check that the content saved is actually correct for the live url.
             
-            ${{inputs.prompt}}
+            ${{inputs.prompt || ''}}
 
           branch_prefix: 'claude-'
           # Optional: Add claude_args to customize behavior and configuration
