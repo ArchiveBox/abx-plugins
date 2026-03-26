@@ -39,9 +39,9 @@ jobs:
 
       - name: Clone abx-pkg, abxbus, archivebox
         run: |
-          git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git "${{ runner.temp }}/abx-pkg"
-          git clone --depth=1 https://github.com/ArchiveBox/abxbus.git "${{ runner.temp }}/abxbus"
-          git clone --depth=1 https://github.com/ArchiveBox/ArchiveBox.git "${{ runner.temp }}/archivebox"
+          git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git "${{ runner.workspace }}/abx-pkg"
+          git clone --depth=1 https://github.com/ArchiveBox/abxbus.git "${{ runner.workspace }}/abxbus"
+          git clone --depth=1 https://github.com/ArchiveBox/ArchiveBox.git "${{ runner.workspace }}/archivebox"
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
