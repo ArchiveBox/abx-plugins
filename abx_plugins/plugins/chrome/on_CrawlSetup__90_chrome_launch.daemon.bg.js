@@ -31,6 +31,7 @@ const {
     acquireSessionLock,
     ensureChromeSession,
     closeBrowserInChromeSession,
+    killZombieChrome,
     waitForChromeLaunchPrerequisites,
 } = require('./chrome_utils.js');
 
@@ -64,12 +65,20 @@ function getPortFromCdpUrl(cdpUrl) {
 async function cleanup() {
     if (shouldCloseOnCleanup) {
         console.log(`shutting down ${CHROME_BINARY} cleanly...`);
-        await closeBrowserInChromeSession({
+        const closed = await closeBrowserInChromeSession({
             cdpUrl: chromeCdpUrl,
             pid: chromePid,
             outputDir: OUTPUT_DIR,
             puppeteer,
             processIsLocal: chromeProcessIsLocal,
+        });
+        if (!closed) {
+            console.error(`${CHROME_BINARY} cleanup did not fully stop the browser process tree`);
+            process.exit(1);
+        }
+        await killZombieChrome(CRAWL_DIR, {
+            quiet: true,
+            excludeCurrentRuntimeDirs: false,
         });
         console.log(`${CHROME_BINARY} exited successfully`);
         console.log(JSON.stringify({ succeeded: true, skipped: false }));  // we launched and we killed it (nothing was skipped)
@@ -114,7 +123,7 @@ async function main() {
         puppeteer = prerequisites.puppeteer;
 
         console.log(cdpUrlOverride
-            ? `connecting ${CHROME_BINARY} ${cdp_url}...`
+            ? `connecting ${CHROME_BINARY} ${cdpUrlOverride}...`
             : `launching ${CHROME_BINARY} ${PERSONA_DIR}...`)
         const session = await ensureChromeSession({
             outputDir: OUTPUT_DIR,

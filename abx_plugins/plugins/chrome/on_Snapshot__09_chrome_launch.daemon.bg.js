@@ -39,13 +39,17 @@ let shouldCloseOnCleanup = false;
 
 async function cleanup() {
     if (shouldCloseOnCleanup) {
-        await closeBrowserInChromeSession({
+        const closed = await closeBrowserInChromeSession({
             cdpUrl: chromeCdpUrl,
             pid: chromePid,
             outputDir: OUTPUT_DIR,
             puppeteer,
             processIsLocal: chromeProcessIsLocal,
         });
+        if (!closed) {
+            console.error('Chrome cleanup did not fully stop the browser process tree');
+            process.exit(1);
+        }
     }
     process.exit(0);
 }

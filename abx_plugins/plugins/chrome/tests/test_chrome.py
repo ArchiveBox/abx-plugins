@@ -3204,22 +3204,53 @@ def test_zombie_prevention_hook_killed():
             pass
 
 
-def test_kill_zombie_chrome_ignores_hook_pid_files():
-    """Zombie cleanup must ignore hook pid files under chrome/."""
+def test_kill_zombie_chrome_respects_live_crawl_heartbeat():
+    """Zombie cleanup must not kill Chrome while the owning crawl heartbeat is live."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        root_dir = Path(tmpdir) / "snapshots"
-        snapshot_dir = root_dir / "20260322" / "example.com" / "snap-1"
-        chrome_dir = snapshot_dir / "chrome"
-        chrome_dir.mkdir(parents=True)
+        root_dir = Path(tmpdir)
+        crawl_dir = root_dir / "crawl"
+        crawl_dir.mkdir()
+        chrome_dir = crawl_dir / "chrome"
+        chrome_dir.mkdir()
 
-        hook_process = subprocess.Popen(["sleep", "30"])
-        hook_pid_file = chrome_dir / "on_Snapshot__09_chrome_launch.daemon.bg.pid"
-        hook_pid_file.write_text(str(hook_process.pid))
-
-        stale_ts = time.time() - 600
-        os.utime(snapshot_dir, (stale_ts, stale_ts))
+        launch_env = _isolated_test_env(
+            tmpdir,
+            CRAWL_DIR=str(crawl_dir),
+            CHROME_HEADLESS="true",
+        )
+        chrome_launch_process = subprocess.Popen(
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-live-heartbeat"],
+            cwd=str(chrome_dir),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=launch_env,
+        )
 
         try:
+            for _ in range(15):
+                if (chrome_dir / "chrome.pid").exists():
+                    break
+                time.sleep(1)
+
+            assert (chrome_dir / "chrome.pid").exists(), "Chrome PID file should exist"
+            chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
+            os.kill(chrome_pid, 0)
+
+            (crawl_dir / ".heartbeat.json").write_text(
+                json.dumps(
+                    {
+                        "runtime": "abx-dl",
+                        "crawl_id": "test-live-heartbeat",
+                        "owner_pid": os.getpid(),
+                        "last_alive_at": time.time(),
+                        "kill_after_seconds": 180,
+                    },
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ),
+            )
+
             result = subprocess.run(
                 [str(CHROME_UTILS), "killZombieChrome", str(root_dir)],
                 capture_output=True,
@@ -3229,15 +3260,9 @@ def test_kill_zombie_chrome_ignores_hook_pid_files():
             )
             assert result.returncode == 0, result.stderr
             assert result.stdout.strip() == "0", result.stdout
-            assert hook_pid_file.exists(), "hook pid file should not be deleted"
-            assert hook_process.poll() is None, "hook process should not be killed"
+            os.kill(chrome_pid, 0)
         finally:
-            hook_process.terminate()
-            try:
-                hook_process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                hook_process.kill()
-                hook_process.wait(timeout=10)
+            _cleanup_launch_process(chrome_launch_process, chrome_dir)
 
 
 if __name__ == "__main__":

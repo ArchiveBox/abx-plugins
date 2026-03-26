@@ -25,8 +25,8 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 }
 process.chdir(OUTPUT_DIR);
 
-function main() {
-    const killed = killZombieChrome(SNAP_DIR, {
+async function main() {
+    const killed = await killZombieChrome(SNAP_DIR, {
         excludeCrawlDirs: [CRAWL_DIR],
         quiet: true,
     });
@@ -38,10 +38,7 @@ function main() {
     process.exit(PROCESS_EXIT_SKIPPED);
 }
 
-try {
-    main();
-    process.exit(0);
-} catch (error) {
+main().then(() => process.exit(0)).catch((error) => {
     console.error(`Fatal error: ${error.message}`);
     process.exit(1);
-}
+});

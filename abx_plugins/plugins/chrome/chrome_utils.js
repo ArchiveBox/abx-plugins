@@ -227,29 +227,29 @@ function waitForDebugPort(port, timeout = 30000) {
 
 /**
  * Kill zombie Chrome processes from stale crawls.
- * Recursively scans SNAP_DIR for any .../chrome/chrome.pid files from stale crawls.
- * Does not assume specific directory structure - works with nested paths.
+ * Recursively scans SNAP_DIR for any .../chrome/chrome.pid files whose owning
+ * crawl no longer has a live ``.heartbeat.json`` lease.
  * @param {string} [snapDir] - Snapshot directory (defaults to SNAP_DIR env or cwd)
  * @param {Object} [options={}] - Cleanup options
  * @param {string[]} [options.excludeCrawlDirs=[]] - Crawl directories to never treat as stale
+ * @param {boolean} [options.excludeCurrentRuntimeDirs=true] - Whether to auto-skip the current CRAWL_DIR/SNAP_DIR
  * @returns {number} - Number of zombies killed
  */
-function killZombieChrome(snapDir = null, options = {}) {
+async function killZombieChrome(snapDir = null, options = {}) {
     snapDir = snapDir || getSnapDir();
-    const now = Date.now();
-    const fiveMinutesAgo = now - 300000;
     let killed = 0;
     const quiet = Boolean(options.quiet);
+    const excludeCurrentRuntimeDirs = options.excludeCurrentRuntimeDirs !== false;
     const excludeCrawlDirs = new Set(
         (options.excludeCrawlDirs || []).map(dir => path.resolve(dir))
     );
     const excludeSessionDirs = new Set(
-        [
-            ...((options.excludeSessionDirs || []).map(dir => path.resolve(dir))),
-            path.resolve(getSnapDir()),
-            path.resolve(getCrawlDir()),
-        ]
+        (options.excludeSessionDirs || []).map(dir => path.resolve(dir))
     );
+    if (excludeCurrentRuntimeDirs) {
+        excludeSessionDirs.add(path.resolve(getSnapDir()));
+        excludeSessionDirs.add(path.resolve(getCrawlDir()));
+    }
 
     if (!quiet) console.error('[*] Checking for zombie Chrome processes...');
 
@@ -262,7 +262,7 @@ function killZombieChrome(snapDir = null, options = {}) {
      * Recursively find all chrome/chrome.pid files in directory tree
      * @param {string} dir - Directory to search
      * @param {number} depth - Current recursion depth (limit to 10)
-     * @returns {Array<{pidFile: string, crawlDir: string}>} - Array of PID file info
+     * @returns {Array<{pidFile: string, chromeDir: string, sessionDir: string}>} - Array of PID file info
      */
     function findChromePidFiles(dir, depth = 0) {
         if (depth > 10) return [];  // Prevent infinite recursion
@@ -284,7 +284,8 @@ function killZombieChrome(snapDir = null, options = {}) {
                         if (fs.existsSync(chromePidFile)) {
                             results.push({
                                 pidFile: chromePidFile,
-                                crawlDir: crawlDir,
+                                chromeDir: fullPath,
+                                sessionDir: crawlDir,
                             });
                         }
                     } catch (e) {
@@ -303,11 +304,238 @@ function killZombieChrome(snapDir = null, options = {}) {
         return results;
     }
 
+    function findOwningCrawlDir(sessionDir) {
+        let currentDir = path.resolve(sessionDir);
+        const rootDir = path.resolve(snapDir);
+        while (currentDir.startsWith(rootDir)) {
+            if (fs.existsSync(path.join(currentDir, '.heartbeat.json'))) {
+                return currentDir;
+            }
+            if (excludeCrawlDirs.has(currentDir) || excludeSessionDirs.has(currentDir)) {
+                return currentDir;
+            }
+            const parentDir = path.dirname(currentDir);
+            if (parentDir === currentDir) {
+                break;
+            }
+            currentDir = parentDir;
+        }
+        return path.resolve(sessionDir);
+    }
+
+    function crawlHeartbeatIsAlive(crawlDir) {
+        const heartbeatFile = path.join(crawlDir, '.heartbeat.json');
+        try {
+            const heartbeat = JSON.parse(fs.readFileSync(heartbeatFile, 'utf8'));
+            const ownerPid = parseInt(String(heartbeat.owner_pid), 10);
+            const lastAliveAt = Number(heartbeat.last_alive_at);
+            const killAfterSeconds = Number(heartbeat.kill_after_seconds || 180);
+            if (isNaN(ownerPid) || ownerPid <= 0 || !Number.isFinite(lastAliveAt)) {
+                return false;
+            }
+            if (!isProcessAlive(ownerPid)) {
+                return false;
+            }
+            return (Date.now() / 1000) - lastAliveAt <= killAfterSeconds;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function getHeartbeatOwnerPid(crawlDir) {
+        const heartbeatFile = path.join(crawlDir, '.heartbeat.json');
+        try {
+            const heartbeat = JSON.parse(fs.readFileSync(heartbeatFile, 'utf8'));
+            const ownerPid = parseInt(String(heartbeat.owner_pid), 10);
+            return Number.isNaN(ownerPid) || ownerPid <= 0 ? null : ownerPid;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function findChromeHookPidFiles(dir, depth = 0) {
+        if (depth > 10) return [];
+
+        const results = [];
+        try {
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
+            for (const entry of entries) {
+                if (!entry.isDirectory()) continue;
+                const fullPath = path.join(dir, entry.name);
+                if (entry.name === 'chrome') {
+                    try {
+                        const crawlDir = dir;
+                        for (const chromeEntry of fs.readdirSync(fullPath, { withFileTypes: true })) {
+                            if (!chromeEntry.isFile()) continue;
+                            if (!chromeEntry.name.endsWith('.pid')) continue;
+                            if (chromeEntry.name === 'chrome.pid') continue;
+                            if (!chromeEntry.name.startsWith('on_')) continue;
+                            if (!chromeEntry.name.includes('chrome_')) continue;
+                            const pidFile = path.join(fullPath, chromeEntry.name);
+                            results.push({
+                                pidFile,
+                                hookName: chromeEntry.name.slice(0, -4),
+                                chromeDir: fullPath,
+                                sessionDir: crawlDir,
+                            });
+                        }
+                    } catch (error) {
+                        // Skip unreadable chrome directories
+                    }
+                } else if (!entry.name.startsWith('.') && entry.name !== 'node_modules') {
+                    results.push(...findChromeHookPidFiles(fullPath, depth + 1));
+                }
+            }
+        } catch (error) {
+            // Skip unreadable directories
+        }
+        return results;
+    }
+
+    function getParentPid(pid) {
+        try {
+            const { execSync } = require('child_process');
+            const output = execSync(`ps -o ppid= -p ${pid}`, {
+                encoding: 'utf8',
+                timeout: 5000,
+                stdio: ['ignore', 'pipe', 'ignore'],
+            }).trim();
+            const parentPid = parseInt(output, 10);
+            return Number.isNaN(parentPid) || parentPid <= 0 ? null : parentPid;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function processHasAncestorPid(pid, ancestorPid) {
+        if (!ancestorPid || !isProcessAlive(ancestorPid)) {
+            return false;
+        }
+        const seen = new Set();
+        let currentPid = pid;
+        while (currentPid && !seen.has(currentPid)) {
+            if (currentPid === ancestorPid) {
+                return true;
+            }
+            seen.add(currentPid);
+            currentPid = getParentPid(currentPid);
+        }
+        return false;
+    }
+
+    function getProcessCommand(pid) {
+        try {
+            const { execSync } = require('child_process');
+            return execSync(`ps -o command= -p ${pid}`, {
+                encoding: 'utf8',
+                timeout: 5000,
+                stdio: ['ignore', 'pipe', 'ignore'],
+            }).trim();
+        } catch (error) {
+            return '';
+        }
+    }
+
+    function getProcessWorkingDir(pid) {
+        try {
+            const { execSync } = require('child_process');
+            const output = execSync(`lsof -a -p ${pid} -d cwd -Fn`, {
+                encoding: 'utf8',
+                timeout: 5000,
+                stdio: ['ignore', 'pipe', 'ignore'],
+            });
+            for (const line of output.split('\n')) {
+                if (line.startsWith('n')) {
+                    return path.resolve(line.slice(1).trim());
+                }
+            }
+        } catch (error) {
+            return null;
+        }
+        return null;
+    }
+
+    function findChromeHookProcesses() {
+        try {
+            const { execSync } = require('child_process');
+            const output = execSync('ps -axo pid=,command=', { encoding: 'utf8', timeout: 5000 });
+            const hookMatches = [];
+            for (const line of output.split('\n')) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+                const match = trimmed.match(/^(\d+)\s+(.*)$/);
+                if (!match) continue;
+                const pid = parseInt(match[1], 10);
+                const command = match[2];
+                if (Number.isNaN(pid) || pid <= 0) continue;
+                if (command.includes('on_CrawlSetup__90_chrome_launch.daemon.bg.js')) {
+                    hookMatches.push({ pid, hookName: 'on_CrawlSetup__90_chrome_launch.daemon.bg' });
+                    continue;
+                }
+                if (command.includes('on_Snapshot__09_chrome_launch.daemon.bg.js')) {
+                    hookMatches.push({ pid, hookName: 'on_Snapshot__09_chrome_launch.daemon.bg' });
+                    continue;
+                }
+                if (command.includes('on_Snapshot__10_chrome_tab.daemon.bg.js')) {
+                    hookMatches.push({ pid, hookName: 'on_Snapshot__10_chrome_tab.daemon.bg' });
+                }
+            }
+            return hookMatches;
+        } catch (error) {
+            return [];
+        }
+    }
+
+    async function killHookProcess(pid, expectedHookName) {
+        const currentCommand = getProcessCommand(pid);
+        if (!currentCommand || !currentCommand.includes(expectedHookName)) {
+            return false;
+        }
+
+        try {
+            process.kill(pid, 'SIGTERM');
+        } catch (error) {
+            if (error.code !== 'ESRCH') {
+                console.error(`[!] Failed to SIGTERM hook PID ${pid}: ${error.message}`);
+            }
+        }
+
+        const deadline = Date.now() + 5000;
+        while (Date.now() < deadline) {
+            if (!isProcessAlive(pid)) {
+                return true;
+            }
+            await sleep(200);
+        }
+
+        if (isProcessAlive(pid)) {
+            try {
+                process.kill(pid, 'SIGKILL');
+            } catch (error) {
+                if (error.code !== 'ESRCH') {
+                    console.error(`[!] Failed to SIGKILL hook PID ${pid}: ${error.message}`);
+                }
+            }
+        }
+
+        const killDeadline = Date.now() + 5000;
+        while (Date.now() < killDeadline) {
+            if (!isProcessAlive(pid)) {
+                return true;
+            }
+            await sleep(200);
+        }
+
+        return !isProcessAlive(pid);
+    }
+
     try {
         const chromePids = findChromePidFiles(snapDir);
+        const hookPids = findChromeHookPidFiles(snapDir);
+        const handledHookPids = new Set();
 
-        for (const {pidFile, crawlDir} of chromePids) {
-            const resolvedCrawlDir = path.resolve(crawlDir);
+        for (const {pidFile, chromeDir, sessionDir} of chromePids) {
+            const resolvedCrawlDir = findOwningCrawlDir(sessionDir);
 
             if (excludeCrawlDirs.has(resolvedCrawlDir)) {
                 continue;
@@ -315,14 +543,7 @@ function killZombieChrome(snapDir = null, options = {}) {
             if (excludeSessionDirs.has(resolvedCrawlDir)) {
                 continue;
             }
-
-            // Check if crawl was modified recently (still active)
-            try {
-                const crawlStats = fs.statSync(resolvedCrawlDir);
-                if (crawlStats.mtimeMs > fiveMinutesAgo) {
-                    continue;  // Crawl is active, skip
-                }
-            } catch (e) {
+            if (crawlHeartbeatIsAlive(resolvedCrawlDir)) {
                 continue;
             }
 
@@ -344,15 +565,80 @@ function killZombieChrome(snapDir = null, options = {}) {
                 if (!quiet) console.error(`[!] Found zombie (PID ${pid}) from stale crawl ${path.basename(resolvedCrawlDir)}`);
 
                 try {
-                    try { process.kill(-pid, 'SIGKILL'); } catch (e) { process.kill(pid, 'SIGKILL'); }
-                    killed++;
-                    if (!quiet) console.error(`[+] Killed zombie (PID ${pid})`);
+                    if (await killChrome(pid, chromeDir)) {
+                        killed++;
+                        if (!quiet) console.error(`[+] Killed zombie (PID ${pid})`);
+                    } else if (!quiet) {
+                        console.error(`[!] Failed to fully kill zombie (PID ${pid})`);
+                    }
                     try { fs.unlinkSync(pidFile); } catch (e) {}
                 } catch (e) {
                     if (!quiet) console.error(`[!] Failed to kill PID ${pid}: ${e.message}`);
                 }
             } catch (e) {
                 // Skip invalid PID files
+            }
+        }
+
+        for (const {pidFile, hookName, sessionDir} of hookPids) {
+            const resolvedCrawlDir = findOwningCrawlDir(sessionDir);
+            const ownerPid = getHeartbeatOwnerPid(resolvedCrawlDir);
+
+            try {
+                const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
+                if (isNaN(pid) || pid <= 0) continue;
+                if (!isProcessAlive(pid)) {
+                    try { fs.unlinkSync(pidFile); } catch (error) {}
+                    continue;
+                }
+                handledHookPids.add(pid);
+                if (crawlHeartbeatIsAlive(resolvedCrawlDir) && processHasAncestorPid(pid, ownerPid)) {
+                    continue;
+                }
+
+                if (!quiet) {
+                    console.error(`[!] Found stale chrome hook ${hookName} (PID ${pid}) from crawl ${path.basename(resolvedCrawlDir)}`);
+                }
+                if (await killHookProcess(pid, hookName)) {
+                    killed++;
+                    if (!quiet) {
+                        console.error(`[+] Killed stale chrome hook ${hookName} (PID ${pid})`);
+                    }
+                    try { fs.unlinkSync(pidFile); } catch (error) {}
+                } else if (!quiet) {
+                    console.error(`[!] Failed to kill stale chrome hook ${hookName} (PID ${pid})`);
+                }
+            } catch (error) {
+                // Skip invalid PID files
+            }
+        }
+
+        for (const {pid, hookName} of findChromeHookProcesses()) {
+            if (handledHookPids.has(pid)) {
+                continue;
+            }
+            const currentWorkingDir = getProcessWorkingDir(pid);
+            if (!currentWorkingDir) {
+                continue;
+            }
+            const sessionDir = path.basename(currentWorkingDir) === 'chrome'
+                ? path.dirname(currentWorkingDir)
+                : currentWorkingDir;
+            const resolvedCrawlDir = findOwningCrawlDir(sessionDir);
+            const ownerPid = getHeartbeatOwnerPid(resolvedCrawlDir);
+            if (crawlHeartbeatIsAlive(resolvedCrawlDir) && processHasAncestorPid(pid, ownerPid)) {
+                continue;
+            }
+            if (!quiet) {
+                console.error(`[!] Found orphaned chrome hook ${hookName} (PID ${pid}) from crawl ${path.basename(resolvedCrawlDir)}`);
+            }
+            if (await killHookProcess(pid, hookName)) {
+                killed++;
+                if (!quiet) {
+                    console.error(`[+] Killed orphaned chrome hook ${hookName} (PID ${pid})`);
+                }
+            } else if (!quiet) {
+                console.error(`[!] Failed to kill orphaned chrome hook ${hookName} (PID ${pid})`);
             }
         }
     } catch (e) {
@@ -759,6 +1045,22 @@ function findChromeProcessesByPort(port) {
     return pids;
 }
 
+async function waitForChromeProcessTreeExit(pid, debugPort = null, timeoutMs = 5000, intervalMs = 200) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        const mainAlive = pid ? isProcessAlive(pid) : false;
+        const relatedPids = debugPort ? findChromeProcessesByPort(debugPort) : [];
+        if (!mainAlive && relatedPids.length === 0) {
+            return true;
+        }
+        await sleep(intervalMs);
+    }
+
+    const mainAlive = pid ? isProcessAlive(pid) : false;
+    const relatedPids = debugPort ? findChromeProcessesByPort(debugPort) : [];
+    return !mainAlive && relatedPids.length === 0;
+}
+
 /**
  * Kill a Chrome process by PID.
  * Always sends SIGTERM before SIGKILL, then verifies death.
@@ -767,10 +1069,6 @@ function findChromeProcessesByPort(port) {
  * @param {string} [outputDir] - Directory containing PID files to clean up
  */
 async function killChrome(pid, outputDir = null) {
-    if (!pid) return;
-
-    console.error(`[*] Killing Chrome process tree (PID ${pid})...`);
-
     // Get debug port for finding child processes
     let debugPort = null;
     if (outputDir) {
@@ -782,82 +1080,80 @@ async function killChrome(pid, outputDir = null) {
         } catch (e) {}
     }
 
-    // Step 1: SIGTERM to process group (graceful shutdown)
-    console.error(`[*] Sending SIGTERM to process group -${pid}...`);
-    try {
-        process.kill(-pid, 'SIGTERM');
-    } catch (e) {
+    const initialRelatedPids = debugPort ? findChromeProcessesByPort(debugPort) : [];
+    const hasLiveParent = Boolean(pid && isProcessAlive(pid));
+    if (!hasLiveParent && initialRelatedPids.length === 0) {
+        return true;
+    }
+
+    console.error(
+        `[*] Killing Chrome process tree (${hasLiveParent ? `PID ${pid}` : `port ${debugPort}`})...`
+    );
+
+    // Step 1: Ask the main browser process to exit cleanly. Chromium itself is
+    // responsible for shutting down its renderer/helper children without
+    // corrupting the profile dir, so we only send SIGTERM to the parent.
+    if (hasLiveParent) {
+        console.error(`[*] Sending SIGTERM to Chrome parent process ${pid}...`);
         try {
-            console.error(`[*] Process group kill failed, trying single process...`);
             process.kill(pid, 'SIGTERM');
-        } catch (e2) {
-            console.error(`[!] SIGTERM failed: ${e2.message}`);
+        } catch (error) {
+            if (error.code !== 'ESRCH') {
+                console.error(`[!] SIGTERM failed: ${error.message}`);
+            }
         }
     }
 
-    // Step 2: Wait for graceful shutdown
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Step 3: Check if still alive
-    if (!isProcessAlive(pid)) {
-        console.error('[+] Chrome process terminated gracefully');
+    let processTreeExited = await waitForChromeProcessTreeExit(pid, debugPort, 5000);
+    if (processTreeExited) {
+        console.error('[+] Chrome process tree terminated gracefully');
     } else {
-        // Step 4: Force kill ENTIRE process group with SIGKILL
-        console.error(`[*] Process still alive, sending SIGKILL to process group -${pid}...`);
-        try {
-            process.kill(-pid, 'SIGKILL');  // Kill entire process group
-        } catch (e) {
-            console.error(`[!] Process group SIGKILL failed, trying single process: ${e.message}`);
+        const remainingPids = new Set();
+        if (pid) {
+            remainingPids.add(pid);
+        }
+        for (const relatedPid of debugPort ? findChromeProcessesByPort(debugPort) : initialRelatedPids) {
+            remainingPids.add(relatedPid);
+        }
+
+        console.error(
+            `[*] Chrome did not exit cleanly in time, sending SIGKILL to ${remainingPids.size} remaining processes...`
+        );
+        for (const remainingPid of remainingPids) {
+            if (!remainingPid || !isProcessAlive(remainingPid)) {
+                continue;
+            }
             try {
-                process.kill(pid, 'SIGKILL');
-            } catch (e2) {
-                console.error(`[!] SIGKILL failed: ${e2.message}`);
+                process.kill(remainingPid, 'SIGKILL');
+            } catch (error) {
+                if (error.code !== 'ESRCH') {
+                    console.error(`[!] SIGKILL failed for ${remainingPid}: ${error.message}`);
+                }
             }
         }
 
-        // Step 5: Wait briefly and verify death
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        if (isProcessAlive(pid)) {
-            console.error(`[!] WARNING: Process ${pid} is unkillable (likely in UNE state)`);
-            console.error(`[!] This typically happens when Chrome crashes in kernel syscall`);
-            console.error(`[!] Process will remain as zombie until system reboot`);
-            console.error(`[!] macOS IOSurface crash creates unkillable processes in UNE state`);
-
-            // Try one more time to kill the entire process group
-            if (debugPort) {
-                const relatedPids = findChromeProcessesByPort(debugPort);
-                if (relatedPids.length > 1) {
-                    console.error(`[*] Found ${relatedPids.length} Chrome processes still running on port ${debugPort}`);
-                    console.error(`[*] Attempting final process group SIGKILL...`);
-
-                    // Try to kill each unique process group we find
-                    const processGroups = new Set();
-                    for (const relatedPid of relatedPids) {
-                        if (relatedPid !== pid) {
-                            processGroups.add(relatedPid);
-                        }
-                    }
-
-                    for (const groupPid of processGroups) {
-                        try {
-                            process.kill(-groupPid, 'SIGKILL');
-                        } catch (e) {}
-                    }
-                }
-            }
+        processTreeExited = await waitForChromeProcessTreeExit(pid, debugPort, 5000);
+        if (!processTreeExited) {
+            console.error(`[!] WARNING: Chrome process tree for PID ${pid} is still alive after SIGKILL`);
+            console.error(`[!] This typically means Chromium is stuck in an uninterruptible kernel wait state`);
         } else {
-            console.error('[+] Chrome process group killed successfully');
+            console.error('[+] Chrome process tree killed successfully');
         }
     }
 
     // Step 8: Clean up PID files
     // Note: hook-specific .pid files are cleaned up by run_hook() and Snapshot.cleanup()
-    if (outputDir) {
+    if (outputDir && processTreeExited) {
         try { fs.unlinkSync(path.join(outputDir, 'chrome.pid')); } catch (e) {}
     }
 
+    if (!processTreeExited) {
+        console.error('[!] Chrome cleanup completed, but some browser processes are still alive');
+        return false;
+    }
+
     console.error('[*] Chrome cleanup completed');
+    return true;
 }
 
 /**
@@ -3216,18 +3512,21 @@ async function closeBrowserInChromeSession(options = {}) {
         }
     }
 
+    const debugPort = cdpUrl ? getChromeDebugPortFromCdpUrl(cdpUrl) : null;
     let closed = false;
     if (processIsLocal && pid) {
         closed = await waitForProcessExit(pid, forceKillTimeoutMs);
         if (!closed) {
-            await killChrome(pid, outputDir);
-            closed = true;
+            closed = await killChrome(pid, outputDir);
+        }
+        if (closed) {
+            closed = await waitForChromeProcessTreeExit(pid, debugPort, forceKillTimeoutMs);
         }
     } else if (cdpUrl) {
         closed = await waitForBrowserEndpointGone(cdpUrl, forceKillTimeoutMs);
     }
 
-    if (outputDir) {
+    if (outputDir && closed) {
         try {
             await cleanupStaleChromeSessionArtifacts(outputDir, {
                 processIsLocal,
@@ -3725,7 +4024,7 @@ if (require.main === module) {
 
                 case 'killZombieChrome': {
                     const [snapDir] = commandArgs;
-                    const killed = killZombieChrome(snapDir);
+                    const killed = await killZombieChrome(snapDir);
                     console.log(killed);
                     break;
                 }
