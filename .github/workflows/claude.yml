@@ -37,10 +37,11 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Clone abx-pkg, abxbus, archivebox
+      - name: Clone abxbus, abx-pkg, abx-dl, archivebox
         run: |
           git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git "${{ runner.workspace }}/abx-pkg"
           git clone --depth=1 https://github.com/ArchiveBox/abxbus.git "${{ runner.workspace }}/abxbus"
+          git clone --depth=1 https://github.com/ArchiveBox/abx-dl.git "${{ runner.workspace }}/abx-dl"
           git clone --depth=1 https://github.com/ArchiveBox/ArchiveBox.git "${{ runner.workspace }}/archivebox"
 
       - name: Set up Python 3.13
