@@ -1,0 +1,27 @@
+abx_plugins/plugins/chrome/on_CrawlSetup__90_chrome_launch.daemon.bg.js
+  87c0fd6fb0a16ff6 34,68,75-82,126
+abx_plugins/plugins/chrome/on_Snapshot__09_chrome_launch.daemon.bg.js
+  87c0fd6fb0a16ff6 42,49-52
+abx_plugins/plugins/chrome/chrome_utils.js
+  87c0fd6fb0a16ff6 230-231,235,238,242,247,249-252,265,287-288,307-531,534-535,537-538,546,568-573,582-611,613-641,1048-1063,1083-1086,1089-1091,1093-1097,1099-1102,1107-1109,1111-1116,1119-1130,1133-1138,1140,1146,1150-1152,1156,3515,3520,3522-3523,3529,4027
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.19",
+  "base_commit_sha": "a7c593b369e8affc9a400a65e51ec8ae90bdf8b3",
+  "prompts": {
+    "87c0fd6fb0a16ff6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d1c6c-ba8a-7c60-a5cb-e46a3d352e8f",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 454,
+      "total_deletions": 142,
+      "accepted_lines": 406,
+      "overriden_lines": 0
+    }
+  }
+}
