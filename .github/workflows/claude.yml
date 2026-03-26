@@ -32,10 +32,9 @@ jobs:
       id-token: write
       actions: read # Required for Claude to read CI results on PRs
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
-          fetch-depth: 1
+          depth: 0
 
       - name: Clone abxbus, abx-pkg, abx-dl, archivebox
         run: |
@@ -97,6 +96,7 @@ jobs:
           additional_permissions: |
             actions: read
 
+          show_full_output: true
           # track_progress: true
 
           # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
@@ -119,5 +119,7 @@ jobs:
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
           claude_args: |
+            --model claude-opus-4-6
+            --max-turns 50
             --allowed-tools mcp__github_inline_comment__create_inline_comment,Bash,View,Glob,GlobTool,GrepTool,Grep,BatchTool,WebSearch,LS,Edit,MultiEdit,Write,Read
 
