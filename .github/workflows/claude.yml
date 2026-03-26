@@ -94,7 +94,7 @@ jobs:
           additional_permissions: |
             actions: write
 
-          track_progress: true
+          # track_progress: true
 
           # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
           prompt: |
