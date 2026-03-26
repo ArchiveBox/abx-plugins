@@ -30,7 +30,7 @@ jobs:
       pull-requests: write
       issues: write
       id-token: write
-      actions: write # Required for Claude to read CI results on PRs
+      actions: read # Required for Claude to read CI results on PRs
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -95,7 +95,7 @@ jobs:
 
           # This is an optional setting that allows Claude to read CI results on PRs
           additional_permissions: |
-            actions: write
+            actions: read
 
           # track_progress: true
 
