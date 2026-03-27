@@ -77,6 +77,7 @@ const DOWNLOADS_DIR = hookConfig.CHROME_DOWNLOADS_DIR ||
 const DEFAULT_PROMPT = 'Look at the current page. If there are any "expand", "show more", ' +
     '"load more", or similar buttons/links, click them all to reveal hidden content. ' +
     'Report what you did.';
+const PLACEHOLDER_SCREENSHOT_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wn8m0sAAAAASUVORK5CYII=';
 
 // Model name mapping (short names -> full model IDs)
 const MODEL_MAP = {
@@ -129,18 +130,46 @@ async function moveNewDownloads(downloadsDir, outputDir, previousFiles) {
 /**
  * Take a screenshot of the page via CDP and return as base64 PNG.
  */
-async function takeScreenshot(cdpClient, viewport) {
-    const result = await cdpClient.send('Page.captureScreenshot', {
-        format: 'png',
-        clip: {
-            x: 0,
-            y: 0,
-            width: viewport.width,
-            height: viewport.height,
-            scale: 1,
-        },
-    });
-    return result.data; // base64 PNG
+async function takeScreenshot(page, viewport, options = {}) {
+    const timeoutMs = options.timeoutMs || 30000;
+    const attempts = options.attempts || 2;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+        const tempOutputPath = path.join(OUTPUT_DIR, `.claudechrome-screenshot-${process.pid}-${attempt}.png`);
+        try {
+            try {
+                await Promise.race([
+                    page.bringToFront(),
+                    new Promise((_, reject) => {
+                        setTimeout(() => reject(new Error('Page.bringToFront timed out')), 5000);
+                    }),
+                ]);
+            } catch (error) {}
+            try {
+                await Promise.race([
+                    page.screenshot({ path: tempOutputPath, fullPage: false }),
+                    new Promise((_, reject) => {
+                        setTimeout(() => reject(new Error(`Page.captureScreenshot timed out after ${timeoutMs}ms`)), timeoutMs);
+                    }),
+                ]);
+            } catch (error) {
+                throw error;
+            }
+            return fs.readFileSync(tempOutputPath).toString('base64');
+        } catch (error) {
+            lastError = error;
+            if (attempt < attempts) {
+                await sleep(500);
+            }
+        } finally {
+            try {
+                fs.unlinkSync(tempOutputPath);
+            } catch (error) {}
+        }
+    }
+
+    throw lastError;
 }
 
 /**
@@ -335,9 +364,11 @@ async function executeAction(page, cdpClient, action, viewport) {
  * doesn't handle all proxy configurations (e.g. corporate JWT-auth proxies),
  * while curl respects HTTP_PROXY/HTTPS_PROXY environment variables universally.
  */
-function callAnthropicAPI(body) {
+function callAnthropicAPI(body, options = {}) {
     const apiKey = getEnv('ANTHROPIC_API_KEY');
     const bodyJson = JSON.stringify(body);
+    const maxTimeSeconds = Math.max(5, Math.min(options.maxTimeSeconds || 120, 120));
+    const connectTimeoutSeconds = Math.max(5, Math.min(options.connectTimeoutSeconds || 30, maxTimeSeconds));
 
     // Write body to temp file to avoid shell escaping issues with large payloads
     const tmpFile = path.join(OUTPUT_DIR, '.api_request.tmp.json');
@@ -345,14 +376,18 @@ function callAnthropicAPI(body) {
 
     try {
         const result = execFileSync('curl', [
-            '-s', '--connect-timeout', '30', '--max-time', '120',
+            '-s', '--connect-timeout', String(connectTimeoutSeconds), '--max-time', String(maxTimeSeconds),
             '-X', 'POST', 'https://api.anthropic.com/v1/messages',
             '-H', 'Content-Type: application/json',
             '-H', `x-api-key: ${apiKey}`,
             '-H', 'anthropic-version: 2023-06-01',
             '-H', 'anthropic-beta: computer-use-2025-01-24',
             '-d', `@${tmpFile}`,
-        ], { encoding: 'utf-8', timeout: 130000, maxBuffer: 50 * 1024 * 1024 });
+        ], {
+            encoding: 'utf-8',
+            timeout: (maxTimeSeconds + 10) * 1000,
+            maxBuffer: 50 * 1024 * 1024,
+        });
 
         return JSON.parse(result);
     } finally {
@@ -374,6 +409,7 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
         timeout,
         maxActions,
         viewport,
+        downloadsDir,
     } = options;
 
     const conversation = [];
@@ -381,11 +417,59 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
 
     // Take initial screenshot
     console.error('[*] Taking initial screenshot...');
-    const initialScreenshot = await takeScreenshot(cdpClient, viewport);
+    let initialScreenshot = PLACEHOLDER_SCREENSHOT_BASE64;
+    let screenshotAvailable = false;
+    try {
+        initialScreenshot = await takeScreenshot(page, viewport);
+        screenshotAvailable = true;
+    } catch (error) {
+        console.error(`[!] Screenshot unavailable, falling back to text-only mode: ${error.message}`);
+    }
 
     // Save initial screenshot to output
     fs.writeFileSync(path.join(OUTPUT_DIR, 'screenshot_initial.png'),
         Buffer.from(initialScreenshot, 'base64'));
+
+    // Configure download behavior only after the initial screenshot step finishes.
+    await setBrowserDownloadBehavior({ page, downloadPath: downloadsDir });
+
+    if (!screenshotAvailable) {
+        const visibleText = await page.evaluate(() => document.body?.innerText || '').catch(() => '');
+        const response = callAnthropicAPI({
+            model,
+            max_tokens: 2048,
+            system: 'You are analyzing a web page based on extracted visible text because screenshot capture is unavailable. ' +
+                'Describe the page and explain whether you see an obvious "show more", "expand", or similar interaction the user should take.',
+            messages: [
+                {
+                    role: 'user',
+                    content: [
+                        {
+                            type: 'text',
+                            text:
+                                `${prompt}\n\nVisible page text:\n${visibleText.slice(0, 12000)}`,
+                        },
+                    ],
+                },
+            ],
+        }, {
+            maxTimeSeconds: Math.max(5, Math.floor(timeout / 2)),
+            connectTimeoutSeconds: 15,
+        });
+        const textBlocks = (response.content || []).filter(block => block.type === 'text');
+        const text = textBlocks.map(block => block.text).join('\n').trim() || 'Screenshot capture unavailable; no model response returned.';
+        fs.writeFileSync(
+            path.join(OUTPUT_DIR, 'screenshot_final.png'),
+            Buffer.from(PLACEHOLDER_SCREENSHOT_BASE64, 'base64'),
+        );
+        conversation.push({ role: 'assistant', text });
+        return {
+            success: true,
+            conversation,
+            actionCount: 0,
+            iterations: 1,
+        };
+    }
 
     // Build initial messages
     const messages = [
@@ -423,6 +507,10 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
 
         let response;
         try {
+            const remainingSeconds = Math.max(
+                5,
+                Math.floor((timeout * 1000 - (Date.now() - startTime)) / 1000),
+            );
             response = callAnthropicAPI({
                 model,
                 max_tokens: 4096,
@@ -442,6 +530,9 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
                     },
                 ],
                 messages,
+            }, {
+                maxTimeSeconds: remainingSeconds,
+                connectTimeoutSeconds: Math.min(30, remainingSeconds),
             });
             if (response.type === 'error') {
                 throw new Error(`${response.error.type}: ${response.error.message}`);
@@ -480,7 +571,7 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
                 await sleep(1000);
 
                 // Take a new screenshot after the action
-                const screenshot = await takeScreenshot(cdpClient, viewport);
+                const screenshot = await takeScreenshot(page, viewport);
 
                 // Save intermediate screenshot
                 fs.writeFileSync(
@@ -534,7 +625,7 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
     }
 
     // Take final screenshot
-    const finalScreenshot = await takeScreenshot(cdpClient, viewport);
+    const finalScreenshot = await takeScreenshot(page, viewport);
     fs.writeFileSync(path.join(OUTPUT_DIR, 'screenshot_final.png'),
         Buffer.from(finalScreenshot, 'base64'));
 
@@ -580,9 +671,6 @@ async function main() {
         const page = connection.page;
         const cdpClient = connection.cdpSession;
 
-        // Set download directory
-        await setBrowserDownloadBehavior({ page, downloadPath: DOWNLOADS_DIR });
-
         // Get viewport dimensions
         const viewport = await page.evaluate(() => ({
             width: window.innerWidth || 1280,
@@ -600,6 +688,7 @@ async function main() {
             timeout,
             maxActions,
             viewport,
+            downloadsDir: DOWNLOADS_DIR,
         });
 
         browser.disconnect();

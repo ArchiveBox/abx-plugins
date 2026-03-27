@@ -271,14 +271,11 @@ def ensure_claude_code_prereqs(tmp_path_factory):
                 env.update({str(key): str(value) for key, value in config.items()})
 
     def install_claude_code_with_hooks() -> str:
-        from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_lib_dir
+        from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_test_env
 
-        env = os.environ.copy()
-        env.setdefault("LIB_DIR", str(get_lib_dir()))
-        env.setdefault(
-            "CRAWL_DIR",
-            str(tmp_path_factory.mktemp("claudecode_test_data")),
-        )
+        env = get_test_env()
+        env["LIB_DIR"] = str(tmp_path_factory.mktemp("claudecode_test_lib"))
+        env["CRAWL_DIR"] = str(tmp_path_factory.mktemp("claudecode_test_data"))
         env["CLAUDECODE_ENABLED"] = "true"
 
         lib_dir = Path(env["LIB_DIR"])

@@ -36,8 +36,13 @@ let chromePid = null;
 let chromeCdpUrl = null;
 let chromeProcessIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true);
 let shouldCloseOnCleanup = false;
+let cleanupPromise = null;
 
 async function cleanup() {
+    if (cleanupPromise) {
+        return cleanupPromise;
+    }
+    cleanupPromise = (async () => {
     if (shouldCloseOnCleanup) {
         const closed = await closeBrowserInChromeSession({
             cdpUrl: chromeCdpUrl,
@@ -52,6 +57,8 @@ async function cleanup() {
         }
     }
     process.exit(0);
+    })();
+    return cleanupPromise;
 }
 
 process.on('SIGTERM', cleanup);

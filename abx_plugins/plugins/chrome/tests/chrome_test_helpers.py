@@ -290,6 +290,42 @@ class _DeterministicTestRequestHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if path == "/claudechrome":
+            self._write(
+                200,
+                """<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Claude Chrome Test Page</title>
+  <style>
+    body { margin: 20px; font-family: sans-serif; }
+    .hidden-content { display: none; }
+    #expand-btn {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      background: #4a90d9;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Test Page for Claude Chrome</h1>
+  <p>This page has a button that reveals hidden content.</p>
+  <button id="expand-btn" onclick="document.getElementById('hidden').style.display='block'; this.textContent='Expanded!';">
+    Show More
+  </button>
+  <div id="hidden" class="hidden-content">
+    <p>This content was hidden and is now visible after clicking the button.</p>
+  </div>
+</body>
+</html>""",
+            )
+            return
+
         self._write(
             404,
             "<html><head><title>Not Found</title></head><body><h1>404</h1></body></html>",
@@ -375,6 +411,7 @@ def _build_test_urls(
         "popup_child_url": f"{base}/popup-child",
         "static_file_url": f"{base}/static/test.txt",
         "json_url": f"{base}/api/data.json",
+        "claudechrome_url": f"{base}/claudechrome",
     }
     if https_base_url:
         https_base = https_base_url.rstrip("/")
@@ -1244,23 +1281,25 @@ def launch_chromium_session(
     chrome_launch_process._stderr_log = stderr_log
 
     cdp_url = None
-    launch_failed = False
+    launch_exit_code = None
     launch_stdout = ""
     launch_stderr = ""
 
     for _ in range(timeout):
-        if chrome_launch_process.poll() is not None:
-            stdout_handle.flush()
-            stderr_handle.flush()
-            launch_stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
-            launch_stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
-            launch_failed = True
-            break
         cdp_file = chrome_dir / "cdp_url.txt"
         if cdp_file.exists():
             cdp_url = cdp_file.read_text().strip()
             if cdp_url:
                 break
+        process_status = chrome_launch_process.poll()
+        if process_status is not None:
+            stdout_handle.flush()
+            stderr_handle.flush()
+            if cdp_file.exists():
+                cdp_url = cdp_file.read_text().strip()
+                if cdp_url:
+                    break
+            launch_exit_code = process_status
         time.sleep(1)
 
     if cdp_url:
@@ -1276,17 +1315,20 @@ def launch_chromium_session(
             chrome_launch_process._chrome_pid = None
         return chrome_launch_process, cdp_url
 
-    if not launch_failed:
+    if launch_exit_code is None:
         chrome_launch_process.kill()
         stdout_handle.flush()
         stderr_handle.flush()
+        launch_stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
+        launch_stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
+    else:
         launch_stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
         launch_stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
 
     stdout_handle.close()
     stderr_handle.close()
 
-    if launch_failed:
+    if launch_exit_code is not None:
         raise RuntimeError(
             f"Chromium launch failed:\nStdout: {launch_stdout}\nStderr: {launch_stderr}",
         )

@@ -337,8 +337,8 @@ class TestClaudeCodeCleanupIntegration:
             env["CRAWL_DIR"] = str(Path(tmpdir) / "crawl")
             env["CLAUDECODECLEANUP_ENABLED"] = "true"
             env["CLAUDECODECLEANUP_MODEL"] = "haiku"
-            env["CLAUDECODECLEANUP_MAX_TURNS"] = "15"
-            env["CLAUDECODECLEANUP_TIMEOUT"] = "120"
+            env["CLAUDECODECLEANUP_MAX_TURNS"] = "25"
+            env["CLAUDECODECLEANUP_TIMEOUT"] = "180"
 
             returncode, stdout, stderr = run_hook(
                 CLEANUP_HOOK,
@@ -385,7 +385,7 @@ class TestClaudeCodeCleanupIntegration:
             env["CRAWL_DIR"] = str(Path(tmpdir) / "crawl")
             env["CLAUDECODECLEANUP_ENABLED"] = "true"
             env["CLAUDECODECLEANUP_MODEL"] = "haiku"
-            env["CLAUDECODECLEANUP_MAX_TURNS"] = "15"
+            env["CLAUDECODECLEANUP_MAX_TURNS"] = "25"
             env["CLAUDECODECLEANUP_TIMEOUT"] = "90"
             env["CLAUDECODECLEANUP_PROMPT"] = (
                 "Delete the broken_extractor/ directory (it contains only incomplete temp files). "

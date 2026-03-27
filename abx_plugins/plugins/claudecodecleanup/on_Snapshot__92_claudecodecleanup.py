@@ -23,7 +23,7 @@ Output: Creates claudecodecleanup/ directory with cleanup_report.txt
 Environment variables:
     CLAUDECODECLEANUP_ENABLED: Enable AI cleanup (default: false)
     CLAUDECODECLEANUP_PROMPT: Custom prompt for cleanup behavior
-    CLAUDECODECLEANUP_TIMEOUT: Timeout in seconds (default: 120)
+    CLAUDECODECLEANUP_TIMEOUT: Timeout in seconds (default: 180)
     CLAUDECODECLEANUP_MODEL: Claude model to use (default: sonnet)
     CLAUDECODECLEANUP_MAX_TURNS: Max agentic turns (default: 15)
     ANTHROPIC_API_KEY: API key for Claude

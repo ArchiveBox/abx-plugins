@@ -40,7 +40,7 @@
     },
     "CLAUDECODECLEANUP_TIMEOUT": {
       "type": "integer",
-      "default": 120,
+      "default": 180,
       "minimum": 10,
       "x-fallback": "CLAUDECODE_TIMEOUT",
       "description": "Timeout for Claude Code cleanup in seconds"
@@ -58,7 +58,7 @@
     },
     "CLAUDECODECLEANUP_MAX_TURNS": {
       "type": "integer",
-      "default": 15,
+      "default": 25,
       "minimum": 1,
       "x-fallback": "CLAUDECODE_MAX_TURNS",
       "description": "Maximum number of agentic turns for cleanup"

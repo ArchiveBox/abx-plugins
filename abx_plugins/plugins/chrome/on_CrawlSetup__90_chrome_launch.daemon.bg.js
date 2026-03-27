@@ -54,6 +54,7 @@ let chromeCdpUrl = null;
 let chromeProcessIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true);
 let shouldCloseOnCleanup = false;
 let puppeteer = null;
+let cleanupPromise = null;
 
 function getPortFromCdpUrl(cdpUrl) {
     if (!cdpUrl) return null;
@@ -63,6 +64,10 @@ function getPortFromCdpUrl(cdpUrl) {
 
 // Cleanup handler for SIGTERM
 async function cleanup() {
+    if (cleanupPromise) {
+        return cleanupPromise;
+    }
+    cleanupPromise = (async () => {
     if (shouldCloseOnCleanup) {
         console.log(`shutting down ${CHROME_BINARY} cleanly...`);
         const closed = await closeBrowserInChromeSession({
@@ -87,6 +92,8 @@ async function cleanup() {
         console.log(JSON.stringify({ succeeded: true, skipped: chromeCdpUrl ? true : false }));  // we didn't launch it (we connected over CDP), and we didn't kill it, so we skipped basically the whole hook
     }
     process.exit(0);
+    })();
+    return cleanupPromise;
 }
 
 // Register signal handlers

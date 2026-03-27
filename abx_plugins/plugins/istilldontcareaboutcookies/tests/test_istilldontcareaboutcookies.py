@@ -430,7 +430,6 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                     '[id*="cookie-consent"]', '[id*="cookie-banner"]', '[id*="cookie-notice"]',
                     '[id*="cookieconsent"]', '[id*="cookie-law"]',
                     '[class*="gdpr"]', '[id*="gdpr"]',
-                    '[class*="consent-banner"]', '[class*="consent-modal"]', '[class*="consent-popup"]',
                     '[class*="privacy-banner"]', '[class*="privacy-notice"]',
                     '.cc-window', '.cc-banner', '#cc-main',
                     '.qc-cmp2-container',

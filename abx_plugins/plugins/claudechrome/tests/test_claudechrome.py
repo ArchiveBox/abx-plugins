@@ -27,8 +27,8 @@ from abx_plugins.plugins.base.test_utils import (
 )
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
-    get_test_env,
     chrome_session,
+    get_test_env,
 )
 
 
@@ -43,48 +43,11 @@ SNAPSHOT_HOOK = _SNAPSHOT_HOOK
 TEST_URL = "https://example.com"
 CHROME_STARTUP_TIMEOUT_SECONDS = 45
 
-CLAUDECHROME_TEST_PAGE_HTML = """
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Claude Chrome Test Page</title>
-  <style>
-    body { margin: 20px; font-family: sans-serif; }
-    .hidden-content { display: none; }
-    #expand-btn {
-      padding: 10px 20px;
-      font-size: 16px;
-      cursor: pointer;
-      background: #4a90d9;
-      color: white;
-      border: none;
-      border-radius: 4px;
-    }
-  </style>
-</head>
-<body>
-  <h1>Test Page for Claude Chrome</h1>
-  <p>This page has a button that reveals hidden content.</p>
-  <button id="expand-btn" onclick="document.getElementById('hidden').style.display='block'; this.textContent='Expanded!';">
-    Show More
-  </button>
-  <div id="hidden" class="hidden-content">
-    <p>This content was hidden and is now visible after clicking the button.</p>
-  </div>
-</body>
-</html>
-""".strip()
-
 
 @pytest.fixture
-def claudechrome_test_url(httpserver):
-    """Serve a test page with a 'Show More' button for Claude to click."""
-    httpserver.expect_request("/").respond_with_data(
-        CLAUDECHROME_TEST_PAGE_HTML,
-        content_type="text/html",
-    )
-    return httpserver.url_for("/")
+def claudechrome_test_url(chrome_test_urls):
+    """Serve a deterministic test page with a 'Show More' button for Claude to click."""
+    return chrome_test_urls["claudechrome_url"]
 
 
 class TestClaudeChromePlugin:

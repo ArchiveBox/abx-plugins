@@ -238,6 +238,7 @@ function waitForDebugPort(port, timeout = 30000) {
 async function killZombieChrome(snapDir = null, options = {}) {
     snapDir = snapDir || getSnapDir();
     let killed = 0;
+    const currentPid = process.pid;
     const quiet = Boolean(options.quiet);
     const excludeCurrentRuntimeDirs = options.excludeCurrentRuntimeDirs !== false;
     const excludeCrawlDirs = new Set(
@@ -587,6 +588,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
             try {
                 const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
                 if (isNaN(pid) || pid <= 0) continue;
+                if (pid === currentPid) continue;
                 if (!isProcessAlive(pid)) {
                     try { fs.unlinkSync(pidFile); } catch (error) {}
                     continue;
@@ -615,6 +617,9 @@ async function killZombieChrome(snapDir = null, options = {}) {
 
         for (const {pid, hookName} of findChromeHookProcesses()) {
             if (handledHookPids.has(pid)) {
+                continue;
+            }
+            if (pid === currentPid) {
                 continue;
             }
             const currentWorkingDir = getProcessWorkingDir(pid);
@@ -3518,9 +3523,6 @@ async function closeBrowserInChromeSession(options = {}) {
         closed = await waitForProcessExit(pid, forceKillTimeoutMs);
         if (!closed) {
             closed = await killChrome(pid, outputDir);
-        }
-        if (closed) {
-            closed = await waitForChromeProcessTreeExit(pid, debugPort, forceKillTimeoutMs);
         }
     } else if (cdpUrl) {
         closed = await waitForBrowserEndpointGone(cdpUrl, forceKillTimeoutMs);
