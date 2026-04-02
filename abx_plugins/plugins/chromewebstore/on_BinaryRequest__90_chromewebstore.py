@@ -22,27 +22,36 @@ from pathlib import Path
 from typing import Any
 
 import rich_click as click
-from pydantic import ConfigDict, TypeAdapter
 
 from abx_pkg import (
     Binary,
-    BinaryOverrides,
     BinProviderOverrides,
     EnvProvider,
-    HandlerDict,
-    SemVer,
 )
 
-from abx_plugins.plugins.base.utils import emit_installed_binary_record, load_config
+from abx_plugins.plugins.base.utils import (
+    emit_installed_binary_record,
+    load_config,
+)
 
 
 CHROME_UTILS_PATH = (
     Path(__file__).resolve().parent.parent / "chrome" / "chrome_utils.js"
 )
-OverridesDict = TypeAdapter(
-    BinaryOverrides,
-    config=ConfigDict(arbitrary_types_allowed=True),
-)
+
+
+def _parse_extra_hook_args(args: list[str]) -> dict[str, object]:
+    parsed: dict[str, object] = {}
+    for arg in args:
+        if not arg.startswith("--") or "=" not in arg:
+            continue
+        key, raw_value = arg[2:].split("=", 1)
+        try:
+            value = json.loads(raw_value)
+        except json.JSONDecodeError:
+            value = raw_value
+        parsed[key.replace("-", "_")] = value
+    return parsed
 
 
 def _extensions_dir() -> Path:
@@ -179,7 +188,7 @@ class ChromeWebstoreProvider(EnvProvider):
             ],
             capture_output=True,
             text=True,
-            timeout=self._install_timeout,
+            timeout=self.install_timeout,
             env=os.environ.copy(),
         )
         if proc.returncode != 0:
@@ -205,19 +214,19 @@ def main(
     ]:
         sys.exit(0)
 
-    parsed_overrides = OverridesDict.validate_json(overrides) if overrides else {}
-    provider_overrides: HandlerDict = (
-        parsed_overrides["chromewebstore"]
-        if "chromewebstore" in parsed_overrides
-        else {}
-    )
+    extra_kwargs = _parse_extra_hook_args(click.get_current_context().args)
+    parsed_overrides = json.loads(overrides) if overrides else {}
+    request_kwargs = {
+        **extra_kwargs,
+        "name": name,
+        "binproviders": binproviders,
+        "min_version": min_version or None,
+        "overrides": parsed_overrides,
+    }
 
     provider = ChromeWebstoreProvider()
     binary = Binary(
-        name=name,
-        min_version=SemVer(min_version) if min_version else None,
-        binproviders=[provider],
-        overrides={"chromewebstore": provider_overrides},
+        **{**request_kwargs, "binproviders": [provider]},
     ).load_or_install()
 
     if not binary.abspath:

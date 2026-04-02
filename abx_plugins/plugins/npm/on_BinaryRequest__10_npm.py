@@ -30,6 +30,20 @@ import rich_click as click
 from abx_pkg import Binary, NpmProvider, SemVer
 
 
+def _parse_extra_hook_args(args: list[str]) -> dict[str, object]:
+    parsed: dict[str, object] = {}
+    for arg in args:
+        if not arg.startswith("--") or "=" not in arg:
+            continue
+        key, raw_value = arg[2:].split("=", 1)
+        try:
+            value = json.loads(raw_value)
+        except json.JSONDecodeError:
+            value = raw_value
+        parsed[key.replace("-", "_")] = value
+    return parsed
+
+
 @click.command(
     context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
 )
@@ -70,20 +84,20 @@ def main(
     prior_skip_download: str | None = None
     prior_skip_chromium_download: str | None = None
     try:
-        # Parse overrides if provided
-        overrides_dict = None
-        if overrides:
-            try:
-                overrides_dict = json.loads(overrides)
-                click.echo(
-                    f"Using custom install overrides: {overrides_dict}",
-                    err=True,
-                )
-            except json.JSONDecodeError:
-                click.echo(
-                    f"Warning: Failed to parse overrides JSON: {overrides}",
-                    err=True,
-                )
+        extra_kwargs = _parse_extra_hook_args(click.get_current_context().args)
+        overrides_dict = json.loads(overrides) if overrides else None
+        request_kwargs = {
+            **extra_kwargs,
+            "name": name,
+            "binproviders": binproviders,
+            "min_version": min_version or None,
+            "overrides": overrides_dict or {},
+        }
+        if overrides_dict:
+            click.echo(
+                f"Using custom install overrides: {overrides_dict}",
+                err=True,
+            )
 
         prior_skip_download = os.environ.get("PUPPETEER_SKIP_DOWNLOAD")
         prior_skip_chromium_download = os.environ.get(
@@ -94,10 +108,7 @@ def main(
             os.environ["PUPPETEER_SKIP_CHROMIUM_DOWNLOAD"] = "true"
 
         binary = Binary(
-            name=name,
-            min_version=SemVer(min_version) if min_version else None,
-            binproviders=[provider],
-            overrides=overrides_dict or {},
+            **{**request_kwargs, "binproviders": [provider]},
         ).load_or_install()
     except Exception as e:
         click.echo(f"npm install failed: {e}", err=True)

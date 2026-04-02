@@ -19,19 +19,29 @@
 
 import subprocess
 import sys
+import json
 
-from abx_plugins.plugins.base.utils import emit_installed_binary_record
+from abx_plugins.plugins.base.utils import (
+    emit_installed_binary_record,
+)
 
 import rich_click as click
-from pydantic import ConfigDict, TypeAdapter
 
-from abx_pkg import Binary, BinaryOverrides, EnvProvider
+from abx_pkg import Binary, EnvProvider
 
 
-OverridesDict = TypeAdapter(
-    BinaryOverrides,
-    config=ConfigDict(arbitrary_types_allowed=True),
-)
+def _parse_extra_hook_args(args: list[str]) -> dict[str, object]:
+    parsed: dict[str, object] = {}
+    for arg in args:
+        if not arg.startswith("--") or "=" not in arg:
+            continue
+        key, raw_value = arg[2:].split("=", 1)
+        try:
+            value = json.loads(raw_value)
+        except json.JSONDecodeError:
+            value = raw_value
+        parsed[key.replace("-", "_")] = value
+    return parsed
 
 
 @click.command(
@@ -53,7 +63,16 @@ def main(
         click.echo(f"custom provider not allowed for {name}", err=True)
         sys.exit(0)
 
-    custom_overrides = OverridesDict.validate_json(overrides)["custom"]
+    extra_kwargs = _parse_extra_hook_args(click.get_current_context().args)
+    overrides_dict = json.loads(overrides)
+    request_kwargs = {
+        **extra_kwargs,
+        "name": name,
+        "binproviders": binproviders,
+        "min_version": min_version or None,
+        "overrides": overrides_dict,
+    }
+    custom_overrides = overrides_dict["custom"]
     if "install" not in custom_overrides:
         click.echo("Custom provider requires overrides.custom.install", err=True)
         sys.exit(1)
@@ -77,13 +96,18 @@ def main(
     # Use abx-pkg to load the binary and get its info
     provider = EnvProvider()
     try:
-        binary = Binary(name=name, binproviders=[provider]).load()
+        binary_kwargs = {**request_kwargs, "binproviders": [provider]}
+        binary = Binary(**binary_kwargs).load()
     except Exception:
         try:
             binary = Binary(
-                name=name,
-                binproviders=[provider],
-                overrides={"env": {"version": "0.0.1"}},
+                **{
+                    **binary_kwargs,
+                    "overrides": {
+                        **overrides_dict,
+                        "env": {"version": "0.0.1"},
+                    },
+                },
             ).load()
         except Exception as e:
             click.echo(f"{name} not found after custom install: {e}", err=True)

@@ -16,6 +16,7 @@ Usage: on_BinaryRequest__12_puppeteer.py --name=<name>
 Output: Binary JSONL record to stdout after installation
 """
 
+import json
 import os
 import re
 import shutil
@@ -24,8 +25,7 @@ from pathlib import Path
 from typing import cast
 
 import rich_click as click
-from pydantic import ConfigDict, TypeAdapter
-from abx_pkg import Binary, BinaryOverrides, EnvProvider, HandlerDict, NpmProvider
+from abx_pkg import Binary, EnvProvider, HandlerDict, NpmProvider
 from abx_pkg.semver import bin_version
 
 from abx_plugins.plugins.base.utils import (
@@ -37,10 +37,20 @@ CLAUDE_SANDBOX_NO_PROXY = (
     "localhost,127.0.0.1,169.254.169.254,metadata.google.internal,"
     ".svc.cluster.local,.local"
 )
-OverridesDict = TypeAdapter(
-    BinaryOverrides,
-    config=ConfigDict(arbitrary_types_allowed=True),
-)
+
+
+def _parse_extra_hook_args(args: list[str]) -> dict[str, object]:
+    parsed: dict[str, object] = {}
+    for arg in args:
+        if not arg.startswith("--") or "=" not in arg:
+            continue
+        key, raw_value = arg[2:].split("=", 1)
+        try:
+            value = json.loads(raw_value)
+        except json.JSONDecodeError:
+            value = raw_value
+        parsed[key.replace("-", "_")] = value
+    return parsed
 
 
 @click.command(
@@ -74,6 +84,17 @@ def main(
     )
     cache_dir.mkdir(parents=True, exist_ok=True)
     os.environ["PUPPETEER_CACHE_DIR"] = str(cache_dir)
+    abx_pkg_args = _parse_extra_hook_args(click.get_current_context().args)
+    overrides_dict = json.loads(overrides) if overrides else {}
+    npm_overrides = dict(overrides_dict.get("npm", {}))
+    npm_overrides.setdefault("install_args", ["puppeteer"])
+    package_overrides = {**overrides_dict, "npm": npm_overrides}
+    puppeteer_kwargs = {
+        **abx_pkg_args,
+        "name": "puppeteer",
+        "binproviders": [npm_provider],
+        "overrides": package_overrides,
+    }
 
     # Fast-path: if CHROME_BINARY is already available in env, reuse it and avoid
     # a full `puppeteer browsers install` call for this invocation.
@@ -87,11 +108,7 @@ def main(
             )
             sys.exit(0)
 
-    puppeteer_binary = Binary(
-        name="puppeteer",
-        binproviders=[npm_provider],
-        overrides={"npm": {"install_args": ["puppeteer"]}},
-    ).load_or_install()
+    puppeteer_binary = Binary(**puppeteer_kwargs).load_or_install()
 
     if not puppeteer_binary.abspath:
         click.echo(
@@ -101,7 +118,7 @@ def main(
         sys.exit(1)
 
     install_args = _parse_override_install_args(
-        overrides,
+        overrides_dict,
         default=[f"{name}@latest", "--install-deps"],
     )
     proc = _run_puppeteer_install(
@@ -114,11 +131,7 @@ def main(
     ):
         click.echo("Detected broken puppeteer CLI, reinstalling package...", err=True)
         npm_provider.install("puppeteer")
-        puppeteer_binary = Binary(
-            name="puppeteer",
-            binproviders=[npm_provider],
-            overrides={"npm": {"install_args": ["puppeteer"]}},
-        ).load()
+        puppeteer_binary = Binary(**puppeteer_kwargs).load()
         proc = _run_puppeteer_install(
             binary=puppeteer_binary,
             install_args=install_args,
@@ -147,12 +160,12 @@ def main(
 
 
 def _parse_override_install_args(
-    overrides: str | None,
+    overrides: dict[str, object],
     default: list[str],
 ) -> list[str]:
     if not overrides:
         return default
-    provider_overrides = OverridesDict.validate_json(overrides).get("puppeteer")
+    provider_overrides = overrides.get("puppeteer")
     if not provider_overrides or "install_args" not in provider_overrides:
         return default
     install_args = provider_overrides["install_args"]

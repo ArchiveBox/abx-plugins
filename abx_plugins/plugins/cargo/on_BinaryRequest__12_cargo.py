@@ -22,10 +22,25 @@ import json
 import sys
 
 import rich_click as click
-from abx_pkg import Binary, CargoProvider, SemVer
-from abx_pkg.binprovider import HandlerDict
+from abx_pkg import Binary, CargoProvider
 
-from abx_plugins.plugins.base.utils import emit_installed_binary_record
+from abx_plugins.plugins.base.utils import (
+    emit_installed_binary_record,
+)
+
+
+def _parse_extra_hook_args(args: list[str]) -> dict[str, object]:
+    parsed: dict[str, object] = {}
+    for arg in args:
+        if not arg.startswith("--") or "=" not in arg:
+            continue
+        key, raw_value = arg[2:].split("=", 1)
+        try:
+            value = json.loads(raw_value)
+        except json.JSONDecodeError:
+            value = raw_value
+        parsed[key.replace("-", "_")] = value
+    return parsed
 
 
 @click.command(
@@ -47,7 +62,7 @@ def main(
         click.echo(f"cargo provider not allowed for {name}", err=True)
         sys.exit(0)
 
-    provider = CargoProvider()
+    provider = CargoProvider(postinstall_scripts=True, min_release_age=0)
     if not provider.INSTALLER_BIN_ABSPATH:
         click.echo("cargo not available on this system", err=True)
         sys.exit(0)
@@ -55,32 +70,23 @@ def main(
     click.echo(f"Resolving {name} via cargo (load or install)...", err=True)
 
     try:
-        overrides_dict: dict[str, HandlerDict] = {}
-        if overrides:
-            try:
-                parsed_overrides = json.loads(overrides)
-                if not isinstance(parsed_overrides, dict):
-                    raise json.JSONDecodeError(
-                        "overrides must be an object",
-                        overrides,
-                        0,
-                    )
-                overrides_dict = parsed_overrides
-                click.echo(
-                    f"Using custom install overrides: {overrides_dict}",
-                    err=True,
-                )
-            except json.JSONDecodeError:
-                click.echo(
-                    f"Warning: Failed to parse overrides JSON: {overrides}",
-                    err=True,
-                )
+        extra_kwargs = _parse_extra_hook_args(click.get_current_context().args)
+        overrides_dict = json.loads(overrides) if overrides else {}
+        if overrides_dict:
+            click.echo(
+                f"Using custom install overrides: {overrides_dict}",
+                err=True,
+            )
 
+        request_kwargs = {
+            **extra_kwargs,
+            "name": name,
+            "binproviders": binproviders,
+            "min_version": min_version or None,
+            "overrides": overrides_dict,
+        }
         binary = Binary(
-            name=name,
-            min_version=SemVer(min_version) if min_version else None,
-            binproviders=[provider],
-            overrides=overrides_dict,
+            **{**request_kwargs, "binproviders": [provider]},
         ).load_or_install()
     except Exception as e:
         click.echo(f"cargo install failed: {e}", err=True)

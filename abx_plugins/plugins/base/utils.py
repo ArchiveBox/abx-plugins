@@ -80,6 +80,30 @@ def _parse_config_value(value: str) -> Any:
         return value
 
 
+def parse_extra_hook_args(args: list[str]) -> dict[str, Any]:
+    """Parse unknown Click hook args, accepting both JSON and plain strings."""
+    parsed: dict[str, Any] = {}
+    idx = 0
+    while idx < len(args):
+        arg = str(args[idx])
+        idx += 1
+        if not arg.startswith("--"):
+            continue
+
+        if "=" in arg:
+            raw_key, raw_value = arg[2:].split("=", 1)
+        else:
+            raw_key = arg[2:]
+            if idx < len(args) and not str(args[idx]).startswith("--"):
+                raw_value = str(args[idx])
+                idx += 1
+            else:
+                raw_value = "true"
+
+        parsed[raw_key.replace("-", "_")] = _parse_config_value(raw_value)
+    return parsed
+
+
 def _schema_types(prop: Mapping[str, Any]) -> set[str]:
     raw_type = prop["type"] if "type" in prop else None
     if isinstance(raw_type, str):
