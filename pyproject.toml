@@ -20,7 +20,7 @@ classifiers = [
     "Environment :: Console",
 ]
 dependencies = [
-    "abx-pkg>=1.9.19",
+    "abx-pkg>=1.9.20",
     "jambo>=0.1.7",
     "rich-click>=1.9.7",
 ]

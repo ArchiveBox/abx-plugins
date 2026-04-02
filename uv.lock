@@ -3,25 +3,52 @@ revision = 3
 requires-python = ">=3.11"
 
 [options]
-exclude-newer = "2026-03-19T07:03:05.022971Z"
+exclude-newer = "2026-03-19T07:05:31.545849Z"
 exclude-newer-span = "P14D"
 
 [options.exclude-newer-package]
-abx-pkg = { timestamp = "2026-04-02T07:03:04.022975Z", span = "PT1S" }
+abx-pkg = { timestamp = "2026-04-02T07:05:30.545859Z", span = "PT1S" }
 
 [[package]]
 name = "abx-pkg"
-version = "1.9.20"
-source = { registry = "https://pypi.org/simple" }
+version = "1.9.21"
+source = { editable = "../abx-pkg" }
 dependencies = [
     { name = "pip" },
     { name = "platformdirs" },
     { name = "pydantic" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/10/b5/e5bf84626c70b0ca65e9a0050f303751f63c041447cf72364372a3279b54/abx_pkg-1.9.20.tar.gz", hash = "sha256:e2ed1386fec67e1a7effd2e410e34977ba005683cbafe6eced7ddcd094529717", size = 166772, upload-time = "2026-04-02T06:27:12.966Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/66/f9/666a4c1528a4e00d2c35ac5ab7f47b5a3af9a1c6e82396441b7d9801ff9a/abx_pkg-1.9.20-py3-none-any.whl", hash = "sha256:6779681402b48ad5cac7ad84ed84ae40635ed52dfa4e73b92267c051424f95b9", size = 68758, upload-time = "2026-04-02T06:27:13.91Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "abx-pkg", extras = ["rich", "pyinfra", "ansible"], marker = "extra == 'all'" },
+    { name = "ansible", marker = "extra == 'ansible'", specifier = ">=12.3.0" },
+    { name = "ansible-core", marker = "extra == 'ansible'", specifier = ">=2.0.0" },
+    { name = "ansible-runner", marker = "extra == 'ansible'", specifier = ">=2.4.2" },
+    { name = "pip", specifier = ">=26.0.1" },
+    { name = "platformdirs", specifier = ">=4.9.2" },
+    { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "pyinfra", marker = "extra == 'pyinfra'", specifier = ">=3.6.1" },
+    { name = "rich", marker = "extra == 'rich'", specifier = ">=14.0.0" },
+    { name = "typing-extensions", specifier = ">=4.15.0" },
+]
+provides-extras = ["rich", "pyinfra", "ansible", "all"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "django", specifier = ">=4.0" },
+    { name = "django-admin-data-views", specifier = ">=0.3.1" },
+    { name = "django-jsonform", specifier = ">=2.22.0" },
+    { name = "django-pydantic-field", specifier = ">=0.3.9" },
+    { name = "django-stubs", specifier = ">=5.0.0" },
+    { name = "mypy", specifier = ">=1.19.1" },
+    { name = "prek", specifier = ">=0.3.6" },
+    { name = "pyright" },
+    { name = "pytest", specifier = ">=9.0.2" },
+    { name = "rich", specifier = ">=14.0.0" },
+    { name = "ruff", specifier = ">=0.15.7" },
+    { name = "ty", specifier = ">=0.0.24" },
 ]
 
 [[package]]
@@ -53,7 +80,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx-pkg", specifier = ">=1.9.19" },
+    { name = "abx-pkg", editable = "../abx-pkg" },
     { name = "feedparser", marker = "extra == 'dev'", specifier = ">=6.0.0" },
     { name = "jambo", specifier = ">=0.1.7" },
     { name = "jinja2", marker = "extra == 'dev'", specifier = ">=3.1.0" },
