@@ -133,7 +133,7 @@ class TestRssVariants:
         assert result.returncode == 0
         # Output goes to stdout (JSONL)
         content = result.stdout.strip()
-        lines = content.split("\n")
+        lines = [line for line in content.split("\n") if line.strip().startswith("{")]
 
         # Check for Tag records
         tags = [json.loads(line) for line in lines if json.loads(line)["type"] == "Tag"]
@@ -186,7 +186,11 @@ class TestAtomVariants:
 
         assert result.returncode == 0
         # Output goes to stdout (JSONL)
-        lines = [line for line in result.stdout.strip().split("\n") if line.strip()]
+        lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if line.strip().startswith("{")
+        ]
 
         tags = [
             json.loads(line) for line in lines if json.loads(line).get("type") == "Tag"
@@ -428,7 +432,11 @@ class TestTagsAndCategories:
 
         assert result.returncode == 0
         # Output goes to stdout (JSONL)
-        lines = [line for line in result.stdout.strip().split("\n") if line.strip()]
+        lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if line.strip().startswith("{")
+        ]
 
         tags = [
             json.loads(line) for line in lines if json.loads(line).get("type") == "Tag"
@@ -471,7 +479,11 @@ class TestTagsAndCategories:
 
         assert result.returncode == 0
         # Output goes to stdout (JSONL)
-        lines = [line for line in result.stdout.strip().split("\n") if line.strip()]
+        lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if line.strip().startswith("{")
+        ]
 
         tags = [
             json.loads(line) for line in lines if json.loads(line).get("type") == "Tag"
@@ -538,7 +550,11 @@ class TestTagsAndCategories:
 
         assert result.returncode == 0
         # Output goes to stdout (JSONL)
-        lines = [line for line in result.stdout.strip().split("\n") if line.strip()]
+        lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if line.strip().startswith("{")
+        ]
         tags = [
             json.loads(line) for line in lines if json.loads(line).get("type") == "Tag"
         ]
@@ -806,7 +822,11 @@ class TestEdgeCases:
 
         assert result.returncode == 0
         # Output goes to stdout (JSONL)
-        lines = [line for line in result.stdout.strip().split("\n") if line.strip()]
+        lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if line.strip().startswith("{")
+        ]
 
         tags = [
             json.loads(line) for line in lines if json.loads(line).get("type") == "Tag"
@@ -913,7 +933,11 @@ class TestEdgeCases:
 
         assert result.returncode == 0
         # Output goes to stdout (JSONL)
-        lines = [line for line in result.stdout.strip().split("\n") if line.strip()]
+        lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if line.strip().startswith("{")
+        ]
 
         snapshots = [
             json.loads(line) for line in lines if json.loads(line)["type"] == "Snapshot"
@@ -990,7 +1014,11 @@ class TestEdgeCases:
         assert "URLs parsed" in result.stderr or "URLs parsed" in result.stdout
 
         # Output goes to stdout (JSONL)
-        lines = [line for line in result.stdout.strip().split("\n") if line.strip()]
+        lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if line.strip().startswith("{")
+        ]
 
         # Should have 10 unique tags (Tag0-Tag9) + 100 snapshots
         tags = [

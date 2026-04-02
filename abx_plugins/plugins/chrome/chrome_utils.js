@@ -583,7 +583,6 @@ async function killZombieChrome(snapDir = null, options = {}) {
 
         for (const {pidFile, hookName, sessionDir} of hookPids) {
             const resolvedCrawlDir = findOwningCrawlDir(sessionDir);
-            const ownerPid = getHeartbeatOwnerPid(resolvedCrawlDir);
 
             try {
                 const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
@@ -594,7 +593,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
                     continue;
                 }
                 handledHookPids.add(pid);
-                if (crawlHeartbeatIsAlive(resolvedCrawlDir) && processHasAncestorPid(pid, ownerPid)) {
+                if (crawlHeartbeatIsAlive(resolvedCrawlDir)) {
                     continue;
                 }
 
@@ -630,8 +629,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
                 ? path.dirname(currentWorkingDir)
                 : currentWorkingDir;
             const resolvedCrawlDir = findOwningCrawlDir(sessionDir);
-            const ownerPid = getHeartbeatOwnerPid(resolvedCrawlDir);
-            if (crawlHeartbeatIsAlive(resolvedCrawlDir) && processHasAncestorPid(pid, ownerPid)) {
+            if (crawlHeartbeatIsAlive(resolvedCrawlDir)) {
                 continue;
             }
             if (!quiet) {
@@ -943,6 +941,7 @@ async function launchChromium(options = {}) {
             // misconfiguration still fails fast and loudly.
             const isTransientStartupFailure =
                 lastError.includes('Chromium exited before opening the debug port') ||
+                lastError.includes('Timeout waiting for Chrome debug port') ||
                 lastError.includes('Chromium exited during startup') ||
                 lastError.includes('Chromium exited after opening the debug port') ||
                 lastError.includes('Chromium CDP session not stable after startup');
@@ -3526,6 +3525,12 @@ async function closeBrowserInChromeSession(options = {}) {
         }
     } else if (cdpUrl) {
         closed = await waitForBrowserEndpointGone(cdpUrl, forceKillTimeoutMs);
+        if (closed && debugPort) {
+            const relatedPids = findChromeProcessesByPort(debugPort);
+            if (relatedPids.length > 0) {
+                closed = await killChrome(relatedPids[0], outputDir);
+            }
+        }
     }
 
     if (outputDir && closed) {

@@ -429,7 +429,10 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
         }},
     );
     console.log(JSON.stringify(result));
-}})();
+}})().catch(err => {{
+    console.error(err && err.stack || err);
+    process.exit(1);
+}});
 """
     script_path = script_dir / "check_ads.js"
     script_path.write_text(f"#!/usr/bin/env node\n{test_script}", encoding="utf-8")
@@ -762,6 +765,8 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
 
             print("Waiting for uBlock filter lists to download and initialize...")
             time.sleep(30)
+            kill_chromium_session(ext_process, ext_chrome_dir)
+            ext_process = None
 
             for attempt in range(1, max_attempts + 1):
                 print("\n" + "=" * 60)
@@ -821,7 +826,42 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                 print(f"STEP 3.{attempt}: TEST WITH EXTENSION")
                 print("=" * 60)
 
-                ext_result = check_ad_blocking(ext_cdp_url, TEST_URL, ext_env, tmpdir)
+                ext_attempt_env = ext_env.copy()
+                ext_attempt_crawl_id = f"test-with-ext-{attempt}"
+                ext_attempt_crawl_dir = crawl_root / ext_attempt_crawl_id
+                ext_attempt_crawl_dir.mkdir(parents=True, exist_ok=True)
+                ext_attempt_chrome_dir = ext_attempt_crawl_dir / "chrome"
+                ext_attempt_env["CRAWL_DIR"] = str(ext_attempt_crawl_dir)
+                ext_attempt_process = None
+
+                try:
+                    ext_attempt_process, ext_attempt_cdp_url = launch_chromium_session(
+                        ext_attempt_env,
+                        ext_attempt_chrome_dir,
+                        ext_attempt_crawl_id,
+                        timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+                    )
+                    wait_for_extensions_metadata(
+                        ext_attempt_chrome_dir,
+                        timeout_seconds=10,
+                    )
+                    ext_result = check_ad_blocking(
+                        ext_attempt_cdp_url,
+                        TEST_URL,
+                        ext_attempt_env,
+                        tmpdir,
+                    )
+                except RuntimeError as err:
+                    attempt_failures.append(
+                        f"attempt {attempt}: extension check failed: {err}",
+                    )
+                    continue
+                finally:
+                    if ext_attempt_process:
+                        kill_chromium_session(
+                            ext_attempt_process,
+                            ext_attempt_chrome_dir,
+                        )
                 print(
                     f"Extension result: {ext_result['adElementsVisible']} visible ads "
                     f"(found {ext_result['adElementsFound']} ad elements, "

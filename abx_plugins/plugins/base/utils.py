@@ -216,13 +216,32 @@ def _resolve_schema_payload(
                 continue
 
             fallback_key = prop["x-fallback"] if "x-fallback" in prop else None
-            if fallback_key and fallback_key in resolved:
-                fallback_value = resolved[fallback_key]
-                if payload.get(key) != fallback_value:
-                    payload[key] = fallback_value
-                    resolved[key] = fallback_value
-                    changed = True
-                continue
+            if fallback_key:
+                fallback_raw_value, fallback_found, fallback_persisted = (
+                    _lookup_raw_value(
+                        [str(fallback_key)],
+                        environ=environ,
+                        user_config=user_config,
+                    )
+                )
+                if fallback_found:
+                    fallback_value = _coerce_raw_value(
+                        fallback_raw_value,
+                        prop,
+                        persisted=fallback_persisted,
+                    )
+                    if payload.get(key) != fallback_value:
+                        payload[key] = fallback_value
+                        resolved[key] = fallback_value
+                        changed = True
+                    continue
+                if fallback_key in resolved:
+                    fallback_value = resolved[fallback_key]
+                    if payload.get(key) != fallback_value:
+                        payload[key] = fallback_value
+                        resolved[key] = fallback_value
+                        changed = True
+                    continue
 
             if "default" in prop and payload.get(key) != prop["default"]:
                 payload[key] = prop["default"]

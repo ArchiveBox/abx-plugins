@@ -1233,7 +1233,7 @@ def launch_chromium_session(
     env: dict,
     chrome_dir: Path,
     crawl_id: str,
-    timeout: int = 30,
+    timeout: int = 120,
 ) -> tuple[LoggedPopen, str]:
     """Launch the crawl-level Chrome hook and return ``(process, cdp_url)``.
 

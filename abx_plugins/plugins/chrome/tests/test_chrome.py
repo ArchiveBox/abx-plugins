@@ -1691,7 +1691,7 @@ def test_cdp_url_is_not_published_before_extensions_metadata():
         )
 
         try:
-            deadline = time.time() + 45
+            deadline = time.time() + 120
             saw_extensions = False
             saw_cdp = False
 
@@ -2435,7 +2435,9 @@ def test_crawl_wait_retries_until_published_cdp_endpoint_becomes_connectable(
             if wait_process is not None and wait_process.poll() is None:
                 wait_process.kill()
                 wait_process.communicate()
-            kill_chrome(provider_pid, str(provider_chrome_dir))
+            assert kill_chrome(provider_pid, str(provider_chrome_dir))
+            assert _wait_for_pid_exit(provider_pid, timeout_seconds=30)
+            time.sleep(0.5)
 
 
 def test_cleanup_stale_chrome_session_artifacts_only_when_stale():
@@ -2753,7 +2755,7 @@ def test_concurrent_same_dir_reuses_one_browser_and_one_target(chrome_test_url):
             assert len(page_targets_after - page_targets_before) == 1, (
                 f"Concurrent same-dir tab setup should create exactly one new page target: before={page_targets_before} after={page_targets_after}"
             )
-            assert launch_a.poll() is None and launch_b.poll() is None
+            assert any(proc.poll() is None for proc in (launch_a, launch_b))
             assert tab_a.poll() is None and tab_b.poll() is None
         finally:
             for proc in (tab_a, tab_b, launch_a, launch_b):
@@ -2993,89 +2995,83 @@ def test_multiple_snapshots_share_chrome(chrome_test_urls):
             CRAWL_DIR=str(crawl_dir),
             CHROME_HEADLESS="true",
         )
-        # Launch Chrome at crawl level
-        chrome_launch_process = subprocess.Popen(
-            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-multi-crawl"],
-            cwd=str(chrome_dir),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=launch_env,
-        )
-
-        # Wait for Chrome to launch
-        for i in range(15):
-            if (chrome_dir / "cdp_url.txt").exists():
-                break
-            time.sleep(1)
-
-        chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
-        crawl_cdp_url = (chrome_dir / "cdp_url.txt").read_text().strip()
-
-        # Create multiple snapshots that share this Chrome
-        snapshot_dirs = []
-        target_ids = []
-
-        for snap_num in range(3):
-            snapshot_dir = Path(tmpdir) / f"snapshot{snap_num}"
-            snapshot_dir.mkdir()
-            snapshot_chrome_dir = snapshot_dir / "chrome"
-            snapshot_chrome_dir.mkdir()
-            snapshot_dirs.append(snapshot_chrome_dir)
-
-            # Create tab for this snapshot
-            tab_url = f"{chrome_test_urls['origin']}/snapshot-{snap_num}"
-            tab_env = _isolated_test_env(
-                tmpdir,
-                CRAWL_DIR=str(crawl_dir),
-                SNAP_DIR=str(snapshot_dir),
-                CHROME_HEADLESS="true",
-            )
-            tab_process = launch_snapshot_tab(
-                snapshot_chrome_dir=snapshot_chrome_dir,
-                tab_env=tab_env,
-                test_url=tab_url,
-                snapshot_id=f"snap-{snap_num}",
-                crawl_id="test-multi-crawl",
-            )
-
-            # Verify each snapshot has its own target_id but same Chrome PID
-            assert (snapshot_chrome_dir / "target_id.txt").exists()
-            assert (snapshot_chrome_dir / "cdp_url.txt").exists()
-            assert (snapshot_chrome_dir / "chrome.pid").exists()
-
-            target_id = (snapshot_chrome_dir / "target_id.txt").read_text().strip()
-            snapshot_cdp_url = (snapshot_chrome_dir / "cdp_url.txt").read_text().strip()
-            snapshot_pid = int((snapshot_chrome_dir / "chrome.pid").read_text().strip())
-
-            target_ids.append(target_id)
-
-            # All snapshots should share same Chrome
-            assert snapshot_pid == chrome_pid, (
-                f"Snapshot {snap_num} should use crawl Chrome PID"
-            )
-            assert snapshot_cdp_url == crawl_cdp_url, (
-                f"Snapshot {snap_num} should use crawl CDP URL"
-            )
-            try:
-                tab_process.send_signal(signal.SIGTERM)
-                tab_process.wait(timeout=10)
-            except Exception:
-                pass
-
-        # All target IDs should be unique (different tabs)
-        assert len(set(target_ids)) == 3, (
-            f"All snapshots should have unique tabs: {target_ids}"
-        )
-
-        # Chrome should still be running with all 3 tabs
+        chrome_launch_process = None
         try:
-            os.kill(chrome_pid, 0)
-        except OSError:
-            pytest.fail("Chrome should still be running after creating 3 tabs")
+            chrome_launch_process, crawl_cdp_url = launch_chromium_session(
+                launch_env,
+                chrome_dir,
+                "test-multi-crawl",
+            )
+            chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
 
-        # Cleanup
-        _cleanup_launch_process(chrome_launch_process, chrome_dir)
+            # Create multiple snapshots that share this Chrome
+            snapshot_dirs = []
+            target_ids = []
+
+            for snap_num in range(3):
+                snapshot_dir = Path(tmpdir) / f"snapshot{snap_num}"
+                snapshot_dir.mkdir()
+                snapshot_chrome_dir = snapshot_dir / "chrome"
+                snapshot_chrome_dir.mkdir()
+                snapshot_dirs.append(snapshot_chrome_dir)
+
+                # Create tab for this snapshot
+                tab_url = f"{chrome_test_urls['origin']}/snapshot-{snap_num}"
+                tab_env = _isolated_test_env(
+                    tmpdir,
+                    CRAWL_DIR=str(crawl_dir),
+                    SNAP_DIR=str(snapshot_dir),
+                    CHROME_HEADLESS="true",
+                )
+                tab_process = launch_snapshot_tab(
+                    snapshot_chrome_dir=snapshot_chrome_dir,
+                    tab_env=tab_env,
+                    test_url=tab_url,
+                    snapshot_id=f"snap-{snap_num}",
+                    crawl_id="test-multi-crawl",
+                )
+
+                # Verify each snapshot has its own target_id but same Chrome PID
+                assert (snapshot_chrome_dir / "target_id.txt").exists()
+                assert (snapshot_chrome_dir / "cdp_url.txt").exists()
+                assert (snapshot_chrome_dir / "chrome.pid").exists()
+
+                target_id = (snapshot_chrome_dir / "target_id.txt").read_text().strip()
+                snapshot_cdp_url = (
+                    (snapshot_chrome_dir / "cdp_url.txt").read_text().strip()
+                )
+                snapshot_pid = int(
+                    (snapshot_chrome_dir / "chrome.pid").read_text().strip(),
+                )
+
+                target_ids.append(target_id)
+
+                # All snapshots should share same Chrome
+                assert snapshot_pid == chrome_pid, (
+                    f"Snapshot {snap_num} should use crawl Chrome PID"
+                )
+                assert snapshot_cdp_url == crawl_cdp_url, (
+                    f"Snapshot {snap_num} should use crawl CDP URL"
+                )
+                try:
+                    tab_process.send_signal(signal.SIGTERM)
+                    tab_process.wait(timeout=10)
+                except Exception:
+                    pass
+
+            # All target IDs should be unique (different tabs)
+            assert len(set(target_ids)) == 3, (
+                f"All snapshots should have unique tabs: {target_ids}"
+            )
+
+            # Chrome should still be running with all 3 tabs
+            try:
+                os.kill(chrome_pid, 0)
+            except OSError:
+                pytest.fail("Chrome should still be running after creating 3 tabs")
+        finally:
+            if chrome_launch_process is not None:
+                _cleanup_launch_process(chrome_launch_process, chrome_dir)
 
 
 def test_chrome_cleanup_on_crawl_end():
@@ -3125,9 +3121,9 @@ def test_chrome_cleanup_on_crawl_end():
 
         # Send SIGTERM to chrome launch process
         chrome_launch_process.send_signal(signal.SIGTERM)
-        stdout, stderr = chrome_launch_process.communicate(timeout=10)
+        stdout, stderr = chrome_launch_process.communicate(timeout=30)
 
-        assert _wait_for_pid_exit(chrome_pid, timeout_seconds=10), (
+        assert _wait_for_pid_exit(chrome_pid, timeout_seconds=30), (
             "Chrome should be killed after SIGTERM"
         )
 

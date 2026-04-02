@@ -334,6 +334,9 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                     text=True,
                 )
                 assert config.returncode == 0, config.stderr
+                assert (
+                    Path(env["CRAWL_DIR"]) / "chrome" / ".twocaptcha_configured"
+                ).exists()
 
                 hook_dir = snapshot_chrome_dir.parent / "twocaptcha"
                 hook_dir.mkdir(parents=True, exist_ok=True)

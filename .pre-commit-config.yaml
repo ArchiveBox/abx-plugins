@@ -17,11 +17,6 @@ repos:
       - id: pyupgrade
         args: [--py311-plus]
 
-  - repo: https://github.com/asottile/add-trailing-comma
-    rev: v3.1.0
-    hooks:
-      - id: add-trailing-comma
-
   - repo: local
     hooks:
       - id: ruff-format
@@ -58,6 +53,11 @@ repos:
       #   language: system
       #   files: ^abx_plugins/plugins/.*\.js$
       # see pyproject.toml for more details on ruff config
+
+  - repo: https://github.com/asottile/add-trailing-comma
+    rev: v3.1.0
+    hooks:
+      - id: add-trailing-comma
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0

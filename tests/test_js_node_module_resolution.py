@@ -168,7 +168,7 @@ Module._load = function(request, parent, isMain) {
     )
 
     assert result.returncode == 0, result.stderr
-    assert "pid=4321" in result.stderr
+    assert "pid=4321" in result.stdout
     assert "Cannot find module 'puppeteer'" not in result.stderr
 
 
@@ -196,6 +196,9 @@ def test_chrome_launch_prerequisites_wait_for_late_installs(tmp_path: Path) -> N
     writer.start()
 
     env = os.environ.copy()
+    env.pop("NODE_MODULES_DIR", None)
+    env.pop("NODE_MODULE_DIR", None)
+    env.pop("NODE_PATH", None)
     env["LIB_DIR"] = str(lib_dir)
     env["CHROME_BINARY"] = str(chrome_binary)
 

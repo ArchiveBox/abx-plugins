@@ -870,7 +870,13 @@ class TestEdgeCases:
 
         # Current regex requires non-empty title [^<]+, so this input produces no valid records.
         assert result.returncode == 0
-        result_json = json.loads(result.stdout.strip())
+        result_json = json.loads(
+            next(
+                line
+                for line in result.stdout.strip().split("\n")
+                if line.strip().startswith("{")
+            ),
+        )
         assert result_json["type"] == "ArchiveResult"
         assert result_json["status"] == "noresults"
         assert result_json["output_str"] == "0 URLs parsed"

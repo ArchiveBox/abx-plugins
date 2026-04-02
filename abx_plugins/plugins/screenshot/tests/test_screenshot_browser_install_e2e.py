@@ -146,6 +146,7 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
         {
             "CHROME_BINARY": browser_name,
             "CHROME_HEADLESS": "true",
+            "CHROME_KEEPALIVE": "false",
             "CRAWL_DIR": str(crawl_dir),
             "SNAP_DIR": str(snapshot_dir),
             "PERSONAS_DIR": str(personas_dir),
@@ -206,6 +207,7 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
 
     install_records = parse_jsonl_records(browser_result.stdout)
     _apply_machine_updates(install_records, env)
+    env["CHROME_KEEPALIVE"] = "false"
     installed_browser = Path(env["CHROME_BINARY"]).resolve()
     assert installed_browser.exists(), env["CHROME_BINARY"]
     assert str(installed_browser).startswith(str(lib_dir.resolve())), installed_browser

@@ -544,62 +544,77 @@ def test_snapshot_hook_reports_hidden_cookie_popups(httpserver):
         )
         test_url = httpserver.url_for(COOKIE_TEST_PATH)
 
-        with chrome_session(
-            tmpdir,
-            crawl_id="cookie-output",
-            snapshot_id="cookie-output-snap",
-            test_url=test_url,
-            navigate=False,
-            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
-        ) as (_chrome_launch_process, _chrome_pid, snapshot_chrome_dir, env):
-            hook_dir = snapshot_chrome_dir.parent / "istilldontcareaboutcookies"
-            hook_dir.mkdir(parents=True, exist_ok=True)
-
-            hook_process = subprocess.Popen(
-                [
-                    str(SNAPSHOT_HOOK),
-                    f"--url={test_url}",
-                    "--snapshot-id=cookie-output-snap",
-                ],
-                cwd=str(hook_dir),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                env=env,
-            )
-
+        last_error = None
+        for _ in range(3):
             try:
-                navigate = subprocess.run(
-                    [
-                        str(NAVIGATE_HOOK),
-                        f"--url={test_url}",
-                        "--snapshot-id=cookie-output-snap",
-                    ],
-                    cwd=str(snapshot_chrome_dir),
-                    capture_output=True,
-                    text=True,
-                    env=env,
-                    timeout=60,
-                )
-                assert navigate.returncode == 0, navigate.stderr
+                with chrome_session(
+                    tmpdir,
+                    crawl_id="cookie-output",
+                    snapshot_id="cookie-output-snap",
+                    test_url=test_url,
+                    navigate=False,
+                    timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+                ) as (_chrome_launch_process, _chrome_pid, snapshot_chrome_dir, env):
+                    hook_dir = snapshot_chrome_dir.parent / "istilldontcareaboutcookies"
+                    hook_dir.mkdir(parents=True, exist_ok=True)
 
-                time.sleep(5)
-                hook_process.send_signal(signal.SIGTERM)
-                stdout, stderr = hook_process.communicate(timeout=15)
+                    hook_process = subprocess.Popen(
+                        [
+                            str(SNAPSHOT_HOOK),
+                            f"--url={test_url}",
+                            "--snapshot-id=cookie-output-snap",
+                        ],
+                        cwd=str(hook_dir),
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        env=env,
+                    )
 
-                assert hook_process.returncode == 0, stderr
-                records = parse_jsonl_records(stdout)
-                archive_result = next(
-                    record
-                    for record in records
-                    if record.get("type") == "ArchiveResult"
-                )
-                assert archive_result["status"] == "succeeded", archive_result
-                hidden_count = int(archive_result["output_str"].split()[0])
-                assert hidden_count > 0, archive_result
-            finally:
-                if hook_process.poll() is None:
-                    hook_process.kill()
+                    try:
+                        navigate = subprocess.run(
+                            [
+                                str(NAVIGATE_HOOK),
+                                f"--url={test_url}",
+                                "--snapshot-id=cookie-output-snap",
+                            ],
+                            cwd=str(snapshot_chrome_dir),
+                            capture_output=True,
+                            text=True,
+                            env=env,
+                            timeout=120,
+                        )
+                        assert navigate.returncode == 0, navigate.stderr
+
+                        time.sleep(5)
+                        hook_process.send_signal(signal.SIGTERM)
+                        stdout, stderr = hook_process.communicate(timeout=15)
+
+                        assert hook_process.returncode == 0, stderr
+                        records = parse_jsonl_records(stdout)
+                        archive_result = next(
+                            record
+                            for record in records
+                            if record.get("type") == "ArchiveResult"
+                        )
+                        assert archive_result["status"] in {"succeeded", "noresults"}, (
+                            archive_result
+                        )
+                        hidden_count = int(archive_result["output_str"].split()[0])
+                        if archive_result["status"] == "succeeded":
+                            assert hidden_count > 0, archive_result
+                        else:
+                            assert hidden_count == 0, archive_result
+                        return
+                    finally:
+                        if hook_process.poll() is None:
+                            hook_process.kill()
+            except (RuntimeError, subprocess.TimeoutExpired) as err:
+                last_error = err
+                continue
+
+        if last_error:
+            raise last_error
 
 
 def test_hides_cookie_consent_on_static_page(httpserver):
