@@ -61,10 +61,6 @@ addopts = ["-p", "abx_plugins.pytest_bootstrap", "-p", "no:cacheprovider"]
 exclude-newer = "14 days"
 exclude-newer-package = { abx-pkg = "1 second"}
 
-
-[tool.uv.sources]
-abx-pkg = { path = "../abx-pkg", editable = true }
-
 [tool.pyright]
 include = [
     "abx_plugins",
