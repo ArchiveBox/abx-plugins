@@ -84,7 +84,7 @@ def _load_env_binary_abspath(binary_ref: str) -> str | None:
         return None
 
     path_ref = Path(raw_ref).expanduser()
-    overrides: dict[str, dict[str, object]] = {}
+    overrides = {}
     if raw_ref.startswith(("~", ".", "/")) or "/" in raw_ref or "\\" in raw_ref:
         overrides = {"env": {"abspath": str(path_ref)}}
     lookup_name = path_ref.name if overrides else raw_ref
@@ -93,7 +93,7 @@ def _load_env_binary_abspath(binary_ref: str) -> str | None:
         binary = Binary(
             name=lookup_name,
             binproviders=[EnvProvider()],
-            overrides=overrides,
+            overrides=overrides,  # type: ignore[arg-type]
         ).load()
     except Exception:
         return None
@@ -208,7 +208,8 @@ def main(
         click.echo(f"Installing {name} via pip to venv at {pip_venv_path}...", err=True)
 
         try:
-            extra_kwargs = _parse_extra_hook_args(click.get_current_context().args)
+            ctx = click.get_current_context(silent=True)
+            extra_kwargs = _parse_extra_hook_args(ctx.args if ctx else [])
             overrides_dict = json.loads(overrides) if overrides else {}
             provider_overrides = overrides_dict.get("pip", {})
             if provider_overrides:
@@ -229,7 +230,7 @@ def main(
                 "overrides": overrides_dict,
             }
             binary = Binary(
-                **{**request_kwargs, "binproviders": [provider]},
+                **{**request_kwargs, "binproviders": [provider]},  # ty:ignore[invalid-argument-type]
             ).load_or_install()
         except Exception as e:
             click.echo(f"pip install failed: {e}", err=True)

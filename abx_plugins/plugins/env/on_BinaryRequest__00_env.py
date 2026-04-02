@@ -21,11 +21,24 @@ import sys
 
 from abx_plugins.plugins.base.utils import (
     emit_installed_binary_record,
-    parse_extra_hook_args,
 )
 
 import rich_click as click
 from abx_pkg import Binary, EnvProvider
+
+
+def _parse_extra_hook_args(args: list[str]) -> dict[str, object]:
+    parsed: dict[str, object] = {}
+    for arg in args:
+        if not arg.startswith("--") or "=" not in arg:
+            continue
+        key, raw_value = arg[2:].split("=", 1)
+        try:
+            value = json.loads(raw_value)
+        except json.JSONDecodeError:
+            value = raw_value
+        parsed[key.replace("-", "_")] = value
+    return parsed
 
 
 @click.command(
@@ -51,17 +64,16 @@ def main(
     # Use abx-pkg EnvProvider to find binary
     provider = EnvProvider()
     try:
-        context = click.get_current_context(silent=True)
-        extra_kwargs = parse_extra_hook_args(context.args if context else [])
-        binary = Binary.model_validate(
-            {
-                **extra_kwargs,
-                "name": name,
-                "binproviders": [provider],
-                "min_version": min_version or extra_kwargs.get("min_version") or None,
-                "overrides": json.loads(overrides) if overrides else {},
-            },
-        ).load()
+        ctx = click.get_current_context(silent=True)
+        extra_kwargs = _parse_extra_hook_args(ctx.args if ctx else [])
+        request_kwargs = {
+            **extra_kwargs,
+            "name": name,
+            "binproviders": binproviders,
+            "min_version": min_version or None,
+            "overrides": json.loads(overrides) if overrides else {},
+        }
+        binary = Binary(**{**request_kwargs, "binproviders": [provider]}).load()  # ty:ignore[invalid-argument-type]
     except Exception as e:
         click.echo(f"{name} not found in PATH: {e}", err=True)
         sys.exit(1)
