@@ -31,7 +31,7 @@ The snapshot hook runs an agentic loop:
 | `CLAUDECHROME_ENABLED` | bool | `false` | Enable Claude for Chrome. |
 | `CLAUDECHROME_PROMPT` | string | *(see below)* | The prompt telling Claude what to do on each page. |
 | `CLAUDECHROME_TIMEOUT` | int | `120` | Timeout in seconds per page. |
-| `CLAUDECHROME_MODEL` | string | `claude-sonnet-4-6` | Claude model to use. Short names: `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`, `claude-opus-4-6`. |
+| `CLAUDECHROME_MODEL` | string | `claude-sonnet-4-6` | Claude model to use. Model IDs: `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`, `claude-opus-4-6`. |
 | `CLAUDECHROME_MAX_ACTIONS` | int | `15` | Maximum agentic loop iterations per page. |
 | `ANTHROPIC_API_KEY` | string | *(required)* | Anthropic API key. |
 
