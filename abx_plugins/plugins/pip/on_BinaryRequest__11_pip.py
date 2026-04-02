@@ -54,6 +54,58 @@ def _pip_venv_is_ready(pip_venv_path: Path) -> bool:
     )
 
 
+def _direct_pip_install(pip_venv_path: Path, name: str) -> tuple[str, str] | None:
+    """Fallback: install directly using the venv's pip, bypassing PipProvider/uv.
+
+    This handles cases where abx-pkg's PipProvider fails (e.g. uv build issues
+    in sandboxed/CI environments) but a direct pip install would succeed.
+    """
+    venv_pip = pip_venv_path / "bin" / "pip"
+    if not _is_executable(venv_pip):
+        return None
+
+    # Ensure setuptools and wheel are available for building sdists
+    subprocess.run(
+        [str(venv_pip), "install", "--quiet", "setuptools", "wheel"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    # Install the package with --prefer-binary to avoid build failures where possible
+    proc = subprocess.run(
+        [str(venv_pip), "install", "--prefer-binary", name],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    if proc.returncode != 0:
+        return None
+
+    # Check if binary exists in venv bin/
+    binary_path = pip_venv_path / "bin" / name
+    if not binary_path.is_file():
+        return None
+
+    # Get version via pip show
+    version = ""
+    try:
+        show_proc = subprocess.run(
+            [str(venv_pip), "show", name],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        for line in show_proc.stdout.splitlines():
+            if line.startswith("Version:"):
+                version = line.split(":", 1)[1].strip()
+                break
+    except Exception:
+        pass
+
+    return str(binary_path), version
+
+
 def _seed_pip_venv(pip_venv_path: Path, preferred_python: str) -> bool:
     cmd = [preferred_python, "-m", "venv", str(pip_venv_path), "--upgrade-deps"]
     if pip_venv_path.exists():
@@ -199,10 +251,45 @@ def main(
 
             binary = binary.load_or_install()
         except Exception as e:
+            # PipProvider failed (e.g. uv build issues in sandboxed/CI environments),
+            # fall back to direct pip install using the venv's own pip binary.
+            click.echo(f"PipProvider failed ({e}), trying direct pip fallback...", err=True)
+            fallback = _direct_pip_install(pip_venv_path, name)
+            if fallback:
+                abspath, version = fallback
+                click.echo(f"Direct pip fallback succeeded: {abspath}", err=True)
+                emit_installed_binary_record(
+                    name=name,
+                    abspath=abspath,
+                    version=version,
+                    sha256="",
+                    binprovider="pip",
+                )
+                click.echo(f"Installed {name} at {abspath}", err=True)
+                click.echo(f"  version: {version}", err=True)
+                enforce_lib_permissions()
+                sys.exit(0)
             click.echo(f"pip install failed: {e}", err=True)
             sys.exit(1)
 
     if not binary.abspath:
+        # Binary.load_or_install returned but abspath is empty, try direct fallback
+        click.echo(f"{name} not found after PipProvider install, trying direct pip fallback...", err=True)
+        fallback = _direct_pip_install(pip_venv_path, name)
+        if fallback:
+            abspath, version = fallback
+            click.echo(f"Direct pip fallback succeeded: {abspath}", err=True)
+            emit_installed_binary_record(
+                name=name,
+                abspath=abspath,
+                version=version,
+                sha256="",
+                binprovider="pip",
+            )
+            click.echo(f"Installed {name} at {abspath}", err=True)
+            click.echo(f"  version: {version}", err=True)
+            enforce_lib_permissions()
+            sys.exit(0)
         click.echo(f"{name} not found after pip install", err=True)
         sys.exit(1)
 

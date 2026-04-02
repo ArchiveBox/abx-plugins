@@ -150,8 +150,8 @@ def run_claude_code(
     work_dir: str | Path,
     system_prompt: str = "",
     timeout: int = 120,
-    max_turns: int = 10,
-    model: str = "sonnet",
+    max_turns: int = 50,
+    model: str = "claude-sonnet-4-6",
     allowed_tools: list[str] | None = None,
     session_log_path: str | Path | None = None,
 ) -> tuple[str, str, int]:
