@@ -1,0 +1,45 @@
+abx_plugins/plugins/parse_rss_urls/tests/test_parse_rss_urls_comprehensive.py
+  14bfe3eeffa5cb05 136,192,438,485,556,828,939,1020
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  14bfe3eeffa5cb05 1694,2438-2440,2758,2998-3002,3005,3007-3031,3034-3037,3039-3040,3042-3043,3047,3049-3051,3053-3060,3062-3064,3067-3073,3124,3126
+abx_plugins/plugins/parse_netscape_urls/tests/test_parse_netscape_urls_comprehensive.py
+  14bfe3eeffa5cb05 874-877
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  14bfe3eeffa5cb05 1236
+abx_plugins/plugins/chrome/chrome_utils.js
+  14bfe3eeffa5cb05 596,632,944,3528-3533
+abx_plugins/plugins/istilldontcareaboutcookies/tests/test_istilldontcareaboutcookies.py
+  14bfe3eeffa5cb05 547-548,561-572,585,588-591,593-599,601,603-614,616-617
+abx_plugins/plugins/base/utils.py
+  14bfe3eeffa5cb05 219-244
+tests/test_js_node_module_resolution.py
+  14bfe3eeffa5cb05 171,199-201
+abx_plugins/plugins/screenshot/tests/test_screenshot_browser_install_e2e.py
+  14bfe3eeffa5cb05 149,210
+abx_plugins/plugins/papersdl/tests/test_papersdl.py
+  14bfe3eeffa5cb05 297-301
+abx_plugins/plugins/ublock/tests/test_ublock.py
+  14bfe3eeffa5cb05 432-435,768-769,829-864
+pyproject.toml
+  14bfe3eeffa5cb05 60-66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "3e7100a2fd57daaa191c0ecbe15606012cf6b38c",
+  "prompts": {
+    "14bfe3eeffa5cb05": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d4ce3-98c2-74e3-9c5c-3e93dae0e2f4",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting",
+      "messages": [],
+      "total_additions": 263,
+      "total_deletions": 160,
+      "accepted_lines": 219,
+      "overriden_lines": 3
+    }
+  }
+}
