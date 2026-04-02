@@ -71,6 +71,7 @@ def main(
             "name": name,
             "binproviders": binproviders,
             "min_version": min_version or None,
+            "min_release_age": 0,
             "overrides": json.loads(overrides) if overrides else {},
         }
         binary = Binary(**{**request_kwargs, "binproviders": [provider]}).load()  # ty:ignore[invalid-argument-type]

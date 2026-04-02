@@ -222,6 +222,7 @@ def main(
         "name": name,
         "binproviders": binproviders,
         "min_version": min_version or None,
+        "min_release_age": 0,
         "overrides": parsed_overrides,
     }
 

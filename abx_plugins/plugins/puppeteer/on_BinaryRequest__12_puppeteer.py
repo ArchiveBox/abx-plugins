@@ -94,6 +94,7 @@ def main(
         **abx_pkg_args,
         "name": "puppeteer",
         "binproviders": [npm_provider],
+        "min_release_age": 0,
         "overrides": package_overrides,
     }
 
