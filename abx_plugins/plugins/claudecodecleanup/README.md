@@ -21,7 +21,7 @@ Each variable falls back to the corresponding `CLAUDECODE_*` default if unset.
 | `CLAUDECODECLEANUP_PROMPT` | string | *(see below)* | — | The prompt defining cleanup behavior. |
 | `CLAUDECODECLEANUP_TIMEOUT` | int | `180` | `CLAUDECODE_TIMEOUT` | Timeout in seconds. |
 | `CLAUDECODECLEANUP_MODEL` | string | `claude-sonnet-4-6` | `CLAUDECODE_MODEL` | Claude model to use. |
-| `CLAUDECODECLEANUP_MAX_TURNS` | int | `50` | `CLAUDECODE_MAX_TURNS` | Max agentic turns (higher default than extract due to more complex task). |
+| `CLAUDECODECLEANUP_MAX_TURNS` | int | `50` | `CLAUDECODE_MAX_TURNS` | Max agentic turns per invocation. |
 
 **Default prompt:**
 > Analyze all the extractor output directories in this snapshot. Look for duplicate or redundant outputs across plugins (e.g. multiple HTML extractions, multiple text extractions, multiple URL extraction outputs, etc.). For each group of similar outputs, inspect the content and determine which version is the best quality. Delete the inferior/redundant versions, keeping only the best one. Also remove any unnecessary temporary files, empty directories, or incomplete outputs. Write a summary of what you cleaned up to cleanup_report.txt in your output directory.
