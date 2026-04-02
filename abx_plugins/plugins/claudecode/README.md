@@ -22,9 +22,9 @@ All env vars below also serve as defaults for child plugins (`claudecodeextract`
 | `CLAUDECODE_ENABLED` | bool | `false` | Master switch. Must be `true` for the binary to be installed and for child plugins to work. |
 | `ANTHROPIC_API_KEY` | string | *(required)* | Anthropic API key. Passed to every Claude Code invocation. |
 | `CLAUDECODE_BINARY` | string | `claude` | Path to the Claude Code CLI binary. Set to a custom path to skip npm install. |
-| `CLAUDECODE_MODEL` | string | `sonnet` | Default Claude model (`sonnet`, `opus`, `haiku`). Child plugins fall back to this. |
+| `CLAUDECODE_MODEL` | string | `claude-sonnet-4-6` | Default Claude model (`claude-sonnet-4-6`, `claude-opus-4-6`, `claude-haiku-4-5-20251001`). Child plugins fall back to this. |
 | `CLAUDECODE_TIMEOUT` | int | `120` | Default timeout in seconds. Child plugins fall back to this. |
-| `CLAUDECODE_MAX_TURNS` | int | `10` | Default max agentic turns per invocation. Child plugins fall back to this. |
+| `CLAUDECODE_MAX_TURNS` | int | `50` | Default max agentic turns per invocation. Child plugins fall back to this. |
 
 ## Dependency Preflight
 
@@ -49,7 +49,7 @@ export CLAUDECODE_ENABLED=true
 export ANTHROPIC_API_KEY=sk-ant-...
 
 # Optionally use a specific model
-export CLAUDECODE_MODEL=opus
+export CLAUDECODE_MODEL=claude-opus-4-6
 
 # Optionally point to a pre-installed binary
 export CLAUDECODE_BINARY=/usr/local/bin/claude

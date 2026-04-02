@@ -31,7 +31,7 @@ The snapshot hook runs an agentic loop:
 | `CLAUDECHROME_ENABLED` | bool | `false` | Enable Claude for Chrome. |
 | `CLAUDECHROME_PROMPT` | string | *(see below)* | The prompt telling Claude what to do on each page. |
 | `CLAUDECHROME_TIMEOUT` | int | `120` | Timeout in seconds per page. |
-| `CLAUDECHROME_MODEL` | string | `sonnet` | Claude model to use. Short names: `sonnet`, `haiku`, `opus`. |
+| `CLAUDECHROME_MODEL` | string | `claude-sonnet-4-6` | Claude model to use. Short names: `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`, `claude-opus-4-6`. |
 | `CLAUDECHROME_MAX_ACTIONS` | int | `15` | Maximum agentic loop iterations per page. |
 | `ANTHROPIC_API_KEY` | string | *(required)* | Anthropic API key. |
 
@@ -102,7 +102,7 @@ export CLAUDECHROME_PROMPT="Find the search input field, type 'archivebox', and 
 export CLAUDECHROME_PROMPT="If there is a cookie consent banner, click 'Accept All' or 'OK' to dismiss it."
 
 # Use a faster model
-export CLAUDECHROME_MODEL=haiku
+export CLAUDECHROME_MODEL=claude-haiku-4-5-20251001
 
 # Allow more complex interactions
 export CLAUDECHROME_MAX_ACTIONS=30

@@ -54,7 +54,11 @@ def _pip_venv_is_ready(pip_venv_path: Path) -> bool:
     )
 
 
-def _direct_pip_install(pip_venv_path: Path, name: str) -> tuple[str, str] | None:
+def _direct_pip_install(
+    pip_venv_path: Path,
+    name: str,
+    min_version: str = "",
+) -> tuple[str, str] | None:
     """Fallback: install directly using the venv's pip, bypassing PipProvider/uv.
 
     This handles cases where abx-pkg's PipProvider fails (e.g. uv build issues
@@ -72,9 +76,12 @@ def _direct_pip_install(pip_venv_path: Path, name: str) -> tuple[str, str] | Non
         timeout=120,
     )
 
+    # Build install spec with optional minimum version constraint
+    install_spec = f"{name}>={min_version}" if min_version else name
+
     # Install the package with --prefer-binary to avoid build failures where possible
     proc = subprocess.run(
-        [str(venv_pip), "install", "--prefer-binary", name],
+        [str(venv_pip), "install", "--prefer-binary", install_spec],
         capture_output=True,
         text=True,
         timeout=300,
@@ -161,11 +168,18 @@ def _locked_pip_venv(lock_path: Path):
 @click.option("--binproviders", default="*", help="Allowed providers (comma-separated)")
 @click.option("--min-version", default="", help="Minimum acceptable version")
 @click.option("--overrides", default=None, help="JSON-encoded overrides dict")
+@click.option(
+    "--postinstall-scripts",
+    is_flag=True,
+    default=False,
+    help="Use direct pip install to ensure console_scripts entry points are created",
+)
 def main(
     name: str,
     binproviders: str,
     min_version: str,
     overrides: str | None,
+    postinstall_scripts: bool,
 ):
     """Install binary using pip."""
     config = load_config()
@@ -220,6 +234,33 @@ def main(
         if preferred_python and not _pip_venv_is_ready(pip_venv_path):
             _seed_pip_venv(pip_venv_path, preferred_python)
 
+        # If postinstall_scripts is set (from config.json), use direct pip to ensure
+        # console_scripts entry points are properly created (bypasses uv/PipProvider
+        # which can fail to create entry points in sandboxed/CI environments).
+        if postinstall_scripts:
+            click.echo(
+                f"Installing {name} via direct pip (postinstall_scripts=true)...",
+                err=True,
+            )
+            fallback = _direct_pip_install(pip_venv_path, name, min_version)
+            if fallback:
+                abspath, version = fallback
+                emit_installed_binary_record(
+                    name=name,
+                    abspath=abspath,
+                    version=version,
+                    sha256="",
+                    binprovider="pip",
+                )
+                click.echo(f"Installed {name} at {abspath}", err=True)
+                click.echo(f"  version: {version}", err=True)
+                enforce_lib_permissions()
+                sys.exit(0)
+            click.echo(
+                f"Direct pip install failed for {name}, falling back to PipProvider...",
+                err=True,
+            )
+
         # Use abx-pkg PipProvider to install binary with custom venv
         provider = PipProvider(pip_venv=pip_venv_path)
         if not provider.INSTALLER_BIN_ABSPATH:
@@ -253,8 +294,11 @@ def main(
         except Exception as e:
             # PipProvider failed (e.g. uv build issues in sandboxed/CI environments),
             # fall back to direct pip install using the venv's own pip binary.
-            click.echo(f"PipProvider failed ({e}), trying direct pip fallback...", err=True)
-            fallback = _direct_pip_install(pip_venv_path, name)
+            click.echo(
+                f"PipProvider failed ({e}), trying direct pip fallback...",
+                err=True,
+            )
+            fallback = _direct_pip_install(pip_venv_path, name, min_version)
             if fallback:
                 abspath, version = fallback
                 click.echo(f"Direct pip fallback succeeded: {abspath}", err=True)
@@ -272,26 +316,29 @@ def main(
             click.echo(f"pip install failed: {e}", err=True)
             sys.exit(1)
 
-    if not binary.abspath:
-        # Binary.load_or_install returned but abspath is empty, try direct fallback
-        click.echo(f"{name} not found after PipProvider install, trying direct pip fallback...", err=True)
-        fallback = _direct_pip_install(pip_venv_path, name)
-        if fallback:
-            abspath, version = fallback
-            click.echo(f"Direct pip fallback succeeded: {abspath}", err=True)
-            emit_installed_binary_record(
-                name=name,
-                abspath=abspath,
-                version=version,
-                sha256="",
-                binprovider="pip",
+        if not binary.abspath:
+            # Binary.load_or_install returned but abspath is empty, try direct fallback
+            click.echo(
+                f"{name} not found after PipProvider install, trying direct pip fallback...",
+                err=True,
             )
-            click.echo(f"Installed {name} at {abspath}", err=True)
-            click.echo(f"  version: {version}", err=True)
-            enforce_lib_permissions()
-            sys.exit(0)
-        click.echo(f"{name} not found after pip install", err=True)
-        sys.exit(1)
+            fallback = _direct_pip_install(pip_venv_path, name, min_version)
+            if fallback:
+                abspath, version = fallback
+                click.echo(f"Direct pip fallback succeeded: {abspath}", err=True)
+                emit_installed_binary_record(
+                    name=name,
+                    abspath=abspath,
+                    version=version,
+                    sha256="",
+                    binprovider="pip",
+                )
+                click.echo(f"Installed {name} at {abspath}", err=True)
+                click.echo(f"  version: {version}", err=True)
+                enforce_lib_permissions()
+                sys.exit(0)
+            click.echo(f"{name} not found after pip install", err=True)
+            sys.exit(1)
 
     # Output Binary JSONL record to stdout
     emit_installed_binary_record(
