@@ -81,9 +81,9 @@ const PLACEHOLDER_SCREENSHOT_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1H
 
 // Model name mapping (short names -> full model IDs)
 const MODEL_MAP = {
-    'sonnet': 'claude-sonnet-4-5-20250514',
+    'sonnet': 'claude-sonnet-4-6',
     'haiku': 'claude-haiku-4-5-20251001',
-    'opus': 'claude-opus-4-20250514',
+    'opus': 'claude-opus-4-6',
 };
 
 function sleep(ms) {
@@ -646,10 +646,10 @@ async function main() {
         process.exit(1);
     }
 
-    const prompt = getEnv('CLAUDECHROME_PROMPT', DEFAULT_PROMPT);
-    const timeout = getEnvInt('CLAUDECHROME_TIMEOUT', 120);
-    const maxActions = getEnvInt('CLAUDECHROME_MAX_ACTIONS', 15);
-    const modelInput = getEnv('CLAUDECHROME_MODEL', 'sonnet');
+    const prompt = hookConfig.CLAUDECHROME_PROMPT || getEnv('CLAUDECHROME_PROMPT', DEFAULT_PROMPT);
+    const timeout = parseInt(hookConfig.CLAUDECHROME_TIMEOUT, 10) || getEnvInt('CLAUDECHROME_TIMEOUT', 120);
+    const maxActions = parseInt(hookConfig.CLAUDECHROME_MAX_ACTIONS, 10) || getEnvInt('CLAUDECHROME_MAX_ACTIONS', 15);
+    const modelInput = hookConfig.CLAUDECHROME_MODEL || getEnv('CLAUDECHROME_MODEL', 'claude-sonnet-4-6');
     const model = MODEL_MAP[modelInput] || modelInput;
 
     let browser = null;
