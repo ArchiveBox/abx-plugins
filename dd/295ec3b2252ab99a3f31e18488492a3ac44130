@@ -1,0 +1,25 @@
+docs/generate.py
+  9e94236853b15960 183-192,194,202-223,225-231,234-238,240-241,259,274,311
+docs/index.html.j2
+  9e94236853b15960 929-962,964-999,1018,1020,1062,1082-1083,1107-1136,1612-1630,1635-1637,1640,1670
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "dd295ec3b2252ab99a3f31e18488492a3ac44130",
+  "prompts": {
+    "9e94236853b15960": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a0736427-629e-4cdf-9901-5d944e3f2c34",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Sweeting",
+      "messages": [],
+      "total_additions": 187,
+      "total_deletions": 48,
+      "accepted_lines": 181,
+      "overriden_lines": 4
+    }
+  }
+}
