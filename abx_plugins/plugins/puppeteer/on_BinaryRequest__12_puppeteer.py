@@ -23,7 +23,9 @@ import sys
 from pathlib import Path
 
 import rich_click as click
-from abx_pkg import Binary, EnvProvider, PuppeteerProvider
+from abx_pkg.binary import Binary
+from abx_pkg.binprovider import EnvProvider
+from abx_pkg.binprovider_puppeteer import PuppeteerProvider
 
 from abx_plugins.plugins.base.utils import (
     emit_installed_binary_record,

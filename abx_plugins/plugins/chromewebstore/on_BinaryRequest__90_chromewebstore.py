@@ -19,7 +19,8 @@ from pathlib import Path
 
 import rich_click as click
 
-from abx_pkg import Binary, ChromeWebstoreProvider
+from abx_pkg.binary import Binary
+from abx_pkg.binprovider_chromewebstore import ChromeWebstoreProvider
 
 from abx_plugins.plugins.base.utils import (
     emit_installed_binary_record,

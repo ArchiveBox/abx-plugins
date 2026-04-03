@@ -37,11 +37,9 @@ from abx_plugins.plugins.base.utils import (
 
 import rich_click as click
 
-from abx_pkg import (
-    Binary,
-    EnvProvider,
-    PipProvider,
-)
+from abx_pkg.binary import Binary
+from abx_pkg.binprovider import EnvProvider
+from abx_pkg.binprovider_pip import PipProvider
 
 
 def _is_executable(path: Path) -> bool:
