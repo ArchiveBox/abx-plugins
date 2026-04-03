@@ -731,7 +731,7 @@
         align-items: center;
         gap: 6px;
         padding: 6px 10px;
-        border-radius: 999px;
+        border-radius: 10px;
         border: 1px solid var(--line);
         background: rgba(255, 255, 255, 0.9);
         font-size: 0.76rem;
@@ -773,7 +773,7 @@
         gap: 4px;
         align-items: start;
         padding: 10px 12px;
-        border-radius: 16px;
+        border-radius: 10px;
         text-transform: none;
         letter-spacing: normal;
       }
@@ -790,6 +790,24 @@
         line-height: 1.45;
         word-break: break-word;
       }
+
+      .chip--mime {
+        text-transform: none;
+        letter-spacing: normal;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.74rem;
+        gap: 4px;
+      }
+
+      .chip--mime-html     { background: rgba(59, 130, 246, 0.10); border-color: rgba(59, 130, 246, 0.25); color: #2563eb; }
+      .chip--mime-text     { background: rgba(107, 114, 128, 0.10); border-color: rgba(107, 114, 128, 0.25); color: #4b5563; }
+      .chip--mime-image    { background: rgba(168, 85, 247, 0.10); border-color: rgba(168, 85, 247, 0.25); color: #7c3aed; }
+      .chip--mime-media    { background: rgba(236, 72, 153, 0.10); border-color: rgba(236, 72, 153, 0.25); color: #db2777; }
+      .chip--mime-data     { background: rgba(245, 158, 11, 0.10); border-color: rgba(245, 158, 11, 0.25); color: #b45309; }
+      .chip--mime-code     { background: rgba(16, 185, 129, 0.10); border-color: rgba(16, 185, 129, 0.25); color: #059669; }
+      .chip--mime-doc      { background: rgba(239, 68, 68, 0.10); border-color: rgba(239, 68, 68, 0.25); color: #dc2626; }
+      .chip--mime-archive  { background: rgba(99, 102, 241, 0.10); border-color: rgba(99, 102, 241, 0.25); color: #4f46e5; }
+      .chip--mime-binary   { background: rgba(75, 85, 99, 0.10); border-color: rgba(75, 85, 99, 0.25); color: #374151; }
 
       .plugin-corner-icon {
         position: absolute;
@@ -1262,7 +1280,7 @@ abx-dl dl 'https://example.com'</code></pre>
         <details
           id="ytdlp"
           class="plugin-card plugin-card--snapshot"
-          data-search="ytdlp snapshot yt-dlp download video and audio media with metadata, subtitles, thumbnails, and description sidecars. python snapshot embed fullscreen {ytdlp_binary} {node_binary} ffmpeg env,pip,brew,apt env,apt,brew env,apt,brew    {&#34;pip&#34;: {&#34;install_args&#34;: [&#34;yt-dlp[default]&#34;]}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} audio/ video/ image/ application/x-subrip text/vtt application/json text/plain on_snapshot__02_ytdlp.finite.bg.py ytdlp_enabled enable video/audio downloading with yt-dlp ytdlp_binary path to yt-dlp binary node_binary path to node.js binary for yt-dlp js runtime ytdlp_timeout timeout for yt-dlp downloads in seconds ytdlp_cookies_file path to cookies file ytdlp_max_size maximum file size for yt-dlp downloads ytdlp_check_ssl_validity whether to verify ssl certificates ytdlp_args default yt-dlp arguments ytdlp_args_extra extra arguments to append to yt-dlp command"
+          data-search="ytdlp snapshot yt-dlp download video and audio media with metadata, subtitles, thumbnails, and description sidecars. python snapshot embed fullscreen {ytdlp_binary} {node_binary} ffmpeg env,pip,brew,apt env,apt,brew env,apt,brew    {&#34;pip&#34;: {&#34;install_args&#34;: [&#34;yt-dlp[default]&#34;]}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} audio video image application/x-subrip text/vtt application/json text/plain on_snapshot__02_ytdlp.finite.bg.py ytdlp_enabled enable video/audio downloading with yt-dlp ytdlp_binary path to yt-dlp binary node_binary path to node.js binary for yt-dlp js runtime ytdlp_timeout timeout for yt-dlp downloads in seconds ytdlp_cookies_file path to cookies file ytdlp_max_size maximum file size for yt-dlp downloads ytdlp_check_ssl_validity whether to verify ssl certificates ytdlp_args default yt-dlp arguments ytdlp_args_extra extra arguments to append to yt-dlp command"
           data-hero-plugin="ytdlp"
           data-hero-abx-command="uvx abx-dl --plugins ytdlp 'https://example.com'"
           data-hero-archivebox-command="YTDLP_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -1294,7 +1312,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">yt-dlp <small>(env,pip,brew,apt)</small></span> <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> +1 more</div>
-                <div><strong>Outputs:</strong> audio/, video/, image/, application/x-subrip +3 more</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-media">🎵 audio</span> <span class="chip chip--mime chip--mime-media">🎬 video</span> <span class="chip chip--mime chip--mime-image">🖼 image</span> <span class="chip chip--mime chip--mime-media">💬 application/x-subrip</span> +3 more</div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -1334,13 +1352,13 @@ providers: env,apt,brew">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">audio/</span>
-                  <span class="chip">video/</span>
-                  <span class="chip">image/</span>
-                  <span class="chip">application/x-subrip</span>
-                  <span class="chip">text/vtt</span>
-                  <span class="chip">application/json</span>
-                  <span class="chip">text/plain</span>
+                  <span class="chip chip--mime chip--mime-media">🎵 audio</span>
+                  <span class="chip chip--mime chip--mime-media">🎬 video</span>
+                  <span class="chip chip--mime chip--mime-image">🖼 image</span>
+                  <span class="chip chip--mime chip--mime-media">💬 application/x-subrip</span>
+                  <span class="chip chip--mime chip--mime-media">💬 text/vtt</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                  <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
                 </div>
               </article>
             </div>
@@ -1495,7 +1513,7 @@ providers: env,apt,brew">
         <details
           id="gallerydl"
           class="plugin-card plugin-card--snapshot"
-          data-search="gallerydl snapshot gallery-dl download image and media galleries along with metadata sidecars from supported sites. python snapshot embed fullscreen {gallerydl_binary} env,pip,brew,apt  image/ video/ application/json text/plain application/zip on_snapshot__03_gallerydl.finite.bg.py gallerydl_enabled enable gallery downloading with gallery-dl gallerydl_binary path to gallery-dl binary gallerydl_timeout timeout for gallery downloads in seconds gallerydl_cookies_file path to cookies file gallerydl_check_ssl_validity whether to verify ssl certificates gallerydl_args default gallery-dl arguments gallerydl_args_extra extra arguments to append to gallery-dl command"
+          data-search="gallerydl snapshot gallery-dl download image and media galleries along with metadata sidecars from supported sites. python snapshot embed fullscreen {gallerydl_binary} env,pip,brew,apt  image video application/json text/plain application/zip on_snapshot__03_gallerydl.finite.bg.py gallerydl_enabled enable gallery downloading with gallery-dl gallerydl_binary path to gallery-dl binary gallerydl_timeout timeout for gallery downloads in seconds gallerydl_cookies_file path to cookies file gallerydl_check_ssl_validity whether to verify ssl certificates gallerydl_args default gallery-dl arguments gallerydl_args_extra extra arguments to append to gallery-dl command"
           data-hero-plugin="gallerydl"
           data-hero-abx-command="uvx abx-dl --plugins gallerydl 'https://example.com'"
           data-hero-archivebox-command="GALLERYDL_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -1527,7 +1545,7 @@ providers: env,apt,brew">
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">gallery-dl <small>(env,pip,brew,apt)</small></span> </div>
-                <div><strong>Outputs:</strong> image/, video/, application/json, text/plain +1 more</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-image">🖼 image</span> <span class="chip chip--mime chip--mime-media">🎬 video</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> +1 more</div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -1557,11 +1575,11 @@ providers: env,pip,brew,apt">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">image/</span>
-                  <span class="chip">video/</span>
-                  <span class="chip">application/json</span>
-                  <span class="chip">text/plain</span>
-                  <span class="chip">application/zip</span>
+                  <span class="chip chip--mime chip--mime-image">🖼 image</span>
+                  <span class="chip chip--mime chip--mime-media">🎬 video</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                  <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
+                  <span class="chip chip--mime chip--mime-archive">🗜 application/zip</span>
                 </div>
               </article>
             </div>
@@ -1710,7 +1728,7 @@ providers: env,pip,brew,apt">
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">forum-dl <small>(env,pip)</small></span> </div>
-                <div><strong>Outputs:</strong> application/x-ndjson, application/warc, message/rfc822</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> <span class="chip chip--mime chip--mime-archive">🗄 application/warc</span> <span class="chip chip--mime chip--mime-archive">✉️ message/rfc822</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -1740,9 +1758,9 @@ providers: env,pip">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
-                  <span class="chip">application/warc</span>
-                  <span class="chip">message/rfc822</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                  <span class="chip chip--mime chip--mime-archive">🗄 application/warc</span>
+                  <span class="chip chip--mime chip--mime-archive">✉️ message/rfc822</span>
                 </div>
               </article>
             </div>
@@ -1846,7 +1864,7 @@ providers: env,pip">
         <details
           id="git"
           class="plugin-card plugin-card--snapshot"
-          data-search="git snapshot git clone git repositories from supported repository urls into the snapshot output directory. python snapshot embed {git_binary} env,apt,brew  text/ application/ image/ audio/ video/ font/ on_snapshot__05_git.finite.bg.py git_enabled enable git repository cloning git_binary path to git binary git_timeout timeout for git operations in seconds git_domains comma-separated list of domains to treat as git repositories git_args default git arguments git_args_extra extra arguments to append to git command"
+          data-search="git snapshot git clone git repositories from supported repository urls into the snapshot output directory. python snapshot embed {git_binary} env,apt,brew  text application image audio video font on_snapshot__05_git.finite.bg.py git_enabled enable git repository cloning git_binary path to git binary git_timeout timeout for git operations in seconds git_domains comma-separated list of domains to treat as git repositories git_args default git arguments git_args_extra extra arguments to append to git command"
           data-hero-plugin="git"
           data-hero-abx-command="uvx abx-dl --plugins git 'https://example.com'"
           data-hero-archivebox-command="GIT_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -1877,7 +1895,7 @@ providers: env,pip">
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">git <small>(env,apt,brew)</small></span> </div>
-                <div><strong>Outputs:</strong> text/, application/, image/, audio/ +2 more</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-text">📄 text</span> <span class="chip chip--mime chip--mime-binary">💾 application</span> <span class="chip chip--mime chip--mime-image">🖼 image</span> <span class="chip chip--mime chip--mime-media">🎵 audio</span> +2 more</div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -1907,12 +1925,12 @@ providers: env,apt,brew">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">text/</span>
-                  <span class="chip">application/</span>
-                  <span class="chip">image/</span>
-                  <span class="chip">audio/</span>
-                  <span class="chip">video/</span>
-                  <span class="chip">font/</span>
+                  <span class="chip chip--mime chip--mime-text">📄 text</span>
+                  <span class="chip chip--mime chip--mime-binary">💾 application</span>
+                  <span class="chip chip--mime chip--mime-image">🖼 image</span>
+                  <span class="chip chip--mime chip--mime-media">🎵 audio</span>
+                  <span class="chip chip--mime chip--mime-media">🎬 video</span>
+                  <span class="chip chip--mime chip--mime-code">🔤 font</span>
                 </div>
               </article>
             </div>
@@ -2019,7 +2037,7 @@ providers: env,apt,brew">
         <details
           id="wget"
           class="plugin-card plugin-card--snapshot"
-          data-search="wget snapshot wget archive pages and their requisites with wget, optionally writing warc captures. python snapshot embed {wget_binary} env,apt,brew  text/html application/warc application/gzip image/ text/css application/javascript font/ audio/ video/ on_snapshot__06_wget.finite.bg.py wget_enabled enable wget archiving wget_warc_enabled save warc archive file wget_binary path to wget binary wget_timeout timeout for wget in seconds wget_user_agent user agent string for wget wget_cookies_file path to cookies file wget_check_ssl_validity whether to verify ssl certificates wget_args default wget arguments wget_args_extra extra arguments to append to wget command"
+          data-search="wget snapshot wget archive pages and their requisites with wget, optionally writing warc captures. python snapshot embed {wget_binary} env,apt,brew  text/html application/warc application/gzip image text/css application/javascript font audio video on_snapshot__06_wget.finite.bg.py wget_enabled enable wget archiving wget_warc_enabled save warc archive file wget_binary path to wget binary wget_timeout timeout for wget in seconds wget_user_agent user agent string for wget wget_cookies_file path to cookies file wget_check_ssl_validity whether to verify ssl certificates wget_args default wget arguments wget_args_extra extra arguments to append to wget command"
           data-hero-plugin="wget"
           data-hero-abx-command="uvx abx-dl --plugins wget 'https://example.com'"
           data-hero-archivebox-command="WGET_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -2050,7 +2068,7 @@ providers: env,apt,brew">
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">wget <small>(env,apt,brew)</small></span> </div>
-                <div><strong>Outputs:</strong> text/html, application/warc, application/gzip, image/ +5 more</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-html">🌐 text/html</span> <span class="chip chip--mime chip--mime-archive">🗄 application/warc</span> <span class="chip chip--mime chip--mime-archive">🗜 application/gzip</span> <span class="chip chip--mime chip--mime-image">🖼 image</span> +5 more</div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -2080,15 +2098,15 @@ providers: env,apt,brew">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">text/html</span>
-                  <span class="chip">application/warc</span>
-                  <span class="chip">application/gzip</span>
-                  <span class="chip">image/</span>
-                  <span class="chip">text/css</span>
-                  <span class="chip">application/javascript</span>
-                  <span class="chip">font/</span>
-                  <span class="chip">audio/</span>
-                  <span class="chip">video/</span>
+                  <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
+                  <span class="chip chip--mime chip--mime-archive">🗄 application/warc</span>
+                  <span class="chip chip--mime chip--mime-archive">🗜 application/gzip</span>
+                  <span class="chip chip--mime chip--mime-image">🖼 image</span>
+                  <span class="chip chip--mime chip--mime-code">🎨 text/css</span>
+                  <span class="chip chip--mime chip--mime-code">⚡ application/javascript</span>
+                  <span class="chip chip--mime chip--mime-code">🔤 font</span>
+                  <span class="chip chip--mime chip--mime-media">🎵 audio</span>
+                  <span class="chip chip--mime chip--mime-media">🎬 video</span>
                 </div>
               </article>
             </div>
@@ -2265,7 +2283,7 @@ providers: env,apt,brew">
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Outputs:</strong> text/plain</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -2285,7 +2303,7 @@ providers: env,apt,brew">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">text/plain</span>
+                  <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
                 </div>
               </article>
             </div>
@@ -2360,7 +2378,7 @@ providers: env,apt,brew">
         <details
           id="favicon"
           class="plugin-card plugin-card--snapshot"
-          data-search="favicon snapshot favicon fetch and save the site favicon or touch icon. python snapshot embed image/ on_snapshot__11_favicon.finite.bg.py favicon_enabled enable favicon downloading favicon_timeout timeout for favicon fetch in seconds favicon_user_agent user agent string favicon_provider fallback favicon provider url template. supports either {} or {domain} placeholders."
+          data-search="favicon snapshot favicon fetch and save the site favicon or touch icon. python snapshot embed image on_snapshot__11_favicon.finite.bg.py favicon_enabled enable favicon downloading favicon_timeout timeout for favicon fetch in seconds favicon_user_agent user agent string favicon_provider fallback favicon provider url template. supports either {} or {domain} placeholders."
           data-hero-plugin="favicon"
           data-hero-abx-command="uvx abx-dl --plugins favicon 'https://example.com'"
           data-hero-archivebox-command="FAVICON_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -2390,7 +2408,7 @@ providers: env,apt,brew">
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Outputs:</strong> image/</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-image">🖼 image</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -2410,7 +2428,7 @@ providers: env,apt,brew">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">image/</span>
+                  <span class="chip chip--mime chip--mime-image">🖼 image</span>
                 </div>
               </article>
             </div>
@@ -3112,7 +3130,7 @@ providers: env,puppeteer">
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> application/x-ndjson</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -3148,7 +3166,7 @@ providers: env,puppeteer">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
                 </div>
               </article>
             </div>
@@ -3252,7 +3270,7 @@ providers: env,puppeteer">
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> application/x-ndjson</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -3288,7 +3306,7 @@ providers: env,puppeteer">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
                 </div>
               </article>
             </div>
@@ -3392,7 +3410,7 @@ providers: env,puppeteer">
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> application/x-ndjson</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -3428,7 +3446,7 @@ providers: env,puppeteer">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
                 </div>
               </article>
             </div>
@@ -3503,7 +3521,7 @@ providers: env,puppeteer">
         <details
           id="responses"
           class="plugin-card plugin-card--snapshot"
-          data-search="responses snapshot responses capture http response metadata for requests made during page load. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} application/x-ndjson text/ image/ audio/ video/ application/ font/ on_snapshot__24_responses.daemon.bg.js chrome_binary path to chromium binary responses_enabled enable http response capture responses_timeout timeout for response capture in seconds"
+          data-search="responses snapshot responses capture http response metadata for requests made during page load. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} application/x-ndjson text image audio video application font on_snapshot__24_responses.daemon.bg.js chrome_binary path to chromium binary responses_enabled enable http response capture responses_timeout timeout for response capture in seconds"
           data-hero-plugin="responses"
           data-hero-abx-command="uvx abx-dl --plugins responses 'https://example.com'"
           data-hero-archivebox-command="RESPONSES_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -3532,7 +3550,7 @@ providers: env,puppeteer">
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> application/x-ndjson, text/, image/, audio/ +3 more</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> <span class="chip chip--mime chip--mime-text">📄 text</span> <span class="chip chip--mime chip--mime-image">🖼 image</span> <span class="chip chip--mime chip--mime-media">🎵 audio</span> +3 more</div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -3568,13 +3586,13 @@ providers: env,puppeteer">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
-                  <span class="chip">text/</span>
-                  <span class="chip">image/</span>
-                  <span class="chip">audio/</span>
-                  <span class="chip">video/</span>
-                  <span class="chip">application/</span>
-                  <span class="chip">font/</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                  <span class="chip chip--mime chip--mime-text">📄 text</span>
+                  <span class="chip chip--mime chip--mime-image">🖼 image</span>
+                  <span class="chip chip--mime chip--mime-media">🎵 audio</span>
+                  <span class="chip chip--mime chip--mime-media">🎬 video</span>
+                  <span class="chip chip--mime chip--mime-binary">💾 application</span>
+                  <span class="chip chip--mime chip--mime-code">🔤 font</span>
                 </div>
               </article>
             </div>
@@ -3678,7 +3696,7 @@ providers: env,puppeteer">
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> application/x-ndjson</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -3714,7 +3732,7 @@ providers: env,puppeteer">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
                 </div>
               </article>
             </div>
@@ -3789,7 +3807,7 @@ providers: env,puppeteer">
         <details
           id="staticfile"
           class="plugin-card plugin-card--snapshot"
-          data-search="staticfile snapshot static file detect and download static-file responses directly when a url resolves to a non-html asset. javascript snapshot embed chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} application/pdf application/epub+zip image/ audio/ video/ application/json application/xml text/csv text/xml application/zip application/octet-stream application/x- on_snapshot__26_staticfile.daemon.bg.js chrome_binary path to chromium binary staticfile_enabled enable static file detection staticfile_timeout timeout for static file detection in seconds"
+          data-search="staticfile snapshot static file detect and download static-file responses directly when a url resolves to a non-html asset. javascript snapshot embed chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} application/pdf application/epub+zip image audio video application/json application/xml text/csv text/xml application/zip application/octet-stream application/x- on_snapshot__26_staticfile.daemon.bg.js chrome_binary path to chromium binary staticfile_enabled enable static file detection staticfile_timeout timeout for static file detection in seconds"
           data-hero-plugin="staticfile"
           data-hero-abx-command="uvx abx-dl --plugins staticfile 'https://example.com'"
           data-hero-archivebox-command="STATICFILE_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -3819,7 +3837,7 @@ providers: env,puppeteer">
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> application/pdf, application/epub+zip, image/, audio/ +8 more</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-doc">📕 application/pdf</span> <span class="chip chip--mime chip--mime-doc">📚 application/epub+zip</span> <span class="chip chip--mime chip--mime-image">🖼 image</span> <span class="chip chip--mime chip--mime-media">🎵 audio</span> +8 more</div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -3855,18 +3873,18 @@ providers: env,puppeteer">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/pdf</span>
-                  <span class="chip">application/epub+zip</span>
-                  <span class="chip">image/</span>
-                  <span class="chip">audio/</span>
-                  <span class="chip">video/</span>
-                  <span class="chip">application/json</span>
-                  <span class="chip">application/xml</span>
-                  <span class="chip">text/csv</span>
-                  <span class="chip">text/xml</span>
-                  <span class="chip">application/zip</span>
-                  <span class="chip">application/octet-stream</span>
-                  <span class="chip">application/x-</span>
+                  <span class="chip chip--mime chip--mime-doc">📕 application/pdf</span>
+                  <span class="chip chip--mime chip--mime-doc">📚 application/epub+zip</span>
+                  <span class="chip chip--mime chip--mime-image">🖼 image</span>
+                  <span class="chip chip--mime chip--mime-media">🎵 audio</span>
+                  <span class="chip chip--mime chip--mime-media">🎬 video</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                  <span class="chip chip--mime chip--mime-code">📋 application/xml</span>
+                  <span class="chip chip--mime chip--mime-data">📊 text/csv</span>
+                  <span class="chip chip--mime chip--mime-code">📋 text/xml</span>
+                  <span class="chip chip--mime chip--mime-archive">🗜 application/zip</span>
+                  <span class="chip chip--mime chip--mime-binary">💾 application/octet-stream</span>
+                  <span class="chip chip--mime chip--mime-binary">💾 application/x-</span>
                 </div>
               </article>
             </div>
@@ -3970,7 +3988,7 @@ providers: env,puppeteer">
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> application/json</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -4006,7 +4024,7 @@ providers: env,puppeteer">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/json</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/json</span>
                 </div>
               </article>
             </div>
@@ -4109,7 +4127,7 @@ providers: env,puppeteer">
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> text/plain, application/json</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -4144,8 +4162,8 @@ providers: env,puppeteer">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">text/plain</span>
-                  <span class="chip">application/json</span>
+                  <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/json</span>
                 </div>
               </article>
             </div>
@@ -4570,7 +4588,7 @@ providers: env,puppeteer">
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> application/json</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -4606,7 +4624,7 @@ providers: env,puppeteer">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/json</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/json</span>
                 </div>
               </article>
             </div>
@@ -4709,7 +4727,7 @@ providers: env,puppeteer">
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> application/json</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -4745,7 +4763,7 @@ providers: env,puppeteer">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/json</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/json</span>
                 </div>
               </article>
             </div>
@@ -5030,7 +5048,7 @@ providers: env,puppeteer">
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> +1 more</div>
-                <div><strong>Outputs:</strong> application/json, image/png</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/json</span> <span class="chip chip--mime chip--mime-image">🖼 image/png</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -5076,8 +5094,8 @@ providers: chromewebstore">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/json</span>
-                  <span class="chip">image/png</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                  <span class="chip chip--mime chip--mime-image">🖼 image/png</span>
                 </div>
               </article>
             </div>
@@ -5260,7 +5278,7 @@ providers: chromewebstore">
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">single-file <small>(env,npm)</small></span> +1 more</div>
-                <div><strong>Outputs:</strong> text/html</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-html">🌐 text/html</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -5306,7 +5324,7 @@ providers: chromewebstore">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">text/html</span>
+                  <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
                 </div>
               </article>
             </div>
@@ -5510,7 +5528,7 @@ providers: chromewebstore">
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> image/png</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-image">🖼 image/png</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -5546,7 +5564,7 @@ providers: env,puppeteer">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">image/png</span>
+                  <span class="chip chip--mime chip--mime-image">🖼 image/png</span>
                 </div>
               </article>
             </div>
@@ -5662,7 +5680,7 @@ providers: env,puppeteer">
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> application/pdf</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-doc">📕 application/pdf</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -5698,7 +5716,7 @@ providers: env,puppeteer">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/pdf</span>
+                  <span class="chip chip--mime chip--mime-doc">📕 application/pdf</span>
                 </div>
               </article>
             </div>
@@ -5813,7 +5831,7 @@ providers: env,puppeteer">
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> text/html</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-html">🌐 text/html</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -5849,7 +5867,7 @@ providers: env,puppeteer">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">text/html</span>
+                  <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
                 </div>
               </article>
             </div>
@@ -5952,7 +5970,7 @@ providers: env,puppeteer">
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> text/plain</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -5988,7 +6006,7 @@ providers: env,puppeteer">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">text/plain</span>
+                  <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
                 </div>
               </article>
             </div>
@@ -6094,7 +6112,7 @@ providers: env,puppeteer">
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">readability-extractor <small>(env,npm)</small></span> </div>
-                <div><strong>Outputs:</strong> text/html, text/plain, application/json</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-html">🌐 text/html</span> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -6124,9 +6142,9 @@ providers: env,npm">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">text/html</span>
-                  <span class="chip">text/plain</span>
-                  <span class="chip">application/json</span>
+                  <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
+                  <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/json</span>
                 </div>
               </article>
             </div>
@@ -6249,7 +6267,7 @@ providers: env,npm">
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">defuddle <small>(env,npm)</small></span> </div>
-                <div><strong>Outputs:</strong> text/html, text/plain, application/json</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-html">🌐 text/html</span> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -6279,9 +6297,9 @@ providers: env,npm">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">text/html</span>
-                  <span class="chip">text/plain</span>
-                  <span class="chip">application/json</span>
+                  <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
+                  <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/json</span>
                 </div>
               </article>
             </div>
@@ -6405,7 +6423,7 @@ providers: env,npm">
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">postlight-parser <small>(npm,env)</small></span> </div>
-                <div><strong>Outputs:</strong> text/html, text/plain, application/json</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-html">🌐 text/html</span> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -6435,9 +6453,9 @@ providers: npm,env">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">text/html</span>
-                  <span class="chip">text/plain</span>
-                  <span class="chip">application/json</span>
+                  <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
+                  <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/json</span>
                 </div>
               </article>
             </div>
@@ -6563,7 +6581,7 @@ providers: npm,env">
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> claudecode</div>
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">claude <small>(env,npm)</small></span> </div>
-                <div><strong>Outputs:</strong> text/markdown</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-text">📝 text/markdown</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -6599,7 +6617,7 @@ providers: env,npm">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">text/markdown</span>
+                  <span class="chip chip--mime chip--mime-text">📝 text/markdown</span>
                 </div>
               </article>
             </div>
@@ -6731,7 +6749,7 @@ providers: env,npm">
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Outputs:</strong> text/plain</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -6751,7 +6769,7 @@ providers: env,npm">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">text/plain</span>
+                  <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
                 </div>
               </article>
             </div>
@@ -6845,7 +6863,7 @@ providers: env,npm">
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">trafilatura <small>(env,pip)</small></span> </div>
-                <div><strong>Outputs:</strong> text/plain, text/markdown, text/html, text/csv +3 more</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-text">📝 text/markdown</span> <span class="chip chip--mime chip--mime-html">🌐 text/html</span> <span class="chip chip--mime chip--mime-data">📊 text/csv</span> +3 more</div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -6875,13 +6893,13 @@ providers: env,pip">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">text/plain</span>
-                  <span class="chip">text/markdown</span>
-                  <span class="chip">text/html</span>
-                  <span class="chip">text/csv</span>
-                  <span class="chip">application/json</span>
-                  <span class="chip">application/xml</span>
-                  <span class="chip">application/tei+xml</span>
+                  <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
+                  <span class="chip chip--mime chip--mime-text">📝 text/markdown</span>
+                  <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
+                  <span class="chip chip--mime chip--mime-data">📊 text/csv</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                  <span class="chip chip--mime chip--mime-code">📋 application/xml</span>
+                  <span class="chip chip--mime chip--mime-code">📋 application/tei+xml</span>
                 </div>
               </article>
             </div>
@@ -6993,7 +7011,7 @@ providers: env,pip">
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">opendataloader-pdf <small>(env,pip)</small></span> <span class="chip chip--binary-summary">java&gt;=11.0.0 <small>(env,apt,brew)</small></span> </div>
-                <div><strong>Outputs:</strong> text/plain, text/markdown, application/json</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-text">📝 text/markdown</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -7037,9 +7055,9 @@ min_version: 11.0.0">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">text/plain</span>
-                  <span class="chip">text/markdown</span>
-                  <span class="chip">application/json</span>
+                  <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
+                  <span class="chip chip--mime chip--mime-text">📝 text/markdown</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/json</span>
                 </div>
               </article>
             </div>
@@ -7190,7 +7208,7 @@ min_version: 11.0.0">
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">lit <small>(env,npm)</small></span> </div>
-                <div><strong>Outputs:</strong> text/plain, application/json</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -7227,8 +7245,8 @@ providers: env,npm">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">text/plain</span>
-                  <span class="chip">application/json</span>
+                  <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/json</span>
                 </div>
               </article>
             </div>
@@ -7353,7 +7371,7 @@ providers: env,npm">
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">papers-dl <small>(env,pip)</small></span> </div>
-                <div><strong>Outputs:</strong> application/pdf</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-doc">📕 application/pdf</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -7383,7 +7401,7 @@ providers: env,pip">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/pdf</span>
+                  <span class="chip chip--mime chip--mime-doc">📕 application/pdf</span>
                 </div>
               </article>
             </div>
@@ -7508,7 +7526,7 @@ providers: env,pip">
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Outputs:</strong> application/x-ndjson</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -7528,7 +7546,7 @@ providers: env,pip">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
                 </div>
               </article>
             </div>
@@ -7610,7 +7628,7 @@ providers: env,pip">
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Outputs:</strong> application/x-ndjson</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -7630,7 +7648,7 @@ providers: env,pip">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
                 </div>
               </article>
             </div>
@@ -7712,7 +7730,7 @@ providers: env,pip">
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Outputs:</strong> application/x-ndjson</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -7732,7 +7750,7 @@ providers: env,pip">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
                 </div>
               </article>
             </div>
@@ -7814,7 +7832,7 @@ providers: env,pip">
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Outputs:</strong> application/x-ndjson</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -7834,7 +7852,7 @@ providers: env,pip">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
                 </div>
               </article>
             </div>
@@ -7916,7 +7934,7 @@ providers: env,pip">
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Outputs:</strong> application/x-ndjson</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -7936,7 +7954,7 @@ providers: env,pip">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
                 </div>
               </article>
             </div>
@@ -8018,7 +8036,7 @@ providers: env,pip">
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> application/x-ndjson</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -8054,7 +8072,7 @@ providers: env,puppeteer">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
                 </div>
               </article>
             </div>
@@ -8157,7 +8175,7 @@ providers: env,puppeteer">
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Outputs:</strong> application/vnd.sqlite3</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">🗃 application/vnd.sqlite3</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -8177,7 +8195,7 @@ providers: env,puppeteer">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/vnd.sqlite3</span>
+                  <span class="chip chip--mime chip--mime-data">🗃 application/vnd.sqlite3</span>
                 </div>
               </article>
             </div>
@@ -8497,7 +8515,7 @@ providers: env,apt,brew,cargo">
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> claudecode</div>
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">claude <small>(env,npm)</small></span> </div>
-                <div><strong>Outputs:</strong> text/plain</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -8533,7 +8551,7 @@ providers: env,npm">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">text/plain</span>
+                  <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
                 </div>
               </article>
             </div>
@@ -8665,7 +8683,7 @@ providers: env,npm">
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Outputs:</strong> application/json</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -8685,7 +8703,7 @@ providers: env,npm">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/json</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/json</span>
                 </div>
               </article>
             </div>
@@ -9458,7 +9476,7 @@ providers: env,apt,brew">
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> <span class="chip chip--binary-summary">claude <small>(env,npm)</small></span> </div>
-                <div><strong>Outputs:</strong> application/json</div>
+                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -9493,7 +9511,7 @@ providers: env,npm">
               <article class="plugin-info-card">
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
-                  <span class="chip">application/json</span>
+                  <span class="chip chip--mime chip--mime-data">📦 application/json</span>
                 </div>
               </article>
             </div>
@@ -10437,7 +10455,7 @@ providers: env,apt,brew">
 
         <div class="footer-meta">
           <span>Generated from <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">ArchiveBox/abx-plugins</a> at ref <code>main</code>.</span>
-          <span>Updated 2026-04-03 08:23 UTC</span>
+          <span>Updated 2026-04-03 08:27 UTC</span>
         </div>
       </footer>
     </div>

@@ -731,7 +731,7 @@
         align-items: center;
         gap: 6px;
         padding: 6px 10px;
-        border-radius: 999px;
+        border-radius: 10px;
         border: 1px solid var(--line);
         background: rgba(255, 255, 255, 0.9);
         font-size: 0.76rem;
@@ -773,7 +773,7 @@
         gap: 4px;
         align-items: start;
         padding: 10px 12px;
-        border-radius: 16px;
+        border-radius: 10px;
         text-transform: none;
         letter-spacing: normal;
       }
@@ -790,6 +790,24 @@
         line-height: 1.45;
         word-break: break-word;
       }
+
+      .chip--mime {
+        text-transform: none;
+        letter-spacing: normal;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.74rem;
+        gap: 4px;
+      }
+
+      .chip--mime-html     { background: rgba(59, 130, 246, 0.10); border-color: rgba(59, 130, 246, 0.25); color: #2563eb; }
+      .chip--mime-text     { background: rgba(107, 114, 128, 0.10); border-color: rgba(107, 114, 128, 0.25); color: #4b5563; }
+      .chip--mime-image    { background: rgba(168, 85, 247, 0.10); border-color: rgba(168, 85, 247, 0.25); color: #7c3aed; }
+      .chip--mime-media    { background: rgba(236, 72, 153, 0.10); border-color: rgba(236, 72, 153, 0.25); color: #db2777; }
+      .chip--mime-data     { background: rgba(245, 158, 11, 0.10); border-color: rgba(245, 158, 11, 0.25); color: #b45309; }
+      .chip--mime-code     { background: rgba(16, 185, 129, 0.10); border-color: rgba(16, 185, 129, 0.25); color: #059669; }
+      .chip--mime-doc      { background: rgba(239, 68, 68, 0.10); border-color: rgba(239, 68, 68, 0.25); color: #dc2626; }
+      .chip--mime-archive  { background: rgba(99, 102, 241, 0.10); border-color: rgba(99, 102, 241, 0.25); color: #4f46e5; }
+      .chip--mime-binary   { background: rgba(75, 85, 99, 0.10); border-color: rgba(75, 85, 99, 0.25); color: #374151; }
 
       .plugin-corner-icon {
         position: absolute;
@@ -1318,7 +1336,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 <div><strong>Needs binaries:</strong> {% for item in plugin.required_binaries[:2] %}<span class="chip chip--binary-summary">{{ item.display_name }}{% if item.min_version %}&gt;={{ item.min_version }}{% endif %} <small>({{ item.binproviders }})</small></span> {% endfor %}{% if plugin.required_binaries|length > 2 %}+{{ plugin.required_binaries|length - 2 }} more{% endif %}</div>
                 {% endif %}
                 {% if plugin.output_mimetypes %}
-                <div><strong>Outputs:</strong> {{ plugin.output_mimetypes[:4]|join(", ") }}{% if plugin.output_mimetypes|length > 4 %} +{{ plugin.output_mimetypes|length - 4 }} more{% endif %}</div>
+                <div><strong>Outputs:</strong> {% for item in plugin.output_mimetypes[:4] %}<span class="chip chip--mime chip--mime-{{ item.css_class }}">{{ item.emoji }} {{ item.label }}</span> {% endfor %}{% if plugin.output_mimetypes|length > 4 %}+{{ plugin.output_mimetypes|length - 4 }} more{% endif %}</div>
                 {% endif %}
               </div>
               {% endif %}
@@ -1371,7 +1389,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 <span>Output Mimetypes</span>
                 <div class="pill-list">
                   {% for item in plugin.output_mimetypes %}
-                  <span class="chip">{{ item }}</span>
+                  <span class="chip chip--mime chip--mime-{{ item.css_class }}">{{ item.emoji }} {{ item.label }}</span>
                   {% endfor %}
                 </div>
               </article>

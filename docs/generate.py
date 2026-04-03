@@ -70,6 +70,55 @@ def as_string_list(value: Any) -> list[str]:
     return [str(item) for item in value if item not in (None, "")]
 
 
+MIMETYPE_CATEGORIES: dict[str, tuple[str, str]] = {
+    # prefix -> (css class suffix, emoji)
+    "text/html": ("html", "🌐"),
+    "text/plain": ("text", "📄"),
+    "text/markdown": ("text", "📝"),
+    "text/css": ("code", "🎨"),
+    "text/csv": ("data", "📊"),
+    "text/xml": ("code", "📋"),
+    "text/vtt": ("media", "💬"),
+    "text/": ("text", "📄"),
+    "image/png": ("image", "🖼"),
+    "image/": ("image", "🖼"),
+    "video/": ("media", "🎬"),
+    "audio/": ("media", "🎵"),
+    "font/": ("code", "🔤"),
+    "application/pdf": ("doc", "📕"),
+    "application/json": ("data", "📦"),
+    "application/x-ndjson": ("data", "📦"),
+    "application/xml": ("code", "📋"),
+    "application/tei+xml": ("code", "📋"),
+    "application/javascript": ("code", "⚡"),
+    "application/warc": ("archive", "🗄"),
+    "application/gzip": ("archive", "🗜"),
+    "application/zip": ("archive", "🗜"),
+    "application/epub+zip": ("doc", "📚"),
+    "application/vnd.sqlite3": ("data", "🗃"),
+    "application/x-subrip": ("media", "💬"),
+    "application/octet-stream": ("binary", "💾"),
+    "application/x-": ("binary", "💾"),
+    "application/": ("binary", "💾"),
+    "message/rfc822": ("archive", "✉️"),
+}
+
+
+def enrich_mimetype(mime: str) -> dict[str, str]:
+    """Return a dict with label, css_class, and emoji for a mimetype."""
+    label = mime.rstrip("/")
+    for prefix, (css_class, emoji) in MIMETYPE_CATEGORIES.items():
+        if mime == prefix or mime.startswith(prefix):
+            return {"raw": mime, "label": label, "css_class": css_class, "emoji": emoji}
+    return {"raw": mime, "label": label, "css_class": "binary", "emoji": "💾"}
+
+
+def as_mimetype_list(value: Any) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        return []
+    return [enrich_mimetype(str(item)) for item in value if item not in (None, "")]
+
+
 def resolve_binary_name(
     name: str,
     config_properties: dict[str, Any],
@@ -327,7 +376,7 @@ def build_plugin(plugin_dir: Path) -> dict[str, Any]:
     required_binary_summaries = [
         f"{item['name']} ({item['summary']})" for item in required_binaries
     ]
-    output_mimetypes = as_string_list(config_schema.get("output_mimetypes"))
+    output_mimetypes = as_mimetype_list(config_schema.get("output_mimetypes"))
     search_parts = [plugin_dir.name, *phases]
     search_parts.append(display_title)
     if description:
@@ -348,7 +397,7 @@ def build_plugin(plugin_dir: Path) -> dict[str, Any]:
         for item in required_binaries
         if item.get("overrides_summary")
     )
-    search_parts.extend(output_mimetypes)
+    search_parts.extend(item["label"] for item in output_mimetypes)
     search_parts.extend(hook["filename"] for hook in hooks)
     for field in config_fields:
         search_parts.append(field["key"])
