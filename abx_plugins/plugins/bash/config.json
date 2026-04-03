@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Custom",
-  "description": "Install binaries using an arbitrary custom shell command.",
+  "title": "Bash",
+  "description": "Install binaries using arbitrary bash shell commands.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
