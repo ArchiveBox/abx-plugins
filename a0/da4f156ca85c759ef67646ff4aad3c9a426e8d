@@ -1,0 +1,23 @@
+docs/index.html.j2
+  9e94236853b15960 204,216,300-301,870-929,1013,1355-1360,1513-1516,1518-1519,1870-1874,1876-1889,1891-1895,1903,1920,2080-2109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "a0da4f156ca85c759ef67646ff4aad3c9a426e8d",
+  "prompts": {
+    "9e94236853b15960": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a0736427-629e-4cdf-9901-5d944e3f2c34",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Sweeting",
+      "messages": [],
+      "total_additions": 135,
+      "total_deletions": 35,
+      "accepted_lines": 135,
+      "overriden_lines": 0
+    }
+  }
+}
