@@ -994,11 +994,10 @@
         table-layout: fixed;
       }
 
-      .config-table colgroup .col-key { width: 22%; }
-      .config-table colgroup .col-default { width: 22%; }
-      .config-table colgroup .col-type { width: 14%; }
-      .config-table colgroup .col-desc { width: 28%; }
-      .config-table colgroup .col-aliases { width: 14%; }
+      .config-table colgroup .col-key { width: 38%; }
+      .config-table colgroup .col-default { width: 24%; }
+      .config-table colgroup .col-type { width: 18%; }
+      .config-table colgroup .col-aliases { width: 20%; }
 
       .config-table th {
         text-align: left;
@@ -1019,9 +1018,10 @@
         vertical-align: top;
       }
 
-      .config-table td:nth-child(1) { white-space: nowrap; }
+      .config-table td:nth-child(1) code { white-space: nowrap; }
       .config-table td:nth-child(2) { word-break: break-all; }
       .config-table td:nth-child(3) { white-space: nowrap; }
+      .config-table td:nth-child(4) { word-break: break-word; }
 
       .config-table tbody tr:last-child td {
         border-bottom: none;
@@ -1050,6 +1050,14 @@
       .config-table small {
         color: var(--muted);
         font-size: 0.84rem;
+      }
+
+      .config-key-desc {
+        display: block;
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 0.84rem;
+        font-family: 'Space Grotesk', sans-serif;
       }
 
       .config-table-muted {
@@ -1517,7 +1525,6 @@ providers: env,apt,brew">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -1525,83 +1532,75 @@ providers: env,apt,brew">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>YTDLP_ENABLED</code></td>
+                    <td><code>YTDLP_ENABLED</code><span class="config-key-desc">Enable video/audio downloading with yt-dlp</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable video/audio downloading with yt-dlp</td>
                     <td>
 <small>MEDIA_ENABLED, SAVE_MEDIA, USE_MEDIA, USE_YTDLP, FETCH_MEDIA, SAVE_YTDLP</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>YTDLP_BINARY</code></td>
+                    <td><code>YTDLP_BINARY</code><span class="config-key-desc">Path to yt-dlp binary</span></td>
                     <td><code>&#34;yt-dlp&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to yt-dlp binary</td>
                     <td>
 <small>YOUTUBEDL_BINARY, YOUTUBE_DL_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>NODE_BINARY</code></td>
+                    <td><code>NODE_BINARY</code><span class="config-key-desc">Path to Node.js binary for yt-dlp JS runtime</span></td>
                     <td><code>&#34;node&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Node.js binary for yt-dlp JS runtime</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>YTDLP_TIMEOUT</code></td>
+                    <td><code>YTDLP_TIMEOUT</code><span class="config-key-desc">Timeout for yt-dlp downloads in seconds</span></td>
                     <td><code>3600</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 30</small>                    </td>
-                    <td>Timeout for yt-dlp downloads in seconds</td>
                     <td>
 <small>MEDIA_TIMEOUT</small><br><small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>YTDLP_COOKIES_FILE</code></td>
+                    <td><code>YTDLP_COOKIES_FILE</code><span class="config-key-desc">Path to cookies file</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to cookies file</td>
                     <td>
 <small>fallback: <code>COOKIES_FILE</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>YTDLP_MAX_SIZE</code></td>
+                    <td><code>YTDLP_MAX_SIZE</code><span class="config-key-desc">Maximum file size for yt-dlp downloads</span></td>
                     <td><code>&#34;750m&#34;</code></td>
                     <td>
                       <code>string</code>
 <br><small>pattern <code>^\d+[kmgKMG]?$</code></small>                    </td>
-                    <td>Maximum file size for yt-dlp downloads</td>
                     <td>
 <small>MEDIA_MAX_SIZE</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>YTDLP_CHECK_SSL_VALIDITY</code></td>
+                    <td><code>YTDLP_CHECK_SSL_VALIDITY</code><span class="config-key-desc">Whether to verify SSL certificates</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Whether to verify SSL certificates</td>
                     <td>
 <small>fallback: <code>CHECK_SSL_VALIDITY</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>YTDLP_ARGS</code></td>
+                    <td><code>YTDLP_ARGS</code><span class="config-key-desc">Default yt-dlp arguments</span></td>
                     <td><code>[
   &#34;--restrict-filenames&#34;,
   &#34;--trim-filenames=128&#34;,
@@ -1625,17 +1624,15 @@ providers: env,apt,brew">
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Default yt-dlp arguments</td>
                     <td>
 <small>YTDLP_DEFAULT_ARGS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>YTDLP_ARGS_EXTRA</code></td>
+                    <td><code>YTDLP_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to yt-dlp command</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Extra arguments to append to yt-dlp command</td>
                     <td>
 <small>YTDLP_EXTRA_ARGS</small>                    </td>
                   </tr>
@@ -1753,7 +1750,6 @@ providers: env,pip,brew,apt">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -1761,63 +1757,57 @@ providers: env,pip,brew,apt">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>GALLERYDL_ENABLED</code></td>
+                    <td><code>GALLERYDL_ENABLED</code><span class="config-key-desc">Enable gallery downloading with gallery-dl</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable gallery downloading with gallery-dl</td>
                     <td>
 <small>SAVE_GALLERYDL, USE_GALLERYDL</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>GALLERYDL_BINARY</code></td>
+                    <td><code>GALLERYDL_BINARY</code><span class="config-key-desc">Path to gallery-dl binary</span></td>
                     <td><code>&#34;gallery-dl&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to gallery-dl binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>GALLERYDL_TIMEOUT</code></td>
+                    <td><code>GALLERYDL_TIMEOUT</code><span class="config-key-desc">Timeout for gallery downloads in seconds</span></td>
                     <td><code>3600</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 30</small>                    </td>
-                    <td>Timeout for gallery downloads in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>GALLERYDL_COOKIES_FILE</code></td>
+                    <td><code>GALLERYDL_COOKIES_FILE</code><span class="config-key-desc">Path to cookies file</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to cookies file</td>
                     <td>
 <small>fallback: <code>COOKIES_FILE</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>GALLERYDL_CHECK_SSL_VALIDITY</code></td>
+                    <td><code>GALLERYDL_CHECK_SSL_VALIDITY</code><span class="config-key-desc">Whether to verify SSL certificates</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Whether to verify SSL certificates</td>
                     <td>
 <small>fallback: <code>CHECK_SSL_VALIDITY</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>GALLERYDL_ARGS</code></td>
+                    <td><code>GALLERYDL_ARGS</code><span class="config-key-desc">Default gallery-dl arguments</span></td>
                     <td><code>[
   &#34;--write-metadata&#34;,
   &#34;--write-info-json&#34;
@@ -1825,17 +1815,15 @@ providers: env,pip,brew,apt">
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Default gallery-dl arguments</td>
                     <td>
 <small>GALLERYDL_DEFAULT_ARGS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>GALLERYDL_ARGS_EXTRA</code></td>
+                    <td><code>GALLERYDL_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to gallery-dl command</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Extra arguments to append to gallery-dl command</td>
                     <td>
 <small>GALLERYDL_EXTRA_ARGS</small>                    </td>
                   </tr>
@@ -1951,7 +1939,6 @@ providers: env,pip">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -1959,68 +1946,61 @@ providers: env,pip">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>FORUMDL_ENABLED</code></td>
+                    <td><code>FORUMDL_ENABLED</code><span class="config-key-desc">Enable forum downloading with forum-dl</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable forum downloading with forum-dl</td>
                     <td>
 <small>SAVE_FORUMDL, USE_FORUMDL</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>FORUMDL_BINARY</code></td>
+                    <td><code>FORUMDL_BINARY</code><span class="config-key-desc">Path to forum-dl binary</span></td>
                     <td><code>&#34;forum-dl&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to forum-dl binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>FORUMDL_TIMEOUT</code></td>
+                    <td><code>FORUMDL_TIMEOUT</code><span class="config-key-desc">Timeout for forum downloads in seconds</span></td>
                     <td><code>3600</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 30</small>                    </td>
-                    <td>Timeout for forum downloads in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>FORUMDL_OUTPUT_FORMAT</code></td>
+                    <td><code>FORUMDL_OUTPUT_FORMAT</code><span class="config-key-desc">Output format for forum downloads</span></td>
                     <td><code>&#34;jsonl&#34;</code></td>
                     <td>
                       <code>string</code>
 <br><small>jsonl | warc | mbox | maildir | mh | mmdf | babyl</small>                    </td>
-                    <td>Output format for forum downloads</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>FORUMDL_ARGS</code></td>
+                    <td><code>FORUMDL_ARGS</code><span class="config-key-desc">Default forum-dl arguments</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Default forum-dl arguments</td>
                     <td>
 <small>FORUMDL_DEFAULT_ARGS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>FORUMDL_ARGS_EXTRA</code></td>
+                    <td><code>FORUMDL_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to forum-dl command</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Extra arguments to append to forum-dl command</td>
                     <td>
 <small>FORUMDL_EXTRA_ARGS</small>                    </td>
                   </tr>
@@ -2138,7 +2118,6 @@ providers: env,apt,brew">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -2146,53 +2125,48 @@ providers: env,apt,brew">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>GIT_ENABLED</code></td>
+                    <td><code>GIT_ENABLED</code><span class="config-key-desc">Enable git repository cloning</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable git repository cloning</td>
                     <td>
 <small>SAVE_GIT, USE_GIT</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>GIT_BINARY</code></td>
+                    <td><code>GIT_BINARY</code><span class="config-key-desc">Path to git binary</span></td>
                     <td><code>&#34;git&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to git binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>GIT_TIMEOUT</code></td>
+                    <td><code>GIT_TIMEOUT</code><span class="config-key-desc">Timeout for git operations in seconds</span></td>
                     <td><code>120</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 10</small>                    </td>
-                    <td>Timeout for git operations in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>GIT_DOMAINS</code></td>
+                    <td><code>GIT_DOMAINS</code><span class="config-key-desc">Comma-separated list of domains to treat as git repositories</span></td>
                     <td><code>&#34;github.com,gitlab.com,bitbucket.org,gist.github.com,codeberg.org,gitea.com,git.sr.ht&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Comma-separated list of domains to treat as git repositories</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>GIT_ARGS</code></td>
+                    <td><code>GIT_ARGS</code><span class="config-key-desc">Default git arguments</span></td>
                     <td><code>[
   &#34;clone&#34;,
   &#34;--depth=1&#34;,
@@ -2201,17 +2175,15 @@ providers: env,apt,brew">
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Default git arguments</td>
                     <td>
 <small>GIT_DEFAULT_ARGS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>GIT_ARGS_EXTRA</code></td>
+                    <td><code>GIT_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to git command</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Extra arguments to append to git command</td>
                     <td>
 <small>GIT_EXTRA_ARGS</small>                    </td>
                   </tr>
@@ -2332,7 +2304,6 @@ providers: env,apt,brew">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -2340,83 +2311,75 @@ providers: env,apt,brew">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>WGET_ENABLED</code></td>
+                    <td><code>WGET_ENABLED</code><span class="config-key-desc">Enable wget archiving</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable wget archiving</td>
                     <td>
 <small>SAVE_WGET, USE_WGET</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>WGET_WARC_ENABLED</code></td>
+                    <td><code>WGET_WARC_ENABLED</code><span class="config-key-desc">Save WARC archive file</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Save WARC archive file</td>
                     <td>
 <small>SAVE_WARC, WGET_SAVE_WARC</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>WGET_BINARY</code></td>
+                    <td><code>WGET_BINARY</code><span class="config-key-desc">Path to wget binary</span></td>
                     <td><code>&#34;wget&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to wget binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>WGET_TIMEOUT</code></td>
+                    <td><code>WGET_TIMEOUT</code><span class="config-key-desc">Timeout for wget in seconds</span></td>
                     <td><code>60</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for wget in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>WGET_USER_AGENT</code></td>
+                    <td><code>WGET_USER_AGENT</code><span class="config-key-desc">User agent string for wget</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>User agent string for wget</td>
                     <td>
 <small>fallback: <code>USER_AGENT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>WGET_COOKIES_FILE</code></td>
+                    <td><code>WGET_COOKIES_FILE</code><span class="config-key-desc">Path to cookies file</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to cookies file</td>
                     <td>
 <small>fallback: <code>COOKIES_FILE</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>WGET_CHECK_SSL_VALIDITY</code></td>
+                    <td><code>WGET_CHECK_SSL_VALIDITY</code><span class="config-key-desc">Whether to verify SSL certificates</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Whether to verify SSL certificates</td>
                     <td>
 <small>fallback: <code>CHECK_SSL_VALIDITY</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>WGET_ARGS</code></td>
+                    <td><code>WGET_ARGS</code><span class="config-key-desc">Default wget arguments</span></td>
                     <td><code>[
   &#34;--no-verbose&#34;,
   &#34;--adjust-extension&#34;,
@@ -2434,17 +2397,15 @@ providers: env,apt,brew">
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Default wget arguments</td>
                     <td>
 <small>WGET_DEFAULT_ARGS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>WGET_ARGS_EXTRA</code></td>
+                    <td><code>WGET_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to wget command</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Extra arguments to append to wget command</td>
                     <td>
 <small>WGET_EXTRA_ARGS</small>                    </td>
                   </tr>
@@ -2546,7 +2507,6 @@ providers: env,apt,brew">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -2554,38 +2514,34 @@ providers: env,apt,brew">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>ARCHIVEDOTORG_ENABLED</code></td>
+                    <td><code>ARCHIVEDOTORG_ENABLED</code><span class="config-key-desc">Submit URLs to archive.org Wayback Machine</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Submit URLs to archive.org Wayback Machine</td>
                     <td>
 <small>SAVE_ARCHIVEDOTORG, USE_ARCHIVEDOTORG, SUBMIT_ARCHIVEDOTORG</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>ARCHIVEDOTORG_TIMEOUT</code></td>
+                    <td><code>ARCHIVEDOTORG_TIMEOUT</code><span class="config-key-desc">Timeout for archive.org submission in seconds</span></td>
                     <td><code>60</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 10</small>                    </td>
-                    <td>Timeout for archive.org submission in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>ARCHIVEDOTORG_USER_AGENT</code></td>
+                    <td><code>ARCHIVEDOTORG_USER_AGENT</code><span class="config-key-desc">User agent string</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>User agent string</td>
                     <td>
 <small>fallback: <code>USER_AGENT</code></small>                    </td>
                   </tr>
@@ -2687,7 +2643,6 @@ providers: env,apt,brew">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -2695,48 +2650,43 @@ providers: env,apt,brew">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>FAVICON_ENABLED</code></td>
+                    <td><code>FAVICON_ENABLED</code><span class="config-key-desc">Enable favicon downloading</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable favicon downloading</td>
                     <td>
 <small>SAVE_FAVICON, USE_FAVICON</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>FAVICON_TIMEOUT</code></td>
+                    <td><code>FAVICON_TIMEOUT</code><span class="config-key-desc">Timeout for favicon fetch in seconds</span></td>
                     <td><code>30</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for favicon fetch in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>FAVICON_USER_AGENT</code></td>
+                    <td><code>FAVICON_USER_AGENT</code><span class="config-key-desc">User agent string</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>User agent string</td>
                     <td>
 <small>fallback: <code>USER_AGENT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>FAVICON_PROVIDER</code></td>
+                    <td><code>FAVICON_PROVIDER</code><span class="config-key-desc">Fallback favicon provider URL template. Supports either {} or {domain} placeholders.</span></td>
                     <td><code>&#34;https://www.google.com/s2/favicons?domain={}&amp;format=ico&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Fallback favicon provider URL template. Supports either {} or {domain} placeholders.</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
@@ -2850,7 +2800,6 @@ providers: chromewebstore">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -2858,28 +2807,25 @@ providers: chromewebstore">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>UBLOCK_ENABLED</code></td>
+                    <td><code>UBLOCK_ENABLED</code><span class="config-key-desc">Enable uBlock Origin browser extension for ad blocking</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable uBlock Origin browser extension for ad blocking</td>
                     <td>
 <small>USE_UBLOCK</small>                    </td>
                   </tr>
@@ -2993,7 +2939,6 @@ providers: chromewebstore">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -3001,28 +2946,25 @@ providers: chromewebstore">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>ISTILLDONTCAREABOUTCOOKIES_ENABLED</code></td>
+                    <td><code>ISTILLDONTCAREABOUTCOOKIES_ENABLED</code><span class="config-key-desc">Enable I Still Don&#39;t Care About Cookies browser extension</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable I Still Don&#39;t Care About Cookies browser extension</td>
                     <td>
 <small>USE_ISTILLDONTCAREABOUTCOOKIES</small>                    </td>
                   </tr>
@@ -3149,7 +3091,6 @@ providers: chromewebstore">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -3157,78 +3098,70 @@ providers: chromewebstore">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>TWOCAPTCHA_ENABLED</code></td>
+                    <td><code>TWOCAPTCHA_ENABLED</code><span class="config-key-desc">Enable 2captcha browser extension for automatic CAPTCHA solving</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable 2captcha browser extension for automatic CAPTCHA solving</td>
                     <td>
 <small>CAPTCHA2_ENABLED, USE_CAPTCHA2, USE_TWOCAPTCHA</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>TWOCAPTCHA_API_KEY</code></td>
+                    <td><code>TWOCAPTCHA_API_KEY</code><span class="config-key-desc">2captcha API key for CAPTCHA solving service (get from https://2captcha.com)</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>2captcha API key for CAPTCHA solving service (get from https://2captcha.com)</td>
                     <td>
 <small>API_KEY_2CAPTCHA, CAPTCHA2_API_KEY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>TWOCAPTCHA_RETRY_COUNT</code></td>
+                    <td><code>TWOCAPTCHA_RETRY_COUNT</code><span class="config-key-desc">Number of times to retry CAPTCHA solving on error</span></td>
                     <td><code>3</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 0</small>                    </td>
-                    <td>Number of times to retry CAPTCHA solving on error</td>
                     <td>
 <small>CAPTCHA2_RETRY_COUNT</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>TWOCAPTCHA_RETRY_DELAY</code></td>
+                    <td><code>TWOCAPTCHA_RETRY_DELAY</code><span class="config-key-desc">Delay in seconds between CAPTCHA solving retries</span></td>
                     <td><code>5</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 0</small>                    </td>
-                    <td>Delay in seconds between CAPTCHA solving retries</td>
                     <td>
 <small>CAPTCHA2_RETRY_DELAY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>TWOCAPTCHA_TIMEOUT</code></td>
+                    <td><code>TWOCAPTCHA_TIMEOUT</code><span class="config-key-desc">Timeout for CAPTCHA solving in seconds</span></td>
                     <td><code>60</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for CAPTCHA solving in seconds</td>
                     <td>
 <small>CAPTCHA2_TIMEOUT</small><br><small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>TWOCAPTCHA_AUTO_SUBMIT</code></td>
+                    <td><code>TWOCAPTCHA_AUTO_SUBMIT</code><span class="config-key-desc">Automatically submit forms after CAPTCHA is solved</span></td>
                     <td><code>false</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Automatically submit forms after CAPTCHA is solved</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
@@ -3337,7 +3270,6 @@ providers: env,puppeteer">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -3345,48 +3277,43 @@ providers: env,puppeteer">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>MODALCLOSER_ENABLED</code></td>
+                    <td><code>MODALCLOSER_ENABLED</code><span class="config-key-desc">Enable automatic modal and dialog closing</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable automatic modal and dialog closing</td>
                     <td>
 <small>CLOSE_MODALS, AUTO_CLOSE_MODALS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>MODALCLOSER_TIMEOUT</code></td>
+                    <td><code>MODALCLOSER_TIMEOUT</code><span class="config-key-desc">Delay before auto-closing dialogs (ms)</span></td>
                     <td><code>1250</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 100</small>                    </td>
-                    <td>Delay before auto-closing dialogs (ms)</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>MODALCLOSER_POLL_INTERVAL</code></td>
+                    <td><code>MODALCLOSER_POLL_INTERVAL</code><span class="config-key-desc">How often to check for CSS modals (ms)</span></td>
                     <td><code>500</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 100</small>                    </td>
-                    <td>How often to check for CSS modals (ms)</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
@@ -3502,7 +3429,6 @@ providers: env,puppeteer">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -3510,38 +3436,34 @@ providers: env,puppeteer">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CONSOLELOG_ENABLED</code></td>
+                    <td><code>CONSOLELOG_ENABLED</code><span class="config-key-desc">Enable console log capture</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable console log capture</td>
                     <td>
 <small>SAVE_CONSOLELOG, USE_CONSOLELOG</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CONSOLELOG_TIMEOUT</code></td>
+                    <td><code>CONSOLELOG_TIMEOUT</code><span class="config-key-desc">Timeout for console log capture in seconds</span></td>
                     <td><code>30</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for console log capture in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
@@ -3657,7 +3579,6 @@ providers: env,puppeteer">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -3665,38 +3586,34 @@ providers: env,puppeteer">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>DNS_ENABLED</code></td>
+                    <td><code>DNS_ENABLED</code><span class="config-key-desc">Enable DNS traffic recording during page load</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable DNS traffic recording during page load</td>
                     <td>
 <small>SAVE_DNS, USE_DNS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>DNS_TIMEOUT</code></td>
+                    <td><code>DNS_TIMEOUT</code><span class="config-key-desc">Timeout for DNS recording in seconds</span></td>
                     <td><code>30</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for DNS recording in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
@@ -3812,7 +3729,6 @@ providers: env,puppeteer">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -3820,38 +3736,34 @@ providers: env,puppeteer">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SSLCERTS_ENABLED</code></td>
+                    <td><code>SSLCERTS_ENABLED</code><span class="config-key-desc">Enable SSL certificate capture</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable SSL certificate capture</td>
                     <td>
 <small>SAVE_SSLCERTS, USE_SSLCERTS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SSLCERTS_TIMEOUT</code></td>
+                    <td><code>SSLCERTS_TIMEOUT</code><span class="config-key-desc">Timeout for SSL capture in seconds</span></td>
                     <td><code>30</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for SSL capture in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
@@ -3973,7 +3885,6 @@ providers: env,puppeteer">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -3981,38 +3892,34 @@ providers: env,puppeteer">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>RESPONSES_ENABLED</code></td>
+                    <td><code>RESPONSES_ENABLED</code><span class="config-key-desc">Enable HTTP response capture</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable HTTP response capture</td>
                     <td>
 <small>SAVE_RESPONSES, USE_RESPONSES</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>RESPONSES_TIMEOUT</code></td>
+                    <td><code>RESPONSES_TIMEOUT</code><span class="config-key-desc">Timeout for response capture in seconds</span></td>
                     <td><code>30</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for response capture in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
@@ -4128,7 +4035,6 @@ providers: env,puppeteer">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -4136,38 +4042,34 @@ providers: env,puppeteer">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>REDIRECTS_ENABLED</code></td>
+                    <td><code>REDIRECTS_ENABLED</code><span class="config-key-desc">Enable redirect chain capture</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable redirect chain capture</td>
                     <td>
 <small>SAVE_REDIRECTS, USE_REDIRECTS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>REDIRECTS_TIMEOUT</code></td>
+                    <td><code>REDIRECTS_TIMEOUT</code><span class="config-key-desc">Timeout for redirect capture in seconds</span></td>
                     <td><code>30</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for redirect capture in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
@@ -4295,7 +4197,6 @@ providers: env,puppeteer">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -4303,38 +4204,34 @@ providers: env,puppeteer">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>STATICFILE_ENABLED</code></td>
+                    <td><code>STATICFILE_ENABLED</code><span class="config-key-desc">Enable static file detection</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable static file detection</td>
                     <td>
 <small>SAVE_STATICFILE, USE_STATICFILE</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>STATICFILE_TIMEOUT</code></td>
+                    <td><code>STATICFILE_TIMEOUT</code><span class="config-key-desc">Timeout for static file detection in seconds</span></td>
                     <td><code>30</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for static file detection in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
@@ -4450,7 +4347,6 @@ providers: env,puppeteer">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -4458,38 +4354,34 @@ providers: env,puppeteer">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>HEADERS_ENABLED</code></td>
+                    <td><code>HEADERS_ENABLED</code><span class="config-key-desc">Enable HTTP headers capture</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable HTTP headers capture</td>
                     <td>
 <small>SAVE_HEADERS, USE_HEADERS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>HEADERS_TIMEOUT</code></td>
+                    <td><code>HEADERS_TIMEOUT</code><span class="config-key-desc">Timeout for headers capture in seconds</span></td>
                     <td><code>30</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for headers capture in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
@@ -4685,7 +4577,6 @@ providers: env,puppeteer">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -4693,173 +4584,156 @@ providers: env,puppeteer">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_ENABLED</code></td>
+                    <td><code>CHROME_ENABLED</code><span class="config-key-desc">Enable Chromium browser integration for archiving</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable Chromium browser integration for archiving</td>
                     <td>
 <small>USE_CHROME</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>NODE_BINARY</code></td>
+                    <td><code>NODE_BINARY</code><span class="config-key-desc">Path to Node.js binary</span></td>
                     <td><code>&#34;node&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Node.js binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_TIMEOUT</code></td>
+                    <td><code>CHROME_TIMEOUT</code><span class="config-key-desc">Timeout for Chrome operations in seconds</span></td>
                     <td><code>60</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for Chrome operations in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_LAUNCH_ATTEMPTS</code></td>
+                    <td><code>CHROME_LAUNCH_ATTEMPTS</code><span class="config-key-desc">Maximum Chromium launch attempts before failing on transient startup errors</span></td>
                     <td><code>3</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 1</small>                    </td>
-                    <td>Maximum Chromium launch attempts before failing on transient startup errors</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_HEADLESS</code></td>
+                    <td><code>CHROME_HEADLESS</code><span class="config-key-desc">Run Chrome in headless mode</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Run Chrome in headless mode</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>PERSONAS_DIR</code></td>
+                    <td><code>PERSONAS_DIR</code><span class="config-key-desc">Shared Chrome/browser personas root</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Shared Chrome/browser personas root</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>ACTIVE_PERSONA</code></td>
+                    <td><code>ACTIVE_PERSONA</code><span class="config-key-desc">Active browser persona name</span></td>
                     <td><code>&#34;Default&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Active browser persona name</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_SANDBOX</code></td>
+                    <td><code>CHROME_SANDBOX</code><span class="config-key-desc">Enable Chrome sandbox (disable in Docker with --no-sandbox)</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable Chrome sandbox (disable in Docker with --no-sandbox)</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_RESOLUTION</code></td>
+                    <td><code>CHROME_RESOLUTION</code><span class="config-key-desc">Browser viewport resolution (width,height)</span></td>
                     <td><code>&#34;1440,2000&#34;</code></td>
                     <td>
                       <code>string</code>
 <br><small>pattern <code>^\d+,\d+$</code></small>                    </td>
-                    <td>Browser viewport resolution (width,height)</td>
                     <td>
 <small>fallback: <code>RESOLUTION</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_USER_DATA_DIR</code></td>
+                    <td><code>CHROME_USER_DATA_DIR</code><span class="config-key-desc">Path to Chrome user data directory for persistent sessions (derived from ACTIVE_PERSONA if not set)</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chrome user data directory for persistent sessions (derived from ACTIVE_PERSONA if not set)</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_USER_AGENT</code></td>
+                    <td><code>CHROME_USER_AGENT</code><span class="config-key-desc">User agent string for Chrome</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>User agent string for Chrome</td>
                     <td>
 <small>fallback: <code>USER_AGENT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_CDP_URL</code></td>
+                    <td><code>CHROME_CDP_URL</code><span class="config-key-desc">Connect to an already-running browser over CDP instead of launching a new local Chromium process</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Connect to an already-running browser over CDP instead of launching a new local Chromium process</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_IS_LOCAL</code></td>
+                    <td><code>CHROME_IS_LOCAL</code><span class="config-key-desc">Whether the managed browser process is local and should have a live chrome.pid marker</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Whether the managed browser process is local and should have a live chrome.pid marker</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_KEEPALIVE</code></td>
+                    <td><code>CHROME_KEEPALIVE</code><span class="config-key-desc">Keep the browser alive after the owning crawl/snapshot hook exits instead of closing it during cleanup</span></td>
                     <td><code>false</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Keep the browser alive after the owning crawl/snapshot hook exits instead of closing it during cleanup</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_ISOLATION</code></td>
+                    <td><code>CHROME_ISOLATION</code><span class="config-key-desc">Whether Chrome runs as one shared browser per crawl or a separate browser per snapshot</span></td>
                     <td><code>&#34;crawl&#34;</code></td>
                     <td>
                       <code>string</code>
 <br><small>crawl | snapshot</small>                    </td>
-                    <td>Whether Chrome runs as one shared browser per crawl or a separate browser per snapshot</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_ARGS</code></td>
+                    <td><code>CHROME_ARGS</code><span class="config-key-desc">Default Chrome command-line arguments (static flags only, dynamic args like --user-data-dir are added at runtime)</span></td>
                     <td><code>[
   &#34;--no-first-run&#34;,
   &#34;--no-default-browser-check&#34;,
@@ -4922,57 +4796,51 @@ providers: env,puppeteer">
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Default Chrome command-line arguments (static flags only, dynamic args like --user-data-dir are added at runtime)</td>
                     <td>
 <small>CHROME_DEFAULT_ARGS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_ARGS_EXTRA</code></td>
+                    <td><code>CHROME_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to Chrome command (for user customization)</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Extra arguments to append to Chrome command (for user customization)</td>
                     <td>
 <small>CHROME_EXTRA_ARGS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_PAGELOAD_TIMEOUT</code></td>
+                    <td><code>CHROME_PAGELOAD_TIMEOUT</code><span class="config-key-desc">Timeout for page navigation/load in seconds</span></td>
                     <td><code>60</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for page navigation/load in seconds</td>
                     <td>
 <small>fallback: <code>CHROME_TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_WAIT_FOR</code></td>
+                    <td><code>CHROME_WAIT_FOR</code><span class="config-key-desc">Page load completion condition (domcontentloaded, load, networkidle0, networkidle2)</span></td>
                     <td><code>&#34;networkidle2&#34;</code></td>
                     <td>
                       <code>string</code>
 <br><small>domcontentloaded | load | networkidle0 | networkidle2</small>                    </td>
-                    <td>Page load completion condition (domcontentloaded, load, networkidle0, networkidle2)</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_DELAY_AFTER_LOAD</code></td>
+                    <td><code>CHROME_DELAY_AFTER_LOAD</code><span class="config-key-desc">Extra delay in seconds after page load completes before archiving (useful for JS-heavy SPAs)</span></td>
                     <td><code>0</code></td>
                     <td>
                       <code>number</code>
 <br><small>min 0</small>                    </td>
-                    <td>Extra delay in seconds after page load completes before archiving (useful for JS-heavy SPAs)</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_CHECK_SSL_VALIDITY</code></td>
+                    <td><code>CHROME_CHECK_SSL_VALIDITY</code><span class="config-key-desc">Whether to verify SSL certificates (disable for self-signed certs)</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Whether to verify SSL certificates (disable for self-signed certs)</td>
                     <td>
 <small>fallback: <code>CHECK_SSL_VALIDITY</code></small>                    </td>
                   </tr>
@@ -5087,7 +4955,6 @@ providers: env,puppeteer">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -5095,38 +4962,34 @@ providers: env,puppeteer">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SEO_ENABLED</code></td>
+                    <td><code>SEO_ENABLED</code><span class="config-key-desc">Enable SEO metadata capture</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable SEO metadata capture</td>
                     <td>
 <small>SAVE_SEO, USE_SEO</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SEO_TIMEOUT</code></td>
+                    <td><code>SEO_TIMEOUT</code><span class="config-key-desc">Timeout for SEO capture in seconds</span></td>
                     <td><code>30</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for SEO capture in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
@@ -5241,7 +5104,6 @@ providers: env,puppeteer">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -5249,38 +5111,34 @@ providers: env,puppeteer">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>ACCESSIBILITY_ENABLED</code></td>
+                    <td><code>ACCESSIBILITY_ENABLED</code><span class="config-key-desc">Enable accessibility tree capture</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable accessibility tree capture</td>
                     <td>
 <small>SAVE_ACCESSIBILITY, USE_ACCESSIBILITY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>ACCESSIBILITY_TIMEOUT</code></td>
+                    <td><code>ACCESSIBILITY_TIMEOUT</code><span class="config-key-desc">Timeout for accessibility capture in seconds</span></td>
                     <td><code>30</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for accessibility capture in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
@@ -5388,7 +5246,6 @@ providers: env,puppeteer">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -5396,88 +5253,79 @@ providers: env,puppeteer">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>INFINISCROLL_ENABLED</code></td>
+                    <td><code>INFINISCROLL_ENABLED</code><span class="config-key-desc">Enable infinite scroll page expansion</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable infinite scroll page expansion</td>
                     <td>
 <small>SAVE_INFINISCROLL, USE_INFINISCROLL</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>INFINISCROLL_TIMEOUT</code></td>
+                    <td><code>INFINISCROLL_TIMEOUT</code><span class="config-key-desc">Maximum timeout for scrolling in seconds</span></td>
                     <td><code>120</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 10</small>                    </td>
-                    <td>Maximum timeout for scrolling in seconds</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>INFINISCROLL_SCROLL_DELAY</code></td>
+                    <td><code>INFINISCROLL_SCROLL_DELAY</code><span class="config-key-desc">Delay between scrolls in milliseconds</span></td>
                     <td><code>2000</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 500</small>                    </td>
-                    <td>Delay between scrolls in milliseconds</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>INFINISCROLL_SCROLL_DISTANCE</code></td>
+                    <td><code>INFINISCROLL_SCROLL_DISTANCE</code><span class="config-key-desc">Distance to scroll per step in pixels</span></td>
                     <td><code>1600</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 100</small>                    </td>
-                    <td>Distance to scroll per step in pixels</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>INFINISCROLL_SCROLL_LIMIT</code></td>
+                    <td><code>INFINISCROLL_SCROLL_LIMIT</code><span class="config-key-desc">Maximum number of scroll steps</span></td>
                     <td><code>10</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 1</small>                    </td>
-                    <td>Maximum number of scroll steps</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>INFINISCROLL_MIN_HEIGHT</code></td>
+                    <td><code>INFINISCROLL_MIN_HEIGHT</code><span class="config-key-desc">Minimum page height to scroll to in pixels</span></td>
                     <td><code>16000</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 1000</small>                    </td>
-                    <td>Minimum page height to scroll to in pixels</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>INFINISCROLL_EXPAND_DETAILS</code></td>
+                    <td><code>INFINISCROLL_EXPAND_DETAILS</code><span class="config-key-desc">Expand &lt;details&gt; elements and click &#39;load more&#39; buttons for comments</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Expand &lt;details&gt; elements and click &#39;load more&#39; buttons for comments</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
@@ -5618,7 +5466,6 @@ providers: chromewebstore">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -5626,108 +5473,97 @@ providers: chromewebstore">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>NODE_BINARY</code></td>
+                    <td><code>NODE_BINARY</code><span class="config-key-desc">Path to Node.js binary</span></td>
                     <td><code>&#34;node&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Node.js binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>PERSONAS_DIR</code></td>
+                    <td><code>PERSONAS_DIR</code><span class="config-key-desc">Shared Chrome/browser personas root</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Shared Chrome/browser personas root</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>ACTIVE_PERSONA</code></td>
+                    <td><code>ACTIVE_PERSONA</code><span class="config-key-desc">Active browser persona name</span></td>
                     <td><code>&#34;Default&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Active browser persona name</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CLAUDECHROME_ENABLED</code></td>
+                    <td><code>CLAUDECHROME_ENABLED</code><span class="config-key-desc">Enable Claude for Chrome browser extension for AI-driven page interaction</span></td>
                     <td><code>false</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable Claude for Chrome browser extension for AI-driven page interaction</td>
                     <td>
 <small>USE_CLAUDECHROME</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CLAUDECHROME_PROMPT</code></td>
+                    <td><code>CLAUDECHROME_PROMPT</code><span class="config-key-desc">Prompt for Claude to execute on the page. Claude can click buttons, fill forms, download files, and interact with any page element.</span></td>
                     <td><code>&#34;Look at the current page. If there are any \&#34;expand\&#34;, \&#34;show more\&#34;, \&#34;load more\&#34;, or similar buttons/links, click them all to reveal hidden content. Report what you did.&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Prompt for Claude to execute on the page. Claude can click buttons, fill forms, download files, and interact with any page element.</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CLAUDECHROME_TIMEOUT</code></td>
+                    <td><code>CLAUDECHROME_TIMEOUT</code><span class="config-key-desc">Timeout for Claude for Chrome operations in seconds</span></td>
                     <td><code>120</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 10</small>                    </td>
-                    <td>Timeout for Claude for Chrome operations in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CLAUDECHROME_MODEL</code></td>
+                    <td><code>CLAUDECHROME_MODEL</code><span class="config-key-desc">Claude model to use (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001). Availability depends on your plan.</span></td>
                     <td><code>&#34;claude-sonnet-4-6&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Claude model to use (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001). Availability depends on your plan.</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CLAUDECHROME_MAX_ACTIONS</code></td>
+                    <td><code>CLAUDECHROME_MAX_ACTIONS</code><span class="config-key-desc">Maximum number of agentic loop iterations (screenshots + actions) per page</span></td>
                     <td><code>15</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 1</small>                    </td>
-                    <td>Maximum number of agentic loop iterations (screenshots + actions) per page</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>ANTHROPIC_API_KEY</code></td>
+                    <td><code>ANTHROPIC_API_KEY</code><span class="config-key-desc">Anthropic API key for Claude for Chrome authentication</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Anthropic API key for Claude for Chrome authentication</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
@@ -5855,7 +5691,6 @@ providers: chromewebstore">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -5863,140 +5698,126 @@ providers: chromewebstore">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>PERSONAS_DIR</code></td>
+                    <td><code>PERSONAS_DIR</code><span class="config-key-desc">Shared Chrome/browser personas root</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Shared Chrome/browser personas root</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>ACTIVE_PERSONA</code></td>
+                    <td><code>ACTIVE_PERSONA</code><span class="config-key-desc">Active browser persona name</span></td>
                     <td><code>&#34;Default&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Active browser persona name</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SINGLEFILE_ENABLED</code></td>
+                    <td><code>SINGLEFILE_ENABLED</code><span class="config-key-desc">Enable SingleFile archiving</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable SingleFile archiving</td>
                     <td>
 <small>SAVE_SINGLEFILE, USE_SINGLEFILE</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SINGLEFILE_BINARY</code></td>
+                    <td><code>SINGLEFILE_BINARY</code><span class="config-key-desc">Path to single-file binary</span></td>
                     <td><code>&#34;single-file&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to single-file binary</td>
                     <td>
 <small>SINGLE_FILE_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>NODE_BINARY</code></td>
+                    <td><code>NODE_BINARY</code><span class="config-key-desc">Path to Node.js binary</span></td>
                     <td><code>&#34;node&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Node.js binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SINGLEFILE_TIMEOUT</code></td>
+                    <td><code>SINGLEFILE_TIMEOUT</code><span class="config-key-desc">Timeout for SingleFile in seconds</span></td>
                     <td><code>60</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 10</small>                    </td>
-                    <td>Timeout for SingleFile in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SINGLEFILE_USER_AGENT</code></td>
+                    <td><code>SINGLEFILE_USER_AGENT</code><span class="config-key-desc">User agent string</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>User agent string</td>
                     <td>
 <small>fallback: <code>USER_AGENT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SINGLEFILE_COOKIES_FILE</code></td>
+                    <td><code>SINGLEFILE_COOKIES_FILE</code><span class="config-key-desc">Path to cookies file</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to cookies file</td>
                     <td>
 <small>fallback: <code>COOKIES_FILE</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SINGLEFILE_CHECK_SSL_VALIDITY</code></td>
+                    <td><code>SINGLEFILE_CHECK_SSL_VALIDITY</code><span class="config-key-desc">Whether to verify SSL certificates</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Whether to verify SSL certificates</td>
                     <td>
 <small>fallback: <code>CHECK_SSL_VALIDITY</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SINGLEFILE_CHROME_ARGS</code></td>
+                    <td><code>SINGLEFILE_CHROME_ARGS</code><span class="config-key-desc">Chrome command-line arguments for SingleFile</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Chrome command-line arguments for SingleFile</td>
                     <td>
 <small>fallback: <code>CHROME_ARGS</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SINGLEFILE_ARGS</code></td>
+                    <td><code>SINGLEFILE_ARGS</code><span class="config-key-desc">Default single-file arguments</span></td>
                     <td><code>[
   &#34;--browser-headless&#34;
 ]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Default single-file arguments</td>
                     <td>
 <small>SINGLEFILE_DEFAULT_ARGS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SINGLEFILE_ARGS_EXTRA</code></td>
+                    <td><code>SINGLEFILE_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to single-file command</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Extra arguments to append to single-file command</td>
                     <td>
 <small>SINGLEFILE_EXTRA_ARGS</small>                    </td>
                   </tr>
@@ -6113,7 +5934,6 @@ providers: env,puppeteer">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -6121,48 +5941,43 @@ providers: env,puppeteer">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SCREENSHOT_ENABLED</code></td>
+                    <td><code>SCREENSHOT_ENABLED</code><span class="config-key-desc">Enable screenshot capture</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable screenshot capture</td>
                     <td>
 <small>SAVE_SCREENSHOT, USE_SCREENSHOT</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SCREENSHOT_TIMEOUT</code></td>
+                    <td><code>SCREENSHOT_TIMEOUT</code><span class="config-key-desc">Timeout for screenshot capture in seconds</span></td>
                     <td><code>60</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for screenshot capture in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SCREENSHOT_RESOLUTION</code></td>
+                    <td><code>SCREENSHOT_RESOLUTION</code><span class="config-key-desc">Screenshot resolution (width,height)</span></td>
                     <td><code>&#34;1440,2000&#34;</code></td>
                     <td>
                       <code>string</code>
 <br><small>pattern <code>^\d+,\d+$</code></small>                    </td>
-                    <td>Screenshot resolution (width,height)</td>
                     <td>
 <small>fallback: <code>RESOLUTION</code></small>                    </td>
                   </tr>
@@ -6279,7 +6094,6 @@ providers: env,puppeteer">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -6287,48 +6101,43 @@ providers: env,puppeteer">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>PDF_ENABLED</code></td>
+                    <td><code>PDF_ENABLED</code><span class="config-key-desc">Enable PDF generation</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable PDF generation</td>
                     <td>
 <small>SAVE_PDF, USE_PDF</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>PDF_TIMEOUT</code></td>
+                    <td><code>PDF_TIMEOUT</code><span class="config-key-desc">Timeout for PDF generation in seconds</span></td>
                     <td><code>60</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for PDF generation in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>PDF_RESOLUTION</code></td>
+                    <td><code>PDF_RESOLUTION</code><span class="config-key-desc">PDF page resolution (width,height)</span></td>
                     <td><code>&#34;1440,2000&#34;</code></td>
                     <td>
                       <code>string</code>
 <br><small>pattern <code>^\d+,\d+$</code></small>                    </td>
-                    <td>PDF page resolution (width,height)</td>
                     <td>
 <small>fallback: <code>RESOLUTION</code></small>                    </td>
                   </tr>
@@ -6444,7 +6253,6 @@ providers: env,puppeteer">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -6452,38 +6260,34 @@ providers: env,puppeteer">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>DOM_ENABLED</code></td>
+                    <td><code>DOM_ENABLED</code><span class="config-key-desc">Enable DOM capture</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable DOM capture</td>
                     <td>
 <small>SAVE_DOM, USE_DOM</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>DOM_TIMEOUT</code></td>
+                    <td><code>DOM_TIMEOUT</code><span class="config-key-desc">Timeout for DOM capture in seconds</span></td>
                     <td><code>60</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for DOM capture in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
@@ -6598,7 +6402,6 @@ providers: env,puppeteer">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -6606,38 +6409,34 @@ providers: env,puppeteer">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>TITLE_ENABLED</code></td>
+                    <td><code>TITLE_ENABLED</code><span class="config-key-desc">Enable title extraction</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable title extraction</td>
                     <td>
 <small>SAVE_TITLE, USE_TITLE</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>TITLE_TIMEOUT</code></td>
+                    <td><code>TITLE_TIMEOUT</code><span class="config-key-desc">Timeout for title extraction in seconds</span></td>
                     <td><code>30</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for title extraction in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
@@ -6752,7 +6551,6 @@ providers: env,npm">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -6760,58 +6558,52 @@ providers: env,npm">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>READABILITY_ENABLED</code></td>
+                    <td><code>READABILITY_ENABLED</code><span class="config-key-desc">Enable Readability text extraction</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable Readability text extraction</td>
                     <td>
 <small>SAVE_READABILITY, USE_READABILITY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>READABILITY_BINARY</code></td>
+                    <td><code>READABILITY_BINARY</code><span class="config-key-desc">Path to readability-extractor binary</span></td>
                     <td><code>&#34;readability-extractor&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to readability-extractor binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>READABILITY_TIMEOUT</code></td>
+                    <td><code>READABILITY_TIMEOUT</code><span class="config-key-desc">Timeout for Readability in seconds</span></td>
                     <td><code>30</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for Readability in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>READABILITY_ARGS</code></td>
+                    <td><code>READABILITY_ARGS</code><span class="config-key-desc">Default Readability arguments</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Default Readability arguments</td>
                     <td>
 <small>READABILITY_DEFAULT_ARGS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>READABILITY_ARGS_EXTRA</code></td>
+                    <td><code>READABILITY_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to Readability command</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Extra arguments to append to Readability command</td>
                     <td>
 <small>READABILITY_EXTRA_ARGS</small>                    </td>
                   </tr>
@@ -6924,7 +6716,6 @@ providers: env,npm">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -6932,58 +6723,52 @@ providers: env,npm">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>DEFUDDLE_ENABLED</code></td>
+                    <td><code>DEFUDDLE_ENABLED</code><span class="config-key-desc">Enable Defuddle text extraction</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable Defuddle text extraction</td>
                     <td>
 <small>SAVE_DEFUDDLE, USE_DEFUDDLE</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>DEFUDDLE_BINARY</code></td>
+                    <td><code>DEFUDDLE_BINARY</code><span class="config-key-desc">Path to defuddle binary</span></td>
                     <td><code>&#34;defuddle&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to defuddle binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>DEFUDDLE_TIMEOUT</code></td>
+                    <td><code>DEFUDDLE_TIMEOUT</code><span class="config-key-desc">Timeout for Defuddle in seconds</span></td>
                     <td><code>30</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for Defuddle in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>DEFUDDLE_ARGS</code></td>
+                    <td><code>DEFUDDLE_ARGS</code><span class="config-key-desc">Default Defuddle arguments</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Default Defuddle arguments</td>
                     <td>
 <small>DEFUDDLE_DEFAULT_ARGS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>DEFUDDLE_ARGS_EXTRA</code></td>
+                    <td><code>DEFUDDLE_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to Defuddle command</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Extra arguments to append to Defuddle command</td>
                     <td>
 <small>DEFUDDLE_EXTRA_ARGS</small>                    </td>
                   </tr>
@@ -7097,7 +6882,6 @@ providers: npm,env">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -7105,58 +6889,52 @@ providers: npm,env">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>MERCURY_ENABLED</code></td>
+                    <td><code>MERCURY_ENABLED</code><span class="config-key-desc">Enable Mercury text extraction</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable Mercury text extraction</td>
                     <td>
 <small>SAVE_MERCURY, USE_MERCURY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>MERCURY_BINARY</code></td>
+                    <td><code>MERCURY_BINARY</code><span class="config-key-desc">Path to Mercury/Postlight parser binary</span></td>
                     <td><code>&#34;postlight-parser&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Mercury/Postlight parser binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>MERCURY_TIMEOUT</code></td>
+                    <td><code>MERCURY_TIMEOUT</code><span class="config-key-desc">Timeout for Mercury in seconds</span></td>
                     <td><code>30</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for Mercury in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>MERCURY_ARGS</code></td>
+                    <td><code>MERCURY_ARGS</code><span class="config-key-desc">Default Mercury parser arguments</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Default Mercury parser arguments</td>
                     <td>
 <small>MERCURY_DEFAULT_ARGS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>MERCURY_ARGS_EXTRA</code></td>
+                    <td><code>MERCURY_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to Mercury parser command</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Extra arguments to append to Mercury parser command</td>
                     <td>
 <small>MERCURY_EXTRA_ARGS</small>                    </td>
                   </tr>
@@ -7275,7 +7053,6 @@ providers: env,npm">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -7283,68 +7060,61 @@ providers: env,npm">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CLAUDECODE_BINARY</code></td>
+                    <td><code>CLAUDECODE_BINARY</code><span class="config-key-desc">Path to Claude Code CLI binary</span></td>
                     <td><code>&#34;claude&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Claude Code CLI binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CLAUDECODEEXTRACT_ENABLED</code></td>
+                    <td><code>CLAUDECODEEXTRACT_ENABLED</code><span class="config-key-desc">Enable Claude Code AI extraction</span></td>
                     <td><code>false</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable Claude Code AI extraction</td>
                     <td>
 <small>USE_CLAUDECODEEXTRACT</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CLAUDECODEEXTRACT_TIMEOUT</code></td>
+                    <td><code>CLAUDECODEEXTRACT_TIMEOUT</code><span class="config-key-desc">Timeout for Claude Code extraction in seconds</span></td>
                     <td><code>120</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 10</small>                    </td>
-                    <td>Timeout for Claude Code extraction in seconds</td>
                     <td>
 <small>fallback: <code>CLAUDECODE_TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CLAUDECODEEXTRACT_PROMPT</code></td>
+                    <td><code>CLAUDECODEEXTRACT_PROMPT</code><span class="config-key-desc">Custom prompt for Claude Code extraction. Use this to define what Claude should extract or generate from the snapshot.</span></td>
                     <td><code>&#34;Read all the previously extracted outputs in this snapshot directory (readability/, mercury/, defuddle/, htmltotext/, dom/, singlefile/, etc.). Using the best available source, generate a clean, well-formatted Markdown representation of the page content. Save the output as content.md in your output directory.&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Custom prompt for Claude Code extraction. Use this to define what Claude should extract or generate from the snapshot.</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CLAUDECODEEXTRACT_MODEL</code></td>
+                    <td><code>CLAUDECODEEXTRACT_MODEL</code><span class="config-key-desc">Claude model to use for extraction (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001)</span></td>
                     <td><code>&#34;claude-sonnet-4-6&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Claude model to use for extraction (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001)</td>
                     <td>
 <small>fallback: <code>CLAUDECODE_MODEL</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CLAUDECODEEXTRACT_MAX_TURNS</code></td>
+                    <td><code>CLAUDECODEEXTRACT_MAX_TURNS</code><span class="config-key-desc">Maximum number of agentic turns for extraction</span></td>
                     <td><code>50</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 1</small>                    </td>
-                    <td>Maximum number of agentic turns for extraction</td>
                     <td>
 <small>fallback: <code>CLAUDECODE_MAX_TURNS</code></small>                    </td>
                   </tr>
@@ -7444,7 +7214,6 @@ providers: env,npm">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -7452,28 +7221,25 @@ providers: env,npm">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>HTMLTOTEXT_ENABLED</code></td>
+                    <td><code>HTMLTOTEXT_ENABLED</code><span class="config-key-desc">Enable HTML to text conversion</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable HTML to text conversion</td>
                     <td>
 <small>SAVE_HTMLTOTEXT, USE_HTMLTOTEXT</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>HTMLTOTEXT_TIMEOUT</code></td>
+                    <td><code>HTMLTOTEXT_TIMEOUT</code><span class="config-key-desc">Timeout for HTML to text conversion in seconds</span></td>
                     <td><code>30</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for HTML to text conversion in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
@@ -7590,7 +7356,6 @@ providers: env,pip">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -7598,48 +7363,43 @@ providers: env,pip">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>TRAFILATURA_ENABLED</code></td>
+                    <td><code>TRAFILATURA_ENABLED</code><span class="config-key-desc">Enable Trafilatura extraction</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable Trafilatura extraction</td>
                     <td>
 <small>SAVE_TRAFILATURA, USE_TRAFILATURA</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>TRAFILATURA_BINARY</code></td>
+                    <td><code>TRAFILATURA_BINARY</code><span class="config-key-desc">Path to trafilatura binary</span></td>
                     <td><code>&#34;trafilatura&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to trafilatura binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>TRAFILATURA_TIMEOUT</code></td>
+                    <td><code>TRAFILATURA_TIMEOUT</code><span class="config-key-desc">Timeout for Trafilatura in seconds</span></td>
                     <td><code>30</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for Trafilatura in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>TRAFILATURA_OUTPUT_FORMATS</code></td>
+                    <td><code>TRAFILATURA_OUTPUT_FORMATS</code><span class="config-key-desc">Comma-separated trafilatura output formats to write (txt, markdown, html, csv, json, xml, xmltei)</span></td>
                     <td><code>&#34;txt,markdown,html&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Comma-separated trafilatura output formats to write (txt, markdown, html, csv, json, xml, xmltei)</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
@@ -7766,7 +7526,6 @@ min_version: 11.0.0">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -7774,88 +7533,79 @@ min_version: 11.0.0">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>OPENDATALOADER_ENABLED</code></td>
+                    <td><code>OPENDATALOADER_ENABLED</code><span class="config-key-desc">Enable PDF text extraction with opendataloader-pdf</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable PDF text extraction with opendataloader-pdf</td>
                     <td>
 <small>SAVE_OPENDATALOADER, USE_OPENDATALOADER</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>OPENDATALOADER_BINARY</code></td>
+                    <td><code>OPENDATALOADER_BINARY</code><span class="config-key-desc">Path to opendataloader-pdf binary</span></td>
                     <td><code>&#34;opendataloader-pdf&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to opendataloader-pdf binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>OPENDATALOADER_JAVA_BINARY</code></td>
+                    <td><code>OPENDATALOADER_JAVA_BINARY</code><span class="config-key-desc">Path to the Java runtime used by opendataloader-pdf</span></td>
                     <td><code>&#34;java&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to the Java runtime used by opendataloader-pdf</td>
                     <td>
 <small>fallback: <code>JAVA_BINARY</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>OPENDATALOADER_TIMEOUT</code></td>
+                    <td><code>OPENDATALOADER_TIMEOUT</code><span class="config-key-desc">Timeout for PDF extraction in seconds</span></td>
                     <td><code>120</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 10</small>                    </td>
-                    <td>Timeout for PDF extraction in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>OPENDATALOADER_FORCE_OCR</code></td>
+                    <td><code>OPENDATALOADER_FORCE_OCR</code><span class="config-key-desc">Use hybrid OCR backend (--hybrid docling-fast) for scanned/image-based PDFs. Requires opendataloader-pdf-hybrid server running.</span></td>
                     <td><code>false</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Use hybrid OCR backend (--hybrid docling-fast) for scanned/image-based PDFs. Requires opendataloader-pdf-hybrid server running.</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>OPENDATALOADER_HYBRID_URL</code></td>
+                    <td><code>OPENDATALOADER_HYBRID_URL</code><span class="config-key-desc">URL of the opendataloader-pdf-hybrid server (e.g. http://localhost:5002). If empty, uses the default built-in URL.</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>URL of the opendataloader-pdf-hybrid server (e.g. http://localhost:5002). If empty, uses the default built-in URL.</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>OPENDATALOADER_ARGS</code></td>
+                    <td><code>OPENDATALOADER_ARGS</code><span class="config-key-desc">Default opendataloader-pdf arguments</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Default opendataloader-pdf arguments</td>
                     <td>
 <small>OPENDATALOADER_DEFAULT_ARGS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>OPENDATALOADER_ARGS_EXTRA</code></td>
+                    <td><code>OPENDATALOADER_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to opendataloader-pdf command</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Extra arguments to append to opendataloader-pdf command</td>
                     <td>
 <small>OPENDATALOADER_EXTRA_ARGS</small>                    </td>
                   </tr>
@@ -7974,7 +7724,6 @@ providers: env,npm">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -7982,58 +7731,52 @@ providers: env,npm">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>LITEPARSE_ENABLED</code></td>
+                    <td><code>LITEPARSE_ENABLED</code><span class="config-key-desc">Enable LiteParse document extraction</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable LiteParse document extraction</td>
                     <td>
 <small>SAVE_LITEPARSE, USE_LITEPARSE</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>LITEPARSE_BINARY</code></td>
+                    <td><code>LITEPARSE_BINARY</code><span class="config-key-desc">Path to lit binary</span></td>
                     <td><code>&#34;lit&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to lit binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>LITEPARSE_TIMEOUT</code></td>
+                    <td><code>LITEPARSE_TIMEOUT</code><span class="config-key-desc">Timeout for LiteParse extraction in seconds</span></td>
                     <td><code>120</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 10</small>                    </td>
-                    <td>Timeout for LiteParse extraction in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>LITEPARSE_ARGS</code></td>
+                    <td><code>LITEPARSE_ARGS</code><span class="config-key-desc">Default LiteParse arguments</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Default LiteParse arguments</td>
                     <td>
 <small>LITEPARSE_DEFAULT_ARGS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>LITEPARSE_ARGS_EXTRA</code></td>
+                    <td><code>LITEPARSE_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to LiteParse command</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Extra arguments to append to LiteParse command</td>
                     <td>
 <small>LITEPARSE_EXTRA_ARGS</small>                    </td>
                   </tr>
@@ -8147,7 +7890,6 @@ providers: env,pip">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -8155,60 +7897,54 @@ providers: env,pip">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>PAPERSDL_ENABLED</code></td>
+                    <td><code>PAPERSDL_ENABLED</code><span class="config-key-desc">Enable paper downloading with papers-dl</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable paper downloading with papers-dl</td>
                     <td>
 <small>SAVE_PAPERSDL, USE_PAPERSDL</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>PAPERSDL_BINARY</code></td>
+                    <td><code>PAPERSDL_BINARY</code><span class="config-key-desc">Path to papers-dl binary</span></td>
                     <td><code>&#34;papers-dl&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to papers-dl binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>PAPERSDL_TIMEOUT</code></td>
+                    <td><code>PAPERSDL_TIMEOUT</code><span class="config-key-desc">Timeout for paper downloads in seconds</span></td>
                     <td><code>300</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 30</small>                    </td>
-                    <td>Timeout for paper downloads in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>PAPERSDL_ARGS</code></td>
+                    <td><code>PAPERSDL_ARGS</code><span class="config-key-desc">Default papers-dl arguments</span></td>
                     <td><code>[
   &#34;fetch&#34;
 ]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Default papers-dl arguments</td>
                     <td>
 <small>PAPERSDL_DEFAULT_ARGS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>PAPERSDL_ARGS_EXTRA</code></td>
+                    <td><code>PAPERSDL_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to papers-dl command</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Extra arguments to append to papers-dl command</td>
                     <td>
 <small>PAPERSDL_EXTRA_ARGS</small>                    </td>
                   </tr>
@@ -8308,7 +8044,6 @@ providers: env,pip">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -8316,18 +8051,16 @@ providers: env,pip">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>PARSE_HTML_URLS_ENABLED</code></td>
+                    <td><code>PARSE_HTML_URLS_ENABLED</code><span class="config-key-desc">Enable HTML URL parsing</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable HTML URL parsing</td>
                     <td>
 <small>USE_PARSE_HTML_URLS</small>                    </td>
                   </tr>
@@ -8427,7 +8160,6 @@ providers: env,pip">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -8435,18 +8167,16 @@ providers: env,pip">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>PARSE_TXT_URLS_ENABLED</code></td>
+                    <td><code>PARSE_TXT_URLS_ENABLED</code><span class="config-key-desc">Enable plain text URL parsing</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable plain text URL parsing</td>
                     <td>
 <small>USE_PARSE_TXT_URLS</small>                    </td>
                   </tr>
@@ -8546,7 +8276,6 @@ providers: env,pip">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -8554,18 +8283,16 @@ providers: env,pip">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>PARSE_RSS_URLS_ENABLED</code></td>
+                    <td><code>PARSE_RSS_URLS_ENABLED</code><span class="config-key-desc">Enable RSS/Atom feed URL parsing</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable RSS/Atom feed URL parsing</td>
                     <td>
 <small>USE_PARSE_RSS_URLS</small>                    </td>
                   </tr>
@@ -8665,7 +8392,6 @@ providers: env,pip">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -8673,18 +8399,16 @@ providers: env,pip">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>PARSE_NETSCAPE_URLS_ENABLED</code></td>
+                    <td><code>PARSE_NETSCAPE_URLS_ENABLED</code><span class="config-key-desc">Enable Netscape bookmarks HTML URL parsing</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable Netscape bookmarks HTML URL parsing</td>
                     <td>
 <small>USE_PARSE_NETSCAPE_URLS</small>                    </td>
                   </tr>
@@ -8784,7 +8508,6 @@ providers: env,pip">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -8792,18 +8515,16 @@ providers: env,pip">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>PARSE_JSONL_URLS_ENABLED</code></td>
+                    <td><code>PARSE_JSONL_URLS_ENABLED</code><span class="config-key-desc">Enable JSON Lines URL parsing</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable JSON Lines URL parsing</td>
                     <td>
 <small>USE_PARSE_JSONL_URLS</small>                    </td>
                   </tr>
@@ -8918,7 +8639,6 @@ providers: env,puppeteer">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -8926,38 +8646,34 @@ providers: env,puppeteer">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>PARSE_DOM_OUTLINKS_ENABLED</code></td>
+                    <td><code>PARSE_DOM_OUTLINKS_ENABLED</code><span class="config-key-desc">Enable DOM outlinks parsing from archived pages</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable DOM outlinks parsing from archived pages</td>
                     <td>
 <small>SAVE_DOM_OUTLINKS, USE_PARSE_DOM_OUTLINKS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>PARSE_DOM_OUTLINKS_TIMEOUT</code></td>
+                    <td><code>PARSE_DOM_OUTLINKS_TIMEOUT</code><span class="config-key-desc">Timeout for DOM outlinks parsing in seconds</span></td>
                     <td><code>30</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for DOM outlinks parsing in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
@@ -9057,7 +8773,6 @@ providers: env,puppeteer">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -9065,58 +8780,52 @@ providers: env,puppeteer">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>SEARCH_BACKEND_ENGINE</code></td>
+                    <td><code>SEARCH_BACKEND_ENGINE</code><span class="config-key-desc">Selected search backend implementation</span></td>
                     <td><code>&#34;sqlite&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Selected search backend implementation</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>USE_INDEXING_BACKEND</code></td>
+                    <td><code>USE_INDEXING_BACKEND</code><span class="config-key-desc">Enable search indexing for archived snapshots</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable search indexing for archived snapshots</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SEARCH_BACKEND_SQLITE_DB</code></td>
+                    <td><code>SEARCH_BACKEND_SQLITE_DB</code><span class="config-key-desc">SQLite FTS database filename</span></td>
                     <td><code>&#34;search.sqlite3&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>SQLite FTS database filename</td>
                     <td>
 <small>SQLITEFTS_DB</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SEARCH_BACKEND_SQLITE_SEPARATE_DATABASE</code></td>
+                    <td><code>SEARCH_BACKEND_SQLITE_SEPARATE_DATABASE</code><span class="config-key-desc">Use separate database file for FTS index</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Use separate database file for FTS index</td>
                     <td>
 <small>FTS_SEPARATE_DATABASE, SQLITEFTS_SEPARATE_DATABASE</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SEARCH_BACKEND_SQLITE_TOKENIZERS</code></td>
+                    <td><code>SEARCH_BACKEND_SQLITE_TOKENIZERS</code><span class="config-key-desc">FTS5 tokenizer configuration</span></td>
                     <td><code>&#34;porter unicode61 remove_diacritics 2&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>FTS5 tokenizer configuration</td>
                     <td>
 <small>FTS_TOKENIZERS, SQLITEFTS_TOKENIZERS</small>                    </td>
                   </tr>
@@ -9233,7 +8942,6 @@ providers: env,apt,brew,cargo">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -9241,98 +8949,88 @@ providers: env,apt,brew,cargo">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>SEARCH_BACKEND_ENGINE</code></td>
+                    <td><code>SEARCH_BACKEND_ENGINE</code><span class="config-key-desc">Selected search backend implementation</span></td>
                     <td><code>&#34;sonic&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Selected search backend implementation</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>USE_INDEXING_BACKEND</code></td>
+                    <td><code>USE_INDEXING_BACKEND</code><span class="config-key-desc">Enable search indexing for archived snapshots</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable search indexing for archived snapshots</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SONIC_BINARY</code></td>
+                    <td><code>SONIC_BINARY</code><span class="config-key-desc">Path to Sonic server binary</span></td>
                     <td><code>&#34;sonic&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Sonic server binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SONIC_DIR</code></td>
+                    <td><code>SONIC_DIR</code><span class="config-key-desc">Directory used to store the Sonic config, logs, and index data</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Directory used to store the Sonic config, logs, and index data</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SEARCH_BACKEND_SONIC_HOST_NAME</code></td>
+                    <td><code>SEARCH_BACKEND_SONIC_HOST_NAME</code><span class="config-key-desc">Sonic server hostname</span></td>
                     <td><code>&#34;127.0.0.1&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Sonic server hostname</td>
                     <td>
 <small>SEARCH_BACKEND_HOST_NAME, SONIC_HOST</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SEARCH_BACKEND_SONIC_PORT</code></td>
+                    <td><code>SEARCH_BACKEND_SONIC_PORT</code><span class="config-key-desc">Sonic server port</span></td>
                     <td><code>1491</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 1</small>                    </td>
-                    <td>Sonic server port</td>
                     <td>
 <small>SEARCH_BACKEND_PORT, SONIC_PORT</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SEARCH_BACKEND_SONIC_PASSWORD</code></td>
+                    <td><code>SEARCH_BACKEND_SONIC_PASSWORD</code><span class="config-key-desc">Sonic server password</span></td>
                     <td><code>&#34;SecretPassword&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Sonic server password</td>
                     <td>
 <small>SEARCH_BACKEND_PASSWORD, SONIC_PASSWORD</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SEARCH_BACKEND_SONIC_COLLECTION</code></td>
+                    <td><code>SEARCH_BACKEND_SONIC_COLLECTION</code><span class="config-key-desc">Sonic collection name</span></td>
                     <td><code>&#34;archivebox&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Sonic collection name</td>
                     <td>
 <small>SONIC_COLLECTION</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SEARCH_BACKEND_SONIC_BUCKET</code></td>
+                    <td><code>SEARCH_BACKEND_SONIC_BUCKET</code><span class="config-key-desc">Sonic bucket name</span></td>
                     <td><code>&#34;snapshots&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Sonic bucket name</td>
                     <td>
 <small>SONIC_BUCKET</small>                    </td>
                   </tr>
@@ -9451,7 +9149,6 @@ providers: env,npm">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -9459,68 +9156,61 @@ providers: env,npm">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CLAUDECODE_BINARY</code></td>
+                    <td><code>CLAUDECODE_BINARY</code><span class="config-key-desc">Path to Claude Code CLI binary</span></td>
                     <td><code>&#34;claude&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Claude Code CLI binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CLAUDECODECLEANUP_ENABLED</code></td>
+                    <td><code>CLAUDECODECLEANUP_ENABLED</code><span class="config-key-desc">Enable Claude Code AI cleanup of snapshot files</span></td>
                     <td><code>false</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable Claude Code AI cleanup of snapshot files</td>
                     <td>
 <small>USE_CLAUDECODECLEANUP</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CLAUDECODECLEANUP_TIMEOUT</code></td>
+                    <td><code>CLAUDECODECLEANUP_TIMEOUT</code><span class="config-key-desc">Timeout for Claude Code cleanup in seconds</span></td>
                     <td><code>180</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 10</small>                    </td>
-                    <td>Timeout for Claude Code cleanup in seconds</td>
                     <td>
 <small>fallback: <code>CLAUDECODE_TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CLAUDECODECLEANUP_PROMPT</code></td>
+                    <td><code>CLAUDECODECLEANUP_PROMPT</code><span class="config-key-desc">Custom prompt for Claude Code cleanup. Defines what Claude should clean up and how to determine which duplicates to keep.</span></td>
                     <td><code>&#34;Analyze all the extractor output directories in this snapshot. Look for duplicate or redundant outputs across plugins (e.g. multiple HTML extractions, multiple text extractions, multiple URL extraction outputs, etc.). For each group of similar outputs, inspect the content and determine which version is the best quality. Delete the inferior/redundant versions, keeping only the best one. Also remove any unnecessary temporary files, empty directories, or incomplete outputs. Write a summary of what you cleaned up to cleanup_report.txt in your output directory.&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Custom prompt for Claude Code cleanup. Defines what Claude should clean up and how to determine which duplicates to keep.</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CLAUDECODECLEANUP_MODEL</code></td>
+                    <td><code>CLAUDECODECLEANUP_MODEL</code><span class="config-key-desc">Claude model to use for cleanup (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001)</span></td>
                     <td><code>&#34;claude-sonnet-4-6&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Claude model to use for cleanup (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001)</td>
                     <td>
 <small>fallback: <code>CLAUDECODE_MODEL</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CLAUDECODECLEANUP_MAX_TURNS</code></td>
+                    <td><code>CLAUDECODECLEANUP_MAX_TURNS</code><span class="config-key-desc">Maximum number of agentic turns for cleanup</span></td>
                     <td><code>50</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 1</small>                    </td>
-                    <td>Maximum number of agentic turns for cleanup</td>
                     <td>
 <small>fallback: <code>CLAUDECODE_MAX_TURNS</code></small>                    </td>
                   </tr>
@@ -9620,7 +9310,6 @@ providers: env,npm">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -9628,28 +9317,25 @@ providers: env,npm">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>HASHES_ENABLED</code></td>
+                    <td><code>HASHES_ENABLED</code><span class="config-key-desc">Enable merkle tree hash generation</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable merkle tree hash generation</td>
                     <td>
 <small>SAVE_HASHES, USE_HASHES</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>HASHES_TIMEOUT</code></td>
+                    <td><code>HASHES_TIMEOUT</code><span class="config-key-desc">Timeout for merkle tree generation in seconds</span></td>
                     <td><code>30</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Timeout for merkle tree generation in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
@@ -9787,7 +9473,6 @@ providers: env,npm">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -9795,198 +9480,178 @@ providers: env,npm">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>DATA_DIR</code></td>
+                    <td><code>DATA_DIR</code><span class="config-key-desc">Base data directory for the current runtime</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Base data directory for the current runtime</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>ABX_RUNTIME</code></td>
+                    <td><code>ABX_RUNTIME</code><span class="config-key-desc">Current host runtime name, eg. abx-dl or archivebox</span></td>
                     <td><code>&#34;abx-dl&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Current host runtime name, eg. abx-dl or archivebox</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>SNAP_DIR</code></td>
+                    <td><code>SNAP_DIR</code><span class="config-key-desc">Base snapshot directory for per-snapshot hook output</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Base snapshot directory for per-snapshot hook output</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CRAWL_DIR</code></td>
+                    <td><code>CRAWL_DIR</code><span class="config-key-desc">Base crawl directory for per-crawl hook output</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Base crawl directory for per-crawl hook output</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>LIB_DIR</code></td>
+                    <td><code>LIB_DIR</code><span class="config-key-desc">Shared tools and binary installation root</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Shared tools and binary installation root</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>PERSONAS_DIR</code></td>
+                    <td><code>PERSONAS_DIR</code><span class="config-key-desc">Shared Chrome/browser personas root</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Shared Chrome/browser personas root</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>ACTIVE_PERSONA</code></td>
+                    <td><code>ACTIVE_PERSONA</code><span class="config-key-desc">Active browser persona name</span></td>
                     <td><code>&#34;Default&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Active browser persona name</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>EXTRA_CONTEXT</code></td>
+                    <td><code>EXTRA_CONTEXT</code><span class="config-key-desc">JSON object merged into emitted JSONL event records</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>JSON object merged into emitted JSONL event records</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>TIMEOUT</code></td>
+                    <td><code>TIMEOUT</code><span class="config-key-desc">Default timeout in seconds for hooks that support a TIMEOUT fallback</span></td>
                     <td><code>60</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 0</small>                    </td>
-                    <td>Default timeout in seconds for hooks that support a TIMEOUT fallback</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>USER_AGENT</code></td>
+                    <td><code>USER_AGENT</code><span class="config-key-desc">Default user agent string for HTTP requests and browser automation</span></td>
                     <td><code>&#34;Mozilla/5.0 (compatible; ArchiveBox/1.0)&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Default user agent string for HTTP requests and browser automation</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>PATH</code></td>
+                    <td><code>PATH</code><span class="config-key-desc">Executable search path</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Executable search path</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>NODE_MODULES_DIR</code></td>
+                    <td><code>NODE_MODULES_DIR</code><span class="config-key-desc">Shared Node.js module resolution root</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Shared Node.js module resolution root</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>NODE_MODULE_DIR</code></td>
+                    <td><code>NODE_MODULE_DIR</code><span class="config-key-desc">Legacy alias for NODE_MODULES_DIR</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Legacy alias for NODE_MODULES_DIR</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>NODE_PATH</code></td>
+                    <td><code>NODE_PATH</code><span class="config-key-desc">Node.js module lookup path</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Node.js module lookup path</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>NODE_V8_COVERAGE</code></td>
+                    <td><code>NODE_V8_COVERAGE</code><span class="config-key-desc">Optional V8 coverage output directory for Node.js hooks</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Optional V8 coverage output directory for Node.js hooks</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Resolved Chromium/Chrome binary path shared across plugins</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Resolved Chromium/Chrome binary path shared across plugins</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_USER_DATA_DIR</code></td>
+                    <td><code>CHROME_USER_DATA_DIR</code><span class="config-key-desc">Chrome user data directory for persistent browser state</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Chrome user data directory for persistent browser state</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_DOWNLOADS_DIR</code></td>
+                    <td><code>CHROME_DOWNLOADS_DIR</code><span class="config-key-desc">Chrome downloads directory shared by browser plugins</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Chrome downloads directory shared by browser plugins</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_EXTENSIONS_DIR</code></td>
+                    <td><code>CHROME_EXTENSIONS_DIR</code><span class="config-key-desc">Chrome extensions directory shared by browser plugins</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Chrome extensions directory shared by browser plugins</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
@@ -10330,7 +9995,6 @@ providers: env,apt,brew">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -10338,48 +10002,43 @@ providers: env,apt,brew">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>NODE_BINARY</code></td>
+                    <td><code>NODE_BINARY</code><span class="config-key-desc">Path to Node.js binary</span></td>
                     <td><code>&#34;node&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Node.js binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>PERSONAS_DIR</code></td>
+                    <td><code>PERSONAS_DIR</code><span class="config-key-desc">Shared Chrome/browser personas root</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Shared Chrome/browser personas root</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>ACTIVE_PERSONA</code></td>
+                    <td><code>ACTIVE_PERSONA</code><span class="config-key-desc">Active browser persona name</span></td>
                     <td><code>&#34;Default&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Active browser persona name</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CHROME_EXTENSIONS_DIR</code></td>
+                    <td><code>CHROME_EXTENSIONS_DIR</code><span class="config-key-desc">Path to installed Chrome extensions directory</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to installed Chrome extensions directory</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
@@ -10473,7 +10132,6 @@ providers: env,npm">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -10481,78 +10139,70 @@ providers: env,npm">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>NODE_BINARY</code></td>
+                    <td><code>NODE_BINARY</code><span class="config-key-desc">Path to Node.js binary</span></td>
                     <td><code>&#34;node&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Node.js binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CLAUDECODE_ENABLED</code></td>
+                    <td><code>CLAUDECODE_ENABLED</code><span class="config-key-desc">Enable Claude Code AI agent integration. Controls whether the Claude CLI dependency is resolved for this plugin; child plugins still need the claudecode plugin enabled and a working Claude binary.</span></td>
                     <td><code>false</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable Claude Code AI agent integration. Controls whether the Claude CLI dependency is resolved for this plugin; child plugins still need the claudecode plugin enabled and a working Claude binary.</td>
                     <td>
 <small>USE_CLAUDECODE</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CLAUDECODE_BINARY</code></td>
+                    <td><code>CLAUDECODE_BINARY</code><span class="config-key-desc">Path to Claude Code CLI binary</span></td>
                     <td><code>&#34;claude&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Claude Code CLI binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CLAUDECODE_TIMEOUT</code></td>
+                    <td><code>CLAUDECODE_TIMEOUT</code><span class="config-key-desc">Timeout for Claude Code operations in seconds</span></td>
                     <td><code>120</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 10</small>                    </td>
-                    <td>Timeout for Claude Code operations in seconds</td>
                     <td>
 <small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>ANTHROPIC_API_KEY</code></td>
+                    <td><code>ANTHROPIC_API_KEY</code><span class="config-key-desc">Anthropic API key for Claude Code authentication</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Anthropic API key for Claude Code authentication</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CLAUDECODE_MODEL</code></td>
+                    <td><code>CLAUDECODE_MODEL</code><span class="config-key-desc">Claude model to use (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001)</span></td>
                     <td><code>&#34;claude-sonnet-4-6&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Claude model to use (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001)</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>CLAUDECODE_MAX_TURNS</code></td>
+                    <td><code>CLAUDECODE_MAX_TURNS</code><span class="config-key-desc">Maximum number of agentic turns per invocation</span></td>
                     <td><code>50</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 1</small>                    </td>
-                    <td>Maximum number of agentic turns per invocation</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
@@ -10780,7 +10430,6 @@ providers: env,apt,brew">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -10788,28 +10437,25 @@ providers: env,apt,brew">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>NODE_BINARY</code></td>
+                    <td><code>NODE_BINARY</code><span class="config-key-desc">Path to Node.js binary</span></td>
                     <td><code>&#34;node&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Node.js binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>NPM_BINARY</code></td>
+                    <td><code>NPM_BINARY</code><span class="config-key-desc">Path to npm binary</span></td>
                     <td><code>&#34;npm&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to npm binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
@@ -10911,7 +10557,6 @@ providers: env">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -10919,18 +10564,16 @@ providers: env">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>PIP_VENV_PYTHON</code></td>
+                    <td><code>PIP_VENV_PYTHON</code><span class="config-key-desc">Preferred Python interpreter for creating the shared pip virtualenv</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Preferred Python interpreter for creating the shared pip virtualenv</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
@@ -11032,7 +10675,6 @@ providers: npm">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -11040,38 +10682,34 @@ providers: npm">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CHROME_BINARY</code></td>
+                    <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
                     <td><code>&#34;chromium&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to Chromium binary</td>
                     <td>
 <small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>PUPPETEER_ENABLED</code></td>
+                    <td><code>PUPPETEER_ENABLED</code><span class="config-key-desc">Enable Puppeteer dependency installation during crawl setup</span></td>
                     <td><code>true</code></td>
                     <td>
                       <code>boolean</code>
                     </td>
-                    <td>Enable Puppeteer dependency installation during crawl setup</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>PUPPETEER_CACHE_DIR</code></td>
+                    <td><code>PUPPETEER_CACHE_DIR</code><span class="config-key-desc">Override the Puppeteer browser cache directory</span></td>
                     <td><code>&#34;&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Override the Puppeteer browser cache directory</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
@@ -11151,7 +10789,6 @@ providers: env,apt,brew">
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -11159,43 +10796,39 @@ providers: env,apt,brew">
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>SEARCH_BACKEND_ENGINE</code></td>
+                    <td><code>SEARCH_BACKEND_ENGINE</code><span class="config-key-desc">Selected search backend implementation</span></td>
                     <td><code>&#34;ripgrep&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Selected search backend implementation</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>RIPGREP_BINARY</code></td>
+                    <td><code>RIPGREP_BINARY</code><span class="config-key-desc">Path to ripgrep binary</span></td>
                     <td><code>&#34;rg&#34;</code></td>
                     <td>
                       <code>string</code>
                     </td>
-                    <td>Path to ripgrep binary</td>
                     <td>
 <span class="config-table-muted">—</span>                    </td>
                   </tr>
                   <tr>
-                    <td><code>RIPGREP_TIMEOUT</code></td>
+                    <td><code>RIPGREP_TIMEOUT</code><span class="config-key-desc">Search timeout in seconds</span></td>
                     <td><code>90</code></td>
                     <td>
                       <code>integer</code>
 <br><small>min 5</small>                    </td>
-                    <td>Search timeout in seconds</td>
                     <td>
 <small>SEARCH_BACKEND_TIMEOUT</small><br><small>fallback: <code>TIMEOUT</code></small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>RIPGREP_ARGS</code></td>
+                    <td><code>RIPGREP_ARGS</code><span class="config-key-desc">Default ripgrep arguments</span></td>
                     <td><code>[
   &#34;--files-with-matches&#34;,
   &#34;--no-messages&#34;,
@@ -11204,17 +10837,15 @@ providers: env,apt,brew">
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Default ripgrep arguments</td>
                     <td>
 <small>RIPGREP_DEFAULT_ARGS</small>                    </td>
                   </tr>
                   <tr>
-                    <td><code>RIPGREP_ARGS_EXTRA</code></td>
+                    <td><code>RIPGREP_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to ripgrep command</span></td>
                     <td><code>[]</code></td>
                     <td>
                       <code>array</code>
                     </td>
-                    <td>Extra arguments to append to ripgrep command</td>
                     <td>
 <small>RIPGREP_EXTRA_ARGS</small>                    </td>
                   </tr>
@@ -11476,7 +11107,7 @@ providers: env,apt,brew">
 
         <div class="footer-meta">
           <span>Generated from <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">ArchiveBox/abx-plugins</a> at ref <code>main</code>.</span>
-          <span>Updated 2026-04-03 09:10 UTC</span>
+          <span>Updated 2026-04-03 09:13 UTC</span>
         </div>
       </footer>
     </div>

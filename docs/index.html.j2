@@ -994,11 +994,10 @@
         table-layout: fixed;
       }
 
-      .config-table colgroup .col-key { width: 22%; }
-      .config-table colgroup .col-default { width: 22%; }
-      .config-table colgroup .col-type { width: 14%; }
-      .config-table colgroup .col-desc { width: 28%; }
-      .config-table colgroup .col-aliases { width: 14%; }
+      .config-table colgroup .col-key { width: 38%; }
+      .config-table colgroup .col-default { width: 24%; }
+      .config-table colgroup .col-type { width: 18%; }
+      .config-table colgroup .col-aliases { width: 20%; }
 
       .config-table th {
         text-align: left;
@@ -1019,9 +1018,10 @@
         vertical-align: top;
       }
 
-      .config-table td:nth-child(1) { white-space: nowrap; }
+      .config-table td:nth-child(1) code { white-space: nowrap; }
       .config-table td:nth-child(2) { word-break: break-all; }
       .config-table td:nth-child(3) { white-space: nowrap; }
+      .config-table td:nth-child(4) { word-break: break-word; }
 
       .config-table tbody tr:last-child td {
         border-bottom: none;
@@ -1050,6 +1050,14 @@
       .config-table small {
         color: var(--muted);
         font-size: 0.84rem;
+      }
+
+      .config-key-desc {
+        display: block;
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 0.84rem;
+        font-family: 'Space Grotesk', sans-serif;
       }
 
       .config-table-muted {
@@ -1562,7 +1570,6 @@ abx-dl dl 'https://example.com'</code></pre>
                   <col class="col-key">
                   <col class="col-default">
                   <col class="col-type">
-                  <col class="col-desc">
                   <col class="col-aliases">
                 </colgroup>
                 <thead>
@@ -1570,14 +1577,13 @@ abx-dl dl 'https://example.com'</code></pre>
                     <th>Key</th>
                     <th>Default</th>
                     <th>Type</th>
-                    <th>Description</th>
                     <th>Aliases / Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for field in plugin.config_fields %}
                   <tr>
-                    <td><code>{{ field.key }}</code></td>
+                    <td><code>{{ field.key }}</code>{% if field.description %}<span class="config-key-desc">{{ field.description }}</span>{% endif %}</td>
                     <td>{% if field.default is not none %}<code>{{ field.default }}</code>{% else %}<span class="config-table-muted">—</span>{% endif %}</td>
                     <td>
                       <code>{{ field.type }}</code>
@@ -1585,7 +1591,6 @@ abx-dl dl 'https://example.com'</code></pre>
                       {% if field.pattern %}<br><small>pattern <code>{{ field.pattern }}</code></small>{% endif %}
                       {% if field.enum %}<br><small>{{ field.enum|join(" | ") }}</small>{% endif %}
                     </td>
-                    <td>{{ field.description or "" }}</td>
                     <td>
                       {% if field.aliases %}<small>{{ field.aliases|join(", ") }}</small>{% endif %}
                       {% if field.fallback %}{% if field.aliases %}<br>{% endif %}<small>fallback: <code>{{ field.fallback }}</code></small>{% endif %}
