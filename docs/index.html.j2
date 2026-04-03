@@ -179,7 +179,7 @@
           linear-gradient(135deg, rgba(255, 250, 242, 0.96), rgba(244, 251, 250, 0.92)),
           rgba(255, 253, 248, 0.9);
         border: 2px solid rgba(201, 111, 45, 0.55);
-        box-shadow: 0 10px 28px rgba(22, 35, 31, 0.08);
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
         animation: cta-border-color-cycle 2.4s linear infinite;
       }
 
@@ -295,7 +295,7 @@
       .hero-code-block {
         margin-top: 16px;
         overflow: hidden;
-        border: 1px solid rgba(22, 35, 31, 0.14);
+        border: 1px solid var(--line);
         border-radius: 0;
         background: linear-gradient(180deg, #233633, #162321);
         color: #f7f1e6;
@@ -437,7 +437,7 @@
         align-items: center;
         gap: 12px;
         padding: 0 18px;
-        border: 1px solid rgba(29, 41, 39, 0.16);
+        border: 1px solid var(--line);
         border-radius: 0;
         background: var(--bg-accent);
       }
@@ -519,7 +519,7 @@
 
       .plugin-card.modal-active {
         border-color: var(--card-accent);
-        box-shadow: 0 0 0 2px var(--card-accent), 0 14px 40px rgba(42, 47, 38, 0.12);
+        box-shadow: 0 0 0 2px var(--card-accent), 0 14px 40px rgba(0, 0, 0, 0.3);
         transform: translateY(-2px);
       }
 
@@ -840,7 +840,7 @@
         gap: 10px;
         padding: 10px 14px;
         border-radius: 0;
-        border: 1px solid rgba(15, 118, 110, 0.18);
+        border: 1px solid rgba(45, 212, 191, 0.2);
         background: var(--accent-soft);
         color: var(--accent);
         text-decoration: none;
@@ -1097,7 +1097,7 @@
       .footer-card {
         min-height: 100%;
         padding: 20px 20px 18px;
-        border: 1px solid rgba(29, 41, 39, 0.1);
+        border: 1px solid var(--line);
         border-radius: 0;
         background: var(--bg-accent);
       }
@@ -1125,14 +1125,14 @@
         gap: 10px;
         align-items: start;
         padding: 10px 12px;
-        border: 1px solid rgba(29, 41, 39, 0.08);
+        border: 1px solid var(--line);
         border-radius: 0;
         background: var(--bg-accent);
         text-decoration: none;
       }
 
       .footer-link-item:hover {
-        border-color: rgba(15, 118, 110, 0.22);
+        border-color: rgba(45, 212, 191, 0.3);
         background: rgba(255, 255, 255, 0.06);
       }
 
@@ -1189,7 +1189,7 @@
         flex-wrap: wrap;
         margin-top: 18px;
         padding-top: 18px;
-        border-top: 1px solid rgba(29, 41, 39, 0.08);
+        border-top: 1px solid var(--line);
         font-size: 0.88rem;
       }
 
