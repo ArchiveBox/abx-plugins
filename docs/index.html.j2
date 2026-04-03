@@ -547,7 +547,7 @@
         position: relative;
         width: 100%;
         max-width: 900px;
-        border-radius: var(--radius);
+        border-radius: 16px;
         background:
           linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(255, 255, 255, 0.96)),
           var(--surface-strong);
@@ -566,6 +566,14 @@
         align-items: center;
         justify-content: space-between;
         padding: 20px 22px 0;
+        gap: 14px;
+      }
+
+      .plugin-modal-header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
       }
 
       .plugin-modal-header h2 {
@@ -930,8 +938,58 @@
         word-break: break-all;
       }
 
-      .config-grid {
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      .config-table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.72);
+      }
+
+      .config-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.86rem;
+      }
+
+      .config-table th {
+        text-align: left;
+        padding: 10px 12px;
+        font-size: 0.74rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        background: rgba(0, 0, 0, 0.02);
+        border-bottom: 1px solid var(--line);
+        white-space: nowrap;
+      }
+
+      .config-table td {
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+
+      .config-table tbody tr:last-child td {
+        border-bottom: none;
+      }
+
+      .config-table tbody tr:hover {
+        background: rgba(15, 118, 110, 0.03);
+      }
+
+      .config-table code {
+        font-size: 0.82rem;
+        word-break: break-word;
+      }
+
+      .config-table small {
+        color: var(--muted);
+        font-size: 0.76rem;
+      }
+
+      .config-table-muted {
+        color: var(--muted);
       }
 
       .plugin-info-grid {
@@ -1438,41 +1496,40 @@ abx-dl dl 'https://example.com'</code></pre>
             <div class="empty-state">No hook scripts are defined in this plugin directory.</div>
             {% endif %}
 
-            <h3 class="section-title">Config Options</h3>
+            <h3 class="section-title">Env Var Config Options</h3>
             {% if plugin.has_config %}
-            <div class="config-grid">
-              {% for field in plugin.config_fields %}
-              <article class="config-card">
-                <span>Config key</span>
-                <strong><code>{{ field.key }}</code></strong>
-                {% if field.description %}
-                <p>{{ field.description }}</p>
-                {% endif %}
-                <div class="config-meta">
-                  <div>Type: <code>{{ field.type }}</code></div>
-                  {% if field.fallback %}
-                  <div>Fallback: <code>{{ field.fallback }}</code></div>
-                  {% endif %}
-                  {% if field.aliases %}
-                  <div>Aliases: <code>{{ field.aliases|join(", ") }}</code></div>
-                  {% endif %}
-                  {% if field.minimum is not none %}
-                  <div>Minimum: <code>{{ field.minimum }}</code></div>
-                  {% endif %}
-                  {% if field.pattern %}
-                  <div>Pattern: <code>{{ field.pattern }}</code></div>
-                  {% endif %}
-                  {% if field.enum %}
-                  <div>Enum: <code>{{ field.enum|join(", ") }}</code></div>
-                  {% endif %}
-                </div>
-                {% if field.default is not none %}
-                <pre><code>{{ field.default }}</code></pre>
-                {% else %}
-                <p class="note">No explicit default is defined.</p>
-                {% endif %}
-              </article>
-              {% endfor %}
+            <div class="config-table-wrap">
+              <table class="config-table">
+                <thead>
+                  <tr>
+                    <th>Key</th>
+                    <th>Default</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>Aliases / Fallback</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for field in plugin.config_fields %}
+                  <tr>
+                    <td><code>{{ field.key }}</code></td>
+                    <td>{% if field.default is not none %}<code>{{ field.default }}</code>{% else %}<span class="config-table-muted">—</span>{% endif %}</td>
+                    <td>
+                      <code>{{ field.type }}</code>
+                      {% if field.minimum is not none %}<br><small>min {{ field.minimum }}</small>{% endif %}
+                      {% if field.pattern %}<br><small>pattern <code>{{ field.pattern }}</code></small>{% endif %}
+                      {% if field.enum %}<br><small>{{ field.enum|join(" | ") }}</small>{% endif %}
+                    </td>
+                    <td>{{ field.description or "" }}</td>
+                    <td>
+                      {% if field.aliases %}<small>{{ field.aliases|join(", ") }}</small>{% endif %}
+                      {% if field.fallback %}{% if field.aliases %}<br>{% endif %}<small>fallback: <code>{{ field.fallback }}</code></small>{% endif %}
+                      {% if not field.aliases and not field.fallback %}<span class="config-table-muted">—</span>{% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
             </div>
             {% else %}
             <div class="empty-state">This plugin does not define a <code>config.json</code> schema.</div>
@@ -1682,7 +1739,10 @@ abx-dl dl 'https://example.com'</code></pre>
     <div class="plugin-modal-backdrop" id="plugin-modal-backdrop">
       <div class="plugin-modal" id="plugin-modal">
         <div class="plugin-modal-header">
-          <h2 id="plugin-modal-title"></h2>
+          <div class="plugin-modal-header-left">
+            <div class="plugin-icon" id="plugin-modal-icon"></div>
+            <h2 id="plugin-modal-title"></h2>
+          </div>
           <button type="button" class="plugin-modal-close" id="plugin-modal-close" aria-label="Close">&times;</button>
         </div>
         <div class="plugin-body" id="plugin-modal-body"></div>
@@ -1891,11 +1951,13 @@ abx-dl dl 'https://example.com'</code></pre>
       const modalTitle = document.getElementById("plugin-modal-title");
       const modalBody = document.getElementById("plugin-modal-body");
       const modalClose = document.getElementById("plugin-modal-close");
+      const modalIcon = document.getElementById("plugin-modal-icon");
       let activeModalCard = null;
 
       const openModal = (card) => {
         const body = card.querySelector(".plugin-body");
         const title = card.querySelector("h2");
+        const icon = card.querySelector(".plugin-icon");
         if (!body) return;
 
         if (activeModalCard) activeModalCard.classList.remove("modal-active");
@@ -1903,6 +1965,7 @@ abx-dl dl 'https://example.com'</code></pre>
         card.classList.add("modal-active");
 
         modalTitle.textContent = title ? title.textContent : card.id;
+        modalIcon.innerHTML = icon ? icon.innerHTML : "";
         modalBody.innerHTML = body.innerHTML;
         modalBackdrop.classList.add("open");
         document.body.style.overflow = "hidden";
