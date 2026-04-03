@@ -15,7 +15,7 @@ import pytest
 
 # Get the path to the custom provider hook
 PLUGIN_DIR = Path(__file__).parent.parent
-INSTALL_HOOK = next(PLUGIN_DIR.glob("on_BinaryRequest__*_custom.py"), None)
+INSTALL_HOOK = next(PLUGIN_DIR.glob("on_BinaryRequest__*_bash.py"), None)
 
 
 class TestCustomProviderHook:
@@ -59,19 +59,26 @@ class TestCustomProviderHook:
         assert "custom provider not allowed" in result.stderr
 
     def test_hook_runs_custom_command_and_finds_binary(self):
-        """Hook should run custom command and find the binary in PATH."""
+        """Hook should run custom command and find the installed binary."""
         env = os.environ.copy()
         env["SNAP_DIR"] = self.temp_dir
+
+        # Create a fake binary inside the BashProvider install dir so the
+        # provider can resolve it after running the custom install command.
+        bash_bin_dir = Path(env.get("HOME", Path.home())) / ".cache" / "abx-pkg" / "bash" / "bin"
+        bash_bin_dir.mkdir(parents=True, exist_ok=True)
+        fake_bin = bash_bin_dir / "mybin"
+        fake_bin.write_text("#!/bin/sh\necho ok\n")
+        fake_bin.chmod(0o755)
+
         overrides = json.dumps(
             {"custom": {"install": 'echo "custom install simulation"'}},
         )
 
-        # Use a simple echo command that doesn't actually install anything
-        # Then check for 'echo' which is already in PATH
         result = subprocess.run(
             [
                 str(INSTALL_HOOK),
-                "--name=echo",
+                "--name=mybin",
                 f"--overrides={overrides}",
             ],
             capture_output=True,
@@ -80,7 +87,6 @@ class TestCustomProviderHook:
             env=env,
         )
 
-        # Should succeed since echo is in PATH
         assert result.returncode == 0, f"Hook failed: {result.stderr}"
 
         # Parse JSONL output
@@ -89,7 +95,7 @@ class TestCustomProviderHook:
             if line.startswith("{"):
                 try:
                     record = json.loads(line)
-                    if record.get("type") == "Binary" and record.get("name") == "echo":
+                    if record.get("type") == "Binary" and record.get("name") == "mybin":
                         assert record["binprovider"] == "custom"
                         assert record["abspath"]
                         return
@@ -118,7 +124,7 @@ class TestCustomProviderHook:
 
         # Should fail since binary not found after command
         assert result.returncode == 1
-        assert "not found" in result.stderr.lower()
+        assert "not found" in result.stderr.lower() or "unable to" in result.stderr.lower()
 
     def test_hook_fails_for_failing_command(self):
         """Hook should fail if custom command returns non-zero exit code."""
