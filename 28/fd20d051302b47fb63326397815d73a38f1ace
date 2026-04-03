@@ -1,0 +1,29 @@
+abx_plugins/plugins/papersdl/tests/test_papersdl.py
+  14bfe3eeffa5cb05 21-24,37,53-54,57-69,71-72,74-88,96-97,100-118
+abx_plugins/plugins/redirects/tests/test_redirects.py
+  14bfe3eeffa5cb05 177-238
+abx_plugins/plugins/redirects/on_Snapshot__25_redirects.daemon.bg.js
+  14bfe3eeffa5cb05 24,47,227-246,322,327,341,354
+abx_plugins/plugins/papersdl/config.json
+  14bfe3eeffa5cb05 12-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "28fd20d051302b47fb63326397815d73a38f1ace",
+  "prompts": {
+    "14bfe3eeffa5cb05": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d4ce3-98c2-74e3-9c5c-3e93dae0e2f4",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 332,
+      "overriden_lines": 0
+    }
+  }
+}
