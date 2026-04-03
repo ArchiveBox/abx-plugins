@@ -516,13 +516,86 @@
         border-color: var(--card-border);
       }
 
-      .plugin-card[open] {
-        grid-column: 1 / -1;
+      .plugin-card[open] > .plugin-body {
+        display: none;
+      }
+
+      .plugin-card.modal-active {
+        border-color: var(--card-accent);
+        box-shadow: 0 0 0 2px var(--card-accent), 0 14px 40px rgba(42, 47, 38, 0.12);
+        transform: translateY(-2px);
+      }
+
+      .plugin-modal-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: rgba(29, 41, 39, 0.45);
+        backdrop-filter: blur(4px);
+        overflow-y: auto;
+        padding: 40px 20px;
+      }
+
+      .plugin-modal-backdrop.open {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+      }
+
+      .plugin-modal {
+        position: relative;
+        width: 100%;
+        max-width: 900px;
+        border-radius: var(--radius);
         background:
-          linear-gradient(180deg, color-mix(in srgb, var(--card-tint) 96%, white), rgba(255, 255, 255, 0.98)),
+          linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(255, 255, 255, 0.96)),
           var(--surface-strong);
-        border-color: var(--card-border);
-        box-shadow: 0 20px 48px rgba(22, 35, 31, 0.14);
+        border: 1px solid var(--line);
+        box-shadow: 0 32px 80px rgba(22, 35, 31, 0.22);
+        animation: modalIn 200ms ease;
+      }
+
+      @keyframes modalIn {
+        from { opacity: 0; transform: translateY(16px) scale(0.97); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+
+      .plugin-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px 22px 0;
+      }
+
+      .plugin-modal-header h2 {
+        margin: 0;
+        font-size: 1.4rem;
+      }
+
+      .plugin-modal-close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface);
+        cursor: pointer;
+        font-size: 1.1rem;
+        color: var(--muted);
+        transition: background 120ms ease, color 120ms ease;
+        flex-shrink: 0;
+      }
+
+      .plugin-modal-close:hover {
+        background: var(--bg-accent);
+        color: var(--ink);
+      }
+
+      .plugin-modal > .plugin-body {
+        padding: 0 22px 22px;
       }
 
       .plugin-card summary {
@@ -1253,63 +1326,6 @@ abx-dl dl 'https://example.com'</code></pre>
               <a class="button-link" href="{{ plugin.source_url }}" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>{{ plugin.display_title }}</strong></p>
-                <p><code>{{ plugin.name }}</code></p>
-                {% if plugin.description %}
-                <p>{{ plugin.description }}</p>
-                {% endif %}
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                {% if plugin.required_plugins %}
-                <div class="pill-list">
-                  {% for item in plugin.required_plugins %}
-                  <a href="#{{ item }}" class="chip chip--link">{{ item }}</a>
-                  {% endfor %}
-                </div>
-                {% else %}
-                <p>No plugin dependencies declared.</p>
-                {% endif %}
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                {% if plugin.required_binaries %}
-                <div class="pill-list">
-                  {% for item in plugin.required_binaries %}
-                  <span class="chip chip--binary" title="{{ item.title }}">
-                    <code>{{ item.name }}</code>
-                    <small>providers={{ item.binproviders }}</small>
-                    {% if item.min_version %}
-                    <small>min_version={{ item.min_version }}</small>
-                    {% endif %}
-                    {% if item.overrides_summary %}
-                    <small>overrides={{ item.overrides_summary }}</small>
-                    {% endif %}
-                  </span>
-                  {% endfor %}
-                </div>
-                {% else %}
-                <p>No binary dependencies declared.</p>
-                {% endif %}
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                {% if plugin.output_mimetypes %}
-                <div class="pill-list">
-                  {% for item in plugin.output_mimetypes %}
-                  <span class="chip">{{ item }}</span>
-                  {% endfor %}
-                </div>
-                {% else %}
-                <p>No output mimetypes declared.</p>
-                {% endif %}
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -1592,6 +1608,16 @@ abx-dl dl 'https://example.com'</code></pre>
       </footer>
     </div>
 
+    <div class="plugin-modal-backdrop" id="plugin-modal-backdrop">
+      <div class="plugin-modal" id="plugin-modal">
+        <div class="plugin-modal-header">
+          <h2 id="plugin-modal-title"></h2>
+          <button type="button" class="plugin-modal-close" id="plugin-modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="plugin-body" id="plugin-modal-body"></div>
+      </div>
+    </div>
+
     <script>
       const searchInput = document.getElementById("plugin-search");
       const cards = Array.from(document.querySelectorAll(".plugin-card"));
@@ -1738,8 +1764,7 @@ abx-dl dl 'https://example.com'</code></pre>
         if (target && target.classList.contains("plugin-card")) {
           searchInput.value = "";
           applyFilter();
-          target.open = true;
-          setHeroExample(target);
+          openModal(target);
           target.scrollIntoView({ behavior: "smooth", block: "start" });
         } else {
           searchInput.value = hash;
@@ -1790,19 +1815,69 @@ abx-dl dl 'https://example.com'</code></pre>
         }
       });
 
-      for (const card of cards) {
-        card.addEventListener("click", (event) => {
-          if (card.open) return;
-          if (event.target.closest(interactiveSelector)) return;
-          card.open = true;
-        });
+      const modalBackdrop = document.getElementById("plugin-modal-backdrop");
+      const modalEl = document.getElementById("plugin-modal");
+      const modalTitle = document.getElementById("plugin-modal-title");
+      const modalBody = document.getElementById("plugin-modal-body");
+      const modalClose = document.getElementById("plugin-modal-close");
+      let activeModalCard = null;
 
-        card.addEventListener("toggle", () => {
-          if (card.open) {
-            setHash(card.id);
-            setHeroExample(card);
-          }
-        });
+      const openModal = (card) => {
+        const body = card.querySelector(".plugin-body");
+        const title = card.querySelector("h2");
+        if (!body) return;
+
+        if (activeModalCard) activeModalCard.classList.remove("modal-active");
+        activeModalCard = card;
+        card.classList.add("modal-active");
+
+        modalTitle.textContent = title ? title.textContent : card.id;
+        modalBody.innerHTML = body.innerHTML;
+        modalBackdrop.classList.add("open");
+        document.body.style.overflow = "hidden";
+
+        setHash(card.id);
+        setHeroExample(card);
+      };
+
+      const closeModal = () => {
+        modalBackdrop.classList.remove("open");
+        document.body.style.overflow = "";
+        if (activeModalCard) {
+          activeModalCard.classList.remove("modal-active");
+          activeModalCard = null;
+        }
+      };
+
+      modalClose.addEventListener("click", closeModal);
+      modalBackdrop.addEventListener("click", (event) => {
+        if (event.target === modalBackdrop) closeModal();
+      });
+      modalBody.addEventListener("click", (event) => {
+        const link = event.target.closest("a[href^='#']");
+        if (!link) return;
+        const id = link.getAttribute("href").slice(1);
+        const target = document.getElementById(id);
+        if (target && target.classList.contains("plugin-card")) {
+          event.preventDefault();
+          closeModal();
+          openModal(target);
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && modalBackdrop.classList.contains("open")) closeModal();
+      });
+
+      for (const card of cards) {
+        const summary = card.querySelector("summary");
+        if (summary) {
+          summary.addEventListener("click", (event) => {
+            event.preventDefault();
+            if (event.target.closest("a, button, input, textarea, select")) return;
+            openModal(card);
+          });
+        }
       }
 
       applyFilter();

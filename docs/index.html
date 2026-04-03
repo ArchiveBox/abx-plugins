@@ -516,13 +516,86 @@
         border-color: var(--card-border);
       }
 
-      .plugin-card[open] {
-        grid-column: 1 / -1;
+      .plugin-card[open] > .plugin-body {
+        display: none;
+      }
+
+      .plugin-card.modal-active {
+        border-color: var(--card-accent);
+        box-shadow: 0 0 0 2px var(--card-accent), 0 14px 40px rgba(42, 47, 38, 0.12);
+        transform: translateY(-2px);
+      }
+
+      .plugin-modal-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: rgba(29, 41, 39, 0.45);
+        backdrop-filter: blur(4px);
+        overflow-y: auto;
+        padding: 40px 20px;
+      }
+
+      .plugin-modal-backdrop.open {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+      }
+
+      .plugin-modal {
+        position: relative;
+        width: 100%;
+        max-width: 900px;
+        border-radius: var(--radius);
         background:
-          linear-gradient(180deg, color-mix(in srgb, var(--card-tint) 96%, white), rgba(255, 255, 255, 0.98)),
+          linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(255, 255, 255, 0.96)),
           var(--surface-strong);
-        border-color: var(--card-border);
-        box-shadow: 0 20px 48px rgba(22, 35, 31, 0.14);
+        border: 1px solid var(--line);
+        box-shadow: 0 32px 80px rgba(22, 35, 31, 0.22);
+        animation: modalIn 200ms ease;
+      }
+
+      @keyframes modalIn {
+        from { opacity: 0; transform: translateY(16px) scale(0.97); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+
+      .plugin-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px 22px 0;
+      }
+
+      .plugin-modal-header h2 {
+        margin: 0;
+        font-size: 1.4rem;
+      }
+
+      .plugin-modal-close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface);
+        cursor: pointer;
+        font-size: 1.1rem;
+        color: var(--muted);
+        transition: background 120ms ease, color 120ms ease;
+        flex-shrink: 0;
+      }
+
+      .plugin-modal-close:hover {
+        background: var(--bg-accent);
+        color: var(--ink);
+      }
+
+      .plugin-modal > .plugin-body {
+        padding: 0 22px 22px;
       }
 
       .plugin-card summary {
@@ -1227,56 +1300,6 @@ abx-dl dl 'https://example.com'</code></pre>
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/ytdlp" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>yt-dlp</strong></p>
-                <p><code>ytdlp</code></p>
-                <p>Download video and audio media with metadata, subtitles, thumbnails, and description sidecars.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{YTDLP_BINARY}
-providers: env,pip,brew,apt
-overrides: {&#34;pip&#34;: {&#34;install_args&#34;: [&#34;yt-dlp[default]&#34;]}}">
-                    <code>{YTDLP_BINARY}</code>
-                    <small>providers=env,pip,brew,apt</small>
-                    <small>overrides={&#34;pip&#34;: {&#34;install_args&#34;: [&#34;yt-dlp[default]&#34;]}}</small>
-                  </span>
-                  <span class="chip chip--binary" title="{NODE_BINARY}
-providers: env,apt,brew
-overrides: {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}}">
-                    <code>{NODE_BINARY}</code>
-                    <small>providers=env,apt,brew</small>
-                    <small>overrides={&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}}</small>
-                  </span>
-                  <span class="chip chip--binary" title="ffmpeg
-providers: env,apt,brew">
-                    <code>ffmpeg</code>
-                    <small>providers=env,apt,brew</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">audio/</span>
-                  <span class="chip">video/</span>
-                  <span class="chip">image/</span>
-                  <span class="chip">application/x-subrip</span>
-                  <span class="chip">text/vtt</span>
-                  <span class="chip">application/json</span>
-                  <span class="chip">text/plain</span>
-                </div>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -1472,40 +1495,6 @@ providers: env,apt,brew">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/gallerydl" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>gallery-dl</strong></p>
-                <p><code>gallerydl</code></p>
-                <p>Download image and media galleries along with metadata sidecars from supported sites.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{GALLERYDL_BINARY}
-providers: env,pip,brew,apt">
-                    <code>{GALLERYDL_BINARY}</code>
-                    <small>providers=env,pip,brew,apt</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">image/</span>
-                  <span class="chip">video/</span>
-                  <span class="chip">application/json</span>
-                  <span class="chip">text/plain</span>
-                  <span class="chip">application/zip</span>
-                </div>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -1663,40 +1652,6 @@ providers: env,pip,brew,apt">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/forumdl" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>forum-dl</strong></p>
-                <p><code>forumdl</code></p>
-                <p>Download forum threads and exports in JSONL, WARC, and mailbox-style archive formats.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{FORUMDL_BINARY}
-providers: env,pip
-overrides: {&#34;pip&#34;: {&#34;install_args&#34;: [&#34;--no-deps&#34;, &#34;forum-dl&#34;, &#34;chardet==5.2.0&#34;, &#34;pydantic==2.12.3&#34;, &#34;pydantic-core==2.41.4&#34;, &#34;typing-extensions&gt;=4.14.1&#34;, &#34;annotated-types&gt;=0.6.0&#34;, &#34;typing-inspection&gt;=0.4.2&#34;, &#34;beautifulsoup4&#34;, &#34;soupsieve&#34;, &#34;lxml&#34;, &#34;requests&#34;, &#34;urllib3&#34;, &#34;certifi&#34;, &#34;idna&#34;, &#34;charset-normalizer&#34;, &#34;tenacity&#34;, &#34;python-dateutil&#34;, &#34;six&#34;, &#34;html2text&#34;, &#34;warcio&#34;]}}">
-                    <code>{FORUMDL_BINARY}</code>
-                    <small>providers=env,pip</small>
-                    <small>overrides={&#34;pip&#34;: {&#34;install_args&#34;: [&#34;--no-deps&#34;, &#34;forum-dl&#34;, &#34;chardet==5.2.0&#34;, &#34;pydantic==2.12.3&#34;, &#34;pydantic-core==2.41.4&#34;, &#34;typing-extensions&gt;=4.14.1&#34;, &#34;annotated-types&gt;=0.6.0&#34;, &#34;typing-inspection&gt;=0.4.2&#34;, &#34;beautifulsoup4&#34;, &#34;soupsieve&#34;, &#34;lxml&#34;, &#34;requests&#34;, &#34;urllib3&#34;, &#34;certifi&#34;, &#34;idna&#34;, &#34;charset-normalizer&#34;, &#34;tenacity&#34;, &#34;python-dateutil&#34;, &#34;six&#34;, &#34;html2text&#34;, &#34;warcio&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
-                  <span class="chip">application/warc</span>
-                  <span class="chip">message/rfc822</span>
-                </div>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -1838,41 +1793,6 @@ overrides: {&#34;pip&#34;: {&#34;install_args&#34;: [&#34;--no-deps&#34;, &#34;f
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/git" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Git</strong></p>
-                <p><code>git</code></p>
-                <p>Clone git repositories from supported repository URLs into the snapshot output directory.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{GIT_BINARY}
-providers: env,apt,brew">
-                    <code>{GIT_BINARY}</code>
-                    <small>providers=env,apt,brew</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">text/</span>
-                  <span class="chip">application/</span>
-                  <span class="chip">image/</span>
-                  <span class="chip">audio/</span>
-                  <span class="chip">video/</span>
-                  <span class="chip">font/</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -2019,44 +1939,6 @@ providers: env,apt,brew">
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/wget" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>wget</strong></p>
-                <p><code>wget</code></p>
-                <p>Archive pages and their requisites with wget, optionally writing WARC captures.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{WGET_BINARY}
-providers: env,apt,brew">
-                    <code>{WGET_BINARY}</code>
-                    <small>providers=env,apt,brew</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">text/html</span>
-                  <span class="chip">application/warc</span>
-                  <span class="chip">application/gzip</span>
-                  <span class="chip">image/</span>
-                  <span class="chip">text/css</span>
-                  <span class="chip">application/javascript</span>
-                  <span class="chip">font/</span>
-                  <span class="chip">audio/</span>
-                  <span class="chip">video/</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -2244,30 +2126,6 @@ providers: env,apt,brew">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/archivedotorg" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Archive.org</strong></p>
-                <p><code>archivedotorg</code></p>
-                <p>Submit URLs to the Internet Archive Wayback Machine and save the resulting archive link.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <p>No binary dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">text/plain</span>
-                </div>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -2379,30 +2237,6 @@ providers: env,apt,brew">
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/favicon" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Favicon</strong></p>
-                <p><code>favicon</code></p>
-                <p>Fetch and save the site favicon or touch icon.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <p>No binary dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">image/</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -2525,45 +2359,6 @@ providers: env,apt,brew">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/ublock" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>uBlock Origin</strong></p>
-                <p><code>ublock</code></p>
-                <p>Install the uBlock Origin extension to block ads, trackers, and other page clutter during archiving.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                  <span class="chip chip--binary" title="ublock
-providers: chromewebstore
-overrides: {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;cjpalhdlnbpafiamejdnhcphjbkeiagm&#34;, &#34;--name=ublock&#34;]}}">
-                    <code>ublock</code>
-                    <small>providers=chromewebstore</small>
-                    <small>overrides={&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;cjpalhdlnbpafiamejdnhcphjbkeiagm&#34;, &#34;--name=ublock&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <p>No output mimetypes declared.</p>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -2664,45 +2459,6 @@ overrides: {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;cjpalhdlnbp
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/istilldontcareaboutcookies" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>I Still Don&#39;t Care About Cookies</strong></p>
-                <p><code>istilldontcareaboutcookies</code></p>
-                <p>Install the I Still Don&#39;t Care About Cookies extension to dismiss cookie banners during archiving.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                  <span class="chip chip--binary" title="istilldontcareaboutcookies
-providers: chromewebstore
-overrides: {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;edibdbjcniadpccecjdfdjjppcpchdlm&#34;, &#34;--name=istilldontcareaboutcookies&#34;]}}">
-                    <code>istilldontcareaboutcookies</code>
-                    <small>providers=chromewebstore</small>
-                    <small>overrides={&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;edibdbjcniadpccecjdfdjjppcpchdlm&#34;, &#34;--name=istilldontcareaboutcookies&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <p>No output mimetypes declared.</p>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -2801,45 +2557,6 @@ overrides: {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;edibdbjcnia
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/twocaptcha" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>2Captcha</strong></p>
-                <p><code>twocaptcha</code></p>
-                <p>Install and configure the 2Captcha extension to solve CAPTCHAs during browser-based archiving.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                  <span class="chip chip--binary" title="twocaptcha
-providers: chromewebstore
-overrides: {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;ifibfemgeogfhoebkmokieepdoobkbpo&#34;, &#34;--name=twocaptcha&#34;]}}">
-                    <code>twocaptcha</code>
-                    <small>providers=chromewebstore</small>
-                    <small>overrides={&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;ifibfemgeogfhoebkmokieepdoobkbpo&#34;, &#34;--name=twocaptcha&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <p>No output mimetypes declared.</p>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -3008,38 +2725,6 @@ overrides: {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;ifibfemgeog
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/modalcloser" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Modal Closer</strong></p>
-                <p><code>modalcloser</code></p>
-                <p>Automatically dismiss dialogs, cookie banners, and framework modals while the page is being archived.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <p>No output mimetypes declared.</p>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -3161,40 +2846,6 @@ overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/consolelog" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Console Log</strong></p>
-                <p><code>consolelog</code></p>
-                <p>Capture browser console messages emitted while the page loads.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
-                </div>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -3305,40 +2956,6 @@ overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/dns" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>DNS</strong></p>
-                <p><code>dns</code></p>
-                <p>Record DNS activity observed while loading the page in Chrome.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -3453,40 +3070,6 @@ overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/sslcerts" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>SSL Certificates</strong></p>
-                <p><code>sslcerts</code></p>
-                <p>Capture TLS certificate and connection metadata for the loaded page.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
-                </div>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -3599,46 +3182,6 @@ overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/responses" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Responses</strong></p>
-                <p><code>responses</code></p>
-                <p>Capture HTTP response metadata for requests made during page load.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
-                  <span class="chip">text/</span>
-                  <span class="chip">image/</span>
-                  <span class="chip">audio/</span>
-                  <span class="chip">video/</span>
-                  <span class="chip">application/</span>
-                  <span class="chip">font/</span>
-                </div>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -3749,40 +3292,6 @@ overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/redirects" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Redirects</strong></p>
-                <p><code>redirects</code></p>
-                <p>Capture the redirect chain encountered while loading the page.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -3898,51 +3407,6 @@ overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/staticfile" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Static File</strong></p>
-                <p><code>staticfile</code></p>
-                <p>Detect and download static-file responses directly when a URL resolves to a non-HTML asset.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/pdf</span>
-                  <span class="chip">application/epub+zip</span>
-                  <span class="chip">image/</span>
-                  <span class="chip">audio/</span>
-                  <span class="chip">video/</span>
-                  <span class="chip">application/json</span>
-                  <span class="chip">application/xml</span>
-                  <span class="chip">text/csv</span>
-                  <span class="chip">text/xml</span>
-                  <span class="chip">application/zip</span>
-                  <span class="chip">application/octet-stream</span>
-                  <span class="chip">application/x-</span>
-                </div>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -4055,40 +3519,6 @@ overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/headers" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Headers</strong></p>
-                <p><code>headers</code></p>
-                <p>Capture HTTP headers for the main document response.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/json</span>
-                </div>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -4198,46 +3628,6 @@ overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/chrome" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Chrome</strong></p>
-                <p><code>chrome</code></p>
-                <p>Launch and manage a shared Chromium session for browser-driven plugins.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{NODE_BINARY}
-providers: env,apt,brew
-overrides: {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}}">
-                    <code>{NODE_BINARY}</code>
-                    <small>providers=env,apt,brew</small>
-                    <small>overrides={&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}}</small>
-                  </span>
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">text/plain</span>
-                  <span class="chip">application/json</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -4673,40 +4063,6 @@ overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/seo" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>SEO</strong></p>
-                <p><code>seo</code></p>
-                <p>Capture SEO-related metadata such as meta tags and Open Graph fields.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/json</span>
-                </div>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -4818,40 +4174,6 @@ overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/accessibility" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Accessibility</strong></p>
-                <p><code>accessibility</code></p>
-                <p>Capture the browser accessibility tree for the archived page.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/json</span>
-                </div>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -4960,38 +4282,6 @@ overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/infiniscroll" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Infinite Scroll</strong></p>
-                <p><code>infiniscroll</code></p>
-                <p>Expand infinite-scroll pages and load additional content before downstream capture plugins run.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <p>No output mimetypes declared.</p>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -5111,7 +4401,7 @@ overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&
         <details
           id="claudechrome"
           class="plugin-card plugin-card--snapshot"
-          data-search="claudechrome snapshot claude chrome use claude computer-use to interact with pages in chrome via cdp screenshots and the anthropic api. javascript snapshot embed fullscreen chrome {chrome_binary} {node_binary} claudechrome env,puppeteer env,apt,brew chromewebstore    {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;fcoeoabgfenejglbffodgkkbkcdhcgfn&#34;, &#34;--name=claudechrome&#34;]}} application/json image/png on_crawlsetup__96_claudechrome_config.js on_snapshot__47_claudechrome.js chrome_binary path to chromium binary node_binary path to node.js binary personas_dir shared chrome/browser personas root active_persona active browser persona name claudechrome_enabled enable claude for chrome browser extension for ai-driven page interaction claudechrome_prompt prompt for claude to execute on the page. claude can click buttons, fill forms, download files, and interact with any page element. claudechrome_timeout timeout for claude for chrome operations in seconds claudechrome_model claude model to use (e.g. sonnet, opus, haiku). availability depends on your plan. claudechrome_max_actions maximum number of agentic loop iterations (screenshots + actions) per page anthropic_api_key anthropic api key for claude for chrome authentication"
+          data-search="claudechrome snapshot claude chrome use claude computer-use to interact with pages in chrome via cdp screenshots and the anthropic api. javascript snapshot embed fullscreen chrome {chrome_binary} {node_binary} claudechrome env,puppeteer env,apt,brew chromewebstore    {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;fcoeoabgfenejglbffodgkkbkcdhcgfn&#34;, &#34;--name=claudechrome&#34;]}} application/json image/png on_crawlsetup__96_claudechrome_config.js on_snapshot__47_claudechrome.js chrome_binary path to chromium binary node_binary path to node.js binary personas_dir shared chrome/browser personas root active_persona active browser persona name claudechrome_enabled enable claude for chrome browser extension for ai-driven page interaction claudechrome_prompt prompt for claude to execute on the page. claude can click buttons, fill forms, download files, and interact with any page element. claudechrome_timeout timeout for claude for chrome operations in seconds claudechrome_model claude model to use (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001). availability depends on your plan. claudechrome_max_actions maximum number of agentic loop iterations (screenshots + actions) per page anthropic_api_key anthropic api key for claude for chrome authentication"
           data-hero-plugin="claudechrome"
           data-hero-abx-command="uvx abx-dl --plugins claudechrome 'https://example.com'"
           data-hero-archivebox-command="CLAUDECHROME_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -5153,55 +4443,6 @@ overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/claudechrome" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Claude Chrome</strong></p>
-                <p><code>claudechrome</code></p>
-                <p>Use Claude computer-use to interact with pages in Chrome via CDP screenshots and the Anthropic API.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                  <span class="chip chip--binary" title="{NODE_BINARY}
-providers: env,apt,brew
-overrides: {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}}">
-                    <code>{NODE_BINARY}</code>
-                    <small>providers=env,apt,brew</small>
-                    <small>overrides={&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}}</small>
-                  </span>
-                  <span class="chip chip--binary" title="claudechrome
-providers: chromewebstore
-overrides: {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;fcoeoabgfenejglbffodgkkbkcdhcgfn&#34;, &#34;--name=claudechrome&#34;]}}">
-                    <code>claudechrome</code>
-                    <small>providers=chromewebstore</small>
-                    <small>overrides={&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;fcoeoabgfenejglbffodgkkbkcdhcgfn&#34;, &#34;--name=claudechrome&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/json</span>
-                  <span class="chip">image/png</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -5319,11 +4560,11 @@ overrides: {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;fcoeoabgfen
               <article class="config-card">
                 <span>Config key</span>
                 <strong><code>CLAUDECHROME_MODEL</code></strong>
-                <p>Claude model to use (e.g. sonnet, opus, haiku). Availability depends on your plan.</p>
+                <p>Claude model to use (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001). Availability depends on your plan.</p>
                 <div class="config-meta">
                   <div>Type: <code>string</code></div>
                 </div>
-                <pre><code>&#34;sonnet&#34;</code></pre>
+                <pre><code>&#34;claude-sonnet-4-6&#34;</code></pre>
               </article>
               <article class="config-card">
                 <span>Config key</span>
@@ -5393,54 +4634,6 @@ overrides: {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;fcoeoabgfen
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/singlefile" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>SingleFile</strong></p>
-                <p><code>singlefile</code></p>
-                <p>Save a complete page as a single self-contained HTML file using the SingleFile extension or CLI.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                  <span class="chip chip--binary" title="{SINGLEFILE_BINARY}
-providers: env,npm
-overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;single-file-cli&#34;]}}">
-                    <code>{SINGLEFILE_BINARY}</code>
-                    <small>providers=env,npm</small>
-                    <small>overrides={&#34;npm&#34;: {&#34;install_args&#34;: [&#34;single-file-cli&#34;]}}</small>
-                  </span>
-                  <span class="chip chip--binary" title="singlefile
-providers: chromewebstore
-overrides: {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;mpiodijhokgodhhofbcjdecpffjipkle&#34;, &#34;--name=singlefile&#34;]}}">
-                    <code>singlefile</code>
-                    <small>providers=chromewebstore</small>
-                    <small>overrides={&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;mpiodijhokgodhhofbcjdecpffjipkle&#34;, &#34;--name=singlefile&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">text/html</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -5655,40 +4848,6 @@ overrides: {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;mpiodijhokg
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/screenshot" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Screenshot</strong></p>
-                <p><code>screenshot</code></p>
-                <p>Capture a PNG screenshot of the rendered page.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">image/png</span>
-                </div>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -5811,40 +4970,6 @@ overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/pdf" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>PDF</strong></p>
-                <p><code>pdf</code></p>
-                <p>Render the current page to PDF using the shared Chrome session.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/pdf</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -5970,40 +5095,6 @@ overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/dom" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>DOM</strong></p>
-                <p><code>dom</code></p>
-                <p>Save the fully rendered DOM HTML from the live page.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">text/html</span>
-                </div>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -6113,40 +5204,6 @@ overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/title" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Title</strong></p>
-                <p><code>title</code></p>
-                <p>Capture the final document title from the rendered page.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">text/plain</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -6261,40 +5318,6 @@ overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/readability" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Readability</strong></p>
-                <p><code>readability</code></p>
-                <p>Extract article HTML, text, and metadata using Mozilla Readability.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{READABILITY_BINARY}
-providers: env,npm
-overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;https://github.com/ArchiveBox/readability-extractor&#34;]}}">
-                    <code>{READABILITY_BINARY}</code>
-                    <small>providers=env,npm</small>
-                    <small>overrides={&#34;npm&#34;: {&#34;install_args&#34;: [&#34;https://github.com/ArchiveBox/readability-extractor&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">text/html</span>
-                  <span class="chip">text/plain</span>
-                  <span class="chip">application/json</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -6426,40 +5449,6 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;https://github.com/Arc
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/defuddle" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Defuddle</strong></p>
-                <p><code>defuddle</code></p>
-                <p>Extract cleaned article HTML, text, and metadata from archived HTML using Defuddle.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{DEFUDDLE_BINARY}
-providers: env,npm
-overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;defuddle&#34;]}}">
-                    <code>{DEFUDDLE_BINARY}</code>
-                    <small>providers=env,npm</small>
-                    <small>overrides={&#34;npm&#34;: {&#34;install_args&#34;: [&#34;defuddle&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">text/html</span>
-                  <span class="chip">text/plain</span>
-                  <span class="chip">application/json</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -6594,40 +5583,6 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;defuddle&#34;]}}">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/mercury" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Mercury</strong></p>
-                <p><code>mercury</code></p>
-                <p>Extract article HTML, text, and metadata using the Postlight Mercury parser.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{MERCURY_BINARY}
-providers: npm,env
-overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@postlight/parser&#34;]}}">
-                    <code>{MERCURY_BINARY}</code>
-                    <small>providers=npm,env</small>
-                    <small>overrides={&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@postlight/parser&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">text/html</span>
-                  <span class="chip">text/plain</span>
-                  <span class="chip">application/json</span>
-                </div>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -6716,7 +5671,7 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@postlight/parser&#34;
         <details
           id="claudecodeextract"
           class="plugin-card plugin-card--snapshot"
-          data-search="claudecodeextract snapshot claude code extract use claude code to generate clean markdown from snapshot extractor outputs. python snapshot embed fullscreen claudecode {claudecode_binary} env,npm  {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-code&#34;]}} text/markdown on_snapshot__58_claudecodeextract.py claudecode_binary path to claude code cli binary claudecodeextract_enabled enable claude code ai extraction claudecodeextract_timeout timeout for claude code extraction in seconds claudecodeextract_prompt custom prompt for claude code extraction. use this to define what claude should extract or generate from the snapshot. claudecodeextract_model claude model to use for extraction (e.g. sonnet, opus, haiku) claudecodeextract_max_turns maximum number of agentic turns for extraction"
+          data-search="claudecodeextract snapshot claude code extract use claude code to generate clean markdown from snapshot extractor outputs. python snapshot embed fullscreen claudecode {claudecode_binary} env,npm  {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-code&#34;]}} text/markdown on_snapshot__58_claudecodeextract.py claudecode_binary path to claude code cli binary claudecodeextract_enabled enable claude code ai extraction claudecodeextract_timeout timeout for claude code extraction in seconds claudecodeextract_prompt custom prompt for claude code extraction. use this to define what claude should extract or generate from the snapshot. claudecodeextract_model claude model to use for extraction (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001) claudecodeextract_max_turns maximum number of agentic turns for extraction"
           data-hero-plugin="claudecodeextract"
           data-hero-abx-command="uvx abx-dl --plugins claudecodeextract 'https://example.com'"
           data-hero-archivebox-command="CLAUDECODEEXTRACT_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -6760,40 +5715,6 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@postlight/parser&#34;
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/claudecodeextract" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Claude Code Extract</strong></p>
-                <p><code>claudecodeextract</code></p>
-                <p>Use Claude Code to generate clean Markdown from snapshot extractor outputs.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#claudecode" class="chip chip--link">claudecode</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CLAUDECODE_BINARY}
-providers: env,npm
-overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-code&#34;]}}">
-                    <code>{CLAUDECODE_BINARY}</code>
-                    <small>providers=env,npm</small>
-                    <small>overrides={&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-code&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">text/markdown</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -6870,12 +5791,12 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-c
               <article class="config-card">
                 <span>Config key</span>
                 <strong><code>CLAUDECODEEXTRACT_MODEL</code></strong>
-                <p>Claude model to use for extraction (e.g. sonnet, opus, haiku)</p>
+                <p>Claude model to use for extraction (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001)</p>
                 <div class="config-meta">
                   <div>Type: <code>string</code></div>
                   <div>Fallback: <code>CLAUDECODE_MODEL</code></div>
                 </div>
-                <pre><code>&#34;sonnet&#34;</code></pre>
+                <pre><code>&#34;claude-sonnet-4-6&#34;</code></pre>
               </article>
               <article class="config-card">
                 <span>Config key</span>
@@ -6886,7 +5807,7 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-c
                   <div>Fallback: <code>CLAUDECODE_MAX_TURNS</code></div>
                   <div>Minimum: <code>1</code></div>
                 </div>
-                <pre><code>10</code></pre>
+                <pre><code>50</code></pre>
               </article>
             </div>
           </div>
@@ -6934,30 +5855,6 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-c
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/htmltotext" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>HTML to Text</strong></p>
-                <p><code>htmltotext</code></p>
-                <p>Convert archived HTML from other extractors into plain text for indexing and analysis.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <p>No binary dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">text/plain</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -7060,44 +5957,6 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-c
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/trafilatura" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Trafilatura</strong></p>
-                <p><code>trafilatura</code></p>
-                <p>Extract article content from archived HTML into text, markdown, HTML, CSV, JSON, and XML formats.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{TRAFILATURA_BINARY}
-providers: env,pip
-overrides: {&#34;pip&#34;: {&#34;install_args&#34;: [&#34;trafilatura&#34;]}}">
-                    <code>{TRAFILATURA_BINARY}</code>
-                    <small>providers=env,pip</small>
-                    <small>overrides={&#34;pip&#34;: {&#34;install_args&#34;: [&#34;trafilatura&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">text/plain</span>
-                  <span class="chip">text/markdown</span>
-                  <span class="chip">text/html</span>
-                  <span class="chip">text/csv</span>
-                  <span class="chip">application/json</span>
-                  <span class="chip">application/xml</span>
-                  <span class="chip">application/tei+xml</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -7225,49 +6084,6 @@ overrides: {&#34;pip&#34;: {&#34;install_args&#34;: [&#34;trafilatura&#34;]}}">
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/opendataloader" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>OpenDataLoader</strong></p>
-                <p><code>opendataloader</code></p>
-                <p>Extract structured text, tables, and metadata from PDFs using opendataloader-pdf. Supports OCR for scanned PDFs via hybrid backend.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{OPENDATALOADER_BINARY}
-providers: env,pip
-overrides: {&#34;pip&#34;: {&#34;install_args&#34;: [&#34;opendataloader-pdf&#34;]}}">
-                    <code>{OPENDATALOADER_BINARY}</code>
-                    <small>providers=env,pip</small>
-                    <small>overrides={&#34;pip&#34;: {&#34;install_args&#34;: [&#34;opendataloader-pdf&#34;]}}</small>
-                  </span>
-                  <span class="chip chip--binary" title="{OPENDATALOADER_JAVA_BINARY}
-providers: env,apt,brew
-min_version: 11.0.0
-overrides: {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;default-jre&#34;]}, &#34;brew&#34;: {&#34;install_args&#34;: [&#34;openjdk&#34;]}}">
-                    <code>{OPENDATALOADER_JAVA_BINARY}</code>
-                    <small>providers=env,apt,brew</small>
-                    <small>min_version=11.0.0</small>
-                    <small>overrides={&#34;apt&#34;: {&#34;install_args&#34;: [&#34;default-jre&#34;]}, &#34;brew&#34;: {&#34;install_args&#34;: [&#34;openjdk&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">text/plain</span>
-                  <span class="chip">text/markdown</span>
-                  <span class="chip">application/json</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -7436,39 +6252,6 @@ overrides: {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;default-jre&#34;]}, &#
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/liteparse" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>LiteParse</strong></p>
-                <p><code>liteparse</code></p>
-                <p>Extract text and metadata from PDFs and documents using LiteParse (by LlamaIndex). Supports OCR via Tesseract.js.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{LITEPARSE_BINARY}
-providers: env,npm
-overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@llamaindex/liteparse&#34;]}}">
-                    <code>{LITEPARSE_BINARY}</code>
-                    <small>providers=env,npm</small>
-                    <small>overrides={&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@llamaindex/liteparse&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">text/plain</span>
-                  <span class="chip">application/json</span>
-                </div>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -7600,36 +6383,6 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@llamaindex/liteparse&
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/papersdl" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>papers-dl</strong></p>
-                <p><code>papersdl</code></p>
-                <p>Fetch downloadable academic papers from paper URLs and DOI targets.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{PAPERSDL_BINARY}
-providers: env,pip">
-                    <code>{PAPERSDL_BINARY}</code>
-                    <small>providers=env,pip</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/pdf</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -7765,30 +6518,6 @@ providers: env,pip">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/parse_html_urls" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Parse HTML URLs</strong></p>
-                <p><code>parse_html_urls</code></p>
-                <p>Parse HTML documents and emit discovered links as JSONL snapshot records.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <p>No binary dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
-                </div>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -7877,30 +6606,6 @@ providers: env,pip">
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/parse_txt_urls" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Parse Text URLs</strong></p>
-                <p><code>parse_txt_urls</code></p>
-                <p>Parse plain text documents and emit discovered URLs as JSONL snapshot records.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <p>No binary dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -7993,30 +6698,6 @@ providers: env,pip">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/parse_rss_urls" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Parse RSS URLs</strong></p>
-                <p><code>parse_rss_urls</code></p>
-                <p>Parse RSS and Atom feeds and emit discovered entry URLs as JSONL snapshot records.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <p>No binary dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
-                </div>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -8105,30 +6786,6 @@ providers: env,pip">
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/parse_netscape_urls" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Parse Netscape URLs</strong></p>
-                <p><code>parse_netscape_urls</code></p>
-                <p>Parse Netscape bookmark HTML exports and emit discovered URLs as JSONL snapshot records.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <p>No binary dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -8221,30 +6878,6 @@ providers: env,pip">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/parse_jsonl_urls" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Parse JSONL URLs</strong></p>
-                <p><code>parse_jsonl_urls</code></p>
-                <p>Parse JSONL bookmark exports and emit discovered URLs as JSONL snapshot records.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <p>No binary dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
-                </div>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -8333,40 +6966,6 @@ providers: env,pip">
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/parse_dom_outlinks" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Parse DOM Outlinks</strong></p>
-                <p><code>parse_dom_outlinks</code></p>
-                <p>Extract crawlable links from the rendered DOM and emit them as JSONL records.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CHROME_BINARY}
-providers: env,puppeteer
-overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}">
-                    <code>{CHROME_BINARY}</code>
-                    <small>providers=env,puppeteer</small>
-                    <small>overrides={&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/x-ndjson</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -8478,30 +7077,6 @@ overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/search_backend_sqlite" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>SQLite Search</strong></p>
-                <p><code>search_backend_sqlite</code></p>
-                <p>Index archived snapshot content into a SQLite FTS database for local search.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <p>No binary dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/vnd.sqlite3</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -8630,36 +7205,6 @@ overrides: {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/search_backend_sonic" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Sonic Search</strong></p>
-                <p><code>search_backend_sonic</code></p>
-                <p>Index archived snapshot content into a Sonic search backend.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{SONIC_BINARY}
-providers: env,apt,brew,cargo
-overrides: {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;sonic&#34;]}, &#34;brew&#34;: {&#34;install_args&#34;: [&#34;sonic&#34;]}, &#34;cargo&#34;: {&#34;install_args&#34;: [&#34;sonic-server&#34;]}}">
-                    <code>{SONIC_BINARY}</code>
-                    <small>providers=env,apt,brew,cargo</small>
-                    <small>overrides={&#34;apt&#34;: {&#34;install_args&#34;: [&#34;sonic&#34;]}, &#34;brew&#34;: {&#34;install_args&#34;: [&#34;sonic&#34;]}, &#34;cargo&#34;: {&#34;install_args&#34;: [&#34;sonic-server&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <p>No output mimetypes declared.</p>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -8800,7 +7345,7 @@ overrides: {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;sonic&#34;]}, &#34;bre
         <details
           id="claudecodecleanup"
           class="plugin-card plugin-card--snapshot"
-          data-search="claudecodecleanup snapshot claude code cleanup use claude code to deduplicate and clean up redundant snapshot extractor outputs. python snapshot embed fullscreen claudecode {claudecode_binary} env,npm  {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-code&#34;]}} text/plain on_snapshot__92_claudecodecleanup.py claudecode_binary path to claude code cli binary claudecodecleanup_enabled enable claude code ai cleanup of snapshot files claudecodecleanup_timeout timeout for claude code cleanup in seconds claudecodecleanup_prompt custom prompt for claude code cleanup. defines what claude should clean up and how to determine which duplicates to keep. claudecodecleanup_model claude model to use for cleanup (e.g. sonnet, opus, haiku) claudecodecleanup_max_turns maximum number of agentic turns for cleanup"
+          data-search="claudecodecleanup snapshot claude code cleanup use claude code to deduplicate and clean up redundant snapshot extractor outputs. python snapshot embed fullscreen claudecode {claudecode_binary} env,npm  {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-code&#34;]}} text/plain on_snapshot__92_claudecodecleanup.py claudecode_binary path to claude code cli binary claudecodecleanup_enabled enable claude code ai cleanup of snapshot files claudecodecleanup_timeout timeout for claude code cleanup in seconds claudecodecleanup_prompt custom prompt for claude code cleanup. defines what claude should clean up and how to determine which duplicates to keep. claudecodecleanup_model claude model to use for cleanup (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001) claudecodecleanup_max_turns maximum number of agentic turns for cleanup"
           data-hero-plugin="claudecodecleanup"
           data-hero-abx-command="uvx abx-dl --plugins claudecodecleanup 'https://example.com'"
           data-hero-archivebox-command="CLAUDECODECLEANUP_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -8844,40 +7389,6 @@ overrides: {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;sonic&#34;]}, &#34;bre
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/claudecodecleanup" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Claude Code Cleanup</strong></p>
-                <p><code>claudecodecleanup</code></p>
-                <p>Use Claude Code to deduplicate and clean up redundant snapshot extractor outputs.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#claudecode" class="chip chip--link">claudecode</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{CLAUDECODE_BINARY}
-providers: env,npm
-overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-code&#34;]}}">
-                    <code>{CLAUDECODE_BINARY}</code>
-                    <small>providers=env,npm</small>
-                    <small>overrides={&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-code&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">text/plain</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -8954,12 +7465,12 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-c
               <article class="config-card">
                 <span>Config key</span>
                 <strong><code>CLAUDECODECLEANUP_MODEL</code></strong>
-                <p>Claude model to use for cleanup (e.g. sonnet, opus, haiku)</p>
+                <p>Claude model to use for cleanup (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001)</p>
                 <div class="config-meta">
                   <div>Type: <code>string</code></div>
                   <div>Fallback: <code>CLAUDECODE_MODEL</code></div>
                 </div>
-                <pre><code>&#34;sonnet&#34;</code></pre>
+                <pre><code>&#34;claude-sonnet-4-6&#34;</code></pre>
               </article>
               <article class="config-card">
                 <span>Config key</span>
@@ -8970,7 +7481,7 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-c
                   <div>Fallback: <code>CLAUDECODE_MAX_TURNS</code></div>
                   <div>Minimum: <code>1</code></div>
                 </div>
-                <pre><code>25</code></pre>
+                <pre><code>50</code></pre>
               </article>
             </div>
           </div>
@@ -9018,30 +7529,6 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-c
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/hashes" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Hashes</strong></p>
-                <p><code>hashes</code></p>
-                <p>Generate a hash manifest for files produced in the snapshot directory.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <p>No binary dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/json</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -9140,28 +7627,6 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-c
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/apt" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>APT</strong></p>
-                <p><code>apt</code></p>
-                <p>Install binaries through the Debian and Ubuntu APT package manager.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <p>No binary dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <p>No output mimetypes declared.</p>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -9226,28 +7691,6 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-c
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/base" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Base</strong></p>
-                <p><code>base</code></p>
-                <p>Provide shared utilities, helpers, and test support used by other plugins.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <p>No binary dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <p>No output mimetypes declared.</p>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -9483,28 +7926,6 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-c
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/bash" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Bash</strong></p>
-                <p><code>bash</code></p>
-                <p>Install binaries using arbitrary bash shell commands.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <p>No binary dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <p>No output mimetypes declared.</p>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -9577,28 +7998,6 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-c
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/brew" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Homebrew</strong></p>
-                <p><code>brew</code></p>
-                <p>Install binaries through the Homebrew package manager.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <p>No binary dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <p>No output mimetypes declared.</p>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -9680,28 +8079,6 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-c
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/cargo" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Cargo</strong></p>
-                <p><code>cargo</code></p>
-                <p>Install binaries through Rust&#39;s Cargo package manager.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <p>No binary dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <p>No output mimetypes declared.</p>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -9789,38 +8166,6 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-c
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/chromewebstore" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Chrome Web Store Provider</strong></p>
-                <p><code>chromewebstore</code></p>
-                <p>Resolve Chrome Web Store extensions as installable binary-like artifacts.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <div class="pill-list">
-                  <a href="#chrome" class="chip chip--link">chrome</a>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{NODE_BINARY}
-providers: env,apt,brew
-overrides: {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}}">
-                    <code>{NODE_BINARY}</code>
-                    <small>providers=env,apt,brew</small>
-                    <small>overrides={&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <p>No output mimetypes declared.</p>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -9895,7 +8240,7 @@ overrides: {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}}">
         <details
           id="claudecode"
           class="plugin-card"
-          data-search="claudecode claude code run claude code ai agent on snapshots to extract, analyze, or transform archived content. embed fullscreen {node_binary} {claudecode_binary} env,apt,brew env,npm   {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-code&#34;]}} application/json node_binary path to node.js binary claudecode_enabled enable claude code ai agent integration. controls whether the claude cli dependency is resolved for this plugin; child plugins still need the claudecode plugin enabled and a working claude binary. claudecode_binary path to claude code cli binary claudecode_timeout timeout for claude code operations in seconds anthropic_api_key anthropic api key for claude code authentication claudecode_model claude model to use (e.g. sonnet, opus, haiku) claudecode_max_turns maximum number of agentic turns per invocation"
+          data-search="claudecode claude code run claude code ai agent on snapshots to extract, analyze, or transform archived content. embed fullscreen {node_binary} {claudecode_binary} env,apt,brew env,npm   {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-code&#34;]}} application/json node_binary path to node.js binary claudecode_enabled enable claude code ai agent integration. controls whether the claude cli dependency is resolved for this plugin; child plugins still need the claudecode plugin enabled and a working claude binary. claudecode_binary path to claude code cli binary claudecode_timeout timeout for claude code operations in seconds anthropic_api_key anthropic api key for claude code authentication claudecode_model claude model to use (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001) claudecode_max_turns maximum number of agentic turns per invocation"
           data-hero-plugin="claudecode"
           data-hero-abx-command="uvx abx-dl plugins claudecode"
           data-hero-archivebox-command="archivebox add &#39;https://example.com&#39;"
@@ -9928,45 +8273,6 @@ overrides: {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}}">
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/claudecode" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Claude Code</strong></p>
-                <p><code>claudecode</code></p>
-                <p>Run Claude Code AI agent on snapshots to extract, analyze, or transform archived content.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{NODE_BINARY}
-providers: env,apt,brew
-overrides: {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}}">
-                    <code>{NODE_BINARY}</code>
-                    <small>providers=env,apt,brew</small>
-                    <small>overrides={&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}}</small>
-                  </span>
-                  <span class="chip chip--binary" title="{CLAUDECODE_BINARY}
-providers: env,npm
-overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-code&#34;]}}">
-                    <code>{CLAUDECODE_BINARY}</code>
-                    <small>providers=env,npm</small>
-                    <small>overrides={&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-code&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <div class="pill-list">
-                  <span class="chip">application/json</span>
-                </div>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -10038,11 +8344,11 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-c
               <article class="config-card">
                 <span>Config key</span>
                 <strong><code>CLAUDECODE_MODEL</code></strong>
-                <p>Claude model to use (e.g. sonnet, opus, haiku)</p>
+                <p>Claude model to use (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001)</p>
                 <div class="config-meta">
                   <div>Type: <code>string</code></div>
                 </div>
-                <pre><code>&#34;sonnet&#34;</code></pre>
+                <pre><code>&#34;claude-sonnet-4-6&#34;</code></pre>
               </article>
               <article class="config-card">
                 <span>Config key</span>
@@ -10052,7 +8358,7 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-c
                   <div>Type: <code>integer</code></div>
                   <div>Minimum: <code>1</code></div>
                 </div>
-                <pre><code>10</code></pre>
+                <pre><code>50</code></pre>
               </article>
             </div>
           </div>
@@ -10095,28 +8401,6 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-c
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/env" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Environment</strong></p>
-                <p><code>env</code></p>
-                <p>Discover binaries that are already available on the system PATH.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <p>No binary dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <p>No output mimetypes declared.</p>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -10185,28 +8469,6 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-c
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/media" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Media</strong></p>
-                <p><code>media</code></p>
-                <p>Provide a shared namespace for media-related plugin outputs and helpers.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <p>No binary dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <p>No output mimetypes declared.</p>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -10268,36 +8530,6 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-c
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/npm" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>npm</strong></p>
-                <p><code>npm</code></p>
-                <p>Install binaries from npm packages and expose Node module paths.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{NODE_BINARY}
-providers: env,apt,brew
-overrides: {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}}">
-                    <code>{NODE_BINARY}</code>
-                    <small>providers=env,apt,brew</small>
-                    <small>overrides={&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <p>No output mimetypes declared.</p>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -10396,34 +8628,6 @@ overrides: {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}}">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/pip" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
 
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>pip</strong></p>
-                <p><code>pip</code></p>
-                <p>Install Python-based binaries into a managed virtual environment.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="python
-providers: env">
-                    <code>python</code>
-                    <small>providers=env</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <p>No output mimetypes declared.</p>
-              </article>
-            </div>
-
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
               <div class="command-card">
@@ -10509,36 +8713,6 @@ providers: env">
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/puppeteer" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>Puppeteer</strong></p>
-                <p><code>puppeteer</code></p>
-                <p>Install and manage Chromium through the Puppeteer toolchain.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="puppeteer
-providers: npm
-overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;puppeteer&#34;]}}">
-                    <code>puppeteer</code>
-                    <small>providers=npm</small>
-                    <small>overrides={&#34;npm&#34;: {&#34;install_args&#34;: [&#34;puppeteer&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <p>No output mimetypes declared.</p>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -10637,36 +8811,6 @@ overrides: {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;puppeteer&#34;]}}">
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/search_backend_ripgrep" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>ripgrep Search</strong></p>
-                <p><code>search_backend_ripgrep</code></p>
-                <p>Search archived snapshot files directly with ripgrep instead of maintaining an index.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <div class="pill-list">
-                  <span class="chip chip--binary" title="{RIPGREP_BINARY}
-providers: env,apt,brew
-overrides: {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;ripgrep&#34;]}}">
-                    <code>{RIPGREP_BINARY}</code>
-                    <small>providers=env,apt,brew</small>
-                    <small>overrides={&#34;apt&#34;: {&#34;install_args&#34;: [&#34;ripgrep&#34;]}}</small>
-                  </span>
-                </div>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <p>No output mimetypes declared.</p>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -10781,28 +8925,6 @@ overrides: {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;ripgrep&#34;]}}">
           <div class="plugin-body">
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/ssl" target="_blank" rel="noreferrer">Source on GitHub</a>
-            </div>
-
-            <h3 class="section-title">Plugin Info</h3>
-            <div class="plugin-info-grid">
-              <article class="plugin-info-card">
-                <span>Plugin</span>
-                <p><strong>SSL</strong></p>
-                <p><code>ssl</code></p>
-                <p>Utility plugin namespace reserved for SSL-related integration points and metadata.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Plugins</span>
-                <p>No plugin dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Required Binaries</span>
-                <p>No binary dependencies declared.</p>
-              </article>
-              <article class="plugin-info-card">
-                <span>Output Mimetypes</span>
-                <p>No output mimetypes declared.</p>
-              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -11019,9 +9141,19 @@ overrides: {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;ripgrep&#34;]}}">
 
         <div class="footer-meta">
           <span>Generated from <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">ArchiveBox/abx-plugins</a> at ref <code>main</code>.</span>
-          <span>Updated 2026-04-03 08:04 UTC</span>
+          <span>Updated 2026-04-03 08:12 UTC</span>
         </div>
       </footer>
+    </div>
+
+    <div class="plugin-modal-backdrop" id="plugin-modal-backdrop">
+      <div class="plugin-modal" id="plugin-modal">
+        <div class="plugin-modal-header">
+          <h2 id="plugin-modal-title"></h2>
+          <button type="button" class="plugin-modal-close" id="plugin-modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="plugin-body" id="plugin-modal-body"></div>
+      </div>
     </div>
 
     <script>
@@ -11170,8 +9302,7 @@ overrides: {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;ripgrep&#34;]}}">
         if (target && target.classList.contains("plugin-card")) {
           searchInput.value = "";
           applyFilter();
-          target.open = true;
-          setHeroExample(target);
+          openModal(target);
           target.scrollIntoView({ behavior: "smooth", block: "start" });
         } else {
           searchInput.value = hash;
@@ -11222,19 +9353,69 @@ overrides: {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;ripgrep&#34;]}}">
         }
       });
 
-      for (const card of cards) {
-        card.addEventListener("click", (event) => {
-          if (card.open) return;
-          if (event.target.closest(interactiveSelector)) return;
-          card.open = true;
-        });
+      const modalBackdrop = document.getElementById("plugin-modal-backdrop");
+      const modalEl = document.getElementById("plugin-modal");
+      const modalTitle = document.getElementById("plugin-modal-title");
+      const modalBody = document.getElementById("plugin-modal-body");
+      const modalClose = document.getElementById("plugin-modal-close");
+      let activeModalCard = null;
 
-        card.addEventListener("toggle", () => {
-          if (card.open) {
-            setHash(card.id);
-            setHeroExample(card);
-          }
-        });
+      const openModal = (card) => {
+        const body = card.querySelector(".plugin-body");
+        const title = card.querySelector("h2");
+        if (!body) return;
+
+        if (activeModalCard) activeModalCard.classList.remove("modal-active");
+        activeModalCard = card;
+        card.classList.add("modal-active");
+
+        modalTitle.textContent = title ? title.textContent : card.id;
+        modalBody.innerHTML = body.innerHTML;
+        modalBackdrop.classList.add("open");
+        document.body.style.overflow = "hidden";
+
+        setHash(card.id);
+        setHeroExample(card);
+      };
+
+      const closeModal = () => {
+        modalBackdrop.classList.remove("open");
+        document.body.style.overflow = "";
+        if (activeModalCard) {
+          activeModalCard.classList.remove("modal-active");
+          activeModalCard = null;
+        }
+      };
+
+      modalClose.addEventListener("click", closeModal);
+      modalBackdrop.addEventListener("click", (event) => {
+        if (event.target === modalBackdrop) closeModal();
+      });
+      modalBody.addEventListener("click", (event) => {
+        const link = event.target.closest("a[href^='#']");
+        if (!link) return;
+        const id = link.getAttribute("href").slice(1);
+        const target = document.getElementById(id);
+        if (target && target.classList.contains("plugin-card")) {
+          event.preventDefault();
+          closeModal();
+          openModal(target);
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && modalBackdrop.classList.contains("open")) closeModal();
+      });
+
+      for (const card of cards) {
+        const summary = card.querySelector("summary");
+        if (summary) {
+          summary.addEventListener("click", (event) => {
+            event.preventDefault();
+            if (event.target.closest("a, button, input, textarea, select")) return;
+            openModal(card);
+          });
+        }
       }
 
       applyFilter();
