@@ -660,6 +660,34 @@
         letter-spacing: 0.06em;
       }
 
+      .chip--link {
+        text-decoration: none;
+        color: var(--accent);
+        cursor: pointer;
+      }
+
+      .chip--link:hover {
+        background: var(--accent-soft);
+        border-color: var(--accent);
+      }
+
+      .chip--binary-summary {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 8px;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.82rem;
+        text-transform: none;
+        letter-spacing: normal;
+      }
+
+      .chip--binary-summary small {
+        color: var(--muted);
+        font-size: 0.72rem;
+      }
+
       .chip--binary {
         display: inline-grid;
         gap: 4px;
@@ -1115,7 +1143,7 @@
             <div class="hero-code-toolbar">
               <div class="hero-code-meta">
                 <span class="hero-code-kicker">Quick Start</span>
-                <code id="selected-plugin-name">ytdlp</code>
+                <code id="selected-plugin-name">abx-dl</code>
               </div>
               <button type="button" class="copy-button" id="copy-example-button">Copy</button>
             </div>
@@ -1207,7 +1235,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 <div><strong>Needs plugins:</strong> {{ plugin.required_plugins|join(", ") }}</div>
                 {% endif %}
                 {% if plugin.required_binaries %}
-                <div><strong>Needs binaries:</strong> {{ plugin.required_binary_summaries[:2]|join("; ") }}{% if plugin.required_binary_summaries|length > 2 %} +{{ plugin.required_binary_summaries|length - 2 }} more{% endif %}</div>
+                <div><strong>Needs binaries:</strong> {% for item in plugin.required_binaries[:2] %}<span class="chip chip--binary-summary">{{ item.name }}{% if item.min_version %}&gt;={{ item.min_version }}{% endif %} <small>({{ item.binproviders }})</small></span> {% endfor %}{% if plugin.required_binaries|length > 2 %}+{{ plugin.required_binaries|length - 2 }} more{% endif %}</div>
                 {% endif %}
                 {% if plugin.output_mimetypes %}
                 <div><strong>Outputs:</strong> {{ plugin.output_mimetypes[:4]|join(", ") }}{% if plugin.output_mimetypes|length > 4 %} +{{ plugin.output_mimetypes|length - 4 }} more{% endif %}</div>
@@ -1240,7 +1268,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 {% if plugin.required_plugins %}
                 <div class="pill-list">
                   {% for item in plugin.required_plugins %}
-                  <span class="chip">{{ item }}</span>
+                  <a href="#{{ item }}" class="chip chip--link">{{ item }}</a>
                   {% endfor %}
                 </div>
                 {% else %}
@@ -1619,9 +1647,13 @@ abx-dl dl 'https://example.com'</code></pre>
           accumulatedPlugins.push(plugin);
         }
 
+        const pluginsFlag = accumulatedPlugins.length
+          ? ` --plugins=${accumulatedPlugins.join(",")}`
+          : "";
+
         return {
-          plugin,
-          abx: `uvx abx-dl --plugins=${accumulatedPlugins.join(",")} 'https://example.com'`,
+          plugin: accumulatedPlugins.length ? plugin : "abx-dl",
+          abx: `uvx abx-dl${pluginsFlag} 'https://example.com'`,
           archivebox: card.dataset.heroArchiveboxCommand || "archivebox add 'https://example.com'",
         };
       };
@@ -1650,9 +1682,22 @@ abx-dl dl 'https://example.com'</code></pre>
         copyExampleButton.dataset.copyText = heroExampleText(example);
       };
 
+      const defaultHeroExample = {
+        plugin: "abx-dl",
+        abx: "uvx abx-dl 'https://example.com'",
+        archivebox: "archivebox add 'https://example.com'",
+      };
+
       const syncHeroExample = () => {
         if (selectedCard) {
           setHeroExample(selectedCard);
+          return;
+        }
+
+        if (accumulatedPlugins.length === 0) {
+          selectedPluginName.textContent = defaultHeroExample.plugin;
+          heroCommandExample.innerHTML = renderHeroExample(defaultHeroExample);
+          copyExampleButton.dataset.copyText = heroExampleText(defaultHeroExample);
           return;
         }
 

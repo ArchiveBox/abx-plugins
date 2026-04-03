@@ -96,8 +96,6 @@ def as_required_binary_list(value: Any) -> list[dict[str, Any]]:
         summary_parts = [f"providers={binproviders}"]
         if min_version:
             summary_parts.append(f"min={min_version}")
-        if overrides_summary:
-            summary_parts.append(f"overrides={overrides_summary}")
         normalized["overrides_summary"] = overrides_summary
         normalized["summary"] = " | ".join(summary_parts)
         normalized["title"] = "\n".join(
@@ -381,7 +379,7 @@ def render_marketplace(output_dir: Path, template_name: str) -> Path:
     plugins = collect_plugins()
     environment = Environment(
         loader=FileSystemLoader(TEMPLATE_DIR),
-        autoescape=select_autoescape(["html", "xml"]),
+        autoescape=select_autoescape(["html", "xml", "html.j2", "xml.j2"]),
         trim_blocks=True,
         lstrip_blocks=True,
     )
