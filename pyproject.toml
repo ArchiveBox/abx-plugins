@@ -25,18 +25,6 @@ dependencies = [
     "rich-click>=1.9.7",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=9.0.2",
-    "pytest-httpserver>=1.1.0",
-    "feedparser>=6.0.0",
-    "requests>=2.28.0",
-    "jinja2>=3.1.0",
-    "pyright>=1.1.408",
-    "ty>=0.0.18",
-    "ruff>=0.15.2",
-]
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -91,5 +79,13 @@ skip = "*.json"
 
 [dependency-groups]
 dev = [
+    "pytest>=9.0.2",
+    "pytest-httpserver>=1.1.0",
+    "feedparser>=6.0.0",
+    "requests>=2.28.0",
+    "jinja2>=3.1.0",
     "prek>=0.3.6",
+    "pyright>=1.1.408",
+    "ty>=0.0.18",
+    "ruff>=0.15.2",
 ]
