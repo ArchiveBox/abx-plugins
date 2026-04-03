@@ -70,9 +70,27 @@ def as_string_list(value: Any) -> list[str]:
     return [str(item) for item in value if item not in (None, "")]
 
 
-def as_required_binary_list(value: Any) -> list[dict[str, Any]]:
+def resolve_binary_name(
+    name: str,
+    config_properties: dict[str, Any],
+) -> str:
+    """Resolve {VAR_NAME} to the default value from config properties."""
+    if name.startswith("{") and name.endswith("}"):
+        var = name[1:-1]
+        prop = config_properties.get(var, {})
+        default = prop.get("default")
+        if isinstance(default, str) and default:
+            return default
+    return name
+
+
+def as_required_binary_list(
+    value: Any,
+    config_properties: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
+    props = config_properties or {}
     items: list[dict[str, Any]] = []
     for item in value:
         if not isinstance(item, dict):
@@ -84,6 +102,8 @@ def as_required_binary_list(value: Any) -> list[dict[str, Any]]:
         if not isinstance(binproviders, str) or not binproviders:
             continue
         normalized = dict(item)
+        display_name = resolve_binary_name(name, props)
+        normalized["display_name"] = display_name
         overrides = normalized.get("overrides")
         overrides_summary = ""
         if isinstance(overrides, dict) and overrides:
@@ -101,10 +121,9 @@ def as_required_binary_list(value: Any) -> list[dict[str, Any]]:
         normalized["title"] = "\n".join(
             part
             for part in (
-                str(name),
+                display_name,
                 f"providers: {binproviders}",
                 f"min_version: {min_version}" if min_version else None,
-                f"overrides: {overrides_summary}" if overrides_summary else None,
             )
             if part
         )
@@ -300,7 +319,10 @@ def build_plugin(plugin_dir: Path) -> dict[str, Any]:
     display_title = str(config_schema.get("title") or plugin_dir.name)
     description = str(config_schema.get("description") or "").strip()
     required_plugins = as_string_list(config_schema.get("required_plugins"))
-    required_binaries = as_required_binary_list(config_schema.get("required_binaries"))
+    required_binaries = as_required_binary_list(
+        config_schema.get("required_binaries"),
+        config_schema.get("properties", {}),
+    )
     required_binary_names = [item["name"] for item in required_binaries]
     required_binary_summaries = [
         f"{item['name']} ({item['summary']})" for item in required_binaries

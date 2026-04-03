@@ -598,6 +598,13 @@
         padding: 0 22px 22px;
       }
 
+      .plugin-modal-description {
+        color: var(--muted);
+        margin: 0 0 12px;
+        font-size: 0.95rem;
+        line-height: 1.5;
+      }
+
       .plugin-card summary {
         position: relative;
         display: block;
@@ -1286,7 +1293,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{YTDLP_BINARY} <small>(env,pip,brew,apt)</small></span> <span class="chip chip--binary-summary">{NODE_BINARY} <small>(env,apt,brew)</small></span> +1 more</div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">yt-dlp <small>(env,pip,brew,apt)</small></span> <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> +1 more</div>
                 <div><strong>Outputs:</strong> audio/, video/, image/, application/x-subrip +3 more</div>
               </div>
             </div>
@@ -1296,8 +1303,46 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Download video and audio media with metadata, subtitles, thumbnails, and description sidecars.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/ytdlp" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="yt-dlp
+providers: env,pip,brew,apt">
+                    <code>yt-dlp</code>
+                    <small>providers=env,pip,brew,apt</small>
+                  </span>
+                  <span class="chip chip--binary" title="node
+providers: env,apt,brew">
+                    <code>node</code>
+                    <small>providers=env,apt,brew</small>
+                  </span>
+                  <span class="chip chip--binary" title="ffmpeg
+providers: env,apt,brew">
+                    <code>ffmpeg</code>
+                    <small>providers=env,apt,brew</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">audio/</span>
+                  <span class="chip">video/</span>
+                  <span class="chip">image/</span>
+                  <span class="chip">application/x-subrip</span>
+                  <span class="chip">text/vtt</span>
+                  <span class="chip">application/json</span>
+                  <span class="chip">text/plain</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -1481,7 +1526,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{GALLERYDL_BINARY} <small>(env,pip,brew,apt)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">gallery-dl <small>(env,pip,brew,apt)</small></span> </div>
                 <div><strong>Outputs:</strong> image/, video/, application/json, text/plain +1 more</div>
               </div>
             </div>
@@ -1491,8 +1536,34 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Download image and media galleries along with metadata sidecars from supported sites.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/gallerydl" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="gallery-dl
+providers: env,pip,brew,apt">
+                    <code>gallery-dl</code>
+                    <small>providers=env,pip,brew,apt</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">image/</span>
+                  <span class="chip">video/</span>
+                  <span class="chip">application/json</span>
+                  <span class="chip">text/plain</span>
+                  <span class="chip">application/zip</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -1638,7 +1709,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{FORUMDL_BINARY} <small>(env,pip)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">forum-dl <small>(env,pip)</small></span> </div>
                 <div><strong>Outputs:</strong> application/x-ndjson, application/warc, message/rfc822</div>
               </div>
             </div>
@@ -1648,8 +1719,32 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Download forum threads and exports in JSONL, WARC, and mailbox-style archive formats.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/forumdl" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="forum-dl
+providers: env,pip">
+                    <code>forum-dl</code>
+                    <small>providers=env,pip</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/x-ndjson</span>
+                  <span class="chip">application/warc</span>
+                  <span class="chip">message/rfc822</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -1781,7 +1876,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{GIT_BINARY} <small>(env,apt,brew)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">git <small>(env,apt,brew)</small></span> </div>
                 <div><strong>Outputs:</strong> text/, application/, image/, audio/ +2 more</div>
               </div>
             </div>
@@ -1791,8 +1886,35 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Clone git repositories from supported repository URLs into the snapshot output directory.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/git" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="git
+providers: env,apt,brew">
+                    <code>git</code>
+                    <small>providers=env,apt,brew</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">text/</span>
+                  <span class="chip">application/</span>
+                  <span class="chip">image/</span>
+                  <span class="chip">audio/</span>
+                  <span class="chip">video/</span>
+                  <span class="chip">font/</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -1927,7 +2049,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{WGET_BINARY} <small>(env,apt,brew)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">wget <small>(env,apt,brew)</small></span> </div>
                 <div><strong>Outputs:</strong> text/html, application/warc, application/gzip, image/ +5 more</div>
               </div>
             </div>
@@ -1937,8 +2059,38 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Archive pages and their requisites with wget, optionally writing WARC captures.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/wget" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="wget
+providers: env,apt,brew">
+                    <code>wget</code>
+                    <small>providers=env,apt,brew</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">text/html</span>
+                  <span class="chip">application/warc</span>
+                  <span class="chip">application/gzip</span>
+                  <span class="chip">image/</span>
+                  <span class="chip">text/css</span>
+                  <span class="chip">application/javascript</span>
+                  <span class="chip">font/</span>
+                  <span class="chip">audio/</span>
+                  <span class="chip">video/</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -2122,8 +2274,20 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Submit URLs to the Internet Archive Wayback Machine and save the resulting archive link.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/archivedotorg" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">text/plain</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -2235,8 +2399,20 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Fetch and save the site favicon or touch icon.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/favicon" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">image/</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -2346,7 +2522,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">ublock <small>(chromewebstore)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">ublock <small>(chromewebstore)</small></span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -2355,8 +2531,35 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Install the uBlock Origin extension to block ads, trackers, and other page clutter during archiving.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/ublock" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                  <span class="chip chip--binary" title="ublock
+providers: chromewebstore">
+                    <code>ublock</code>
+                    <small>providers=chromewebstore</small>
+                  </span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -2446,7 +2649,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">istilldontcareaboutcookies <small>(chromewebstore)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">istilldontcareaboutcookies <small>(chromewebstore)</small></span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -2455,8 +2658,35 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Install the I Still Don&#39;t Care About Cookies extension to dismiss cookie banners during archiving.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/istilldontcareaboutcookies" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                  <span class="chip chip--binary" title="istilldontcareaboutcookies
+providers: chromewebstore">
+                    <code>istilldontcareaboutcookies</code>
+                    <small>providers=chromewebstore</small>
+                  </span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -2546,7 +2776,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">twocaptcha <small>(chromewebstore)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">twocaptcha <small>(chromewebstore)</small></span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -2555,8 +2785,35 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Install and configure the 2Captcha extension to solve CAPTCHAs during browser-based archiving.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/twocaptcha" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                  <span class="chip chip--binary" title="twocaptcha
+providers: chromewebstore">
+                    <code>twocaptcha</code>
+                    <small>providers=chromewebstore</small>
+                  </span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -2712,7 +2969,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -2721,8 +2978,30 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Automatically dismiss dialogs, cookie banners, and framework modals while the page is being archived.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/modalcloser" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -2832,7 +3111,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
                 <div><strong>Outputs:</strong> application/x-ndjson</div>
               </div>
             </div>
@@ -2842,8 +3121,36 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Capture browser console messages emitted while the page loads.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/consolelog" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/x-ndjson</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -2944,7 +3251,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
                 <div><strong>Outputs:</strong> application/x-ndjson</div>
               </div>
             </div>
@@ -2954,8 +3261,36 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Record DNS activity observed while loading the page in Chrome.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/dns" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/x-ndjson</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -3056,7 +3391,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
                 <div><strong>Outputs:</strong> application/x-ndjson</div>
               </div>
             </div>
@@ -3066,8 +3401,36 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Capture TLS certificate and connection metadata for the loaded page.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/sslcerts" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/x-ndjson</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -3168,7 +3531,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
                 <div><strong>Outputs:</strong> application/x-ndjson, text/, image/, audio/ +3 more</div>
               </div>
             </div>
@@ -3178,8 +3541,42 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Capture HTTP response metadata for requests made during page load.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/responses" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/x-ndjson</span>
+                  <span class="chip">text/</span>
+                  <span class="chip">image/</span>
+                  <span class="chip">audio/</span>
+                  <span class="chip">video/</span>
+                  <span class="chip">application/</span>
+                  <span class="chip">font/</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -3280,7 +3677,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
                 <div><strong>Outputs:</strong> application/x-ndjson</div>
               </div>
             </div>
@@ -3290,8 +3687,36 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Capture the redirect chain encountered while loading the page.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/redirects" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/x-ndjson</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -3393,7 +3818,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
                 <div><strong>Outputs:</strong> application/pdf, application/epub+zip, image/, audio/ +8 more</div>
               </div>
             </div>
@@ -3403,8 +3828,47 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Detect and download static-file responses directly when a URL resolves to a non-HTML asset.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/staticfile" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/pdf</span>
+                  <span class="chip">application/epub+zip</span>
+                  <span class="chip">image/</span>
+                  <span class="chip">audio/</span>
+                  <span class="chip">video/</span>
+                  <span class="chip">application/json</span>
+                  <span class="chip">application/xml</span>
+                  <span class="chip">text/csv</span>
+                  <span class="chip">text/xml</span>
+                  <span class="chip">application/zip</span>
+                  <span class="chip">application/octet-stream</span>
+                  <span class="chip">application/x-</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -3505,7 +3969,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
                 <div><strong>Outputs:</strong> application/json</div>
               </div>
             </div>
@@ -3515,8 +3979,36 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Capture HTTP headers for the main document response.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/headers" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/json</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -3616,7 +4108,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{NODE_BINARY} <small>(env,apt,brew)</small></span> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
                 <div><strong>Outputs:</strong> text/plain, application/json</div>
               </div>
             </div>
@@ -3626,8 +4118,36 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Launch and manage a shared Chromium session for browser-driven plugins.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/chrome" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="node
+providers: env,apt,brew">
+                    <code>node</code>
+                    <small>providers=env,apt,brew</small>
+                  </span>
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">text/plain</span>
+                  <span class="chip">application/json</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -4049,7 +4569,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
                 <div><strong>Outputs:</strong> application/json</div>
               </div>
             </div>
@@ -4059,8 +4579,36 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Capture SEO-related metadata such as meta tags and Open Graph fields.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/seo" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/json</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -4160,7 +4708,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
                 <div><strong>Outputs:</strong> application/json</div>
               </div>
             </div>
@@ -4170,8 +4718,36 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Capture the browser accessibility tree for the archived page.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/accessibility" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/json</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -4271,7 +4847,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -4280,8 +4856,30 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Expand infinite-scroll pages and load additional content before downstream capture plugins run.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/infiniscroll" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -4431,7 +5029,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">{NODE_BINARY} <small>(env,apt,brew)</small></span> +1 more</div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> +1 more</div>
                 <div><strong>Outputs:</strong> application/json, image/png</div>
               </div>
             </div>
@@ -4441,8 +5039,47 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Use Claude computer-use to interact with pages in Chrome via CDP screenshots and the Anthropic API.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/claudechrome" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                  <span class="chip chip--binary" title="node
+providers: env,apt,brew">
+                    <code>node</code>
+                    <small>providers=env,apt,brew</small>
+                  </span>
+                  <span class="chip chip--binary" title="claudechrome
+providers: chromewebstore">
+                    <code>claudechrome</code>
+                    <small>providers=chromewebstore</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/json</span>
+                  <span class="chip">image/png</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -4622,7 +5259,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">{SINGLEFILE_BINARY} <small>(env,npm)</small></span> +1 more</div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">single-file <small>(env,npm)</small></span> +1 more</div>
                 <div><strong>Outputs:</strong> text/html</div>
               </div>
             </div>
@@ -4632,8 +5269,46 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Save a complete page as a single self-contained HTML file using the SingleFile extension or CLI.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/singlefile" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                  <span class="chip chip--binary" title="single-file
+providers: env,npm">
+                    <code>single-file</code>
+                    <small>providers=env,npm</small>
+                  </span>
+                  <span class="chip chip--binary" title="singlefile
+providers: chromewebstore">
+                    <code>singlefile</code>
+                    <small>providers=chromewebstore</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">text/html</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -4834,7 +5509,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
                 <div><strong>Outputs:</strong> image/png</div>
               </div>
             </div>
@@ -4844,8 +5519,36 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Capture a PNG screenshot of the rendered page.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/screenshot" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">image/png</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -4958,7 +5661,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
                 <div><strong>Outputs:</strong> application/pdf</div>
               </div>
             </div>
@@ -4968,8 +5671,36 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Render the current page to PDF using the shared Chrome session.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/pdf" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/pdf</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -5081,7 +5812,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
                 <div><strong>Outputs:</strong> text/html</div>
               </div>
             </div>
@@ -5091,8 +5822,36 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Save the fully rendered DOM HTML from the live page.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/dom" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">text/html</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -5192,7 +5951,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
                 <div><strong>Outputs:</strong> text/plain</div>
               </div>
             </div>
@@ -5202,8 +5961,36 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Capture the final document title from the rendered page.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/title" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">text/plain</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -5306,7 +6093,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{READABILITY_BINARY} <small>(env,npm)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">readability-extractor <small>(env,npm)</small></span> </div>
                 <div><strong>Outputs:</strong> text/html, text/plain, application/json</div>
               </div>
             </div>
@@ -5316,8 +6103,32 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Extract article HTML, text, and metadata using Mozilla Readability.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/readability" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="readability-extractor
+providers: env,npm">
+                    <code>readability-extractor</code>
+                    <small>providers=env,npm</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">text/html</span>
+                  <span class="chip">text/plain</span>
+                  <span class="chip">application/json</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -5437,7 +6248,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{DEFUDDLE_BINARY} <small>(env,npm)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">defuddle <small>(env,npm)</small></span> </div>
                 <div><strong>Outputs:</strong> text/html, text/plain, application/json</div>
               </div>
             </div>
@@ -5447,8 +6258,32 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Extract cleaned article HTML, text, and metadata from archived HTML using Defuddle.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/defuddle" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="defuddle
+providers: env,npm">
+                    <code>defuddle</code>
+                    <small>providers=env,npm</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">text/html</span>
+                  <span class="chip">text/plain</span>
+                  <span class="chip">application/json</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -5569,7 +6404,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{MERCURY_BINARY} <small>(npm,env)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">postlight-parser <small>(npm,env)</small></span> </div>
                 <div><strong>Outputs:</strong> text/html, text/plain, application/json</div>
               </div>
             </div>
@@ -5579,8 +6414,32 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Extract article HTML, text, and metadata using the Postlight Mercury parser.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/mercury" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="postlight-parser
+providers: npm,env">
+                    <code>postlight-parser</code>
+                    <small>providers=npm,env</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">text/html</span>
+                  <span class="chip">text/plain</span>
+                  <span class="chip">application/json</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -5703,7 +6562,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> claudecode</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CLAUDECODE_BINARY} <small>(env,npm)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">claude <small>(env,npm)</small></span> </div>
                 <div><strong>Outputs:</strong> text/markdown</div>
               </div>
             </div>
@@ -5713,8 +6572,36 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Use Claude Code to generate clean Markdown from snapshot extractor outputs.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/claudecodeextract" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#claudecode" class="chip chip--link">claudecode</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="claude
+providers: env,npm">
+                    <code>claude</code>
+                    <small>providers=env,npm</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">text/markdown</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -5853,8 +6740,20 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Convert archived HTML from other extractors into plain text for indexing and analysis.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/htmltotext" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">text/plain</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -5945,7 +6844,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{TRAFILATURA_BINARY} <small>(env,pip)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">trafilatura <small>(env,pip)</small></span> </div>
                 <div><strong>Outputs:</strong> text/plain, text/markdown, text/html, text/csv +3 more</div>
               </div>
             </div>
@@ -5955,8 +6854,36 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Extract article content from archived HTML into text, markdown, HTML, CSV, JSON, and XML formats.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/trafilatura" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="trafilatura
+providers: env,pip">
+                    <code>trafilatura</code>
+                    <small>providers=env,pip</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">text/plain</span>
+                  <span class="chip">text/markdown</span>
+                  <span class="chip">text/html</span>
+                  <span class="chip">text/csv</span>
+                  <span class="chip">application/json</span>
+                  <span class="chip">application/xml</span>
+                  <span class="chip">application/tei+xml</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -6065,7 +6992,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{OPENDATALOADER_BINARY} <small>(env,pip)</small></span> <span class="chip chip--binary-summary">{OPENDATALOADER_JAVA_BINARY}&gt;=11.0.0 <small>(env,apt,brew)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">opendataloader-pdf <small>(env,pip)</small></span> <span class="chip chip--binary-summary">java&gt;=11.0.0 <small>(env,apt,brew)</small></span> </div>
                 <div><strong>Outputs:</strong> text/plain, text/markdown, application/json</div>
               </div>
             </div>
@@ -6082,8 +7009,39 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Extract structured text, tables, and metadata from PDFs using opendataloader-pdf. Supports OCR for scanned PDFs via hybrid backend.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/opendataloader" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="opendataloader-pdf
+providers: env,pip">
+                    <code>opendataloader-pdf</code>
+                    <small>providers=env,pip</small>
+                  </span>
+                  <span class="chip chip--binary" title="java
+providers: env,apt,brew
+min_version: 11.0.0">
+                    <code>java</code>
+                    <small>providers=env,apt,brew</small>
+                    <small>min_version=11.0.0</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">text/plain</span>
+                  <span class="chip">text/markdown</span>
+                  <span class="chip">application/json</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -6231,7 +7189,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{LITEPARSE_BINARY} <small>(env,npm)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">lit <small>(env,npm)</small></span> </div>
                 <div><strong>Outputs:</strong> text/plain, application/json</div>
               </div>
             </div>
@@ -6248,8 +7206,31 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Extract text and metadata from PDFs and documents using LiteParse (by LlamaIndex). Supports OCR via Tesseract.js.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/liteparse" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="lit
+providers: env,npm">
+                    <code>lit</code>
+                    <small>providers=env,npm</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">text/plain</span>
+                  <span class="chip">application/json</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -6371,7 +7352,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{PAPERSDL_BINARY} <small>(env,pip)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">papers-dl <small>(env,pip)</small></span> </div>
                 <div><strong>Outputs:</strong> application/pdf</div>
               </div>
             </div>
@@ -6381,8 +7362,30 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Fetch downloadable academic papers from paper URLs and DOI targets.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/papersdl" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="papers-dl
+providers: env,pip">
+                    <code>papers-dl</code>
+                    <small>providers=env,pip</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/pdf</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -6514,8 +7517,20 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Parse HTML documents and emit discovered links as JSONL snapshot records.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/parse_html_urls" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/x-ndjson</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -6604,8 +7619,20 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Parse plain text documents and emit discovered URLs as JSONL snapshot records.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/parse_txt_urls" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/x-ndjson</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -6694,8 +7721,20 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Parse RSS and Atom feeds and emit discovered entry URLs as JSONL snapshot records.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/parse_rss_urls" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/x-ndjson</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -6784,8 +7823,20 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Parse Netscape bookmark HTML exports and emit discovered URLs as JSONL snapshot records.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/parse_netscape_urls" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/x-ndjson</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -6874,8 +7925,20 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Parse JSONL bookmark exports and emit discovered URLs as JSONL snapshot records.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/parse_jsonl_urls" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/x-ndjson</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -6954,7 +8017,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CHROME_BINARY} <small>(env,puppeteer)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
                 <div><strong>Outputs:</strong> application/x-ndjson</div>
               </div>
             </div>
@@ -6964,8 +8027,36 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Extract crawlable links from the rendered DOM and emit them as JSONL records.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/parse_dom_outlinks" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                    <code>chromium</code>
+                    <small>providers=env,puppeteer</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/x-ndjson</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -7075,8 +8166,20 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Index archived snapshot content into a SQLite FTS database for local search.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/search_backend_sqlite" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/vnd.sqlite3</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -7194,7 +8297,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{SONIC_BINARY} <small>(env,apt,brew,cargo)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">sonic <small>(env,apt,brew,cargo)</small></span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -7203,8 +8306,24 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Index archived snapshot content into a Sonic search backend.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/search_backend_sonic" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="sonic
+providers: env,apt,brew,cargo">
+                    <code>sonic</code>
+                    <small>providers=env,apt,brew,cargo</small>
+                  </span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -7377,7 +8496,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> claudecode</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{CLAUDECODE_BINARY} <small>(env,npm)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">claude <small>(env,npm)</small></span> </div>
                 <div><strong>Outputs:</strong> text/plain</div>
               </div>
             </div>
@@ -7387,8 +8506,36 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Use Claude Code to deduplicate and clean up redundant snapshot extractor outputs.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/claudecodecleanup" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#claudecode" class="chip chip--link">claudecode</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="claude
+providers: env,npm">
+                    <code>claude</code>
+                    <small>providers=env,npm</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">text/plain</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -7527,8 +8674,20 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Generate a hash manifest for files produced in the snapshot directory.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/hashes" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/json</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -7623,9 +8782,12 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Install binaries through the Debian and Ubuntu APT package manager.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/apt" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
+
 
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
@@ -7689,9 +8851,12 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Provide shared utilities, helpers, and test support used by other plugins.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/base" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
+
 
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
@@ -7922,9 +9087,12 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Install binaries using arbitrary bash shell commands.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/bash" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
+
 
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
@@ -7996,9 +9164,12 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Install binaries through the Homebrew package manager.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/brew" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
+
 
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
@@ -8077,9 +9248,12 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Install binaries through Rust&#39;s Cargo package manager.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/cargo" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
+
 
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
@@ -8146,7 +9320,7 @@ abx-dl dl 'https://example.com'</code></pre>
               </div>
               <div class="plugin-summary-facts">
                 <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{NODE_BINARY} <small>(env,apt,brew)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -8162,8 +9336,30 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Resolve Chrome Web Store extensions as installable binary-like artifacts.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/chromewebstore" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  <a href="#chrome" class="chip chip--link">chrome</a>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="node
+providers: env,apt,brew">
+                    <code>node</code>
+                    <small>providers=env,apt,brew</small>
+                  </span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -8261,7 +9457,7 @@ abx-dl dl 'https://example.com'</code></pre>
               <div class="plugin-header-meta">
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{NODE_BINARY} <small>(env,apt,brew)</small></span> <span class="chip chip--binary-summary">{CLAUDECODE_BINARY} <small>(env,npm)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> <span class="chip chip--binary-summary">claude <small>(env,npm)</small></span> </div>
                 <div><strong>Outputs:</strong> application/json</div>
               </div>
             </div>
@@ -8271,8 +9467,35 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Run Claude Code AI agent on snapshots to extract, analyze, or transform archived content.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/claudecode" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="node
+providers: env,apt,brew">
+                    <code>node</code>
+                    <small>providers=env,apt,brew</small>
+                  </span>
+                  <span class="chip chip--binary" title="claude
+providers: env,npm">
+                    <code>claude</code>
+                    <small>providers=env,npm</small>
+                  </span>
+                </div>
+              </article>
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  <span class="chip">application/json</span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -8399,9 +9622,12 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Discover binaries that are already available on the system PATH.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/env" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
+
 
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
@@ -8465,9 +9691,12 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Provide a shared namespace for media-related plugin outputs and helpers.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/media" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
+
 
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
@@ -8519,7 +9748,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 </span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{NODE_BINARY} <small>(env,apt,brew)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -8528,8 +9757,24 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Install binaries from npm packages and expose Node module paths.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/npm" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="node
+providers: env,apt,brew">
+                    <code>node</code>
+                    <small>providers=env,apt,brew</small>
+                  </span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -8624,8 +9869,24 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Install Python-based binaries into a managed virtual environment.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/pip" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="python
+providers: env">
+                    <code>python</code>
+                    <small>providers=env</small>
+                  </span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -8711,8 +9972,24 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Install and manage Chromium through the Puppeteer toolchain.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/puppeteer" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="puppeteer
+providers: npm">
+                    <code>puppeteer</code>
+                    <small>providers=npm</small>
+                  </span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -8800,7 +10077,7 @@ abx-dl dl 'https://example.com'</code></pre>
               <div class="plugin-header-meta">
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">{RIPGREP_BINARY} <small>(env,apt,brew)</small></span> </div>
+                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">rg <small>(env,apt,brew)</small></span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -8809,8 +10086,24 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Search archived snapshot files directly with ripgrep instead of maintaining an index.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/search_backend_ripgrep" target="_blank" rel="noreferrer">Source on GitHub</a>
+            </div>
+
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  <span class="chip chip--binary" title="rg
+providers: env,apt,brew">
+                    <code>rg</code>
+                    <small>providers=env,apt,brew</small>
+                  </span>
+                </div>
+              </article>
             </div>
 
             <h3 class="section-title">Run It</h3>
@@ -8923,9 +10216,12 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            <p class="plugin-modal-description">Utility plugin namespace reserved for SSL-related integration points and metadata.</p>
+
             <div class="actions">
               <a class="button-link" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/ssl" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
+
 
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
@@ -9141,7 +10437,7 @@ abx-dl dl 'https://example.com'</code></pre>
 
         <div class="footer-meta">
           <span>Generated from <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">ArchiveBox/abx-plugins</a> at ref <code>main</code>.</span>
-          <span>Updated 2026-04-03 08:12 UTC</span>
+          <span>Updated 2026-04-03 08:23 UTC</span>
         </div>
       </footer>
     </div>

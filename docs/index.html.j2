@@ -598,6 +598,13 @@
         padding: 0 22px 22px;
       }
 
+      .plugin-modal-description {
+        color: var(--muted);
+        margin: 0 0 12px;
+        font-size: 0.95rem;
+        line-height: 1.5;
+      }
+
       .plugin-card summary {
         position: relative;
         display: block;
@@ -1308,7 +1315,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 <div><strong>Needs plugins:</strong> {{ plugin.required_plugins|join(", ") }}</div>
                 {% endif %}
                 {% if plugin.required_binaries %}
-                <div><strong>Needs binaries:</strong> {% for item in plugin.required_binaries[:2] %}<span class="chip chip--binary-summary">{{ item.name }}{% if item.min_version %}&gt;={{ item.min_version }}{% endif %} <small>({{ item.binproviders }})</small></span> {% endfor %}{% if plugin.required_binaries|length > 2 %}+{{ plugin.required_binaries|length - 2 }} more{% endif %}</div>
+                <div><strong>Needs binaries:</strong> {% for item in plugin.required_binaries[:2] %}<span class="chip chip--binary-summary">{{ item.display_name }}{% if item.min_version %}&gt;={{ item.min_version }}{% endif %} <small>({{ item.binproviders }})</small></span> {% endfor %}{% if plugin.required_binaries|length > 2 %}+{{ plugin.required_binaries|length - 2 }} more{% endif %}</div>
                 {% endif %}
                 {% if plugin.output_mimetypes %}
                 <div><strong>Outputs:</strong> {{ plugin.output_mimetypes[:4]|join(", ") }}{% if plugin.output_mimetypes|length > 4 %} +{{ plugin.output_mimetypes|length - 4 }} more{% endif %}</div>
@@ -1322,9 +1329,55 @@ abx-dl dl 'https://example.com'</code></pre>
           </summary>
 
           <div class="plugin-body">
+            {% if plugin.description %}
+            <p class="plugin-modal-description">{{ plugin.description }}</p>
+            {% endif %}
+
             <div class="actions">
               <a class="button-link" href="{{ plugin.source_url }}" target="_blank" rel="noreferrer">Source on GitHub</a>
             </div>
+
+            {% if plugin.required_plugins or plugin.required_binaries or plugin.output_mimetypes %}
+            <h3 class="section-title">Dependencies &amp; Outputs</h3>
+            <div class="plugin-info-grid">
+              {% if plugin.required_plugins %}
+              <article class="plugin-info-card">
+                <span>Required Plugins</span>
+                <div class="pill-list">
+                  {% for item in plugin.required_plugins %}
+                  <a href="#{{ item }}" class="chip chip--link">{{ item }}</a>
+                  {% endfor %}
+                </div>
+              </article>
+              {% endif %}
+              {% if plugin.required_binaries %}
+              <article class="plugin-info-card">
+                <span>Required Binaries</span>
+                <div class="pill-list">
+                  {% for item in plugin.required_binaries %}
+                  <span class="chip chip--binary" title="{{ item.title }}">
+                    <code>{{ item.display_name }}</code>
+                    <small>providers={{ item.binproviders }}</small>
+                    {% if item.min_version %}
+                    <small>min_version={{ item.min_version }}</small>
+                    {% endif %}
+                  </span>
+                  {% endfor %}
+                </div>
+              </article>
+              {% endif %}
+              {% if plugin.output_mimetypes %}
+              <article class="plugin-info-card">
+                <span>Output Mimetypes</span>
+                <div class="pill-list">
+                  {% for item in plugin.output_mimetypes %}
+                  <span class="chip">{{ item }}</span>
+                  {% endfor %}
+                </div>
+              </article>
+              {% endif %}
+            </div>
+            {% endif %}
 
             <h3 class="section-title">Run It</h3>
             <div class="command-grid">
