@@ -12,11 +12,9 @@ import os
 import shutil
 import subprocess
 import tempfile
-import importlib.util
 from pathlib import Path
 
 import pytest
-from click.testing import CliRunner
 
 from abx_plugins.plugins.base.test_utils import get_hydrated_required_binaries
 
@@ -144,57 +142,34 @@ if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 
 
-def test_hook_only_emits_binary_record(tmp_path, monkeypatch):
+def test_hook_only_emits_binary_record(tmp_path):
     """Hook should emit the installed Binary record and no Machine records."""
+    if not npm_available():
+        pytest.skip("npm not available")
 
-    spec = importlib.util.spec_from_file_location("npm_install_hook", INSTALL_HOOK)
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    fake_bin = tmp_path / "lib" / "npm" / "node_modules" / ".bin" / "fake-cli"
-    fake_bin.parent.mkdir(parents=True, exist_ok=True)
-    fake_bin.write_text("", encoding="utf-8")
-
-    class FakeNpmProvider:
-        INSTALLER_BIN = "npm"
-
-        def __init__(self, npm_prefix):
-            self.npm_prefix = npm_prefix
-
-    class FakeBinaryResult:
-        abspath = fake_bin
-        version = "1.2.3"
-        sha256 = "deadbeef"
-
-    class FakeBinary:
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def load_or_install(self):
-            return FakeBinaryResult()
-
-    monkeypatch.setattr(module, "NpmProvider", FakeNpmProvider)
-    monkeypatch.setattr(module, "Binary", FakeBinary)
-    runner = CliRunner()
     env = os.environ.copy()
-    env["LIB_DIR"] = str(tmp_path / "lib")
+    env["HOME"] = str(tmp_path)
+    env.pop("LIB_DIR", None)
 
-    result = runner.invoke(
-        module.main,
+    result = subprocess.run(
         [
-            "--name=fake-cli",
+            str(INSTALL_HOOK),
+            "--name=npm",
+            "--binproviders=npm",
         ],
+        capture_output=True,
+        text=True,
         env=env,
+        timeout=60,
     )
 
-    assert result.exit_code == 0, result.output
+    assert result.returncode == 0, result.stderr
 
     records = [
-        json.loads(line) for line in result.output.splitlines() if line.startswith("{")
+        json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")
     ]
     binary_record = next(record for record in records if record.get("type") == "Binary")
 
-    assert binary_record["name"] == "fake-cli"
-    assert binary_record["abspath"] == str(fake_bin)
+    assert binary_record["name"] == "npm"
+    assert Path(binary_record["abspath"]).exists()
     assert not any(record.get("type") == "Machine" for record in records)
