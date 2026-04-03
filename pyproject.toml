@@ -23,6 +23,7 @@ dependencies = [
     "abx-pkg>=1.9.27",
     "jambo>=0.1.7",
     "rich-click>=1.9.7",
+    "uv>=0.8.22",
 ]
 
 [build-system]
