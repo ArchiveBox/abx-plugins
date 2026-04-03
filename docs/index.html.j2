@@ -201,7 +201,7 @@
         width: 20px;
         height: 20px;
         border-radius: 0;
-        background: rgba(201, 111, 45, 0.14);
+        background: rgba(245, 158, 11, 0.15);
         color: var(--warm);
         font-family: "IBM Plex Mono", monospace;
         font-size: 0.95rem;
@@ -213,7 +213,7 @@
           border-color: rgba(201, 111, 45, 0.65);
         }
         33% {
-          border-color: rgba(15, 118, 110, 0.65);
+          border-color: rgba(45, 212, 191, 0.65);
         }
         66% {
           border-color: rgba(229, 184, 76, 0.72);
@@ -297,8 +297,8 @@
         overflow: hidden;
         border: 1px solid var(--line);
         border-radius: 0;
-        background: linear-gradient(180deg, #233633, #162321);
-        color: #f7f1e6;
+        background: linear-gradient(180deg, #1a1f25, #131619);
+        color: #e4e4e7;
       }
 
       .hero-code-toolbar {
@@ -867,9 +867,67 @@
         gap: 12px;
       }
 
-      .command-card,
+      .run-tabs {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 0;
+        background: linear-gradient(180deg, #1a1f25, #131619);
+        color: #e4e4e7;
+      }
+
+      .run-tabs-bar {
+        display: flex;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .run-tab {
+        flex: 1;
+        padding: 9px 14px;
+        border: none;
+        border-bottom: 2px solid transparent;
+        background: transparent;
+        color: rgba(228, 228, 231, 0.45);
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.78rem;
+        font-weight: 500;
+        cursor: pointer;
+        text-align: center;
+        transition: color 120ms ease, border-color 120ms ease;
+      }
+
+      .run-tab code {
+        font-size: inherit;
+        color: inherit;
+      }
+
+      .run-tab:hover {
+        color: rgba(228, 228, 231, 0.72);
+      }
+
+      .run-tab.active {
+        color: #e4e4e7;
+        border-bottom-color: var(--accent);
+      }
+
+      .run-tab-panel {
+        display: none;
+        margin: 0;
+        padding: 14px 16px;
+        overflow-x: auto;
+        font-size: 0.88rem;
+        line-height: 1.7;
+      }
+
+      .run-tab-panel.active {
+        display: block;
+      }
+
+      .run-tab-panel code {
+        display: block;
+        min-width: min-content;
+      }
+
       .hook-card,
-      .config-card,
       .empty-state {
         padding: 16px;
         border: 1px solid var(--line);
@@ -877,9 +935,7 @@
         background: var(--bg-accent);
       }
 
-      .command-card span,
-      .hook-card span,
-      .config-card span {
+      .hook-card span {
         display: block;
         margin-bottom: 8px;
         color: var(--muted);
@@ -954,7 +1010,7 @@
         text-transform: uppercase;
         letter-spacing: 0.06em;
         color: var(--muted);
-        background: rgba(0, 0, 0, 0.02);
+        background: rgba(255, 255, 255, 0.04);
         border-bottom: 1px solid var(--line);
         white-space: nowrap;
       }
@@ -1296,7 +1352,12 @@
               </div>
               <button type="button" class="copy-button" id="copy-example-button">Copy</button>
             </div>
-            <pre><code id="hero-command-example" aria-live="polite"></code></pre>
+            <div class="run-tabs-bar" id="hero-tabs-bar">
+              <button type="button" class="run-tab active" data-hero-tab="abx-dl">Run with <code>abx-dl</code></button>
+              <button type="button" class="run-tab" data-hero-tab="archivebox">Run with <code>archivebox</code></button>
+            </div>
+            <pre class="run-tab-panel active" id="hero-panel-abx"><code id="hero-command-abx" aria-live="polite"></code></pre>
+            <pre class="run-tab-panel" id="hero-panel-archivebox"><code id="hero-command-archivebox"></code></pre>
           </div>
 
           <details class="install-details">
@@ -1449,15 +1510,13 @@ abx-dl dl 'https://example.com'</code></pre>
             {% endif %}
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>{{ plugin.commands.archivebox }}</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>{{ plugin.commands.abx_dl }}</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>{{ plugin.commands.abx_dl }}</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>{{ plugin.commands.archivebox }}</code></pre>
             </div>
             <p class="note">{{ plugin.commands.note }}</p>
 
@@ -1808,19 +1867,32 @@ abx-dl dl 'https://example.com'</code></pre>
         };
       };
 
-      const renderHeroExample = (example) => {
-        const lines = [
-          '<span class="code-comment"># run inside a new empty dir somewhere:</span>',
-          highlightShell(example.abx),
-          "",
-          '<span class="code-comment"># or with ArchiveBox:</span>',
-          highlightShell(example.archivebox),
-        ];
-        return lines.join("\n");
-      };
+      const heroAbxCode = document.getElementById("hero-command-abx");
+      const heroArchiveboxCode = document.getElementById("hero-command-archivebox");
+      const heroAbxPanel = document.getElementById("hero-panel-abx");
+      const heroArchiveboxPanel = document.getElementById("hero-panel-archivebox");
+      let activeHeroTab = "abx-dl";
 
-      const heroExampleText = (example) =>
-        ["# abx-dl", example.abx, "", "# ArchiveBox", example.archivebox].join("\n");
+      // Hero tab switching
+      document.querySelectorAll("[data-hero-tab]").forEach((tab) => {
+        tab.addEventListener("click", () => {
+          activeHeroTab = tab.dataset.heroTab;
+          document.querySelectorAll("[data-hero-tab]").forEach((t) =>
+            t.classList.toggle("active", t.dataset.heroTab === activeHeroTab)
+          );
+          heroAbxPanel.classList.toggle("active", activeHeroTab === "abx-dl");
+          heroArchiveboxPanel.classList.toggle("active", activeHeroTab === "archivebox");
+          // Update copy button text to match active tab
+          const example = selectedCard ? getHeroExample(selectedCard) : defaultHeroExample;
+          copyExampleButton.dataset.copyText = activeHeroTab === "abx-dl" ? example.abx : example.archivebox;
+        });
+      });
+
+      const renderHeroTabs = (example) => {
+        heroAbxCode.innerHTML = highlightShell(example.abx);
+        heroArchiveboxCode.innerHTML = highlightShell(example.archivebox);
+        copyExampleButton.dataset.copyText = activeHeroTab === "abx-dl" ? example.abx : example.archivebox;
+      };
 
       const setHeroExample = (card) => {
         const example = getHeroExample(card);
@@ -1828,8 +1900,7 @@ abx-dl dl 'https://example.com'</code></pre>
 
         selectedCard = card;
         selectedPluginName.textContent = example.plugin;
-        heroCommandExample.innerHTML = renderHeroExample(example);
-        copyExampleButton.dataset.copyText = heroExampleText(example);
+        renderHeroTabs(example);
       };
 
       const defaultHeroExample = {
@@ -1846,8 +1917,7 @@ abx-dl dl 'https://example.com'</code></pre>
 
         if (accumulatedPlugins.length === 0) {
           selectedPluginName.textContent = defaultHeroExample.plugin;
-          heroCommandExample.innerHTML = renderHeroExample(defaultHeroExample);
-          copyExampleButton.dataset.copyText = heroExampleText(defaultHeroExample);
+          renderHeroTabs(defaultHeroExample);
           return;
         }
 
@@ -2006,6 +2076,36 @@ abx-dl dl 'https://example.com'</code></pre>
           });
         }
       }
+
+      // Tab switching for run-tabs
+      const initRunTabs = (container) => {
+        const tabs = container.querySelectorAll("[data-run-tab]");
+        const panels = container.querySelectorAll("[data-run-panel]");
+        tabs.forEach((tab) => {
+          tab.addEventListener("click", () => {
+            const target = tab.dataset.runTab;
+            tabs.forEach((t) => t.classList.toggle("active", t.dataset.runTab === target));
+            panels.forEach((p) => p.classList.toggle("active", p.dataset.runPanel === target));
+          });
+        });
+      };
+      document.querySelectorAll("[data-run-tabs]").forEach(initRunTabs);
+
+      // Syntax highlight all [data-highlight-shell] elements
+      const highlightAllShell = (root) => {
+        root.querySelectorAll("[data-highlight-shell]").forEach((el) => {
+          el.innerHTML = highlightShell(el.textContent);
+        });
+      };
+      highlightAllShell(document);
+
+      // Re-init tabs and highlighting when modal opens
+      const origOpenModal = openModal;
+      openModal = (card) => {
+        origOpenModal(card);
+        modalBody.querySelectorAll("[data-run-tabs]").forEach(initRunTabs);
+        highlightAllShell(modalBody);
+      };
 
       applyFilter();
       navigateToHash();
