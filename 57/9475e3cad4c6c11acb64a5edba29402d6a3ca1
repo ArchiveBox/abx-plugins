@@ -1,0 +1,37 @@
+docs/index.html.j2
+  9e94236853b15960 19-30,47-49,74,76-77,479,483-485,490-492,496-498,502-504,531,547-548,550,586,630,939-940,1055-1056
+  215926a3b0980153 203,1054,1101-1102,1129-1130,1136,1144
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "579475e3cad4c6c11acb64a5edba29402d6a3ca1",
+  "prompts": {
+    "215926a3b0980153": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf05c-51c2-7602-a35b-e35c12c5be09",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 828,
+      "total_deletions": 154,
+      "accepted_lines": 350,
+      "overriden_lines": 0
+    },
+    "9e94236853b15960": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a0736427-629e-4cdf-9901-5d944e3f2c34",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 37,
+      "total_deletions": 44,
+      "accepted_lines": 356,
+      "overriden_lines": 0
+    }
+  }
+}
