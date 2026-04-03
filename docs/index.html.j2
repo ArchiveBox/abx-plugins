@@ -16,18 +16,18 @@
     >
     <style>
       :root {
-        --bg: #f6f1e7;
-        --bg-accent: #efe3c9;
-        --surface: rgba(255, 252, 246, 0.9);
-        --surface-strong: #fffdf8;
-        --ink: #1d2927;
-        --muted: #5d6b67;
-        --line: rgba(29, 41, 39, 0.12);
-        --accent: #0f766e;
-        --accent-soft: rgba(15, 118, 110, 0.12);
-        --warm: #c96f2d;
-        --shadow: 0 20px 60px rgba(33, 36, 29, 0.12);
-        --radius: 28px;
+        --bg: #0f1114;
+        --bg-accent: #1a1d22;
+        --surface: rgba(26, 29, 34, 0.92);
+        --surface-strong: #1e2126;
+        --ink: #e4e4e7;
+        --muted: #8b8d94;
+        --line: rgba(255, 255, 255, 0.1);
+        --accent: #2dd4bf;
+        --accent-soft: rgba(45, 212, 191, 0.12);
+        --warm: #f59e0b;
+        --shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        --radius: 0px;
         --hero-badge-height: 64px;
       }
 
@@ -44,9 +44,9 @@
         min-height: 100vh;
         color: var(--ink);
         background:
-          radial-gradient(circle at top left, rgba(201, 111, 45, 0.14), transparent 30%),
-          radial-gradient(circle at top right, rgba(15, 118, 110, 0.14), transparent 28%),
-          linear-gradient(180deg, #fbf7ee 0%, var(--bg) 48%, #f3ecdd 100%);
+          radial-gradient(circle at top left, rgba(45, 212, 191, 0.06), transparent 30%),
+          radial-gradient(circle at top right, rgba(245, 158, 11, 0.04), transparent 28%),
+          var(--bg);
         font-family: "Space Grotesk", sans-serif;
       }
 
@@ -71,7 +71,7 @@
         overflow: hidden;
         padding: 36px;
         border: 1px solid var(--line);
-        border-radius: calc(var(--radius) + 8px);
+        border-radius: 0;
         background:
           linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(255, 247, 233, 0.82)),
           linear-gradient(120deg, rgba(15, 118, 110, 0.08), transparent 60%);
@@ -1056,7 +1056,7 @@
         margin-top: 26px;
         padding: 28px;
         border: 1px solid var(--line);
-        border-radius: calc(var(--radius) + 4px);
+        border-radius: 0;
         background:
           linear-gradient(180deg, rgba(255, 253, 248, 0.92), rgba(249, 244, 235, 0.96)),
           rgba(255, 253, 248, 0.9);
