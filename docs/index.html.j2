@@ -20,8 +20,8 @@
         --bg-accent: #1a1d22;
         --surface: rgba(26, 29, 34, 0.92);
         --surface-strong: #1e2126;
-        --ink: #e4e4e7;
-        --muted: #8b8d94;
+        --ink: #f0f0f3;
+        --muted: #a1a1aa;
         --line: rgba(255, 255, 255, 0.1);
         --accent: #2dd4bf;
         --accent-soft: rgba(45, 212, 191, 0.12);
@@ -48,6 +48,8 @@
           radial-gradient(circle at top right, rgba(245, 158, 11, 0.04), transparent 28%),
           var(--bg);
         font-family: "Space Grotesk", sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
       }
 
       a {
@@ -317,7 +319,7 @@
       }
 
       .hero-code-kicker {
-        color: rgba(247, 241, 230, 0.72);
+        color: rgba(240, 240, 243, 0.72);
         font-size: 0.78rem;
         letter-spacing: 0.08em;
         text-transform: uppercase;
@@ -735,7 +737,7 @@
         border-radius: 0;
         border: 1px solid var(--line);
         background: var(--bg-accent);
-        font-size: 0.76rem;
+        font-size: 0.84rem;
         color: var(--muted);
         text-transform: uppercase;
         letter-spacing: 0.06em;
@@ -766,7 +768,7 @@
 
       .chip--binary-summary small {
         color: var(--muted);
-        font-size: 0.72rem;
+        font-size: 0.8rem;
       }
 
       .chip--binary {
@@ -787,7 +789,7 @@
       .chip--binary small {
         display: block;
         color: var(--muted);
-        font-size: 0.72rem;
+        font-size: 0.8rem;
         line-height: 1.45;
         word-break: break-word;
       }
@@ -796,7 +798,7 @@
         text-transform: none;
         letter-spacing: normal;
         font-family: 'IBM Plex Mono', monospace;
-        font-size: 0.74rem;
+        font-size: 0.82rem;
         gap: 4px;
       }
 
@@ -1010,7 +1012,7 @@
       .config-table th {
         text-align: left;
         padding: 10px 12px;
-        font-size: 0.74rem;
+        font-size: 0.82rem;
         font-weight: 500;
         text-transform: uppercase;
         letter-spacing: 0.06em;
@@ -1056,7 +1058,7 @@
 
       .config-table small {
         color: var(--muted);
-        font-size: 0.76rem;
+        font-size: 0.84rem;
       }
 
       .config-table-muted {
@@ -1372,12 +1374,7 @@
               </div>
               <button type="button" class="copy-button" id="copy-example-button">Copy</button>
             </div>
-            <div class="run-tabs-bar" id="hero-tabs-bar">
-              <button type="button" class="run-tab active" data-hero-tab="abx-dl">Run with <code>abx-dl</code></button>
-              <button type="button" class="run-tab" data-hero-tab="archivebox">Run with <code>archivebox</code></button>
-            </div>
-            <pre class="run-tab-panel active" id="hero-panel-abx"><code id="hero-command-abx" aria-live="polite"></code></pre>
-            <pre class="run-tab-panel" id="hero-panel-archivebox"><code id="hero-command-archivebox"></code></pre>
+            <pre><code id="hero-command-example" aria-live="polite"></code></pre>
           </div>
 
           <details class="install-details">
@@ -1428,16 +1425,6 @@ abx-dl dl 'https://example.com'</code></pre>
               <p class="plugin-summary-description">{{ plugin.description }}</p>
               {% endif %}
               <div class="plugin-subline">
-                {% for phase in plugin.phases %}
-                <span class="chip">{{ phase }}</span>
-                {% endfor %}
-                {% for label in plugin.template_labels %}
-                <span class="chip">{{ label }}</span>
-                {% endfor %}
-                <span class="chip">{{ plugin.hook_count }} hooks</span>
-                <span class="chip">{{ plugin.config_count }} config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 {% if plugin.display_order is not none %}
                 <span class="plugin-order">#{{ "%02d"|format(plugin.display_order) }}</span>
                 {% endif %}
@@ -1458,17 +1445,26 @@ abx-dl dl 'https://example.com'</code></pre>
                   </svg>
                 </span>
                 {% endif %}
+                
+                {% for phase in plugin.phases %}
+                <span class="chip">{{ phase }}</span>
+                {% endfor %}
+                {% for label in plugin.template_labels %}
+                <span class="chip">{{ label }}</span>
+                {% endfor %}
+                <span class="chip">{{ plugin.hook_count }} hooks</span>
+                <span class="chip">{{ plugin.config_count }} config fields</span>
               </div>
               {% if plugin.required_plugins or plugin.required_binaries or plugin.output_mimetypes %}
               <div class="plugin-summary-facts">
                 {% if plugin.required_plugins %}
-                <div><strong>Needs plugins:</strong> {{ plugin.required_plugins|join(", ") }}</div>
+                <div>{{ plugin.required_plugins|join(", ") }}</div>
                 {% endif %}
                 {% if plugin.required_binaries %}
-                <div><strong>Needs binaries:</strong> {% for item in plugin.required_binaries[:2] %}<span class="chip chip--binary-summary">{{ item.display_name }}{% if item.min_version %}&gt;={{ item.min_version }}{% endif %} <small>({{ item.binproviders }})</small></span> {% endfor %}{% if plugin.required_binaries|length > 2 %}+{{ plugin.required_binaries|length - 2 }} more{% endif %}</div>
+                <div>{% for item in plugin.required_binaries[:2] %}<span class="chip chip--binary-summary">{{ item.display_name }}{% if item.min_version %}&gt;={{ item.min_version }}{% endif %} <small>({{ item.binproviders }})</small></span> {% endfor %}{% if plugin.required_binaries|length > 2 %}+{{ plugin.required_binaries|length - 2 }} more{% endif %}</div>
                 {% endif %}
                 {% if plugin.output_mimetypes %}
-                <div><strong>Outputs:</strong> {% for item in plugin.output_mimetypes[:4] %}<span class="chip chip--mime chip--mime-{{ item.css_class }}">{{ item.emoji }} {{ item.label }}</span> {% endfor %}{% if plugin.output_mimetypes|length > 4 %}+{{ plugin.output_mimetypes|length - 4 }} more{% endif %}</div>
+                <div>{% for item in plugin.output_mimetypes[:4] %}<span class="chip chip--mime chip--mime-{{ item.css_class }}">{{ item.emoji }} {{ item.label }}</span> {% endfor %}{% if plugin.output_mimetypes|length > 4 %}+{{ plugin.output_mimetypes|length - 4 }} more{% endif %}</div>
                 {% endif %}
               </div>
               {% endif %}
@@ -1894,32 +1890,21 @@ abx-dl dl 'https://example.com'</code></pre>
         };
       };
 
-      const heroAbxCode = document.getElementById("hero-command-abx");
-      const heroArchiveboxCode = document.getElementById("hero-command-archivebox");
-      const heroAbxPanel = document.getElementById("hero-panel-abx");
-      const heroArchiveboxPanel = document.getElementById("hero-panel-archivebox");
-      let activeHeroTab = "abx-dl";
+      const heroCommandExample = document.getElementById("hero-command-example");
 
-      // Hero tab switching
-      document.querySelectorAll("[data-hero-tab]").forEach((tab) => {
-        tab.addEventListener("click", () => {
-          activeHeroTab = tab.dataset.heroTab;
-          document.querySelectorAll("[data-hero-tab]").forEach((t) =>
-            t.classList.toggle("active", t.dataset.heroTab === activeHeroTab)
-          );
-          heroAbxPanel.classList.toggle("active", activeHeroTab === "abx-dl");
-          heroArchiveboxPanel.classList.toggle("active", activeHeroTab === "archivebox");
-          // Update copy button text to match active tab
-          const example = selectedCard ? getHeroExample(selectedCard) : defaultHeroExample;
-          copyExampleButton.dataset.copyText = activeHeroTab === "abx-dl" ? example.abx : example.archivebox;
-        });
-      });
-
-      const renderHeroTabs = (example) => {
-        heroAbxCode.innerHTML = highlightShell(example.abx);
-        heroArchiveboxCode.innerHTML = highlightShell(example.archivebox);
-        copyExampleButton.dataset.copyText = activeHeroTab === "abx-dl" ? example.abx : example.archivebox;
+      const renderHeroExample = (example) => {
+        const lines = [
+          '<span class="code-comment"># run inside a new empty dir somewhere:</span>',
+          highlightShell(example.abx),
+          "",
+          '<span class="code-comment"># or with ArchiveBox:</span>',
+          highlightShell(example.archivebox),
+        ];
+        return lines.join("\n");
       };
+
+      const heroExampleText = (example) =>
+        ["# abx-dl", example.abx, "", "# ArchiveBox", example.archivebox].join("\n");
 
       const setHeroExample = (card) => {
         const example = getHeroExample(card);
@@ -1927,7 +1912,8 @@ abx-dl dl 'https://example.com'</code></pre>
 
         selectedCard = card;
         selectedPluginName.textContent = example.plugin;
-        renderHeroTabs(example);
+        heroCommandExample.innerHTML = renderHeroExample(example);
+        copyExampleButton.dataset.copyText = heroExampleText(example);
       };
 
       const defaultHeroExample = {
@@ -1944,7 +1930,8 @@ abx-dl dl 'https://example.com'</code></pre>
 
         if (accumulatedPlugins.length === 0) {
           selectedPluginName.textContent = defaultHeroExample.plugin;
-          renderHeroTabs(defaultHeroExample);
+          heroCommandExample.innerHTML = renderHeroExample(defaultHeroExample);
+          copyExampleButton.dataset.copyText = heroExampleText(defaultHeroExample);
           return;
         }
 
@@ -2044,6 +2031,26 @@ abx-dl dl 'https://example.com'</code></pre>
       const modalIcon = document.getElementById("plugin-modal-icon");
       let activeModalCard = null;
 
+      // Tab switching for run-tabs
+      const initRunTabs = (container) => {
+        const tabs = container.querySelectorAll("[data-run-tab]");
+        const panels = container.querySelectorAll("[data-run-panel]");
+        tabs.forEach((tab) => {
+          tab.addEventListener("click", () => {
+            const target = tab.dataset.runTab;
+            tabs.forEach((t) => t.classList.toggle("active", t.dataset.runTab === target));
+            panels.forEach((p) => p.classList.toggle("active", p.dataset.runPanel === target));
+          });
+        });
+      };
+
+      // Syntax highlight all [data-highlight-shell] elements
+      const highlightAllShell = (root) => {
+        root.querySelectorAll("[data-highlight-shell]").forEach((el) => {
+          el.innerHTML = highlightShell(el.textContent);
+        });
+      };
+
       const openModal = (card) => {
         const body = card.querySelector(".plugin-body");
         const title = card.querySelector("h2");
@@ -2057,6 +2064,8 @@ abx-dl dl 'https://example.com'</code></pre>
         modalTitle.textContent = title ? title.textContent : card.id;
         modalIcon.innerHTML = icon ? icon.innerHTML : "";
         modalBody.innerHTML = body.innerHTML;
+        modalBody.querySelectorAll("[data-run-tabs]").forEach(initRunTabs);
+        highlightAllShell(modalBody);
         modalBackdrop.classList.add("open");
         document.body.style.overflow = "hidden";
 
@@ -2103,36 +2112,6 @@ abx-dl dl 'https://example.com'</code></pre>
           });
         }
       }
-
-      // Tab switching for run-tabs
-      const initRunTabs = (container) => {
-        const tabs = container.querySelectorAll("[data-run-tab]");
-        const panels = container.querySelectorAll("[data-run-panel]");
-        tabs.forEach((tab) => {
-          tab.addEventListener("click", () => {
-            const target = tab.dataset.runTab;
-            tabs.forEach((t) => t.classList.toggle("active", t.dataset.runTab === target));
-            panels.forEach((p) => p.classList.toggle("active", p.dataset.runPanel === target));
-          });
-        });
-      };
-      document.querySelectorAll("[data-run-tabs]").forEach(initRunTabs);
-
-      // Syntax highlight all [data-highlight-shell] elements
-      const highlightAllShell = (root) => {
-        root.querySelectorAll("[data-highlight-shell]").forEach((el) => {
-          el.innerHTML = highlightShell(el.textContent);
-        });
-      };
-      highlightAllShell(document);
-
-      // Re-init tabs and highlighting when modal opens
-      const origOpenModal = openModal;
-      openModal = (card) => {
-        origOpenModal(card);
-        modalBody.querySelectorAll("[data-run-tabs]").forEach(initRunTabs);
-        highlightAllShell(modalBody);
-      };
 
       applyFilter();
       navigateToHash();

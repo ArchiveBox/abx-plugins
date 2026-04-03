@@ -20,8 +20,8 @@
         --bg-accent: #1a1d22;
         --surface: rgba(26, 29, 34, 0.92);
         --surface-strong: #1e2126;
-        --ink: #e4e4e7;
-        --muted: #8b8d94;
+        --ink: #f0f0f3;
+        --muted: #a1a1aa;
         --line: rgba(255, 255, 255, 0.1);
         --accent: #2dd4bf;
         --accent-soft: rgba(45, 212, 191, 0.12);
@@ -48,6 +48,8 @@
           radial-gradient(circle at top right, rgba(245, 158, 11, 0.04), transparent 28%),
           var(--bg);
         font-family: "Space Grotesk", sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
       }
 
       a {
@@ -317,7 +319,7 @@
       }
 
       .hero-code-kicker {
-        color: rgba(247, 241, 230, 0.72);
+        color: rgba(240, 240, 243, 0.72);
         font-size: 0.78rem;
         letter-spacing: 0.08em;
         text-transform: uppercase;
@@ -735,7 +737,7 @@
         border-radius: 0;
         border: 1px solid var(--line);
         background: var(--bg-accent);
-        font-size: 0.76rem;
+        font-size: 0.84rem;
         color: var(--muted);
         text-transform: uppercase;
         letter-spacing: 0.06em;
@@ -766,7 +768,7 @@
 
       .chip--binary-summary small {
         color: var(--muted);
-        font-size: 0.72rem;
+        font-size: 0.8rem;
       }
 
       .chip--binary {
@@ -787,7 +789,7 @@
       .chip--binary small {
         display: block;
         color: var(--muted);
-        font-size: 0.72rem;
+        font-size: 0.8rem;
         line-height: 1.45;
         word-break: break-word;
       }
@@ -796,7 +798,7 @@
         text-transform: none;
         letter-spacing: normal;
         font-family: 'IBM Plex Mono', monospace;
-        font-size: 0.74rem;
+        font-size: 0.82rem;
         gap: 4px;
       }
 
@@ -1010,7 +1012,7 @@
       .config-table th {
         text-align: left;
         padding: 10px 12px;
-        font-size: 0.74rem;
+        font-size: 0.82rem;
         font-weight: 500;
         text-transform: uppercase;
         letter-spacing: 0.06em;
@@ -1056,7 +1058,7 @@
 
       .config-table small {
         color: var(--muted);
-        font-size: 0.76rem;
+        font-size: 0.84rem;
       }
 
       .config-table-muted {
@@ -1372,12 +1374,7 @@
               </div>
               <button type="button" class="copy-button" id="copy-example-button">Copy</button>
             </div>
-            <div class="run-tabs-bar" id="hero-tabs-bar">
-              <button type="button" class="run-tab active" data-hero-tab="abx-dl">Run with <code>abx-dl</code></button>
-              <button type="button" class="run-tab" data-hero-tab="archivebox">Run with <code>archivebox</code></button>
-            </div>
-            <pre class="run-tab-panel active" id="hero-panel-abx"><code id="hero-command-abx" aria-live="polite"></code></pre>
-            <pre class="run-tab-panel" id="hero-panel-archivebox"><code id="hero-command-archivebox"></code></pre>
+            <pre><code id="hero-command-example" aria-live="polite"></code></pre>
           </div>
 
           <details class="install-details">
@@ -1425,13 +1422,6 @@ abx-dl dl 'https://example.com'</code></pre>
               <div class="plugin-slug"><code>ytdlp</code></div>
               <p class="plugin-summary-description">Download video and audio media with metadata, subtitles, thumbnails, and description sidecars.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">Embed</span>
-                <span class="chip">Fullscreen</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">9 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#02</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -1441,10 +1431,16 @@ abx-dl dl 'https://example.com'</code></pre>
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">Embed</span>
+                <span class="chip">Fullscreen</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">9 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">yt-dlp <small>(env,pip,brew,apt)</small></span> <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> +1 more</div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-media">🎵 audio</span> <span class="chip chip--mime chip--mime-media">🎬 video</span> <span class="chip chip--mime chip--mime-image">🖼 image</span> <span class="chip chip--mime chip--mime-media">💬 application/x-subrip</span> +3 more</div>
+                <div><span class="chip chip--binary-summary">yt-dlp <small>(env,pip,brew,apt)</small></span> <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> +1 more</div>
+                <div><span class="chip chip--mime chip--mime-media">🎵 audio</span> <span class="chip chip--mime chip--mime-media">🎬 video</span> <span class="chip chip--mime chip--mime-image">🖼 image</span> <span class="chip chip--mime chip--mime-media">💬 application/x-subrip</span> +3 more</div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -1674,13 +1670,6 @@ providers: env,apt,brew">
               <div class="plugin-slug"><code>gallerydl</code></div>
               <p class="plugin-summary-description">Download image and media galleries along with metadata sidecars from supported sites.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">Embed</span>
-                <span class="chip">Fullscreen</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">7 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#03</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -1690,10 +1679,16 @@ providers: env,apt,brew">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">Embed</span>
+                <span class="chip">Fullscreen</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">7 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">gallery-dl <small>(env,pip,brew,apt)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-image">🖼 image</span> <span class="chip chip--mime chip--mime-media">🎬 video</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> +1 more</div>
+                <div><span class="chip chip--binary-summary">gallery-dl <small>(env,pip,brew,apt)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-image">🖼 image</span> <span class="chip chip--mime chip--mime-media">🎬 video</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> +1 more</div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -1875,13 +1870,6 @@ providers: env,pip,brew,apt">
               <div class="plugin-slug"><code>forumdl</code></div>
               <p class="plugin-summary-description">Download forum threads and exports in JSONL, WARC, and mailbox-style archive formats.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">Embed</span>
-                <span class="chip">Fullscreen</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">6 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#04</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -1891,10 +1879,16 @@ providers: env,pip,brew,apt">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">Embed</span>
+                <span class="chip">Fullscreen</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">6 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">forum-dl <small>(env,pip)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> <span class="chip chip--mime chip--mime-archive">🗄 application/warc</span> <span class="chip chip--mime chip--mime-archive">✉️ message/rfc822</span> </div>
+                <div><span class="chip chip--binary-summary">forum-dl <small>(env,pip)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> <span class="chip chip--mime chip--mime-archive">🗄 application/warc</span> <span class="chip chip--mime chip--mime-archive">✉️ message/rfc822</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -2061,12 +2055,6 @@ providers: env,pip">
               <div class="plugin-slug"><code>git</code></div>
               <p class="plugin-summary-description">Clone git repositories from supported repository URLs into the snapshot output directory.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">Embed</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">6 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#05</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -2076,10 +2064,15 @@ providers: env,pip">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">Embed</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">6 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">git <small>(env,apt,brew)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-text">📄 text</span> <span class="chip chip--mime chip--mime-binary">💾 application</span> <span class="chip chip--mime chip--mime-image">🖼 image</span> <span class="chip chip--mime chip--mime-media">🎵 audio</span> +2 more</div>
+                <div><span class="chip chip--binary-summary">git <small>(env,apt,brew)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-text">📄 text</span> <span class="chip chip--mime chip--mime-binary">💾 application</span> <span class="chip chip--mime chip--mime-image">🖼 image</span> <span class="chip chip--mime chip--mime-media">🎵 audio</span> +2 more</div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -2253,12 +2246,6 @@ providers: env,apt,brew">
               <div class="plugin-slug"><code>wget</code></div>
               <p class="plugin-summary-description">Archive pages and their requisites with wget, optionally writing WARC captures.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">Embed</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">9 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#06</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -2268,10 +2255,15 @@ providers: env,apt,brew">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">Embed</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">9 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">wget <small>(env,apt,brew)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-html">🌐 text/html</span> <span class="chip chip--mime chip--mime-archive">🗄 application/warc</span> <span class="chip chip--mime chip--mime-archive">🗜 application/gzip</span> <span class="chip chip--mime chip--mime-image">🖼 image</span> +5 more</div>
+                <div><span class="chip chip--binary-summary">wget <small>(env,apt,brew)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-html">🌐 text/html</span> <span class="chip chip--mime chip--mime-archive">🗄 application/warc</span> <span class="chip chip--mime chip--mime-archive">🗜 application/gzip</span> <span class="chip chip--mime chip--mime-image">🖼 image</span> +5 more</div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -2487,12 +2479,6 @@ providers: env,apt,brew">
               <div class="plugin-slug"><code>archivedotorg</code></div>
               <p class="plugin-summary-description">Submit URLs to the Internet Archive Wayback Machine and save the resulting archive link.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">Embed</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">3 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#08</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -2502,9 +2488,14 @@ providers: env,apt,brew">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">Embed</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">3 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> </div>
+                <div><span class="chip chip--mime chip--mime-text">📄 text/plain</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -2629,12 +2620,6 @@ providers: env,apt,brew">
               <div class="plugin-slug"><code>favicon</code></div>
               <p class="plugin-summary-description">Fetch and save the site favicon or touch icon.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">Embed</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">4 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#11</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -2644,9 +2629,14 @@ providers: env,apt,brew">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">Embed</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">4 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-image">🖼 image</span> </div>
+                <div><span class="chip chip--mime chip--mime-image">🖼 image</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -2781,11 +2771,6 @@ providers: env,apt,brew">
               <div class="plugin-slug"><code>ublock</code></div>
               <p class="plugin-summary-description">Install the uBlock Origin extension to block ads, trackers, and other page clutter during archiving.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">2 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#12</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -2793,10 +2778,14 @@ providers: env,apt,brew">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">2 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">ublock <small>(chromewebstore)</small></span> </div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">ublock <small>(chromewebstore)</small></span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -2926,11 +2915,6 @@ providers: chromewebstore">
               <div class="plugin-slug"><code>istilldontcareaboutcookies</code></div>
               <p class="plugin-summary-description">Install the I Still Don&#39;t Care About Cookies extension to dismiss cookie banners during archiving.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">2 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#13</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -2938,10 +2922,14 @@ providers: chromewebstore">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">2 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">istilldontcareaboutcookies <small>(chromewebstore)</small></span> </div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">istilldontcareaboutcookies <small>(chromewebstore)</small></span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -3071,11 +3059,6 @@ providers: chromewebstore">
               <div class="plugin-slug"><code>twocaptcha</code></div>
               <p class="plugin-summary-description">Install and configure the 2Captcha extension to solve CAPTCHAs during browser-based archiving.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">2 hooks</span>
-                <span class="chip">7 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#14</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -3083,10 +3066,14 @@ providers: chromewebstore">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">2 hooks</span>
+                <span class="chip">7 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">twocaptcha <small>(chromewebstore)</small></span> </div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">twocaptcha <small>(chromewebstore)</small></span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -3279,11 +3266,6 @@ providers: chromewebstore">
               <div class="plugin-slug"><code>modalcloser</code></div>
               <p class="plugin-summary-description">Automatically dismiss dialogs, cookie banners, and framework modals while the page is being archived.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">4 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#15</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -3291,10 +3273,14 @@ providers: chromewebstore">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">4 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -3439,11 +3425,6 @@ providers: env,puppeteer">
               <div class="plugin-slug"><code>consolelog</code></div>
               <p class="plugin-summary-description">Capture browser console messages emitted while the page loads.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">3 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#21</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -3451,11 +3432,15 @@ providers: env,puppeteer">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">3 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -3596,11 +3581,6 @@ providers: env,puppeteer">
               <div class="plugin-slug"><code>dns</code></div>
               <p class="plugin-summary-description">Record DNS activity observed while loading the page in Chrome.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">3 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#22</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -3608,11 +3588,15 @@ providers: env,puppeteer">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">3 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -3753,11 +3737,6 @@ providers: env,puppeteer">
               <div class="plugin-slug"><code>sslcerts</code></div>
               <p class="plugin-summary-description">Capture TLS certificate and connection metadata for the loaded page.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">3 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#23</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -3765,11 +3744,15 @@ providers: env,puppeteer">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">3 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -3910,11 +3893,6 @@ providers: env,puppeteer">
               <div class="plugin-slug"><code>responses</code></div>
               <p class="plugin-summary-description">Capture HTTP response metadata for requests made during page load.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">3 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#24</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -3922,11 +3900,15 @@ providers: env,puppeteer">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">3 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> <span class="chip chip--mime chip--mime-text">📄 text</span> <span class="chip chip--mime chip--mime-image">🖼 image</span> <span class="chip chip--mime chip--mime-media">🎵 audio</span> +3 more</div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> <span class="chip chip--mime chip--mime-text">📄 text</span> <span class="chip chip--mime chip--mime-image">🖼 image</span> <span class="chip chip--mime chip--mime-media">🎵 audio</span> +3 more</div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -4073,11 +4055,6 @@ providers: env,puppeteer">
               <div class="plugin-slug"><code>redirects</code></div>
               <p class="plugin-summary-description">Capture the redirect chain encountered while loading the page.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">3 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#25</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -4085,11 +4062,15 @@ providers: env,puppeteer">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">3 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -4230,12 +4211,6 @@ providers: env,puppeteer">
               <div class="plugin-slug"><code>staticfile</code></div>
               <p class="plugin-summary-description">Detect and download static-file responses directly when a URL resolves to a non-HTML asset.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">Embed</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">3 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#26</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -4243,11 +4218,16 @@ providers: env,puppeteer">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">Embed</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">3 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-doc">📕 application/pdf</span> <span class="chip chip--mime chip--mime-doc">📚 application/epub+zip</span> <span class="chip chip--mime chip--mime-image">🖼 image</span> <span class="chip chip--mime chip--mime-media">🎵 audio</span> +8 more</div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-doc">📕 application/pdf</span> <span class="chip chip--mime chip--mime-doc">📚 application/epub+zip</span> <span class="chip chip--mime chip--mime-image">🖼 image</span> <span class="chip chip--mime chip--mime-media">🎵 audio</span> +8 more</div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -4399,11 +4379,6 @@ providers: env,puppeteer">
               <div class="plugin-slug"><code>headers</code></div>
               <p class="plugin-summary-description">Capture HTTP headers for the main document response.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">3 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#27</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -4411,11 +4386,15 @@ providers: env,puppeteer">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">3 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -4556,11 +4535,6 @@ providers: env,puppeteer">
               <div class="plugin-slug"><code>chrome</code></div>
               <p class="plugin-summary-description">Launch and manage a shared Chromium session for browser-driven plugins.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">7 hooks</span>
-                <span class="chip">22 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#30</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -4568,10 +4542,14 @@ providers: env,puppeteer">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">7 hooks</span>
+                <span class="chip">22 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
+                <div><span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -5040,11 +5018,6 @@ providers: env,puppeteer">
               <div class="plugin-slug"><code>seo</code></div>
               <p class="plugin-summary-description">Capture SEO-related metadata such as meta tags and Open Graph fields.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">3 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#38</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -5052,11 +5025,15 @@ providers: env,puppeteer">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">3 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -5196,11 +5173,6 @@ providers: env,puppeteer">
               <div class="plugin-slug"><code>accessibility</code></div>
               <p class="plugin-summary-description">Capture the browser accessibility tree for the archived page.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">3 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#39</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -5208,11 +5180,15 @@ providers: env,puppeteer">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">3 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -5352,11 +5328,6 @@ providers: env,puppeteer">
               <div class="plugin-slug"><code>infiniscroll</code></div>
               <p class="plugin-summary-description">Expand infinite-scroll pages and load additional content before downstream capture plugins run.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">8 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#45</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -5364,10 +5335,14 @@ providers: env,puppeteer">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">8 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -5551,13 +5526,6 @@ providers: env,puppeteer">
               <div class="plugin-slug"><code>claudechrome</code></div>
               <p class="plugin-summary-description">Use Claude computer-use to interact with pages in Chrome via CDP screenshots and the Anthropic API.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">Embed</span>
-                <span class="chip">Fullscreen</span>
-                <span class="chip">2 hooks</span>
-                <span class="chip">10 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#47</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -5565,11 +5533,17 @@ providers: env,puppeteer">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">Embed</span>
+                <span class="chip">Fullscreen</span>
+                <span class="chip">2 hooks</span>
+                <span class="chip">10 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> +1 more</div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/json</span> <span class="chip chip--mime chip--mime-image">🖼 image/png</span> </div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> +1 more</div>
+                <div><span class="chip chip--mime chip--mime-data">📦 application/json</span> <span class="chip chip--mime chip--mime-image">🖼 image/png</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -5803,12 +5777,6 @@ providers: chromewebstore">
               <div class="plugin-slug"><code>singlefile</code></div>
               <p class="plugin-summary-description">Save a complete page as a single self-contained HTML file using the SingleFile extension or CLI.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">Embed</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">13 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#50</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -5818,11 +5786,16 @@ providers: chromewebstore">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">Embed</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">13 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">single-file <small>(env,npm)</small></span> +1 more</div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-html">🌐 text/html</span> </div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> <span class="chip chip--binary-summary">single-file <small>(env,npm)</small></span> +1 more</div>
+                <div><span class="chip chip--mime chip--mime-html">🌐 text/html</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -6074,13 +6047,6 @@ providers: chromewebstore">
               <div class="plugin-slug"><code>screenshot</code></div>
               <p class="plugin-summary-description">Capture a PNG screenshot of the rendered page.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">Embed</span>
-                <span class="chip">Fullscreen</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">4 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#51</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -6088,11 +6054,17 @@ providers: chromewebstore">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">Embed</span>
+                <span class="chip">Fullscreen</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">4 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-image">🖼 image/png</span> </div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-image">🖼 image/png</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -6242,13 +6214,6 @@ providers: env,puppeteer">
               <div class="plugin-slug"><code>pdf</code></div>
               <p class="plugin-summary-description">Render the current page to PDF using the shared Chrome session.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">Embed</span>
-                <span class="chip">Fullscreen</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">4 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#52</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -6256,11 +6221,17 @@ providers: env,puppeteer">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">Embed</span>
+                <span class="chip">Fullscreen</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">4 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-doc">📕 application/pdf</span> </div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-doc">📕 application/pdf</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -6410,12 +6381,6 @@ providers: env,puppeteer">
               <div class="plugin-slug"><code>dom</code></div>
               <p class="plugin-summary-description">Save the fully rendered DOM HTML from the live page.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">Embed</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">3 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#53</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -6423,11 +6388,16 @@ providers: env,puppeteer">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">Embed</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">3 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-html">🌐 text/html</span> </div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-html">🌐 text/html</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -6567,11 +6537,6 @@ providers: env,puppeteer">
               <div class="plugin-slug"><code>title</code></div>
               <p class="plugin-summary-description">Capture the final document title from the rendered page.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">3 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#54</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -6579,11 +6544,15 @@ providers: env,puppeteer">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">3 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> </div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-text">📄 text/plain</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -6723,13 +6692,6 @@ providers: env,puppeteer">
               <div class="plugin-slug"><code>readability</code></div>
               <p class="plugin-summary-description">Extract article HTML, text, and metadata using Mozilla Readability.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">Embed</span>
-                <span class="chip">Fullscreen</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">5 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#56</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -6739,10 +6701,16 @@ providers: env,puppeteer">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">Embed</span>
+                <span class="chip">Fullscreen</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">5 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">readability-extractor <small>(env,npm)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-html">🌐 text/html</span> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
+                <div><span class="chip chip--binary-summary">readability-extractor <small>(env,npm)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-html">🌐 text/html</span> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -6898,11 +6866,6 @@ providers: env,npm">
               <div class="plugin-slug"><code>defuddle</code></div>
               <p class="plugin-summary-description">Extract cleaned article HTML, text, and metadata from archived HTML using Defuddle.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">5 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#57</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -6912,10 +6875,14 @@ providers: env,npm">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">5 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">defuddle <small>(env,npm)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-html">🌐 text/html</span> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
+                <div><span class="chip chip--binary-summary">defuddle <small>(env,npm)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-html">🌐 text/html</span> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -7071,12 +7038,6 @@ providers: env,npm">
               <div class="plugin-slug"><code>mercury</code></div>
               <p class="plugin-summary-description">Extract article HTML, text, and metadata using the Postlight Mercury parser.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">Embed</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">5 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#57</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -7086,10 +7047,15 @@ providers: env,npm">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">Embed</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">5 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">postlight-parser <small>(npm,env)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-html">🌐 text/html</span> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
+                <div><span class="chip chip--binary-summary">postlight-parser <small>(npm,env)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-html">🌐 text/html</span> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -7245,13 +7211,6 @@ providers: npm,env">
               <div class="plugin-slug"><code>claudecodeextract</code></div>
               <p class="plugin-summary-description">Use Claude Code to generate clean Markdown from snapshot extractor outputs.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">Embed</span>
-                <span class="chip">Fullscreen</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">6 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#58</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -7261,11 +7220,17 @@ providers: npm,env">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">Embed</span>
+                <span class="chip">Fullscreen</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">6 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> claudecode</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">claude <small>(env,npm)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-text">📝 text/markdown</span> </div>
+                <div>claudecode</div>
+                <div><span class="chip chip--binary-summary">claude <small>(env,npm)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-text">📝 text/markdown</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -7435,11 +7400,6 @@ providers: env,npm">
               <div class="plugin-slug"><code>htmltotext</code></div>
               <p class="plugin-summary-description">Convert archived HTML from other extractors into plain text for indexing and analysis.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">2 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#58</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -7449,9 +7409,13 @@ providers: env,npm">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">2 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> </div>
+                <div><span class="chip chip--mime chip--mime-text">📄 text/plain</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -7565,11 +7529,6 @@ providers: env,npm">
               <div class="plugin-slug"><code>trafilatura</code></div>
               <p class="plugin-summary-description">Extract article content from archived HTML into text, markdown, HTML, CSV, JSON, and XML formats.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">4 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#59</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -7579,10 +7538,14 @@ providers: env,npm">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">4 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">trafilatura <small>(env,pip)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-text">📝 text/markdown</span> <span class="chip chip--mime chip--mime-html">🌐 text/html</span> <span class="chip chip--mime chip--mime-data">📊 text/csv</span> +3 more</div>
+                <div><span class="chip chip--binary-summary">trafilatura <small>(env,pip)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-text">📝 text/markdown</span> <span class="chip chip--mime chip--mime-html">🌐 text/html</span> <span class="chip chip--mime chip--mime-data">📊 text/csv</span> +3 more</div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -7732,11 +7695,6 @@ providers: env,pip">
               <div class="plugin-slug"><code>opendataloader</code></div>
               <p class="plugin-summary-description">Extract structured text, tables, and metadata from PDFs using opendataloader-pdf. Supports OCR for scanned PDFs via hybrid backend.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">8 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#60</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -7746,10 +7704,14 @@ providers: env,pip">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">8 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">opendataloader-pdf <small>(env,pip)</small></span> <span class="chip chip--binary-summary">java&gt;=11.0.0 <small>(env,apt,brew)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-text">📝 text/markdown</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
+                <div><span class="chip chip--binary-summary">opendataloader-pdf <small>(env,pip)</small></span> <span class="chip chip--binary-summary">java&gt;=11.0.0 <small>(env,apt,brew)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-text">📝 text/markdown</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -7949,11 +7911,6 @@ min_version: 11.0.0">
               <div class="plugin-slug"><code>liteparse</code></div>
               <p class="plugin-summary-description">Extract text and metadata from PDFs and documents using LiteParse (by LlamaIndex). Supports OCR via Tesseract.js.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">5 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#61</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -7963,10 +7920,14 @@ min_version: 11.0.0">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">5 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">lit <small>(env,npm)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
+                <div><span class="chip chip--binary-summary">lit <small>(env,npm)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-text">📄 text/plain</span> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -8128,13 +8089,6 @@ providers: env,npm">
               <div class="plugin-slug"><code>papersdl</code></div>
               <p class="plugin-summary-description">Fetch downloadable academic papers from paper URLs and DOI targets.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">Embed</span>
-                <span class="chip">Fullscreen</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">5 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#66</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -8144,10 +8098,16 @@ providers: env,npm">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">Embed</span>
+                <span class="chip">Fullscreen</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">5 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">papers-dl <small>(env,pip)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-doc">📕 application/pdf</span> </div>
+                <div><span class="chip chip--binary-summary">papers-dl <small>(env,pip)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-doc">📕 application/pdf</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -8304,11 +8264,6 @@ providers: env,pip">
               <div class="plugin-slug"><code>parse_html_urls</code></div>
               <p class="plugin-summary-description">Parse HTML documents and emit discovered links as JSONL snapshot records.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">1 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#70</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -8318,9 +8273,13 @@ providers: env,pip">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">1 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
+                <div><span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -8424,11 +8383,6 @@ providers: env,pip">
               <div class="plugin-slug"><code>parse_txt_urls</code></div>
               <p class="plugin-summary-description">Parse plain text documents and emit discovered URLs as JSONL snapshot records.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">1 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#71</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -8438,9 +8392,13 @@ providers: env,pip">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">1 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
+                <div><span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -8544,11 +8502,6 @@ providers: env,pip">
               <div class="plugin-slug"><code>parse_rss_urls</code></div>
               <p class="plugin-summary-description">Parse RSS and Atom feeds and emit discovered entry URLs as JSONL snapshot records.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">1 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#72</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -8558,9 +8511,13 @@ providers: env,pip">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">1 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
+                <div><span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -8664,11 +8621,6 @@ providers: env,pip">
               <div class="plugin-slug"><code>parse_netscape_urls</code></div>
               <p class="plugin-summary-description">Parse Netscape bookmark HTML exports and emit discovered URLs as JSONL snapshot records.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">1 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#73</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -8678,9 +8630,13 @@ providers: env,pip">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">1 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
+                <div><span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -8784,11 +8740,6 @@ providers: env,pip">
               <div class="plugin-slug"><code>parse_jsonl_urls</code></div>
               <p class="plugin-summary-description">Parse JSONL bookmark exports and emit discovered URLs as JSONL snapshot records.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">1 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#74</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -8798,9 +8749,13 @@ providers: env,pip">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">1 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
+                <div><span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -8904,11 +8859,6 @@ providers: env,pip">
               <div class="plugin-slug"><code>parse_dom_outlinks</code></div>
               <p class="plugin-summary-description">Extract crawlable links from the rendered DOM and emit them as JSONL records.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">3 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#75</span>
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -8916,11 +8866,15 @@ providers: env,pip">
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">3 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -9060,11 +9014,6 @@ providers: env,puppeteer">
               <div class="plugin-slug"><code>search_backend_sqlite</code></div>
               <p class="plugin-summary-description">Index archived snapshot content into a SQLite FTS database for local search.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">5 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#90</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -9074,9 +9023,13 @@ providers: env,puppeteer">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">5 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">🗃 application/vnd.sqlite3</span> </div>
+                <div><span class="chip chip--mime chip--mime-data">🗃 application/vnd.sqlite3</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -9220,11 +9173,6 @@ providers: env,puppeteer">
               <div class="plugin-slug"><code>search_backend_sonic</code></div>
               <p class="plugin-summary-description">Index archived snapshot content into a Sonic search backend.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">2 hooks</span>
-                <span class="chip">9 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#91</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -9234,9 +9182,13 @@ providers: env,puppeteer">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">2 hooks</span>
+                <span class="chip">9 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">sonic <small>(env,apt,brew,cargo)</small></span> </div>
+                <div><span class="chip chip--binary-summary">sonic <small>(env,apt,brew,cargo)</small></span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -9437,13 +9389,6 @@ providers: env,apt,brew,cargo">
               <div class="plugin-slug"><code>claudecodecleanup</code></div>
               <p class="plugin-summary-description">Use Claude Code to deduplicate and clean up redundant snapshot extractor outputs.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">Embed</span>
-                <span class="chip">Fullscreen</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">6 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#92</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -9453,11 +9398,17 @@ providers: env,apt,brew,cargo">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">Embed</span>
+                <span class="chip">Fullscreen</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">6 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> claudecode</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">claude <small>(env,npm)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-text">📄 text/plain</span> </div>
+                <div>claudecode</div>
+                <div><span class="chip chip--binary-summary">claude <small>(env,npm)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-text">📄 text/plain</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -9627,11 +9578,6 @@ providers: env,npm">
               <div class="plugin-slug"><code>hashes</code></div>
               <p class="plugin-summary-description">Generate a hash manifest for files produced in the snapshot directory.</p>
               <div class="plugin-subline">
-                <span class="chip">Snapshot</span>
-                <span class="chip">1 hooks</span>
-                <span class="chip">2 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-order">#93</span>
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -9641,9 +9587,13 @@ providers: env,npm">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">Snapshot</span>
+                <span class="chip">1 hooks</span>
+                <span class="chip">2 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
+                <div><span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -9757,10 +9707,6 @@ providers: env,npm">
               <div class="plugin-slug"><code>apt</code></div>
               <p class="plugin-summary-description">Install binaries through the Debian and Ubuntu APT package manager.</p>
               <div class="plugin-subline">
-                <span class="chip">1 hooks</span>
-                <span class="chip">0 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
                     <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
@@ -9769,6 +9715,9 @@ providers: env,npm">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">1 hooks</span>
+                <span class="chip">0 config fields</span>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -9832,10 +9781,9 @@ providers: env,npm">
               <div class="plugin-slug"><code>base</code></div>
               <p class="plugin-summary-description">Provide shared utilities, helpers, and test support used by other plugins.</p>
               <div class="plugin-subline">
+                
                 <span class="chip">0 hooks</span>
                 <span class="chip">19 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -10096,10 +10044,6 @@ providers: env,npm">
               <div class="plugin-slug"><code>bash</code></div>
               <p class="plugin-summary-description">Install binaries using arbitrary bash shell commands.</p>
               <div class="plugin-subline">
-                <span class="chip">1 hooks</span>
-                <span class="chip">0 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
                     <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
@@ -10108,6 +10052,9 @@ providers: env,npm">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">1 hooks</span>
+                <span class="chip">0 config fields</span>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -10171,10 +10118,6 @@ providers: env,npm">
               <div class="plugin-slug"><code>brew</code></div>
               <p class="plugin-summary-description">Install binaries through the Homebrew package manager.</p>
               <div class="plugin-subline">
-                <span class="chip">1 hooks</span>
-                <span class="chip">0 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
                     <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
@@ -10183,6 +10126,9 @@ providers: env,npm">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">1 hooks</span>
+                <span class="chip">0 config fields</span>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -10246,10 +10192,6 @@ providers: env,npm">
               <div class="plugin-slug"><code>cargo</code></div>
               <p class="plugin-summary-description">Install binaries through Rust&#39;s Cargo package manager.</p>
               <div class="plugin-subline">
-                <span class="chip">1 hooks</span>
-                <span class="chip">0 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
                     <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
@@ -10258,6 +10200,9 @@ providers: env,npm">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">1 hooks</span>
+                <span class="chip">0 config fields</span>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -10328,10 +10273,6 @@ providers: env,npm">
               <div class="plugin-slug"><code>chromewebstore</code></div>
               <p class="plugin-summary-description">Resolve Chrome Web Store extensions as installable binary-like artifacts.</p>
               <div class="plugin-subline">
-                <span class="chip">1 hooks</span>
-                <span class="chip">4 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
                     <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
@@ -10340,10 +10281,13 @@ providers: env,npm">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">1 hooks</span>
+                <span class="chip">4 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs plugins:</strong> chrome</div>
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> </div>
+                <div>chrome</div>
+                <div><span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -10494,16 +10438,15 @@ providers: env,apt,brew">
               <div class="plugin-slug"><code>claudecode</code></div>
               <p class="plugin-summary-description">Run Claude Code AI agent on snapshots to extract, analyze, or transform archived content.</p>
               <div class="plugin-subline">
+                
                 <span class="chip">Embed</span>
                 <span class="chip">Fullscreen</span>
                 <span class="chip">0 hooks</span>
                 <span class="chip">7 config fields</span>
               </div>
-              <div class="plugin-header-meta">
-              </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> <span class="chip chip--binary-summary">claude <small>(env,npm)</small></span> </div>
-                <div><strong>Outputs:</strong> <span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
+                <div><span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> <span class="chip chip--binary-summary">claude <small>(env,npm)</small></span> </div>
+                <div><span class="chip chip--mime chip--mime-data">📦 application/json</span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -10668,10 +10611,6 @@ providers: env,npm">
               <div class="plugin-slug"><code>env</code></div>
               <p class="plugin-summary-description">Discover binaries that are already available on the system PATH.</p>
               <div class="plugin-subline">
-                <span class="chip">1 hooks</span>
-                <span class="chip">0 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
                     <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
@@ -10680,6 +10619,9 @@ providers: env,npm">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">1 hooks</span>
+                <span class="chip">0 config fields</span>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -10743,10 +10685,9 @@ providers: env,npm">
               <div class="plugin-slug"><code>media</code></div>
               <p class="plugin-summary-description">Provide a shared namespace for media-related plugin outputs and helpers.</p>
               <div class="plugin-subline">
+                
                 <span class="chip">0 hooks</span>
                 <span class="chip">0 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -10796,10 +10737,6 @@ providers: env,npm">
               <div class="plugin-slug"><code>npm</code></div>
               <p class="plugin-summary-description">Install binaries from npm packages and expose Node module paths.</p>
               <div class="plugin-subline">
-                <span class="chip">1 hooks</span>
-                <span class="chip">2 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
                     <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
@@ -10808,9 +10745,12 @@ providers: env,npm">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">1 hooks</span>
+                <span class="chip">2 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> </div>
+                <div><span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -10928,10 +10868,6 @@ providers: env,apt,brew">
               <div class="plugin-slug"><code>pip</code></div>
               <p class="plugin-summary-description">Install Python-based binaries into a managed virtual environment.</p>
               <div class="plugin-subline">
-                <span class="chip">1 hooks</span>
-                <span class="chip">1 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
                     <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
@@ -10940,9 +10876,12 @@ providers: env,apt,brew">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">1 hooks</span>
+                <span class="chip">1 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">python <small>(env)</small></span> </div>
+                <div><span class="chip chip--binary-summary">python <small>(env)</small></span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -11050,10 +10989,6 @@ providers: env">
               <div class="plugin-slug"><code>puppeteer</code></div>
               <p class="plugin-summary-description">Install and manage Chromium through the Puppeteer toolchain.</p>
               <div class="plugin-subline">
-                <span class="chip">1 hooks</span>
-                <span class="chip">3 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
                     <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
@@ -11062,9 +10997,12 @@ providers: env">
                     <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
                   </svg>
                 </span>
+                
+                <span class="chip">1 hooks</span>
+                <span class="chip">3 config fields</span>
               </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">puppeteer <small>(npm)</small></span> </div>
+                <div><span class="chip chip--binary-summary">puppeteer <small>(npm)</small></span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -11192,13 +11130,12 @@ providers: npm">
               <div class="plugin-slug"><code>search_backend_ripgrep</code></div>
               <p class="plugin-summary-description">Search archived snapshot files directly with ripgrep instead of maintaining an index.</p>
               <div class="plugin-subline">
+                
                 <span class="chip">0 hooks</span>
                 <span class="chip">5 config fields</span>
               </div>
-              <div class="plugin-header-meta">
-              </div>
               <div class="plugin-summary-facts">
-                <div><strong>Needs binaries:</strong> <span class="chip chip--binary-summary">rg <small>(env,apt,brew)</small></span> </div>
+                <div><span class="chip chip--binary-summary">rg <small>(env,apt,brew)</small></span> </div>
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -11336,10 +11273,9 @@ providers: env,apt,brew">
               <div class="plugin-slug"><code>ssl</code></div>
               <p class="plugin-summary-description">Utility plugin namespace reserved for SSL-related integration points and metadata.</p>
               <div class="plugin-subline">
+                
                 <span class="chip">0 hooks</span>
                 <span class="chip">0 config fields</span>
-              </div>
-              <div class="plugin-header-meta">
               </div>
             </div>
             <div class="plugin-corner-icon" aria-hidden="true">
@@ -11574,7 +11510,7 @@ providers: env,apt,brew">
 
         <div class="footer-meta">
           <span>Generated from <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">ArchiveBox/abx-plugins</a> at ref <code>main</code>.</span>
-          <span>Updated 2026-04-03 08:43 UTC</span>
+          <span>Updated 2026-04-03 08:53 UTC</span>
         </div>
       </footer>
     </div>
@@ -11658,32 +11594,21 @@ providers: env,apt,brew">
         };
       };
 
-      const heroAbxCode = document.getElementById("hero-command-abx");
-      const heroArchiveboxCode = document.getElementById("hero-command-archivebox");
-      const heroAbxPanel = document.getElementById("hero-panel-abx");
-      const heroArchiveboxPanel = document.getElementById("hero-panel-archivebox");
-      let activeHeroTab = "abx-dl";
+      const heroCommandExample = document.getElementById("hero-command-example");
 
-      // Hero tab switching
-      document.querySelectorAll("[data-hero-tab]").forEach((tab) => {
-        tab.addEventListener("click", () => {
-          activeHeroTab = tab.dataset.heroTab;
-          document.querySelectorAll("[data-hero-tab]").forEach((t) =>
-            t.classList.toggle("active", t.dataset.heroTab === activeHeroTab)
-          );
-          heroAbxPanel.classList.toggle("active", activeHeroTab === "abx-dl");
-          heroArchiveboxPanel.classList.toggle("active", activeHeroTab === "archivebox");
-          // Update copy button text to match active tab
-          const example = selectedCard ? getHeroExample(selectedCard) : defaultHeroExample;
-          copyExampleButton.dataset.copyText = activeHeroTab === "abx-dl" ? example.abx : example.archivebox;
-        });
-      });
-
-      const renderHeroTabs = (example) => {
-        heroAbxCode.innerHTML = highlightShell(example.abx);
-        heroArchiveboxCode.innerHTML = highlightShell(example.archivebox);
-        copyExampleButton.dataset.copyText = activeHeroTab === "abx-dl" ? example.abx : example.archivebox;
+      const renderHeroExample = (example) => {
+        const lines = [
+          '<span class="code-comment"># run inside a new empty dir somewhere:</span>',
+          highlightShell(example.abx),
+          "",
+          '<span class="code-comment"># or with ArchiveBox:</span>',
+          highlightShell(example.archivebox),
+        ];
+        return lines.join("\n");
       };
+
+      const heroExampleText = (example) =>
+        ["# abx-dl", example.abx, "", "# ArchiveBox", example.archivebox].join("\n");
 
       const setHeroExample = (card) => {
         const example = getHeroExample(card);
@@ -11691,7 +11616,8 @@ providers: env,apt,brew">
 
         selectedCard = card;
         selectedPluginName.textContent = example.plugin;
-        renderHeroTabs(example);
+        heroCommandExample.innerHTML = renderHeroExample(example);
+        copyExampleButton.dataset.copyText = heroExampleText(example);
       };
 
       const defaultHeroExample = {
@@ -11708,7 +11634,8 @@ providers: env,apt,brew">
 
         if (accumulatedPlugins.length === 0) {
           selectedPluginName.textContent = defaultHeroExample.plugin;
-          renderHeroTabs(defaultHeroExample);
+          heroCommandExample.innerHTML = renderHeroExample(defaultHeroExample);
+          copyExampleButton.dataset.copyText = heroExampleText(defaultHeroExample);
           return;
         }
 
@@ -11808,6 +11735,26 @@ providers: env,apt,brew">
       const modalIcon = document.getElementById("plugin-modal-icon");
       let activeModalCard = null;
 
+      // Tab switching for run-tabs
+      const initRunTabs = (container) => {
+        const tabs = container.querySelectorAll("[data-run-tab]");
+        const panels = container.querySelectorAll("[data-run-panel]");
+        tabs.forEach((tab) => {
+          tab.addEventListener("click", () => {
+            const target = tab.dataset.runTab;
+            tabs.forEach((t) => t.classList.toggle("active", t.dataset.runTab === target));
+            panels.forEach((p) => p.classList.toggle("active", p.dataset.runPanel === target));
+          });
+        });
+      };
+
+      // Syntax highlight all [data-highlight-shell] elements
+      const highlightAllShell = (root) => {
+        root.querySelectorAll("[data-highlight-shell]").forEach((el) => {
+          el.innerHTML = highlightShell(el.textContent);
+        });
+      };
+
       const openModal = (card) => {
         const body = card.querySelector(".plugin-body");
         const title = card.querySelector("h2");
@@ -11821,6 +11768,8 @@ providers: env,apt,brew">
         modalTitle.textContent = title ? title.textContent : card.id;
         modalIcon.innerHTML = icon ? icon.innerHTML : "";
         modalBody.innerHTML = body.innerHTML;
+        modalBody.querySelectorAll("[data-run-tabs]").forEach(initRunTabs);
+        highlightAllShell(modalBody);
         modalBackdrop.classList.add("open");
         document.body.style.overflow = "hidden";
 
@@ -11867,36 +11816,6 @@ providers: env,apt,brew">
           });
         }
       }
-
-      // Tab switching for run-tabs
-      const initRunTabs = (container) => {
-        const tabs = container.querySelectorAll("[data-run-tab]");
-        const panels = container.querySelectorAll("[data-run-panel]");
-        tabs.forEach((tab) => {
-          tab.addEventListener("click", () => {
-            const target = tab.dataset.runTab;
-            tabs.forEach((t) => t.classList.toggle("active", t.dataset.runTab === target));
-            panels.forEach((p) => p.classList.toggle("active", p.dataset.runPanel === target));
-          });
-        });
-      };
-      document.querySelectorAll("[data-run-tabs]").forEach(initRunTabs);
-
-      // Syntax highlight all [data-highlight-shell] elements
-      const highlightAllShell = (root) => {
-        root.querySelectorAll("[data-highlight-shell]").forEach((el) => {
-          el.innerHTML = highlightShell(el.textContent);
-        });
-      };
-      highlightAllShell(document);
-
-      // Re-init tabs and highlighting when modal opens
-      const origOpenModal = openModal;
-      openModal = (card) => {
-        origOpenModal(card);
-        modalBody.querySelectorAll("[data-run-tabs]").forEach(initRunTabs);
-        highlightAllShell(modalBody);
-      };
 
       applyFilter();
       navigateToHash();
