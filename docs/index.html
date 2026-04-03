@@ -16,18 +16,18 @@
     >
     <style>
       :root {
-        --bg: #f6f1e7;
-        --bg-accent: #efe3c9;
-        --surface: rgba(255, 252, 246, 0.9);
-        --surface-strong: #fffdf8;
-        --ink: #1d2927;
-        --muted: #5d6b67;
-        --line: rgba(29, 41, 39, 0.12);
-        --accent: #0f766e;
-        --accent-soft: rgba(15, 118, 110, 0.12);
-        --warm: #c96f2d;
-        --shadow: 0 20px 60px rgba(33, 36, 29, 0.12);
-        --radius: 28px;
+        --bg: #0f1114;
+        --bg-accent: #1a1d22;
+        --surface: rgba(26, 29, 34, 0.92);
+        --surface-strong: #1e2126;
+        --ink: #e4e4e7;
+        --muted: #8b8d94;
+        --line: rgba(255, 255, 255, 0.1);
+        --accent: #2dd4bf;
+        --accent-soft: rgba(45, 212, 191, 0.12);
+        --warm: #f59e0b;
+        --shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        --radius: 0px;
         --hero-badge-height: 64px;
       }
 
@@ -44,9 +44,9 @@
         min-height: 100vh;
         color: var(--ink);
         background:
-          radial-gradient(circle at top left, rgba(201, 111, 45, 0.14), transparent 30%),
-          radial-gradient(circle at top right, rgba(15, 118, 110, 0.14), transparent 28%),
-          linear-gradient(180deg, #fbf7ee 0%, var(--bg) 48%, #f3ecdd 100%);
+          radial-gradient(circle at top left, rgba(45, 212, 191, 0.06), transparent 30%),
+          radial-gradient(circle at top right, rgba(245, 158, 11, 0.04), transparent 28%),
+          var(--bg);
         font-family: "Space Grotesk", sans-serif;
       }
 
@@ -71,10 +71,10 @@
         overflow: hidden;
         padding: 36px;
         border: 1px solid var(--line);
-        border-radius: calc(var(--radius) + 8px);
+        border-radius: 0;
         background:
-          linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(255, 247, 233, 0.82)),
-          linear-gradient(120deg, rgba(15, 118, 110, 0.08), transparent 60%);
+          linear-gradient(135deg, rgba(26, 29, 34, 0.95), rgba(20, 22, 26, 0.92)),
+          linear-gradient(120deg, rgba(45, 212, 191, 0.06), transparent 60%);
         box-shadow: var(--shadow);
       }
 
@@ -148,8 +148,8 @@
         min-height: var(--hero-badge-height);
         padding: 14px 16px;
         border: 1px solid var(--line);
-        border-radius: 20px;
-        background: rgba(255, 253, 248, 0.9);
+        border-radius: 0;
+        background: var(--bg-accent);
       }
 
       .stat strong {
@@ -179,7 +179,7 @@
           linear-gradient(135deg, rgba(255, 250, 242, 0.96), rgba(244, 251, 250, 0.92)),
           rgba(255, 253, 248, 0.9);
         border: 2px solid rgba(201, 111, 45, 0.55);
-        box-shadow: 0 10px 28px rgba(22, 35, 31, 0.08);
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
         animation: cta-border-color-cycle 2.4s linear infinite;
       }
 
@@ -200,8 +200,8 @@
         place-items: center;
         width: 20px;
         height: 20px;
-        border-radius: 999px;
-        background: rgba(201, 111, 45, 0.14);
+        border-radius: 0;
+        background: rgba(245, 158, 11, 0.15);
         color: var(--warm);
         font-family: "IBM Plex Mono", monospace;
         font-size: 0.95rem;
@@ -213,7 +213,7 @@
           border-color: rgba(201, 111, 45, 0.65);
         }
         33% {
-          border-color: rgba(15, 118, 110, 0.65);
+          border-color: rgba(45, 212, 191, 0.65);
         }
         66% {
           border-color: rgba(229, 184, 76, 0.72);
@@ -236,8 +236,8 @@
         margin-top: 24px;
         padding: 20px;
         border: 1px solid var(--line);
-        border-radius: 24px;
-        background: rgba(255, 255, 255, 0.72);
+        border-radius: 0;
+        background: var(--bg-accent);
         backdrop-filter: blur(8px);
       }
 
@@ -281,8 +281,8 @@
         align-items: center;
         padding: 8px 12px;
         border: 1px solid var(--line);
-        border-radius: 999px;
-        background: rgba(255, 253, 248, 0.94);
+        border-radius: 0;
+        background: var(--bg-accent);
         color: var(--accent);
         text-decoration: none;
         font-size: 0.84rem;
@@ -295,10 +295,10 @@
       .hero-code-block {
         margin-top: 16px;
         overflow: hidden;
-        border: 1px solid rgba(22, 35, 31, 0.14);
-        border-radius: 22px;
-        background: linear-gradient(180deg, #233633, #162321);
-        color: #f7f1e6;
+        border: 1px solid var(--line);
+        border-radius: 0;
+        background: linear-gradient(180deg, #1a1f25, #131619);
+        color: #e4e4e7;
       }
 
       .hero-code-toolbar {
@@ -327,7 +327,7 @@
 
       .hero-code-meta code {
         padding: 4px 10px;
-        border-radius: 999px;
+        border-radius: 0;
         background: rgba(255, 255, 255, 0.08);
         color: #fff7ea;
         font-size: 0.84rem;
@@ -340,7 +340,7 @@
         min-width: 82px;
         padding: 9px 13px;
         border: 1px solid rgba(255, 255, 255, 0.14);
-        border-radius: 999px;
+        border-radius: 0;
         background: rgba(255, 255, 255, 0.08);
         color: #fff7ea;
         font: inherit;
@@ -396,8 +396,8 @@
       .install-details {
         margin-top: 14px;
         border: 1px solid var(--line);
-        border-radius: 20px;
-        background: rgba(255, 255, 255, 0.62);
+        border-radius: 0;
+        background: var(--bg-accent);
       }
 
       .install-details summary {
@@ -437,9 +437,9 @@
         align-items: center;
         gap: 12px;
         padding: 0 18px;
-        border: 1px solid rgba(29, 41, 39, 0.16);
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid var(--line);
+        border-radius: 0;
+        background: var(--bg-accent);
       }
 
       .searchbox input {
@@ -461,8 +461,8 @@
         align-self: center;
         padding: 12px 16px;
         border: 1px solid var(--line);
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.74);
+        border-radius: 0;
+        background: var(--bg-accent);
         color: var(--muted);
         white-space: nowrap;
       }
@@ -476,35 +476,32 @@
       }
 
       .plugin-card {
-        --card-tint: rgba(255, 255, 255, 0.72);
+        --card-tint: rgba(255, 255, 255, 0.04);
         --card-border: var(--line);
         --card-accent: var(--accent);
         border: 1px solid var(--line);
-        border-radius: var(--radius);
-        background:
-          linear-gradient(180deg, color-mix(in srgb, var(--card-tint) 92%, white), rgba(255, 255, 255, 0.9)),
-          var(--surface);
-        box-shadow: 0 14px 40px rgba(42, 47, 38, 0.08);
-        backdrop-filter: blur(10px);
+        border-radius: 0;
+        background: var(--bg-accent);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
         transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
       }
 
       .plugin-card--snapshot {
-        --card-tint: rgba(73, 154, 84, 0.18);
-        --card-border: rgba(73, 154, 84, 0.28);
-        --card-accent: #2f7d32;
+        --card-tint: rgba(73, 154, 84, 0.08);
+        --card-border: rgba(73, 154, 84, 0.3);
+        --card-accent: #4ade80;
       }
 
       .plugin-card--crawl-only {
-        --card-tint: rgba(44, 122, 214, 0.18);
-        --card-border: rgba(44, 122, 214, 0.28);
-        --card-accent: #1f5fae;
+        --card-tint: rgba(96, 165, 250, 0.08);
+        --card-border: rgba(96, 165, 250, 0.3);
+        --card-accent: #60a5fa;
       }
 
       .plugin-card--binary-only {
-        --card-tint: rgba(117, 124, 132, 0.18);
-        --card-border: rgba(117, 124, 132, 0.28);
-        --card-accent: #59636e;
+        --card-tint: rgba(161, 161, 170, 0.08);
+        --card-border: rgba(161, 161, 170, 0.3);
+        --card-accent: #a1a1aa;
       }
 
       .plugin-card[hidden] {
@@ -522,7 +519,7 @@
 
       .plugin-card.modal-active {
         border-color: var(--card-accent);
-        box-shadow: 0 0 0 2px var(--card-accent), 0 14px 40px rgba(42, 47, 38, 0.12);
+        box-shadow: 0 0 0 2px var(--card-accent), 0 14px 40px rgba(0, 0, 0, 0.3);
         transform: translateY(-2px);
       }
 
@@ -531,7 +528,7 @@
         position: fixed;
         inset: 0;
         z-index: 1000;
-        background: rgba(29, 41, 39, 0.45);
+        background: rgba(0, 0, 0, 0.6);
         backdrop-filter: blur(4px);
         overflow-y: auto;
         padding: 40px 20px;
@@ -547,12 +544,10 @@
         position: relative;
         width: 100%;
         max-width: 900px;
-        border-radius: 16px;
-        background:
-          linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(255, 255, 255, 0.96)),
-          var(--surface-strong);
+        border-radius: 0;
+        background: var(--surface-strong);
         border: 1px solid var(--line);
-        box-shadow: 0 32px 80px rgba(22, 35, 31, 0.22);
+        box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5);
         animation: modalIn 200ms ease;
       }
 
@@ -588,7 +583,7 @@
         width: 36px;
         height: 36px;
         border: 1px solid var(--line);
-        border-radius: 12px;
+        border-radius: 0;
         background: var(--surface);
         cursor: pointer;
         font-size: 1.1rem;
@@ -631,8 +626,8 @@
         place-items: center;
         width: 36px;
         height: 36px;
-        border-radius: 12px;
-        background: linear-gradient(135deg, color-mix(in srgb, var(--card-accent) 16%, white), rgba(201, 111, 45, 0.1));
+        border-radius: 0;
+        background: rgba(255, 255, 255, 0.06);
         color: var(--card-accent);
       }
 
@@ -739,9 +734,9 @@
         align-items: center;
         gap: 6px;
         padding: 6px 10px;
-        border-radius: 10px;
+        border-radius: 0;
         border: 1px solid var(--line);
-        background: rgba(255, 255, 255, 0.9);
+        background: var(--bg-accent);
         font-size: 0.76rem;
         color: var(--muted);
         text-transform: uppercase;
@@ -764,7 +759,7 @@
         align-items: baseline;
         gap: 4px;
         padding: 2px 8px;
-        border-radius: 8px;
+        border-radius: 0;
         font-family: 'IBM Plex Mono', monospace;
         font-size: 0.82rem;
         text-transform: none;
@@ -781,7 +776,7 @@
         gap: 4px;
         align-items: start;
         padding: 10px 12px;
-        border-radius: 10px;
+        border-radius: 0;
         text-transform: none;
         letter-spacing: normal;
       }
@@ -844,8 +839,8 @@
         align-items: center;
         gap: 10px;
         padding: 10px 14px;
-        border-radius: 999px;
-        border: 1px solid rgba(15, 118, 110, 0.18);
+        border-radius: 0;
+        border: 1px solid rgba(45, 212, 191, 0.2);
         background: var(--accent-soft);
         color: var(--accent);
         text-decoration: none;
@@ -854,7 +849,7 @@
 
       .button-link--hero {
         border-color: var(--line);
-        background: rgba(255, 253, 248, 0.9);
+        background: var(--bg-accent);
         box-shadow: none;
       }
 
@@ -872,19 +867,75 @@
         gap: 12px;
       }
 
-      .command-card,
+      .run-tabs {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 0;
+        background: linear-gradient(180deg, #1a1f25, #131619);
+        color: #e4e4e7;
+      }
+
+      .run-tabs-bar {
+        display: flex;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .run-tab {
+        flex: 1;
+        padding: 9px 14px;
+        border: none;
+        border-bottom: 2px solid transparent;
+        background: transparent;
+        color: rgba(228, 228, 231, 0.45);
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.78rem;
+        font-weight: 500;
+        cursor: pointer;
+        text-align: center;
+        transition: color 120ms ease, border-color 120ms ease;
+      }
+
+      .run-tab code {
+        font-size: inherit;
+        color: inherit;
+      }
+
+      .run-tab:hover {
+        color: rgba(228, 228, 231, 0.72);
+      }
+
+      .run-tab.active {
+        color: #e4e4e7;
+        border-bottom-color: var(--accent);
+      }
+
+      .run-tab-panel {
+        display: none;
+        margin: 0;
+        padding: 14px 16px;
+        overflow-x: auto;
+        font-size: 0.88rem;
+        line-height: 1.7;
+      }
+
+      .run-tab-panel.active {
+        display: block;
+      }
+
+      .run-tab-panel code {
+        display: block;
+        min-width: min-content;
+      }
+
       .hook-card,
-      .config-card,
       .empty-state {
         padding: 16px;
         border: 1px solid var(--line);
-        border-radius: 22px;
-        background: rgba(255, 255, 255, 0.72);
+        border-radius: 0;
+        background: var(--bg-accent);
       }
 
-      .command-card span,
-      .hook-card span,
-      .config-card span {
+      .hook-card span {
         display: block;
         margin-bottom: 8px;
         color: var(--muted);
@@ -941,8 +992,8 @@
       .config-table-wrap {
         overflow-x: auto;
         border: 1px solid var(--line);
-        border-radius: 10px;
-        background: rgba(255, 255, 255, 0.72);
+        border-radius: 0;
+        background: var(--bg-accent);
       }
 
       .config-table {
@@ -959,7 +1010,7 @@
         text-transform: uppercase;
         letter-spacing: 0.06em;
         color: var(--muted);
-        background: rgba(0, 0, 0, 0.02);
+        background: rgba(255, 255, 255, 0.04);
         border-bottom: 1px solid var(--line);
         white-space: nowrap;
       }
@@ -975,7 +1026,7 @@
       }
 
       .config-table tbody tr:hover {
-        background: rgba(15, 118, 110, 0.03);
+        background: rgba(45, 212, 191, 0.04);
       }
 
       .config-table code {
@@ -1001,8 +1052,8 @@
       .plugin-info-card {
         padding: 16px;
         border: 1px solid var(--line);
-        border-radius: 22px;
-        background: rgba(255, 255, 255, 0.72);
+        border-radius: 0;
+        background: var(--bg-accent);
       }
 
       .plugin-info-card span {
@@ -1056,11 +1107,9 @@
         margin-top: 26px;
         padding: 28px;
         border: 1px solid var(--line);
-        border-radius: calc(var(--radius) + 4px);
-        background:
-          linear-gradient(180deg, rgba(255, 253, 248, 0.92), rgba(249, 244, 235, 0.96)),
-          rgba(255, 253, 248, 0.9);
-        box-shadow: 0 16px 42px rgba(33, 36, 29, 0.08);
+        border-radius: 0;
+        background: var(--bg-accent);
+        box-shadow: 0 16px 42px rgba(0, 0, 0, 0.3);
         color: var(--muted);
       }
 
@@ -1104,9 +1153,9 @@
       .footer-card {
         min-height: 100%;
         padding: 20px 20px 18px;
-        border: 1px solid rgba(29, 41, 39, 0.1);
-        border-radius: 22px;
-        background: rgba(255, 255, 255, 0.56);
+        border: 1px solid var(--line);
+        border-radius: 0;
+        background: var(--bg-accent);
       }
 
       .footer-card h3 {
@@ -1132,15 +1181,15 @@
         gap: 10px;
         align-items: start;
         padding: 10px 12px;
-        border: 1px solid rgba(29, 41, 39, 0.08);
-        border-radius: 16px;
-        background: rgba(255, 255, 255, 0.54);
+        border: 1px solid var(--line);
+        border-radius: 0;
+        background: var(--bg-accent);
         text-decoration: none;
       }
 
       .footer-link-item:hover {
-        border-color: rgba(15, 118, 110, 0.22);
-        background: rgba(255, 255, 255, 0.8);
+        border-color: rgba(45, 212, 191, 0.3);
+        background: rgba(255, 255, 255, 0.06);
       }
 
       .footer-link-icon {
@@ -1148,7 +1197,7 @@
         place-items: center;
         width: 34px;
         height: 34px;
-        border-radius: 12px;
+        border-radius: 0;
         background: var(--accent-soft);
         color: var(--accent);
         font-size: 1rem;
@@ -1196,7 +1245,7 @@
         flex-wrap: wrap;
         margin-top: 18px;
         padding-top: 18px;
-        border-top: 1px solid rgba(29, 41, 39, 0.08);
+        border-top: 1px solid var(--line);
         font-size: 0.88rem;
       }
 
@@ -1303,7 +1352,12 @@
               </div>
               <button type="button" class="copy-button" id="copy-example-button">Copy</button>
             </div>
-            <pre><code id="hero-command-example" aria-live="polite"></code></pre>
+            <div class="run-tabs-bar" id="hero-tabs-bar">
+              <button type="button" class="run-tab active" data-hero-tab="abx-dl">Run with <code>abx-dl</code></button>
+              <button type="button" class="run-tab" data-hero-tab="archivebox">Run with <code>archivebox</code></button>
+            </div>
+            <pre class="run-tab-panel active" id="hero-panel-abx"><code id="hero-command-abx" aria-live="polite"></code></pre>
+            <pre class="run-tab-panel" id="hero-panel-archivebox"><code id="hero-command-archivebox"></code></pre>
           </div>
 
           <details class="install-details">
@@ -1422,15 +1476,13 @@ providers: env,apt,brew">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>YTDLP_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=ytdlp &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=ytdlp &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>YTDLP_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -1654,15 +1706,13 @@ providers: env,pip,brew,apt">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>GALLERYDL_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=gallerydl &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=gallerydl &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>GALLERYDL_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -1848,15 +1898,13 @@ providers: env,pip">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>FORUMDL_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=forumdl &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=forumdl &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>FORUMDL_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -2031,15 +2079,13 @@ providers: env,apt,brew">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>GIT_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=git &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=git &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>GIT_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -2221,15 +2267,13 @@ providers: env,apt,brew">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>WGET_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=wget &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=wget &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>WGET_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -2431,15 +2475,13 @@ providers: env,apt,brew">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>ARCHIVEDOTORG_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=archivedotorg &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=archivedotorg &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>ARCHIVEDOTORG_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -2568,15 +2610,13 @@ providers: env,apt,brew">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>FAVICON_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=favicon &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=favicon &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>FAVICON_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -2728,15 +2768,13 @@ providers: chromewebstore">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>UBLOCK_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=ublock &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=ublock &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>UBLOCK_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -2868,15 +2906,13 @@ providers: chromewebstore">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>ISTILLDONTCAREABOUTCOOKIES_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=istilldontcareaboutcookies &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=istilldontcareaboutcookies &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>ISTILLDONTCAREABOUTCOOKIES_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -3008,15 +3044,13 @@ providers: chromewebstore">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>TWOCAPTCHA_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=twocaptcha &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=twocaptcha &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>TWOCAPTCHA_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -3206,15 +3240,13 @@ providers: env,puppeteer">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>MODALCLOSER_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=modalcloser &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=modalcloser &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>MODALCLOSER_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -3368,15 +3400,13 @@ providers: env,puppeteer">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>CONSOLELOG_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=consolelog &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=consolelog &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>CONSOLELOG_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -3520,15 +3550,13 @@ providers: env,puppeteer">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>DNS_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=dns &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=dns &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>DNS_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -3672,15 +3700,13 @@ providers: env,puppeteer">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>SSLCERTS_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=sslcerts &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=sslcerts &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>SSLCERTS_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -3830,15 +3856,13 @@ providers: env,puppeteer">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>RESPONSES_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=responses &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=responses &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>RESPONSES_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -3982,15 +4006,13 @@ providers: env,puppeteer">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>REDIRECTS_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=redirects &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=redirects &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>REDIRECTS_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -4146,15 +4168,13 @@ providers: env,puppeteer">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>STATICFILE_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=staticfile &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=staticfile &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>STATICFILE_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -4298,15 +4318,13 @@ providers: env,puppeteer">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>HEADERS_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=headers &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=headers &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>HEADERS_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -4449,15 +4467,13 @@ providers: env,puppeteer">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>CHROME_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=chrome &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=chrome &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>CHROME_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -4929,15 +4945,13 @@ providers: env,puppeteer">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>SEO_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=seo &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=seo &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>SEO_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -5080,15 +5094,13 @@ providers: env,puppeteer">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>ACCESSIBILITY_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=accessibility &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=accessibility &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>ACCESSIBILITY_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -5224,15 +5236,13 @@ providers: env,puppeteer">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>INFINISCROLL_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=infiniscroll &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=infiniscroll &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>INFINISCROLL_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -5438,15 +5448,13 @@ providers: chromewebstore">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>CLAUDECHROME_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=claudechrome &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=claudechrome &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>CLAUDECHROME_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -5685,15 +5693,13 @@ providers: chromewebstore">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>SINGLEFILE_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=singlefile &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=singlefile &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>SINGLEFILE_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -5940,15 +5946,13 @@ providers: env,puppeteer">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>SCREENSHOT_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=screenshot &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=screenshot &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>SCREENSHOT_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -6103,15 +6107,13 @@ providers: env,puppeteer">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>PDF_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=pdf &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=pdf &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>PDF_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -6265,15 +6267,13 @@ providers: env,puppeteer">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>DOM_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=dom &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=dom &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>DOM_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -6416,15 +6416,13 @@ providers: env,puppeteer">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>TITLE_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=title &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=title &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>TITLE_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -6566,15 +6564,13 @@ providers: env,npm">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>READABILITY_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=readability &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=readability &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>READABILITY_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -6734,15 +6730,13 @@ providers: env,npm">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>DEFUDDLE_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=defuddle &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=defuddle &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>DEFUDDLE_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -6903,15 +6897,13 @@ providers: npm,env">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>MERCURY_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=mercury &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=mercury &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>MERCURY_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -7078,15 +7070,13 @@ providers: env,npm">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>CLAUDECODEEXTRACT_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=claudecodeextract &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=claudecodeextract &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>CLAUDECODEEXTRACT_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -7243,15 +7233,13 @@ providers: env,npm">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>HTMLTOTEXT_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=htmltotext &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=htmltotext &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>HTMLTOTEXT_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -7385,15 +7373,13 @@ providers: env,pip">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>TRAFILATURA_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=trafilatura &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=trafilatura &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>TRAFILATURA_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -7557,15 +7543,13 @@ min_version: 11.0.0">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>OPENDATALOADER_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=opendataloader &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=opendataloader &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>OPENDATALOADER_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -7761,15 +7745,13 @@ providers: env,npm">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>LITEPARSE_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=liteparse &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=liteparse &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>LITEPARSE_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -7929,15 +7911,13 @@ providers: env,pip">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>PAPERSDL_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=papersdl &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=papersdl &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>PAPERSDL_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -8087,15 +8067,13 @@ providers: env,pip">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>PARSE_HTML_URLS_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=parse_html_urls &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=parse_html_urls &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>PARSE_HTML_URLS_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -8202,15 +8180,13 @@ providers: env,pip">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>PARSE_TXT_URLS_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=parse_txt_urls &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=parse_txt_urls &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>PARSE_TXT_URLS_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -8317,15 +8293,13 @@ providers: env,pip">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>PARSE_RSS_URLS_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=parse_rss_urls &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=parse_rss_urls &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>PARSE_RSS_URLS_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -8432,15 +8406,13 @@ providers: env,pip">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>PARSE_NETSCAPE_URLS_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=parse_netscape_urls &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=parse_netscape_urls &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>PARSE_NETSCAPE_URLS_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -8547,15 +8519,13 @@ providers: env,pip">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>PARSE_JSONL_URLS_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=parse_jsonl_urls &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=parse_jsonl_urls &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>PARSE_JSONL_URLS_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -8678,15 +8648,13 @@ providers: env,puppeteer">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>PARSE_DOM_OUTLINKS_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=parse_dom_outlinks &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=parse_dom_outlinks &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>PARSE_DOM_OUTLINKS_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -8813,15 +8781,13 @@ providers: env,puppeteer">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=search_backend_sqlite &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=search_backend_sqlite &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -8972,15 +8938,13 @@ providers: env,apt,brew,cargo">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=search_backend_sonic &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=search_backend_sonic &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -9200,15 +9164,13 @@ providers: env,npm">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>CLAUDECODECLEANUP_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=claudecodecleanup &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=claudecodecleanup &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>CLAUDECODECLEANUP_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -9365,15 +9327,13 @@ providers: env,npm">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>HASHES_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl dl --plugins=hashes &#39;https://example.com&#39;</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl dl --plugins=hashes &#39;https://example.com&#39;</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>HASHES_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -9476,15 +9436,13 @@ providers: env,npm">
 
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>archivebox init --setup</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl plugins --install apt</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl plugins --install apt</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>archivebox init --setup</code></pre>
             </div>
             <p class="note">Setup plugins install dependencies or prepare shared runtime state.</p>
 
@@ -9545,15 +9503,13 @@ providers: env,npm">
 
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl plugins base</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl plugins base</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Utility plugins are typically consumed indirectly, so the example shows the closest inspection workflow.</p>
 
@@ -9812,15 +9768,13 @@ providers: env,npm">
 
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>archivebox init --setup</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl plugins --install bash</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl plugins --install bash</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>archivebox init --setup</code></pre>
             </div>
             <p class="note">Setup plugins install dependencies or prepare shared runtime state.</p>
 
@@ -9889,15 +9843,13 @@ providers: env,npm">
 
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>archivebox init --setup</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl plugins --install brew</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl plugins --install brew</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>archivebox init --setup</code></pre>
             </div>
             <p class="note">Setup plugins install dependencies or prepare shared runtime state.</p>
 
@@ -9973,15 +9925,13 @@ providers: env,npm">
 
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>archivebox init --setup</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl plugins --install cargo</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl plugins --install cargo</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>archivebox init --setup</code></pre>
             </div>
             <p class="note">Setup plugins install dependencies or prepare shared runtime state.</p>
 
@@ -10080,15 +10030,13 @@ providers: env,apt,brew">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>archivebox init --setup</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl plugins --install chromewebstore</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl plugins --install chromewebstore</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>archivebox init --setup</code></pre>
             </div>
             <p class="note">Setup plugins install dependencies or prepare shared runtime state.</p>
 
@@ -10233,15 +10181,13 @@ providers: env,npm">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl plugins claudecode</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl plugins claudecode</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Utility plugins are typically consumed indirectly, so the example shows the closest inspection workflow.</p>
 
@@ -10380,15 +10326,13 @@ providers: env,npm">
 
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>archivebox init --setup</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl plugins --install env</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl plugins --install env</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>archivebox init --setup</code></pre>
             </div>
             <p class="note">Setup plugins install dependencies or prepare shared runtime state.</p>
 
@@ -10449,15 +10393,13 @@ providers: env,npm">
 
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl plugins media</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl plugins media</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Utility plugins are typically consumed indirectly, so the example shows the closest inspection workflow.</p>
 
@@ -10528,15 +10470,13 @@ providers: env,apt,brew">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>archivebox init --setup</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl plugins --install npm</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl plugins --install npm</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>archivebox init --setup</code></pre>
             </div>
             <p class="note">Setup plugins install dependencies or prepare shared runtime state.</p>
 
@@ -10655,15 +10595,13 @@ providers: env">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>archivebox init --setup</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl plugins --install pip</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl plugins --install pip</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>archivebox init --setup</code></pre>
             </div>
             <p class="note">Setup plugins install dependencies or prepare shared runtime state.</p>
 
@@ -10772,15 +10710,13 @@ providers: npm">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>PUPPETEER_ENABLED=true archivebox init --setup</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl plugins --install puppeteer</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl plugins --install puppeteer</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>PUPPETEER_ENABLED=true archivebox init --setup</code></pre>
             </div>
             <p class="note">Setup plugins install dependencies or prepare shared runtime state.</p>
 
@@ -10901,15 +10837,13 @@ providers: env,apt,brew">
             </div>
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl plugins search_backend_ripgrep</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl plugins search_backend_ripgrep</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Utility plugins are typically consumed indirectly, so the example shows the closest inspection workflow.</p>
 
@@ -11031,15 +10965,13 @@ providers: env,apt,brew">
 
 
             <h3 class="section-title">Run It</h3>
-            <div class="command-grid">
-              <div class="command-card">
-                <span>ArchiveBox</span>
-                <pre><code>archivebox add &#39;https://example.com&#39;</code></pre>
+            <div class="run-tabs" data-run-tabs>
+              <div class="run-tabs-bar">
+                <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
               </div>
-              <div class="command-card">
-                <span>abx-dl</span>
-                <pre><code>abx-dl plugins ssl</code></pre>
-              </div>
+              <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl plugins ssl</code></pre>
+              <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>archivebox add &#39;https://example.com&#39;</code></pre>
             </div>
             <p class="note">Utility plugins are typically consumed indirectly, so the example shows the closest inspection workflow.</p>
 
@@ -11244,7 +11176,7 @@ providers: env,apt,brew">
 
         <div class="footer-meta">
           <span>Generated from <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">ArchiveBox/abx-plugins</a> at ref <code>main</code>.</span>
-          <span>Updated 2026-04-03 08:33 UTC</span>
+          <span>Updated 2026-04-03 08:42 UTC</span>
         </div>
       </footer>
     </div>
@@ -11328,19 +11260,32 @@ providers: env,apt,brew">
         };
       };
 
-      const renderHeroExample = (example) => {
-        const lines = [
-          '<span class="code-comment"># run inside a new empty dir somewhere:</span>',
-          highlightShell(example.abx),
-          "",
-          '<span class="code-comment"># or with ArchiveBox:</span>',
-          highlightShell(example.archivebox),
-        ];
-        return lines.join("\n");
-      };
+      const heroAbxCode = document.getElementById("hero-command-abx");
+      const heroArchiveboxCode = document.getElementById("hero-command-archivebox");
+      const heroAbxPanel = document.getElementById("hero-panel-abx");
+      const heroArchiveboxPanel = document.getElementById("hero-panel-archivebox");
+      let activeHeroTab = "abx-dl";
 
-      const heroExampleText = (example) =>
-        ["# abx-dl", example.abx, "", "# ArchiveBox", example.archivebox].join("\n");
+      // Hero tab switching
+      document.querySelectorAll("[data-hero-tab]").forEach((tab) => {
+        tab.addEventListener("click", () => {
+          activeHeroTab = tab.dataset.heroTab;
+          document.querySelectorAll("[data-hero-tab]").forEach((t) =>
+            t.classList.toggle("active", t.dataset.heroTab === activeHeroTab)
+          );
+          heroAbxPanel.classList.toggle("active", activeHeroTab === "abx-dl");
+          heroArchiveboxPanel.classList.toggle("active", activeHeroTab === "archivebox");
+          // Update copy button text to match active tab
+          const example = selectedCard ? getHeroExample(selectedCard) : defaultHeroExample;
+          copyExampleButton.dataset.copyText = activeHeroTab === "abx-dl" ? example.abx : example.archivebox;
+        });
+      });
+
+      const renderHeroTabs = (example) => {
+        heroAbxCode.innerHTML = highlightShell(example.abx);
+        heroArchiveboxCode.innerHTML = highlightShell(example.archivebox);
+        copyExampleButton.dataset.copyText = activeHeroTab === "abx-dl" ? example.abx : example.archivebox;
+      };
 
       const setHeroExample = (card) => {
         const example = getHeroExample(card);
@@ -11348,8 +11293,7 @@ providers: env,apt,brew">
 
         selectedCard = card;
         selectedPluginName.textContent = example.plugin;
-        heroCommandExample.innerHTML = renderHeroExample(example);
-        copyExampleButton.dataset.copyText = heroExampleText(example);
+        renderHeroTabs(example);
       };
 
       const defaultHeroExample = {
@@ -11366,8 +11310,7 @@ providers: env,apt,brew">
 
         if (accumulatedPlugins.length === 0) {
           selectedPluginName.textContent = defaultHeroExample.plugin;
-          heroCommandExample.innerHTML = renderHeroExample(defaultHeroExample);
-          copyExampleButton.dataset.copyText = heroExampleText(defaultHeroExample);
+          renderHeroTabs(defaultHeroExample);
           return;
         }
 
@@ -11526,6 +11469,36 @@ providers: env,apt,brew">
           });
         }
       }
+
+      // Tab switching for run-tabs
+      const initRunTabs = (container) => {
+        const tabs = container.querySelectorAll("[data-run-tab]");
+        const panels = container.querySelectorAll("[data-run-panel]");
+        tabs.forEach((tab) => {
+          tab.addEventListener("click", () => {
+            const target = tab.dataset.runTab;
+            tabs.forEach((t) => t.classList.toggle("active", t.dataset.runTab === target));
+            panels.forEach((p) => p.classList.toggle("active", p.dataset.runPanel === target));
+          });
+        });
+      };
+      document.querySelectorAll("[data-run-tabs]").forEach(initRunTabs);
+
+      // Syntax highlight all [data-highlight-shell] elements
+      const highlightAllShell = (root) => {
+        root.querySelectorAll("[data-highlight-shell]").forEach((el) => {
+          el.innerHTML = highlightShell(el.textContent);
+        });
+      };
+      highlightAllShell(document);
+
+      // Re-init tabs and highlighting when modal opens
+      const origOpenModal = openModal;
+      openModal = (card) => {
+        origOpenModal(card);
+        modalBody.querySelectorAll("[data-run-tabs]").forEach(initRunTabs);
+        highlightAllShell(modalBody);
+      };
 
       applyFilter();
       navigateToHash();
