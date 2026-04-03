@@ -1309,10 +1309,10 @@
       <section class="hero">
         <div class="hero-top">
           <div>
-            <div class="eyebrow">abx ecosystem</div>
+            <div class="eyebrow">Save the content that matters most to you.</div>
             <h1>ArchiveBox Plugin Gallery</h1>
             <p class="hero-copy">
-              Browse the plugins that ArchiveBox, abx-dl, and other tools in the abx-ecosystem provide to extract content from websites.
+              Browse the plugins that ArchiveBox &amp; abx-dl use to archive content from websites.
             </p>
           </div>
           <div class="hero-actions">
@@ -1320,10 +1320,9 @@
               class="stat stat-link stat-link--cta button-link--hero"
               href="https://github.com/ArchiveBox/abx-plugins/pulls"
               target="_blank"
-              rel="noreferrer"
             >
               <strong><span class="cta-plus">+</span> Submit</strong>
-              <span>a new plugin</span>
+              <center><span>a new plugin</span></center>
             </a>
           </div>
           <div class="hero-meta">
@@ -1331,14 +1330,14 @@
               <strong>{{ site.plugin_count }}</strong>
               <span>Plugins</span>
             </div>
-            <div class="stat">
+            <!--<div class="stat">
               <strong>{{ site.hook_count }}</strong>
               <span>Hook scripts</span>
-            </div>
-            <div class="stat">
+            </div>-->
+            <!--<div class="stat">
               <strong>{{ site.config_count }}</strong>
               <span>Config Options</span>
-            </div>
+            </div>-->
           </div>
         </div>
 
@@ -1377,24 +1376,24 @@ cd archive
 abx-dl dl 'https://example.com'</code></pre>
           </details>
         </section>
-
-        <div class="toolbar">
-          <label class="searchbox" for="plugin-search">
-            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8">
-              <circle cx="11" cy="11" r="7"></circle>
-              <path d="M20 20l-3.5-3.5"></path>
-            </svg>
-            <input
-              id="plugin-search"
-              type="search"
-              placeholder="Filter by plugin name, hook, config key, or description"
-              autocomplete="off"
-              spellcheck="false"
-            >
-          </label>
-          <div class="result-count"><span id="visible-count">{{ site.plugin_count }}</span> / {{ site.plugin_count }} visible</div>
-        </div>
       </section>
+
+      <div class="toolbar">
+        <label class="searchbox" for="plugin-search">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="M20 20l-3.5-3.5"></path>
+          </svg>
+          <input
+            id="plugin-search"
+            type="search"
+            placeholder="Filter by plugin name, hook, config key, or description"
+            autocomplete="off"
+            spellcheck="false"
+          >
+        </label>
+        <div class="result-count"><span id="visible-count">{{ site.plugin_count }}</span> / {{ site.plugin_count }} visible</div>
+      </div>
 
       <main class="gallery" id="plugin-gallery">
         {% for plugin in site.plugins %}
@@ -1421,7 +1420,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 {% endif %}
                 {% if plugin.primary_language == "python" %}
                 <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
-                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                  <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
                     <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
                     <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
                     <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
@@ -1430,7 +1429,7 @@ abx-dl dl 'https://example.com'</code></pre>
                 </span>
                 {% elif plugin.primary_language == "javascript" %}
                 <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
-                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <rect x="4.5" y="4.5" width="15" height="15" rx="2.5" fill="currentColor" opacity="0.2"></rect>
                     <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
                   </svg>
@@ -1443,12 +1442,12 @@ abx-dl dl 'https://example.com'</code></pre>
                 {% for label in plugin.template_labels %}
                 <span class="chip">{{ label }}</span>
                 {% endfor %}
-                <span class="chip">{{ plugin.hook_count }} hooks</span>
-                <span class="chip">{{ plugin.config_count }} config fields</span>
+                <span class="chip">{{ plugin.hook_count }} hook(s)</span>
+                <span class="chip">{{ plugin.config_count }} configs</span>
               </div>
               {% if plugin.required_plugins or plugin.required_binaries or plugin.output_mimetypes %}
               <div class="plugin-summary-facts">
-                {% if plugin.required_plugins %}
+                {% if False and plugin.required_plugins %}
                 <div>{{ plugin.required_plugins|join(", ") }}</div>
                 {% endif %}
                 {% if plugin.required_binaries %}
