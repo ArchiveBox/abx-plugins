@@ -919,7 +919,6 @@
         min-width: min-content;
       }
 
-      .hook-card,
       .empty-state {
         padding: 16px;
         border: 1px solid var(--line);
@@ -927,13 +926,77 @@
         background: var(--bg-accent);
       }
 
-      .hook-card span {
-        display: block;
-        margin-bottom: 8px;
+      .hook-card {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        border: 1px solid var(--line);
+        border-radius: 0;
+        background: var(--bg-accent);
+      }
+
+      .hook-card-file {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.88rem;
+      }
+
+      .hook-card-file a {
+        color: var(--ink);
+        text-decoration: none;
+      }
+
+      .hook-card-file a:hover {
+        color: var(--accent);
+      }
+
+      .hook-card-chips {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .hook-card-phase {
+        margin-left: auto;
+        font-size: 0.84rem;
         color: var(--muted);
-        font-size: 0.78rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
+        white-space: nowrap;
+      }
+
+      .chip--lang {
+        padding: 4px 6px;
+        line-height: 1;
+      }
+
+      .chip--lang-py {
+        border-color: rgba(250, 204, 21, 0.35);
+        background: rgba(250, 204, 21, 0.1);
+        color: #facc15;
+      }
+
+      .chip--lang-js {
+        border-color: rgba(96, 165, 250, 0.35);
+        background: rgba(96, 165, 250, 0.1);
+        color: #60a5fa;
+      }
+
+      .chip--fg {
+        border-color: rgba(74, 222, 128, 0.35);
+        background: rgba(74, 222, 128, 0.1);
+        color: #4ade80;
+      }
+
+      .chip--bg-finite {
+        border-color: rgba(34, 139, 34, 0.4);
+        background: rgba(34, 139, 34, 0.12);
+        color: #22c55e;
+      }
+
+      .chip--bg-daemon {
+        border-color: rgba(251, 146, 60, 0.4);
+        background: rgba(251, 146, 60, 0.12);
+        color: #fb923c;
       }
 
       .command-card pre,
@@ -952,33 +1015,9 @@
         line-height: 1.55;
       }
 
-      .hook-list,
-      .config-grid {
+      .hook-list {
         display: grid;
-        gap: 12px;
-      }
-
-      .hook-card {
-        display: grid;
-        gap: 10px;
-      }
-
-      .hook-card strong {
-        display: block;
-        font-size: 1rem;
-      }
-
-      .hook-meta {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-
-      .hook-file {
-        margin: 0;
-        color: var(--muted);
-        font-size: 0.86rem;
-        word-break: break-all;
+        gap: 6px;
       }
 
       .config-table-wrap {
@@ -1020,7 +1059,7 @@
       }
 
       .config-table td:nth-child(1) code { white-space: nowrap; }
-      .config-table td:nth-child(2) { word-break: break-all; }
+      .config-table td:nth-child(2) { word-break: break-word; }
       .config-table td:nth-child(3) { white-space: nowrap; }
       .config-table td:nth-child(4) { word-break: break-word; }
 
@@ -1040,8 +1079,8 @@
         color: #7dd3fc;
       }
 
-      .config-table td:nth-child(2) code {
-        color: #bef264;
+      .config-table td:nth-child(2) {
+        word-break: break-word;
       }
 
       .config-table td:nth-child(3) code {
@@ -1063,6 +1102,36 @@
 
       .config-table-muted {
         color: var(--muted);
+      }
+
+      .cfg-default {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.84rem;
+      }
+
+      .cfg-bool-true { color: #4ade80; }
+      .cfg-bool-false { color: #f87171; }
+      .cfg-number { color: #7dd3fc; }
+      .cfg-string { color: #bef264; }
+      .cfg-null { color: var(--muted); font-style: italic; }
+      .cfg-bracket { color: var(--muted); }
+      .cfg-obj-key { color: #7dd3fc; }
+
+      .cfg-array {
+        padding-left: 14px;
+      }
+
+      .cfg-array-item::after {
+        content: ",";
+        color: var(--muted);
+      }
+
+      .cfg-array-item:last-child::after {
+        content: "";
+      }
+
+      .cfg-obj {
+        padding-left: 14px;
       }
 
       .plugin-info-grid {
@@ -1540,22 +1609,35 @@ abx-dl 'https://example.com'</code></pre>
             <div class="hook-list">
               {% for hook in plugin.hooks %}
               <article class="hook-card">
-                <div>
-                  <span>{{ hook.phase }} hook</span>
-                  <strong>{{ hook.label }}</strong>
-                </div>
-                <div class="hook-meta">
-                  <span class="chip">{{ hook.language }}</span>
+                <span class="hook-card-file"><a href="{{ hook.source_url }}" target="_blank" rel="noreferrer">{{ hook.filename }}</a></span>
+                <div class="hook-card-chips">
+                  {% if hook.language_code == "py" %}
+                  <span class="chip chip--lang chip--lang-py" title="Python">
+                    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                      <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                      <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                      <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                      <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                    </svg>
+                  </span>
+                  {% elif hook.language_code == "js" %}
+                  <span class="chip chip--lang chip--lang-js" title="JavaScript">
+                    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <rect x="4.5" y="4.5" width="15" height="15" rx="2.5" fill="currentColor" opacity="0.2"></rect>
+                      <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
+                    </svg>
+                  </span>
+                  {% endif %}
                   {% if hook.order is not none %}
                   <span class="chip">order {{ "%02d"|format(hook.order) }}</span>
                   {% endif %}
                   {% if hook.is_background %}
-                  <span class="chip">background</span>
+                  <span class="chip {{ 'chip--bg-daemon' if hook.is_daemon else 'chip--bg-finite' }}">background ({{ "daemon" if hook.is_daemon else "finite" }})</span>
+                  {% else %}
+                  <span class="chip chip--fg">foreground</span>
                   {% endif %}
                 </div>
-                <p class="hook-file">
-                  <a href="{{ hook.source_url }}" target="_blank" rel="noreferrer"><code>{{ hook.filename }}</code></a>
-                </p>
+                <span class="hook-card-phase">{{ hook.phase }}</span>
               </article>
               {% endfor %}
             </div>
@@ -1585,7 +1667,7 @@ abx-dl 'https://example.com'</code></pre>
                   {% for field in plugin.config_fields %}
                   <tr>
                     <td><code>{{ field.key }}</code>{% if field.description %}<span class="config-key-desc">{{ field.description }}</span>{% endif %}</td>
-                    <td>{% if field.default is not none %}<code>{{ field.default }}</code>{% else %}<span class="config-table-muted">—</span>{% endif %}</td>
+                    <td class="cfg-default">{% if field.default is not none %}{{ field.default }}{% else %}<span class="config-table-muted">—</span>{% endif %}</td>
                     <td>
                       <code>{{ field.type }}</code>
                       {% if field.minimum is not none %}<br><small>min {{ field.minimum }}</small>{% endif %}

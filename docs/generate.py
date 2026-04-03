@@ -180,12 +180,65 @@ def as_required_binary_list(
     return items
 
 
+def _esc(text: str) -> str:
+    """HTML-escape a string."""
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
+
 def format_json_value(value: Any) -> str:
+    """Return plain JSON string for backwards compat (not used in templates)."""
     if value is None:
         return "null"
     if isinstance(value, (dict, list)):
         return json.dumps(value, ensure_ascii=False, indent=2)
     return json.dumps(value, ensure_ascii=False)
+
+
+def format_json_value_html(value: Any) -> Markup:
+    """Return syntax-highlighted HTML for a config default value."""
+    if value is None:
+        return Markup('<span class="cfg-null">null</span>')
+    if isinstance(value, bool):
+        cls = "cfg-bool-true" if value else "cfg-bool-false"
+        return Markup(f'<span class="{cls}">{str(value).lower()}</span>')
+    if isinstance(value, (int, float)):
+        return Markup(f'<span class="cfg-number">{_esc(str(value))}</span>')
+    if isinstance(value, str):
+        escaped = _esc(value)
+        return Markup(f'<span class="cfg-string">&quot;{escaped}&quot;</span>')
+    if isinstance(value, list):
+        if not value:
+            return Markup('<span class="cfg-bracket">[]</span>')
+        items = "".join(
+            f'<div class="cfg-array-item">{format_json_value_html(item)}</div>'
+            for item in value
+        )
+        return Markup(
+            f'<span class="cfg-bracket">[</span>'
+            f'<div class="cfg-array">{items}</div>'
+            f'<span class="cfg-bracket">]</span>',
+        )
+    if isinstance(value, dict):
+        if not value:
+            return Markup('<span class="cfg-bracket">{{}}</span>')
+        rows = "".join(
+            f'<div class="cfg-obj-row">'
+            f'<span class="cfg-obj-key">{_esc(str(k))}</span>: '
+            f"{format_json_value_html(v)}"
+            f"</div>"
+            for k, v in value.items()
+        )
+        return Markup(
+            f'<span class="cfg-bracket">{{</span>'
+            f'<div class="cfg-obj">{rows}</div>'
+            f'<span class="cfg-bracket">}}</span>',
+        )
+    return Markup(_esc(json.dumps(value, ensure_ascii=False)))
 
 
 def normalize_type(schema_type: Any) -> str:
@@ -203,6 +256,7 @@ def parse_hook_filename(filename: str) -> dict[str, Any]:
     extension = pieces[-1] if len(pieces) > 1 else ""
     stem_pieces = pieces[:-1] if extension else pieces
     is_background = "bg" in stem_pieces
+    is_daemon = "daemon" in stem_pieces
     base_parts = [
         part for part in stem_pieces if part not in {"daemon", "finite", "bg"}
     ]
@@ -217,6 +271,7 @@ def parse_hook_filename(filename: str) -> dict[str, Any]:
         "label": label,
         "order": order,
         "is_background": is_background,
+        "is_daemon": is_daemon,
         "language_code": extension or None,
         "language": LANGUAGE_NAMES.get(extension, extension or "unknown"),
     }
@@ -253,7 +308,7 @@ def collect_config_fields(
                 "key": key,
                 "type": normalize_type(details.get("type")),
                 "description": details.get("description", ""),
-                "default": format_json_value(details.get("default"))
+                "default": format_json_value_html(details.get("default"))
                 if "default" in details
                 else None,
                 "aliases": list(details.get("x-aliases", [])),
