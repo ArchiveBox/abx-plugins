@@ -6,8 +6,8 @@
 #   "jambo",
 #   "click",
 #   "rich-click",
-#   "abx-pkg",
-#   "abx-plugins",
+#   "abx-pkg>=1.9.27",
+#   "abx-plugins>=1.10.27",
 # ]
 # ///
 #
