@@ -85,7 +85,7 @@
         width: 260px;
         height: 260px;
         border-radius: 50%;
-        background: radial-gradient(circle, rgba(201, 111, 45, 0.25), transparent 70%);
+        background: radial-gradient(circle, rgba(245, 158, 11, 0.15), transparent 70%);
         pointer-events: none;
       }
 
@@ -175,10 +175,8 @@
       }
 
       .stat-link--cta {
-        background:
-          linear-gradient(135deg, rgba(255, 250, 242, 0.96), rgba(244, 251, 250, 0.92)),
-          rgba(255, 253, 248, 0.9);
-        border: 2px solid rgba(201, 111, 45, 0.55);
+        background: var(--surface-strong);
+        border: 2px solid rgba(245, 158, 11, 0.55);
         box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
         animation: cta-border-color-cycle 2.4s linear infinite;
       }
@@ -210,7 +208,7 @@
 
       @keyframes cta-border-color-cycle {
         0% {
-          border-color: rgba(201, 111, 45, 0.65);
+          border-color: rgba(245, 158, 11, 0.65);
         }
         33% {
           border-color: rgba(45, 212, 191, 0.65);
@@ -219,7 +217,7 @@
           border-color: rgba(229, 184, 76, 0.72);
         }
         100% {
-          border-color: rgba(201, 111, 45, 0.65);
+          border-color: rgba(245, 158, 11, 0.65);
         }
       }
 
@@ -329,7 +327,7 @@
         padding: 4px 10px;
         border-radius: 0;
         background: rgba(255, 255, 255, 0.08);
-        color: #fff7ea;
+        color: #e4e4e7;
         font-size: 0.84rem;
       }
 
@@ -342,7 +340,7 @@
         border: 1px solid rgba(255, 255, 255, 0.14);
         border-radius: 0;
         background: rgba(255, 255, 255, 0.08);
-        color: #fff7ea;
+        color: #e4e4e7;
         font: inherit;
         font-size: 0.84rem;
         cursor: pointer;
@@ -1000,7 +998,14 @@
         width: 100%;
         border-collapse: collapse;
         font-size: 0.86rem;
+        table-layout: fixed;
       }
+
+      .config-table colgroup .col-key { width: 22%; }
+      .config-table colgroup .col-default { width: 22%; }
+      .config-table colgroup .col-type { width: 14%; }
+      .config-table colgroup .col-desc { width: 28%; }
+      .config-table colgroup .col-aliases { width: 14%; }
 
       .config-table th {
         text-align: left;
@@ -1021,6 +1026,10 @@
         vertical-align: top;
       }
 
+      .config-table td:nth-child(1) { white-space: nowrap; }
+      .config-table td:nth-child(2) { word-break: break-all; }
+      .config-table td:nth-child(3) { white-space: nowrap; }
+
       .config-table tbody tr:last-child td {
         border-bottom: none;
       }
@@ -1031,7 +1040,18 @@
 
       .config-table code {
         font-size: 0.82rem;
-        word-break: break-word;
+      }
+
+      .config-table td:nth-child(1) code {
+        color: #7dd3fc;
+      }
+
+      .config-table td:nth-child(2) code {
+        color: #bef264;
+      }
+
+      .config-table td:nth-child(3) code {
+        color: #fbbf24;
       }
 
       .config-table small {
@@ -1507,6 +1527,13 @@ providers: env,apt,brew">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -1737,6 +1764,13 @@ providers: env,pip,brew,apt">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -1929,6 +1963,13 @@ providers: env,pip">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -2110,6 +2151,13 @@ providers: env,apt,brew">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -2298,6 +2346,13 @@ providers: env,apt,brew">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -2506,6 +2561,13 @@ providers: env,apt,brew">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -2641,6 +2703,13 @@ providers: env,apt,brew">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -2799,6 +2868,13 @@ providers: chromewebstore">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -2937,6 +3013,13 @@ providers: chromewebstore">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -3088,6 +3171,13 @@ providers: chromewebstore">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -3271,6 +3361,13 @@ providers: env,puppeteer">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -3431,6 +3528,13 @@ providers: env,puppeteer">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -3581,6 +3685,13 @@ providers: env,puppeteer">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -3731,6 +3842,13 @@ providers: env,puppeteer">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -3887,6 +4005,13 @@ providers: env,puppeteer">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -4037,6 +4162,13 @@ providers: env,puppeteer">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -4199,6 +4331,13 @@ providers: env,puppeteer">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -4349,6 +4488,13 @@ providers: env,puppeteer">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -4578,6 +4724,13 @@ providers: env,puppeteer">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -4975,6 +5128,13 @@ providers: env,puppeteer">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -5124,6 +5284,13 @@ providers: env,puppeteer">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -5266,6 +5433,13 @@ providers: env,puppeteer">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -5491,6 +5665,13 @@ providers: chromewebstore">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -5723,6 +5904,13 @@ providers: chromewebstore">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -5976,6 +6164,13 @@ providers: env,puppeteer">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -6137,6 +6332,13 @@ providers: env,puppeteer">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -6297,6 +6499,13 @@ providers: env,puppeteer">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -6446,6 +6655,13 @@ providers: env,puppeteer">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -6594,6 +6810,13 @@ providers: env,npm">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -6760,6 +6983,13 @@ providers: env,npm">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -6927,6 +7157,13 @@ providers: npm,env">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -7100,6 +7337,13 @@ providers: env,npm">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -7263,6 +7507,13 @@ providers: env,npm">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -7403,6 +7654,13 @@ providers: env,pip">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -7573,6 +7831,13 @@ min_version: 11.0.0">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -7775,6 +8040,13 @@ providers: env,npm">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -7942,6 +8214,13 @@ providers: env,pip">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -8097,6 +8376,13 @@ providers: env,pip">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -8210,6 +8496,13 @@ providers: env,pip">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -8323,6 +8616,13 @@ providers: env,pip">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -8436,6 +8736,13 @@ providers: env,pip">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -8549,6 +8856,13 @@ providers: env,pip">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -8678,6 +8992,13 @@ providers: env,puppeteer">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -8811,6 +9132,13 @@ providers: env,puppeteer">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -8981,6 +9309,13 @@ providers: env,apt,brew,cargo">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -9194,6 +9529,13 @@ providers: env,npm">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -9357,6 +9699,13 @@ providers: env,npm">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -9519,6 +9868,13 @@ providers: env,npm">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -10060,6 +10416,13 @@ providers: env,apt,brew">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -10197,6 +10560,13 @@ providers: env,npm">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -10500,6 +10870,13 @@ providers: env,apt,brew">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -10625,6 +11002,13 @@ providers: env">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -10740,6 +11124,13 @@ providers: npm">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -10853,6 +11244,13 @@ providers: env,apt,brew">
             <h3 class="section-title">Env Var Config Options</h3>
             <div class="config-table-wrap">
               <table class="config-table">
+                <colgroup>
+                  <col class="col-key">
+                  <col class="col-default">
+                  <col class="col-type">
+                  <col class="col-desc">
+                  <col class="col-aliases">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -11176,7 +11574,7 @@ providers: env,apt,brew">
 
         <div class="footer-meta">
           <span>Generated from <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">ArchiveBox/abx-plugins</a> at ref <code>main</code>.</span>
-          <span>Updated 2026-04-03 08:42 UTC</span>
+          <span>Updated 2026-04-03 08:43 UTC</span>
         </div>
       </footer>
     </div>
