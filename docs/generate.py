@@ -524,7 +524,7 @@ def render_marketplace(output_dir: Path, template_name: str) -> Path:
 
     output_dir.mkdir(parents=True, exist_ok=True)
     index_path = output_dir / "index.html"
-    index_path.write_text(html, encoding="utf-8")
+    index_path.write_text(html + "\n", encoding="utf-8")
     (output_dir / ".nojekyll").write_text("", encoding="utf-8")
     return index_path
 
