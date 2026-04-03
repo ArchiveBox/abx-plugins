@@ -397,7 +397,8 @@
         margin-top: 14px;
         border: 1px solid var(--line);
         border-radius: 0;
-        background: var(--bg-accent);
+        background: linear-gradient(180deg, #1a1f25, #131619);
+        color: #e4e4e7;
       }
 
       .install-details summary {
@@ -1377,11 +1378,11 @@
 
           <details class="install-details">
             <summary>Expand to see pip install details</summary>
-            <pre><code>pip install abx-dl
+            <pre><code data-highlight-shell>pip install abx-dl
 abx-dl install
 mkdir archive
 cd archive
-abx-dl dl 'https://example.com'</code></pre>
+abx-dl 'https://example.com'</code></pre>
           </details>
         </section>
       </section>
@@ -2037,7 +2038,7 @@ abx-dl dl 'https://example.com'</code></pre>
       // Syntax highlight all [data-highlight-shell] elements
       const highlightAllShell = (root) => {
         root.querySelectorAll("[data-highlight-shell]").forEach((el) => {
-          el.innerHTML = highlightShell(el.textContent);
+          el.innerHTML = el.textContent.split("\n").map((line) => highlightShell(line)).join("\n");
         });
       };
 
@@ -2099,6 +2100,7 @@ abx-dl dl 'https://example.com'</code></pre>
         }
       }
 
+      highlightAllShell(document);
       applyFilter();
       navigateToHash();
       syncHeroExample();

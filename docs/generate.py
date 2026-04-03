@@ -281,7 +281,7 @@ def build_commands(
 
     if has_snapshot:
         archivebox = f"{env_prefix}archivebox add 'https://example.com'"
-        abx_dl = f"abx-dl dl --plugins={plugin_name} 'https://example.com'"
+        abx_dl = f"abx-dl --plugins={plugin_name} 'https://example.com'"
         note = "Runtime plugins execute while archiving a URL."
     elif has_setup:
         archivebox = f"{env_prefix}archivebox init --setup"
