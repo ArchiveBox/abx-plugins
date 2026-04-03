@@ -68,34 +68,12 @@ ensure_ldap_build_deps() {
 }
 
 sync_workspace() {
-    local -a uv_sync_all=(
-        env
-        -u UV_NO_SOURCES
-        -u UV_NO_SOURCES_PACKAGE
-        uv
-        sync
-        --all-packages
-        --all-extras
-        --no-cache
-        --active
-    )
-    local -a uv_sync_basic=(
-        env
-        -u UV_NO_SOURCES
-        -u UV_NO_SOURCES_PACKAGE
-        uv
-        sync
-        --all-packages
-        --no-cache
-        --active
-    )
-
-    if "${uv_sync_all[@]}"; then
+    if uv sync --all-packages --all-extras --no-cache --active; then
         return
     fi
 
     warn "'uv sync --all-packages --all-extras --no-cache --active' failed; retrying without --all-extras"
-    "${uv_sync_basic[@]}"
+    uv sync --all-packages --no-cache --active
 }
 
 ensure_setup_link() {
