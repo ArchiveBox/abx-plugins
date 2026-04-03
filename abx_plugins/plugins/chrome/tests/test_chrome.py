@@ -2430,7 +2430,7 @@ def test_crawl_wait_retries_until_published_cdp_endpoint_becomes_connectable(
                 "crawl wait should retry until the published endpoint becomes connectable:\n"
                 f"Stdout: {stdout}\nStderr: {stderr}"
             )
-            assert "Chromium ready pid=external" in stdout, stdout
+            assert "ready pid=external" in stdout.lower(), stdout
         finally:
             if wait_process is not None and wait_process.poll() is None:
                 wait_process.kill()

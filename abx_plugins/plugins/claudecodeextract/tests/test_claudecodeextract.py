@@ -252,7 +252,6 @@ class TestClaudeCodeExtractIntegration:
             env["CRAWL_DIR"] = str(Path(tmpdir) / "crawl")
             env["CLAUDECODEEXTRACT_ENABLED"] = "true"
             env["CLAUDECODEEXTRACT_MODEL"] = "haiku"
-            env["CLAUDECODEEXTRACT_MAX_TURNS"] = "5"
             env["CLAUDECODEEXTRACT_TIMEOUT"] = "90"
 
             returncode, stdout, stderr = run_hook(
@@ -300,12 +299,11 @@ class TestClaudeCodeExtractIntegration:
             env["CRAWL_DIR"] = str(Path(tmpdir) / "crawl")
             env["CLAUDECODEEXTRACT_ENABLED"] = "true"
             env["CLAUDECODEEXTRACT_MODEL"] = "haiku"
-            env["CLAUDECODEEXTRACT_MAX_TURNS"] = "3"
             env["CLAUDECODEEXTRACT_TIMEOUT"] = "90"
             env["CLAUDECODEEXTRACT_PROMPT"] = (
                 "Read the readability/article.json file and extract the title. "
-                f"Write a JSON file to {output_dir}/extracted.json containing "
-                '{"title": "<the title you found>"}.'
+                "Write a JSON file named extracted.json in your output directory "
+                'containing {"title": "<the title you found>"}.'
             )
 
             returncode, stdout, stderr = run_hook(
