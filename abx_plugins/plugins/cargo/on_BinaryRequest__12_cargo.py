@@ -26,21 +26,8 @@ from abx_pkg import Binary, CargoProvider
 
 from abx_plugins.plugins.base.utils import (
     emit_installed_binary_record,
+    parse_extra_hook_args,
 )
-
-
-def _parse_extra_hook_args(args: list[str]) -> dict[str, object]:
-    parsed: dict[str, object] = {}
-    for arg in args:
-        if not arg.startswith("--") or "=" not in arg:
-            continue
-        key, raw_value = arg[2:].split("=", 1)
-        try:
-            value = json.loads(raw_value)
-        except json.JSONDecodeError:
-            value = raw_value
-        parsed[key.replace("-", "_")] = value
-    return parsed
 
 
 @click.command(
@@ -62,7 +49,7 @@ def main(
         click.echo(f"cargo provider not allowed for {name}", err=True)
         sys.exit(0)
 
-    provider = CargoProvider(postinstall_scripts=True, min_release_age=0)
+    provider = CargoProvider()
     if not provider.INSTALLER_BIN_ABSPATH:
         click.echo("cargo not available on this system", err=True)
         sys.exit(0)
@@ -70,26 +57,24 @@ def main(
     click.echo(f"Resolving {name} via cargo (load or install)...", err=True)
 
     try:
-        ctx = click.get_current_context(silent=True)
-        extra_kwargs = _parse_extra_hook_args(ctx.args if ctx else [])
-        overrides_dict = json.loads(overrides) if overrides else {}
-        if overrides_dict:
+        context = click.get_current_context(silent=True)
+        extra_kwargs = parse_extra_hook_args(context.args if context else [])
+        binary = Binary.model_validate(
+            {
+                **extra_kwargs,
+                "name": name,
+                "binproviders": [provider],
+                "min_version": min_version or extra_kwargs.get("min_version") or None,
+                "overrides": json.loads(overrides) if overrides else {},
+            },
+        )
+        if binary.overrides:
             click.echo(
-                f"Using custom install overrides: {overrides_dict}",
+                f"Using custom install overrides: {binary.overrides}",
                 err=True,
             )
 
-        request_kwargs = {
-            **extra_kwargs,
-            "name": name,
-            "binproviders": binproviders,
-            "min_version": min_version or None,
-            "min_release_age": 0,
-            "overrides": overrides_dict,
-        }
-        binary = Binary(
-            **{**request_kwargs, "binproviders": [provider]},  # ty:ignore[invalid-argument-type]
-        ).load_or_install()
+        binary = binary.load_or_install()
     except Exception as e:
         click.echo(f"cargo install failed: {e}", err=True)
         sys.exit(1)

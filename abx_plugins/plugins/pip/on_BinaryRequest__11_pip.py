@@ -6,7 +6,7 @@
 #   "jambo",
 #   "click",
 #   "rich-click",
-#   "abx-pkg>=1.9.23",
+#   "abx-pkg",
 #   "abx-plugins",
 # ]
 # ///
@@ -32,6 +32,7 @@ from abx_plugins.plugins.base.utils import (
     emit_installed_binary_record,
     enforce_lib_permissions,
     load_config,
+    parse_extra_hook_args,
 )
 
 import rich_click as click
@@ -41,20 +42,6 @@ from abx_pkg import (
     EnvProvider,
     PipProvider,
 )
-
-
-def _parse_extra_hook_args(args: list[str]) -> dict[str, object]:
-    parsed: dict[str, object] = {}
-    for arg in args:
-        if not arg.startswith("--") or "=" not in arg:
-            continue
-        key, raw_value = arg[2:].split("=", 1)
-        try:
-            value = json.loads(raw_value)
-        except json.JSONDecodeError:
-            value = raw_value
-        parsed[key.replace("-", "_")] = value
-    return parsed
 
 
 def _is_executable(path: Path) -> bool:
@@ -84,16 +71,18 @@ def _load_env_binary_abspath(binary_ref: str) -> str | None:
         return None
 
     path_ref = Path(raw_ref).expanduser()
-    overrides = {}
+    overrides: dict[str, object] = {}
     if raw_ref.startswith(("~", ".", "/")) or "/" in raw_ref or "\\" in raw_ref:
         overrides = {"env": {"abspath": str(path_ref)}}
     lookup_name = path_ref.name if overrides else raw_ref
 
     try:
-        binary = Binary(
-            name=lookup_name,
-            binproviders=[EnvProvider()],
-            overrides=overrides,  # type: ignore[arg-type]
+        binary = Binary.model_validate(
+            {
+                "name": lookup_name,
+                "binproviders": [EnvProvider()],
+                "overrides": overrides,
+            },
         ).load()
     except Exception:
         return None
@@ -120,25 +109,11 @@ def _locked_pip_venv(lock_path: Path):
 @click.option("--binproviders", default="*", help="Allowed providers (comma-separated)")
 @click.option("--min-version", default="", help="Minimum acceptable version")
 @click.option("--overrides", default=None, help="JSON-encoded overrides dict")
-@click.option(
-    "--postinstall-scripts",
-    is_flag=True,
-    default=False,
-    help="Ensure console_scripts entry points are created after pip install",
-)
-@click.option(
-    "--min-release-age",
-    default=None,
-    type=float,
-    help="Minimum package release age in days",
-)
 def main(
     name: str,
     binproviders: str,
     min_version: str,
     overrides: str | None,
-    postinstall_scripts: bool,
-    min_release_age: float | None,
 ):
     """Install binary using pip."""
     config = load_config()
@@ -193,52 +168,43 @@ def main(
         if preferred_python and not _pip_venv_is_ready(pip_venv_path):
             _seed_pip_venv(pip_venv_path, preferred_python)
 
-        # Use abx-pkg PipProvider to install binary with custom venv.
-        # postinstall_scripts and min_release_age are passed through to PipProvider
-        # which handles them natively (e.g. ensuring console_scripts entry points).
-        provider = PipProvider(
-            pip_venv=pip_venv_path,
-            postinstall_scripts=postinstall_scripts,
-            min_release_age=min_release_age or 0.0,
-        )
-        if not provider.INSTALLER_BIN:
+        # Use abx-pkg PipProvider to install binary with custom venv
+        provider = PipProvider(pip_venv=pip_venv_path)
+        if not provider.INSTALLER_BIN_ABSPATH:
             click.echo("pip not available on this system", err=True)
             sys.exit(0)
 
         click.echo(f"Installing {name} via pip to venv at {pip_venv_path}...", err=True)
 
         try:
-            ctx = click.get_current_context(silent=True)
-            extra_kwargs = _parse_extra_hook_args(ctx.args if ctx else [])
-            overrides_dict = json.loads(overrides) if overrides else {}
-            provider_overrides = overrides_dict.get("pip", {})
+            context = click.get_current_context(silent=True)
+            extra_kwargs = parse_extra_hook_args(context.args if context else [])
+            binary = Binary.model_validate(
+                {
+                    **extra_kwargs,
+                    "name": name,
+                    "binproviders": [provider],
+                    "min_version": min_version
+                    or extra_kwargs.get("min_version")
+                    or None,
+                    "overrides": json.loads(overrides) if overrides else {},
+                },
+            )
+            provider_overrides = binary.overrides.get("pip", {})
             if provider_overrides:
                 click.echo(
                     f"Using pip install overrides: {provider_overrides}",
                     err=True,
                 )
 
-            request_kwargs = {
-                **extra_kwargs,
-                "name": name,
-                "binproviders": binproviders,
-                "min_version": min_version or None,
-                "postinstall_scripts": postinstall_scripts
-                or extra_kwargs.get("postinstall_scripts", False),
-                "min_release_age": min_release_age
-                or extra_kwargs.get("min_release_age", 0.0),
-                "overrides": overrides_dict,
-            }
-            binary = Binary(
-                **{**request_kwargs, "binproviders": [provider]},  # ty:ignore[invalid-argument-type]
-            ).load_or_install()
+            binary = binary.load_or_install()
         except Exception as e:
             click.echo(f"pip install failed: {e}", err=True)
             sys.exit(1)
 
-        if not binary.abspath:
-            click.echo(f"{name} not found after pip install", err=True)
-            sys.exit(1)
+    if not binary.abspath:
+        click.echo(f"{name} not found after pip install", err=True)
+        sys.exit(1)
 
     # Output Binary JSONL record to stdout
     emit_installed_binary_record(

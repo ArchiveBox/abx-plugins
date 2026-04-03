@@ -17,31 +17,17 @@
 # Usage:
 #     ./on_BinaryRequest__14_custom.py [...] > events.jsonl
 
-import subprocess
 import sys
 import json
 
 from abx_plugins.plugins.base.utils import (
     emit_installed_binary_record,
+    parse_extra_hook_args,
 )
 
 import rich_click as click
 
-from abx_pkg import Binary, EnvProvider
-
-
-def _parse_extra_hook_args(args: list[str]) -> dict[str, object]:
-    parsed: dict[str, object] = {}
-    for arg in args:
-        if not arg.startswith("--") or "=" not in arg:
-            continue
-        key, raw_value = arg[2:].split("=", 1)
-        try:
-            value = json.loads(raw_value)
-        except json.JSONDecodeError:
-            value = raw_value
-        parsed[key.replace("-", "_")] = value
-    return parsed
+from abx_pkg import BashProvider, Binary
 
 
 @click.command(
@@ -57,63 +43,52 @@ def main(
     min_version: str,
     overrides: str,
 ):
-    """Install binary using custom bash command."""
+    """Install binary using bash shell commands defined in overrides."""
 
-    if binproviders != "*" and "custom" not in binproviders.split(","):
+    allowed_providers = {provider.strip() for provider in binproviders.split(",")}
+    if (
+        binproviders != "*"
+        and "custom" not in allowed_providers
+        and "bash" not in allowed_providers
+    ):
         click.echo(f"custom provider not allowed for {name}", err=True)
         sys.exit(0)
 
-    ctx = click.get_current_context(silent=True)
-    extra_kwargs = _parse_extra_hook_args(ctx.args if ctx else [])
-    overrides_dict = json.loads(overrides)
-    request_kwargs = {
-        **extra_kwargs,
-        "name": name,
-        "binproviders": binproviders,
-        "min_version": min_version or None,
-        "overrides": overrides_dict,
-    }
-    custom_overrides = overrides_dict["custom"]
-    if "install" not in custom_overrides:
-        click.echo("Custom provider requires overrides.custom.install", err=True)
-        sys.exit(1)
-    install_command = str(custom_overrides["install"])
-
-    click.echo(f"Installing {name} via custom command: {install_command}", err=True)
-
-    try:
-        result = subprocess.run(
-            install_command,
-            shell=True,
-            timeout=600,  # 10 minute timeout for custom installs
+    context = click.get_current_context(silent=True)
+    extra_kwargs = parse_extra_hook_args(context.args if context else [])
+    raw_overrides = json.loads(overrides)
+    if not isinstance(raw_overrides, dict):
+        click.echo(
+            "custom provider requires overrides to decode to an object",
+            err=True,
         )
-        if result.returncode != 0:
-            click.echo(f"Custom install failed (exit={result.returncode})", err=True)
-            sys.exit(1)
-    except subprocess.TimeoutExpired:
-        click.echo("Custom install timed out", err=True)
+        sys.exit(1)
+    if "bash" not in raw_overrides and "custom" in raw_overrides:
+        raw_overrides = {**raw_overrides, "bash": raw_overrides["custom"]}
+
+    provider = BashProvider()
+    binary = Binary.model_validate(
+        {
+            **extra_kwargs,
+            "name": name,
+            "binproviders": [provider],
+            "min_version": min_version or extra_kwargs.get("min_version") or None,
+            "overrides": raw_overrides,
+        },
+    )
+    bash_overrides = binary.overrides.get("bash", {})
+    if "install" not in bash_overrides:
+        click.echo(
+            "custom provider requires overrides.custom.install or overrides.bash.install",
+            err=True,
+        )
         sys.exit(1)
 
-    # Use abx-pkg to load the binary and get its info
-    provider = EnvProvider()
-    binary_kwargs = {}
     try:
-        binary_kwargs = {**request_kwargs, "binproviders": [provider]}
-        binary = Binary(**binary_kwargs).load()  # ty:ignore[invalid-argument-type]
-    except Exception:
-        try:
-            binary = Binary(
-                **{
-                    **binary_kwargs,
-                    "overrides": {
-                        **overrides_dict,
-                        "env": {"version": "0.0.1"},
-                    },
-                },  # ty:ignore[invalid-argument-type]
-            ).load()
-        except Exception as e:
-            click.echo(f"{name} not found after custom install: {e}", err=True)
-            sys.exit(1)
+        binary = binary.load_or_install()
+    except Exception as e:
+        click.echo(f"custom install failed: {e}", err=True)
+        sys.exit(1)
 
     if not binary.abspath:
         click.echo(f"{name} not found after custom install", err=True)
