@@ -24,8 +24,8 @@ Environment variables:
     CLAUDECODECLEANUP_ENABLED: Enable AI cleanup (default: false)
     CLAUDECODECLEANUP_PROMPT: Custom prompt for cleanup behavior
     CLAUDECODECLEANUP_TIMEOUT: Timeout in seconds (default: 180)
-    CLAUDECODECLEANUP_MODEL: Claude model to use (default: sonnet)
-    CLAUDECODECLEANUP_MAX_TURNS: Max agentic turns (default: 15)
+    CLAUDECODECLEANUP_MODEL: Claude model to use (default: claude-sonnet-4-6)
+    CLAUDECODECLEANUP_MAX_TURNS: Max agentic turns (default: 50)
     ANTHROPIC_API_KEY: API key for Claude
 """
 

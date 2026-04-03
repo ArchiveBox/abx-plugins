@@ -52,13 +52,13 @@
     },
     "CLAUDECODECLEANUP_MODEL": {
       "type": "string",
-      "default": "sonnet",
+      "default": "claude-sonnet-4-6",
       "x-fallback": "CLAUDECODE_MODEL",
-      "description": "Claude model to use for cleanup (e.g. sonnet, opus, haiku)"
+      "description": "Claude model to use for cleanup (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001)"
     },
     "CLAUDECODECLEANUP_MAX_TURNS": {
       "type": "integer",
-      "default": 25,
+      "default": 50,
       "minimum": 1,
       "x-fallback": "CLAUDECODE_MAX_TURNS",
       "description": "Maximum number of agentic turns for cleanup"

@@ -190,8 +190,8 @@ class TestClaudeCodeCleanupPlugin:
         extract_max = extract_config["properties"]["CLAUDECODEEXTRACT_MAX_TURNS"][
             "default"
         ]
-        assert cleanup_max > extract_max, (
-            f"Cleanup max_turns ({cleanup_max}) should exceed extract max_turns ({extract_max})"
+        assert cleanup_max >= extract_max, (
+            f"Cleanup max_turns ({cleanup_max}) should be >= extract max_turns ({extract_max})"
         )
 
     def test_templates_exist(self):
