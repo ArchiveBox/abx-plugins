@@ -73,8 +73,8 @@
         border: 1px solid var(--line);
         border-radius: 0;
         background:
-          linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(255, 247, 233, 0.82)),
-          linear-gradient(120deg, rgba(15, 118, 110, 0.08), transparent 60%);
+          linear-gradient(135deg, rgba(26, 29, 34, 0.95), rgba(20, 22, 26, 0.92)),
+          linear-gradient(120deg, rgba(45, 212, 191, 0.06), transparent 60%);
         box-shadow: var(--shadow);
       }
 
@@ -148,8 +148,8 @@
         min-height: var(--hero-badge-height);
         padding: 14px 16px;
         border: 1px solid var(--line);
-        border-radius: 20px;
-        background: rgba(255, 253, 248, 0.9);
+        border-radius: 0;
+        background: var(--bg-accent);
       }
 
       .stat strong {
@@ -200,7 +200,7 @@
         place-items: center;
         width: 20px;
         height: 20px;
-        border-radius: 999px;
+        border-radius: 0;
         background: rgba(201, 111, 45, 0.14);
         color: var(--warm);
         font-family: "IBM Plex Mono", monospace;
@@ -236,8 +236,8 @@
         margin-top: 24px;
         padding: 20px;
         border: 1px solid var(--line);
-        border-radius: 24px;
-        background: rgba(255, 255, 255, 0.72);
+        border-radius: 0;
+        background: var(--bg-accent);
         backdrop-filter: blur(8px);
       }
 
@@ -281,8 +281,8 @@
         align-items: center;
         padding: 8px 12px;
         border: 1px solid var(--line);
-        border-radius: 999px;
-        background: rgba(255, 253, 248, 0.94);
+        border-radius: 0;
+        background: var(--bg-accent);
         color: var(--accent);
         text-decoration: none;
         font-size: 0.84rem;
@@ -296,7 +296,7 @@
         margin-top: 16px;
         overflow: hidden;
         border: 1px solid rgba(22, 35, 31, 0.14);
-        border-radius: 22px;
+        border-radius: 0;
         background: linear-gradient(180deg, #233633, #162321);
         color: #f7f1e6;
       }
@@ -327,7 +327,7 @@
 
       .hero-code-meta code {
         padding: 4px 10px;
-        border-radius: 999px;
+        border-radius: 0;
         background: rgba(255, 255, 255, 0.08);
         color: #fff7ea;
         font-size: 0.84rem;
@@ -340,7 +340,7 @@
         min-width: 82px;
         padding: 9px 13px;
         border: 1px solid rgba(255, 255, 255, 0.14);
-        border-radius: 999px;
+        border-radius: 0;
         background: rgba(255, 255, 255, 0.08);
         color: #fff7ea;
         font: inherit;
@@ -396,8 +396,8 @@
       .install-details {
         margin-top: 14px;
         border: 1px solid var(--line);
-        border-radius: 20px;
-        background: rgba(255, 255, 255, 0.62);
+        border-radius: 0;
+        background: var(--bg-accent);
       }
 
       .install-details summary {
@@ -438,8 +438,8 @@
         gap: 12px;
         padding: 0 18px;
         border: 1px solid rgba(29, 41, 39, 0.16);
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.92);
+        border-radius: 0;
+        background: var(--bg-accent);
       }
 
       .searchbox input {
@@ -461,8 +461,8 @@
         align-self: center;
         padding: 12px 16px;
         border: 1px solid var(--line);
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.74);
+        border-radius: 0;
+        background: var(--bg-accent);
         color: var(--muted);
         white-space: nowrap;
       }
@@ -476,35 +476,32 @@
       }
 
       .plugin-card {
-        --card-tint: rgba(255, 255, 255, 0.72);
+        --card-tint: rgba(255, 255, 255, 0.04);
         --card-border: var(--line);
         --card-accent: var(--accent);
         border: 1px solid var(--line);
-        border-radius: var(--radius);
-        background:
-          linear-gradient(180deg, color-mix(in srgb, var(--card-tint) 92%, white), rgba(255, 255, 255, 0.9)),
-          var(--surface);
-        box-shadow: 0 14px 40px rgba(42, 47, 38, 0.08);
-        backdrop-filter: blur(10px);
+        border-radius: 0;
+        background: var(--bg-accent);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
         transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
       }
 
       .plugin-card--snapshot {
-        --card-tint: rgba(73, 154, 84, 0.18);
-        --card-border: rgba(73, 154, 84, 0.28);
-        --card-accent: #2f7d32;
+        --card-tint: rgba(73, 154, 84, 0.08);
+        --card-border: rgba(73, 154, 84, 0.3);
+        --card-accent: #4ade80;
       }
 
       .plugin-card--crawl-only {
-        --card-tint: rgba(44, 122, 214, 0.18);
-        --card-border: rgba(44, 122, 214, 0.28);
-        --card-accent: #1f5fae;
+        --card-tint: rgba(96, 165, 250, 0.08);
+        --card-border: rgba(96, 165, 250, 0.3);
+        --card-accent: #60a5fa;
       }
 
       .plugin-card--binary-only {
-        --card-tint: rgba(117, 124, 132, 0.18);
-        --card-border: rgba(117, 124, 132, 0.28);
-        --card-accent: #59636e;
+        --card-tint: rgba(161, 161, 170, 0.08);
+        --card-border: rgba(161, 161, 170, 0.3);
+        --card-accent: #a1a1aa;
       }
 
       .plugin-card[hidden] {
@@ -531,7 +528,7 @@
         position: fixed;
         inset: 0;
         z-index: 1000;
-        background: rgba(29, 41, 39, 0.45);
+        background: rgba(0, 0, 0, 0.6);
         backdrop-filter: blur(4px);
         overflow-y: auto;
         padding: 40px 20px;
@@ -547,12 +544,10 @@
         position: relative;
         width: 100%;
         max-width: 900px;
-        border-radius: 16px;
-        background:
-          linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(255, 255, 255, 0.96)),
-          var(--surface-strong);
+        border-radius: 0;
+        background: var(--surface-strong);
         border: 1px solid var(--line);
-        box-shadow: 0 32px 80px rgba(22, 35, 31, 0.22);
+        box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5);
         animation: modalIn 200ms ease;
       }
 
@@ -588,7 +583,7 @@
         width: 36px;
         height: 36px;
         border: 1px solid var(--line);
-        border-radius: 12px;
+        border-radius: 0;
         background: var(--surface);
         cursor: pointer;
         font-size: 1.1rem;
@@ -631,8 +626,8 @@
         place-items: center;
         width: 36px;
         height: 36px;
-        border-radius: 12px;
-        background: linear-gradient(135deg, color-mix(in srgb, var(--card-accent) 16%, white), rgba(201, 111, 45, 0.1));
+        border-radius: 0;
+        background: rgba(255, 255, 255, 0.06);
         color: var(--card-accent);
       }
 
@@ -739,9 +734,9 @@
         align-items: center;
         gap: 6px;
         padding: 6px 10px;
-        border-radius: 10px;
+        border-radius: 0;
         border: 1px solid var(--line);
-        background: rgba(255, 255, 255, 0.9);
+        background: var(--bg-accent);
         font-size: 0.76rem;
         color: var(--muted);
         text-transform: uppercase;
@@ -764,7 +759,7 @@
         align-items: baseline;
         gap: 4px;
         padding: 2px 8px;
-        border-radius: 8px;
+        border-radius: 0;
         font-family: 'IBM Plex Mono', monospace;
         font-size: 0.82rem;
         text-transform: none;
@@ -781,7 +776,7 @@
         gap: 4px;
         align-items: start;
         padding: 10px 12px;
-        border-radius: 10px;
+        border-radius: 0;
         text-transform: none;
         letter-spacing: normal;
       }
@@ -844,7 +839,7 @@
         align-items: center;
         gap: 10px;
         padding: 10px 14px;
-        border-radius: 999px;
+        border-radius: 0;
         border: 1px solid rgba(15, 118, 110, 0.18);
         background: var(--accent-soft);
         color: var(--accent);
@@ -854,7 +849,7 @@
 
       .button-link--hero {
         border-color: var(--line);
-        background: rgba(255, 253, 248, 0.9);
+        background: var(--bg-accent);
         box-shadow: none;
       }
 
@@ -878,8 +873,8 @@
       .empty-state {
         padding: 16px;
         border: 1px solid var(--line);
-        border-radius: 22px;
-        background: rgba(255, 255, 255, 0.72);
+        border-radius: 0;
+        background: var(--bg-accent);
       }
 
       .command-card span,
@@ -941,8 +936,8 @@
       .config-table-wrap {
         overflow-x: auto;
         border: 1px solid var(--line);
-        border-radius: 10px;
-        background: rgba(255, 255, 255, 0.72);
+        border-radius: 0;
+        background: var(--bg-accent);
       }
 
       .config-table {
@@ -1001,8 +996,8 @@
       .plugin-info-card {
         padding: 16px;
         border: 1px solid var(--line);
-        border-radius: 22px;
-        background: rgba(255, 255, 255, 0.72);
+        border-radius: 0;
+        background: var(--bg-accent);
       }
 
       .plugin-info-card span {
@@ -1057,10 +1052,8 @@
         padding: 28px;
         border: 1px solid var(--line);
         border-radius: 0;
-        background:
-          linear-gradient(180deg, rgba(255, 253, 248, 0.92), rgba(249, 244, 235, 0.96)),
-          rgba(255, 253, 248, 0.9);
-        box-shadow: 0 16px 42px rgba(33, 36, 29, 0.08);
+        background: var(--bg-accent);
+        box-shadow: 0 16px 42px rgba(0, 0, 0, 0.3);
         color: var(--muted);
       }
 
@@ -1105,8 +1098,8 @@
         min-height: 100%;
         padding: 20px 20px 18px;
         border: 1px solid rgba(29, 41, 39, 0.1);
-        border-radius: 22px;
-        background: rgba(255, 255, 255, 0.56);
+        border-radius: 0;
+        background: var(--bg-accent);
       }
 
       .footer-card h3 {
@@ -1133,14 +1126,14 @@
         align-items: start;
         padding: 10px 12px;
         border: 1px solid rgba(29, 41, 39, 0.08);
-        border-radius: 16px;
-        background: rgba(255, 255, 255, 0.54);
+        border-radius: 0;
+        background: var(--bg-accent);
         text-decoration: none;
       }
 
       .footer-link-item:hover {
         border-color: rgba(15, 118, 110, 0.22);
-        background: rgba(255, 255, 255, 0.8);
+        background: rgba(255, 255, 255, 0.06);
       }
 
       .footer-link-icon {
@@ -1148,7 +1141,7 @@
         place-items: center;
         width: 34px;
         height: 34px;
-        border-radius: 12px;
+        border-radius: 0;
         background: var(--accent-soft);
         color: var(--accent);
         font-size: 1rem;
