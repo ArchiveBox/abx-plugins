@@ -20,13 +20,9 @@ jobs:
 
     steps:
       - name: Checkout repository
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          git init .
-          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git fetch --depth=1 origin "${GITHUB_SHA}"
-          git checkout --detach FETCH_HEAD
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
 
       - name: Clone abx-pkg
         run: git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git "${{ runner.temp }}/abx-pkg"
@@ -83,21 +79,46 @@ jobs:
           PYTHONPATH: ${{ runner.temp }}/abx-pkg
         run: uv run --no-sync --no-sources prek run --all-files
 
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-22.04
+    outputs:
+      docs-only: ${{ steps.changed-files.outputs.docs-only }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - name: Detect docs-only changes
+        id: changed-files
+        run: |
+          docs_only=false
+
+          if git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+            changed_files=$(git diff --name-only HEAD^ HEAD | sed '/^$/d')
+            if [ -n "$changed_files" ] && ! printf '%s\n' "$changed_files" | grep -qv '^docs/'; then
+              docs_only=true
+            fi
+          fi
+
+          echo "docs-only=$docs_only" >> "$GITHUB_OUTPUT"
+          echo "docs-only=$docs_only"
+
   discover-tests:
     name: Discover test files
     runs-on: ubuntu-22.04
+    needs: [changes]
+    if: ${{ needs.changes.outputs.docs-only != 'true' }}
     outputs:
       test-files: ${{ steps.set-matrix.outputs.test-files }}
 
     steps:
       - name: Checkout repository
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          git init .
-          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git fetch --depth=1 origin "${GITHUB_SHA}"
-          git checkout --detach FETCH_HEAD
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
 
       - name: Discover test files
         id: set-matrix
@@ -146,7 +167,8 @@ jobs:
   run-tests:
     name: ${{ matrix.test.name }}
     runs-on: ubuntu-22.04
-    needs: [prek, discover-tests]
+    needs: [prek, changes, discover-tests]
+    if: ${{ needs.changes.outputs.docs-only != 'true' }}
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       ABX_PYTEST_TEE_SUBPROCESS_OUTPUT: "1"
@@ -160,13 +182,9 @@ jobs:
 
     steps:
       - name: Checkout repository
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          git init .
-          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git fetch --depth=1 origin "${GITHUB_SHA}"
-          git checkout --detach FETCH_HEAD
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
 
       - name: Clone abx-pkg
         run: git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git "${{ runner.temp }}/abx-pkg"
