@@ -9,7 +9,8 @@
     {
       "name": "{PAPERSDL_BINARY}",
       "binproviders": "env,pip",
-      "min_version": null
+      "min_version": null,
+      "postinstall_scripts": true
     }
   ],
   "output_mimetypes": [

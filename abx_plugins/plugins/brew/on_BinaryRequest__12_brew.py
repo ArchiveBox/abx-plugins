@@ -25,21 +25,8 @@ from abx_pkg import Binary, BrewProvider
 
 from abx_plugins.plugins.base.utils import (
     emit_installed_binary_record,
+    parse_extra_hook_args,
 )
-
-
-def _parse_extra_hook_args(args: list[str]) -> dict[str, object]:
-    parsed: dict[str, object] = {}
-    for arg in args:
-        if not arg.startswith("--") or "=" not in arg:
-            continue
-        key, raw_value = arg[2:].split("=", 1)
-        try:
-            value = json.loads(raw_value)
-        except json.JSONDecodeError:
-            value = raw_value
-        parsed[key.replace("-", "_")] = value
-    return parsed
 
 
 @click.command(
@@ -62,7 +49,7 @@ def main(
         sys.exit(0)
 
     # Use abx-pkg BrewProvider to install binary
-    provider = BrewProvider(min_release_age=0)
+    provider = BrewProvider()
     if not provider.INSTALLER_BIN_ABSPATH:
         click.echo("brew not available on this system", err=True)
         sys.exit(0)
@@ -75,24 +62,24 @@ def main(
     click.echo(f"Resolving {name} via brew (load or install)...", err=True)
 
     try:
-        extra_kwargs = _parse_extra_hook_args(click.get_current_context().args)
-        overrides_dict = json.loads(overrides) if overrides else {}
-        if overrides_dict:
+        context = click.get_current_context(silent=True)
+        extra_kwargs = parse_extra_hook_args(context.args if context else [])
+        binary = Binary.model_validate(
+            {
+                **extra_kwargs,
+                "name": name,
+                "binproviders": [provider],
+                "min_version": min_version or extra_kwargs.get("min_version") or None,
+                "overrides": json.loads(overrides) if overrides else {},
+            },
+        )
+        if binary.overrides:
             click.echo(
-                f"Using custom install overrides: {overrides_dict}",
+                f"Using custom install overrides: {binary.overrides}",
                 err=True,
             )
 
-        request_kwargs = {
-            **extra_kwargs,
-            "name": name,
-            "binproviders": binproviders,
-            "min_version": min_version or None,
-            "overrides": overrides_dict,
-        }
-        binary = Binary(
-            **{**request_kwargs, "binproviders": [provider]},
-        ).load_or_install()
+        binary = binary.load_or_install()
     except Exception as e:
         click.echo(f"brew install failed: {e}", err=True)
         sys.exit(1)

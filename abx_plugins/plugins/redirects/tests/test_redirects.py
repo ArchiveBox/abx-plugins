@@ -174,6 +174,68 @@ class TestRedirectsWithChrome:
         except RuntimeError:
             raise
 
+    def test_redirects_hook_publishes_prenav_ready_marker(self, chrome_test_urls):
+        """Redirects hook should publish a pre-navigation ready marker."""
+        test_url = chrome_test_urls["redirect_url"]
+        snapshot_id = "test-redirects-prenav-ready"
+
+        with chrome_session(
+            self.temp_dir,
+            crawl_id="test-redirects-crawl",
+            snapshot_id=snapshot_id,
+            test_url=test_url,
+            navigate=False,
+            timeout=30,
+        ) as (_chrome_process, _chrome_pid, snapshot_chrome_dir, env):
+            result = subprocess.Popen(
+                [
+                    str(REDIRECTS_HOOK),
+                    f"--url={test_url}",
+                    f"--snapshot-id={snapshot_id}",
+                ],
+                cwd=str(snapshot_chrome_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env,
+            )
+
+            marker_path = Path(env["SNAP_DIR"]) / "redirects" / "prenav.json"
+            for _ in range(50):
+                if marker_path.exists():
+                    break
+                time.sleep(0.1)
+
+            assert marker_path.exists(), f"Missing prenav marker: {marker_path}"
+            marker = json.loads(marker_path.read_text())
+            assert marker["phase"] == "pre_navigation"
+            assert marker["status"] in {"starting", "ready"}
+            assert marker["plugin"] == "redirects"
+            assert marker["url"] == test_url
+
+            nav_result = subprocess.run(
+                [
+                    str(CHROME_NAVIGATE_HOOK),
+                    f"--url={test_url}",
+                    f"--snapshot-id={snapshot_id}",
+                ],
+                cwd=str(snapshot_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=120,
+                env=env,
+            )
+            assert nav_result.returncode == 0, (
+                f"Navigation failed: {nav_result.stderr}\nStdout: {nav_result.stdout}"
+            )
+
+            try:
+                _stdout, stderr = result.communicate(timeout=20)
+            except subprocess.TimeoutExpired:
+                result.kill()
+                _stdout, stderr = result.communicate()
+            assert result.returncode == 0, stderr
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

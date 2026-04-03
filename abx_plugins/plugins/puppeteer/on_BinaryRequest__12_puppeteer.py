@@ -16,41 +16,25 @@ Usage: on_BinaryRequest__12_puppeteer.py --name=<name>
 Output: Binary JSONL record to stdout after installation
 """
 
+from __future__ import annotations
+
 import json
-import os
-import re
-import shutil
 import sys
 from pathlib import Path
-from typing import cast
 
 import rich_click as click
-from abx_pkg import Binary, EnvProvider, HandlerDict, NpmProvider
-from abx_pkg.semver import bin_version
+from abx_pkg import Binary, EnvProvider, PuppeteerProvider
 
 from abx_plugins.plugins.base.utils import (
     emit_installed_binary_record,
     load_config,
+    parse_extra_hook_args,
 )
 
 CLAUDE_SANDBOX_NO_PROXY = (
     "localhost,127.0.0.1,169.254.169.254,metadata.google.internal,"
     ".svc.cluster.local,.local"
 )
-
-
-def _parse_extra_hook_args(args: list[str]) -> dict[str, object]:
-    parsed: dict[str, object] = {}
-    for arg in args:
-        if not arg.startswith("--") or "=" not in arg:
-            continue
-        key, raw_value = arg[2:].split("=", 1)
-        try:
-            value = json.loads(raw_value)
-        except json.JSONDecodeError:
-            value = raw_value
-        parsed[key.replace("-", "_")] = value
-    return parsed
 
 
 @click.command(
@@ -72,237 +56,84 @@ def main(
     if name not in ("chromium", "chrome"):
         sys.exit(0)
 
-    lib_dir = (config.LIB_DIR or "").strip()
-    if not lib_dir:
-        lib_dir = str(Path.home() / ".config" / "abx" / "lib")
-
-    npm_prefix = Path(lib_dir) / "npm"
-    npm_prefix.mkdir(parents=True, exist_ok=True)
-    npm_provider = NpmProvider(npm_prefix=npm_prefix)
-    cache_dir = Path(
-        (config.PUPPETEER_CACHE_DIR or "").strip() or str(Path(lib_dir) / "puppeteer"),
-    )
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    os.environ["PUPPETEER_CACHE_DIR"] = str(cache_dir)
-    abx_pkg_args = _parse_extra_hook_args(click.get_current_context().args)
-    overrides_dict = json.loads(overrides) if overrides else {}
-    npm_overrides = dict(overrides_dict.get("npm", {}))
-    npm_overrides.setdefault("install_args", ["puppeteer"])
-    package_overrides = {**overrides_dict, "npm": npm_overrides}
-    puppeteer_kwargs = {
-        **abx_pkg_args,
-        "name": "puppeteer",
-        "binproviders": [npm_provider],
-        "overrides": package_overrides,
-    }
-
-    # Fast-path: if CHROME_BINARY is already available in env, reuse it and avoid
-    # a full `puppeteer browsers install` call for this invocation.
     existing_chrome_binary = (config.CHROME_BINARY or "").strip()
     if existing_chrome_binary:
         existing_binary = _load_binary_from_path(existing_chrome_binary, name=name)
         if existing_binary and existing_binary.abspath:
-            _emit_browser_binary_record(
-                binary=existing_binary,
-                name=name,
-            )
+            _emit_browser_binary_record(binary=existing_binary, name=name)
             sys.exit(0)
 
-    puppeteer_binary = Binary(**puppeteer_kwargs).load_or_install()
+    lib_dir = (config.LIB_DIR or "").strip()
+    if not lib_dir:
+        lib_dir = str(Path.home() / ".config" / "abx" / "lib")
 
-    if not puppeteer_binary.abspath:
-        click.echo(
-            "ERROR: puppeteer binary not found (install puppeteer first)",
-            err=True,
+    configured_cache_dir = (config.PUPPETEER_CACHE_DIR or "").strip()
+    if configured_cache_dir:
+        browser_cache_dir = Path(configured_cache_dir).expanduser().resolve()
+        browser_cache_dir.mkdir(parents=True, exist_ok=True)
+        provider = PuppeteerProvider(
+            browser_cache_dir=browser_cache_dir,
+            browser_bin_dir=browser_cache_dir.parent / "bin",
         )
+    else:
+        puppeteer_root = (Path(lib_dir) / "puppeteer").resolve()
+        puppeteer_root.mkdir(parents=True, exist_ok=True)
+        provider = PuppeteerProvider(puppeteer_root=puppeteer_root)
+
+    raw_overrides = json.loads(overrides) if overrides else {}
+    if not isinstance(raw_overrides, dict):
+        click.echo("puppeteer overrides must decode to an object", err=True)
         sys.exit(1)
 
-    install_args = _parse_override_install_args(
-        overrides_dict,
-        default=[f"{name}@latest", "--install-deps"],
-    )
-    proc = _run_puppeteer_install(
-        binary=puppeteer_binary,
-        install_args=install_args,
-        cache_dir=cache_dir,
-    )
-    if proc.returncode != 0 and _should_repair_puppeteer_install(
-        proc.stdout + "\n" + proc.stderr,
+    provider_overrides = raw_overrides.get("puppeteer")
+    default_install_args = [f"{name}@latest", "--install-deps"]
+    if provider_overrides is None:
+        raw_overrides = {
+            **raw_overrides,
+            "puppeteer": {"install_args": default_install_args},
+        }
+    elif (
+        isinstance(provider_overrides, dict)
+        and "install_args" not in provider_overrides
     ):
-        click.echo("Detected broken puppeteer CLI, reinstalling package...", err=True)
-        npm_provider.install("puppeteer")
-        puppeteer_binary = Binary(**puppeteer_kwargs).load()
-        proc = _run_puppeteer_install(
-            binary=puppeteer_binary,
-            install_args=install_args,
-            cache_dir=cache_dir,
-        )
-    if proc.returncode != 0:
-        click.echo(proc.stdout.strip(), err=True)
-        click.echo(proc.stderr.strip(), err=True)
-        install_hint = _get_install_failure_hint(proc.stdout + "\n" + proc.stderr)
-        if install_hint:
-            click.echo(install_hint, err=True)
-        click.echo(f"ERROR: puppeteer install failed ({proc.returncode})", err=True)
+        raw_overrides = {
+            **raw_overrides,
+            "puppeteer": {
+                **provider_overrides,
+                "install_args": default_install_args,
+            },
+        }
+
+    context = click.get_current_context(silent=True)
+    extra_kwargs = parse_extra_hook_args(context.args if context else [])
+
+    try:
+        binary = Binary.model_validate(
+            {
+                **extra_kwargs,
+                "name": name,
+                "binproviders": [provider],
+                "overrides": raw_overrides,
+            },
+        ).load_or_install()
+    except Exception as e:
+        error_output = str(e)
+        hint = _get_install_failure_hint(error_output)
+        if hint:
+            click.echo(hint, err=True)
+        click.echo(f"puppeteer install failed: {error_output}", err=True)
         sys.exit(1)
 
-    chromium_binary = _load_browser_binary(proc.stdout + "\n" + proc.stderr, name=name)
-    if not chromium_binary or not chromium_binary.abspath:
-        click.echo("ERROR: failed to locate Chromium after install", err=True)
+    if not binary.abspath:
+        click.echo("ERROR: failed to locate browser after install", err=True)
         sys.exit(1)
 
     _emit_browser_binary_record(
-        binary=chromium_binary,
+        binary=binary,
         name=name,
     )
 
     sys.exit(0)
-
-
-def _parse_override_install_args(
-    overrides: dict[str, object],
-    default: list[str],
-) -> list[str]:
-    if not overrides:
-        return default
-    provider_overrides = overrides.get("puppeteer")
-    if not provider_overrides or "install_args" not in provider_overrides:
-        return default
-    install_args = provider_overrides["install_args"]
-    if not isinstance(install_args, list) or not install_args:
-        raise TypeError("puppeteer overrides.install_args must be a non-empty list")
-    return [str(arg) for arg in install_args]
-
-
-def _run_puppeteer_install(binary: Binary, install_args: list[str], cache_dir: Path):
-    cmd = ["browsers", "install", *install_args]
-    proc = binary.exec(
-        cmd=cmd,
-        cwd=str(cache_dir),
-        timeout=300,
-        env={
-            **os.environ,
-            "PUPPETEER_CACHE_DIR": str(cache_dir),
-        },
-    )
-    if proc.returncode == 0:
-        return proc
-
-    install_output = f"{proc.stdout}\n{proc.stderr}"
-
-    # If --install-deps failed because we're not root, retry with sudo
-    if (
-        "--install-deps" in install_args
-        and "requires root privileges" in install_output
-        and os.geteuid() != 0
-        and _load_binary_from_path("sudo", name="sudo")
-    ):
-        sudo_proc = _run_puppeteer_install_with_sudo(binary, install_args, cache_dir)
-        if sudo_proc is not None and sudo_proc.returncode == 0:
-            return sudo_proc
-        if sudo_proc is not None:
-            install_output = f"{sudo_proc.stdout}\n{sudo_proc.stderr}"
-            proc = sudo_proc
-
-    if not _cleanup_partial_chromium_cache(install_output, cache_dir):
-        return proc
-
-    return binary.exec(
-        cmd=cmd,
-        cwd=str(cache_dir),
-        timeout=300,
-        env={
-            **os.environ,
-            "PUPPETEER_CACHE_DIR": str(cache_dir),
-        },
-    )
-
-
-def _run_puppeteer_install_with_sudo(
-    binary: Binary,
-    install_args: list[str],
-    cache_dir: Path,
-):
-    """Re-run puppeteer install via sudo so --install-deps can install system libs."""
-    import subprocess as _subprocess
-
-    abspath = str(binary.abspath or "")
-    if not abspath:
-        return None
-
-    sudo_cmd = [
-        "sudo",
-        "-E",
-        abspath,
-        "browsers",
-        "install",
-        *install_args,
-    ]
-    env = os.environ.copy()
-    env.setdefault("PUPPETEER_CACHE_DIR", str(cache_dir))
-    proc = _subprocess.run(
-        sudo_cmd,
-        capture_output=True,
-        text=True,
-        timeout=300,
-        cwd=str(cache_dir),
-        env=env,
-    )
-
-    # Fix ownership: sudo may have written root-owned files into the
-    # normal user's cache dir, which would break later non-root operations.
-    if proc.returncode == 0 and cache_dir.exists():
-        uid = os.getuid()
-        gid = os.getgid()
-        _subprocess.run(
-            ["sudo", "chown", "-R", f"{uid}:{gid}", str(cache_dir)],
-            timeout=30,
-        )
-
-    return proc
-
-
-def _cleanup_partial_chromium_cache(install_output: str, cache_dir: Path) -> bool:
-    targets: set[Path] = set()
-    chromium_cache_dir = cache_dir / "chromium"
-
-    missing_dir_match = re.search(
-        r"browser folder \(([^)]+)\) exists but the executable",
-        install_output,
-    )
-    if missing_dir_match:
-        targets.add(Path(missing_dir_match.group(1)))
-
-    missing_zip_match = re.search(r"open '([^']+\.zip)'", install_output)
-    if missing_zip_match:
-        targets.add(Path(missing_zip_match.group(1)))
-
-    build_id_match = re.search(
-        r"All providers failed for chromium (\d+)",
-        install_output,
-    )
-    if build_id_match and chromium_cache_dir.exists():
-        build_id = build_id_match.group(1)
-        targets.update(chromium_cache_dir.glob(f"*{build_id}*"))
-
-    removed_any = False
-    for target in targets:
-        resolved_target = target.resolve(strict=False)
-        resolved_cache = cache_dir.resolve(strict=False)
-        if not (
-            resolved_target == resolved_cache
-            or resolved_cache in resolved_target.parents
-        ):
-            continue
-        if target.is_dir():
-            shutil.rmtree(target, ignore_errors=True)
-            removed_any = True
-            continue
-        if target.exists():
-            target.unlink(missing_ok=True)
-            removed_any = True
-
-    return removed_any
 
 
 def _get_install_failure_hint(install_output: str) -> str | None:
@@ -327,30 +158,14 @@ def _get_install_failure_hint(install_output: str) -> str | None:
     return None
 
 
-def _should_repair_puppeteer_install(output: str) -> bool:
-    lowered = (output or "").lower()
-    return (
-        "this.shim.parser.camelcase is not a function" in lowered
-        or "yargs/build/lib/command.js" in lowered
-    )
-
-
 def _emit_browser_binary_record(
     binary: Binary,
     name: str,
 ) -> None:
-    version = str(binary.version) if binary.version else ""
-    if not version and binary.abspath:
-        try:
-            detected_version = bin_version(binary.abspath)
-        except Exception:
-            detected_version = None
-        if detected_version:
-            version = str(detected_version)
     emit_installed_binary_record(
         name=name,
         abspath=str(binary.abspath),
-        version=version,
+        version=str(binary.version) if binary.version else "",
         sha256=binary.sha256 or "",
         binprovider="puppeteer",
     )
@@ -361,79 +176,23 @@ def _load_binary_from_path(path: str, name: str) -> Binary | None:
     if not raw_path:
         return None
     path_obj = Path(raw_path).expanduser()
-    overrides = cast(
-        dict[str, HandlerDict],
-        (
-            {"env": {"abspath": str(path_obj)}}
-            if raw_path.startswith(("~", ".", "/"))
-            or "/" in raw_path
-            or "\\" in raw_path
-            else {}
-        ),
+    overrides = (
+        {"env": {"abspath": str(path_obj)}}
+        if raw_path.startswith(("~", ".", "/")) or "/" in raw_path or "\\" in raw_path
+        else {}
     )
     try:
-        binary = Binary(
-            name=path_obj.name if overrides else (name or raw_path),
-            binproviders=[EnvProvider()],
-            overrides=overrides,
+        binary = Binary.model_validate(
+            {
+                "name": path_obj.name if overrides else (name or raw_path),
+                "binproviders": [EnvProvider()],
+                "overrides": overrides,
+            },
         ).load()
     except Exception:
         return None
     if binary and binary.abspath:
         return binary
-    return None
-
-
-def _load_browser_binary(output: str, name: str) -> Binary | None:
-    candidates: list[Path] = []
-    match = re.search(r"(?:chromium|chrome)@[^\s]+\s+(\S+)", output)
-    if match:
-        candidates.append(Path(match.group(1)))
-
-    cache_dirs: list[Path] = []
-    cache_env = load_config().PUPPETEER_CACHE_DIR
-    if cache_env:
-        cache_dirs.append(Path(cache_env))
-
-    home = Path.home()
-    cache_dirs.extend(
-        [
-            home / ".cache" / "puppeteer",
-            home / "Library" / "Caches" / "puppeteer",
-        ],
-    )
-
-    for base in cache_dirs:
-        for root in (base, base / name):
-            try:
-                candidates.extend(root.rglob("Chromium.app/Contents/MacOS/Chromium"))
-            except Exception:
-                pass
-            try:
-                candidates.extend(
-                    root.rglob(
-                        "Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
-                    ),
-                )
-            except Exception:
-                pass
-            try:
-                candidates.extend(root.rglob("chrome"))
-            except Exception:
-                pass
-
-    for candidate in candidates:
-        try:
-            binary = Binary(
-                name=name,
-                binproviders=[EnvProvider()],
-                overrides={"env": {"abspath": str(candidate)}},
-            ).load()
-        except Exception:
-            continue
-        if binary.abspath:
-            return binary
-
     return None
 
 

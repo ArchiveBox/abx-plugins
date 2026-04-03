@@ -12,7 +12,6 @@ import os
 import shutil
 import subprocess
 import tempfile
-import uuid
 from pathlib import Path
 
 import pytest
@@ -73,12 +72,6 @@ def get_trafilatura_binary_path() -> str | None:
 
     cmd = [
         *_script_cmd(pip_hook),
-        "--binary-id",
-        str(uuid.uuid4()),
-        "--machine-id",
-        str(uuid.uuid4()),
-        "--plugin-name",
-        "trafilatura",
         "--name",
         "trafilatura",
         f"--binproviders={binproviders}",

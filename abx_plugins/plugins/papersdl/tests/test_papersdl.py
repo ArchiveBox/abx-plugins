@@ -15,11 +15,13 @@ import json
 import os
 import subprocess
 import tempfile
-import uuid
 from pathlib import Path
 import pytest
 
-from abx_plugins.plugins.base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import (
+    get_hydrated_required_binaries,
+    parse_jsonl_output,
+)
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
@@ -32,8 +34,7 @@ TEST_URL = "https://example.com"
 # Module-level cache for binary path
 _papersdl_binary_path = None
 _papersdl_install_error = None
-_papersdl_home_root = None
-_papersdl_snap_root = None
+_papersdl_lib_root = None
 
 
 def require_papersdl_binary() -> str:
@@ -49,43 +50,42 @@ def require_papersdl_binary() -> str:
 
 def get_papersdl_binary_path():
     """Get the installed papers-dl binary path from cache or by running installation."""
-    global \
-        _papersdl_binary_path, \
-        _papersdl_install_error, \
-        _papersdl_home_root, \
-        _papersdl_snap_root
-    if _papersdl_binary_path:
+    global _papersdl_binary_path, _papersdl_install_error, _papersdl_lib_root
+    if _papersdl_binary_path and Path(_papersdl_binary_path).is_file():
         return _papersdl_binary_path
 
-    # Always validate installation path by running the real pip hook.
+    papersdl_record = next(
+        (
+            record
+            for record in get_hydrated_required_binaries(PLUGIN_DIR)
+            if record.get("name") == "papers-dl"
+        ),
+        None,
+    )
+    if not papersdl_record:
+        _papersdl_install_error = (
+            "papersdl config missing required_binaries entry for papers-dl"
+        )
+        return None
+
+    if not _papersdl_lib_root:
+        _papersdl_lib_root = tempfile.mkdtemp(prefix="papersdl-lib-")
+
     pip_hook = PLUGINS_ROOT / "pip" / "on_BinaryRequest__11_pip.py"
-    if pip_hook and pip_hook.exists():
-        binary_id = str(uuid.uuid4())
-        machine_id = str(uuid.uuid4())
-        if not _papersdl_home_root:
-            _papersdl_home_root = tempfile.mkdtemp(prefix="papersdl-lib-")
-        if not _papersdl_snap_root:
-            _papersdl_snap_root = tempfile.mkdtemp(prefix="papersdl-snap-")
+    cmd = [str(pip_hook)]
+    for key, value in papersdl_record.items():
+        if value is None:
+            continue
+        option = f"--{key.replace('_', '-')}"
+        if isinstance(value, str):
+            cmd.append(f"{option}={value}")
+        else:
+            cmd.append(f"{option}={json.dumps(value)}")
 
-        env = os.environ.copy()
-        env["HOME"] = str(_papersdl_home_root)
-        env["SNAP_DIR"] = str(_papersdl_snap_root)
-        env.pop("LIB_DIR", None)
+    env = os.environ.copy()
+    env["LIB_DIR"] = str(Path(_papersdl_lib_root))
 
-        cmd = [
-            str(pip_hook),
-            "--binary-id",
-            binary_id,
-            "--machine-id",
-            machine_id,
-            "--plugin-name",
-            "papersdl",
-            "--hook-name",
-            "required_binaries",
-            "--name",
-            "papers-dl",
-        ]
-
+    try:
         install_result = subprocess.run(
             cmd,
             capture_output=True,
@@ -93,28 +93,29 @@ def get_papersdl_binary_path():
             timeout=300,
             env=env,
         )
-
-        # Parse Binary from pip installation
-        for install_line in install_result.stdout.strip().split("\n"):
-            if install_line.strip():
-                try:
-                    install_record = json.loads(install_line)
-                    if (
-                        install_record.get("type") == "Binary"
-                        and install_record.get("name") == "papers-dl"
-                    ):
-                        _papersdl_binary_path = install_record.get("abspath")
-                        return _papersdl_binary_path
-                except json.JSONDecodeError:
-                    pass
-        _papersdl_install_error = (
-            f"pip hook failed with returncode={install_result.returncode}. "
-            f"stderr={install_result.stderr.strip()[:400]} "
-            f"stdout={install_result.stdout.strip()[:400]}"
-        )
+    except Exception as err:
+        _papersdl_install_error = f"pip hook execution failed: {err}"
         return None
 
-    _papersdl_install_error = f"pip hook not found: {pip_hook}"
+    for install_line in install_result.stdout.strip().split("\n"):
+        if not install_line.strip():
+            continue
+        try:
+            install_record = json.loads(install_line)
+        except json.JSONDecodeError:
+            continue
+        if (
+            install_record.get("type") == "Binary"
+            and install_record.get("name") == "papers-dl"
+        ):
+            _papersdl_binary_path = install_record.get("abspath")
+            return _papersdl_binary_path
+
+    _papersdl_install_error = (
+        f"pip hook failed with returncode={install_result.returncode}. "
+        f"stderr={install_result.stderr.strip()[:400]} "
+        f"stdout={install_result.stdout.strip()[:400]}"
+    )
     return None
 
 

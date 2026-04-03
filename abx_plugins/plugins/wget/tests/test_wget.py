@@ -18,7 +18,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import uuid
 from pathlib import Path
 
 import pytest
@@ -142,21 +141,9 @@ def test_can_install_wget_via_provider():
         f"Provider hook not found: {provider_hook}"
     )
 
-    # Test installation via provider hook
-    binary_id = str(uuid.uuid4())
-    machine_id = str(uuid.uuid4())
-
     result = subprocess.run(
         [
             str(provider_hook),
-            "--binary-id",
-            binary_id,
-            "--machine-id",
-            machine_id,
-            "--plugin-name",
-            "wget",
-            "--hook-name",
-            "required_binaries",
             "--name",
             "wget",
             "--binproviders",
@@ -231,14 +218,6 @@ def test_archives_example_com(local_example_url):
     install_result = subprocess.run(
         [
             str(provider_hook),
-            "--binary-id",
-            str(uuid.uuid4()),
-            "--machine-id",
-            str(uuid.uuid4()),
-            "--plugin-name",
-            "wget",
-            "--hook-name",
-            "required_binaries",
             "--name",
             "wget",
             "--binproviders",

@@ -164,9 +164,6 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     npm_result = subprocess.run(
         [
             str(NPM_BINARY_HOOK),
-            "--machine-id=test-machine",
-            "--binary-id=test-puppeteer",
-            "--plugin-name=puppeteer",
             "--name=puppeteer",
             f"--binproviders={puppeteer_record.get('binproviders', '*')}",
             "--overrides=" + json.dumps(puppeteer_record.get("overrides") or {}),
@@ -188,9 +185,6 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     browser_result = subprocess.run(
         [
             str(PUPPETEER_BINARY_HOOK),
-            "--machine-id=test-machine",
-            f"--binary-id=test-{browser_name}",
-            "--plugin-name=chrome",
             f"--name={chrome_record['name']}",
             f"--binproviders={chrome_record.get('binproviders', '*')}",
             "--overrides=" + json.dumps(chrome_record.get("overrides") or {}),

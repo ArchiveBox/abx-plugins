@@ -21,6 +21,7 @@ const {
     loadConfig,
     parseArgs,
     emitArchiveResultRecord,
+    writeFileAtomic,
 } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 
@@ -43,6 +44,7 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 process.chdir(OUTPUT_DIR);
 const OUTPUT_FILE = 'redirects.jsonl';
 const OUTPUT_PATH_STR = `${PLUGIN_DIR}/${OUTPUT_FILE}`;
+const PRENAV_MARKER_PATH = path.join(OUTPUT_DIR, 'prenav.json');
 const CHROME_SESSION_DIR = '../chrome';
 const JS_REDIRECT_SETTLE_MS = 10000;
 
@@ -222,6 +224,26 @@ async function setupRedirectListener() {
     return { browser: connection.browser, page };
 }
 
+function writePrenavMarker(status, extra = {}) {
+    writeFileAtomic(
+        PRENAV_MARKER_PATH,
+        JSON.stringify(
+            {
+                phase: 'pre_navigation',
+                status,
+                plugin: PLUGIN_NAME,
+                hook: path.basename(__filename),
+                pid: process.pid,
+                url: originalUrl,
+                timestamp: new Date().toISOString(),
+                ...extra,
+            },
+            null,
+            2,
+        ),
+    );
+}
+
 async function settleForLateRedirects(page, durationMs, intervalMs = 500) {
     const deadline = Date.now() + durationMs;
     while (Date.now() < deadline) {
@@ -297,10 +319,12 @@ async function main() {
     }
 
     const timeout = getEnvInt('REDIRECTS_TIMEOUT', 30) * 1000;
+    writePrenavMarker('starting');
 
     try {
         // Set up redirect listener BEFORE navigation
         await setupRedirectListener();
+        writePrenavMarker('ready');
 
         // Wait for navigation to settle, then leave extra time for late JS redirects.
         try {
@@ -314,6 +338,7 @@ async function main() {
     } catch (e) {
         const error = `${e.name}: ${e.message}`;
         console.error(`ERROR: ${error}`);
+        writePrenavMarker('failed', { error });
 
         await emitResult({
             type: 'ArchiveResult',
@@ -326,6 +351,7 @@ async function main() {
 
 main().catch(async (e) => {
     console.error(`Fatal error: ${e.message}`);
+    writePrenavMarker('failed', { error: `${e.name}: ${e.message}` });
     await emitResult({
         type: 'ArchiveResult',
         status: 'failed',

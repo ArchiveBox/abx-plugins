@@ -15,30 +15,17 @@
 # Usage:
 #     ./on_BinaryRequest__13_apt.py [...] > events.jsonl
 
-import sys
 import json
+import sys
 
 from abx_plugins.plugins.base.utils import (
     emit_installed_binary_record,
+    parse_extra_hook_args,
 )
 
 import rich_click as click
 
 from abx_pkg import AptProvider, Binary
-
-
-def _parse_extra_hook_args(args: list[str]) -> dict[str, object]:
-    parsed: dict[str, object] = {}
-    for arg in args:
-        if not arg.startswith("--") or "=" not in arg:
-            continue
-        key, raw_value = arg[2:].split("=", 1)
-        try:
-            value = json.loads(raw_value)
-        except json.JSONDecodeError:
-            value = raw_value
-        parsed[key.replace("-", "_")] = value
-    return parsed
 
 
 @click.command(
@@ -62,7 +49,7 @@ def main(
         sys.exit(0)  # Not an error, just skip
 
     # Use abx-pkg AptProvider to install binary
-    provider = AptProvider(postinstall_scripts=True, min_release_age=0)
+    provider = AptProvider()
     if not provider.INSTALLER_BIN_ABSPATH:
         click.echo(
             "AptProvider.INSTALLER_BIN is not available on this host",
@@ -73,25 +60,25 @@ def main(
     click.echo(f"Resolving {name} via apt (load or install)...", err=True)
 
     try:
-        extra_kwargs = _parse_extra_hook_args(click.get_current_context().args)
-        overrides_dict = json.loads(overrides) if overrides else {}
-        provider_overrides = overrides_dict.get("apt", {})
+        context = click.get_current_context(silent=True)
+        extra_kwargs = parse_extra_hook_args(context.args if context else [])
+        binary = Binary.model_validate(
+            {
+                **extra_kwargs,
+                "name": name,
+                "binproviders": [provider],
+                "min_version": min_version or extra_kwargs.get("min_version") or None,
+                "overrides": json.loads(overrides) if overrides else {},
+            },
+        )
+        provider_overrides = binary.overrides.get("apt", {})
         if provider_overrides:
             click.echo(
                 f"Using apt install overrides: {provider_overrides}",
                 err=True,
             )
 
-        request_kwargs = {
-            **extra_kwargs,
-            "name": name,
-            "binproviders": binproviders,
-            "min_version": min_version or None,
-            "overrides": overrides_dict,
-        }
-        binary = Binary(
-            **{**request_kwargs, "binproviders": [provider]},
-        ).load_or_install()
+        binary = binary.load_or_install()
     except Exception as e:
         click.echo(f"apt install failed: {e}", err=True)
         sys.exit(1)
