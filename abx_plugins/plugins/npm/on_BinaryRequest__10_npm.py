@@ -28,8 +28,7 @@ from abx_plugins.plugins.base.utils import (
 )
 
 import rich_click as click
-from abx_pkg.binary import Binary
-from abx_pkg.binprovider_npm import NpmProvider
+from abx_pkg import Binary, NpmProvider
 
 
 @click.command(

@@ -25,8 +25,7 @@ from abx_plugins.plugins.base.utils import (
 
 import rich_click as click
 
-from abx_pkg.binary import Binary
-from abx_pkg.binprovider_apt import AptProvider
+from abx_pkg import AptProvider, Binary
 
 
 @click.command(
