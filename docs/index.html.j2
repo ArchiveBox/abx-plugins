@@ -955,10 +955,10 @@
         align-items: center;
         gap: 6px;
         flex-wrap: wrap;
+        margin-left: auto;
       }
 
       .hook-card-phase {
-        margin-left: auto;
         font-size: 0.84rem;
         color: var(--muted);
         white-space: nowrap;
@@ -1636,8 +1636,8 @@ abx-dl 'https://example.com'</code></pre>
                   {% else %}
                   <span class="chip chip--fg">foreground</span>
                   {% endif %}
+                  <span class="hook-card-phase">{{ hook.phase }}</span>
                 </div>
-                <span class="hook-card-phase">{{ hook.phase }}</span>
               </article>
               {% endfor %}
             </div>
