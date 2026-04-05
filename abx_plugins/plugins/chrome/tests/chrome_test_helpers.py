@@ -1089,8 +1089,13 @@ def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
                 f"Chromium binary not found after install: {chromium_path}",
             )
 
-        env["CHROME_BINARY"] = chromium_path
         apply_machine_updates(records, env)
+        env["CHROME_BINARY"] = chromium_path
+
+        resolved = _resolve_existing_chromium(env)
+        if resolved:
+            env["CHROME_BINARY"] = resolved
+            return resolved
         return chromium_path
 
 
@@ -1529,6 +1534,7 @@ def chrome_session(
     test_url: str = "about:blank",
     navigate: bool = True,
     timeout: int = 15,
+    env_overrides: dict[str, str] | None = None,
 ):
     """Context manager for the full crawl -> snapshot -> optional navigate flow.
 
@@ -1556,6 +1562,7 @@ def chrome_session(
         test_url: URL to navigate to (if navigate=True)
         navigate: Whether to navigate to the URL after creating tab
         timeout: Seconds to wait for Chrome to start
+        env_overrides: Runtime env values to preserve from caller setup
 
     Yields:
         Tuple of (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env)
@@ -1589,6 +1596,8 @@ def chrome_session(
         xdg_cache_home = home_dir / ".cache"
         xdg_data_home = home_dir / ".local" / "share"
         env = os.environ.copy()
+        if env_overrides:
+            env.update(env_overrides)
 
         # Prefer an already-provisioned NODE_MODULES_DIR (set by session-level chrome fixture)
         # so we don't force per-test reinstall under tmp LIB_DIR paths.

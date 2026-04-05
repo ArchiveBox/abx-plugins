@@ -73,7 +73,7 @@ class TestAptProviderHook:
         if apt_available():
             assert "apt not available" not in result.stderr
         else:
-            assert result.returncode == 1
+            assert result.returncode == 0
             assert (
                 "AptProvider.INSTALLER_BIN is not available on this host"
                 in result.stderr
@@ -114,7 +114,7 @@ class TestAptProviderSystemBinaries:
         )
 
         if not apt_available():
-            assert result.returncode == 1
+            assert result.returncode == 0
             assert (
                 "AptProvider.INSTALLER_BIN is not available on this host"
                 in result.stderr

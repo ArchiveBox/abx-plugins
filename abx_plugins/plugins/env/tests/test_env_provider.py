@@ -39,7 +39,7 @@ class TestEnvProviderHook:
         """Env discovery should sort before install-capable provider hooks."""
         other_provider_hooks = [
             next((PLUGIN_DIR.parent / provider).glob("on_BinaryRequest__*.py"), None)
-            for provider in ("npm", "pip", "brew", "apt", "custom")
+            for provider in ("npm", "pip", "brew", "apt", "bash")
         ]
 
         assert INSTALL_HOOK is not None, "Env hook should exist"

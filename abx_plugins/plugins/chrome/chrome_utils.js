@@ -1899,12 +1899,56 @@ function getExtensionTargets(browser) {
 function findChromium() {
     const { execFileSync } = require('child_process');
 
+    const resolveWrappedBinaryTarget = (binaryPath) => {
+        if (!binaryPath || !fs.existsSync(binaryPath)) return binaryPath;
+        try {
+            const stat = fs.statSync(binaryPath);
+            if (!stat.isFile() || stat.size > 4096) return binaryPath;
+            const contents = fs.readFileSync(binaryPath, 'utf8');
+            if (!contents.startsWith('#!')) return binaryPath;
+            const execMatch = contents.match(/^exec\s+(.+?)\s+"\$@"\s*$/m);
+            if (!execMatch) return binaryPath;
+            const rawTarget = execMatch[1].trim();
+            const unquotedTarget = rawTarget.replace(/^['"]|['"]$/g, '');
+            return unquotedTarget || binaryPath;
+        } catch (e) {
+            return binaryPath;
+        }
+    };
+
+    const resolveMacAppBundle = (binaryPath) => {
+        const targetPath = resolveWrappedBinaryTarget(binaryPath);
+        if (!targetPath) return null;
+        const appMarker = `.app${path.sep}`;
+        const appIndex = targetPath.indexOf(appMarker);
+        if (appIndex === -1) return null;
+        return targetPath.slice(0, appIndex + 4);
+    };
+
+    const validateMacBrowserBundle = (binaryPath) => {
+        if (process.platform !== 'darwin') return true;
+        const appBundle = resolveMacAppBundle(binaryPath);
+        if (!appBundle) return true;
+        try {
+            execFileSync('spctl', ['-a', '-vv', appBundle], {
+                encoding: 'utf8',
+                timeout: 5000,
+                stdio: 'pipe',
+            });
+            return true;
+        } catch (e) {
+            const targetPath = resolveWrappedBinaryTarget(binaryPath);
+            console.error(`[!] Warning: rejecting unusable macOS browser bundle: ${targetPath}`);
+            return false;
+        }
+    };
+
     // Helper to validate a binary by running --version
     const validateBinary = (binaryPath) => {
         if (!binaryPath) return false;
         try {
             execFileSync(binaryPath, ['--version'], { encoding: 'utf8', timeout: 5000, stdio: 'pipe' });
-            return true;
+            return validateMacBrowserBundle(binaryPath);
         } catch (e) {
             return false;
         }
@@ -1973,11 +2017,8 @@ function findChromium() {
                     const versionDir = path.join(versionRoot, version);
                     const candidates = [
                         path.join(versionDir, 'chrome-mac-arm64/Chromium.app/Contents/MacOS/Chromium'),
-                        path.join(versionDir, 'chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing'),
                         path.join(versionDir, 'chrome-mac/Chromium.app/Contents/MacOS/Chromium'),
-                        path.join(versionDir, 'chrome-mac/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing'),
                         path.join(versionDir, 'chrome-mac-x64/Chromium.app/Contents/MacOS/Chromium'),
-                        path.join(versionDir, 'chrome-mac-x64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing'),
                         path.join(versionDir, 'chrome-linux64/chrome'),
                         path.join(versionDir, 'chrome-linux/chrome'),
                     ];
@@ -2017,6 +2058,10 @@ function findChromium() {
     const fallbackLocations = [
         // System Chromium
         '/Applications/Chromium.app/Contents/MacOS/Chromium',
+        // Last-resort system Chrome-family fallbacks for macOS when
+        // Puppeteer-managed Chromium builds are present but unusable.
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
         '/usr/bin/chromium',
         '/usr/bin/chromium-browser',
         // Puppeteer cache

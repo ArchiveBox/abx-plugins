@@ -21,7 +21,6 @@ SCREENSHOT_PLUGIN_DIR = Path(__file__).resolve().parent.parent
 CHROME_PLUGIN_DIR = SCREENSHOT_PLUGIN_DIR.parent / "chrome"
 PUPPETEER_PLUGIN_DIR = SCREENSHOT_PLUGIN_DIR.parent / "puppeteer"
 NPM_PLUGIN_DIR = SCREENSHOT_PLUGIN_DIR.parent / "npm"
-
 SCREENSHOT_HOOK = next(SCREENSHOT_PLUGIN_DIR.glob("on_Snapshot__*_screenshot.*"))
 CHROME_LAUNCH_HOOK = CHROME_PLUGIN_DIR / "on_CrawlSetup__90_chrome_launch.daemon.bg.js"
 CHROME_TAB_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__10_chrome_tab.daemon.bg.js"
@@ -120,8 +119,8 @@ def _wait_for_file(path: Path, process: subprocess.Popen[str], timeout: int) -> 
 @pytest.mark.parametrize("browser_name", ["chrome", "chromium"])
 def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     tmp_path: Path,
-    chrome_test_url: str,
     browser_name: str,
+    chrome_test_url: str,
 ):
     machine_type = _machine_type()
     crawl_id = f"browser-install-{browser_name}"

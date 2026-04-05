@@ -88,6 +88,19 @@ class TestRedirectsWithChrome:
                     env=env,
                 )
 
+                marker_path = Path(env["SNAP_DIR"]) / "redirects" / "prenav.json"
+                for _ in range(50):
+                    if marker_path.exists():
+                        marker = json.loads(marker_path.read_text())
+                        if marker.get("status") == "ready":
+                            break
+                    time.sleep(0.1)
+                else:
+                    stdout, stderr = result.communicate(timeout=20)
+                    pytest.fail(
+                        f"redirects hook never became ready\nstdout:\n{stdout}\nstderr:\n{stderr}",
+                    )
+
                 nav_result = subprocess.run(
                     [
                         str(CHROME_NAVIGATE_HOOK),

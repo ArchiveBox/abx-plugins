@@ -10,12 +10,12 @@
 # ]
 # ///
 #
-# Install a binary using a custom shell command defined in overrides.
+# Install a binary using a bash shell command defined in overrides.
 # This provider runs arbitrary shell commands to install binaries that don't fit
 # into standard package managers, outputting a Binary JSONL record to stdout.
 #
 # Usage:
-#     ./on_BinaryRequest__14_custom.py [...] > events.jsonl
+#     ./on_BinaryRequest__14_bash.py [...] > events.jsonl
 
 import sys
 import json
@@ -46,12 +46,8 @@ def main(
     """Install binary using bash shell commands defined in overrides."""
 
     allowed_providers = {provider.strip() for provider in binproviders.split(",")}
-    if (
-        binproviders != "*"
-        and "custom" not in allowed_providers
-        and "bash" not in allowed_providers
-    ):
-        click.echo(f"custom provider not allowed for {name}", err=True)
+    if binproviders != "*" and "bash" not in allowed_providers:
+        click.echo(f"bash provider not allowed for {name}", err=True)
         sys.exit(0)
 
     context = click.get_current_context(silent=True)
@@ -59,12 +55,10 @@ def main(
     raw_overrides = json.loads(overrides)
     if not isinstance(raw_overrides, dict):
         click.echo(
-            "custom provider requires overrides to decode to an object",
+            "bash provider requires overrides to decode to an object",
             err=True,
         )
         sys.exit(1)
-    if "bash" not in raw_overrides and "custom" in raw_overrides:
-        raw_overrides = {**raw_overrides, "bash": raw_overrides["custom"]}
 
     provider = BashProvider()
     binary = Binary.model_validate(
@@ -79,7 +73,7 @@ def main(
     bash_overrides = binary.overrides.get("bash", {})
     if "install" not in bash_overrides:
         click.echo(
-            "custom provider requires overrides.custom.install or overrides.bash.install",
+            "bash provider requires overrides.bash.install",
             err=True,
         )
         sys.exit(1)
@@ -87,11 +81,11 @@ def main(
     try:
         binary = binary.load_or_install()
     except Exception as e:
-        click.echo(f"custom install failed: {e}", err=True)
+        click.echo(f"bash install failed: {e}", err=True)
         sys.exit(1)
 
     if not binary.abspath:
-        click.echo(f"{name} not found after custom install", err=True)
+        click.echo(f"{name} not found after bash install", err=True)
         sys.exit(1)
 
     # Output Binary JSONL record to stdout
@@ -100,7 +94,7 @@ def main(
         abspath=str(binary.abspath),
         version=str(binary.version) if binary.version else "",
         sha256=binary.sha256 or "",
-        binprovider="custom",
+        binprovider="bash",
     )
 
     # Log human-readable info to stderr

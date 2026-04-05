@@ -86,28 +86,22 @@ async function takeScreenshot(url) {
 
     try {
         const captureTimeoutMs = Math.max(timeoutMs, 10000);
-        const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Screenshot capture timed out')), captureTimeoutMs);
-        });
-
-        await page.bringToFront();
-        try {
-            await Promise.race([
-                page.screenshot({ path: tempOutputPath, fullPage: true }),
-                timeoutPromise,
-            ]);
-        } catch (err) {
-            if (!(err instanceof Error) || !err.message.includes('timed out')) {
-                throw err;
-            }
-            // Some Chromium builds hang on full-page capture against local fixture pages.
-            // Fall back to viewport capture before failing the hook.
-            await page.screenshot({ path: tempOutputPath, fullPage: false });
-        }
+        await Promise.race([
+            page.bringToFront(),
+            new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Screenshot capture timed out')), captureTimeoutMs);
+            }),
+        ]);
+        await Promise.race([
+            page.screenshot({ path: tempOutputPath, fullPage: false }),
+            new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Screenshot capture timed out')), captureTimeoutMs);
+            }),
+        ]);
 
         fs.renameSync(tempOutputPath, outputPath);
 
-    return OUTPUT_FILE;
+        return OUTPUT_FILE;
 
     } finally {
         // Disconnect from browser (don't close it - we're connected to a shared session)
