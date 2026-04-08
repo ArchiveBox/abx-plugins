@@ -561,5 +561,41 @@ def test_session_fixture_preserves_runtime_chrome_binary_override(
     assert os.environ["CHROME_BINARY"] == str(runtime_binary)
 
 
+def test_session_fixture_replaces_stale_runtime_chrome_binary_override(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Session fixture should replace an invalid stale CHROME_BINARY."""
+    import abx_plugins.plugins.chrome.tests.chrome_test_helpers as helpers
+
+    installed_binary = tmp_path / "hook-chromium"
+    installed_binary.write_text("#!/bin/sh\necho installed\n")
+    installed_binary.chmod(0o755)
+    stale_binary = tmp_path / "missing-chromium"
+
+    class DummyTmpPathFactory:
+        def mktemp(self, name: str) -> Path:
+            path = tmp_path / name
+            path.mkdir(parents=True, exist_ok=True)
+            return path
+
+    monkeypatch.setenv("CHROME_BINARY", str(stale_binary))
+    monkeypatch.delenv("SNAP_DIR", raising=False)
+    monkeypatch.delenv("PERSONAS_DIR", raising=False)
+    monkeypatch.setattr(helpers, "get_test_env", lambda: {})
+    monkeypatch.setattr(
+        helpers,
+        "install_chromium_with_hooks",
+        lambda env: str(installed_binary),
+    )
+
+    resolved = helpers.ensure_chromium_and_puppeteer_installed_impl(
+        DummyTmpPathFactory(),
+    )
+
+    assert resolved == str(installed_binary)
+    assert os.environ["CHROME_BINARY"] == str(installed_binary)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

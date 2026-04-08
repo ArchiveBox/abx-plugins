@@ -461,7 +461,9 @@ def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
     if not chromium_binary:
         raise RuntimeError("Chromium not found after install")
 
-    os.environ.setdefault("CHROME_BINARY", chromium_binary)
+    existing_chrome_binary = os.environ.get("CHROME_BINARY")
+    if not existing_chrome_binary or not Path(existing_chrome_binary).exists():
+        os.environ["CHROME_BINARY"] = chromium_binary
     for key in ("NODE_MODULES_DIR", "NODE_PATH", "PATH"):
         if env.get(key):
             os.environ[key] = env[key]

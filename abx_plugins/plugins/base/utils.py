@@ -184,7 +184,25 @@ def _coerce_raw_value(
     if not isinstance(raw_value, str):
         return raw_value
     if persisted:
-        return _parse_config_value(raw_value)
+        parsed_value = _parse_config_value(raw_value)
+        schema_types = _schema_types(prop)
+        if not schema_types:
+            return parsed_value
+        if parsed_value is None:
+            return parsed_value if "null" in schema_types else raw_value
+        if isinstance(parsed_value, bool):
+            return parsed_value if "boolean" in schema_types else raw_value
+        if isinstance(parsed_value, int):
+            return parsed_value if {"integer", "number"} & schema_types else raw_value
+        if isinstance(parsed_value, float):
+            return parsed_value if "number" in schema_types else raw_value
+        if isinstance(parsed_value, str):
+            return parsed_value if "string" in schema_types else raw_value
+        if isinstance(parsed_value, list):
+            return parsed_value if "array" in schema_types else raw_value
+        if isinstance(parsed_value, dict):
+            return parsed_value if "object" in schema_types else raw_value
+        return raw_value
     if _schema_types(prop) & {"array", "object"}:
         return _parse_config_value(raw_value)
     return raw_value

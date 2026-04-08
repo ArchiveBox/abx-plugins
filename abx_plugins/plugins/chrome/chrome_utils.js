@@ -1168,14 +1168,6 @@ async function killChrome(pid, outputDir = null) {
  * @returns {Promise<Object>} - {success, binary, version, error}
  */
 async function installChromium(options = {}) {
-    // Check if CHROME_BINARY is already set and valid
-    const configuredBinary = getEnv('CHROME_BINARY');
-    const resolvedConfiguredBinary = resolveBinaryReference(configuredBinary);
-    if (resolvedConfiguredBinary) {
-        console.error(`[+] Using configured CHROME_BINARY: ${resolvedConfiguredBinary}`);
-        return { success: true, binary: resolvedConfiguredBinary, version: null };
-    }
-
     // Try to load @puppeteer/browsers from NODE_MODULES_DIR or system
     let puppeteerBrowsers;
     try {
@@ -1887,11 +1879,9 @@ function getExtensionTargets(browser) {
  * browser at the environment layer:
  * 1. `CHROME_BINARY`, if explicitly provided at runtime
  * 2. hook-managed installs under `LIB_DIR`
- * 3. Puppeteer cache locations
- * 4. system Chromium locations
  *
  * This helper is intentionally Chromium-oriented. It should not guess at
- * unrelated branded browsers or `/Applications/*` installs when a runtime
+ * unrelated branded browsers or ambient host installs when a runtime
  * override or hook-managed browser is expected to be authoritative.
  *
  * @returns {string|null} - Absolute path to browser binary or null if not found
@@ -1916,39 +1906,12 @@ function findChromium() {
         }
     };
 
-    const resolveMacAppBundle = (binaryPath) => {
-        const targetPath = resolveWrappedBinaryTarget(binaryPath);
-        if (!targetPath) return null;
-        const appMarker = `.app${path.sep}`;
-        const appIndex = targetPath.indexOf(appMarker);
-        if (appIndex === -1) return null;
-        return targetPath.slice(0, appIndex + 4);
-    };
-
-    const validateMacBrowserBundle = (binaryPath) => {
-        if (process.platform !== 'darwin') return true;
-        const appBundle = resolveMacAppBundle(binaryPath);
-        if (!appBundle) return true;
-        try {
-            execFileSync('spctl', ['-a', '-vv', appBundle], {
-                encoding: 'utf8',
-                timeout: 5000,
-                stdio: 'pipe',
-            });
-            return true;
-        } catch (e) {
-            const targetPath = resolveWrappedBinaryTarget(binaryPath);
-            console.error(`[!] Warning: rejecting unusable macOS browser bundle: ${targetPath}`);
-            return false;
-        }
-    };
-
     // Helper to validate a binary by running --version
     const validateBinary = (binaryPath) => {
         if (!binaryPath) return false;
         try {
             execFileSync(binaryPath, ['--version'], { encoding: 'utf8', timeout: 5000, stdio: 'pipe' });
-            return validateMacBrowserBundle(binaryPath);
+            return true;
         } catch (e) {
             return false;
         }
@@ -1986,9 +1949,9 @@ function findChromium() {
         console.error(`[!] Warning: CHROME_BINARY="${chromeBinary}" is not valid`);
     }
 
-    // 2. Warn that no CHROME_BINARY is configured, searching fallbacks
+    // 2. Warn that no CHROME_BINARY is configured, searching managed installs
     if (!chromeBinary) {
-        console.error('[!] Warning: CHROME_BINARY not set, searching system locations...');
+        console.error('[!] Warning: CHROME_BINARY not set, searching managed installs...');
     }
 
     // Helper to find Chromium in @puppeteer/browsers directory structure
@@ -2051,32 +2014,6 @@ function findChromium() {
             if (libPuppeteerBinary && validateBinary(libPuppeteerBinary)) {
                 return libPuppeteerBinary;
             }
-        }
-    }
-
-    // 4. Search fallback locations (Chromium only)
-    const fallbackLocations = [
-        // System Chromium
-        '/Applications/Chromium.app/Contents/MacOS/Chromium',
-        // Last-resort system Chrome-family fallbacks for macOS when
-        // Puppeteer-managed Chromium builds are present but unusable.
-        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-        '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
-        '/usr/bin/chromium',
-        '/usr/bin/chromium-browser',
-        // Puppeteer cache
-        path.join(process.env.HOME || '', '.cache/puppeteer'),
-        path.join(process.env.HOME || '', 'Library/Caches/puppeteer'),
-    ];
-
-    for (const loc of fallbackLocations) {
-        if (loc.endsWith('/puppeteer') || loc.endsWith('\\puppeteer')) {
-            const binary = findInPuppeteerDir(loc);
-            if (binary && validateBinary(binary)) {
-                return binary;
-            }
-        } else if (validateBinary(loc)) {
-            return loc;
         }
     }
 
