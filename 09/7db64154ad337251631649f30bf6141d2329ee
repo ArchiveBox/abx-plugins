@@ -1,0 +1,29 @@
+abx_plugins/plugins/base/utils.py
+  14bfe3eeffa5cb05 187-205
+abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py
+  14bfe3eeffa5cb05 564-599
+abx_plugins/plugins/chrome/chrome_utils.js
+  14bfe3eeffa5cb05 1884,1914,1952,1954
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  14bfe3eeffa5cb05 464-466
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "097db64154ad337251631649f30bf6141d2329ee",
+  "prompts": {
+    "14bfe3eeffa5cb05": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d4ce3-98c2-74e3-9c5c-3e93dae0e2f4",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting",
+      "messages": [],
+      "total_additions": 62,
+      "total_deletions": 69,
+      "accepted_lines": 62,
+      "overriden_lines": 0
+    }
+  }
+}
