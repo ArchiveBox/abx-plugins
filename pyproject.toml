@@ -20,7 +20,7 @@ classifiers = [
     "Environment :: Console",
 ]
 dependencies = [
-    "abx-pkg>=1.9.27",
+    "abxpkg>=1.10.4",
     "jambo>=0.1.7",
     "rich-click>=1.9.7",
     "uv>=0.8.22",
@@ -62,7 +62,7 @@ addopts = ["-p", "abx_plugins.pytest_bootstrap", "-p", "no:cacheprovider"]
 
 [tool.uv]
 exclude-newer = "14 days"
-exclude-newer-package = { abx-pkg = "1 second"}
+exclude-newer-package = { abxpkg = "1 second"}
 
 [tool.pyright]
 include = [
@@ -70,8 +70,8 @@ include = [
     "tests",
 ]
 extraPaths = [
-    "abx-pkg",
-    "../abx-pkg",
+    "abxpkg",
+    "../abxpkg",
 ]
 exclude = [
     ".venv",
