@@ -36,9 +36,9 @@ jobs:
         with:
           depth: 0
 
-      - name: Clone abxbus, abx-pkg, abx-dl, archivebox
+      - name: Clone abxbus, abxpkg, abx-dl, archivebox
         run: |
-          git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git "${{ runner.workspace }}/abx-pkg"
+          git clone --depth=1 https://github.com/ArchiveBox/abxpkg.git "${{ runner.workspace }}/abxpkg"
           git clone --depth=1 https://github.com/ArchiveBox/abxbus.git "${{ runner.workspace }}/abxbus"
           git clone --depth=1 https://github.com/ArchiveBox/abx-dl.git "${{ runner.workspace }}/abx-dl"
           git clone --depth=1 https://github.com/ArchiveBox/ArchiveBox.git "${{ runner.workspace }}/archivebox"
@@ -81,7 +81,7 @@ jobs:
           uv sync --dev --all-extras --no-sources
           uv pip install -e '../abxbus'
           uv pip install -e '../abx-dl'
-          uv pip install -e '../abx-pkg'
+          uv pip install -e '../abxpkg'
           uv pip install -e '../archivebox'
           uv pip install --no-deps -e ".[dev]"
           
@@ -102,7 +102,7 @@ jobs:
           # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
           prompt: |
             Always use `uv run` e.g. `uv run pytest ...` and never python directly. Always use `uv run ruff check`, `uv run pyright`, `uv run ty check` and never `py_compile` to check syntax.
-            You can `uv pip install -e ../{abx-pkg,abxbus,archivebox}` or explore the source of those related packages if needed to understand the orchestrator or abxbus interfaces,
+            You can `uv pip install -e ../{abxpkg,abxbus,archivebox}` or explore the source of those related packages if needed to understand the orchestrator or abxbus interfaces,
             but any changes to those repos will not be persisted. Use `abx-dl --plugins=pluginname --output=/some/tmp/dir 'https://example.com'` to test and dont rely on pytest alone.
 
             Plugin required_binaries install must succeed locally / in the test environment when running `abx-dl install pluginname` (uv pip install -e ../abx-dl.

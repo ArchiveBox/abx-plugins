@@ -6,7 +6,7 @@
 #   "jambo",
 #   "click",
 #   "rich-click",
-#   "abx-pkg>=1.9.27",
+#   "abxpkg>=1.10.4",
 #   "abx-plugins>=1.10.27",
 # ]
 # ///
@@ -37,7 +37,7 @@ from abx_plugins.plugins.base.utils import (
 
 import rich_click as click
 
-from abx_pkg import (
+from abxpkg import (
     Binary,
     EnvProvider,
     PipProvider,
@@ -164,11 +164,11 @@ def main(
                 preferred_python = candidate_path
                 break
     with _locked_pip_venv(pip_lock_path):
-        # Repair partially created shared venvs before delegating to abx-pkg.
+        # Repair partially created shared venvs before delegating to abxpkg.
         if preferred_python and not _pip_venv_is_ready(pip_venv_path):
             _seed_pip_venv(pip_venv_path, preferred_python)
 
-        # Use abx-pkg PipProvider to install binary with custom venv
+        # Use abxpkg PipProvider to install binary with custom venv
         provider = PipProvider(pip_venv=pip_venv_path)
         if not provider.INSTALLER_BIN_ABSPATH:
             click.echo("pip not available on this system", err=True)

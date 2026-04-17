@@ -4,7 +4,7 @@ Integration tests for singlefile plugin
 Tests verify:
 1. Hook scripts exist with correct naming
 2. CLI-based singlefile extraction works
-3. Dependencies available via abx-pkg
+3. Dependencies available via abxpkg
 4. Output contains valid HTML
 5. Connects to Chrome session via CDP when available
 6. Works with extensions loaded (ublock, etc.)
@@ -184,9 +184,9 @@ process.stdout.write(JSON.stringify({{ freshBudget, elapsedBudget, minimumBudget
     assert payload["minimumBudget"] == 3000
 
 
-def test_verify_deps_with_abx_pkg():
-    """Verify dependencies are available via abx-pkg."""
-    from abx_pkg import Binary, EnvProvider
+def test_verify_deps_with_abxpkg():
+    """Verify dependencies are available via abxpkg."""
+    from abxpkg import Binary, EnvProvider
 
     # Verify node is available
     node_binary = Binary(name="node", binproviders=[EnvProvider()])

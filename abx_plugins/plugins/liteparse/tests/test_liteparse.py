@@ -40,12 +40,12 @@ _liteparse_binary_path = None
 
 
 def get_liteparse_binary_path() -> str | None:
-    """Get lit binary path, installing via abx_pkg if needed."""
+    """Get lit binary path, installing via abxpkg if needed."""
     global _liteparse_binary_path
     if _liteparse_binary_path and Path(_liteparse_binary_path).is_file():
         return _liteparse_binary_path
 
-    from abx_pkg import Binary, NpmProvider, EnvProvider
+    from abxpkg import Binary, NpmProvider, EnvProvider
 
     binary = Binary(
         name="lit",
@@ -110,7 +110,7 @@ def test_crawl_hook_emits_lit_binary_request_record():
 
 
 def test_verify_deps_with_install_hooks():
-    """Verify lit binary can be installed and resolved via abx_pkg and hooks."""
+    """Verify lit binary can be installed and resolved via abxpkg and hooks."""
     binary_path = require_liteparse_binary()
     assert Path(binary_path).is_file(), (
         f"Binary path must be a valid file: {binary_path}"

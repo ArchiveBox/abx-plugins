@@ -109,13 +109,13 @@ PY
 }
 
 update_internal_dependencies() {
-    local abx_pkg_version
+    local abxpkg_version
 
-    if ! abx_pkg_version="$(read_repo_version "${WORKSPACE_DIR}/abx-pkg")"; then
+    if ! abxpkg_version="$(read_repo_version "${WORKSPACE_DIR}/abxpkg")"; then
         return 0
     fi
 
-    python3 - "${abx_pkg_version}" <<'PY'
+    python3 - "${abxpkg_version}" <<'PY'
 from pathlib import Path
 import re
 import sys
@@ -123,7 +123,7 @@ import sys
 version = sys.argv[1]
 path = Path('pyproject.toml')
 text = path.read_text()
-updated, count = re.subn(r'("abx-pkg>=)[^"]+(")', rf'\g<1>{version}\2', text)
+updated, count = re.subn(r'("abxpkg>=)[^"]+(")', rf'\g<1>{version}\2', text)
 if count:
     path.write_text(updated)
 PY

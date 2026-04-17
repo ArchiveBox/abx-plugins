@@ -5,7 +5,7 @@ import conftest
 import pytest
 from _pytest.outcomes import Failed
 
-from abx_pkg import Binary
+from abxpkg import Binary
 
 
 def test_require_chrome_runtime_loads_node_and_npm(monkeypatch: pytest.MonkeyPatch):

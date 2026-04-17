@@ -4,7 +4,7 @@ Integration tests for papersdl plugin
 Tests verify:
 1. Hook script exists
 2. Dependencies installed via validation hooks
-3. Verify deps with abx-pkg
+3. Verify deps with abxpkg
 4. Paper extraction works on paper URLs
 5. JSONL output is correct
 6. Config options work
@@ -124,7 +124,7 @@ def test_hook_script_exists():
     assert PAPERSDL_HOOK.exists(), f"Hook not found: {PAPERSDL_HOOK}"
 
 
-def test_verify_deps_with_abx_pkg():
+def test_verify_deps_with_abxpkg():
     """Verify papers-dl is installed by calling the REAL installation hooks."""
     binary_path = require_papersdl_binary()
     assert Path(binary_path).is_file(), (

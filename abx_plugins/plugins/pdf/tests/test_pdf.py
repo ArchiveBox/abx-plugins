@@ -5,7 +5,7 @@ Tests verify:
     pass
 1. Hook script exists
 2. Dependencies installed via chrome validation hooks
-3. Verify deps with abx-pkg
+3. Verify deps with abxpkg
 4. PDF extraction works on https://example.com
 5. JSONL output is correct
 6. Filesystem output is valid PDF file
@@ -48,9 +48,9 @@ def test_hook_script_exists():
     assert PDF_HOOK.exists(), f"Hook not found: {PDF_HOOK}"
 
 
-def test_verify_deps_with_abx_pkg():
-    """Verify dependencies are available via abx-pkg after hook installation."""
-    from abx_pkg import Binary, EnvProvider
+def test_verify_deps_with_abxpkg():
+    """Verify dependencies are available via abxpkg after hook installation."""
+    from abxpkg import Binary, EnvProvider
 
     # Verify node is available
     node_binary = Binary(name="node", binproviders=[EnvProvider()])

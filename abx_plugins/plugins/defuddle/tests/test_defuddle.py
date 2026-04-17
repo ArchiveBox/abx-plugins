@@ -51,12 +51,12 @@ def require_defuddle_binary() -> str:
 
 
 def get_defuddle_binary_path() -> str | None:
-    """Get defuddle binary path, installing via abx_pkg if needed."""
+    """Get defuddle binary path, installing via abxpkg if needed."""
     global _defuddle_binary_path
     if _defuddle_binary_path and Path(_defuddle_binary_path).is_file():
         return _defuddle_binary_path
 
-    from abx_pkg import Binary, EnvProvider, NpmProvider
+    from abxpkg import Binary, EnvProvider, NpmProvider
 
     binary = Binary(
         name="defuddle",
@@ -117,7 +117,7 @@ def test_reports_missing_dependency_when_not_installed():
         assert "defuddle" in result.stderr.lower() or "error" in result.stderr.lower()
 
 
-def test_verify_deps_with_abx_pkg():
+def test_verify_deps_with_abxpkg():
     binary_path = require_defuddle_binary()
     assert Path(binary_path).is_file()
 

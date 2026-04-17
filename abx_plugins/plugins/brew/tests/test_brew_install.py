@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from abx_pkg import Binary, BrewProvider
+from abxpkg import Binary, BrewProvider
 
 
 PLUGIN_DIR = Path(__file__).resolve().parent.parent

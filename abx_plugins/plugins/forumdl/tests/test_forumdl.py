@@ -5,7 +5,7 @@ Tests verify:
     pass
 1. Hook script exists
 2. Dependencies installed via validation hooks
-3. Verify deps with abx-pkg
+3. Verify deps with abxpkg
 4. Forum extraction works on forum URLs
 5. JSONL output is correct
 6. Config options work
@@ -45,12 +45,12 @@ def require_forumdl_binary() -> str:
 
 
 def get_forumdl_binary_path() -> str | None:
-    """Get forum-dl binary path, installing via abx_pkg if needed."""
+    """Get forum-dl binary path, installing via abxpkg if needed."""
     global _forumdl_binary_path
     if _forumdl_binary_path:
         return _forumdl_binary_path
 
-    from abx_pkg import Binary, PipProvider, EnvProvider
+    from abxpkg import Binary, PipProvider, EnvProvider
 
     binary = Binary(
         name="forum-dl",
@@ -87,7 +87,7 @@ def test_hook_script_exists():
     assert FORUMDL_HOOK.exists(), f"Hook not found: {FORUMDL_HOOK}"
 
 
-def test_verify_deps_with_abx_pkg():
+def test_verify_deps_with_abxpkg():
     """Verify forum-dl is installed by calling the REAL installation hooks."""
     binary_path = require_forumdl_binary()
     assert Path(binary_path).is_file(), (

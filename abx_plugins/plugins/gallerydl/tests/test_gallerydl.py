@@ -5,7 +5,7 @@ Tests verify:
     pass
 1. Hook script exists
 2. Dependencies installed via validation hooks
-3. Verify deps with abx-pkg
+3. Verify deps with abxpkg
 4. Gallery extraction works on gallery URLs
 5. JSONL output is correct
 6. Config options work
@@ -45,12 +45,12 @@ def require_gallerydl_binary() -> str:
 
 
 def get_gallerydl_binary_path() -> str | None:
-    """Get gallery-dl binary path, installing via abx_pkg if needed."""
+    """Get gallery-dl binary path, installing via abxpkg if needed."""
     global _gallerydl_binary_path
     if _gallerydl_binary_path and Path(_gallerydl_binary_path).is_file():
         return _gallerydl_binary_path
 
-    from abx_pkg import Binary, PipProvider, EnvProvider
+    from abxpkg import Binary, PipProvider, EnvProvider
 
     binary = Binary(
         name="gallery-dl",
@@ -68,7 +68,7 @@ def test_hook_script_exists():
     assert GALLERYDL_HOOK.exists(), f"Hook not found: {GALLERYDL_HOOK}"
 
 
-def test_verify_deps_with_abx_pkg():
+def test_verify_deps_with_abxpkg():
     """Verify gallery-dl resolves through the real dependency preflight."""
     binary_path = require_gallerydl_binary()
     assert Path(binary_path).is_file(), (

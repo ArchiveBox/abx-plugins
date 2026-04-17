@@ -14,8 +14,8 @@ FORBIDDEN_TOKENS = (
     r"\bPipProvider\(",
     r"\bBrewProvider\(",
     r"\bAptProvider\(",
-    r"\bfrom abx_pkg\b",
-    r"\bimport abx_pkg\b",
+    r"\bfrom abxpkg\b",
+    r"\bimport abxpkg\b",
     r"\bshutil\.which\(",
     r"\bemit_installed_binary_record\([^)]*abspath=",
     r"\bemit_installed_binary_record\([^)]*binprovider=",
@@ -66,8 +66,8 @@ def test_non_binary_hooks_only_emit_binary_events() -> None:
                 failures.append(f"{rel}:{match.start()} matched /{pattern}/")
 
     assert not failures, (
-        "Non-on_BinaryRequest hooks must not instantiate abx_pkg Binary/provider objects "
-        "or import abx_pkg directly. They should emit BinaryRequest events and let the "
+        "Non-on_BinaryRequest hooks must not instantiate abxpkg Binary/provider objects "
+        "or import abxpkg directly. They should emit BinaryRequest events and let the "
         "on_BinaryRequest hooks resolve/install them:\n" + "\n".join(failures)
     )
 
@@ -84,5 +84,5 @@ def test_no_shutil_which_outside_tests() -> None:
 
     assert not failures, (
         "shutil.which() is banned in non-test abx_plugins code. "
-        "Use abx-pkg-backed resolution helpers instead:\n" + "\n".join(failures)
+        "Use abxpkg-backed resolution helpers instead:\n" + "\n".join(failures)
     )

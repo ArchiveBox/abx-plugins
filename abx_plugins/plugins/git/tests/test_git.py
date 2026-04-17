@@ -4,7 +4,7 @@ Integration tests for git plugin
 Tests verify:
     pass
 1. Validate hook checks for git binary
-2. Verify deps with abx-pkg
+2. Verify deps with abxpkg
 3. Standalone git extractor execution
 """
 
@@ -23,16 +23,16 @@ _GIT_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_git.*"), None)
 if _GIT_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 GIT_HOOK = _GIT_HOOK
-TEST_URL = "https://github.com/ArchiveBox/abx-pkg.git"
+TEST_URL = "https://github.com/ArchiveBox/abxpkg.git"
 
 
 def test_hook_script_exists():
     assert GIT_HOOK.exists()
 
 
-def test_verify_deps_with_abx_pkg():
-    """Verify git is available via abx-pkg."""
-    from abx_pkg import Binary, AptProvider, BrewProvider, EnvProvider
+def test_verify_deps_with_abxpkg():
+    """Verify git is available via abxpkg."""
+    from abxpkg import Binary, AptProvider, BrewProvider, EnvProvider
 
     try:
         apt_provider = AptProvider()
@@ -112,7 +112,7 @@ def test_real_git_repo():
         tmpdir = Path(tmpdir)
 
         # Use a real but small GitHub repository
-        git_url = "https://github.com/ArchiveBox/abx-pkg"
+        git_url = "https://github.com/ArchiveBox/abxpkg"
 
         env = os.environ.copy()
         env["GIT_TIMEOUT"] = "120"  # Give it time to clone

@@ -5,7 +5,7 @@
 #   "pydantic-settings",
 #   "jambo",
 #   "rich-click",
-#   "abx-pkg>=1.9.27",
+#   "abxpkg>=1.10.4",
 #   "abx-plugins>=1.10.27",
 # ]
 # ///
@@ -27,7 +27,7 @@ from abx_plugins.plugins.base.utils import (
 
 import rich_click as click
 
-from abx_pkg import BashProvider, Binary
+from abxpkg import BashProvider, Binary
 
 
 @click.command(

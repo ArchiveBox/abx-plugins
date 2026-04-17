@@ -3,7 +3,7 @@ Integration tests for ytdlp plugin
 
 Tests verify:
 1. Hook script exists
-2. Verify deps with abx-pkg
+2. Verify deps with abxpkg
 3. YT-DLP extraction works on video URLs
 4. JSONL output is correct
 5. Config options work (YTDLP_ENABLED, YTDLP_TIMEOUT)
@@ -92,12 +92,12 @@ def require_ytdlp_binary() -> str:
 
 
 def get_ytdlp_binary_path() -> str | None:
-    """Get yt-dlp binary path, installing via abx_pkg if needed."""
+    """Get yt-dlp binary path, installing via abxpkg if needed."""
     global _ytdlp_binary_path
     if _ytdlp_binary_path and Path(_ytdlp_binary_path).is_file():
         return _ytdlp_binary_path
 
-    from abx_pkg import Binary, PipProvider, EnvProvider
+    from abxpkg import Binary, PipProvider, EnvProvider
 
     binary = Binary(
         name="yt-dlp",
@@ -113,7 +113,7 @@ def get_ytdlp_binary_path() -> str | None:
 
 def require_ffmpeg_binary() -> str:
     """Return ffmpeg binary path or fail with actionable context."""
-    from abx_pkg import AptProvider, Binary, BrewProvider, EnvProvider
+    from abxpkg import AptProvider, Binary, BrewProvider, EnvProvider
 
     binary = Binary(
         name="ffmpeg",
@@ -132,7 +132,7 @@ def test_hook_script_exists():
     assert YTDLP_HOOK.exists(), f"Hook not found: {YTDLP_HOOK}"
 
 
-def test_verify_deps_with_abx_pkg():
+def test_verify_deps_with_abxpkg():
     """Verify yt-dlp resolves through the real dependency preflight."""
     binary_path = require_ytdlp_binary()
     assert Path(binary_path).is_file(), (

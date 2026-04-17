@@ -5,7 +5,7 @@
 #   "pydantic-settings",
 #   "jambo",
 #   "rich-click",
-#   "abx-pkg>=1.9.27",
+#   "abxpkg>=1.10.4",
 #   "abx-plugins>=1.10.27",
 # ]
 # ///
@@ -25,7 +25,7 @@ from abx_plugins.plugins.base.utils import (
 
 import rich_click as click
 
-from abx_pkg import AptProvider, Binary
+from abxpkg import AptProvider, Binary
 
 
 @click.command(
@@ -48,7 +48,7 @@ def main(
         click.echo(f"apt provider not allowed for {name}", err=True)
         sys.exit(0)  # Not an error, just skip
 
-    # Use abx-pkg AptProvider to install binary
+    # Use abxpkg AptProvider to install binary
     provider = AptProvider()
     if not provider.INSTALLER_BIN_ABSPATH:
         click.echo(

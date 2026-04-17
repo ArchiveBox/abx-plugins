@@ -5,7 +5,7 @@
 #   "pydantic-settings",
 #   "jambo",
 #   "rich-click",
-#   "abx-pkg>=1.9.27",
+#   "abxpkg>=1.10.4",
 #   "abx-plugins>=1.10.27",
 # ]
 # ///
@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 import sys
 import rich_click as click
-from abx_pkg import Binary, BrewProvider
+from abxpkg import Binary, BrewProvider
 
 from abx_plugins.plugins.base.utils import (
     emit_installed_binary_record,
@@ -48,7 +48,7 @@ def main(
         click.echo(f"brew provider not allowed for {name}", err=True)
         sys.exit(0)
 
-    # Use abx-pkg BrewProvider to install binary
+    # Use abxpkg BrewProvider to install binary
     provider = BrewProvider()
     if not provider.INSTALLER_BIN_ABSPATH:
         click.echo("brew not available on this system", err=True)

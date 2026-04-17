@@ -4,7 +4,7 @@ Integration tests for wget plugin
 Tests verify:
     pass
 1. Validate hook checks for wget binary
-2. Verify deps with abx-pkg
+2. Verify deps with abxpkg
 3. Config options work (WGET_ENABLED, WGET_SAVE_WARC, etc.)
 4. Extraction works against real example.com
 5. Output files contain actual page content
@@ -65,9 +65,9 @@ def test_wget_declares_only_env_apt_brew_providers():
     assert binary_record["binproviders"] == "env,apt,brew"
 
 
-def test_verify_deps_with_abx_pkg():
-    """Verify wget is available via abx-pkg."""
-    from abx_pkg import Binary, AptProvider, BrewProvider, EnvProvider
+def test_verify_deps_with_abxpkg():
+    """Verify wget is available via abxpkg."""
+    from abxpkg import Binary, AptProvider, BrewProvider, EnvProvider
 
     try:
         apt_provider = AptProvider()

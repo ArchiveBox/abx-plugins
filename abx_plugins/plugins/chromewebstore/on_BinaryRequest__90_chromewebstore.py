@@ -5,7 +5,7 @@
 #   "pydantic-settings",
 #   "jambo",
 #   "rich-click",
-#   "abx-pkg>=1.9.27",
+#   "abxpkg>=1.10.4",
 #   "abx-plugins>=1.10.27",
 # ]
 # ///
@@ -19,7 +19,7 @@ from pathlib import Path
 
 import rich_click as click
 
-from abx_pkg import Binary, ChromeWebstoreProvider
+from abxpkg import Binary, ChromeWebstoreProvider
 
 from abx_plugins.plugins.base.utils import (
     emit_installed_binary_record,

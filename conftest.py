@@ -401,11 +401,11 @@ def ensure_anthropic_api_key():
 def require_chrome_runtime_impl() -> None:
     """Require chrome runtime prerequisites for integration tests.
 
-    Validates that node and npm resolve through abx-pkg before running
+    Validates that node and npm resolve through abxpkg before running
     Chrome-based integration tests like dns, dom, and headers. Previously
     duplicated in dns/dom/headers conftest files.
     """
-    from abx_pkg import Binary, EnvProvider
+    from abxpkg import Binary, EnvProvider
 
     try:
         Binary(name="node", binproviders=[EnvProvider()]).load()

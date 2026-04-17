@@ -31,7 +31,7 @@ repos:
         types_or: [python, pyi]
       - id: ty-check
         name: ty-check
-        entry: bash -lc 'ARGS=""; [ -d ./abx-pkg ] && ARGS="$ARGS --extra-search-path ./abx-pkg"; [ -d ../abx-pkg ] && ARGS="$ARGS --extra-search-path ../abx-pkg"; [ -d ./abx-dl ] && ARGS="$ARGS --extra-search-path ./abx-dl"; [ -d ../abx-dl ] && ARGS="$ARGS --extra-search-path ../abx-dl"; [ -d ./archivebox ] && ARGS="$ARGS --extra-search-path ./archivebox"; [ -d ../archivebox ] && ARGS="$ARGS --extra-search-path ../archivebox"; uv run --active --no-sources ty check $ARGS'
+        entry: bash -lc 'ARGS=""; [ -d ./abxpkg ] && ARGS="$ARGS --extra-search-path ./abxpkg"; [ -d ../abxpkg ] && ARGS="$ARGS --extra-search-path ../abxpkg"; [ -d ./abx-dl ] && ARGS="$ARGS --extra-search-path ./abx-dl"; [ -d ../abx-dl ] && ARGS="$ARGS --extra-search-path ../abx-dl"; [ -d ./archivebox ] && ARGS="$ARGS --extra-search-path ./archivebox"; [ -d ../archivebox ] && ARGS="$ARGS --extra-search-path ../archivebox"; uv run --active --no-sources ty check $ARGS'
         language: system
         files: ^(abx_plugins/|tests/)
         pass_filenames: false

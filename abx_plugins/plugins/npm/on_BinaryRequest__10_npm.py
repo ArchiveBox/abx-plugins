@@ -5,7 +5,7 @@
 #   "pydantic-settings",
 #   "jambo",
 #   "rich-click",
-#   "abx-pkg>=1.9.27",
+#   "abxpkg>=1.10.4",
 #   "abx-plugins>=1.10.27",
 # ]
 # ///
@@ -28,7 +28,7 @@ from abx_plugins.plugins.base.utils import (
 )
 
 import rich_click as click
-from abx_pkg import Binary, NpmProvider
+from abxpkg import Binary, NpmProvider
 
 
 @click.command(
@@ -60,7 +60,7 @@ def main(
     npm_prefix = Path(lib_dir) / "npm"
     npm_prefix.mkdir(parents=True, exist_ok=True)
 
-    # Use abx-pkg NpmProvider to install binary with custom prefix
+    # Use abxpkg NpmProvider to install binary with custom prefix
     provider = NpmProvider(npm_prefix=npm_prefix)
     if not provider.INSTALLER_BIN_ABSPATH:
         click.echo("npm not available on this system", err=True)

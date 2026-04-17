@@ -36,12 +36,12 @@ _java_binary_path = None
 
 
 def get_opendataloader_binary_path() -> str | None:
-    """Get opendataloader-pdf binary path, installing via abx_pkg if needed."""
+    """Get opendataloader-pdf binary path, installing via abxpkg if needed."""
     global _opendataloader_binary_path
     if _opendataloader_binary_path and Path(_opendataloader_binary_path).is_file():
         return _opendataloader_binary_path
 
-    from abx_pkg import Binary, PipProvider, EnvProvider
+    from abxpkg import Binary, PipProvider, EnvProvider
 
     binary = Binary(
         name="opendataloader-pdf",
@@ -68,12 +68,12 @@ def require_opendataloader_binary() -> str:
 
 
 def get_java_binary_path() -> str | None:
-    """Get a Java 11+ binary path, installing via abx_pkg if needed."""
+    """Get a Java 11+ binary path, installing via abxpkg if needed."""
     global _java_binary_path
     if _java_binary_path and Path(_java_binary_path).is_file():
         return _java_binary_path
 
-    from abx_pkg import AptProvider, Binary, BrewProvider, EnvProvider, SemVer
+    from abxpkg import AptProvider, Binary, BrewProvider, EnvProvider, SemVer
 
     binary = Binary(
         name="java",

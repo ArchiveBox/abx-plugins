@@ -24,8 +24,8 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Clone abx-pkg
-        run: git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git "${{ runner.temp }}/abx-pkg"
+      - name: Clone abxpkg
+        run: git clone --depth=1 https://github.com/ArchiveBox/abxpkg.git "${{ runner.temp }}/abxpkg"
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
@@ -71,12 +71,12 @@ jobs:
         run: |
           uv venv
           uv sync --dev --all-extras --no-sources
-          uv pip install --no-deps -e "${{ runner.temp }}/abx-pkg"
+          uv pip install --no-deps -e "${{ runner.temp }}/abxpkg"
           uv pip install --no-deps -e ".[dev]"
 
       - name: Run prek
         env:
-          PYTHONPATH: ${{ runner.temp }}/abx-pkg
+          PYTHONPATH: ${{ runner.temp }}/abxpkg
         run: uv run --no-sync --no-sources prek run --all-files
 
   changes:
@@ -186,8 +186,8 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Clone abx-pkg
-        run: git clone --depth=1 https://github.com/ArchiveBox/abx-pkg.git "${{ runner.temp }}/abx-pkg"
+      - name: Clone abxpkg
+        run: git clone --depth=1 https://github.com/ArchiveBox/abxpkg.git "${{ runner.temp }}/abxpkg"
 
       - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v5
@@ -242,7 +242,7 @@ jobs:
         run: |
           uv venv
           uv sync --dev --all-extras --no-sources
-          uv pip install --no-deps -e "${{ runner.temp }}/abx-pkg"
+          uv pip install --no-deps -e "${{ runner.temp }}/abxpkg"
           uv pip install --no-deps -e ".[dev]"
 
       - name: Verify Chromium launch
@@ -251,7 +251,7 @@ jobs:
 
       - name: Run test - ${{ matrix.test.name }}
         env:
-          PYTHONPATH: ${{ runner.temp }}/abx-pkg
+          PYTHONPATH: ${{ runner.temp }}/abxpkg
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           CHROME_SANDBOX: "false"
           CHROME_HEADLESS: "True"

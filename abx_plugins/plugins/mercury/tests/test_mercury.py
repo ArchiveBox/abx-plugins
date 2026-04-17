@@ -4,7 +4,7 @@ Integration tests for mercury plugin
 Tests verify:
 1. Hook script exists
 2. Dependencies installed via validation hooks
-3. Verify deps with abx-pkg
+3. Verify deps with abxpkg
 4. Mercury extraction works on deterministic local fixture HTML
 5. JSONL output is correct
 6. Filesystem output contains extracted content
@@ -51,12 +51,12 @@ def require_mercury_binary() -> str:
 
 
 def get_mercury_binary_path() -> str | None:
-    """Get postlight-parser binary path, installing via abx_pkg if needed."""
+    """Get postlight-parser binary path, installing via abxpkg if needed."""
     global _mercury_binary_path
     if _mercury_binary_path and Path(_mercury_binary_path).is_file():
         return _mercury_binary_path
 
-    from abx_pkg import Binary, NpmProvider, EnvProvider
+    from abxpkg import Binary, NpmProvider, EnvProvider
 
     binary = Binary(
         name="postlight-parser",
@@ -75,7 +75,7 @@ def test_hook_script_exists():
     assert MERCURY_HOOK.exists(), f"Hook not found: {MERCURY_HOOK}"
 
 
-def test_verify_deps_with_abx_pkg():
+def test_verify_deps_with_abxpkg():
     """Verify postlight-parser resolves through the real dependency preflight."""
     binary_path = require_mercury_binary()
     assert Path(binary_path).is_file(), (

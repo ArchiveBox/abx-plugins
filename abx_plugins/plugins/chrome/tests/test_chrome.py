@@ -3,7 +3,7 @@ Integration tests for chrome plugin
 
 Tests verify:
 1. Chromium install via @puppeteer/browsers
-2. Verify deps with abx-pkg
+2. Verify deps with abxpkg
 3. Chrome hooks exist
 4. Chromium launches at crawl level
 5. Tab creation at snapshot level

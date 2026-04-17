@@ -3,7 +3,7 @@ Integration tests for readability plugin
 
 Tests verify:
 1. Validate hook checks for readability-extractor binary
-2. Verify deps with abx-pkg
+2. Verify deps with abxpkg
 3. Plugin reports missing dependency correctly
 4. Extraction works against real example.com content
 """
@@ -95,12 +95,12 @@ def require_readability_binary() -> str:
 
 
 def get_readability_binary_path() -> str | None:
-    """Get readability-extractor binary path, installing via abx_pkg if needed."""
+    """Get readability-extractor binary path, installing via abxpkg if needed."""
     global _readability_binary_path
     if _readability_binary_path and Path(_readability_binary_path).is_file():
         return _readability_binary_path
 
-    from abx_pkg import Binary, NpmProvider, EnvProvider
+    from abxpkg import Binary, NpmProvider, EnvProvider
 
     binary = Binary(
         name="readability-extractor",
@@ -166,7 +166,7 @@ def test_reports_missing_dependency_when_not_installed():
         ), "Should report error in stderr"
 
 
-def test_verify_deps_with_abx_pkg():
+def test_verify_deps_with_abxpkg():
     """Verify readability-extractor resolves through the real dependency preflight."""
     binary_path = require_readability_binary()
     assert Path(binary_path).is_file(), (
