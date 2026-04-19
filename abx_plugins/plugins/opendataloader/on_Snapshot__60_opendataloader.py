@@ -47,6 +47,7 @@ from abx_plugins.plugins.base.utils import (
 )
 
 import rich_click as click
+from abxpkg.config import apply_exec_env
 
 
 # Extractor metadata
@@ -77,11 +78,7 @@ def _opendataloader_env(java_binary: str) -> dict[str, str] | None:
     java_bin_dir = str(java_path.resolve(strict=False).parent)
     current_path = env["PATH"] if "PATH" in env else ""
     if java_bin_dir not in current_path.split(os.pathsep):
-        env["PATH"] = (
-            f"{java_bin_dir}{os.pathsep}{current_path}"
-            if current_path
-            else java_bin_dir
-        )
+        apply_exec_env({"PATH": f"{java_bin_dir}:"}, env)
 
     java_home = java_path.resolve(strict=False).parent.parent
     if (java_home / "bin" / "java").is_file():

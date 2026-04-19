@@ -29,6 +29,7 @@ from abx_plugins.plugins.base.utils import (
 )
 
 import rich_click as click
+from abxpkg.config import apply_exec_env
 
 
 # Extractor metadata
@@ -119,12 +120,7 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
             shim_path.write_text(sitecustomize_code, encoding="utf-8")
 
             env = os.environ.copy()
-            existing_pythonpath = env["PYTHONPATH"] if "PYTHONPATH" in env else ""
-            env["PYTHONPATH"] = (
-                f"{shim_dir}{os.pathsep}{existing_pythonpath}"
-                if existing_pythonpath
-                else shim_dir
-            )
+            apply_exec_env({"PYTHONPATH": f"{shim_dir}:"}, env)
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,

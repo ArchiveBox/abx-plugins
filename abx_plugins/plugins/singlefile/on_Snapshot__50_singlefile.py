@@ -40,6 +40,7 @@ from abx_plugins.plugins.base.utils import (
 )
 
 import rich_click as click
+from abxpkg.config import apply_exec_env
 
 
 # Extractor metadata
@@ -261,12 +262,13 @@ def save_singlefile_with_extension(
     )
     if runtime_env_result.returncode == 0 and runtime_env_result.stdout.strip():
         try:
-            helper_env.update(
+            apply_exec_env(
                 {
                     key: str(value)
                     for key, value in json.loads(runtime_env_result.stdout).items()
                     if value not in (None, "")
                 },
+                helper_env,
             )
         except Exception:
             pass

@@ -76,9 +76,9 @@ def main(
             browser_bin_dir=browser_cache_dir.parent / "bin",
         )
     else:
-        puppeteer_root = (Path(lib_dir) / "puppeteer").resolve()
-        puppeteer_root.mkdir(parents=True, exist_ok=True)
-        provider = PuppeteerProvider(puppeteer_root=puppeteer_root)
+        install_root = (Path(lib_dir) / "puppeteer").resolve()
+        install_root.mkdir(parents=True, exist_ok=True)
+        provider = PuppeteerProvider(install_root=install_root)
 
     raw_overrides = json.loads(overrides) if overrides else {}
     if not isinstance(raw_overrides, dict):
