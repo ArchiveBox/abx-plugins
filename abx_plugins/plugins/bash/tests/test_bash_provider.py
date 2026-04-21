@@ -128,7 +128,7 @@ class TestBashProviderHook:
 
         # Should fail since binary not found after command
         assert result.returncode == 1
-        assert "unable to load or install binary nonexistent_binary_xyz123" in (
+        assert "unable to install binary nonexistent_binary_xyz123" in (
             result.stderr.lower()
         )
 
