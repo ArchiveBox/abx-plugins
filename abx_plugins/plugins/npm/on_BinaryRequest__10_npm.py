@@ -98,7 +98,7 @@ def main(
             os.environ["PUPPETEER_SKIP_DOWNLOAD"] = "true"
             os.environ["PUPPETEER_SKIP_CHROMIUM_DOWNLOAD"] = "true"
 
-        binary = binary.load_or_install()
+        binary = binary.install()
     except Exception as e:
         click.echo(f"npm install failed: {e}", err=True)
         sys.exit(1)

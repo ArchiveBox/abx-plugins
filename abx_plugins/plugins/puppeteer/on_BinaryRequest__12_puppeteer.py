@@ -125,7 +125,7 @@ def main(
                 "binproviders": [provider],
                 "overrides": raw_overrides,
             },
-        ).load_or_install()
+        ).install()
     except Exception as e:
         error_output = str(e)
         hint = _get_install_failure_hint(error_output)

@@ -74,7 +74,7 @@ def get_forumdl_binary_path() -> str | None:
                 ],
             },
         },
-    ).load_or_install()
+    ).install()
     if binary and binary.abspath:
         _forumdl_binary_path = str(binary.abspath)
         return _forumdl_binary_path

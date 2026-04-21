@@ -62,7 +62,7 @@ def get_mercury_binary_path() -> str | None:
         name="postlight-parser",
         binproviders=[NpmProvider(), EnvProvider()],
         overrides={"npm": {"install_args": ["@postlight/parser"]}},
-    ).load_or_install()
+    ).install()
     if binary and binary.abspath:
         _mercury_binary_path = str(binary.abspath)
         return _mercury_binary_path

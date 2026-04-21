@@ -76,7 +76,7 @@ def main(
                 err=True,
             )
 
-        binary = binary.load_or_install()
+        binary = binary.install()
     except Exception as e:
         click.echo(f"cargo install failed: {e}", err=True)
         sys.exit(1)

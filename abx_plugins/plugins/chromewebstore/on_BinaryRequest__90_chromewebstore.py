@@ -72,7 +72,7 @@ def main(
             "min_version": min_version or extra_kwargs.get("min_version") or None,
             "overrides": json.loads(overrides) if overrides else {},
         },
-    ).load_or_install()
+    ).install()
 
     if not binary.abspath:
         click.echo(f"{name} not resolved as Chrome Web Store extension", err=True)

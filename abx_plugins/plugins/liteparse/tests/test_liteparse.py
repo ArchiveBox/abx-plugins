@@ -51,7 +51,7 @@ def get_liteparse_binary_path() -> str | None:
         name="lit",
         binproviders=[NpmProvider(), EnvProvider()],
         overrides={"npm": {"install_args": ["@llamaindex/liteparse"]}},
-    ).load_or_install()
+    ).install()
     if binary and binary.abspath:
         _liteparse_binary_path = str(binary.abspath)
         return _liteparse_binary_path

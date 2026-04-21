@@ -62,7 +62,7 @@ def get_defuddle_binary_path() -> str | None:
         name="defuddle",
         binproviders=[NpmProvider(), EnvProvider()],
         overrides={"npm": {"install_args": ["defuddle"]}},
-    ).load_or_install()
+    ).install()
     if binary and binary.abspath:
         _defuddle_binary_path = str(binary.abspath)
         return _defuddle_binary_path
