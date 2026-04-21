@@ -50,7 +50,9 @@ def main(
 
     # Use abxpkg AptProvider to install binary
     provider = AptProvider()
-    if not provider.INSTALLER_BIN_ABSPATH:
+    try:
+        provider.INSTALLER_BINARY()
+    except Exception:
         click.echo(
             "AptProvider.INSTALLER_BIN is not available on this host",
             err=True,

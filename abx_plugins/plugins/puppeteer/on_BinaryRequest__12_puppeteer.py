@@ -69,16 +69,16 @@ def main(
 
     configured_cache_dir = (config.PUPPETEER_CACHE_DIR or "").strip()
     if configured_cache_dir:
+        # PUPPETEER_CACHE_DIR is derived from the provider's cache_dir =
+        # install_root/cache, so pin install_root to the parent of the
+        # configured cache dir. bin_dir defaults to install_root/bin.
         browser_cache_dir = Path(configured_cache_dir).expanduser().resolve()
         browser_cache_dir.mkdir(parents=True, exist_ok=True)
-        provider = PuppeteerProvider(
-            browser_cache_dir=browser_cache_dir,
-            browser_bin_dir=browser_cache_dir.parent / "bin",
-        )
+        install_root = browser_cache_dir.parent
     else:
         install_root = (Path(lib_dir) / "puppeteer").resolve()
         install_root.mkdir(parents=True, exist_ok=True)
-        provider = PuppeteerProvider(install_root=install_root)
+    provider = PuppeteerProvider(install_root=install_root)
 
     raw_overrides = json.loads(overrides) if overrides else {}
     if not isinstance(raw_overrides, dict):

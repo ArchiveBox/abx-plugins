@@ -61,8 +61,10 @@ def main(
     npm_prefix.mkdir(parents=True, exist_ok=True)
 
     # Use abxpkg NpmProvider to install binary with custom prefix
-    provider = NpmProvider(npm_prefix=npm_prefix)
-    if not provider.INSTALLER_BIN_ABSPATH:
+    provider = NpmProvider(install_root=npm_prefix)
+    try:
+        provider.INSTALLER_BINARY()
+    except Exception:
         click.echo("npm not available on this system", err=True)
         sys.exit(0)
 

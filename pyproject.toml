@@ -62,7 +62,7 @@ addopts = ["-p", "abx_plugins.pytest_bootstrap", "-p", "no:cacheprovider"]
 
 [tool.uv]
 exclude-newer = "14 days"
-exclude-newer-package = { abxpkg = "1 second"}
+exclude-newer-package = { abxpkg = "1 second", abx-plugins = "1 second" }
 
 [tool.pyright]
 include = [

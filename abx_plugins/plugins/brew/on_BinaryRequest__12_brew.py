@@ -50,11 +50,8 @@ def main(
 
     # Use abxpkg BrewProvider to install binary
     provider = BrewProvider()
-    if not provider.INSTALLER_BIN_ABSPATH:
-        click.echo("brew not available on this system", err=True)
-        sys.exit(0)
     try:
-        Binary(name=provider.INSTALLER_BIN, binproviders=[provider]).load()
+        provider.INSTALLER_BINARY()
     except Exception:
         click.echo("brew not available on this system", err=True)
         sys.exit(0)

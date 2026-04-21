@@ -780,8 +780,13 @@ def enforce_lib_permissions(config_dir: Path | str | None = None) -> None:
         for fname in filenames:
             fp = dp / fname
             _chown_if_needed(fp, target_uid, target_gid)
-            # Preserve execute bit for binaries
-            current = fp.stat().st_mode
+            # Preserve execute bit for binaries. Use lstat() so dangling
+            # symlinks (which are valid, just unresolved) don't crash the
+            # permission enforcer; skip chmod for symlinks since chmod()
+            # would follow them and fail the same way.
+            current = fp.lstat().st_mode
+            if stat.S_ISLNK(current):
+                continue
             if current & stat.S_IXUSR:
                 fp.chmod(0o755)  # rwxr-xr-x (executable)
             else:

@@ -57,7 +57,7 @@ def main(
     ]:
         sys.exit(0)
 
-    provider = ChromeWebstoreProvider(extensions_dir=_extensions_dir())
+    provider = ChromeWebstoreProvider(bin_dir=_extensions_dir())
     if not provider.is_valid:
         click.echo("chromewebstore provider is not available on this host", err=True)
         sys.exit(0)
