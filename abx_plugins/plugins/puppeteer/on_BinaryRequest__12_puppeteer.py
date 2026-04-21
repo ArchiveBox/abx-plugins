@@ -73,12 +73,17 @@ def main(
         # provider's ``browser_cache_dir`` override and co-locate ``bin_dir``
         # next to it. install_root is still the parent so other provider
         # metadata (derived.env, npm helper dir) stays in a sibling tree.
+        # ``model_validate`` dispatches through pydantic so this works against
+        # both the current abxpkg (which accepts ``browser_cache_dir``) and
+        # older releases that still expose it as an accepted kwarg.
         browser_cache_dir = Path(configured_cache_dir).expanduser().resolve()
         browser_cache_dir.mkdir(parents=True, exist_ok=True)
-        provider = PuppeteerProvider(
-            install_root=browser_cache_dir.parent,
-            bin_dir=browser_cache_dir.parent / "bin",
-            browser_cache_dir=browser_cache_dir,
+        provider = PuppeteerProvider.model_validate(
+            {
+                "install_root": browser_cache_dir.parent,
+                "bin_dir": browser_cache_dir.parent / "bin",
+                "browser_cache_dir": browser_cache_dir,
+            },
         )
     else:
         install_root = (Path(lib_dir) / "puppeteer").resolve()
