@@ -110,7 +110,7 @@ def get_readability_binary_path() -> str | None:
                 "install_args": ["https://github.com/ArchiveBox/readability-extractor"],
             },
         },
-    ).load_or_install()
+    ).install()
     if binary and binary.abspath:
         _readability_binary_path = str(binary.abspath)
         return _readability_binary_path

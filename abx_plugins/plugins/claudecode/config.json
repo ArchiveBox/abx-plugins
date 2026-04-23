@@ -22,6 +22,7 @@
       "name": "{CLAUDECODE_BINARY}",
       "binproviders": "env,npm",
       "min_version": null,
+      "postinstall_scripts": true,
       "overrides": {
         "npm": {
           "install_args": [

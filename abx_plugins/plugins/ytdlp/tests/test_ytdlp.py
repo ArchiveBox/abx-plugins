@@ -103,7 +103,7 @@ def get_ytdlp_binary_path() -> str | None:
         name="yt-dlp",
         binproviders=[PipProvider(), EnvProvider()],
         overrides={"pip": {"install_args": ["yt-dlp[default]"]}},
-    ).load_or_install()
+    ).install()
     if binary and binary.abspath:
         _ytdlp_binary_path = str(binary.abspath)
         return _ytdlp_binary_path
@@ -118,7 +118,7 @@ def require_ffmpeg_binary() -> str:
     binary = Binary(
         name="ffmpeg",
         binproviders=[EnvProvider(), BrewProvider(), AptProvider()],
-    ).load_or_install()
+    ).install()
     assert binary and binary.abspath, (
         "ffmpeg installation failed. ytdlp tests require a real ffmpeg binary."
     )

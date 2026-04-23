@@ -55,7 +55,7 @@ def get_gallerydl_binary_path() -> str | None:
     binary = Binary(
         name="gallery-dl",
         binproviders=[PipProvider(), EnvProvider()],
-    ).load_or_install()
+    ).install()
     if binary and binary.abspath:
         _gallerydl_binary_path = str(binary.abspath)
         return _gallerydl_binary_path

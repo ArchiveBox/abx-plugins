@@ -169,8 +169,10 @@ def main(
             _seed_pip_venv(pip_venv_path, preferred_python)
 
         # Use abxpkg PipProvider to install binary with custom venv
-        provider = PipProvider(pip_venv=pip_venv_path)
-        if not provider.INSTALLER_BIN_ABSPATH:
+        provider = PipProvider(install_root=pip_venv_path)
+        try:
+            provider.INSTALLER_BINARY()
+        except Exception:
             click.echo("pip not available on this system", err=True)
             sys.exit(0)
 
@@ -197,7 +199,7 @@ def main(
                     err=True,
                 )
 
-            binary = binary.load_or_install()
+            binary = binary.install()
         except Exception as e:
             click.echo(f"pip install failed: {e}", err=True)
             sys.exit(1)

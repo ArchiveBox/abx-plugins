@@ -67,18 +67,9 @@ def main(
     if not lib_dir:
         lib_dir = str(Path.home() / ".config" / "abx" / "lib")
 
-    configured_cache_dir = (config.PUPPETEER_CACHE_DIR or "").strip()
-    if configured_cache_dir:
-        browser_cache_dir = Path(configured_cache_dir).expanduser().resolve()
-        browser_cache_dir.mkdir(parents=True, exist_ok=True)
-        provider = PuppeteerProvider(
-            browser_cache_dir=browser_cache_dir,
-            browser_bin_dir=browser_cache_dir.parent / "bin",
-        )
-    else:
-        install_root = (Path(lib_dir) / "puppeteer").resolve()
-        install_root.mkdir(parents=True, exist_ok=True)
-        provider = PuppeteerProvider(install_root=install_root)
+    install_root = (Path(lib_dir) / "puppeteer").resolve()
+    install_root.mkdir(parents=True, exist_ok=True)
+    provider = PuppeteerProvider(install_root=install_root)
 
     raw_overrides = json.loads(overrides) if overrides else {}
     if not isinstance(raw_overrides, dict):
@@ -115,7 +106,7 @@ def main(
                 "binproviders": [provider],
                 "overrides": raw_overrides,
             },
-        ).load_or_install()
+        ).install()
     except Exception as e:
         error_output = str(e)
         hint = _get_install_failure_hint(error_output)

@@ -61,8 +61,10 @@ def main(
     npm_prefix.mkdir(parents=True, exist_ok=True)
 
     # Use abxpkg NpmProvider to install binary with custom prefix
-    provider = NpmProvider(npm_prefix=npm_prefix)
-    if not provider.INSTALLER_BIN_ABSPATH:
+    provider = NpmProvider(install_root=npm_prefix)
+    try:
+        provider.INSTALLER_BINARY()
+    except Exception:
         click.echo("npm not available on this system", err=True)
         sys.exit(0)
 
@@ -96,7 +98,7 @@ def main(
             os.environ["PUPPETEER_SKIP_DOWNLOAD"] = "true"
             os.environ["PUPPETEER_SKIP_CHROMIUM_DOWNLOAD"] = "true"
 
-        binary = binary.load_or_install()
+        binary = binary.install()
     except Exception as e:
         click.echo(f"npm install failed: {e}", err=True)
         sys.exit(1)

@@ -311,6 +311,20 @@ def ensure_claude_code_prereqs(tmp_path_factory):
             overrides = binary_record.get("overrides")
             if overrides:
                 npm_cmd.append(f"--overrides={json.dumps(overrides)}")
+            # Forward any remaining top-level binary-record fields (e.g.
+            # ``postinstall_scripts``, ``min_release_age``) so the npm hook
+            # sees them as Binary kwargs via ``parse_extra_hook_args``.
+            _forwarded = {
+                key: value
+                for key, value in binary_record.items()
+                if key not in {"name", "binproviders", "overrides", "min_version"}
+                and value is not None
+            }
+            for key, value in _forwarded.items():
+                flag = "--" + key.replace("_", "-")
+                npm_cmd.append(
+                    f"{flag}={json.dumps(value) if not isinstance(value, str) else value}",
+                )
 
             npm_result = subprocess.run(
                 npm_cmd,

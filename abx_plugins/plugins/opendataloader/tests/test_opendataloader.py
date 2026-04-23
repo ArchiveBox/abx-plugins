@@ -47,7 +47,7 @@ def get_opendataloader_binary_path() -> str | None:
         name="opendataloader-pdf",
         binproviders=[PipProvider(), EnvProvider()],
         overrides={"pip": {"install_args": ["opendataloader-pdf"]}},
-    ).load_or_install()
+    ).install()
     if binary and binary.abspath:
         _opendataloader_binary_path = str(binary.abspath)
         return _opendataloader_binary_path
@@ -83,7 +83,7 @@ def get_java_binary_path() -> str | None:
             "brew": {"install_args": ["openjdk"]},
             "apt": {"install_args": ["default-jre"]},
         },
-    ).load_or_install()
+    ).install()
     if binary and binary.abspath:
         _java_binary_path = str(binary.abspath)
         return _java_binary_path
