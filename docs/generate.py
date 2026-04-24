@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,7 @@ REPO_ROOT = SITE_DIR.parent
 PLUGINS_DIR = REPO_ROOT / "abx_plugins" / "plugins"
 TEMPLATE_DIR = SITE_DIR
 DEFAULT_OUTPUT_DIR = SITE_DIR
+ASSETS_DIR = SITE_DIR / "css"
 EXCLUDED_PLUGIN_DIRS = {"__pycache__"}
 GITHUB_REPO = "https://github.com/ArchiveBox/abx-plugins"
 DEFAULT_GITHUB_REF = os.environ.get("ABX_MARKETPLACE_GITHUB_REF", "main")
@@ -501,6 +503,16 @@ def collect_plugins() -> list[dict[str, Any]]:
     return plugins
 
 
+def copy_assets(output_dir: Path) -> None:
+    target_dir = output_dir / "css"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    for asset in ASSETS_DIR.glob("*.css"):
+        destination = target_dir / asset.name
+        if asset.resolve() == destination.resolve():
+            continue
+        shutil.copy2(asset, destination)
+
+
 def render_marketplace(output_dir: Path, template_name: str) -> Path:
     plugins = collect_plugins()
     environment = Environment(
@@ -525,6 +537,7 @@ def render_marketplace(output_dir: Path, template_name: str) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     index_path = output_dir / "index.html"
     index_path.write_text(html + "\n", encoding="utf-8")
+    copy_assets(output_dir)
     (output_dir / ".nojekyll").write_text("", encoding="utf-8")
     return index_path
 
