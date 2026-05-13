@@ -91,6 +91,59 @@ def _load_env_binary_abspath(binary_ref: str) -> str | None:
     return str(binary.abspath)
 
 
+def _resolve_python_abspath(binary_ref: str) -> str | None:
+    raw_ref = str(binary_ref or "").strip()
+    if not raw_ref:
+        return None
+
+    path_ref = Path(raw_ref).expanduser()
+    if (raw_ref.startswith(("~", ".", "/")) or "/" in raw_ref) and _is_executable(
+        path_ref,
+    ):
+        return str(path_ref.resolve())
+
+    return _load_env_binary_abspath(raw_ref)
+
+
+def _python_candidates(preferred_python: str) -> list[str]:
+    if preferred_python:
+        return [preferred_python]
+
+    candidates: list[str] = []
+    if sys.version_info[:2] >= (3, 13):
+        candidates.extend(("python3.12", "python3.11", "python3.10"))
+
+    current_python = Path(sys.executable).resolve()
+    if current_python.is_file():
+        candidates.append(str(current_python))
+    else:
+        candidates.append(Path(sys.executable).name)
+
+    candidates.extend(("python3.13", "python3.14", "python3.12", "python3.11"))
+
+    deduped: list[str] = []
+    for candidate in candidates:
+        if candidate and candidate not in deduped:
+            deduped.append(candidate)
+    return deduped
+
+
+def _seed_first_pip_venv(
+    pip_venv_path: Path,
+    preferred_python: str,
+) -> tuple[str | None, list[str]]:
+    errors: list[str] = []
+    for python_ref in _python_candidates(preferred_python):
+        python_path = _resolve_python_abspath(python_ref)
+        if not python_path:
+            errors.append(f"{python_ref}: not found")
+            continue
+        if _seed_pip_venv(pip_venv_path, python_path):
+            return python_path, errors
+        errors.append(f"{python_ref}: failed to create venv")
+    return None, errors
+
+
 @contextmanager
 def _locked_pip_venv(lock_path: Path):
     lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -128,48 +181,42 @@ def main(
     if not lib_dir:
         lib_dir = str(Path.home() / ".config" / "abx" / "lib")
 
-    # Structure: lib/arm64-darwin/pip/venv (PipProvider will create venv automatically)
-    pip_venv_path = Path(lib_dir) / "pip" / "venv"
-    pip_venv_path.parent.mkdir(parents=True, exist_ok=True)
-    pip_lock_path = pip_venv_path.parent / ".venv.lock"
+    # Structure: lib/pip/venv (PipProvider creates venv under install_root/venv)
+    pip_install_root = Path(lib_dir) / "pip"
+    pip_venv_path = pip_install_root / "venv"
+    pip_install_root.mkdir(parents=True, exist_ok=True)
+    pip_lock_path = pip_install_root / ".venv.lock"
 
-    # Seed the pip venv with the same interpreter running this hook unless explicitly overridden.
+    # Seed the pip venv with the preferred interpreter before abxpkg reuses it.
     preferred_python = (config.PIP_VENV_PYTHON or "").strip()
-    if not preferred_python and sys.version_info[:2] >= (3, 14):
-        for candidate in ("python3.12", "python3.11", "python3.13"):
-            candidate_path = _load_env_binary_abspath(candidate)
-            if candidate_path:
-                preferred_python = candidate_path
-                break
-    if not preferred_python:
-        current_python = Path(sys.executable).resolve()
-        if current_python.is_file():
-            preferred_python = str(current_python)
-        else:
-            current_python = (
-                _load_env_binary_abspath(Path(sys.executable).name) or sys.executable
-            )
-            if current_python:
-                preferred_python = current_python
-    if not preferred_python:
-        for candidate in (
-            "python3.12",
-            "python3.11",
-            "python3.10",
-            "python3.13",
-            "python3.14",
-        ):
-            candidate_path = _load_env_binary_abspath(candidate)
-            if candidate_path:
-                preferred_python = candidate_path
-                break
     with _locked_pip_venv(pip_lock_path):
         # Repair partially created shared venvs before delegating to abxpkg.
         if preferred_python and not _pip_venv_is_ready(pip_venv_path):
-            _seed_pip_venv(pip_venv_path, preferred_python)
+            seeded_python, seed_errors = _seed_first_pip_venv(
+                pip_venv_path,
+                preferred_python,
+            )
+            if not seeded_python:
+                click.echo(
+                    "Unable to create pip virtualenv with configured PIP_VENV_PYTHON. "
+                    f"Tried: {', '.join(seed_errors)}",
+                    err=True,
+                )
+                sys.exit(1)
+        elif not _pip_venv_is_ready(pip_venv_path):
+            seeded_python, seed_errors = _seed_first_pip_venv(
+                pip_venv_path,
+                preferred_python,
+            )
+            if not seeded_python:
+                click.echo(
+                    f"Unable to create pip virtualenv. Tried: {', '.join(seed_errors)}",
+                    err=True,
+                )
+                sys.exit(1)
 
         # Use abxpkg PipProvider to install binary with custom venv
-        provider = PipProvider(install_root=pip_venv_path)
+        provider = PipProvider(install_root=pip_install_root)
         try:
             provider.INSTALLER_BINARY()
         except Exception:

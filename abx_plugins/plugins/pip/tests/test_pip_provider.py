@@ -130,6 +130,7 @@ class TestPipProviderHook:
         env["SNAP_DIR"] = str(self.snap_dir)
         env["HOME"] = str(self.home_dir)
         env["LIB_DIR"] = str(Path(self.temp_dir) / "lib")
+        env["PIP_VENV_PYTHON"] = sys.executable
 
         broken_venv = Path(env["LIB_DIR"]) / "pip" / "venv" / "bin"
         broken_venv.mkdir(parents=True, exist_ok=True)
@@ -153,6 +154,18 @@ class TestPipProviderHook:
 
         assert result.returncode == 0, result.stderr
         assert '"type": "Binary"' in result.stdout
+        records = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.strip().startswith("{")
+        ]
+        binary_record = next(
+            record for record in records if record.get("type") == "Binary"
+        )
+        assert Path(binary_record["abspath"]).is_relative_to(
+            Path(env["LIB_DIR"]) / "pip" / "venv" / "bin",
+        )
+        assert not (Path(env["LIB_DIR"]) / "pip" / "venv" / "venv").exists()
 
 
 class TestPipProviderIntegration:
