@@ -232,7 +232,7 @@ def _resolve_schema_payload(
     user_config: Mapping[str, str] | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
-    environ = environ or os.environ
+    environ = os.environ if environ is None else environ
     resolved = {
         key: normalize_config_value(value)
         for key, value in (resolved_config or {}).items()
@@ -285,14 +285,15 @@ def _resolve_schema_payload(
                         changed = True
                     continue
 
+            if key in resolved:
+                if payload.get(key) != resolved[key]:
+                    payload[key] = resolved[key]
+                    changed = True
+                continue
+
             if "default" in prop and payload.get(key) != prop["default"]:
                 payload[key] = prop["default"]
                 resolved[key] = prop["default"]
-                changed = True
-                continue
-
-            if key in resolved and payload.get(key) != resolved[key]:
-                payload[key] = resolved[key]
                 changed = True
         if not changed:
             break

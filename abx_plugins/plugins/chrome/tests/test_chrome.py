@@ -198,6 +198,71 @@ def _assert_snapshot_chrome_state_cleared(snapshot_chrome_dir: Path) -> None:
         )
 
 
+def test_cleanup_chrome_profile_lock_files_removes_all_stale_profile_locks(tmp_path):
+    profile_dir = tmp_path / "chrome_profile"
+    profile_dir.mkdir()
+    for file_name in [
+        "SingletonLock",
+        "SingletonSocket",
+        "SingletonCookie",
+        "DevToolsActivePort",
+    ]:
+        (profile_dir / file_name).write_text("stale")
+
+    script = """
+const path = require('path');
+const utils = require(process.argv[1]);
+const cleaned = utils.cleanupChromeProfileLockFiles(process.argv[2], { quiet: true });
+process.stdout.write(JSON.stringify(cleaned.map(filePath => path.basename(filePath)).sort()));
+"""
+    result = subprocess.run(
+        ["node", "-e", script, str(CHROME_UTILS), str(profile_dir)],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == [
+        "DevToolsActivePort",
+        "SingletonCookie",
+        "SingletonLock",
+        "SingletonSocket",
+    ]
+    assert not any(profile_dir.iterdir())
+
+
+def test_chrome_user_data_dir_defaults_to_persona_chrome_profile(tmp_path):
+    personas_dir = tmp_path / "personas"
+    script = """
+const baseUtils = require(process.argv[1]);
+const configPath = process.argv[2];
+const config = baseUtils.loadConfig(configPath);
+process.stdout.write(config.CHROME_USER_DATA_DIR);
+"""
+    env = os.environ.copy()
+    env["PERSONAS_DIR"] = str(personas_dir)
+    env.pop("ACTIVE_PERSONA", None)
+    env.pop("CHROME_USER_DATA_DIR", None)
+
+    result = subprocess.run(
+        [
+            "node",
+            "-e",
+            script,
+            str(CHROME_UTILS.parent.parent / "base" / "utils.js"),
+            str(CHROME_UTILS.parent / "config.json"),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == str(personas_dir / "Default" / "chrome_profile")
+
+
 def _write_test_extension_cache(extensions_dir: Path) -> dict:
     unpacked_dir = extensions_dir / f"{TEST_EXTENSION_NAME}_unpacked"
     unpacked_dir.mkdir(parents=True, exist_ok=True)

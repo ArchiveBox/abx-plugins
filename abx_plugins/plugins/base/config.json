@@ -92,7 +92,7 @@
     "CHROME_USER_DATA_DIR": {
       "type": "string",
       "default": "",
-      "description": "Chrome user data directory for persistent browser state"
+      "description": "Chrome user data directory for persistent browser state (defaults to PERSONAS_DIR/ACTIVE_PERSONA/chrome_profile)"
     },
     "CHROME_DOWNLOADS_DIR": {
       "type": "string",

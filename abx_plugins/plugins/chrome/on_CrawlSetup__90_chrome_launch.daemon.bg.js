@@ -55,6 +55,8 @@ let chromeProcessIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CH
 let shouldCloseOnCleanup = false;
 let puppeteer = null;
 let cleanupPromise = null;
+let launchInProgress = false;
+let cleanupRequestedDuringLaunch = false;
 
 function getPortFromCdpUrl(cdpUrl) {
     if (!cdpUrl) return null;
@@ -66,6 +68,11 @@ function getPortFromCdpUrl(cdpUrl) {
 async function cleanup() {
     if (cleanupPromise) {
         return cleanupPromise;
+    }
+    if (launchInProgress && !chromeCdpUrl) {
+        cleanupRequestedDuringLaunch = true;
+        console.error('[*] Deferring chrome cleanup until launch publishes a CDP session');
+        return;
     }
     cleanupPromise = (async () => {
     if (shouldCloseOnCleanup) {
@@ -88,6 +95,10 @@ async function cleanup() {
         console.log(`${CHROME_BINARY} exited successfully`);
         console.log(JSON.stringify({ succeeded: true, skipped: false }));  // we launched and we killed it (nothing was skipped)
     } else {
+        if (!chromeCdpUrl) {
+            console.error(`${CHROME_BINARY} cleanup requested before a CDP session was published`);
+            process.exit(1);
+        }
         console.log(`leaving ${CHROME_BINARY} running (CHROME_KEEPALIVE=True)`);
         console.log(JSON.stringify({ succeeded: true, skipped: chromeCdpUrl ? true : false }));  // we didn't launch it (we connected over CDP), and we didn't kill it, so we skipped basically the whole hook
     }
@@ -132,6 +143,7 @@ async function main() {
         console.log(cdpUrlOverride
             ? `connecting ${CHROME_BINARY} ${cdpUrlOverride}...`
             : `launching ${CHROME_BINARY} ${PERSONA_DIR}...`)
+        launchInProgress = true;
         const session = await ensureChromeSession({
             outputDir: OUTPUT_DIR,
             puppeteer,
@@ -140,6 +152,7 @@ async function main() {
             timeoutMs: getEnvInt('CHROME_TIMEOUT', 60) * 1000,
             binary: prerequisites.binary || null,
         });
+        launchInProgress = false;
 
         chromePid = session.pid;
         chromeCdpUrl = session.cdpUrl;
@@ -156,6 +169,11 @@ async function main() {
         console.error(`[+] CDP URL: ${chromeCdpUrl}`);
         releaseLock();
         releaseLock = null;
+
+        if (cleanupRequestedDuringLaunch) {
+            await cleanup();
+            return;
+        }
 
         if (!shouldCloseOnCleanup) {
             process.exit(0);
@@ -179,6 +197,7 @@ async function main() {
         if (releaseLock) {
             releaseLock();
         }
+        launchInProgress = false;
         console.error(`ERROR: ${e.name}: ${e.message}`);
         process.exit(1);
     }

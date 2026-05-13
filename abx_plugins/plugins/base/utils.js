@@ -173,6 +173,13 @@ function loadConfig(configPath = null) {
     if (!config.PERSONAS_DIR) {
         config.PERSONAS_DIR = path.join(os.homedir(), '.config', 'abx', 'personas');
     }
+    if (Object.prototype.hasOwnProperty.call(config, 'CHROME_USER_DATA_DIR') && !config.CHROME_USER_DATA_DIR) {
+        config.CHROME_USER_DATA_DIR = path.join(
+            config.PERSONAS_DIR,
+            config.ACTIVE_PERSONA || 'Default',
+            'chrome_profile',
+        );
+    }
 
     configCache.set(cacheKey, {
         config,

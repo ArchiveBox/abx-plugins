@@ -34,6 +34,12 @@ const {
 ensureNodeModuleResolution(module);
 
 const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
+const CHROME_PROFILE_LOCK_FILES = [
+    'SingletonLock',
+    'SingletonSocket',
+    'SingletonCookie',
+    'DevToolsActivePort',
+];
 
 /**
  * Get the current snapshot directory.
@@ -78,6 +84,25 @@ function getPersonasDir() {
 function parseResolution(resolution) {
     const [width, height] = resolution.split(',').map(x => parseInt(x.trim(), 10));
     return { width: width || 1440, height: height || 2000 };
+}
+
+function cleanupChromeProfileLockFiles(userDataDir, options = {}) {
+    const { quiet = false } = options;
+    if (!userDataDir) return [];
+
+    const cleaned = [];
+    for (const fileName of CHROME_PROFILE_LOCK_FILES) {
+        const filePath = path.join(userDataDir, fileName);
+        if (!fs.existsSync(filePath)) continue;
+        try {
+            fs.unlinkSync(filePath);
+            cleaned.push(filePath);
+            if (!quiet) console.error(`[+] Removed stale Chrome profile file: ${filePath}`);
+        } catch (error) {
+            if (!quiet) console.error(`[!] Failed to remove Chrome profile file ${filePath}: ${error.message}`);
+        }
+    }
+    return cleaned;
 }
 
 // ============================================================================
@@ -654,7 +679,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
         if (!quiet) console.error('[+] No zombies found');
     }
 
-    // Clean up stale SingletonLock files from persona chrome_user_data directories
+    // Clean up stale browser profile lock files from persona profile directories.
     const personasDir = getPersonasDir();
     if (fs.existsSync(personasDir)) {
         try {
@@ -662,16 +687,8 @@ async function killZombieChrome(snapDir = null, options = {}) {
             for (const persona of personas) {
                 if (!persona.isDirectory()) continue;
 
-                const userDataDir = path.join(personasDir, persona.name, 'chrome_user_data');
-                const singletonLock = path.join(userDataDir, 'SingletonLock');
-
-                if (fs.existsSync(singletonLock)) {
-                    try {
-                        fs.unlinkSync(singletonLock);
-                        if (!quiet) console.error(`[+] Removed stale SingletonLock: ${singletonLock}`);
-                    } catch (e) {
-                        // Ignore - may be in use by active Chrome
-                    }
+                for (const profileDirName of ['chrome_profile', 'chrome_user_data']) {
+                    cleanupChromeProfileLockFiles(path.join(personasDir, persona.name, profileDirName), { quiet });
                 }
             }
         } catch (e) {
@@ -716,7 +733,7 @@ async function launchChromium(options = {}) {
     const {
         binary = findChromium(),
         outputDir = 'chrome',
-        userDataDir = getEnv('CHROME_USER_DATA_DIR'),
+        userDataDir = loadConfig(path.join(__dirname, 'config.json')).CHROME_USER_DATA_DIR,
         resolution = getEnv('CHROME_RESOLUTION') || getEnv('RESOLUTION', '1440,2000'),
         userAgent = getEnv('CHROME_USER_AGENT') || getEnv('USER_AGENT', ''),
         headless = getEnvBool('CHROME_HEADLESS', true),
@@ -738,23 +755,12 @@ async function launchChromium(options = {}) {
         fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    // Create user data directory if specified and doesn't exist
-    if (userDataDir) {
-        if (!fs.existsSync(userDataDir)) {
-            fs.mkdirSync(userDataDir, { recursive: true });
-            console.error(`[*] Created user data directory: ${userDataDir}`);
-        }
-        // Clean up any stale SingletonLock file from previous crashed sessions
-        const singletonLock = path.join(userDataDir, 'SingletonLock');
-        if (fs.existsSync(singletonLock)) {
-            try {
-                fs.unlinkSync(singletonLock);
-                console.error(`[*] Removed stale SingletonLock: ${singletonLock}`);
-            } catch (e) {
-                console.error(`[!] Failed to remove SingletonLock: ${e.message}`);
-            }
-        }
+    // Create user data directory and clear lock files left by crashed sessions.
+    if (!fs.existsSync(userDataDir)) {
+        fs.mkdirSync(userDataDir, { recursive: true });
+        console.error(`[*] Created user data directory: ${userDataDir}`);
     }
+    cleanupChromeProfileLockFiles(userDataDir);
 
     // Find a free port
     const debugPort = await findFreePort();
@@ -914,6 +920,7 @@ async function launchChromium(options = {}) {
                 pid: chromePid,
                 port: debugPort,
                 process: chromiumProcess,
+                userDataDir,
             };
 
             await verifyStableChromiumSession({
@@ -3533,7 +3540,7 @@ async function ensureChromeSession(options = {}) {
         puppeteer = resolvePuppeteerModule(),
         processIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true),
         cdpUrl = getEnv('CHROME_CDP_URL', ''),
-        userDataDir = getEnv('CHROME_USER_DATA_DIR'),
+        userDataDir = loadConfig(path.join(__dirname, 'config.json')).CHROME_USER_DATA_DIR,
         downloadsDir = getEnv('CHROME_DOWNLOADS_DIR'),
         cookiesFile = getEnv('COOKIES_TXT_FILE') || getEnv('COOKIES_FILE'),
         extensionsDir = getExtensionsDir(),
@@ -3597,6 +3604,7 @@ async function ensureChromeSession(options = {}) {
     let resolvedBinary = binary;
     let resolvedPid = reusingExplicitCdpUrl && processIsLocal ? (existingSession.state?.pid || null) : null;
     let resolvedCdpUrl = reusingExplicitCdpUrl ? existingSession.state?.cdpUrl : cdpUrl;
+    let resolvedUserDataDir = userDataDir;
 
     if (!resolvedCdpUrl) {
         if (!processIsLocal) {
@@ -3620,6 +3628,7 @@ async function ensureChromeSession(options = {}) {
 
         resolvedPid = result.pid;
         resolvedCdpUrl = result.cdpUrl;
+        resolvedUserDataDir = result.userDataDir || resolvedUserDataDir;
     }
 
     if (downloadsDir || cookiesFile || installedExtensions.length > 0) {
@@ -3639,7 +3648,7 @@ async function ensureChromeSession(options = {}) {
             }
 
             if (cookiesFile) {
-                await importCookiesFromFile(browser, cookiesFile, userDataDir);
+                await importCookiesFromFile(browser, cookiesFile, resolvedUserDataDir);
             }
         } finally {
             if (browser) {
@@ -3698,6 +3707,7 @@ async function ensureChromeSession(options = {}) {
         processIsLocal,
         reusedExisting: false,
         binary: resolvedBinary,
+        userDataDir: resolvedUserDataDir,
     };
 }
 
@@ -3797,6 +3807,7 @@ module.exports = {
     getEnvInt,
     getEnvArray,
     parseResolution,
+    cleanupChromeProfileLockFiles,
     // PID file management
     writePidWithMtime,
     writeCmdScript,

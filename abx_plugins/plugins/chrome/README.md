@@ -72,7 +72,7 @@ Defined in [config.json](./config.json).
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `CHROME_USER_DATA_DIR` | `""` | User data dir for persistent local profile state. |
+| `CHROME_USER_DATA_DIR` | `PERSONAS_DIR/ACTIVE_PERSONA/chrome_profile` | User data dir for persistent local profile state. |
 | `CHROME_EXTENSIONS_DIR` | persona-derived | Extension cache directory. |
 | `CHROME_DOWNLOADS_DIR` | persona-derived | Download output directory configured via CDP after launch/adoption. |
 | `CHROME_ARGS` | see config | Static Chromium flags. |
