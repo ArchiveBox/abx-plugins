@@ -4,7 +4,9 @@
   "description": "Launch and manage a shared Google Chrome/CDP browser session for browser-driven plugins.",
   "type": "object",
   "additionalProperties": false,
-  "required_plugins": [],
+  "required_plugins": [
+    "puppeteer"
+  ],
   "required_binaries": [
     {
       "name": "{NODE_BINARY}",

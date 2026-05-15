@@ -41,6 +41,11 @@ def test_crawl_hook_emits_puppeteer_binary_request():
     )
 
 
+def test_chrome_plugin_declares_puppeteer_dependency():
+    config = json.loads((CHROME_PLUGIN_DIR / "config.json").read_text())
+    assert "puppeteer" in config["required_plugins"]
+
+
 def test_puppeteer_install_failure_hint_for_claude_sandbox_dns_error():
     output = """
 Error: getaddrinfo EAI_AGAIN storage.googleapis.com
