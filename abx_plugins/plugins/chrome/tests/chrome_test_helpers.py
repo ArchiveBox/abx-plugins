@@ -1572,8 +1572,6 @@ def chrome_session(
     chrome_pid = None
     chrome_dir: Path | None = None
     try:
-        startup_timeout = max(int(timeout), 45)
-
         # Create proper directory structure in tmpdir
         machine = platform.machine().lower()
         system = platform.system().lower()
@@ -1653,6 +1651,8 @@ def chrome_session(
         )
         if env_overrides:
             env.update(env_overrides)
+        chrome_timeout = int(env.get("CHROME_TIMEOUT") or "60")
+        startup_timeout = max(int(timeout), chrome_timeout + 15)
         env.setdefault("CHROME_DEBUG_PORT_TIMEOUT_MS", str(startup_timeout * 1000))
 
         # Reuse system Puppeteer cache to avoid redundant Chromium downloads
@@ -1690,7 +1690,7 @@ def chrome_session(
                 test_url=test_url,
                 snapshot_id=snapshot_id,
                 crawl_id=crawl_id,
-                timeout=60,
+                timeout=max(60, chrome_timeout + 15),
             )
         except RuntimeError:
             cleanup_chrome(chrome_launch_process, chrome_pid)
