@@ -61,15 +61,12 @@ let responseUrl = null;
 let originalUrl = null;
 let latestNavigationState = null;
 let headersReadyResolve = null;
-let headersReadyReject = null;
 let lastProgressLine = '';
+let lastMainRequestFailure = '';
 const headersReady = new Promise((resolve) => {
     headersReadyResolve = resolve;
 }).catch((error) => {
     throw error;
-});
-const headersReadyFailure = new Promise((_, reject) => {
-    headersReadyReject = reject;
 });
 
 function emitProgress(line) {
@@ -191,10 +188,7 @@ async function setupListener(url) {
     page.on('requestfailed', (request) => {
         try {
             if (!isMainNavigationRequest(request) || headersWritten) return;
-            const errorText = request.failure()?.errorText || 'Main request failed';
-            if (headersReadyReject) {
-                headersReadyReject(new Error(errorText));
-            }
+            lastMainRequestFailure = request.failure()?.errorText || 'Main request failed';
         } catch (e) {
             // Ignore errors
         }
@@ -263,8 +257,10 @@ async function main() {
         const timeout = getEnvInt('HEADERS_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
         await Promise.race([
             headersReady,
-            headersReadyFailure,
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out waiting for headers')), timeout * 4)),
+            new Promise((_, reject) => setTimeout(() => {
+                const suffix = lastMainRequestFailure ? ` (${lastMainRequestFailure})` : '';
+                reject(new Error(`Timed out waiting for headers${suffix}`));
+            }, timeout * 4)),
         ]);
 
         // Best-effort short grace period so navigation.json can land before we
