@@ -380,7 +380,7 @@ const browser = {
     assert "load_error" in payload["result"][0]
 
 
-def test_load_unpacked_extensions_into_browser_uses_chrome_assigned_id():
+def test_load_cached_extension_uses_runtime_browser_target():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
         extensions_dir = tmpdir_path / "chrome_extensions"
@@ -401,11 +401,16 @@ const extensionJson = process.argv[4];
 (async () => {
   const extension = JSON.parse(extensionJson);
   const binary = chromeUtils.findChromium();
+  const strategy = chromeUtils.getExtensionLoadStrategy(binary);
+  if (strategy === 'launch') {
+    extension.id = chromeUtils.getExtensionId(extension.unpacked_path);
+  }
   const result = await chromeUtils.launchChromium({
     binary,
     outputDir,
     userDataDir,
     enableExtensionDebugging: true,
+    extensionPaths: strategy === 'launch' ? [extension.unpacked_path] : [],
   });
   if (!result.success) {
     throw new Error(result.error || 'Chrome launch failed');
@@ -416,12 +421,17 @@ const extensionJson = process.argv[4];
   });
   try {
     const extensions = [extension];
-    await chromeUtils.loadUnpackedExtensionsIntoBrowser(browser, extensions, 30000);
+    if (strategy === 'launch') {
+      await chromeUtils.loadAllExtensionsFromBrowser(browser, extensions, 30000);
+    } else {
+      await chromeUtils.loadUnpackedExtensionsIntoBrowser(browser, extensions, 30000);
+    }
     const targets = browser.targets()
       .filter(target => target.url().includes(extensions[0].id))
       .map(target => ({ type: target.type(), url: target.url() }));
     process.stdout.write(JSON.stringify({
       cdpUrl: result.cdpUrl,
+      strategy,
       extension: extensions[0],
       targets,
     }));
@@ -452,7 +462,8 @@ const extensionJson = process.argv[4];
         assert result.returncode == 0, result.stderr
         payload = json.loads(result.stdout.strip().splitlines()[-1])
         assert payload["extension"]["id"], payload
-        assert payload["extension"]["id"] != cached_ext.get("id"), payload
+        if payload["strategy"] == "cdp":
+            assert payload["extension"]["id"] != cached_ext.get("id"), payload
         assert (
             payload["extension"]
             .get("target_url", "")

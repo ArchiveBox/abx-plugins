@@ -1459,6 +1459,19 @@ function getValidInstalledExtensions(extensions) {
     return extensions.filter(ext => ext?.unpacked_path);
 }
 
+function getExtensionLoadStrategy(binary = findChromium()) {
+    const configured = getEnv('CHROME_EXTENSION_LOAD_STRATEGY', 'auto').toLowerCase();
+    if (['cdp', 'launch'].includes(configured)) {
+        return configured;
+    }
+
+    const binaryName = path.basename(binary || '').toLowerCase();
+    if (binaryName.includes('chromium')) {
+        return 'launch';
+    }
+    return 'cdp';
+}
+
 async function tryGetExtensionContext(target, targetType) {
     if (targetType === 'service_worker') return await target.worker();
     return await target.page();
@@ -3689,12 +3702,17 @@ async function ensureChromeSession(options = {}) {
         if (!resolvedBinary) {
             throw new Error('Chromium binary not found');
         }
+        const extensionLoadStrategy = getExtensionLoadStrategy(resolvedBinary);
+        const launchExtensionPaths = extensionLoadStrategy === 'launch'
+            ? extensionPaths
+            : [];
 
         const result = await launchChromium({
             binary: resolvedBinary,
             outputDir,
             userDataDir,
             enableExtensionDebugging: installedExtensions.length > 0,
+            extensionPaths: launchExtensionPaths,
         });
         if (!result.success) {
             throw new Error(result.error || 'Failed to launch Chromium');
@@ -3711,7 +3729,12 @@ async function ensureChromeSession(options = {}) {
             browser = await connectToBrowserEndpoint(puppeteer, resolvedCdpUrl, { defaultViewport: null });
 
             if (installedExtensions.length > 0) {
-                await loadUnpackedExtensionsIntoBrowser(browser, installedExtensions, timeoutMs);
+                const extensionLoadStrategy = getExtensionLoadStrategy(resolvedBinary);
+                if (extensionLoadStrategy === 'launch') {
+                    await loadAllExtensionsFromBrowser(browser, installedExtensions, timeoutMs);
+                } else {
+                    await loadUnpackedExtensionsIntoBrowser(browser, installedExtensions, timeoutMs);
+                }
             }
 
             if (downloadsDir) {
@@ -3911,6 +3934,7 @@ module.exports = {
     loadAllExtensionsFromBrowser,
     loadUnpackedExtensionsIntoBrowser,
     waitForExtensionTargetHandle,
+    getExtensionLoadStrategy,
     // New puppeteer best-practices helpers
     resolvePuppeteerModule,
     connectToBrowserEndpoint,
