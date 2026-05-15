@@ -49,9 +49,12 @@ const POST_CAPTURE_NAVIGATION_GRACE_MS = 2000;
 
 let browser = null;
 let page = null;
+let cdpSession = null;
 let shuttingDown = false;
 let headersWritten = false;
 
+let mainFrameId = null;
+let mainDocumentRequestId = null;
 let requestUrl = null;
 let requestHeaders = null;
 let responseHeaders = null;
@@ -85,30 +88,27 @@ function getFinalUrl(navigationState = null) {
     return navigationState?.finalUrl || page?.url() || null;
 }
 
-function isMainNavigationRequest(request) {
+function isMainDocumentNetworkEvent(params) {
     try {
-        if (!request) return false;
-        const url = request.url();
-        if (!url || !url.startsWith('http')) return false;
+        if (!params) return false;
+        if (mainFrameId && params.frameId && params.frameId !== mainFrameId) return false;
 
-        const resourceType = (request.resourceType?.() || '').toLowerCase();
-        if (resourceType && resourceType !== 'document') return false;
+        const eventType = (params.type || '').toLowerCase();
+        if (eventType && eventType !== 'document') return false;
 
-        if (request.isNavigationRequest?.() === false) return false;
-
-        const requestFrame = request.frame?.() || null;
-        if (
-            requestFrame
-            && requestFrame.parentFrame?.() !== null
-            && page?.mainFrame
-            && requestFrame !== page.mainFrame()
-        ) {
-            return false;
-        }
-
-        return true;
+        const url = params.request?.url || params.response?.url || '';
+        return Boolean(url && url.startsWith('http'));
     } catch (error) {
         return false;
+    }
+}
+
+function rememberMainRequest(requestId) {
+    if (!requestId) return;
+    mainDocumentRequestId = requestId;
+    if (mainRequestFailureTimer) {
+        clearTimeout(mainRequestFailureTimer);
+        mainRequestFailureTimer = null;
     }
 }
 
@@ -160,45 +160,60 @@ async function setupListener(url) {
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
     const timeout = getEnvInt('HEADERS_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
     try { fs.unlinkSync(outputPath); } catch (error) {}
-    const { browser, page } = await connectToPage({
+    const connection = await connectToPage({
         chromeSessionDir: CHROME_SESSION_DIR,
         timeoutMs: timeout,
         puppeteer,
     });
+    const { browser, page, cdpSession } = connection;
 
-    page.on('request', (request) => {
+    await cdpSession.send('Network.enable');
+    await cdpSession.send('Page.enable');
+    try {
+        const frameTree = await cdpSession.send('Page.getFrameTree');
+        mainFrameId = frameTree?.frameTree?.frame?.id || null;
+    } catch (error) {
+        mainFrameId = null;
+    }
+
+    cdpSession.on('Network.requestWillBeSent', (params) => {
         try {
-            if (!isMainNavigationRequest(request)) return;
-            requestUrl = requestUrl || request.url();
-            requestHeaders = request.headers() || {};
+            if (!isMainDocumentNetworkEvent(params)) return;
+            rememberMainRequest(params.requestId);
+            requestUrl = requestUrl || params.request?.url;
+            requestHeaders = params.request?.headers || {};
         } catch (e) {
             // Ignore errors
         }
     });
 
-    page.on('response', (response) => {
+    cdpSession.on('Network.responseReceived', (params) => {
         try {
-            const request = response.request();
-            if (!isMainNavigationRequest(request)) return;
-            const status = response.status();
+            if (!isMainDocumentNetworkEvent(params)) return;
+            if (mainDocumentRequestId && params.requestId !== mainDocumentRequestId) return;
+
+            const response = params.response || {};
+            const status = response.status;
             if (status >= 300 && status < 400) return;
 
-            requestUrl = requestUrl || request.url();
-            requestHeaders = request.headers() || {};
-            responseHeaders = response.headers() || {};
+            rememberMainRequest(params.requestId);
+            requestUrl = requestUrl || response.url || originalUrl;
+            responseHeaders = response.headers || {};
             responseStatus = status || null;
-            responseStatusText = response.statusText ? response.statusText() : null;
-            responseUrl = response.url() || null;
+            responseStatusText = response.statusText || null;
+            responseUrl = response.url || null;
             writeHeadersFile(null, true);
         } catch (e) {
             // Ignore errors
         }
     });
 
-    page.on('requestfailed', (request) => {
+    cdpSession.on('Network.loadingFailed', (params) => {
         try {
-            if (!isMainNavigationRequest(request) || headersWritten) return;
-            lastMainRequestFailure = request.failure()?.errorText || 'Main request failed';
+            if (headersWritten) return;
+            if (!mainDocumentRequestId || params.requestId !== mainDocumentRequestId) return;
+
+            lastMainRequestFailure = params.errorText || 'Main request failed';
             if (mainRequestFailureTimer) {
                 clearTimeout(mainRequestFailureTimer);
             }
@@ -216,7 +231,7 @@ async function setupListener(url) {
     // use its existence as a readiness signal before triggering navigation.
     fs.closeSync(fs.openSync(outputPath, 'a'));
 
-    return { browser, page };
+    return { browser, page, cdpSession };
 }
 
 function emitResult(status = 'succeeded', outputStr = OUTPUT_PATH_STR) {
@@ -268,6 +283,7 @@ async function main() {
         const connection = await setupListener(url);
         browser = connection.browser;
         page = connection.page;
+        cdpSession = connection.cdpSession;
 
         // The hook only needs the top-level request/response pair. Waiting for
         // full navigation as a hard requirement keeps the daemon alive longer
