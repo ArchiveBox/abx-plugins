@@ -72,15 +72,14 @@ def require_liteparse_binary() -> str:
 
 # Two public PDFs with known, distinct text content:
 #
-# PDF_URL_A (unec.edu.az/pdf-sample.pdf):
-#   Contains "Adobe® Portable Document Format (PDF) is a universal file format
-#   that preserves all of the fonts, formatting, colours and graphics"
+# PDF_URL_A (w3.org dummy.pdf):
+#   Contains "Dummy PDF file"
 #
 # PDF_URL_B (pdfobject.com/pdf/sample.pdf):
 #   Contains "This is a simple PDF file. Fun fun fun."
 #   and "Lorem ipsum dolor sit amet, consectetuer adipiscing elit."
 #
-PDF_URL_A = "https://unec.edu.az/application/uploads/2014/12/pdf-sample.pdf"
+PDF_URL_A = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
 PDF_URL_B = "https://pdfobject.com/pdf/sample.pdf"
 
 
@@ -245,7 +244,7 @@ def test_extract_multiple_pdfs():
     """Test that ALL PDFs are processed when multiple exist across plugins.
 
     Uses two different PDFs with distinct content:
-      PDF_URL_A (unec.edu.az): contains "preserves all of the fonts, formatting, colours and graphics"
+      PDF_URL_A (w3.org dummy.pdf): contains "Dummy PDF file"
       PDF_URL_B (pdfobject.com): contains "This is a simple PDF file. Fun fun fun."
 
     Places them in pdf/ and responses/ directories and verifies the combined
@@ -303,11 +302,9 @@ def test_extract_multiple_pdfs():
         text_content = (output_dir / "content.txt").read_text(errors="ignore")
         text_lower = text_content.lower()
 
-        # Assert unique content from PDF A (unec.edu.az pdf-sample.pdf)
-        # This PDF is about Adobe Acrobat and contains this exact phrase:
-        assert "preserves all" in text_lower and "colours and graphics" in text_lower, (
-            f"Expected text from PDF_URL_A about 'preserves all of the fonts, formatting, "
-            f"colours and graphics'. Got: {text_content[:500]!r}"
+        # Assert unique content from PDF A (w3.org dummy.pdf)
+        assert "dummy pdf file" in text_lower, (
+            f"Expected text from PDF_URL_A: 'Dummy PDF file'. Got: {text_content[:500]!r}"
         )
 
         # Assert unique content from PDF B (pdfobject.com sample.pdf)

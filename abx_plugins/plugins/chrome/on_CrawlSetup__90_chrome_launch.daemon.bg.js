@@ -45,7 +45,7 @@ if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 process.chdir(OUTPUT_DIR);
-const CHROME_BINARY = (process.env.CHROME_BINARY || 'chromium').split('/').at(-1);
+const CHROME_BINARY = (process.env.CHROME_BINARY || 'chrome').split('/').at(-1);
 const PERSONA_DIR = process.env.PERSONA_DIR || ((process.env.PERSONAS_DIR || '~/.config/abx/personas') + '/' + (process.env.ACTIVE_PERSONA || 'Default'))
 
 // Global state for cleanup

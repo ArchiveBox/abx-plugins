@@ -532,7 +532,7 @@ def _isolated_test_env(tmpdir: str | Path, **updates: str) -> dict:
     xdg_data_home = home_dir / ".local" / "share"
     chrome_extensions_dir = personas_dir / "Default" / "chrome_extensions"
     chrome_downloads_dir = personas_dir / "Default" / "chrome_downloads"
-    chrome_user_data_dir = personas_dir / "Default" / "chrome_user_data"
+    chrome_user_data_dir = personas_dir / "Default" / "chrome_profile"
 
     for path in (
         snap_dir,
@@ -569,7 +569,7 @@ def _isolated_test_env(tmpdir: str | Path, **updates: str) -> dict:
 
 @pytest.fixture(scope="session", autouse=True)
 def _ensure_chrome_prereqs(ensure_chromium_and_puppeteer_installed):
-    """Make the shared chromium install fixture autouse for this module."""
+    """Make the shared Chrome install fixture autouse for this module."""
     return ensure_chromium_and_puppeteer_installed
 
 
@@ -580,28 +580,24 @@ def test_hook_scripts_exist():
     assert CHROME_NAVIGATE_HOOK.exists(), f"Hook not found: {CHROME_NAVIGATE_HOOK}"
 
 
-def test_verify_chromium_available():
-    """Verify Chromium is available via CHROME_BINARY env var."""
-    chromium_binary = os.environ.get("CHROME_BINARY") or find_chromium_binary()
+def test_verify_chrome_available():
+    """Verify Chrome is available via CHROME_BINARY env var."""
+    chrome_binary = os.environ.get("CHROME_BINARY") or find_chromium_binary()
 
-    assert chromium_binary, (
-        "Chromium binary should be available (set by fixture or found)"
-    )
-    assert Path(chromium_binary).exists(), (
-        f"Chromium binary should exist at {chromium_binary}"
+    assert chrome_binary, "Chrome binary should be available (set by fixture or found)"
+    assert Path(chrome_binary).exists(), (
+        f"Chrome binary should exist at {chrome_binary}"
     )
 
-    # Verify it's actually Chromium by checking version
+    # Verify it's actually Chrome by checking version
     result = subprocess.run(
-        [chromium_binary, "--version"],
+        [chrome_binary, "--version"],
         capture_output=True,
         text=True,
         timeout=10,
     )
-    assert result.returncode == 0, f"Failed to get Chromium version: {result.stderr}"
-    assert "Chromium" in result.stdout or "Chrome" in result.stdout, (
-        f"Unexpected version output: {result.stdout}"
-    )
+    assert result.returncode == 0, f"Failed to get Chrome version: {result.stderr}"
+    assert "Chrome" in result.stdout, f"Unexpected version output: {result.stdout}"
 
 
 def test_chrome_launch_respects_sandbox_env():

@@ -445,7 +445,7 @@ def _coerce_upstream_urls(value: Any) -> dict[str, str] | None:
 
 
 def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
-    """Install Chromium and Puppeteer once for test sessions that require Chrome."""
+    """Install Chrome and Puppeteer once for test sessions that require Chrome."""
     os.environ["SNAP_DIR"] = str(tmp_path_factory.mktemp("chrome_test_data"))
     os.environ["PERSONAS_DIR"] = str(tmp_path_factory.mktemp("chrome_test_personas"))
     os.environ["HOME"] = str(tmp_path_factory.mktemp("chrome_test_home"))
@@ -457,17 +457,17 @@ def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
         Path(os.environ[key]).mkdir(parents=True, exist_ok=True)
 
     env = get_test_env()
-    chromium_binary = install_chromium_with_hooks(env)
-    if not chromium_binary:
-        raise RuntimeError("Chromium not found after install")
+    chrome_binary = install_chromium_with_hooks(env)
+    if not chrome_binary:
+        raise RuntimeError("Chrome not found after install")
 
     existing_chrome_binary = os.environ.get("CHROME_BINARY")
     if not existing_chrome_binary or not Path(existing_chrome_binary).exists():
-        os.environ["CHROME_BINARY"] = chromium_binary
+        os.environ["CHROME_BINARY"] = chrome_binary
     for key in ("NODE_MODULES_DIR", "NODE_PATH", "PATH"):
         if env.get(key):
             os.environ[key] = env[key]
-    return chromium_binary
+    return chrome_binary
 
 
 ensure_chromium_and_puppeteer_installed = pytest.fixture(scope="session")(
@@ -690,7 +690,7 @@ def link_puppeteer_cache(lib_dir: Path) -> None:
     Avoids repeated Chromium downloads across tests by reusing the
     default Puppeteer cache directory.
     """
-    cache_dir = lib_dir / "puppeteer" / "chrome"
+    cache_dir = lib_dir / "puppeteer" / "chromium"
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     candidates = [
@@ -1021,21 +1021,21 @@ def _ensure_puppeteer_with_hooks(env: dict, timeout: int) -> None:
 
 
 def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
-    """Install Chromium via the same hook sequence used by runtime code.
+    """Install Chrome via the same hook sequence used by runtime code.
 
     The order matters:
     1. ensure the ``puppeteer`` JS package exists
-    2. reuse an existing Chromium if one is already valid for this env
+    2. reuse an existing Chrome if one is already valid for this env
     3. otherwise emit the Chrome BinaryRequest record and satisfy it via the Puppeteer
        binary hook
 
     Any Machine updates emitted by hooks are folded back into ``env`` so later
     subprocesses inherit the resolved ``CHROME_BINARY`` / npm path settings.
 
-    Returns absolute path to Chromium binary.
+    Returns absolute path to Chrome binary.
     """
     with _chromium_install_lock(env):
-        # Always ensure JS dependency exists, even if Chromium already exists
+        # Always ensure JS dependency exists, even if Chrome already exists
         # on the host. chrome_launch resolves Puppeteer at runtime.
         _ensure_puppeteer_with_hooks(env, timeout=timeout)
 
@@ -1044,61 +1044,56 @@ def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
             env["CHROME_BINARY"] = existing
             return existing
 
-        chrome_name = env.get("CHROME_BINARY") or "chromium"
+        chrome_name = env.get("CHROME_BINARY") or "chrome"
         chrome_record = _required_binary_record(CHROME_PLUGIN_DIR, chrome_name, env)
 
-        chromium_cmd = [
+        chrome_cmd = [
             str(PUPPETEER_BINARY_HOOK),
-            f"--name={chrome_record.get('name', 'chromium')}",
+            f"--name={chrome_record.get('name', 'chrome')}",
             f"--binproviders={chrome_record.get('binproviders', '*')}",
         ]
         chrome_overrides = chrome_record.get("overrides")
         if chrome_overrides:
-            chromium_cmd.append(f"--overrides={json.dumps(chrome_overrides)}")
+            chrome_cmd.append(f"--overrides={json.dumps(chrome_overrides)}")
 
         result = subprocess.run(
-            chromium_cmd,
+            chrome_cmd,
             capture_output=True,
             text=True,
             timeout=timeout,
             env=env,
         )
         if result.returncode != 0:
-            raise RuntimeError(f"Puppeteer chromium install failed: {result.stderr}")
+            raise RuntimeError(f"Puppeteer Chrome install failed: {result.stderr}")
 
         records = parse_jsonl_records(result.stdout)
-        chromium_record = None
+        chrome_record = None
         for record in records:
-            if record.get("type") == "Binary" and record.get("name") == "chromium":
-                chromium_record = record
+            if record.get("type") == "Binary" and record.get("name") == "chrome":
+                chrome_record = record
                 break
-        if not chromium_record:
-            for record in records:
-                if record.get("type") == "Binary" and record.get("name") == "chrome":
-                    chromium_record = record
-                    break
-        if not chromium_record:
-            chromium_record = parse_jsonl_output(
+        if not chrome_record:
+            chrome_record = parse_jsonl_output(
                 result.stdout,
                 record_type="Binary",
             )
-        if not chromium_record:
-            raise RuntimeError("Chromium Binary record not found after install")
+        if not chrome_record:
+            raise RuntimeError("Chrome Binary record not found after install")
 
-        chromium_path = chromium_record.get("abspath")
-        if not isinstance(chromium_path, str) or not Path(chromium_path).exists():
+        chrome_path = chrome_record.get("abspath")
+        if not isinstance(chrome_path, str) or not Path(chrome_path).exists():
             raise RuntimeError(
-                f"Chromium binary not found after install: {chromium_path}",
+                f"Chrome binary not found after install: {chrome_path}",
             )
 
         apply_machine_updates(records, env)
-        env["CHROME_BINARY"] = chromium_path
+        env["CHROME_BINARY"] = chrome_path
 
         resolved = _resolve_existing_chromium(env)
         if resolved:
             env["CHROME_BINARY"] = resolved
             return resolved
-        return chromium_path
+        return chrome_path
 
 
 def run_hook_and_parse(
@@ -1141,8 +1136,8 @@ def setup_test_env(tmpdir: Path) -> dict:
     - crawl state lives under ``<tmpdir>/crawl``
     - snapshot state lives under ``<tmpdir>/snap``
     - persona-scoped ``chrome_extensions``, ``chrome_downloads``, and
-      ``chrome_user_data`` dirs are provisioned together
-    - Chromium + npm dependencies are installed through hooks, not hand-written
+      ``chrome_profile`` dirs are provisioned together
+    - Chrome + npm dependencies are installed through hooks, not hand-written
       test setup
 
     Returns env dict with ``SNAP_DIR``, ``CRAWL_DIR``, ``PERSONAS_DIR``,
@@ -1180,7 +1175,7 @@ def setup_test_env(tmpdir: Path) -> dict:
     xdg_data_home = home_dir / ".local" / "share"
     chrome_extensions_dir = personas_dir / "Default" / "chrome_extensions"
     chrome_downloads_dir = personas_dir / "Default" / "chrome_downloads"
-    chrome_user_data_dir = personas_dir / "Default" / "chrome_user_data"
+    chrome_user_data_dir = personas_dir / "Default" / "chrome_profile"
 
     # Create all directories
     node_modules_dir.mkdir(parents=True, exist_ok=True)
@@ -1612,7 +1607,7 @@ def chrome_session(
             lib_dir = get_lib_dir()
             npm_dir = lib_dir / "npm"
             node_modules_dir = npm_dir / "node_modules"
-        puppeteer_cache_dir = lib_dir / "puppeteer" / "chrome"
+        puppeteer_cache_dir = lib_dir / "puppeteer" / "chromium"
 
         # Create lib structure for puppeteer installation
         node_modules_dir.mkdir(parents=True, exist_ok=True)

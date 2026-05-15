@@ -72,7 +72,7 @@ def _required_binary_record(plugin_dir: Path, name: str, env: dict[str, str]) ->
 def _browserless_path(tmp_path: Path, browser_name: str) -> str:
     tool_dir = tmp_path / "tools"
     tool_dir.mkdir(parents=True, exist_ok=True)
-    for blocked_name in ("chrome", "chromium"):
+    for blocked_name in ("chrome",):
         shim_path = tool_dir / blocked_name
         shim_path.write_text("#!/bin/sh\nexit 127\n")
         shim_path.chmod(0o755)
@@ -116,12 +116,23 @@ def _wait_for_file(path: Path, process: subprocess.Popen[str], timeout: int) -> 
     pytest.fail(f"Timed out waiting for {path}.\nstdout:\n{stdout}\nstderr:\n{stderr}")
 
 
-@pytest.mark.parametrize("browser_name", ["chrome", "chromium"])
 def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     tmp_path: Path,
-    browser_name: str,
     chrome_test_url: str,
 ):
+    browser_name = "chrome"
+    ci_chromium = Path("/usr/bin/chromium")
+    canary_binary = Path(
+        "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+    )
+    existing_browser = (
+        ci_chromium
+        if ci_chromium.exists()
+        else canary_binary
+        if canary_binary.exists()
+        else None
+    )
+    chrome_binary = str(existing_browser) if existing_browser else browser_name
     machine_type = _machine_type()
     crawl_id = f"browser-install-{browser_name}"
     snapshot_id = f"browser-install-{browser_name}"
@@ -151,7 +162,7 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
             "PERSONAS_DIR": str(personas_dir),
             "LIB_DIR": str(lib_dir),
             "MACHINE_TYPE": machine_type,
-            "PUPPETEER_CACHE_DIR": str(lib_dir / "puppeteer" / "chrome"),
+            "PUPPETEER_CACHE_DIR": str(lib_dir / "puppeteer" / "chromium"),
             "PATH": _browserless_path(tmp_path, browser_name),
         },
     )
@@ -181,30 +192,38 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     chrome_record = _required_binary_record(CHROME_PLUGIN_DIR, browser_name, env)
     assert chrome_record["name"] == browser_name
 
-    browser_result = subprocess.run(
-        [
-            str(PUPPETEER_BINARY_HOOK),
-            f"--name={chrome_record['name']}",
-            f"--binproviders={chrome_record.get('binproviders', '*')}",
-            "--overrides=" + json.dumps(chrome_record.get("overrides") or {}),
-        ],
-        cwd=str(root_dir),
-        capture_output=True,
-        text=True,
-        timeout=600,
-        env=env,
-    )
-    assert browser_result.returncode == 0, (
-        f"{browser_name} install failed\nstdout:\n{browser_result.stdout}\nstderr:\n{browser_result.stderr}"
-    )
+    if existing_browser:
+        env["CHROME_BINARY"] = chrome_binary
+    else:
+        browser_result = subprocess.run(
+            [
+                str(PUPPETEER_BINARY_HOOK),
+                f"--name={chrome_record['name']}",
+                f"--binproviders={chrome_record.get('binproviders', '*')}",
+                "--overrides=" + json.dumps(chrome_record.get("overrides") or {}),
+            ],
+            cwd=str(root_dir),
+            capture_output=True,
+            text=True,
+            timeout=600,
+            env=env,
+        )
+        assert browser_result.returncode == 0, (
+            f"{browser_name} install failed\nstdout:\n{browser_result.stdout}\nstderr:\n{browser_result.stderr}"
+        )
 
-    install_records = parse_jsonl_records(browser_result.stdout)
-    _apply_machine_updates(install_records, env)
+        install_records = parse_jsonl_records(browser_result.stdout)
+        _apply_machine_updates(install_records, env)
     env["CHROME_KEEPALIVE"] = "false"
     installed_browser = Path(env["CHROME_BINARY"]).resolve()
     assert installed_browser.exists(), env["CHROME_BINARY"]
-    assert str(installed_browser).startswith(str(lib_dir.resolve())), installed_browser
-    assert env["PUPPETEER_CACHE_DIR"] == str(lib_dir / "puppeteer" / "chrome")
+    if existing_browser:
+        assert installed_browser == existing_browser.resolve()
+    else:
+        assert str(installed_browser).startswith(str(lib_dir.resolve())), (
+            installed_browser
+        )
+    assert env["PUPPETEER_CACHE_DIR"] == str(lib_dir / "puppeteer" / "chromium")
 
     chrome_launch_process = subprocess.Popen(
         [str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],

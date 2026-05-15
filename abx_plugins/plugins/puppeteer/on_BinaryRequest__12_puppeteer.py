@@ -10,7 +10,7 @@
 # ]
 # ///
 """
-Install Chromium via the Puppeteer CLI.
+Install Google Chrome via the Puppeteer CLI.
 
 Usage: on_BinaryRequest__12_puppeteer.py --name=<name>
 Output: Binary JSONL record to stdout after installation
@@ -53,7 +53,7 @@ def main(
     if binproviders != "*" and "puppeteer" not in binproviders.split(","):
         sys.exit(0)
 
-    if name not in ("chromium", "chrome"):
+    if name not in ("chrome",):
         sys.exit(0)
 
     existing_chrome_binary = (config.CHROME_BINARY or "").strip()
@@ -77,7 +77,7 @@ def main(
         sys.exit(1)
 
     provider_overrides = raw_overrides.get("puppeteer")
-    default_install_args = [f"{name}@latest", "--install-deps"]
+    default_install_args = ["chromium@latest", "--install-deps"]
     if provider_overrides is None:
         raw_overrides = {
             **raw_overrides,
@@ -136,7 +136,7 @@ def _get_install_failure_hint(install_output: str) -> str | None:
         and "eai_again" in lowered
     ):
         return (
-            "HINT: Puppeteer failed to download Chromium from storage.googleapis.com.\n"
+            "HINT: Puppeteer failed to download Chrome from storage.googleapis.com.\n"
             "HINT: In Claude sandboxes, NO_PROXY often includes *.googleapis.com "
             "and *.google.com. @puppeteer/browsers respects NO_PROXY, bypasses the "
             "egress proxy for storage.googleapis.com, and the direct connection can "

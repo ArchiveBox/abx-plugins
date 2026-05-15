@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Chrome",
-  "description": "Launch and manage a shared Chromium session for browser-driven plugins.",
+  "description": "Launch and manage a shared Google Chrome/CDP browser session for browser-driven plugins.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
@@ -43,16 +43,16 @@
       "x-aliases": [
         "USE_CHROME"
       ],
-      "description": "Enable Chromium browser integration for archiving"
+      "description": "Enable Chrome browser integration for archiving"
     },
     "CHROME_BINARY": {
       "type": "string",
-      "default": "chromium",
+      "default": "chrome",
       "x-aliases": [
         "CHROMIUM_BINARY",
         "GOOGLE_CHROME_BINARY"
       ],
-      "description": "Path to Chromium binary"
+      "description": "Path to Chrome binary"
     },
     "NODE_BINARY": {
       "type": "string",
@@ -70,7 +70,7 @@
       "type": "integer",
       "default": 3,
       "minimum": 1,
-      "description": "Maximum Chromium launch attempts before failing on transient startup errors"
+      "description": "Maximum Chrome launch attempts before failing on transient startup errors"
     },
     "CHROME_HEADLESS": {
       "type": "boolean",
@@ -113,7 +113,7 @@
     "CHROME_CDP_URL": {
       "type": "string",
       "default": "",
-      "description": "Connect to an already-running browser over CDP instead of launching a new local Chromium process"
+      "description": "Connect to an already-running browser over CDP instead of launching a new local Chrome process"
     },
     "CHROME_IS_LOCAL": {
       "type": "boolean",

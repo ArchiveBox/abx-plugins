@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Puppeteer",
-  "description": "Install and manage Chromium through the Puppeteer toolchain.",
+  "description": "Install and manage Google Chrome through the Puppeteer toolchain.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
@@ -23,12 +23,12 @@
   "properties": {
     "CHROME_BINARY": {
       "type": "string",
-      "default": "chromium",
+      "default": "chrome",
       "x-aliases": [
         "CHROMIUM_BINARY",
         "GOOGLE_CHROME_BINARY"
       ],
-      "description": "Path to Chromium binary"
+      "description": "Path to Chrome binary"
     },
     "PUPPETEER_ENABLED": {
       "type": "boolean",

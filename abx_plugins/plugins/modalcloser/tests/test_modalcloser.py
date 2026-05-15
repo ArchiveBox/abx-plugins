@@ -557,7 +557,7 @@ async function closeModals(page) {
 async function main() {
     const browser = await puppeteer.launch({
         headless: 'new',
-        executablePath: process.env.CHROME_BINARY || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        executablePath: process.env.CHROME_BINARY || '/usr/bin/chromium',
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled']
     });
 

@@ -54,12 +54,12 @@
   "properties": {
     "CHROME_BINARY": {
       "type": "string",
-      "default": "chromium",
+      "default": "chrome",
       "x-aliases": [
         "CHROMIUM_BINARY",
         "GOOGLE_CHROME_BINARY"
       ],
-      "description": "Path to Chromium binary"
+      "description": "Path to Chrome binary"
     },
     "NODE_BINARY": {
       "type": "string",

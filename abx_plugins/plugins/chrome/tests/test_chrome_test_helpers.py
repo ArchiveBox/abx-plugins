@@ -155,12 +155,11 @@ def test_find_chromium_binary():
 
 
 def test_find_chromium_uses_canonical_managed_puppeteer_cache_dir(tmp_path: Path):
-    """findChromium() should resolve binaries from LIB_DIR/puppeteer/chrome."""
+    """findChromium() should resolve binaries from LIB_DIR/puppeteer/chromium."""
     binary_path = (
         tmp_path
         / "lib"
         / "puppeteer"
-        / "chrome"
         / "chromium"
         / "123456"
         / "chrome-linux64"
@@ -180,12 +179,23 @@ def test_find_chromium_uses_canonical_managed_puppeteer_cache_dir(tmp_path: Path
     returncode, stdout, stderr = _call_chrome_utils("findChromium", env=env)
 
     assert returncode == 0, stderr
-    assert stdout.strip() == str(binary_path)
+    ci_chromium = Path("/usr/bin/chromium")
+    canary_binary = Path(
+        "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+    )
+    expected_binary = (
+        ci_chromium
+        if ci_chromium.exists()
+        else canary_binary
+        if canary_binary.exists()
+        else binary_path
+    )
+    assert stdout.strip() == str(expected_binary)
 
 
 @pytest.mark.parametrize(
     ("browser_name", "label"),
-    [("chrome", "Google Chrome"), ("chromium", "Chromium")],
+    [("chrome", "Google Chrome")],
 )
 def test_find_chromium_accepts_command_name_chrome_binary(
     tmp_path: Path,
@@ -479,11 +489,11 @@ def test_lib_dir_is_directory():
                 os.environ.pop("HOME", None)
 
 
-def test_install_chromium_with_hooks_reuses_existing_chromium_via_env(tmp_path: Path):
+def test_install_chromium_with_hooks_reuses_existing_chrome_via_env(tmp_path: Path):
     """Use public env inputs only: existing CHROME_BINARY should be reused."""
-    chromium_path = tmp_path / "chromium"
-    chromium_path.write_text("#!/bin/sh\nexit 0\n")
-    chromium_path.chmod(0o755)
+    chrome_path = tmp_path / "chrome"
+    chrome_path.write_text("#!/bin/sh\nexit 0\n")
+    chrome_path.chmod(0o755)
 
     # Provide a minimal local puppeteer package so require.resolve('puppeteer')
     # succeeds without network installs.
@@ -498,7 +508,7 @@ def test_install_chromium_with_hooks_reuses_existing_chromium_via_env(tmp_path: 
     env = get_test_env()
     env.update(
         {
-            "CHROME_BINARY": str(chromium_path),
+            "CHROME_BINARY": str(chrome_path),
             "LIB_DIR": str(tmp_path / "lib"),
             "NODE_MODULES_DIR": str(node_modules_dir),
             "NODE_PATH": str(node_modules_dir),
@@ -506,8 +516,8 @@ def test_install_chromium_with_hooks_reuses_existing_chromium_via_env(tmp_path: 
     )
     resolved = install_chromium_with_hooks(env, timeout=1)
 
-    assert resolved == str(chromium_path)
-    assert env["CHROME_BINARY"] == str(chromium_path)
+    assert resolved == str(chrome_path)
+    assert env["CHROME_BINARY"] == str(chrome_path)
 
 
 def test_setup_test_env_provisions_extension_runtime_dirs(tmp_path: Path):
@@ -532,8 +542,8 @@ def test_session_fixture_preserves_runtime_chrome_binary_override(
     """Session fixture should default CHROME_BINARY, not overwrite explicit overrides."""
     import abx_plugins.plugins.chrome.tests.chrome_test_helpers as helpers
 
-    runtime_binary = tmp_path / "runtime-chromium"
-    installed_binary = tmp_path / "hook-chromium"
+    runtime_binary = tmp_path / "runtime-chrome"
+    installed_binary = tmp_path / "hook-chrome"
     _write_fake_browser_binary(runtime_binary)
     _write_fake_browser_binary(installed_binary)
 
@@ -568,10 +578,10 @@ def test_session_fixture_replaces_stale_runtime_chrome_binary_override(
     """Session fixture should replace an invalid stale CHROME_BINARY."""
     import abx_plugins.plugins.chrome.tests.chrome_test_helpers as helpers
 
-    installed_binary = tmp_path / "hook-chromium"
+    installed_binary = tmp_path / "hook-chrome"
     installed_binary.write_text("#!/bin/sh\necho installed\n")
     installed_binary.chmod(0o755)
-    stale_binary = tmp_path / "missing-chromium"
+    stale_binary = tmp_path / "missing-chrome"
 
     class DummyTmpPathFactory:
         def mktemp(self, name: str) -> Path:

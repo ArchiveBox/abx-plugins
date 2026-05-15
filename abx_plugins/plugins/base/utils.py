@@ -404,6 +404,21 @@ def load_config(
         user_config=user_config,
         environ=environ,
     )
+    if "CHROME_BINARY" in payload:
+        env = os.environ if environ is None else environ
+        has_explicit_browser = any(
+            key in env or (user_config and key in user_config)
+            for key in ("CHROME_BINARY", "CHROMIUM_BINARY", "GOOGLE_CHROME_BINARY")
+        )
+        ci_chromium_path = Path("/usr/bin/chromium")
+        canary_path = Path(
+            "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+        )
+        if not has_explicit_browser:
+            if ci_chromium_path.exists():
+                payload["CHROME_BINARY"] = str(ci_chromium_path)
+            elif canary_path.exists():
+                payload["CHROME_BINARY"] = str(canary_path)
     model = _schema_model(
         json.dumps(
             {

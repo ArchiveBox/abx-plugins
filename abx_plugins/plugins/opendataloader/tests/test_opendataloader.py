@@ -103,7 +103,8 @@ def require_java_binary() -> str:
 def _download_test_pdf() -> bytes:
     """Download a small public PDF for testing. Tries multiple sources."""
     pdf_urls = [
-        "https://unec.edu.az/application/uploads/2014/12/pdf-sample.pdf",
+        "https://pdfobject.com/pdf/sample.pdf",
+        "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
         "https://www.orimi.com/pdf-test.pdf",
     ]
     for url in pdf_urls:

@@ -7,7 +7,6 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-import pytest
 
 from abx_plugins.plugins.base.test_utils import (
     get_hook_script,
@@ -62,8 +61,8 @@ Error: getaddrinfo EAI_AGAIN storage.googleapis.com
     assert 'no_proxy="$NO_PROXY"' in hint
 
 
-@pytest.mark.parametrize("browser_name", ["chrome", "chromium"])
-def test_crawl_hook_respects_configured_chrome_binary(browser_name):
+def test_crawl_hook_respects_configured_chrome_binary():
+    browser_name = "chrome"
     env = os.environ.copy()
     env["CHROME_BINARY"] = browser_name
     binary_record = next(
@@ -82,15 +81,12 @@ def test_crawl_hook_respects_configured_chrome_binary(browser_name):
     }
 
 
-@pytest.mark.parametrize("browser_name", ["chrome", "chromium"])
 def test_resolve_binary_reference_accepts_explicit_paths(
     tmp_path: Path,
-    browser_name: str,
 ):
+    browser_name = "chrome"
     binary_path = tmp_path / browser_name
-    version_output = (
-        "Google Chrome 123.4.5\n" if browser_name == "chrome" else "Chromium 123.4.5\n"
-    )
+    version_output = "Google Chrome 123.4.5\n"
     binary_path.write_text(f"#!/bin/sh\necho '{version_output.strip()}'\n")
     binary_path.chmod(0o755)
 
@@ -99,16 +95,16 @@ def test_resolve_binary_reference_accepts_explicit_paths(
     assert str(binary.abspath) == str(binary_path)
 
 
-@pytest.mark.parametrize("browser_name", ["chrome", "chromium"])
-def test_resolve_binary_reference_rejects_bare_names(browser_name):
+def test_resolve_binary_reference_rejects_bare_names():
+    browser_name = "chrome"
     assert not _is_explicit_path(browser_name)
     assert _load_binary_from_path(browser_name, browser_name) is None
 
 
-def test_binary_hook_fast_path_does_not_emit_chromium_version(tmp_path: Path):
-    fake_browser = tmp_path / "fake-chromium"
+def test_binary_hook_fast_path_does_not_emit_machine_record(tmp_path: Path):
+    fake_browser = tmp_path / "fake-chrome"
     fake_browser.write_text(
-        "#!/bin/sh\necho 'Chromium 123.4.5'\n",
+        "#!/bin/sh\necho 'Google Chrome 123.4.5'\n",
     )
     fake_browser.chmod(0o755)
 
@@ -116,7 +112,7 @@ def test_binary_hook_fast_path_does_not_emit_chromium_version(tmp_path: Path):
     env["CHROME_BINARY"] = str(fake_browser)
 
     result = subprocess.run(
-        [str(BINARY_HOOK), "--name=chromium", "--binproviders=puppeteer"],
+        [str(BINARY_HOOK), "--name=chrome", "--binproviders=puppeteer"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -138,7 +134,7 @@ def test_binary_hook_fast_path_does_not_emit_chromium_version(tmp_path: Path):
         (
             r
             for r in records
-            if (r.get("type") == "Binary" and r.get("name") == "chromium")
+            if (r.get("type") == "Binary" and r.get("name") == "chrome")
         ),
         None,
     )
@@ -146,7 +142,7 @@ def test_binary_hook_fast_path_does_not_emit_chromium_version(tmp_path: Path):
     assert not any(r.get("type") == "Machine" for r in records), records
 
 
-def test_puppeteer_installs_chromium():
+def test_puppeteer_installs_chrome():
     assert shutil.which("npm"), "npm is required for puppeteer installation"
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -184,7 +180,7 @@ def test_puppeteer_installs_chromium():
         result = subprocess.run(
             [
                 str(BINARY_HOOK),
-                "--name=chromium",
+                "--name=chrome",
                 "--binproviders=puppeteer",
                 "--overrides="
                 + json.dumps(
@@ -216,10 +212,10 @@ def test_puppeteer_installs_chromium():
         binaries = [
             r
             for r in records
-            if (r.get("type") == "Binary" and r.get("name") == "chromium")
+            if (r.get("type") == "Binary" and r.get("name") == "chrome")
         ]
-        assert binaries, f"Expected Binary record for chromium, got: {records}"
+        assert binaries, f"Expected Binary record for chrome, got: {records}"
         abspath = binaries[0].get("abspath")
         assert abspath and Path(abspath).exists(), (
-            f"Chromium binary path invalid: {abspath}"
+            f"Chrome binary path invalid: {abspath}"
         )

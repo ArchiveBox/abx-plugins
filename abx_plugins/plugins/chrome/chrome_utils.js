@@ -1880,16 +1880,18 @@ function getExtensionTargets(browser) {
 }
 
 /**
- * Resolve the Chromium-family browser binary to launch.
+ * Resolve the Chrome browser binary to launch.
  *
  * Resolution order matters because tests and runtime callers may override the
  * browser at the environment layer:
  * 1. `CHROME_BINARY`, if explicitly provided at runtime
- * 2. hook-managed installs under `LIB_DIR`
+ * 2. `/usr/bin/chromium` on CI/Linux hosts
+ * 3. Google Chrome Canary on macOS
+ * 4. Chromium on the host
+ * 5. hook-managed Playwright/Puppeteer Chromium installs under `LIB_DIR`
  *
- * This helper is intentionally Chromium-oriented. It should not guess at
- * unrelated branded browsers or ambient host installs when a runtime
- * override or hook-managed browser is expected to be authoritative.
+ * This helper intentionally avoids Google Chrome stable for tests and local
+ * auto-discovery. Docker sets CHROME_BINARY explicitly to its packaged browser.
  *
  * @returns {string|null} - Absolute path to browser binary or null if not found
  */
@@ -1956,12 +1958,32 @@ function findChromium() {
         console.error(`[!] Warning: CHROME_BINARY="${chromeBinary}" is not valid`);
     }
 
+    const ciChromiumPath = '/usr/bin/chromium';
+    if (validateBinary(ciChromiumPath)) {
+        return ciChromiumPath;
+    }
+
+    const macCanaryPath = '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary';
+    if (process.platform === 'darwin' && validateBinary(macCanaryPath)) {
+        return macCanaryPath;
+    }
+
+    const hostChromiumCandidates = process.platform === 'darwin'
+        ? ['/Applications/Chromium.app/Contents/MacOS/Chromium']
+        : ['chromium', 'chromium-browser'];
+    for (const candidate of hostChromiumCandidates) {
+        const resolvedChromium = resolveBinaryReference(candidate);
+        if (resolvedChromium) {
+            return resolvedChromium;
+        }
+    }
+
     // 2. Warn that no CHROME_BINARY is configured, searching managed installs
     if (!chromeBinary) {
         console.error('[!] Warning: CHROME_BINARY not set, searching managed installs...');
     }
 
-    // Helper to find Chromium in @puppeteer/browsers directory structure
+    // Helper to find Playwright/Puppeteer Chromium in managed browser directories
     const findInPuppeteerDir = (baseDir) => {
         if (!fs.existsSync(baseDir)) return null;
         try {
@@ -1971,7 +1993,7 @@ function findChromium() {
             const versionRoots = [baseDir];
 
             for (const entryName of entryNames) {
-                if (entryName === 'chrome' || entryName === 'chromium') {
+                if (entryName === 'chromium') {
                     versionRoots.push(path.join(baseDir, entryName));
                 }
             }
@@ -2001,7 +2023,7 @@ function findChromium() {
         return null;
     };
 
-    // 3. Search LIB_DIR for hook-installed Chromium
+    // 3. Search LIB_DIR for hook-installed Playwright/Puppeteer Chromium
     const libDir = getEnv('LIB_DIR');
     if (libDir) {
         const libCandidates = [
@@ -2014,7 +2036,7 @@ function findChromium() {
         // Also search puppeteer cache under LIB_DIR
         const libPuppeteerDirs = [
             path.join(libDir, 'puppeteer', 'chromium'),
-            path.join(libDir, 'puppeteer', 'chrome'),
+            path.join(libDir, 'ms-playwright'),
         ];
         for (const libPuppeteerDir of libPuppeteerDirs) {
             const libPuppeteerBinary = findInPuppeteerDir(libPuppeteerDir);
@@ -2028,8 +2050,8 @@ function findChromium() {
 }
 
 /**
- * Find Chromium binary path only (never Chrome/Brave/Edge).
- * Prefers CHROME_BINARY if set, then Chromium.
+ * Find the supported test/local browser path. Prefers explicit CHROME_BINARY,
+ * then CI Chromium, Chrome Canary, host Chromium, then managed Chromium.
  *
  * @returns {string|null} - Absolute path or command name to browser binary
  */

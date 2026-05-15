@@ -22,7 +22,6 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
 const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvBool, getEnvInt, loadConfig, emitArchiveResultRecord } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 
@@ -34,7 +33,6 @@ const {
     waitForChromeSessionState,
     closeTabInChromeSession,
     resolvePuppeteerModule,
-    findChromium,
 } = require('./chrome_utils.js');
 const puppeteer = resolvePuppeteerModule();
 
@@ -231,16 +229,6 @@ async function main() {
 
     try {
         releaseLock = await acquireSessionLock(path.join(OUTPUT_DIR, '.target.lock'));
-        // Get Chrome version
-        try {
-            const binary = findChromium();
-            if (binary) {
-                version = execFileSync(binary, ['--version'], { encoding: 'utf8', timeout: 5000 }).trim().slice(0, 64);
-            }
-        } catch (e) {
-            version = '';
-        }
-
         const isolation = getEnv('CHROME_ISOLATION', 'crawl').toLowerCase() === 'snapshot' ? 'snapshot' : 'crawl';
         const cdpUrlOverride = getEnv('CHROME_CDP_URL', '');
         const processIsLocal = cdpUrlOverride ? false : getEnvBool('CHROME_IS_LOCAL', true);

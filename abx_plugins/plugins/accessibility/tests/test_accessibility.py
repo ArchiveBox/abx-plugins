@@ -27,8 +27,12 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 def chrome_available() -> bool:
-    """Check if Chrome/Chromium is available."""
-    for name in ["chromium", "chromium-browser", "google-chrome", "chrome"]:
+    """Check if Chrome is available."""
+    if Path(
+        "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+    ).exists():
+        return True
+    for name in ["chromium", "chromium-browser"]:
         if shutil.which(name):
             return True
     return False
