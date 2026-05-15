@@ -51,6 +51,25 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+async function waitForPreloadHooks(timeoutMs) {
+    const headersDir = path.join(SNAP_DIR, 'headers');
+    const headersReadyFile = path.join(headersDir, 'headers.json');
+    if (!fs.existsSync(headersDir) || fs.existsSync(headersReadyFile)) {
+        return;
+    }
+
+    const startedAt = Date.now();
+    const waitMs = Math.min(timeoutMs, 5000);
+    while (Date.now() - startedAt < waitMs) {
+        if (fs.existsSync(headersReadyFile)) {
+            return;
+        }
+        await sleep(100);
+    }
+
+    throw new Error('Timed out waiting for headers listener readiness');
+}
+
 async function navigate(url) {
     const timeout = (getEnvInt('CHROME_PAGELOAD_TIMEOUT') || getEnvInt('CHROME_TIMEOUT') || getEnvInt('TIMEOUT', 60)) * 1000;
     const delayAfterLoad = getEnvFloat('CHROME_DELAY_AFTER_LOAD', 0) * 1000;
@@ -68,6 +87,8 @@ async function navigate(url) {
         });
         browser = conn.browser;
         const page = conn.page;
+
+        await waitForPreloadHooks(timeout);
 
         // Navigate
         console.log(`Navigating to ${url} (wait: ${waitUntil}, timeout: ${timeout}ms)`);
