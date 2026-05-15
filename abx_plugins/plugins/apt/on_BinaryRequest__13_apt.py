@@ -16,7 +16,9 @@
 #     ./on_BinaryRequest__13_apt.py [...] > events.jsonl
 
 import json
+import subprocess
 import sys
+from collections.abc import Mapping
 
 from abx_plugins.plugins.base.utils import (
     emit_installed_binary_record,
@@ -26,6 +28,41 @@ from abx_plugins.plugins.base.utils import (
 import rich_click as click
 
 from abxpkg import AptProvider, Binary
+
+
+def _apt_install_args(name: str, provider_overrides: Mapping) -> list[str]:
+    install_args = provider_overrides.get("install_args") or []
+    if isinstance(install_args, str):
+        install_args = [install_args]
+    if not isinstance(install_args, list):
+        return [name]
+    packages = [
+        str(arg)
+        for arg in install_args
+        if str(arg).strip() and not str(arg).startswith("-")
+    ]
+    return packages or [name]
+
+
+def _apt_has_candidate(package_name: str) -> bool | None:
+    try:
+        result = subprocess.run(
+            ["apt-cache", "policy", package_name],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+
+    if result.returncode != 0:
+        return None
+
+    for line in result.stdout.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("Candidate:"):
+            return stripped != "Candidate: (none)"
+    return None
 
 
 @click.command(
@@ -79,6 +116,11 @@ def main(
                 f"Using apt install overrides: {provider_overrides}",
                 err=True,
             )
+        for package_name in _apt_install_args(name, provider_overrides):
+            has_candidate = _apt_has_candidate(package_name)
+            if has_candidate is False:
+                click.echo(f"apt package not found: {package_name}", err=True)
+                sys.exit(1)
 
         binary = binary.install()
     except Exception as e:
