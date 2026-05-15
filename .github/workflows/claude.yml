@@ -57,6 +57,14 @@ jobs:
         with:
           version: 10.33
 
+      - name: Configure pnpm global bin
+        run: |
+          PNPM_HOME="$HOME/.local/share/pnpm"
+          mkdir -p "$PNPM_HOME"
+          pnpm config set global-bin-dir "$PNPM_HOME"
+          echo "PNPM_HOME=$PNPM_HOME" >> "$GITHUB_ENV"
+          echo "$PNPM_HOME" >> "$GITHUB_PATH"
+
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:

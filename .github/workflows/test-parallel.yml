@@ -44,8 +44,11 @@ jobs:
       - name: Enable pnpm
         run: |
           corepack enable
-          echo "PNPM_HOME=$HOME/.local/share/pnpm" >> $GITHUB_ENV
-          echo "$HOME/.local/share/pnpm" >> $GITHUB_PATH
+          PNPM_HOME="$HOME/.local/share/pnpm"
+          mkdir -p "$PNPM_HOME"
+          pnpm config set global-bin-dir "$PNPM_HOME"
+          echo "PNPM_HOME=$PNPM_HOME" >> "$GITHUB_ENV"
+          echo "$PNPM_HOME" >> "$GITHUB_PATH"
 
       - name: Install JS tooling
         run: pnpm add -g prettier
