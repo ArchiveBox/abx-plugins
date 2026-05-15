@@ -73,7 +73,7 @@ jobs:
       - name: Install dependencies with uv
         run: |
           uv venv
-          uv sync --dev --all-extras --no-sources
+          uv sync --dev --all-extras --no-sources --no-cache
           uv pip install --no-deps -e "${{ runner.temp }}/abxpkg"
           uv pip install --no-deps -e ".[dev]"
 
@@ -244,7 +244,7 @@ jobs:
       - name: Install dependencies with uv
         run: |
           uv venv
-          uv sync --dev --all-extras --no-sources
+          uv sync --dev --all-extras --no-sources --no-cache
           uv pip install --no-deps -e "${{ runner.temp }}/abxpkg"
           uv pip install --no-deps -e ".[dev]"
 
