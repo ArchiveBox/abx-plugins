@@ -247,6 +247,7 @@ def test_real_public_paper_download():
             env = os.environ.copy()
             env["PAPERSDL_BINARY"] = binary_path
             env["PAPERSDL_TIMEOUT"] = "120"
+            env["PAPERSDL_ARGS_EXTRA"] = '["--providers", "arxiv"]'
             env["SNAP_DIR"] = str(tmpdir)
 
             result = subprocess.run(

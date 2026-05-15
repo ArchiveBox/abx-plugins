@@ -69,6 +69,33 @@ def extract_arxiv_id_from_doi(doi: str) -> str | None:
     return match.group(1)
 
 
+def extract_arxiv_id_from_url(url: str) -> str | None:
+    """Extract arXiv identifier from common arxiv.org URL paths."""
+    match = re.search(
+        r"arxiv\.org/(?:abs|pdf)/(\d{4}\.\d{4,5}(?:v\d+)?)",
+        url,
+        re.IGNORECASE,
+    )
+    if not match:
+        return None
+    return match.group(1)
+
+
+def new_pdf_files(output_dir: Path, files_before: set[Path]) -> list[Path]:
+    """Return newly created non-empty PDFs, including partially timed-out downloads."""
+    return sorted(
+        (
+            path
+            for path in output_dir.iterdir()
+            if path.is_file()
+            and path.suffix.lower() == ".pdf"
+            and path.stat().st_size > 0
+            and path.resolve() not in files_before
+        ),
+        key=lambda path: path.name,
+    )
+
+
 def save_paper(url: str, binary: str) -> tuple[bool, int, str]:
     """
     Download paper using papers-dl.
@@ -88,8 +115,10 @@ def save_paper(url: str, binary: str) -> tuple[bool, int, str]:
     # Try to extract DOI from URL
     doi = extract_doi_from_url(url)
     if not doi:
-        # If no DOI found, papers-dl might handle the URL directly
-        identifier = url
+        # Prefer arXiv's public provider for arxiv.org URLs; otherwise let
+        # papers-dl handle the URL directly if it can.
+        arxiv_id = extract_arxiv_id_from_url(url)
+        identifier = f"arXiv:{arxiv_id}" if arxiv_id else url
     else:
         # papers-dl's arxiv provider resolves arXiv IDs more reliably than DOI backends.
         arxiv_id = extract_arxiv_id_from_doi(doi)
@@ -100,6 +129,8 @@ def save_paper(url: str, binary: str) -> tuple[bool, int, str]:
 
     if papersdl_args_extra:
         cmd.extend(papersdl_args_extra)
+    elif identifier.lower().startswith("arxiv:"):
+        cmd.extend(["--providers", "arxiv"])
 
     try:
         print("searching for DOI numbers & papers...")
@@ -127,15 +158,14 @@ def save_paper(url: str, binary: str) -> tuple[bool, int, str]:
         except subprocess.TimeoutExpired:
             process.kill()
             reader.join(timeout=1)
+            downloaded_files = new_pdf_files(output_dir, files_before)
+            if downloaded_files:
+                return True, len(downloaded_files), ""
             return False, 0, f"Timed out after {timeout} seconds"
 
         reader.join(timeout=1)
         combined_output = "".join(output_lines)
-        downloaded_files = [
-            path
-            for path in output_dir.iterdir()
-            if path.is_file() and path.resolve() not in files_before
-        ]
+        downloaded_files = new_pdf_files(output_dir, files_before)
 
         if downloaded_files:
             return True, len(downloaded_files), ""
