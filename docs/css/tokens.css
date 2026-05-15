@@ -115,7 +115,6 @@
   /* ---- Grain — paper fiber, hue-neutral --------------------- */
   --ab-grain-opacity: .012;
 }
-
 /* ============ DARK (ink / archival terminal) ==================
    Warm near-black — leather-bound ledger, not cold slate. */
 :root[data-theme="dark"] {
@@ -156,4 +155,3 @@
 
   --ab-grain-opacity: .04;
 }
-
