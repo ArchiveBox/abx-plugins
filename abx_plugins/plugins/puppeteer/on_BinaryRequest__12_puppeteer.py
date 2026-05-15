@@ -57,7 +57,7 @@ def main(
         sys.exit(0)
 
     existing_chrome_binary = (config.CHROME_BINARY or "").strip()
-    if existing_chrome_binary:
+    if existing_chrome_binary and _is_explicit_path(existing_chrome_binary):
         existing_binary = _load_binary_from_path(existing_chrome_binary, name=name)
         if existing_binary and existing_binary.abspath:
             _emit_browser_binary_record(binary=existing_binary, name=name)
@@ -164,18 +164,14 @@ def _emit_browser_binary_record(
 
 def _load_binary_from_path(path: str, name: str) -> Binary | None:
     raw_path = str(path or "").strip()
-    if not raw_path:
+    if not raw_path or not _is_explicit_path(raw_path):
         return None
     path_obj = Path(raw_path).expanduser()
-    overrides = (
-        {"env": {"abspath": str(path_obj)}}
-        if raw_path.startswith(("~", ".", "/")) or "/" in raw_path or "\\" in raw_path
-        else {}
-    )
+    overrides = {"env": {"abspath": str(path_obj)}}
     try:
         binary = Binary.model_validate(
             {
-                "name": path_obj.name if overrides else (name or raw_path),
+                "name": path_obj.name,
                 "binproviders": [EnvProvider()],
                 "overrides": overrides,
             },
@@ -185,6 +181,13 @@ def _load_binary_from_path(path: str, name: str) -> Binary | None:
     if binary and binary.abspath:
         return binary
     return None
+
+
+def _is_explicit_path(value: str) -> bool:
+    raw_value = str(value or "").strip()
+    return (
+        raw_value.startswith(("~", ".", "/")) or "/" in raw_value or "\\" in raw_value
+    )
 
 
 if __name__ == "__main__":

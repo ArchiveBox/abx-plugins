@@ -16,6 +16,7 @@ from abx_plugins.plugins.base.test_utils import (
 )
 from abx_plugins.plugins.puppeteer.on_BinaryRequest__12_puppeteer import (
     _get_install_failure_hint,
+    _is_explicit_path,
     _load_binary_from_path,
 )
 
@@ -96,6 +97,12 @@ def test_resolve_binary_reference_accepts_explicit_paths(
     binary = _load_binary_from_path(str(binary_path), browser_name)
     assert binary is not None
     assert str(binary.abspath) == str(binary_path)
+
+
+@pytest.mark.parametrize("browser_name", ["chrome", "chromium"])
+def test_resolve_binary_reference_rejects_bare_names(browser_name):
+    assert not _is_explicit_path(browser_name)
+    assert _load_binary_from_path(browser_name, browser_name) is None
 
 
 def test_binary_hook_fast_path_does_not_emit_chromium_version(tmp_path: Path):
