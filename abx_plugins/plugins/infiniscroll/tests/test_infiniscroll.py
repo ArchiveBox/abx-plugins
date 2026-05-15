@@ -112,7 +112,7 @@ def infiniscroll_test_url(httpserver):
         INFINISCROLL_TEST_PAGE_HTML,
         content_type="text/html",
     )
-    return httpserver.url_for("/")
+    return httpserver.url_for("/").replace("localhost", "127.0.0.1", 1)
 
 
 def test_hook_script_exists():
@@ -212,6 +212,7 @@ def test_scrolls_page_and_outputs_stats(infiniscroll_test_url):
             snapshot_id="snap-infiniscroll",
             test_url=infiniscroll_test_url,
             timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+            env_overrides={"CHROME_WAIT_FOR": "domcontentloaded"},
         ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
             # Create infiniscroll output directory (sibling to chrome)
             infiniscroll_dir = snapshot_chrome_dir.parent / "infiniscroll"
@@ -284,6 +285,7 @@ def test_config_scroll_limit_honored(infiniscroll_test_url):
             snapshot_id="snap-limit",
             test_url=infiniscroll_test_url,
             timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+            env_overrides={"CHROME_WAIT_FOR": "domcontentloaded"},
         ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
             infiniscroll_dir = snapshot_chrome_dir.parent / "infiniscroll"
             infiniscroll_dir.mkdir()
@@ -343,6 +345,7 @@ def test_config_timeout_honored(infiniscroll_test_url):
             snapshot_id="snap-timeout",
             test_url=infiniscroll_test_url,
             timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+            env_overrides={"CHROME_WAIT_FOR": "domcontentloaded"},
         ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
             infiniscroll_dir = snapshot_chrome_dir.parent / "infiniscroll"
             infiniscroll_dir.mkdir()
