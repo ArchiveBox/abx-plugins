@@ -59,7 +59,8 @@ async function waitForPreloadHooks(timeoutMs) {
     }
 
     const startedAt = Date.now();
-    const waitMs = Math.min(timeoutMs, 5000);
+    const headersTimeoutMs = getEnvInt('HEADERS_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
+    const waitMs = Math.min(timeoutMs, Math.max(5000, headersTimeoutMs));
     while (Date.now() - startedAt < waitMs) {
         if (fs.existsSync(headersReadyFile)) {
             return;
