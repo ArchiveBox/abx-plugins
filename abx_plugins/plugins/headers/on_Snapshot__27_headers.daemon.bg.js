@@ -61,12 +61,18 @@ let responseUrl = null;
 let originalUrl = null;
 let latestNavigationState = null;
 let headersReadyResolve = null;
+let headersReadyReject = null;
 let lastProgressLine = '';
 let lastMainRequestFailure = '';
+let mainRequestFailureTimer = null;
+const MAIN_REQUEST_FAILURE_GRACE_MS = 5000;
 const headersReady = new Promise((resolve) => {
     headersReadyResolve = resolve;
 }).catch((error) => {
     throw error;
+});
+const headersReadyFailure = new Promise((_, reject) => {
+    headersReadyReject = reject;
 });
 
 function emitProgress(line) {
@@ -109,6 +115,10 @@ function isMainNavigationRequest(request) {
 function writeHeadersFile(navigationState = null, forceRewrite = false) {
     if (!responseHeaders) return;
     if (headersWritten && !forceRewrite) return;
+    if (mainRequestFailureTimer) {
+        clearTimeout(mainRequestFailureTimer);
+        mainRequestFailureTimer = null;
+    }
 
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
     const responseHeadersWithStatus = {
@@ -189,6 +199,14 @@ async function setupListener(url) {
         try {
             if (!isMainNavigationRequest(request) || headersWritten) return;
             lastMainRequestFailure = request.failure()?.errorText || 'Main request failed';
+            if (mainRequestFailureTimer) {
+                clearTimeout(mainRequestFailureTimer);
+            }
+            mainRequestFailureTimer = setTimeout(() => {
+                if (!headersWritten && headersReadyReject) {
+                    headersReadyReject(new Error(lastMainRequestFailure));
+                }
+            }, MAIN_REQUEST_FAILURE_GRACE_MS);
         } catch (e) {
             // Ignore errors
         }
@@ -257,6 +275,7 @@ async function main() {
         const timeout = getEnvInt('HEADERS_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
         await Promise.race([
             headersReady,
+            headersReadyFailure,
             new Promise((_, reject) => setTimeout(() => {
                 const suffix = lastMainRequestFailure ? ` (${lastMainRequestFailure})` : '';
                 reject(new Error(`Timed out waiting for headers${suffix}`));
