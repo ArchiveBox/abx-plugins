@@ -34,7 +34,6 @@ import threading
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
-    apply_exec_env,
     load_config,
     emit_archive_result_record,
     has_staticfile_output,
@@ -262,13 +261,12 @@ def save_singlefile_with_extension(
     )
     if runtime_env_result.returncode == 0 and runtime_env_result.stdout.strip():
         try:
-            apply_exec_env(
+            helper_env.update(
                 {
                     key: str(value)
                     for key, value in json.loads(runtime_env_result.stdout).items()
                     if value not in (None, "")
                 },
-                helper_env,
             )
         except Exception:
             pass

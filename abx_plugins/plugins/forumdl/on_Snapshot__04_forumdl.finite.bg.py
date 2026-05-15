@@ -24,7 +24,6 @@ import threading
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
-    apply_exec_env,
     emit_archive_result_record,
     load_config,
 )
@@ -120,7 +119,11 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
             shim_path.write_text(sitecustomize_code, encoding="utf-8")
 
             env = os.environ.copy()
-            apply_exec_env({"PYTHONPATH": f"{shim_dir}:"}, env)
+            current_pythonpath = env.get("PYTHONPATH", "")
+            pythonpath_parts = (
+                current_pythonpath.split(os.pathsep) if current_pythonpath else []
+            )
+            env["PYTHONPATH"] = os.pathsep.join([shim_dir, *pythonpath_parts])
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,

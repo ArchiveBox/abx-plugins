@@ -34,7 +34,6 @@ import threading
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
-    apply_exec_env,
     emit_archive_result_record,
     has_staticfile_output,
     load_config,
@@ -104,7 +103,10 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
     ffmpeg_path = Path(ffmpeg_binary).expanduser()
     if ffmpeg_binary and ffmpeg_path.is_file():
         ffmpeg_dir = str(ffmpeg_path.parent.resolve())
-        apply_exec_env({"PATH": f"{ffmpeg_dir}:"}, process_env)
+        current_path = process_env.get("PATH", "")
+        path_parts = current_path.split(os.pathsep) if current_path else []
+        if ffmpeg_dir not in path_parts:
+            process_env["PATH"] = os.pathsep.join([ffmpeg_dir, *path_parts])
 
     if not check_ssl:
         cmd.append("--no-check-certificate")

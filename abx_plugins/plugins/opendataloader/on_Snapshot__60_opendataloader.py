@@ -41,7 +41,6 @@ import tempfile
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
-    apply_exec_env,
     load_config,
     emit_archive_result_record,
     write_text_atomic,
@@ -77,8 +76,9 @@ def _opendataloader_env(java_binary: str) -> dict[str, str] | None:
     env = os.environ.copy()
     java_bin_dir = str(java_path.resolve(strict=False).parent)
     current_path = env["PATH"] if "PATH" in env else ""
-    if java_bin_dir not in current_path.split(os.pathsep):
-        apply_exec_env({"PATH": f"{java_bin_dir}:"}, env)
+    path_parts = current_path.split(os.pathsep) if current_path else []
+    if java_bin_dir not in path_parts:
+        env["PATH"] = os.pathsep.join([java_bin_dir, *path_parts])
 
     java_home = java_path.resolve(strict=False).parent.parent
     if (java_home / "bin" / "java").is_file():
