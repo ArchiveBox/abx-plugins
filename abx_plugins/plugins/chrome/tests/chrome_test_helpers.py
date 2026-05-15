@@ -1592,6 +1592,10 @@ def chrome_session(
         xdg_config_home = home_dir / ".config"
         xdg_cache_home = home_dir / ".cache"
         xdg_data_home = home_dir / ".local" / "share"
+        chrome_persona_dir = personas_dir / "Default"
+        chrome_extensions_dir = chrome_persona_dir / "chrome_extensions"
+        chrome_downloads_dir = chrome_persona_dir / "chrome_downloads"
+        chrome_user_data_dir = chrome_persona_dir / "chrome_profile"
         env = os.environ.copy()
         if env_overrides:
             env.update(env_overrides)
@@ -1624,6 +1628,9 @@ def chrome_session(
         xdg_config_home.mkdir(parents=True, exist_ok=True)
         xdg_cache_home.mkdir(parents=True, exist_ok=True)
         xdg_data_home.mkdir(parents=True, exist_ok=True)
+        chrome_extensions_dir.mkdir(parents=True, exist_ok=True)
+        chrome_downloads_dir.mkdir(parents=True, exist_ok=True)
+        chrome_user_data_dir.mkdir(parents=True, exist_ok=True)
 
         env.update(
             {
@@ -1639,6 +1646,9 @@ def chrome_session(
                 "XDG_CONFIG_HOME": str(xdg_config_home),
                 "XDG_CACHE_HOME": str(xdg_cache_home),
                 "XDG_DATA_HOME": str(xdg_data_home),
+                "CHROME_EXTENSIONS_DIR": str(chrome_extensions_dir),
+                "CHROME_DOWNLOADS_DIR": str(chrome_downloads_dir),
+                "CHROME_USER_DATA_DIR": str(chrome_user_data_dir),
                 "CHROME_HEADLESS": "true",
                 "PUPPETEER_CACHE_DIR": str(puppeteer_cache_dir),
             },
