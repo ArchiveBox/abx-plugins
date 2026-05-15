@@ -380,6 +380,90 @@ const browser = {
     assert "load_error" in payload["result"][0]
 
 
+def test_load_unpacked_extensions_into_browser_uses_chrome_assigned_id():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        extensions_dir = tmpdir_path / "chrome_extensions"
+        extensions_dir.mkdir()
+        cached_ext = _write_test_extension_cache(extensions_dir)
+        output_dir = tmpdir_path / "chrome"
+        user_data_dir = tmpdir_path / "chrome_profile"
+        env = _isolated_test_env(
+            tmpdir,
+            CHROME_EXTENSIONS_DIR=str(extensions_dir),
+        )
+        script = r"""
+const chromeUtils = require(process.argv[1]);
+const outputDir = process.argv[2];
+const userDataDir = process.argv[3];
+const extensionJson = process.argv[4];
+
+(async () => {
+  const extension = JSON.parse(extensionJson);
+  const binary = chromeUtils.findChromium();
+  const result = await chromeUtils.launchChromium({
+    binary,
+    outputDir,
+    userDataDir,
+    extensionPaths: [],
+  });
+  if (!result.success) {
+    throw new Error(result.error || 'Chrome launch failed');
+  }
+  const puppeteer = chromeUtils.resolvePuppeteerModule();
+  const browser = await chromeUtils.connectToBrowserEndpoint(puppeteer, result.cdpUrl, {
+    defaultViewport: null,
+  });
+  try {
+    const extensions = [extension];
+    await chromeUtils.loadUnpackedExtensionsIntoBrowser(browser, extensions, 30000);
+    const targets = browser.targets()
+      .filter(target => target.url().includes(extensions[0].id))
+      .map(target => ({ type: target.type(), url: target.url() }));
+    process.stdout.write(JSON.stringify({
+      cdpUrl: result.cdpUrl,
+      extension: extensions[0],
+      targets,
+    }));
+  } finally {
+    await browser.close().catch(() => {});
+  }
+})().catch((error) => {
+  console.error(error && (error.stack || error.message || String(error)));
+  process.exit(1);
+});
+"""
+        result = subprocess.run(
+            [
+                "node",
+                "-e",
+                script,
+                str(CHROME_UTILS),
+                str(output_dir),
+                str(user_data_dir),
+                json.dumps(cached_ext),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=env,
+        )
+
+        assert result.returncode == 0, result.stderr
+        payload = json.loads(result.stdout.strip().splitlines()[-1])
+        assert payload["extension"]["id"], payload
+        assert payload["extension"]["id"] != cached_ext.get("id"), payload
+        assert (
+            payload["extension"]
+            .get("target_url", "")
+            .endswith(
+                "/service_worker.js",
+            )
+        ), payload
+        assert "load_error" not in payload["extension"], payload
+        assert any(target["type"] == "service_worker" for target in payload["targets"])
+
+
 def _cleanup_launch_process(
     chrome_launch_process: subprocess.Popen[str] | None,
     chrome_dir: Path,
@@ -2416,6 +2500,11 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
             assert extension_entry.get("webstore_id") == cached_ext["webstore_id"]
             assert extension_entry.get("unpacked_path") == cached_ext["unpacked_path"]
             assert extension_entry.get("id"), extension_entry
+            assert extension_entry.get("id") != cached_ext.get("id"), extension_entry
+            assert extension_entry.get("target_url", "").endswith(
+                "/service_worker.js",
+            ), extension_entry
+            assert "load_error" not in extension_entry, extension_entry
             assert (
                 wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
                 == crawl_extensions

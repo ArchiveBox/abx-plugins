@@ -1597,8 +1597,6 @@ def chrome_session(
         chrome_downloads_dir = chrome_persona_dir / "chrome_downloads"
         chrome_user_data_dir = chrome_persona_dir / "chrome_profile"
         env = os.environ.copy()
-        if env_overrides:
-            env.update(env_overrides)
 
         # Prefer an already-provisioned NODE_MODULES_DIR (set by session-level chrome fixture)
         # so we don't force per-test reinstall under tmp LIB_DIR paths.
@@ -1653,6 +1651,8 @@ def chrome_session(
                 "PUPPETEER_CACHE_DIR": str(puppeteer_cache_dir),
             },
         )
+        if env_overrides:
+            env.update(env_overrides)
         env.setdefault("CHROME_DEBUG_PORT_TIMEOUT_MS", str(startup_timeout * 1000))
 
         # Reuse system Puppeteer cache to avoid redundant Chromium downloads

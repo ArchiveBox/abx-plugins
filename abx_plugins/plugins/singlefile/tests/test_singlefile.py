@@ -255,6 +255,10 @@ def test_singlefile_cli_archives_example_com():
                 test_url=TEST_URL,
                 navigate=True,
                 timeout=30,
+                env_overrides={
+                    "CHROME_EXTENSIONS_DIR": str(extensions_dir),
+                    "CHROME_DOWNLOADS_DIR": str(downloads_dir),
+                },
             ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
                 env["SINGLEFILE_ENABLED"] = "true"
                 env["CHROME_EXTENSIONS_DIR"] = str(extensions_dir)
@@ -323,6 +327,10 @@ def test_singlefile_with_chrome_session():
                 test_url=TEST_URL,
                 navigate=False,  # Don't navigate, singlefile will do that
                 timeout=20,
+                env_overrides={
+                    "CHROME_EXTENSIONS_DIR": str(install_state["extensions_dir"]),
+                    "CHROME_DOWNLOADS_DIR": str(install_state["downloads_dir"]),
+                },
             ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
                 snap_dir = Path(env["SNAP_DIR"])
                 singlefile_output_dir = snap_dir / "singlefile"
@@ -332,7 +340,6 @@ def test_singlefile_with_chrome_session():
                 env["SINGLEFILE_ENABLED"] = "true"
                 env["CHROME_EXTENSIONS_DIR"] = str(install_state["extensions_dir"])
                 env["CHROME_DOWNLOADS_DIR"] = str(install_state["downloads_dir"])
-                env["CHROME_USER_DATA_DIR"] = str(install_state["user_data_dir"])
 
                 # Run singlefile - it should find and use the existing Chrome session
                 result = subprocess.run(
@@ -429,6 +436,10 @@ def test_singlefile_with_extension_uses_existing_chrome():
                 test_url=TEST_URL,
                 navigate=True,
                 timeout=30,
+                env_overrides={
+                    "CHROME_EXTENSIONS_DIR": str(extensions_dir),
+                    "CHROME_DOWNLOADS_DIR": str(downloads_dir),
+                },
             ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
                 singlefile_output_dir = snapshot_chrome_dir.parent / "singlefile"
                 singlefile_output_dir.mkdir(parents=True, exist_ok=True)
@@ -510,6 +521,10 @@ def test_singlefile_extension_loader_prefers_cached_background_target():
                 test_url=TEST_URL,
                 navigate=True,
                 timeout=30,
+                env_overrides={
+                    "CHROME_EXTENSIONS_DIR": str(install_state["extensions_dir"]),
+                    "CHROME_DOWNLOADS_DIR": str(install_state["downloads_dir"]),
+                },
             ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
                 metadata = wait_for_extensions_metadata(
                     snapshot_chrome_dir,

@@ -5,8 +5,8 @@
  * This runs once per crawl and keeps Chromium alive for all snapshots to share.
  * Each snapshot creates its own tab via on_Snapshot__10_chrome_tab.daemon.bg.js.
  *
- * NOTE: We use Chromium instead of Chrome because Chrome 137+ removed support for
- * --load-extension and --disable-extensions-except flags.
+ * Extension caches are loaded after startup through CDP so Chrome assigns and
+ * publishes the real runtime extension IDs in extensions.json.
  *
  * Usage: on_CrawlSetup__90_chrome_launch.daemon.bg.js
  * Output: Writes to current directory (executor creates chrome/ dir):

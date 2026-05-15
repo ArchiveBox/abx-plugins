@@ -1737,6 +1737,51 @@ async function loadAllExtensionsFromBrowser(browser, extensions, timeout = 30000
     return extensions;
 }
 
+async function loadUnpackedExtensionsIntoBrowser(browser, extensions, timeout = 30000) {
+    const validExtensions = getValidInstalledExtensions(extensions);
+    if (validExtensions.length === 0) {
+        return extensions;
+    }
+
+    console.log(`[⚙️] Loading ${validExtensions.length} unpacked chrome extensions into browser...`);
+    const perExtensionTimeout = Math.max(
+        250,
+        getEnvInt('CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS', Math.min(timeout, 10000))
+    );
+    const cdpSession = await browser.target().createCDPSession();
+
+    for (const extension of validExtensions) {
+        try {
+            const { id } = await cdpSession.send('Extensions.loadUnpacked', {
+                path: extension.unpacked_path,
+            });
+            if (id) {
+                extension.id = id;
+            }
+
+            const target = await waitForExtensionTargetHandle(
+                browser,
+                extension.id,
+                perExtensionTimeout
+            );
+            await loadExtensionFromTarget(extensions, target);
+            delete extension.load_error;
+        } catch (error) {
+            extension.load_error = `${error.name}: ${error.message}`;
+            console.warn(
+                `[!] Extension ${extension.name || extension.id} did not expose a background target within ` +
+                `${perExtensionTimeout}ms, continuing: ${extension.load_error}`
+            );
+        }
+    }
+
+    try {
+        await cdpSession.detach();
+    } catch (error) {}
+
+    return extensions;
+}
+
 /**
  * Load extension manifest.json file
  *
@@ -3642,7 +3687,6 @@ async function ensureChromeSession(options = {}) {
             binary: resolvedBinary,
             outputDir,
             userDataDir,
-            extensionPaths,
         });
         if (!result.success) {
             throw new Error(result.error || 'Failed to launch Chromium');
@@ -3659,7 +3703,7 @@ async function ensureChromeSession(options = {}) {
             browser = await connectToBrowserEndpoint(puppeteer, resolvedCdpUrl, { defaultViewport: null });
 
             if (installedExtensions.length > 0) {
-                await loadAllExtensionsFromBrowser(browser, installedExtensions, timeoutMs);
+                await loadUnpackedExtensionsIntoBrowser(browser, installedExtensions, timeoutMs);
             }
 
             if (downloadsDir) {
@@ -3857,6 +3901,7 @@ module.exports = {
     loadExtensionFromTarget,
     installAllExtensions,
     loadAllExtensionsFromBrowser,
+    loadUnpackedExtensionsIntoBrowser,
     waitForExtensionTargetHandle,
     // New puppeteer best-practices helpers
     resolvePuppeteerModule,
