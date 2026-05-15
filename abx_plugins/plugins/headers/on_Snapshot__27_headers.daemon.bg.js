@@ -168,17 +168,13 @@ async function setupListener(url) {
     const { browser, page, cdpSession } = connection;
 
     await cdpSession.send('Network.enable');
-    await cdpSession.send('Page.enable');
-    try {
-        const frameTree = await cdpSession.send('Page.getFrameTree');
-        mainFrameId = frameTree?.frameTree?.frame?.id || null;
-    } catch (error) {
-        mainFrameId = null;
-    }
 
     cdpSession.on('Network.requestWillBeSent', (params) => {
         try {
             if (!isMainDocumentNetworkEvent(params)) return;
+            if (!mainFrameId && params.frameId) {
+                mainFrameId = params.frameId;
+            }
             rememberMainRequest(params.requestId);
             requestUrl = requestUrl || params.request?.url;
             requestHeaders = params.request?.headers || {};
