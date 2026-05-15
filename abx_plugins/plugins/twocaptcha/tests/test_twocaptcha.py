@@ -320,7 +320,6 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                 test_url="https://example.com",
                 navigate=False,
                 timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
-                env_overrides=install_env,
             ) as (_chrome_launch_process, _chrome_pid, snapshot_chrome_dir, env):
                 env["TWOCAPTCHA_API_KEY"] = str(self.api_key)
                 wait_for_extensions_metadata(
