@@ -727,6 +727,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
  * @param {boolean} [options.sandbox=true] - Enable Chrome sandbox
  * @param {boolean} [options.checkSsl=true] - Check SSL certificates
  * @param {string[]} [options.extensionPaths=[]] - Paths to unpacked extensions
+ * @param {boolean} [options.enableExtensionDebugging=false] - Enable CDP extension loading/debugging
  * @returns {Promise<Object>} - {success, cdpUrl, pid, port, process, error}
  */
 async function launchChromium(options = {}) {
@@ -740,6 +741,7 @@ async function launchChromium(options = {}) {
         sandbox = getEnvBool('CHROME_SANDBOX', true),
         checkSsl = getEnvBool('CHROME_CHECK_SSL_VALIDITY', getEnvBool('CHECK_SSL_VALIDITY', true)),
         extensionPaths = [],
+        enableExtensionDebugging = false,
     } = options;
     const config = loadConfig(path.join(__dirname, 'config.json'));
     const maxLaunchAttempts = Math.max(1, Number(config.CHROME_LAUNCH_ATTEMPTS) || 1);
@@ -814,9 +816,11 @@ async function launchChromium(options = {}) {
     if (extensionPaths.length > 0) {
         const extPathsArg = extensionPaths.join(',');
         chromiumArgs.push(`--load-extension=${extPathsArg}`);
+        console.error(`[*] Loading ${extensionPaths.length} extension(s) via --load-extension`);
+    }
+    if (enableExtensionDebugging || extensionPaths.length > 0) {
         chromiumArgs.push('--enable-unsafe-extension-debugging');
         chromiumArgs.push('--disable-features=DisableLoadExtensionCommandLineSwitch,ExtensionManifestV2Unsupported,ExtensionManifestV2Disabled');
-        console.error(`[*] Loading ${extensionPaths.length} extension(s) via --load-extension`);
     }
 
     chromiumArgs.push('about:blank');
@@ -929,6 +933,7 @@ async function launchChromium(options = {}) {
                 outputDir,
                 headless,
                 extensionPaths,
+                enableExtensionDebugging,
             });
 
             return result;
@@ -2903,6 +2908,7 @@ async function cleanupLaunchArtifacts(outputDir, chromePid = null) {
  * @param {string} options.cdpUrl - Browser websocket endpoint
  * @param {boolean} [options.headless=true] - Whether browser is headless
  * @param {string[]} [options.extensionPaths=[]] - Extension paths loaded at launch
+ * @param {boolean} [options.enableExtensionDebugging=false] - Whether extension debugging is enabled
  * @returns {Promise<void>}
  */
 async function verifyStableChromiumSession(options = {}) {
@@ -2911,9 +2917,10 @@ async function verifyStableChromiumSession(options = {}) {
         cdpUrl,
         headless = true,
         extensionPaths = [],
+        enableExtensionDebugging = false,
     } = options;
 
-    const hasExtensions = extensionPaths.length > 0;
+    const hasExtensions = extensionPaths.length > 0 || enableExtensionDebugging;
     const settleMs = getEnvInt('CHROME_LAUNCH_SETTLE_MS', hasExtensions ? 1000 : 250);
     const stableMs = getEnvInt('CHROME_LAUNCH_STABILITY_MS', hasExtensions ? 2500 : 750);
 
@@ -3687,6 +3694,7 @@ async function ensureChromeSession(options = {}) {
             binary: resolvedBinary,
             outputDir,
             userDataDir,
+            enableExtensionDebugging: installedExtensions.length > 0,
         });
         if (!result.success) {
             throw new Error(result.error || 'Failed to launch Chromium');

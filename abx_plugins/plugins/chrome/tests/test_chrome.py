@@ -405,7 +405,7 @@ const extensionJson = process.argv[4];
     binary,
     outputDir,
     userDataDir,
-    extensionPaths: [],
+    enableExtensionDebugging: true,
   });
   if (!result.success) {
     throw new Error(result.error || 'Chrome launch failed');
