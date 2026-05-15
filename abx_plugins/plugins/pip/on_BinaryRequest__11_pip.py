@@ -110,9 +110,6 @@ def _python_candidates(preferred_python: str) -> list[str]:
         return [preferred_python]
 
     candidates: list[str] = []
-    if sys.version_info[:2] >= (3, 13):
-        candidates.extend(("python3.12", "python3.11", "python3.10"))
-
     current_python = Path(sys.executable).resolve()
     if current_python.is_file():
         candidates.append(str(current_python))

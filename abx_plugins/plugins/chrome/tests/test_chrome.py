@@ -589,7 +589,7 @@ def test_verify_chrome_available():
         f"Chrome binary should exist at {chrome_binary}"
     )
 
-    # Verify it's actually Chrome by checking version
+    # Verify it's actually a Chrome-family browser by checking version
     result = subprocess.run(
         [chrome_binary, "--version"],
         capture_output=True,
@@ -597,7 +597,9 @@ def test_verify_chrome_available():
         timeout=10,
     )
     assert result.returncode == 0, f"Failed to get Chrome version: {result.stderr}"
-    assert "Chrome" in result.stdout, f"Unexpected version output: {result.stdout}"
+    assert any(
+        browser_name in result.stdout for browser_name in ("Chrome", "Chromium")
+    ), f"Unexpected version output: {result.stdout}"
 
 
 def test_chrome_launch_respects_sandbox_env():

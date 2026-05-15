@@ -13,6 +13,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import importlib.util
 from pathlib import Path
 
 import pytest
@@ -21,6 +22,15 @@ import pytest
 # Get the path to the pip provider hook
 PLUGIN_DIR = Path(__file__).parent.parent
 INSTALL_HOOK = next(PLUGIN_DIR.glob("on_BinaryRequest__*_pip.py"), None)
+
+
+def _load_pip_hook_module():
+    assert INSTALL_HOOK is not None
+    spec = importlib.util.spec_from_file_location("pip_hook", INSTALL_HOOK)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class TestPipProviderHook:
@@ -166,6 +176,14 @@ class TestPipProviderHook:
             Path(env["LIB_DIR"]) / "pip" / "venv" / "bin",
         )
         assert not (Path(env["LIB_DIR"]) / "pip" / "venv" / "venv").exists()
+
+    def test_python_candidates_prefer_active_interpreter(self):
+        """Pip-managed CLI tools should use the active test interpreter first."""
+        pip_hook = _load_pip_hook_module()
+        candidates = pip_hook._python_candidates("")
+
+        assert candidates[0] == str(Path(sys.executable).resolve())
+        assert "python3.10" not in candidates
 
 
 class TestPipProviderIntegration:

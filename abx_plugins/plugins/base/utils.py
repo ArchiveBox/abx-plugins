@@ -19,7 +19,7 @@ import json
 import os
 import stat
 import sys
-from collections.abc import Mapping
+from collections.abc import Mapping, MutableMapping
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, TextIO
@@ -71,6 +71,29 @@ def normalize_config_value(value: Any) -> Any:
     if isinstance(value, dict):
         return {key: normalize_config_value(val) for key, val in value.items()}
     return value
+
+
+def apply_exec_env(
+    exec_env: Mapping[str, str],
+    env: MutableMapping[str, str],
+) -> None:
+    """Apply one execution-time env layer to ``env`` in place.
+
+    Value semantics:
+    - ``"value"`` overwrites the existing value
+    - ``":value"`` appends to the existing value
+    - ``"value:"`` prepends to the existing value
+    """
+
+    for key, value in exec_env.items():
+        if value.startswith(":"):
+            existing = env.get(key, "")
+            env[key] = f"{existing}{value}" if existing else value[1:]
+        elif value.endswith(":"):
+            existing = env.get(key, "")
+            env[key] = f"{value}{existing}" if existing else value[:-1]
+        else:
+            env[key] = value
 
 
 def _parse_config_value(value: str) -> Any:

@@ -34,13 +34,13 @@ import threading
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
+    apply_exec_env,
     load_config,
     emit_archive_result_record,
     has_staticfile_output,
 )
 
 import rich_click as click
-from abxpkg.config import apply_exec_env
 
 
 # Extractor metadata
