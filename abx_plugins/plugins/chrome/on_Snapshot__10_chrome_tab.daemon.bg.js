@@ -22,7 +22,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvBool, getEnvInt, loadConfig, emitArchiveResultRecord } = require('../base/utils.js');
 ensureNodeModuleResolution(module);
 
@@ -34,6 +34,7 @@ const {
     waitForChromeSessionState,
     closeTabInChromeSession,
     resolvePuppeteerModule,
+    findChromium,
 } = require('./chrome_utils.js');
 const puppeteer = resolvePuppeteerModule();
 
@@ -232,9 +233,9 @@ async function main() {
         releaseLock = await acquireSessionLock(path.join(OUTPUT_DIR, '.target.lock'));
         // Get Chrome version
         try {
-            const binary = getEnv('CHROME_BINARY', '').trim();
+            const binary = findChromium();
             if (binary) {
-                version = execSync(`"${binary}" --version`, { encoding: 'utf8', timeout: 5000 }).trim().slice(0, 64);
+                version = execFileSync(binary, ['--version'], { encoding: 'utf8', timeout: 5000 }).trim().slice(0, 64);
             }
         } catch (e) {
             version = '';

@@ -860,6 +860,75 @@ def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):
             _cleanup_launch_process(chrome_launch_process, chrome_dir)
 
 
+def test_tab_hook_uses_validated_browser_for_version_probe(chrome_test_url):
+    """chrome_tab should not execute stale CHROME_BINARY values directly."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        crawl_dir = Path(tmpdir) / "crawl"
+        crawl_dir.mkdir()
+        chrome_dir = crawl_dir / "chrome"
+        chrome_dir.mkdir()
+
+        env = _isolated_test_env(
+            tmpdir,
+            CHROME_HEADLESS="true",
+            CRAWL_DIR=str(crawl_dir),
+        )
+
+        chrome_launch_process, _cdp_url = launch_chromium_session(
+            env,
+            chrome_dir,
+            "test-tab-version-probe",
+            timeout=45,
+        )
+
+        snapshot_dir = Path(tmpdir) / "snapshot-version-probe"
+        snapshot_dir.mkdir()
+        snapshot_chrome_dir = snapshot_dir / "chrome"
+        snapshot_chrome_dir.mkdir()
+
+        stale_binary = Path(tmpdir) / "bin" / "chromium"
+        stale_binary.parent.mkdir()
+        stale_binary.write_text(
+            "#!/bin/sh\necho stale wrapper was executed >&2\nexit 127\n",
+        )
+        stale_binary.chmod(0o755)
+
+        tab_process = None
+        try:
+            env["CRAWL_DIR"] = str(crawl_dir)
+            env["SNAP_DIR"] = str(snapshot_dir)
+            env["CHROME_BINARY"] = str(stale_binary)
+            tab_process = launch_snapshot_tab(
+                snapshot_chrome_dir=snapshot_chrome_dir,
+                tab_env=env,
+                test_url=chrome_test_url,
+                snapshot_id="snap-version-probe",
+                crawl_id="test-tab-version-probe",
+            )
+
+            stdout_lines = [
+                line.strip()
+                for line in (snapshot_chrome_dir / "chrome_tab.stdout.log")
+                .read_text(encoding="utf-8", errors="replace")
+                .splitlines()
+                if line.strip().startswith("{")
+            ]
+            assert stdout_lines, "chrome_tab should emit an ArchiveResult"
+            payload = json.loads(stdout_lines[-1])
+            assert payload["status"] == "succeeded", payload
+            assert "stale wrapper was executed" not in (
+                snapshot_chrome_dir / "chrome_tab.stderr.log"
+            ).read_text(encoding="utf-8", errors="replace")
+        finally:
+            if tab_process is not None:
+                try:
+                    tab_process.send_signal(signal.SIGTERM)
+                    tab_process.wait(timeout=10)
+                except Exception:
+                    pass
+            _cleanup_launch_process(chrome_launch_process, chrome_dir)
+
+
 def test_chrome_can_adopt_existing_cdp_url_without_local_pid(chrome_test_url):
     """CHROME_CDP_URL + CHROME_IS_LOCAL=false should reuse a browser without writing chrome.pid."""
     with tempfile.TemporaryDirectory() as tmpdir:
