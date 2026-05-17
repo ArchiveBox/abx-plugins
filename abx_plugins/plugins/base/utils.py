@@ -22,10 +22,12 @@ import sys
 from collections.abc import Mapping, MutableMapping
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any, TextIO, cast
 
 from jambo import SchemaConverter
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, create_model, field_validator
+from pydantic.fields import FieldInfo
+from pydantic_core import PydanticUndefined
 
 
 # ---------------------------------------------------------------------------
@@ -325,7 +327,7 @@ def _resolve_schema_payload(
 
 
 @lru_cache(maxsize=None)
-def _schema_model(schema_json: str) -> type[Any]:
+def _schema_model(schema_json: str) -> type[BaseModel]:
     model = SchemaConverter.build(json.loads(schema_json))
     model.model_config = ConfigDict(
         validate_assignment=True,
@@ -334,6 +336,84 @@ def _schema_model(schema_json: str) -> type[Any]:
     )
     model.model_rebuild(force=True)
     return model
+
+
+def _open_object_annotation(prop: Mapping[str, Any]) -> type[Any] | None:
+    if prop.get("type") != "object":
+        return None
+    if prop.get("properties"):
+        return None
+    additional_properties = prop.get("additionalProperties")
+    if not isinstance(additional_properties, Mapping):
+        return None
+    item_model = build_config_model("OpenObjectValue", {"value": additional_properties})
+    item_annotation = item_model.model_fields["value"].annotation
+    if item_annotation is None:
+        return dict[str, Any]
+    return dict[str, item_annotation]
+
+
+def _open_object_default(default_value: Any) -> Any:
+    if default_value is None or default_value is PydanticUndefined:
+        return {}
+    return default_value
+
+
+def _patch_open_object_fields(
+    model: type[BaseModel],
+    properties: Mapping[str, Any],
+) -> type[BaseModel]:
+    fields: dict[str, tuple[Any, FieldInfo]] = {}
+    changed = False
+    for key, field in model.model_fields.items():
+        prop = properties.get(key)
+        annotation = (
+            _open_object_annotation(prop) if isinstance(prop, Mapping) else None
+        )
+        if annotation is None:
+            fields[key] = (field.annotation, field)
+            continue
+        patched_field = cast(
+            FieldInfo,
+            Field(
+                default_factory=lambda default=_open_object_default(field.default): (
+                    dict(default)
+                ),
+                description=field.description,
+                title=field.title,
+            ),
+        )
+        fields[key] = (annotation, patched_field)
+        changed = True
+    if not changed:
+        return model
+    return cast(
+        type[BaseModel],
+        create_model(
+            model.__name__,
+            __config__=model.model_config,
+            __module__=model.__module__,
+            **cast(dict[str, Any], fields),
+        ),
+    )
+
+
+def build_config_model(
+    title: str,
+    properties: Mapping[str, Any],
+) -> type[BaseModel]:
+    """Build the typed pydantic config model for JSONSchema properties."""
+    model = _schema_model(
+        json.dumps(
+            {
+                "title": title,
+                "type": "object",
+                "properties": dict(properties),
+            },
+            sort_keys=True,
+        ),
+    )
+    return _patch_open_object_fields(model, properties)
 
 
 def resolve_plugin_configs(
@@ -358,16 +438,7 @@ def resolve_plugin_configs(
                 user_config=user_config,
                 environ=environ,
             )
-            model = _schema_model(
-                json.dumps(
-                    {
-                        "title": plugin_name,
-                        "type": "object",
-                        "properties": schema,
-                    },
-                    sort_keys=True,
-                ),
-            )
+            model = build_config_model(plugin_name, schema)
             plugin_config = normalize_config_value(
                 model.model_validate(payload).model_dump(mode="json"),
             )
@@ -442,16 +513,7 @@ def load_config(
                 payload["CHROME_BINARY"] = str(ci_chromium_path)
             elif canary_path.exists():
                 payload["CHROME_BINARY"] = str(canary_path)
-    model = _schema_model(
-        json.dumps(
-            {
-                "title": title,
-                "type": "object",
-                "properties": properties,
-            },
-            sort_keys=True,
-        ),
-    )
+    model = build_config_model(title, properties)
     return model.model_validate(payload)
 
 

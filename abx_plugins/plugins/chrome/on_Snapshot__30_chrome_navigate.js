@@ -52,23 +52,39 @@ function sleep(ms) {
 }
 
 async function waitForPreloadHooks(timeoutMs) {
-    const headersDir = path.join(SNAP_DIR, 'headers');
-    const headersReadyFile = path.join(headersDir, 'headers.json');
-    if (!fs.existsSync(headersDir) || fs.existsSync(headersReadyFile)) {
-        return;
-    }
+    const preloadHooks = [
+        {
+            name: 'headers',
+            dir: path.join(SNAP_DIR, 'headers'),
+            readyFile: path.join(SNAP_DIR, 'headers', 'headers.json'),
+            timeoutMs: getEnvInt('HEADERS_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000,
+        },
+        {
+            name: 'staticfile',
+            dir: path.join(SNAP_DIR, 'staticfile'),
+            readyFile: path.join(SNAP_DIR, 'staticfile', 'prenav.json'),
+            timeoutMs: getEnvInt('STATICFILE_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000,
+        },
+    ];
 
-    const startedAt = Date.now();
-    const headersTimeoutMs = getEnvInt('HEADERS_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
-    const waitMs = Math.min(timeoutMs, Math.max(5000, headersTimeoutMs));
-    while (Date.now() - startedAt < waitMs) {
-        if (fs.existsSync(headersReadyFile)) {
-            return;
+    for (const preloadHook of preloadHooks) {
+        if (!fs.existsSync(preloadHook.dir) || fs.existsSync(preloadHook.readyFile)) {
+            continue;
         }
-        await sleep(100);
-    }
 
-    throw new Error('Timed out waiting for headers listener readiness');
+        const startedAt = Date.now();
+        const waitMs = Math.min(timeoutMs, Math.max(5000, preloadHook.timeoutMs));
+        while (Date.now() - startedAt < waitMs) {
+            if (fs.existsSync(preloadHook.readyFile)) {
+                break;
+            }
+            await sleep(100);
+        }
+
+        if (!fs.existsSync(preloadHook.readyFile)) {
+            throw new Error(`Timed out waiting for ${preloadHook.name} listener readiness`);
+        }
+    }
 }
 
 async function navigate(url) {

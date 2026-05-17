@@ -43,14 +43,29 @@ def _get_search_roots() -> list[Path]:
     base_dir = _get_archive_dir()
     roots: list[Path] = []
 
-    if base_dir.name in {"archive", "snapshots"} and base_dir.exists():
+    if base_dir.name == "snapshots" and base_dir.exists():
         roots.append(base_dir)
 
-    users_dir = base_dir / "users"
-    if users_dir.is_dir():
+    def add_user_snapshot_roots(users_dir: Path) -> None:
         roots.extend(
             sorted(path for path in users_dir.glob("*/snapshots") if path.is_dir()),
         )
+
+    if base_dir.is_dir():
+        add_user_snapshot_roots(base_dir)
+
+    # Current ArchiveBox layout when SNAP_DIR/DATA_DIR points at the collection
+    # or archive root: archive/users/<username>/snapshots/...
+    archive_users_dir = base_dir / "archive" / "users"
+    if archive_users_dir.is_dir():
+        add_user_snapshot_roots(archive_users_dir)
+
+    archive_local_users_dir = base_dir / "users"
+    if archive_local_users_dir.is_dir():
+        add_user_snapshot_roots(archive_local_users_dir)
+
+    if roots:
+        return roots
 
     archive_dir = base_dir / "archive"
     if archive_dir.is_dir():

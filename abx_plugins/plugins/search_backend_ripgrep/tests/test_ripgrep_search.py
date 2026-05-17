@@ -320,6 +320,7 @@ class TestRipgrepSearchCurrentArchiveBoxLayout:
         self.snapshot_id = "019cf48c-aa86-72f0-9f8f-e4ea80226fc6"
         self.snapshot_root = (
             self.data_dir
+            / "archive"
             / "users"
             / "system"
             / "snapshots"
@@ -354,14 +355,31 @@ class TestRipgrepSearchCurrentArchiveBoxLayout:
 
     def test_search_roots_prefer_snapshot_content_dirs(self):
         roots = _get_search_roots()
-        assert roots == [self.data_dir / "users" / "system" / "snapshots"]
+        assert roots == [self.data_dir / "archive" / "users" / "system" / "snapshots"]
 
     def test_search_finds_snapshot_in_current_layout(self):
         results = search("google")
         assert results == [self.snapshot_id]
 
+    def test_search_roots_support_configured_users_dir_name(self):
+        custom_users_dir = self.data_dir / "mounted" / "custom_users"
+        custom_snapshot_root = (
+            custom_users_dir
+            / "system"
+            / "snapshots"
+            / "20260316"
+            / "example.com"
+            / self.snapshot_id
+        )
+        (custom_snapshot_root / "wget").mkdir(parents=True, exist_ok=True)
+        os.environ["SNAP_DIR"] = str(custom_users_dir)
+
+        roots = _get_search_roots()
+
+        assert roots == [custom_users_dir / "system" / "snapshots"]
+
     def test_extract_snapshot_id_ignores_non_snapshot_segments(self):
-        roots = [self.data_dir / "users" / "system" / "snapshots"]
+        roots = [self.data_dir / "archive" / "users" / "system" / "snapshots"]
         match_path = self.snapshot_root / "wget" / "index.html"
         assert _extract_snapshot_id(match_path, roots) == self.snapshot_id
 

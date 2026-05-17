@@ -13,7 +13,10 @@
       "overrides": {
         "npm": {
           "install_args": [
-            "puppeteer"
+            "puppeteer",
+            "@puppeteer/browsers",
+            "abxbus@^2.5.4",
+            "--min-release-age=0"
           ]
         }
       }

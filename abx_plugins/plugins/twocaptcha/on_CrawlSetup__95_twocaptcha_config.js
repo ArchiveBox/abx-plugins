@@ -49,6 +49,13 @@ function getCrawlChromeSessionDir() {
 const CHROME_SESSION_DIR = getCrawlChromeSessionDir();
 const CONFIG_MARKER = path.join(CHROME_SESSION_DIR, '.twocaptcha_configured');
 
+function chromeExtensionReadyTimeoutMs() {
+    return Math.max(
+        getEnvInt('TWOCAPTCHA_TIMEOUT', getEnvInt('CHROME_TIMEOUT', getEnvInt('TIMEOUT', 60))),
+        getEnvInt('CHROME_EXTENSION_LOAD_TIMEOUT', 30)
+    ) * 1000;
+}
+
 function hasConfiguredApiKey() {
     const apiKey = (hookConfig.TWOCAPTCHA_API_KEY || '').trim();
     return !!apiKey && apiKey !== 'YOUR_API_KEY_HERE';
@@ -169,7 +176,7 @@ async function configure2Captcha() {
 
     try {
         const chromeSession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
-            timeoutMs: 10000,
+            timeoutMs: chromeExtensionReadyTimeoutMs(),
             requireExtensionsLoaded: true,
         });
         if (!chromeSession?.cdpUrl) {

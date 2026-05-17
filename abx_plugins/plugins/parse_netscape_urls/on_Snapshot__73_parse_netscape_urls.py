@@ -62,11 +62,18 @@ MAX_REASONABLE_YEAR = 2035  # Far enough in future
 
 # Regex pattern for Netscape bookmark format
 # Example: <DT><A HREF="https://example.com/?q=1+2" ADD_DATE="1497562974" TAGS="tag1,tag2">example title</A>
-# Make ADD_DATE optional and allow negative numbers
 NETSCAPE_PATTERN = re.compile(
-    r'<a\s+href="([^"]+)"(?:\s+add_date="([^"]*)")?(?:\s+[^>]*?tags="([^"]*)")?[^>]*>([^<]+)</a>',
+    r'<a\s+href="([^"]+)"(?=[^>]*\sadd_date=)(?:\s+add_date="([^"]*)")?(?:\s+[^>]*?tags="([^"]*)")?[^>]*>([^<]+)</a>',
     re.UNICODE | re.IGNORECASE,
 )
+
+
+def looks_like_netscape_bookmarks(content: str) -> bool:
+    """Avoid treating arbitrary HTML pages as Netscape bookmark exports."""
+    lowered = content[:200000].lower()
+    if "netscape-bookmark-file-1" in lowered:
+        return True
+    return "<dl" in lowered and "add_date=" in lowered and "<dt>" in lowered
 
 
 def parse_timestamp(timestamp_str: str) -> datetime | None:
@@ -245,6 +252,12 @@ def main(
     except Exception as e:
         emit_result("failed", f"Failed to fetch {url}: {e}")
         sys.exit(1)
+
+    if not looks_like_netscape_bookmarks(content):
+        status, output_str = persist_records([])
+        print(output_str)
+        emit_result(status, output_str)
+        sys.exit(0)
 
     urls_found = []
     all_tags = set()

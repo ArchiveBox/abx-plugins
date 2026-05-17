@@ -3,7 +3,11 @@ from pathlib import Path
 import pytest
 
 from abx_plugins.plugins.base.test_utils import assert_isolated_snapshot_env
-from abx_plugins.plugins.base.utils import load_config
+from abx_plugins.plugins.base.utils import (
+    BASE_CONFIG_PATH,
+    build_config_model,
+    load_config,
+)
 
 
 CHROME_CONFIG = (
@@ -68,3 +72,45 @@ def test_load_config_preserves_resolved_runtime_dirs_over_schema_defaults(
     assert config.DATA_DIR == str(data_dir)
     assert config.CRAWL_DIR == str(crawl_dir)
     assert config.SNAP_DIR == str(snap_dir)
+
+
+def test_build_config_model_infers_typed_fields_from_schema() -> None:
+    config_model = build_config_model(
+        "BaseConfig",
+        {
+            "CHROME_ARGS": {
+                "type": "array",
+                "default": ["--headless"],
+                "items": {"type": "string"},
+            },
+            "ABX_INSTALL_CACHE": {
+                "type": "object",
+                "default": {},
+                "additionalProperties": {"type": "string"},
+            },
+        },
+    )
+
+    config = config_model.model_validate(
+        {
+            "CHROME_ARGS": ["--no-first-run"],
+            "ABX_INSTALL_CACHE": {"wget": "2026-03-24T00:00:00+00:00"},
+        },
+    )
+
+    payload = config.model_dump(mode="json")
+    assert payload["CHROME_ARGS"] == ["--no-first-run"]
+    assert payload["ABX_INSTALL_CACHE"] == {
+        "wget": "2026-03-24T00:00:00+00:00",
+    }
+
+
+def test_load_config_resolves_aliases_to_canonical_fields() -> None:
+    config = load_config(
+        BASE_CONFIG_PATH.parent.parent / "favicon" / "config.json",
+        environ={},
+        user_config={"SAVE_FAVICON": "false"},
+    )
+
+    assert config.FAVICON_ENABLED is False
+    assert "SAVE_FAVICON" not in config.model_dump(mode="json")

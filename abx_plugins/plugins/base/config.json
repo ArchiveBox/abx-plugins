@@ -18,6 +18,14 @@
       "default": "abx-dl",
       "description": "Current host runtime name, eg. abx-dl or archivebox"
     },
+    "ABX_INSTALL_CACHE": {
+      "type": "object",
+      "default": {},
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Runtime-derived install preflight cache keyed by binary name"
+    },
     "SNAP_DIR": {
       "type": "string",
       "default": "",

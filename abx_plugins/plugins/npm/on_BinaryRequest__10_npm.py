@@ -18,6 +18,7 @@
 import json
 import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
@@ -29,6 +30,44 @@ from abx_plugins.plugins.base.utils import (
 
 import rich_click as click
 from abxpkg import Binary, NpmProvider
+
+
+def _npm_package_name(install_arg: str) -> str | None:
+    """Return the node_modules package path implied by one npm install arg."""
+    if not install_arg or install_arg.startswith(("-", ".", "/")):
+        return None
+    if ":" in install_arg.split("/")[0]:
+        return None
+    if install_arg.startswith("@"):
+        parts = install_arg.split("/")
+        if len(parts) < 2:
+            return None
+        scope = parts[0]
+        package = parts[1].split("@", 1)[0]
+        return f"{scope}/{package}" if package else None
+    return install_arg.split("@", 1)[0]
+
+
+def _missing_requested_packages(npm_prefix: Path, install_args: list[str]) -> list[str]:
+    """Find requested npm packages that are absent from the managed prefix."""
+    missing: list[str] = []
+    for install_arg in install_args:
+        package_name = _npm_package_name(str(install_arg))
+        if not package_name:
+            continue
+        if not (npm_prefix / "node_modules" / package_name / "package.json").exists():
+            missing.append(package_name)
+    return missing
+
+
+def _static_install_args(value: object) -> list[str]:
+    if value is None or isinstance(value, Callable):
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, tuple | list):
+        return [str(item) for item in value]
+    return []
 
 
 @click.command(
@@ -98,7 +137,16 @@ def main(
             os.environ["PUPPETEER_SKIP_DOWNLOAD"] = "true"
             os.environ["PUPPETEER_SKIP_CHROMIUM_DOWNLOAD"] = "true"
 
-        binary = binary.install()
+        npm_overrides = binary.overrides.get("npm", {})
+        install_args = _static_install_args(npm_overrides.get("install_args"))
+        missing_packages = _missing_requested_packages(npm_prefix, install_args)
+        if missing_packages:
+            click.echo(
+                f"Missing requested npm packages {', '.join(missing_packages)}; forcing npm install",
+                err=True,
+            )
+
+        binary = binary.install(no_cache=bool(missing_packages))
     except Exception as e:
         click.echo(f"npm install failed: {e}", err=True)
         sys.exit(1)

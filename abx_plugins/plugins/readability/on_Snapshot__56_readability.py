@@ -79,7 +79,7 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
 
     try:
         # Run readability-extractor (outputs JSON by default)
-        cmd = [binary, *readability_args, *readability_args_extra, html_source]
+        cmd = [binary, *readability_args, *readability_args_extra, html_source, url]
         result = subprocess.run(cmd, stdout=subprocess.PIPE, timeout=timeout, text=True)
 
         if result.stdout:

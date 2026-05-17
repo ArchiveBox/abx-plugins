@@ -17,6 +17,10 @@ from pathlib import Path
 import pytest
 
 from abx_plugins.plugins.base.test_utils import get_hydrated_required_binaries
+from abx_plugins.plugins.npm.on_BinaryRequest__10_npm import (
+    _missing_requested_packages,
+    _npm_package_name,
+)
 
 
 # Get the path to the npm provider hook
@@ -27,6 +31,24 @@ INSTALL_HOOK = next(PLUGIN_DIR.glob("on_BinaryRequest__*_npm.py"), None)
 def npm_available() -> bool:
     """Check if npm is installed."""
     return shutil.which("npm") is not None
+
+
+def test_npm_package_name_parses_scoped_and_versioned_args():
+    assert _npm_package_name("abxbus@^2.5.4") == "abxbus"
+    assert _npm_package_name("@puppeteer/browsers") == "@puppeteer/browsers"
+    assert _npm_package_name("@scope/pkg@1.2.3") == "@scope/pkg"
+    assert _npm_package_name("--min-release-age=0") is None
+
+
+def test_missing_requested_packages_detects_companion_packages(tmp_path):
+    node_modules = tmp_path / "node_modules"
+    (node_modules / "puppeteer").mkdir(parents=True)
+    (node_modules / "puppeteer" / "package.json").write_text("{}", encoding="utf-8")
+
+    assert _missing_requested_packages(
+        tmp_path,
+        ["puppeteer", "@puppeteer/browsers", "abxbus@^2.5.4", "--min-release-age=0"],
+    ) == ["@puppeteer/browsers", "abxbus"]
 
 
 class TestNpmProviderHook:

@@ -3170,46 +3170,56 @@ async function openTabInChromeSession(options = {}) {
         throw new Error(CHROME_SESSION_REQUIRED_ERROR);
     }
     const puppeteerModule = requirePuppeteerModule(puppeteer, 'openTabInChromeSession');
-    const deadline = Date.now() + Math.max(timeoutMs, 0);
-    let lastError = null;
+    const { retry } = require('abxbus');
 
-    while (Date.now() <= deadline) {
-        try {
-            return await withConnectedBrowser(
-                {
-                    puppeteer: puppeteerModule,
-                    cdpUrl,
-                    connectOptions: { defaultViewport: null },
-                },
-                async (browser) => {
-                    const remainingMs = Math.max(1000, Math.min(5000, deadline - Date.now()));
-                    const page = await withTimeout(
-                        () => browser.newPage(),
-                        remainingMs,
-                        `Timed out creating new page after ${remainingMs}ms`
-                    );
-                    await withTimeout(
-                        () => page.title(),
-                        remainingMs,
-                        `Timed out probing new page after ${remainingMs}ms`
-                    );
-                    const targetId = getTargetIdFromPage(page);
-                    if (!targetId) {
-                        throw new Error('Failed to resolve target ID for new tab');
+    return retry({
+        semaphore_limit: 1,
+        semaphore_name: 'chrome.openTabInChromeSession',
+        semaphore_scope: 'multiprocess',
+        semaphore_timeout: Math.max(Math.ceil(timeoutMs / 1000), 1),
+        semaphore_lax: false,
+    })(async function openSharedChromeTab() {
+        const deadline = Date.now() + Math.max(timeoutMs, 0);
+        let lastError = null;
+
+        while (Date.now() <= deadline) {
+            try {
+                return await withConnectedBrowser(
+                    {
+                        puppeteer: puppeteerModule,
+                        cdpUrl,
+                        connectOptions: { defaultViewport: null },
+                    },
+                    async (browser) => {
+                        const remainingMs = Math.max(1000, Math.min(5000, deadline - Date.now()));
+                        const page = await withTimeout(
+                            () => browser.newPage(),
+                            remainingMs,
+                            `Timed out creating new page after ${remainingMs}ms`
+                        );
+                        await withTimeout(
+                            () => page.title(),
+                            remainingMs,
+                            `Timed out probing new page after ${remainingMs}ms`
+                        );
+                        const targetId = getTargetIdFromPage(page);
+                        if (!targetId) {
+                            throw new Error('Failed to resolve target ID for new tab');
+                        }
+                        return { targetId };
                     }
-                    return { targetId };
+                );
+            } catch (error) {
+                lastError = error;
+                if (Date.now() >= deadline) {
+                    break;
                 }
-            );
-        } catch (error) {
-            lastError = error;
-            if (Date.now() >= deadline) {
-                break;
+                await sleep(intervalMs);
             }
-            await sleep(intervalMs);
         }
-    }
 
-    throw lastError || new Error('Failed to open a new Chrome tab');
+        throw lastError || new Error('Failed to open a new Chrome tab');
+    })();
 }
 
 /**
@@ -3723,6 +3733,13 @@ async function ensureChromeSession(options = {}) {
         resolvedUserDataDir = result.userDataDir || resolvedUserDataDir;
     }
 
+    if (resolvedPid) {
+        fs.writeFileSync(path.join(outputDir, 'chrome.pid'), String(resolvedPid));
+    } else {
+        try { fs.unlinkSync(path.join(outputDir, 'chrome.pid')); } catch (error) {}
+    }
+    fs.writeFileSync(path.join(outputDir, 'cdp_url.txt'), resolvedCdpUrl);
+
     if (downloadsDir || cookiesFile || installedExtensions.length > 0) {
         let browser = null;
         try {
@@ -3787,13 +3804,6 @@ async function ensureChromeSession(options = {}) {
     } else {
         try { fs.unlinkSync(path.join(outputDir, 'extensions.json')); } catch (error) {}
     }
-
-    if (resolvedPid) {
-        fs.writeFileSync(path.join(outputDir, 'chrome.pid'), String(resolvedPid));
-    } else {
-        try { fs.unlinkSync(path.join(outputDir, 'chrome.pid')); } catch (error) {}
-    }
-    fs.writeFileSync(path.join(outputDir, 'cdp_url.txt'), resolvedCdpUrl);
 
     return {
         cdpUrl: resolvedCdpUrl,

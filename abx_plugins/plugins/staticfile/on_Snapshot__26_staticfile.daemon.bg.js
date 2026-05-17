@@ -39,6 +39,7 @@ const hookConfig = loadConfig();
 const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || '.').trim());
 const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
 const RESPONSES_INDEX_PATH = path.join(SNAP_DIR, 'responses', 'index.jsonl');
+const PRENAV_MARKER_PATH = path.join(OUTPUT_DIR, 'prenav.json');
 if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
@@ -194,6 +195,13 @@ function getOutputPathRelativeToSnapshot(filePath) {
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function writePrenavMarker(status) {
+    fs.writeFileSync(PRENAV_MARKER_PATH, JSON.stringify({
+        status,
+        timestamp: new Date().toISOString(),
+    }, null, 2));
 }
 
 function getResponsesOutputInfo(url, mimeType) {
@@ -438,6 +446,7 @@ async function setupStaticFileListener() {
         }
     });
 
+    writePrenavMarker('ready');
     return { browser, page, mainResponseHandled };
 }
 
@@ -474,9 +483,11 @@ async function main() {
 
     originalUrl = url;
     console.log('waiting for initial response...');
+    writePrenavMarker('starting');
 
     if (!getEnvBool('STATICFILE_ENABLED', true)) {
         console.error('Skipping (STATICFILE_ENABLED=False)');
+        writePrenavMarker('skipped');
         emitArchiveResultRecord('skipped', 'STATICFILE_ENABLED=False');
         process.exit(0);
     }

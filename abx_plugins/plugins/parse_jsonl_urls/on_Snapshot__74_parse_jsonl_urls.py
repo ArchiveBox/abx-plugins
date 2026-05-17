@@ -209,6 +209,8 @@ def main(
 
         try:
             link = json.loads(line)
+            if not isinstance(link, dict):
+                continue
             entry = json_object_to_entry(link)
             if entry:
                 # Add crawl tracking metadata

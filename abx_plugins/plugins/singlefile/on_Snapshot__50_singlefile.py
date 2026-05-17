@@ -5,6 +5,7 @@
 #     "pydantic-settings",
 #     "jambo",
 #     "rich-click",
+#     "abxbus",
 #     "abx-plugins",
 # ]
 # ///
@@ -26,6 +27,7 @@ Environment variables:
     SINGLEFILE_ARGS_EXTRA: Extra arguments to append (JSON array)
 """
 
+import asyncio
 import json
 import os
 import subprocess
@@ -33,6 +35,7 @@ import sys
 import threading
 from pathlib import Path
 
+from abxbus.retry import retry
 from abx_plugins.plugins.base.utils import (
     load_config,
     emit_archive_result_record,
@@ -357,6 +360,22 @@ def save_singlefile_with_extension(
     return False, None, summarize_error(detail) or "SingleFile extension failed"
 
 
+@retry(
+    max_attempts=1,
+    semaphore_limit=1,
+    semaphore_name="archivebox_singlefile_chrome_session",
+    semaphore_scope="multiprocess",
+    semaphore_timeout=0,
+    semaphore_lax=False,
+)
+async def save_singlefile_with_extension_serialized(
+    url: str,
+    timeout: int,
+) -> tuple[bool, str | None, str]:
+    print("[singlefile] acquired abxbus multiprocess semaphore", file=sys.stderr)
+    return save_singlefile_with_extension(url, timeout)
+
+
 @click.command(
     context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
 )
@@ -390,7 +409,9 @@ def main(url: str):
         # Prefer SingleFile extension via existing Chrome session
         timeout = config.SINGLEFILE_TIMEOUT
         print("generating singlefile.html...")
-        success, output, error = save_singlefile_with_extension(url, timeout)
+        success, output, error = asyncio.run(
+            save_singlefile_with_extension_serialized(url, timeout),
+        )
         status = "succeeded" if success else "failed"
 
     except Exception as e:
