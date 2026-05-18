@@ -23,6 +23,7 @@ from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
+    has_netscape_cookie_entries,
     has_staticfile_output,
     load_config,
 )
@@ -91,7 +92,7 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
     if not check_ssl:
         cmd.append("--no-check-certificate")
 
-    if cookies_file and Path(cookies_file).exists():
+    if has_netscape_cookie_entries(cookies_file):
         cmd.extend(["-C", cookies_file])
 
     if gallerydl_args_extra:

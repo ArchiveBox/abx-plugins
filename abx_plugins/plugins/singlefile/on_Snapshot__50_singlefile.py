@@ -39,6 +39,7 @@ from abxbus.retry import retry
 from abx_plugins.plugins.base.utils import (
     load_config,
     emit_archive_result_record,
+    has_netscape_cookie_entries,
     has_staticfile_output,
 )
 
@@ -163,7 +164,7 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
     if user_agent:
         cmd.extend(["--user-agent", user_agent])
 
-    if cookies_file and Path(cookies_file).is_file():
+    if has_netscape_cookie_entries(cookies_file):
         cmd.extend(["--browser-cookies-file", cookies_file])
 
     # Add extra args from config

@@ -35,6 +35,7 @@ from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
+    has_netscape_cookie_entries,
     has_staticfile_output,
     load_config,
 )
@@ -101,7 +102,7 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
     else:
         cmd.append("--timestamping")
 
-    if cookies_file and Path(cookies_file).is_file():
+    if has_netscape_cookie_entries(cookies_file):
         cmd.extend(["--load-cookies", cookies_file])
 
     if not check_ssl:

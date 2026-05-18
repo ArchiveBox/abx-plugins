@@ -557,6 +557,26 @@ def get_personas_dir() -> Path:
     return Path(str(config.PERSONAS_DIR)).expanduser().resolve()
 
 
+def has_netscape_cookie_entries(path: Path | str | None) -> bool:
+    """Return True only when a cookies.txt file has usable Netscape cookie rows."""
+    if not path:
+        return False
+    cookies_path = Path(path).expanduser()
+    try:
+        if not cookies_path.is_file() or cookies_path.stat().st_size == 0:
+            return False
+        for raw_line in cookies_path.read_text(errors="replace").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split("\t")
+            if len(parts) >= 7 and parts[0] and parts[5]:
+                return True
+    except OSError:
+        return False
+    return False
+
+
 # ---------------------------------------------------------------------------
 # JSONL record emission
 # ---------------------------------------------------------------------------
