@@ -1,0 +1,26 @@
+abx_plugins/plugins/search_backend_sonic/daemon.py
+  s_b989805ae95d6a::t_29936db286479b 18
+  s_b989805ae95d6a::t_9ede83da509e26 1-7,10-17,19-64,66-84,86-99,101-171,173-192,194-208
+abx_plugins/plugins/search_backend_sonic/tests/test_sonic_start.py
+  s_b989805ae95d6a::t_1f65f04bd7aefc 45,47,55-56,58-59,63,67-85
+pyproject.toml
+  s_b989805ae95d6a::t_de75e29b72f4c1 3
+abx_plugins/plugins/search_backend_sonic/on_CrawlSetup__55_sonic_start.py
+  s_b989805ae95d6a::t_f2560318bc8b95 11,21-24,65-66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "768b1c26856ac5196b7f4b62b890764063bffafc",
+  "prompts": {},
+  "sessions": {
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
