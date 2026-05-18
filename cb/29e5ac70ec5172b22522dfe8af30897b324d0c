@@ -1,0 +1,33 @@
+abx_plugins/plugins/chrome/on_CrawlSetup__89_chrome_kill_zombies.js
+  s_074e76a4b61abc::t_e0e12f4ee73a69 28-40,42-48
+abx_plugins/plugins/singlefile/singlefile_extension_save.js
+  s_074e76a4b61abc::t_4bec0701714c0d 36,230,254-262,270-273,278-279
+pyproject.toml
+  s_074e76a4b61abc::t_13deab0569e2dc 3
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_074e76a4b61abc::t_e6d2b8cbc467cb 3882
+  s_074e76a4b61abc::t_7a874972a044cb 3945
+  s_074e76a4b61abc::t_83fcc5bb73f28e 1544
+  s_074e76a4b61abc::t_b79db3c7f0829f 545-564,625,732-734
+  s_074e76a4b61abc::t_0328548bc739aa 427-450,725-731,735-745
+  s_074e76a4b61abc::t_1c8ec9dccbeb4f 1570,1573-1607,1632-1634,4095
+  s_074e76a4b61abc::t_aaafb9d9a8f505 3773-3793,3836,3848,3851,3884-3891
+abx_plugins/plugins/singlefile/on_Snapshot__50_singlefile.py
+  s_074e76a4b61abc::t_5b7a9f69ba118a 416-428
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "cb29e5ac70ec5172b22522dfe8af30897b324d0c",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
