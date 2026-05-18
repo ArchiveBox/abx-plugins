@@ -232,6 +232,35 @@ process.stdout.write(JSON.stringify(cleaned.map(filePath => path.basename(filePa
     assert not any(profile_dir.iterdir())
 
 
+def test_cleanup_chrome_profile_lock_files_removes_dangling_symlink_locks(tmp_path):
+    profile_dir = tmp_path / "chrome_profile"
+    profile_dir.mkdir()
+    (profile_dir / "SingletonLock").symlink_to("old-container-46929")
+    (profile_dir / "SingletonSocket").symlink_to("/tmp/missing-chrome-socket")
+    (profile_dir / "SingletonCookie").symlink_to("5206236564510194239")
+
+    script = """
+const path = require('path');
+const utils = require(process.argv[1]);
+const cleaned = utils.cleanupChromeProfileLockFiles(process.argv[2], { quiet: true });
+process.stdout.write(JSON.stringify(cleaned.map(filePath => path.basename(filePath)).sort()));
+"""
+    result = subprocess.run(
+        ["node", "-e", script, str(CHROME_UTILS), str(profile_dir)],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == [
+        "SingletonCookie",
+        "SingletonLock",
+        "SingletonSocket",
+    ]
+    assert not any(profile_dir.iterdir())
+
+
 def test_chrome_user_data_dir_defaults_to_persona_chrome_profile(tmp_path):
     personas_dir = tmp_path / "personas"
     script = """

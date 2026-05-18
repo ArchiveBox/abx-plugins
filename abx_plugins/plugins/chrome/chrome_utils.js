@@ -93,7 +93,13 @@ function cleanupChromeProfileLockFiles(userDataDir, options = {}) {
     const cleaned = [];
     for (const fileName of CHROME_PROFILE_LOCK_FILES) {
         const filePath = path.join(userDataDir, fileName);
-        if (!fs.existsSync(filePath)) continue;
+        try {
+            fs.lstatSync(filePath);
+        } catch (error) {
+            if (error && error.code === 'ENOENT') continue;
+            if (!quiet) console.error(`[!] Failed to inspect Chrome profile file ${filePath}: ${error.message}`);
+            continue;
+        }
         try {
             fs.unlinkSync(filePath);
             cleaned.push(filePath);
