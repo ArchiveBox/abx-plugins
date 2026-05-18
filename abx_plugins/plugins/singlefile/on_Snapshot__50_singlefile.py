@@ -119,7 +119,12 @@ def get_browser_cdp_url(
     return result.stdout.strip() or None, ""
 
 
-def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
+def save_singlefile(
+    url: str,
+    binary: str,
+    *,
+    use_existing_chrome: bool = True,
+) -> tuple[bool, str | None, str]:
     """
     Archive URL using SingleFile.
 
@@ -136,26 +141,36 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
     cookies_file = config.SINGLEFILE_COOKIES_FILE
     singlefile_args = config.SINGLEFILE_ARGS
     singlefile_args_extra = config.SINGLEFILE_ARGS_EXTRA
-    # Chrome args/binary are intentionally ignored because we require a shared Chrome session
+    chrome_args = list(config.SINGLEFILE_CHROME_ARGS or [])
+    for arg in config.CHROME_ARGS_EXTRA or []:
+        if arg not in chrome_args:
+            chrome_args.append(arg)
+    if not config.CHROME_SANDBOX:
+        for arg in ("--no-sandbox", "--disable-setuid-sandbox"):
+            if arg not in chrome_args:
+                chrome_args.append(arg)
 
     cmd = [binary, *singlefile_args]
 
-    cdp_remote_url, error = get_browser_cdp_url(
-        timeout=min(10, max(1, timeout // 10)),
-        require_target=True,
-    )
-    if not cdp_remote_url:
-        return (
-            False,
-            None,
-            error or "No Chrome session found (chrome plugin must run first)",
+    if use_existing_chrome:
+        cdp_remote_url, error = get_browser_cdp_url(
+            timeout=min(10, max(1, timeout // 10)),
+            require_target=True,
         )
+        if not cdp_remote_url:
+            return (
+                False,
+                None,
+                error or "No Chrome session found (chrome plugin must run first)",
+            )
 
-    print(
-        f"[singlefile] Using existing Chrome CDP endpoint: {cdp_remote_url}",
-        file=sys.stderr,
-    )
-    cmd.extend(["--browser-server", cdp_remote_url])
+        print(
+            f"[singlefile] Using existing Chrome CDP endpoint: {cdp_remote_url}",
+            file=sys.stderr,
+        )
+        cmd.extend(["--browser-server", cdp_remote_url])
+    elif chrome_args:
+        cmd.extend(["--browser-args", json.dumps(chrome_args)])
 
     # SSL handling
     if not check_ssl:
@@ -416,10 +431,14 @@ def main(url: str):
         if not success:
             extension_error = error
             print(
-                f"[singlefile] extension save failed, trying single-file-cli fallback: {extension_error}",
+                f"[singlefile] extension save failed, trying single-file-cli standalone fallback: {extension_error}",
                 file=sys.stderr,
             )
-            success, output, error = save_singlefile(url, config.SINGLEFILE_BINARY)
+            success, output, error = save_singlefile(
+                url,
+                config.SINGLEFILE_BINARY,
+                use_existing_chrome=False,
+            )
             if not success:
                 error = (
                     f"{extension_error}; single-file-cli fallback failed: {error}"
