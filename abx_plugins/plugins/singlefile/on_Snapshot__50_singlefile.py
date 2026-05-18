@@ -152,7 +152,7 @@ def save_singlefile(url: str, binary: str) -> tuple[bool, str | None, str]:
         )
 
     print(
-        f"[singlefile] Using existing Chrome session: {cdp_remote_url}",
+        f"[singlefile] Using existing Chrome CDP endpoint: {cdp_remote_url}",
         file=sys.stderr,
     )
     cmd.extend(["--browser-server", cdp_remote_url])

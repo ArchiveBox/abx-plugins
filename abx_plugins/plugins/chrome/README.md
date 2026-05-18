@@ -337,7 +337,7 @@ Most downstream plugins should not need this directly.
 
 #### `getBrowserCdpUrl(chromeSessionDir)`
 
-Derives the SingleFile-style browser server URL from a published session directory.
+Returns the live browser-level CDP endpoint from a published session directory.
 
 #### `openTabInChromeSession(...)` / `closeTabInChromeSession(...)`
 

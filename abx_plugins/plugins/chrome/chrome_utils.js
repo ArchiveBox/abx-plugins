@@ -1535,15 +1535,6 @@ function getValidInstalledExtensions(extensions) {
     return extensions.filter(ext => ext?.unpacked_path);
 }
 
-function getExtensionLoadStrategy(binary = findChromium()) {
-    const configured = getEnv('CHROME_EXTENSION_LOAD_STRATEGY', 'auto').toLowerCase();
-    if (['cdp', 'launch'].includes(configured)) {
-        return configured;
-    }
-
-    return 'auto';
-}
-
 async function tryGetExtensionContext(target, targetType) {
     if (targetType === 'service_worker') return await target.worker();
     return await target.page();
@@ -2508,12 +2499,10 @@ function getChromeDebugPortFromCdpUrl(cdpUrl) {
 }
 
 /**
- * Convert a Chrome websocket endpoint into the corresponding browser-server URL.
+ * Convert a Chrome websocket endpoint into the corresponding DevTools HTTP base URL.
  *
- * ArchiveBox persists browser websocket endpoints in `cdp_url.txt`, while
- * tools such as `single-file-cli` expect an HTTP(S) browser-server base URL.
- * Keeping the translation here avoids re-implementing URL/port parsing in
- * Python helpers.
+ * Puppeteer accepts HTTP(S) browser URLs for connection setup, while ArchiveBox
+ * usually persists browser websocket endpoints in `cdp_url.txt`.
  *
  * @param {string|null} cdpUrl - Browser websocket or HTTP endpoint
  * @returns {string|null} - HTTP(S) browser-server URL or null if invalid
@@ -3155,7 +3144,12 @@ async function waitForBrowserPageReady(options = {}) {
                     if (requireAboutBlank && url !== 'about:blank') {
                         lastError = new Error(`Expected about:blank probe page, found ${url || '<empty>'}`);
                     } else {
-                        const title = await page.title();
+                        const remainingMs = Math.max(250, deadline - Date.now());
+                        const title = await withTimeout(
+                            () => page.title(),
+                            remainingMs,
+                            `Timed out probing page title after ${remainingMs}ms`
+                        );
                         const targetId = getTargetIdFromPage(page);
                         if (!targetId) {
                             throw new Error('Missing target ID for probe page');
@@ -3212,17 +3206,19 @@ async function resolvePageByTargetId(browser, targetId, timeoutMs = 0) {
 }
 
 /**
- * Resolve a live browser-server URL from an already-published session dir.
+ * Resolve a live browser-level CDP endpoint from an already-published session dir.
  *
  * This is the browser-level analogue to `connectToPage(...)`: it waits for the
  * marker contract, verifies the underlying session is still reusable, then
- * returns the HTTP(S) base URL expected by browser-scoped tools.
+ * returns the raw persisted endpoint. Current `single-file-cli --browser-server`
+ * expects the browser websocket endpoint; passing the HTTP DevTools base URL
+ * makes it connect to `/` and fail with a 404 on Chrome 148.
  *
  * @param {string} [chromeSessionDir='../chrome'] - Session directory to inspect
  * @param {Object} [options={}] - Resolution options
  * @param {number} [options.timeoutMs=60000] - Timeout waiting for markers
  * @param {boolean} [options.requireTargetId=true] - Require target_id.txt
- * @returns {Promise<string>} - Browser-server URL
+ * @returns {Promise<string>} - Browser-level CDP endpoint
  * @throws {Error} - If no reusable Chrome session is available
  */
 async function getBrowserCdpUrl(chromeSessionDir = '../chrome', options = {}) {
@@ -3249,11 +3245,24 @@ async function getBrowserCdpUrl(chromeSessionDir = '../chrome', options = {}) {
         throw new Error(CHROME_SESSION_REQUIRED_ERROR);
     }
 
-    const browserServerUrl = getBrowserCdpUrlFromCdpUrl(inspection.state.cdpUrl);
-    if (!browserServerUrl) {
-        throw new Error('Invalid CDP URL in chrome session');
+    const cdpUrl = inspection.state.cdpUrl;
+    getPuppeteerConnectOptionsForCdpUrl(cdpUrl);
+
+    const endpoint = new URL(cdpUrl);
+    if (endpoint.protocol === 'http:' || endpoint.protocol === 'https:') {
+        const versionUrl = new URL('/json/version', endpoint);
+        const response = await fetch(versionUrl);
+        if (!response.ok) {
+            throw new Error(`Invalid CDP URL in chrome session: ${response.status} ${response.statusText}`);
+        }
+        const versionInfo = await response.json();
+        if (!versionInfo?.webSocketDebuggerUrl) {
+            throw new Error('Invalid CDP URL in chrome session: missing webSocketDebuggerUrl');
+        }
+        return versionInfo.webSocketDebuggerUrl;
     }
-    return browserServerUrl;
+
+    return cdpUrl;
 }
 
 /**
@@ -3844,10 +3853,7 @@ async function ensureChromeSession(options = {}) {
         if (!resolvedBinary) {
             throw new Error('Chromium binary not found');
         }
-        const extensionLoadStrategy = getExtensionLoadStrategy(resolvedBinary);
-        const launchExtensionPaths = extensionLoadStrategy !== 'cdp'
-            ? extensionPaths
-            : [];
+        const launchExtensionPaths = extensionPaths;
         launchedWithExtensions = launchExtensionPaths.length > 0;
 
         const result = await launchChromium({
@@ -3878,15 +3884,12 @@ async function ensureChromeSession(options = {}) {
             browser = await connectToBrowserEndpoint(puppeteer, resolvedCdpUrl, { defaultViewport: null });
 
             if (installedExtensions.length > 0) {
-                const extensionLoadStrategy = getExtensionLoadStrategy(resolvedBinary);
-                if (extensionLoadStrategy !== 'cdp') {
-                    await loadAllExtensionsFromBrowser(browser, installedExtensions, timeoutMs);
-                }
+                await loadAllExtensionsFromBrowser(browser, installedExtensions, timeoutMs);
                 const unloadedExtensions = getValidInstalledExtensions(installedExtensions).filter(ext => ext.load_error);
-                if (extensionLoadStrategy === 'cdp' || unloadedExtensions.length > 0 || !launchedWithExtensions) {
+                if (unloadedExtensions.length > 0 || !launchedWithExtensions) {
                     await loadUnpackedExtensionsIntoBrowser(
                         browser,
-                        extensionLoadStrategy === 'cdp' ? installedExtensions : unloadedExtensions,
+                        unloadedExtensions.length > 0 ? unloadedExtensions : installedExtensions,
                         timeoutMs
                     );
                 }
@@ -4083,7 +4086,6 @@ module.exports = {
     loadAllExtensionsFromBrowser,
     loadUnpackedExtensionsIntoBrowser,
     waitForExtensionTargetHandle,
-    getExtensionLoadStrategy,
     // New puppeteer best-practices helpers
     resolvePuppeteerModule,
     connectToBrowserEndpoint,
@@ -4137,7 +4139,7 @@ if (require.main === module) {
         console.log('  installPuppeteerCore      Install puppeteer-core npm package');
         console.log('  launchChromium            Launch Chrome with CDP debugging');
         console.log('  getCookiesViaCdp <port>  Read browser cookies via CDP port');
-        console.log('  getBrowserCdpUrl      Resolve browser-server URL from session dir');
+        console.log('  getBrowserCdpUrl      Resolve browser-level CDP endpoint from session dir');
         console.log('  killChrome <pid>          Kill Chrome process by PID');
         console.log('  killZombieChrome          Clean up zombie Chrome processes');
         console.log('');
@@ -4252,11 +4254,11 @@ if (require.main === module) {
                     const requireTargetId = !['0', 'false', 'no'].includes(
                         String(requireTargetIdStr).toLowerCase(),
                     );
-                    const browserServerUrl = await getBrowserCdpUrl(chromeSessionDir, {
+                    const browserCdpUrl = await getBrowserCdpUrl(chromeSessionDir, {
                         timeoutMs,
                         requireTargetId,
                     });
-                    console.log(browserServerUrl);
+                    console.log(browserCdpUrl);
                     break;
                 }
 
