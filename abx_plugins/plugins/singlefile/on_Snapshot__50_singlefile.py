@@ -413,6 +413,19 @@ def main(url: str):
         success, output, error = asyncio.run(
             save_singlefile_with_extension_serialized(url, timeout),
         )
+        if not success:
+            extension_error = error
+            print(
+                f"[singlefile] extension save failed, trying single-file-cli fallback: {extension_error}",
+                file=sys.stderr,
+            )
+            success, output, error = save_singlefile(url, config.SINGLEFILE_BINARY)
+            if not success:
+                error = (
+                    f"{extension_error}; single-file-cli fallback failed: {error}"
+                    if extension_error
+                    else error
+                )
         status = "succeeded" if success else "failed"
 
     except Exception as e:

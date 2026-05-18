@@ -424,6 +424,30 @@ async function killZombieChrome(snapDir = null, options = {}) {
         return results;
     }
 
+    function findRuntimePersonaDirs(dir, depth = 0) {
+        if (depth > 10) return [];
+
+        const results = [];
+        try {
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
+            for (const entry of entries) {
+                if (!entry.isDirectory()) continue;
+                const fullPath = path.join(dir, entry.name);
+                if (entry.name === '.persona') {
+                    results.push({
+                        personaDir: fullPath,
+                        sessionDir: path.dirname(fullPath),
+                    });
+                } else if (!entry.name.startsWith('.') && entry.name !== 'node_modules') {
+                    results.push(...findRuntimePersonaDirs(fullPath, depth + 1));
+                }
+            }
+        } catch (error) {
+            // Skip unreadable directories
+        }
+        return results;
+    }
+
     function getParentPid(pid) {
         try {
             const { execSync } = require('child_process');
@@ -518,6 +542,26 @@ async function killZombieChrome(snapDir = null, options = {}) {
         }
     }
 
+    function crawlHasLiveChromeHook(crawlDir) {
+        const resolvedCrawlDir = path.resolve(crawlDir);
+        for (const {pid} of findChromeHookProcesses()) {
+            if (pid === currentPid || !isProcessAlive(pid)) {
+                continue;
+            }
+            const currentWorkingDir = getProcessWorkingDir(pid);
+            if (!currentWorkingDir) {
+                continue;
+            }
+            const sessionDir = path.basename(currentWorkingDir) === 'chrome'
+                ? path.dirname(currentWorkingDir)
+                : currentWorkingDir;
+            if (findOwningCrawlDir(sessionDir) === resolvedCrawlDir) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     async function killHookProcess(pid, expectedHookName) {
         const currentCommand = getProcessCommand(pid);
         if (!currentCommand || !currentCommand.includes(expectedHookName)) {
@@ -576,6 +620,9 @@ async function killZombieChrome(snapDir = null, options = {}) {
                 continue;
             }
             if (crawlHeartbeatIsAlive(resolvedCrawlDir)) {
+                continue;
+            }
+            if (crawlHasLiveChromeHook(resolvedCrawlDir)) {
                 continue;
             }
 
@@ -673,6 +720,29 @@ async function killZombieChrome(snapDir = null, options = {}) {
                 }
             } else if (!quiet) {
                 console.error(`[!] Failed to kill orphaned chrome hook ${hookName} (PID ${pid})`);
+            }
+        }
+
+        for (const {personaDir, sessionDir} of findRuntimePersonaDirs(snapDir)) {
+            const resolvedCrawlDir = findOwningCrawlDir(sessionDir);
+            if (excludeCrawlDirs.has(resolvedCrawlDir) || excludeSessionDirs.has(resolvedCrawlDir)) {
+                continue;
+            }
+            if (crawlHeartbeatIsAlive(resolvedCrawlDir)) {
+                continue;
+            }
+            if (crawlHasLiveChromeHook(resolvedCrawlDir)) {
+                continue;
+            }
+            try {
+                fs.rmSync(personaDir, { recursive: true, force: true });
+                if (!quiet) {
+                    console.error(`[+] Removed stale runtime persona dir: ${personaDir}`);
+                }
+            } catch (error) {
+                if (!quiet) {
+                    console.error(`[!] Failed to remove stale runtime persona dir ${personaDir}: ${error.message}`);
+                }
             }
         }
     } catch (e) {
@@ -1471,11 +1541,7 @@ function getExtensionLoadStrategy(binary = findChromium()) {
         return configured;
     }
 
-    const binaryName = path.basename(binary || '').toLowerCase();
-    if (binaryName.includes('chromium')) {
-        return 'launch';
-    }
-    return 'cdp';
+    return 'auto';
 }
 
 async function tryGetExtensionContext(target, targetType) {
@@ -1501,9 +1567,44 @@ async function waitForExtensionTargetType(browser, extensionId, targetType, time
  * @param {string|null} [preferredTargetUrl=null] - Exact extension target URL to prefer
  * @returns {Promise<Object>} - Puppeteer target
  */
-async function waitForExtensionTargetHandle(browser, extensionId, timeout = 30000, preferredTargetUrl = null) {
+async function waitForExtensionTargetHandle(browser, extensionId, timeout = 30000, preferredTargetUrl = null, options = {}) {
     const deadline = Date.now() + Math.max(timeout, 0);
     let lastCandidates = [];
+    let wakeAttempted = false;
+    const wakePath = options.wakePath || null;
+
+    async function wakeExtension() {
+        if (!wakePath || wakeAttempted) return;
+        wakeAttempted = true;
+        let wakePage = null;
+        try {
+            wakePage = await browser.newPage();
+            await wakePage.goto(
+                `${CHROME_EXTENSION_URL_PREFIX}${extensionId}${wakePath}`,
+                { waitUntil: 'load', timeout: Math.min(Math.max(deadline - Date.now(), 1000), 10000) }
+            );
+            await wakePage.evaluate(() => {
+                return new Promise((resolve) => {
+                    const runtime = globalThis.chrome?.runtime;
+                    if (!runtime?.sendMessage) {
+                        resolve(null);
+                        return;
+                    }
+                    try {
+                        runtime.sendMessage({ method: 'ping' }, (response) => resolve(response || null));
+                    } catch (error) {
+                        resolve(null);
+                    }
+                });
+            });
+        } catch (error) {
+            if (wakePage) {
+                try {
+                    await wakePage.close();
+                } catch (closeError) {}
+            }
+        }
+    }
 
     while (Date.now() < deadline) {
         const candidates = browser.targets().filter(target =>
@@ -1528,6 +1629,9 @@ async function waitForExtensionTargetHandle(browser, extensionId, timeout = 3000
         }
 
         lastCandidates = candidates.map(target => `${target.type()}:${target.url()}`);
+        if (candidates.length === 0) {
+            await wakeExtension();
+        }
         await sleep(100);
     }
 
@@ -3666,6 +3770,27 @@ async function ensureChromeSession(options = {}) {
         existingSession.state?.cdpUrl === cdpUrl;
 
     if (reuseExisting && existingSession.hasArtifacts && !existingSession.stale && existingSession.state?.cdpUrl) {
+        if (installedExtensions.length > 0) {
+            let browser = null;
+            try {
+                browser = await connectToBrowserEndpoint(puppeteer, existingSession.state.cdpUrl, { defaultViewport: null });
+                await loadAllExtensionsFromBrowser(browser, installedExtensions, timeoutMs);
+                const unloadedExtensions = getValidInstalledExtensions(installedExtensions).filter(ext => ext.load_error);
+                if (unloadedExtensions.length > 0) {
+                    await loadUnpackedExtensionsIntoBrowser(browser, unloadedExtensions, timeoutMs);
+                }
+                fs.writeFileSync(
+                    path.join(outputDir, 'extensions.json'),
+                    JSON.stringify(installedExtensions, null, 2)
+                );
+            } finally {
+                if (browser) {
+                    try {
+                        await browser.disconnect();
+                    } catch (error) {}
+                }
+            }
+        }
         return {
             cdpUrl: existingSession.state.cdpUrl,
             pid: existingSession.state.pid,
@@ -3708,6 +3833,7 @@ async function ensureChromeSession(options = {}) {
     let resolvedPid = reusingExplicitCdpUrl && processIsLocal ? (existingSession.state?.pid || null) : null;
     let resolvedCdpUrl = reusingExplicitCdpUrl ? existingSession.state?.cdpUrl : cdpUrl;
     let resolvedUserDataDir = userDataDir;
+    let launchedWithExtensions = false;
 
     if (!resolvedCdpUrl) {
         if (!processIsLocal) {
@@ -3719,9 +3845,10 @@ async function ensureChromeSession(options = {}) {
             throw new Error('Chromium binary not found');
         }
         const extensionLoadStrategy = getExtensionLoadStrategy(resolvedBinary);
-        const launchExtensionPaths = extensionLoadStrategy === 'launch'
+        const launchExtensionPaths = extensionLoadStrategy !== 'cdp'
             ? extensionPaths
             : [];
+        launchedWithExtensions = launchExtensionPaths.length > 0;
 
         const result = await launchChromium({
             binary: resolvedBinary,
@@ -3744,7 +3871,6 @@ async function ensureChromeSession(options = {}) {
     } else {
         try { fs.unlinkSync(path.join(outputDir, 'chrome.pid')); } catch (error) {}
     }
-    fs.writeFileSync(path.join(outputDir, 'cdp_url.txt'), resolvedCdpUrl);
 
     if (downloadsDir || cookiesFile || installedExtensions.length > 0) {
         let browser = null;
@@ -3753,10 +3879,16 @@ async function ensureChromeSession(options = {}) {
 
             if (installedExtensions.length > 0) {
                 const extensionLoadStrategy = getExtensionLoadStrategy(resolvedBinary);
-                if (extensionLoadStrategy === 'launch') {
+                if (extensionLoadStrategy !== 'cdp') {
                     await loadAllExtensionsFromBrowser(browser, installedExtensions, timeoutMs);
-                } else {
-                    await loadUnpackedExtensionsIntoBrowser(browser, installedExtensions, timeoutMs);
+                }
+                const unloadedExtensions = getValidInstalledExtensions(installedExtensions).filter(ext => ext.load_error);
+                if (extensionLoadStrategy === 'cdp' || unloadedExtensions.length > 0 || !launchedWithExtensions) {
+                    await loadUnpackedExtensionsIntoBrowser(
+                        browser,
+                        extensionLoadStrategy === 'cdp' ? installedExtensions : unloadedExtensions,
+                        timeoutMs
+                    );
                 }
             }
 
@@ -3810,6 +3942,7 @@ async function ensureChromeSession(options = {}) {
     } else {
         try { fs.unlinkSync(path.join(outputDir, 'extensions.json')); } catch (error) {}
     }
+    fs.writeFileSync(path.join(outputDir, 'cdp_url.txt'), resolvedCdpUrl);
 
     return {
         cdpUrl: resolvedCdpUrl,
@@ -3959,6 +4092,7 @@ module.exports = {
     waitForExtensionTarget,
     getExtensionTargets,
     findExtensionMetadataByName,
+    readExtensionsMetadata,
     loadInstalledExtensionsFromCache,
     importCookiesFromFile,
     ensureChromeSession,

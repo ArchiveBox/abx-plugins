@@ -33,6 +33,7 @@ const DOWNLOADS_DIR = hookConfig.CHROME_DOWNLOADS_DIR ||
 process.env.CHROME_DOWNLOADS_DIR = DOWNLOADS_DIR;
 const DOWNLOAD_POLL_INTERVAL_MS = 3000;
 const DOWNLOAD_WAIT_RESERVE_MS = 10000;
+const SERVICE_WORKER_WAKE_PATH = '/src/ui/pages/offscreen-document.html';
 
 function wait(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -226,7 +227,7 @@ async function main() {
             chromeSessionDir: CHROME_SESSION_DIR,
             timeoutMs: 60000,
             requireTargetId: true,
-            requireExtensionsLoaded: true,
+            requireExtensionsLoaded: false,
         });
         console.error('[singlefile] connected to chrome');
 
@@ -250,9 +251,15 @@ async function main() {
 
             // Resolve extension id from snapshot chrome session metadata and connect to target by id.
             console.error('[singlefile] waiting for extensions metadata...');
-            const sessionExtensions = extensions || [];
-            const sessionEntry = chromeUtils.findExtensionMetadataByName(sessionExtensions, extension.name);
-            if (!sessionEntry || !sessionEntry.id) {
+            const crawlChromeDir = process.env.CRAWL_DIR
+                ? path.join(path.resolve(process.env.CRAWL_DIR), 'chrome')
+                : null;
+            const sessionExtensions = extensions ||
+                chromeUtils.readExtensionsMetadata(CHROME_SESSION_DIR) ||
+                (crawlChromeDir ? chromeUtils.readExtensionsMetadata(crawlChromeDir) : null) ||
+                [];
+            const sessionEntry = chromeUtils.findExtensionMetadataByName(sessionExtensions, extension.name) || extension;
+            if (!sessionEntry.id) {
                 console.error(`[singlefile] extension metadata missing id for name=${extension.name}`);
                 await browser.disconnect();
                 process.exit(5);
@@ -260,12 +267,16 @@ async function main() {
             extension.id = sessionEntry.id;
             console.error(`[singlefile] resolved extension id from session metadata: ${extension.id}`);
 
-            const preferredTargetUrl = sessionEntry.target_url || null;
+            const manifest = chromeUtils.loadExtensionManifest(sessionEntry.unpacked_path || extension.unpacked_path) || {};
+            const backgroundServiceWorker = manifest.background?.service_worker || null;
+            const preferredTargetUrl = sessionEntry.target_url ||
+                (backgroundServiceWorker ? `chrome-extension://${extension.id}/${backgroundServiceWorker}` : null);
             const extensionTarget = await chromeUtils.waitForExtensionTargetHandle(
                 browser,
                 extension.id,
                 30000,
-                preferredTargetUrl
+                preferredTargetUrl,
+                { wakePath: SERVICE_WORKER_WAKE_PATH }
             );
             console.error('[singlefile] loading extension from target...');
             await chromeUtils.loadExtensionFromTarget([extension], extensionTarget);

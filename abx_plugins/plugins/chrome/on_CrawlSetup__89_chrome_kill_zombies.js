@@ -25,11 +25,27 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 }
 process.chdir(OUTPUT_DIR);
 
+function getSweepDirs() {
+    const sweepDirs = [SNAP_DIR];
+    let current = CRAWL_DIR;
+    while (current && current !== path.dirname(current)) {
+        if (path.basename(current) === 'crawls') {
+            sweepDirs.push(current);
+            break;
+        }
+        current = path.dirname(current);
+    }
+    return Array.from(new Set(sweepDirs.map(dir => path.resolve(dir))));
+}
+
 async function main() {
-    const killed = await killZombieChrome(SNAP_DIR, {
-        excludeCrawlDirs: [CRAWL_DIR],
-        quiet: true,
-    });
+    let killed = 0;
+    for (const sweepDir of getSweepDirs()) {
+        killed += await killZombieChrome(sweepDir, {
+            excludeCrawlDirs: [CRAWL_DIR],
+            quiet: true,
+        });
+    }
     const elapsedMicros = Number(process.hrtime.bigint() - START_TIME) / 1000;
     const cpu = process.cpuUsage(START_CPU);
     const cpuMicros = cpu.user + cpu.system;
