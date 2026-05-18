@@ -1,0 +1,31 @@
+abx_plugins/plugins/wget/on_Snapshot__06_wget.finite.bg.py
+  s_074e76a4b61abc::t_4b553f23b7c84e 38,105
+abx_plugins/plugins/gallerydl/on_Snapshot__03_gallerydl.finite.bg.py
+  s_074e76a4b61abc::t_8e30a2ec119f5d 26,95
+abx_plugins/plugins/singlefile/on_Snapshot__50_singlefile.py
+  s_074e76a4b61abc::t_c2b64b273dd5c6 42,167
+tests/test_cookie_helpers.py
+  s_074e76a4b61abc::t_8477154c7eab58 1-6,8-41
+pyproject.toml
+  s_074e76a4b61abc::t_38273ffd3969c3 3
+abx_plugins/plugins/ytdlp/on_Snapshot__02_ytdlp.finite.bg.py
+  s_074e76a4b61abc::t_92d6a851c48702 38,115
+abx_plugins/plugins/base/utils.py
+  s_074e76a4b61abc::t_cf7714bc8de5e3 560-579
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "78a76b9ee20ef730e996e1f52b155aa77045732d",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
