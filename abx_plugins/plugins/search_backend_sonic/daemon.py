@@ -119,16 +119,24 @@ def get_sonic_dir(
     return Path("sonic").resolve()
 
 
+def sonic_daemon_bind_host(config: Mapping[str, Any] | Any) -> str:
+    host = str(config_value(config, "SEARCH_BACKEND_SONIC_HOST_NAME") or "127.0.0.1")
+    if host.strip().lower() == "localhost":
+        return "127.0.0.1"
+    return host
+
+
 def build_config_text(config: Mapping[str, Any] | Any, sonic_dir: Path) -> str:
     kv_dir = (sonic_dir / "store" / "kv").resolve()
     fst_dir = (sonic_dir / "store" / "fst").resolve()
+    daemon_host = sonic_daemon_bind_host(config)
     return "\n".join(
         [
             "[server]",
             'log_level = "error"',
             "",
             "[channel]",
-            f'inet = "{config_value(config, "SEARCH_BACKEND_SONIC_HOST_NAME")}:{config_value(config, "SEARCH_BACKEND_SONIC_PORT")}"',
+            f'inet = "{daemon_host}:{config_value(config, "SEARCH_BACKEND_SONIC_PORT")}"',
             "tcp_timeout = 300",
             f'auth_password = "{config_value(config, "SEARCH_BACKEND_SONIC_PASSWORD")}"',
             "",
