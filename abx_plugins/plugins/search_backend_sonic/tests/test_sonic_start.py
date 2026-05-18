@@ -42,7 +42,9 @@ def _run_hook(tmp_path: Path, **env_overrides: str) -> subprocess.CompletedProce
     )
 
 
-def test_sonic_start_emits_worker_request_and_host_port_summary(tmp_path: Path) -> None:
+def test_sonic_start_emits_daemon_start_event_and_host_port_summary(
+    tmp_path: Path,
+) -> None:
     result = _run_hook(tmp_path)
 
     assert result.returncode == 0, result.stderr
@@ -50,12 +52,37 @@ def test_sonic_start_emits_worker_request_and_host_port_summary(tmp_path: Path) 
     assert len(stdout_lines) == 2, stdout_lines
 
     record = json.loads(stdout_lines[0])
-    assert record["type"] == "ProcessEvent"
-    assert record["hook_name"] == "worker_sonic"
-    assert record["process_type"] == "worker"
-    assert record["worker_type"] == "sonic"
+    assert record["type"] == "SonicDaemonStartEvent"
+    assert record["worker_name"] == "worker_sonic"
     assert record["url"].startswith("tcp://127.0.0.1:")
+    assert record["config_path"].endswith("/sonic/config.cfg")
+    assert record["output_dir"].endswith("/sonic")
     assert stdout_lines[1] == record["url"].removeprefix("tcp://")
+
+
+def test_sonic_supervisord_worker_is_owned_by_plugin(tmp_path: Path) -> None:
+    from abx_plugins.plugins.search_backend_sonic.daemon import (
+        get_sonic_supervisord_worker,
+    )
+
+    config = {
+        "DATA_DIR": str(tmp_path / "data"),
+        "SEARCH_BACKEND_ENGINE": "sonic",
+        "USE_INDEXING_BACKEND": True,
+        "SONIC_BINARY": "/usr/bin/sonic",
+        "SEARCH_BACKEND_SONIC_HOST_NAME": "127.0.0.1",
+        "SEARCH_BACKEND_SONIC_PORT": _free_port(),
+        "SEARCH_BACKEND_SONIC_PASSWORD": "SecretPassword",
+    }
+
+    worker = get_sonic_supervisord_worker(config)
+
+    assert worker is not None
+    assert worker["name"] == "worker_sonic"
+    assert worker["command"].startswith("/usr/bin/sonic -c ")
+    assert worker["directory"].endswith("/sonic")
+    assert worker["autorestart"] == "true"
+    assert (tmp_path / "data" / "sonic" / "config.cfg").exists()
 
 
 def test_sonic_start_skips_outside_archivebox(tmp_path: Path) -> None:
