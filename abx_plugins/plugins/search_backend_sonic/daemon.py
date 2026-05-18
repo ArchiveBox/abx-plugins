@@ -19,6 +19,7 @@ class SonicSupervisorWorker(TypedDict):
     name: str
     command: str
     directory: str
+    environment: str
     autostart: str
     autorestart: str
     stdout_logfile: str
@@ -78,6 +79,14 @@ def config_value(config: Mapping[str, Any] | Any, key: str, default: Any = None)
     if isinstance(config, Mapping):
         return config.get(key, default)
     return getattr(config, key, default)
+
+
+def supervisord_environment(**values: Any) -> str:
+    return ",".join(
+        f"{key}={json.dumps(str(value))}"
+        for key, value in values.items()
+        if value is not None
+    )
 
 
 def is_sonic_backend_enabled(config: Mapping[str, Any] | Any) -> bool:
@@ -197,10 +206,15 @@ def get_sonic_supervisord_worker(
 
     daemon_event = prepare_sonic_daemon(config)
     sonic_binary = str(config_value(config, "SONIC_BINARY", "sonic"))
+    data_dir = config_value(config, "DATA_DIR")
     return {
         "name": daemon_event.worker_name,
         "command": shlex.join([sonic_binary, "-c", daemon_event.config_path]),
         "directory": daemon_event.output_dir,
+        "environment": supervisord_environment(
+            SONIC_DIR=daemon_event.output_dir,
+            DATA_DIR=data_dir,
+        ),
         "autostart": "false",
         "autorestart": "true",
         "stdout_logfile": "logs/worker_sonic.log",

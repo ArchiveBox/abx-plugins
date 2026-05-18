@@ -80,9 +80,18 @@ def test_sonic_supervisord_worker_is_owned_by_plugin(tmp_path: Path) -> None:
     assert worker is not None
     assert worker["name"] == "worker_sonic"
     assert worker["command"].startswith("/usr/bin/sonic -c ")
-    assert worker["directory"].endswith("/sonic")
+    assert worker["command"].endswith(
+        f"-c {tmp_path / 'data' / 'sonic' / 'config.cfg'}",
+    )
+    assert worker["directory"] == str(tmp_path / "data" / "sonic")
+    assert f'SONIC_DIR="{tmp_path / "data" / "sonic"}"' in worker["environment"]
+    assert f'DATA_DIR="{tmp_path / "data"}"' in worker["environment"]
     assert worker["autorestart"] == "true"
     assert (tmp_path / "data" / "sonic" / "config.cfg").exists()
+    assert (
+        f'path = "{tmp_path / "data" / "sonic" / "store" / "kv"}/"'
+        in (tmp_path / "data" / "sonic" / "config.cfg").read_text()
+    )
 
 
 def test_sonic_start_skips_outside_archivebox(tmp_path: Path) -> None:
