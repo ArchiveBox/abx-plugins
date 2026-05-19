@@ -225,7 +225,7 @@
     },
     "CHROME_WAIT_FOR": {
       "type": "string",
-      "default": "networkidle2",
+      "default": "load",
       "enum": [
         "domcontentloaded",
         "load",

@@ -204,6 +204,12 @@ function writePrenavMarker(status) {
     }, null, 2));
 }
 
+function removePrenavMarker() {
+    try {
+        fs.unlinkSync(PRENAV_MARKER_PATH);
+    } catch (error) {}
+}
+
 function getResponsesOutputInfo(url, mimeType) {
     try {
         const urlObj = new URL(url);
@@ -468,6 +474,7 @@ async function handleShutdown(signal) {
         process.exit(0);
     }
     finalized = true;
+    removePrenavMarker();
     await emitResult(buildArchiveResult());
     process.exit(0);
 }
@@ -504,6 +511,7 @@ async function main() {
         const connection = await setupStaticFileListener();
         const result = await connection.mainResponseHandled;
         finalized = true;
+        removePrenavMarker();
         await emitResult(result);
         if (browser) {
             try {
@@ -515,6 +523,7 @@ async function main() {
     } catch (e) {
         const error = `${e.name}: ${e.message}`;
         console.error(`ERROR: ${error}`);
+        removePrenavMarker();
 
         await emitResult({
             type: 'ArchiveResult',
@@ -527,6 +536,7 @@ async function main() {
 
 main().catch(async (e) => {
     console.error(`Fatal error: ${e.message}`);
+    removePrenavMarker();
     await emitResult({
         type: 'ArchiveResult',
         status: 'failed',

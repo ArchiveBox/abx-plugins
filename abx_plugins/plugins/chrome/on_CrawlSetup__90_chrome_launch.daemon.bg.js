@@ -171,8 +171,8 @@ async function main() {
         releaseLock = null;
 
         if (cleanupRequestedDuringLaunch) {
-            await cleanup();
-            return;
+            cleanupRequestedDuringLaunch = false;
+            console.error(`[*] Ignored early ${CHROME_BINARY} cleanup requested before the CDP session was ready`);
         }
 
         if (!shouldCloseOnCleanup) {

@@ -12,7 +12,7 @@
  * Environment variables:
  *     CHROME_PAGELOAD_TIMEOUT: Timeout in seconds (default: 60)
  *     CHROME_DELAY_AFTER_LOAD: Extra delay after load in seconds (default: 0)
- *     CHROME_WAIT_FOR: Wait condition (default: networkidle2)
+ *     CHROME_WAIT_FOR: Wait condition (default: load)
  */
 
 const fs = require('fs');
@@ -42,9 +42,9 @@ function getEnvFloat(name, defaultValue = 0) {
 }
 
 function getWaitCondition() {
-    const waitFor = getEnv('CHROME_WAIT_FOR', 'networkidle2').toLowerCase();
+    const waitFor = getEnv('CHROME_WAIT_FOR', 'load').toLowerCase();
     const valid = ['domcontentloaded', 'load', 'networkidle0', 'networkidle2'];
-    return valid.includes(waitFor) ? waitFor : 'networkidle2';
+    return valid.includes(waitFor) ? waitFor : 'load';
 }
 
 function sleep(ms) {
@@ -88,7 +88,11 @@ async function waitForPreloadHooks(timeoutMs) {
 }
 
 async function navigate(url) {
-    const timeout = (getEnvInt('CHROME_PAGELOAD_TIMEOUT') || getEnvInt('CHROME_TIMEOUT') || getEnvInt('TIMEOUT', 60)) * 1000;
+    const hookTimeoutSeconds = getEnvInt('CHROME_TIMEOUT') || getEnvInt('TIMEOUT', 60);
+    const requestedPageLoadTimeoutSeconds = getEnvInt('CHROME_PAGELOAD_TIMEOUT') || hookTimeoutSeconds;
+    const timeoutGraceSeconds = Math.min(5, Math.max(1, Math.floor(hookTimeoutSeconds / 10)));
+    const hookBudget = Math.max(1000, (hookTimeoutSeconds - timeoutGraceSeconds) * 1000);
+    const requestedPageLoadTimeout = requestedPageLoadTimeoutSeconds * 1000;
     const delayAfterLoad = getEnvFloat('CHROME_DELAY_AFTER_LOAD', 0) * 1000;
     const waitUntil = getWaitCondition();
 
@@ -98,14 +102,20 @@ async function navigate(url) {
     try {
         const conn = await connectToPage({
             chromeSessionDir: CHROME_SESSION_DIR,
-            timeoutMs: timeout,
+            timeoutMs: hookBudget,
             requireTargetId: true,
             puppeteer,
         });
         browser = conn.browser;
         const page = conn.page;
 
-        await waitForPreloadHooks(timeout);
+        await waitForPreloadHooks(hookBudget);
+
+        const remainingBudget = hookBudget - (Date.now() - navStartTime);
+        if (remainingBudget <= 0) {
+            throw new Error('Timed out before page navigation could start');
+        }
+        const timeout = Math.max(1000, Math.min(requestedPageLoadTimeout, remainingBudget));
 
         // Navigate
         console.log(`Navigating to ${url} (wait: ${waitUntil}, timeout: ${timeout}ms)`);

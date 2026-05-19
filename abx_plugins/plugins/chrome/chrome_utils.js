@@ -1868,8 +1868,15 @@ async function loadUnpackedExtensionsIntoBrowser(browser, extensions, timeout = 
         getEnvInt('CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS', Math.min(timeout, 10000))
     );
     const cdpSession = await browser.target().createCDPSession();
+    let loadUnpackedUnavailable = false;
 
     for (const extension of validExtensions) {
+        if (loadUnpackedUnavailable) {
+            extension.load_error = 'Extensions.loadUnpacked is unavailable in this browser';
+            console.warn(`[!] Skipping CDP unpacked extension load for ${extension.name || extension.id}: ${extension.load_error}`);
+            continue;
+        }
+
         try {
             const { id } = await cdpSession.send('Extensions.loadUnpacked', {
                 path: extension.unpacked_path,
@@ -1887,6 +1894,14 @@ async function loadUnpackedExtensionsIntoBrowser(browser, extensions, timeout = 
             delete extension.load_error;
         } catch (error) {
             extension.load_error = `${error.name}: ${error.message}`;
+            if (
+                String(error.message || '').includes('Method not available') ||
+                String(error.message || '').includes("'Extensions.loadUnpacked' wasn't found")
+            ) {
+                loadUnpackedUnavailable = true;
+                console.warn(`[!] Extensions.loadUnpacked is unavailable in this browser, skipping remaining CDP unpacked extension loads`);
+                continue;
+            }
             console.warn(
                 `[!] Extension ${extension.name || extension.id} did not expose a background target within ` +
                 `${perExtensionTimeout}ms, continuing: ${extension.load_error}`

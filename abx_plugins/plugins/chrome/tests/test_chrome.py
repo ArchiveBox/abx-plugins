@@ -409,6 +409,52 @@ const browser = {
     assert "load_error" in payload["result"][0]
 
 
+def test_load_unpacked_extensions_stops_after_protocol_method_is_unavailable():
+    script = r"""
+const chromeUtils = require(process.argv[1]);
+let sendCalls = 0;
+const browser = {
+  target: () => ({
+    createCDPSession: async () => ({
+      send: async () => {
+        sendCalls += 1;
+        const error = new Error('Protocol error (Extensions.loadUnpacked): Method not available');
+        error.name = 'ProtocolError';
+        throw error;
+      },
+      detach: async () => {},
+    }),
+  }),
+};
+
+(async () => {
+  const extensions = [
+    { id: 'abc123', name: 'first', unpacked_path: '/tmp/first' },
+    { id: 'def456', name: 'second', unpacked_path: '/tmp/second' },
+  ];
+  const result = await chromeUtils.loadUnpackedExtensionsIntoBrowser(browser, extensions, 60000);
+  process.stdout.write(JSON.stringify({ sendCalls, result }));
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
+"""
+    env = get_test_env() | {"CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS": "25"}
+    result = subprocess.run(
+        ["node", "-e", script, str(CHROME_UTILS)],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout.strip().splitlines()[-1])
+    assert payload["sendCalls"] == 1
+    assert "ProtocolError" in payload["result"][0]["load_error"]
+    assert "unavailable" in payload["result"][1]["load_error"]
+
+
 def test_load_cached_extension_uses_runtime_browser_target():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)

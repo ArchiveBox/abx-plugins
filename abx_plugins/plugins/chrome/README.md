@@ -60,7 +60,7 @@ Defined in [config.json](./config.json).
 |---|---|---|
 | `CHROME_TIMEOUT` | `60` | General Chrome operation timeout in seconds. |
 | `CHROME_PAGELOAD_TIMEOUT` | `60` | Navigation/page-load timeout in seconds. |
-| `CHROME_WAIT_FOR` | `networkidle2` | Puppeteer navigation completion condition. |
+| `CHROME_WAIT_FOR` | `load` | Puppeteer navigation completion condition. |
 | `CHROME_DELAY_AFTER_LOAD` | `0` | Extra delay after page load completes. |
 | `CHROME_HEADLESS` | `true` | Run headless. |
 | `CHROME_SANDBOX` | `true` | Enable Chromium sandbox. |
