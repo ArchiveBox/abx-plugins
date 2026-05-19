@@ -1,6 +1,6 @@
 [project]
 name = "abx-plugins"
-version = "1.10.66"
+version = "1.10.67"
 description = "ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)"
 authors = [{name = "Nick Sweeting"}, {name = "ArchiveBox"}]
 requires-python = ">=3.11"
@@ -65,7 +65,7 @@ addopts = ["-p", "abx_plugins.pytest_bootstrap", "-p", "no:cacheprovider"]
 
 [tool.uv]
 exclude-newer = "14 days"
-exclude-newer-package = { abxpkg = "1 second", abxbus = "1 second", abx-plugins = "1 second" }
+exclude-newer-package = { abxpkg = "1 second", abxbus = "1 second", pydantic = "1 second", abx-plugins = "1 second" }
 
 [tool.pyright]
 include = [
