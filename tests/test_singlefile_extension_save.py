@@ -58,6 +58,7 @@ Module._load = function(request, parent, isMain) {
             }),
             readExtensionsMetadata: () => [{ name: 'singlefile', id: 'test-extension-id' }],
             findExtensionMetadataByName: () => ({ id: 'test-extension-id' }),
+            loadExtensionManifest: () => ({ background: { service_worker: 'service-worker.js' } }),
             waitForExtensionTargetHandle: async () => ({}),
             loadExtensionFromTarget: async (extensions) => {
                 extensions[0].dispatchAction = async () => {
