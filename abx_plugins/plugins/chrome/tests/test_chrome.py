@@ -101,6 +101,29 @@ def _create_target_via_cdp(cdp_url: str, url: str) -> dict:
         return json.loads(response.read().decode("utf-8"))
 
 
+def test_acquire_session_lock_creates_missing_parent_dir(tmp_path):
+    lock_file = tmp_path / "missing" / "nested" / ".chrome-launch.lock"
+    script = (
+        f"const chromeUtils = require({json.dumps(str(CHROME_UTILS))});\n"
+        "(async () => {\n"
+        "  const release = await chromeUtils.acquireSessionLock(process.argv[1]);\n"
+        "  release();\n"
+        "})().catch((error) => {\n"
+        "  console.error(error);\n"
+        "  process.exit(1);\n"
+        "});\n"
+    )
+    result = subprocess.run(
+        ["node", "-e", script, str(lock_file)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    assert lock_file.parent.is_dir()
+    assert not lock_file.exists()
+
+
 def _probe_browser_page_via_cdp(cdp_url: str, env: dict) -> dict:
     script = (
         f"const chromeUtils = require({json.dumps(str(CHROME_UTILS))});\n"

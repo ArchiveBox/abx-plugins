@@ -1069,6 +1069,7 @@ async function acquireSessionLock(lockFile, timeoutMs = 10000, intervalMs = 100)
     const startedAt = Date.now();
     const token = `${process.pid}:${startedAt}:${Math.random().toString(16).slice(2)}`;
     const staleLockMs = Math.max(2000, intervalMs * 10);
+    fs.mkdirSync(path.dirname(lockFile), { recursive: true });
 
     while (Date.now() - startedAt < timeoutMs) {
         try {
