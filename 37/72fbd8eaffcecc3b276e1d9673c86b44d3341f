@@ -1,0 +1,19 @@
+tests/test_singlefile_extension_save.py
+  s_074e76a4b61abc::t_9d6b104fb5fa24 61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "3772fbd8eaffcecc3b276e1d9673c86b44d3341f",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
