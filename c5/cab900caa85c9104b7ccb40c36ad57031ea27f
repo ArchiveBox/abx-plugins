@@ -1,0 +1,37 @@
+abx_plugins/plugins/chrome/on_CrawlSetup__90_chrome_launch.daemon.bg.js
+  s_074e76a4b61abc::t_5c186678c6a98c 174-175
+abx_plugins/plugins/staticfile/on_Snapshot__26_staticfile.daemon.bg.js
+  s_074e76a4b61abc::t_15ebc5eb6c62f9 207-212,477,514,526,539
+pyproject.toml
+  s_074e76a4b61abc::t_15e73ae4d9e154 3
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_074e76a4b61abc::t_867271f3c07c73 1871,1874-1879,1897-1904
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_074e76a4b61abc::t_e0fa1bd16aae2e 412-457
+abx_plugins/plugins/chrome/on_Snapshot__30_chrome_navigate.js
+  s_074e76a4b61abc::t_ab36d78bcb02b4 15,45,47,91-95,112-118
+  s_074e76a4b61abc::t_686565f53a6878 105
+abx_plugins/plugins/chrome/README.md
+  s_074e76a4b61abc::t_b5433f91df8a2b 63
+abx_plugins/plugins/chrome/config.json
+  s_074e76a4b61abc::t_615c0150936f54 228
+abx_plugins/plugins/parse_netscape_urls/on_Snapshot__73_parse_netscape_urls.py
+  s_074e76a4b61abc::t_e6f368545815d9 66
+  s_074e76a4b61abc::t_15ebc5eb6c62f9 76-77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "c5cab900caa85c9104b7ccb40c36ad57031ea27f",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
