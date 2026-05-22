@@ -333,7 +333,9 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
         {{ puppeteer, browserWSEndpoint: '{cdp_url}' }},
         async (browser) => {{
             const page = await browser.newPage();
-            await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+            const browserUa = await browser.userAgent();
+            const realisticUa = browserUa.replace('HeadlessChrome/', 'Chrome/').replace(' Headless', '');
+            await page.setUserAgent(realisticUa);
             await page.setViewport({{ width: 1440, height: 900 }});
 
             // Track network requests
