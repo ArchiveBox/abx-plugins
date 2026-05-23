@@ -37,6 +37,12 @@
       "type": "boolean",
       "default": true,
       "description": "Enable Puppeteer dependency installation during crawl setup"
+    },
+    "PUPPETEER_TIMEOUT": {
+      "type": "integer",
+      "default": 900,
+      "minimum": 60,
+      "description": "Timeout in seconds for Puppeteer-managed browser dependency installation"
     }
   }
 }
