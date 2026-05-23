@@ -1,0 +1,42 @@
+abx_plugins/plugins/papersdl/tests/test_papersdl.py
+  s_b989805ae95d6a::t_480d660cd0e13d 57-62,66
+  s_b989805ae95d6a::t_b514019ca6f1a2 133-142
+pyproject.toml
+  s_074e76a4b61abc::t_c8273210fae9f5 3
+abx_plugins/plugins/pip/on_BinaryRequest__11_pip.py
+  s_b989805ae95d6a::t_e484d9aac0093c 114-119,121-127
+abx_plugins/plugins/pip/tests/test_pip_provider.py
+  s_b989805ae95d6a::t_421705b98c1e44 226-227,231-237,239-240
+abx_plugins/plugins/base/test_utils.py
+  s_b989805ae95d6a::t_6c6160952966f9 84
+  s_b989805ae95d6a::t_b031b6c94c3f3d 95-103
+  s_b989805ae95d6a::t_563add26a3c52b 25,104-107
+abx_plugins/plugins/singlefile/config.json
+  s_b989805ae95d6a::t_4783abd3b38986 31-32
+abx_plugins/plugins/papersdl/config.json
+  s_b989805ae95d6a::t_c27479fbb679a4 13,18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "41c1920faf114acf7608743c56c1ed0ead49db7e",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
