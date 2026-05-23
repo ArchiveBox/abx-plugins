@@ -167,6 +167,15 @@ def main(
 ):
     """Install binary using pip."""
     config = load_config()
+    context = click.get_current_context(silent=True)
+    extra_kwargs = parse_extra_hook_args(context.args if context else [])
+    binary_overrides = json.loads(overrides) if overrides else {}
+    provider_overrides = (
+        binary_overrides.get("pip", {})
+        if isinstance(binary_overrides, dict)
+        and isinstance(binary_overrides.get("pip", {}), dict)
+        else {}
+    )
 
     # Check if pip provider is allowed
     if binproviders != "*" and "pip" not in binproviders.split(","):
@@ -178,11 +187,15 @@ def main(
     if not lib_dir:
         lib_dir = str(Path.home() / ".config" / "abx" / "lib")
 
-    # Structure: lib/pip/venv (PipProvider creates venv under install_root/venv)
+    # Structure: lib/pip/venv by default, or any plugin-declared provider
+    # install_root override (PipProvider creates venv under install_root/venv).
     pip_install_root = Path(lib_dir) / "pip"
-    pip_venv_path = pip_install_root / "venv"
-    pip_install_root.mkdir(parents=True, exist_ok=True)
-    pip_lock_path = pip_install_root / ".venv.lock"
+    effective_install_root = Path(
+        provider_overrides.get("install_root") or pip_install_root,
+    ).expanduser()
+    pip_venv_path = effective_install_root / "venv"
+    effective_install_root.mkdir(parents=True, exist_ok=True)
+    pip_lock_path = effective_install_root / ".venv.lock"
 
     # Seed the pip venv with the preferred interpreter before abxpkg reuses it.
     preferred_python = (config.PIP_VENV_PYTHON or "").strip()
@@ -212,8 +225,8 @@ def main(
                 )
                 sys.exit(1)
 
-        # Use abxpkg PipProvider to install binary with custom venv
-        provider = PipProvider(install_root=pip_install_root)
+        # Use abxpkg PipProvider to install binary with the effective venv.
+        provider = PipProvider(install_root=effective_install_root)
         try:
             provider.INSTALLER_BINARY()
         except Exception:
@@ -223,8 +236,6 @@ def main(
         click.echo(f"Installing {name} via pip to venv at {pip_venv_path}...", err=True)
 
         try:
-            context = click.get_current_context(silent=True)
-            extra_kwargs = parse_extra_hook_args(context.args if context else [])
             binary = Binary.model_validate(
                 {
                     **extra_kwargs,
@@ -233,7 +244,7 @@ def main(
                     "min_version": min_version
                     or extra_kwargs.get("min_version")
                     or None,
-                    "overrides": json.loads(overrides) if overrides else {},
+                    "overrides": binary_overrides,
                 },
             )
             provider_overrides = binary.overrides.get("pip", {})

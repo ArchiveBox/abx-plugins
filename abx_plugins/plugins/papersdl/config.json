@@ -10,7 +10,15 @@
       "name": "{PAPERSDL_BINARY}",
       "binproviders": "env,pip",
       "min_version": null,
-      "postinstall_scripts": true
+      "postinstall_scripts": false,
+      "overrides": {
+        "pip": {
+          "install_root": "{LIB_DIR}/pip/packages/papers-dl",
+          "install_args": [
+            "papers-dl"
+          ]
+        }
+      }
     }
   ],
   "output_mimetypes": [

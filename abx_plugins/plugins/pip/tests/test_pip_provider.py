@@ -177,6 +177,52 @@ class TestPipProviderHook:
         )
         assert not (Path(env["LIB_DIR"]) / "pip" / "venv" / "venv").exists()
 
+    def test_hook_honors_pip_install_root_override(self):
+        """Provider overrides should isolate package dependencies in their own venv."""
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(self.snap_dir)
+        env["HOME"] = str(self.home_dir)
+        env["LIB_DIR"] = str(Path(self.temp_dir) / "lib")
+        env["PIP_VENV_PYTHON"] = sys.executable
+
+        install_root = Path(env["LIB_DIR"]) / "pip" / "packages" / "black"
+        result = subprocess.run(
+            [
+                str(INSTALL_HOOK),
+                "--name=black",
+                "--binproviders=pip",
+                "--postinstall-scripts=false",
+                "--overrides="
+                + json.dumps(
+                    {
+                        "pip": {
+                            "install_root": str(install_root),
+                            "install_args": ["black==24.4.2"],
+                        },
+                    },
+                ),
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(self.output_dir),
+            env=env,
+            timeout=180,
+        )
+
+        assert result.returncode == 0, result.stderr
+        records = [
+            json.loads(line)
+            for line in result.stdout.splitlines()
+            if line.strip().startswith("{")
+        ]
+        binary_record = next(
+            record for record in records if record.get("type") == "Binary"
+        )
+        assert Path(binary_record["abspath"]).is_relative_to(
+            install_root / "venv" / "bin",
+        )
+        assert not (Path(env["LIB_DIR"]) / "pip" / "venv" / "bin" / "black").exists()
+
     def test_python_candidates_prefer_active_interpreter(self):
         """Pip-managed CLI tools should use the active test interpreter first."""
         pip_hook = _load_pip_hook_module()
