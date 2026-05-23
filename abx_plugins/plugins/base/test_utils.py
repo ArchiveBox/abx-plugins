@@ -22,7 +22,7 @@ import os
 import subprocess
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 SNAPSHOT_ISOLATION_ENV_KEYS = ("HOME", "SNAP_DIR", "LIB_DIR", "PERSONAS_DIR")
 
@@ -81,7 +81,7 @@ def get_hydrated_required_binaries(
     plugin_dir: Path,
     env: Mapping[str, str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Return required_binaries with `{PLACEHOLDER}` names formatted from config defaults + env."""
+    """Return required_binaries with `{PLACEHOLDER}` values formatted from config defaults + env."""
     config = load_plugin_config(plugin_dir)
     properties = config.get("properties") or {}
     context: dict[str, Any] = {
@@ -92,14 +92,19 @@ def get_hydrated_required_binaries(
     if env:
         context.update({key: value for key, value in env.items() if value is not None})
 
-    hydrated: list[dict[str, Any]] = []
-    for item in get_required_binaries(plugin_dir):
-        record = dict(item)
-        name = record.get("name")
-        if isinstance(name, str):
-            record["name"] = name.format(**context)
-        hydrated.append(record)
-    return hydrated
+    def hydrate(value: Any) -> Any:
+        if isinstance(value, str):
+            return value.format(**context)
+        if isinstance(value, list):
+            return [hydrate(item) for item in value]
+        if isinstance(value, dict):
+            return {key: hydrate(item) for key, item in value.items()}
+        return value
+
+    return [
+        cast(dict[str, Any], hydrate(item))
+        for item in get_required_binaries(plugin_dir)
+    ]
 
 
 def parse_jsonl_output(

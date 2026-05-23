@@ -111,12 +111,20 @@ def _python_candidates(preferred_python: str) -> list[str]:
 
     candidates: list[str] = []
     current_python = Path(sys.executable).resolve()
-    if current_python.is_file():
-        candidates.append(str(current_python))
-    else:
-        candidates.append(Path(sys.executable).name)
+    if sys.version_info < (3, 13):
+        candidates.append(
+            str(current_python)
+            if current_python.is_file()
+            else Path(sys.executable).name,
+        )
 
-    candidates.extend(("python3.13", "python3.14", "python3.12", "python3.11"))
+    candidates.extend(("python3.12", "python3.11", "python3.10", "python3.9"))
+
+    current_python_ref = (
+        str(current_python) if current_python.is_file() else Path(sys.executable).name
+    )
+    candidates.append(current_python_ref)
+    candidates.extend(("python3.13", "python3.14"))
 
     deduped: list[str] = []
     for candidate in candidates:

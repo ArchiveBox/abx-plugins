@@ -223,13 +223,21 @@ class TestPipProviderHook:
         )
         assert not (Path(env["LIB_DIR"]) / "pip" / "venv" / "bin" / "black").exists()
 
-    def test_python_candidates_prefer_active_interpreter(self):
-        """Pip-managed CLI tools should use the active test interpreter first."""
+    def test_python_candidates_prefer_stable_tool_interpreters(self):
+        """Pip-managed CLI tools should avoid coupling package venvs to new app runtimes."""
         pip_hook = _load_pip_hook_module()
         candidates = pip_hook._python_candidates("")
 
-        assert candidates[0] == str(Path(sys.executable).resolve())
-        assert "python3.10" not in candidates
+        if sys.version_info < (3, 13):
+            assert candidates[0] == str(Path(sys.executable).resolve())
+        else:
+            assert candidates[:4] == [
+                "python3.12",
+                "python3.11",
+                "python3.10",
+                "python3.9",
+            ]
+            assert str(Path(sys.executable).resolve()) in candidates
 
 
 class TestPipProviderIntegration:

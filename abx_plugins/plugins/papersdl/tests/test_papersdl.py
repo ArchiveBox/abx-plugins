@@ -54,10 +54,16 @@ def get_papersdl_binary_path():
     if _papersdl_binary_path and Path(_papersdl_binary_path).is_file():
         return _papersdl_binary_path
 
+    if not _papersdl_lib_root:
+        _papersdl_lib_root = tempfile.mkdtemp(prefix="papersdl-lib-")
+
+    env = os.environ.copy()
+    env["LIB_DIR"] = str(Path(_papersdl_lib_root))
+
     papersdl_record = next(
         (
             record
-            for record in get_hydrated_required_binaries(PLUGIN_DIR)
+            for record in get_hydrated_required_binaries(PLUGIN_DIR, env=env)
             if record.get("name") == "papers-dl"
         ),
         None,
@@ -67,9 +73,6 @@ def get_papersdl_binary_path():
             "papersdl config missing required_binaries entry for papers-dl"
         )
         return None
-
-    if not _papersdl_lib_root:
-        _papersdl_lib_root = tempfile.mkdtemp(prefix="papersdl-lib-")
 
     pip_hook = PLUGINS_ROOT / "pip" / "on_BinaryRequest__11_pip.py"
     cmd = [str(pip_hook)]
@@ -81,9 +84,6 @@ def get_papersdl_binary_path():
             cmd.append(f"{option}={value}")
         else:
             cmd.append(f"{option}={json.dumps(value)}")
-
-    env = os.environ.copy()
-    env["LIB_DIR"] = str(Path(_papersdl_lib_root))
 
     try:
         install_result = subprocess.run(
@@ -129,6 +129,16 @@ def test_verify_deps_with_abxpkg():
     binary_path = require_papersdl_binary()
     assert Path(binary_path).is_file(), (
         f"Binary path must be a valid file: {binary_path}"
+    )
+    help_result = subprocess.run(
+        [binary_path, "--help"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert help_result.returncode == 0, (
+        f"Installed papers-dl CLI must be runnable: stdout={help_result.stdout[:400]} "
+        f"stderr={help_result.stderr[:400]}"
     )
 
 

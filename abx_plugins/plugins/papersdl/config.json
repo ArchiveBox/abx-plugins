@@ -10,11 +10,12 @@
       "name": "{PAPERSDL_BINARY}",
       "binproviders": "env,pip",
       "min_version": null,
-      "postinstall_scripts": false,
+      "postinstall_scripts": true,
       "overrides": {
         "pip": {
           "install_root": "{LIB_DIR}/pip/packages/papers-dl",
           "install_args": [
+            "--only-binary=aiohttp",
             "papers-dl"
           ]
         }
