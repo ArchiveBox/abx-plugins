@@ -1,0 +1,21 @@
+pyproject.toml
+  s_b989805ae95d6a::t_39182f4891ec38 3
+abx_plugins/plugins/puppeteer/config.json
+  s_b989805ae95d6a::t_6f9eec34f619c7 40-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "f5983dabbaa3f82225fbf603ce6faf6e6c8e5688",
+  "prompts": {},
+  "sessions": {
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
