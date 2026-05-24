@@ -1,0 +1,24 @@
+abx_plugins/plugins/puppeteer/tests/test_puppeteer.py
+  s_7cb7d6ca64357f::t_874ef8213bc67b 131,198
+  s_7cb7d6ca64357f::t_045194429b0e32 65,169,193,195
+abx_plugins/plugins/puppeteer/on_BinaryRequest__12_puppeteer.py
+  s_7cb7d6ca64357f::t_ca6a9a70ca67a4 13,53,75
+abx_plugins/plugins/chrome/README.md
+  s_7cb7d6ca64357f::t_33829966840f14 51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "2417b74ed9c60b9a882e8c4b06f2dbb8531d1329",
+  "prompts": {},
+  "sessions": {
+    "s_7cb7d6ca64357f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e5907-1535-77f1-9f6c-47b814136f01",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
