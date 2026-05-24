@@ -50,15 +50,7 @@ function getBrowserVersionOutput(binaryPath) {
 
 function isSupportedChromiumVersionOutput(output) {
     const version = String(output || '').trim();
-    if (!version) return false;
-    if (/^Google Chrome \d/.test(version)) return false;
-    return (
-        version.includes('Chromium') ||
-        version.includes('Chrome for Testing') ||
-        version.includes('Chrome Canary') ||
-        version.includes('HeadlessChrome') ||
-        version.includes('Chrome Headless Shell')
-    );
+    return Boolean(version);
 }
 
 function isSupportedChromiumBinary(binaryPath) {
@@ -835,7 +827,7 @@ async function launchChromium(options = {}) {
     if (!isSupportedChromiumBinary(binary)) {
         return {
             success: false,
-            error: 'Unsupported Chrome binary. Use Chromium, Chrome for Testing, or Chrome Canary; stock Google Chrome is not supported because CDP Extensions.loadUnpacked is required.',
+            error: `Chrome binary is not executable or did not report a version: ${binary}`,
         };
     }
 
@@ -1772,13 +1764,12 @@ function getExtensionTargets(browser) {
  * browser at the environment layer:
  * 1. `CHROME_BINARY`, if explicitly provided at runtime
  * 2. `/usr/bin/chromium` on CI/Linux hosts
- * 3. Google Chrome Canary on macOS
- * 4. Chromium on the host
+ * 3. Chromium-family browsers on the host
  * 5. abxpkg-managed Playwright/Puppeteer provider shims under `LIB_DIR`
  *
- * This helper intentionally rejects Google Chrome stable. The extension
- * lifecycle depends on CDP Extensions.loadUnpacked, which is supported by
- * Chromium-family builds like Chrome for Testing, Canary, and Chromium.
+ * This helper intentionally avoids auto-selecting Google Chrome stable. Users
+ * may explicitly provide another Chromium-based browser through CHROME_BINARY;
+ * extension loading remains the runtime capability check.
  *
  * @returns {string|null} - Absolute path to browser binary or null if not found
  */
@@ -1814,7 +1805,7 @@ function findChromium() {
         if (resolvedBinary) {
             return resolvedBinary;
         }
-        console.error(`[!] Warning: CHROME_BINARY="${chromeBinary}" is not a supported browser. Use Chromium, Chrome for Testing, or Chrome Canary.`);
+        console.error(`[!] Warning: CHROME_BINARY="${chromeBinary}" is not an executable browser binary.`);
     }
 
     const ciChromiumPath = '/usr/bin/chromium';

@@ -176,24 +176,7 @@ def _is_supported_chromium_binary(path: str | Path) -> bool:
     except Exception:
         return False
     version = f"{proc.stdout}\n{proc.stderr}".strip()
-    if not version:
-        return False
-    if (
-        version.startswith("Google Chrome ")
-        and "Chrome for Testing" not in version
-        and "Chrome Canary" not in version
-    ):
-        return False
-    return any(
-        name in version
-        for name in (
-            "Chromium",
-            "Chrome for Testing",
-            "Chrome Canary",
-            "HeadlessChrome",
-            "Chrome Headless Shell",
-        )
-    )
+    return bool(version)
 
 
 def _install_args_for_current_user(install_args: list[str]) -> list[str]:

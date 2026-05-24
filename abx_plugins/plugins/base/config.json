@@ -95,7 +95,7 @@
     "CHROME_BINARY": {
       "type": "string",
       "default": "",
-      "description": "Resolved Chromium/Chrome binary path shared across plugins"
+      "description": "Path to a Chromium-family browser binary"
     },
     "CHROME_USER_DATA_DIR": {
       "type": "string",

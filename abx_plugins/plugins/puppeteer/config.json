@@ -27,10 +27,7 @@
     "CHROME_BINARY": {
       "type": "string",
       "default": "chromium",
-      "x-aliases": [
-        "CHROMIUM_BINARY"
-      ],
-      "description": "Path to Chromium, Chrome for Testing, or Chrome Canary binary"
+      "description": "Path to a Chromium-family browser binary"
     },
     "PUPPETEER_ENABLED": {
       "type": "boolean",

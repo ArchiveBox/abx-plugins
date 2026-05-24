@@ -50,24 +50,7 @@ def _is_supported_browser_path(path: Path) -> bool:
     except Exception:
         return False
     version = f"{proc.stdout}\n{proc.stderr}".strip()
-    if not version:
-        return False
-    if (
-        version.startswith("Google Chrome ")
-        and "Chrome for Testing" not in version
-        and "Chrome Canary" not in version
-    ):
-        return False
-    return any(
-        name in version
-        for name in (
-            "Chromium",
-            "Chrome for Testing",
-            "Chrome Canary",
-            "HeadlessChrome",
-            "Chrome Headless Shell",
-        )
-    )
+    return bool(version)
 
 
 def test_get_machine_type():
