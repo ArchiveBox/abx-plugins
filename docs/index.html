@@ -3,16 +3,10 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ArchiveBox Plugin Marketplace | abx-plugins</title>
+    <title>ArchiveBox Plugin Gallery | abx-plugins</title>
     <meta
       name="description"
       content="Browse the ArchiveBox plugin ecosystem, including abx-plugins hooks, config options, source links, and example commands for ArchiveBox, abx-dl, and related web archiving tools."
-    >
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
     >
     <link rel="stylesheet" href="css/tokens.css?v=1">
     <link rel="stylesheet" href="css/base.css?v=1">
@@ -23,81 +17,95 @@
       }
 
       .hero {
-        padding: var(--ab-s-8) 0 var(--ab-s-7);
+        padding: var(--ab-s-5) 0 var(--ab-s-5);
         border-bottom: 1px solid var(--ab-rule-strong);
+        background: var(--ab-bg-elev);
       }
 
-      .hero__masthead {
-        display: block;
+      .hero .ab-container {
+        max-width: none;
+      }
+
+      .hero__layout {
+        display: grid;
+        grid-template-columns: minmax(380px, 0.9fr) minmax(520px, 1.1fr);
+        gap: var(--ab-s-6);
+        align-items: start;
+      }
+
+      .hero__intro {
+        max-width: 760px;
       }
 
       .hero__title {
-        font-size: clamp(54px, 8vw, 96px);
-        line-height: 0.92;
-        letter-spacing: -0.04em;
-        font-weight: 400;
+        font-size: var(--ab-size-2xl);
+        line-height: 1.12;
+        letter-spacing: 0;
+        font-weight: 700;
         margin: 0;
-        max-width: 10ch;
-      }
-
-      .hero__title em {
-        color: var(--ab-accent);
-        font-style: italic;
+        max-width: 720px;
       }
 
       .hero__copy {
-        margin-top: var(--ab-s-4);
-        max-width: 56ch;
-        font-family: var(--ab-font-serif);
-        font-size: var(--ab-size-lg);
+        margin-top: var(--ab-s-3);
+        max-width: 72ch;
+        font-family: var(--ab-font-sans);
+        font-size: var(--ab-size-md);
+        line-height: 1.55;
       }
 
       .hero__actions {
         display: flex;
         flex-wrap: wrap;
         gap: var(--ab-s-3);
-        margin-top: var(--ab-s-5);
+        margin-top: var(--ab-s-4);
       }
 
-      .hero__stats {
+      .hero__product-actions {
+        --ab-brand-red: #b4232a;
+        --ab-brand-red-hover: #951b22;
         display: grid;
-        grid-template-columns: minmax(0, 240px);
+        grid-template-columns: repeat(2, minmax(180px, 1fr));
         gap: var(--ab-s-3);
-        margin-top: var(--ab-s-6);
+        margin-top: var(--ab-s-5);
+        max-width: 560px;
       }
 
-      .stat {
-        border: 1px solid var(--ab-rule-strong);
-        background: var(--ab-bg-elev);
-        padding: var(--ab-s-4);
-        min-height: 104px;
+      .product-cta {
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
+        gap: 3px;
+        padding: var(--ab-s-3) var(--ab-s-4);
+        border: 1px solid var(--ab-brand-red);
+        border-radius: var(--ab-r-3);
+        background: var(--ab-brand-red);
+        color: #fff;
+        text-decoration: none;
       }
 
-      .stat strong {
-        display: block;
-        font-family: var(--ab-font-serif);
-        font-size: clamp(30px, 3vw, 44px);
-        line-height: 1;
-        letter-spacing: -0.03em;
-        color: var(--ab-fg);
+      .product-cta:hover {
+        background: var(--ab-brand-red-hover);
+        border-color: var(--ab-brand-red-hover);
+        color: #fff;
       }
 
-      .stat span {
-        font-family: var(--ab-font-label);
+      .product-cta strong {
+        color: inherit;
+        font-size: var(--ab-size-base);
+        line-height: 1.2;
+      }
+
+      .product-cta span {
+        color: rgba(255, 255, 255, .82);
         font-size: var(--ab-size-xs);
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: var(--ab-fg-muted);
+        line-height: 1.35;
       }
 
       .hero__support {
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
-        margin-top: var(--ab-s-4);
+        margin-top: var(--ab-s-3);
       }
 
       .hero__support code {
@@ -105,13 +113,61 @@
         padding: 4px 8px;
         background: var(--ab-bg-sunken);
         border: 1px solid var(--ab-rule);
-        border-radius: var(--ab-r-1);
+        border-radius: var(--ab-r-2);
+      }
+
+      .hero__workflow {
+        counter-reset: workflow;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: var(--ab-s-3);
+        margin-top: var(--ab-s-5);
+        padding: 0;
+        list-style: none;
+      }
+
+      .workflow-step {
+        border: 1px solid var(--ab-rule);
+        border-radius: var(--ab-r-3);
+        background: var(--ab-bg);
+        padding: var(--ab-s-3) var(--ab-s-4);
+        counter-increment: workflow;
+      }
+
+      .workflow-step strong {
+        display: flex;
+        align-items: center;
+        gap: var(--ab-s-2);
+        margin-bottom: 4px;
+        color: var(--ab-fg);
+      }
+
+      .workflow-step strong::before {
+        content: counter(workflow);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        border-radius: var(--ab-r-pill);
+        background: var(--ab-accent-wash);
+        color: var(--ab-accent);
+        font-family: var(--ab-font-mono);
+        font-size: 10px;
+      }
+
+      .workflow-step span {
+        display: block;
+        color: var(--ab-fg-muted);
+        font-size: var(--ab-size-sm);
+        line-height: 1.45;
       }
 
       .hero-example {
-        margin-top: var(--ab-s-7);
         border: 1px solid var(--ab-rule-strong);
+        border-radius: var(--ab-r-3);
         background: var(--ab-bg-elev);
+        overflow: hidden;
       }
 
       .hero-example-header {
@@ -119,7 +175,7 @@
         justify-content: space-between;
         align-items: flex-start;
         gap: var(--ab-s-4);
-        padding: var(--ab-s-4) var(--ab-s-5);
+        padding: var(--ab-s-4);
         border-bottom: 1px solid var(--ab-rule);
         background: var(--ab-bg-sunken);
       }
@@ -127,15 +183,15 @@
       .hero-example-title {
         margin: 0;
         font-family: var(--ab-font-label);
-        font-size: var(--ab-size-xs);
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: var(--ab-accent);
+        font-size: var(--ab-size-base);
+        letter-spacing: 0;
+        color: var(--ab-fg);
       }
 
       .hero-example-copy {
         margin: 6px 0 0;
-        max-width: 54ch;
+        max-width: 50ch;
+        font-size: var(--ab-size-sm);
       }
 
       .hero-runner-links {
@@ -153,7 +209,7 @@
       }
 
       .hero-code-block {
-        padding: var(--ab-s-4) var(--ab-s-5) var(--ab-s-5);
+        padding: var(--ab-s-4);
       }
 
       .hero-code-toolbar {
@@ -174,8 +230,7 @@
       .hero-code-kicker {
         font-family: var(--ab-font-label);
         font-size: var(--ab-size-xs);
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
+        letter-spacing: 0;
         color: var(--ab-fg-muted);
       }
 
@@ -187,10 +242,10 @@
         color: var(--ab-fg);
         font-family: var(--ab-font-label);
         font-size: var(--ab-size-xs);
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
+        letter-spacing: 0;
         padding: 8px 12px;
         cursor: pointer;
+        border-radius: var(--ab-r-2);
       }
 
       .copy-button:hover,
@@ -202,21 +257,24 @@
         box-shadow: none;
       }
 
+      .hero-code-block .ab-terminal__bar {
+        display: none;
+      }
+
       .hero-code-block .ab-terminal__body pre {
         font-size: var(--ab-size-sm);
-        line-height: 1.7;
+        line-height: 1.55;
       }
 
       .install-details {
-        padding: 0 var(--ab-s-5) var(--ab-s-5);
+        padding: 0 var(--ab-s-4) var(--ab-s-4);
       }
 
       .install-details summary {
         cursor: pointer;
         font-family: var(--ab-font-label);
         font-size: var(--ab-size-xs);
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
+        letter-spacing: 0;
         color: var(--ab-fg-muted);
       }
 
@@ -230,7 +288,7 @@
       }
 
       .catalog-toolbar {
-        padding: var(--ab-s-5) 0;
+        padding: var(--ab-s-4) 0;
         border-bottom: 1px solid var(--ab-rule);
         position: sticky;
         top: 57px;
@@ -283,7 +341,7 @@
       }
 
       .catalog {
-        padding: var(--ab-s-7) 0;
+        padding: var(--ab-s-5) 0 var(--ab-s-6);
       }
 
       .catalog__head {
@@ -300,14 +358,16 @@
 
       .gallery {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
         gap: var(--ab-s-4);
       }
 
       .plugin-card {
         border: 1px solid var(--ab-rule-strong);
         background: var(--ab-bg-elev);
-        box-shadow: var(--ab-shadow-1);
+        border-radius: var(--ab-r-3);
+        box-shadow: none;
+        overflow: hidden;
       }
 
       .plugin-card summary {
@@ -322,19 +382,21 @@
       .plugin-card summary:hover .plugin-card__frame,
       .plugin-card.modal-active .plugin-card__frame {
         border-color: var(--ab-accent);
-        box-shadow: var(--ab-shadow-2);
+        box-shadow: none;
+        background: color-mix(in srgb, var(--ab-accent-wash) 45%, var(--ab-bg-elev));
       }
 
       .plugin-card__frame {
         display: block;
-        padding: var(--ab-s-5);
+        padding: var(--ab-s-4);
         border: 1px solid transparent;
-        transition: border-color var(--ab-dur-2) var(--ab-ease), box-shadow var(--ab-dur-2) var(--ab-ease);
+        transition: border-color var(--ab-dur-2) var(--ab-ease), background var(--ab-dur-2) var(--ab-ease);
       }
 
       .plugin-main h2 {
         margin: 0;
-        font-size: var(--ab-size-xl);
+        font-size: var(--ab-size-lg);
+        line-height: 1.25;
       }
 
       .plugin-title-row {
@@ -351,6 +413,7 @@
 
       .plugin-summary-description {
         margin: var(--ab-s-3) 0 0;
+        font-size: var(--ab-size-sm);
       }
 
       .plugin-subline,
@@ -380,6 +443,7 @@
         background: var(--ab-bg-sunken);
         color: var(--ab-accent);
         padding: 10px;
+        border-radius: var(--ab-r-2);
       }
 
       .plugin-icon svg,
@@ -418,8 +482,8 @@
         font-family: var(--ab-font-mono);
         font-size: 10px;
         color: var(--ab-ink-2);
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
+        letter-spacing: 0;
+        border-radius: var(--ab-r-2);
       }
 
       .chip small {
@@ -464,7 +528,7 @@
       }
 
       .plugin-body {
-        padding: var(--ab-s-5);
+        padding: var(--ab-s-4);
       }
 
       .plugin-body > * + * {
@@ -473,7 +537,7 @@
 
       .plugin-modal-description {
         margin: 0;
-        font-size: var(--ab-size-md);
+        font-size: var(--ab-size-base);
       }
 
       .actions {
@@ -497,6 +561,7 @@
       .plugin-info-card {
         border: 1px solid var(--ab-rule);
         background: var(--ab-bg-sunken);
+        border-radius: var(--ab-r-3);
         padding: var(--ab-s-4);
       }
 
@@ -507,13 +572,14 @@
         margin-bottom: var(--ab-s-3);
         font-family: var(--ab-font-label);
         font-size: var(--ab-size-xs);
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
+        letter-spacing: 0;
         color: var(--ab-fg-muted);
       }
 
       .run-tabs {
         border: 1px solid var(--ab-rule-strong);
+        border-radius: var(--ab-r-3);
+        overflow: hidden;
       }
 
       .run-tabs-bar {
@@ -539,8 +605,8 @@
         border: 0;
         margin: 0;
         padding: var(--ab-s-4);
-        background: #17130f;
-        color: #ece4d0;
+        background: #111827;
+        color: #dbe5ef;
         overflow-x: auto;
         font-family: var(--ab-font-mono);
         font-size: var(--ab-size-sm);
@@ -553,7 +619,6 @@
 
       .note {
         margin: 0;
-        font-style: italic;
         color: var(--ab-fg-muted);
       }
 
@@ -565,6 +630,7 @@
       .hook-card {
         border: 1px solid var(--ab-rule);
         background: var(--ab-bg-sunken);
+        border-radius: var(--ab-r-3);
         padding: var(--ab-s-4);
       }
 
@@ -572,8 +638,7 @@
         margin-left: auto;
         font-family: var(--ab-font-label);
         font-size: var(--ab-size-xs);
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
+        letter-spacing: 0;
         color: var(--ab-accent);
       }
 
@@ -664,6 +729,7 @@
       .footer-card {
         border: 1px solid var(--ab-rule);
         background: var(--ab-bg-elev);
+        border-radius: var(--ab-r-3);
         padding: var(--ab-s-5);
       }
 
@@ -674,11 +740,24 @@
 
       .footer-link-item {
         display: grid;
-        grid-template-columns: 28px minmax(0, 1fr);
+        grid-template-columns: 36px minmax(0, 1fr);
         gap: var(--ab-s-3);
         padding: var(--ab-s-3) 0;
         border-top: 1px dashed var(--ab-rule);
         text-decoration: none;
+      }
+
+      .footer-link-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 32px;
+        height: 22px;
+        border: 1px solid var(--ab-rule);
+        border-radius: var(--ab-r-2);
+        color: var(--ab-fg-muted);
+        font-family: var(--ab-font-mono);
+        font-size: 10px;
       }
 
       .footer-link-item:first-child {
@@ -712,17 +791,23 @@
       }
 
       .plugin-modal {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
         width: min(1040px, calc(100vw - 40px));
-        max-height: calc(100vh - 40px);
+        max-height: calc(100dvh - 40px);
+        margin: 0;
         padding: 0;
         border: 1px solid var(--ab-rule-strong);
         background: var(--ab-bg);
         color: var(--ab-fg);
+        border-radius: var(--ab-r-3);
         box-shadow: var(--ab-shadow-2);
       }
 
       .plugin-modal::backdrop {
-        background: rgba(28, 24, 20, 0.45);
+        background: rgba(24, 32, 42, 0.42);
         backdrop-filter: blur(3px);
       }
 
@@ -766,7 +851,7 @@
       }
 
       .plugin-modal .plugin-body {
-        max-height: calc(100vh - 120px);
+        max-height: calc(100dvh - 120px);
         overflow-y: auto;
       }
 
@@ -779,36 +864,38 @@
       }
 
       .code-comment {
-        color: #8f8675;
+        color: #7b8797;
       }
 
       .code-command {
-        color: #f0e4cd;
+        color: #e7eef6;
       }
 
       .code-option {
-        color: #d6a654;
+        color: #d8b763;
       }
 
       .code-string {
-        color: #c26a6a;
+        color: #8fc7ee;
       }
 
       .code-env {
-        color: #8aa062;
+        color: #8fd1a6;
       }
 
       .code-boolean {
-        color: #d6a654;
+        color: #d8b763;
       }
 
       .code-value {
-        color: #c8bea8;
+        color: #cbd5e1;
       }
 
       @media (max-width: 1100px) {
         .footer-intro,
-        .plugin-info-grid {
+        .plugin-info-grid,
+        .hero__layout,
+        .hero__workflow {
           grid-template-columns: 1fr;
         }
 
@@ -834,6 +921,10 @@
           grid-template-columns: 1fr;
         }
 
+        .hero__product-actions {
+          grid-template-columns: 1fr;
+        }
+
         .catalog-toolbar {
           position: static;
         }
@@ -854,7 +945,7 @@
         }
 
         .hero__title {
-          font-size: clamp(42px, 14vw, 72px);
+          font-size: var(--ab-size-2xl);
         }
 
         .hero__copy {
@@ -887,97 +978,118 @@
           <rect x="12" y="14" width="8" height="3" fill="var(--ab-vellum)" opacity=".9"></rect>
           <rect x="2" y="5" width="28" height="22" fill="none" stroke="var(--ab-ink)" stroke-width="1.2"></rect>
         </svg>
-        <span>abx-plugins <small>Plugin Marketplace</small></span>
+        <span>abx-plugins <small>Plugin Gallery</small></span>
       </a>
       <nav class="ab-topbar__nav">
         <a href="#browser">Catalog</a>
         <a href="#context">Context</a>
         <a href="#resources">Resources</a>
       </nav>
-      <a class="ab-btn ab-btn--primary ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/pulls" target="_blank" rel="noreferrer">Submit plugin</a>
+      <a class="ab-btn ab-btn--primary ab-btn--sm" href="#browser">Find a plugin</a>
     </header>
 
     <main>
       <section class="hero">
         <div class="ab-container">
-          <div class="hero__masthead">
-            <div>
-              <span class="ab-eyebrow">Save the content that matters most.</span>
-              <h1 class="hero__title">ArchiveBox <em>Plugin</em> Gallery</h1>
+          <div class="hero__layout">
+            <div class="hero__intro">
+              <span class="ab-eyebrow">ArchiveBox plugin gallery</span>
+              <h1 class="hero__title">Pick the web capture you need. Run it in one command.</h1>
               <p class="hero__copy">
-                Browse the plugins that ArchiveBox &amp; abx-dl use to archive content from websites.
+                This gallery collects the workflows that usually take time to wire up by hand: browsers, media tools, parsers, metadata extractors, search indexes, and format-specific outputs. Choose a plugin to see how to run it, what it depends on, and what it produces.
               </p>
+              <div class="hero__product-actions" aria-label="ArchiveBox plugin runners">
+                <a class="product-cta" href="https://pypi.org/project/archivebox/" target="_blank" rel="noreferrer">
+                  <strong>ArchiveBox</strong>
+                  <span>Use plugins in full web archives</span>
+                </a>
+                <a class="product-cta" href="https://pypi.org/project/abx-dl/" target="_blank" rel="noreferrer">
+                  <strong>abx-dl</strong>
+                  <span>Run plugin pipelines directly</span>
+                </a>
+              </div>
               <div class="hero__actions">
-                <a class="ab-btn ab-btn--primary ab-btn--lg" href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">Browse source</a>
-                <a class="ab-btn ab-btn--lg" href="#browser">Jump to plugins</a>
+                <a class="ab-btn ab-btn--primary ab-btn--lg" href="#browser">Find a plugin</a>
+                <a class="ab-btn ab-btn--lg" href="#quickstart-heading">See command example</a>
               </div>
               <div class="hero__support">
-                <code>ArchiveBox</code>
-                <code>abx-dl</code>
-                <code>abxpkg</code>
-                <code>hook scripts</code>
-                <code>config.json</code>
-              </div>
-              <div class="hero__stats">
-                <div class="stat">
-                  <span>Plugins</span>
-                  <strong>61</strong>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <section class="hero-example" aria-labelledby="quickstart-heading">
-            <div class="hero-example-header">
-              <div>
-                <h2 class="hero-example-title" id="quickstart-heading">Run The Selected Plugin</h2>
-                <p class="hero-example-copy">
-                  Pick some plugins below and copy the command to run them.
-                </p>
-              </div>
-              <div class="hero-runner-links">
-                <span>Get:</span>
-                <a class="runner-link" href="https://github.com/ArchiveBox/abx-dl#readme" target="_blank" rel="noreferrer">abx-dl</a>
-                <a class="runner-link" href="https://github.com/ArchiveBox/ArchiveBox#readme" target="_blank" rel="noreferrer">ArchiveBox</a>
+                <code>screenshot</code>
+                <code>pdf</code>
+                <code>media</code>
+                <code>metadata</code>
+                <code>search</code>
+                <code>html/text</code>
+                <code>url parsing</code>
               </div>
             </div>
 
-            <div class="hero-code-block">
-              <div class="hero-code-toolbar">
-                <div class="hero-code-meta">
-                  <span class="hero-code-kicker">Quick Start</span>
-                  <code id="selected-plugin-name">abx-dl</code>
+            <section class="hero-example" aria-labelledby="quickstart-heading">
+              <div class="hero-example-header">
+                <div>
+                  <h2 class="hero-example-title" id="quickstart-heading">Try a plugin in one command</h2>
+                  <p class="hero-example-copy">
+                    Click a plugin card below and this example updates with the selected plugin.
+                  </p>
                 </div>
-                <button type="button" class="copy-button" id="copy-example-button">Copy</button>
-              </div>
-              <div class="ab-terminal">
-                <div class="ab-terminal__bar">
-                  <div class="ab-terminal__dots"><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span></div>
-                  <span>~/archive · abx-dl · quickstart</span>
-                </div>
-                <div class="ab-terminal__body">
-                  <pre><code id="hero-command-example" aria-live="polite"></code></pre>
+                <div class="hero-runner-links">
+                  <span>Install:</span>
+                  <a class="runner-link" href="https://pypi.org/project/abx-dl/" target="_blank" rel="noreferrer">abx-dl</a>
+                  <a class="runner-link" href="https://pypi.org/project/archivebox/" target="_blank" rel="noreferrer">ArchiveBox</a>
                 </div>
               </div>
-            </div>
 
-            <details class="install-details">
-              <summary>Expand to see pip install details</summary>
-              <div class="ab-terminal">
-                <div class="ab-terminal__bar">
-                  <div class="ab-terminal__dots"><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span></div>
-                  <span>~/archive · setup · pip install details</span>
+              <div class="hero-code-block">
+                <div class="hero-code-toolbar">
+                  <div class="hero-code-meta">
+                    <span class="hero-code-kicker">Quick start</span>
+                    <code id="selected-plugin-name">abx-dl</code>
+                  </div>
+                  <button type="button" class="copy-button" id="copy-example-button">Copy</button>
                 </div>
-                <div class="ab-terminal__body">
-                  <pre><code data-highlight-shell>pip install abx-dl
+                <div class="ab-terminal">
+                  <div class="ab-terminal__bar">
+                    <div class="ab-terminal__dots"><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span></div>
+                    <span>~/archive · abx-dl · quickstart</span>
+                  </div>
+                  <div class="ab-terminal__body">
+                    <pre><code id="hero-command-example" aria-live="polite"></code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <details class="install-details">
+                <summary>Expand to see pip install details</summary>
+                <div class="ab-terminal">
+                  <div class="ab-terminal__bar">
+                    <div class="ab-terminal__dots"><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span></div>
+                    <span>~/archive · setup · pip install details</span>
+                  </div>
+                  <div class="ab-terminal__body">
+                    <pre><code data-highlight-shell>pip install abx-dl
 abx-dl install
 mkdir archive
 cd archive
 abx-dl 'https://example.com'</code></pre>
+                  </div>
                 </div>
-              </div>
-            </details>
-          </section>
+              </details>
+            </section>
+          </div>
+
+          <ol class="hero__workflow" aria-label="How the plugin gallery works">
+            <li class="workflow-step">
+              <strong>Pick some capabilities</strong>
+              <span>Filter by features, output types, dependencies, hook phases, or config keys.</span>
+            </li>
+            <li class="workflow-step">
+              <strong>Run the generated command</strong>
+              <span>Open a plugin and copy an abx-dl or ArchiveBox command with the right plugin selected.</span>
+            </li>
+            <li class="workflow-step">
+              <strong>Get standard outputs</strong>
+              <span>Use known file formats and declared dependencies instead of wiring each extractor by hand.</span>
+            </li>
+          </ol>
         </div>
       </section>
 
@@ -985,7 +1097,7 @@ abx-dl 'https://example.com'</code></pre>
         <div class="ab-container">
           <div class="catalog-toolbar__grid">
             <label class="ab-field searchbox" for="plugin-search">
-              <span class="ab-label">Filter The Catalog</span>
+              <span class="ab-label">Filter the catalog</span>
               <span class="searchbox__control">
                 <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8">
                   <circle cx="11" cy="11" r="7"></circle>
@@ -1011,9 +1123,9 @@ abx-dl 'https://example.com'</code></pre>
           <div class="catalog__head">
             <div>
               <span class="ab-eyebrow">Catalog</span>
-              <h2>Plugins, extractor hooks, and dependency records.</h2>
+              <h2>Plugin catalog</h2>
             </div>
-            <span class="ab-meta">Open any entry for commands, hook scripts, config, and dependency details.</span>
+            <span class="ab-meta">Open any entry for commands, hook scripts, config, outputs, and dependency details.</span>
           </div>
 
           <main class="gallery" id="plugin-gallery">
@@ -1054,10 +1166,10 @@ abx-dl 'https://example.com'</code></pre>
                         <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span>
 <span class="chip">+1 more</span>                      </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-media">🎵 audio</span>
-                        <span class="chip chip--mime chip--mime-media">🎬 video</span>
-                        <span class="chip chip--mime chip--mime-image">🖼 image</span>
-                        <span class="chip chip--mime chip--mime-media">💬 application/x-subrip</span>
+                        <span class="chip chip--mime chip--mime-media">audio</span>
+                        <span class="chip chip--mime chip--mime-media">video</span>
+                        <span class="chip chip--mime chip--mime-image">image</span>
+                        <span class="chip chip--mime chip--mime-media">application/x-subrip</span>
 <span class="chip">+3 more</span>                      </div>
                     </div>
                   </div>
@@ -1096,13 +1208,13 @@ providers: env,apt,brew">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-media">🎵 audio</span>
-                      <span class="chip chip--mime chip--mime-media">🎬 video</span>
-                      <span class="chip chip--mime chip--mime-image">🖼 image</span>
-                      <span class="chip chip--mime chip--mime-media">💬 application/x-subrip</span>
-                      <span class="chip chip--mime chip--mime-media">💬 text/vtt</span>
-                      <span class="chip chip--mime chip--mime-data">📦 application/json</span>
-                      <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
+                      <span class="chip chip--mime chip--mime-media">audio</span>
+                      <span class="chip chip--mime chip--mime-media">video</span>
+                      <span class="chip chip--mime chip--mime-image">image</span>
+                      <span class="chip chip--mime chip--mime-media">application/x-subrip</span>
+                      <span class="chip chip--mime chip--mime-media">text/vtt</span>
+                      <span class="chip chip--mime chip--mime-data">application/json</span>
+                      <span class="chip chip--mime chip--mime-text">text/plain</span>
                     </div>
                   </article>
                 </div>
@@ -1278,10 +1390,10 @@ providers: env,apt,brew">
                         <span class="chip chip--binary-summary">gallery-dl <small>(env,pip,brew,apt)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-image">🖼 image</span>
-                        <span class="chip chip--mime chip--mime-media">🎬 video</span>
-                        <span class="chip chip--mime chip--mime-data">📦 application/json</span>
-                        <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
+                        <span class="chip chip--mime chip--mime-image">image</span>
+                        <span class="chip chip--mime chip--mime-media">video</span>
+                        <span class="chip chip--mime chip--mime-data">application/json</span>
+                        <span class="chip chip--mime chip--mime-text">text/plain</span>
 <span class="chip">+1 more</span>                      </div>
                     </div>
                   </div>
@@ -1310,11 +1422,11 @@ providers: env,pip,brew,apt">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-image">🖼 image</span>
-                      <span class="chip chip--mime chip--mime-media">🎬 video</span>
-                      <span class="chip chip--mime chip--mime-data">📦 application/json</span>
-                      <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
-                      <span class="chip chip--mime chip--mime-archive">🗜 application/zip</span>
+                      <span class="chip chip--mime chip--mime-image">image</span>
+                      <span class="chip chip--mime chip--mime-media">video</span>
+                      <span class="chip chip--mime chip--mime-data">application/json</span>
+                      <span class="chip chip--mime chip--mime-text">text/plain</span>
+                      <span class="chip chip--mime chip--mime-archive">application/zip</span>
                     </div>
                   </article>
                 </div>
@@ -1472,9 +1584,9 @@ providers: env,pip,brew,apt">
                         <span class="chip chip--binary-summary">forum-dl <small>(env,pip)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
-                        <span class="chip chip--mime chip--mime-archive">🗄 application/warc</span>
-                        <span class="chip chip--mime chip--mime-archive">✉️ message/rfc822</span>
+                        <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
+                        <span class="chip chip--mime chip--mime-archive">application/warc</span>
+                        <span class="chip chip--mime chip--mime-archive">message/rfc822</span>
                       </div>
                     </div>
                   </div>
@@ -1503,9 +1615,9 @@ providers: env,pip">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
-                      <span class="chip chip--mime chip--mime-archive">🗄 application/warc</span>
-                      <span class="chip chip--mime chip--mime-archive">✉️ message/rfc822</span>
+                      <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
+                      <span class="chip chip--mime chip--mime-archive">application/warc</span>
+                      <span class="chip chip--mime chip--mime-archive">message/rfc822</span>
                     </div>
                   </article>
                 </div>
@@ -1653,10 +1765,10 @@ providers: env,pip">
                         <span class="chip chip--binary-summary">git <small>(env,apt,brew)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-text">📄 text</span>
-                        <span class="chip chip--mime chip--mime-binary">💾 application</span>
-                        <span class="chip chip--mime chip--mime-image">🖼 image</span>
-                        <span class="chip chip--mime chip--mime-media">🎵 audio</span>
+                        <span class="chip chip--mime chip--mime-text">text</span>
+                        <span class="chip chip--mime chip--mime-binary">application</span>
+                        <span class="chip chip--mime chip--mime-image">image</span>
+                        <span class="chip chip--mime chip--mime-media">audio</span>
 <span class="chip">+2 more</span>                      </div>
                     </div>
                   </div>
@@ -1685,12 +1797,12 @@ providers: env,apt,brew">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-text">📄 text</span>
-                      <span class="chip chip--mime chip--mime-binary">💾 application</span>
-                      <span class="chip chip--mime chip--mime-image">🖼 image</span>
-                      <span class="chip chip--mime chip--mime-media">🎵 audio</span>
-                      <span class="chip chip--mime chip--mime-media">🎬 video</span>
-                      <span class="chip chip--mime chip--mime-code">🔤 font</span>
+                      <span class="chip chip--mime chip--mime-text">text</span>
+                      <span class="chip chip--mime chip--mime-binary">application</span>
+                      <span class="chip chip--mime chip--mime-image">image</span>
+                      <span class="chip chip--mime chip--mime-media">audio</span>
+                      <span class="chip chip--mime chip--mime-media">video</span>
+                      <span class="chip chip--mime chip--mime-code">font</span>
                     </div>
                   </article>
                 </div>
@@ -1838,10 +1950,10 @@ providers: env,apt,brew">
                         <span class="chip chip--binary-summary">wget <small>(env,apt,brew)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
-                        <span class="chip chip--mime chip--mime-archive">🗄 application/warc</span>
-                        <span class="chip chip--mime chip--mime-archive">🗜 application/gzip</span>
-                        <span class="chip chip--mime chip--mime-image">🖼 image</span>
+                        <span class="chip chip--mime chip--mime-html">text/html</span>
+                        <span class="chip chip--mime chip--mime-archive">application/warc</span>
+                        <span class="chip chip--mime chip--mime-archive">application/gzip</span>
+                        <span class="chip chip--mime chip--mime-image">image</span>
 <span class="chip">+5 more</span>                      </div>
                     </div>
                   </div>
@@ -1870,15 +1982,15 @@ providers: env,apt,brew">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
-                      <span class="chip chip--mime chip--mime-archive">🗄 application/warc</span>
-                      <span class="chip chip--mime chip--mime-archive">🗜 application/gzip</span>
-                      <span class="chip chip--mime chip--mime-image">🖼 image</span>
-                      <span class="chip chip--mime chip--mime-code">🎨 text/css</span>
-                      <span class="chip chip--mime chip--mime-code">⚡ application/javascript</span>
-                      <span class="chip chip--mime chip--mime-code">🔤 font</span>
-                      <span class="chip chip--mime chip--mime-media">🎵 audio</span>
-                      <span class="chip chip--mime chip--mime-media">🎬 video</span>
+                      <span class="chip chip--mime chip--mime-html">text/html</span>
+                      <span class="chip chip--mime chip--mime-archive">application/warc</span>
+                      <span class="chip chip--mime chip--mime-archive">application/gzip</span>
+                      <span class="chip chip--mime chip--mime-image">image</span>
+                      <span class="chip chip--mime chip--mime-code">text/css</span>
+                      <span class="chip chip--mime chip--mime-code">application/javascript</span>
+                      <span class="chip chip--mime chip--mime-code">font</span>
+                      <span class="chip chip--mime chip--mime-media">audio</span>
+                      <span class="chip chip--mime chip--mime-media">video</span>
                     </div>
                   </article>
                 </div>
@@ -2050,7 +2162,7 @@ providers: env,apt,brew">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
+                        <span class="chip chip--mime chip--mime-text">text/plain</span>
                       </div>
                     </div>
                   </div>
@@ -2069,7 +2181,7 @@ providers: env,apt,brew">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
+                      <span class="chip chip--mime chip--mime-text">text/plain</span>
                     </div>
                   </article>
                 </div>
@@ -2187,7 +2299,7 @@ providers: env,apt,brew">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--mime chip--mime-image">🖼 image</span>
+                        <span class="chip chip--mime chip--mime-image">image</span>
                       </div>
                     </div>
                   </div>
@@ -2206,7 +2318,7 @@ providers: env,apt,brew">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-image">🖼 image</span>
+                      <span class="chip chip--mime chip--mime-image">image</span>
                     </div>
                   </article>
                 </div>
@@ -2304,7 +2416,7 @@ providers: env,apt,brew">
             <details
               id="ublock"
               class="plugin-card plugin-card--snapshot"
-              data-search="ublock snapshot ublock origin install the ublock origin extension to block ads, trackers, and other page clutter during archiving. javascript snapshot chrome {chrome_binary} ublock env,puppeteer chromewebstore   {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;cjpalhdlnbpafiamejdnhcphjbkeiagm&#34;, &#34;--name=ublock&#34;]}} on_snapshot__12_ublock.daemon.bg.js chrome_binary path to chromium binary ublock_enabled enable ublock origin browser extension for ad blocking"
+              data-search="ublock snapshot ublock origin lite install the ublock origin lite extension to block ads, trackers, and other page clutter during archiving. javascript snapshot chrome {chrome_binary} ublock env,puppeteer chromewebstore   {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;ddkjiahejlhfcafbddmgiahcphecmpfh&#34;, &#34;--name=ublock&#34;]}} on_snapshot__12_ublock.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary ublock_enabled enable ublock origin lite browser extension for ad blocking"
               data-hero-plugin="ublock"
               data-hero-abx-command="uvx abx-dl --plugins ublock 'https://example.com'"
               data-hero-archivebox-command="UBLOCK_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -2313,10 +2425,10 @@ providers: env,apt,brew">
                 <div class="plugin-card__frame">
                   <div class="plugin-main">
                     <div class="plugin-title-row">
-                      <h2>uBlock Origin</h2>
+                      <h2>uBlock Origin Lite</h2>
                     </div>
                     <div class="plugin-slug"><code>ublock</code></div>
-                    <p class="plugin-summary-description">Install the uBlock Origin extension to block ads, trackers, and other page clutter during archiving.</p>
+                    <p class="plugin-summary-description">Install the uBlock Origin Lite extension to block ads, trackers, and other page clutter during archiving.</p>
                     <div class="plugin-subline">
                       <span class="plugin-order">#12</span>
                       <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
@@ -2339,7 +2451,7 @@ providers: env,apt,brew">
               </summary>
 
               <div class="plugin-body">
-                <p class="plugin-modal-description">Install the uBlock Origin extension to block ads, trackers, and other page clutter during archiving.</p>
+                <p class="plugin-modal-description">Install the uBlock Origin Lite extension to block ads, trackers, and other page clutter during archiving.</p>
 
                 <div class="actions">
                   <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/ublock" target="_blank" rel="noreferrer">Source on GitHub</a>
@@ -2418,16 +2530,16 @@ providers: chromewebstore">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
-                        <td><code>UBLOCK_ENABLED</code><span class="config-key-desc">Enable uBlock Origin browser extension for ad blocking</span></td>
+                        <td><code>UBLOCK_ENABLED</code><span class="config-key-desc">Enable uBlock Origin Lite browser extension for ad blocking</span></td>
                         <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
                         <td>
                           <code>boolean</code>
@@ -2443,7 +2555,7 @@ providers: chromewebstore">
             <details
               id="istilldontcareaboutcookies"
               class="plugin-card plugin-card--snapshot"
-              data-search="istilldontcareaboutcookies snapshot i still don&#39;t care about cookies install the i still don&#39;t care about cookies extension to dismiss cookie banners during archiving. javascript snapshot chrome {chrome_binary} istilldontcareaboutcookies env,puppeteer chromewebstore   {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;edibdbjcniadpccecjdfdjjppcpchdlm&#34;, &#34;--name=istilldontcareaboutcookies&#34;]}} on_snapshot__13_istilldontcareaboutcookies.daemon.bg.js chrome_binary path to chromium binary istilldontcareaboutcookies_enabled enable i still don&#39;t care about cookies browser extension"
+              data-search="istilldontcareaboutcookies snapshot i still don&#39;t care about cookies install the i still don&#39;t care about cookies extension to dismiss cookie banners during archiving. javascript snapshot chrome {chrome_binary} istilldontcareaboutcookies env,puppeteer chromewebstore   {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;edibdbjcniadpccecjdfdjjppcpchdlm&#34;, &#34;--name=istilldontcareaboutcookies&#34;]}} on_snapshot__13_istilldontcareaboutcookies.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary istilldontcareaboutcookies_enabled enable i still don&#39;t care about cookies browser extension"
               data-hero-plugin="istilldontcareaboutcookies"
               data-hero-abx-command="uvx abx-dl --plugins istilldontcareaboutcookies 'https://example.com'"
               data-hero-archivebox-command="ISTILLDONTCAREABOUTCOOKIES_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -2557,13 +2669,13 @@ providers: chromewebstore">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>ISTILLDONTCAREABOUTCOOKIES_ENABLED</code><span class="config-key-desc">Enable I Still Don&#39;t Care About Cookies browser extension</span></td>
@@ -2582,7 +2694,7 @@ providers: chromewebstore">
             <details
               id="twocaptcha"
               class="plugin-card plugin-card--snapshot"
-              data-search="twocaptcha snapshot 2captcha install and configure the 2captcha extension to solve captchas during browser-based archiving. javascript snapshot chrome {chrome_binary} twocaptcha env,puppeteer chromewebstore   {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;ifibfemgeogfhoebkmokieepdoobkbpo&#34;, &#34;--name=twocaptcha&#34;]}} on_crawlsetup__95_twocaptcha_config.js on_snapshot__14_twocaptcha.daemon.bg.js chrome_binary path to chromium binary twocaptcha_enabled enable 2captcha browser extension for automatic captcha solving twocaptcha_api_key 2captcha api key for captcha solving service (get from https://2captcha.com) twocaptcha_retry_count number of times to retry captcha solving on error twocaptcha_retry_delay delay in seconds between captcha solving retries twocaptcha_timeout timeout for captcha solving in seconds twocaptcha_auto_submit automatically submit forms after captcha is solved"
+              data-search="twocaptcha snapshot 2captcha install and configure the 2captcha extension to solve captchas during browser-based archiving. javascript snapshot chrome {chrome_binary} twocaptcha env,puppeteer chromewebstore   {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;ifibfemgeogfhoebkmokieepdoobkbpo&#34;, &#34;--name=twocaptcha&#34;]}} on_crawlsetup__95_twocaptcha_config.js on_snapshot__14_twocaptcha.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary twocaptcha_enabled enable 2captcha browser extension for automatic captcha solving twocaptcha_api_key 2captcha api key for captcha solving service (get from https://2captcha.com) twocaptcha_retry_count number of times to retry captcha solving on error twocaptcha_retry_delay delay in seconds between captcha solving retries twocaptcha_timeout timeout for captcha solving in seconds twocaptcha_auto_submit automatically submit forms after captcha is solved"
               data-hero-plugin="twocaptcha"
               data-hero-abx-command="uvx abx-dl --plugins twocaptcha 'https://example.com'"
               data-hero-archivebox-command="TWOCAPTCHA_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -2710,13 +2822,13 @@ providers: chromewebstore">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>TWOCAPTCHA_ENABLED</code><span class="config-key-desc">Enable 2captcha browser extension for automatic CAPTCHA solving</span></td>
@@ -2780,7 +2892,7 @@ providers: chromewebstore">
             <details
               id="modalcloser"
               class="plugin-card plugin-card--snapshot"
-              data-search="modalcloser snapshot modal closer automatically dismiss dialogs, cookie banners, and framework modals while the page is being archived. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} on_snapshot__15_modalcloser.daemon.bg.js chrome_binary path to chromium binary modalcloser_enabled enable automatic modal and dialog closing modalcloser_timeout delay before auto-closing dialogs (ms) modalcloser_poll_interval how often to check for css modals (ms)"
+              data-search="modalcloser snapshot modal closer automatically dismiss dialogs, cookie banners, and framework modals while the page is being archived. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} on_snapshot__15_modalcloser.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary modalcloser_enabled enable automatic modal and dialog closing modalcloser_timeout delay before auto-closing dialogs (ms) modalcloser_poll_interval how often to check for css modals (ms)"
               data-hero-plugin="modalcloser"
               data-hero-abx-command="uvx abx-dl --plugins modalcloser 'https://example.com'"
               data-hero-archivebox-command="MODALCLOSER_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -2888,13 +3000,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>MODALCLOSER_ENABLED</code><span class="config-key-desc">Enable automatic modal and dialog closing</span></td>
@@ -2931,7 +3043,7 @@ providers: env,puppeteer">
             <details
               id="consolelog"
               class="plugin-card plugin-card--snapshot"
-              data-search="consolelog snapshot console log capture browser console messages emitted while the page loads. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} application/x-ndjson on_snapshot__21_consolelog.daemon.bg.js chrome_binary path to chromium binary consolelog_enabled enable console log capture consolelog_timeout timeout for console log capture in seconds"
+              data-search="consolelog snapshot console log capture browser console messages emitted while the page loads. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/x-ndjson on_snapshot__21_consolelog.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary consolelog_enabled enable console log capture consolelog_timeout timeout for console log capture in seconds"
               data-hero-plugin="consolelog"
               data-hero-abx-command="uvx abx-dl --plugins consolelog 'https://example.com'"
               data-hero-archivebox-command="CONSOLELOG_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -2960,7 +3072,7 @@ providers: env,puppeteer">
                         <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                        <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                       </div>
                     </div>
                   </div>
@@ -2995,7 +3107,7 @@ providers: env,puppeteer">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                      <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                     </div>
                   </article>
                 </div>
@@ -3048,13 +3160,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>CONSOLELOG_ENABLED</code><span class="config-key-desc">Enable console log capture</span></td>
@@ -3082,7 +3194,7 @@ providers: env,puppeteer">
             <details
               id="dns"
               class="plugin-card plugin-card--snapshot"
-              data-search="dns snapshot dns record dns activity observed while loading the page in chrome. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} application/x-ndjson on_snapshot__22_dns.daemon.bg.js chrome_binary path to chromium binary dns_enabled enable dns traffic recording during page load dns_timeout timeout for dns recording in seconds"
+              data-search="dns snapshot dns record dns activity observed while loading the page in chrome. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/x-ndjson on_snapshot__22_dns.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary dns_enabled enable dns traffic recording during page load dns_timeout timeout for dns recording in seconds"
               data-hero-plugin="dns"
               data-hero-abx-command="uvx abx-dl --plugins dns 'https://example.com'"
               data-hero-archivebox-command="DNS_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -3111,7 +3223,7 @@ providers: env,puppeteer">
                         <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                        <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                       </div>
                     </div>
                   </div>
@@ -3146,7 +3258,7 @@ providers: env,puppeteer">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                      <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                     </div>
                   </article>
                 </div>
@@ -3199,13 +3311,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>DNS_ENABLED</code><span class="config-key-desc">Enable DNS traffic recording during page load</span></td>
@@ -3233,7 +3345,7 @@ providers: env,puppeteer">
             <details
               id="sslcerts"
               class="plugin-card plugin-card--snapshot"
-              data-search="sslcerts snapshot ssl certificates capture tls certificate and connection metadata for the loaded page. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} application/x-ndjson on_snapshot__23_sslcerts.daemon.bg.js chrome_binary path to chromium binary sslcerts_enabled enable ssl certificate capture sslcerts_timeout timeout for ssl capture in seconds"
+              data-search="sslcerts snapshot ssl certificates capture tls certificate and connection metadata for the loaded page. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/x-ndjson on_snapshot__23_sslcerts.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary sslcerts_enabled enable ssl certificate capture sslcerts_timeout timeout for ssl capture in seconds"
               data-hero-plugin="sslcerts"
               data-hero-abx-command="uvx abx-dl --plugins sslcerts 'https://example.com'"
               data-hero-archivebox-command="SSLCERTS_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -3262,7 +3374,7 @@ providers: env,puppeteer">
                         <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                        <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                       </div>
                     </div>
                   </div>
@@ -3297,7 +3409,7 @@ providers: env,puppeteer">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                      <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                     </div>
                   </article>
                 </div>
@@ -3350,13 +3462,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>SSLCERTS_ENABLED</code><span class="config-key-desc">Enable SSL certificate capture</span></td>
@@ -3384,7 +3496,7 @@ providers: env,puppeteer">
             <details
               id="responses"
               class="plugin-card plugin-card--snapshot"
-              data-search="responses snapshot responses capture http response metadata for requests made during page load. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} application/x-ndjson text image audio video application font on_snapshot__24_responses.daemon.bg.js chrome_binary path to chromium binary responses_enabled enable http response capture responses_timeout timeout for response capture in seconds"
+              data-search="responses snapshot responses capture http response metadata for requests made during page load. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/x-ndjson text image audio video application font on_snapshot__24_responses.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary responses_enabled enable http response capture responses_timeout timeout for response capture in seconds"
               data-hero-plugin="responses"
               data-hero-abx-command="uvx abx-dl --plugins responses 'https://example.com'"
               data-hero-archivebox-command="RESPONSES_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -3413,10 +3525,10 @@ providers: env,puppeteer">
                         <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
-                        <span class="chip chip--mime chip--mime-text">📄 text</span>
-                        <span class="chip chip--mime chip--mime-image">🖼 image</span>
-                        <span class="chip chip--mime chip--mime-media">🎵 audio</span>
+                        <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
+                        <span class="chip chip--mime chip--mime-text">text</span>
+                        <span class="chip chip--mime chip--mime-image">image</span>
+                        <span class="chip chip--mime chip--mime-media">audio</span>
 <span class="chip">+3 more</span>                      </div>
                     </div>
                   </div>
@@ -3451,13 +3563,13 @@ providers: env,puppeteer">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
-                      <span class="chip chip--mime chip--mime-text">📄 text</span>
-                      <span class="chip chip--mime chip--mime-image">🖼 image</span>
-                      <span class="chip chip--mime chip--mime-media">🎵 audio</span>
-                      <span class="chip chip--mime chip--mime-media">🎬 video</span>
-                      <span class="chip chip--mime chip--mime-binary">💾 application</span>
-                      <span class="chip chip--mime chip--mime-code">🔤 font</span>
+                      <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
+                      <span class="chip chip--mime chip--mime-text">text</span>
+                      <span class="chip chip--mime chip--mime-image">image</span>
+                      <span class="chip chip--mime chip--mime-media">audio</span>
+                      <span class="chip chip--mime chip--mime-media">video</span>
+                      <span class="chip chip--mime chip--mime-binary">application</span>
+                      <span class="chip chip--mime chip--mime-code">font</span>
                     </div>
                   </article>
                 </div>
@@ -3510,13 +3622,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>RESPONSES_ENABLED</code><span class="config-key-desc">Enable HTTP response capture</span></td>
@@ -3544,7 +3656,7 @@ providers: env,puppeteer">
             <details
               id="redirects"
               class="plugin-card plugin-card--snapshot"
-              data-search="redirects snapshot redirects capture the redirect chain encountered while loading the page. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} application/x-ndjson on_snapshot__25_redirects.daemon.bg.js chrome_binary path to chromium binary redirects_enabled enable redirect chain capture redirects_timeout timeout for redirect capture in seconds"
+              data-search="redirects snapshot redirects capture the redirect chain encountered while loading the page. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/x-ndjson on_snapshot__25_redirects.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary redirects_enabled enable redirect chain capture redirects_timeout timeout for redirect capture in seconds"
               data-hero-plugin="redirects"
               data-hero-abx-command="uvx abx-dl --plugins redirects 'https://example.com'"
               data-hero-archivebox-command="REDIRECTS_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -3573,7 +3685,7 @@ providers: env,puppeteer">
                         <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                        <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                       </div>
                     </div>
                   </div>
@@ -3608,7 +3720,7 @@ providers: env,puppeteer">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                      <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                     </div>
                   </article>
                 </div>
@@ -3661,13 +3773,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>REDIRECTS_ENABLED</code><span class="config-key-desc">Enable redirect chain capture</span></td>
@@ -3695,7 +3807,7 @@ providers: env,puppeteer">
             <details
               id="staticfile"
               class="plugin-card plugin-card--snapshot"
-              data-search="staticfile snapshot static file detect and download static-file responses directly when a url resolves to a non-html asset. javascript snapshot embed chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} application/pdf application/epub+zip image audio video application/json application/xml text/csv text/xml application/zip application/octet-stream application/x- on_snapshot__26_staticfile.daemon.bg.js chrome_binary path to chromium binary staticfile_enabled enable static file detection staticfile_timeout timeout for static file detection in seconds"
+              data-search="staticfile snapshot static file detect and download static-file responses directly when a url resolves to a non-html asset. javascript snapshot embed chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/pdf application/epub+zip image audio video application/json application/xml text/csv text/xml application/zip application/octet-stream application/x- on_snapshot__26_staticfile.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary staticfile_enabled enable static file detection staticfile_timeout timeout for static file detection in seconds"
               data-hero-plugin="staticfile"
               data-hero-abx-command="uvx abx-dl --plugins staticfile 'https://example.com'"
               data-hero-archivebox-command="STATICFILE_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -3725,10 +3837,10 @@ providers: env,puppeteer">
                         <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-doc">📕 application/pdf</span>
-                        <span class="chip chip--mime chip--mime-doc">📚 application/epub+zip</span>
-                        <span class="chip chip--mime chip--mime-image">🖼 image</span>
-                        <span class="chip chip--mime chip--mime-media">🎵 audio</span>
+                        <span class="chip chip--mime chip--mime-doc">application/pdf</span>
+                        <span class="chip chip--mime chip--mime-doc">application/epub+zip</span>
+                        <span class="chip chip--mime chip--mime-image">image</span>
+                        <span class="chip chip--mime chip--mime-media">audio</span>
 <span class="chip">+8 more</span>                      </div>
                     </div>
                   </div>
@@ -3763,18 +3875,18 @@ providers: env,puppeteer">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-doc">📕 application/pdf</span>
-                      <span class="chip chip--mime chip--mime-doc">📚 application/epub+zip</span>
-                      <span class="chip chip--mime chip--mime-image">🖼 image</span>
-                      <span class="chip chip--mime chip--mime-media">🎵 audio</span>
-                      <span class="chip chip--mime chip--mime-media">🎬 video</span>
-                      <span class="chip chip--mime chip--mime-data">📦 application/json</span>
-                      <span class="chip chip--mime chip--mime-code">📋 application/xml</span>
-                      <span class="chip chip--mime chip--mime-data">📊 text/csv</span>
-                      <span class="chip chip--mime chip--mime-code">📋 text/xml</span>
-                      <span class="chip chip--mime chip--mime-archive">🗜 application/zip</span>
-                      <span class="chip chip--mime chip--mime-binary">💾 application/octet-stream</span>
-                      <span class="chip chip--mime chip--mime-binary">💾 application/x-</span>
+                      <span class="chip chip--mime chip--mime-doc">application/pdf</span>
+                      <span class="chip chip--mime chip--mime-doc">application/epub+zip</span>
+                      <span class="chip chip--mime chip--mime-image">image</span>
+                      <span class="chip chip--mime chip--mime-media">audio</span>
+                      <span class="chip chip--mime chip--mime-media">video</span>
+                      <span class="chip chip--mime chip--mime-data">application/json</span>
+                      <span class="chip chip--mime chip--mime-code">application/xml</span>
+                      <span class="chip chip--mime chip--mime-data">text/csv</span>
+                      <span class="chip chip--mime chip--mime-code">text/xml</span>
+                      <span class="chip chip--mime chip--mime-archive">application/zip</span>
+                      <span class="chip chip--mime chip--mime-binary">application/octet-stream</span>
+                      <span class="chip chip--mime chip--mime-binary">application/x-</span>
                     </div>
                   </article>
                 </div>
@@ -3827,13 +3939,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>STATICFILE_ENABLED</code><span class="config-key-desc">Enable static file detection</span></td>
@@ -3861,7 +3973,7 @@ providers: env,puppeteer">
             <details
               id="headers"
               class="plugin-card plugin-card--snapshot"
-              data-search="headers snapshot headers capture http headers for the main document response. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} application/json on_snapshot__27_headers.daemon.bg.js chrome_binary path to chromium binary headers_enabled enable http headers capture headers_timeout timeout for headers capture in seconds"
+              data-search="headers snapshot headers capture http headers for the main document response. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/json on_snapshot__27_headers.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary headers_enabled enable http headers capture headers_timeout timeout for headers capture in seconds"
               data-hero-plugin="headers"
               data-hero-abx-command="uvx abx-dl --plugins headers 'https://example.com'"
               data-hero-archivebox-command="HEADERS_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -3890,7 +4002,7 @@ providers: env,puppeteer">
                         <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                        <span class="chip chip--mime chip--mime-data">application/json</span>
                       </div>
                     </div>
                   </div>
@@ -3925,7 +4037,7 @@ providers: env,puppeteer">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                      <span class="chip chip--mime chip--mime-data">application/json</span>
                     </div>
                   </article>
                 </div>
@@ -3978,13 +4090,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>HEADERS_ENABLED</code><span class="config-key-desc">Enable HTTP headers capture</span></td>
@@ -4012,7 +4124,7 @@ providers: env,puppeteer">
             <details
               id="chrome"
               class="plugin-card plugin-card--snapshot"
-              data-search="chrome snapshot chrome launch and manage a shared chromium session for browser-driven plugins. javascript snapshot {node_binary} {chrome_binary} env,apt,brew env,puppeteer   {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} text/plain application/json on_crawlsetup__89_chrome_kill_zombies.js on_crawlsetup__90_chrome_launch.daemon.bg.js on_crawlsetup__91_chrome_wait.js on_snapshot__09_chrome_launch.daemon.bg.js on_snapshot__10_chrome_tab.daemon.bg.js on_snapshot__11_chrome_wait.js on_snapshot__30_chrome_navigate.js chrome_enabled enable chromium browser integration for archiving chrome_binary path to chromium binary node_binary path to node.js binary chrome_timeout timeout for chrome operations in seconds chrome_launch_attempts maximum chromium launch attempts before failing on transient startup errors chrome_headless run chrome in headless mode personas_dir shared chrome/browser personas root active_persona active browser persona name chrome_sandbox enable chrome sandbox (disable in docker with --no-sandbox) chrome_resolution browser viewport resolution (width,height) chrome_user_data_dir path to chrome user data directory for persistent sessions (derived from active_persona if not set) chrome_user_agent user agent string for chrome chrome_cdp_url connect to an already-running browser over cdp instead of launching a new local chromium process chrome_is_local whether the managed browser process is local and should have a live chrome.pid marker chrome_keepalive keep the browser alive after the owning crawl/snapshot hook exits instead of closing it during cleanup chrome_isolation whether chrome runs as one shared browser per crawl or a separate browser per snapshot chrome_args default chrome command-line arguments (static flags only, dynamic args like --user-data-dir are added at runtime) chrome_args_extra extra arguments to append to chrome command (for user customization) chrome_pageload_timeout timeout for page navigation/load in seconds chrome_wait_for page load completion condition (domcontentloaded, load, networkidle0, networkidle2) chrome_delay_after_load extra delay in seconds after page load completes before archiving (useful for js-heavy spas) chrome_check_ssl_validity whether to verify ssl certificates (disable for self-signed certs)"
+              data-search="chrome snapshot chrome launch and manage a shared chromium-compatible cdp browser session for browser-driven plugins. javascript snapshot puppeteer {node_binary} {chrome_binary} env,apt,brew env,puppeteer   {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} text/plain application/json on_crawlsetup__89_chrome_kill_zombies.js on_crawlsetup__90_chrome_launch.daemon.bg.js on_crawlsetup__91_chrome_wait.js on_snapshot__09_chrome_launch.daemon.bg.js on_snapshot__10_chrome_tab.daemon.bg.js on_snapshot__11_chrome_wait.js on_snapshot__30_chrome_navigate.js chrome_enabled enable chrome browser integration for archiving chrome_binary path to chromium, chrome for testing, or chrome canary binary node_binary path to node.js binary chrome_timeout timeout for chrome operations in seconds chrome_launch_attempts maximum chrome launch attempts before failing on transient startup errors chrome_headless run chrome in headless mode personas_dir shared chrome/browser personas root active_persona active browser persona name chrome_sandbox enable chrome sandbox (disable in docker with --no-sandbox) chrome_resolution browser viewport resolution (width,height) chrome_user_data_dir path to chrome user data directory for persistent sessions (defaults to personas_dir/active_persona/chrome_profile) chrome_user_agent user agent string for chrome chrome_cdp_url connect to an already-running browser over cdp instead of launching a new local chrome process chrome_is_local whether the managed browser process is local and should have a live chrome.pid marker chrome_keepalive keep the browser alive after the owning crawl/snapshot hook exits instead of closing it during cleanup chrome_isolation whether chrome runs as one shared browser per crawl or a separate browser per snapshot chrome_args default chrome command-line arguments (static flags only, dynamic args like --user-data-dir are added at runtime) chrome_args_extra extra arguments to append to chrome command (for user customization) chrome_pageload_timeout timeout for page navigation/load in seconds chrome_wait_for page load completion condition (domcontentloaded, load, networkidle0, networkidle2) chrome_delay_after_load extra delay in seconds after page load completes before archiving (useful for js-heavy spas) chrome_check_ssl_validity whether to verify ssl certificates (disable for self-signed certs)"
               data-hero-plugin="chrome"
               data-hero-abx-command="uvx abx-dl --plugins chrome 'https://example.com'"
               data-hero-archivebox-command="CHROME_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -4024,7 +4136,7 @@ providers: env,puppeteer">
                       <h2>Chrome</h2>
                     </div>
                     <div class="plugin-slug"><code>chrome</code></div>
-                    <p class="plugin-summary-description">Launch and manage a shared Chromium session for browser-driven plugins.</p>
+                    <p class="plugin-summary-description">Launch and manage a shared Chromium-compatible CDP browser session for browser-driven plugins.</p>
                     <div class="plugin-subline">
                       <span class="plugin-order">#30</span>
                       <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
@@ -4042,8 +4154,8 @@ providers: env,puppeteer">
                         <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
-                        <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                        <span class="chip chip--mime chip--mime-text">text/plain</span>
+                        <span class="chip chip--mime chip--mime-data">application/json</span>
                       </div>
                     </div>
                   </div>
@@ -4051,7 +4163,7 @@ providers: env,puppeteer">
               </summary>
 
               <div class="plugin-body">
-                <p class="plugin-modal-description">Launch and manage a shared Chromium session for browser-driven plugins.</p>
+                <p class="plugin-modal-description">Launch and manage a shared Chromium-compatible CDP browser session for browser-driven plugins.</p>
 
                 <div class="actions">
                   <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/chrome" target="_blank" rel="noreferrer">Source on GitHub</a>
@@ -4059,6 +4171,12 @@ providers: env,puppeteer">
 
                 <h3 class="section-title">Dependencies &amp; Outputs</h3>
                 <div class="plugin-info-grid">
+                  <article class="plugin-info-card">
+                    <span>Required Plugins</span>
+                    <div class="pill-list">
+                      <a href="#puppeteer" class="chip chip--link">puppeteer</a>
+                    </div>
+                  </article>
                   <article class="plugin-info-card">
                     <span>Required Binaries</span>
                     <div class="pill-list">
@@ -4077,8 +4195,8 @@ providers: env,puppeteer">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
-                      <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                      <span class="chip chip--mime chip--mime-text">text/plain</span>
+                      <span class="chip chip--mime chip--mime-data">application/json</span>
                     </div>
                   </article>
                 </div>
@@ -4215,7 +4333,7 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_ENABLED</code><span class="config-key-desc">Enable Chromium browser integration for archiving</span></td>
+                        <td><code>CHROME_ENABLED</code><span class="config-key-desc">Enable Chrome browser integration for archiving</span></td>
                         <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
                         <td>
                           <code>boolean</code>
@@ -4224,13 +4342,13 @@ providers: env,puppeteer">
 <small>USE_CHROME</small>                        </td>
                       </tr>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>NODE_BINARY</code><span class="config-key-desc">Path to Node.js binary</span></td>
@@ -4251,7 +4369,7 @@ providers: env,puppeteer">
 <small>fallback: <code>TIMEOUT</code></small>                        </td>
                       </tr>
                       <tr>
-                        <td><code>CHROME_LAUNCH_ATTEMPTS</code><span class="config-key-desc">Maximum Chromium launch attempts before failing on transient startup errors</span></td>
+                        <td><code>CHROME_LAUNCH_ATTEMPTS</code><span class="config-key-desc">Maximum Chrome launch attempts before failing on transient startup errors</span></td>
                         <td class="cfg-default"><span class="cfg-number">3</span></td>
                         <td>
                           <code>integer</code>
@@ -4305,7 +4423,7 @@ providers: env,puppeteer">
 <small>fallback: <code>RESOLUTION</code></small>                        </td>
                       </tr>
                       <tr>
-                        <td><code>CHROME_USER_DATA_DIR</code><span class="config-key-desc">Path to Chrome user data directory for persistent sessions (derived from ACTIVE_PERSONA if not set)</span></td>
+                        <td><code>CHROME_USER_DATA_DIR</code><span class="config-key-desc">Path to Chrome user data directory for persistent sessions (defaults to PERSONAS_DIR/ACTIVE_PERSONA/chrome_profile)</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
                         <td>
                           <code>string</code>
@@ -4323,7 +4441,7 @@ providers: env,puppeteer">
 <small>fallback: <code>USER_AGENT</code></small>                        </td>
                       </tr>
                       <tr>
-                        <td><code>CHROME_CDP_URL</code><span class="config-key-desc">Connect to an already-running browser over CDP instead of launching a new local Chromium process</span></td>
+                        <td><code>CHROME_CDP_URL</code><span class="config-key-desc">Connect to an already-running browser over CDP instead of launching a new local Chrome process</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
                         <td>
                           <code>string</code>
@@ -4387,7 +4505,7 @@ providers: env,puppeteer">
                       </tr>
                       <tr>
                         <td><code>CHROME_WAIT_FOR</code><span class="config-key-desc">Page load completion condition (domcontentloaded, load, networkidle0, networkidle2)</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;networkidle2&quot;</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;load&quot;</span></td>
                         <td>
                           <code>string</code>
 <br><small>domcontentloaded | load | networkidle0 | networkidle2</small>                        </td>
@@ -4420,7 +4538,7 @@ providers: env,puppeteer">
             <details
               id="seo"
               class="plugin-card plugin-card--snapshot"
-              data-search="seo snapshot seo capture seo-related metadata such as meta tags and open graph fields. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} application/json on_snapshot__38_seo.js chrome_binary path to chromium binary seo_enabled enable seo metadata capture seo_timeout timeout for seo capture in seconds"
+              data-search="seo snapshot seo capture seo-related metadata such as meta tags and open graph fields. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/json on_snapshot__38_seo.js chrome_binary path to chromium, chrome for testing, or chrome canary binary seo_enabled enable seo metadata capture seo_timeout timeout for seo capture in seconds"
               data-hero-plugin="seo"
               data-hero-abx-command="uvx abx-dl --plugins seo 'https://example.com'"
               data-hero-archivebox-command="SEO_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -4449,7 +4567,7 @@ providers: env,puppeteer">
                         <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                        <span class="chip chip--mime chip--mime-data">application/json</span>
                       </div>
                     </div>
                   </div>
@@ -4484,7 +4602,7 @@ providers: env,puppeteer">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                      <span class="chip chip--mime chip--mime-data">application/json</span>
                     </div>
                   </article>
                 </div>
@@ -4537,13 +4655,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>SEO_ENABLED</code><span class="config-key-desc">Enable SEO metadata capture</span></td>
@@ -4571,7 +4689,7 @@ providers: env,puppeteer">
             <details
               id="accessibility"
               class="plugin-card plugin-card--snapshot"
-              data-search="accessibility snapshot accessibility capture the browser accessibility tree for the archived page. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} application/json on_snapshot__39_accessibility.js chrome_binary path to chromium binary accessibility_enabled enable accessibility tree capture accessibility_timeout timeout for accessibility capture in seconds"
+              data-search="accessibility snapshot accessibility capture the browser accessibility tree for the archived page. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/json on_snapshot__39_accessibility.js chrome_binary path to chromium, chrome for testing, or chrome canary binary accessibility_enabled enable accessibility tree capture accessibility_timeout timeout for accessibility capture in seconds"
               data-hero-plugin="accessibility"
               data-hero-abx-command="uvx abx-dl --plugins accessibility 'https://example.com'"
               data-hero-archivebox-command="ACCESSIBILITY_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -4600,7 +4718,7 @@ providers: env,puppeteer">
                         <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                        <span class="chip chip--mime chip--mime-data">application/json</span>
                       </div>
                     </div>
                   </div>
@@ -4635,7 +4753,7 @@ providers: env,puppeteer">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                      <span class="chip chip--mime chip--mime-data">application/json</span>
                     </div>
                   </article>
                 </div>
@@ -4688,13 +4806,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>ACCESSIBILITY_ENABLED</code><span class="config-key-desc">Enable accessibility tree capture</span></td>
@@ -4722,7 +4840,7 @@ providers: env,puppeteer">
             <details
               id="infiniscroll"
               class="plugin-card plugin-card--snapshot"
-              data-search="infiniscroll snapshot infinite scroll expand infinite-scroll pages and load additional content before downstream capture plugins run. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} on_snapshot__45_infiniscroll.js chrome_binary path to chromium binary infiniscroll_enabled enable infinite scroll page expansion infiniscroll_timeout maximum timeout for scrolling in seconds infiniscroll_scroll_delay delay between scrolls in milliseconds infiniscroll_scroll_distance distance to scroll per step in pixels infiniscroll_scroll_limit maximum number of scroll steps infiniscroll_min_height minimum page height to scroll to in pixels infiniscroll_expand_details expand &lt;details&gt; elements and click &#39;load more&#39; buttons for comments"
+              data-search="infiniscroll snapshot infinite scroll expand infinite-scroll pages and load additional content before downstream capture plugins run. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} on_snapshot__45_infiniscroll.js chrome_binary path to chromium, chrome for testing, or chrome canary binary infiniscroll_enabled enable infinite scroll page expansion infiniscroll_timeout maximum timeout for scrolling in seconds infiniscroll_scroll_delay delay between scrolls in milliseconds infiniscroll_scroll_distance distance to scroll per step in pixels infiniscroll_scroll_limit maximum number of scroll steps infiniscroll_min_height minimum page height to scroll to in pixels infiniscroll_expand_details expand &lt;details&gt; elements and click &#39;load more&#39; buttons for comments"
               data-hero-plugin="infiniscroll"
               data-hero-abx-command="uvx abx-dl --plugins infiniscroll 'https://example.com'"
               data-hero-archivebox-command="INFINISCROLL_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -4830,13 +4948,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>INFINISCROLL_ENABLED</code><span class="config-key-desc">Enable infinite scroll page expansion</span></td>
@@ -4909,7 +5027,7 @@ providers: env,puppeteer">
             <details
               id="claudechrome"
               class="plugin-card plugin-card--snapshot"
-              data-search="claudechrome snapshot claude chrome use claude computer-use to interact with pages in chrome via cdp screenshots and the anthropic api. javascript snapshot embed fullscreen chrome {chrome_binary} {node_binary} claudechrome env,puppeteer env,apt,brew chromewebstore    {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;fcoeoabgfenejglbffodgkkbkcdhcgfn&#34;, &#34;--name=claudechrome&#34;]}} application/json image/png on_crawlsetup__96_claudechrome_config.js on_snapshot__47_claudechrome.js chrome_binary path to chromium binary node_binary path to node.js binary personas_dir shared chrome/browser personas root active_persona active browser persona name claudechrome_enabled enable claude for chrome browser extension for ai-driven page interaction claudechrome_prompt prompt for claude to execute on the page. claude can click buttons, fill forms, download files, and interact with any page element. claudechrome_timeout timeout for claude for chrome operations in seconds claudechrome_model claude model to use (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001). availability depends on your plan. claudechrome_max_actions maximum number of agentic loop iterations (screenshots + actions) per page anthropic_api_key anthropic api key for claude for chrome authentication"
+              data-search="claudechrome snapshot claude chrome use claude computer-use to interact with pages in chrome via cdp screenshots and the anthropic api. javascript snapshot embed fullscreen chrome {chrome_binary} {node_binary} claudechrome env,puppeteer env,apt,brew chromewebstore    {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;fcoeoabgfenejglbffodgkkbkcdhcgfn&#34;, &#34;--name=claudechrome&#34;]}} application/json image/png on_crawlsetup__96_claudechrome_config.js on_snapshot__47_claudechrome.js chrome_binary path to chromium, chrome for testing, or chrome canary binary node_binary path to node.js binary personas_dir shared chrome/browser personas root active_persona active browser persona name claudechrome_enabled enable claude for chrome browser extension for ai-driven page interaction claudechrome_prompt prompt for claude to execute on the page. claude can click buttons, fill forms, download files, and interact with any page element. claudechrome_timeout timeout for claude for chrome operations in seconds claudechrome_model claude model to use (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001). availability depends on your plan. claudechrome_max_actions maximum number of agentic loop iterations (screenshots + actions) per page anthropic_api_key anthropic api key for claude for chrome authentication"
               data-hero-plugin="claudechrome"
               data-hero-abx-command="uvx abx-dl --plugins claudechrome 'https://example.com'"
               data-hero-archivebox-command="CLAUDECHROME_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -4941,8 +5059,8 @@ providers: env,puppeteer">
                         <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span>
 <span class="chip">+1 more</span>                      </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-data">📦 application/json</span>
-                        <span class="chip chip--mime chip--mime-image">🖼 image/png</span>
+                        <span class="chip chip--mime chip--mime-data">application/json</span>
+                        <span class="chip chip--mime chip--mime-image">image/png</span>
                       </div>
                     </div>
                   </div>
@@ -4987,8 +5105,8 @@ providers: chromewebstore">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-data">📦 application/json</span>
-                      <span class="chip chip--mime chip--mime-image">🖼 image/png</span>
+                      <span class="chip chip--mime chip--mime-data">application/json</span>
+                      <span class="chip chip--mime chip--mime-image">image/png</span>
                     </div>
                   </article>
                 </div>
@@ -5055,13 +5173,13 @@ providers: chromewebstore">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>NODE_BINARY</code><span class="config-key-desc">Path to Node.js binary</span></td>
@@ -5152,7 +5270,7 @@ providers: chromewebstore">
             <details
               id="singlefile"
               class="plugin-card plugin-card--snapshot"
-              data-search="singlefile snapshot singlefile save a complete page as a single self-contained html file using the singlefile extension or cli. python snapshot embed chrome {chrome_binary} {singlefile_binary} singlefile env,puppeteer env,npm chromewebstore    {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;single-file-cli&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;mpiodijhokgodhhofbcjdecpffjipkle&#34;, &#34;--name=singlefile&#34;]}} text/html on_snapshot__50_singlefile.py chrome_binary path to chromium binary personas_dir shared chrome/browser personas root active_persona active browser persona name singlefile_enabled enable singlefile archiving singlefile_binary path to single-file binary node_binary path to node.js binary singlefile_timeout timeout for singlefile in seconds singlefile_user_agent user agent string singlefile_cookies_file path to cookies file singlefile_check_ssl_validity whether to verify ssl certificates singlefile_chrome_args chrome command-line arguments for singlefile singlefile_args default single-file arguments singlefile_args_extra extra arguments to append to single-file command"
+              data-search="singlefile snapshot singlefile save a complete page as a single self-contained html file using the singlefile extension or cli. python snapshot embed chrome {chrome_binary} {singlefile_binary} singlefile env,puppeteer env,npm chromewebstore    {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;single-file-cli@^1.1.54&#34;, &#34;--min-release-age=0&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;mpiodijhokgodhhofbcjdecpffjipkle&#34;, &#34;--name=singlefile&#34;]}} text/html on_snapshot__50_singlefile.py chrome_binary path to chromium, chrome for testing, or chrome canary binary personas_dir shared chrome/browser personas root active_persona active browser persona name singlefile_enabled enable singlefile archiving singlefile_binary path to single-file binary node_binary path to node.js binary singlefile_timeout timeout for singlefile in seconds singlefile_user_agent user agent string singlefile_cookies_file path to cookies file singlefile_check_ssl_validity whether to verify ssl certificates singlefile_chrome_args chrome command-line arguments for singlefile singlefile_args default single-file arguments singlefile_args_extra extra arguments to append to single-file command"
               data-hero-plugin="singlefile"
               data-hero-abx-command="uvx abx-dl --plugins singlefile 'https://example.com'"
               data-hero-archivebox-command="SINGLEFILE_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -5185,7 +5303,7 @@ providers: chromewebstore">
                         <span class="chip chip--binary-summary">single-file <small>(env,npm)</small></span>
 <span class="chip">+1 more</span>                      </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
+                        <span class="chip chip--mime chip--mime-html">text/html</span>
                       </div>
                     </div>
                   </div>
@@ -5230,7 +5348,7 @@ providers: chromewebstore">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
+                      <span class="chip chip--mime chip--mime-html">text/html</span>
                     </div>
                   </article>
                 </div>
@@ -5285,13 +5403,13 @@ providers: chromewebstore">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>PERSONAS_DIR</code><span class="config-key-desc">Shared Chrome/browser personas root</span></td>
@@ -5409,7 +5527,7 @@ providers: chromewebstore">
             <details
               id="screenshot"
               class="plugin-card plugin-card--snapshot"
-              data-search="screenshot snapshot screenshot capture a png screenshot of the rendered page. javascript snapshot embed fullscreen chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} image/png on_snapshot__51_screenshot.js chrome_binary path to chromium binary screenshot_enabled enable screenshot capture screenshot_timeout timeout for screenshot capture in seconds screenshot_resolution screenshot resolution (width,height)"
+              data-search="screenshot snapshot screenshot capture a png screenshot of the rendered page. javascript snapshot embed fullscreen chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} image/png on_snapshot__51_screenshot.js chrome_binary path to chromium, chrome for testing, or chrome canary binary screenshot_enabled enable screenshot capture screenshot_timeout timeout for screenshot capture in seconds screenshot_resolution screenshot resolution (width,height)"
               data-hero-plugin="screenshot"
               data-hero-abx-command="uvx abx-dl --plugins screenshot 'https://example.com'"
               data-hero-archivebox-command="SCREENSHOT_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -5440,7 +5558,7 @@ providers: chromewebstore">
                         <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-image">🖼 image/png</span>
+                        <span class="chip chip--mime chip--mime-image">image/png</span>
                       </div>
                     </div>
                   </div>
@@ -5475,7 +5593,7 @@ providers: env,puppeteer">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-image">🖼 image/png</span>
+                      <span class="chip chip--mime chip--mime-image">image/png</span>
                     </div>
                   </article>
                 </div>
@@ -5528,13 +5646,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>SCREENSHOT_ENABLED</code><span class="config-key-desc">Enable screenshot capture</span></td>
@@ -5571,7 +5689,7 @@ providers: env,puppeteer">
             <details
               id="pdf"
               class="plugin-card plugin-card--snapshot"
-              data-search="pdf snapshot pdf render the current page to pdf using the shared chrome session. javascript snapshot embed fullscreen chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} application/pdf on_snapshot__52_pdf.js chrome_binary path to chromium binary pdf_enabled enable pdf generation pdf_timeout timeout for pdf generation in seconds pdf_resolution pdf page resolution (width,height)"
+              data-search="pdf snapshot pdf render the current page to pdf using the shared chrome session. javascript snapshot embed fullscreen chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/pdf on_snapshot__52_pdf.js chrome_binary path to chromium, chrome for testing, or chrome canary binary pdf_enabled enable pdf generation pdf_timeout timeout for pdf generation in seconds pdf_resolution pdf page resolution (width,height)"
               data-hero-plugin="pdf"
               data-hero-abx-command="uvx abx-dl --plugins pdf 'https://example.com'"
               data-hero-archivebox-command="PDF_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -5602,7 +5720,7 @@ providers: env,puppeteer">
                         <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-doc">📕 application/pdf</span>
+                        <span class="chip chip--mime chip--mime-doc">application/pdf</span>
                       </div>
                     </div>
                   </div>
@@ -5637,7 +5755,7 @@ providers: env,puppeteer">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-doc">📕 application/pdf</span>
+                      <span class="chip chip--mime chip--mime-doc">application/pdf</span>
                     </div>
                   </article>
                 </div>
@@ -5690,13 +5808,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>PDF_ENABLED</code><span class="config-key-desc">Enable PDF generation</span></td>
@@ -5733,7 +5851,7 @@ providers: env,puppeteer">
             <details
               id="dom"
               class="plugin-card plugin-card--snapshot"
-              data-search="dom snapshot dom save the fully rendered dom html from the live page. javascript snapshot embed chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} text/html on_snapshot__53_dom.js chrome_binary path to chromium binary dom_enabled enable dom capture dom_timeout timeout for dom capture in seconds"
+              data-search="dom snapshot dom save the fully rendered dom html from the live page. javascript snapshot embed chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} text/html on_snapshot__53_dom.js chrome_binary path to chromium, chrome for testing, or chrome canary binary dom_enabled enable dom capture dom_timeout timeout for dom capture in seconds"
               data-hero-plugin="dom"
               data-hero-abx-command="uvx abx-dl --plugins dom 'https://example.com'"
               data-hero-archivebox-command="DOM_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -5763,7 +5881,7 @@ providers: env,puppeteer">
                         <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
+                        <span class="chip chip--mime chip--mime-html">text/html</span>
                       </div>
                     </div>
                   </div>
@@ -5798,7 +5916,7 @@ providers: env,puppeteer">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
+                      <span class="chip chip--mime chip--mime-html">text/html</span>
                     </div>
                   </article>
                 </div>
@@ -5851,13 +5969,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>DOM_ENABLED</code><span class="config-key-desc">Enable DOM capture</span></td>
@@ -5885,7 +6003,7 @@ providers: env,puppeteer">
             <details
               id="title"
               class="plugin-card plugin-card--snapshot"
-              data-search="title snapshot title capture the final document title from the rendered page. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} text/plain on_snapshot__54_title.js chrome_binary path to chromium binary title_enabled enable title extraction title_timeout timeout for title extraction in seconds"
+              data-search="title snapshot title capture the final document title from the rendered page. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} text/plain on_snapshot__54_title.js chrome_binary path to chromium, chrome for testing, or chrome canary binary title_enabled enable title extraction title_timeout timeout for title extraction in seconds"
               data-hero-plugin="title"
               data-hero-abx-command="uvx abx-dl --plugins title 'https://example.com'"
               data-hero-archivebox-command="TITLE_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -5914,7 +6032,7 @@ providers: env,puppeteer">
                         <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
+                        <span class="chip chip--mime chip--mime-text">text/plain</span>
                       </div>
                     </div>
                   </div>
@@ -5949,7 +6067,7 @@ providers: env,puppeteer">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
+                      <span class="chip chip--mime chip--mime-text">text/plain</span>
                     </div>
                   </article>
                 </div>
@@ -6002,13 +6120,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>TITLE_ENABLED</code><span class="config-key-desc">Enable title extraction</span></td>
@@ -6069,9 +6187,9 @@ providers: env,puppeteer">
                         <span class="chip chip--binary-summary">readability-extractor <small>(env,npm)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
-                        <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
-                        <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                        <span class="chip chip--mime chip--mime-html">text/html</span>
+                        <span class="chip chip--mime chip--mime-text">text/plain</span>
+                        <span class="chip chip--mime chip--mime-data">application/json</span>
                       </div>
                     </div>
                   </div>
@@ -6100,9 +6218,9 @@ providers: env,npm">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
-                      <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
-                      <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                      <span class="chip chip--mime chip--mime-html">text/html</span>
+                      <span class="chip chip--mime chip--mime-text">text/plain</span>
+                      <span class="chip chip--mime chip--mime-data">application/json</span>
                     </div>
                   </article>
                 </div>
@@ -6240,9 +6358,9 @@ providers: env,npm">
                         <span class="chip chip--binary-summary">defuddle <small>(env,npm)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
-                        <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
-                        <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                        <span class="chip chip--mime chip--mime-html">text/html</span>
+                        <span class="chip chip--mime chip--mime-text">text/plain</span>
+                        <span class="chip chip--mime chip--mime-data">application/json</span>
                       </div>
                     </div>
                   </div>
@@ -6271,9 +6389,9 @@ providers: env,npm">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
-                      <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
-                      <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                      <span class="chip chip--mime chip--mime-html">text/html</span>
+                      <span class="chip chip--mime chip--mime-text">text/plain</span>
+                      <span class="chip chip--mime chip--mime-data">application/json</span>
                     </div>
                   </article>
                 </div>
@@ -6412,9 +6530,9 @@ providers: env,npm">
                         <span class="chip chip--binary-summary">postlight-parser <small>(npm,env)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
-                        <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
-                        <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                        <span class="chip chip--mime chip--mime-html">text/html</span>
+                        <span class="chip chip--mime chip--mime-text">text/plain</span>
+                        <span class="chip chip--mime chip--mime-data">application/json</span>
                       </div>
                     </div>
                   </div>
@@ -6443,9 +6561,9 @@ providers: npm,env">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
-                      <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
-                      <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                      <span class="chip chip--mime chip--mime-html">text/html</span>
+                      <span class="chip chip--mime chip--mime-text">text/plain</span>
+                      <span class="chip chip--mime chip--mime-data">application/json</span>
                     </div>
                   </article>
                 </div>
@@ -6585,7 +6703,7 @@ providers: npm,env">
                         <span class="chip chip--binary-summary">claude <small>(env,npm)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-text">📝 text/markdown</span>
+                        <span class="chip chip--mime chip--mime-text">text/markdown</span>
                       </div>
                     </div>
                   </div>
@@ -6620,7 +6738,7 @@ providers: env,npm">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-text">📝 text/markdown</span>
+                      <span class="chip chip--mime chip--mime-text">text/markdown</span>
                     </div>
                   </article>
                 </div>
@@ -6764,7 +6882,7 @@ providers: env,npm">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
+                        <span class="chip chip--mime chip--mime-text">text/plain</span>
                       </div>
                     </div>
                   </div>
@@ -6783,7 +6901,7 @@ providers: env,npm">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
+                      <span class="chip chip--mime chip--mime-text">text/plain</span>
                     </div>
                   </article>
                 </div>
@@ -6894,10 +7012,10 @@ providers: env,npm">
                         <span class="chip chip--binary-summary">trafilatura <small>(env,pip)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
-                        <span class="chip chip--mime chip--mime-text">📝 text/markdown</span>
-                        <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
-                        <span class="chip chip--mime chip--mime-data">📊 text/csv</span>
+                        <span class="chip chip--mime chip--mime-text">text/plain</span>
+                        <span class="chip chip--mime chip--mime-text">text/markdown</span>
+                        <span class="chip chip--mime chip--mime-html">text/html</span>
+                        <span class="chip chip--mime chip--mime-data">text/csv</span>
 <span class="chip">+3 more</span>                      </div>
                     </div>
                   </div>
@@ -6926,13 +7044,13 @@ providers: env,pip">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
-                      <span class="chip chip--mime chip--mime-text">📝 text/markdown</span>
-                      <span class="chip chip--mime chip--mime-html">🌐 text/html</span>
-                      <span class="chip chip--mime chip--mime-data">📊 text/csv</span>
-                      <span class="chip chip--mime chip--mime-data">📦 application/json</span>
-                      <span class="chip chip--mime chip--mime-code">📋 application/xml</span>
-                      <span class="chip chip--mime chip--mime-code">📋 application/tei+xml</span>
+                      <span class="chip chip--mime chip--mime-text">text/plain</span>
+                      <span class="chip chip--mime chip--mime-text">text/markdown</span>
+                      <span class="chip chip--mime chip--mime-html">text/html</span>
+                      <span class="chip chip--mime chip--mime-data">text/csv</span>
+                      <span class="chip chip--mime chip--mime-data">application/json</span>
+                      <span class="chip chip--mime chip--mime-code">application/xml</span>
+                      <span class="chip chip--mime chip--mime-code">application/tei+xml</span>
                     </div>
                   </article>
                 </div>
@@ -7062,9 +7180,9 @@ providers: env,pip">
                         <span class="chip chip--binary-summary">java&gt;=11.0.0 <small>(env,apt,brew)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
-                        <span class="chip chip--mime chip--mime-text">📝 text/markdown</span>
-                        <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                        <span class="chip chip--mime chip--mime-text">text/plain</span>
+                        <span class="chip chip--mime chip--mime-text">text/markdown</span>
+                        <span class="chip chip--mime chip--mime-data">application/json</span>
                       </div>
                     </div>
                   </div>
@@ -7100,9 +7218,9 @@ min_version: 11.0.0">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
-                      <span class="chip chip--mime chip--mime-text">📝 text/markdown</span>
-                      <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                      <span class="chip chip--mime chip--mime-text">text/plain</span>
+                      <span class="chip chip--mime chip--mime-text">text/markdown</span>
+                      <span class="chip chip--mime chip--mime-data">application/json</span>
                     </div>
                   </article>
                 </div>
@@ -7267,8 +7385,8 @@ min_version: 11.0.0">
                         <span class="chip chip--binary-summary">lit <small>(env,npm)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
-                        <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                        <span class="chip chip--mime chip--mime-text">text/plain</span>
+                        <span class="chip chip--mime chip--mime-data">application/json</span>
                       </div>
                     </div>
                   </div>
@@ -7297,8 +7415,8 @@ providers: env,npm">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
-                      <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                      <span class="chip chip--mime chip--mime-text">text/plain</span>
+                      <span class="chip chip--mime chip--mime-data">application/json</span>
                     </div>
                   </article>
                 </div>
@@ -7405,7 +7523,7 @@ providers: env,npm">
             <details
               id="papersdl"
               class="plugin-card plugin-card--snapshot"
-              data-search="papersdl snapshot papers-dl fetch downloadable academic papers from paper urls and doi targets. python snapshot embed fullscreen {papersdl_binary} env,pip  application/pdf on_snapshot__66_papersdl.finite.bg.py papersdl_enabled enable paper downloading with papers-dl papersdl_binary path to papers-dl binary papersdl_timeout timeout for paper downloads in seconds papersdl_args default papers-dl arguments papersdl_args_extra extra arguments to append to papers-dl command"
+              data-search="papersdl snapshot papers-dl fetch downloadable academic papers from paper urls and doi targets. python snapshot embed fullscreen {papersdl_binary} env,pip  {&#34;pip&#34;: {&#34;install_args&#34;: [&#34;--only-binary=aiohttp&#34;, &#34;papers-dl&#34;], &#34;install_root&#34;: &#34;{lib_dir}/pip/packages/papers-dl&#34;}} application/pdf on_snapshot__66_papersdl.finite.bg.py papersdl_enabled enable paper downloading with papers-dl papersdl_binary path to papers-dl binary papersdl_timeout timeout for paper downloads in seconds papersdl_args default papers-dl arguments papersdl_args_extra extra arguments to append to papers-dl command"
               data-hero-plugin="papersdl"
               data-hero-abx-command="uvx abx-dl --plugins papersdl 'https://example.com'"
               data-hero-archivebox-command="PAPERSDL_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -7438,7 +7556,7 @@ providers: env,npm">
                         <span class="chip chip--binary-summary">papers-dl <small>(env,pip)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-doc">📕 application/pdf</span>
+                        <span class="chip chip--mime chip--mime-doc">application/pdf</span>
                       </div>
                     </div>
                   </div>
@@ -7467,7 +7585,7 @@ providers: env,pip">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-doc">📕 application/pdf</span>
+                      <span class="chip chip--mime chip--mime-doc">application/pdf</span>
                     </div>
                   </article>
                 </div>
@@ -7602,7 +7720,7 @@ providers: env,pip">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                        <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                       </div>
                     </div>
                   </div>
@@ -7621,7 +7739,7 @@ providers: env,pip">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                      <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                     </div>
                   </article>
                 </div>
@@ -7720,7 +7838,7 @@ providers: env,pip">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                        <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                       </div>
                     </div>
                   </div>
@@ -7739,7 +7857,7 @@ providers: env,pip">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                      <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                     </div>
                   </article>
                 </div>
@@ -7838,7 +7956,7 @@ providers: env,pip">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                        <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                       </div>
                     </div>
                   </div>
@@ -7857,7 +7975,7 @@ providers: env,pip">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                      <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                     </div>
                   </article>
                 </div>
@@ -7956,7 +8074,7 @@ providers: env,pip">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                        <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                       </div>
                     </div>
                   </div>
@@ -7975,7 +8093,7 @@ providers: env,pip">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                      <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                     </div>
                   </article>
                 </div>
@@ -8074,7 +8192,7 @@ providers: env,pip">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                        <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                       </div>
                     </div>
                   </div>
@@ -8093,7 +8211,7 @@ providers: env,pip">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                      <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                     </div>
                   </article>
                 </div>
@@ -8164,7 +8282,7 @@ providers: env,pip">
             <details
               id="parse_dom_outlinks"
               class="plugin-card plugin-card--snapshot"
-              data-search="parse_dom_outlinks snapshot parse dom outlinks extract crawlable links from the rendered dom and emit them as jsonl records. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chromium@latest&#34;, &#34;--install-deps&#34;]}} application/x-ndjson on_snapshot__75_parse_dom_outlinks.js chrome_binary path to chromium binary parse_dom_outlinks_enabled enable dom outlinks parsing from archived pages parse_dom_outlinks_timeout timeout for dom outlinks parsing in seconds"
+              data-search="parse_dom_outlinks snapshot parse dom outlinks extract crawlable links from the rendered dom and emit them as jsonl records. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/x-ndjson on_snapshot__75_parse_dom_outlinks.js chrome_binary path to chromium, chrome for testing, or chrome canary binary parse_dom_outlinks_enabled enable dom outlinks parsing from archived pages parse_dom_outlinks_timeout timeout for dom outlinks parsing in seconds"
               data-hero-plugin="parse_dom_outlinks"
               data-hero-abx-command="uvx abx-dl --plugins parse_dom_outlinks 'https://example.com'"
               data-hero-archivebox-command="PARSE_DOM_OUTLINKS_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -8193,7 +8311,7 @@ providers: env,pip">
                         <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                        <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                       </div>
                     </div>
                   </div>
@@ -8228,7 +8346,7 @@ providers: env,puppeteer">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-data">📦 application/x-ndjson</span>
+                      <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                     </div>
                   </article>
                 </div>
@@ -8281,13 +8399,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>PARSE_DOM_OUTLINKS_ENABLED</code><span class="config-key-desc">Enable DOM outlinks parsing from archived pages</span></td>
@@ -8343,7 +8461,7 @@ providers: env,puppeteer">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--mime chip--mime-data">🗃 application/vnd.sqlite3</span>
+                        <span class="chip chip--mime chip--mime-data">application/vnd.sqlite3</span>
                       </div>
                     </div>
                   </div>
@@ -8362,7 +8480,7 @@ providers: env,puppeteer">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-data">🗃 application/vnd.sqlite3</span>
+                      <span class="chip chip--mime chip--mime-data">application/vnd.sqlite3</span>
                     </div>
                   </article>
                 </div>
@@ -8712,7 +8830,7 @@ providers: env,apt,brew,cargo">
                         <span class="chip chip--binary-summary">claude <small>(env,npm)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
+                        <span class="chip chip--mime chip--mime-text">text/plain</span>
                       </div>
                     </div>
                   </div>
@@ -8747,7 +8865,7 @@ providers: env,npm">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-text">📄 text/plain</span>
+                      <span class="chip chip--mime chip--mime-text">text/plain</span>
                     </div>
                   </article>
                 </div>
@@ -8891,7 +9009,7 @@ providers: env,npm">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                        <span class="chip chip--mime chip--mime-data">application/json</span>
                       </div>
                     </div>
                   </div>
@@ -8910,7 +9028,7 @@ providers: env,npm">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                      <span class="chip chip--mime chip--mime-data">application/json</span>
                     </div>
                   </article>
                 </div>
@@ -9064,7 +9182,7 @@ providers: env,npm">
             <details
               id="base"
               class="plugin-card"
-              data-search="base base provide shared utilities, helpers, and test support used by other plugins. data_dir base data directory for the current runtime abx_runtime current host runtime name, eg. abx-dl or archivebox snap_dir base snapshot directory for per-snapshot hook output crawl_dir base crawl directory for per-crawl hook output lib_dir shared tools and binary installation root personas_dir shared chrome/browser personas root active_persona active browser persona name extra_context json object merged into emitted jsonl event records timeout default timeout in seconds for hooks that support a timeout fallback user_agent default user agent string for http requests and browser automation path executable search path node_modules_dir shared node.js module resolution root node_module_dir legacy alias for node_modules_dir node_path node.js module lookup path node_v8_coverage optional v8 coverage output directory for node.js hooks chrome_binary resolved chromium/chrome binary path shared across plugins chrome_user_data_dir chrome user data directory for persistent browser state chrome_downloads_dir chrome downloads directory shared by browser plugins chrome_extensions_dir chrome extensions directory shared by browser plugins"
+              data-search="base base provide shared utilities, helpers, and test support used by other plugins. data_dir base data directory for the current runtime abx_runtime current host runtime name, eg. abx-dl or archivebox abx_install_cache runtime-derived install preflight cache keyed by binary name snap_dir base snapshot directory for per-snapshot hook output crawl_dir base crawl directory for per-crawl hook output lib_dir shared tools and binary installation root personas_dir shared chrome/browser personas root active_persona active browser persona name extra_context json object merged into emitted jsonl event records timeout default timeout in seconds for hooks that support a timeout fallback user_agent default user agent string for http requests and browser automation path executable search path node_modules_dir shared node.js module resolution root node_module_dir legacy alias for node_modules_dir node_path node.js module lookup path node_v8_coverage optional v8 coverage output directory for node.js hooks chrome_binary resolved chromium/chrome binary path shared across plugins chrome_user_data_dir chrome user data directory for persistent browser state (defaults to personas_dir/active_persona/chrome_profile) chrome_downloads_dir chrome downloads directory shared by browser plugins chrome_extensions_dir chrome extensions directory shared by browser plugins"
               data-hero-plugin="base"
               data-hero-abx-command="uvx abx-dl plugins base"
               data-hero-archivebox-command="archivebox add &#39;https://example.com&#39;"
@@ -9138,6 +9256,15 @@ providers: env,npm">
                         <td class="cfg-default"><span class="cfg-string">&quot;abx-dl&quot;</span></td>
                         <td>
                           <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>ABX_INSTALL_CACHE</code><span class="config-key-desc">Runtime-derived install preflight cache keyed by binary name</span></td>
+                        <td class="cfg-default"><span class="cfg-bracket">{{}}</span></td>
+                        <td>
+                          <code>object</code>
                         </td>
                         <td>
 <span class="config-table-muted">—</span>                        </td>
@@ -9269,7 +9396,7 @@ providers: env,npm">
 <span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
-                        <td><code>CHROME_USER_DATA_DIR</code><span class="config-key-desc">Chrome user data directory for persistent browser state</span></td>
+                        <td><code>CHROME_USER_DATA_DIR</code><span class="config-key-desc">Chrome user data directory for persistent browser state (defaults to PERSONAS_DIR/ACTIVE_PERSONA/chrome_profile)</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
                         <td>
                           <code>string</code>
@@ -9702,7 +9829,7 @@ providers: env,apt,brew">
                         <span class="chip chip--binary-summary">claude <small>(env,npm)</small></span>
                       </div>
                       <div>
-                        <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                        <span class="chip chip--mime chip--mime-data">application/json</span>
                       </div>
                     </div>
                   </div>
@@ -9736,7 +9863,7 @@ providers: env,npm">
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-data">📦 application/json</span>
+                      <span class="chip chip--mime chip--mime-data">application/json</span>
                     </div>
                   </article>
                 </div>
@@ -10216,7 +10343,7 @@ providers: env">
             <details
               id="puppeteer"
               class="plugin-card"
-              data-search="puppeteer puppeteer install and manage chromium through the puppeteer toolchain. python puppeteer npm  {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;puppeteer&#34;]}} on_binaryrequest__12_puppeteer.py chrome_binary path to chromium binary puppeteer_enabled enable puppeteer dependency installation during crawl setup puppeteer_cache_dir override the puppeteer browser cache directory"
+              data-search="puppeteer puppeteer install and manage chrome for testing through the puppeteer toolchain. python puppeteer npm  {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;puppeteer&#34;, &#34;@puppeteer/browsers&#34;, &#34;abxbus@^2.5.4&#34;, &#34;--min-release-age=0&#34;]}} on_binaryrequest__12_puppeteer.py chrome_binary path to chromium, chrome for testing, or chrome canary binary puppeteer_enabled enable puppeteer dependency installation during crawl setup puppeteer_timeout timeout in seconds for puppeteer-managed browser dependency installation"
               data-hero-plugin="puppeteer"
               data-hero-abx-command="uvx abx-dl plugins --install puppeteer"
               data-hero-archivebox-command="PUPPETEER_ENABLED=true archivebox init --setup"
@@ -10228,7 +10355,7 @@ providers: env">
                       <h2>Puppeteer</h2>
                     </div>
                     <div class="plugin-slug"><code>puppeteer</code></div>
-                    <p class="plugin-summary-description">Install and manage Chromium through the Puppeteer toolchain.</p>
+                    <p class="plugin-summary-description">Install and manage Chrome for Testing through the Puppeteer toolchain.</p>
                     <div class="plugin-subline">
                       <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
                         <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -10250,7 +10377,7 @@ providers: env">
               </summary>
 
               <div class="plugin-body">
-                <p class="plugin-modal-description">Install and manage Chromium through the Puppeteer toolchain.</p>
+                <p class="plugin-modal-description">Install and manage Chrome for Testing through the Puppeteer toolchain.</p>
 
                 <div class="actions">
                   <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/puppeteer" target="_blank" rel="noreferrer">Source on GitHub</a>
@@ -10320,13 +10447,13 @@ providers: npm">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY, GOOGLE_CHROME_BINARY</small>                        </td>
+<small>CHROMIUM_BINARY</small>                        </td>
                       </tr>
                       <tr>
                         <td><code>PUPPETEER_ENABLED</code><span class="config-key-desc">Enable Puppeteer dependency installation during crawl setup</span></td>
@@ -10338,11 +10465,11 @@ providers: npm">
 <span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
-                        <td><code>PUPPETEER_CACHE_DIR</code><span class="config-key-desc">Override the Puppeteer browser cache directory</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
+                        <td><code>PUPPETEER_TIMEOUT</code><span class="config-key-desc">Timeout in seconds for Puppeteer-managed browser dependency installation</span></td>
+                        <td class="cfg-default"><span class="cfg-number">900</span></td>
                         <td>
-                          <code>string</code>
-                        </td>
+                          <code>integer</code>
+<br><small>min 60</small>                        </td>
                         <td>
 <span class="config-table-muted">—</span>                        </td>
                       </tr>
@@ -10560,42 +10687,42 @@ providers: env,apt,brew">
               <p class="footer-card-subtitle">Code, issues, and pull requests</p>
               <div class="footer-link-list">
                 <a class="footer-link-item" href="https://github.com/ArchiveBox/ArchiveBox" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">🐙</span>
+                  <span class="footer-link-icon">GH</span>
                   <span class="footer-link-copy">
                     <strong>ArchiveBox repository</strong>
                     <span>Main app for self-hosted web archiving, snapshot management, and long-term collections.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://pypi.org/project/archivebox/" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">⚙️</span>
+                  <span class="footer-link-icon">PY</span>
                   <span class="footer-link-copy">
                     <strong>abx-dl repository</strong>
                     <span>Lightweight runner for executing plugin pipelines outside the full ArchiveBox app.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://github.com/ArchiveBox/abxpkg" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">🧰</span>
+                  <span class="footer-link-icon">PKG</span>
                   <span class="footer-link-copy">
                     <strong>abxpkg repository</strong>
                     <span>Binary installation and discovery layer used by plugins that need Chrome, yt-dlp, and other tools.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">🧩</span>
+                  <span class="footer-link-icon">PLG</span>
                   <span class="footer-link-copy">
                     <strong>abx-plugins repository</strong>
                     <span>Shared plugin package powering this gallery and the hook scripts used by ArchiveBox and abx-dl.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://github.com/ArchiveBox/abx-plugins/issues" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">🐛</span>
+                  <span class="footer-link-icon">ISS</span>
                   <span class="footer-link-copy">
                     <strong>abx-plugins issues</strong>
                     <span>Report bugs, request new extractors, or track problems in existing hooks and config schemas.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://github.com/ArchiveBox/abx-plugins/pulls" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">🔀</span>
+                  <span class="footer-link-icon">PR</span>
                   <span class="footer-link-copy">
                     <strong>abx-plugins pull requests</strong>
                     <span>Submit a new plugin, propose fixes, or review incoming changes to the marketplace catalog.</span>
@@ -10609,28 +10736,28 @@ providers: env,apt,brew">
               <p class="footer-card-subtitle">Installable Python distributions</p>
               <div class="footer-link-list">
                 <a class="footer-link-item" href="https://pypi.org/project/archivebox/" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">📦</span>
+                  <span class="footer-link-icon">PYPI</span>
                   <span class="footer-link-copy">
                     <strong>ArchiveBox on PyPI</strong>
                     <span>Install the main CLI and Python package with <code>pip install archivebox</code>.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://pypi.org/project/abx-dl/" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">📦</span>
+                  <span class="footer-link-icon">PYPI</span>
                   <span class="footer-link-copy">
                     <strong>abx-dl on PyPI</strong>
                     <span>Install the standalone plugin runner with <code>pip install abx-dl</code>.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://pypi.org/project/abxpkg/" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">📦</span>
+                  <span class="footer-link-icon">PYPI</span>
                   <span class="footer-link-copy">
                     <strong>abxpkg on PyPI</strong>
                     <span>Install the binary and package management layer with <code>pip install abxpkg</code>.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://pypi.org/project/abx-plugins/" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">📦</span>
+                  <span class="footer-link-icon">PYPI</span>
                   <span class="footer-link-copy">
                     <strong>abx-plugins on PyPI</strong>
                     <span>Install the shared plugin bundle with <code>pip install abx-plugins</code>.</span>
@@ -10644,42 +10771,42 @@ providers: env,apt,brew">
               <p class="footer-card-subtitle">Background and learning</p>
               <div class="footer-link-list">
                 <a class="footer-link-item" href="https://docs.monadical.com/archivebox-plugin-ecosystem-announcement" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">📰</span>
+                  <span class="footer-link-icon">DOC</span>
                   <span class="footer-link-copy">
                     <strong>Plugin ecosystem announcement</strong>
                     <span>Overview of the new ArchiveBox plugin architecture and why the ecosystem was split into focused packages.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://github.com/ArchiveBox/ArchiveBox/wiki" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">📘</span>
+                  <span class="footer-link-icon">WIKI</span>
                   <span class="footer-link-copy">
                     <strong>ArchiveBox wiki</strong>
                     <span>Documentation covering install, usage, storage, browser automation, and broader project background.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">🌐</span>
+                  <span class="footer-link-icon">WEB</span>
                   <span class="footer-link-copy">
                     <strong>Web Archiving Community</strong>
                     <span>Directory of related tools, organizations, and communities working on internet preservation.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://github.com/pirate/internet-archiving-talk" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">🗂️</span>
+                  <span class="footer-link-icon">TALK</span>
                   <span class="footer-link-copy">
                     <strong>Internet archiving talk repository</strong>
                     <span>Slide deck, outline, and references about link rot, decentralized archives, and ArchiveBox’s roots.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://www.youtube.com/watch?v=7eoz_EU6-wQ" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">▶️</span>
+                  <span class="footer-link-icon">VID</span>
                   <span class="footer-link-copy">
                     <strong>ArchiveBox history and background talk video</strong>
                     <span>Recorded talk covering motivation, technical design, and the broader web archiving ecosystem.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://pirate.github.io/internet-archiving-talk/Archiving%20Talk%20Long/assets/player/KeynoteDHTMLPlayer.html" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">🧭</span>
+                  <span class="footer-link-icon">DECK</span>
                   <span class="footer-link-copy">
                     <strong>Interactive talk slides</strong>
                     <span>Browsable slide deck with the history, motivation, and preservation references behind the project.</span>
@@ -10693,35 +10820,35 @@ providers: env,apt,brew">
               <p class="footer-card-subtitle">Join the conversation</p>
               <div class="footer-link-list">
                 <a class="footer-link-item" href="https://zulip.archivebox.io" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">💬</span>
+                  <span class="footer-link-icon">CHAT</span>
                   <span class="footer-link-copy">
                     <strong>ArchiveBox Zulip</strong>
                     <span>Live chat, support, and community discussion around ArchiveBox, plugins, and web archiving workflows.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://github.com/ArchiveBox" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">🏛️</span>
+                  <span class="footer-link-icon">ORG</span>
                   <span class="footer-link-copy">
                     <strong>@ArchiveBox GitHub organization</strong>
                     <span>Browse the broader family of repositories that make up the ArchiveBox ecosystem.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://github.com/sponsors/ArchiveBox" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">💸</span>
+                  <span class="footer-link-icon">SPON</span>
                   <span class="footer-link-copy">
                     <strong>ArchiveBox sponsors and donations</strong>
                     <span>Support open-source maintenance, research, integrations, and continued development.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://x.com/ArchiveBoxApp" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">📣</span>
+                  <span class="footer-link-icon">X</span>
                   <span class="footer-link-copy">
                     <strong>@ArchiveBoxApp on X</strong>
                     <span>Project updates, release news, screenshots, and ecosystem announcements.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://x.com/theSquashSH" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">👤</span>
+                  <span class="footer-link-icon">X</span>
                   <span class="footer-link-copy">
                     <strong>@theSquashSH on X</strong>
                     <span>Nick Sweeting’s account with project history, talks, and broader archiving context.</span>
@@ -10733,7 +10860,7 @@ providers: env,apt,brew">
 
           <div class="footer-meta">
             <span>Generated from <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">ArchiveBox/abx-plugins</a> at ref <code>main</code>.</span>
-            <span>Updated 2026-04-19 06:20 UTC</span>
+            <span>Updated 2026-05-24 12:07 UTC</span>
           </div>
         </div>
       </footer>
@@ -10797,11 +10924,12 @@ providers: env,apt,brew">
 
       const renderShellBlock = (text) =>
         text.split("\n").map((line) => {
-          if (!line) return "";
-          if (line.trim().startsWith("#")) {
-            return `<span class="ab-dim">${escapeHtml(line)}</span>`;
+          const normalizedLine = line.replace(/^\s*\$\s+/, "");
+          if (!normalizedLine) return "";
+          if (normalizedLine.trim().startsWith("#")) {
+            return `<span class="ab-dim">${escapeHtml(normalizedLine)}</span>`;
           }
-          return `<span class="ab-prompt">$</span> ${highlightShell(line)}`;
+          return `<span class="ab-prompt">$</span> ${highlightShell(normalizedLine)}`;
         }).join("\n");
 
       const getHeroExample = (card) => {
@@ -10825,10 +10953,9 @@ providers: env,apt,brew">
 
       const renderHeroExample = (example) => {
         return renderShellBlock([
-          "# run inside a new empty dir somewhere:",
+          "# abx-dl",
           example.abx,
-          "",
-          "# or with ArchiveBox:",
+          "# ArchiveBox",
           example.archivebox,
         ].join("\n"));
       };
@@ -10903,7 +11030,6 @@ providers: env,apt,brew">
           searchInput.value = "";
           applyFilter();
           openModal(target);
-          target.scrollIntoView({ behavior: "smooth", block: "start" });
           return;
         }
 
@@ -11024,7 +11150,6 @@ providers: env,apt,brew">
           event.preventDefault();
           closeModal();
           openModal(target);
-          target.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       });
 

@@ -3,16 +3,10 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ArchiveBox Plugin Marketplace | abx-plugins</title>
+    <title>ArchiveBox Plugin Gallery | abx-plugins</title>
     <meta
       name="description"
       content="Browse the ArchiveBox plugin ecosystem, including abx-plugins hooks, config options, source links, and example commands for ArchiveBox, abx-dl, and related web archiving tools."
-    >
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
     >
     <link rel="stylesheet" href="css/tokens.css?v=1">
     <link rel="stylesheet" href="css/base.css?v=1">
@@ -23,81 +17,95 @@
       }
 
       .hero {
-        padding: var(--ab-s-8) 0 var(--ab-s-7);
+        padding: var(--ab-s-5) 0 var(--ab-s-5);
         border-bottom: 1px solid var(--ab-rule-strong);
+        background: var(--ab-bg-elev);
       }
 
-      .hero__masthead {
-        display: block;
+      .hero .ab-container {
+        max-width: none;
+      }
+
+      .hero__layout {
+        display: grid;
+        grid-template-columns: minmax(380px, 0.9fr) minmax(520px, 1.1fr);
+        gap: var(--ab-s-6);
+        align-items: start;
+      }
+
+      .hero__intro {
+        max-width: 760px;
       }
 
       .hero__title {
-        font-size: clamp(54px, 8vw, 96px);
-        line-height: 0.92;
-        letter-spacing: -0.04em;
-        font-weight: 400;
+        font-size: var(--ab-size-2xl);
+        line-height: 1.12;
+        letter-spacing: 0;
+        font-weight: 700;
         margin: 0;
-        max-width: 10ch;
-      }
-
-      .hero__title em {
-        color: var(--ab-accent);
-        font-style: italic;
+        max-width: 720px;
       }
 
       .hero__copy {
-        margin-top: var(--ab-s-4);
-        max-width: 56ch;
-        font-family: var(--ab-font-serif);
-        font-size: var(--ab-size-lg);
+        margin-top: var(--ab-s-3);
+        max-width: 72ch;
+        font-family: var(--ab-font-sans);
+        font-size: var(--ab-size-md);
+        line-height: 1.55;
       }
 
       .hero__actions {
         display: flex;
         flex-wrap: wrap;
         gap: var(--ab-s-3);
-        margin-top: var(--ab-s-5);
+        margin-top: var(--ab-s-4);
       }
 
-      .hero__stats {
+      .hero__product-actions {
+        --ab-brand-red: #b4232a;
+        --ab-brand-red-hover: #951b22;
         display: grid;
-        grid-template-columns: minmax(0, 240px);
+        grid-template-columns: repeat(2, minmax(180px, 1fr));
         gap: var(--ab-s-3);
-        margin-top: var(--ab-s-6);
+        margin-top: var(--ab-s-5);
+        max-width: 560px;
       }
 
-      .stat {
-        border: 1px solid var(--ab-rule-strong);
-        background: var(--ab-bg-elev);
-        padding: var(--ab-s-4);
-        min-height: 104px;
+      .product-cta {
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
+        gap: 3px;
+        padding: var(--ab-s-3) var(--ab-s-4);
+        border: 1px solid var(--ab-brand-red);
+        border-radius: var(--ab-r-3);
+        background: var(--ab-brand-red);
+        color: #fff;
+        text-decoration: none;
       }
 
-      .stat strong {
-        display: block;
-        font-family: var(--ab-font-serif);
-        font-size: clamp(30px, 3vw, 44px);
-        line-height: 1;
-        letter-spacing: -0.03em;
-        color: var(--ab-fg);
+      .product-cta:hover {
+        background: var(--ab-brand-red-hover);
+        border-color: var(--ab-brand-red-hover);
+        color: #fff;
       }
 
-      .stat span {
-        font-family: var(--ab-font-label);
+      .product-cta strong {
+        color: inherit;
+        font-size: var(--ab-size-base);
+        line-height: 1.2;
+      }
+
+      .product-cta span {
+        color: rgba(255, 255, 255, .82);
         font-size: var(--ab-size-xs);
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: var(--ab-fg-muted);
+        line-height: 1.35;
       }
 
       .hero__support {
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
-        margin-top: var(--ab-s-4);
+        margin-top: var(--ab-s-3);
       }
 
       .hero__support code {
@@ -105,13 +113,61 @@
         padding: 4px 8px;
         background: var(--ab-bg-sunken);
         border: 1px solid var(--ab-rule);
-        border-radius: var(--ab-r-1);
+        border-radius: var(--ab-r-2);
+      }
+
+      .hero__workflow {
+        counter-reset: workflow;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: var(--ab-s-3);
+        margin-top: var(--ab-s-5);
+        padding: 0;
+        list-style: none;
+      }
+
+      .workflow-step {
+        border: 1px solid var(--ab-rule);
+        border-radius: var(--ab-r-3);
+        background: var(--ab-bg);
+        padding: var(--ab-s-3) var(--ab-s-4);
+        counter-increment: workflow;
+      }
+
+      .workflow-step strong {
+        display: flex;
+        align-items: center;
+        gap: var(--ab-s-2);
+        margin-bottom: 4px;
+        color: var(--ab-fg);
+      }
+
+      .workflow-step strong::before {
+        content: counter(workflow);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        border-radius: var(--ab-r-pill);
+        background: var(--ab-accent-wash);
+        color: var(--ab-accent);
+        font-family: var(--ab-font-mono);
+        font-size: 10px;
+      }
+
+      .workflow-step span {
+        display: block;
+        color: var(--ab-fg-muted);
+        font-size: var(--ab-size-sm);
+        line-height: 1.45;
       }
 
       .hero-example {
-        margin-top: var(--ab-s-7);
         border: 1px solid var(--ab-rule-strong);
+        border-radius: var(--ab-r-3);
         background: var(--ab-bg-elev);
+        overflow: hidden;
       }
 
       .hero-example-header {
@@ -119,7 +175,7 @@
         justify-content: space-between;
         align-items: flex-start;
         gap: var(--ab-s-4);
-        padding: var(--ab-s-4) var(--ab-s-5);
+        padding: var(--ab-s-4);
         border-bottom: 1px solid var(--ab-rule);
         background: var(--ab-bg-sunken);
       }
@@ -127,15 +183,15 @@
       .hero-example-title {
         margin: 0;
         font-family: var(--ab-font-label);
-        font-size: var(--ab-size-xs);
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: var(--ab-accent);
+        font-size: var(--ab-size-base);
+        letter-spacing: 0;
+        color: var(--ab-fg);
       }
 
       .hero-example-copy {
         margin: 6px 0 0;
-        max-width: 54ch;
+        max-width: 50ch;
+        font-size: var(--ab-size-sm);
       }
 
       .hero-runner-links {
@@ -153,7 +209,7 @@
       }
 
       .hero-code-block {
-        padding: var(--ab-s-4) var(--ab-s-5) var(--ab-s-5);
+        padding: var(--ab-s-4);
       }
 
       .hero-code-toolbar {
@@ -174,8 +230,7 @@
       .hero-code-kicker {
         font-family: var(--ab-font-label);
         font-size: var(--ab-size-xs);
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
+        letter-spacing: 0;
         color: var(--ab-fg-muted);
       }
 
@@ -187,10 +242,10 @@
         color: var(--ab-fg);
         font-family: var(--ab-font-label);
         font-size: var(--ab-size-xs);
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
+        letter-spacing: 0;
         padding: 8px 12px;
         cursor: pointer;
+        border-radius: var(--ab-r-2);
       }
 
       .copy-button:hover,
@@ -202,21 +257,24 @@
         box-shadow: none;
       }
 
+      .hero-code-block .ab-terminal__bar {
+        display: none;
+      }
+
       .hero-code-block .ab-terminal__body pre {
         font-size: var(--ab-size-sm);
-        line-height: 1.7;
+        line-height: 1.55;
       }
 
       .install-details {
-        padding: 0 var(--ab-s-5) var(--ab-s-5);
+        padding: 0 var(--ab-s-4) var(--ab-s-4);
       }
 
       .install-details summary {
         cursor: pointer;
         font-family: var(--ab-font-label);
         font-size: var(--ab-size-xs);
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
+        letter-spacing: 0;
         color: var(--ab-fg-muted);
       }
 
@@ -230,7 +288,7 @@
       }
 
       .catalog-toolbar {
-        padding: var(--ab-s-5) 0;
+        padding: var(--ab-s-4) 0;
         border-bottom: 1px solid var(--ab-rule);
         position: sticky;
         top: 57px;
@@ -283,7 +341,7 @@
       }
 
       .catalog {
-        padding: var(--ab-s-7) 0;
+        padding: var(--ab-s-5) 0 var(--ab-s-6);
       }
 
       .catalog__head {
@@ -300,14 +358,16 @@
 
       .gallery {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
         gap: var(--ab-s-4);
       }
 
       .plugin-card {
         border: 1px solid var(--ab-rule-strong);
         background: var(--ab-bg-elev);
-        box-shadow: var(--ab-shadow-1);
+        border-radius: var(--ab-r-3);
+        box-shadow: none;
+        overflow: hidden;
       }
 
       .plugin-card summary {
@@ -322,19 +382,21 @@
       .plugin-card summary:hover .plugin-card__frame,
       .plugin-card.modal-active .plugin-card__frame {
         border-color: var(--ab-accent);
-        box-shadow: var(--ab-shadow-2);
+        box-shadow: none;
+        background: color-mix(in srgb, var(--ab-accent-wash) 45%, var(--ab-bg-elev));
       }
 
       .plugin-card__frame {
         display: block;
-        padding: var(--ab-s-5);
+        padding: var(--ab-s-4);
         border: 1px solid transparent;
-        transition: border-color var(--ab-dur-2) var(--ab-ease), box-shadow var(--ab-dur-2) var(--ab-ease);
+        transition: border-color var(--ab-dur-2) var(--ab-ease), background var(--ab-dur-2) var(--ab-ease);
       }
 
       .plugin-main h2 {
         margin: 0;
-        font-size: var(--ab-size-xl);
+        font-size: var(--ab-size-lg);
+        line-height: 1.25;
       }
 
       .plugin-title-row {
@@ -351,6 +413,7 @@
 
       .plugin-summary-description {
         margin: var(--ab-s-3) 0 0;
+        font-size: var(--ab-size-sm);
       }
 
       .plugin-subline,
@@ -380,6 +443,7 @@
         background: var(--ab-bg-sunken);
         color: var(--ab-accent);
         padding: 10px;
+        border-radius: var(--ab-r-2);
       }
 
       .plugin-icon svg,
@@ -418,8 +482,8 @@
         font-family: var(--ab-font-mono);
         font-size: 10px;
         color: var(--ab-ink-2);
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
+        letter-spacing: 0;
+        border-radius: var(--ab-r-2);
       }
 
       .chip small {
@@ -464,7 +528,7 @@
       }
 
       .plugin-body {
-        padding: var(--ab-s-5);
+        padding: var(--ab-s-4);
       }
 
       .plugin-body > * + * {
@@ -473,7 +537,7 @@
 
       .plugin-modal-description {
         margin: 0;
-        font-size: var(--ab-size-md);
+        font-size: var(--ab-size-base);
       }
 
       .actions {
@@ -497,6 +561,7 @@
       .plugin-info-card {
         border: 1px solid var(--ab-rule);
         background: var(--ab-bg-sunken);
+        border-radius: var(--ab-r-3);
         padding: var(--ab-s-4);
       }
 
@@ -507,13 +572,14 @@
         margin-bottom: var(--ab-s-3);
         font-family: var(--ab-font-label);
         font-size: var(--ab-size-xs);
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
+        letter-spacing: 0;
         color: var(--ab-fg-muted);
       }
 
       .run-tabs {
         border: 1px solid var(--ab-rule-strong);
+        border-radius: var(--ab-r-3);
+        overflow: hidden;
       }
 
       .run-tabs-bar {
@@ -539,8 +605,8 @@
         border: 0;
         margin: 0;
         padding: var(--ab-s-4);
-        background: #17130f;
-        color: #ece4d0;
+        background: #111827;
+        color: #dbe5ef;
         overflow-x: auto;
         font-family: var(--ab-font-mono);
         font-size: var(--ab-size-sm);
@@ -553,7 +619,6 @@
 
       .note {
         margin: 0;
-        font-style: italic;
         color: var(--ab-fg-muted);
       }
 
@@ -565,6 +630,7 @@
       .hook-card {
         border: 1px solid var(--ab-rule);
         background: var(--ab-bg-sunken);
+        border-radius: var(--ab-r-3);
         padding: var(--ab-s-4);
       }
 
@@ -572,8 +638,7 @@
         margin-left: auto;
         font-family: var(--ab-font-label);
         font-size: var(--ab-size-xs);
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
+        letter-spacing: 0;
         color: var(--ab-accent);
       }
 
@@ -664,6 +729,7 @@
       .footer-card {
         border: 1px solid var(--ab-rule);
         background: var(--ab-bg-elev);
+        border-radius: var(--ab-r-3);
         padding: var(--ab-s-5);
       }
 
@@ -674,11 +740,24 @@
 
       .footer-link-item {
         display: grid;
-        grid-template-columns: 28px minmax(0, 1fr);
+        grid-template-columns: 36px minmax(0, 1fr);
         gap: var(--ab-s-3);
         padding: var(--ab-s-3) 0;
         border-top: 1px dashed var(--ab-rule);
         text-decoration: none;
+      }
+
+      .footer-link-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 32px;
+        height: 22px;
+        border: 1px solid var(--ab-rule);
+        border-radius: var(--ab-r-2);
+        color: var(--ab-fg-muted);
+        font-family: var(--ab-font-mono);
+        font-size: 10px;
       }
 
       .footer-link-item:first-child {
@@ -712,17 +791,23 @@
       }
 
       .plugin-modal {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
         width: min(1040px, calc(100vw - 40px));
-        max-height: calc(100vh - 40px);
+        max-height: calc(100dvh - 40px);
+        margin: 0;
         padding: 0;
         border: 1px solid var(--ab-rule-strong);
         background: var(--ab-bg);
         color: var(--ab-fg);
+        border-radius: var(--ab-r-3);
         box-shadow: var(--ab-shadow-2);
       }
 
       .plugin-modal::backdrop {
-        background: rgba(28, 24, 20, 0.45);
+        background: rgba(24, 32, 42, 0.42);
         backdrop-filter: blur(3px);
       }
 
@@ -766,7 +851,7 @@
       }
 
       .plugin-modal .plugin-body {
-        max-height: calc(100vh - 120px);
+        max-height: calc(100dvh - 120px);
         overflow-y: auto;
       }
 
@@ -779,36 +864,38 @@
       }
 
       .code-comment {
-        color: #8f8675;
+        color: #7b8797;
       }
 
       .code-command {
-        color: #f0e4cd;
+        color: #e7eef6;
       }
 
       .code-option {
-        color: #d6a654;
+        color: #d8b763;
       }
 
       .code-string {
-        color: #c26a6a;
+        color: #8fc7ee;
       }
 
       .code-env {
-        color: #8aa062;
+        color: #8fd1a6;
       }
 
       .code-boolean {
-        color: #d6a654;
+        color: #d8b763;
       }
 
       .code-value {
-        color: #c8bea8;
+        color: #cbd5e1;
       }
 
       @media (max-width: 1100px) {
         .footer-intro,
-        .plugin-info-grid {
+        .plugin-info-grid,
+        .hero__layout,
+        .hero__workflow {
           grid-template-columns: 1fr;
         }
 
@@ -834,6 +921,10 @@
           grid-template-columns: 1fr;
         }
 
+        .hero__product-actions {
+          grid-template-columns: 1fr;
+        }
+
         .catalog-toolbar {
           position: static;
         }
@@ -854,7 +945,7 @@
         }
 
         .hero__title {
-          font-size: clamp(42px, 14vw, 72px);
+          font-size: var(--ab-size-2xl);
         }
 
         .hero__copy {
@@ -887,97 +978,118 @@
           <rect x="12" y="14" width="8" height="3" fill="var(--ab-vellum)" opacity=".9"></rect>
           <rect x="2" y="5" width="28" height="22" fill="none" stroke="var(--ab-ink)" stroke-width="1.2"></rect>
         </svg>
-        <span>abx-plugins <small>Plugin Marketplace</small></span>
+        <span>abx-plugins <small>Plugin Gallery</small></span>
       </a>
       <nav class="ab-topbar__nav">
         <a href="#browser">Catalog</a>
         <a href="#context">Context</a>
         <a href="#resources">Resources</a>
       </nav>
-      <a class="ab-btn ab-btn--primary ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/pulls" target="_blank" rel="noreferrer">Submit plugin</a>
+      <a class="ab-btn ab-btn--primary ab-btn--sm" href="#browser">Find a plugin</a>
     </header>
 
     <main>
       <section class="hero">
         <div class="ab-container">
-          <div class="hero__masthead">
-            <div>
-              <span class="ab-eyebrow">Save the content that matters most.</span>
-              <h1 class="hero__title">ArchiveBox <em>Plugin</em> Gallery</h1>
+          <div class="hero__layout">
+            <div class="hero__intro">
+              <span class="ab-eyebrow">ArchiveBox plugin gallery</span>
+              <h1 class="hero__title">Pick the web capture you need. Run it in one command.</h1>
               <p class="hero__copy">
-                Browse the plugins that ArchiveBox &amp; abx-dl use to archive content from websites.
+                This gallery collects the workflows that usually take time to wire up by hand: browsers, media tools, parsers, metadata extractors, search indexes, and format-specific outputs. Choose a plugin to see how to run it, what it depends on, and what it produces.
               </p>
+              <div class="hero__product-actions" aria-label="ArchiveBox plugin runners">
+                <a class="product-cta" href="https://pypi.org/project/archivebox/" target="_blank" rel="noreferrer">
+                  <strong>ArchiveBox</strong>
+                  <span>Use plugins in full web archives</span>
+                </a>
+                <a class="product-cta" href="https://pypi.org/project/abx-dl/" target="_blank" rel="noreferrer">
+                  <strong>abx-dl</strong>
+                  <span>Run plugin pipelines directly</span>
+                </a>
+              </div>
               <div class="hero__actions">
-                <a class="ab-btn ab-btn--primary ab-btn--lg" href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">Browse source</a>
-                <a class="ab-btn ab-btn--lg" href="#browser">Jump to plugins</a>
+                <a class="ab-btn ab-btn--primary ab-btn--lg" href="#browser">Find a plugin</a>
+                <a class="ab-btn ab-btn--lg" href="#quickstart-heading">See command example</a>
               </div>
               <div class="hero__support">
-                <code>ArchiveBox</code>
-                <code>abx-dl</code>
-                <code>abxpkg</code>
-                <code>hook scripts</code>
-                <code>config.json</code>
-              </div>
-              <div class="hero__stats">
-                <div class="stat">
-                  <span>Plugins</span>
-                  <strong>{{ site.plugin_count }}</strong>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <section class="hero-example" aria-labelledby="quickstart-heading">
-            <div class="hero-example-header">
-              <div>
-                <h2 class="hero-example-title" id="quickstart-heading">Run The Selected Plugin</h2>
-                <p class="hero-example-copy">
-                  Pick some plugins below and copy the command to run them.
-                </p>
-              </div>
-              <div class="hero-runner-links">
-                <span>Get:</span>
-                <a class="runner-link" href="https://github.com/ArchiveBox/abx-dl#readme" target="_blank" rel="noreferrer">abx-dl</a>
-                <a class="runner-link" href="https://github.com/ArchiveBox/ArchiveBox#readme" target="_blank" rel="noreferrer">ArchiveBox</a>
+                <code>screenshot</code>
+                <code>pdf</code>
+                <code>media</code>
+                <code>metadata</code>
+                <code>search</code>
+                <code>html/text</code>
+                <code>url parsing</code>
               </div>
             </div>
 
-            <div class="hero-code-block">
-              <div class="hero-code-toolbar">
-                <div class="hero-code-meta">
-                  <span class="hero-code-kicker">Quick Start</span>
-                  <code id="selected-plugin-name">abx-dl</code>
+            <section class="hero-example" aria-labelledby="quickstart-heading">
+              <div class="hero-example-header">
+                <div>
+                  <h2 class="hero-example-title" id="quickstart-heading">Try a plugin in one command</h2>
+                  <p class="hero-example-copy">
+                    Click a plugin card below and this example updates with the selected plugin.
+                  </p>
                 </div>
-                <button type="button" class="copy-button" id="copy-example-button">Copy</button>
-              </div>
-              <div class="ab-terminal">
-                <div class="ab-terminal__bar">
-                  <div class="ab-terminal__dots"><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span></div>
-                  <span>~/archive · abx-dl · quickstart</span>
-                </div>
-                <div class="ab-terminal__body">
-                  <pre><code id="hero-command-example" aria-live="polite"></code></pre>
+                <div class="hero-runner-links">
+                  <span>Install:</span>
+                  <a class="runner-link" href="https://pypi.org/project/abx-dl/" target="_blank" rel="noreferrer">abx-dl</a>
+                  <a class="runner-link" href="https://pypi.org/project/archivebox/" target="_blank" rel="noreferrer">ArchiveBox</a>
                 </div>
               </div>
-            </div>
 
-            <details class="install-details">
-              <summary>Expand to see pip install details</summary>
-              <div class="ab-terminal">
-                <div class="ab-terminal__bar">
-                  <div class="ab-terminal__dots"><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span></div>
-                  <span>~/archive · setup · pip install details</span>
+              <div class="hero-code-block">
+                <div class="hero-code-toolbar">
+                  <div class="hero-code-meta">
+                    <span class="hero-code-kicker">Quick start</span>
+                    <code id="selected-plugin-name">abx-dl</code>
+                  </div>
+                  <button type="button" class="copy-button" id="copy-example-button">Copy</button>
                 </div>
-                <div class="ab-terminal__body">
-                  <pre><code data-highlight-shell>pip install abx-dl
+                <div class="ab-terminal">
+                  <div class="ab-terminal__bar">
+                    <div class="ab-terminal__dots"><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span></div>
+                    <span>~/archive · abx-dl · quickstart</span>
+                  </div>
+                  <div class="ab-terminal__body">
+                    <pre><code id="hero-command-example" aria-live="polite"></code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <details class="install-details">
+                <summary>Expand to see pip install details</summary>
+                <div class="ab-terminal">
+                  <div class="ab-terminal__bar">
+                    <div class="ab-terminal__dots"><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span><span class="ab-terminal__dot"></span></div>
+                    <span>~/archive · setup · pip install details</span>
+                  </div>
+                  <div class="ab-terminal__body">
+                    <pre><code data-highlight-shell>pip install abx-dl
 abx-dl install
 mkdir archive
 cd archive
 abx-dl 'https://example.com'</code></pre>
+                  </div>
                 </div>
-              </div>
-            </details>
-          </section>
+              </details>
+            </section>
+          </div>
+
+          <ol class="hero__workflow" aria-label="How the plugin gallery works">
+            <li class="workflow-step">
+              <strong>Pick some capabilities</strong>
+              <span>Filter by features, output types, dependencies, hook phases, or config keys.</span>
+            </li>
+            <li class="workflow-step">
+              <strong>Run the generated command</strong>
+              <span>Open a plugin and copy an abx-dl or ArchiveBox command with the right plugin selected.</span>
+            </li>
+            <li class="workflow-step">
+              <strong>Get standard outputs</strong>
+              <span>Use known file formats and declared dependencies instead of wiring each extractor by hand.</span>
+            </li>
+          </ol>
         </div>
       </section>
 
@@ -985,7 +1097,7 @@ abx-dl 'https://example.com'</code></pre>
         <div class="ab-container">
           <div class="catalog-toolbar__grid">
             <label class="ab-field searchbox" for="plugin-search">
-              <span class="ab-label">Filter The Catalog</span>
+              <span class="ab-label">Filter the catalog</span>
               <span class="searchbox__control">
                 <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8">
                   <circle cx="11" cy="11" r="7"></circle>
@@ -1011,9 +1123,9 @@ abx-dl 'https://example.com'</code></pre>
           <div class="catalog__head">
             <div>
               <span class="ab-eyebrow">Catalog</span>
-              <h2>Plugins, extractor hooks, and dependency records.</h2>
+              <h2>Plugin catalog</h2>
             </div>
-            <span class="ab-meta">Open any entry for commands, hook scripts, config, and dependency details.</span>
+            <span class="ab-meta">Open any entry for commands, hook scripts, config, outputs, and dependency details.</span>
           </div>
 
           <main class="gallery" id="plugin-gallery">
@@ -1078,7 +1190,7 @@ abx-dl 'https://example.com'</code></pre>
                       {% if plugin.output_mimetypes %}
                       <div>
                         {% for item in plugin.output_mimetypes[:4] %}
-                        <span class="chip chip--mime chip--mime-{{ item.css_class }}">{{ item.emoji }} {{ item.label }}</span>
+                        <span class="chip chip--mime chip--mime-{{ item.css_class }}">{{ item.label }}</span>
                         {% endfor %}
                         {% if plugin.output_mimetypes|length > 4 %}<span class="chip">+{{ plugin.output_mimetypes|length - 4 }} more</span>{% endif %}
                       </div>
@@ -1132,7 +1244,7 @@ abx-dl 'https://example.com'</code></pre>
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
                       {% for item in plugin.output_mimetypes %}
-                      <span class="chip chip--mime chip--mime-{{ item.css_class }}">{{ item.emoji }} {{ item.label }}</span>
+                      <span class="chip chip--mime chip--mime-{{ item.css_class }}">{{ item.label }}</span>
                       {% endfor %}
                     </div>
                   </article>
@@ -1266,42 +1378,42 @@ abx-dl 'https://example.com'</code></pre>
               <p class="footer-card-subtitle">Code, issues, and pull requests</p>
               <div class="footer-link-list">
                 <a class="footer-link-item" href="https://github.com/ArchiveBox/ArchiveBox" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">🐙</span>
+                  <span class="footer-link-icon">GH</span>
                   <span class="footer-link-copy">
                     <strong>ArchiveBox repository</strong>
                     <span>Main app for self-hosted web archiving, snapshot management, and long-term collections.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://pypi.org/project/archivebox/" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">⚙️</span>
+                  <span class="footer-link-icon">PY</span>
                   <span class="footer-link-copy">
                     <strong>abx-dl repository</strong>
                     <span>Lightweight runner for executing plugin pipelines outside the full ArchiveBox app.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://github.com/ArchiveBox/abxpkg" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">🧰</span>
+                  <span class="footer-link-icon">PKG</span>
                   <span class="footer-link-copy">
                     <strong>abxpkg repository</strong>
                     <span>Binary installation and discovery layer used by plugins that need Chrome, yt-dlp, and other tools.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">🧩</span>
+                  <span class="footer-link-icon">PLG</span>
                   <span class="footer-link-copy">
                     <strong>abx-plugins repository</strong>
                     <span>Shared plugin package powering this gallery and the hook scripts used by ArchiveBox and abx-dl.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://github.com/ArchiveBox/abx-plugins/issues" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">🐛</span>
+                  <span class="footer-link-icon">ISS</span>
                   <span class="footer-link-copy">
                     <strong>abx-plugins issues</strong>
                     <span>Report bugs, request new extractors, or track problems in existing hooks and config schemas.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://github.com/ArchiveBox/abx-plugins/pulls" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">🔀</span>
+                  <span class="footer-link-icon">PR</span>
                   <span class="footer-link-copy">
                     <strong>abx-plugins pull requests</strong>
                     <span>Submit a new plugin, propose fixes, or review incoming changes to the marketplace catalog.</span>
@@ -1315,28 +1427,28 @@ abx-dl 'https://example.com'</code></pre>
               <p class="footer-card-subtitle">Installable Python distributions</p>
               <div class="footer-link-list">
                 <a class="footer-link-item" href="https://pypi.org/project/archivebox/" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">📦</span>
+                  <span class="footer-link-icon">PYPI</span>
                   <span class="footer-link-copy">
                     <strong>ArchiveBox on PyPI</strong>
                     <span>Install the main CLI and Python package with <code>pip install archivebox</code>.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://pypi.org/project/abx-dl/" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">📦</span>
+                  <span class="footer-link-icon">PYPI</span>
                   <span class="footer-link-copy">
                     <strong>abx-dl on PyPI</strong>
                     <span>Install the standalone plugin runner with <code>pip install abx-dl</code>.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://pypi.org/project/abxpkg/" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">📦</span>
+                  <span class="footer-link-icon">PYPI</span>
                   <span class="footer-link-copy">
                     <strong>abxpkg on PyPI</strong>
                     <span>Install the binary and package management layer with <code>pip install abxpkg</code>.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://pypi.org/project/abx-plugins/" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">📦</span>
+                  <span class="footer-link-icon">PYPI</span>
                   <span class="footer-link-copy">
                     <strong>abx-plugins on PyPI</strong>
                     <span>Install the shared plugin bundle with <code>pip install abx-plugins</code>.</span>
@@ -1350,42 +1462,42 @@ abx-dl 'https://example.com'</code></pre>
               <p class="footer-card-subtitle">Background and learning</p>
               <div class="footer-link-list">
                 <a class="footer-link-item" href="https://docs.monadical.com/archivebox-plugin-ecosystem-announcement" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">📰</span>
+                  <span class="footer-link-icon">DOC</span>
                   <span class="footer-link-copy">
                     <strong>Plugin ecosystem announcement</strong>
                     <span>Overview of the new ArchiveBox plugin architecture and why the ecosystem was split into focused packages.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://github.com/ArchiveBox/ArchiveBox/wiki" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">📘</span>
+                  <span class="footer-link-icon">WIKI</span>
                   <span class="footer-link-copy">
                     <strong>ArchiveBox wiki</strong>
                     <span>Documentation covering install, usage, storage, browser automation, and broader project background.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">🌐</span>
+                  <span class="footer-link-icon">WEB</span>
                   <span class="footer-link-copy">
                     <strong>Web Archiving Community</strong>
                     <span>Directory of related tools, organizations, and communities working on internet preservation.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://github.com/pirate/internet-archiving-talk" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">🗂️</span>
+                  <span class="footer-link-icon">TALK</span>
                   <span class="footer-link-copy">
                     <strong>Internet archiving talk repository</strong>
                     <span>Slide deck, outline, and references about link rot, decentralized archives, and ArchiveBox’s roots.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://www.youtube.com/watch?v=7eoz_EU6-wQ" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">▶️</span>
+                  <span class="footer-link-icon">VID</span>
                   <span class="footer-link-copy">
                     <strong>ArchiveBox history and background talk video</strong>
                     <span>Recorded talk covering motivation, technical design, and the broader web archiving ecosystem.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://pirate.github.io/internet-archiving-talk/Archiving%20Talk%20Long/assets/player/KeynoteDHTMLPlayer.html" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">🧭</span>
+                  <span class="footer-link-icon">DECK</span>
                   <span class="footer-link-copy">
                     <strong>Interactive talk slides</strong>
                     <span>Browsable slide deck with the history, motivation, and preservation references behind the project.</span>
@@ -1399,35 +1511,35 @@ abx-dl 'https://example.com'</code></pre>
               <p class="footer-card-subtitle">Join the conversation</p>
               <div class="footer-link-list">
                 <a class="footer-link-item" href="https://zulip.archivebox.io" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">💬</span>
+                  <span class="footer-link-icon">CHAT</span>
                   <span class="footer-link-copy">
                     <strong>ArchiveBox Zulip</strong>
                     <span>Live chat, support, and community discussion around ArchiveBox, plugins, and web archiving workflows.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://github.com/ArchiveBox" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">🏛️</span>
+                  <span class="footer-link-icon">ORG</span>
                   <span class="footer-link-copy">
                     <strong>@ArchiveBox GitHub organization</strong>
                     <span>Browse the broader family of repositories that make up the ArchiveBox ecosystem.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://github.com/sponsors/ArchiveBox" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">💸</span>
+                  <span class="footer-link-icon">SPON</span>
                   <span class="footer-link-copy">
                     <strong>ArchiveBox sponsors and donations</strong>
                     <span>Support open-source maintenance, research, integrations, and continued development.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://x.com/ArchiveBoxApp" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">📣</span>
+                  <span class="footer-link-icon">X</span>
                   <span class="footer-link-copy">
                     <strong>@ArchiveBoxApp on X</strong>
                     <span>Project updates, release news, screenshots, and ecosystem announcements.</span>
                   </span>
                 </a>
                 <a class="footer-link-item" href="https://x.com/theSquashSH" target="_blank" rel="noreferrer">
-                  <span class="footer-link-icon">👤</span>
+                  <span class="footer-link-icon">X</span>
                   <span class="footer-link-copy">
                     <strong>@theSquashSH on X</strong>
                     <span>Nick Sweeting’s account with project history, talks, and broader archiving context.</span>
@@ -1503,11 +1615,12 @@ abx-dl 'https://example.com'</code></pre>
 
       const renderShellBlock = (text) =>
         text.split("\n").map((line) => {
-          if (!line) return "";
-          if (line.trim().startsWith("#")) {
-            return `<span class="ab-dim">${escapeHtml(line)}</span>`;
+          const normalizedLine = line.replace(/^\s*\$\s+/, "");
+          if (!normalizedLine) return "";
+          if (normalizedLine.trim().startsWith("#")) {
+            return `<span class="ab-dim">${escapeHtml(normalizedLine)}</span>`;
           }
-          return `<span class="ab-prompt">$</span> ${highlightShell(line)}`;
+          return `<span class="ab-prompt">$</span> ${highlightShell(normalizedLine)}`;
         }).join("\n");
 
       const getHeroExample = (card) => {
@@ -1531,10 +1644,9 @@ abx-dl 'https://example.com'</code></pre>
 
       const renderHeroExample = (example) => {
         return renderShellBlock([
-          "# run inside a new empty dir somewhere:",
+          "# abx-dl",
           example.abx,
-          "",
-          "# or with ArchiveBox:",
+          "# ArchiveBox",
           example.archivebox,
         ].join("\n"));
       };
@@ -1609,7 +1721,6 @@ abx-dl 'https://example.com'</code></pre>
           searchInput.value = "";
           applyFilter();
           openModal(target);
-          target.scrollIntoView({ behavior: "smooth", block: "start" });
           return;
         }
 
@@ -1730,7 +1841,6 @@ abx-dl 'https://example.com'</code></pre>
           event.preventDefault();
           closeModal();
           openModal(target);
-          target.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       });
 

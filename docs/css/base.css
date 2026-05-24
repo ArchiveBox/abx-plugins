@@ -6,19 +6,16 @@
 html, body { margin: 0; padding: 0; }
 
 html {
-  font-family: var(--ab-font-serif);
+  font-family: var(--ab-font-sans);
   font-size: var(--ab-size-base);
   line-height: var(--ab-lh-normal);
   color: var(--ab-fg);
   background: var(--ab-bg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  font-feature-settings: "kern", "liga", "onum";
+  font-feature-settings: "kern", "liga";
 }
 
-/* Grain is rendered as an overlay via ::before so we can use
-   mix-blend-mode: overlay (which preserves hue) instead of multiply
-   (which drifts toward olive on warm paper). */
 body {
   min-height: 100vh;
   background: var(--ab-bg);
@@ -26,42 +23,34 @@ body {
 }
 body::before {
   content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyMjAnIGhlaWdodD0nMjIwJz48ZmlsdGVyIGlkPSduJz48ZmVUdXJidWxlbmNlIHR5cGU9J2ZyYWN0YWxOb2lzZScgYmFzZUZyZXF1ZW5jeT0nMS4wNScgbnVtT2N0YXZlcz0nMicgc3RpdGNoVGlsZXM9J3N0aXRjaCcgc2VlZD0nNycvPjxmZUNvbG9yTWF0cml4IHZhbHVlcz0nMCAwIDAgMCAwICAwIDAgMCAwIDAgIDAgMCAwIDAgMCAgMCAwIDAgLjYgMCcvPjxmZUNvbXBvbmVudFRyYW5zZmVyPjxmZUZ1bmNBIHR5cGU9J2xpbmVhcicgc2xvcGU9JzEuMicgaW50ZXJjZXB0PSctLjEnLz48L2ZlQ29tcG9uZW50VHJhbnNmZXI+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9JzEwMCUnIGhlaWdodD0nMTAwJScgZmlsdGVyPSd1cmwoI24pJy8+PC9zdmc+");
-  background-size: 220px 220px;
-  opacity: var(--ab-grain-opacity);
-  mix-blend-mode: overlay;
+  display: none;
 }
-:root[data-theme="dark"] body::before { mix-blend-mode: soft-light; }
 body > * { position: relative; z-index: 1; }
 
 ::selection { background: var(--ab-selection); color: var(--ab-ink); }
 
 /* ---- Headings ---------------------------------------------- */
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--ab-font-serif);
-  font-weight: 500;
+  font-family: var(--ab-font-sans);
+  font-weight: 650;
   line-height: var(--ab-lh-tight);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--ab-fg);
   margin: 0 0 var(--ab-s-3) 0;
   text-wrap: balance;
 }
-h1 { font-size: var(--ab-size-3xl); letter-spacing: -0.02em; }
+h1 { font-size: var(--ab-size-3xl); }
 h2 { font-size: var(--ab-size-2xl); }
 h3 { font-size: var(--ab-size-xl); }
 h4 { font-size: var(--ab-size-lg); }
 h5 { font-size: var(--ab-size-md); }
-h6 { font-size: var(--ab-size-sm); text-transform: uppercase; letter-spacing: .12em; font-family: var(--ab-font-label); font-weight: 600; color: var(--ab-fg-muted); }
+h6 { font-size: var(--ab-size-sm); font-family: var(--ab-font-label); font-weight: 650; color: var(--ab-fg-muted); }
 
 .ab-display {
   font-size: var(--ab-size-display);
-  line-height: .95;
-  letter-spacing: -0.035em;
-  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
+  font-weight: 700;
 }
 
 p, li { max-width: var(--ab-measure); text-wrap: pretty; }
@@ -99,24 +88,22 @@ hr {
 .ab-label {
   font-family: var(--ab-font-label);
   font-size: var(--ab-size-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .14em;
+  font-weight: 650;
+  letter-spacing: 0;
   color: var(--ab-fg-muted);
 }
 .ab-meta {
   font-family: var(--ab-font-mono);
   font-size: var(--ab-size-xs);
   color: var(--ab-fg-muted);
-  letter-spacing: .02em;
+  letter-spacing: 0;
 }
 .ab-eyebrow {
   font-family: var(--ab-font-label);
-  font-size: var(--ab-size-xs);
-  font-weight: 600;
-  letter-spacing: .22em;
-  text-transform: uppercase;
-  color: var(--ab-accent);
+  font-size: var(--ab-size-sm);
+  font-weight: 650;
+  letter-spacing: 0;
+  color: var(--ab-fg-muted);
   display: inline-flex;
   align-items: center;
   gap: var(--ab-s-2);
@@ -124,8 +111,9 @@ hr {
 .ab-eyebrow::before {
   content: "";
   display: inline-block;
-  width: 18px;
-  height: 1px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
   background: var(--ab-accent);
 }
 
@@ -135,8 +123,7 @@ hr {
   align-items: center;
   gap: var(--ab-s-3);
   color: var(--ab-fg-muted);
-  font-family: var(--ab-font-serif);
-  font-style: italic;
+  font-family: var(--ab-font-sans);
 }
 .ab-ornament::before,
 .ab-ornament::after {
@@ -146,7 +133,7 @@ hr {
 }
 .ab-ornament-dot {
   font-size: var(--ab-size-sm);
-  letter-spacing: .5em;
+  letter-spacing: 0;
   color: var(--ab-fg-faint);
   text-align: center;
 }
