@@ -468,7 +468,7 @@ TEST_URL = "https://canyoublockit.com/extreme-test/"
 def test_extension_loads_in_chromium():
     """Verify uBlock extension loads in Chromium by visiting its dashboard page.
 
-    Uses Chromium with --load-extension to load the extension, then navigates
+    Uses Chromium with CDP Extensions.loadUnpacked to load the extension, then navigates
     to chrome-extension://<id>/dashboard.html and checks that "uBlock" appears
     in the page content.
     """
@@ -542,7 +542,7 @@ def test_extension_loads_in_chromium():
         ext_id = ext_entry.get("id")
         assert ext_id, f"ublock extension id missing from metadata: {ext_entry}"
 
-        # Get the unpacked extension ID - Chrome computes this from the path
+        # Use the runtime extension ID published by the Chrome session
         unpacked_path = ext_data.get("unpacked_path", "")
         print(f"[test] Extension unpacked path: {unpacked_path}", flush=True)
         print("[test] Running puppeteer test script...", flush=True)

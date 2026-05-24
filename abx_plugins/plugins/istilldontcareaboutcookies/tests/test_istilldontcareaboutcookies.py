@@ -240,7 +240,7 @@ COOKIE_TEST_HTML_STUB = """<!doctype html>
 def test_extension_loads_in_chromium():
     """Verify extension loads in Chromium by visiting its options page.
 
-    Uses Chromium with --load-extension to load the extension, then navigates
+    Uses Chromium with CDP Extensions.loadUnpacked to load the extension, then navigates
     to chrome-extension://<id>/options.html and checks that the extension name
     appears in the page content.
     """

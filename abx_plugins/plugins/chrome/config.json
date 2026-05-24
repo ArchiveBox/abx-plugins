@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Chrome",
-  "description": "Launch and manage a shared Google Chrome/CDP browser session for browser-driven plugins.",
+  "description": "Launch and manage a shared Chromium-compatible CDP browser session for browser-driven plugins.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [
@@ -51,10 +51,9 @@
       "type": "string",
       "default": "chrome",
       "x-aliases": [
-        "CHROMIUM_BINARY",
-        "GOOGLE_CHROME_BINARY"
+        "CHROMIUM_BINARY"
       ],
-      "description": "Path to Chrome binary"
+      "description": "Path to Chromium, Chrome for Testing, or Chrome Canary binary"
     },
     "NODE_BINARY": {
       "type": "string",

@@ -209,7 +209,7 @@ class TestTwoCaptcha:
                 assert (chrome_dir / ".twocaptcha_configured").exists()
 
                 # Verify config via options.html and Config.getAll()
-                # Get the actual extension ID from the config marker (Chrome computes IDs differently)
+                # Get the runtime extension ID from the config marker
                 config_marker = json.loads(
                     (chrome_dir / ".twocaptcha_configured").read_text(),
                 )

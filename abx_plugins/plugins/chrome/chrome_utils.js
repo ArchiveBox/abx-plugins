@@ -1,23 +1,17 @@
 #!/usr/bin/env node
 /**
- * Chrome Extension Management Utilities
+ * Chrome Browser Session Utilities
  *
- * Handles downloading, installing, and managing Chrome extensions for browser automation.
+ * Handles launching browser sessions and loading already-installed extensions via CDP.
  * Ported from the TypeScript implementation in archivebox.ts
  */
 
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 const http = require('http');
 const os = require('os');
 const net = require('net');
-const { exec, spawn } = require('child_process');
-const { promisify } = require('util');
-const { Readable } = require('stream');
-const { finished } = require('stream/promises');
-
-const execAsync = promisify(exec);
+const { spawn } = require('child_process');
 
 // Import generic helpers from base plugin
 const {
@@ -40,6 +34,37 @@ const CHROME_PROFILE_LOCK_FILES = [
     'SingletonCookie',
     'DevToolsActivePort',
 ];
+
+function getBrowserVersionOutput(binaryPath) {
+    if (!binaryPath) return '';
+    try {
+        const { execFileSync } = require('child_process');
+        return execFileSync(binaryPath, ['--version'], {
+            encoding: 'utf8',
+            timeout: 5000,
+            stdio: ['ignore', 'pipe', 'pipe'],
+        }).trim();
+    } catch (e) {
+        return '';
+    }
+}
+
+function isSupportedChromiumVersionOutput(output) {
+    const version = String(output || '').trim();
+    if (!version) return false;
+    if (/^Google Chrome \d/.test(version)) return false;
+    return (
+        version.includes('Chromium') ||
+        version.includes('Chrome for Testing') ||
+        version.includes('Chrome Canary') ||
+        version.includes('HeadlessChrome') ||
+        version.includes('Chrome Headless Shell')
+    );
+}
+
+function isSupportedChromiumBinary(binaryPath) {
+    return isSupportedChromiumVersionOutput(getBrowserVersionOutput(binaryPath));
+}
 
 /**
  * Get the current snapshot directory.
@@ -788,7 +813,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
  * - it may write `chrome.pid` immediately for later cleanup/re-attachment
  * - it does NOT publish `cdp_url.txt` as a stable crawl marker
  * - callers must finish any runtime setup that should happen before other
- *   hooks attach (downloads via CDP, cookie seeding, extension discovery, etc.)
+ *   hooks attach (downloads via CDP, cookie seeding, extension loading, etc.)
  *   and only then write the crawl/session readiness files
  *
  * Snapshot hooks should therefore wait on the persisted session markers emitted
@@ -802,7 +827,6 @@ async function killZombieChrome(snapDir = null, options = {}) {
  * @param {boolean} [options.headless=true] - Run in headless mode
  * @param {boolean} [options.sandbox=true] - Enable Chrome sandbox
  * @param {boolean} [options.checkSsl=true] - Check SSL certificates
- * @param {string[]} [options.extensionPaths=[]] - Paths to unpacked extensions
  * @param {boolean} [options.enableExtensionDebugging=false] - Enable CDP extension loading/debugging
  * @returns {Promise<Object>} - {success, cdpUrl, pid, port, process, error}
  */
@@ -816,7 +840,6 @@ async function launchChromium(options = {}) {
         headless = getEnvBool('CHROME_HEADLESS', true),
         sandbox = getEnvBool('CHROME_SANDBOX', true),
         checkSsl = getEnvBool('CHROME_CHECK_SSL_VALIDITY', getEnvBool('CHECK_SSL_VALIDITY', true)),
-        extensionPaths = [],
         enableExtensionDebugging = false,
     } = options;
     const config = loadConfig(path.join(__dirname, 'config.json'));
@@ -824,6 +847,12 @@ async function launchChromium(options = {}) {
 
     if (!binary) {
         return { success: false, error: 'Chrome binary not found' };
+    }
+    if (!isSupportedChromiumBinary(binary)) {
+        return {
+            success: false,
+            error: 'Unsupported Chrome binary. Use Chromium, Chrome for Testing, or Chrome Canary; stock Google Chrome is not supported because CDP Extensions.loadUnpacked is required.',
+        };
     }
 
     const { width, height } = parseResolution(resolution);
@@ -888,13 +917,7 @@ async function launchChromium(options = {}) {
         chromiumArgs.push('--use-mock-keychain');
     }
 
-    // Add extension loading flags
-    if (extensionPaths.length > 0) {
-        const extPathsArg = extensionPaths.join(',');
-        chromiumArgs.push(`--load-extension=${extPathsArg}`);
-        console.error(`[*] Loading ${extensionPaths.length} extension(s) via --load-extension`);
-    }
-    if (enableExtensionDebugging || extensionPaths.length > 0) {
+    if (enableExtensionDebugging) {
         chromiumArgs.push('--enable-unsafe-extension-debugging');
         chromiumArgs.push('--disable-features=DisableLoadExtensionCommandLineSwitch,ExtensionManifestV2Unsupported,ExtensionManifestV2Disabled');
     }
@@ -1008,7 +1031,6 @@ async function launchChromium(options = {}) {
                 cdpUrl: wsUrl,
                 outputDir,
                 headless,
-                extensionPaths,
                 enableExtensionDebugging,
             });
 
@@ -1247,262 +1269,6 @@ async function killChrome(pid, outputDir = null) {
 
     console.error('[*] Chrome cleanup completed');
     return true;
-}
-
-/**
- * Install Chromium using @puppeteer/browsers programmatic API.
- * Uses puppeteer's default cache location, returns the binary path.
- *
- * @param {Object} options - Install options
- * @returns {Promise<Object>} - {success, binary, version, error}
- */
-async function installChromium(options = {}) {
-    // Try to load @puppeteer/browsers from NODE_MODULES_DIR or system
-    let puppeteerBrowsers;
-    try {
-        ensureNodeModuleResolution(module);
-        puppeteerBrowsers = require('@puppeteer/browsers');
-    } catch (e) {
-        console.error(`[!] @puppeteer/browsers not found. Install it first with installPuppeteerCore.`);
-        return { success: false, error: '@puppeteer/browsers not installed' };
-    }
-
-    console.error(`[*] Installing Chromium via @puppeteer/browsers...`);
-
-    try {
-        const result = await puppeteerBrowsers.install({
-            browser: 'chromium',
-            buildId: 'latest',
-        });
-
-        const binary = result.executablePath;
-        const version = result.buildId;
-
-        if (!binary || !fs.existsSync(binary)) {
-            console.error(`[!] Chromium binary not found at: ${binary}`);
-            return { success: false, error: `Chromium binary not found at: ${binary}` };
-        }
-
-        console.error(`[+] Chromium installed: ${binary}`);
-        return { success: true, binary, version };
-    } catch (e) {
-        console.error(`[!] Failed to install Chromium: ${e.message}`);
-        return { success: false, error: e.message };
-    }
-}
-
-/**
- * Install puppeteer-core npm package.
- *
- * @param {Object} options - Install options
- * @param {string} [options.npmPrefix] - npm prefix directory (default: LIB_DIR/npm)
- * @param {number} [options.timeout=60000] - Timeout in milliseconds
- * @returns {Promise<Object>} - {success, path, error}
- */
-async function installPuppeteerCore(options = {}) {
-    const arch = `${process.arch}-${process.platform}`;
-    const defaultPrefix = path.join(getLibDir(), 'npm');
-    const {
-        npmPrefix = defaultPrefix,
-        timeout = 60000,
-    } = options;
-
-    const nodeModulesDir = path.join(npmPrefix, 'node_modules');
-    const puppeteerPath = path.join(nodeModulesDir, 'puppeteer-core');
-
-    // Check if already installed
-    if (fs.existsSync(puppeteerPath)) {
-        console.error(`[+] puppeteer-core already installed: ${puppeteerPath}`);
-        return { success: true, path: puppeteerPath };
-    }
-
-    console.error(`[*] Installing puppeteer-core to ${npmPrefix}...`);
-
-    // Create directory
-    if (!fs.existsSync(npmPrefix)) {
-        fs.mkdirSync(npmPrefix, { recursive: true });
-    }
-
-    try {
-        const { execSync } = require('child_process');
-        execSync(
-            `npm install --prefix "${npmPrefix}" puppeteer-core`,
-            { encoding: 'utf8', timeout, stdio: ['pipe', 'pipe', 'pipe'] }
-        );
-        console.error(`[+] puppeteer-core installed successfully`);
-        return { success: true, path: puppeteerPath };
-    } catch (e) {
-        console.error(`[!] Failed to install puppeteer-core: ${e.message}`);
-        return { success: false, error: e.message };
-    }
-}
-
-// Try to import unzipper, fallback to system unzip if not available
-let unzip = null;
-try {
-    const unzipper = require('unzipper');
-    unzip = async (sourcePath, destPath) => {
-        const stream = fs.createReadStream(sourcePath).pipe(unzipper.Extract({ path: destPath }));
-        return stream.promise();
-    };
-} catch (err) {
-    // Will use system unzip command as fallback
-}
-
-/**
- * Compute the extension ID from the unpacked path.
- * Chrome uses a SHA256 hash of the unpacked extension directory path to compute a dynamic id.
- *
- * @param {string} unpacked_path - Path to the unpacked extension directory
- * @returns {string} - 32-character extension ID
- */
-function getExtensionId(unpacked_path) {
-    let resolved_path = unpacked_path;
-    try {
-        resolved_path = fs.realpathSync(unpacked_path);
-    } catch (err) {
-        // Use the provided path if realpath fails
-        resolved_path = unpacked_path;
-    }
-    // Chrome uses a SHA256 hash of the unpacked extension directory path
-    const hash = crypto.createHash('sha256');
-    hash.update(Buffer.from(resolved_path, 'utf-8'));
-
-    // Convert first 32 hex chars to characters in the range 'a'-'p'
-    const detected_extension_id = Array.from(hash.digest('hex'))
-        .slice(0, 32)
-        .map(i => String.fromCharCode(parseInt(i, 16) + 'a'.charCodeAt(0)))
-        .join('');
-
-    return detected_extension_id;
-}
-
-/**
- * Download and install a Chrome extension from the Chrome Web Store.
- *
- * @param {Object} extension - Extension metadata object
- * @param {string} extension.webstore_id - Chrome Web Store extension ID
- * @param {string} extension.name - Human-readable extension name
- * @param {string} extension.crx_url - URL to download the CRX file
- * @param {string} extension.crx_path - Local path to save the CRX file
- * @param {string} extension.unpacked_path - Path to extract the extension
- * @returns {Promise<boolean>} - True if installation succeeded
- */
-async function installExtension(extension) {
-    const manifest_path = path.join(extension.unpacked_path, 'manifest.json');
-
-    // Download CRX file if not already downloaded
-    if (!fs.existsSync(manifest_path) && !fs.existsSync(extension.crx_path)) {
-        console.log(`[🛠️] Downloading missing extension ${extension.name} ${extension.webstore_id} -> ${extension.crx_path}`);
-
-        try {
-            // Ensure parent directory exists
-            const crxDir = path.dirname(extension.crx_path);
-            if (!fs.existsSync(crxDir)) {
-                fs.mkdirSync(crxDir, { recursive: true });
-            }
-
-            // Download CRX file from Chrome Web Store
-            const response = await fetch(extension.crx_url);
-
-            if (!response.ok) {
-                console.warn(`[⚠️] Failed to download extension ${extension.name}: HTTP ${response.status}`);
-                return false;
-            }
-
-            if (response.body) {
-                const crx_file = fs.createWriteStream(extension.crx_path);
-                const crx_stream = Readable.fromWeb(response.body);
-                await finished(crx_stream.pipe(crx_file));
-            } else {
-                console.warn(`[⚠️] Failed to download extension ${extension.name}: No response body`);
-                return false;
-            }
-        } catch (err) {
-            console.error(`[❌] Failed to download extension ${extension.name}:`, err);
-            return false;
-        }
-    }
-
-    // Unzip CRX file to unpacked_path (CRX files have extra header bytes but unzip handles it)
-    await fs.promises.mkdir(extension.unpacked_path, { recursive: true });
-
-    try {
-        // Use -q to suppress warnings about extra bytes in CRX header
-        await execAsync(`/usr/bin/unzip -q -o "${extension.crx_path}" -d "${extension.unpacked_path}"`);
-    } catch (err1) {
-        // unzip may return non-zero even on success due to CRX header warning, check if manifest exists
-        if (!fs.existsSync(manifest_path)) {
-            if (unzip) {
-                // Fallback to unzipper library
-                try {
-                    await unzip(extension.crx_path, extension.unpacked_path);
-                } catch (err2) {
-                    console.error(`[❌] Failed to unzip ${extension.crx_path}:`, err2.message);
-                    return false;
-                }
-            } else {
-                console.error(`[❌] Failed to unzip ${extension.crx_path}:`, err1.message);
-                return false;
-            }
-        }
-    }
-
-    if (!fs.existsSync(manifest_path)) {
-        console.error(`[❌] Failed to install ${extension.crx_path}: could not find manifest.json in unpacked_path`);
-        return false;
-    }
-
-    return true;
-}
-
-/**
- * Load or install a Chrome extension, computing all metadata.
- *
- * @param {Object} ext - Partial extension metadata (at minimum: webstore_id or unpacked_path)
- * @param {string} [ext.webstore_id] - Chrome Web Store extension ID
- * @param {string} [ext.name] - Human-readable extension name
- * @param {string} [ext.unpacked_path] - Path to unpacked extension
- * @param {string} [extensions_dir] - Directory to store extensions
- * @returns {Promise<Object>} - Complete extension metadata object
- */
-async function loadOrInstallExtension(ext, extensions_dir = null) {
-    if (!(ext.webstore_id || ext.unpacked_path)) {
-        throw new Error('Extension must have either {webstore_id} or {unpacked_path}');
-    }
-
-    // Determine extensions directory
-    // Use provided dir, or fall back to getExtensionsDir() which handles env vars and defaults
-    const EXTENSIONS_DIR = extensions_dir || getExtensionsDir();
-
-    // Set statically computable extension metadata
-    ext.webstore_id = ext.webstore_id || ext.id;
-    ext.name = ext.name || ext.webstore_id;
-    ext.webstore_url = ext.webstore_url || `https://chromewebstore.google.com/detail/${ext.webstore_id}`;
-    ext.crx_url = ext.crx_url || `https://clients2.google.com/service/update2/crx?response=redirect&prodversion=1230&acceptformat=crx3&x=id%3D${ext.webstore_id}%26uc`;
-    ext.crx_path = ext.crx_path || path.join(EXTENSIONS_DIR, `${ext.webstore_id}__${ext.name}.crx`);
-    ext.unpacked_path = ext.unpacked_path || path.join(EXTENSIONS_DIR, `${ext.webstore_id}__${ext.name}`);
-
-    const manifest_path = path.join(ext.unpacked_path, 'manifest.json');
-    ext.read_manifest = () => JSON.parse(fs.readFileSync(manifest_path, 'utf-8'));
-    ext.read_version = () => fs.existsSync(manifest_path) && ext.read_manifest()?.version || null;
-
-    // If extension is not installed, download and unpack it
-    if (!ext.read_version()) {
-        await installExtension(ext);
-    }
-
-    // Autodetect ID from filesystem path (unpacked extensions don't have stable IDs)
-    ext.id = getExtensionId(ext.unpacked_path);
-    ext.version = ext.read_version();
-
-    if (!ext.version) {
-        console.warn(`[❌] Unable to detect ID and version of installed extension ${ext.unpacked_path}`);
-    } else {
-        console.log(`[➕] Installed extension ${ext.name} (${ext.version})... ${ext.unpacked_path}`);
-    }
-
-    return ext;
 }
 
 /**
@@ -1805,23 +1571,6 @@ async function loadExtensionFromTarget(extensions, target) {
 }
 
 /**
- * Install all extensions in the list if not already installed.
- *
- * @param {Array} extensions - Array of extension metadata objects
- * @param {string} [extensions_dir] - Directory to store extensions
- * @returns {Promise<Array>} - Array of installed extension objects
- */
-async function installAllExtensions(extensions, extensions_dir = null) {
-    console.log(`[⚙️] Installing ${extensions.length} chrome extensions...`);
-
-    for (const extension of extensions) {
-        await loadOrInstallExtension(extension, extensions_dir);
-    }
-
-    return extensions;
-}
-
-/**
  * Load and connect to all extensions from a running browser.
  *
  * @param {Object} browser - Puppeteer browser instance
@@ -1837,19 +1586,22 @@ async function loadAllExtensionsFromBrowser(browser, extensions, timeout = 30000
 
     for (const extension of getValidInstalledExtensions(extensions)) {
         if (!extension.id) {
-            extension.load_error = `Extension ${extension.name || extension.unpacked_path} missing id`;
-            console.warn(`[!] ${extension.load_error}, continuing without browser connection`);
+            extension.target_error = `Extension ${extension.name || extension.unpacked_path} missing runtime id`;
+            console.warn(`[!] ${extension.target_error}, continuing without browser connection`);
             continue;
         }
         try {
             const target = await waitForExtensionTargetHandle(browser, extension.id, perExtensionTimeout);
-            await loadExtensionFromTarget(extensions, target);
-            delete extension.load_error;
+            const loaded = await loadExtensionFromTarget(extensions, target);
+            if (!loaded) {
+                throw new Error(`Unable to attach extension target for ${extension.id}`);
+            }
+            delete extension.target_error;
         } catch (error) {
-            extension.load_error = `${error.name}: ${error.message}`;
+            extension.target_error = `${error.name}: ${error.message}`;
             console.warn(
                 `[!] Extension ${extension.name || extension.id} did not expose a background target within ` +
-                `${perExtensionTimeout}ms, continuing: ${extension.load_error}`
+                `${perExtensionTimeout}ms, continuing: ${extension.target_error}`
             );
         }
     }
@@ -1868,7 +1620,17 @@ async function loadUnpackedExtensionsIntoBrowser(browser, extensions, timeout = 
         250,
         getEnvInt('CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS', Math.min(timeout, 10000))
     );
-    const cdpSession = await browser.target().createCDPSession();
+    let cdpSession = null;
+    try {
+        cdpSession = await browser.target().createCDPSession();
+    } catch (error) {
+        const loadError = `${error.name}: ${error.message}`;
+        for (const extension of validExtensions) {
+            extension.load_error = loadError;
+        }
+        console.warn(`[!] Browser-level extension loading is unavailable, continuing: ${loadError}`);
+        return extensions;
+    }
     let loadUnpackedUnavailable = false;
 
     for (const extension of validExtensions) {
@@ -1882,17 +1644,30 @@ async function loadUnpackedExtensionsIntoBrowser(browser, extensions, timeout = 
             const { id } = await cdpSession.send('Extensions.loadUnpacked', {
                 path: extension.unpacked_path,
             });
-            if (id) {
-                extension.id = id;
+            if (!id) {
+                throw new Error(`Extensions.loadUnpacked did not return an id for ${extension.unpacked_path}`);
             }
-
-            const target = await waitForExtensionTargetHandle(
-                browser,
-                extension.id,
-                perExtensionTimeout
-            );
-            await loadExtensionFromTarget(extensions, target);
+            extension.id = id;
             delete extension.load_error;
+
+            try {
+                const target = await waitForExtensionTargetHandle(
+                    browser,
+                    extension.id,
+                    perExtensionTimeout
+                );
+                const loaded = await loadExtensionFromTarget(extensions, target);
+                if (!loaded) {
+                    throw new Error(`Unable to attach extension target for ${extension.id}`);
+                }
+                delete extension.target_error;
+            } catch (targetError) {
+                extension.target_error = `${targetError.name}: ${targetError.message}`;
+                console.warn(
+                    `[!] Extension ${extension.name || extension.id} loaded but did not expose a background target within ` +
+                    `${perExtensionTimeout}ms, continuing: ${extension.target_error}`
+                );
+            }
         } catch (error) {
             extension.load_error = `${error.name}: ${error.message}`;
             if (
@@ -1903,10 +1678,7 @@ async function loadUnpackedExtensionsIntoBrowser(browser, extensions, timeout = 
                 console.warn(`[!] Extensions.loadUnpacked is unavailable in this browser, skipping remaining CDP unpacked extension loads`);
                 continue;
             }
-            console.warn(
-                `[!] Extension ${extension.name || extension.id} did not expose a background target within ` +
-                `${perExtensionTimeout}ms, continuing: ${extension.load_error}`
-            );
+            console.warn(`[!] Failed to load extension ${extension.name || extension.unpacked_path}: ${extension.load_error}`);
         }
     }
 
@@ -1940,35 +1712,7 @@ function loadExtensionManifest(unpacked_path) {
 }
 
 /**
- * @deprecated Use puppeteer's enableExtensions option instead.
- *
- * Generate Chrome launch arguments for loading extensions.
- * NOTE: This is deprecated. Use puppeteer.launch({ pipe: true, enableExtensions: [paths] }) instead.
- *
- * @param {Array} extensions - Array of extension metadata objects
- * @returns {Array<string>} - Chrome CLI arguments for loading extensions
- */
-function getExtensionLaunchArgs(extensions) {
-    console.warn('[DEPRECATED] getExtensionLaunchArgs is deprecated. Use puppeteer enableExtensions option instead.');
-    const validExtensions = getValidInstalledExtensions(extensions);
-    if (validExtensions.length === 0) return [];
-
-    const unpacked_paths = validExtensions.map(ext => ext.unpacked_path);
-    // Use computed id (from path hash) for allowlisting, as that's what Chrome uses for unpacked extensions
-    // Fall back to webstore_id if computed id not available
-    const extension_ids = validExtensions.map(ext => ext.id || getExtensionId(ext.unpacked_path));
-
-    return [
-        `--load-extension=${unpacked_paths.join(',')}`,
-        `--allowlisted-extension-id=${extension_ids.join(',')}`,
-        '--allow-legacy-extension-manifests',
-        '--disable-extensions-auto-update',
-    ];
-}
-
-/**
- * Get extension paths for use with puppeteer's enableExtensions option.
- * Following puppeteer best practices: https://pptr.dev/guides/chrome-extensions
+ * Get unpacked extension paths for CDP Extensions.loadUnpacked.
  *
  * @param {Array} extensions - Array of extension metadata objects
  * @returns {Array<string>} - Array of extension unpacked paths
@@ -1990,7 +1734,7 @@ function getExtensionPaths(extensions) {
  *   // page is a Page context
  *
  * @param {Object} browser - Puppeteer browser instance
- * @param {string} extensionId - Extension ID to wait for (computed from path hash)
+ * @param {string} extensionId - Runtime extension ID returned by Extensions.loadUnpacked
  * @param {number} [timeout=30000] - Timeout in milliseconds
  * @returns {Promise<Object>} - Worker or Page context for the extension
  */
@@ -2060,7 +1804,7 @@ function getExtensionTargets(browser) {
 }
 
 /**
- * Resolve the Chrome browser binary to launch.
+ * Resolve the Chromium-compatible browser binary to launch.
  *
  * Resolution order matters because tests and runtime callers may override the
  * browser at the environment layer:
@@ -2068,43 +1812,18 @@ function getExtensionTargets(browser) {
  * 2. `/usr/bin/chromium` on CI/Linux hosts
  * 3. Google Chrome Canary on macOS
  * 4. Chromium on the host
- * 5. hook-managed Playwright/Puppeteer Chromium installs under `LIB_DIR`
+ * 5. abxpkg-managed Playwright/Puppeteer provider shims under `LIB_DIR`
  *
- * This helper intentionally avoids Google Chrome stable for tests and local
- * auto-discovery. Docker sets CHROME_BINARY explicitly to its packaged browser.
+ * This helper intentionally rejects Google Chrome stable. The extension
+ * lifecycle depends on CDP Extensions.loadUnpacked, which is supported by
+ * Chromium-family builds like Chrome for Testing, Canary, and Chromium.
  *
  * @returns {string|null} - Absolute path to browser binary or null if not found
  */
 function findChromium() {
     const { execFileSync } = require('child_process');
 
-    const resolveWrappedBinaryTarget = (binaryPath) => {
-        if (!binaryPath || !fs.existsSync(binaryPath)) return binaryPath;
-        try {
-            const stat = fs.statSync(binaryPath);
-            if (!stat.isFile() || stat.size > 4096) return binaryPath;
-            const contents = fs.readFileSync(binaryPath, 'utf8');
-            if (!contents.startsWith('#!')) return binaryPath;
-            const execMatch = contents.match(/^exec\s+(.+?)\s+"\$@"\s*$/m);
-            if (!execMatch) return binaryPath;
-            const rawTarget = execMatch[1].trim();
-            const unquotedTarget = rawTarget.replace(/^['"]|['"]$/g, '');
-            return unquotedTarget || binaryPath;
-        } catch (e) {
-            return binaryPath;
-        }
-    };
-
-    // Helper to validate a binary by running --version
-    const validateBinary = (binaryPath) => {
-        if (!binaryPath) return false;
-        try {
-            execFileSync(binaryPath, ['--version'], { encoding: 'utf8', timeout: 5000, stdio: 'pipe' });
-            return true;
-        } catch (e) {
-            return false;
-        }
-    };
+    const validateBinary = (binaryPath) => isSupportedChromiumBinary(binaryPath);
 
     const resolveBinaryReference = (binaryPath) => {
         if (!binaryPath) return null;
@@ -2135,7 +1854,7 @@ function findChromium() {
         if (resolvedBinary) {
             return resolvedBinary;
         }
-        console.error(`[!] Warning: CHROME_BINARY="${chromeBinary}" is not valid`);
+        console.error(`[!] Warning: CHROME_BINARY="${chromeBinary}" is not a supported browser. Use Chromium, Chrome for Testing, or Chrome Canary.`);
     }
 
     const ciChromiumPath = '/usr/bin/chromium';
@@ -2163,66 +1882,19 @@ function findChromium() {
         console.error('[!] Warning: CHROME_BINARY not set, searching managed installs...');
     }
 
-    // Helper to find Playwright/Puppeteer Chromium in managed browser directories
-    const findInPuppeteerDir = (baseDir) => {
-        if (!fs.existsSync(baseDir)) return null;
-        try {
-            const entryNames = fs.readdirSync(baseDir, { withFileTypes: true })
-                .filter(entry => entry.isDirectory())
-                .map(entry => entry.name);
-            const versionRoots = [baseDir];
-
-            for (const entryName of entryNames) {
-                if (entryName === 'chromium') {
-                    versionRoots.push(path.join(baseDir, entryName));
-                }
-            }
-
-            for (const versionRoot of versionRoots) {
-                if (!fs.existsSync(versionRoot)) continue;
-                const versions = fs.readdirSync(versionRoot, { withFileTypes: true })
-                    .filter(entry => entry.isDirectory())
-                    .map(entry => entry.name)
-                    .sort()
-                    .reverse();
-                for (const version of versions) {
-                    const versionDir = path.join(versionRoot, version);
-                    const candidates = [
-                        path.join(versionDir, 'chrome-mac-arm64/Chromium.app/Contents/MacOS/Chromium'),
-                        path.join(versionDir, 'chrome-mac/Chromium.app/Contents/MacOS/Chromium'),
-                        path.join(versionDir, 'chrome-mac-x64/Chromium.app/Contents/MacOS/Chromium'),
-                        path.join(versionDir, 'chrome-linux64/chrome'),
-                        path.join(versionDir, 'chrome-linux/chrome'),
-                    ];
-                    for (const c of candidates) {
-                        if (fs.existsSync(c)) return c;
-                    }
-                }
-            }
-        } catch (e) {}
-        return null;
-    };
-
-    // 3. Search LIB_DIR for hook-installed Playwright/Puppeteer Chromium
+    // 3. Search the stable shims created by abxpkg browser binproviders.
+    // Do not walk provider cache internals here; Puppeteer/Playwright own that.
     const libDir = getEnv('LIB_DIR');
     if (libDir) {
         const libCandidates = [
-            path.join(libDir, 'chrome-linux', 'chrome'),
-            path.join(libDir, 'browsers', 'chrome', 'chrome'),
+            path.join(libDir, 'puppeteer', 'bin', 'chrome'),
+            path.join(libDir, 'puppeteer', 'bin', 'chromium'),
+            path.join(libDir, 'puppeteer', 'bin', 'chrome-headless-shell'),
+            path.join(libDir, 'playwright', 'bin', 'chrome'),
+            path.join(libDir, 'playwright', 'bin', 'chromium'),
         ];
         for (const c of libCandidates) {
             if (validateBinary(c)) return c;
-        }
-        // Also search puppeteer cache under LIB_DIR
-        const libPuppeteerDirs = [
-            path.join(libDir, 'puppeteer', 'chromium'),
-            path.join(libDir, 'ms-playwright'),
-        ];
-        for (const libPuppeteerDir of libPuppeteerDirs) {
-            const libPuppeteerBinary = findInPuppeteerDir(libPuppeteerDir);
-            if (libPuppeteerBinary && validateBinary(libPuppeteerBinary)) {
-                return libPuppeteerBinary;
-            }
         }
     }
 
@@ -2242,12 +1914,12 @@ function findAnyChromiumBinary() {
 }
 
 // ============================================================================
-// Shared Extension Installer Utilities
+// Shared Runtime Path Utilities
 // ============================================================================
 
 /**
  * Get the extensions directory path.
- * Centralized path calculation used by extension installers and chrome launch.
+ * Centralized path calculation used by chrome launch.
  *
  * Path is derived from environment variables in this priority:
  * 1. CHROME_EXTENSIONS_DIR (explicit override)
@@ -2288,7 +1960,7 @@ function getMachineType() {
 }
 
 /**
- * Get LIB_DIR path for shared binaries and caches.
+ * Get LIB_DIR path for shared binaries and provider-managed artifacts.
  * Returns ~/.config/abx/lib by default.
  *
  * @returns {string} - Absolute path to lib directory
@@ -2344,78 +2016,6 @@ function getTestEnv() {
         NPM_BIN_DIR: path.join(libDir, 'npm', '.bin'),
         CHROME_EXTENSIONS_DIR: getExtensionsDir(),
     };
-}
-
-/**
- * Install a Chrome extension with caching support.
- *
- * This is the main entry point for extension installer hooks. It handles:
- * - Checking for cached extension metadata
- * - Installing the extension if not cached
- * - Writing cache file for future runs
- *
- * @param {Object} extension - Extension metadata object
- * @param {string} extension.webstore_id - Chrome Web Store extension ID
- * @param {string} extension.name - Human-readable extension name (used for cache file)
- * @param {Object} [options] - Options
- * @param {string} [options.extensionsDir] - Override extensions directory
- * @param {boolean} [options.quiet=false] - Suppress info logging
- * @returns {Promise<Object|null>} - Installed extension metadata or null on failure
- */
-async function installExtensionWithCache(extension, options = {}) {
-    const {
-        extensionsDir = getExtensionsDir(),
-        quiet = false,
-    } = options;
-
-    const cacheFile = path.join(extensionsDir, `${extension.name}.extension.json`);
-
-    // Check if extension is already cached and valid
-    if (fs.existsSync(cacheFile)) {
-        try {
-            const cached = JSON.parse(fs.readFileSync(cacheFile, 'utf-8'));
-            const manifestPath = path.join(cached.unpacked_path, 'manifest.json');
-
-            if (fs.existsSync(manifestPath)) {
-                if (!quiet) {
-                    console.log(`[*] ${extension.name} extension already installed (using cache)`);
-                }
-                return cached;
-            }
-        } catch (e) {
-            // Cache file corrupted, re-install
-            console.warn(`[⚠️] Extension cache corrupted for ${extension.name}, re-installing...`);
-        }
-    }
-
-    // Install extension
-    if (!quiet) {
-        console.log(`[*] Installing ${extension.name} extension...`);
-    }
-
-    const installedExt = await loadOrInstallExtension(extension, extensionsDir);
-
-    if (!installedExt?.version) {
-        console.error(`[❌] Failed to install ${extension.name} extension`);
-        return null;
-    }
-
-    // Write cache file
-    try {
-        await fs.promises.mkdir(extensionsDir, { recursive: true });
-        await fs.promises.writeFile(cacheFile, JSON.stringify(installedExt, null, 2));
-        if (!quiet) {
-            console.log(`[+] Extension metadata written to ${cacheFile}`);
-        }
-    } catch (e) {
-        console.warn(`[⚠️] Failed to write cache file: ${e.message}`);
-    }
-
-    if (!quiet) {
-        console.log(`[+] ${extension.name} extension installed`);
-    }
-
-    return installedExt;
 }
 
 // ============================================================================
@@ -2711,22 +2311,19 @@ async function inspectChromeSessionArtifacts(chromeSessionDir, options = {}) {
     }
 
     if (processIsLocal) {
-        const debugPort = getChromeDebugPortFromCdpUrl(state.cdpUrl);
-        if (!debugPort) {
+        if (state.pid && !isProcessAlive(state.pid)) {
+            return { hasArtifacts: true, stale: true, state, reason: `chrome pid ${state.pid} is not running` };
+        }
+        if (!getChromeDebugPortFromCdpUrl(state.cdpUrl)) {
             return { hasArtifacts: true, stale: true, state, reason: `invalid cdp url: ${state.cdpUrl}` };
         }
-
-        try {
-            await waitForDebugPort(debugPort, probeTimeoutMs);
+        if (await canConnectToChromeBrowser(state.cdpUrl, {
+            timeoutMs: probeTimeoutMs,
+            puppeteer: puppeteer || resolvePuppeteerModule(),
+        })) {
             return { hasArtifacts: true, stale: false, state, reason: null };
-        } catch (error) {
-            return {
-                hasArtifacts: true,
-                stale: true,
-                state,
-                reason: `cdp unreachable on port ${debugPort}: ${error.message}`,
-            };
         }
+        return { hasArtifacts: true, stale: true, state, reason: `cdp unreachable at ${state.cdpUrl}` };
     }
 
     if (await canConnectToChromeBrowser(state.cdpUrl, { timeoutMs: probeTimeoutMs })) {
@@ -3027,7 +2624,7 @@ async function cleanupLaunchArtifacts(outputDir, chromePid = null) {
  * This is stronger than "debug port opened once". It waits through the fragile
  * startup window and proves the websocket is attachable with Puppeteer.
  *
- * It must stay strictly earlier than crawl-level extension discovery. The
+ * It must stay strictly earlier than crawl-level extension loading. The
  * caller is responsible for inspecting extension targets and later writing
  * `extensions.json`; waiting for that file here would deadlock the launch flow.
  *
@@ -3035,7 +2632,6 @@ async function cleanupLaunchArtifacts(outputDir, chromePid = null) {
  * @param {number} options.chromePid - Spawned Chrome PID
  * @param {string} options.cdpUrl - Browser websocket endpoint
  * @param {boolean} [options.headless=true] - Whether browser is headless
- * @param {string[]} [options.extensionPaths=[]] - Extension paths loaded at launch
  * @param {boolean} [options.enableExtensionDebugging=false] - Whether extension debugging is enabled
  * @returns {Promise<void>}
  */
@@ -3044,11 +2640,10 @@ async function verifyStableChromiumSession(options = {}) {
         chromePid,
         cdpUrl,
         headless = true,
-        extensionPaths = [],
         enableExtensionDebugging = false,
     } = options;
 
-    const hasExtensions = extensionPaths.length > 0 || enableExtensionDebugging;
+    const hasExtensions = enableExtensionDebugging;
     const settleMs = getEnvInt('CHROME_LAUNCH_SETTLE_MS', hasExtensions ? 1000 : 250);
     const stableMs = getEnvInt('CHROME_LAUNCH_STABILITY_MS', hasExtensions ? 2500 : 750);
 
@@ -3554,10 +3149,9 @@ async function connectToPage(options = {}) {
 
 function loadInstalledExtensionsFromCache(extensionsDir = getExtensionsDir()) {
     const installedExtensions = [];
-    const extensionPaths = [];
 
     if (!fs.existsSync(extensionsDir)) {
-        return { installedExtensions, extensionPaths };
+        return { installedExtensions };
     }
 
     for (const file of fs.readdirSync(extensionsDir)) {
@@ -3567,15 +3161,19 @@ function loadInstalledExtensionsFromCache(extensionsDir = getExtensionsDir()) {
             const extPath = path.join(extensionsDir, file);
             const extData = JSON.parse(fs.readFileSync(extPath, 'utf-8'));
             if (!extData.unpacked_path || !fs.existsSync(extData.unpacked_path)) continue;
-            if (!extData.id) {
-                extData.id = getExtensionId(extData.unpacked_path);
-            }
+            delete extData.id;
+            delete extData.target;
+            delete extData.target_type;
+            delete extData.target_url;
+            delete extData.manifest;
+            delete extData.manifest_version;
+            delete extData.load_error;
+            delete extData.target_error;
             installedExtensions.push(extData);
-            extensionPaths.push(extData.unpacked_path);
         } catch (error) {}
     }
 
-    return { installedExtensions, extensionPaths };
+    return { installedExtensions };
 }
 
 function parseCookiesTxt(contents) {
@@ -3785,7 +3383,7 @@ async function ensureChromeSession(options = {}) {
         fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    const { installedExtensions, extensionPaths } = loadInstalledExtensionsFromCache(extensionsDir);
+    const { installedExtensions } = loadInstalledExtensionsFromCache(extensionsDir);
 
     const existingSession = await inspectChromeSessionArtifacts(outputDir, { processIsLocal });
     const reusingExplicitCdpUrl =
@@ -3799,11 +3397,20 @@ async function ensureChromeSession(options = {}) {
             let browser = null;
             try {
                 browser = await connectToBrowserEndpoint(puppeteer, existingSession.state.cdpUrl, { defaultViewport: null });
-                await loadAllExtensionsFromBrowser(browser, installedExtensions, timeoutMs);
-                const unloadedExtensions = getValidInstalledExtensions(installedExtensions).filter(ext => ext.load_error);
+                for (const extension of installedExtensions) {
+                    const existingExtension = (existingSession.state.extensions || []).find(existing =>
+                        existing?.name === extension.name ||
+                        existing?.unpacked_path === extension.unpacked_path
+                    );
+                    if (existingExtension?.id) {
+                        Object.assign(extension, existingExtension);
+                    }
+                }
+                const unloadedExtensions = getValidInstalledExtensions(installedExtensions).filter(ext => !ext.id);
                 if (unloadedExtensions.length > 0) {
                     await loadUnpackedExtensionsIntoBrowser(browser, unloadedExtensions, timeoutMs);
                 }
+                await loadAllExtensionsFromBrowser(browser, installedExtensions, timeoutMs);
                 fs.writeFileSync(
                     path.join(outputDir, 'extensions.json'),
                     JSON.stringify(installedExtensions, null, 2)
@@ -3821,7 +3428,6 @@ async function ensureChromeSession(options = {}) {
             pid: existingSession.state.pid,
             port: getChromeDebugPortFromCdpUrl(existingSession.state.cdpUrl),
             installedExtensions,
-            extensionPaths,
             processIsLocal,
             reusedExisting: true,
             binary,
@@ -3858,7 +3464,6 @@ async function ensureChromeSession(options = {}) {
     let resolvedPid = reusingExplicitCdpUrl && processIsLocal ? (existingSession.state?.pid || null) : null;
     let resolvedCdpUrl = reusingExplicitCdpUrl ? existingSession.state?.cdpUrl : cdpUrl;
     let resolvedUserDataDir = userDataDir;
-    let launchedWithExtensions = false;
 
     if (!resolvedCdpUrl) {
         if (!processIsLocal) {
@@ -3869,15 +3474,15 @@ async function ensureChromeSession(options = {}) {
         if (!resolvedBinary) {
             throw new Error('Chromium binary not found');
         }
-        const launchExtensionPaths = extensionPaths;
-        launchedWithExtensions = launchExtensionPaths.length > 0;
+        if (installedExtensions.length > 0) {
+            console.error(`[*] Deferring ${installedExtensions.length} extension(s) to CDP Extensions.loadUnpacked after Chrome startup`);
+        }
 
         const result = await launchChromium({
             binary: resolvedBinary,
             outputDir,
             userDataDir,
             enableExtensionDebugging: installedExtensions.length > 0,
-            extensionPaths: launchExtensionPaths,
         });
         if (!result.success) {
             throw new Error(result.error || 'Failed to launch Chromium');
@@ -3900,15 +3505,7 @@ async function ensureChromeSession(options = {}) {
             browser = await connectToBrowserEndpoint(puppeteer, resolvedCdpUrl, { defaultViewport: null });
 
             if (installedExtensions.length > 0) {
-                await loadAllExtensionsFromBrowser(browser, installedExtensions, timeoutMs);
-                const unloadedExtensions = getValidInstalledExtensions(installedExtensions).filter(ext => ext.load_error);
-                if (unloadedExtensions.length > 0 || !launchedWithExtensions) {
-                    await loadUnpackedExtensionsIntoBrowser(
-                        browser,
-                        unloadedExtensions.length > 0 ? unloadedExtensions : installedExtensions,
-                        timeoutMs
-                    );
-                }
+                await loadUnpackedExtensionsIntoBrowser(browser, installedExtensions, timeoutMs);
             }
 
             if (downloadsDir) {
@@ -3968,7 +3565,6 @@ async function ensureChromeSession(options = {}) {
         pid: resolvedPid,
         port: getChromeDebugPortFromCdpUrl(resolvedCdpUrl),
         installedExtensions,
-        extensionPaths,
         processIsLocal,
         reusedExisting: false,
         binary: resolvedBinary,
@@ -4085,20 +3681,13 @@ module.exports = {
     // Chrome launching
     launchChromium,
     killChrome,
-    // Chromium install
-    installChromium,
-    installPuppeteerCore,
     // Chromium binary finding
     findChromium,
     findAnyChromiumBinary,
     // Extension utilities
-    getExtensionId,
     loadExtensionManifest,
-    installExtension,
-    loadOrInstallExtension,
     isTargetExtension,
     loadExtensionFromTarget,
-    installAllExtensions,
     loadAllExtensionsFromBrowser,
     loadUnpackedExtensionsIntoBrowser,
     waitForExtensionTargetHandle,
@@ -4120,10 +3709,6 @@ module.exports = {
     getNodeModulesDir,
     getExtensionsDir,
     getTestEnv,
-    // Shared extension installer utilities
-    installExtensionWithCache,
-    // Deprecated - use enableExtensions option instead
-    getExtensionLaunchArgs,
     // Snapshot hook utilities (for CDP-based plugins)
     parseArgs,
     inspectChromeSessionArtifacts,
@@ -4151,8 +3736,6 @@ if (require.main === module) {
         console.log('');
         console.log('Commands:');
         console.log('  findChromium              Find Chromium binary');
-        console.log('  installChromium           Install Chromium via @puppeteer/browsers');
-        console.log('  installPuppeteerCore      Install puppeteer-core npm package');
         console.log('  launchChromium            Launch Chrome with CDP debugging');
         console.log('  getCookiesViaCdp <port>  Read browser cookies via CDP port');
         console.log('  getBrowserCdpUrl      Resolve browser-level CDP endpoint from session dir');
@@ -4165,10 +3748,8 @@ if (require.main === module) {
         console.log('  getExtensionsDir          Get Chrome extensions directory');
         console.log('  getTestEnv                Get all paths as JSON (for tests)');
         console.log('');
-        console.log('  getExtensionId <path>     Get extension ID from unpacked path');
         console.log('  loadExtensionManifest     Load extension manifest.json');
-        console.log('  loadOrInstallExtension    Load or install an extension');
-        console.log('  installExtensionWithCache Install extension with caching');
+        console.log('  readExtensionsMetadata    Read published runtime extension metadata');
         console.log('');
         console.log('Environment variables:');
         console.log('  SNAP_DIR                  Base snapshot directory');
@@ -4198,38 +3779,10 @@ if (require.main === module) {
                     break;
                 }
 
-                case 'installChromium': {
-                    const result = await installChromium();
-                    if (result.success) {
-                        console.log(JSON.stringify({
-                            binary: result.binary,
-                            version: result.version,
-                        }));
-                    } else {
-                        console.error(result.error);
-                        process.exit(1);
-                    }
-                    break;
-                }
-
-                case 'installPuppeteerCore': {
-                    const [npmPrefix] = commandArgs;
-                    const result = await installPuppeteerCore({ npmPrefix: npmPrefix || undefined });
-                    if (result.success) {
-                        console.log(JSON.stringify({ path: result.path }));
-                    } else {
-                        console.error(result.error);
-                        process.exit(1);
-                    }
-                    break;
-                }
-
                 case 'launchChromium': {
-                    const [outputDir, extensionPathsJson] = commandArgs;
-                    const extensionPaths = extensionPathsJson ? JSON.parse(extensionPathsJson) : [];
+                    const [outputDir] = commandArgs;
                     const result = await launchChromium({
                         outputDir: outputDir || 'chrome',
-                        extensionPaths,
                     });
                     if (result.success) {
                         console.log(JSON.stringify({
@@ -4296,32 +3849,10 @@ if (require.main === module) {
                     break;
                 }
 
-                case 'getExtensionId': {
-                    const [unpacked_path] = commandArgs;
-                    const id = getExtensionId(unpacked_path);
-                    console.log(id);
-                    break;
-                }
-
                 case 'loadExtensionManifest': {
                     const [unpacked_path] = commandArgs;
                     const manifest = loadExtensionManifest(unpacked_path);
                     console.log(JSON.stringify(manifest));
-                    break;
-                }
-
-                case 'getExtensionLaunchArgs': {
-                    const [extensions_json] = commandArgs;
-                    const extensions = JSON.parse(extensions_json);
-                    const launchArgs = getExtensionLaunchArgs(extensions);
-                    console.log(JSON.stringify(launchArgs));
-                    break;
-                }
-
-                case 'loadOrInstallExtension': {
-                    const [webstore_id, name, extensions_dir] = commandArgs;
-                    const ext = await loadOrInstallExtension({ webstore_id, name }, extensions_dir);
-                    console.log(JSON.stringify(ext, null, 2));
                     break;
                 }
 
@@ -4368,21 +3899,6 @@ if (require.main === module) {
 
                 case 'getTestEnv': {
                     console.log(JSON.stringify(getTestEnv(), null, 2));
-                    break;
-                }
-
-                case 'installExtensionWithCache': {
-                    const [webstore_id, name] = commandArgs;
-                    if (!webstore_id || !name) {
-                        console.error('Usage: installExtensionWithCache <webstore_id> <name>');
-                        process.exit(1);
-                    }
-                    const ext = await installExtensionWithCache({ webstore_id, name });
-                    if (ext) {
-                        console.log(JSON.stringify(ext, null, 2));
-                    } else {
-                        process.exit(1);
-                    }
                     break;
                 }
 

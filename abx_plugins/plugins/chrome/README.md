@@ -48,7 +48,7 @@ Defined in [config.json](./config.json).
 | Variable | Default | Meaning |
 |---|---|---|
 | `CHROME_ENABLED` | `true` | Enable browser-backed archiving. |
-| `CHROME_BINARY` | `chrome` | Local Chrome binary to launch when not adopting an existing browser. |
+| `CHROME_BINARY` | `chrome` | Local Chromium, Chrome for Testing, or Chrome Canary binary to launch when not adopting an existing browser. |
 | `CHROME_CDP_URL` | `""` | Adopt an already-running browser instead of launching a local one. Accepts WS or HTTP CDP endpoints. |
 | `CHROME_IS_LOCAL` | `true` | Whether the owned browser process is local and should publish `chrome.pid`. If `CHROME_CDP_URL` is set, runtime behavior is external/non-local. |
 | `CHROME_KEEPALIVE` | `false` | Whether the owning launch hook should exit immediately and leave the browser running, instead of staying alive and closing it during cleanup. |
@@ -349,8 +349,8 @@ Core tab lifecycle helpers used by the Chrome hooks.
 
 1. Extension installer hooks populate the extension cache.
 2. Crawl launch hook calls `ensureChromeSession(...)`.
-3. Browser-wide setup completes.
-4. `cdp_url.txt` is published in `CRAWL_DIR/chrome/`.
+3. Browser-wide setup completes, including CDP `Extensions.loadUnpacked`.
+4. `extensions.json` and then `cdp_url.txt` are published in `CRAWL_DIR/chrome/`.
 5. Crawl wait verifies a real CDP connection.
 6. Snapshot tab hook creates a target and publishes `SNAP_DIR/chrome/target_id.txt`.
 7. Snapshot wait verifies the target is live.
@@ -392,7 +392,7 @@ Chrome itself does not know about specific extension plugins.
 Extension flow:
 
 - installer hooks populate extension cache metadata
-- `ensureChromeSession(...)` loads or discovers those extensions into the active browser session
+- `ensureChromeSession(...)` loads those extensions into the active browser session with CDP `Extensions.loadUnpacked`
 - `extensions.json` publishes the loaded metadata
 - downstream extension-aware hooks consume the published `extensions` metadata
 

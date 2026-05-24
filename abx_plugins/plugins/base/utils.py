@@ -502,7 +502,7 @@ def load_config(
         env = os.environ if environ is None else environ
         has_explicit_browser = any(
             key in env or (user_config and key in user_config)
-            for key in ("CHROME_BINARY", "CHROMIUM_BINARY", "GOOGLE_CHROME_BINARY")
+            for key in ("CHROME_BINARY", "CHROMIUM_BINARY")
         )
         ci_chromium_path = Path("/usr/bin/chromium")
         canary_path = Path(

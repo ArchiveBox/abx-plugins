@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Puppeteer",
-  "description": "Install and manage Google Chrome through the Puppeteer toolchain.",
+  "description": "Install and manage Chrome for Testing through the Puppeteer toolchain.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
@@ -28,10 +28,9 @@
       "type": "string",
       "default": "chrome",
       "x-aliases": [
-        "CHROMIUM_BINARY",
-        "GOOGLE_CHROME_BINARY"
+        "CHROMIUM_BINARY"
       ],
-      "description": "Path to Chrome binary"
+      "description": "Path to Chromium, Chrome for Testing, or Chrome Canary binary"
     },
     "PUPPETEER_ENABLED": {
       "type": "boolean",

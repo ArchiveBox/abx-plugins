@@ -44,7 +44,6 @@ const originalLoad = Module._load;
 Module._load = function(request, parent, isMain) {
     if (request === '../chrome/chrome_utils.js') {
         return {
-            installExtensionWithCache: async () => ({ name: 'singlefile', version: 'test' }),
             connectToPage: async () => ({
                 browser: { disconnect: async () => {} },
                 page: {
@@ -56,8 +55,8 @@ Module._load = function(request, parent, isMain) {
                 },
                 cdpSession: { send: async () => {} },
             }),
-            readExtensionsMetadata: () => [{ name: 'singlefile', id: 'test-extension-id' }],
-            findExtensionMetadataByName: () => ({ id: 'test-extension-id' }),
+            readExtensionsMetadata: () => [{ name: 'singlefile', id: 'test-extension-id', version: '1.0.0' }],
+            findExtensionMetadataByName: () => ({ id: 'test-extension-id', version: '1.0.0' }),
             loadExtensionManifest: () => ({ background: { service_worker: 'service-worker.js' } }),
             waitForExtensionTargetHandle: async () => ({}),
             loadExtensionFromTarget: async (extensions) => {
@@ -67,6 +66,7 @@ Module._load = function(request, parent, isMain) {
                         '<!DOCTYPE html><html><body>ok</body></html>'
                     );
                 };
+                return extensions[0];
             },
             setBrowserDownloadBehavior: async () => true,
         };

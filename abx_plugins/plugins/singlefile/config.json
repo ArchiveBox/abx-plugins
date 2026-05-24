@@ -56,10 +56,9 @@
       "type": "string",
       "default": "chrome",
       "x-aliases": [
-        "CHROMIUM_BINARY",
-        "GOOGLE_CHROME_BINARY"
+        "CHROMIUM_BINARY"
       ],
-      "description": "Path to Chrome binary"
+      "description": "Path to Chromium, Chrome for Testing, or Chrome Canary binary"
     },
     "PERSONAS_DIR": {
       "type": "string",

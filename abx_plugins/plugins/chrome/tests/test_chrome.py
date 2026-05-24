@@ -11,9 +11,8 @@ Tests verify:
 7. Tab cleanup on SIGTERM
 8. Chromium cleanup on crawl end
 
-NOTE: We use Chromium instead of Chrome because Chrome 137+ removed support for
---load-extension and --disable-extensions-except flags, which are needed for
-loading unpacked extensions in headless mode.
+NOTE: Extension tests use Chromium/Chrome-for-Testing and load unpacked
+extensions through CDP Extensions.loadUnpacked after browser startup.
 """
 
 import json
@@ -429,7 +428,7 @@ const browser = {
     payload = json.loads(result.stdout.strip().splitlines()[-1])
     assert payload["calls"], payload
     assert payload["result"][0]["id"] == "abc123"
-    assert "load_error" in payload["result"][0]
+    assert "target_error" in payload["result"][0]
 
 
 def test_load_unpacked_extensions_stops_after_protocol_method_is_unavailable():
@@ -478,6 +477,46 @@ const browser = {
     assert "unavailable" in payload["result"][1]["load_error"]
 
 
+def test_load_unpacked_extensions_marks_load_errors_if_browser_session_closed():
+    script = r"""
+const chromeUtils = require(process.argv[1]);
+const browser = {
+  target: () => ({
+    createCDPSession: async () => {
+      const error = new Error('Protocol error (Target.setDiscoverTargets): Target closed');
+      error.name = 'TargetCloseError';
+      throw error;
+    },
+  }),
+};
+
+(async () => {
+  const extensions = [
+    { id: 'abc123', name: 'first', unpacked_path: '/tmp/first' },
+    { id: 'def456', name: 'second', unpacked_path: '/tmp/second' },
+  ];
+  const result = await chromeUtils.loadUnpackedExtensionsIntoBrowser(browser, extensions, 60000);
+  process.stdout.write(JSON.stringify({ result }));
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
+"""
+    env = get_test_env() | {"CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS": "25"}
+    result = subprocess.run(
+        ["node", "-e", script, str(CHROME_UTILS)],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout.strip().splitlines()[-1])
+    assert "TargetCloseError" in payload["result"][0]["load_error"]
+    assert "TargetCloseError" in payload["result"][1]["load_error"]
+
+
 def test_load_cached_extension_uses_runtime_browser_target():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
@@ -499,13 +538,11 @@ const extensionJson = process.argv[4];
 (async () => {
   const extension = JSON.parse(extensionJson);
   const binary = chromeUtils.findChromium();
-  extension.id = chromeUtils.getExtensionId(extension.unpacked_path);
   const result = await chromeUtils.launchChromium({
     binary,
     outputDir,
     userDataDir,
     enableExtensionDebugging: true,
-    extensionPaths: [extension.unpacked_path],
   });
   if (!result.success) {
     throw new Error(result.error || 'Chrome launch failed');
@@ -516,11 +553,7 @@ const extensionJson = process.argv[4];
   });
   try {
     const extensions = [extension];
-    await chromeUtils.loadAllExtensionsFromBrowser(browser, extensions, 30000);
-    const unloadedExtensions = extensions.filter(ext => ext.load_error);
-    if (unloadedExtensions.length > 0) {
-      await chromeUtils.loadUnpackedExtensionsIntoBrowser(browser, unloadedExtensions, 30000);
-    }
+    await chromeUtils.loadUnpackedExtensionsIntoBrowser(browser, extensions, 30000);
     const targets = browser.targets()
       .filter(target => target.url().includes(extensions[0].id))
       .map(target => ({ type: target.type(), url: target.url() }));

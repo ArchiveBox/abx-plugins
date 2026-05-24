@@ -297,6 +297,9 @@ async function main() {
         if (isolation === 'snapshot') {
             const snapshotSession = await waitForChromeSessionState(OUTPUT_DIR, {
                 timeoutMs: timeoutSeconds * 1000,
+                requireConnectable: true,
+                probeTimeoutMs: 1000,
+                puppeteer,
             });
             if (!snapshotSession?.cdpUrl) {
                 throw new Error('No snapshot-scoped Chrome session found');
@@ -336,6 +339,9 @@ async function main() {
             const crawlChromeDir = path.join(path.resolve(getEnv('CRAWL_DIR', '.')), 'chrome');
             const crawlSession = await waitForChromeSessionState(crawlChromeDir, {
                 timeoutMs: timeoutSeconds * 1000,
+                requireConnectable: true,
+                probeTimeoutMs: 1000,
+                puppeteer,
             });
             if (!crawlSession?.cdpUrl) {
                 throw new Error('No Chrome session found (chrome plugin must run first)');

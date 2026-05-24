@@ -209,25 +209,13 @@ async function main() {
         }
         console.error('[singlefile] dependencies loaded');
 
-        // Ensure extension is installed and metadata is cached
-        console.error('[singlefile] ensuring extension cache...');
-        const extension = await chromeUtils.installExtensionWithCache(
-            EXTENSION,
-            { extensionsDir: process.env.CHROME_EXTENSIONS_DIR }
-        );
-        if (!extension) {
-            console.error('[❌] SingleFile extension not installed');
-            process.exit(2);
-        }
-        console.error(`[singlefile] extension cache ready name=${extension.name} version=${extension.version}`);
-
         // Connect to existing Chrome session
         console.error('[singlefile] connecting to chrome session...');
         const { browser, page, cdpSession, extensions } = await chromeUtils.connectToPage({
             chromeSessionDir: CHROME_SESSION_DIR,
             timeoutMs: 60000,
             requireTargetId: true,
-            requireExtensionsLoaded: false,
+            requireExtensionsLoaded: true,
         });
         console.error('[singlefile] connected to chrome');
 
@@ -258,16 +246,16 @@ async function main() {
                 chromeUtils.readExtensionsMetadata(CHROME_SESSION_DIR) ||
                 (crawlChromeDir ? chromeUtils.readExtensionsMetadata(crawlChromeDir) : null) ||
                 [];
-            const sessionEntry = chromeUtils.findExtensionMetadataByName(sessionExtensions, extension.name) || extension;
-            if (!sessionEntry.id) {
-                console.error(`[singlefile] extension metadata missing id for name=${extension.name}`);
+            const sessionEntry = chromeUtils.findExtensionMetadataByName(sessionExtensions, EXTENSION.name);
+            if (!sessionEntry?.id) {
+                console.error(`[singlefile] extension metadata missing id for name=${EXTENSION.name}`);
                 await browser.disconnect();
                 process.exit(5);
             }
-            extension.id = sessionEntry.id;
+            const extension = { ...sessionEntry };
             console.error(`[singlefile] resolved extension id from session metadata: ${extension.id}`);
 
-            const manifest = chromeUtils.loadExtensionManifest(sessionEntry.unpacked_path || extension.unpacked_path) || {};
+            const manifest = chromeUtils.loadExtensionManifest(extension.unpacked_path) || {};
             const backgroundServiceWorker = manifest.background?.service_worker || null;
             const preferredTargetUrl = sessionEntry.target_url ||
                 (backgroundServiceWorker ? `chrome-extension://${extension.id}/${backgroundServiceWorker}` : null);

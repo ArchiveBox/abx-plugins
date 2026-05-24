@@ -573,7 +573,7 @@ def wait_for_extensions_metadata(
     """Wait for ``extensions.json`` to be published and return its parsed records.
 
     Extension-backed hooks should treat this as the post-launch readiness gate
-    for extension discovery metadata. It is stronger than merely seeing
+    for extension runtime metadata. It is stronger than merely seeing
     ``chrome.pid`` or ``cdp_url.txt`` because the browser may still be in the
     startup window before extensions finish loading.
     """
@@ -626,7 +626,7 @@ def get_machine_type() -> str:
 
 
 def get_lib_dir() -> Path:
-    """Get LIB_DIR path for shared binaries and caches.
+    """Get LIB_DIR path for shared binaries and provider-managed artifacts.
 
     Matches JS: getLibDir()
 
@@ -684,33 +684,6 @@ def get_extensions_dir() -> str:
     return str(Path(personas_dir) / persona / "chrome_extensions")
 
 
-def link_puppeteer_cache(lib_dir: Path) -> None:
-    """Best-effort symlink from system Puppeteer cache into test lib_dir.
-
-    Avoids repeated Chromium downloads across tests by reusing the
-    default Puppeteer cache directory.
-    """
-    cache_dir = lib_dir / "puppeteer" / "chromium"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-
-    candidates = [
-        Path.home() / "Library" / "Caches" / "puppeteer",
-        Path.home() / ".cache" / "puppeteer",
-    ]
-    for src_root in candidates:
-        if not src_root.exists():
-            continue
-        for item in src_root.iterdir():
-            dst = cache_dir / item.name
-            if dst.exists():
-                continue
-            try:
-                os.symlink(item, dst, target_is_directory=item.is_dir())
-            except Exception:
-                # Best-effort only; if symlink fails, leave as-is.
-                pass
-
-
 def find_chromium(data_dir: str | None = None) -> str | None:
     """Find the Chromium binary path.
 
@@ -718,9 +691,8 @@ def find_chromium(data_dir: str | None = None) -> str | None:
 
     Uses chrome_utils.js which checks:
     - CHROME_BINARY env var
-    - hook-managed LIB_DIR install locations
-    - @puppeteer/browsers / Puppeteer cache locations
-    - System Chromium locations
+    - host Chromium locations
+    - abxpkg-managed Puppeteer/Playwright provider shims under LIB_DIR
 
     Args:
         data_dir: Optional SNAP_DIR override
@@ -1607,8 +1579,6 @@ def chrome_session(
             lib_dir = get_lib_dir()
             npm_dir = lib_dir / "npm"
             node_modules_dir = npm_dir / "node_modules"
-        puppeteer_cache_dir = lib_dir / "puppeteer" / "chromium"
-
         # Create lib structure for puppeteer installation
         node_modules_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1646,7 +1616,6 @@ def chrome_session(
                 "CHROME_DOWNLOADS_DIR": str(chrome_downloads_dir),
                 "CHROME_USER_DATA_DIR": str(chrome_user_data_dir),
                 "CHROME_HEADLESS": "true",
-                "PUPPETEER_CACHE_DIR": str(puppeteer_cache_dir),
             },
         )
         if env_overrides:
@@ -1654,9 +1623,6 @@ def chrome_session(
         chrome_timeout = int(env.get("CHROME_TIMEOUT") or "60")
         startup_timeout = max(int(timeout), chrome_timeout + 15)
         env.setdefault("CHROME_DEBUG_PORT_TIMEOUT_MS", str(startup_timeout * 1000))
-
-        # Reuse system Puppeteer cache to avoid redundant Chromium downloads
-        link_puppeteer_cache(lib_dir)
 
         # Reuse already-provisioned Chromium when available (session fixture sets CHROME_BINARY).
         # Falling back to hook-based install on each test is slow and can hang on flaky networks.

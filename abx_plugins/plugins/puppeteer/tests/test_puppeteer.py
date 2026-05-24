@@ -14,7 +14,6 @@ from abx_plugins.plugins.base.test_utils import (
     get_plugin_dir,
 )
 from abx_plugins.plugins.puppeteer.on_BinaryRequest__12_puppeteer import (
-    _get_install_failure_hint,
     _is_explicit_path,
     _load_binary_from_path,
 )
@@ -49,26 +48,6 @@ def test_chrome_plugin_declares_puppeteer_dependency():
     assert "puppeteer" in config["required_plugins"]
 
 
-def test_puppeteer_install_failure_hint_for_claude_sandbox_dns_error():
-    output = """
-Error: getaddrinfo EAI_AGAIN storage.googleapis.com
-    at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26) {
-  errno: -3001,
-  code: 'EAI_AGAIN',
-  syscall: 'getaddrinfo',
-  hostname: 'storage.googleapis.com'
-}
-"""
-    hint = _get_install_failure_hint(output)
-    assert hint is not None
-    assert "Claude sandboxes" in hint
-    assert (
-        'NO_PROXY="localhost,127.0.0.1,169.254.169.254,metadata.google.internal,.svc.cluster.local,.local"'
-        in hint
-    )
-    assert 'no_proxy="$NO_PROXY"' in hint
-
-
 def test_crawl_hook_respects_configured_chrome_binary():
     browser_name = "chrome"
     env = os.environ.copy()
@@ -94,7 +73,7 @@ def test_resolve_binary_reference_accepts_explicit_paths(
 ):
     browser_name = "chrome"
     binary_path = tmp_path / browser_name
-    version_output = "Google Chrome 123.4.5\n"
+    version_output = "Google Chrome for Testing 123.4.5\n"
     binary_path.write_text(f"#!/bin/sh\necho '{version_output.strip()}'\n")
     binary_path.chmod(0o755)
 
@@ -112,7 +91,7 @@ def test_resolve_binary_reference_rejects_bare_names():
 def test_binary_hook_fast_path_does_not_emit_machine_record(tmp_path: Path):
     fake_browser = tmp_path / "fake-chrome"
     fake_browser.write_text(
-        "#!/bin/sh\necho 'Google Chrome 123.4.5'\n",
+        "#!/bin/sh\necho 'Google Chrome for Testing 123.4.5'\n",
     )
     fake_browser.chmod(0o755)
 

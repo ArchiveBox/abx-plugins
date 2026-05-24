@@ -162,7 +162,6 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
             "PERSONAS_DIR": str(personas_dir),
             "LIB_DIR": str(lib_dir),
             "MACHINE_TYPE": machine_type,
-            "PUPPETEER_CACHE_DIR": str(lib_dir / "puppeteer" / "chromium"),
             "PATH": _browserless_path(tmp_path, browser_name),
         },
     )
@@ -223,8 +222,6 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
         assert str(installed_browser).startswith(str(lib_dir.resolve())), (
             installed_browser
         )
-    assert env["PUPPETEER_CACHE_DIR"] == str(lib_dir / "puppeteer" / "chromium")
-
     chrome_launch_process = subprocess.Popen(
         [str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
         cwd=str(chrome_dir),

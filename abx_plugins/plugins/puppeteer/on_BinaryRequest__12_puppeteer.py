@@ -10,7 +10,7 @@
 # ]
 # ///
 """
-Install Google Chrome via the Puppeteer CLI.
+Install Chrome for Testing via the Puppeteer CLI.
 
 Usage: on_BinaryRequest__12_puppeteer.py --name=<name>
 Output: Binary JSONL record to stdout after installation
@@ -19,6 +19,8 @@ Output: Binary JSONL record to stdout after installation
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -29,11 +31,6 @@ from abx_plugins.plugins.base.utils import (
     emit_installed_binary_record,
     load_config,
     parse_extra_hook_args,
-)
-
-CLAUDE_SANDBOX_NO_PROXY = (
-    "localhost,127.0.0.1,169.254.169.254,metadata.google.internal,"
-    ".svc.cluster.local,.local"
 )
 
 
@@ -66,10 +63,8 @@ def main(
     lib_dir = (config.LIB_DIR or "").strip()
     if not lib_dir:
         lib_dir = str(Path.home() / ".config" / "abx" / "lib")
-
-    install_root = (Path(lib_dir) / "puppeteer").resolve()
-    install_root.mkdir(parents=True, exist_ok=True)
-    provider = PuppeteerProvider(install_root=install_root)
+    os.environ.setdefault("ABXPKG_LIB_DIR", str(Path(lib_dir).expanduser().resolve()))
+    provider = PuppeteerProvider()
 
     raw_overrides = json.loads(overrides) if overrides else {}
     if not isinstance(raw_overrides, dict):
@@ -109,9 +104,6 @@ def main(
         ).install()
     except Exception as e:
         error_output = str(e)
-        hint = _get_install_failure_hint(error_output)
-        if hint:
-            click.echo(hint, err=True)
         click.echo(f"puppeteer install failed: {error_output}", err=True)
         sys.exit(1)
 
@@ -125,28 +117,6 @@ def main(
     )
 
     sys.exit(0)
-
-
-def _get_install_failure_hint(install_output: str) -> str | None:
-    output = install_output or ""
-    lowered = output.lower()
-    if (
-        "storage.googleapis.com" in lowered
-        and "getaddrinfo" in lowered
-        and "eai_again" in lowered
-    ):
-        return (
-            "HINT: Puppeteer failed to download Chrome from storage.googleapis.com.\n"
-            "HINT: In Claude sandboxes, NO_PROXY often includes *.googleapis.com "
-            "and *.google.com. @puppeteer/browsers respects NO_PROXY, bypasses the "
-            "egress proxy for storage.googleapis.com, and the direct connection can "
-            "time out or fail DNS resolution.\n"
-            "HINT: Override NO_PROXY, no_proxy, and any tool-specific no-proxy env "
-            "vars to remove .googleapis.com and .google.com before retrying.\n"
-            f'HINT: NO_PROXY="{CLAUDE_SANDBOX_NO_PROXY}"\n'
-            'HINT: no_proxy="$NO_PROXY"'
-        )
-    return None
 
 
 def _emit_browser_binary_record(
@@ -178,9 +148,40 @@ def _load_binary_from_path(path: str, name: str) -> Binary | None:
         ).load()
     except Exception:
         return None
-    if binary and binary.abspath:
+    if binary and binary.abspath and _is_supported_chromium_binary(binary.abspath):
         return binary
     return None
+
+
+def _is_supported_chromium_binary(path: str | Path) -> bool:
+    try:
+        proc = subprocess.run(
+            [str(path), "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except Exception:
+        return False
+    version = f"{proc.stdout}\n{proc.stderr}".strip()
+    if not version:
+        return False
+    if (
+        version.startswith("Google Chrome ")
+        and "Chrome for Testing" not in version
+        and "Chrome Canary" not in version
+    ):
+        return False
+    return any(
+        name in version
+        for name in (
+            "Chromium",
+            "Chrome for Testing",
+            "Chrome Canary",
+            "HeadlessChrome",
+            "Chrome Headless Shell",
+        )
+    )
 
 
 def _is_explicit_path(value: str) -> bool:

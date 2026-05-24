@@ -183,7 +183,7 @@ function loadConfig(configPath = null) {
     if (Object.prototype.hasOwnProperty.call(config, 'CHROME_BINARY')) {
         const ciChromiumPath = '/usr/bin/chromium';
         const canaryPath = '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary';
-        const hasExplicitBrowser = ['CHROME_BINARY', 'CHROMIUM_BINARY', 'GOOGLE_CHROME_BINARY']
+        const hasExplicitBrowser = ['CHROME_BINARY', 'CHROMIUM_BINARY']
             .some(name => Object.prototype.hasOwnProperty.call(process.env, name));
         if (!hasExplicitBrowser) {
             if (fs.existsSync(ciChromiumPath)) {

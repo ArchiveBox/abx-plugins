@@ -39,6 +39,37 @@ def _write_fake_browser_binary(path: Path, label: str = "Chromium") -> None:
     path.chmod(0o755)
 
 
+def _is_supported_browser_path(path: Path) -> bool:
+    try:
+        proc = subprocess.run(
+            [str(path), "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except Exception:
+        return False
+    version = f"{proc.stdout}\n{proc.stderr}".strip()
+    if not version:
+        return False
+    if (
+        version.startswith("Google Chrome ")
+        and "Chrome for Testing" not in version
+        and "Chrome Canary" not in version
+    ):
+        return False
+    return any(
+        name in version
+        for name in (
+            "Chromium",
+            "Chrome for Testing",
+            "Chrome Canary",
+            "HeadlessChrome",
+            "Chrome Headless Shell",
+        )
+    )
+
+
 def test_get_machine_type():
     """Test get_machine_type() returns valid format."""
     machine_type = get_machine_type()
@@ -154,17 +185,9 @@ def test_find_chromium_binary():
         assert os.path.isabs(binary)
 
 
-def test_find_chromium_uses_canonical_managed_puppeteer_cache_dir(tmp_path: Path):
-    """findChromium() should resolve binaries from LIB_DIR/puppeteer/chromium."""
-    binary_path = (
-        tmp_path
-        / "lib"
-        / "puppeteer"
-        / "chromium"
-        / "123456"
-        / "chrome-linux64"
-        / "chrome"
-    )
+def test_find_chromium_uses_abxpkg_managed_puppeteer_shim(tmp_path: Path):
+    """findChromium() should resolve binaries from abxpkg's provider shim dir."""
+    binary_path = tmp_path / "lib" / "puppeteer" / "bin" / "chrome"
     _write_fake_browser_binary(binary_path)
 
     env = os.environ.copy()
@@ -185,9 +208,9 @@ def test_find_chromium_uses_canonical_managed_puppeteer_cache_dir(tmp_path: Path
     )
     expected_binary = (
         ci_chromium
-        if ci_chromium.exists()
+        if _is_supported_browser_path(ci_chromium)
         else canary_binary
-        if canary_binary.exists()
+        if _is_supported_browser_path(canary_binary)
         else binary_path
     )
     assert stdout.strip() == str(expected_binary)
@@ -195,7 +218,7 @@ def test_find_chromium_uses_canonical_managed_puppeteer_cache_dir(tmp_path: Path
 
 @pytest.mark.parametrize(
     ("browser_name", "label"),
-    [("chrome", "Google Chrome")],
+    [("chrome", "Google Chrome for Testing")],
 )
 def test_find_chromium_accepts_command_name_chrome_binary(
     tmp_path: Path,
@@ -492,7 +515,7 @@ def test_lib_dir_is_directory():
 def test_install_chromium_with_hooks_reuses_existing_chrome_via_env(tmp_path: Path):
     """Use public env inputs only: existing CHROME_BINARY should be reused."""
     chrome_path = tmp_path / "chrome"
-    chrome_path.write_text("#!/bin/sh\nexit 0\n")
+    chrome_path.write_text("#!/bin/sh\necho 'Google Chrome for Testing 123.0.0.0'\n")
     chrome_path.chmod(0o755)
 
     # Provide a minimal local puppeteer package so require.resolve('puppeteer')
