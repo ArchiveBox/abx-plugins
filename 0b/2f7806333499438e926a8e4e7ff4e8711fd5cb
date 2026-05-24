@@ -1,0 +1,73 @@
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_b989805ae95d6a::t_12af664dd1a83a 3,5
+  s_b989805ae95d6a::t_cc7de03b18b658 14
+  s_b989805ae95d6a::t_9c449654534bb5 920
+  s_b989805ae95d6a::t_23d4fd1343f96e 1826
+  s_b989805ae95d6a::t_29562c2b22a41e 1589-1590,1595-1599,1601,1604,1647-1648,1650,1652-1670,1681,3164-3171,3400-3409,3413,3508
+  s_b989805ae95d6a::t_caa9c62ad058a1 3479
+  s_b989805ae95d6a::t_c90b38f8ef714c 38-68
+  s_b989805ae95d6a::t_b4d6ddbe68234a 2314-2317,2320-2323,2326
+  s_b989805ae95d6a::t_4803c5f3bda37a 2646
+  s_b989805ae95d6a::t_e900228b0f6b1e 3783
+  s_b989805ae95d6a::t_a3af7af64969b6 1815,1886,1963
+  s_b989805ae95d6a::t_1690ddecfa0ab7 851-856,1807,1817-1819,1857
+  s_b989805ae95d6a::t_39f2d21dd47a12 1885,1890-1894,1917,1922
+  s_b989805ae95d6a::t_349c8913ff5233 816,1737,2627
+  s_b989805ae95d6a::t_91f71a6083924f 3154,3176,3386,3478
+  s_b989805ae95d6a::t_7a241b327b706b 1623-1633
+  s_b989805ae95d6a::t_8870b7cf38ba07 3752
+  s_b989805ae95d6a::t_649eeb409d2690 3477
+  s_b989805ae95d6a::t_ad1e100b743241 1715
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_b989805ae95d6a::t_fd8cfd118ea494 14-15
+  s_b989805ae95d6a::t_238086869524d2 431,556
+  s_b989805ae95d6a::t_b1e86edeb0bf30 480-519
+tests/test_singlefile_extension_save.py
+  s_b989805ae95d6a::t_dac5828d382129 69
+  s_b989805ae95d6a::t_1fa3cc601a9832 58-59
+abx_plugins/plugins/singlefile/singlefile_extension_save.js
+  s_b989805ae95d6a::t_e44f4151805a19 218,249,251,255,258
+  s_b989805ae95d6a::t_1aac92e69d2f5e 250
+abx_plugins/plugins/istilldontcareaboutcookies/tests/test_istilldontcareaboutcookies.py
+  s_b989805ae95d6a::t_926cd392dd36ab 243
+abx_plugins/plugins/twocaptcha/tests/test_twocaptcha.py
+  s_b989805ae95d6a::t_0933a5b695ad31 212
+abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py
+  s_b989805ae95d6a::t_2e51dbe15a401f 221,518
+  s_b989805ae95d6a::t_85c6a73ff4b47e 53-68
+  s_b989805ae95d6a::t_f0eb9abe59c7bb 188-190
+  s_b989805ae95d6a::t_b779b70e75f650 42-52,69-72,211,213
+abx_plugins/plugins/puppeteer/on_BinaryRequest__12_puppeteer.py
+  s_b989805ae95d6a::t_e0c265bdcb5e0c 22,66-67
+  s_b989805ae95d6a::t_876c2497383a97 23,151,156-168,170-172,174-184
+abx_plugins/plugins/ublock/tests/test_ublock.py
+  s_b989805ae95d6a::t_d901f4c305661d 545
+  s_b989805ae95d6a::t_09b34e628c115a 471
+abx_plugins/plugins/chrome/on_Snapshot__10_chrome_tab.daemon.bg.js
+  s_b989805ae95d6a::t_04de7acc138921 300-302
+  s_b989805ae95d6a::t_d1259438c6d9f7 342-344
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  s_b989805ae95d6a::t_903fc4aada838e 694-695
+  s_b989805ae95d6a::t_80a7373b07034b 576
+  s_b989805ae95d6a::t_72aa34dd3adf5d 629
+abx_plugins/plugins/chrome/README.md
+  s_b989805ae95d6a::t_7aa8dbed79ad40 352-353,395
+abx_plugins/plugins/puppeteer/tests/test_puppeteer.py
+  s_b989805ae95d6a::t_e56c715bdee8c9 76,94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "0b2f7806333499438e926a8e4e7ff4e8711fd5cb",
+  "prompts": {},
+  "sessions": {
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
