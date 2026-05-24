@@ -141,6 +141,7 @@ def _emit_browser_binary_record(
         version=str(binary.version) if binary.version else "",
         sha256=binary.sha256 or "",
         binprovider="puppeteer",
+        binary=binary,
     )
 
 

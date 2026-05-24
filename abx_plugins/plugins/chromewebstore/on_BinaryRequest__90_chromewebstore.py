@@ -84,6 +84,7 @@ def main(
         version=str(binary.version or ""),
         sha256=str(binary.sha256 or ""),
         binprovider="chromewebstore",
+        binary=binary,
     )
 
     click.echo(f"Resolved extension {name} -> {binary.abspath}", err=True)

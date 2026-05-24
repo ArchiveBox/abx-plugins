@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Chrome MHTML",
+  "description": "Save a browser-generated MHTML snapshot of the rendered page.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [
+    "chrome"
+  ],
+  "required_binaries": [
+    {
+      "name": "{CHROME_BINARY}",
+      "binproviders": "env,puppeteer",
+      "min_version": null,
+      "overrides": {
+        "puppeteer": {
+          "install_args": [
+            "chrome@stable"
+          ]
+        }
+      }
+    }
+  ],
+  "output_mimetypes": [
+    "multipart/related",
+    "message/rfc822"
+  ],
+  "properties": {
+    "CHROME_BINARY": {
+      "type": "string",
+      "default": "chromium",
+      "description": "Path to a Chromium-family browser binary"
+    },
+    "CHROME_MHTML_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": [
+        "SAVE_CHROME_MHTML",
+        "USE_CHROME_MHTML"
+      ],
+      "description": "Enable browser-generated MHTML capture"
+    },
+    "CHROME_MHTML_TIMEOUT": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for browser-generated MHTML capture in seconds"
+    }
+  }
+}

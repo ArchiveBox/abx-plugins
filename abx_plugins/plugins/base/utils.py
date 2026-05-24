@@ -717,8 +717,22 @@ def emit_installed_binary_record(
     version: str,
     sha256: str,
     binprovider: str,
+    binary: Any | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> None:
     """Output Binary JSONL record for a resolved dependency."""
+    if (
+        env is None
+        and binary is not None
+        and getattr(binary, "loaded_binprovider", None)
+    ):
+        from abxpkg import BinProvider
+
+        env = BinProvider.build_exec_env(
+            providers=[binary.loaded_binprovider],
+            base_env={},
+        )
+
     record: dict[str, Any] = {
         "type": "Binary",
         "name": name,
@@ -727,6 +741,8 @@ def emit_installed_binary_record(
         "sha256": sha256,
         "binprovider": binprovider,
     }
+    if env:
+        record["env"] = dict(env)
     print_and_flush(sys.stdout, json.dumps(merge_EXTRA_CONTEXT(record)))
 
 

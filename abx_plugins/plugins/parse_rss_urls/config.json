@@ -5,7 +5,22 @@
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
-  "required_binaries": [],
+  "required_binaries": [
+    {
+      "name": "feedparser",
+      "binproviders": "pip",
+      "min_version": null,
+      "postinstall_scripts": true,
+      "overrides": {
+        "pip": {
+          "install_root": "{LIB_DIR}/pip/packages/parse_rss_urls",
+          "install_args": [
+            "feedparser"
+          ]
+        }
+      }
+    }
+  ],
   "output_mimetypes": [
     "application/x-ndjson"
   ],

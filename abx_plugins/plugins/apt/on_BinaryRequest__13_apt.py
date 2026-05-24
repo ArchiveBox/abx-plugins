@@ -141,6 +141,7 @@ def main(
         version=str(binary.version) if binary.version else "",
         sha256=binary.sha256 or "",
         binprovider=resolved_provider_name,
+        binary=binary,
     )
 
     # Log human-readable info to stderr

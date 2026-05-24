@@ -2,7 +2,6 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#   "feedparser",
 #   "pydantic-settings",
 #   "jambo",
 #   "rich-click",
