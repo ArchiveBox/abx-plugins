@@ -1,0 +1,43 @@
+abx_plugins/plugins/chrome_mhtml/on_Snapshot__54_chrome_mhtml.js
+  s_b989805ae95d6a::t_10b6ecba07d288 1-138
+abx_plugins/plugins/chrome_extension_mhtml/templates/full.html
+  s_b989805ae95d6a::t_08c1430b228c4f 1-5
+abx_plugins/plugins/parse_rss_urls/config.json
+  s_b989805ae95d6a::t_656eeccb944f2c 19
+  s_b989805ae95d6a::t_ef631523c248d8 8-18,20-23
+abx_plugins/plugins/chrome_mhtml/templates/card.html
+  s_b989805ae95d6a::t_10b6ecba07d288 1-8
+abx_plugins/plugins/base/utils.py
+  s_b989805ae95d6a::t_e65a292a08687c 721,744-745
+  s_b989805ae95d6a::t_aec361bd3018c2 720,725-726,728-735
+abx_plugins/plugins/pip/on_BinaryRequest__11_pip.py
+  s_b989805ae95d6a::t_5190aa3ccda0ae 281
+abx_plugins/plugins/chrome_mhtml/templates/icon.html
+  s_b989805ae95d6a::t_10b6ecba07d288 1
+abx_plugins/plugins/chrome_extension_mhtml/templates/card.html
+  s_b989805ae95d6a::t_08c1430b228c4f 1-8
+abx_plugins/plugins/chrome_mhtml/config.json
+  s_b989805ae95d6a::t_10b6ecba07d288 1-51
+abx_plugins/plugins/chrome_mhtml/tests/test_chrome_mhtml.py
+  s_b989805ae95d6a::t_08c1430b228c4f 97-115
+  s_b989805ae95d6a::t_10b6ecba07d288 1-74,79-80,82-96,116-149,151-184
+  s_b989805ae95d6a::t_360dc893759992 75-78,81,150
+abx_plugins/plugins/chrome_mhtml/templates/full.html
+  s_b989805ae95d6a::t_7fed7b141fd384 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "a74013ba9bb7d5ea392d2696c17fc8f54217f920",
+  "prompts": {},
+  "sessions": {
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
