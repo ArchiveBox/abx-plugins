@@ -2010,8 +2010,8 @@ def test_chrome_is_local_false_requires_cdp_url_for_launch():
         assert "CHROME_IS_LOCAL=false requires CHROME_CDP_URL" in launch.stderr
 
 
-def test_cdp_url_is_not_published_before_extensions_metadata():
-    """cddp_url.txt should only appear after extension metadata is ready."""
+def test_cdp_url_is_published_before_extensions_metadata():
+    """cdp_url.txt should appear as soon as Chrome is connectable, before extension readiness."""
     with tempfile.TemporaryDirectory() as tmpdir:
         shared_dir = Path(tmpdir) / "shared"
         shared_dir.mkdir()
@@ -2020,21 +2020,22 @@ def test_cdp_url_is_not_published_before_extensions_metadata():
         extensions_dir = Path(tmpdir) / "chrome_extensions"
         extensions_dir.mkdir()
 
+        _write_test_extension_cache(extensions_dir)
         install_env = _isolated_test_env(
             tmpdir,
             CHROME_EXTENSIONS_DIR=str(extensions_dir),
         )
-        _write_test_extension_cache(extensions_dir)
 
         env = install_env | {
             "CRAWL_DIR": str(shared_dir),
             "SNAP_DIR": str(shared_dir),
             "CHROME_HEADLESS": "true",
+            "CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS": "5000",
         }
         extensions_file = chrome_dir / "extensions.json"
         cdp_file = chrome_dir / "cdp_url.txt"
         chrome_launch_process = subprocess.Popen(
-            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-cdp-after-exts"],
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-cdp-before-exts"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -2046,17 +2047,17 @@ def test_cdp_url_is_not_published_before_extensions_metadata():
             deadline = time.time() + 120
             saw_extensions = False
             saw_cdp = False
+            saw_cdp_before_extensions = False
 
             while time.time() < deadline:
                 saw_extensions = extensions_file.exists()
                 saw_cdp = cdp_file.exists()
 
                 if saw_cdp and not saw_extensions:
-                    pytest.fail(
-                        "chrome launch published cdp_url.txt before extensions.json was ready",
-                    )
+                    saw_cdp_before_extensions = True
+                    break
 
-                if saw_cdp and saw_extensions:
+                if saw_cdp and saw_extensions and saw_cdp_before_extensions:
                     break
 
                 if chrome_launch_process.poll() is not None:
@@ -2064,12 +2065,12 @@ def test_cdp_url_is_not_published_before_extensions_metadata():
                     pytest.fail(
                         f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
                     )
-                time.sleep(1)
-
                 time.sleep(0.1)
 
-            assert saw_extensions, "chrome launch should create extensions.json"
             assert saw_cdp, "chrome launch should create cdp_url.txt"
+            assert saw_cdp_before_extensions, (
+                "chrome launch should publish cdp_url.txt before extensions.json"
+            )
             metadata = wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
             assert any(entry["name"] == TEST_EXTENSION_NAME for entry in metadata), (
                 metadata

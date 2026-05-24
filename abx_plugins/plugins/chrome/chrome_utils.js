@@ -11,7 +11,7 @@ const path = require('path');
 const http = require('http');
 const os = require('os');
 const net = require('net');
-const { spawn } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
 
 // Import generic helpers from base plugin
 const {
@@ -38,7 +38,6 @@ const CHROME_PROFILE_LOCK_FILES = [
 function getBrowserVersionOutput(binaryPath) {
     if (!binaryPath) return '';
     try {
-        const { execFileSync } = require('child_process');
         return execFileSync(binaryPath, ['--version'], {
             encoding: 'utf8',
             timeout: 5000,
@@ -159,13 +158,10 @@ function writePidWithMtime(filePath, pid, startTimeSeconds) {
  * @param {string[]} args - Chrome arguments
  */
 function writeCmdScript(filePath, binary, args) {
-    const escape = (arg) =>
-        arg.includes(' ') || arg.includes('"') || arg.includes('$')
-            ? `"${arg.replace(/"/g, '\\"')}"`
-            : arg;
+    const shellQuote = (arg) => `'${String(arg).replace(/'/g, "'\\''")}'`;
     fs.writeFileSync(
         filePath,
-        `#!/bin/bash\n${binary} ${args.map(escape).join(' ')}\n`
+        `#!/bin/bash\n${[binary, ...args].map(shellQuote).join(' ')}\n`
     );
     fs.chmodSync(filePath, 0o755);
 }
@@ -475,8 +471,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
 
     function getParentPid(pid) {
         try {
-            const { execSync } = require('child_process');
-            const output = execSync(`ps -o ppid= -p ${pid}`, {
+            const output = execFileSync('ps', ['-o', 'ppid=', '-p', String(pid)], {
                 encoding: 'utf8',
                 timeout: 5000,
                 stdio: ['ignore', 'pipe', 'ignore'],
@@ -506,8 +501,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
 
     function getProcessCommand(pid) {
         try {
-            const { execSync } = require('child_process');
-            return execSync(`ps -o command= -p ${pid}`, {
+            return execFileSync('ps', ['-o', 'command=', '-p', String(pid)], {
                 encoding: 'utf8',
                 timeout: 5000,
                 stdio: ['ignore', 'pipe', 'ignore'],
@@ -519,8 +513,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
 
     function getProcessWorkingDir(pid) {
         try {
-            const { execSync } = require('child_process');
-            const output = execSync(`lsof -a -p ${pid} -d cwd -Fn`, {
+            const output = execFileSync('lsof', ['-a', '-p', String(pid), '-d', 'cwd', '-Fn'], {
                 encoding: 'utf8',
                 timeout: 5000,
                 stdio: ['ignore', 'pipe', 'ignore'],
@@ -538,8 +531,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
 
     function findChromeHookProcesses() {
         try {
-            const { execSync } = require('child_process');
-            const output = execSync('ps -axo pid=,command=', { encoding: 'utf8', timeout: 5000 });
+            const output = execFileSync('ps', ['-axo', 'pid=,command='], { encoding: 'utf8', timeout: 5000 });
             const hookMatches = [];
             for (const line of output.split('\n')) {
                 const trimmed = line.trim();
@@ -807,17 +799,9 @@ async function killZombieChrome(snapDir = null, options = {}) {
 /**
  * Launch Chromium and return the live browser process + browser-level CDP endpoint.
  *
- * This helper only performs process startup and debug-port verification. It is
- * intentionally earlier in the lifecycle than the crawl launch hook's
- * "published readiness" step:
- * - it may write `chrome.pid` immediately for later cleanup/re-attachment
- * - it does NOT publish `cdp_url.txt` as a stable crawl marker
- * - callers must finish any runtime setup that should happen before other
- *   hooks attach (downloads via CDP, cookie seeding, extension loading, etc.)
- *   and only then write the crawl/session readiness files
- *
- * Snapshot hooks should therefore wait on the persisted session markers emitted
- * by the crawl launch hook, not on this raw launch result alone.
+ * This helper only performs process startup and debug-port verification. The
+ * caller publishes the browser-level CDP endpoint as soon as this returns; later
+ * runtime setup such as extension loading publishes its own readiness metadata.
  *
  * @param {Object} options - Launch options
  * @param {string} [options.binary] - Chrome binary path (auto-detected if not provided)
@@ -919,7 +903,6 @@ async function launchChromium(options = {}) {
 
     if (enableExtensionDebugging) {
         chromiumArgs.push('--enable-unsafe-extension-debugging');
-        chromiumArgs.push('--disable-features=DisableLoadExtensionCommandLineSwitch,ExtensionManifestV2Unsupported,ExtensionManifestV2Disabled');
     }
 
     chromiumArgs.push('about:blank');
@@ -1137,19 +1120,25 @@ async function acquireSessionLock(lockFile, timeoutMs = 10000, intervalMs = 100)
  * @returns {Array<number>} - Array of PIDs
  */
 function findChromeProcessesByPort(port) {
-    const { execSync } = require('child_process');
+    const debugPort = parseInt(port, 10);
+    if (!Number.isInteger(debugPort) || debugPort <= 0) return [];
+
     const pids = [];
 
     try {
-        // Find all Chrome processes using this debug port
-        const output = execSync(
-            `ps aux | grep -i "chrome.*--remote-debugging-port=${port}" | grep -v grep | awk '{print $2}'`,
-            { encoding: 'utf8', timeout: 5000 }
-        );
+        const output = execFileSync('ps', ['-axo', 'pid=,command='], { encoding: 'utf8', timeout: 5000 });
 
         for (const line of output.split('\n')) {
-            const pid = parseInt(line.trim(), 10);
-            if (!isNaN(pid) && pid > 0) {
+            const match = line.trim().match(/^(\d+)\s+(.*)$/);
+            if (!match) continue;
+            const pid = parseInt(match[1], 10);
+            const command = match[2].toLowerCase();
+            if (
+                !Number.isNaN(pid)
+                && pid > 0
+                && (command.includes('chrome') || command.includes('chromium'))
+                && command.includes(`--remote-debugging-port=${debugPort}`)
+            ) {
                 pids.push(pid);
             }
         }
@@ -1272,13 +1261,13 @@ async function killChrome(pid, outputDir = null) {
 }
 
 /**
- * Check if a Puppeteer target is an extension background page/service worker.
+ * Check if a Puppeteer target is an MV3 extension service worker.
  *
  * @param {Object} target - Puppeteer target object
  * @returns {Promise<Object>} - Object with target_is_bg, extension_id, manifest_version, etc.
  */
 const CHROME_EXTENSION_URL_PREFIX = 'chrome-extension://';
-const EXTENSION_BACKGROUND_TARGET_TYPES = new Set(['service_worker', 'background_page']);
+const EXTENSION_BACKGROUND_TARGET_TYPES = new Set(['service_worker']);
 
 /**
  * Parse extension ID from a target URL.
@@ -1303,8 +1292,8 @@ function getValidInstalledExtensions(extensions) {
 }
 
 async function tryGetExtensionContext(target, targetType) {
-    if (targetType === 'service_worker') return await target.worker();
-    return await target.page();
+    if (targetType !== 'service_worker') return null;
+    return await target.worker();
 }
 
 async function waitForExtensionTargetType(browser, extensionId, targetType, timeout) {
@@ -1367,8 +1356,7 @@ async function waitForExtensionTargetHandle(browser, extensionId, timeout = 3000
     while (Date.now() < deadline) {
         const candidates = browser.targets().filter(target =>
             getExtensionIdFromUrl(target.url()) === extensionId &&
-            (EXTENSION_BACKGROUND_TARGET_TYPES.has(target.type()) ||
-                target.url().startsWith(CHROME_EXTENSION_URL_PREFIX))
+            target.type() === 'service_worker'
         );
 
         if (preferredTargetUrl) {
@@ -1422,12 +1410,11 @@ async function isTargetExtension(target) {
         }
     }
 
-    // Check if this is an extension background page or service worker
+    // Check if this is an MV3 extension service worker
     const extension_id = getExtensionIdFromUrl(target_url);
     const is_chrome_extension = Boolean(extension_id);
-    const is_background_page = target_type === 'background_page';
     const is_service_worker = target_type === 'service_worker';
-    const target_is_bg = is_chrome_extension && (is_background_page || is_service_worker);
+    const target_is_bg = is_chrome_extension && is_service_worker;
 
     let manifest_version = null;
     let manifest = null;
@@ -1521,14 +1508,6 @@ async function loadExtensionFromTarget(extensions, target) {
 
                 if (chromeApi?.action?.onClicked?.dispatch) {
                     return await chromeApi.action.onClicked.dispatch(tab);
-                }
-
-                if (browserApi?.browserAction?.onClicked?.dispatch) {
-                    return await browserApi.browserAction.onClicked.dispatch(tab);
-                }
-
-                if (chromeApi?.browserAction?.onClicked?.dispatch) {
-                    return await chromeApi.browserAction.onClicked.dispatch(tab);
                 }
 
                 throw new Error('Extension action dispatch not available');
@@ -1729,30 +1708,13 @@ function getExtensionPaths(extensions) {
  *   const worker = await waitForExtensionTarget(browser, extensionId);
  *   // worker is a WebWorker context
  *
- * For Manifest V2 extensions (background pages):
- *   const page = await waitForExtensionTarget(browser, extensionId);
- *   // page is a Page context
- *
  * @param {Object} browser - Puppeteer browser instance
  * @param {string} extensionId - Runtime extension ID returned by Extensions.loadUnpacked
  * @param {number} [timeout=30000] - Timeout in milliseconds
  * @returns {Promise<Object>} - Worker or Page context for the extension
  */
 async function waitForExtensionTarget(browser, extensionId, timeout = 30000) {
-    for (const targetType of EXTENSION_BACKGROUND_TARGET_TYPES) {
-        try {
-            const context = await waitForExtensionTargetType(browser, extensionId, targetType, timeout);
-            if (context) return context;
-        } catch (err) {
-            // Continue to next extension target type
-        }
-    }
-
-    // Try any extension page as fallback
-    const extTarget = await waitForExtensionTargetHandle(browser, extensionId, timeout);
-
-    // Return worker or page depending on target type
-    return await tryGetExtensionContext(extTarget, extTarget.type());
+    return await waitForExtensionTargetType(browser, extensionId, 'service_worker', timeout);
 }
 
 /**
@@ -1821,8 +1783,6 @@ function getExtensionTargets(browser) {
  * @returns {string|null} - Absolute path to browser binary or null if not found
  */
 function findChromium() {
-    const { execFileSync } = require('child_process');
-
     const validateBinary = (binaryPath) => isSupportedChromiumBinary(binaryPath);
 
     const resolveBinaryReference = (binaryPath) => {
@@ -3498,6 +3458,7 @@ async function ensureChromeSession(options = {}) {
     } else {
         try { fs.unlinkSync(path.join(outputDir, 'chrome.pid')); } catch (error) {}
     }
+    fs.writeFileSync(path.join(outputDir, 'cdp_url.txt'), resolvedCdpUrl);
 
     if (downloadsDir || cookiesFile || installedExtensions.length > 0) {
         let browser = null;
@@ -3558,7 +3519,6 @@ async function ensureChromeSession(options = {}) {
     } else {
         try { fs.unlinkSync(path.join(outputDir, 'extensions.json')); } catch (error) {}
     }
-    fs.writeFileSync(path.join(outputDir, 'cdp_url.txt'), resolvedCdpUrl);
 
     return {
         cdpUrl: resolvedCdpUrl,

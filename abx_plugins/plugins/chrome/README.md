@@ -115,7 +115,8 @@ When `CHROME_CDP_URL` is unset, `ensureChromeSession(...)` launches local Chromi
 - an `about:blank` page exists
 - CDP can attach to that page and read its title
 
-Only after that does it publish `cdp_url.txt`.
+It then publishes `cdp_url.txt`. Later setup publishes separate readiness
+metadata such as `extensions.json`.
 
 ### External adoption
 
@@ -245,7 +246,8 @@ Responsibilities:
 - avoid destroying an explicit live `CHROME_CDP_URL` session when re-invoked against the same directory
 - configure downloads over CDP
 - import cookies if configured
-- publish `extensions.json` before `cdp_url.txt`
+- publish `cdp_url.txt` as soon as the browser endpoint is connectable
+- publish `extensions.json` only after unpacked extensions have runtime metadata
 - publish `chrome.pid` only for local sessions
 
 #### `closeBrowserInChromeSession(options)`
@@ -349,13 +351,14 @@ Core tab lifecycle helpers used by the Chrome hooks.
 
 1. Extension installer hooks populate the extension cache.
 2. Crawl launch hook calls `ensureChromeSession(...)`.
-3. Browser-wide setup completes, including CDP `Extensions.loadUnpacked`.
-4. `extensions.json` and then `cdp_url.txt` are published in `CRAWL_DIR/chrome/`.
-5. Crawl wait verifies a real CDP connection.
-6. Snapshot tab hook creates a target and publishes `SNAP_DIR/chrome/target_id.txt`.
-7. Snapshot wait verifies the target is live.
-8. Navigate hook writes `navigation.json`.
-9. Later extractors call `connectToPage(...)`.
+3. `cdp_url.txt` is published in `CRAWL_DIR/chrome/` as soon as the browser is connectable.
+4. Browser-wide setup completes, including CDP `Extensions.loadUnpacked`.
+5. `extensions.json` is published once extension runtime IDs/targets are known.
+6. Crawl wait verifies a real CDP connection.
+7. Snapshot tab hook creates a target and publishes `SNAP_DIR/chrome/target_id.txt`.
+8. Snapshot wait verifies the target is live.
+9. Navigate hook writes `navigation.json`.
+10. Later extractors call `connectToPage(...)`.
 
 ### Snapshot isolation
 

@@ -3,7 +3,7 @@ Integration tests for twocaptcha plugin
 
 Run with: TWOCAPTCHA_API_KEY=your_key pytest archivebox/plugins/twocaptcha/tests/ -xvs
 
-NOTE: Chrome 137+ removed --load-extension support, so these tests MUST use Chromium.
+NOTE: These tests require Chromium-family builds with CDP Extensions.loadUnpacked support.
 """
 
 import json

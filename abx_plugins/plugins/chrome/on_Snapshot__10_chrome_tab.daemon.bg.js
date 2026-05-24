@@ -33,6 +33,7 @@ const {
     waitForChromeSessionState,
     closeTabInChromeSession,
     resolvePuppeteerModule,
+    loadInstalledExtensionsFromCache,
 } = require('./chrome_utils.js');
 const puppeteer = resolvePuppeteerModule();
 
@@ -392,18 +393,21 @@ async function main() {
             publishSuccess(output, version || '');
 
             try {
-                const extensionsSession = await waitForChromeSessionState(crawlChromeDir, {
-                    timeoutMs: 10000,
-                    requireExtensionsLoaded: true,
-                });
-                const extensions = extensionsSession?.extensions;
-                if (!extensions) {
-                    throw new Error('Missing extensions metadata');
+                const { installedExtensions } = loadInstalledExtensionsFromCache();
+                if (installedExtensions.length > 0) {
+                    const extensionsSession = await waitForChromeSessionState(crawlChromeDir, {
+                        timeoutMs: timeoutSeconds * 1000,
+                        requireExtensionsLoaded: true,
+                    });
+                    const extensions = extensionsSession?.extensions;
+                    if (!extensions) {
+                        throw new Error('Missing extensions metadata');
+                    }
+                    fs.writeFileSync(
+                        path.join(OUTPUT_DIR, 'extensions.json'),
+                        JSON.stringify(extensions, null, 2)
+                    );
                 }
-                fs.writeFileSync(
-                    path.join(OUTPUT_DIR, 'extensions.json'),
-                    JSON.stringify(extensions, null, 2)
-                );
             } catch (err) {}
             await startTargetMonitorBestEffort();
         }

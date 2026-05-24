@@ -36,7 +36,7 @@ BASE_UTILS_JS = PLUGIN_DIR.parent / "base" / "utils.js"
 CHROME_UTILS_JS = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
 CHROME_STARTUP_TIMEOUT_SECONDS = 45
 EXTENSION_NAME = "ublock"
-EXTENSION_WEBSTORE_ID = "cjpalhdlnbpafiamejdnhcphjbkeiagm"
+EXTENSION_WEBSTORE_ID = "ddkjiahejlhfcafbddmgiahcphecmpfh"
 
 
 def install_ublock_extension(env: dict[str, str]) -> subprocess.CompletedProcess[str]:
@@ -66,7 +66,7 @@ def test_chromewebstore_provider_exists():
 
 def test_extension_metadata():
     assert EXTENSION_NAME == "ublock"
-    assert EXTENSION_WEBSTORE_ID == "cjpalhdlnbpafiamejdnhcphjbkeiagm"
+    assert EXTENSION_WEBSTORE_ID == "ddkjiahejlhfcafbddmgiahcphecmpfh"
 
 
 def test_install_creates_cache():
@@ -89,7 +89,7 @@ def test_install_creates_cache():
 
         # Verify cache content
         cache_data = json.loads(cache_file.read_text())
-        assert cache_data["webstore_id"] == "cjpalhdlnbpafiamejdnhcphjbkeiagm"
+        assert cache_data["webstore_id"] == "ddkjiahejlhfcafbddmgiahcphecmpfh"
         assert cache_data["name"] == "ublock"
 
 
@@ -121,7 +121,7 @@ def test_install_twice_uses_cache():
 
 
 def test_no_configuration_required():
-    """Test that uBlock Origin works without configuration"""
+    """Test that uBlock Origin Lite works without configuration"""
     with tempfile.TemporaryDirectory() as tmpdir:
         ext_dir = Path(tmpdir) / "chrome_extensions"
         ext_dir.mkdir(parents=True)
@@ -141,7 +141,7 @@ def test_no_configuration_required():
 
 
 def test_large_extension_size():
-    """Test that uBlock Origin is downloaded successfully despite large size"""
+    """Test that uBlock Origin Lite is downloaded successfully."""
     with tempfile.TemporaryDirectory() as tmpdir:
         ext_dir = Path(tmpdir) / "chrome_extensions"
         ext_dir.mkdir(parents=True)
@@ -152,13 +152,11 @@ def test_large_extension_size():
         result = install_ublock_extension(env)
         assert result.returncode == 0, f"Install failed: {result.stderr}"
 
-        # If extension was downloaded, verify it's substantial size
-        crx_file = ext_dir / "cjpalhdlnbpafiamejdnhcphjbkeiagm__ublock.crx"
+        crx_file = ext_dir / "ddkjiahejlhfcafbddmgiahcphecmpfh__ublock.crx"
         if crx_file.exists():
-            # uBlock Origin with filter lists is typically 2-5 MB
             size_bytes = crx_file.stat().st_size
-            assert size_bytes > 1_000_000, (
-                f"uBlock Origin should be > 1MB, got {size_bytes} bytes"
+            assert size_bytes > 100_000, (
+                f"uBlock Origin Lite should be > 100KB, got {size_bytes} bytes"
             )
 
 
@@ -631,7 +629,7 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
 
 
 def test_blocks_ads_on_canyoublockit_extreme():
-    """Live test: verify uBlock Origin blocks ads on canyoublockit.com/extreme-test.
+    """Live test: verify uBlock Origin Lite blocks ads on canyoublockit.com/extreme-test.
 
     This test runs TWO browser sessions:
     1. WITHOUT extension - verifies ads are NOT blocked (baseline)

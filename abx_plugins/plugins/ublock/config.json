@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "uBlock Origin",
-  "description": "Install the uBlock Origin extension to block ads, trackers, and other page clutter during archiving.",
+  "title": "uBlock Origin Lite",
+  "description": "Install the uBlock Origin Lite extension to block ads, trackers, and other page clutter during archiving.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [
@@ -15,7 +15,7 @@
       "overrides": {
         "puppeteer": {
           "install_args": [
-            "chrome@canary"
+            "chrome@stable"
           ]
         }
       }
@@ -27,7 +27,7 @@
       "overrides": {
         "chromewebstore": {
           "install_args": [
-            "cjpalhdlnbpafiamejdnhcphjbkeiagm",
+            "ddkjiahejlhfcafbddmgiahcphecmpfh",
             "--name=ublock"
           ]
         }
@@ -50,7 +50,7 @@
       "x-aliases": [
         "USE_UBLOCK"
       ],
-      "description": "Enable uBlock Origin browser extension for ad blocking"
+      "description": "Enable uBlock Origin Lite browser extension for ad blocking"
     }
   }
 }
