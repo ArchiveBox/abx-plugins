@@ -77,7 +77,7 @@ def main(
         sys.exit(1)
 
     provider_overrides = raw_overrides.get("puppeteer")
-    default_install_args = ["chromium@latest", "--install-deps"]
+    default_install_args = ["chrome@stable", "--install-deps"]
     if provider_overrides is None:
         raw_overrides = {
             **raw_overrides,

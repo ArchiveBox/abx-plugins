@@ -83,7 +83,7 @@ def test_crawl_hook_respects_configured_chrome_binary():
     assert binary_record["name"] == browser_name
     assert binary_record["overrides"]["puppeteer"] == {
         "install_args": [
-            "chromium@latest",
+            "chrome@stable",
             "--install-deps",
         ],
     }
@@ -194,7 +194,7 @@ def test_puppeteer_installs_chrome():
                 + json.dumps(
                     {
                         "puppeteer": {
-                            "install_args": ["chromium@latest", "--install-deps"],
+                            "install_args": ["chrome@stable", "--install-deps"],
                         },
                     },
                 ),
