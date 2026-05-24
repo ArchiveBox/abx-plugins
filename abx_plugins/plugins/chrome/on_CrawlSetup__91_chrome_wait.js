@@ -24,7 +24,7 @@ const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
 const CRAWL_DIR = path.resolve((hookConfig.CRAWL_DIR || '.').trim());
 const OUTPUT_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
-const CHROME_BINARY = (process.env.CHROME_BINARY || 'chrome').split('/').at(-1);
+const CHROME_BINARY = (process.env.CHROME_BINARY || 'chromium').split('/').at(-1);
 if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }

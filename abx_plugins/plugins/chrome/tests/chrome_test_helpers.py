@@ -1016,7 +1016,7 @@ def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
             env["CHROME_BINARY"] = existing
             return existing
 
-        chrome_name = env.get("CHROME_BINARY") or "chrome"
+        chrome_name = env.get("CHROME_BINARY") or "chromium"
         chrome_record = _required_binary_record(CHROME_PLUGIN_DIR, chrome_name, env)
 
         chrome_cmd = [

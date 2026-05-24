@@ -48,7 +48,7 @@ Defined in [config.json](./config.json).
 | Variable | Default | Meaning |
 |---|---|---|
 | `CHROME_ENABLED` | `true` | Enable browser-backed archiving. |
-| `CHROME_BINARY` | `chrome` | Local Chromium, Chrome for Testing, or Chrome Canary binary to launch when not adopting an existing browser. |
+| `CHROME_BINARY` | `chromium` | Local Chromium, Chrome for Testing, or Chrome Canary binary to launch when not adopting an existing browser. |
 | `CHROME_CDP_URL` | `""` | Adopt an already-running browser instead of launching a local one. Accepts WS or HTTP CDP endpoints. |
 | `CHROME_IS_LOCAL` | `true` | Whether the owned browser process is local and should publish `chrome.pid`. If `CHROME_CDP_URL` is set, runtime behavior is external/non-local. |
 | `CHROME_KEEPALIVE` | `false` | Whether the owning launch hook should exit immediately and leave the browser running, instead of staying alive and closing it during cleanup. |

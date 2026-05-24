@@ -15,8 +15,7 @@
       "overrides": {
         "puppeteer": {
           "install_args": [
-            "chrome@stable",
-            "--install-deps"
+            "chromium@latest"
           ]
         }
       }
@@ -54,7 +53,7 @@
   "properties": {
     "CHROME_BINARY": {
       "type": "string",
-      "default": "chrome",
+      "default": "chromium",
       "x-aliases": [
         "CHROMIUM_BINARY"
       ],

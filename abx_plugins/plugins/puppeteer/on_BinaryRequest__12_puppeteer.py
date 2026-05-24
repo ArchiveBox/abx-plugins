@@ -10,7 +10,7 @@
 # ]
 # ///
 """
-Install Chrome for Testing via the Puppeteer CLI.
+Install Chromium via the Puppeteer CLI.
 
 Usage: on_BinaryRequest__12_puppeteer.py --name=<name>
 Output: Binary JSONL record to stdout after installation
@@ -50,7 +50,7 @@ def main(
     if binproviders != "*" and "puppeteer" not in binproviders.split(","):
         sys.exit(0)
 
-    if name not in ("chrome",):
+    if name not in ("chrome", "chromium"):
         sys.exit(0)
 
     existing_chrome_binary = (config.CHROME_BINARY or "").strip()
@@ -72,7 +72,7 @@ def main(
         sys.exit(1)
 
     provider_overrides = raw_overrides.get("puppeteer")
-    default_install_args = ["chrome@stable", "--install-deps"]
+    default_install_args = ["chromium@latest"]
     if provider_overrides is None:
         raw_overrides = {
             **raw_overrides,

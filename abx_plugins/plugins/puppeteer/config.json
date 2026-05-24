@@ -26,7 +26,7 @@
   "properties": {
     "CHROME_BINARY": {
       "type": "string",
-      "default": "chrome",
+      "default": "chromium",
       "x-aliases": [
         "CHROMIUM_BINARY"
       ],

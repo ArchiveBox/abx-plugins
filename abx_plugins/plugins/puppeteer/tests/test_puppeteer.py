@@ -62,8 +62,7 @@ def test_crawl_hook_respects_configured_chrome_binary():
     assert binary_record["name"] == browser_name
     assert binary_record["overrides"]["puppeteer"] == {
         "install_args": [
-            "chrome@stable",
-            "--install-deps",
+            "chromium@latest",
         ],
     }
 
@@ -129,7 +128,7 @@ def test_binary_hook_fast_path_does_not_emit_machine_record(tmp_path: Path):
     assert not any(r.get("type") == "Machine" for r in records), records
 
 
-def test_puppeteer_installs_chrome():
+def test_puppeteer_installs_chromium():
     assert shutil.which("npm"), "npm is required for puppeteer installation"
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -167,16 +166,8 @@ def test_puppeteer_installs_chrome():
         result = subprocess.run(
             [
                 str(BINARY_HOOK),
-                "--name=chrome",
+                "--name=chromium",
                 "--binproviders=puppeteer",
-                "--overrides="
-                + json.dumps(
-                    {
-                        "puppeteer": {
-                            "install_args": ["chrome@stable", "--install-deps"],
-                        },
-                    },
-                ),
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -199,10 +190,10 @@ def test_puppeteer_installs_chrome():
         binaries = [
             r
             for r in records
-            if (r.get("type") == "Binary" and r.get("name") == "chrome")
+            if (r.get("type") == "Binary" and r.get("name") == "chromium")
         ]
-        assert binaries, f"Expected Binary record for chrome, got: {records}"
+        assert binaries, f"Expected Binary record for chromium, got: {records}"
         abspath = binaries[0].get("abspath")
         assert abspath and Path(abspath).exists(), (
-            f"Chrome binary path invalid: {abspath}"
+            f"Chromium binary path invalid: {abspath}"
         )
