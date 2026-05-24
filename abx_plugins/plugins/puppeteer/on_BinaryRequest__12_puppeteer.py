@@ -76,7 +76,9 @@ def main(
     if provider_overrides is None:
         raw_overrides = {
             **raw_overrides,
-            "puppeteer": {"install_args": default_install_args},
+            "puppeteer": {
+                "install_args": _install_args_for_current_user(default_install_args),
+            },
         }
     elif (
         isinstance(provider_overrides, dict)
@@ -86,9 +88,19 @@ def main(
             **raw_overrides,
             "puppeteer": {
                 **provider_overrides,
-                "install_args": default_install_args,
+                "install_args": _install_args_for_current_user(default_install_args),
             },
         }
+    elif isinstance(provider_overrides, dict):
+        install_args = provider_overrides.get("install_args")
+        if isinstance(install_args, list):
+            raw_overrides = {
+                **raw_overrides,
+                "puppeteer": {
+                    **provider_overrides,
+                    "install_args": _install_args_for_current_user(install_args),
+                },
+            }
 
     context = click.get_current_context(silent=True)
     extra_kwargs = parse_extra_hook_args(context.args if context else [])
@@ -182,6 +194,22 @@ def _is_supported_chromium_binary(path: str | Path) -> bool:
             "Chrome Headless Shell",
         )
     )
+
+
+def _install_args_for_current_user(install_args: list[str]) -> list[str]:
+    args = [str(arg) for arg in install_args]
+    if os.geteuid() != 0 or "--install-deps" in args:
+        return args
+
+    browser_arg = next((arg for arg in args if not arg.startswith("-")), "")
+    if browser_arg.split("@", 1)[0] not in {
+        "chrome",
+        "chromium",
+        "chrome-headless-shell",
+    }:
+        return args
+
+    return [*args, "--install-deps"]
 
 
 def _is_explicit_path(value: str) -> bool:
