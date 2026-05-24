@@ -1,0 +1,86 @@
+abx_plugins/plugins/dom/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 18
+abx_plugins/plugins/headers/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 18
+abx_plugins/plugins/staticfile/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 18
+abx_plugins/plugins/twocaptcha/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 18
+abx_plugins/plugins/chrome/README.md
+  s_f2cef162290493::t_b1631de5aaf2d4 118-119,249-250,354-361
+abx_plugins/plugins/title/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 18
+abx_plugins/plugins/accessibility/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 18
+abx_plugins/plugins/modalcloser/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 18
+abx_plugins/plugins/claudechrome/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 18
+abx_plugins/plugins/ublock/tests/test_ublock.py
+  s_f2cef162290493::t_b1631de5aaf2d4 39,69,92,124,144,155,158-159,632
+abx_plugins/plugins/chrome/on_Snapshot__10_chrome_tab.daemon.bg.js
+  s_f2cef162290493::t_b1631de5aaf2d4 36,396-409
+abx_plugins/plugins/responses/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 18
+abx_plugins/plugins/pdf/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 18
+abx_plugins/plugins/puppeteer/on_BinaryRequest__12_puppeteer.py
+  s_f2cef162290493::t_b1631de5aaf2d4 75
+abx_plugins/plugins/seo/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 18
+abx_plugins/plugins/ublock/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 3-4,18,30,53
+abx_plugins/plugins/dns/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 18
+abx_plugins/plugins/consolelog/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 18
+abx_plugins/plugins/sslcerts/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 18
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_f2cef162290493::t_b1631de5aaf2d4 2013-2014,2023,2033,2038,2050,2057-2058,2060,2071-2073
+abx_plugins/plugins/singlefile/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 18
+abx_plugins/plugins/infiniscroll/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 18
+abx_plugins/plugins/parse_dom_outlinks/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 18
+abx_plugins/plugins/twocaptcha/tests/test_twocaptcha.py
+  s_b989805ae95d6a::t_3de606b841fa5e 6
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_b989805ae95d6a::t_6373388e15d3c8 1359
+  s_f2cef162290493::t_b1631de5aaf2d4 14,161,164,474,504,516,534,802-804,1123-1125,1129,1132-1141,1264,1270,1295-1296,1413,1417,1717,3461
+abx_plugins/plugins/chrome/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 30
+abx_plugins/plugins/screenshot/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 18
+abx_plugins/plugins/istilldontcareaboutcookies/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 18
+abx_plugins/plugins/puppeteer/tests/test_puppeteer.py
+  s_f2cef162290493::t_b1631de5aaf2d4 65
+abx_plugins/plugins/redirects/config.json
+  s_f2cef162290493::t_b1631de5aaf2d4 18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "3a83653d296b09251185530a22ef42190134ab85",
+  "prompts": {},
+  "sessions": {
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_f2cef162290493": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e59b9-3e6f-7053-bfc2-f24e1e83acc7",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
