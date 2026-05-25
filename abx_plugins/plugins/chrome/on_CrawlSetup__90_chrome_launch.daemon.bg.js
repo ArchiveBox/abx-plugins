@@ -172,7 +172,9 @@ async function main() {
 
         if (cleanupRequestedDuringLaunch) {
             cleanupRequestedDuringLaunch = false;
-            console.error(`[*] Ignored early ${CHROME_BINARY} cleanup requested before the CDP session was ready`);
+            console.error(`[*] Running deferred ${CHROME_BINARY} cleanup requested during launch`);
+            await cleanup();
+            return;
         }
 
         if (!shouldCloseOnCleanup) {

@@ -955,13 +955,18 @@ async function launchChromium(options = {}) {
                 writePidWithMtime(path.join(outputDir, 'chrome.pid'), chromePid, chromeStartTime);
             }
 
+            const logSubprocessOutput = getEnvBool('CHROME_LOG_SUBPROCESS_OUTPUT', false);
             chromiumProcess.stdout.on('data', (data) => {
                 recentStdout = `${recentStdout}${String(data)}`.slice(-4000);
-                process.stderr.write(`[chromium:stdout] ${data}`);
+                if (logSubprocessOutput) {
+                    process.stderr.write(`[chromium:stdout] ${data}`);
+                }
             });
             chromiumProcess.stderr.on('data', (data) => {
                 recentStderr = `${recentStderr}${String(data)}`.slice(-4000);
-                process.stderr.write(`[chromium:stderr] ${data}`);
+                if (logSubprocessOutput) {
+                    process.stderr.write(`[chromium:stderr] ${data}`);
+                }
             });
 
             // This watches the raw spawned process before we have a reliable CDP
@@ -3274,7 +3279,11 @@ async function closeBrowserInChromeSession(options = {}) {
         try {
             browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, { defaultViewport: null });
             const session = await browser.target().createCDPSession();
-            await session.send('Browser.close');
+            await withTimeout(
+                () => session.send('Browser.close'),
+                forceKillTimeoutMs,
+                `Timed out closing browser at ${cdpUrl}`,
+            );
         } catch (error) {
             console.error(`[!] Browser.close failed: ${error.message}`);
         } finally {
