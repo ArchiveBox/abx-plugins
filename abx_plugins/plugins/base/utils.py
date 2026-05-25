@@ -258,10 +258,7 @@ def _resolve_schema_payload(
     environ: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     environ = os.environ if environ is None else environ
-    resolved = {
-        key: normalize_config_value(value)
-        for key, value in (resolved_config or {}).items()
-    }
+    resolved = dict(resolved_config or {})
     payload: dict[str, Any] = {}
 
     for _ in range(max(len(properties), 1) + 1):
@@ -428,6 +425,7 @@ def resolve_plugin_configs(
         key: normalize_config_value(value)
         for key, value in (global_config or {}).items()
     }
+    resolved_payloads: dict[str, dict[str, Any]] = {}
 
     for _ in range(max(len(plugin_schemas), 1) + 1):
         changed = False
@@ -438,10 +436,17 @@ def resolve_plugin_configs(
                 user_config=user_config,
                 environ=environ,
             )
-            model = build_config_model(plugin_name, schema)
-            plugin_config = normalize_config_value(
-                model.model_validate(payload).model_dump(mode="json"),
-            )
+            if (
+                plugin_name in resolved_sections
+                and resolved_payloads.get(plugin_name) == payload
+            ):
+                plugin_config = resolved_sections[plugin_name]
+            else:
+                model = build_config_model(plugin_name, schema)
+                plugin_config = normalize_config_value(
+                    model.model_validate(payload).model_dump(mode="json"),
+                )
+                resolved_payloads[plugin_name] = payload
             if resolved_sections.get(plugin_name) != plugin_config:
                 resolved_sections[plugin_name] = plugin_config
                 changed = True
