@@ -1,0 +1,49 @@
+abx_plugins/plugins/claudecodeextract/templates/card.html
+  s_074e76a4b61abc::t_b4d5dab3a4438a 6
+abx_plugins/plugins/favicon/templates/card.html
+  s_074e76a4b61abc::t_b4d5dab3a4438a 7-9
+abx_plugins/plugins/chrome_mhtml/templates/card.html
+  s_074e76a4b61abc::t_b4d5dab3a4438a 6
+abx_plugins/plugins/claudecode/templates/card.html
+  s_074e76a4b61abc::t_b4d5dab3a4438a 6
+abx_plugins/plugins/gallerydl/templates/card.html
+  s_074e76a4b61abc::t_b4d5dab3a4438a 6-8
+abx_plugins/plugins/archivedotorg/templates/card.html
+  s_074e76a4b61abc::t_b4d5dab3a4438a 9
+abx_plugins/plugins/singlefile/templates/card.html
+  s_074e76a4b61abc::t_b4d5dab3a4438a 6
+abx_plugins/plugins/mercury/templates/card.html
+  s_074e76a4b61abc::t_b4d5dab3a4438a 6
+abx_plugins/plugins/wget/templates/card.html
+  s_074e76a4b61abc::t_b4d5dab3a4438a 6
+abx_plugins/plugins/dom/templates/card.html
+  s_074e76a4b61abc::t_b4d5dab3a4438a 6
+abx_plugins/plugins/base/utils.py
+  s_074e76a4b61abc::t_726d885139ad37 261,428,440-441,443-449
+abx_plugins/plugins/readability/templates/card.html
+  s_074e76a4b61abc::t_b4d5dab3a4438a 6
+abx_plugins/plugins/staticfile/templates/card.html
+  s_074e76a4b61abc::t_b4d5dab3a4438a 11-13,17-18,24
+abx_plugins/plugins/screenshot/templates/card.html
+  s_074e76a4b61abc::t_b4d5dab3a4438a 7-8
+abx_plugins/plugins/claudecodecleanup/templates/card.html
+  s_074e76a4b61abc::t_b4d5dab3a4438a 6
+abx_plugins/plugins/claudechrome/templates/card.html
+  s_074e76a4b61abc::t_b4d5dab3a4438a 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "2482e0b52d538d279e7c81e4b279c12c7a8dbe38",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
