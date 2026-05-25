@@ -115,10 +115,10 @@ def save_paper(url: str, binary: str) -> tuple[bool, int, str]:
     # Try to extract DOI from URL
     doi = extract_doi_from_url(url)
     if not doi:
-        # Prefer arXiv's public provider for arxiv.org URLs; otherwise let
-        # papers-dl handle the URL directly if it can.
         arxiv_id = extract_arxiv_id_from_url(url)
-        identifier = f"arXiv:{arxiv_id}" if arxiv_id else url
+        if not arxiv_id:
+            return True, 0, ""
+        identifier = f"arXiv:{arxiv_id}"
     else:
         # papers-dl's arxiv provider resolves arXiv IDs more reliably than DOI backends.
         arxiv_id = extract_arxiv_id_from_doi(doi)
