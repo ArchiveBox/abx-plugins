@@ -1,0 +1,25 @@
+.github/workflows/test-parallel.yml
+  s_b989805ae95d6a::t_a74d819341ef4b 251-295
+  s_b989805ae95d6a::t_72d47db5c3d4f5 19,87,114,172
+.github/actions/verify-chromium-launch/action.yml
+  s_b989805ae95d6a::t_28f5e024d0a85d 2,5,7,26-29,33-34,36,39
+  s_b989805ae95d6a::t_72d47db5c3d4f5 16-19,41,107-114
+abx_plugins/plugins/papersdl/on_Snapshot__66_papersdl.finite.bg.py
+  s_b989805ae95d6a::t_7b63afba854bea 119-121
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "cdeb8bb33b9fa6d8c6ac8b4629f68231d736c19a",
+  "prompts": {},
+  "sessions": {
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
