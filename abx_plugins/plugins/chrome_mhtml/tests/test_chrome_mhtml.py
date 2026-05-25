@@ -98,7 +98,6 @@ def test_hook_script_exists():
     "plugin_name",
     [
         "chrome_mhtml",
-        "chrome_extension_mhtml",
     ],
 )
 def test_mhtml_preview_templates_live_with_mhtml_plugins(plugin_name):
@@ -110,7 +109,12 @@ def test_mhtml_preview_templates_live_with_mhtml_plugins(plugin_name):
     assert card_template.exists()
     assert full_template.exists()
     assert "chrome-mhtml-thumbnail" in card_template.read_text()
+    assert "?preview=1" in card_template.read_text()
     assert "full-page-iframe" in full_template.read_text()
+    assert (
+        "renderMhtmlToHtml" in full_template.read_text()
+        or "?preview=1" in full_template.read_text()
+    )
 
 
 def test_extracts_mhtml_from_cross_site_iframe(require_chrome_runtime):
