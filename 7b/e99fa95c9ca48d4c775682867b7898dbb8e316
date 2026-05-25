@@ -1,0 +1,22 @@
+abx_plugins/plugins/chrome/on_CrawlSetup__90_chrome_launch.daemon.bg.js
+  s_b989805ae95d6a::t_f5ca8865cc21f5 175-177
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_b989805ae95d6a::t_69bd96ad284eef 3282-3286
+  s_b989805ae95d6a::t_f22cda05e01e65 958,961-963,967-969
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "7be99fa95c9ca48d4c775682867b7898dbb8e316",
+  "prompts": {},
+  "sessions": {
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
