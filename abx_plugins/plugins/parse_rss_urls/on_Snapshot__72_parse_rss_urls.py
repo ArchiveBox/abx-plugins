@@ -6,6 +6,7 @@
 #   "jambo",
 #   "rich-click",
 #   "abx-plugins",
+#   "feedparser",
 # ]
 # ///
 """

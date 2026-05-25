@@ -280,6 +280,14 @@ jobs:
           echo "Runner Chromium is unavailable or too old: ${version:-not found}"
           echo "Installing Playwright Chromium into $LIB_DIR..."
           uv run --no-sync --no-sources abxpkg install \
+            --binproviders=npm \
+            --lib="$LIB_DIR" \
+            --postinstall-scripts=false \
+            --min-release-age=0 \
+            --no-cache \
+            --overrides='{"npm":{"install_args":["playwright@next"]}}' \
+            playwright
+          uv run --no-sync --no-sources abxpkg install \
             --binproviders=playwright \
             --lib="$LIB_DIR" \
             --bin-dir="$LIB_DIR/env/bin" \
@@ -291,6 +299,16 @@ jobs:
             echo "Playwright Chromium shim was not created at $candidate" >&2
             exit 1
           fi
+          version="$("$candidate" --version || true)"
+          major="$(printf '%s\n' "$version" | sed -E 's/.* ([0-9]+)\..*/\1/' | head -1)"
+          case "$major" in
+            ''|*[!0-9]*) major=0 ;;
+          esac
+          if [ "$major" -lt "$MIN_CHROMIUM_MAJOR" ]; then
+            echo "Playwright Chromium is still too old: ${version:-unknown}" >&2
+            exit 1
+          fi
+          echo "Using Playwright Chromium: $candidate ($version)"
           echo "CHROME_BINARY=$candidate" >> "$GITHUB_ENV"
 
       - name: Verify Chromium launch
