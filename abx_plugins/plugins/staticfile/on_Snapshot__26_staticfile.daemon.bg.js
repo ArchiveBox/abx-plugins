@@ -537,10 +537,11 @@ async function main() {
 main().catch(async (e) => {
     console.error(`Fatal error: ${e.message}`);
     removePrenavMarker();
+    const error = `${e.name}: ${e.message}`;
     await emitResult({
         type: 'ArchiveResult',
         status: 'failed',
-        output_str: `${e.name}: ${e.message}`,
+        output_str: error,
     });
     process.exit(1);
 });

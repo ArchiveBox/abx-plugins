@@ -38,7 +38,10 @@ import os
 import subprocess
 import sys
 import tempfile
+import asyncio
 from pathlib import Path
+
+from abxbus.retry import retry
 
 from abx_plugins.plugins.base.utils import (
     load_config,
@@ -89,14 +92,10 @@ def _opendataloader_env(java_binary: str) -> dict[str, str] | None:
 def find_pdf_sources() -> list[Path]:
     """Find all PDF files from sibling plugin output directories.
 
-    Searches for outputs from: pdf, responses, staticfile plugins.
+    Searches for original PDF responses/static files. Browser-rendered
+    pdf/output.pdf exists for most HTML pages and is not a useful input here.
     """
     search_patterns = [
-        # PDF plugin output
-        "pdf/output.pdf",
-        "*_pdf/output.pdf",
-        "pdf/*.pdf",
-        "*_pdf/*.pdf",
         # Responses plugin output (PDFs served directly by the URL)
         "responses/**/*.pdf",
         "*_responses/**/*.pdf",
@@ -408,6 +407,19 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
     return "succeeded", f"{PLUGIN_DIR}/{TEXT_FILE}"
 
 
+@retry(
+    max_attempts=1,
+    semaphore_limit=1,
+    semaphore_name="archivebox_opendataloader_pdf",
+    semaphore_scope="multiprocess",
+    semaphore_timeout=0,
+    semaphore_lax=False,
+)
+async def extract_opendataloader_serialized(url: str, binary: str) -> tuple[str, str]:
+    print("[opendataloader] acquired abxbus multiprocess semaphore", file=sys.stderr)
+    return extract_opendataloader(url, binary)
+
+
 @click.command(
     context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
 )
@@ -430,7 +442,7 @@ def main(url: str):
         binary = config.OPENDATALOADER_BINARY
 
         # Run extraction
-        status, output = extract_opendataloader(url, binary)
+        status, output = asyncio.run(extract_opendataloader_serialized(url, binary))
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)
         emit_archive_result_record(status, output)

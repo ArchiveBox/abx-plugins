@@ -182,6 +182,11 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
                 return True, "No gallery found", ""
             if "no results" in stderr_lower:
                 return True, "No gallery found", ""
+            if (
+                "authrequired" in stderr_lower
+                or "authenticated cookies needed" in stderr_lower
+            ):
+                return True, "No gallery found", ""
             if process.returncode == 0:
                 return True, "No gallery found", ""
 

@@ -56,12 +56,12 @@ METADATA_FILE = "metadata.json"
 
 
 def find_pdf_sources() -> list[Path]:
-    """Find all PDF files from sibling plugin output directories."""
+    """Find original PDF responses/static files.
+
+    Browser-rendered pdf/output.pdf exists for most HTML pages and is not a
+    useful LiteParse input.
+    """
     search_patterns = [
-        "pdf/output.pdf",
-        "*_pdf/output.pdf",
-        "pdf/*.pdf",
-        "*_pdf/*.pdf",
         "responses/**/*.pdf",
         "*_responses/**/*.pdf",
         "staticfile/**/*.pdf",

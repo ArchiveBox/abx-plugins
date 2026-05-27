@@ -159,7 +159,7 @@ def main(url: str):
             output = OUTPUT_FILE
             error = ""
         else:
-            status = "failed"
+            status = "noresults"
             output = None
             error = error or "No favicon found"
 
@@ -175,7 +175,7 @@ def main(url: str):
         SUCCESS_OUTPUT if output else (error or ""),
     )
 
-    sys.exit(0 if status == "succeeded" else 1)
+    sys.exit(0 if status in ("succeeded", "noresults", "skipped") else 1)
 
 
 if __name__ == "__main__":

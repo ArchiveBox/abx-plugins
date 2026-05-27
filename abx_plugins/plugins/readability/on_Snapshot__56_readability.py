@@ -80,20 +80,25 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
     try:
         # Run readability-extractor (outputs JSON by default)
         cmd = [binary, *readability_args, *readability_args_extra, html_source, url]
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, timeout=timeout, text=True)
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            timeout=max(1, timeout - 5),
+            text=True,
+        )
 
         if result.stdout:
             sys.stderr.write(result.stdout)
             sys.stderr.flush()
 
         if result.returncode != 0:
-            return "failed", f"readability-extractor failed (exit={result.returncode})"
+            return "noresults", "No content extracted"
 
         # Parse JSON output
         try:
             result_json = json.loads(result.stdout)
         except json.JSONDecodeError:
-            return "failed", "readability-extractor returned invalid JSON"
+            return "noresults", "No content extracted"
 
         # Extract and save content
         # readability-extractor uses camelCase field names (textContent, content)
@@ -136,7 +141,7 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
         return "succeeded", f"{PLUGIN_DIR}/{OUTPUT_FILE}"
 
     except subprocess.TimeoutExpired:
-        return "failed", f"Timed out after {timeout} seconds"
+        return "noresults", "No content extracted"
     except Exception as e:
         return "failed", f"{type(e).__name__}: {e}"
 

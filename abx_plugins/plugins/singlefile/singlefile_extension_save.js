@@ -129,9 +129,14 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
             const dl_path = path.join(downloadsDir, file);
             let header = '';
             try {
+                const stat = await fs.promises.stat(dl_path);
+                const partialPath = `${dl_path}.crdownload`;
+                if (stat.size <= 0 || fs.existsSync(partialPath)) {
+                    console.error(`[singlefile] Download ${file} still in progress size=${stat.size}`);
+                    continue;
+                }
                 const dl_text = await fs.promises.readFile(dl_path, 'utf-8');
                 header = dl_text.slice(0, 200000);
-                const stat = await fs.promises.stat(dl_path);
                 console.error(`[singlefile] Download ${file} size=${stat.size} bytes`);
             } catch (err) {
                 continue;
@@ -164,6 +169,10 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
                 const dl_path = path.join(downloadsDir, file);
                 try {
                     const stat = await fs.promises.stat(dl_path);
+                    const partialPath = `${dl_path}.crdownload`;
+                    if (stat.size <= 0 || fs.existsSync(partialPath)) {
+                        continue;
+                    }
                     if (stat.mtimeMs > newest_mtime) {
                         newest_mtime = stat.mtimeMs;
                         newest = { file, dl_path };
@@ -189,6 +198,15 @@ async function main() {
     const args = parseArgs();
     const url = args.url;
     const outputPath = args.output_path || path.join(SNAPSHOT_OUTPUT_DIR, 'singlefile.html');
+    const startedAt = Date.now();
+    const configuredTimeoutSeconds = Number(process.env.SINGLEFILE_TIMEOUT || process.env.TIMEOUT || 60);
+    const totalTimeoutMs = Number.isFinite(configuredTimeoutSeconds) && configuredTimeoutSeconds > 0
+        ? configuredTimeoutSeconds * 1000
+        : 60000;
+    const remainingTimeoutMs = (reserveMs = 5000, minMs = 1000) => Math.max(
+        minMs,
+        totalTimeoutMs - (Date.now() - startedAt) - reserveMs
+    );
 
     if (!url) {
         console.error('Usage: singlefile_extension_save.js --url=<url>');
@@ -213,7 +231,7 @@ async function main() {
         console.error('[singlefile] connecting to chrome session...');
         const { browser, page, cdpSession, extensions } = await chromeUtils.connectToPage({
             chromeSessionDir: CHROME_SESSION_DIR,
-            timeoutMs: 60000,
+            timeoutMs: remainingTimeoutMs(10000, 5000),
             requireTargetId: true,
             requireExtensionsLoaded: true,
         });
@@ -226,7 +244,7 @@ async function main() {
                 console.error(`[singlefile] navigating page from ${currentUrl || '<empty>'} to ${url}`);
                 await page.goto(url, {
                     waitUntil: 'networkidle2',
-                    timeout: 60000,
+                    timeout: remainingTimeoutMs(10000, 5000),
                 });
             }
 
@@ -262,7 +280,7 @@ async function main() {
             const extensionTarget = await chromeUtils.waitForExtensionTargetHandle(
                 browser,
                 extension.id,
-                30000,
+                remainingTimeoutMs(5000, 5000),
                 preferredTargetUrl,
                 { wakePath: SERVICE_WORKER_WAKE_PATH }
             );

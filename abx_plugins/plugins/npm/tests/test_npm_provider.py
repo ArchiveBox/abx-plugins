@@ -34,7 +34,7 @@ def npm_available() -> bool:
 
 
 def test_npm_package_name_parses_scoped_and_versioned_args():
-    assert _npm_package_name("abxbus@^2.5.4") == "abxbus"
+    assert _npm_package_name("abxbus@2.5.6") == "abxbus"
     assert _npm_package_name("@puppeteer/browsers") == "@puppeteer/browsers"
     assert _npm_package_name("@scope/pkg@1.2.3") == "@scope/pkg"
     assert _npm_package_name("--min-release-age=0") is None
@@ -47,7 +47,7 @@ def test_missing_requested_packages_detects_companion_packages(tmp_path):
 
     assert _missing_requested_packages(
         tmp_path,
-        ["puppeteer", "@puppeteer/browsers", "abxbus@^2.5.4", "--min-release-age=0"],
+        ["puppeteer", "@puppeteer/browsers", "abxbus@2.5.6", "--min-release-age=0"],
     ) == ["@puppeteer/browsers", "abxbus"]
 
 

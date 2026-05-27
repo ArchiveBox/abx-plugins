@@ -33,6 +33,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 
 from abxbus.retry import retry
@@ -69,6 +70,10 @@ def temp_path_for(path: Path) -> Path:
 # Note: Chrome binary is obtained via CHROME_BINARY env var, not searched for.
 # The centralized Chrome binary search is in chrome_utils.js findChromium().
 CHROME_SESSION_DIR = "../chrome"
+SINGLEFILE_NORESULTS_TOKENS = (
+    "SingleFile extension completed but no output file found",
+    "SingleFile extension did not produce output",
+)
 
 
 def summarize_error(detail: str) -> str:
@@ -124,6 +129,7 @@ def save_singlefile(
     binary: str,
     *,
     use_existing_chrome: bool = True,
+    timeout: int | None = None,
 ) -> tuple[bool, str | None, str]:
     """
     Archive URL using SingleFile.
@@ -135,7 +141,7 @@ def save_singlefile(
     print("saving singlefile.html using single-file-cli...")
     # Load config from config.json (auto-resolves x-aliases and x-fallback from env)
     config = load_config()
-    timeout = config.SINGLEFILE_TIMEOUT
+    timeout = int(timeout or config.SINGLEFILE_TIMEOUT or 60)
     user_agent = config.SINGLEFILE_USER_AGENT
     check_ssl = config.SINGLEFILE_CHECK_SSL_VALIDITY
     cookies_file = config.SINGLEFILE_COOKIES_FILE
@@ -274,9 +280,10 @@ def save_singlefile_with_extension(
     print(f"[singlefile] helper_cmd={' '.join(cmd)}", file=sys.stderr)
 
     helper_env = os.environ.copy()
+    helper_env["SINGLEFILE_TIMEOUT"] = str(timeout)
     runtime_env_result = run_chrome_utils(
         "getTestEnv",
-        timeout=max(10, min(timeout, 30)),
+        timeout=max(2, min(timeout, 5)),
     )
     if runtime_env_result.returncode == 0 and runtime_env_result.stdout.strip():
         try:
@@ -325,7 +332,7 @@ def save_singlefile_with_extension(
         stderr_thread.start()
 
         try:
-            process.wait(timeout=timeout)
+            process.wait(timeout=timeout + 2)
         except subprocess.TimeoutExpired:
             process.kill()
             stdout_thread.join(timeout=1)
@@ -381,7 +388,7 @@ def save_singlefile_with_extension(
     semaphore_limit=1,
     semaphore_name="archivebox_singlefile_chrome_session",
     semaphore_scope="multiprocess",
-    semaphore_timeout=0,
+    semaphore_timeout=15,
     semaphore_lax=False,
 )
 async def save_singlefile_with_extension_serialized(
@@ -424,28 +431,50 @@ def main(url: str):
 
         # Prefer SingleFile extension via existing Chrome session
         timeout = config.SINGLEFILE_TIMEOUT
+        started_at = time.monotonic()
         print("generating singlefile.html...")
-        success, output, error = asyncio.run(
-            save_singlefile_with_extension_serialized(url, timeout),
-        )
+        try:
+            success, output, error = asyncio.run(
+                save_singlefile_with_extension_serialized(url, max(5, timeout - 35)),
+            )
+        except TimeoutError as err:
+            success, output, error = False, None, str(err)
         if not success:
             extension_error = error
-            print(
-                f"[singlefile] extension save failed, trying single-file-cli standalone fallback: {extension_error}",
-                file=sys.stderr,
+            fallback_timeout = max(
+                0,
+                int(timeout - (time.monotonic() - started_at) - 5),
             )
-            success, output, error = save_singlefile(
-                url,
-                config.SINGLEFILE_BINARY,
-                use_existing_chrome=False,
-            )
-            if not success:
-                error = (
-                    f"{extension_error}; single-file-cli fallback failed: {error}"
-                    if extension_error
-                    else error
+            if fallback_timeout >= 10 and not any(
+                token in extension_error for token in SINGLEFILE_NORESULTS_TOKENS
+            ):
+                print(
+                    f"[singlefile] extension save failed, trying single-file-cli standalone fallback: {extension_error}",
+                    file=sys.stderr,
                 )
-        status = "succeeded" if success else "failed"
+                success, output, error = save_singlefile(
+                    url,
+                    config.SINGLEFILE_BINARY,
+                    use_existing_chrome=False,
+                    timeout=fallback_timeout,
+                )
+                if not success:
+                    error = (
+                        f"{extension_error}; single-file-cli fallback failed: {error}"
+                        if extension_error
+                        else error
+                    )
+            else:
+                error = extension_error
+        status = (
+            "succeeded"
+            if success
+            else (
+                "noresults"
+                if any(token in error for token in SINGLEFILE_NORESULTS_TOKENS)
+                else "failed"
+            )
+        )
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"

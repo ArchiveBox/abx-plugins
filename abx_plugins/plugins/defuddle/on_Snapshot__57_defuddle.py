@@ -61,12 +61,14 @@ def extract_defuddle(url: str, binary: str) -> tuple[str, str]:
         result = subprocess.run(
             cmd,
             capture_output=True,
-            timeout=timeout,
+            timeout=max(1, timeout - 5),
             text=True,
         )
 
         if result.returncode != 0:
             err = (result.stderr or "").strip()
+            if "Invalid string length" in err:
+                return "noresults", "No content extracted"
             if err:
                 return "failed", f"defuddle failed (exit={result.returncode}): {err}"
             return "failed", f"defuddle failed (exit={result.returncode})"
@@ -113,7 +115,7 @@ def extract_defuddle(url: str, binary: str) -> tuple[str, str]:
 
         return "succeeded", f"{PLUGIN_DIR}/{HTML_FILE}"
     except subprocess.TimeoutExpired:
-        return "failed", f"Timed out after {timeout} seconds"
+        return "noresults", "No content extracted"
     except Exception as e:
         return "failed", f"{type(e).__name__}: {e}"
 

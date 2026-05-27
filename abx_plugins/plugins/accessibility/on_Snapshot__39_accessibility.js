@@ -199,8 +199,8 @@ async function main() {
             const iframeCount = result.accessibilityData.iframes.length;
             console.log(`Accessibility extracted: ${headingCount} headings, ${iframeCount} iframes`);
         } else {
-            status = 'failed';
             error = result.error;
+            status = 'failed';
         }
     } catch (e) {
         error = `${e.name}: ${e.message}`;

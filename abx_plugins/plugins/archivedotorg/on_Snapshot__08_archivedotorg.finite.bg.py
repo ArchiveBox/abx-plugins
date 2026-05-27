@@ -16,8 +16,10 @@
 
 import os
 import sys
+from ipaddress import ip_address
 from pathlib import Path
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from abx_plugins.plugins.base.utils import emit_archive_result_record, load_config
@@ -34,6 +36,33 @@ OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 OUTPUT_FILE = "archive.org.txt"
+
+
+def should_skip_archivedotorg_url(url: str) -> str:
+    parsed = urlparse(url)
+    hostname = (parsed.hostname or "").strip().lower()
+    if not hostname:
+        return "URL has no hostname"
+    if (
+        hostname == "localhost"
+        or hostname.endswith(".localhost")
+        or hostname.endswith(".local")
+    ):
+        return "URL is local/private"
+    try:
+        address = ip_address(hostname)
+    except ValueError:
+        return ""
+    if (
+        address.is_loopback
+        or address.is_private
+        or address.is_link_local
+        or address.is_multicast
+        or address.is_unspecified
+        or address.is_reserved
+    ):
+        return "URL is local/private"
+    return ""
 
 
 def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
@@ -133,6 +162,11 @@ def main(url: str):
         sys.exit(0)
 
     try:
+        skip_reason = should_skip_archivedotorg_url(url)
+        if skip_reason:
+            emit_archive_result_record("skipped", skip_reason)
+            sys.exit(0)
+
         # Run extraction
         success, output, error = submit_to_archivedotorg(url)
 

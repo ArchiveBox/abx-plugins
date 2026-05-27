@@ -62,6 +62,7 @@ async function waitForFrameTreeSettled(page, timeoutMs) {
 async function captureMhtml(timeoutMs) {
     const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
     let browser = null;
+    const deadline = Date.now() + timeoutMs;
 
     try {
         const connection = await connectToPage({
@@ -78,7 +79,18 @@ async function captureMhtml(timeoutMs) {
         await waitForFrameTreeSettled(page, timeoutMs);
         await cdpSession.send('Page.enable').catch(() => null);
 
-        const snapshot = await cdpSession.send('Page.captureSnapshot', { format: 'mhtml' });
+        const remainingMs = deadline - Date.now();
+        const captureTimeoutMs = Math.max(1000, remainingMs - 5000);
+        if (captureTimeoutMs <= 1000) {
+            return { success: false, error: 'Chrome MHTML capture timed out' };
+        }
+
+        const snapshot = await Promise.race([
+            cdpSession.send('Page.captureSnapshot', { format: 'mhtml' }),
+            new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Chrome MHTML capture timed out')), captureTimeoutMs);
+            }),
+        ]);
         const mhtmlContent = snapshot && snapshot.data;
 
         if (mhtmlContent && mhtmlContent.length > 100) {

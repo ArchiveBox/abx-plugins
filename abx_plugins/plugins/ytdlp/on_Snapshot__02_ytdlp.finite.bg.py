@@ -28,6 +28,7 @@ Environment variables:
 """
 
 import os
+import signal
 import subprocess
 import sys
 import threading
@@ -49,12 +50,41 @@ SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
+ACTIVE_PROCESS: subprocess.Popen[str] | None = None
+OUTPUT_LINES: list[str] = []
 EXECUTOR_ARTIFACT_SUFFIXES = (
     ".stdout.log",
     ".stderr.log",
     ".pid",
     ".sh",
     ".meta.json",
+)
+MEDIA_EXTENSIONS = (
+    ".mp4",
+    ".webm",
+    ".mkv",
+    ".avi",
+    ".mov",
+    ".flv",
+    ".wmv",
+    ".m4v",
+    ".mp3",
+    ".m4a",
+    ".ogg",
+    ".wav",
+    ".flac",
+    ".aac",
+    ".opus",
+    ".json",
+    ".jpg",
+    ".png",
+    ".webp",
+    ".jpeg",
+    ".vtt",
+    ".srt",
+    ".ass",
+    ".lrc",
+    ".description",
 )
 
 
@@ -69,6 +99,61 @@ def rel_output(path_str: str | None) -> str | None:
         return str(resolved.relative_to(SNAP_DIR.resolve()))
     except Exception:
         return path.name or path_str
+
+
+def downloaded_files(output_dir: Path) -> list[Path]:
+    return [
+        f
+        for f in output_dir.glob("*")
+        if f.is_file()
+        and f.suffix.lower() in MEDIA_EXTENSIONS
+        and not f.name.endswith(".part")
+        and not any(f.name.endswith(suffix) for suffix in EXECUTOR_ARTIFACT_SUFFIXES)
+    ]
+
+
+def selected_output(downloads: list[Path]) -> str | None:
+    if not downloads:
+        return None
+    video_audio = [
+        f
+        for f in downloads
+        if f.suffix.lower()
+        in (
+            ".mp4",
+            ".webm",
+            ".mkv",
+            ".avi",
+            ".mov",
+            ".mp3",
+            ".m4a",
+            ".ogg",
+            ".wav",
+            ".flac",
+        )
+    ]
+    return str(video_audio[0] if video_audio else downloads[0])
+
+
+def stop_active_process() -> None:
+    if ACTIVE_PROCESS is None or ACTIVE_PROCESS.poll() is not None:
+        return
+    ACTIVE_PROCESS.terminate()
+    try:
+        ACTIVE_PROCESS.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        ACTIVE_PROCESS.kill()
+        ACTIVE_PROCESS.wait(timeout=5)
+
+
+def flush_result_and_exit(signum: int, frame) -> None:
+    stop_active_process()
+    output = selected_output(downloaded_files(Path(".")))
+    if output:
+        emit_archive_result_record("succeeded", rel_output(output) or "")
+    else:
+        emit_archive_result_record("failed", "yt-dlp terminated before producing media")
+    sys.exit(0 if output else 1)
 
 
 def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
@@ -126,7 +211,8 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
     try:
         print(f"[ytdlp] Starting download (timeout={timeout}s)", file=sys.stderr)
 
-        output_lines: list[str] = []
+        global ACTIVE_PROCESS, OUTPUT_LINES
+        OUTPUT_LINES = []
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -135,12 +221,13 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
             bufsize=1,
             env=process_env,
         )
+        ACTIVE_PROCESS = process
 
         def _read_output() -> None:
             if not process.stdout:
                 return
             for line in process.stdout:
-                output_lines.append(line)
+                OUTPUT_LINES.append(line)
                 sys.stderr.write(line)
 
         reader = threading.Thread(target=_read_output, daemon=True)
@@ -149,72 +236,20 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
         try:
             process.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
-            process.kill()
+            stop_active_process()
             reader.join(timeout=1)
+            output = selected_output(downloaded_files(output_dir))
+            if output:
+                return True, output, ""
             return False, None, f"Timed out after {timeout} seconds"
 
         reader.join(timeout=1)
-        combined_output = "".join(output_lines)
+        ACTIVE_PROCESS = None
+        combined_output = "".join(OUTPUT_LINES)
 
         # Check if any media files were downloaded
-        media_extensions = (
-            ".mp4",
-            ".webm",
-            ".mkv",
-            ".avi",
-            ".mov",
-            ".flv",
-            ".wmv",
-            ".m4v",
-            ".mp3",
-            ".m4a",
-            ".ogg",
-            ".wav",
-            ".flac",
-            ".aac",
-            ".opus",
-            ".json",
-            ".jpg",
-            ".png",
-            ".webp",
-            ".jpeg",
-            ".vtt",
-            ".srt",
-            ".ass",
-            ".lrc",
-            ".description",
-        )
-
-        downloaded_files = [
-            f
-            for f in output_dir.glob("*")
-            if f.is_file()
-            and f.suffix.lower() in media_extensions
-            and not any(
-                f.name.endswith(suffix) for suffix in EXECUTOR_ARTIFACT_SUFFIXES
-            )
-        ]
-
-        if downloaded_files:
-            # Return first video/audio file, or first file if no media
-            video_audio = [
-                f
-                for f in downloaded_files
-                if f.suffix.lower()
-                in (
-                    ".mp4",
-                    ".webm",
-                    ".mkv",
-                    ".avi",
-                    ".mov",
-                    ".mp3",
-                    ".m4a",
-                    ".ogg",
-                    ".wav",
-                    ".flac",
-                )
-            ]
-            output = str(video_audio[0]) if video_audio else str(downloaded_files[0])
+        output = selected_output(downloaded_files(output_dir))
+        if output:
             return True, output, ""
         else:
             stderr = combined_output
@@ -239,6 +274,9 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
             return False, None, f"yt-dlp error: {stderr}"
 
     except subprocess.TimeoutExpired:
+        output = selected_output(downloaded_files(Path(".")))
+        if output:
+            return True, output, ""
         return False, None, f"Timed out after {timeout} seconds"
     except Exception as e:
         return False, None, f"{type(e).__name__}: {e}"
@@ -293,4 +331,6 @@ def main(url: str):
 
 
 if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, flush_result_and_exit)
+    signal.signal(signal.SIGINT, flush_result_and_exit)
     main()

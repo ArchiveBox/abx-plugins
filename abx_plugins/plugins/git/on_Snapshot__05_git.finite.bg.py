@@ -166,8 +166,20 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
                 (reset_cmd, "git reset failed"),
                 (submodule_cmd, "git submodule update failed"),
             ):
-                result = subprocess.run(cmd, timeout=timeout)
+                result = subprocess.run(
+                    cmd,
+                    timeout=timeout,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
                 if result.returncode != 0:
+                    output = result.stdout or ""
+                    if (
+                        error_prefix == "git fetch failed"
+                        and "not found" in output.lower()
+                    ):
+                        return True, "No git repository found", ""
                     return False, None, f"{error_prefix} (exit={result.returncode})"
             return True, str(repo_dir), ""
         return False, None, "git init failed"
@@ -204,7 +216,11 @@ def main(url: str):
 
         # Run extraction
         success, output, error = clone_git(git_url, binary)
-        status = "succeeded" if success else "failed"
+        status = (
+            "noresults"
+            if output == "No git repository found"
+            else ("succeeded" if success else "failed")
+        )
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"

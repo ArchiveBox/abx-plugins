@@ -32,7 +32,6 @@ const {
   resolvePuppeteerModule,
   waitForNavigationComplete,
 } = require("../chrome/chrome_utils.js");
-const puppeteer = resolvePuppeteerModule();
 
 const PLUGIN_NAME = "sslcerts";
 const PLUGIN_DIR = path.basename(__dirname);
@@ -218,7 +217,7 @@ async function setupListener(url) {
   const { browser, page, cdpSession } = await connectToPage({
     chromeSessionDir: CHROME_SESSION_DIR,
     timeoutMs: timeout,
-    puppeteer,
+    puppeteer: resolvePuppeteerModule(),
   });
 
   const writeSslRecord = async (sslInfo, recordUrl) => {
@@ -513,6 +512,11 @@ async function main() {
   if (!getEnvBool("SSLCERTS_ENABLED", true)) {
     console.error("Skipping (SSLCERTS_ENABLED=False)");
     emitArchiveResultRecord("skipped", "SSLCERTS_ENABLED=False");
+    process.exit(0);
+  }
+
+  if (!url.startsWith("https://")) {
+    emitArchiveResultRecord("noresults", "URL is not HTTPS");
     process.exit(0);
   }
 

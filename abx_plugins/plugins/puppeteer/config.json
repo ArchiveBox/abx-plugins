@@ -15,7 +15,7 @@
           "install_args": [
             "puppeteer",
             "@puppeteer/browsers",
-            "abxbus@^2.5.4",
+            "abxbus@2.5.6",
             "--min-release-age=0"
           ]
         }

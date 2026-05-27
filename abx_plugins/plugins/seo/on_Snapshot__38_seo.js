@@ -146,8 +146,8 @@ async function main() {
             const metaCount = Object.keys(result.seoData).length - 2;  // Subtract url and title
             console.log(`SEO metadata extracted: ${metaCount} meta tags`);
         } else {
-            status = 'failed';
             error = result.error;
+            status = 'failed';
         }
     } catch (e) {
         error = `${e.name}: ${e.message}`;

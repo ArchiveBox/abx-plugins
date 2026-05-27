@@ -39,7 +39,7 @@ def test_crawl_hook_emits_puppeteer_binary_request():
         "puppeteer should be installable via npm provider"
     )
     install_args = binary["overrides"]["npm"]["install_args"]
-    assert "abxbus@^2.5.4" in install_args
+    assert "abxbus@2.5.6" in install_args
     assert "--min-release-age=0" in install_args
 
 

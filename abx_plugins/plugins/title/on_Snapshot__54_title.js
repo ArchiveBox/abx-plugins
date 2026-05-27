@@ -111,8 +111,8 @@ async function main() {
                 console.error(`Title extracted (${result.method}): ${result.title}`);
             }
         } else {
-            status = 'failed';
             error = result.error;
+            status = 'failed';
         }
     } catch (e) {
         error = `${e.name}: ${e.message}`;

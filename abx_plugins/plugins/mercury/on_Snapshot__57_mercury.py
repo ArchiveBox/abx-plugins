@@ -66,12 +66,15 @@ def extract_mercury(url: str, binary: str) -> tuple[str, str]:
         cmd_text = [binary, *mercury_args, *mercury_args_extra, url, "--format=text"]
         result_text = subprocess.run(
             cmd_text,
-            stdout=subprocess.PIPE,
+            capture_output=True,
             timeout=timeout,
             text=True,
         )
         if result_text.stdout:
             sys.stderr.write(result_text.stdout)
+            sys.stderr.flush()
+        if result_text.stderr:
+            sys.stderr.write(result_text.stderr)
             sys.stderr.flush()
 
         if result_text.returncode != 0:
@@ -93,12 +96,15 @@ def extract_mercury(url: str, binary: str) -> tuple[str, str]:
         cmd_html = [binary, *mercury_args, *mercury_args_extra, url, "--format=html"]
         result_html = subprocess.run(
             cmd_html,
-            stdout=subprocess.PIPE,
+            capture_output=True,
             timeout=timeout,
             text=True,
         )
         if result_html.stdout:
             sys.stderr.write(result_html.stdout)
+            sys.stderr.flush()
+        if result_html.stderr:
+            sys.stderr.write(result_html.stderr)
             sys.stderr.flush()
 
         try:
