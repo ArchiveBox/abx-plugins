@@ -155,9 +155,8 @@ def test_extracts_favicon_from_example_com():
             )
             assert is_image, "Favicon file should be a valid image format"
         else:
-            # Failed as expected
-            assert result_json["status"] == "failed", (
-                f"Should report failure: {result_json}"
+            assert result_json["status"] == "noresults", (
+                f"Should report noresults when no favicon is found: {result_json}"
             )
 
 
@@ -217,14 +216,14 @@ def test_config_user_agent():
             timeout=60,
         )
 
-        # Should succeed (example.com doesn't block)
+        # Should complete without hanging and report the actual extraction result.
         if result.returncode == 0:
             # Parse clean JSONL output
             result_json = parse_jsonl_output(result.stdout)
 
             if result_json:
-                assert result_json["status"] == "succeeded", (
-                    f"Should succeed: {result_json}"
+                assert result_json["status"] in ("succeeded", "noresults"), (
+                    f"Should succeed or report noresults: {result_json}"
                 )
 
 

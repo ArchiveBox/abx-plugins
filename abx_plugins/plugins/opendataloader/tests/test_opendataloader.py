@@ -237,10 +237,10 @@ def test_extract_single_pdf():
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir / "snap"
 
-        # Place PDF as if the pdf plugin produced it
-        pdf_dir = snap_dir / "pdf"
-        pdf_dir.mkdir(parents=True, exist_ok=True)
-        (pdf_dir / "output.pdf").write_bytes(pdf_content)
+        # Place PDF as if the responses plugin saved an original PDF response.
+        responses_dir = snap_dir / "responses" / "application" / "example.com"
+        responses_dir.mkdir(parents=True, exist_ok=True)
+        (responses_dir / "output.pdf").write_bytes(pdf_content)
 
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
@@ -285,7 +285,7 @@ def test_extract_single_pdf():
 def test_extract_multiple_pdfs():
     """Test that ALL PDFs are processed when multiple exist across plugins.
 
-    Places PDFs in both pdf/ and responses/ directories and verifies
+    Places PDFs in both responses/ and staticfile/ directories and verifies
     the hook processes every one, not just the first.
     """
     binary_path = require_opendataloader_binary()
@@ -296,15 +296,15 @@ def test_extract_multiple_pdfs():
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir / "snap"
 
-        # Place PDF in pdf/ plugin output
-        pdf_dir = snap_dir / "pdf"
-        pdf_dir.mkdir(parents=True, exist_ok=True)
-        (pdf_dir / "output.pdf").write_bytes(pdf_content)
-
-        # Place another PDF in responses/ as if the server served a PDF
+        # Place PDF in responses/ as if the server served a PDF
         responses_dir = snap_dir / "responses" / "application" / "example.com"
         responses_dir.mkdir(parents=True, exist_ok=True)
         (responses_dir / "document.pdf").write_bytes(pdf_content)
+
+        # Place another PDF in staticfile/ as if a linked PDF was downloaded
+        staticfile_dir = snap_dir / "staticfile" / "example.com"
+        staticfile_dir.mkdir(parents=True, exist_ok=True)
+        (staticfile_dir / "linked.pdf").write_bytes(pdf_content)
 
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
@@ -359,9 +359,9 @@ def test_force_ocr_adds_hybrid_flag():
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir / "snap"
 
-        pdf_dir = snap_dir / "pdf"
-        pdf_dir.mkdir(parents=True, exist_ok=True)
-        (pdf_dir / "output.pdf").write_bytes(pdf_content)
+        responses_dir = snap_dir / "responses" / "application" / "example.com"
+        responses_dir.mkdir(parents=True, exist_ok=True)
+        (responses_dir / "output.pdf").write_bytes(pdf_content)
 
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
@@ -410,9 +410,9 @@ def test_cli_runtime_failure_reports_failed_status():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir / "snap"
-        pdf_dir = snap_dir / "pdf"
-        pdf_dir.mkdir(parents=True, exist_ok=True)
-        (pdf_dir / "output.pdf").write_bytes(pdf_content)
+        responses_dir = snap_dir / "responses" / "application" / "example.com"
+        responses_dir.mkdir(parents=True, exist_ok=True)
+        (responses_dir / "output.pdf").write_bytes(pdf_content)
 
         failing_binary = tmpdir / "fake-opendataloader"
         failing_binary.write_text(
