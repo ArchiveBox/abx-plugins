@@ -43,7 +43,7 @@ repos:
         pass_filenames: false
       - id: ts-prettier
         name: ts-prettier
-        entry: prettier
+        entry: npx --yes prettier@2.2.1
         language: system
         files: ^abx_plugins/plugins/.*\.js$
         exclude: \.(sh|py|html|json)$
