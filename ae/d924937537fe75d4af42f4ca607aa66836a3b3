@@ -1,0 +1,22 @@
+abx_plugins/plugins/parse_rss_urls/config.json
+  s_b989805ae95d6a::t_b40ced1a69fdca 17
+abx_plugins/plugins/pip/on_BinaryRequest__11_pip.py
+  s_b989805ae95d6a::t_54066b92ba8ec4 26,153-167,173-178,274-278,283-285,295-304,309-339
+  s_b989805ae95d6a::t_e962b8295b0778 168-170,172,286-294,305-308
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "aed924937537fe75d4af42f4ca607aa66836a3b3",
+  "prompts": {},
+  "sessions": {
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
