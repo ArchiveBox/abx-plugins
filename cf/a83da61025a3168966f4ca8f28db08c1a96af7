@@ -1,0 +1,82 @@
+abx_plugins/plugins/puppeteer/tests/test_puppeteer.py
+  s_b989805ae95d6a::t_6b8825605220d8 42
+abx_plugins/plugins/sslcerts/on_Snapshot__23_sslcerts.daemon.bg.js
+  s_b989805ae95d6a::t_f1407480db9f27 518-522
+  s_b989805ae95d6a::t_a06586ff1cbaaf 220
+abx_plugins/plugins/gallerydl/on_Snapshot__03_gallerydl.finite.bg.py
+  s_b989805ae95d6a::t_c25bcb493a2c47 186-187,189
+abx_plugins/plugins/singlefile/on_Snapshot__50_singlefile.py
+  s_b989805ae95d6a::t_d6d7d7198d81b0 73-76,472-473,475-476
+  s_b989805ae95d6a::t_9ec7574fbbc18a 469-471,477
+  s_b989805ae95d6a::t_a3844af9b622f7 286,391,436-441
+  s_b989805ae95d6a::t_47fa8d643d1ad4 474
+  s_b989805ae95d6a::t_0fa72ead1e29d9 36,132,283,335,434,450-459,461-468
+  s_074e76a4b61abc::t_06731222dda5a9 144,444-446,448-449
+abx_plugins/plugins/singlefile/singlefile_extension_save.js
+  s_b989805ae95d6a::t_5c170fcc897545 132-137,172-175
+  s_b989805ae95d6a::t_f26aeae01875ab 201-209,234,247,283
+abx_plugins/plugins/liteparse/on_Snapshot__61_liteparse.py
+  s_b989805ae95d6a::t_f67da29ea22db9 59-63
+abx_plugins/plugins/chrome_mhtml/on_Snapshot__54_chrome_mhtml.js
+  s_b989805ae95d6a::t_2430b9e5a81304 85
+  s_b989805ae95d6a::t_eb6d9281490b32 65,82-84,86-93
+abx_plugins/plugins/readability/on_Snapshot__56_readability.py
+  s_b989805ae95d6a::t_9edcdf90071ab9 95,101,144
+  s_b989805ae95d6a::t_56e4daa0da6d36 83-88
+abx_plugins/plugins/favicon/on_Snapshot__11_favicon.finite.bg.py
+  s_b989805ae95d6a::t_7b1f4b68e85c5d 162,178
+abx_plugins/plugins/puppeteer/config.json
+  s_b989805ae95d6a::t_6b8825605220d8 18
+abx_plugins/plugins/git/on_Snapshot__05_git.finite.bg.py
+  s_b989805ae95d6a::t_cf6a6d0c2c1ad2 169-175,177,179,181-182,220-221,223
+abx_plugins/plugins/ytdlp/on_Snapshot__02_ytdlp.finite.bg.py
+  s_b989805ae95d6a::t_8829f40bbc56c9 31,53-54,62-88,104-154,157-158,214-215,224,230,239,241,247-248,251-252,277
+  s_b989805ae95d6a::t_84b3dabe3336c9 334-335
+  s_b989805ae95d6a::t_47fa8d643d1ad4 155-156,242-243,278-279
+abx_plugins/plugins/accessibility/on_Snapshot__39_accessibility.js
+  s_b989805ae95d6a::t_380ecbcd4a7052 203
+abx_plugins/plugins/mercury/on_Snapshot__57_mercury.py
+  s_b989805ae95d6a::t_d080fb81cd90e8 76-78,106-107
+pyproject.toml
+  s_b989805ae95d6a::t_f42fc7cc16a5cc 23
+abx_plugins/plugins/seo/on_Snapshot__38_seo.js
+  s_b989805ae95d6a::t_380ecbcd4a7052 150
+abx_plugins/plugins/opendataloader/on_Snapshot__60_opendataloader.py
+  s_b989805ae95d6a::t_13f5230273e2b8 44
+  s_b989805ae95d6a::t_095712631cd643 95-96
+  s_b989805ae95d6a::t_049da68ea8c2de 41,45,410-422,445
+abx_plugins/plugins/title/on_Snapshot__54_title.js
+  s_b989805ae95d6a::t_380ecbcd4a7052 115
+abx_plugins/plugins/npm/tests/test_npm_provider.py
+  s_b989805ae95d6a::t_6b8825605220d8 37,50
+abx_plugins/plugins/defuddle/on_Snapshot__57_defuddle.py
+  s_b989805ae95d6a::t_7940411c8840e9 64,70-71,118
+abx_plugins/plugins/archivedotorg/on_Snapshot__08_archivedotorg.finite.bg.py
+  s_b989805ae95d6a::t_fc127a01283168 19,22,41-45,47-48,50-67,165-169
+abx_plugins/plugins/staticfile/on_Snapshot__26_staticfile.daemon.bg.js
+  s_b989805ae95d6a::t_2634d0bfc2b7e0 540,544
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "cfa83da61025a3168966f4ca8f28db08c1a96af7",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
