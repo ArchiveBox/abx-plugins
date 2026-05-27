@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import conftest
-
 import pytest
 from _pytest.outcomes import Failed
 
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    require_chrome_runtime_impl,
+)
 from abxpkg import Binary
 
 
@@ -18,7 +19,7 @@ def test_require_chrome_runtime_loads_node_and_npm(monkeypatch: pytest.MonkeyPat
 
     monkeypatch.setattr(Binary, "load", fake_load)
 
-    conftest.require_chrome_runtime_impl()
+    require_chrome_runtime_impl()
 
     assert loaded == ["node", "npm"]
 
@@ -39,7 +40,7 @@ def test_require_chrome_runtime_fails_when_binary_resolution_fails(
         Failed,
         match="Chrome integration prerequisites unavailable: node missing",
     ) as excinfo:
-        conftest.require_chrome_runtime_impl()
+        require_chrome_runtime_impl()
 
     assert caplog.messages == [
         "Chrome integration prerequisites unavailable: node missing",

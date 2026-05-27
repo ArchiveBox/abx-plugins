@@ -76,7 +76,7 @@
     "YTDLP_TIMEOUT": {
       "type": "integer",
       "default": 3600,
-      "minimum": 30,
+      "minimum": 10,
       "x-fallback": "TIMEOUT",
       "x-aliases": [
         "MEDIA_TIMEOUT"

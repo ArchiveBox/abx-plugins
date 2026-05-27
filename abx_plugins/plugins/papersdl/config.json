@@ -43,7 +43,7 @@
     "PAPERSDL_TIMEOUT": {
       "type": "integer",
       "default": 300,
-      "minimum": 30,
+      "minimum": 10,
       "x-fallback": "TIMEOUT",
       "description": "Timeout for paper downloads in seconds"
     },

@@ -47,6 +47,7 @@ Usage:
 """
 
 import json
+import logging
 import os
 import platform
 import signal
@@ -98,6 +99,25 @@ CHROME_NAVIGATE_HOOK = _CHROME_NAVIGATE_HOOK
 CHROME_UTILS = CHROME_PLUGIN_DIR / "chrome_utils.js"
 PUPPETEER_BINARY_HOOK = PLUGINS_ROOT / "puppeteer" / "on_BinaryRequest__12_puppeteer.py"
 NPM_BINARY_HOOK = PLUGINS_ROOT / "npm" / "on_BinaryRequest__10_npm.py"
+logger = logging.getLogger(__name__)
+
+
+def require_chrome_runtime_impl() -> None:
+    """Require chrome runtime prerequisites for integration tests."""
+    from abxpkg import Binary, EnvProvider
+
+    try:
+        Binary(name="node", binproviders=[EnvProvider()]).load()
+        Binary(name="npm", binproviders=[EnvProvider()]).load()
+    except Exception as exc:
+        logger.error("Chrome integration prerequisites unavailable: %s", exc)
+        pytest.fail(
+            f"Chrome integration prerequisites unavailable: {exc}",
+            pytrace=False,
+        )
+
+
+require_chrome_runtime = pytest.fixture(scope="module")(require_chrome_runtime_impl)
 
 
 # Prefer root-level URL fixtures if they exist, otherwise fall back to a local server.

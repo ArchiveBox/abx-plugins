@@ -410,26 +410,3 @@ def ensure_anthropic_api_key():
             "Anthropic API require a valid API key.",
         )
     return api_key
-
-
-def require_chrome_runtime_impl() -> None:
-    """Require chrome runtime prerequisites for integration tests.
-
-    Validates that node and npm resolve through abxpkg before running
-    Chrome-based integration tests like dns, dom, and headers. Previously
-    duplicated in dns/dom/headers conftest files.
-    """
-    from abxpkg import Binary, EnvProvider
-
-    try:
-        Binary(name="node", binproviders=[EnvProvider()]).load()
-        Binary(name="npm", binproviders=[EnvProvider()]).load()
-    except Exception as exc:
-        logger.error("Chrome integration prerequisites unavailable: %s", exc)
-        pytest.fail(
-            f"Chrome integration prerequisites unavailable: {exc}",
-            pytrace=False,
-        )
-
-
-require_chrome_runtime = pytest.fixture(scope="module")(require_chrome_runtime_impl)
