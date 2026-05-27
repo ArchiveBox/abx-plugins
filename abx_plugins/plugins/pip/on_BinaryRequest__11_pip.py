@@ -23,6 +23,7 @@ import os
 import subprocess
 import sys
 import json
+from importlib import metadata
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -149,6 +150,32 @@ def _seed_first_pip_venv(
     return None, errors
 
 
+def _find_installed_module(
+    pip_venv_path: Path,
+    *,
+    module_name: str,
+    package_name: str,
+) -> tuple[Path | None, str]:
+    module_relpath = Path(*module_name.split("."))
+    for site_packages in sorted((pip_venv_path / "lib").glob("python*/site-packages")):
+        module_dir = site_packages / module_relpath
+        module_file = site_packages / f"{module_relpath}.py"
+        abspath = module_dir / "__init__.py" if module_dir.is_dir() else module_file
+        if not abspath.exists():
+            continue
+        version = ""
+        for dist in metadata.distributions(path=[str(site_packages)]):
+            dist_name = dist.metadata["Name"] if "Name" in dist.metadata else ""
+            if dist_name.lower().replace("_", "-") == package_name.lower().replace(
+                "_",
+                "-",
+            ):
+                version = dist.version
+                break
+        return abspath, version
+    return None, ""
+
+
 @contextmanager
 def _locked_pip_venv(lock_path: Path):
     lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -244,25 +271,72 @@ def main(
         click.echo(f"Installing {name} via pip to venv at {pip_venv_path}...", err=True)
 
         try:
-            binary = Binary.model_validate(
-                {
-                    **extra_kwargs,
-                    "name": name,
-                    "binproviders": [provider],
-                    "min_version": min_version
-                    or extra_kwargs.get("min_version")
-                    or None,
-                    "overrides": binary_overrides,
-                },
-            )
-            provider_overrides = binary.overrides.get("pip", {})
-            if provider_overrides:
+            module_name = str(provider_overrides.get("module_name") or "").strip()
+            if module_name:
+                install_args = provider_overrides.get("install_args") or [name]
+                if not isinstance(install_args, list):
+                    install_args = [str(install_args)]
                 click.echo(
                     f"Using pip install overrides: {provider_overrides}",
                     err=True,
                 )
+                provider.default_install_handler(
+                    name,
+                    install_args=install_args,
+                    postinstall_scripts=bool(
+                        provider_overrides.get("postinstall_scripts", True),
+                    ),
+                    min_release_age=float(
+                        provider_overrides.get(
+                            "min_release_age",
+                            provider.min_release_age or 0,
+                        ),
+                    ),
+                    min_version=None,
+                    no_cache=False,
+                )
+                package_name = str(provider_overrides.get("package_name") or name)
+                module_path, module_version = _find_installed_module(
+                    pip_venv_path,
+                    module_name=module_name,
+                    package_name=package_name,
+                )
+                if not module_path:
+                    click.echo(
+                        f"{module_name} not importable after pip install",
+                        err=True,
+                    )
+                    sys.exit(1)
+                binary = Binary.model_validate(
+                    {
+                        **extra_kwargs,
+                        "name": name,
+                        "binproviders": [provider],
+                        "loaded_abspath": str(module_path),
+                        "loaded_version": module_version,
+                        "loaded_binprovider": provider,
+                    },
+                )
+            else:
+                binary = Binary.model_validate(
+                    {
+                        **extra_kwargs,
+                        "name": name,
+                        "binproviders": [provider],
+                        "min_version": min_version
+                        or extra_kwargs.get("min_version")
+                        or None,
+                        "overrides": binary_overrides,
+                    },
+                )
+                provider_overrides = binary.overrides.get("pip", {})
+                if provider_overrides:
+                    click.echo(
+                        f"Using pip install overrides: {provider_overrides}",
+                        err=True,
+                    )
 
-            binary = binary.install()
+                binary = binary.install()
         except Exception as e:
             click.echo(f"pip install failed: {e}", err=True)
             sys.exit(1)

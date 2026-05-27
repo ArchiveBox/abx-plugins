@@ -14,6 +14,7 @@
       "overrides": {
         "pip": {
           "install_root": "{LIB_DIR}/pip/packages/parse_rss_urls",
+          "module_name": "feedparser",
           "install_args": [
             "feedparser"
           ]
