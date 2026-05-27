@@ -1,0 +1,21 @@
+abx_plugins/plugins/readability/config.json
+  s_0519be8d8ec8fd::t_c50bda130346c5 12
+pyproject.toml
+  s_0519be8d8ec8fd::t_c50bda130346c5 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f28329c43530c7aef67fff4f0d0eed4ba254e8c4",
+  "prompts": {},
+  "sessions": {
+    "s_0519be8d8ec8fd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6897-fd2e-7901-959d-ad7ef7f9e7c4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
