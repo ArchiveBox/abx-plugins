@@ -1,6 +1,6 @@
 [project]
 name = "abx-plugins"
-version = "1.11.19"
+version = "1.11.20"
 description = "ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)"
 authors = [{name = "Nick Sweeting"}, {name = "ArchiveBox"}]
 requires-python = ">=3.11"
@@ -21,7 +21,7 @@ classifiers = [
 ]
 dependencies = [
     "abxbus==2.5.7",
-    "abxpkg>=1.11.16",
+    "abxpkg>=1.11.17",
     "jambo>=0.1.7",
     "rich-click>=1.9.7",
     "uv>=0.8.22",
@@ -46,12 +46,30 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-include = ["abx_plugins/**", "README.md", "LICENSE", "pyproject.toml", "**/*.py"]
-exclude = ["**/.coverage"]
+include = ["abx_plugins/**", "README.md", "LICENSE", "pyproject.toml"]
+exclude = [
+    "**/.coverage",
+    "**/__pycache__/**",
+    "**/*.pyc",
+    "**/*.pyo",
+    "abx_plugins/plugins/**/README.md",
+    "**/tests/**",
+    "tests/**",
+    "docs/**",
+]
 
 [tool.hatch.build.targets.sdist]
-include = ["abx_plugins/**", "README.md", "LICENSE", "pyproject.toml", "**/*.py"]
-exclude = ["**/.coverage"]
+include = ["abx_plugins/**", "README.md", "LICENSE", "pyproject.toml"]
+exclude = [
+    "**/.coverage",
+    "**/__pycache__/**",
+    "**/*.pyc",
+    "**/*.pyo",
+    "abx_plugins/plugins/**/README.md",
+    "**/tests/**",
+    "tests/**",
+    "docs/**",
+]
 
 [project.urls]
 Homepage = "https://github.com/ArchiveBox/abx-plugins"
