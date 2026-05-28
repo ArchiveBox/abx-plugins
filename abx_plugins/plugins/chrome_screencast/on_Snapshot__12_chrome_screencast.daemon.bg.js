@@ -40,10 +40,12 @@ process.chdir(OUTPUT_DIR);
 
 let browser = null;
 let cdpSession = null;
+let page = null;
 let shuttingDown = false;
 let frameCount = 0;
 let lastWriteAt = 0;
 let nextFrameNumber = 1;
+let captureTimer = null;
 
 function writeFrameAtomic(filePath, data) {
   const tmpPath = path.join(
@@ -95,12 +97,13 @@ async function startScreencast() {
     puppeteer,
   });
   browser = connection.browser;
+  page = connection.page;
   cdpSession =
     connection.cdpSession ||
-    (await connection.page.target().createCDPSession());
+    (await page.target().createCDPSession());
 
-  const width = getEnvInt("CHROME_SCREENCAST_WIDTH", 320);
-  const height = getEnvInt("CHROME_SCREENCAST_HEIGHT", 180);
+  const width = getEnvInt("CHROME_SCREENCAST_WIDTH", 640);
+  const height = getEnvInt("CHROME_SCREENCAST_HEIGHT", 360);
   const quality = Math.max(
     1,
     Math.min(100, getEnvInt("CHROME_SCREENCAST_QUALITY", 35))
@@ -112,47 +115,49 @@ async function startScreencast() {
   );
   const minFrameMs = Math.floor(1000 / fps);
 
-  cdpSession.on("Page.screencastFrame", async ({ data, sessionId }) => {
-    if (shuttingDown) return;
-    try {
-      await cdpSession.send("Page.screencastFrameAck", { sessionId });
-    } catch (error) {}
-    const now = Date.now();
-    if (now - lastWriteAt < minFrameMs) return;
-    lastWriteAt = now;
-    const jpeg = Buffer.from(data, "base64");
+  const writeFrame = (jpeg) => {
     const framePath = path.join(
       LIVE_DIR,
       `frame-${String(nextFrameNumber).padStart(6, "0")}.jpg`
     );
     nextFrameNumber += 1;
     frameCount += 1;
+    writeFrameAtomic(framePath, jpeg);
+    writeFrameAtomic(LATEST_FRAME, jpeg);
+    cleanupOldFrames(bufferSize);
+  };
+
+  async function captureFrame() {
+    if (shuttingDown) return;
+    const now = Date.now();
+    if (now - lastWriteAt < minFrameMs) return;
+    lastWriteAt = now;
     try {
-      writeFrameAtomic(framePath, jpeg);
-      writeFrameAtomic(LATEST_FRAME, jpeg);
-      cleanupOldFrames(bufferSize);
+      const jpeg = await page.screenshot({
+        type: "jpeg",
+        quality,
+        captureBeyondViewport: false,
+        clip: { x: 0, y: 0, width, height },
+      });
+      writeFrame(jpeg);
     } catch (error) {
       console.error(`WARN: failed to write screencast frame: ${error.message}`);
     }
-  });
+  }
 
-  await cdpSession.send("Page.startScreencast", {
-    format: "jpeg",
-    quality,
-    maxWidth: width,
-    maxHeight: height,
-    everyNthFrame: 1,
-  });
+  await captureFrame();
+  captureTimer = setInterval(captureFrame, minFrameMs);
   console.log(`screencast frames: ${LIVE_DIR}`);
 }
 
 async function stopScreencast(status = "succeeded", output = "") {
   if (shuttingDown) return;
   shuttingDown = true;
+  if (captureTimer) {
+    clearInterval(captureTimer);
+    captureTimer = null;
+  }
   if (cdpSession) {
-    try {
-      await cdpSession.send("Page.stopScreencast");
-    } catch (error) {}
     try {
       cdpSession.removeAllListeners("Page.screencastFrame");
     } catch (error) {}
@@ -167,6 +172,7 @@ async function stopScreencast(status = "succeeded", output = "") {
     } catch (error) {}
     browser = null;
   }
+  page = null;
   emitArchiveResultRecord(status, output || `${frameCount} screencast frames`);
   try {
     fs.rmSync(LIVE_DIR, { recursive: true, force: true });
