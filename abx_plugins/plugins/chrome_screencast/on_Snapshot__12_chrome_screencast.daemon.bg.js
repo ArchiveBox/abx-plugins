@@ -2,7 +2,7 @@
 /**
  * Write low-resolution Chrome screencast JPEGs for the admin live progress UI.
  *
- * Frames are cache-only and intentionally not stored as snapshot artifacts.
+ * Frames are crawl-scoped plugin output, shared by crawl setup and snapshot hooks.
  */
 
 const fs = require("fs");
@@ -27,25 +27,19 @@ const puppeteer = resolvePuppeteerModule();
 
 const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
-const DATA_DIR = path.resolve((hookConfig.DATA_DIR || "").trim() || ".");
 const IS_CRAWL_SETUP = path.basename(process.argv[1] || "").startsWith("on_CrawlSetup__");
-const RUN_DIR = path.resolve(
-  (
-    (IS_CRAWL_SETUP ? hookConfig.CRAWL_DIR : hookConfig.SNAP_DIR) ||
-    hookConfig.CRAWL_DIR ||
-    hookConfig.SNAP_DIR ||
-    "."
-  ).trim()
-);
-const OUTPUT_DIR = path.join(RUN_DIR, PLUGIN_DIR);
-const LIVE_ID = path.basename(RUN_DIR);
-const CHROME_SESSION_DIR = path.join(RUN_DIR, "chrome");
-const LIVE_DIR = path.join(DATA_DIR, "cache", "chrome_screencast", LIVE_ID);
+const CRAWL_DIR_VALUE = (hookConfig.CRAWL_DIR || "").trim();
+const CRAWL_DIR = path.resolve(CRAWL_DIR_VALUE || ".");
+const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || CRAWL_DIR).trim());
+const CHROME_SESSION_DIR = path.join(IS_CRAWL_SETUP ? CRAWL_DIR : SNAP_DIR, "chrome");
+const LIVE_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
 const LATEST_FRAME = path.join(LIVE_DIR, "latest.jpg");
-if (!fs.existsSync(OUTPUT_DIR)) {
-  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+if (CRAWL_DIR_VALUE && !fs.existsSync(LIVE_DIR)) {
+  fs.mkdirSync(LIVE_DIR, { recursive: true });
 }
-process.chdir(OUTPUT_DIR);
+if (CRAWL_DIR_VALUE) {
+  process.chdir(LIVE_DIR);
+}
 
 let browser = null;
 let shuttingDown = false;
@@ -62,10 +56,17 @@ function emitResult(status, output) {
   }
 }
 
-async function getLastOpenPage(browser) {
+async function captureVisibleViewportJpeg(browser, quality) {
   const pageTargets = browser
     .targets()
-    .filter((target) => target.type() === "page");
+    .filter((target) => {
+      const url = target.url() || "";
+      return target.type() === "page" && (
+        url.startsWith("http://") ||
+        url.startsWith("https://") ||
+        url.startsWith("chrome-extension://")
+      );
+    });
   const target = pageTargets[pageTargets.length - 1];
   if (!target) {
     throw new Error("No live Chrome page target found");
@@ -74,11 +75,7 @@ async function getLastOpenPage(browser) {
   if (!page) {
     throw new Error("Last Chrome page target has no page handle");
   }
-  return page;
-}
-
-async function captureVisibleViewportJpeg(browser, quality) {
-  const page = await getLastOpenPage(browser);
+  await page.bringToFront();
   const cdpSession = await page.target().createCDPSession();
   let result;
   try {
@@ -135,8 +132,8 @@ async function startScreencast() {
     emitResult("skipped", "CHROME_SCREENCAST_ENABLED=False");
     process.exit(0);
   }
-  if (!hookConfig.DATA_DIR) {
-    emitResult("skipped", "DATA_DIR is not set");
+  if (!CRAWL_DIR_VALUE) {
+    emitResult("skipped", "CRAWL_DIR is not set");
     process.exit(0);
   }
 
@@ -213,9 +210,6 @@ async function stopScreencast(status = "succeeded", output = "") {
     browser = null;
   }
   emitResult(status, output || `${frameCount} screencast frames`);
-  try {
-    fs.rmSync(LIVE_DIR, { recursive: true, force: true });
-  } catch (error) {}
 }
 
 async function handleShutdown(signal) {
