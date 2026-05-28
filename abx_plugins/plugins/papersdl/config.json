@@ -8,7 +8,7 @@
   "required_binaries": [
     {
       "name": "{PAPERSDL_BINARY}",
-      "binproviders": "env,pip",
+      "binproviders": "pip,env",
       "min_version": null,
       "postinstall_scripts": true,
       "overrides": {
