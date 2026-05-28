@@ -1,0 +1,31 @@
+tests/test_js_node_module_resolution.py
+  s_e0084e31d181ac::t_64bea51ea93730 11-18,24-26,36-38,40-46,48,51-88,90,92-93,96-130,133-134,138-143,145-147,151,161,199
+tests/test_chrome_runtime_fixture.py
+  s_e0084e31d181ac::t_63a35ada808730 6,11,14,18-21,25,45
+  s_e0084e31d181ac::t_0c02e7f03576f6 3-5,29-44,46-48
+abx_plugins/plugins/search_backend_ripgrep/tests/test_ripgrep_search.py
+  s_e0084e31d181ac::t_8c13a23ef1eb09 42-43,46,72-76,145-148,150,152-155,157,159-185,188-193,195-200,206-207,210,244-245,275-276,278,299-300
+  s_e0084e31d181ac::t_a2e66a371ea6a8 21
+abx_plugins/plugins/puppeteer/tests/test_puppeteer.py
+  s_e0084e31d181ac::t_6fff3c969b4e75 20-22,73,75,88-92,94,196-201
+abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py
+  s_e0084e31d181ac::t_6b4034e547e864 36-41,174,181-183,188,191,193,480-483,488,492,494-495,516,527,535-536,562-565
+  s_e0084e31d181ac::t_3198e11d005727 173,175
+  s_e0084e31d181ac::t_0bc4f3191c4db9 194-195
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "4ada78250978c1295e3986c32772bd3aead182ae",
+  "prompts": {},
+  "sessions": {
+    "s_e0084e31d181ac": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6d66-b926-7951-8389-e3d43423bd38",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
