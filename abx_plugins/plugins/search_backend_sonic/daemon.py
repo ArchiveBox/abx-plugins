@@ -22,6 +22,9 @@ class SonicSupervisorWorker(TypedDict):
     environment: str
     autostart: str
     autorestart: str
+    stopasgroup: str
+    killasgroup: str
+    stopwaitsecs: str
     stdout_logfile: str
     redirect_stderr: str
 
@@ -90,9 +93,14 @@ def supervisord_environment(**values: Any) -> str:
 
 
 def is_sonic_backend_enabled(config: Mapping[str, Any] | Any) -> bool:
-    return config_value(config, "SEARCH_BACKEND_ENGINE") == "sonic" and bool(
+    return config_value(config, "SEARCH_BACKEND_ENGINE") == "sonic" or str(
         config_value(config, "USE_INDEXING_BACKEND", True),
-    )
+    ).strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
 
 
 def is_port_listening(host: str, port: int) -> bool:
@@ -225,6 +233,9 @@ def get_sonic_supervisord_worker(
         ),
         "autostart": "false",
         "autorestart": "true",
+        "stopasgroup": "true",
+        "killasgroup": "true",
+        "stopwaitsecs": "10",
         "stdout_logfile": "logs/worker_sonic.log",
         "redirect_stderr": "true",
     }

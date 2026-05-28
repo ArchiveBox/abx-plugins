@@ -34,10 +34,11 @@
     "RIPGREP_TIMEOUT": {
       "type": "integer",
       "default": 90,
-      "minimum": 5,
+      "minimum": 1,
       "x-fallback": "TIMEOUT",
       "x-aliases": [
-        "SEARCH_BACKEND_TIMEOUT"
+        "SEARCH_BACKEND_TIMEOUT",
+        "SEARCH_BACKEND_RIPGREP_TIMEOUT"
       ],
       "description": "Search timeout in seconds"
     },

@@ -19,8 +19,10 @@
 
 import os
 import subprocess
+import threading
 import uuid
 import re
+import shutil
 from pathlib import Path
 from collections.abc import Iterable
 
@@ -105,12 +107,19 @@ def _extract_snapshot_id(match_path: Path, search_roots: list[Path]) -> str | No
     return None
 
 
-def search(query: str, search_mode: str = "contents") -> list[str]:
-    """Search for snapshots using ripgrep."""
+def _build_cmd(
+    query: str,
+    search_mode: str = "contents",
+) -> tuple[list[str], list[Path], int]:
     config = load_config(Path(__file__).with_name("config.json"))
 
     rg_binary = str(config.RIPGREP_BINARY or "")
-    if not rg_binary or not Path(rg_binary).expanduser().is_file():
+    rg_path = Path(rg_binary).expanduser()
+    if rg_path.is_file():
+        resolved_rg = str(rg_path)
+    else:
+        resolved_rg = shutil.which(rg_binary) or ""
+    if not resolved_rg:
         raise RuntimeError(
             "ripgrep binary not found. Install with: apt install ripgrep",
         )
@@ -123,46 +132,66 @@ def search(query: str, search_mode: str = "contents") -> list[str]:
 
     search_roots = _get_search_roots()
     if not search_roots:
-        return []
+        return [], [], timeout
 
     exclude_globs = DEFAULT_CONTENT_EXCLUDES if search_mode != "deep" else DEEP_EXCLUDES
 
     cmd = [
-        rg_binary,
+        resolved_rg,
         *ripgrep_args,
         *ripgrep_args_extra,
         "--files-with-matches",
+        "--line-buffered",
         "--no-messages",
         *(("--glob", f"!{glob}") for glob in exclude_globs),
         "--regexp",
         query,
         *(str(root) for root in search_roots),
     ]
-    flattened_cmd = [
-        part for item in cmd for part in (item if isinstance(item, tuple) else (item,))
-    ]
+    return (
+        [
+            part
+            for item in cmd
+            for part in (item if isinstance(item, tuple) else (item,))
+        ],
+        search_roots,
+        timeout,
+    )
 
+
+def iter_search(query: str, search_mode: str = "contents"):
+    """Yield matching snapshot IDs as ripgrep prints matched files."""
+    flattened_cmd, search_roots, timeout = _build_cmd(query, search_mode)
+    if not flattened_cmd:
+        return
+    proc = subprocess.Popen(
+        flattened_cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        bufsize=1,
+    )
+    timer = threading.Timer(timeout, proc.kill)
+    seen = set()
+    timer.start()
     try:
-        result = subprocess.run(
-            flattened_cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
-
-        snapshot_ids = set()
-        for line in result.stdout.strip().split("\n"):
-            if not line:
-                continue
+        for line in proc.stdout or ():
             path = Path(line.strip())
             snapshot_id = _extract_snapshot_id(path, search_roots)
-            if snapshot_id:
-                snapshot_ids.add(snapshot_id)
+            if snapshot_id and snapshot_id not in seen:
+                seen.add(snapshot_id)
+                yield snapshot_id
+    finally:
+        timer.cancel()
+        if proc.poll() is None:
+            proc.kill()
+        proc.wait()
 
-        return list(snapshot_ids)
 
-    except subprocess.TimeoutExpired:
-        return []
+def search(query: str, search_mode: str = "contents") -> list[str]:
+    """Search for snapshots using ripgrep."""
+    try:
+        return list(iter_search(query, search_mode=search_mode))
     except Exception:
         return []
 

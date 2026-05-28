@@ -12,12 +12,11 @@
 Sonic search backend - indexes snapshot content in Sonic server.
 
 This hook runs after all extractors and indexes text content in Sonic.
-Only runs if SEARCH_BACKEND_ENGINE=sonic.
+Runs when USE_INDEXING_BACKEND is enabled or SEARCH_BACKEND_ENGINE=sonic.
 
 Usage: on_Snapshot__91_index_sonic.py --url=<url>
 
 Environment variables:
-    SEARCH_BACKEND_ENGINE: Must be 'sonic' for this hook to run
     USE_INDEXING_BACKEND: Enable search indexing (default: true)
     SEARCH_BACKEND_HOST_NAME: Sonic server host (default: 127.0.0.1)
     SEARCH_BACKEND_PORT: Sonic server port (default: 1491)
@@ -39,6 +38,7 @@ from abx_plugins.plugins.base.utils import (
     get_extra_context,
     load_config,
 )
+from abx_plugins.plugins.search_backend_sonic.daemon import is_sonic_backend_enabled
 
 
 # Extractor metadata
@@ -210,15 +210,7 @@ def main() -> None:
             print("Skipping Sonic indexing (ABX_RUNTIME!=archivebox)", file=sys.stderr)
             status = "skipped"
             output_str = f"ABX_RUNTIME={config.ABX_RUNTIME}"
-        # Check if this backend is enabled (permanent skips - don't retry)
-        elif config.SEARCH_BACKEND_ENGINE != "sonic":
-            print(
-                f"Skipping Sonic indexing (SEARCH_BACKEND_ENGINE={config.SEARCH_BACKEND_ENGINE})",
-                file=sys.stderr,
-            )
-            status = "skipped"
-            output_str = f"SEARCH_BACKEND_ENGINE={config.SEARCH_BACKEND_ENGINE}"
-        elif not bool(config.USE_INDEXING_BACKEND):
+        elif not is_sonic_backend_enabled(config):
             print("Skipping indexing (USE_INDEXING_BACKEND=False)", file=sys.stderr)
             status = "skipped"
             output_str = "USE_INDEXING_BACKEND=False"

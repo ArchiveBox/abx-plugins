@@ -20,6 +20,7 @@ from abx_plugins.plugins.base.utils import (
     load_config,
 )
 from abx_plugins.plugins.search_backend_sonic.daemon import (
+    is_sonic_backend_enabled,
     is_port_listening,
     prepare_sonic_daemon,
 )
@@ -48,11 +49,7 @@ def main() -> None:
         emit_skipped(f"ABX_RUNTIME={config.ABX_RUNTIME}")
         sys.exit(PROCESS_EXIT_SKIPPED)
 
-    if config.SEARCH_BACKEND_ENGINE != "sonic":
-        emit_skipped(f"SEARCH_BACKEND_ENGINE={config.SEARCH_BACKEND_ENGINE}")
-        sys.exit(PROCESS_EXIT_SKIPPED)
-
-    if not config.USE_INDEXING_BACKEND:
+    if not is_sonic_backend_enabled(config):
         emit_skipped("USE_INDEXING_BACKEND=False")
         sys.exit(PROCESS_EXIT_SKIPPED)
 
