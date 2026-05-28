@@ -1,0 +1,21 @@
+pyproject.toml
+  s_b989805ae95d6a::t_7fd39f84ba1d0c 3
+abx_plugins/plugins/papersdl/config.json
+  s_b989805ae95d6a::t_6e92c98d19cdf2 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "2332404df8e76652fd0021e5dc65188f87df71fc",
+  "prompts": {},
+  "sessions": {
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
