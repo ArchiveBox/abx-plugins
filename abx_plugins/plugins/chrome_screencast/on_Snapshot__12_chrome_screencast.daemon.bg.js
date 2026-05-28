@@ -47,6 +47,23 @@ let lastWriteAt = 0;
 let nextFrameNumber = 1;
 let captureTimer = null;
 
+async function captureVisibleViewportJpeg(cdpSession, quality) {
+  const metrics = await cdpSession.send("Page.getLayoutMetrics");
+  const viewport = metrics.visualViewport || metrics.layoutViewport || {};
+  const width = Math.max(1, Math.floor(viewport.clientWidth || 1440));
+  const height = Math.max(1, Math.floor(viewport.clientHeight || 900));
+  const x = Math.max(0, Math.floor(viewport.pageX || 0));
+  const y = Math.max(0, Math.floor(viewport.pageY || 0));
+  const result = await cdpSession.send("Page.captureScreenshot", {
+    format: "jpeg",
+    quality,
+    fromSurface: true,
+    captureBeyondViewport: false,
+    clip: { x, y, width, height, scale: 1 },
+  });
+  return Buffer.from(result.data, "base64");
+}
+
 function writeFrameAtomic(filePath, data) {
   const tmpPath = path.join(
     path.dirname(filePath),
@@ -102,8 +119,6 @@ async function startScreencast() {
     connection.cdpSession ||
     (await page.target().createCDPSession());
 
-  const width = getEnvInt("CHROME_SCREENCAST_WIDTH", 640);
-  const height = getEnvInt("CHROME_SCREENCAST_HEIGHT", 360);
   const quality = Math.max(
     1,
     Math.min(100, getEnvInt("CHROME_SCREENCAST_QUALITY", 35))
@@ -133,12 +148,7 @@ async function startScreencast() {
     if (now - lastWriteAt < minFrameMs) return;
     lastWriteAt = now;
     try {
-      const jpeg = await page.screenshot({
-        type: "jpeg",
-        quality,
-        captureBeyondViewport: false,
-        clip: { x: 0, y: 0, width, height },
-      });
+      const jpeg = await captureVisibleViewportJpeg(cdpSession, quality);
       writeFrame(jpeg);
     } catch (error) {
       console.error(`WARN: failed to write screencast frame: ${error.message}`);
