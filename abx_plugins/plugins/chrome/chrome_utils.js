@@ -6,55 +6,56 @@
  * Ported from the TypeScript implementation in archivebox.ts
  */
 
-const fs = require('fs');
-const path = require('path');
-const http = require('http');
-const os = require('os');
-const net = require('net');
-const { spawn, execFileSync } = require('child_process');
+const fs = require("fs");
+const path = require("path");
+const http = require("http");
+const os = require("os");
+const net = require("net");
+const { spawn, execFileSync } = require("child_process");
 
 // Import generic helpers from base plugin
 const {
-    getEnv,
-    getEnvBool,
-    getEnvInt,
-    getEnvArray,
-    getNodeModulesDir: getNodeModulesDirFromBaseUtils,
-    ensureNodeModuleResolution,
-    loadConfig,
-    parseArgs,
-} = require('../base/utils.js');
+  getEnv,
+  getEnvBool,
+  getEnvInt,
+  getEnvArray,
+  getNodeModulesDir: getNodeModulesDirFromBaseUtils,
+  ensureNodeModuleResolution,
+  loadConfig,
+  parseArgs,
+} = require("../base/utils.js");
 
 ensureNodeModuleResolution(module);
 
-const CHROME_SESSION_REQUIRED_ERROR = 'No Chrome session found (chrome plugin must run first)';
+const CHROME_SESSION_REQUIRED_ERROR =
+  "No Chrome session found (chrome plugin must run first)";
 const CHROME_PROFILE_LOCK_FILES = [
-    'SingletonLock',
-    'SingletonSocket',
-    'SingletonCookie',
-    'DevToolsActivePort',
+  "SingletonLock",
+  "SingletonSocket",
+  "SingletonCookie",
+  "DevToolsActivePort",
 ];
 
 function getBrowserVersionOutput(binaryPath) {
-    if (!binaryPath) return '';
-    try {
-        return execFileSync(binaryPath, ['--version'], {
-            encoding: 'utf8',
-            timeout: 5000,
-            stdio: ['ignore', 'pipe', 'pipe'],
-        }).trim();
-    } catch (e) {
-        return '';
-    }
+  if (!binaryPath) return "";
+  try {
+    return execFileSync(binaryPath, ["--version"], {
+      encoding: "utf8",
+      timeout: 5000,
+      stdio: ["ignore", "pipe", "pipe"],
+    }).trim();
+  } catch (e) {
+    return "";
+  }
 }
 
 function isSupportedChromiumVersionOutput(output) {
-    const version = String(output || '').trim();
-    return Boolean(version);
+  const version = String(output || "").trim();
+  return Boolean(version);
 }
 
 function isSupportedChromiumBinary(binaryPath) {
-    return isSupportedChromiumVersionOutput(getBrowserVersionOutput(binaryPath));
+  return isSupportedChromiumVersionOutput(getBrowserVersionOutput(binaryPath));
 }
 
 /**
@@ -64,9 +65,9 @@ function isSupportedChromiumBinary(binaryPath) {
  * @returns {string} - Absolute path to snapshot directory
  */
 function getSnapDir() {
-    const snapDir = getEnv('SNAP_DIR');
-    if (snapDir) return path.resolve(snapDir);
-    return path.resolve(process.cwd());
+  const snapDir = getEnv("SNAP_DIR");
+  if (snapDir) return path.resolve(snapDir);
+  return path.resolve(process.cwd());
 }
 
 /**
@@ -76,9 +77,9 @@ function getSnapDir() {
  * @returns {string} - Absolute path to crawl directory
  */
 function getCrawlDir() {
-    const crawlDir = getEnv('CRAWL_DIR');
-    if (crawlDir) return path.resolve(crawlDir);
-    return path.resolve(process.cwd());
+  const crawlDir = getEnv("CRAWL_DIR");
+  if (crawlDir) return path.resolve(crawlDir);
+  return path.resolve(process.cwd());
 }
 
 /**
@@ -88,8 +89,8 @@ function getCrawlDir() {
  * @returns {string} - Absolute path to personas directory
  */
 function getPersonasDir() {
-    const config = loadConfig(path.join(__dirname, 'config.json'));
-    return path.resolve(config.PERSONAS_DIR);
+  const config = loadConfig(path.join(__dirname, "config.json"));
+  return path.resolve(config.PERSONAS_DIR);
 }
 
 /**
@@ -98,33 +99,42 @@ function getPersonasDir() {
  * @returns {{width: number, height: number}} - Parsed dimensions
  */
 function parseResolution(resolution) {
-    const [width, height] = resolution.split(',').map(x => parseInt(x.trim(), 10));
-    return { width: width || 1440, height: height || 2000 };
+  const [width, height] = resolution
+    .split(",")
+    .map((x) => parseInt(x.trim(), 10));
+  return { width: width || 1440, height: height || 2000 };
 }
 
 function cleanupChromeProfileLockFiles(userDataDir, options = {}) {
-    const { quiet = false } = options;
-    if (!userDataDir) return [];
+  const { quiet = false } = options;
+  if (!userDataDir) return [];
 
-    const cleaned = [];
-    for (const fileName of CHROME_PROFILE_LOCK_FILES) {
-        const filePath = path.join(userDataDir, fileName);
-        try {
-            fs.lstatSync(filePath);
-        } catch (error) {
-            if (error && error.code === 'ENOENT') continue;
-            if (!quiet) console.error(`[!] Failed to inspect Chrome profile file ${filePath}: ${error.message}`);
-            continue;
-        }
-        try {
-            fs.unlinkSync(filePath);
-            cleaned.push(filePath);
-            if (!quiet) console.error(`[+] Removed stale Chrome profile file: ${filePath}`);
-        } catch (error) {
-            if (!quiet) console.error(`[!] Failed to remove Chrome profile file ${filePath}: ${error.message}`);
-        }
+  const cleaned = [];
+  for (const fileName of CHROME_PROFILE_LOCK_FILES) {
+    const filePath = path.join(userDataDir, fileName);
+    try {
+      fs.lstatSync(filePath);
+    } catch (error) {
+      if (error && error.code === "ENOENT") continue;
+      if (!quiet)
+        console.error(
+          `[!] Failed to inspect Chrome profile file ${filePath}: ${error.message}`
+        );
+      continue;
     }
-    return cleaned;
+    try {
+      fs.unlinkSync(filePath);
+      cleaned.push(filePath);
+      if (!quiet)
+        console.error(`[+] Removed stale Chrome profile file: ${filePath}`);
+    } catch (error) {
+      if (!quiet)
+        console.error(
+          `[!] Failed to remove Chrome profile file ${filePath}: ${error.message}`
+        );
+    }
+  }
+  return cleaned;
 }
 
 // ============================================================================
@@ -138,9 +148,9 @@ function cleanupChromeProfileLockFiles(userDataDir, options = {}) {
  * @param {number} startTimeSeconds - Process start time in seconds
  */
 function writePidWithMtime(filePath, pid, startTimeSeconds) {
-    fs.writeFileSync(filePath, String(pid));
-    const startTimeMs = startTimeSeconds * 1000;
-    fs.utimesSync(filePath, new Date(startTimeMs), new Date(startTimeMs));
+  fs.writeFileSync(filePath, String(pid));
+  const startTimeMs = startTimeSeconds * 1000;
+  fs.utimesSync(filePath, new Date(startTimeMs), new Date(startTimeMs));
 }
 
 /**
@@ -150,12 +160,12 @@ function writePidWithMtime(filePath, pid, startTimeSeconds) {
  * @param {string[]} args - Chrome arguments
  */
 function writeCmdScript(filePath, binary, args) {
-    const shellQuote = (arg) => `'${String(arg).replace(/'/g, "'\\''")}'`;
-    fs.writeFileSync(
-        filePath,
-        `#!/bin/bash\n${[binary, ...args].map(shellQuote).join(' ')}\n`
-    );
-    fs.chmodSync(filePath, 0o755);
+  const shellQuote = (arg) => `'${String(arg).replace(/'/g, "'\\''")}'`;
+  fs.writeFileSync(
+    filePath,
+    `#!/bin/bash\n${[binary, ...args].map(shellQuote).join(" ")}\n`
+  );
+  fs.chmodSync(filePath, 0o755);
 }
 
 // ============================================================================
@@ -167,15 +177,15 @@ function writeCmdScript(filePath, binary, args) {
  * @returns {Promise<number>} - Available port number
  */
 function findFreePort() {
-    return new Promise((resolve, reject) => {
-        const server = net.createServer();
-        server.unref();
-        server.on('error', reject);
-        server.listen(0, () => {
-            const port = server.address().port;
-            server.close(() => resolve(port));
-        });
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.on("error", reject);
+    server.listen(0, () => {
+      const port = server.address().port;
+      server.close(() => resolve(port));
     });
+  });
 }
 
 /**
@@ -185,84 +195,97 @@ function findFreePort() {
  * @returns {Promise<Object>} - Chrome version info
  */
 function waitForDebugPort(port, timeout = 30000) {
-    const startTime = Date.now();
-    let lastFailure = 'no response yet';
-    const hosts = ['127.0.0.1', '::1', 'localhost'];
+  const startTime = Date.now();
+  let lastFailure = "no response yet";
+  const hosts = ["127.0.0.1", "::1", "localhost"];
 
-    const normalizeWsUrl = (rawWsUrl) => {
-        try {
-            const parsed = new URL(rawWsUrl);
-            if (!parsed.port) parsed.port = String(port);
-            return parsed.toString();
-        } catch (e) {
-            return rawWsUrl;
+  const normalizeWsUrl = (rawWsUrl) => {
+    try {
+      const parsed = new URL(rawWsUrl);
+      if (!parsed.port) parsed.port = String(port);
+      return parsed.toString();
+    } catch (e) {
+      return rawWsUrl;
+    }
+  };
+
+  const probeDebugPort = (host) =>
+    new Promise((resolve, reject) => {
+      const req = http.request(
+        {
+          host,
+          port,
+          path: "/json/version",
+          method: "GET",
+          headers: {
+            Host: `${host}:${port}`,
+            Connection: "close",
+          },
+          timeout: 5000,
+        },
+        (res) => {
+          let data = "";
+          res.on("data", (chunk) => (data += chunk));
+          res.on("end", () => {
+            if ((res.statusCode || 0) >= 400) {
+              reject(new Error(`HTTP ${res.statusCode}`));
+              return;
+            }
+            try {
+              const info = JSON.parse(data);
+              if (!info?.webSocketDebuggerUrl) {
+                reject(
+                  new Error(
+                    "missing webSocketDebuggerUrl in /json/version response"
+                  )
+                );
+                return;
+              }
+              info.webSocketDebuggerUrl = normalizeWsUrl(
+                info.webSocketDebuggerUrl
+              );
+              resolve(info);
+            } catch (error) {
+              reject(
+                new Error(`invalid /json/version payload: ${error.message}`)
+              );
+            }
+          });
         }
+      );
+      req.on("error", reject);
+      req.on("timeout", () => {
+        req.destroy(new Error("request timeout"));
+      });
+      req.end();
+    });
+
+  return new Promise((resolve, reject) => {
+    const tryConnect = async () => {
+      if (Date.now() - startTime > timeout) {
+        reject(
+          new Error(
+            `Timeout waiting for Chrome debug port ${port} (${lastFailure})`
+          )
+        );
+        return;
+      }
+
+      for (const host of hosts) {
+        try {
+          const info = await probeDebugPort(host);
+          resolve(info);
+          return;
+        } catch (error) {
+          lastFailure = `${host}: ${error.message}`;
+        }
+      }
+
+      setTimeout(tryConnect, 100);
     };
 
-    const probeDebugPort = (host) => new Promise((resolve, reject) => {
-        const req = http.request(
-            {
-                host,
-                port,
-                path: '/json/version',
-                method: 'GET',
-                headers: {
-                    Host: `${host}:${port}`,
-                    Connection: 'close',
-                },
-                timeout: 5000,
-            },
-            (res) => {
-                let data = '';
-                res.on('data', (chunk) => (data += chunk));
-                res.on('end', () => {
-                    if ((res.statusCode || 0) >= 400) {
-                        reject(new Error(`HTTP ${res.statusCode}`));
-                        return;
-                    }
-                    try {
-                        const info = JSON.parse(data);
-                        if (!info?.webSocketDebuggerUrl) {
-                            reject(new Error('missing webSocketDebuggerUrl in /json/version response'));
-                            return;
-                        }
-                        info.webSocketDebuggerUrl = normalizeWsUrl(info.webSocketDebuggerUrl);
-                        resolve(info);
-                    } catch (error) {
-                        reject(new Error(`invalid /json/version payload: ${error.message}`));
-                    }
-                });
-            }
-        );
-        req.on('error', reject);
-        req.on('timeout', () => {
-            req.destroy(new Error('request timeout'));
-        });
-        req.end();
-    });
-
-    return new Promise((resolve, reject) => {
-        const tryConnect = async () => {
-            if (Date.now() - startTime > timeout) {
-                reject(new Error(`Timeout waiting for Chrome debug port ${port} (${lastFailure})`));
-                return;
-            }
-
-            for (const host of hosts) {
-                try {
-                    const info = await probeDebugPort(host);
-                    resolve(info);
-                    return;
-                } catch (error) {
-                    lastFailure = `${host}: ${error.message}`;
-                }
-            }
-
-            setTimeout(tryConnect, 100);
-        };
-
-        tryConnect();
-    });
+    tryConnect();
+  });
 }
 
 // ============================================================================
@@ -280,508 +303,580 @@ function waitForDebugPort(port, timeout = 30000) {
  * @returns {number} - Number of zombies killed
  */
 async function killZombieChrome(snapDir = null, options = {}) {
-    snapDir = snapDir || getSnapDir();
-    let killed = 0;
-    const currentPid = process.pid;
-    const quiet = Boolean(options.quiet);
-    const excludeCurrentRuntimeDirs = options.excludeCurrentRuntimeDirs !== false;
-    const excludeCrawlDirs = new Set(
-        (options.excludeCrawlDirs || []).map(dir => path.resolve(dir))
-    );
-    const excludeSessionDirs = new Set(
-        (options.excludeSessionDirs || []).map(dir => path.resolve(dir))
-    );
-    if (excludeCurrentRuntimeDirs) {
-        excludeSessionDirs.add(path.resolve(getSnapDir()));
-        excludeSessionDirs.add(path.resolve(getCrawlDir()));
-    }
+  snapDir = snapDir || getSnapDir();
+  let killed = 0;
+  const currentPid = process.pid;
+  const quiet = Boolean(options.quiet);
+  const excludeCurrentRuntimeDirs = options.excludeCurrentRuntimeDirs !== false;
+  const excludeCrawlDirs = new Set(
+    (options.excludeCrawlDirs || []).map((dir) => path.resolve(dir))
+  );
+  const excludeSessionDirs = new Set(
+    (options.excludeSessionDirs || []).map((dir) => path.resolve(dir))
+  );
+  if (excludeCurrentRuntimeDirs) {
+    excludeSessionDirs.add(path.resolve(getSnapDir()));
+    excludeSessionDirs.add(path.resolve(getCrawlDir()));
+  }
 
-    if (!quiet) console.error('[*] Checking for zombie Chrome processes...');
+  if (!quiet) console.error("[*] Checking for zombie Chrome processes...");
 
-    if (!fs.existsSync(snapDir)) {
-        if (!quiet) console.error('[+] No snapshot directory found');
-        return 0;
-    }
+  if (!fs.existsSync(snapDir)) {
+    if (!quiet) console.error("[+] No snapshot directory found");
+    return 0;
+  }
 
-    /**
-     * Recursively find all chrome/chrome.pid files in directory tree
-     * @param {string} dir - Directory to search
-     * @param {number} depth - Current recursion depth (limit to 10)
-     * @returns {Array<{pidFile: string, chromeDir: string, sessionDir: string}>} - Array of PID file info
-     */
-    function findChromePidFiles(dir, depth = 0) {
-        if (depth > 10) return [];  // Prevent infinite recursion
+  /**
+   * Recursively find all chrome/chrome.pid files in directory tree
+   * @param {string} dir - Directory to search
+   * @param {number} depth - Current recursion depth (limit to 10)
+   * @returns {Array<{pidFile: string, chromeDir: string, sessionDir: string}>} - Array of PID file info
+   */
+  function findChromePidFiles(dir, depth = 0) {
+    if (depth > 10) return []; // Prevent infinite recursion
 
-        const results = [];
-        try {
-            const entries = fs.readdirSync(dir, { withFileTypes: true });
+    const results = [];
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
 
-            for (const entry of entries) {
-                if (!entry.isDirectory()) continue;
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
 
-                const fullPath = path.join(dir, entry.name);
+        const fullPath = path.join(dir, entry.name);
 
-                // Found a chrome directory - only consider the shared browser marker.
-                if (entry.name === 'chrome') {
-                    try {
-                        const crawlDir = dir;  // Parent of chrome/ is the crawl dir
-                        const chromePidFile = path.join(fullPath, 'chrome.pid');
-                        if (fs.existsSync(chromePidFile)) {
-                            results.push({
-                                pidFile: chromePidFile,
-                                chromeDir: fullPath,
-                                sessionDir: crawlDir,
-                            });
-                        }
-                    } catch (e) {
-                        // Skip if can't read chrome dir
-                    }
-                } else {
-                    // Recurse into subdirectory (skip hidden dirs and node_modules)
-                    if (!entry.name.startsWith('.') && entry.name !== 'node_modules') {
-                        results.push(...findChromePidFiles(fullPath, depth + 1));
-                    }
-                }
+        // Found a chrome directory - only consider the shared browser marker.
+        if (entry.name === "chrome") {
+          try {
+            const crawlDir = dir; // Parent of chrome/ is the crawl dir
+            const chromePidFile = path.join(fullPath, "chrome.pid");
+            if (fs.existsSync(chromePidFile)) {
+              results.push({
+                pidFile: chromePidFile,
+                chromeDir: fullPath,
+                sessionDir: crawlDir,
+              });
             }
-        } catch (e) {
-            // Skip if can't read directory
+          } catch (e) {
+            // Skip if can't read chrome dir
+          }
+        } else {
+          // Recurse into subdirectory (skip hidden dirs and node_modules)
+          if (!entry.name.startsWith(".") && entry.name !== "node_modules") {
+            results.push(...findChromePidFiles(fullPath, depth + 1));
+          }
         }
-        return results;
+      }
+    } catch (e) {
+      // Skip if can't read directory
     }
+    return results;
+  }
 
-    function findOwningCrawlDir(sessionDir) {
-        let currentDir = path.resolve(sessionDir);
-        const rootDir = path.resolve(snapDir);
-        while (currentDir.startsWith(rootDir)) {
-            if (fs.existsSync(path.join(currentDir, '.heartbeat.json'))) {
-                return currentDir;
-            }
-            if (excludeCrawlDirs.has(currentDir) || excludeSessionDirs.has(currentDir)) {
-                return currentDir;
-            }
-            const parentDir = path.dirname(currentDir);
-            if (parentDir === currentDir) {
-                break;
-            }
-            currentDir = parentDir;
-        }
-        return path.resolve(sessionDir);
+  function findOwningCrawlDir(sessionDir) {
+    let currentDir = path.resolve(sessionDir);
+    const rootDir = path.resolve(snapDir);
+    while (currentDir.startsWith(rootDir)) {
+      if (fs.existsSync(path.join(currentDir, ".heartbeat.json"))) {
+        return currentDir;
+      }
+      if (
+        excludeCrawlDirs.has(currentDir) ||
+        excludeSessionDirs.has(currentDir)
+      ) {
+        return currentDir;
+      }
+      const parentDir = path.dirname(currentDir);
+      if (parentDir === currentDir) {
+        break;
+      }
+      currentDir = parentDir;
     }
+    return path.resolve(sessionDir);
+  }
 
-    function crawlHeartbeatIsAlive(crawlDir) {
-        const heartbeatFile = path.join(crawlDir, '.heartbeat.json');
-        try {
-            const heartbeat = JSON.parse(fs.readFileSync(heartbeatFile, 'utf8'));
-            const ownerPid = parseInt(String(heartbeat.owner_pid), 10);
-            const lastAliveAt = Number(heartbeat.last_alive_at);
-            const killAfterSeconds = Number(heartbeat.kill_after_seconds || 180);
-            if (isNaN(ownerPid) || ownerPid <= 0 || !Number.isFinite(lastAliveAt)) {
-                return false;
-            }
-            if (!isProcessAlive(ownerPid)) {
-                return false;
-            }
-            return (Date.now() / 1000) - lastAliveAt <= killAfterSeconds;
-        } catch (error) {
-            return false;
-        }
-    }
-
-    function getHeartbeatOwnerPid(crawlDir) {
-        const heartbeatFile = path.join(crawlDir, '.heartbeat.json');
-        try {
-            const heartbeat = JSON.parse(fs.readFileSync(heartbeatFile, 'utf8'));
-            const ownerPid = parseInt(String(heartbeat.owner_pid), 10);
-            return Number.isNaN(ownerPid) || ownerPid <= 0 ? null : ownerPid;
-        } catch (error) {
-            return null;
-        }
-    }
-
-    function findChromeHookPidFiles(dir, depth = 0) {
-        if (depth > 10) return [];
-
-        const results = [];
-        try {
-            const entries = fs.readdirSync(dir, { withFileTypes: true });
-            for (const entry of entries) {
-                if (!entry.isDirectory()) continue;
-                const fullPath = path.join(dir, entry.name);
-                if (entry.name === 'chrome') {
-                    try {
-                        const crawlDir = dir;
-                        for (const chromeEntry of fs.readdirSync(fullPath, { withFileTypes: true })) {
-                            if (!chromeEntry.isFile()) continue;
-                            if (!chromeEntry.name.endsWith('.pid')) continue;
-                            if (chromeEntry.name === 'chrome.pid') continue;
-                            if (!chromeEntry.name.startsWith('on_')) continue;
-                            if (!chromeEntry.name.includes('chrome_')) continue;
-                            const pidFile = path.join(fullPath, chromeEntry.name);
-                            results.push({
-                                pidFile,
-                                hookName: chromeEntry.name.slice(0, -4),
-                                chromeDir: fullPath,
-                                sessionDir: crawlDir,
-                            });
-                        }
-                    } catch (error) {
-                        // Skip unreadable chrome directories
-                    }
-                } else if (!entry.name.startsWith('.') && entry.name !== 'node_modules') {
-                    results.push(...findChromeHookPidFiles(fullPath, depth + 1));
-                }
-            }
-        } catch (error) {
-            // Skip unreadable directories
-        }
-        return results;
-    }
-
-    function findRuntimePersonaDirs(dir, depth = 0) {
-        if (depth > 10) return [];
-
-        const results = [];
-        try {
-            const entries = fs.readdirSync(dir, { withFileTypes: true });
-            for (const entry of entries) {
-                if (!entry.isDirectory()) continue;
-                const fullPath = path.join(dir, entry.name);
-                if (entry.name === '.persona') {
-                    results.push({
-                        personaDir: fullPath,
-                        sessionDir: path.dirname(fullPath),
-                    });
-                } else if (!entry.name.startsWith('.') && entry.name !== 'node_modules') {
-                    results.push(...findRuntimePersonaDirs(fullPath, depth + 1));
-                }
-            }
-        } catch (error) {
-            // Skip unreadable directories
-        }
-        return results;
-    }
-
-    function getParentPid(pid) {
-        try {
-            const output = execFileSync('ps', ['-o', 'ppid=', '-p', String(pid)], {
-                encoding: 'utf8',
-                timeout: 5000,
-                stdio: ['ignore', 'pipe', 'ignore'],
-            }).trim();
-            const parentPid = parseInt(output, 10);
-            return Number.isNaN(parentPid) || parentPid <= 0 ? null : parentPid;
-        } catch (error) {
-            return null;
-        }
-    }
-
-    function processHasAncestorPid(pid, ancestorPid) {
-        if (!ancestorPid || !isProcessAlive(ancestorPid)) {
-            return false;
-        }
-        const seen = new Set();
-        let currentPid = pid;
-        while (currentPid && !seen.has(currentPid)) {
-            if (currentPid === ancestorPid) {
-                return true;
-            }
-            seen.add(currentPid);
-            currentPid = getParentPid(currentPid);
-        }
+  function crawlHeartbeatIsAlive(crawlDir) {
+    const heartbeatFile = path.join(crawlDir, ".heartbeat.json");
+    try {
+      const heartbeat = JSON.parse(fs.readFileSync(heartbeatFile, "utf8"));
+      const ownerPid = parseInt(String(heartbeat.owner_pid), 10);
+      const lastAliveAt = Number(heartbeat.last_alive_at);
+      const killAfterSeconds = Number(heartbeat.kill_after_seconds || 180);
+      if (isNaN(ownerPid) || ownerPid <= 0 || !Number.isFinite(lastAliveAt)) {
         return false;
-    }
-
-    function getProcessCommand(pid) {
-        try {
-            return execFileSync('ps', ['-o', 'command=', '-p', String(pid)], {
-                encoding: 'utf8',
-                timeout: 5000,
-                stdio: ['ignore', 'pipe', 'ignore'],
-            }).trim();
-        } catch (error) {
-            return '';
-        }
-    }
-
-    function getProcessWorkingDir(pid) {
-        try {
-            const output = execFileSync('lsof', ['-a', '-p', String(pid), '-d', 'cwd', '-Fn'], {
-                encoding: 'utf8',
-                timeout: 5000,
-                stdio: ['ignore', 'pipe', 'ignore'],
-            });
-            for (const line of output.split('\n')) {
-                if (line.startsWith('n')) {
-                    return path.resolve(line.slice(1).trim());
-                }
-            }
-        } catch (error) {
-            return null;
-        }
-        return null;
-    }
-
-    function findChromeHookProcesses() {
-        try {
-            const output = execFileSync('ps', ['-axo', 'pid=,command='], { encoding: 'utf8', timeout: 5000 });
-            const hookMatches = [];
-            for (const line of output.split('\n')) {
-                const trimmed = line.trim();
-                if (!trimmed) continue;
-                const match = trimmed.match(/^(\d+)\s+(.*)$/);
-                if (!match) continue;
-                const pid = parseInt(match[1], 10);
-                const command = match[2];
-                if (Number.isNaN(pid) || pid <= 0) continue;
-                if (command.includes('on_CrawlSetup__90_chrome_launch.daemon.bg.js')) {
-                    hookMatches.push({ pid, hookName: 'on_CrawlSetup__90_chrome_launch.daemon.bg' });
-                    continue;
-                }
-                if (command.includes('on_Snapshot__09_chrome_launch.daemon.bg.js')) {
-                    hookMatches.push({ pid, hookName: 'on_Snapshot__09_chrome_launch.daemon.bg' });
-                    continue;
-                }
-                if (command.includes('on_Snapshot__10_chrome_tab.daemon.bg.js')) {
-                    hookMatches.push({ pid, hookName: 'on_Snapshot__10_chrome_tab.daemon.bg' });
-                }
-            }
-            return hookMatches;
-        } catch (error) {
-            return [];
-        }
-    }
-
-    function crawlHasLiveChromeHook(crawlDir) {
-        const resolvedCrawlDir = path.resolve(crawlDir);
-        for (const {pid} of findChromeHookProcesses()) {
-            if (pid === currentPid || !isProcessAlive(pid)) {
-                continue;
-            }
-            const currentWorkingDir = getProcessWorkingDir(pid);
-            if (!currentWorkingDir) {
-                continue;
-            }
-            const sessionDir = path.basename(currentWorkingDir) === 'chrome'
-                ? path.dirname(currentWorkingDir)
-                : currentWorkingDir;
-            if (findOwningCrawlDir(sessionDir) === resolvedCrawlDir) {
-                return true;
-            }
-        }
+      }
+      if (!isProcessAlive(ownerPid)) {
         return false;
+      }
+      return Date.now() / 1000 - lastAliveAt <= killAfterSeconds;
+    } catch (error) {
+      return false;
     }
+  }
 
-    async function killHookProcess(pid, expectedHookName) {
-        const currentCommand = getProcessCommand(pid);
-        if (!currentCommand || !currentCommand.includes(expectedHookName)) {
-            return false;
-        }
+  function getHeartbeatOwnerPid(crawlDir) {
+    const heartbeatFile = path.join(crawlDir, ".heartbeat.json");
+    try {
+      const heartbeat = JSON.parse(fs.readFileSync(heartbeatFile, "utf8"));
+      const ownerPid = parseInt(String(heartbeat.owner_pid), 10);
+      return Number.isNaN(ownerPid) || ownerPid <= 0 ? null : ownerPid;
+    } catch (error) {
+      return null;
+    }
+  }
 
-        try {
-            process.kill(pid, 'SIGTERM');
-        } catch (error) {
-            if (error.code !== 'ESRCH') {
-                console.error(`[!] Failed to SIGTERM hook PID ${pid}: ${error.message}`);
+  function findChromeHookPidFiles(dir, depth = 0) {
+    if (depth > 10) return [];
+
+    const results = [];
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const fullPath = path.join(dir, entry.name);
+        if (entry.name === "chrome") {
+          try {
+            const crawlDir = dir;
+            for (const chromeEntry of fs.readdirSync(fullPath, {
+              withFileTypes: true,
+            })) {
+              if (!chromeEntry.isFile()) continue;
+              if (!chromeEntry.name.endsWith(".pid")) continue;
+              if (chromeEntry.name === "chrome.pid") continue;
+              if (!chromeEntry.name.startsWith("on_")) continue;
+              if (!chromeEntry.name.includes("chrome_")) continue;
+              const pidFile = path.join(fullPath, chromeEntry.name);
+              results.push({
+                pidFile,
+                hookName: chromeEntry.name.slice(0, -4),
+                chromeDir: fullPath,
+                sessionDir: crawlDir,
+              });
             }
+          } catch (error) {
+            // Skip unreadable chrome directories
+          }
+        } else if (
+          !entry.name.startsWith(".") &&
+          entry.name !== "node_modules"
+        ) {
+          results.push(...findChromeHookPidFiles(fullPath, depth + 1));
         }
+      }
+    } catch (error) {
+      // Skip unreadable directories
+    }
+    return results;
+  }
 
-        const deadline = Date.now() + 5000;
-        while (Date.now() < deadline) {
-            if (!isProcessAlive(pid)) {
-                return true;
-            }
-            await sleep(200);
+  function findRuntimePersonaDirs(dir, depth = 0) {
+    if (depth > 10) return [];
+
+    const results = [];
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const fullPath = path.join(dir, entry.name);
+        if (entry.name === ".persona") {
+          results.push({
+            personaDir: fullPath,
+            sessionDir: path.dirname(fullPath),
+          });
+        } else if (
+          !entry.name.startsWith(".") &&
+          entry.name !== "node_modules"
+        ) {
+          results.push(...findRuntimePersonaDirs(fullPath, depth + 1));
         }
+      }
+    } catch (error) {
+      // Skip unreadable directories
+    }
+    return results;
+  }
 
-        if (isProcessAlive(pid)) {
-            try {
-                process.kill(pid, 'SIGKILL');
-            } catch (error) {
-                if (error.code !== 'ESRCH') {
-                    console.error(`[!] Failed to SIGKILL hook PID ${pid}: ${error.message}`);
-                }
-            }
+  function getParentPid(pid) {
+    try {
+      const output = execFileSync("ps", ["-o", "ppid=", "-p", String(pid)], {
+        encoding: "utf8",
+        timeout: 5000,
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+      const parentPid = parseInt(output, 10);
+      return Number.isNaN(parentPid) || parentPid <= 0 ? null : parentPid;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function processHasAncestorPid(pid, ancestorPid) {
+    if (!ancestorPid || !isProcessAlive(ancestorPid)) {
+      return false;
+    }
+    const seen = new Set();
+    let currentPid = pid;
+    while (currentPid && !seen.has(currentPid)) {
+      if (currentPid === ancestorPid) {
+        return true;
+      }
+      seen.add(currentPid);
+      currentPid = getParentPid(currentPid);
+    }
+    return false;
+  }
+
+  function getProcessCommand(pid) {
+    try {
+      return execFileSync("ps", ["-o", "command=", "-p", String(pid)], {
+        encoding: "utf8",
+        timeout: 5000,
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function getProcessWorkingDir(pid) {
+    try {
+      const output = execFileSync(
+        "lsof",
+        ["-a", "-p", String(pid), "-d", "cwd", "-Fn"],
+        {
+          encoding: "utf8",
+          timeout: 5000,
+          stdio: ["ignore", "pipe", "ignore"],
         }
-
-        const killDeadline = Date.now() + 5000;
-        while (Date.now() < killDeadline) {
-            if (!isProcessAlive(pid)) {
-                return true;
-            }
-            await sleep(200);
+      );
+      for (const line of output.split("\n")) {
+        if (line.startsWith("n")) {
+          return path.resolve(line.slice(1).trim());
         }
+      }
+    } catch (error) {
+      return null;
+    }
+    return null;
+  }
 
-        return !isProcessAlive(pid);
+  function findChromeHookProcesses() {
+    try {
+      const output = execFileSync("ps", ["-axo", "pid=,command="], {
+        encoding: "utf8",
+        timeout: 5000,
+      });
+      const hookMatches = [];
+      for (const line of output.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const match = trimmed.match(/^(\d+)\s+(.*)$/);
+        if (!match) continue;
+        const pid = parseInt(match[1], 10);
+        const command = match[2];
+        if (Number.isNaN(pid) || pid <= 0) continue;
+        if (command.includes("on_CrawlSetup__90_chrome_launch.daemon.bg.js")) {
+          hookMatches.push({
+            pid,
+            hookName: "on_CrawlSetup__90_chrome_launch.daemon.bg",
+          });
+          continue;
+        }
+        if (command.includes("on_Snapshot__09_chrome_launch.daemon.bg.js")) {
+          hookMatches.push({
+            pid,
+            hookName: "on_Snapshot__09_chrome_launch.daemon.bg",
+          });
+          continue;
+        }
+        if (command.includes("on_Snapshot__10_chrome_tab.daemon.bg.js")) {
+          hookMatches.push({
+            pid,
+            hookName: "on_Snapshot__10_chrome_tab.daemon.bg",
+          });
+        }
+      }
+      return hookMatches;
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function crawlHasLiveChromeHook(crawlDir) {
+    const resolvedCrawlDir = path.resolve(crawlDir);
+    for (const { pid } of findChromeHookProcesses()) {
+      if (pid === currentPid || !isProcessAlive(pid)) {
+        continue;
+      }
+      const currentWorkingDir = getProcessWorkingDir(pid);
+      if (!currentWorkingDir) {
+        continue;
+      }
+      const sessionDir =
+        path.basename(currentWorkingDir) === "chrome"
+          ? path.dirname(currentWorkingDir)
+          : currentWorkingDir;
+      if (findOwningCrawlDir(sessionDir) === resolvedCrawlDir) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  async function killHookProcess(pid, expectedHookName) {
+    const currentCommand = getProcessCommand(pid);
+    if (!currentCommand || !currentCommand.includes(expectedHookName)) {
+      return false;
     }
 
     try {
-        const chromePids = findChromePidFiles(snapDir);
-        const hookPids = findChromeHookPidFiles(snapDir);
-        const handledHookPids = new Set();
-
-        for (const {pidFile, chromeDir, sessionDir} of chromePids) {
-            const resolvedCrawlDir = findOwningCrawlDir(sessionDir);
-
-            if (excludeCrawlDirs.has(resolvedCrawlDir)) {
-                continue;
-            }
-            if (excludeSessionDirs.has(resolvedCrawlDir)) {
-                continue;
-            }
-            if (crawlHeartbeatIsAlive(resolvedCrawlDir)) {
-                continue;
-            }
-            if (crawlHasLiveChromeHook(resolvedCrawlDir)) {
-                continue;
-            }
-
-            // Crawl is stale, check PID
-            try {
-                const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
-                if (isNaN(pid) || pid <= 0) continue;
-
-                // Check if process exists
-                try {
-                    process.kill(pid, 0);
-                } catch (e) {
-                    // Process dead, remove stale PID file
-                    try { fs.unlinkSync(pidFile); } catch (e) {}
-                    continue;
-                }
-
-                // Process alive and crawl is stale - zombie!
-                if (!quiet) console.error(`[!] Found zombie (PID ${pid}) from stale crawl ${path.basename(resolvedCrawlDir)}`);
-
-                try {
-                    if (await killChrome(pid, chromeDir)) {
-                        killed++;
-                        if (!quiet) console.error(`[+] Killed zombie (PID ${pid})`);
-                    } else if (!quiet) {
-                        console.error(`[!] Failed to fully kill zombie (PID ${pid})`);
-                    }
-                    try { fs.unlinkSync(pidFile); } catch (e) {}
-                } catch (e) {
-                    if (!quiet) console.error(`[!] Failed to kill PID ${pid}: ${e.message}`);
-                }
-            } catch (e) {
-                // Skip invalid PID files
-            }
-        }
-
-        for (const {pidFile, hookName, sessionDir} of hookPids) {
-            const resolvedCrawlDir = findOwningCrawlDir(sessionDir);
-
-            try {
-                const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
-                if (isNaN(pid) || pid <= 0) continue;
-                if (pid === currentPid) continue;
-                if (!isProcessAlive(pid)) {
-                    try { fs.unlinkSync(pidFile); } catch (error) {}
-                    continue;
-                }
-                handledHookPids.add(pid);
-                if (crawlHeartbeatIsAlive(resolvedCrawlDir)) {
-                    continue;
-                }
-
-                if (!quiet) {
-                    console.error(`[!] Found stale chrome hook ${hookName} (PID ${pid}) from crawl ${path.basename(resolvedCrawlDir)}`);
-                }
-                if (await killHookProcess(pid, hookName)) {
-                    killed++;
-                    if (!quiet) {
-                        console.error(`[+] Killed stale chrome hook ${hookName} (PID ${pid})`);
-                    }
-                    try { fs.unlinkSync(pidFile); } catch (error) {}
-                } else if (!quiet) {
-                    console.error(`[!] Failed to kill stale chrome hook ${hookName} (PID ${pid})`);
-                }
-            } catch (error) {
-                // Skip invalid PID files
-            }
-        }
-
-        for (const {pid, hookName} of findChromeHookProcesses()) {
-            if (handledHookPids.has(pid)) {
-                continue;
-            }
-            if (pid === currentPid) {
-                continue;
-            }
-            const currentWorkingDir = getProcessWorkingDir(pid);
-            if (!currentWorkingDir) {
-                continue;
-            }
-            const sessionDir = path.basename(currentWorkingDir) === 'chrome'
-                ? path.dirname(currentWorkingDir)
-                : currentWorkingDir;
-            const resolvedCrawlDir = findOwningCrawlDir(sessionDir);
-            if (crawlHeartbeatIsAlive(resolvedCrawlDir)) {
-                continue;
-            }
-            if (!quiet) {
-                console.error(`[!] Found orphaned chrome hook ${hookName} (PID ${pid}) from crawl ${path.basename(resolvedCrawlDir)}`);
-            }
-            if (await killHookProcess(pid, hookName)) {
-                killed++;
-                if (!quiet) {
-                    console.error(`[+] Killed orphaned chrome hook ${hookName} (PID ${pid})`);
-                }
-            } else if (!quiet) {
-                console.error(`[!] Failed to kill orphaned chrome hook ${hookName} (PID ${pid})`);
-            }
-        }
-
-        for (const {personaDir, sessionDir} of findRuntimePersonaDirs(snapDir)) {
-            const resolvedCrawlDir = findOwningCrawlDir(sessionDir);
-            if (excludeCrawlDirs.has(resolvedCrawlDir) || excludeSessionDirs.has(resolvedCrawlDir)) {
-                continue;
-            }
-            if (crawlHeartbeatIsAlive(resolvedCrawlDir)) {
-                continue;
-            }
-            if (crawlHasLiveChromeHook(resolvedCrawlDir)) {
-                continue;
-            }
-            try {
-                fs.rmSync(personaDir, { recursive: true, force: true });
-                if (!quiet) {
-                    console.error(`[+] Removed stale runtime persona dir: ${personaDir}`);
-                }
-            } catch (error) {
-                if (!quiet) {
-                    console.error(`[!] Failed to remove stale runtime persona dir ${personaDir}: ${error.message}`);
-                }
-            }
-        }
-    } catch (e) {
-        if (!quiet) console.error(`[!] Error scanning for Chrome processes: ${e.message}`);
+      process.kill(pid, "SIGTERM");
+    } catch (error) {
+      if (error.code !== "ESRCH") {
+        console.error(
+          `[!] Failed to SIGTERM hook PID ${pid}: ${error.message}`
+        );
+      }
     }
 
-    if (killed > 0) {
-        if (!quiet) console.error(`[+] Killed ${killed} zombie process(es)`);
-    } else {
-        if (!quiet) console.error('[+] No zombies found');
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+      if (!isProcessAlive(pid)) {
+        return true;
+      }
+      await sleep(200);
     }
 
-    // Clean up stale browser profile lock files from persona profile directories.
-    const personasDir = getPersonasDir();
-    if (fs.existsSync(personasDir)) {
+    if (isProcessAlive(pid)) {
+      try {
+        process.kill(pid, "SIGKILL");
+      } catch (error) {
+        if (error.code !== "ESRCH") {
+          console.error(
+            `[!] Failed to SIGKILL hook PID ${pid}: ${error.message}`
+          );
+        }
+      }
+    }
+
+    const killDeadline = Date.now() + 5000;
+    while (Date.now() < killDeadline) {
+      if (!isProcessAlive(pid)) {
+        return true;
+      }
+      await sleep(200);
+    }
+
+    return !isProcessAlive(pid);
+  }
+
+  try {
+    const chromePids = findChromePidFiles(snapDir);
+    const hookPids = findChromeHookPidFiles(snapDir);
+    const handledHookPids = new Set();
+
+    for (const { pidFile, chromeDir, sessionDir } of chromePids) {
+      const resolvedCrawlDir = findOwningCrawlDir(sessionDir);
+
+      if (excludeCrawlDirs.has(resolvedCrawlDir)) {
+        continue;
+      }
+      if (excludeSessionDirs.has(resolvedCrawlDir)) {
+        continue;
+      }
+      if (crawlHeartbeatIsAlive(resolvedCrawlDir)) {
+        continue;
+      }
+      if (crawlHasLiveChromeHook(resolvedCrawlDir)) {
+        continue;
+      }
+
+      // Crawl is stale, check PID
+      try {
+        const pid = parseInt(fs.readFileSync(pidFile, "utf8").trim(), 10);
+        if (isNaN(pid) || pid <= 0) continue;
+
+        // Check if process exists
         try {
-            const personas = fs.readdirSync(personasDir, { withFileTypes: true });
-            for (const persona of personas) {
-                if (!persona.isDirectory()) continue;
-
-                for (const profileDirName of ['chrome_profile', 'chrome_user_data']) {
-                    cleanupChromeProfileLockFiles(path.join(personasDir, persona.name, profileDirName), { quiet });
-                }
-            }
+          process.kill(pid, 0);
         } catch (e) {
-            // Ignore errors scanning personas directory
+          // Process dead, remove stale PID file
+          try {
+            fs.unlinkSync(pidFile);
+          } catch (e) {}
+          continue;
         }
+
+        // Process alive and crawl is stale - zombie!
+        if (!quiet)
+          console.error(
+            `[!] Found zombie (PID ${pid}) from stale crawl ${path.basename(
+              resolvedCrawlDir
+            )}`
+          );
+
+        try {
+          if (await killChrome(pid, chromeDir)) {
+            killed++;
+            if (!quiet) console.error(`[+] Killed zombie (PID ${pid})`);
+          } else if (!quiet) {
+            console.error(`[!] Failed to fully kill zombie (PID ${pid})`);
+          }
+          try {
+            fs.unlinkSync(pidFile);
+          } catch (e) {}
+        } catch (e) {
+          if (!quiet)
+            console.error(`[!] Failed to kill PID ${pid}: ${e.message}`);
+        }
+      } catch (e) {
+        // Skip invalid PID files
+      }
     }
 
-    return killed;
+    for (const { pidFile, hookName, sessionDir } of hookPids) {
+      const resolvedCrawlDir = findOwningCrawlDir(sessionDir);
+
+      try {
+        const pid = parseInt(fs.readFileSync(pidFile, "utf8").trim(), 10);
+        if (isNaN(pid) || pid <= 0) continue;
+        if (pid === currentPid) continue;
+        if (!isProcessAlive(pid)) {
+          try {
+            fs.unlinkSync(pidFile);
+          } catch (error) {}
+          continue;
+        }
+        handledHookPids.add(pid);
+        if (crawlHeartbeatIsAlive(resolvedCrawlDir)) {
+          continue;
+        }
+
+        if (!quiet) {
+          console.error(
+            `[!] Found stale chrome hook ${hookName} (PID ${pid}) from crawl ${path.basename(
+              resolvedCrawlDir
+            )}`
+          );
+        }
+        if (await killHookProcess(pid, hookName)) {
+          killed++;
+          if (!quiet) {
+            console.error(
+              `[+] Killed stale chrome hook ${hookName} (PID ${pid})`
+            );
+          }
+          try {
+            fs.unlinkSync(pidFile);
+          } catch (error) {}
+        } else if (!quiet) {
+          console.error(
+            `[!] Failed to kill stale chrome hook ${hookName} (PID ${pid})`
+          );
+        }
+      } catch (error) {
+        // Skip invalid PID files
+      }
+    }
+
+    for (const { pid, hookName } of findChromeHookProcesses()) {
+      if (handledHookPids.has(pid)) {
+        continue;
+      }
+      if (pid === currentPid) {
+        continue;
+      }
+      const currentWorkingDir = getProcessWorkingDir(pid);
+      if (!currentWorkingDir) {
+        continue;
+      }
+      const sessionDir =
+        path.basename(currentWorkingDir) === "chrome"
+          ? path.dirname(currentWorkingDir)
+          : currentWorkingDir;
+      const resolvedCrawlDir = findOwningCrawlDir(sessionDir);
+      if (crawlHeartbeatIsAlive(resolvedCrawlDir)) {
+        continue;
+      }
+      if (!quiet) {
+        console.error(
+          `[!] Found orphaned chrome hook ${hookName} (PID ${pid}) from crawl ${path.basename(
+            resolvedCrawlDir
+          )}`
+        );
+      }
+      if (await killHookProcess(pid, hookName)) {
+        killed++;
+        if (!quiet) {
+          console.error(
+            `[+] Killed orphaned chrome hook ${hookName} (PID ${pid})`
+          );
+        }
+      } else if (!quiet) {
+        console.error(
+          `[!] Failed to kill orphaned chrome hook ${hookName} (PID ${pid})`
+        );
+      }
+    }
+
+    for (const { personaDir, sessionDir } of findRuntimePersonaDirs(snapDir)) {
+      const resolvedCrawlDir = findOwningCrawlDir(sessionDir);
+      if (
+        excludeCrawlDirs.has(resolvedCrawlDir) ||
+        excludeSessionDirs.has(resolvedCrawlDir)
+      ) {
+        continue;
+      }
+      if (crawlHeartbeatIsAlive(resolvedCrawlDir)) {
+        continue;
+      }
+      if (crawlHasLiveChromeHook(resolvedCrawlDir)) {
+        continue;
+      }
+      try {
+        fs.rmSync(personaDir, { recursive: true, force: true });
+        if (!quiet) {
+          console.error(`[+] Removed stale runtime persona dir: ${personaDir}`);
+        }
+      } catch (error) {
+        if (!quiet) {
+          console.error(
+            `[!] Failed to remove stale runtime persona dir ${personaDir}: ${error.message}`
+          );
+        }
+      }
+    }
+  } catch (e) {
+    if (!quiet)
+      console.error(`[!] Error scanning for Chrome processes: ${e.message}`);
+  }
+
+  if (killed > 0) {
+    if (!quiet) console.error(`[+] Killed ${killed} zombie process(es)`);
+  } else {
+    if (!quiet) console.error("[+] No zombies found");
+  }
+
+  // Clean up stale browser profile lock files from persona profile directories.
+  const personasDir = getPersonasDir();
+  if (fs.existsSync(personasDir)) {
+    try {
+      const personas = fs.readdirSync(personasDir, { withFileTypes: true });
+      for (const persona of personas) {
+        if (!persona.isDirectory()) continue;
+
+        for (const profileDirName of ["chrome_profile", "chrome_user_data"]) {
+          cleanupChromeProfileLockFiles(
+            path.join(personasDir, persona.name, profileDirName),
+            { quiet }
+          );
+        }
+      }
+    } catch (e) {
+      // Ignore errors scanning personas directory
+    }
+  }
+
+  return killed;
 }
 
 // ============================================================================
@@ -807,250 +902,280 @@ async function killZombieChrome(snapDir = null, options = {}) {
  * @returns {Promise<Object>} - {success, cdpUrl, pid, port, process, error}
  */
 async function launchChromium(options = {}) {
-    const {
-        binary = findChromium(),
-        outputDir = 'chrome',
-        userDataDir = loadConfig(path.join(__dirname, 'config.json')).CHROME_USER_DATA_DIR,
-        resolution = getEnv('CHROME_RESOLUTION') || getEnv('RESOLUTION', '1440,2000'),
-        userAgent = getEnv('CHROME_USER_AGENT') || getEnv('USER_AGENT', ''),
-        headless = getEnvBool('CHROME_HEADLESS', true),
-        sandbox = getEnvBool('CHROME_SANDBOX', true),
-        checkSsl = getEnvBool('CHROME_CHECK_SSL_VALIDITY', getEnvBool('CHECK_SSL_VALIDITY', true)),
-        enableExtensionDebugging = false,
-    } = options;
-    const config = loadConfig(path.join(__dirname, 'config.json'));
-    const maxLaunchAttempts = Math.max(1, Number(config.CHROME_LAUNCH_ATTEMPTS) || 1);
+  const {
+    binary = findChromium(),
+    outputDir = "chrome",
+    userDataDir = loadConfig(path.join(__dirname, "config.json"))
+      .CHROME_USER_DATA_DIR,
+    resolution = getEnv("CHROME_RESOLUTION") ||
+      getEnv("RESOLUTION", "1440,2000"),
+    userAgent = getEnv("CHROME_USER_AGENT") || getEnv("USER_AGENT", ""),
+    headless = getEnvBool("CHROME_HEADLESS", true),
+    sandbox = getEnvBool("CHROME_SANDBOX", true),
+    checkSsl = getEnvBool(
+      "CHROME_CHECK_SSL_VALIDITY",
+      getEnvBool("CHECK_SSL_VALIDITY", true)
+    ),
+    enableExtensionDebugging = false,
+  } = options;
+  const config = loadConfig(path.join(__dirname, "config.json"));
+  const maxLaunchAttempts = Math.max(
+    1,
+    Number(config.CHROME_LAUNCH_ATTEMPTS) || 1
+  );
 
-    if (!binary) {
-        return { success: false, error: 'Chrome binary not found' };
-    }
-    if (!isSupportedChromiumBinary(binary)) {
-        return {
-            success: false,
-            error: `Chrome binary is not executable or did not report a version: ${binary}`,
-        };
-    }
+  if (!binary) {
+    return { success: false, error: "Chrome binary not found" };
+  }
+  if (!isSupportedChromiumBinary(binary)) {
+    return {
+      success: false,
+      error: `Chrome binary is not executable or did not report a version: ${binary}`,
+    };
+  }
 
-    const { width, height } = parseResolution(resolution);
+  const { width, height } = parseResolution(resolution);
 
-    // Create output directory
-    if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-    }
+  // Create output directory
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
 
-    // Create user data directory and clear lock files left by crashed sessions.
-    if (!fs.existsSync(userDataDir)) {
-        fs.mkdirSync(userDataDir, { recursive: true });
-        console.error(`[*] Created user data directory: ${userDataDir}`);
-    }
-    cleanupChromeProfileLockFiles(userDataDir);
+  // Create user data directory and clear lock files left by crashed sessions.
+  if (!fs.existsSync(userDataDir)) {
+    fs.mkdirSync(userDataDir, { recursive: true });
+    console.error(`[*] Created user data directory: ${userDataDir}`);
+  }
+  cleanupChromeProfileLockFiles(userDataDir);
 
-    // Find a free port
-    const debugPort = await findFreePort();
-    console.error(`[*] Using debug port: ${debugPort}`);
+  // Find a free port
+  const debugPort = await findFreePort();
+  console.error(`[*] Using debug port: ${debugPort}`);
 
-    // Get base Chrome args from config (static flags from CHROME_ARGS env var)
-    // These come from config.json defaults, merged by get_config() in Python
-    const baseArgs = getEnvArray('CHROME_ARGS', []);
+  // Get base Chrome args from config (static flags from CHROME_ARGS env var)
+  // These come from config.json defaults, merged by get_config() in Python
+  const baseArgs = getEnvArray("CHROME_ARGS", []);
 
-    // Get extra user-provided args
-    const extraArgs = getEnvArray('CHROME_ARGS_EXTRA', []);
+  // Get extra user-provided args
+  const extraArgs = getEnvArray("CHROME_ARGS_EXTRA", []);
 
-    // Build dynamic Chrome arguments (these must be computed at runtime)
-    const dynamicArgs = [
-        // Remote debugging setup
-        `--remote-debugging-port=${debugPort}`,
-        '--remote-debugging-address=127.0.0.1',
+  // Build dynamic Chrome arguments (these must be computed at runtime)
+  const dynamicArgs = [
+    // Remote debugging setup
+    `--remote-debugging-port=${debugPort}`,
+    "--remote-debugging-address=127.0.0.1",
 
-        // Sandbox settings
-        ...(sandbox ? [] : ['--no-sandbox', '--disable-setuid-sandbox']),
+    // Sandbox settings
+    ...(sandbox ? [] : ["--no-sandbox", "--disable-setuid-sandbox"]),
 
-        // Docker-specific workarounds
-        '--disable-dev-shm-usage',
+    // Docker-specific workarounds
+    "--disable-dev-shm-usage",
 
-        // Window size
-        `--window-size=${width},${height}`,
+    // Window size
+    `--window-size=${width},${height}`,
 
-        // User data directory (for persistent sessions with persona)
-        ...(userDataDir ? [`--user-data-dir=${userDataDir}`] : []),
+    // User data directory (for persistent sessions with persona)
+    ...(userDataDir ? [`--user-data-dir=${userDataDir}`] : []),
 
-        // User agent
-        ...(userAgent ? [`--user-agent=${userAgent}`] : []),
+    // User agent
+    ...(userAgent ? [`--user-agent=${userAgent}`] : []),
 
-        // Headless mode
-        ...(headless ? ['--headless=new'] : []),
+    // Headless mode
+    ...(headless ? ["--headless=new"] : []),
 
-        // SSL certificate checking
-        ...(checkSsl ? [] : ['--ignore-certificate-errors']),
-    ];
+    // SSL certificate checking
+    ...(checkSsl ? [] : ["--ignore-certificate-errors"]),
+  ];
 
-    // Combine all args: base (from config) + dynamic (runtime) + extra (user overrides)
-    // Dynamic args come after base so they can override if needed
-    const chromiumArgs = [...baseArgs, ...dynamicArgs, ...extraArgs];
+  // Combine all args: base (from config) + dynamic (runtime) + extra (user overrides)
+  // Dynamic args come after base so they can override if needed
+  const chromiumArgs = [...baseArgs, ...dynamicArgs, ...extraArgs];
 
-    // Ensure keychain prompts are disabled on macOS
-    if (!chromiumArgs.includes('--use-mock-keychain')) {
-        chromiumArgs.push('--use-mock-keychain');
-    }
+  // Ensure keychain prompts are disabled on macOS
+  if (!chromiumArgs.includes("--use-mock-keychain")) {
+    chromiumArgs.push("--use-mock-keychain");
+  }
 
-    if (enableExtensionDebugging) {
-        chromiumArgs.push('--enable-unsafe-extension-debugging');
-    }
+  if (enableExtensionDebugging) {
+    chromiumArgs.push("--enable-unsafe-extension-debugging");
+  }
 
-    chromiumArgs.push('about:blank');
+  chromiumArgs.push("about:blank");
 
-    // Write command script for debugging
-    writeCmdScript(path.join(outputDir, 'cmd.sh'), binary, chromiumArgs);
+  // Write command script for debugging
+  writeCmdScript(path.join(outputDir, "cmd.sh"), binary, chromiumArgs);
 
-    const chromeLaunchLock = path.join(getPersonasDir(), '.chrome-launch.lock');
-    let lastError = 'Unknown Chromium launch failure';
+  const chromeLaunchLock = path.join(getPersonasDir(), ".chrome-launch.lock");
+  let lastError = "Unknown Chromium launch failure";
 
-    // Chromium startup has two distinct phases:
-    // 1. process/bootstrap: the native browser process starts, initializes the
-    //    profile, binds the remote debugging port, and prints DevTools metadata
-    // 2. post-port stabilization: the browser remains alive long enough for a
-    //    real CDP client to attach and for the initial about:blank page to be
-    //    usable
-    //
-    // In principle this should be deterministic, but in practice we sometimes
-    // see first-launch native failures inside Chromium itself, especially when
-    // using a fresh profile and/or loading unpacked extensions in headless mode.
-    // Those crashes happen *after* we have already done our deterministic setup
-    // (profile dir creation, SingletonLock cleanup, debug port selection, args
-    // construction, launch locking), so there is no higher-level app signal we
-    // can check in advance to know the first attempt will die.
-    //
-    // The important boundary here is that we only retry failures that clearly
-    // occurred during Chromium's own early startup lifecycle:
-    // - the process exits before the DevTools port is ready
-    // - the process exits during the short post-launch settle window
-    // - the DevTools socket opens, but a real CDP session cannot be stabilized
-    //
-    // We intentionally do *not* retry arbitrary failures forever. Persistent
-    // config issues (bad binary path, invalid flags, broken permissions, etc.)
-    // should still fail deterministically on the first attempt.
-    for (let attempt = 1; attempt <= maxLaunchAttempts; attempt++) {
-        let chromiumProcess = null;
-        let chromePid = null;
-        let recentStderr = '';
-        let recentStdout = '';
-        let releaseLaunchLock = null;
+  // Chromium startup has two distinct phases:
+  // 1. process/bootstrap: the native browser process starts, initializes the
+  //    profile, binds the remote debugging port, and prints DevTools metadata
+  // 2. post-port stabilization: the browser remains alive long enough for a
+  //    real CDP client to attach and for the initial about:blank page to be
+  //    usable
+  //
+  // In principle this should be deterministic, but in practice we sometimes
+  // see first-launch native failures inside Chromium itself, especially when
+  // using a fresh profile and/or loading unpacked extensions in headless mode.
+  // Those crashes happen *after* we have already done our deterministic setup
+  // (profile dir creation, SingletonLock cleanup, debug port selection, args
+  // construction, launch locking), so there is no higher-level app signal we
+  // can check in advance to know the first attempt will die.
+  //
+  // The important boundary here is that we only retry failures that clearly
+  // occurred during Chromium's own early startup lifecycle:
+  // - the process exits before the DevTools port is ready
+  // - the process exits during the short post-launch settle window
+  // - the DevTools socket opens, but a real CDP session cannot be stabilized
+  //
+  // We intentionally do *not* retry arbitrary failures forever. Persistent
+  // config issues (bad binary path, invalid flags, broken permissions, etc.)
+  // should still fail deterministically on the first attempt.
+  for (let attempt = 1; attempt <= maxLaunchAttempts; attempt++) {
+    let chromiumProcess = null;
+    let chromePid = null;
+    let recentStderr = "";
+    let recentStdout = "";
+    let releaseLaunchLock = null;
 
-        try {
-            releaseLaunchLock = await acquireSessionLock(
-                chromeLaunchLock,
-                getEnvInt('CHROME_LAUNCH_LOCK_TIMEOUT_MS', 120000)
-            );
-            console.error(`[*] Spawning Chromium (headless=${headless}) [attempt ${attempt}/${maxLaunchAttempts}]...`);
-            chromiumProcess = spawn(binary, chromiumArgs, {
-                stdio: ['ignore', 'pipe', 'pipe'],
-                detached: true,
-            });
+    try {
+      releaseLaunchLock = await acquireSessionLock(
+        chromeLaunchLock,
+        getEnvInt("CHROME_LAUNCH_LOCK_TIMEOUT_MS", 120000)
+      );
+      console.error(
+        `[*] Spawning Chromium (headless=${headless}) [attempt ${attempt}/${maxLaunchAttempts}]...`
+      );
+      chromiumProcess = spawn(binary, chromiumArgs, {
+        stdio: ["ignore", "pipe", "pipe"],
+        detached: true,
+      });
 
-            chromePid = chromiumProcess.pid;
-            const chromeStartTime = Date.now() / 1000;
+      chromePid = chromiumProcess.pid;
+      const chromeStartTime = Date.now() / 1000;
 
-            if (chromePid) {
-                console.error(`[*] Chromium spawned (PID: ${chromePid})`);
-                writePidWithMtime(path.join(outputDir, 'chrome.pid'), chromePid, chromeStartTime);
-            }
+      if (chromePid) {
+        console.error(`[*] Chromium spawned (PID: ${chromePid})`);
+        writePidWithMtime(
+          path.join(outputDir, "chrome.pid"),
+          chromePid,
+          chromeStartTime
+        );
+      }
 
-            const logSubprocessOutput = getEnvBool('CHROME_LOG_SUBPROCESS_OUTPUT', false);
-            chromiumProcess.stdout.on('data', (data) => {
-                recentStdout = `${recentStdout}${String(data)}`.slice(-4000);
-                if (logSubprocessOutput) {
-                    process.stderr.write(`[chromium:stdout] ${data}`);
-                }
-            });
-            chromiumProcess.stderr.on('data', (data) => {
-                recentStderr = `${recentStderr}${String(data)}`.slice(-4000);
-                if (logSubprocessOutput) {
-                    process.stderr.write(`[chromium:stderr] ${data}`);
-                }
-            });
-
-            // This watches the raw spawned process before we have a reliable CDP
-            // session. If Chromium crashes here, all we know is the native exit
-            // code/signal and a small stderr tail.
-            const chromiumExit = new Promise((_, reject) => {
-                chromiumProcess.once('error', (error) => {
-                    reject(new Error(`Chromium process failed to start: ${error.message}`));
-                });
-                chromiumProcess.once('exit', (code, signal) => {
-                    reject(new Error(
-                        `Chromium exited before opening the debug port (code=${code ?? 'null'}, signal=${signal || 'none'})`
-                    ));
-                });
-            });
-            chromiumExit.catch(() => {});
-
-            // The DevTools port coming up is only a coarse readiness signal.
-            // Chromium can still crash immediately afterwards, so we follow this
-            // with verifyStableChromiumSession() before declaring success.
-            console.error(`[*] Waiting for debug port ${debugPort}...`);
-            const debugProbeTimeoutMs = getEnvInt('CHROME_DEBUG_PORT_TIMEOUT_MS', 30000);
-            const versionInfo = await Promise.race([
-                waitForDebugPort(debugPort, debugProbeTimeoutMs),
-                chromiumExit,
-            ]);
-            const wsUrl = versionInfo.webSocketDebuggerUrl;
-
-            console.error(`[+] Chromium ready: ${wsUrl}`);
-
-            const result = {
-                success: true,
-                cdpUrl: wsUrl,
-                pid: chromePid,
-                port: debugPort,
-                process: chromiumProcess,
-                userDataDir,
-            };
-
-            await verifyStableChromiumSession({
-                chromePid,
-                cdpUrl: wsUrl,
-                outputDir,
-                headless,
-                enableExtensionDebugging,
-            });
-
-            return result;
-        } catch (e) {
-            if (chromePid) {
-                await cleanupLaunchArtifacts(outputDir, chromePid);
-            }
-            const extraOutput = [
-                recentStdout ? `stdout=${recentStdout.trim()}` : '',
-                recentStderr ? `stderr=${recentStderr.trim()}` : '',
-            ].filter(Boolean).join(' ');
-            lastError = extraOutput
-                ? `${e.name}: ${e.message} (${extraOutput})`
-                : `${e.name}: ${e.message}`;
-            // Only retry failures that map to Chromium's startup/stabilization
-            // window. Everything else should bubble out directly so permanent
-            // misconfiguration still fails fast and loudly.
-            const isTransientStartupFailure =
-                lastError.includes('Chromium exited before opening the debug port') ||
-                lastError.includes('Timeout waiting for Chrome debug port') ||
-                lastError.includes('Chromium exited during startup') ||
-                lastError.includes('Chromium exited after opening the debug port') ||
-                lastError.includes('Chromium CDP session not stable after startup');
-            if (attempt >= maxLaunchAttempts || !isTransientStartupFailure) {
-                return {
-                    success: false,
-                    error: lastError,
-                };
-            }
-            console.error(`[!] Chromium launch attempt ${attempt}/${maxLaunchAttempts} failed, retrying...`);
-            await sleep(1000);
-        } finally {
-            if (releaseLaunchLock) {
-                releaseLaunchLock();
-            }
+      const logSubprocessOutput = getEnvBool(
+        "CHROME_LOG_SUBPROCESS_OUTPUT",
+        false
+      );
+      chromiumProcess.stdout.on("data", (data) => {
+        recentStdout = `${recentStdout}${String(data)}`.slice(-4000);
+        if (logSubprocessOutput) {
+          process.stderr.write(`[chromium:stdout] ${data}`);
         }
-    }
+      });
+      chromiumProcess.stderr.on("data", (data) => {
+        recentStderr = `${recentStderr}${String(data)}`.slice(-4000);
+        if (logSubprocessOutput) {
+          process.stderr.write(`[chromium:stderr] ${data}`);
+        }
+      });
 
-    return { success: false, error: lastError };
+      // This watches the raw spawned process before we have a reliable CDP
+      // session. If Chromium crashes here, all we know is the native exit
+      // code/signal and a small stderr tail.
+      const chromiumExit = new Promise((_, reject) => {
+        chromiumProcess.once("error", (error) => {
+          reject(
+            new Error(`Chromium process failed to start: ${error.message}`)
+          );
+        });
+        chromiumProcess.once("exit", (code, signal) => {
+          reject(
+            new Error(
+              `Chromium exited before opening the debug port (code=${
+                code ?? "null"
+              }, signal=${signal || "none"})`
+            )
+          );
+        });
+      });
+      chromiumExit.catch(() => {});
+
+      // The DevTools port coming up is only a coarse readiness signal.
+      // Chromium can still crash immediately afterwards, so we follow this
+      // with verifyStableChromiumSession() before declaring success.
+      console.error(`[*] Waiting for debug port ${debugPort}...`);
+      const debugProbeTimeoutMs = getEnvInt(
+        "CHROME_DEBUG_PORT_TIMEOUT_MS",
+        30000
+      );
+      const versionInfo = await Promise.race([
+        waitForDebugPort(debugPort, debugProbeTimeoutMs),
+        chromiumExit,
+      ]);
+      const wsUrl = versionInfo.webSocketDebuggerUrl;
+
+      console.error(`[+] Chromium ready: ${wsUrl}`);
+
+      const result = {
+        success: true,
+        cdpUrl: wsUrl,
+        pid: chromePid,
+        port: debugPort,
+        process: chromiumProcess,
+        userDataDir,
+      };
+
+      await verifyStableChromiumSession({
+        chromePid,
+        cdpUrl: wsUrl,
+        outputDir,
+        headless,
+        enableExtensionDebugging,
+      });
+
+      return result;
+    } catch (e) {
+      if (chromePid) {
+        await cleanupLaunchArtifacts(outputDir, chromePid);
+      }
+      const extraOutput = [
+        recentStdout ? `stdout=${recentStdout.trim()}` : "",
+        recentStderr ? `stderr=${recentStderr.trim()}` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      lastError = extraOutput
+        ? `${e.name}: ${e.message} (${extraOutput})`
+        : `${e.name}: ${e.message}`;
+      // Only retry failures that map to Chromium's startup/stabilization
+      // window. Everything else should bubble out directly so permanent
+      // misconfiguration still fails fast and loudly.
+      const isTransientStartupFailure =
+        lastError.includes("Chromium exited before opening the debug port") ||
+        lastError.includes("Timeout waiting for Chrome debug port") ||
+        lastError.includes("Chromium exited during startup") ||
+        lastError.includes("Chromium exited after opening the debug port") ||
+        lastError.includes("Chromium CDP session not stable after startup");
+      if (attempt >= maxLaunchAttempts || !isTransientStartupFailure) {
+        return {
+          success: false,
+          error: lastError,
+        };
+      }
+      console.error(
+        `[!] Chromium launch attempt ${attempt}/${maxLaunchAttempts} failed, retrying...`
+      );
+      await sleep(1000);
+    } finally {
+      if (releaseLaunchLock) {
+        releaseLaunchLock();
+      }
+    }
+  }
+
+  return { success: false, error: lastError };
 }
 
 /**
@@ -1059,56 +1184,69 @@ async function launchChromium(options = {}) {
  * @returns {boolean} - True if process exists
  */
 function isProcessAlive(pid) {
-    try {
-        process.kill(pid, 0);  // Signal 0 checks existence without killing
-        return true;
-    } catch (e) {
-        return false;
-    }
+  try {
+    process.kill(pid, 0); // Signal 0 checks existence without killing
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
-async function acquireSessionLock(lockFile, timeoutMs = 10000, intervalMs = 100) {
-    const startedAt = Date.now();
-    const token = `${process.pid}:${startedAt}:${Math.random().toString(16).slice(2)}`;
-    const staleLockMs = Math.max(2000, intervalMs * 10);
-    fs.mkdirSync(path.dirname(lockFile), { recursive: true });
+async function acquireSessionLock(
+  lockFile,
+  timeoutMs = 10000,
+  intervalMs = 100
+) {
+  const startedAt = Date.now();
+  const token = `${process.pid}:${startedAt}:${Math.random()
+    .toString(16)
+    .slice(2)}`;
+  const staleLockMs = Math.max(2000, intervalMs * 10);
+  fs.mkdirSync(path.dirname(lockFile), { recursive: true });
 
-    while (Date.now() - startedAt < timeoutMs) {
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const fd = fs.openSync(lockFile, "wx");
+      fs.writeFileSync(
+        fd,
+        JSON.stringify({
+          pid: process.pid,
+          token,
+          createdAt: new Date().toISOString(),
+        })
+      );
+      fs.closeSync(fd);
+      return () => {
         try {
-            const fd = fs.openSync(lockFile, 'wx');
-            fs.writeFileSync(fd, JSON.stringify({ pid: process.pid, token, createdAt: new Date().toISOString() }));
-            fs.closeSync(fd);
-            return () => {
-                try {
-                    const current = JSON.parse(fs.readFileSync(lockFile, 'utf-8'));
-                    if (current?.token === token) {
-                        fs.unlinkSync(lockFile);
-                    }
-                } catch (error) {}
-            };
-        } catch (error) {
-            if (error?.code !== 'EEXIST') throw error;
-            try {
-                const current = JSON.parse(fs.readFileSync(lockFile, 'utf-8'));
-                if (!current?.pid || !isProcessAlive(current.pid)) {
-                    fs.unlinkSync(lockFile);
-                    continue;
-                }
-            } catch (readError) {
-                try {
-                    const stat = fs.statSync(lockFile);
-                    const ageMs = Date.now() - stat.mtimeMs;
-                    if (ageMs >= staleLockMs) {
-                        fs.unlinkSync(lockFile);
-                        continue;
-                    }
-                } catch (statError) {}
-            }
+          const current = JSON.parse(fs.readFileSync(lockFile, "utf-8"));
+          if (current?.token === token) {
+            fs.unlinkSync(lockFile);
+          }
+        } catch (error) {}
+      };
+    } catch (error) {
+      if (error?.code !== "EEXIST") throw error;
+      try {
+        const current = JSON.parse(fs.readFileSync(lockFile, "utf-8"));
+        if (!current?.pid || !isProcessAlive(current.pid)) {
+          fs.unlinkSync(lockFile);
+          continue;
         }
-        await sleep(intervalMs);
+      } catch (readError) {
+        try {
+          const stat = fs.statSync(lockFile);
+          const ageMs = Date.now() - stat.mtimeMs;
+          if (ageMs >= staleLockMs) {
+            fs.unlinkSync(lockFile);
+            continue;
+          }
+        } catch (statError) {}
+      }
     }
+    await sleep(intervalMs);
+  }
 
-    throw new Error(`Timeout acquiring lock: ${path.basename(lockFile)}`);
+  throw new Error(`Timeout acquiring lock: ${path.basename(lockFile)}`);
 }
 
 /**
@@ -1117,49 +1255,57 @@ async function acquireSessionLock(lockFile, timeoutMs = 10000, intervalMs = 100)
  * @returns {Array<number>} - Array of PIDs
  */
 function findChromeProcessesByPort(port) {
-    const debugPort = parseInt(port, 10);
-    if (!Number.isInteger(debugPort) || debugPort <= 0) return [];
+  const debugPort = parseInt(port, 10);
+  if (!Number.isInteger(debugPort) || debugPort <= 0) return [];
 
-    const pids = [];
+  const pids = [];
 
-    try {
-        const output = execFileSync('ps', ['-axo', 'pid=,command='], { encoding: 'utf8', timeout: 5000 });
+  try {
+    const output = execFileSync("ps", ["-axo", "pid=,command="], {
+      encoding: "utf8",
+      timeout: 5000,
+    });
 
-        for (const line of output.split('\n')) {
-            const match = line.trim().match(/^(\d+)\s+(.*)$/);
-            if (!match) continue;
-            const pid = parseInt(match[1], 10);
-            const command = match[2].toLowerCase();
-            if (
-                !Number.isNaN(pid)
-                && pid > 0
-                && (command.includes('chrome') || command.includes('chromium'))
-                && command.includes(`--remote-debugging-port=${debugPort}`)
-            ) {
-                pids.push(pid);
-            }
-        }
-    } catch (e) {
-        // Command failed or no processes found
+    for (const line of output.split("\n")) {
+      const match = line.trim().match(/^(\d+)\s+(.*)$/);
+      if (!match) continue;
+      const pid = parseInt(match[1], 10);
+      const command = match[2].toLowerCase();
+      if (
+        !Number.isNaN(pid) &&
+        pid > 0 &&
+        (command.includes("chrome") || command.includes("chromium")) &&
+        command.includes(`--remote-debugging-port=${debugPort}`)
+      ) {
+        pids.push(pid);
+      }
     }
+  } catch (e) {
+    // Command failed or no processes found
+  }
 
-    return pids;
+  return pids;
 }
 
-async function waitForChromeProcessTreeExit(pid, debugPort = null, timeoutMs = 5000, intervalMs = 200) {
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-        const mainAlive = pid ? isProcessAlive(pid) : false;
-        const relatedPids = debugPort ? findChromeProcessesByPort(debugPort) : [];
-        if (!mainAlive && relatedPids.length === 0) {
-            return true;
-        }
-        await sleep(intervalMs);
-    }
-
+async function waitForChromeProcessTreeExit(
+  pid,
+  debugPort = null,
+  timeoutMs = 5000,
+  intervalMs = 200
+) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
     const mainAlive = pid ? isProcessAlive(pid) : false;
     const relatedPids = debugPort ? findChromeProcessesByPort(debugPort) : [];
-    return !mainAlive && relatedPids.length === 0;
+    if (!mainAlive && relatedPids.length === 0) {
+      return true;
+    }
+    await sleep(intervalMs);
+  }
+
+  const mainAlive = pid ? isProcessAlive(pid) : false;
+  const relatedPids = debugPort ? findChromeProcessesByPort(debugPort) : [];
+  return !mainAlive && relatedPids.length === 0;
 }
 
 /**
@@ -1170,91 +1316,117 @@ async function waitForChromeProcessTreeExit(pid, debugPort = null, timeoutMs = 5
  * @param {string} [outputDir] - Directory containing PID files to clean up
  */
 async function killChrome(pid, outputDir = null) {
-    // Get debug port for finding child processes
-    let debugPort = null;
-    if (outputDir) {
-        try {
-            const cdpFile = path.join(outputDir, 'cdp_url.txt');
-            if (fs.existsSync(cdpFile)) {
-                debugPort = getChromeDebugPortFromCdpUrl(fs.readFileSync(cdpFile, 'utf8').trim());
-            }
-        } catch (e) {}
-    }
+  // Get debug port for finding child processes
+  let debugPort = null;
+  if (outputDir) {
+    try {
+      const cdpFile = path.join(outputDir, "cdp_url.txt");
+      if (fs.existsSync(cdpFile)) {
+        debugPort = getChromeDebugPortFromCdpUrl(
+          fs.readFileSync(cdpFile, "utf8").trim()
+        );
+      }
+    } catch (e) {}
+  }
 
-    const initialRelatedPids = debugPort ? findChromeProcessesByPort(debugPort) : [];
-    const hasLiveParent = Boolean(pid && isProcessAlive(pid));
-    if (!hasLiveParent && initialRelatedPids.length === 0) {
-        return true;
+  const initialRelatedPids = debugPort
+    ? findChromeProcessesByPort(debugPort)
+    : [];
+  const hasLiveParent = Boolean(pid && isProcessAlive(pid));
+  if (!hasLiveParent && initialRelatedPids.length === 0) {
+    return true;
+  }
+
+  console.error(
+    `[*] Killing Chrome process tree (${
+      hasLiveParent ? `PID ${pid}` : `port ${debugPort}`
+    })...`
+  );
+
+  // Step 1: Ask the main browser process to exit cleanly. Chromium itself is
+  // responsible for shutting down its renderer/helper children without
+  // corrupting the profile dir, so we only send SIGTERM to the parent.
+  if (hasLiveParent) {
+    console.error(`[*] Sending SIGTERM to Chrome parent process ${pid}...`);
+    try {
+      process.kill(pid, "SIGTERM");
+    } catch (error) {
+      if (error.code !== "ESRCH") {
+        console.error(`[!] SIGTERM failed: ${error.message}`);
+      }
+    }
+  }
+
+  let processTreeExited = await waitForChromeProcessTreeExit(
+    pid,
+    debugPort,
+    5000
+  );
+  if (processTreeExited) {
+    console.error("[+] Chrome process tree terminated gracefully");
+  } else {
+    const remainingPids = new Set();
+    if (pid) {
+      remainingPids.add(pid);
+    }
+    for (const relatedPid of debugPort
+      ? findChromeProcessesByPort(debugPort)
+      : initialRelatedPids) {
+      remainingPids.add(relatedPid);
     }
 
     console.error(
-        `[*] Killing Chrome process tree (${hasLiveParent ? `PID ${pid}` : `port ${debugPort}`})...`
+      `[*] Chrome did not exit cleanly in time, sending SIGKILL to ${remainingPids.size} remaining processes...`
     );
-
-    // Step 1: Ask the main browser process to exit cleanly. Chromium itself is
-    // responsible for shutting down its renderer/helper children without
-    // corrupting the profile dir, so we only send SIGTERM to the parent.
-    if (hasLiveParent) {
-        console.error(`[*] Sending SIGTERM to Chrome parent process ${pid}...`);
-        try {
-            process.kill(pid, 'SIGTERM');
-        } catch (error) {
-            if (error.code !== 'ESRCH') {
-                console.error(`[!] SIGTERM failed: ${error.message}`);
-            }
+    for (const remainingPid of remainingPids) {
+      if (!remainingPid || !isProcessAlive(remainingPid)) {
+        continue;
+      }
+      try {
+        process.kill(remainingPid, "SIGKILL");
+      } catch (error) {
+        if (error.code !== "ESRCH") {
+          console.error(
+            `[!] SIGKILL failed for ${remainingPid}: ${error.message}`
+          );
         }
+      }
     }
 
-    let processTreeExited = await waitForChromeProcessTreeExit(pid, debugPort, 5000);
-    if (processTreeExited) {
-        console.error('[+] Chrome process tree terminated gracefully');
-    } else {
-        const remainingPids = new Set();
-        if (pid) {
-            remainingPids.add(pid);
-        }
-        for (const relatedPid of debugPort ? findChromeProcessesByPort(debugPort) : initialRelatedPids) {
-            remainingPids.add(relatedPid);
-        }
-
-        console.error(
-            `[*] Chrome did not exit cleanly in time, sending SIGKILL to ${remainingPids.size} remaining processes...`
-        );
-        for (const remainingPid of remainingPids) {
-            if (!remainingPid || !isProcessAlive(remainingPid)) {
-                continue;
-            }
-            try {
-                process.kill(remainingPid, 'SIGKILL');
-            } catch (error) {
-                if (error.code !== 'ESRCH') {
-                    console.error(`[!] SIGKILL failed for ${remainingPid}: ${error.message}`);
-                }
-            }
-        }
-
-        processTreeExited = await waitForChromeProcessTreeExit(pid, debugPort, 5000);
-        if (!processTreeExited) {
-            console.error(`[!] WARNING: Chrome process tree for PID ${pid} is still alive after SIGKILL`);
-            console.error(`[!] This typically means Chromium is stuck in an uninterruptible kernel wait state`);
-        } else {
-            console.error('[+] Chrome process tree killed successfully');
-        }
-    }
-
-    // Step 8: Clean up PID files
-    // Note: hook-specific .pid files are cleaned up by run_hook() and Snapshot.cleanup()
-    if (outputDir && processTreeExited) {
-        try { fs.unlinkSync(path.join(outputDir, 'chrome.pid')); } catch (e) {}
-    }
-
+    processTreeExited = await waitForChromeProcessTreeExit(
+      pid,
+      debugPort,
+      5000
+    );
     if (!processTreeExited) {
-        console.error('[!] Chrome cleanup completed, but some browser processes are still alive');
-        return false;
+      console.error(
+        `[!] WARNING: Chrome process tree for PID ${pid} is still alive after SIGKILL`
+      );
+      console.error(
+        `[!] This typically means Chromium is stuck in an uninterruptible kernel wait state`
+      );
+    } else {
+      console.error("[+] Chrome process tree killed successfully");
     }
+  }
 
-    console.error('[*] Chrome cleanup completed');
-    return true;
+  // Step 8: Clean up PID files
+  // Note: hook-specific .pid files are cleaned up by run_hook() and Snapshot.cleanup()
+  if (outputDir && processTreeExited) {
+    try {
+      fs.unlinkSync(path.join(outputDir, "chrome.pid"));
+    } catch (e) {}
+  }
+
+  if (!processTreeExited) {
+    console.error(
+      "[!] Chrome cleanup completed, but some browser processes are still alive"
+    );
+    return false;
+  }
+
+  console.error("[*] Chrome cleanup completed");
+  return true;
 }
 
 /**
@@ -1263,8 +1435,8 @@ async function killChrome(pid, outputDir = null) {
  * @param {Object} target - Puppeteer target object
  * @returns {Promise<Object>} - Object with target_is_bg, extension_id, manifest_version, etc.
  */
-const CHROME_EXTENSION_URL_PREFIX = 'chrome-extension://';
-const EXTENSION_BACKGROUND_TARGET_TYPES = new Set(['service_worker']);
+const CHROME_EXTENSION_URL_PREFIX = "chrome-extension://";
+const EXTENSION_BACKGROUND_TARGET_TYPES = new Set(["service_worker"]);
 
 /**
  * Parse extension ID from a target URL.
@@ -1273,8 +1445,11 @@ const EXTENSION_BACKGROUND_TARGET_TYPES = new Set(['service_worker']);
  * @returns {string|null} - Extension ID if URL is a chrome-extension URL
  */
 function getExtensionIdFromUrl(targetUrl) {
-    if (!targetUrl || !targetUrl.startsWith(CHROME_EXTENSION_URL_PREFIX)) return null;
-    return targetUrl.slice(CHROME_EXTENSION_URL_PREFIX.length).split('/')[0] || null;
+  if (!targetUrl || !targetUrl.startsWith(CHROME_EXTENSION_URL_PREFIX))
+    return null;
+  return (
+    targetUrl.slice(CHROME_EXTENSION_URL_PREFIX.length).split("/")[0] || null
+  );
 }
 
 /**
@@ -1284,22 +1459,28 @@ function getExtensionIdFromUrl(targetUrl) {
  * @returns {Array} - Extensions with unpacked_path
  */
 function getValidInstalledExtensions(extensions) {
-    if (!Array.isArray(extensions) || extensions.length === 0) return [];
-    return extensions.filter(ext => ext?.unpacked_path);
+  if (!Array.isArray(extensions) || extensions.length === 0) return [];
+  return extensions.filter((ext) => ext?.unpacked_path);
 }
 
 async function tryGetExtensionContext(target, targetType) {
-    if (targetType !== 'service_worker') return null;
-    return await target.worker();
+  if (targetType !== "service_worker") return null;
+  return await target.worker();
 }
 
-async function waitForExtensionTargetType(browser, extensionId, targetType, timeout) {
-    const target = await browser.waitForTarget(
-        candidate => candidate.type() === targetType &&
-            getExtensionIdFromUrl(candidate.url()) === extensionId,
-        { timeout }
-    );
-    return await tryGetExtensionContext(target, targetType);
+async function waitForExtensionTargetType(
+  browser,
+  extensionId,
+  targetType,
+  timeout
+) {
+  const target = await browser.waitForTarget(
+    (candidate) =>
+      candidate.type() === targetType &&
+      getExtensionIdFromUrl(candidate.url()) === extensionId,
+    { timeout }
+  );
+  return await tryGetExtensionContext(target, targetType);
 }
 
 /**
@@ -1311,136 +1492,158 @@ async function waitForExtensionTargetType(browser, extensionId, targetType, time
  * @param {string|null} [preferredTargetUrl=null] - Exact extension target URL to prefer
  * @returns {Promise<Object>} - Puppeteer target
  */
-async function waitForExtensionTargetHandle(browser, extensionId, timeout = 30000, preferredTargetUrl = null, options = {}) {
-    const deadline = Date.now() + Math.max(timeout, 0);
-    let lastCandidates = [];
-    let wakeAttempted = false;
-    const wakePath = options.wakePath || null;
+async function waitForExtensionTargetHandle(
+  browser,
+  extensionId,
+  timeout = 30000,
+  preferredTargetUrl = null,
+  options = {}
+) {
+  const deadline = Date.now() + Math.max(timeout, 0);
+  let lastCandidates = [];
+  let wakeAttempted = false;
+  const wakePath = options.wakePath || null;
 
-    async function wakeExtension() {
-        if (!wakePath || wakeAttempted) return;
-        wakeAttempted = true;
-        let wakePage = null;
-        try {
-            wakePage = await browser.newPage();
-            await wakePage.goto(
-                `${CHROME_EXTENSION_URL_PREFIX}${extensionId}${wakePath}`,
-                { waitUntil: 'load', timeout: Math.min(Math.max(deadline - Date.now(), 1000), 10000) }
+  async function wakeExtension() {
+    if (!wakePath || wakeAttempted) return;
+    wakeAttempted = true;
+    let wakePage = null;
+    try {
+      wakePage = await browser.newPage();
+      await wakePage.goto(
+        `${CHROME_EXTENSION_URL_PREFIX}${extensionId}${wakePath}`,
+        {
+          waitUntil: "load",
+          timeout: Math.min(Math.max(deadline - Date.now(), 1000), 10000),
+        }
+      );
+      await wakePage.evaluate(() => {
+        return new Promise((resolve) => {
+          const runtime = globalThis.chrome?.runtime;
+          if (!runtime?.sendMessage) {
+            resolve(null);
+            return;
+          }
+          try {
+            runtime.sendMessage({ method: "ping" }, (response) =>
+              resolve(response || null)
             );
-            await wakePage.evaluate(() => {
-                return new Promise((resolve) => {
-                    const runtime = globalThis.chrome?.runtime;
-                    if (!runtime?.sendMessage) {
-                        resolve(null);
-                        return;
-                    }
-                    try {
-                        runtime.sendMessage({ method: 'ping' }, (response) => resolve(response || null));
-                    } catch (error) {
-                        resolve(null);
-                    }
-                });
-            });
-        } catch (error) {
-            if (wakePage) {
-                try {
-                    await wakePage.close();
-                } catch (closeError) {}
-            }
-        }
+          } catch (error) {
+            resolve(null);
+          }
+        });
+      });
+    } catch (error) {
+      if (wakePage) {
+        try {
+          await wakePage.close();
+        } catch (closeError) {}
+      }
+    }
+  }
+
+  while (Date.now() < deadline) {
+    const candidates = browser
+      .targets()
+      .filter(
+        (target) =>
+          getExtensionIdFromUrl(target.url()) === extensionId &&
+          target.type() === "service_worker"
+      );
+
+    if (preferredTargetUrl) {
+      const exactMatch = candidates.find(
+        (target) => target.url() === preferredTargetUrl
+      );
+      if (exactMatch) {
+        return exactMatch;
+      }
+    } else {
+      const backgroundTarget = candidates.find((target) =>
+        EXTENSION_BACKGROUND_TARGET_TYPES.has(target.type())
+      );
+      if (backgroundTarget) {
+        return backgroundTarget;
+      }
+      if (candidates.length > 0) {
+        return candidates[0];
+      }
     }
 
-    while (Date.now() < deadline) {
-        const candidates = browser.targets().filter(target =>
-            getExtensionIdFromUrl(target.url()) === extensionId &&
-            target.type() === 'service_worker'
-        );
-
-        if (preferredTargetUrl) {
-            const exactMatch = candidates.find(target => target.url() === preferredTargetUrl);
-            if (exactMatch) {
-                return exactMatch;
-            }
-        } else {
-            const backgroundTarget = candidates.find(target => EXTENSION_BACKGROUND_TARGET_TYPES.has(target.type()));
-            if (backgroundTarget) {
-                return backgroundTarget;
-            }
-            if (candidates.length > 0) {
-                return candidates[0];
-            }
-        }
-
-        lastCandidates = candidates.map(target => `${target.type()}:${target.url()}`);
-        if (candidates.length === 0) {
-            await wakeExtension();
-        }
-        await sleep(100);
-    }
-
-    const error = new Error(
-        `Timed out waiting for extension target ${extensionId}` +
-        (preferredTargetUrl ? ` (${preferredTargetUrl})` : '') +
-        (lastCandidates.length ? `; last seen: ${lastCandidates.join(', ')}` : '')
+    lastCandidates = candidates.map(
+      (target) => `${target.type()}:${target.url()}`
     );
-    error.name = 'TimeoutError';
-    throw error;
+    if (candidates.length === 0) {
+      await wakeExtension();
+    }
+    await sleep(100);
+  }
+
+  const error = new Error(
+    `Timed out waiting for extension target ${extensionId}` +
+      (preferredTargetUrl ? ` (${preferredTargetUrl})` : "") +
+      (lastCandidates.length ? `; last seen: ${lastCandidates.join(", ")}` : "")
+  );
+  error.name = "TimeoutError";
+  throw error;
 }
 
 async function isTargetExtension(target) {
-    let target_type;
-    let target_ctx;
-    let target_url;
+  let target_type;
+  let target_ctx;
+  let target_url;
 
+  try {
+    target_type = target.type();
+    target_ctx = (await target.worker()) || (await target.page()) || null;
+    target_url = target.url() || target_ctx?.url() || null;
+  } catch (err) {
+    if (String(err).includes("No target with given id found")) {
+      // Target closed during check, ignore harmless race condition
+      target_type = "closed";
+      target_ctx = null;
+      target_url = "about:closed";
+    } else {
+      throw err;
+    }
+  }
+
+  // Check if this is an MV3 extension service worker
+  const extension_id = getExtensionIdFromUrl(target_url);
+  const is_chrome_extension = Boolean(extension_id);
+  const is_service_worker = target_type === "service_worker";
+  const target_is_bg = is_chrome_extension && is_service_worker;
+
+  let manifest_version = null;
+  let manifest = null;
+  let manifest_name = null;
+  const target_is_extension = is_chrome_extension || target_is_bg;
+
+  if (target_is_extension) {
     try {
-        target_type = target.type();
-        target_ctx = (await target.worker()) || (await target.page()) || null;
-        target_url = target.url() || target_ctx?.url() || null;
+      if (target_ctx) {
+        manifest = await target_ctx.evaluate(() =>
+          chrome.runtime.getManifest()
+        );
+        manifest_version = manifest?.manifest_version || null;
+        manifest_name = manifest?.name || null;
+      }
     } catch (err) {
-        if (String(err).includes('No target with given id found')) {
-            // Target closed during check, ignore harmless race condition
-            target_type = 'closed';
-            target_ctx = null;
-            target_url = 'about:closed';
-        } else {
-            throw err;
-        }
+      // Failed to get extension metadata
     }
+  }
 
-    // Check if this is an MV3 extension service worker
-    const extension_id = getExtensionIdFromUrl(target_url);
-    const is_chrome_extension = Boolean(extension_id);
-    const is_service_worker = target_type === 'service_worker';
-    const target_is_bg = is_chrome_extension && is_service_worker;
-
-    let manifest_version = null;
-    let manifest = null;
-    let manifest_name = null;
-    const target_is_extension = is_chrome_extension || target_is_bg;
-
-    if (target_is_extension) {
-        try {
-            if (target_ctx) {
-                manifest = await target_ctx.evaluate(() => chrome.runtime.getManifest());
-                manifest_version = manifest?.manifest_version || null;
-                manifest_name = manifest?.name || null;
-            }
-        } catch (err) {
-            // Failed to get extension metadata
-        }
-    }
-
-    return {
-        target_is_extension,
-        target_is_bg,
-        target_type,
-        target_ctx,
-        target_url,
-        extension_id,
-        manifest_version,
-        manifest,
-        manifest_name,
-    };
+  return {
+    target_is_extension,
+    target_is_bg,
+    target_type,
+    target_ctx,
+    target_url,
+    extension_id,
+    manifest_version,
+    manifest,
+    manifest_name,
+  };
 }
 
 /**
@@ -1451,99 +1654,110 @@ async function isTargetExtension(target) {
  * @returns {Promise<Object|null>} - Updated extension object or null if not an extension
  */
 async function loadExtensionFromTarget(extensions, target) {
-    const {
-        target_is_bg,
-        target_is_extension,
-        target_type,
-        target_ctx,
-        target_url,
-        extension_id,
-        manifest_version,
-        manifest,
-    } = await isTargetExtension(target);
+  const {
+    target_is_bg,
+    target_is_extension,
+    target_type,
+    target_ctx,
+    target_url,
+    extension_id,
+    manifest_version,
+    manifest,
+  } = await isTargetExtension(target);
 
-    if (!(target_is_bg && extension_id && target_ctx)) {
-        return null;
-    }
+  if (!(target_is_bg && extension_id && target_ctx)) {
+    return null;
+  }
 
-    // Find matching extension in our list
-    const extension = extensions.find(ext => ext.id === extension_id);
-    if (!extension) {
-        console.warn(`[⚠️] Found loaded extension ${extension_id} that's not in CHROME_EXTENSIONS list`);
-        return null;
-    }
+  // Find matching extension in our list
+  const extension = extensions.find((ext) => ext.id === extension_id);
+  if (!extension) {
+    console.warn(
+      `[⚠️] Found loaded extension ${extension_id} that's not in CHROME_EXTENSIONS list`
+    );
+    return null;
+  }
 
-    if (!manifest) {
-        console.error(`[❌] Failed to read manifest for extension ${extension_id}`);
-        return null;
-    }
+  if (!manifest) {
+    console.error(`[❌] Failed to read manifest for extension ${extension_id}`);
+    return null;
+  }
 
-    // Create dispatch methods for communicating with the extension
-    const new_extension = {
-        ...extension,
-        target,
-        target_type,
-        target_url,
-        manifest,
-        manifest_version,
+  // Create dispatch methods for communicating with the extension
+  const new_extension = {
+    ...extension,
+    target,
+    target_type,
+    target_url,
+    manifest,
+    manifest_version,
 
-        // Trigger extension toolbar button click
-        dispatchAction: async (tab) => {
-            return await target_ctx.evaluate(async (tab) => {
-                const browserApi = (typeof browser !== 'undefined' && browser) || null;
-                const chromeApi = (typeof chrome !== 'undefined' && chrome) || null;
-                const tabsApi = browserApi?.tabs || chromeApi?.tabs || null;
+    // Trigger extension toolbar button click
+    dispatchAction: async (tab) => {
+      return await target_ctx.evaluate(async (tab) => {
+        const browserApi = (typeof browser !== "undefined" && browser) || null;
+        const chromeApi = (typeof chrome !== "undefined" && chrome) || null;
+        const tabsApi = browserApi?.tabs || chromeApi?.tabs || null;
 
-                if (!tab && tabsApi?.query) {
-                    const tabs = await tabsApi.query({ currentWindow: true, active: true });
-                    tab = tabs?.[0] || null;
-                }
+        if (!tab && tabsApi?.query) {
+          const tabs = await tabsApi.query({
+            currentWindow: true,
+            active: true,
+          });
+          tab = tabs?.[0] || null;
+        }
 
-                if (browserApi?.action?.onClicked?.dispatch) {
-                    return await browserApi.action.onClicked.dispatch(tab);
-                }
+        if (browserApi?.action?.onClicked?.dispatch) {
+          return await browserApi.action.onClicked.dispatch(tab);
+        }
 
-                if (chromeApi?.action?.onClicked?.dispatch) {
-                    return await chromeApi.action.onClicked.dispatch(tab);
-                }
+        if (chromeApi?.action?.onClicked?.dispatch) {
+          return await chromeApi.action.onClicked.dispatch(tab);
+        }
 
-                throw new Error('Extension action dispatch not available');
-            }, tab || null);
+        throw new Error("Extension action dispatch not available");
+      }, tab || null);
+    },
+
+    // Send message to extension
+    dispatchMessage: async (message, options = {}) => {
+      return await target_ctx.evaluate(
+        (msg, opts) => {
+          return new Promise((resolve) => {
+            chrome.runtime.sendMessage(msg, opts, (response) => {
+              resolve(response);
+            });
+          });
         },
+        message,
+        options
+      );
+    },
 
-        // Send message to extension
-        dispatchMessage: async (message, options = {}) => {
-            return await target_ctx.evaluate((msg, opts) => {
-                return new Promise((resolve) => {
-                    chrome.runtime.sendMessage(msg, opts, (response) => {
-                        resolve(response);
-                    });
-                });
-            }, message, options);
-        },
+    // Trigger extension command (keyboard shortcut)
+    dispatchCommand: async (command) => {
+      return await target_ctx.evaluate((cmd) => {
+        return new Promise((resolve) => {
+          chrome.commands.onCommand.addListener((receivedCommand) => {
+            if (receivedCommand === cmd) {
+              resolve({ success: true, command: receivedCommand });
+            }
+          });
+          // Note: Actually triggering commands programmatically is not directly supported
+          // This would need to be done via CDP or keyboard simulation
+        });
+      }, command);
+    },
+  };
 
-        // Trigger extension command (keyboard shortcut)
-        dispatchCommand: async (command) => {
-            return await target_ctx.evaluate((cmd) => {
-                return new Promise((resolve) => {
-                    chrome.commands.onCommand.addListener((receivedCommand) => {
-                        if (receivedCommand === cmd) {
-                            resolve({ success: true, command: receivedCommand });
-                        }
-                    });
-                    // Note: Actually triggering commands programmatically is not directly supported
-                    // This would need to be done via CDP or keyboard simulation
-                });
-            }, command);
-        },
-    };
+  // Update the extension in the array
+  Object.assign(extension, new_extension);
 
-    // Update the extension in the array
-    Object.assign(extension, new_extension);
+  console.log(
+    `[🔌] Connected to extension ${extension.name} (${extension.version})`
+  );
 
-    console.log(`[🔌] Connected to extension ${extension.name} (${extension.version})`);
-
-    return new_extension;
+  return new_extension;
 }
 
 /**
@@ -1553,116 +1767,161 @@ async function loadExtensionFromTarget(extensions, target) {
  * @param {Array} extensions - Array of extension metadata objects
  * @returns {Promise<Array>} - Array of loaded extension objects with connection handlers
  */
-async function loadAllExtensionsFromBrowser(browser, extensions, timeout = 30000) {
-    console.log(`[⚙️] Loading ${extensions.length} chrome extensions from browser...`);
-    const perExtensionTimeout = Math.max(
-        250,
-        getEnvInt('CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS', Math.min(timeout, 5000))
-    );
+async function loadAllExtensionsFromBrowser(
+  browser,
+  extensions,
+  timeout = 30000
+) {
+  console.log(
+    `[⚙️] Loading ${extensions.length} chrome extensions from browser...`
+  );
+  const perExtensionTimeout = Math.max(
+    250,
+    getEnvInt("CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS", Math.min(timeout, 5000))
+  );
 
-    for (const extension of getValidInstalledExtensions(extensions)) {
-        if (!extension.id) {
-            extension.target_error = `Extension ${extension.name || extension.unpacked_path} missing runtime id`;
-            console.warn(`[!] ${extension.target_error}, continuing without browser connection`);
-            continue;
-        }
-        try {
-            const target = await waitForExtensionTargetHandle(browser, extension.id, perExtensionTimeout);
-            const loaded = await loadExtensionFromTarget(extensions, target);
-            if (!loaded) {
-                throw new Error(`Unable to attach extension target for ${extension.id}`);
-            }
-            delete extension.target_error;
-        } catch (error) {
-            extension.target_error = `${error.name}: ${error.message}`;
-            console.warn(
-                `[!] Extension ${extension.name || extension.id} did not expose a background target within ` +
-                `${perExtensionTimeout}ms, continuing: ${extension.target_error}`
-            );
-        }
+  for (const extension of getValidInstalledExtensions(extensions)) {
+    if (!extension.id) {
+      extension.target_error = `Extension ${
+        extension.name || extension.unpacked_path
+      } missing runtime id`;
+      console.warn(
+        `[!] ${extension.target_error}, continuing without browser connection`
+      );
+      continue;
     }
+    try {
+      const target = await waitForExtensionTargetHandle(
+        browser,
+        extension.id,
+        perExtensionTimeout
+      );
+      const loaded = await loadExtensionFromTarget(extensions, target);
+      if (!loaded) {
+        throw new Error(
+          `Unable to attach extension target for ${extension.id}`
+        );
+      }
+      delete extension.target_error;
+    } catch (error) {
+      extension.target_error = `${error.name}: ${error.message}`;
+      console.warn(
+        `[!] Extension ${
+          extension.name || extension.id
+        } did not expose a background target within ` +
+          `${perExtensionTimeout}ms, continuing: ${extension.target_error}`
+      );
+    }
+  }
 
-    return extensions;
+  return extensions;
 }
 
-async function loadUnpackedExtensionsIntoBrowser(browser, extensions, timeout = 30000) {
-    const validExtensions = getValidInstalledExtensions(extensions);
-    if (validExtensions.length === 0) {
-        return extensions;
-    }
-
-    console.log(`[⚙️] Loading ${validExtensions.length} unpacked chrome extensions into browser...`);
-    const perExtensionTimeout = Math.max(
-        250,
-        getEnvInt('CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS', Math.min(timeout, 10000))
-    );
-    let cdpSession = null;
-    try {
-        cdpSession = await browser.target().createCDPSession();
-    } catch (error) {
-        const loadError = `${error.name}: ${error.message}`;
-        for (const extension of validExtensions) {
-            extension.load_error = loadError;
-        }
-        console.warn(`[!] Browser-level extension loading is unavailable, continuing: ${loadError}`);
-        return extensions;
-    }
-    let loadUnpackedUnavailable = false;
-
-    for (const extension of validExtensions) {
-        if (loadUnpackedUnavailable) {
-            extension.load_error = 'Extensions.loadUnpacked is unavailable in this browser';
-            console.warn(`[!] Skipping CDP unpacked extension load for ${extension.name || extension.id}: ${extension.load_error}`);
-            continue;
-        }
-
-        try {
-            const { id } = await cdpSession.send('Extensions.loadUnpacked', {
-                path: extension.unpacked_path,
-            });
-            if (!id) {
-                throw new Error(`Extensions.loadUnpacked did not return an id for ${extension.unpacked_path}`);
-            }
-            extension.id = id;
-            delete extension.load_error;
-
-            try {
-                const target = await waitForExtensionTargetHandle(
-                    browser,
-                    extension.id,
-                    perExtensionTimeout
-                );
-                const loaded = await loadExtensionFromTarget(extensions, target);
-                if (!loaded) {
-                    throw new Error(`Unable to attach extension target for ${extension.id}`);
-                }
-                delete extension.target_error;
-            } catch (targetError) {
-                extension.target_error = `${targetError.name}: ${targetError.message}`;
-                console.warn(
-                    `[!] Extension ${extension.name || extension.id} loaded but did not expose a background target within ` +
-                    `${perExtensionTimeout}ms, continuing: ${extension.target_error}`
-                );
-            }
-        } catch (error) {
-            extension.load_error = `${error.name}: ${error.message}`;
-            if (
-                String(error.message || '').includes('Method not available') ||
-                String(error.message || '').includes("'Extensions.loadUnpacked' wasn't found")
-            ) {
-                loadUnpackedUnavailable = true;
-                console.warn(`[!] Extensions.loadUnpacked is unavailable in this browser, skipping remaining CDP unpacked extension loads`);
-                continue;
-            }
-            console.warn(`[!] Failed to load extension ${extension.name || extension.unpacked_path}: ${extension.load_error}`);
-        }
-    }
-
-    try {
-        await cdpSession.detach();
-    } catch (error) {}
-
+async function loadUnpackedExtensionsIntoBrowser(
+  browser,
+  extensions,
+  timeout = 30000
+) {
+  const validExtensions = getValidInstalledExtensions(extensions);
+  if (validExtensions.length === 0) {
     return extensions;
+  }
+
+  console.log(
+    `[⚙️] Loading ${validExtensions.length} unpacked chrome extensions into browser...`
+  );
+  const perExtensionTimeout = Math.max(
+    250,
+    getEnvInt("CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS", Math.min(timeout, 10000))
+  );
+  let cdpSession = null;
+  try {
+    cdpSession = await browser.target().createCDPSession();
+  } catch (error) {
+    const loadError = `${error.name}: ${error.message}`;
+    for (const extension of validExtensions) {
+      extension.load_error = loadError;
+    }
+    console.warn(
+      `[!] Browser-level extension loading is unavailable, continuing: ${loadError}`
+    );
+    return extensions;
+  }
+  let loadUnpackedUnavailable = false;
+
+  for (const extension of validExtensions) {
+    if (loadUnpackedUnavailable) {
+      extension.load_error =
+        "Extensions.loadUnpacked is unavailable in this browser";
+      console.warn(
+        `[!] Skipping CDP unpacked extension load for ${
+          extension.name || extension.id
+        }: ${extension.load_error}`
+      );
+      continue;
+    }
+
+    try {
+      const { id } = await cdpSession.send("Extensions.loadUnpacked", {
+        path: extension.unpacked_path,
+      });
+      if (!id) {
+        throw new Error(
+          `Extensions.loadUnpacked did not return an id for ${extension.unpacked_path}`
+        );
+      }
+      extension.id = id;
+      delete extension.load_error;
+
+      try {
+        const target = await waitForExtensionTargetHandle(
+          browser,
+          extension.id,
+          perExtensionTimeout
+        );
+        const loaded = await loadExtensionFromTarget(extensions, target);
+        if (!loaded) {
+          throw new Error(
+            `Unable to attach extension target for ${extension.id}`
+          );
+        }
+        delete extension.target_error;
+      } catch (targetError) {
+        extension.target_error = `${targetError.name}: ${targetError.message}`;
+        console.warn(
+          `[!] Extension ${
+            extension.name || extension.id
+          } loaded but did not expose a background target within ` +
+            `${perExtensionTimeout}ms, continuing: ${extension.target_error}`
+        );
+      }
+    } catch (error) {
+      extension.load_error = `${error.name}: ${error.message}`;
+      if (
+        String(error.message || "").includes("Method not available") ||
+        String(error.message || "").includes(
+          "'Extensions.loadUnpacked' wasn't found"
+        )
+      ) {
+        loadUnpackedUnavailable = true;
+        console.warn(
+          `[!] Extensions.loadUnpacked is unavailable in this browser, skipping remaining CDP unpacked extension loads`
+        );
+        continue;
+      }
+      console.warn(
+        `[!] Failed to load extension ${
+          extension.name || extension.unpacked_path
+        }: ${extension.load_error}`
+      );
+    }
+  }
+
+  try {
+    await cdpSession.detach();
+  } catch (error) {}
+
+  return extensions;
 }
 
 /**
@@ -1672,19 +1931,19 @@ async function loadUnpackedExtensionsIntoBrowser(browser, extensions, timeout = 
  * @returns {object|null} - Parsed manifest object or null if not found/invalid
  */
 function loadExtensionManifest(unpacked_path) {
-    const manifest_path = path.join(unpacked_path, 'manifest.json');
+  const manifest_path = path.join(unpacked_path, "manifest.json");
 
-    if (!fs.existsSync(manifest_path)) {
-        return null;
-    }
+  if (!fs.existsSync(manifest_path)) {
+    return null;
+  }
 
-    try {
-        const manifest_content = fs.readFileSync(manifest_path, 'utf-8');
-        return JSON.parse(manifest_content);
-    } catch (error) {
-        // Invalid JSON or read error
-        return null;
-    }
+  try {
+    const manifest_content = fs.readFileSync(manifest_path, "utf-8");
+    return JSON.parse(manifest_content);
+  } catch (error) {
+    // Invalid JSON or read error
+    return null;
+  }
 }
 
 /**
@@ -1694,7 +1953,9 @@ function loadExtensionManifest(unpacked_path) {
  * @returns {Array<string>} - Array of extension unpacked paths
  */
 function getExtensionPaths(extensions) {
-    return getValidInstalledExtensions(extensions).map(ext => ext.unpacked_path);
+  return getValidInstalledExtensions(extensions).map(
+    (ext) => ext.unpacked_path
+  );
 }
 
 /**
@@ -1711,7 +1972,12 @@ function getExtensionPaths(extensions) {
  * @returns {Promise<Object>} - Worker or Page context for the extension
  */
 async function waitForExtensionTarget(browser, extensionId, timeout = 30000) {
-    return await waitForExtensionTargetType(browser, extensionId, 'service_worker', timeout);
+  return await waitForExtensionTargetType(
+    browser,
+    extensionId,
+    "service_worker",
+    timeout
+  );
 }
 
 /**
@@ -1721,14 +1987,17 @@ async function waitForExtensionTarget(browser, extensionId, timeout = 30000) {
  * @returns {Array<Object>|null} - Parsed extensions metadata list or null if unavailable
  */
 function readExtensionsMetadata(chromeSessionDir) {
-    const extensionsFile = path.join(path.resolve(chromeSessionDir), 'extensions.json');
-    if (!fs.existsSync(extensionsFile)) return null;
-    try {
-        const parsed = JSON.parse(fs.readFileSync(extensionsFile, 'utf8'));
-        return Array.isArray(parsed) ? parsed : null;
-    } catch (e) {
-        return null;
-    }
+  const extensionsFile = path.join(
+    path.resolve(chromeSessionDir),
+    "extensions.json"
+  );
+  if (!fs.existsSync(extensionsFile)) return null;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(extensionsFile, "utf8"));
+    return Array.isArray(parsed) ? parsed : null;
+  } catch (e) {
+    return null;
+  }
 }
 
 /**
@@ -1739,8 +2008,10 @@ function readExtensionsMetadata(chromeSessionDir) {
  * @returns {Object|null} - Matching extension metadata entry
  */
 function findExtensionMetadataByName(extensions, extensionName) {
-    const wanted = (extensionName || '').toLowerCase();
-    return extensions.find(ext => (ext?.name || '').toLowerCase() === wanted) || null;
+  const wanted = (extensionName || "").toLowerCase();
+  return (
+    extensions.find((ext) => (ext?.name || "").toLowerCase() === wanted) || null
+  );
 }
 
 /**
@@ -1750,16 +2021,18 @@ function findExtensionMetadataByName(extensions, extensionName) {
  * @returns {Array<Object>} - Array of extension target info objects
  */
 function getExtensionTargets(browser) {
-    return browser.targets()
-        .filter(target =>
-            getExtensionIdFromUrl(target.url()) ||
-            EXTENSION_BACKGROUND_TARGET_TYPES.has(target.type())
-        )
-        .map(target => ({
-            type: target.type(),
-            url: target.url(),
-            extensionId: getExtensionIdFromUrl(target.url()),
-        }));
+  return browser
+    .targets()
+    .filter(
+      (target) =>
+        getExtensionIdFromUrl(target.url()) ||
+        EXTENSION_BACKGROUND_TARGET_TYPES.has(target.type())
+    )
+    .map((target) => ({
+      type: target.type(),
+      url: target.url(),
+      extensionId: getExtensionIdFromUrl(target.url()),
+    }));
 }
 
 /**
@@ -1779,82 +2052,93 @@ function getExtensionTargets(browser) {
  * @returns {string|null} - Absolute path to browser binary or null if not found
  */
 function findChromium() {
-    const validateBinary = (binaryPath) => isSupportedChromiumBinary(binaryPath);
+  const validateBinary = (binaryPath) => isSupportedChromiumBinary(binaryPath);
 
-    const resolveBinaryReference = (binaryPath) => {
-        if (!binaryPath) return null;
+  const resolveBinaryReference = (binaryPath) => {
+    if (!binaryPath) return null;
 
-        const hasPathSeparator = binaryPath.includes(path.sep) || (path.sep === '\\' && binaryPath.includes('/'));
-        if (path.isAbsolute(binaryPath) || hasPathSeparator) {
-            const absPath = path.resolve(binaryPath);
-            return validateBinary(absPath) ? absPath : null;
-        }
-
-        try {
-            const locator = process.platform === 'win32' ? 'where' : 'which';
-            const resolved = execFileSync(locator, [binaryPath], {
-                encoding: 'utf8',
-                timeout: 5000,
-                stdio: 'pipe',
-            }).split(/\r?\n/).find(Boolean)?.trim();
-            return resolved && validateBinary(resolved) ? resolved : null;
-        } catch (e) {
-            return validateBinary(binaryPath) ? binaryPath : null;
-        }
-    };
-
-    // 1. Check CHROME_BINARY env var first
-    const chromeBinary = getEnv('CHROME_BINARY');
-    if (chromeBinary) {
-        const resolvedBinary = resolveBinaryReference(chromeBinary);
-        if (resolvedBinary) {
-            return resolvedBinary;
-        }
-        console.error(`[!] Warning: CHROME_BINARY="${chromeBinary}" is not an executable browser binary.`);
+    const hasPathSeparator =
+      binaryPath.includes(path.sep) ||
+      (path.sep === "\\" && binaryPath.includes("/"));
+    if (path.isAbsolute(binaryPath) || hasPathSeparator) {
+      const absPath = path.resolve(binaryPath);
+      return validateBinary(absPath) ? absPath : null;
     }
 
-    const ciChromiumPath = '/usr/bin/chromium';
-    if (validateBinary(ciChromiumPath)) {
-        return ciChromiumPath;
+    try {
+      const locator = process.platform === "win32" ? "where" : "which";
+      const resolved = execFileSync(locator, [binaryPath], {
+        encoding: "utf8",
+        timeout: 5000,
+        stdio: "pipe",
+      })
+        .split(/\r?\n/)
+        .find(Boolean)
+        ?.trim();
+      return resolved && validateBinary(resolved) ? resolved : null;
+    } catch (e) {
+      return validateBinary(binaryPath) ? binaryPath : null;
     }
+  };
 
-    const macCanaryPath = '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary';
-    if (process.platform === 'darwin' && validateBinary(macCanaryPath)) {
-        return macCanaryPath;
+  // 1. Check CHROME_BINARY env var first
+  const chromeBinary = getEnv("CHROME_BINARY");
+  if (chromeBinary) {
+    const resolvedBinary = resolveBinaryReference(chromeBinary);
+    if (resolvedBinary) {
+      return resolvedBinary;
     }
+    console.error(
+      `[!] Warning: CHROME_BINARY="${chromeBinary}" is not an executable browser binary.`
+    );
+  }
 
-    const hostChromiumCandidates = process.platform === 'darwin'
-        ? ['/Applications/Chromium.app/Contents/MacOS/Chromium']
-        : ['chromium', 'chromium-browser'];
-    for (const candidate of hostChromiumCandidates) {
-        const resolvedChromium = resolveBinaryReference(candidate);
-        if (resolvedChromium) {
-            return resolvedChromium;
-        }
+  const ciChromiumPath = "/usr/bin/chromium";
+  if (validateBinary(ciChromiumPath)) {
+    return ciChromiumPath;
+  }
+
+  const macCanaryPath =
+    "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary";
+  if (process.platform === "darwin" && validateBinary(macCanaryPath)) {
+    return macCanaryPath;
+  }
+
+  const hostChromiumCandidates =
+    process.platform === "darwin"
+      ? ["/Applications/Chromium.app/Contents/MacOS/Chromium"]
+      : ["chromium", "chromium-browser"];
+  for (const candidate of hostChromiumCandidates) {
+    const resolvedChromium = resolveBinaryReference(candidate);
+    if (resolvedChromium) {
+      return resolvedChromium;
     }
+  }
 
-    // 2. Warn that no CHROME_BINARY is configured, searching managed installs
-    if (!chromeBinary) {
-        console.error('[!] Warning: CHROME_BINARY not set, searching managed installs...');
+  // 2. Warn that no CHROME_BINARY is configured, searching managed installs
+  if (!chromeBinary) {
+    console.error(
+      "[!] Warning: CHROME_BINARY not set, searching managed installs..."
+    );
+  }
+
+  // 3. Search the stable shims created by abxpkg browser binproviders.
+  // Do not walk provider cache internals here; Puppeteer/Playwright own that.
+  const libDir = getEnv("LIB_DIR");
+  if (libDir) {
+    const libCandidates = [
+      path.join(libDir, "puppeteer", "bin", "chrome"),
+      path.join(libDir, "puppeteer", "bin", "chromium"),
+      path.join(libDir, "puppeteer", "bin", "chrome-headless-shell"),
+      path.join(libDir, "playwright", "bin", "chrome"),
+      path.join(libDir, "playwright", "bin", "chromium"),
+    ];
+    for (const c of libCandidates) {
+      if (validateBinary(c)) return c;
     }
+  }
 
-    // 3. Search the stable shims created by abxpkg browser binproviders.
-    // Do not walk provider cache internals here; Puppeteer/Playwright own that.
-    const libDir = getEnv('LIB_DIR');
-    if (libDir) {
-        const libCandidates = [
-            path.join(libDir, 'puppeteer', 'bin', 'chrome'),
-            path.join(libDir, 'puppeteer', 'bin', 'chromium'),
-            path.join(libDir, 'puppeteer', 'bin', 'chrome-headless-shell'),
-            path.join(libDir, 'playwright', 'bin', 'chrome'),
-            path.join(libDir, 'playwright', 'bin', 'chromium'),
-        ];
-        for (const c of libCandidates) {
-            if (validateBinary(c)) return c;
-        }
-    }
-
-    return null;
+  return null;
 }
 
 /**
@@ -1864,9 +2148,9 @@ function findChromium() {
  * @returns {string|null} - Absolute path or command name to browser binary
  */
 function findAnyChromiumBinary() {
-    const chromiumBinary = findChromium();
-    if (chromiumBinary) return chromiumBinary;
-    return null;
+  const chromiumBinary = findChromium();
+  if (chromiumBinary) return chromiumBinary;
+  return null;
 }
 
 // ============================================================================
@@ -1884,9 +2168,11 @@ function findAnyChromiumBinary() {
  * @returns {string} - Absolute path to extensions directory
  */
 function getExtensionsDir() {
-    const config = loadConfig(path.join(__dirname, 'config.json'));
-    return config.CHROME_EXTENSIONS_DIR ||
-        path.join(getPersonasDir(), config.ACTIVE_PERSONA, 'chrome_extensions');
+  const config = loadConfig(path.join(__dirname, "config.json"));
+  return (
+    config.CHROME_EXTENSIONS_DIR ||
+    path.join(getPersonasDir(), config.ACTIVE_PERSONA, "chrome_extensions")
+  );
 }
 
 /**
@@ -1896,23 +2182,23 @@ function getExtensionsDir() {
  * @returns {string} - Machine type (e.g., 'x86_64-linux', 'arm64-darwin')
  */
 function getMachineType() {
-    if (process.env.MACHINE_TYPE) {
-        return process.env.MACHINE_TYPE;
-    }
+  if (process.env.MACHINE_TYPE) {
+    return process.env.MACHINE_TYPE;
+  }
 
-    let machine = process.arch;
-    const system = process.platform;
+  let machine = process.arch;
+  const system = process.platform;
 
-    // Normalize machine type to match Python's convention
-    if (machine === 'arm64' || machine === 'aarch64') {
-        machine = 'arm64';
-    } else if (machine === 'x64' || machine === 'x86_64' || machine === 'amd64') {
-        machine = 'x86_64';
-    } else if (machine === 'ia32' || machine === 'x86') {
-        machine = 'x86';
-    }
+  // Normalize machine type to match Python's convention
+  if (machine === "arm64" || machine === "aarch64") {
+    machine = "arm64";
+  } else if (machine === "x64" || machine === "x86_64" || machine === "amd64") {
+    machine = "x86_64";
+  } else if (machine === "ia32" || machine === "x86") {
+    machine = "x86";
+  }
 
-    return `${machine}-${system}`;
+  return `${machine}-${system}`;
 }
 
 /**
@@ -1922,11 +2208,11 @@ function getMachineType() {
  * @returns {string} - Absolute path to lib directory
  */
 function getLibDir() {
-    if (process.env.LIB_DIR) {
-        return path.resolve(process.env.LIB_DIR);
-    }
-    const defaultRoot = path.join(os.homedir(), '.config', 'abx', 'lib');
-    return path.resolve(defaultRoot);
+  if (process.env.LIB_DIR) {
+    return path.resolve(process.env.LIB_DIR);
+  }
+  const defaultRoot = path.join(os.homedir(), ".config", "abx", "lib");
+  return path.resolve(defaultRoot);
 }
 
 /**
@@ -1940,7 +2226,7 @@ function getLibDir() {
  * @returns {string} - Absolute path to node_modules directory
  */
 function getNodeModulesDir() {
-    return getNodeModulesDirFromBaseUtils();
+  return getNodeModulesDirFromBaseUtils();
 }
 
 /**
@@ -1954,24 +2240,25 @@ function getNodeModulesDir() {
  * @returns {Object} - Object with all test environment paths
  */
 function getTestEnv() {
-    const snapDir = getSnapDir();
-    const crawlDir = getCrawlDir();
-    const machineType = getMachineType();
-    const libDir = getLibDir();
-    const nodeModulesDir = getNodeModulesDir();
+  const snapDir = getSnapDir();
+  const crawlDir = getCrawlDir();
+  const machineType = getMachineType();
+  const libDir = getLibDir();
+  const nodeModulesDir = getNodeModulesDir();
 
-    return {
-        SNAP_DIR: snapDir,
-        CRAWL_DIR: crawlDir,
-        PERSONAS_DIR: getPersonasDir(),
-        ACTIVE_PERSONA: loadConfig(path.join(__dirname, 'config.json')).ACTIVE_PERSONA,
-        MACHINE_TYPE: machineType,
-        LIB_DIR: libDir,
-        NODE_MODULES_DIR: nodeModulesDir,
-        NODE_PATH: nodeModulesDir,  // Node.js uses NODE_PATH for module resolution
-        NPM_BIN_DIR: path.join(libDir, 'npm', '.bin'),
-        CHROME_EXTENSIONS_DIR: getExtensionsDir(),
-    };
+  return {
+    SNAP_DIR: snapDir,
+    CRAWL_DIR: crawlDir,
+    PERSONAS_DIR: getPersonasDir(),
+    ACTIVE_PERSONA: loadConfig(path.join(__dirname, "config.json"))
+      .ACTIVE_PERSONA,
+    MACHINE_TYPE: machineType,
+    LIB_DIR: libDir,
+    NODE_MODULES_DIR: nodeModulesDir,
+    NODE_PATH: nodeModulesDir, // Node.js uses NODE_PATH for module resolution
+    NPM_BIN_DIR: path.join(libDir, "npm", ".bin"),
+    CHROME_EXTENSIONS_DIR: getExtensionsDir(),
+  };
 }
 
 // ============================================================================
@@ -1979,9 +2266,9 @@ function getTestEnv() {
 // ============================================================================
 
 const CHROME_SESSION_FILES = Object.freeze({
-    cdpUrl: 'cdp_url.txt',
-    targetId: 'target_id.txt',
-    chromePid: 'chrome.pid',
+  cdpUrl: "cdp_url.txt",
+  targetId: "target_id.txt",
+  chromePid: "chrome.pid",
 });
 
 /**
@@ -2003,15 +2290,15 @@ const CHROME_SESSION_FILES = Object.freeze({
  * @returns {{sessionDir: string, cdpFile: string, targetIdFile: string, chromePidFile: string, urlFile: string, navigationFile: string}}
  */
 function getChromeSessionPaths(chromeSessionDir) {
-    const sessionDir = path.resolve(chromeSessionDir);
-    return {
-        sessionDir,
-        cdpFile: path.join(sessionDir, CHROME_SESSION_FILES.cdpUrl),
-        targetIdFile: path.join(sessionDir, CHROME_SESSION_FILES.targetId),
-        chromePidFile: path.join(sessionDir, CHROME_SESSION_FILES.chromePid),
-        urlFile: path.join(sessionDir, 'url.txt'),
-        navigationFile: path.join(sessionDir, 'navigation.json'),
-    };
+  const sessionDir = path.resolve(chromeSessionDir);
+  return {
+    sessionDir,
+    cdpFile: path.join(sessionDir, CHROME_SESSION_FILES.cdpUrl),
+    targetIdFile: path.join(sessionDir, CHROME_SESSION_FILES.targetId),
+    chromePidFile: path.join(sessionDir, CHROME_SESSION_FILES.chromePid),
+    urlFile: path.join(sessionDir, "url.txt"),
+    navigationFile: path.join(sessionDir, "navigation.json"),
+  };
 }
 
 /**
@@ -2021,9 +2308,9 @@ function getChromeSessionPaths(chromeSessionDir) {
  * @returns {string|null} - Trimmed file value or null
  */
 function readSessionTextFile(filePath) {
-    if (!fs.existsSync(filePath)) return null;
-    const value = fs.readFileSync(filePath, 'utf8').trim();
-    return value || null;
+  if (!fs.existsSync(filePath)) return null;
+  const value = fs.readFileSync(filePath, "utf8").trim();
+  return value || null;
 }
 
 /**
@@ -2039,15 +2326,20 @@ function readSessionTextFile(filePath) {
  * @returns {string[]} - Absolute file paths
  */
 function getChromeSessionArtifactPaths(chromeSessionDir) {
-    const { sessionDir, cdpFile, targetIdFile, chromePidFile } = getChromeSessionPaths(chromeSessionDir);
-    return [
-        cdpFile,
-        targetIdFile,
-        chromePidFile,
-        path.join(sessionDir, 'url.txt'),
-        path.join(sessionDir, 'navigation.json'),
-        path.join(sessionDir, 'extensions.json'),
-    ];
+  const {
+    sessionDir,
+    cdpFile,
+    targetIdFile,
+    chromePidFile,
+  } = getChromeSessionPaths(chromeSessionDir);
+  return [
+    cdpFile,
+    targetIdFile,
+    chromePidFile,
+    path.join(sessionDir, "url.txt"),
+    path.join(sessionDir, "navigation.json"),
+    path.join(sessionDir, "extensions.json"),
+  ];
 }
 
 /**
@@ -2057,17 +2349,17 @@ function getChromeSessionArtifactPaths(chromeSessionDir) {
  * @returns {number|null} - Parsed port or null
  */
 function getChromeDebugPortFromCdpUrl(cdpUrl) {
-    if (!cdpUrl) return null;
-    try {
-        const parsed = new URL(cdpUrl);
-        const port = parseInt(parsed.port, 10);
-        return Number.isFinite(port) && port > 0 ? port : null;
-    } catch (e) {
-        const match = cdpUrl.match(/:(\d+)\/devtools\//);
-        if (!match) return null;
-        const port = parseInt(match[1], 10);
-        return Number.isFinite(port) && port > 0 ? port : null;
-    }
+  if (!cdpUrl) return null;
+  try {
+    const parsed = new URL(cdpUrl);
+    const port = parseInt(parsed.port, 10);
+    return Number.isFinite(port) && port > 0 ? port : null;
+  } catch (e) {
+    const match = cdpUrl.match(/:(\d+)\/devtools\//);
+    if (!match) return null;
+    const port = parseInt(match[1], 10);
+    return Number.isFinite(port) && port > 0 ? port : null;
+  }
 }
 
 /**
@@ -2080,97 +2372,102 @@ function getChromeDebugPortFromCdpUrl(cdpUrl) {
  * @returns {string|null} - HTTP(S) browser-server URL or null if invalid
  */
 function getBrowserCdpUrlFromCdpUrl(cdpUrl) {
-    if (!cdpUrl) return null;
+  if (!cdpUrl) return null;
 
-    try {
-        const endpoint = new URL(cdpUrl);
-        if (endpoint.protocol === 'http:' || endpoint.protocol === 'https:') {
-            endpoint.pathname = '';
-            endpoint.search = '';
-            endpoint.hash = '';
-            return endpoint.toString().replace(/\/+$/, '');
-        }
-        if (endpoint.protocol !== 'ws:' && endpoint.protocol !== 'wss:') {
-            return null;
-        }
-        endpoint.protocol = endpoint.protocol === 'wss:' ? 'https:' : 'http:';
-        endpoint.pathname = '';
-        endpoint.search = '';
-        endpoint.hash = '';
-        return endpoint.toString().replace(/\/+$/, '');
-    } catch (error) {
-        return null;
+  try {
+    const endpoint = new URL(cdpUrl);
+    if (endpoint.protocol === "http:" || endpoint.protocol === "https:") {
+      endpoint.pathname = "";
+      endpoint.search = "";
+      endpoint.hash = "";
+      return endpoint.toString().replace(/\/+$/, "");
     }
+    if (endpoint.protocol !== "ws:" && endpoint.protocol !== "wss:") {
+      return null;
+    }
+    endpoint.protocol = endpoint.protocol === "wss:" ? "https:" : "http:";
+    endpoint.pathname = "";
+    endpoint.search = "";
+    endpoint.hash = "";
+    return endpoint.toString().replace(/\/+$/, "");
+  } catch (error) {
+    return null;
+  }
 }
 
 function getPuppeteerConnectOptionsForCdpUrl(cdpUrl) {
-    if (!cdpUrl) {
-        throw new Error('Missing CDP URL');
-    }
+  if (!cdpUrl) {
+    throw new Error("Missing CDP URL");
+  }
 
-    try {
-        const endpoint = new URL(cdpUrl);
-        if (endpoint.protocol === 'http:' || endpoint.protocol === 'https:') {
-            return { browserURL: getBrowserCdpUrlFromCdpUrl(cdpUrl) || cdpUrl };
-        }
-        if (endpoint.protocol === 'ws:' || endpoint.protocol === 'wss:') {
-            return { browserWSEndpoint: cdpUrl };
-        }
-        throw new Error(`Invalid CDP URL protocol: ${endpoint.protocol}`);
-    } catch (error) {
-        if (error instanceof Error) {
-            throw error;
-        }
-        throw new Error(`Invalid CDP URL: ${cdpUrl}`);
+  try {
+    const endpoint = new URL(cdpUrl);
+    if (endpoint.protocol === "http:" || endpoint.protocol === "https:") {
+      return { browserURL: getBrowserCdpUrlFromCdpUrl(cdpUrl) || cdpUrl };
     }
+    if (endpoint.protocol === "ws:" || endpoint.protocol === "wss:") {
+      return { browserWSEndpoint: cdpUrl };
+    }
+    throw new Error(`Invalid CDP URL protocol: ${endpoint.protocol}`);
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error(`Invalid CDP URL: ${cdpUrl}`);
+  }
 }
 
-async function connectToBrowserEndpoint(puppeteer, cdpUrl, connectOptions = {}) {
-    return await puppeteer.connect({
-        ...getPuppeteerConnectOptionsForCdpUrl(cdpUrl),
-        ...connectOptions,
-    });
+async function connectToBrowserEndpoint(
+  puppeteer,
+  cdpUrl,
+  connectOptions = {}
+) {
+  return await puppeteer.connect({
+    ...getPuppeteerConnectOptionsForCdpUrl(cdpUrl),
+    ...connectOptions,
+  });
 }
 
 async function withTimeout(promiseFactory, timeoutMs, timeoutMessage) {
-    let timeoutHandle = null;
-    try {
-        return await Promise.race([
-            promiseFactory(),
-            new Promise((_, reject) => {
-                timeoutHandle = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
-            }),
-        ]);
-    } finally {
-        if (timeoutHandle) {
-            clearTimeout(timeoutHandle);
-        }
+  let timeoutHandle = null;
+  try {
+    return await Promise.race([
+      promiseFactory(),
+      new Promise((_, reject) => {
+        timeoutHandle = setTimeout(
+          () => reject(new Error(timeoutMessage)),
+          timeoutMs
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
     }
+  }
 }
 
 async function canConnectToChromeBrowser(cdpUrl, options = {}) {
-    const {
-        timeoutMs = 1500,
-        puppeteer = resolvePuppeteerModule(),
-    } = options;
+  const { timeoutMs = 1500, puppeteer = resolvePuppeteerModule() } = options;
 
-    let browser = null;
-    try {
-        browser = await withTimeout(
-            () => connectToBrowserEndpoint(puppeteer, cdpUrl, { defaultViewport: null }),
-            timeoutMs,
-            `Timed out connecting to browser at ${cdpUrl}`
-        );
-        return true;
-    } catch (error) {
-        return false;
-    } finally {
-        if (browser) {
-            try {
-                await browser.disconnect();
-            } catch (disconnectError) {}
-        }
+  let browser = null;
+  try {
+    browser = await withTimeout(
+      () =>
+        connectToBrowserEndpoint(puppeteer, cdpUrl, { defaultViewport: null }),
+      timeoutMs,
+      `Timed out connecting to browser at ${cdpUrl}`
+    );
+    return true;
+  } catch (error) {
+    return false;
+  } finally {
+    if (browser) {
+      try {
+        await browser.disconnect();
+      } catch (disconnectError) {}
     }
+  }
 }
 
 /**
@@ -2191,107 +2488,147 @@ async function canConnectToChromeBrowser(cdpUrl, options = {}) {
  * @returns {Promise<{hasArtifacts: boolean, stale: boolean, state: Object, reason: string|null}>}
  */
 async function inspectChromeSessionArtifacts(chromeSessionDir, options = {}) {
-    const {
-        requireTargetId = false,
-        probeTimeoutMs = 1500,
-        validateLiveness = true,
-        processIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true),
-        puppeteer = null,
-    } = options;
+  const {
+    requireTargetId = false,
+    probeTimeoutMs = 1500,
+    validateLiveness = true,
+    processIsLocal = getEnv("CHROME_CDP_URL", "")
+      ? false
+      : getEnvBool("CHROME_IS_LOCAL", true),
+    puppeteer = null,
+  } = options;
 
-    const artifactPaths = getChromeSessionArtifactPaths(chromeSessionDir);
-    const hasArtifacts = artifactPaths.some(filePath => fs.existsSync(filePath));
-    const sessionPaths = getChromeSessionPaths(chromeSessionDir);
-    const cdpUrl = readSessionTextFile(sessionPaths.cdpFile);
-    const targetId = readSessionTextFile(sessionPaths.targetIdFile);
-    const rawPid = readSessionTextFile(sessionPaths.chromePidFile);
-    const parsedPid = rawPid ? parseInt(rawPid, 10) : NaN;
-    const pid = Number.isFinite(parsedPid) && parsedPid > 0 ? parsedPid : null;
-    const state = {
-        sessionDir: sessionPaths.sessionDir,
-        cdpUrl,
-        targetId,
-        pid,
-        extensions: readExtensionsMetadata(chromeSessionDir),
-    };
+  const artifactPaths = getChromeSessionArtifactPaths(chromeSessionDir);
+  const hasArtifacts = artifactPaths.some((filePath) =>
+    fs.existsSync(filePath)
+  );
+  const sessionPaths = getChromeSessionPaths(chromeSessionDir);
+  const cdpUrl = readSessionTextFile(sessionPaths.cdpFile);
+  const targetId = readSessionTextFile(sessionPaths.targetIdFile);
+  const rawPid = readSessionTextFile(sessionPaths.chromePidFile);
+  const parsedPid = rawPid ? parseInt(rawPid, 10) : NaN;
+  const pid = Number.isFinite(parsedPid) && parsedPid > 0 ? parsedPid : null;
+  const state = {
+    sessionDir: sessionPaths.sessionDir,
+    cdpUrl,
+    targetId,
+    pid,
+    extensions: readExtensionsMetadata(chromeSessionDir),
+  };
 
-    if (!hasArtifacts) {
-        return { hasArtifacts: false, stale: false, state, reason: null };
-    }
+  if (!hasArtifacts) {
+    return { hasArtifacts: false, stale: false, state, reason: null };
+  }
 
-    if (!state.cdpUrl) {
-        return { hasArtifacts: true, stale: true, state, reason: 'missing cdp_url.txt' };
-    }
-
-    if (requireTargetId && !state.targetId) {
-        return { hasArtifacts: true, stale: true, state, reason: 'missing target_id.txt' };
-    }
-
-    if (!validateLiveness) {
-        return { hasArtifacts: true, stale: false, state, reason: null };
-    }
-
-    if (requireTargetId && state.targetId) {
-        let browser = null;
-        try {
-            const puppeteerModule = puppeteer || resolvePuppeteerModule();
-            browser = await withTimeout(
-                () => connectToBrowserEndpoint(puppeteerModule, state.cdpUrl, { defaultViewport: null }),
-                probeTimeoutMs,
-                `Timed out connecting to browser at ${state.cdpUrl}`
-            );
-            const page = await resolvePageByTargetId(browser, state.targetId, probeTimeoutMs);
-            if (!page) {
-                return {
-                    hasArtifacts: true,
-                    stale: true,
-                    state,
-                    reason: `target ${state.targetId} not found`,
-                };
-            }
-            return { hasArtifacts: true, stale: false, state, reason: null };
-        } catch (error) {
-            return {
-                hasArtifacts: true,
-                stale: true,
-                state,
-                reason: error?.message || `cdp unreachable at ${state.cdpUrl}`,
-            };
-        } finally {
-            if (browser) {
-                try {
-                    await browser.disconnect();
-                } catch (disconnectError) {}
-            }
-        }
-    }
-
-    if (processIsLocal) {
-        if (state.pid && !isProcessAlive(state.pid)) {
-            return { hasArtifacts: true, stale: true, state, reason: `chrome pid ${state.pid} is not running` };
-        }
-        if (!getChromeDebugPortFromCdpUrl(state.cdpUrl)) {
-            return { hasArtifacts: true, stale: true, state, reason: `invalid cdp url: ${state.cdpUrl}` };
-        }
-        if (await canConnectToChromeBrowser(state.cdpUrl, {
-            timeoutMs: probeTimeoutMs,
-            puppeteer: puppeteer || resolvePuppeteerModule(),
-        })) {
-            return { hasArtifacts: true, stale: false, state, reason: null };
-        }
-        return { hasArtifacts: true, stale: true, state, reason: `cdp unreachable at ${state.cdpUrl}` };
-    }
-
-    if (await canConnectToChromeBrowser(state.cdpUrl, { timeoutMs: probeTimeoutMs })) {
-        return { hasArtifacts: true, stale: false, state, reason: null };
-    }
-
+  if (!state.cdpUrl) {
     return {
+      hasArtifacts: true,
+      stale: true,
+      state,
+      reason: "missing cdp_url.txt",
+    };
+  }
+
+  if (requireTargetId && !state.targetId) {
+    return {
+      hasArtifacts: true,
+      stale: true,
+      state,
+      reason: "missing target_id.txt",
+    };
+  }
+
+  if (!validateLiveness) {
+    return { hasArtifacts: true, stale: false, state, reason: null };
+  }
+
+  if (requireTargetId && state.targetId) {
+    let browser = null;
+    try {
+      const puppeteerModule = puppeteer || resolvePuppeteerModule();
+      browser = await withTimeout(
+        () =>
+          connectToBrowserEndpoint(puppeteerModule, state.cdpUrl, {
+            defaultViewport: null,
+          }),
+        probeTimeoutMs,
+        `Timed out connecting to browser at ${state.cdpUrl}`
+      );
+      const page = await resolvePageByTargetId(
+        browser,
+        state.targetId,
+        probeTimeoutMs
+      );
+      if (!page) {
+        return {
+          hasArtifacts: true,
+          stale: true,
+          state,
+          reason: `target ${state.targetId} not found`,
+        };
+      }
+      return { hasArtifacts: true, stale: false, state, reason: null };
+    } catch (error) {
+      return {
         hasArtifacts: true,
         stale: true,
         state,
-        reason: `cdp unreachable at ${state.cdpUrl}`,
+        reason: error?.message || `cdp unreachable at ${state.cdpUrl}`,
+      };
+    } finally {
+      if (browser) {
+        try {
+          await browser.disconnect();
+        } catch (disconnectError) {}
+      }
+    }
+  }
+
+  if (processIsLocal) {
+    if (state.pid && !isProcessAlive(state.pid)) {
+      return {
+        hasArtifacts: true,
+        stale: true,
+        state,
+        reason: `chrome pid ${state.pid} is not running`,
+      };
+    }
+    if (!getChromeDebugPortFromCdpUrl(state.cdpUrl)) {
+      return {
+        hasArtifacts: true,
+        stale: true,
+        state,
+        reason: `invalid cdp url: ${state.cdpUrl}`,
+      };
+    }
+    if (
+      await canConnectToChromeBrowser(state.cdpUrl, {
+        timeoutMs: probeTimeoutMs,
+        puppeteer: puppeteer || resolvePuppeteerModule(),
+      })
+    ) {
+      return { hasArtifacts: true, stale: false, state, reason: null };
+    }
+    return {
+      hasArtifacts: true,
+      stale: true,
+      state,
+      reason: `cdp unreachable at ${state.cdpUrl}`,
     };
+  }
+
+  if (
+    await canConnectToChromeBrowser(state.cdpUrl, { timeoutMs: probeTimeoutMs })
+  ) {
+    return { hasArtifacts: true, stale: false, state, reason: null };
+  }
+
+  return {
+    hasArtifacts: true,
+    stale: true,
+    state,
+    reason: `cdp unreachable at ${state.cdpUrl}`,
+  };
 }
 
 /**
@@ -2308,23 +2645,29 @@ async function inspectChromeSessionArtifacts(chromeSessionDir, options = {}) {
  * @param {number} [options.probeTimeoutMs=1500] - Timeout for probing the CDP endpoint
  * @returns {Promise<{hasArtifacts: boolean, stale: boolean, state: Object, reason: string|null, cleanedFiles: string[]}>}
  */
-async function cleanupStaleChromeSessionArtifacts(chromeSessionDir, options = {}) {
-    const inspection = await inspectChromeSessionArtifacts(chromeSessionDir, options);
-    const cleanedFiles = [];
+async function cleanupStaleChromeSessionArtifacts(
+  chromeSessionDir,
+  options = {}
+) {
+  const inspection = await inspectChromeSessionArtifacts(
+    chromeSessionDir,
+    options
+  );
+  const cleanedFiles = [];
 
-    if (!inspection.stale) {
-        return { ...inspection, cleanedFiles };
-    }
-
-    for (const filePath of getChromeSessionArtifactPaths(chromeSessionDir)) {
-        if (!fs.existsSync(filePath)) continue;
-        try {
-            fs.unlinkSync(filePath);
-            cleanedFiles.push(filePath);
-        } catch (error) {}
-    }
-
+  if (!inspection.stale) {
     return { ...inspection, cleanedFiles };
+  }
+
+  for (const filePath of getChromeSessionArtifactPaths(chromeSessionDir)) {
+    if (!fs.existsSync(filePath)) continue;
+    try {
+      fs.unlinkSync(filePath);
+      cleanedFiles.push(filePath);
+    } catch (error) {}
+  }
+
+  return { ...inspection, cleanedFiles };
 }
 
 /**
@@ -2345,37 +2688,37 @@ async function cleanupStaleChromeSessionArtifacts(chromeSessionDir, options = {}
  * @returns {Promise<{sessionDir: string, cdpUrl: string|null, targetId: string|null, pid: number|null, extensions: Array<Object>|null}|null>}
  */
 async function waitForChromeSessionState(chromeSessionDir, options = {}) {
-    const {
-        timeoutMs = 60000,
-        intervalMs = 100,
-        requireTargetId = false,
-        requireExtensionsLoaded = false,
-        requireConnectable = false,
-        probeTimeoutMs = Math.min(Math.max(intervalMs, 100), 1000),
-        puppeteer = null,
-    } = options;
-    const startTime = Date.now();
+  const {
+    timeoutMs = 60000,
+    intervalMs = 100,
+    requireTargetId = false,
+    requireExtensionsLoaded = false,
+    requireConnectable = false,
+    probeTimeoutMs = Math.min(Math.max(intervalMs, 100), 1000),
+    puppeteer = null,
+  } = options;
+  const startTime = Date.now();
 
-    while (Date.now() - startTime < timeoutMs) {
-        const inspection = await inspectChromeSessionArtifacts(chromeSessionDir, {
-            requireTargetId,
-            validateLiveness: requireConnectable,
-            probeTimeoutMs,
-            puppeteer,
-        });
-        const state = inspection.state;
-        if (
-            state?.cdpUrl &&
-            (!requireTargetId || state.targetId) &&
-            (!requireExtensionsLoaded || state.extensions !== null) &&
-            (!requireConnectable || !inspection.stale)
-        ) {
-            return state;
-        }
-        await new Promise(resolve => setTimeout(resolve, intervalMs));
+  while (Date.now() - startTime < timeoutMs) {
+    const inspection = await inspectChromeSessionArtifacts(chromeSessionDir, {
+      requireTargetId,
+      validateLiveness: requireConnectable,
+      probeTimeoutMs,
+      puppeteer,
+    });
+    const state = inspection.state;
+    if (
+      state?.cdpUrl &&
+      (!requireTargetId || state.targetId) &&
+      (!requireExtensionsLoaded || state.extensions !== null) &&
+      (!requireConnectable || !inspection.stale)
+    ) {
+      return state;
     }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
 
-    return null;
+  return null;
 }
 
 /**
@@ -2387,10 +2730,10 @@ async function waitForChromeSessionState(chromeSessionDir, options = {}) {
  * @throws {Error} - If puppeteer is missing
  */
 function requirePuppeteerModule(puppeteer, callerName) {
-    if (!puppeteer) {
-        throw new Error(`puppeteer module must be passed to ${callerName}()`);
-    }
-    return puppeteer;
+  if (!puppeteer) {
+    throw new Error(`puppeteer module must be passed to ${callerName}()`);
+  }
+  return puppeteer;
 }
 
 /**
@@ -2400,61 +2743,65 @@ function requirePuppeteerModule(puppeteer, callerName) {
  * @throws {Error} - If no puppeteer package is installed
  */
 function resolvePuppeteerModule() {
-    for (const moduleName of ['puppeteer-core', 'puppeteer']) {
-        try {
-            return require(moduleName);
-        } catch (e) {}
-    }
-    throw new Error('Missing puppeteer dependency (need puppeteer-core or puppeteer)');
+  for (const moduleName of ["puppeteer-core", "puppeteer"]) {
+    try {
+      return require(moduleName);
+    } catch (e) {}
+  }
+  throw new Error(
+    "Missing puppeteer dependency (need puppeteer-core or puppeteer)"
+  );
 }
 
 async function waitForChromeLaunchPrerequisites(options = {}) {
-    const {
-        requireLocalBinary = true,
-        timeoutMs = Math.max(getEnvInt('CHROME_TIMEOUT', 60) * 1000, 300000),
-        initialIntervalMs = 100,
-        maxIntervalMs = 1000,
-    } = options;
+  const {
+    requireLocalBinary = true,
+    timeoutMs = Math.max(getEnvInt("CHROME_TIMEOUT", 60) * 1000, 300000),
+    initialIntervalMs = 100,
+    maxIntervalMs = 1000,
+  } = options;
 
-    const startedAt = Date.now();
-    let intervalMs = initialIntervalMs;
-    let lastPuppeteerError = '';
-    let lastBinaryError = '';
+  const startedAt = Date.now();
+  let intervalMs = initialIntervalMs;
+  let lastPuppeteerError = "";
+  let lastBinaryError = "";
 
-    while (Date.now() - startedAt < timeoutMs) {
-        let puppeteer = null;
-        let binary = null;
+  while (Date.now() - startedAt < timeoutMs) {
+    let puppeteer = null;
+    let binary = null;
 
-        try {
-            puppeteer = resolvePuppeteerModule();
-            lastPuppeteerError = '';
-        } catch (error) {
-            lastPuppeteerError = error.message;
-        }
-
-        if (requireLocalBinary) {
-            binary = findChromium();
-            if (!binary) {
-                lastBinaryError = 'Chromium binary not found yet';
-            } else {
-                lastBinaryError = '';
-            }
-        }
-
-        if (puppeteer && (!requireLocalBinary || binary)) {
-            return { puppeteer, binary };
-        }
-
-        await sleep(intervalMs);
-        intervalMs = Math.min(maxIntervalMs, Math.round(intervalMs * 1.5));
+    try {
+      puppeteer = resolvePuppeteerModule();
+      lastPuppeteerError = "";
+    } catch (error) {
+      lastPuppeteerError = error.message;
     }
 
-    const details = [lastPuppeteerError, lastBinaryError].filter(Boolean).join('; ');
-    throw new Error(
-        details
-            ? `Timed out waiting for Chrome launch prerequisites: ${details}`
-            : 'Timed out waiting for Chrome launch prerequisites'
-    );
+    if (requireLocalBinary) {
+      binary = findChromium();
+      if (!binary) {
+        lastBinaryError = "Chromium binary not found yet";
+      } else {
+        lastBinaryError = "";
+      }
+    }
+
+    if (puppeteer && (!requireLocalBinary || binary)) {
+      return { puppeteer, binary };
+    }
+
+    await sleep(intervalMs);
+    intervalMs = Math.min(maxIntervalMs, Math.round(intervalMs * 1.5));
+  }
+
+  const details = [lastPuppeteerError, lastBinaryError]
+    .filter(Boolean)
+    .join("; ");
+  throw new Error(
+    details
+      ? `Timed out waiting for Chrome launch prerequisites: ${details}`
+      : "Timed out waiting for Chrome launch prerequisites"
+  );
 }
 
 /**
@@ -2468,21 +2815,25 @@ async function waitForChromeLaunchPrerequisites(options = {}) {
  * @returns {Promise<*>} - Operation return value
  */
 async function withConnectedBrowser(options, operation) {
-    const {
-        puppeteer,
-        browserWSEndpoint,
-        browserURL,
-        cdpUrl,
-        connectOptions = {},
-    } = options;
+  const {
+    puppeteer,
+    browserWSEndpoint,
+    browserURL,
+    cdpUrl,
+    connectOptions = {},
+  } = options;
 
-    const endpoint = browserURL || browserWSEndpoint || cdpUrl;
-    const browser = await connectToBrowserEndpoint(puppeteer, endpoint, connectOptions);
-    try {
-        return await operation(browser);
-    } finally {
-        await browser.disconnect();
-    }
+  const endpoint = browserURL || browserWSEndpoint || cdpUrl;
+  const browser = await connectToBrowserEndpoint(
+    puppeteer,
+    endpoint,
+    connectOptions
+  );
+  try {
+    return await operation(browser);
+  } finally {
+    await browser.disconnect();
+  }
 }
 
 /**
@@ -2499,78 +2850,80 @@ async function withConnectedBrowser(options, operation) {
  * @returns {Promise<boolean>} - True if configuration succeeded
  */
 async function setBrowserDownloadBehavior(options = {}) {
-    const {
-        browser,
-        page,
-        downloadPath,
-    } = options;
+  const { browser, page, downloadPath } = options;
 
-    if (!browser && !page) {
-        throw new Error('setBrowserDownloadBehavior requires a browser or page');
-    }
-    if (!downloadPath) {
-        throw new Error('setBrowserDownloadBehavior requires downloadPath');
-    }
+  if (!browser && !page) {
+    throw new Error("setBrowserDownloadBehavior requires a browser or page");
+  }
+  if (!downloadPath) {
+    throw new Error("setBrowserDownloadBehavior requires downloadPath");
+  }
 
-    await fs.promises.mkdir(downloadPath, { recursive: true });
-    const sessionTarget = page ? page.target() : browser.target();
-    const session = await sessionTarget.createCDPSession();
+  await fs.promises.mkdir(downloadPath, { recursive: true });
+  const sessionTarget = page ? page.target() : browser.target();
+  const session = await sessionTarget.createCDPSession();
 
-    // Keep the CDP session alive for the lifetime of the caller's browser/page
-    // connection. Extension-driven downloads regress if we detach immediately
-    // after configuring download behavior.
+  // Keep the CDP session alive for the lifetime of the caller's browser/page
+  // connection. Extension-driven downloads regress if we detach immediately
+  // after configuring download behavior.
+  try {
+    await session.send("Browser.setDownloadBehavior", {
+      behavior: "allow",
+      downloadPath,
+    });
+    console.error(
+      `[+] Configured Chrome download directory via CDP: ${downloadPath}`
+    );
+    return true;
+  } catch (browserError) {
     try {
-        await session.send('Browser.setDownloadBehavior', {
-            behavior: 'allow',
-            downloadPath,
-        });
-        console.error(`[+] Configured Chrome download directory via CDP: ${downloadPath}`);
-        return true;
-    } catch (browserError) {
-        try {
-            await session.send('Page.setDownloadBehavior', {
-                behavior: 'allow',
-                downloadPath,
-            });
-            console.error(`[+] Configured Chrome download directory via CDP: ${downloadPath}`);
-            return true;
-        } catch (pageError) {
-            throw new Error(
-                `Browser.setDownloadBehavior failed: ${browserError.message}; ` +
-                `Page.setDownloadBehavior failed: ${pageError.message}`
-            );
-        }
+      await session.send("Page.setDownloadBehavior", {
+        behavior: "allow",
+        downloadPath,
+      });
+      console.error(
+        `[+] Configured Chrome download directory via CDP: ${downloadPath}`
+      );
+      return true;
+    } catch (pageError) {
+      throw new Error(
+        `Browser.setDownloadBehavior failed: ${browserError.message}; ` +
+          `Page.setDownloadBehavior failed: ${pageError.message}`
+      );
     }
+  }
 }
 
 function getTargetIdFromTarget(target) {
-    if (!target) return null;
-    return target._targetId || target._targetInfo?.targetId || null;
+  if (!target) return null;
+  return target._targetId || target._targetInfo?.targetId || null;
 }
 
 function getTargetIdFromPage(page) {
-    if (!page || typeof page.target !== 'function') return null;
-    try {
-        return getTargetIdFromTarget(page.target());
-    } catch (error) {
-        return null;
-    }
+  if (!page || typeof page.target !== "function") return null;
+  try {
+    return getTargetIdFromTarget(page.target());
+  } catch (error) {
+    return null;
+  }
 }
 
 async function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function cleanupLaunchArtifacts(outputDir, chromePid = null) {
-    if (chromePid) {
-        try {
-            await killChrome(chromePid, outputDir);
-        } catch (error) {}
-    }
-
+  if (chromePid) {
     try {
-        await cleanupStaleChromeSessionArtifacts(outputDir, { probeTimeoutMs: 250 });
+      await killChrome(chromePid, outputDir);
     } catch (error) {}
+  }
+
+  try {
+    await cleanupStaleChromeSessionArtifacts(outputDir, {
+      probeTimeoutMs: 250,
+    });
+  } catch (error) {}
 }
 
 /**
@@ -2592,184 +2945,212 @@ async function cleanupLaunchArtifacts(outputDir, chromePid = null) {
  * @returns {Promise<void>}
  */
 async function verifyStableChromiumSession(options = {}) {
-    const {
-        chromePid,
-        cdpUrl,
-        headless = true,
-        enableExtensionDebugging = false,
-    } = options;
+  const {
+    chromePid,
+    cdpUrl,
+    headless = true,
+    enableExtensionDebugging = false,
+  } = options;
 
-    const hasExtensions = enableExtensionDebugging;
-    const settleMs = getEnvInt('CHROME_LAUNCH_SETTLE_MS', hasExtensions ? 1000 : 250);
-    const stableMs = getEnvInt('CHROME_LAUNCH_STABILITY_MS', hasExtensions ? 2500 : 750);
+  const hasExtensions = enableExtensionDebugging;
+  const settleMs = getEnvInt(
+    "CHROME_LAUNCH_SETTLE_MS",
+    hasExtensions ? 1000 : 250
+  );
+  const stableMs = getEnvInt(
+    "CHROME_LAUNCH_STABILITY_MS",
+    hasExtensions ? 2500 : 750
+  );
 
-    // A ready DevTools websocket is not enough on its own. Chromium sometimes
-    // binds the port and then dies moments later while still finishing native
-    // startup work. This verification step defines the stricter contract that
-    // downstream hooks rely on:
-    // - the spawned PID is still alive after a short settle delay
-    // - a real CDP client can connect
-    // - there is a usable initial page target
-    // - the process stays alive for a brief post-connect stability window
-    //
-    // If any of those checks fail we classify it as an early startup failure,
-    // not a successful launch. The outer launch loop can then decide whether
-    // that failure is transient enough to retry.
-    if (settleMs > 0) {
-        await sleep(settleMs);
+  // A ready DevTools websocket is not enough on its own. Chromium sometimes
+  // binds the port and then dies moments later while still finishing native
+  // startup work. This verification step defines the stricter contract that
+  // downstream hooks rely on:
+  // - the spawned PID is still alive after a short settle delay
+  // - a real CDP client can connect
+  // - there is a usable initial page target
+  // - the process stays alive for a brief post-connect stability window
+  //
+  // If any of those checks fail we classify it as an early startup failure,
+  // not a successful launch. The outer launch loop can then decide whether
+  // that failure is transient enough to retry.
+  if (settleMs > 0) {
+    await sleep(settleMs);
+  }
+
+  if (!chromePid || !isProcessAlive(chromePid)) {
+    throw new Error(
+      hasExtensions && headless
+        ? "Chromium exited during headless extension startup"
+        : "Chromium exited during startup"
+    );
+  }
+
+  let browser = null;
+  try {
+    const puppeteer = resolvePuppeteerModule();
+    browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, {
+      defaultViewport: null,
+    });
+    await waitForBrowserPageReady({
+      browser,
+      timeoutMs: getEnvInt("CHROME_PAGE_READY_TIMEOUT_MS", 10000),
+      requireAboutBlank: true,
+      createPageIfMissing: true,
+    });
+  } catch (error) {
+    throw new Error(
+      `Chromium CDP session not stable after startup: ${error.message}`
+    );
+  } finally {
+    if (browser) {
+      try {
+        await browser.disconnect();
+      } catch (disconnectError) {}
     }
+  }
 
-    if (!chromePid || !isProcessAlive(chromePid)) {
-        throw new Error(
-            hasExtensions && headless
-                ? 'Chromium exited during headless extension startup'
-                : 'Chromium exited during startup'
-        );
+  const deadline = Date.now() + stableMs;
+  while (Date.now() < deadline) {
+    if (!isProcessAlive(chromePid)) {
+      throw new Error(
+        hasExtensions && headless
+          ? "Chromium exited after opening the debug port during headless extension startup"
+          : "Chromium exited after opening the debug port"
+      );
     }
-
-    let browser = null;
-    try {
-        const puppeteer = resolvePuppeteerModule();
-        browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, {
-            defaultViewport: null,
-        });
-        await waitForBrowserPageReady({
-            browser,
-            timeoutMs: getEnvInt('CHROME_PAGE_READY_TIMEOUT_MS', 10000),
-            requireAboutBlank: true,
-            createPageIfMissing: true,
-        });
-    } catch (error) {
-        throw new Error(`Chromium CDP session not stable after startup: ${error.message}`);
-    } finally {
-        if (browser) {
-            try {
-                await browser.disconnect();
-            } catch (disconnectError) {}
-        }
-    }
-
-    const deadline = Date.now() + stableMs;
-    while (Date.now() < deadline) {
-        if (!isProcessAlive(chromePid)) {
-            throw new Error(
-                hasExtensions && headless
-                    ? 'Chromium exited after opening the debug port during headless extension startup'
-                    : 'Chromium exited after opening the debug port'
-            );
-        }
-        await sleep(200);
-    }
+    await sleep(200);
+  }
 }
 
 async function waitForBrowserPageReady(options = {}) {
-    const {
-        browser = null,
-        puppeteer = null,
-        cdpUrl = null,
-        timeoutMs = 10000,
-        requireAboutBlank = false,
-        createPageIfMissing = true,
-    } = options;
+  const {
+    browser = null,
+    puppeteer = null,
+    cdpUrl = null,
+    timeoutMs = 10000,
+    requireAboutBlank = false,
+    createPageIfMissing = true,
+  } = options;
 
-    let ownedBrowser = null;
-    let connectedBrowser = browser;
-    let createdProbePage = false;
-    let lastError = null;
-    const deadline = Date.now() + Math.max(timeoutMs, 0);
+  let ownedBrowser = null;
+  let connectedBrowser = browser;
+  let createdProbePage = false;
+  let lastError = null;
+  const deadline = Date.now() + Math.max(timeoutMs, 0);
 
-    if (!connectedBrowser) {
-        const puppeteerModule = requirePuppeteerModule(puppeteer, 'waitForBrowserPageReady');
-        connectedBrowser = await connectToBrowserEndpoint(puppeteerModule, cdpUrl, {
-            defaultViewport: null,
-        });
-        ownedBrowser = connectedBrowser;
+  if (!connectedBrowser) {
+    const puppeteerModule = requirePuppeteerModule(
+      puppeteer,
+      "waitForBrowserPageReady"
+    );
+    connectedBrowser = await connectToBrowserEndpoint(puppeteerModule, cdpUrl, {
+      defaultViewport: null,
+    });
+    ownedBrowser = connectedBrowser;
+  }
+
+  try {
+    while (Date.now() <= deadline) {
+      let pages = [];
+      try {
+        pages = await connectedBrowser.pages();
+      } catch (error) {
+        lastError = error;
+      }
+
+      let page =
+        pages.find(
+          (candidate) => candidate && candidate.url() === "about:blank"
+        ) ||
+        pages[0] ||
+        null;
+      if (
+        (!page || (requireAboutBlank && page.url() !== "about:blank")) &&
+        createPageIfMissing &&
+        !createdProbePage
+      ) {
+        try {
+          page = await connectedBrowser.newPage();
+          createdProbePage = true;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      if (page) {
+        try {
+          const url = page.url();
+          if (requireAboutBlank && url !== "about:blank") {
+            lastError = new Error(
+              `Expected about:blank probe page, found ${url || "<empty>"}`
+            );
+          } else {
+            const remainingMs = Math.max(250, deadline - Date.now());
+            const title = await withTimeout(
+              () => page.title(),
+              remainingMs,
+              `Timed out probing page title after ${remainingMs}ms`
+            );
+            const targetId = getTargetIdFromPage(page);
+            if (!targetId) {
+              throw new Error("Missing target ID for probe page");
+            }
+            return { browser: connectedBrowser, page, targetId, url, title };
+          }
+        } catch (error) {
+          lastError = error;
+        }
+      } else if (!lastError) {
+        lastError = new Error("No page targets available yet");
+      }
+
+      await sleep(100);
     }
 
-    try {
-        while (Date.now() <= deadline) {
-            let pages = [];
-            try {
-                pages = await connectedBrowser.pages();
-            } catch (error) {
-                lastError = error;
-            }
-
-            let page = pages.find(candidate => candidate && candidate.url() === 'about:blank') || pages[0] || null;
-            if ((!page || (requireAboutBlank && page.url() !== 'about:blank')) && createPageIfMissing && !createdProbePage) {
-                try {
-                    page = await connectedBrowser.newPage();
-                    createdProbePage = true;
-                } catch (error) {
-                    lastError = error;
-                }
-            }
-
-            if (page) {
-                try {
-                    const url = page.url();
-                    if (requireAboutBlank && url !== 'about:blank') {
-                        lastError = new Error(`Expected about:blank probe page, found ${url || '<empty>'}`);
-                    } else {
-                        const remainingMs = Math.max(250, deadline - Date.now());
-                        const title = await withTimeout(
-                            () => page.title(),
-                            remainingMs,
-                            `Timed out probing page title after ${remainingMs}ms`
-                        );
-                        const targetId = getTargetIdFromPage(page);
-                        if (!targetId) {
-                            throw new Error('Missing target ID for probe page');
-                        }
-                        return { browser: connectedBrowser, page, targetId, url, title };
-                    }
-                } catch (error) {
-                    lastError = error;
-                }
-            } else if (!lastError) {
-                lastError = new Error('No page targets available yet');
-            }
-
-            await sleep(100);
-        }
-
-        throw new Error(lastError?.message || 'Timed out waiting for a usable Chrome page');
-    } finally {
-        if (ownedBrowser) {
-            try {
-                await ownedBrowser.disconnect();
-            } catch (disconnectError) {}
-        }
+    throw new Error(
+      lastError?.message || "Timed out waiting for a usable Chrome page"
+    );
+  } finally {
+    if (ownedBrowser) {
+      try {
+        await ownedBrowser.disconnect();
+      } catch (disconnectError) {}
     }
+  }
 }
 
 async function resolvePageByTargetId(browser, targetId, timeoutMs = 0) {
-    const deadline = Date.now() + Math.max(timeoutMs, 0);
+  const deadline = Date.now() + Math.max(timeoutMs, 0);
 
-    while (true) {
-        const targets = browser.targets();
-        const target = targets.find(candidate => getTargetIdFromTarget(candidate) === targetId);
-        if (target) {
-            try {
-                const page = await target.page();
-                if (page) {
-                    return page;
-                }
-            } catch (error) {}
+  while (true) {
+    const targets = browser.targets();
+    const target = targets.find(
+      (candidate) => getTargetIdFromTarget(candidate) === targetId
+    );
+    if (target) {
+      try {
+        const page = await target.page();
+        if (page) {
+          return page;
         }
-
-        const pages = await browser.pages();
-        const pageMatch = pages.find(page => getTargetIdFromPage(page) === targetId);
-        if (pageMatch) {
-            return pageMatch;
-        }
-
-        if (Date.now() >= deadline) {
-            return null;
-        }
-
-        await sleep(100);
+      } catch (error) {}
     }
+
+    const pages = await browser.pages();
+    const pageMatch = pages.find(
+      (page) => getTargetIdFromPage(page) === targetId
+    );
+    if (pageMatch) {
+      return pageMatch;
+    }
+
+    if (Date.now() >= deadline) {
+      return null;
+    }
+
+    await sleep(100);
+  }
 }
 
 /**
@@ -2788,48 +3169,53 @@ async function resolvePageByTargetId(browser, targetId, timeoutMs = 0) {
  * @returns {Promise<string>} - Browser-level CDP endpoint
  * @throws {Error} - If no reusable Chrome session is available
  */
-async function getBrowserCdpUrl(chromeSessionDir = '../chrome', options = {}) {
-    const {
-        timeoutMs = 60000,
-        requireTargetId = true,
-    } = options;
-    const processIsLocal = options.processIsLocal ?? (getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true));
+async function getBrowserCdpUrl(chromeSessionDir = "../chrome", options = {}) {
+  const { timeoutMs = 60000, requireTargetId = true } = options;
+  const processIsLocal =
+    options.processIsLocal ??
+    (getEnv("CHROME_CDP_URL", "")
+      ? false
+      : getEnvBool("CHROME_IS_LOCAL", true));
 
-    const state = await waitForChromeSessionState(chromeSessionDir, {
-        timeoutMs,
-        requireTargetId,
-    });
-    if (!state?.cdpUrl) {
-        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
+  const state = await waitForChromeSessionState(chromeSessionDir, {
+    timeoutMs,
+    requireTargetId,
+  });
+  if (!state?.cdpUrl) {
+    throw new Error(CHROME_SESSION_REQUIRED_ERROR);
+  }
+
+  const inspection = await inspectChromeSessionArtifacts(chromeSessionDir, {
+    requireTargetId,
+    probeTimeoutMs: Math.min(Math.max(timeoutMs, 250), 2000),
+    processIsLocal,
+  });
+  if (inspection.stale || !inspection.state?.cdpUrl) {
+    throw new Error(CHROME_SESSION_REQUIRED_ERROR);
+  }
+
+  const cdpUrl = inspection.state.cdpUrl;
+  getPuppeteerConnectOptionsForCdpUrl(cdpUrl);
+
+  const endpoint = new URL(cdpUrl);
+  if (endpoint.protocol === "http:" || endpoint.protocol === "https:") {
+    const versionUrl = new URL("/json/version", endpoint);
+    const response = await fetch(versionUrl);
+    if (!response.ok) {
+      throw new Error(
+        `Invalid CDP URL in chrome session: ${response.status} ${response.statusText}`
+      );
     }
-
-    const inspection = await inspectChromeSessionArtifacts(chromeSessionDir, {
-        requireTargetId,
-        probeTimeoutMs: Math.min(Math.max(timeoutMs, 250), 2000),
-        processIsLocal,
-    });
-    if (inspection.stale || !inspection.state?.cdpUrl) {
-        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
+    const versionInfo = await response.json();
+    if (!versionInfo?.webSocketDebuggerUrl) {
+      throw new Error(
+        "Invalid CDP URL in chrome session: missing webSocketDebuggerUrl"
+      );
     }
+    return versionInfo.webSocketDebuggerUrl;
+  }
 
-    const cdpUrl = inspection.state.cdpUrl;
-    getPuppeteerConnectOptionsForCdpUrl(cdpUrl);
-
-    const endpoint = new URL(cdpUrl);
-    if (endpoint.protocol === 'http:' || endpoint.protocol === 'https:') {
-        const versionUrl = new URL('/json/version', endpoint);
-        const response = await fetch(versionUrl);
-        if (!response.ok) {
-            throw new Error(`Invalid CDP URL in chrome session: ${response.status} ${response.statusText}`);
-        }
-        const versionInfo = await response.json();
-        if (!versionInfo?.webSocketDebuggerUrl) {
-            throw new Error('Invalid CDP URL in chrome session: missing webSocketDebuggerUrl');
-        }
-        return versionInfo.webSocketDebuggerUrl;
-    }
-
-    return cdpUrl;
+  return cdpUrl;
 }
 
 /**
@@ -2846,66 +3232,67 @@ async function getBrowserCdpUrl(chromeSessionDir = '../chrome', options = {}) {
  * @returns {Promise<{targetId: string}>}
  */
 async function openTabInChromeSession(options = {}) {
-    const {
-        cdpUrl,
-        puppeteer,
-        timeoutMs = 10000,
-        intervalMs = 250,
-    } = options;
-    if (!cdpUrl) {
-        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
-    }
-    const puppeteerModule = requirePuppeteerModule(puppeteer, 'openTabInChromeSession');
-    const { retry } = require('abxbus');
+  const { cdpUrl, puppeteer, timeoutMs = 10000, intervalMs = 250 } = options;
+  if (!cdpUrl) {
+    throw new Error(CHROME_SESSION_REQUIRED_ERROR);
+  }
+  const puppeteerModule = requirePuppeteerModule(
+    puppeteer,
+    "openTabInChromeSession"
+  );
+  const { retry } = require("abxbus");
 
-    return retry({
-        semaphore_limit: 1,
-        semaphore_name: 'chrome.openTabInChromeSession',
-        semaphore_scope: 'multiprocess',
-        semaphore_timeout: Math.max(Math.ceil(timeoutMs / 1000), 1),
-        semaphore_lax: false,
-    })(async function openSharedChromeTab() {
-        const deadline = Date.now() + Math.max(timeoutMs, 0);
-        let lastError = null;
+  return retry({
+    semaphore_limit: 1,
+    semaphore_name: "chrome.openTabInChromeSession",
+    semaphore_scope: "multiprocess",
+    semaphore_timeout: Math.max(Math.ceil(timeoutMs / 1000), 1),
+    semaphore_lax: false,
+  })(async function openSharedChromeTab() {
+    const deadline = Date.now() + Math.max(timeoutMs, 0);
+    let lastError = null;
 
-        while (Date.now() <= deadline) {
-            try {
-                return await withConnectedBrowser(
-                    {
-                        puppeteer: puppeteerModule,
-                        cdpUrl,
-                        connectOptions: { defaultViewport: null },
-                    },
-                    async (browser) => {
-                        const remainingMs = Math.max(1000, Math.min(5000, deadline - Date.now()));
-                        const page = await withTimeout(
-                            () => browser.newPage(),
-                            remainingMs,
-                            `Timed out creating new page after ${remainingMs}ms`
-                        );
-                        await withTimeout(
-                            () => page.title(),
-                            remainingMs,
-                            `Timed out probing new page after ${remainingMs}ms`
-                        );
-                        const targetId = getTargetIdFromPage(page);
-                        if (!targetId) {
-                            throw new Error('Failed to resolve target ID for new tab');
-                        }
-                        return { targetId };
-                    }
-                );
-            } catch (error) {
-                lastError = error;
-                if (Date.now() >= deadline) {
-                    break;
-                }
-                await sleep(intervalMs);
+    while (Date.now() <= deadline) {
+      try {
+        return await withConnectedBrowser(
+          {
+            puppeteer: puppeteerModule,
+            cdpUrl,
+            connectOptions: { defaultViewport: null },
+          },
+          async (browser) => {
+            const remainingMs = Math.max(
+              1000,
+              Math.min(5000, deadline - Date.now())
+            );
+            const page = await withTimeout(
+              () => browser.newPage(),
+              remainingMs,
+              `Timed out creating new page after ${remainingMs}ms`
+            );
+            await withTimeout(
+              () => page.title(),
+              remainingMs,
+              `Timed out probing new page after ${remainingMs}ms`
+            );
+            const targetId = getTargetIdFromPage(page);
+            if (!targetId) {
+              throw new Error("Failed to resolve target ID for new tab");
             }
+            return { targetId };
+          }
+        );
+      } catch (error) {
+        lastError = error;
+        if (Date.now() >= deadline) {
+          break;
         }
+        await sleep(intervalMs);
+      }
+    }
 
-        throw lastError || new Error('Failed to open a new Chrome tab');
-    })();
+    throw lastError || new Error("Failed to open a new Chrome tab");
+  })();
 }
 
 /**
@@ -2918,27 +3305,30 @@ async function openTabInChromeSession(options = {}) {
  * @returns {Promise<boolean>} - True if a tab was found and closed
  */
 async function closeTabInChromeSession(options = {}) {
-    const { cdpUrl, targetId, puppeteer } = options;
-    if (!cdpUrl || !targetId) {
-        return false;
-    }
-    const puppeteerModule = requirePuppeteerModule(puppeteer, 'closeTabInChromeSession');
+  const { cdpUrl, targetId, puppeteer } = options;
+  if (!cdpUrl || !targetId) {
+    return false;
+  }
+  const puppeteerModule = requirePuppeteerModule(
+    puppeteer,
+    "closeTabInChromeSession"
+  );
 
-    return withConnectedBrowser(
-        {
-            puppeteer: puppeteerModule,
-            cdpUrl,
-            connectOptions: { defaultViewport: null },
-        },
-        async (browser) => {
-            const page = await resolvePageByTargetId(browser, targetId, 1000);
-            if (!page) {
-                return false;
-            }
-            await page.close();
-            return true;
-        }
-    );
+  return withConnectedBrowser(
+    {
+      puppeteer: puppeteerModule,
+      cdpUrl,
+      connectOptions: { defaultViewport: null },
+    },
+    async (browser) => {
+      const page = await resolvePageByTargetId(browser, targetId, 1000);
+      if (!page) {
+        return false;
+      }
+      await page.close();
+      return true;
+    }
+  );
 }
 
 /**
@@ -2963,573 +3353,680 @@ async function closeTabInChromeSession(options = {}) {
  * @throws {Error} - If connection fails or page not found
  */
 async function connectToPage(options = {}) {
-    const {
-        chromeSessionDir = '../chrome',
-        timeoutMs = 60000,
-        requireTargetId = true,
-        requireExtensionsLoaded = false,
-        waitForNavigationComplete: shouldWaitForNavigationComplete = false,
-        pageLoadTimeoutMs = timeoutMs,
-        postLoadDelayMs = 0,
-        missingTargetGraceMs = 3000,
-        puppeteer,
-    } = options;
+  const {
+    chromeSessionDir = "../chrome",
+    timeoutMs = 60000,
+    requireTargetId = true,
+    requireExtensionsLoaded = false,
+    waitForNavigationComplete: shouldWaitForNavigationComplete = false,
+    pageLoadTimeoutMs = timeoutMs,
+    postLoadDelayMs = 0,
+    missingTargetGraceMs = 3000,
+    puppeteer,
+  } = options;
 
-    const resolvedPuppeteer = puppeteer || resolvePuppeteerModule();
-    const initialInspection = await inspectChromeSessionArtifacts(chromeSessionDir, {
-        requireTargetId,
-        validateLiveness: false,
+  const resolvedPuppeteer = puppeteer || resolvePuppeteerModule();
+  const initialInspection = await inspectChromeSessionArtifacts(
+    chromeSessionDir,
+    {
+      requireTargetId,
+      validateLiveness: false,
+    }
+  );
+  if (!initialInspection.hasArtifacts) {
+    throw new Error(CHROME_SESSION_REQUIRED_ERROR);
+  }
+  if (!initialInspection.state?.cdpUrl) {
+    throw new Error(CHROME_SESSION_REQUIRED_ERROR);
+  }
+  getPuppeteerConnectOptionsForCdpUrl(initialInspection.state.cdpUrl);
+  if (requireTargetId && !initialInspection.state?.targetId) {
+    const sessionPaths = getChromeSessionPaths(chromeSessionDir);
+    const hasLaterSnapshotMarkers = [
+      sessionPaths.urlFile,
+      sessionPaths.navigationFile,
+    ].some((filePath) => fs.existsSync(filePath));
+    if (hasLaterSnapshotMarkers) {
+      throw new Error("No target_id.txt found");
+    }
+  }
+
+  if (shouldWaitForNavigationComplete) {
+    await waitForNavigationComplete(
+      chromeSessionDir,
+      pageLoadTimeoutMs,
+      postLoadDelayMs
+    );
+  }
+
+  const deadline = Date.now() + timeoutMs;
+  let lastError = new Error(CHROME_SESSION_REQUIRED_ERROR);
+  let missingTargetKey = null;
+  let missingTargetSince = 0;
+  const staleTargetGraceMs = Math.min(
+    timeoutMs,
+    Math.max(0, missingTargetGraceMs)
+  );
+
+  while (Date.now() < deadline) {
+    const remainingMs = Math.max(deadline - Date.now(), 0);
+    const state = await waitForChromeSessionState(chromeSessionDir, {
+      timeoutMs: Math.min(remainingMs, 500),
+      intervalMs: 100,
+      requireTargetId,
+      requireExtensionsLoaded,
     });
-    if (!initialInspection.hasArtifacts) {
-        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
-    }
-    if (!initialInspection.state?.cdpUrl) {
-        throw new Error(CHROME_SESSION_REQUIRED_ERROR);
-    }
-    getPuppeteerConnectOptionsForCdpUrl(initialInspection.state.cdpUrl);
-    if (requireTargetId && !initialInspection.state?.targetId) {
-        const sessionPaths = getChromeSessionPaths(chromeSessionDir);
-        const hasLaterSnapshotMarkers = [
-            sessionPaths.urlFile,
-            sessionPaths.navigationFile,
-        ].some(filePath => fs.existsSync(filePath));
-        if (hasLaterSnapshotMarkers) {
-            throw new Error('No target_id.txt found');
-        }
+    if (!state) {
+      missingTargetKey = null;
+      missingTargetSince = 0;
+      if (Date.now() >= deadline) {
+        break;
+      }
+      await sleep(100);
+      continue;
     }
 
-    if (shouldWaitForNavigationComplete) {
-        await waitForNavigationComplete(chromeSessionDir, pageLoadTimeoutMs, postLoadDelayMs);
+    const targetId = state.targetId;
+    const browser = await connectToBrowserEndpoint(
+      resolvedPuppeteer,
+      state.cdpUrl,
+      { defaultViewport: null }
+    ).catch((error) => {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      return null;
+    });
+
+    if (!browser) {
+      if (Date.now() >= deadline) break;
+      await sleep(100);
+      continue;
     }
 
-    const deadline = Date.now() + timeoutMs;
-    let lastError = new Error(CHROME_SESSION_REQUIRED_ERROR);
-    let missingTargetKey = null;
-    let missingTargetSince = 0;
-    const staleTargetGraceMs = Math.min(timeoutMs, Math.max(0, missingTargetGraceMs));
+    try {
+      let page = null;
 
-    while (Date.now() < deadline) {
-        const remainingMs = Math.max(deadline - Date.now(), 0);
-        const state = await waitForChromeSessionState(chromeSessionDir, {
-            timeoutMs: Math.min(remainingMs, 500),
-            intervalMs: 100,
-            requireTargetId,
-            requireExtensionsLoaded,
-        });
-        if (!state) {
-            missingTargetKey = null;
-            missingTargetSince = 0;
-            if (Date.now() >= deadline) {
-                break;
-            }
-            await sleep(100);
-            continue;
+      if (targetId) {
+        page = await resolvePageByTargetId(
+          browser,
+          targetId,
+          Math.min(remainingMs, 1000)
+        );
+        if (!page && requireTargetId) {
+          const currentTargetKey = `${state.cdpUrl}::${targetId}`;
+          const now = Date.now();
+          if (missingTargetKey !== currentTargetKey) {
+            missingTargetKey = currentTargetKey;
+            missingTargetSince = now;
+          } else if (now - missingTargetSince >= staleTargetGraceMs) {
+            const error = new Error(
+              `Target ${targetId} not found in Chrome session`
+            );
+            error.code = "TARGET_NOT_FOUND_STABLE";
+            throw error;
+          }
+          throw new Error(`Target ${targetId} not found in Chrome session`);
         }
+        missingTargetKey = null;
+        missingTargetSince = 0;
+      }
 
-        const targetId = state.targetId;
-        const browser = await connectToBrowserEndpoint(resolvedPuppeteer, state.cdpUrl, { defaultViewport: null })
-            .catch((error) => {
-                lastError = error instanceof Error ? error : new Error(String(error));
-                return null;
-            });
+      const pages = await browser.pages();
+      if (!page) {
+        page = pages[pages.length - 1];
+      }
 
-        if (!browser) {
-            if (Date.now() >= deadline) break;
-            await sleep(100);
-            continue;
-        }
+      if (!page) {
+        throw new Error("No page found in browser");
+      }
 
-        try {
-            let page = null;
+      const cdpSession = await page.target().createCDPSession();
+      await cdpSession.send("Target.setAutoAttach", {
+        autoAttach: true,
+        waitForDebuggerOnStart: false,
+        flatten: true,
+      });
 
-            if (targetId) {
-                page = await resolvePageByTargetId(browser, targetId, Math.min(remainingMs, 1000));
-                if (!page && requireTargetId) {
-                    const currentTargetKey = `${state.cdpUrl}::${targetId}`;
-                    const now = Date.now();
-                    if (missingTargetKey !== currentTargetKey) {
-                        missingTargetKey = currentTargetKey;
-                        missingTargetSince = now;
-                    } else if (now - missingTargetSince >= staleTargetGraceMs) {
-                        const error = new Error(`Target ${targetId} not found in Chrome session`);
-                        error.code = 'TARGET_NOT_FOUND_STABLE';
-                        throw error;
-                    }
-                    throw new Error(`Target ${targetId} not found in Chrome session`);
-                }
-                missingTargetKey = null;
-                missingTargetSince = 0;
-            }
-
-            const pages = await browser.pages();
-            if (!page) {
-                page = pages[pages.length - 1];
-            }
-
-            if (!page) {
-                throw new Error('No page found in browser');
-            }
-
-            const cdpSession = await page.target().createCDPSession();
-            await cdpSession.send('Target.setAutoAttach', {
-                autoAttach: true,
-                waitForDebuggerOnStart: false,
-                flatten: true,
-            });
-
-            return {
-                ...state,
-                browser,
-                page,
-                cdpSession,
-                targetId,
-            };
-        } catch (error) {
-            lastError = error instanceof Error ? error : new Error(String(error));
-            try {
-                await browser.disconnect();
-            } catch (disconnectError) {}
-            if (lastError.code === 'TARGET_NOT_FOUND_STABLE') {
-                break;
-            }
-        }
-
-        if (Date.now() >= deadline) {
-            break;
-        }
-        await sleep(100);
+      return {
+        ...state,
+        browser,
+        page,
+        cdpSession,
+        targetId,
+      };
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      try {
+        await browser.disconnect();
+      } catch (disconnectError) {}
+      if (lastError.code === "TARGET_NOT_FOUND_STABLE") {
+        break;
+      }
     }
 
-    throw lastError;
+    if (Date.now() >= deadline) {
+      break;
+    }
+    await sleep(100);
+  }
+
+  throw lastError;
 }
 
 function loadInstalledExtensionsFromCache(extensionsDir = getExtensionsDir()) {
-    const installedExtensions = [];
+  const installedExtensions = [];
 
-    if (!fs.existsSync(extensionsDir)) {
-        return { installedExtensions };
-    }
-
-    for (const file of fs.readdirSync(extensionsDir)) {
-        if (!file.endsWith('.extension.json')) continue;
-
-        try {
-            const extPath = path.join(extensionsDir, file);
-            const extData = JSON.parse(fs.readFileSync(extPath, 'utf-8'));
-            if (!extData.unpacked_path || !fs.existsSync(extData.unpacked_path)) continue;
-            delete extData.id;
-            delete extData.target;
-            delete extData.target_type;
-            delete extData.target_url;
-            delete extData.manifest;
-            delete extData.manifest_version;
-            delete extData.load_error;
-            delete extData.target_error;
-            installedExtensions.push(extData);
-        } catch (error) {}
-    }
-
+  if (!fs.existsSync(extensionsDir)) {
     return { installedExtensions };
+  }
+
+  for (const file of fs.readdirSync(extensionsDir)) {
+    if (!file.endsWith(".extension.json")) continue;
+
+    try {
+      const extPath = path.join(extensionsDir, file);
+      const extData = JSON.parse(fs.readFileSync(extPath, "utf-8"));
+      if (!extData.unpacked_path || !fs.existsSync(extData.unpacked_path))
+        continue;
+      delete extData.id;
+      delete extData.target;
+      delete extData.target_type;
+      delete extData.target_url;
+      delete extData.manifest;
+      delete extData.manifest_version;
+      delete extData.load_error;
+      delete extData.target_error;
+      installedExtensions.push(extData);
+    } catch (error) {}
+  }
+
+  return { installedExtensions };
 }
 
 function parseCookiesTxt(contents) {
-    const cookies = [];
-    let skipped = 0;
+  const cookies = [];
+  let skipped = 0;
 
-    for (const rawLine of contents.split(/\r?\n/)) {
-        const line = rawLine.trim();
-        if (!line) continue;
+  for (const rawLine of contents.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
 
-        let httpOnly = false;
-        let dataLine = line;
+    let httpOnly = false;
+    let dataLine = line;
 
-        if (dataLine.startsWith('#HttpOnly_')) {
-            httpOnly = true;
-            dataLine = dataLine.slice('#HttpOnly_'.length);
-        } else if (dataLine.startsWith('#')) {
-            continue;
-        }
-
-        const parts = dataLine.split('\t');
-        if (parts.length < 7) {
-            skipped += 1;
-            continue;
-        }
-
-        const [domainRaw, includeSubdomainsRaw, pathRaw, secureRaw, expiryRaw, name, value] = parts;
-        if (!name || !domainRaw) {
-            skipped += 1;
-            continue;
-        }
-
-        const includeSubdomains = (includeSubdomainsRaw || '').toUpperCase() === 'TRUE';
-        let domain = domainRaw;
-        if (includeSubdomains && !domain.startsWith('.')) domain = `.${domain}`;
-        if (!includeSubdomains && domain.startsWith('.')) domain = domain.slice(1);
-
-        const cookie = {
-            name,
-            value,
-            domain,
-            path: pathRaw || '/',
-            secure: (secureRaw || '').toUpperCase() === 'TRUE',
-            httpOnly,
-        };
-
-        const expires = parseInt(expiryRaw, 10);
-        if (!isNaN(expires) && expires > 0) {
-            cookie.expires = expires;
-        }
-
-        cookies.push(cookie);
+    if (dataLine.startsWith("#HttpOnly_")) {
+      httpOnly = true;
+      dataLine = dataLine.slice("#HttpOnly_".length);
+    } else if (dataLine.startsWith("#")) {
+      continue;
     }
 
-    return { cookies, skipped };
+    const parts = dataLine.split("\t");
+    if (parts.length < 7) {
+      skipped += 1;
+      continue;
+    }
+
+    const [
+      domainRaw,
+      includeSubdomainsRaw,
+      pathRaw,
+      secureRaw,
+      expiryRaw,
+      name,
+      value,
+    ] = parts;
+    if (!name || !domainRaw) {
+      skipped += 1;
+      continue;
+    }
+
+    const includeSubdomains =
+      (includeSubdomainsRaw || "").toUpperCase() === "TRUE";
+    let domain = domainRaw;
+    if (includeSubdomains && !domain.startsWith(".")) domain = `.${domain}`;
+    if (!includeSubdomains && domain.startsWith(".")) domain = domain.slice(1);
+
+    const cookie = {
+      name,
+      value,
+      domain,
+      path: pathRaw || "/",
+      secure: (secureRaw || "").toUpperCase() === "TRUE",
+      httpOnly,
+    };
+
+    const expires = parseInt(expiryRaw, 10);
+    if (!isNaN(expires) && expires > 0) {
+      cookie.expires = expires;
+    }
+
+    cookies.push(cookie);
+  }
+
+  return { cookies, skipped };
 }
 
 async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
-    if (!cookiesFile) return;
+  if (!cookiesFile) return;
 
-    if (!fs.existsSync(cookiesFile)) {
-        console.error(`[!] Cookies file not found: ${cookiesFile}`);
-        return;
-    }
+  if (!fs.existsSync(cookiesFile)) {
+    console.error(`[!] Cookies file not found: ${cookiesFile}`);
+    return;
+  }
 
-    let contents = '';
+  let contents = "";
+  try {
+    contents = fs.readFileSync(cookiesFile, "utf-8");
+  } catch (e) {
+    console.error(`[!] Failed to read COOKIES_TXT_FILE: ${e.message}`);
+    return;
+  }
+
+  const { cookies, skipped } = parseCookiesTxt(contents);
+  if (cookies.length === 0) {
+    console.error("[!] No cookies found to import");
+    return;
+  }
+
+  console.error(
+    `[*] Importing ${cookies.length} cookies from ${cookiesFile}...`
+  );
+  if (skipped) {
+    console.error(`[*] Skipped ${skipped} malformed cookie line(s)`);
+  }
+  if (!userDataDir) {
+    console.error(
+      "[!] CHROME_USER_DATA_DIR not set; cookies will not persist beyond this session"
+    );
+  }
+
+  const page = await browser.newPage();
+  const client = await page.target().createCDPSession();
+  await client.send("Network.enable");
+
+  const chunkSize = 200;
+  let imported = 0;
+  for (let i = 0; i < cookies.length; i += chunkSize) {
+    const chunk = cookies.slice(i, i + chunkSize);
     try {
-        contents = fs.readFileSync(cookiesFile, 'utf-8');
+      await client.send("Network.setCookies", { cookies: chunk });
+      imported += chunk.length;
     } catch (e) {
-        console.error(`[!] Failed to read COOKIES_TXT_FILE: ${e.message}`);
-        return;
+      console.error(
+        `[!] Failed to import cookies ${i + 1}-${i + chunk.length}: ${
+          e.message
+        }`
+      );
     }
+  }
 
-    const { cookies, skipped } = parseCookiesTxt(contents);
-    if (cookies.length === 0) {
-        console.error('[!] No cookies found to import');
-        return;
-    }
-
-    console.error(`[*] Importing ${cookies.length} cookies from ${cookiesFile}...`);
-    if (skipped) {
-        console.error(`[*] Skipped ${skipped} malformed cookie line(s)`);
-    }
-    if (!userDataDir) {
-        console.error('[!] CHROME_USER_DATA_DIR not set; cookies will not persist beyond this session');
-    }
-
-    const page = await browser.newPage();
-    const client = await page.target().createCDPSession();
-    await client.send('Network.enable');
-
-    const chunkSize = 200;
-    let imported = 0;
-    for (let i = 0; i < cookies.length; i += chunkSize) {
-        const chunk = cookies.slice(i, i + chunkSize);
-        try {
-            await client.send('Network.setCookies', { cookies: chunk });
-            imported += chunk.length;
-        } catch (e) {
-            console.error(`[!] Failed to import cookies ${i + 1}-${i + chunk.length}: ${e.message}`);
-        }
-    }
-
-    await page.close();
-    console.error(`[+] Imported ${imported}/${cookies.length} cookies`);
+  await page.close();
+  console.error(`[+] Imported ${imported}/${cookies.length} cookies`);
 }
 
 async function waitForProcessExit(pid, timeoutMs = 5000, intervalMs = 100) {
-    if (!pid) return true;
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-        if (!isProcessAlive(pid)) {
-            return true;
-        }
-        await sleep(intervalMs);
+  if (!pid) return true;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (!isProcessAlive(pid)) {
+      return true;
     }
-    return !isProcessAlive(pid);
+    await sleep(intervalMs);
+  }
+  return !isProcessAlive(pid);
 }
 
-async function waitForBrowserEndpointGone(cdpUrl, timeoutMs = 5000, intervalMs = 200) {
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-        if (!(await canConnectToChromeBrowser(cdpUrl, { timeoutMs: Math.min(intervalMs, 1000) }))) {
-            return true;
-        }
-        await sleep(intervalMs);
+async function waitForBrowserEndpointGone(
+  cdpUrl,
+  timeoutMs = 5000,
+  intervalMs = 200
+) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (
+      !(await canConnectToChromeBrowser(cdpUrl, {
+        timeoutMs: Math.min(intervalMs, 1000),
+      }))
+    ) {
+      return true;
     }
-    return !(await canConnectToChromeBrowser(cdpUrl, { timeoutMs: Math.min(intervalMs, 1000) }));
+    await sleep(intervalMs);
+  }
+  return !(await canConnectToChromeBrowser(cdpUrl, {
+    timeoutMs: Math.min(intervalMs, 1000),
+  }));
 }
 
 async function closeBrowserInChromeSession(options = {}) {
-    const {
-        cdpUrl = null,
-        pid = null,
-        outputDir = null,
-        puppeteer = resolvePuppeteerModule(),
-        processIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true),
-        forceKillTimeoutMs = getEnvInt('CHROME_CLOSE_TIMEOUT_MS', 5000),
-    } = options;
+  const {
+    cdpUrl = null,
+    pid = null,
+    outputDir = null,
+    puppeteer = resolvePuppeteerModule(),
+    processIsLocal = getEnv("CHROME_CDP_URL", "")
+      ? false
+      : getEnvBool("CHROME_IS_LOCAL", true),
+    forceKillTimeoutMs = getEnvInt("CHROME_CLOSE_TIMEOUT_MS", 5000),
+  } = options;
 
-    if (!cdpUrl && !(processIsLocal && pid)) {
-        return false;
-    }
+  if (!cdpUrl && !(processIsLocal && pid)) {
+    return false;
+  }
 
-    if (cdpUrl) {
-        let browser = null;
+  if (cdpUrl) {
+    let browser = null;
+    try {
+      browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, {
+        defaultViewport: null,
+      });
+      const session = await browser.target().createCDPSession();
+      await withTimeout(
+        () => session.send("Browser.close"),
+        forceKillTimeoutMs,
+        `Timed out closing browser at ${cdpUrl}`
+      );
+    } catch (error) {
+      console.error(`[!] Browser.close failed: ${error.message}`);
+    } finally {
+      if (browser) {
         try {
-            browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, { defaultViewport: null });
-            const session = await browser.target().createCDPSession();
-            await withTimeout(
-                () => session.send('Browser.close'),
-                forceKillTimeoutMs,
-                `Timed out closing browser at ${cdpUrl}`,
-            );
-        } catch (error) {
-            console.error(`[!] Browser.close failed: ${error.message}`);
-        } finally {
-            if (browser) {
-                try {
-                    await browser.disconnect();
-                } catch (disconnectError) {}
-            }
-        }
+          await browser.disconnect();
+        } catch (disconnectError) {}
+      }
     }
+  }
 
-    const debugPort = cdpUrl ? getChromeDebugPortFromCdpUrl(cdpUrl) : null;
-    let closed = false;
-    if (processIsLocal && pid) {
-        closed = await waitForProcessExit(pid, forceKillTimeoutMs);
-        if (!closed) {
-            closed = await killChrome(pid, outputDir);
-        }
-    } else if (cdpUrl) {
-        closed = await waitForBrowserEndpointGone(cdpUrl, forceKillTimeoutMs);
-        if (closed && debugPort) {
-            const relatedPids = findChromeProcessesByPort(debugPort);
-            if (relatedPids.length > 0) {
-                closed = await killChrome(relatedPids[0], outputDir);
-            }
-        }
+  const debugPort = cdpUrl ? getChromeDebugPortFromCdpUrl(cdpUrl) : null;
+  let closed = false;
+  if (processIsLocal && pid) {
+    closed = await waitForProcessExit(pid, forceKillTimeoutMs);
+    if (!closed) {
+      closed = await killChrome(pid, outputDir);
     }
-
-    if (outputDir && closed) {
-        try {
-            await cleanupStaleChromeSessionArtifacts(outputDir, {
-                processIsLocal,
-                probeTimeoutMs: Math.min(Math.max(forceKillTimeoutMs, 250), 1000),
-            });
-        } catch (error) {}
+  } else if (cdpUrl) {
+    closed = await waitForBrowserEndpointGone(cdpUrl, forceKillTimeoutMs);
+    if (closed && debugPort) {
+      const relatedPids = findChromeProcessesByPort(debugPort);
+      if (relatedPids.length > 0) {
+        closed = await killChrome(relatedPids[0], outputDir);
+      }
     }
+  }
 
-    return closed;
+  if (outputDir && closed) {
+    try {
+      await cleanupStaleChromeSessionArtifacts(outputDir, {
+        processIsLocal,
+        probeTimeoutMs: Math.min(Math.max(forceKillTimeoutMs, 250), 1000),
+      });
+    } catch (error) {}
+  }
+
+  return closed;
 }
 
 async function ensureChromeSession(options = {}) {
-    const {
-        outputDir = '.',
-        puppeteer = resolvePuppeteerModule(),
-        processIsLocal = getEnv('CHROME_CDP_URL', '') ? false : getEnvBool('CHROME_IS_LOCAL', true),
-        cdpUrl = getEnv('CHROME_CDP_URL', ''),
-        userDataDir = loadConfig(path.join(__dirname, 'config.json')).CHROME_USER_DATA_DIR,
-        downloadsDir = getEnv('CHROME_DOWNLOADS_DIR'),
-        cookiesFile = getEnv('COOKIES_TXT_FILE') || getEnv('COOKIES_FILE'),
-        extensionsDir = getExtensionsDir(),
-        timeoutMs = getEnvInt('CHROME_TIMEOUT', 60) * 1000,
-        reuseExisting = !cdpUrl,
-        binary = null,
-    } = options;
+  const {
+    outputDir = ".",
+    puppeteer = resolvePuppeteerModule(),
+    processIsLocal = getEnv("CHROME_CDP_URL", "")
+      ? false
+      : getEnvBool("CHROME_IS_LOCAL", true),
+    cdpUrl = getEnv("CHROME_CDP_URL", ""),
+    userDataDir = loadConfig(path.join(__dirname, "config.json"))
+      .CHROME_USER_DATA_DIR,
+    downloadsDir = getEnv("CHROME_DOWNLOADS_DIR"),
+    cookiesFile = getEnv("COOKIES_TXT_FILE") || getEnv("COOKIES_FILE"),
+    extensionsDir = getExtensionsDir(),
+    timeoutMs = getEnvInt("CHROME_TIMEOUT", 60) * 1000,
+    reuseExisting = !cdpUrl,
+    binary = null,
+  } = options;
 
-    if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-    }
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
 
-    const { installedExtensions } = loadInstalledExtensionsFromCache(extensionsDir);
+  const { installedExtensions } = loadInstalledExtensionsFromCache(
+    extensionsDir
+  );
 
-    const existingSession = await inspectChromeSessionArtifacts(outputDir, { processIsLocal });
-    const reusingExplicitCdpUrl =
-        Boolean(cdpUrl) &&
-        existingSession.hasArtifacts &&
-        !existingSession.stale &&
-        existingSession.state?.cdpUrl === cdpUrl;
+  const existingSession = await inspectChromeSessionArtifacts(outputDir, {
+    processIsLocal,
+  });
+  const reusingExplicitCdpUrl =
+    Boolean(cdpUrl) &&
+    existingSession.hasArtifacts &&
+    !existingSession.stale &&
+    existingSession.state?.cdpUrl === cdpUrl;
 
-    if (reuseExisting && existingSession.hasArtifacts && !existingSession.stale && existingSession.state?.cdpUrl) {
-        if (installedExtensions.length > 0) {
-            let browser = null;
-            try {
-                browser = await connectToBrowserEndpoint(puppeteer, existingSession.state.cdpUrl, { defaultViewport: null });
-                for (const extension of installedExtensions) {
-                    const existingExtension = (existingSession.state.extensions || []).find(existing =>
-                        existing?.name === extension.name ||
-                        existing?.unpacked_path === extension.unpacked_path
-                    );
-                    if (existingExtension?.id) {
-                        Object.assign(extension, existingExtension);
-                    }
-                }
-                const unloadedExtensions = getValidInstalledExtensions(installedExtensions).filter(ext => !ext.id);
-                if (unloadedExtensions.length > 0) {
-                    await loadUnpackedExtensionsIntoBrowser(browser, unloadedExtensions, timeoutMs);
-                }
-                await loadAllExtensionsFromBrowser(browser, installedExtensions, timeoutMs);
-                fs.writeFileSync(
-                    path.join(outputDir, 'extensions.json'),
-                    JSON.stringify(installedExtensions, null, 2)
-                );
-            } finally {
-                if (browser) {
-                    try {
-                        await browser.disconnect();
-                    } catch (error) {}
-                }
-            }
-        }
-        return {
-            cdpUrl: existingSession.state.cdpUrl,
-            pid: existingSession.state.pid,
-            port: getChromeDebugPortFromCdpUrl(existingSession.state.cdpUrl),
-            installedExtensions,
-            processIsLocal,
-            reusedExisting: true,
-            binary,
-        };
-    }
-
-    if (!reusingExplicitCdpUrl && existingSession.hasArtifacts && existingSession.state?.cdpUrl) {
-        try {
-            await closeBrowserInChromeSession({
-                cdpUrl: existingSession.state.cdpUrl,
-                pid: existingSession.state.pid,
-                outputDir,
-                puppeteer,
-                processIsLocal: Boolean(existingSession.state.pid),
-            });
-        } catch (error) {}
-    }
-
-    if (!reusingExplicitCdpUrl) {
-        const staleSession = await cleanupStaleChromeSessionArtifacts(outputDir, {
-            processIsLocal: existingSession.state?.pid ? true : processIsLocal,
-        });
-        if (staleSession.cleanedFiles.length === 0) {
-            for (const filePath of getChromeSessionArtifactPaths(outputDir)) {
-                if (!fs.existsSync(filePath)) continue;
-                try {
-                    fs.unlinkSync(filePath);
-                } catch (error) {}
-            }
-        }
-    }
-
-    let resolvedBinary = binary;
-    let resolvedPid = reusingExplicitCdpUrl && processIsLocal ? (existingSession.state?.pid || null) : null;
-    let resolvedCdpUrl = reusingExplicitCdpUrl ? existingSession.state?.cdpUrl : cdpUrl;
-    let resolvedUserDataDir = userDataDir;
-
-    if (!resolvedCdpUrl) {
-        if (!processIsLocal) {
-            throw new Error('CHROME_IS_LOCAL=false requires CHROME_CDP_URL or an upstream published chrome session');
-        }
-
-        resolvedBinary = resolvedBinary || findChromium();
-        if (!resolvedBinary) {
-            throw new Error('Chromium binary not found');
-        }
-        if (installedExtensions.length > 0) {
-            console.error(`[*] Deferring ${installedExtensions.length} extension(s) to CDP Extensions.loadUnpacked after Chrome startup`);
-        }
-
-        const result = await launchChromium({
-            binary: resolvedBinary,
-            outputDir,
-            userDataDir,
-            enableExtensionDebugging: installedExtensions.length > 0,
-        });
-        if (!result.success) {
-            throw new Error(result.error || 'Failed to launch Chromium');
-        }
-
-        resolvedPid = result.pid;
-        resolvedCdpUrl = result.cdpUrl;
-        resolvedUserDataDir = result.userDataDir || resolvedUserDataDir;
-    }
-
-    if (resolvedPid) {
-        fs.writeFileSync(path.join(outputDir, 'chrome.pid'), String(resolvedPid));
-    } else {
-        try { fs.unlinkSync(path.join(outputDir, 'chrome.pid')); } catch (error) {}
-    }
-    fs.writeFileSync(path.join(outputDir, 'cdp_url.txt'), resolvedCdpUrl);
-
-    if (downloadsDir || cookiesFile || installedExtensions.length > 0) {
-        let browser = null;
-        try {
-            browser = await connectToBrowserEndpoint(puppeteer, resolvedCdpUrl, { defaultViewport: null });
-
-            if (installedExtensions.length > 0) {
-                await loadUnpackedExtensionsIntoBrowser(browser, installedExtensions, timeoutMs);
-            }
-
-            if (downloadsDir) {
-                await setBrowserDownloadBehavior({
-                    browser,
-                    downloadPath: downloadsDir,
-                });
-            }
-
-            if (cookiesFile) {
-                await importCookiesFromFile(browser, cookiesFile, resolvedUserDataDir);
-            }
-        } finally {
-            if (browser) {
-                try {
-                    await browser.disconnect();
-                } catch (error) {}
-            }
-        }
-    }
-
-    await waitForBrowserPageReady({
-        puppeteer,
-        cdpUrl: resolvedCdpUrl,
-        timeoutMs: getEnvInt('CHROME_PAGE_READY_TIMEOUT_MS', 10000),
-        requireAboutBlank: true,
-        createPageIfMissing: true,
-    });
-
-    if (processIsLocal && resolvedPid) {
-        try {
-            process.kill(resolvedPid, 0);
-        } catch (error) {
-            throw new Error(`Chrome process ${resolvedPid} exited during launch setup`);
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        try {
-            process.kill(resolvedPid, 0);
-        } catch (error) {
-            throw new Error(`Chrome process ${resolvedPid} exited immediately after launch setup`);
-        }
-    }
-
+  if (
+    reuseExisting &&
+    existingSession.hasArtifacts &&
+    !existingSession.stale &&
+    existingSession.state?.cdpUrl
+  ) {
     if (installedExtensions.length > 0) {
-        fs.writeFileSync(
-            path.join(outputDir, 'extensions.json'),
-            JSON.stringify(installedExtensions, null, 2)
+      let browser = null;
+      try {
+        browser = await connectToBrowserEndpoint(
+          puppeteer,
+          existingSession.state.cdpUrl,
+          { defaultViewport: null }
         );
-    } else {
-        try { fs.unlinkSync(path.join(outputDir, 'extensions.json')); } catch (error) {}
+        for (const extension of installedExtensions) {
+          const existingExtension = (
+            existingSession.state.extensions || []
+          ).find(
+            (existing) =>
+              existing?.name === extension.name ||
+              existing?.unpacked_path === extension.unpacked_path
+          );
+          if (existingExtension?.id) {
+            Object.assign(extension, existingExtension);
+          }
+        }
+        const unloadedExtensions = getValidInstalledExtensions(
+          installedExtensions
+        ).filter((ext) => !ext.id);
+        if (unloadedExtensions.length > 0) {
+          await loadUnpackedExtensionsIntoBrowser(
+            browser,
+            unloadedExtensions,
+            timeoutMs
+          );
+        }
+        await loadAllExtensionsFromBrowser(
+          browser,
+          installedExtensions,
+          timeoutMs
+        );
+        fs.writeFileSync(
+          path.join(outputDir, "extensions.json"),
+          JSON.stringify(installedExtensions, null, 2)
+        );
+      } finally {
+        if (browser) {
+          try {
+            await browser.disconnect();
+          } catch (error) {}
+        }
+      }
+    }
+    return {
+      cdpUrl: existingSession.state.cdpUrl,
+      pid: existingSession.state.pid,
+      port: getChromeDebugPortFromCdpUrl(existingSession.state.cdpUrl),
+      installedExtensions,
+      processIsLocal,
+      reusedExisting: true,
+      binary,
+    };
+  }
+
+  if (
+    !reusingExplicitCdpUrl &&
+    existingSession.hasArtifacts &&
+    existingSession.state?.cdpUrl
+  ) {
+    try {
+      await closeBrowserInChromeSession({
+        cdpUrl: existingSession.state.cdpUrl,
+        pid: existingSession.state.pid,
+        outputDir,
+        puppeteer,
+        processIsLocal: Boolean(existingSession.state.pid),
+      });
+    } catch (error) {}
+  }
+
+  if (!reusingExplicitCdpUrl) {
+    const staleSession = await cleanupStaleChromeSessionArtifacts(outputDir, {
+      processIsLocal: existingSession.state?.pid ? true : processIsLocal,
+    });
+    if (staleSession.cleanedFiles.length === 0) {
+      for (const filePath of getChromeSessionArtifactPaths(outputDir)) {
+        if (!fs.existsSync(filePath)) continue;
+        try {
+          fs.unlinkSync(filePath);
+        } catch (error) {}
+      }
+    }
+  }
+
+  let resolvedBinary = binary;
+  let resolvedPid =
+    reusingExplicitCdpUrl && processIsLocal
+      ? existingSession.state?.pid || null
+      : null;
+  let resolvedCdpUrl = reusingExplicitCdpUrl
+    ? existingSession.state?.cdpUrl
+    : cdpUrl;
+  let resolvedUserDataDir = userDataDir;
+
+  if (!resolvedCdpUrl) {
+    if (!processIsLocal) {
+      throw new Error(
+        "CHROME_IS_LOCAL=false requires CHROME_CDP_URL or an upstream published chrome session"
+      );
     }
 
-    return {
-        cdpUrl: resolvedCdpUrl,
-        pid: resolvedPid,
-        port: getChromeDebugPortFromCdpUrl(resolvedCdpUrl),
-        installedExtensions,
-        processIsLocal,
-        reusedExisting: false,
-        binary: resolvedBinary,
-        userDataDir: resolvedUserDataDir,
-    };
+    resolvedBinary = resolvedBinary || findChromium();
+    if (!resolvedBinary) {
+      throw new Error("Chromium binary not found");
+    }
+    if (installedExtensions.length > 0) {
+      console.error(
+        `[*] Deferring ${installedExtensions.length} extension(s) to CDP Extensions.loadUnpacked after Chrome startup`
+      );
+    }
+
+    const result = await launchChromium({
+      binary: resolvedBinary,
+      outputDir,
+      userDataDir,
+      enableExtensionDebugging: installedExtensions.length > 0,
+    });
+    if (!result.success) {
+      throw new Error(result.error || "Failed to launch Chromium");
+    }
+
+    resolvedPid = result.pid;
+    resolvedCdpUrl = result.cdpUrl;
+    resolvedUserDataDir = result.userDataDir || resolvedUserDataDir;
+  }
+
+  if (resolvedPid) {
+    fs.writeFileSync(path.join(outputDir, "chrome.pid"), String(resolvedPid));
+  } else {
+    try {
+      fs.unlinkSync(path.join(outputDir, "chrome.pid"));
+    } catch (error) {}
+  }
+  fs.writeFileSync(path.join(outputDir, "cdp_url.txt"), resolvedCdpUrl);
+
+  if (downloadsDir || cookiesFile || installedExtensions.length > 0) {
+    let browser = null;
+    try {
+      browser = await connectToBrowserEndpoint(puppeteer, resolvedCdpUrl, {
+        defaultViewport: null,
+      });
+
+      if (installedExtensions.length > 0) {
+        await loadUnpackedExtensionsIntoBrowser(
+          browser,
+          installedExtensions,
+          timeoutMs
+        );
+      }
+
+      if (downloadsDir) {
+        await setBrowserDownloadBehavior({
+          browser,
+          downloadPath: downloadsDir,
+        });
+      }
+
+      if (cookiesFile) {
+        await importCookiesFromFile(browser, cookiesFile, resolvedUserDataDir);
+      }
+    } finally {
+      if (browser) {
+        try {
+          await browser.disconnect();
+        } catch (error) {}
+      }
+    }
+  }
+
+  await waitForBrowserPageReady({
+    puppeteer,
+    cdpUrl: resolvedCdpUrl,
+    timeoutMs: getEnvInt("CHROME_PAGE_READY_TIMEOUT_MS", 10000),
+    requireAboutBlank: true,
+    createPageIfMissing: true,
+  });
+
+  if (processIsLocal && resolvedPid) {
+    try {
+      process.kill(resolvedPid, 0);
+    } catch (error) {
+      throw new Error(
+        `Chrome process ${resolvedPid} exited during launch setup`
+      );
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      process.kill(resolvedPid, 0);
+    } catch (error) {
+      throw new Error(
+        `Chrome process ${resolvedPid} exited immediately after launch setup`
+      );
+    }
+  }
+
+  if (installedExtensions.length > 0) {
+    fs.writeFileSync(
+      path.join(outputDir, "extensions.json"),
+      JSON.stringify(installedExtensions, null, 2)
+    );
+  } else {
+    try {
+      fs.unlinkSync(path.join(outputDir, "extensions.json"));
+    } catch (error) {}
+  }
+
+  return {
+    cdpUrl: resolvedCdpUrl,
+    pid: resolvedPid,
+    port: getChromeDebugPortFromCdpUrl(resolvedCdpUrl),
+    installedExtensions,
+    processIsLocal,
+    reusedExisting: false,
+    binary: resolvedBinary,
+    userDataDir: resolvedUserDataDir,
+  };
 }
 
 /**
@@ -3546,47 +4043,55 @@ async function ensureChromeSession(options = {}) {
  * @returns {Promise<Object>} - Parsed navigation state
  * @throws {Error} - If timeout waiting for navigation or navigation.json reports an error
  */
-async function waitForNavigationComplete(chromeSessionDir, timeoutMs = 120000, postLoadDelayMs = 0) {
-    const { navigationFile } = getChromeSessionPaths(chromeSessionDir);
-    const pollInterval = 100;
-    const deadline = Date.now() + timeoutMs;
-    let lastParseError = null;
+async function waitForNavigationComplete(
+  chromeSessionDir,
+  timeoutMs = 120000,
+  postLoadDelayMs = 0
+) {
+  const { navigationFile } = getChromeSessionPaths(chromeSessionDir);
+  const pollInterval = 100;
+  const deadline = Date.now() + timeoutMs;
+  let lastParseError = null;
 
-    while (Date.now() < deadline) {
-        if (!fs.existsSync(navigationFile)) {
-            await new Promise(resolve => setTimeout(resolve, pollInterval));
-            continue;
-        }
-
-        try {
-            const rawNavigationState = fs.readFileSync(navigationFile, 'utf8');
-            if (!rawNavigationState.trim()) {
-                throw new SyntaxError('navigation.json is empty');
-            }
-            const navigationState = JSON.parse(rawNavigationState);
-            if (navigationState?.error) {
-                throw new Error(navigationState.error);
-            }
-
-            if (postLoadDelayMs > 0) {
-                await new Promise(resolve => setTimeout(resolve, postLoadDelayMs));
-            }
-
-            return navigationState;
-        } catch (error) {
-            if (error instanceof SyntaxError) {
-                lastParseError = error;
-                await new Promise(resolve => setTimeout(resolve, pollInterval));
-                continue;
-            }
-            throw error;
-        }
+  while (Date.now() < deadline) {
+    if (!fs.existsSync(navigationFile)) {
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+      continue;
     }
 
-    if (lastParseError) {
-        throw new Error(`Timeout waiting for navigation (invalid navigation.json: ${lastParseError.message})`);
+    try {
+      const rawNavigationState = fs.readFileSync(navigationFile, "utf8");
+      if (!rawNavigationState.trim()) {
+        throw new SyntaxError("navigation.json is empty");
+      }
+      const navigationState = JSON.parse(rawNavigationState);
+      if (navigationState?.error) {
+        throw new Error(navigationState.error);
+      }
+
+      if (postLoadDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, postLoadDelayMs));
+      }
+
+      return navigationState;
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        lastParseError = error;
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        continue;
+      }
+      throw error;
     }
-    throw new Error('Timeout waiting for navigation (chrome_navigate did not complete)');
+  }
+
+  if (lastParseError) {
+    throw new Error(
+      `Timeout waiting for navigation (invalid navigation.json: ${lastParseError.message})`
+    );
+  }
+  throw new Error(
+    "Timeout waiting for navigation (chrome_navigate did not complete)"
+  );
 }
 
 /**
@@ -3599,276 +4104,291 @@ async function waitForNavigationComplete(chromeSessionDir, timeoutMs = 120000, p
  * @returns {Promise<Array<Object>>} - Array of cookie objects
  */
 async function getCookiesViaCdp(port, options = {}) {
-    const timeoutMs = options.timeoutMs || getEnvInt('CDP_COOKIE_TIMEOUT_MS', 10000);
-    const versionInfo = await waitForDebugPort(port, timeoutMs);
-    const browserWSEndpoint = versionInfo?.webSocketDebuggerUrl;
-    if (!browserWSEndpoint) {
-        throw new Error(`No webSocketDebuggerUrl from Chrome debug port ${port}`);
-    }
-    const puppeteerModule = resolvePuppeteerModule();
+  const timeoutMs =
+    options.timeoutMs || getEnvInt("CDP_COOKIE_TIMEOUT_MS", 10000);
+  const versionInfo = await waitForDebugPort(port, timeoutMs);
+  const browserWSEndpoint = versionInfo?.webSocketDebuggerUrl;
+  if (!browserWSEndpoint) {
+    throw new Error(`No webSocketDebuggerUrl from Chrome debug port ${port}`);
+  }
+  const puppeteerModule = resolvePuppeteerModule();
 
-    return withConnectedBrowser(
-        {
-            puppeteer: puppeteerModule,
-            browserWSEndpoint,
-        },
-        async (browser) => {
-            const session = await browser.target().createCDPSession();
-            const result = await session.send('Storage.getCookies');
-            return result?.cookies || [];
-        }
-    );
+  return withConnectedBrowser(
+    {
+      puppeteer: puppeteerModule,
+      browserWSEndpoint,
+    },
+    async (browser) => {
+      const session = await browser.target().createCDPSession();
+      const result = await session.send("Storage.getCookies");
+      return result?.cookies || [];
+    }
+  );
 }
 
 // Export all functions
 module.exports = {
-    // Environment helpers
-    getEnv,
-    getEnvBool,
-    getEnvInt,
-    getEnvArray,
-    parseResolution,
-    cleanupChromeProfileLockFiles,
-    // PID file management
-    writePidWithMtime,
-    writeCmdScript,
-    acquireSessionLock,
-    // Port management
-    findFreePort,
-    waitForDebugPort,
-    // Zombie cleanup
-    killZombieChrome,
-    // Chrome launching
-    launchChromium,
-    killChrome,
-    // Chromium binary finding
-    findChromium,
-    findAnyChromiumBinary,
-    // Extension utilities
-    loadExtensionManifest,
-    isTargetExtension,
-    loadExtensionFromTarget,
-    loadAllExtensionsFromBrowser,
-    loadUnpackedExtensionsIntoBrowser,
-    waitForExtensionTargetHandle,
-    // New puppeteer best-practices helpers
-    resolvePuppeteerModule,
-    connectToBrowserEndpoint,
-    withConnectedBrowser,
-    getExtensionPaths,
-    waitForExtensionTarget,
-    getExtensionTargets,
-    findExtensionMetadataByName,
-    readExtensionsMetadata,
-    loadInstalledExtensionsFromCache,
-    importCookiesFromFile,
-    ensureChromeSession,
-    // Shared path utilities (single source of truth for Python/JS)
-    getMachineType,
-    getLibDir,
-    getNodeModulesDir,
-    getExtensionsDir,
-    getTestEnv,
-    // Snapshot hook utilities (for CDP-based plugins)
-    parseArgs,
-    inspectChromeSessionArtifacts,
-    cleanupStaleChromeSessionArtifacts,
-    waitForChromeSessionState,
-    waitForChromeLaunchPrerequisites,
-    getBrowserCdpUrl,
-    openTabInChromeSession,
-    closeTabInChromeSession,
-    closeBrowserInChromeSession,
-    getTargetIdFromTarget,
-    getTargetIdFromPage,
-    connectToPage,
-    waitForNavigationComplete,
-    setBrowserDownloadBehavior,
-    getCookiesViaCdp,
+  // Environment helpers
+  getEnv,
+  getEnvBool,
+  getEnvInt,
+  getEnvArray,
+  parseResolution,
+  cleanupChromeProfileLockFiles,
+  // PID file management
+  writePidWithMtime,
+  writeCmdScript,
+  acquireSessionLock,
+  // Port management
+  findFreePort,
+  waitForDebugPort,
+  // Zombie cleanup
+  killZombieChrome,
+  // Chrome launching
+  launchChromium,
+  killChrome,
+  // Chromium binary finding
+  findChromium,
+  findAnyChromiumBinary,
+  // Extension utilities
+  loadExtensionManifest,
+  isTargetExtension,
+  loadExtensionFromTarget,
+  loadAllExtensionsFromBrowser,
+  loadUnpackedExtensionsIntoBrowser,
+  waitForExtensionTargetHandle,
+  // New puppeteer best-practices helpers
+  resolvePuppeteerModule,
+  connectToBrowserEndpoint,
+  withConnectedBrowser,
+  getExtensionPaths,
+  waitForExtensionTarget,
+  getExtensionTargets,
+  findExtensionMetadataByName,
+  readExtensionsMetadata,
+  loadInstalledExtensionsFromCache,
+  importCookiesFromFile,
+  ensureChromeSession,
+  // Shared path utilities (single source of truth for Python/JS)
+  getMachineType,
+  getLibDir,
+  getNodeModulesDir,
+  getExtensionsDir,
+  getTestEnv,
+  // Snapshot hook utilities (for CDP-based plugins)
+  parseArgs,
+  inspectChromeSessionArtifacts,
+  cleanupStaleChromeSessionArtifacts,
+  waitForChromeSessionState,
+  waitForChromeLaunchPrerequisites,
+  getBrowserCdpUrl,
+  openTabInChromeSession,
+  closeTabInChromeSession,
+  closeBrowserInChromeSession,
+  getTargetIdFromTarget,
+  getTargetIdFromPage,
+  connectToPage,
+  waitForNavigationComplete,
+  setBrowserDownloadBehavior,
+  getCookiesViaCdp,
 };
 
 // CLI usage
 if (require.main === module) {
-    const args = process.argv.slice(2);
+  const args = process.argv.slice(2);
 
-    if (args.length === 0) {
-        console.log('Usage: chrome_utils.js <command> [args...]');
-        console.log('');
-        console.log('Commands:');
-        console.log('  findChromium              Find Chromium binary');
-        console.log('  launchChromium            Launch Chrome with CDP debugging');
-        console.log('  getCookiesViaCdp <port>  Read browser cookies via CDP port');
-        console.log('  getBrowserCdpUrl      Resolve browser-level CDP endpoint from session dir');
-        console.log('  killChrome <pid>          Kill Chrome process by PID');
-        console.log('  killZombieChrome          Clean up zombie Chrome processes');
-        console.log('');
-        console.log('  getMachineType            Get machine type (e.g., x86_64-linux)');
-        console.log('  getLibDir                 Get LIB_DIR path');
-        console.log('  getNodeModulesDir         Get NODE_MODULES_DIR path');
-        console.log('  getExtensionsDir          Get Chrome extensions directory');
-        console.log('  getTestEnv                Get all paths as JSON (for tests)');
-        console.log('');
-        console.log('  loadExtensionManifest     Load extension manifest.json');
-        console.log('  readExtensionsMetadata    Read published runtime extension metadata');
-        console.log('');
-        console.log('Environment variables:');
-        console.log('  SNAP_DIR                  Base snapshot directory');
-        console.log('  CRAWL_DIR                 Base crawl directory');
-        console.log('  PERSONAS_DIR              Personas directory');
-        console.log('  LIB_DIR                   Library directory (computed if not set)');
-        console.log('  MACHINE_TYPE              Machine type override');
-        console.log('  NODE_MODULES_DIR          Node modules directory');
-        console.log('  CHROME_BINARY             Chrome binary path');
-        console.log('  CHROME_EXTENSIONS_DIR     Extensions directory');
-        process.exit(1);
-    }
+  if (args.length === 0) {
+    console.log("Usage: chrome_utils.js <command> [args...]");
+    console.log("");
+    console.log("Commands:");
+    console.log("  findChromium              Find Chromium binary");
+    console.log("  launchChromium            Launch Chrome with CDP debugging");
+    console.log("  getCookiesViaCdp <port>  Read browser cookies via CDP port");
+    console.log(
+      "  getBrowserCdpUrl      Resolve browser-level CDP endpoint from session dir"
+    );
+    console.log("  killChrome <pid>          Kill Chrome process by PID");
+    console.log("  killZombieChrome          Clean up zombie Chrome processes");
+    console.log("");
+    console.log(
+      "  getMachineType            Get machine type (e.g., x86_64-linux)"
+    );
+    console.log("  getLibDir                 Get LIB_DIR path");
+    console.log("  getNodeModulesDir         Get NODE_MODULES_DIR path");
+    console.log("  getExtensionsDir          Get Chrome extensions directory");
+    console.log(
+      "  getTestEnv                Get all paths as JSON (for tests)"
+    );
+    console.log("");
+    console.log("  loadExtensionManifest     Load extension manifest.json");
+    console.log(
+      "  readExtensionsMetadata    Read published runtime extension metadata"
+    );
+    console.log("");
+    console.log("Environment variables:");
+    console.log("  SNAP_DIR                  Base snapshot directory");
+    console.log("  CRAWL_DIR                 Base crawl directory");
+    console.log("  PERSONAS_DIR              Personas directory");
+    console.log(
+      "  LIB_DIR                   Library directory (computed if not set)"
+    );
+    console.log("  MACHINE_TYPE              Machine type override");
+    console.log("  NODE_MODULES_DIR          Node modules directory");
+    console.log("  CHROME_BINARY             Chrome binary path");
+    console.log("  CHROME_EXTENSIONS_DIR     Extensions directory");
+    process.exit(1);
+  }
 
-    const [command, ...commandArgs] = args;
+  const [command, ...commandArgs] = args;
 
-    (async () => {
-        try {
-            switch (command) {
-                case 'findChromium': {
-                    const binary = findChromium();
-                    if (binary) {
-                        console.log(binary);
-                    } else {
-                        console.error('Chromium binary not found');
-                        process.exit(1);
-                    }
-                    break;
-                }
-
-                case 'launchChromium': {
-                    const [outputDir] = commandArgs;
-                    const result = await launchChromium({
-                        outputDir: outputDir || 'chrome',
-                    });
-                    if (result.success) {
-                        console.log(JSON.stringify({
-                            cdpUrl: result.cdpUrl,
-                            pid: result.pid,
-                            port: result.port,
-                        }));
-                    } else {
-                        console.error(result.error);
-                        process.exit(1);
-                    }
-                    break;
-                }
-
-                case 'getCookiesViaCdp': {
-                    const [portStr] = commandArgs;
-                    const port = parseInt(portStr, 10);
-                    if (isNaN(port) || port <= 0) {
-                        console.error('Invalid port');
-                        process.exit(1);
-                    }
-                    const cookies = await getCookiesViaCdp(port);
-                    console.log(JSON.stringify(cookies));
-                    break;
-                }
-
-                case 'getBrowserCdpUrl': {
-                    const [
-                        chromeSessionDir = '../chrome',
-                        timeoutMsStr = '60000',
-                        requireTargetIdStr = 'true',
-                    ] = commandArgs;
-                    const timeoutMs = parseInt(timeoutMsStr, 10);
-                    if (isNaN(timeoutMs) || timeoutMs <= 0) {
-                        console.error('Invalid timeoutMs');
-                        process.exit(1);
-                    }
-                    const requireTargetId = !['0', 'false', 'no'].includes(
-                        String(requireTargetIdStr).toLowerCase(),
-                    );
-                    const browserCdpUrl = await getBrowserCdpUrl(chromeSessionDir, {
-                        timeoutMs,
-                        requireTargetId,
-                    });
-                    console.log(browserCdpUrl);
-                    break;
-                }
-
-                case 'killChrome': {
-                    const [pidStr, outputDir] = commandArgs;
-                    const pid = parseInt(pidStr, 10);
-                    if (isNaN(pid)) {
-                        console.error('Invalid PID');
-                        process.exit(1);
-                    }
-                    await killChrome(pid, outputDir);
-                    break;
-                }
-
-                case 'killZombieChrome': {
-                    const [snapDir] = commandArgs;
-                    const killed = await killZombieChrome(snapDir);
-                    console.log(killed);
-                    break;
-                }
-
-                case 'loadExtensionManifest': {
-                    const [unpacked_path] = commandArgs;
-                    const manifest = loadExtensionManifest(unpacked_path);
-                    console.log(JSON.stringify(manifest));
-                    break;
-                }
-
-                case 'readExtensionsMetadata': {
-                    const [chromeSessionDir = '.', timeoutMsStr = '10000'] = commandArgs;
-                    const timeoutMs = parseInt(timeoutMsStr, 10);
-                    if (isNaN(timeoutMs) || timeoutMs <= 0) {
-                        console.error('Invalid timeoutMs');
-                        process.exit(1);
-                    }
-                    const deadline = Date.now() + timeoutMs;
-                    let metadata = readExtensionsMetadata(chromeSessionDir);
-                    while (metadata === null && Date.now() < deadline) {
-                        await sleep(250);
-                        metadata = readExtensionsMetadata(chromeSessionDir);
-                    }
-                    if (metadata === null) {
-                        console.error(`Timeout waiting for extensions metadata in ${chromeSessionDir}`);
-                        process.exit(1);
-                    }
-                    console.log(JSON.stringify(metadata));
-                    break;
-                }
-
-                case 'getMachineType': {
-                    console.log(getMachineType());
-                    break;
-                }
-
-                case 'getLibDir': {
-                    console.log(getLibDir());
-                    break;
-                }
-
-                case 'getNodeModulesDir': {
-                    console.log(getNodeModulesDir());
-                    break;
-                }
-
-                case 'getExtensionsDir': {
-                    console.log(getExtensionsDir());
-                    break;
-                }
-
-                case 'getTestEnv': {
-                    console.log(JSON.stringify(getTestEnv(), null, 2));
-                    break;
-                }
-
-                default:
-                    console.error(`Unknown command: ${command}`);
-                    process.exit(1);
-            }
-        } catch (error) {
-            console.error(`Error: ${error.message}`);
+  (async () => {
+    try {
+      switch (command) {
+        case "findChromium": {
+          const binary = findChromium();
+          if (binary) {
+            console.log(binary);
+          } else {
+            console.error("Chromium binary not found");
             process.exit(1);
+          }
+          break;
         }
-    })();
+
+        case "launchChromium": {
+          const [outputDir] = commandArgs;
+          const result = await launchChromium({
+            outputDir: outputDir || "chrome",
+          });
+          if (result.success) {
+            console.log(
+              JSON.stringify({
+                cdpUrl: result.cdpUrl,
+                pid: result.pid,
+                port: result.port,
+              })
+            );
+          } else {
+            console.error(result.error);
+            process.exit(1);
+          }
+          break;
+        }
+
+        case "getCookiesViaCdp": {
+          const [portStr] = commandArgs;
+          const port = parseInt(portStr, 10);
+          if (isNaN(port) || port <= 0) {
+            console.error("Invalid port");
+            process.exit(1);
+          }
+          const cookies = await getCookiesViaCdp(port);
+          console.log(JSON.stringify(cookies));
+          break;
+        }
+
+        case "getBrowserCdpUrl": {
+          const [
+            chromeSessionDir = "../chrome",
+            timeoutMsStr = "60000",
+            requireTargetIdStr = "true",
+          ] = commandArgs;
+          const timeoutMs = parseInt(timeoutMsStr, 10);
+          if (isNaN(timeoutMs) || timeoutMs <= 0) {
+            console.error("Invalid timeoutMs");
+            process.exit(1);
+          }
+          const requireTargetId = !["0", "false", "no"].includes(
+            String(requireTargetIdStr).toLowerCase()
+          );
+          const browserCdpUrl = await getBrowserCdpUrl(chromeSessionDir, {
+            timeoutMs,
+            requireTargetId,
+          });
+          console.log(browserCdpUrl);
+          break;
+        }
+
+        case "killChrome": {
+          const [pidStr, outputDir] = commandArgs;
+          const pid = parseInt(pidStr, 10);
+          if (isNaN(pid)) {
+            console.error("Invalid PID");
+            process.exit(1);
+          }
+          await killChrome(pid, outputDir);
+          break;
+        }
+
+        case "killZombieChrome": {
+          const [snapDir] = commandArgs;
+          const killed = await killZombieChrome(snapDir);
+          console.log(killed);
+          break;
+        }
+
+        case "loadExtensionManifest": {
+          const [unpacked_path] = commandArgs;
+          const manifest = loadExtensionManifest(unpacked_path);
+          console.log(JSON.stringify(manifest));
+          break;
+        }
+
+        case "readExtensionsMetadata": {
+          const [chromeSessionDir = ".", timeoutMsStr = "10000"] = commandArgs;
+          const timeoutMs = parseInt(timeoutMsStr, 10);
+          if (isNaN(timeoutMs) || timeoutMs <= 0) {
+            console.error("Invalid timeoutMs");
+            process.exit(1);
+          }
+          const deadline = Date.now() + timeoutMs;
+          let metadata = readExtensionsMetadata(chromeSessionDir);
+          while (metadata === null && Date.now() < deadline) {
+            await sleep(250);
+            metadata = readExtensionsMetadata(chromeSessionDir);
+          }
+          if (metadata === null) {
+            console.error(
+              `Timeout waiting for extensions metadata in ${chromeSessionDir}`
+            );
+            process.exit(1);
+          }
+          console.log(JSON.stringify(metadata));
+          break;
+        }
+
+        case "getMachineType": {
+          console.log(getMachineType());
+          break;
+        }
+
+        case "getLibDir": {
+          console.log(getLibDir());
+          break;
+        }
+
+        case "getNodeModulesDir": {
+          console.log(getNodeModulesDir());
+          break;
+        }
+
+        case "getExtensionsDir": {
+          console.log(getExtensionsDir());
+          break;
+        }
+
+        case "getTestEnv": {
+          console.log(JSON.stringify(getTestEnv(), null, 2));
+          break;
+        }
+
+        default:
+          console.error(`Unknown command: ${command}`);
+          process.exit(1);
+      }
+    } catch (error) {
+      console.error(`Error: ${error.message}`);
+      process.exit(1);
+    }
+  })();
 }

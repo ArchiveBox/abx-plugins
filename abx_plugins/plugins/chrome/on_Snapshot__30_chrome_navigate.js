@@ -15,188 +15,226 @@
  *     CHROME_WAIT_FOR: Wait condition (default: load)
  */
 
-const fs = require('fs');
-const path = require('path');
-const { ensureNodeModuleResolution, parseArgs, getEnv, getEnvInt, loadConfig, emitArchiveResultRecord, writeFileAtomic } = require('../base/utils.js');
-ensureNodeModuleResolution(module);
+const fs = require("fs");
+const path = require("path");
 const {
-    connectToPage,
-    resolvePuppeteerModule,
-} = require('./chrome_utils.js');
+  ensureNodeModuleResolution,
+  parseArgs,
+  getEnv,
+  getEnvInt,
+  loadConfig,
+  emitArchiveResultRecord,
+  writeFileAtomic,
+} = require("../base/utils.js");
+ensureNodeModuleResolution(module);
+const { connectToPage, resolvePuppeteerModule } = require("./chrome_utils.js");
 const puppeteer = resolvePuppeteerModule();
 
-const PLUGIN_NAME = 'chrome_navigate';
-const CHROME_SESSION_DIR = '.';
+const PLUGIN_NAME = "chrome_navigate";
+const CHROME_SESSION_DIR = ".";
 const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
-const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || '.').trim());
+const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || ".").trim());
 const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
 if (!fs.existsSync(OUTPUT_DIR)) {
-    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 process.chdir(OUTPUT_DIR);
 
 function getEnvFloat(name, defaultValue = 0) {
-    const val = parseFloat(getEnv(name, String(defaultValue)));
-    return isNaN(val) ? defaultValue : val;
+  const val = parseFloat(getEnv(name, String(defaultValue)));
+  return isNaN(val) ? defaultValue : val;
 }
 
 function getWaitCondition() {
-    const waitFor = getEnv('CHROME_WAIT_FOR', 'load').toLowerCase();
-    const valid = ['domcontentloaded', 'load', 'networkidle0', 'networkidle2'];
-    return valid.includes(waitFor) ? waitFor : 'load';
+  const waitFor = getEnv("CHROME_WAIT_FOR", "load").toLowerCase();
+  const valid = ["domcontentloaded", "load", "networkidle0", "networkidle2"];
+  return valid.includes(waitFor) ? waitFor : "load";
 }
 
 function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function waitForPreloadHooks(timeoutMs) {
-    const preloadHooks = [
-        {
-            name: 'headers',
-            dir: path.join(SNAP_DIR, 'headers'),
-            readyFile: path.join(SNAP_DIR, 'headers', 'headers.json'),
-            timeoutMs: getEnvInt('HEADERS_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000,
-        },
-        {
-            name: 'staticfile',
-            dir: path.join(SNAP_DIR, 'staticfile'),
-            readyFile: path.join(SNAP_DIR, 'staticfile', 'prenav.json'),
-            timeoutMs: getEnvInt('STATICFILE_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000,
-        },
-    ];
+  const preloadHooks = [
+    {
+      name: "headers",
+      dir: path.join(SNAP_DIR, "headers"),
+      readyFile: path.join(SNAP_DIR, "headers", "headers.json"),
+      timeoutMs: getEnvInt("HEADERS_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000,
+    },
+    {
+      name: "staticfile",
+      dir: path.join(SNAP_DIR, "staticfile"),
+      readyFile: path.join(SNAP_DIR, "staticfile", "prenav.json"),
+      timeoutMs:
+        getEnvInt("STATICFILE_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000,
+    },
+  ];
 
-    for (const preloadHook of preloadHooks) {
-        if (!fs.existsSync(preloadHook.dir) || fs.existsSync(preloadHook.readyFile)) {
-            continue;
-        }
-
-        const startedAt = Date.now();
-        const waitMs = Math.min(timeoutMs, Math.max(5000, preloadHook.timeoutMs));
-        while (Date.now() - startedAt < waitMs) {
-            if (fs.existsSync(preloadHook.readyFile)) {
-                break;
-            }
-            await sleep(100);
-        }
-
-        if (!fs.existsSync(preloadHook.readyFile)) {
-            throw new Error(`Timed out waiting for ${preloadHook.name} listener readiness`);
-        }
+  for (const preloadHook of preloadHooks) {
+    if (
+      !fs.existsSync(preloadHook.dir) ||
+      fs.existsSync(preloadHook.readyFile)
+    ) {
+      continue;
     }
+
+    const startedAt = Date.now();
+    const waitMs = Math.min(timeoutMs, Math.max(5000, preloadHook.timeoutMs));
+    while (Date.now() - startedAt < waitMs) {
+      if (fs.existsSync(preloadHook.readyFile)) {
+        break;
+      }
+      await sleep(100);
+    }
+
+    if (!fs.existsSync(preloadHook.readyFile)) {
+      throw new Error(
+        `Timed out waiting for ${preloadHook.name} listener readiness`
+      );
+    }
+  }
 }
 
 async function navigate(url) {
-    const hookTimeoutSeconds = getEnvInt('CHROME_TIMEOUT') || getEnvInt('TIMEOUT', 60);
-    const requestedPageLoadTimeoutSeconds = getEnvInt('CHROME_PAGELOAD_TIMEOUT') || hookTimeoutSeconds;
-    const timeoutGraceSeconds = Math.min(5, Math.max(1, Math.floor(hookTimeoutSeconds / 10)));
-    const hookBudget = Math.max(1000, (hookTimeoutSeconds - timeoutGraceSeconds) * 1000);
-    const requestedPageLoadTimeout = requestedPageLoadTimeoutSeconds * 1000;
-    const delayAfterLoad = getEnvFloat('CHROME_DELAY_AFTER_LOAD', 0) * 1000;
-    const waitUntil = getWaitCondition();
+  const hookTimeoutSeconds =
+    getEnvInt("CHROME_TIMEOUT") || getEnvInt("TIMEOUT", 60);
+  const requestedPageLoadTimeoutSeconds =
+    getEnvInt("CHROME_PAGELOAD_TIMEOUT") || hookTimeoutSeconds;
+  const timeoutGraceSeconds = Math.min(
+    5,
+    Math.max(1, Math.floor(hookTimeoutSeconds / 10))
+  );
+  const hookBudget = Math.max(
+    1000,
+    (hookTimeoutSeconds - timeoutGraceSeconds) * 1000
+  );
+  const requestedPageLoadTimeout = requestedPageLoadTimeoutSeconds * 1000;
+  const delayAfterLoad = getEnvFloat("CHROME_DELAY_AFTER_LOAD", 0) * 1000;
+  const waitUntil = getWaitCondition();
 
-    let browser = null;
-    const navStartTime = Date.now();
+  let browser = null;
+  const navStartTime = Date.now();
 
-    try {
-        const conn = await connectToPage({
-            chromeSessionDir: CHROME_SESSION_DIR,
-            timeoutMs: hookBudget,
-            requireTargetId: true,
-            puppeteer,
-        });
-        browser = conn.browser;
-        const page = conn.page;
+  try {
+    const conn = await connectToPage({
+      chromeSessionDir: CHROME_SESSION_DIR,
+      timeoutMs: hookBudget,
+      requireTargetId: true,
+      puppeteer,
+    });
+    browser = conn.browser;
+    const page = conn.page;
 
-        await waitForPreloadHooks(hookBudget);
+    await waitForPreloadHooks(hookBudget);
 
-        const remainingBudget = hookBudget - (Date.now() - navStartTime);
-        if (remainingBudget <= 0) {
-            throw new Error('Timed out before page navigation could start');
-        }
-        const timeout = Math.max(1000, Math.min(requestedPageLoadTimeout, remainingBudget));
-
-        // Navigate
-        console.log(`Navigating to ${url} (wait: ${waitUntil}, timeout: ${timeout}ms)`);
-        const response = await page.goto(url, { waitUntil, timeout });
-
-        // Optional delay
-        if (delayAfterLoad > 0) {
-            console.log(`Waiting ${delayAfterLoad}ms after load...`);
-            await sleep(delayAfterLoad);
-        }
-
-        const finalUrl = page.url();
-        const status = response ? response.status() : null;
-        const elapsed = Date.now() - navStartTime;
-
-        // Write navigation state as JSON
-        const navigationState = {
-            waitUntil,
-            elapsed,
-            url,
-            finalUrl,
-            status,
-            timestamp: new Date().toISOString()
-        };
-        writeFileAtomic(path.join(OUTPUT_DIR, 'navigation.json'), JSON.stringify(navigationState, null, 2));
-
-        browser.disconnect();
-
-        return { success: true, finalUrl, status, waitUntil, elapsed };
-
-    } catch (e) {
-        if (browser) browser.disconnect();
-        const elapsed = Date.now() - navStartTime;
-        return { success: false, error: `${e.name}: ${e.message}`, waitUntil, elapsed };
+    const remainingBudget = hookBudget - (Date.now() - navStartTime);
+    if (remainingBudget <= 0) {
+      throw new Error("Timed out before page navigation could start");
     }
+    const timeout = Math.max(
+      1000,
+      Math.min(requestedPageLoadTimeout, remainingBudget)
+    );
+
+    // Navigate
+    console.log(
+      `Navigating to ${url} (wait: ${waitUntil}, timeout: ${timeout}ms)`
+    );
+    const response = await page.goto(url, { waitUntil, timeout });
+
+    // Optional delay
+    if (delayAfterLoad > 0) {
+      console.log(`Waiting ${delayAfterLoad}ms after load...`);
+      await sleep(delayAfterLoad);
+    }
+
+    const finalUrl = page.url();
+    const status = response ? response.status() : null;
+    const elapsed = Date.now() - navStartTime;
+
+    // Write navigation state as JSON
+    const navigationState = {
+      waitUntil,
+      elapsed,
+      url,
+      finalUrl,
+      status,
+      timestamp: new Date().toISOString(),
+    };
+    writeFileAtomic(
+      path.join(OUTPUT_DIR, "navigation.json"),
+      JSON.stringify(navigationState, null, 2)
+    );
+
+    browser.disconnect();
+
+    return { success: true, finalUrl, status, waitUntil, elapsed };
+  } catch (e) {
+    if (browser) browser.disconnect();
+    const elapsed = Date.now() - navStartTime;
+    return {
+      success: false,
+      error: `${e.name}: ${e.message}`,
+      waitUntil,
+      elapsed,
+    };
+  }
 }
 
 async function main() {
-    const args = parseArgs();
-    const url = args.url;
+  const args = parseArgs();
+  const url = args.url;
 
-    if (!url) {
-        console.error('Usage: on_Snapshot__30_chrome_navigate.js --url=<url>');
-        process.exit(1);
-    }
+  if (!url) {
+    console.error("Usage: on_Snapshot__30_chrome_navigate.js --url=<url>");
+    process.exit(1);
+  }
 
-    const startTs = new Date();
-    let status = 'failed';
-    let output = null;
-    let error = '';
+  const startTs = new Date();
+  let status = "failed";
+  let output = null;
+  let error = "";
 
-    const result = await navigate(url);
+  const result = await navigate(url);
 
-    if (result.success) {
-        status = 'succeeded';
-        output = result.status ? `page loaded http=${result.status}` : 'page loaded';
-        console.log(`Page loaded: ${result.finalUrl} (HTTP ${result.status}) in ${result.elapsed}ms (waitUntil: ${result.waitUntil})`);
-    } else {
-        error = result.error;
-        // Save navigation state even on failure
-        const navigationState = {
-            waitUntil: result.waitUntil,
-            elapsed: result.elapsed,
-            url,
-            error: result.error,
-            timestamp: new Date().toISOString()
-        };
-        writeFileAtomic(path.join(OUTPUT_DIR, 'navigation.json'), JSON.stringify(navigationState, null, 2));
-    }
+  if (result.success) {
+    status = "succeeded";
+    output = result.status
+      ? `page loaded http=${result.status}`
+      : "page loaded";
+    console.log(
+      `Page loaded: ${result.finalUrl} (HTTP ${result.status}) in ${result.elapsed}ms (waitUntil: ${result.waitUntil})`
+    );
+  } else {
+    error = result.error;
+    // Save navigation state even on failure
+    const navigationState = {
+      waitUntil: result.waitUntil,
+      elapsed: result.elapsed,
+      url,
+      error: result.error,
+      timestamp: new Date().toISOString(),
+    };
+    writeFileAtomic(
+      path.join(OUTPUT_DIR, "navigation.json"),
+      JSON.stringify(navigationState, null, 2)
+    );
+  }
 
-    const endTs = new Date();
+  const endTs = new Date();
 
-    if (error) console.error(`ERROR: ${error}`);
+  if (error) console.error(`ERROR: ${error}`);
 
-    // Output clean JSONL (no RESULT_JSON= prefix)
-    emitArchiveResultRecord(status, output || error || '');
+  // Output clean JSONL (no RESULT_JSON= prefix)
+  emitArchiveResultRecord(status, output || error || "");
 
-    process.exit(status === 'succeeded' ? 0 : 1);
+  process.exit(status === "succeeded" ? 0 : 1);
 }
 
-main().catch(e => {
-    console.error(`Fatal error: ${e.message}`);
-    process.exit(1);
+main().catch((e) => {
+  console.error(`Fatal error: ${e.message}`);
+  process.exit(1);
 });

@@ -15,155 +15,158 @@
  *     SAVE_SEO: Enable SEO extraction (default: true)
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
 
 // Import generic helpers from base/utils.js
 const {
-    ensureNodeModuleResolution,
-    getEnvBool,
-    getEnvInt,
-    loadConfig,
-    parseArgs,
-    emitArchiveResultRecord,
-} = require('../base/utils.js');
+  ensureNodeModuleResolution,
+  getEnvBool,
+  getEnvInt,
+  loadConfig,
+  parseArgs,
+  emitArchiveResultRecord,
+} = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 
 // Import chrome-specific utilities from chrome_utils.js
-const { connectToPage, resolvePuppeteerModule } = require('../chrome/chrome_utils.js');
+const {
+  connectToPage,
+  resolvePuppeteerModule,
+} = require("../chrome/chrome_utils.js");
 const puppeteer = resolvePuppeteerModule();
 
 // Extractor metadata
-const PLUGIN_NAME = 'seo';
+const PLUGIN_NAME = "seo";
 const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
-const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || '.').trim());
+const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || ".").trim());
 const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
 if (!fs.existsSync(OUTPUT_DIR)) {
-    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 process.chdir(OUTPUT_DIR);
-const OUTPUT_FILE = 'seo.json';
+const OUTPUT_FILE = "seo.json";
 const OUTPUT_PATH_STR = `${PLUGIN_DIR}/${OUTPUT_FILE}`;
-const CHROME_SESSION_DIR = '../chrome';
+const CHROME_SESSION_DIR = "../chrome";
 
 // Extract SEO metadata
 async function extractSeo(url) {
-    // Output directory is current directory (hook already runs in output dir)
-    const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
-    const timeout = getEnvInt('SEO_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
-    let browser = null;
+  // Output directory is current directory (hook already runs in output dir)
+  const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
+  const timeout = getEnvInt("SEO_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000;
+  let browser = null;
 
-    try {
-        // Connect to existing Chrome session and get target page
-        const connection = await connectToPage({
-            chromeSessionDir: CHROME_SESSION_DIR,
-            timeoutMs: timeout,
-            waitForNavigationComplete: true,
-            postLoadDelayMs: 200,
-            puppeteer,
-        });
-        browser = connection.browser;
-        const page = connection.page;
+  try {
+    // Connect to existing Chrome session and get target page
+    const connection = await connectToPage({
+      chromeSessionDir: CHROME_SESSION_DIR,
+      timeoutMs: timeout,
+      waitForNavigationComplete: true,
+      postLoadDelayMs: 200,
+      puppeteer,
+    });
+    browser = connection.browser;
+    const page = connection.page;
 
-        // Extract all meta tags
-        const seoData = await page.evaluate(() => {
-            const metaTags = Array.from(document.querySelectorAll('meta'));
-            const seo = {
-                url: window.location.href,
-                title: document.title || '',
-            };
+    // Extract all meta tags
+    const seoData = await page.evaluate(() => {
+      const metaTags = Array.from(document.querySelectorAll("meta"));
+      const seo = {
+        url: window.location.href,
+        title: document.title || "",
+      };
 
-            // Process each meta tag
-            metaTags.forEach(tag => {
-                // Get the key (name or property attribute)
-                const key = tag.getAttribute('name') || tag.getAttribute('property') || '';
-                const content = tag.getAttribute('content') || '';
+      // Process each meta tag
+      metaTags.forEach((tag) => {
+        // Get the key (name or property attribute)
+        const key =
+          tag.getAttribute("name") || tag.getAttribute("property") || "";
+        const content = tag.getAttribute("content") || "";
 
-                if (key && content) {
-                    // Store by key
-                    seo[key] = content;
-                }
-            });
-
-            // Also get canonical URL if present
-            const canonical = document.querySelector('link[rel="canonical"]');
-            if (canonical) {
-                seo.canonical = canonical.getAttribute('href');
-            }
-
-            // Get language
-            const htmlLang = document.documentElement.lang;
-            if (htmlLang) {
-                seo.language = htmlLang;
-            }
-
-            return seo;
-        });
-
-        // Write output
-        fs.writeFileSync(outputPath, JSON.stringify(seoData, null, 2));
-
-        return { success: true, output: OUTPUT_PATH_STR, seoData };
-
-    } catch (e) {
-        return { success: false, error: `${e.name}: ${e.message}` };
-    } finally {
-        if (browser) {
-            browser.disconnect();
+        if (key && content) {
+          // Store by key
+          seo[key] = content;
         }
+      });
+
+      // Also get canonical URL if present
+      const canonical = document.querySelector('link[rel="canonical"]');
+      if (canonical) {
+        seo.canonical = canonical.getAttribute("href");
+      }
+
+      // Get language
+      const htmlLang = document.documentElement.lang;
+      if (htmlLang) {
+        seo.language = htmlLang;
+      }
+
+      return seo;
+    });
+
+    // Write output
+    fs.writeFileSync(outputPath, JSON.stringify(seoData, null, 2));
+
+    return { success: true, output: OUTPUT_PATH_STR, seoData };
+  } catch (e) {
+    return { success: false, error: `${e.name}: ${e.message}` };
+  } finally {
+    if (browser) {
+      browser.disconnect();
     }
+  }
 }
 
 async function main() {
-    const args = parseArgs();
-    const url = args.url;
+  const args = parseArgs();
+  const url = args.url;
 
-    if (!url) {
-        console.error('Usage: on_Snapshot__38_seo.js --url=<url>');
-        process.exit(1);
+  if (!url) {
+    console.error("Usage: on_Snapshot__38_seo.js --url=<url>");
+    process.exit(1);
+  }
+
+  const startTs = new Date();
+  let status = "failed";
+  let output = null;
+  let error = "";
+
+  try {
+    // Check if enabled
+    if (!getEnvBool("SEO_ENABLED", true)) {
+      console.log("Skipping SEO (SEO_ENABLED=False)");
+      emitArchiveResultRecord("skipped", "SEO_ENABLED=False");
+      process.exit(0);
     }
 
-    const startTs = new Date();
-    let status = 'failed';
-    let output = null;
-    let error = '';
+    console.log("extracting seo metadata...");
+    const result = await extractSeo(url);
 
-    try {
-        // Check if enabled
-        if (!getEnvBool('SEO_ENABLED', true)) {
-            console.log('Skipping SEO (SEO_ENABLED=False)');
-            emitArchiveResultRecord('skipped', 'SEO_ENABLED=False');
-            process.exit(0);
-        }
-
-        console.log('extracting seo metadata...');
-        const result = await extractSeo(url);
-
-        if (result.success) {
-            status = 'succeeded';
-            output = result.output;
-            const metaCount = Object.keys(result.seoData).length - 2;  // Subtract url and title
-            console.log(`SEO metadata extracted: ${metaCount} meta tags`);
-        } else {
-            error = result.error;
-            status = 'failed';
-        }
-    } catch (e) {
-        error = `${e.name}: ${e.message}`;
-        status = 'failed';
+    if (result.success) {
+      status = "succeeded";
+      output = result.output;
+      const metaCount = Object.keys(result.seoData).length - 2; // Subtract url and title
+      console.log(`SEO metadata extracted: ${metaCount} meta tags`);
+    } else {
+      error = result.error;
+      status = "failed";
     }
+  } catch (e) {
+    error = `${e.name}: ${e.message}`;
+    status = "failed";
+  }
 
-    const endTs = new Date();
+  const endTs = new Date();
 
-    if (error) console.error(`ERROR: ${error}`);
+  if (error) console.error(`ERROR: ${error}`);
 
-    emitArchiveResultRecord(status, output || error || '');
+  emitArchiveResultRecord(status, output || error || "");
 
-    process.exit(status === 'succeeded' ? 0 : 1);
+  process.exit(status === "succeeded" ? 0 : 1);
 }
 
-main().catch(e => {
-    console.error(`Fatal error: ${e.message}`);
-    process.exit(1);
+main().catch((e) => {
+  console.error(`Fatal error: ${e.message}`);
+  process.exit(1);
 });

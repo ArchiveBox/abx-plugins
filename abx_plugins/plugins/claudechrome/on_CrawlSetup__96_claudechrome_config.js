@@ -15,200 +15,258 @@
  * manually via the Chrome session before archiving.
  */
 
-const path = require('path');
-const fs = require('fs');
-const { PROCESS_EXIT_SKIPPED, ensureNodeModuleResolution, getEnv, getEnvBool, loadConfig } = require('../base/utils.js');
+const path = require("path");
+const fs = require("fs");
+const {
+  PROCESS_EXIT_SKIPPED,
+  ensureNodeModuleResolution,
+  getEnv,
+  getEnvBool,
+  loadConfig,
+} = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 
 const {
-    waitForChromeSessionState,
-    findExtensionMetadataByName,
-    connectToBrowserEndpoint,
-    resolvePuppeteerModule,
-} = require('../chrome/chrome_utils.js');
+  waitForChromeSessionState,
+  findExtensionMetadataByName,
+  connectToBrowserEndpoint,
+  resolvePuppeteerModule,
+} = require("../chrome/chrome_utils.js");
 
 // Check if enabled
-if (!getEnvBool('CLAUDECHROME_ENABLED', false)) {
-    console.log('CLAUDECHROME_ENABLED=False');
-    process.exit(PROCESS_EXIT_SKIPPED);
+if (!getEnvBool("CLAUDECHROME_ENABLED", false)) {
+  console.log("CLAUDECHROME_ENABLED=False");
+  process.exit(PROCESS_EXIT_SKIPPED);
 }
 
 const puppeteer = resolvePuppeteerModule();
 
 const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
-const CRAWL_DIR = path.resolve((hookConfig.CRAWL_DIR || '.').trim());
+const CRAWL_DIR = path.resolve((hookConfig.CRAWL_DIR || ".").trim());
 const OUTPUT_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
 if (!fs.existsSync(OUTPUT_DIR)) {
-    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 process.chdir(OUTPUT_DIR);
 
 function getCrawlChromeSessionDir() {
-    return path.join(path.resolve(hookConfig.CRAWL_DIR || '.'), 'chrome');
+  return path.join(path.resolve(hookConfig.CRAWL_DIR || "."), "chrome");
 }
 
 const CHROME_SESSION_DIR = getCrawlChromeSessionDir();
-const CONFIG_MARKER = path.join(CHROME_SESSION_DIR, '.claudechrome_configured');
+const CONFIG_MARKER = path.join(CHROME_SESSION_DIR, ".claudechrome_configured");
 
 async function configureClaudeChrome() {
-    // Check if already configured in this session
-    if (fs.existsSync(CONFIG_MARKER)) {
-        console.error('[*] Claude for Chrome already configured in this session');
-        return { success: true, skipped: true };
-    }
+  // Check if already configured in this session
+  if (fs.existsSync(CONFIG_MARKER)) {
+    console.error("[*] Claude for Chrome already configured in this session");
+    return { success: true, skipped: true };
+  }
 
-    const apiKey = getEnv('ANTHROPIC_API_KEY');
-    if (!apiKey) {
-        console.warn('[!] ANTHROPIC_API_KEY not set, skipping Claude for Chrome config');
-        return { success: false, error: 'ANTHROPIC_API_KEY not set' };
-    }
+  const apiKey = getEnv("ANTHROPIC_API_KEY");
+  if (!apiKey) {
+    console.warn(
+      "[!] ANTHROPIC_API_KEY not set, skipping Claude for Chrome config"
+    );
+    return { success: false, error: "ANTHROPIC_API_KEY not set" };
+  }
 
-    console.error('[*] Configuring Claude for Chrome extension...');
-    console.error(`[*]   API Key: ${apiKey.slice(0, 8)}...${apiKey.slice(-4)}`);
+  console.error("[*] Configuring Claude for Chrome extension...");
+  console.error(`[*]   API Key: ${apiKey.slice(0, 8)}...${apiKey.slice(-4)}`);
+
+  try {
+    const chromeSession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
+      timeoutMs: 10000,
+      requireExtensionsLoaded: true,
+    });
+    if (!chromeSession?.cdpUrl) {
+      throw new Error("No Chrome session found (chrome plugin must run first)");
+    }
+    const { cdpUrl } = chromeSession;
+    const browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, {
+      defaultViewport: null,
+    });
 
     try {
-        const chromeSession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
-            timeoutMs: 10000,
-            requireExtensionsLoaded: true,
+      // Wake up the extension by visiting a page
+      console.error("[*] Waking up extension...");
+      const triggerPage = await browser.newPage();
+      try {
+        await triggerPage.goto("https://www.google.com", {
+          waitUntil: "domcontentloaded",
+          timeout: 10000,
         });
-        if (!chromeSession?.cdpUrl) {
-            throw new Error('No Chrome session found (chrome plugin must run first)');
-        }
-        const { cdpUrl } = chromeSession;
-        const browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, { defaultViewport: null });
+        await new Promise((r) => setTimeout(r, 3000));
+      } catch (e) {
+        console.warn(`[!] Trigger page: ${e.message}`);
+      }
+      try {
+        await triggerPage.close();
+      } catch (e) {}
 
+      // Read extension metadata
+      const extensions = chromeSession.extensions || [];
+      const claudeExt = findExtensionMetadataByName(extensions, "claudechrome");
+      if (!claudeExt || !claudeExt.id) {
+        console.error(
+          "[*] Claude for Chrome extension not found in extensions.json"
+        );
+        return { success: true, skipped: true };
+      }
+
+      const extensionId = claudeExt.id;
+      console.error(`[*] Claude for Chrome Extension ID: ${extensionId}`);
+
+      // Try to find an extension page to inject config
+      // The extension may have a popup, options page, or side panel
+      const pages = await browser.pages();
+      let extPage = pages.find((p) =>
+        p.url().startsWith(`chrome-extension://${extensionId}`)
+      );
+
+      if (!extPage) {
+        // Try opening the extension's popup or background page
+        extPage = await browser.newPage();
         try {
-            // Wake up the extension by visiting a page
-            console.error('[*] Waking up extension...');
-            const triggerPage = await browser.newPage();
+          // Try common extension pages
+          for (const pagePath of [
+            "popup.html",
+            "index.html",
+            "options.html",
+            "sidepanel.html",
+          ]) {
             try {
-                await triggerPage.goto('https://www.google.com', { waitUntil: 'domcontentloaded', timeout: 10000 });
-                await new Promise(r => setTimeout(r, 3000));
-            } catch (e) {
-                console.warn(`[!] Trigger page: ${e.message}`);
-            }
-            try { await triggerPage.close(); } catch (e) {}
-
-            // Read extension metadata
-            const extensions = chromeSession.extensions || [];
-            const claudeExt = findExtensionMetadataByName(extensions, 'claudechrome');
-            if (!claudeExt || !claudeExt.id) {
-                console.error('[*] Claude for Chrome extension not found in extensions.json');
-                return { success: true, skipped: true };
-            }
-
-            const extensionId = claudeExt.id;
-            console.error(`[*] Claude for Chrome Extension ID: ${extensionId}`);
-
-            // Try to find an extension page to inject config
-            // The extension may have a popup, options page, or side panel
-            const pages = await browser.pages();
-            let extPage = pages.find(p => p.url().startsWith(`chrome-extension://${extensionId}`));
-
-            if (!extPage) {
-                // Try opening the extension's popup or background page
-                extPage = await browser.newPage();
-                try {
-                    // Try common extension pages
-                    for (const pagePath of ['popup.html', 'index.html', 'options.html', 'sidepanel.html']) {
-                        try {
-                            await extPage.goto(`chrome-extension://${extensionId}/${pagePath}`, {
-                                waitUntil: 'domcontentloaded',
-                                timeout: 5000,
-                            });
-                            if (extPage.url().startsWith(`chrome-extension://${extensionId}`)) {
-                                break;
-                            }
-                        } catch (e) {
-                            continue;
-                        }
-                    }
-                } catch (e) {
-                    console.error(`[*] Could not open extension page: ${e.message}`);
+              await extPage.goto(
+                `chrome-extension://${extensionId}/${pagePath}`,
+                {
+                  waitUntil: "domcontentloaded",
+                  timeout: 5000,
                 }
+              );
+              if (
+                extPage.url().startsWith(`chrome-extension://${extensionId}`)
+              ) {
+                break;
+              }
+            } catch (e) {
+              continue;
             }
-
-            if (!extPage || !extPage.url().startsWith(`chrome-extension://${extensionId}`)) {
-                console.warn('[!] Could not access extension context for config injection');
-                // Still mark as configured so we don't retry
-                fs.writeFileSync(CONFIG_MARKER, JSON.stringify({
-                    timestamp: new Date().toISOString(),
-                    extensionId,
-                    configured: false,
-                    note: 'Could not access extension context - user may need to log in manually',
-                }, null, 2));
-                return { success: true, skipped: true };
-            }
-
-            // Inject API key into chrome.storage.local
-            // Claude for Chrome internally uses the Anthropic SDK, so we try to
-            // set the API key in the storage format it expects
-            const result = await extPage.evaluate((key) => {
-                return new Promise((resolve) => {
-                    if (typeof chrome === 'undefined' || !chrome.storage) {
-                        resolve({ success: false, error: 'chrome.storage not available' });
-                        return;
-                    }
-
-                    // Try setting the API key in various storage formats the extension might use
-                    const configData = {
-                        anthropicApiKey: key,
-                        apiKey: key,
-                        api_key: key,
-                    };
-
-                    chrome.storage.local.set(configData, () => {
-                        if (chrome.runtime.lastError) {
-                            resolve({ success: false, error: chrome.runtime.lastError.message });
-                        } else {
-                            resolve({ success: true });
-                        }
-                    });
-                });
-            }, apiKey);
-
-            try { await extPage.close(); } catch (e) {}
-
-            if (result.success) {
-                console.error('[+] Claude for Chrome API key injected into extension storage');
-            } else {
-                console.warn(`[!] Storage injection failed: ${result.error}`);
-                console.warn('[!] User may need to log in to claude.com manually in the Chrome session');
-            }
-
-            // Write marker file
-            fs.writeFileSync(CONFIG_MARKER, JSON.stringify({
-                timestamp: new Date().toISOString(),
-                extensionId,
-                configured: result.success,
-            }, null, 2));
-
-            return { success: true };
-        } finally {
-            browser.disconnect();
+          }
+        } catch (e) {
+          console.error(`[*] Could not open extension page: ${e.message}`);
         }
-    } catch (e) {
-        return { success: false, error: `${e.name}: ${e.message}` };
+      }
+
+      if (
+        !extPage ||
+        !extPage.url().startsWith(`chrome-extension://${extensionId}`)
+      ) {
+        console.warn(
+          "[!] Could not access extension context for config injection"
+        );
+        // Still mark as configured so we don't retry
+        fs.writeFileSync(
+          CONFIG_MARKER,
+          JSON.stringify(
+            {
+              timestamp: new Date().toISOString(),
+              extensionId,
+              configured: false,
+              note:
+                "Could not access extension context - user may need to log in manually",
+            },
+            null,
+            2
+          )
+        );
+        return { success: true, skipped: true };
+      }
+
+      // Inject API key into chrome.storage.local
+      // Claude for Chrome internally uses the Anthropic SDK, so we try to
+      // set the API key in the storage format it expects
+      const result = await extPage.evaluate((key) => {
+        return new Promise((resolve) => {
+          if (typeof chrome === "undefined" || !chrome.storage) {
+            resolve({ success: false, error: "chrome.storage not available" });
+            return;
+          }
+
+          // Try setting the API key in various storage formats the extension might use
+          const configData = {
+            anthropicApiKey: key,
+            apiKey: key,
+            api_key: key,
+          };
+
+          chrome.storage.local.set(configData, () => {
+            if (chrome.runtime.lastError) {
+              resolve({
+                success: false,
+                error: chrome.runtime.lastError.message,
+              });
+            } else {
+              resolve({ success: true });
+            }
+          });
+        });
+      }, apiKey);
+
+      try {
+        await extPage.close();
+      } catch (e) {}
+
+      if (result.success) {
+        console.error(
+          "[+] Claude for Chrome API key injected into extension storage"
+        );
+      } else {
+        console.warn(`[!] Storage injection failed: ${result.error}`);
+        console.warn(
+          "[!] User may need to log in to claude.com manually in the Chrome session"
+        );
+      }
+
+      // Write marker file
+      fs.writeFileSync(
+        CONFIG_MARKER,
+        JSON.stringify(
+          {
+            timestamp: new Date().toISOString(),
+            extensionId,
+            configured: result.success,
+          },
+          null,
+          2
+        )
+      );
+
+      return { success: true };
+    } finally {
+      browser.disconnect();
     }
+  } catch (e) {
+    return { success: false, error: `${e.name}: ${e.message}` };
+  }
 }
 
 async function main() {
-    const result = await configureClaudeChrome();
+  const result = await configureClaudeChrome();
 
-    if (result.skipped) {
-        process.exit(0);
-    } else if (result.success) {
-        console.error('[+] Claude for Chrome configuration complete');
-        process.exit(0);
-    } else {
-        console.error(`ERROR: ${result.error}`);
-        // Non-fatal - extension may still work with manual login
-        process.exit(0);
-    }
+  if (result.skipped) {
+    process.exit(0);
+  } else if (result.success) {
+    console.error("[+] Claude for Chrome configuration complete");
+    process.exit(0);
+  } else {
+    console.error(`ERROR: ${result.error}`);
+    // Non-fatal - extension may still work with manual login
+    process.exit(0);
+  }
 }
 
-main().catch(e => {
-    console.error(`Fatal error: ${e.message}`);
-    process.exit(1);
+main().catch((e) => {
+  console.error(`Fatal error: ${e.message}`);
+  process.exit(1);
 });

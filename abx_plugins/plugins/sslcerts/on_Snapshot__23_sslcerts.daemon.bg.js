@@ -84,14 +84,20 @@ function sha256Hex(buffer) {
 }
 
 function derToPem(rawBuffer) {
-  const body = rawBuffer.toString("base64").match(/.{1,64}/g)?.join("\n") || "";
+  const body =
+    rawBuffer
+      .toString("base64")
+      .match(/.{1,64}/g)
+      ?.join("\n") || "";
   return `-----BEGIN CERTIFICATE-----\n${body}\n-----END CERTIFICATE-----\n`;
 }
 
 function formatDn(value) {
   if (!value || typeof value !== "object") return "";
   return Object.entries(value)
-    .filter(([, part]) => part !== undefined && part !== null && String(part).trim())
+    .filter(
+      ([, part]) => part !== undefined && part !== null && String(part).trim()
+    )
     .map(([key, part]) => `${key}=${String(part).trim()}`)
     .join(", ");
 }
@@ -103,7 +109,9 @@ function tlsDateToEpochSeconds(value) {
 
 function buildCtSearchUrl(fingerprint256) {
   const normalized = normalizeFingerprint(fingerprint256);
-  return normalized ? `https://crt.sh/?q=${encodeURIComponent(normalized)}` : null;
+  return normalized
+    ? `https://crt.sh/?q=${encodeURIComponent(normalized)}`
+    : null;
 }
 
 function getPositionLabel(index, total) {
@@ -147,7 +155,8 @@ async function fetchCertificateChain(originUrl, timeoutMs) {
 
         while (current && current.raw && current.raw.length > 0) {
           const fingerprint256 =
-            normalizeFingerprint(current.fingerprint256) || sha256Hex(current.raw);
+            normalizeFingerprint(current.fingerprint256) ||
+            sha256Hex(current.raw);
           if (seenFingerprints.has(fingerprint256)) break;
           seenFingerprints.add(fingerprint256);
 
@@ -168,7 +177,10 @@ async function fetchCertificateChain(originUrl, timeoutMs) {
             ctSearchUrl: buildCtSearchUrl(fingerprint256),
           });
 
-          if (!current.issuerCertificate || current.issuerCertificate === current) {
+          if (
+            !current.issuerCertificate ||
+            current.issuerCertificate === current
+          ) {
             break;
           }
           current = current.issuerCertificate;
@@ -186,7 +198,9 @@ async function fetchCertificateChain(originUrl, timeoutMs) {
 
     socket.once("timeout", () => {
       cleanup();
-      socket.destroy(new Error(`Timed out fetching certificate chain for ${origin.origin}`));
+      socket.destroy(
+        new Error(`Timed out fetching certificate chain for ${origin.origin}`)
+      );
     });
 
     socket.once("error", (error) => {
@@ -263,7 +277,7 @@ async function setupListener(url) {
           const leafPemPath = writePemFile("leaf.pem", derToPem(chain[0].raw));
           const rootPemPath = writePemFile(
             "root.pem",
-            derToPem(chain[chain.length - 1].raw),
+            derToPem(chain[chain.length - 1].raw)
           );
           const chainPemPath = writePemFile("chain.pem", chainPem);
 
@@ -290,8 +304,8 @@ async function setupListener(url) {
               index === 0
                 ? leafPemPath
                 : index === chain.length - 1
-                  ? rootPemPath
-                  : null,
+                ? rootPemPath
+                : null,
             ctSearchUrl: cert.ctSearchUrl,
           }));
         }
@@ -348,17 +362,22 @@ async function setupListener(url) {
         const certificateId =
           readSecurityDetail(securityDetails, "certificateId") || null;
         const signedCertificateTimestampList =
-          readSecurityDetail(securityDetails, "signedCertificateTimestampList") ||
-          [];
+          readSecurityDetail(
+            securityDetails,
+            "signedCertificateTimestampList"
+          ) || [];
         const certificateTransparencyCompliance =
           readSecurityDetail(
             securityDetails,
-            "certificateTransparencyCompliance",
+            "certificateTransparencyCompliance"
           ) || "";
         const serverSignatureAlgorithm =
-          readSecurityDetail(securityDetails, "serverSignatureAlgorithm") || null;
-        const encryptedClientHello =
-          readSecurityDetail(securityDetails, "encryptedClientHello");
+          readSecurityDetail(securityDetails, "serverSignatureAlgorithm") ||
+          null;
+        const encryptedClientHello = readSecurityDetail(
+          securityDetails,
+          "encryptedClientHello"
+        );
         const sslInfo = {};
         sslInfo.protocol = protocol;
         if (keyExchange) sslInfo.keyExchange = keyExchange;
@@ -380,8 +399,7 @@ async function setupListener(url) {
           sslInfo.signedCertificateTimestampList = signedCertificateTimestampList;
         }
         if (certificateTransparencyCompliance) {
-          sslInfo.certificateTransparencyCompliance =
-            certificateTransparencyCompliance;
+          sslInfo.certificateTransparencyCompliance = certificateTransparencyCompliance;
         }
         if (serverSignatureAlgorithm !== null) {
           sslInfo.serverSignatureAlgorithm = serverSignatureAlgorithm;
@@ -402,7 +420,7 @@ async function setupListener(url) {
                 securityState: "insecure",
                 schemeIsCryptographic: false,
               },
-          responseUrl,
+          responseUrl
         );
       }
     } catch (e) {
@@ -460,7 +478,9 @@ async function setupListener(url) {
         }
       });
     } catch (error) {
-      console.error(`WARN: Failed to enable CDP Security domain: ${error.message}`);
+      console.error(
+        `WARN: Failed to enable CDP Security domain: ${error.message}`
+      );
     }
   }
 
@@ -471,7 +491,7 @@ async function setupListener(url) {
 
 function emitResult(
   status = "succeeded",
-  outputStr = truncateIssuerName(sslIssuer),
+  outputStr = truncateIssuerName(sslIssuer)
 ) {
   if (shuttingDown) return Promise.resolve();
   shuttingDown = true;
@@ -503,9 +523,7 @@ async function main() {
   const url = args.url;
 
   if (!url) {
-    console.error(
-      "Usage: on_Snapshot__23_sslcerts.daemon.bg.js --url=<url>",
-    );
+    console.error("Usage: on_Snapshot__23_sslcerts.daemon.bg.js --url=<url>");
     process.exit(1);
   }
 

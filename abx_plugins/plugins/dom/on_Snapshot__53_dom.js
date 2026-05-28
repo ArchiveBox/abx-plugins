@@ -11,125 +11,133 @@
  *     DOM_ENABLED: Enable DOM extraction (default: true)
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
 const {
-    ensureNodeModuleResolution,
-    getEnvBool,
-    getEnvInt,
-    loadConfig,
-    parseArgs,
-    emitArchiveResultRecord,
-    writeFileAtomic,
-    hasStaticFileOutput,
-} = require('../base/utils.js');
+  ensureNodeModuleResolution,
+  getEnvBool,
+  getEnvInt,
+  loadConfig,
+  parseArgs,
+  emitArchiveResultRecord,
+  writeFileAtomic,
+  hasStaticFileOutput,
+} = require("../base/utils.js");
 ensureNodeModuleResolution(module);
-const { connectToPage, resolvePuppeteerModule } = require('../chrome/chrome_utils.js');
+const {
+  connectToPage,
+  resolvePuppeteerModule,
+} = require("../chrome/chrome_utils.js");
 const hookConfig = loadConfig();
 
 // Check if DOM is enabled BEFORE requiring puppeteer
-if (!getEnvBool('DOM_ENABLED', true)) {
-    console.error('Skipping DOM (DOM_ENABLED=False)');
-    emitArchiveResultRecord('skipped', 'DOM_ENABLED=False');
-    process.exit(0);
+if (!getEnvBool("DOM_ENABLED", true)) {
+  console.error("Skipping DOM (DOM_ENABLED=False)");
+  emitArchiveResultRecord("skipped", "DOM_ENABLED=False");
+  process.exit(0);
 }
 
 // Now safe to require puppeteer
 const puppeteer = resolvePuppeteerModule();
 
 // Extractor metadata
-const PLUGIN_NAME = 'dom';
+const PLUGIN_NAME = "dom";
 const PLUGIN_DIR = path.basename(__dirname);
-const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || '.').trim());
+const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || ".").trim());
 const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
 if (!fs.existsSync(OUTPUT_DIR)) {
-    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 process.chdir(OUTPUT_DIR);
-const OUTPUT_FILE = 'output.html';
-const CHROME_SESSION_DIR = '../chrome';
+const OUTPUT_FILE = "output.html";
+const CHROME_SESSION_DIR = "../chrome";
 
 async function dumpDom(url, timeoutMs) {
-    // Output directory is current directory (hook already runs in output dir)
-    const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
+  // Output directory is current directory (hook already runs in output dir)
+  const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
 
-    let browser = null;
+  let browser = null;
 
-    try {
-        const connection = await connectToPage({
-            chromeSessionDir: CHROME_SESSION_DIR,
-            timeoutMs,
-            waitForNavigationComplete: true,
-            postLoadDelayMs: 200,
-            puppeteer,
-        });
-        browser = connection.browser;
-        const page = connection.page;
+  try {
+    const connection = await connectToPage({
+      chromeSessionDir: CHROME_SESSION_DIR,
+      timeoutMs,
+      waitForNavigationComplete: true,
+      postLoadDelayMs: 200,
+      puppeteer,
+    });
+    browser = connection.browser;
+    const page = connection.page;
 
-        // Get the full DOM content
-        const domContent = await page.content();
+    // Get the full DOM content
+    const domContent = await page.content();
 
-        if (domContent && domContent.length > 100) {
-            writeFileAtomic(outputPath, domContent);
-            return { success: true, output: OUTPUT_FILE };
-        } else {
-            return { success: true, noresults: true, output: 'DOM content too short or empty' };
-        }
-
-    } catch (e) {
-        return { success: false, error: `${e.name}: ${e.message}` };
-    } finally {
-        if (browser) {
-            browser.disconnect();
-        }
+    if (domContent && domContent.length > 100) {
+      writeFileAtomic(outputPath, domContent);
+      return { success: true, output: OUTPUT_FILE };
+    } else {
+      return {
+        success: true,
+        noresults: true,
+        output: "DOM content too short or empty",
+      };
     }
+  } catch (e) {
+    return { success: false, error: `${e.name}: ${e.message}` };
+  } finally {
+    if (browser) {
+      browser.disconnect();
+    }
+  }
 }
 
 async function main() {
-    const args = parseArgs();
-    const url = args.url;
+  const args = parseArgs();
+  const url = args.url;
 
-    if (!url) {
-        console.error('Usage: on_Snapshot__53_dom.js --url=<url>');
-        emitArchiveResultRecord('failed', 'missing required args');
-        process.exit(1);
+  if (!url) {
+    console.error("Usage: on_Snapshot__53_dom.js --url=<url>");
+    emitArchiveResultRecord("failed", "missing required args");
+    process.exit(1);
+  }
+
+  try {
+    // Check if staticfile extractor already handled this (permanent skip)
+    if (hasStaticFileOutput()) {
+      console.error(
+        `Skipping DOM - staticfile extractor already downloaded this`
+      );
+      emitArchiveResultRecord("noresults", "staticfile already handled");
+      process.exit(0);
     }
 
-    try {
-        // Check if staticfile extractor already handled this (permanent skip)
-        if (hasStaticFileOutput()) {
-            console.error(`Skipping DOM - staticfile extractor already downloaded this`);
-            emitArchiveResultRecord('noresults', 'staticfile already handled');
-            process.exit(0);
-        }
+    const timeoutMs = getEnvInt("DOM_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000;
 
-        const timeoutMs = getEnvInt('DOM_TIMEOUT', getEnvInt('TIMEOUT', 30)) * 1000;
+    const result = await dumpDom(url, timeoutMs);
 
-            const result = await dumpDom(url, timeoutMs);
-
-        if (result.success) {
-            if (result.noresults) {
-                emitArchiveResultRecord('noresults', result.output);
-                process.exit(0);
-            }
-            const size = fs.statSync(path.join(OUTPUT_DIR, result.output)).size;
-            console.error(`DOM saved (${size} bytes)`);
-            emitArchiveResultRecord('succeeded', `${PLUGIN_DIR}/${result.output}`);
-            process.exit(0);
-        } else {
-            console.error(`ERROR: ${result.error}`);
-            emitArchiveResultRecord('failed', result.error);
-            process.exit(1);
-        }
-    } catch (e) {
-        console.error(`ERROR: ${e.name}: ${e.message}`);
-        emitArchiveResultRecord('failed', `${e.name}: ${e.message}`);
-        process.exit(1);
+    if (result.success) {
+      if (result.noresults) {
+        emitArchiveResultRecord("noresults", result.output);
+        process.exit(0);
+      }
+      const size = fs.statSync(path.join(OUTPUT_DIR, result.output)).size;
+      console.error(`DOM saved (${size} bytes)`);
+      emitArchiveResultRecord("succeeded", `${PLUGIN_DIR}/${result.output}`);
+      process.exit(0);
+    } else {
+      console.error(`ERROR: ${result.error}`);
+      emitArchiveResultRecord("failed", result.error);
+      process.exit(1);
     }
+  } catch (e) {
+    console.error(`ERROR: ${e.name}: ${e.message}`);
+    emitArchiveResultRecord("failed", `${e.name}: ${e.message}`);
+    process.exit(1);
+  }
 }
 
-main().catch(e => {
-    console.error(`Fatal error: ${e.message}`);
-    emitArchiveResultRecord('failed', `${e.name}: ${e.message}`);
-    process.exit(1);
+main().catch((e) => {
+  console.error(`Fatal error: ${e.message}`);
+  emitArchiveResultRecord("failed", `${e.name}: ${e.message}`);
+  process.exit(1);
 });
