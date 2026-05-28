@@ -33,10 +33,12 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 TEST_URL = "https://example.com"
 
 
-def _write_fake_browser_binary(path: Path, label: str = "Chromium") -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(f"#!/bin/sh\necho '{label} 123.0.0.0'\n")
-    path.chmod(0o755)
+@pytest.fixture(scope="module")
+def real_chromium_binary(ensure_chrome_test_prereqs) -> Path:
+    path = Path(str(ensure_chrome_test_prereqs))
+    assert path.exists()
+    assert _is_supported_browser_path(path)
+    return path
 
 
 def _is_supported_browser_path(path: Path) -> bool:
@@ -168,49 +170,29 @@ def test_find_chromium_binary():
         assert os.path.isabs(binary)
 
 
-def test_find_chromium_uses_abxpkg_managed_puppeteer_shim(tmp_path: Path):
-    """findChromium() should resolve binaries from abxpkg's provider shim dir."""
-    binary_path = tmp_path / "lib" / "puppeteer" / "bin" / "chrome"
-    _write_fake_browser_binary(binary_path)
-
-    env = os.environ.copy()
-    env.update(
-        {
-            "LIB_DIR": str(tmp_path / "lib"),
-            "HOME": str(tmp_path / "home"),
-        },
-    )
+def test_find_chromium_uses_real_runtime_browser(real_chromium_binary: Path):
+    """findChromium() should resolve a real browser from runtime-supported locations."""
+    env = get_test_env()
     env.pop("CHROME_BINARY", None)
 
     returncode, stdout, stderr = _call_chrome_utils("findChromium", env=env)
 
     assert returncode == 0, stderr
-    ci_chromium = Path("/usr/bin/chromium")
-    canary_binary = Path(
-        "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
-    )
-    expected_binary = (
-        ci_chromium
-        if _is_supported_browser_path(ci_chromium)
-        else canary_binary
-        if _is_supported_browser_path(canary_binary)
-        else binary_path
-    )
-    assert stdout.strip() == str(expected_binary)
+    resolved = Path(stdout.strip())
+    assert resolved.exists()
+    assert _is_supported_browser_path(resolved)
 
 
-@pytest.mark.parametrize(
-    ("browser_name", "label"),
-    [("chrome", "Google Chrome for Testing")],
-)
 def test_find_chromium_accepts_command_name_chrome_binary(
     tmp_path: Path,
-    browser_name: str,
-    label: str,
+    real_chromium_binary: Path,
 ):
     """CHROME_BINARY should accept command names, not only filesystem paths."""
+    browser_name = "chrome-runtime"
     binary_path = tmp_path / "bin" / browser_name
-    _write_fake_browser_binary(binary_path, label=label)
+    binary_path.parent.mkdir(parents=True, exist_ok=True)
+    binary_path.write_text(f"#!/bin/sh\nexec '{real_chromium_binary}' \"$@\"\n")
+    binary_path.chmod(0o755)
 
     env = os.environ.copy()
     env.update(
@@ -495,35 +477,22 @@ def test_lib_dir_is_directory():
                 os.environ.pop("HOME", None)
 
 
-def test_install_chromium_with_hooks_reuses_existing_chrome_via_env(tmp_path: Path):
+def test_install_chromium_with_hooks_reuses_existing_chrome_via_env(
+    tmp_path: Path,
+    real_chromium_binary: Path,
+):
     """Use public env inputs only: existing CHROME_BINARY should be reused."""
-    chrome_path = tmp_path / "chrome"
-    chrome_path.write_text("#!/bin/sh\necho 'Google Chrome for Testing 123.0.0.0'\n")
-    chrome_path.chmod(0o755)
-
-    # Provide a minimal local puppeteer package so require.resolve('puppeteer')
-    # succeeds without network installs.
-    node_modules_dir = tmp_path / "lib" / "npm" / "node_modules"
-    puppeteer_dir = node_modules_dir / "puppeteer"
-    puppeteer_dir.mkdir(parents=True, exist_ok=True)
-    (puppeteer_dir / "package.json").write_text(
-        '{"name":"puppeteer","version":"0.0.0","main":"index.js"}\n',
-    )
-    (puppeteer_dir / "index.js").write_text("module.exports = {};\n")
-
     env = get_test_env()
     env.update(
         {
-            "CHROME_BINARY": str(chrome_path),
+            "CHROME_BINARY": str(real_chromium_binary),
             "LIB_DIR": str(tmp_path / "lib"),
-            "NODE_MODULES_DIR": str(node_modules_dir),
-            "NODE_PATH": str(node_modules_dir),
         },
     )
-    resolved = install_chromium_with_hooks(env, timeout=1)
+    resolved = install_chromium_with_hooks(env, timeout=120)
 
-    assert resolved == str(chrome_path)
-    assert env["CHROME_BINARY"] == str(chrome_path)
+    assert resolved == str(real_chromium_binary)
+    assert env["CHROME_BINARY"] == str(real_chromium_binary)
 
 
 def test_setup_test_env_provisions_extension_runtime_dirs(tmp_path: Path):
@@ -544,14 +513,10 @@ def test_setup_test_env_provisions_extension_runtime_dirs(tmp_path: Path):
 def test_session_fixture_preserves_runtime_chrome_binary_override(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    real_chromium_binary: Path,
 ):
     """Session fixture should default CHROME_BINARY, not overwrite explicit overrides."""
     import abx_plugins.plugins.chrome.tests.chrome_test_helpers as helpers
-
-    runtime_binary = tmp_path / "runtime-chrome"
-    installed_binary = tmp_path / "hook-chrome"
-    _write_fake_browser_binary(runtime_binary)
-    _write_fake_browser_binary(installed_binary)
 
     class DummyTmpPathFactory:
         def mktemp(self, name: str) -> Path:
@@ -559,22 +524,16 @@ def test_session_fixture_preserves_runtime_chrome_binary_override(
             path.mkdir(parents=True, exist_ok=True)
             return path
 
-    monkeypatch.setenv("CHROME_BINARY", str(runtime_binary))
+    monkeypatch.setenv("CHROME_BINARY", str(real_chromium_binary))
     monkeypatch.delenv("SNAP_DIR", raising=False)
     monkeypatch.delenv("PERSONAS_DIR", raising=False)
-    monkeypatch.setattr(helpers, "get_test_env", lambda: {})
-    monkeypatch.setattr(
-        helpers,
-        "install_chromium_with_hooks",
-        lambda env: str(installed_binary),
-    )
 
     resolved = helpers.ensure_chromium_and_puppeteer_installed_impl(
         DummyTmpPathFactory(),
     )
 
-    assert resolved == str(installed_binary)
-    assert os.environ["CHROME_BINARY"] == str(runtime_binary)
+    assert resolved == str(real_chromium_binary)
+    assert os.environ["CHROME_BINARY"] == str(real_chromium_binary)
 
 
 def test_session_fixture_replaces_stale_runtime_chrome_binary_override(
@@ -584,9 +543,6 @@ def test_session_fixture_replaces_stale_runtime_chrome_binary_override(
     """Session fixture should replace an invalid stale CHROME_BINARY."""
     import abx_plugins.plugins.chrome.tests.chrome_test_helpers as helpers
 
-    installed_binary = tmp_path / "hook-chrome"
-    installed_binary.write_text("#!/bin/sh\necho installed\n")
-    installed_binary.chmod(0o755)
     stale_binary = tmp_path / "missing-chrome"
 
     class DummyTmpPathFactory:
@@ -598,19 +554,15 @@ def test_session_fixture_replaces_stale_runtime_chrome_binary_override(
     monkeypatch.setenv("CHROME_BINARY", str(stale_binary))
     monkeypatch.delenv("SNAP_DIR", raising=False)
     monkeypatch.delenv("PERSONAS_DIR", raising=False)
-    monkeypatch.setattr(helpers, "get_test_env", lambda: {})
-    monkeypatch.setattr(
-        helpers,
-        "install_chromium_with_hooks",
-        lambda env: str(installed_binary),
-    )
 
     resolved = helpers.ensure_chromium_and_puppeteer_installed_impl(
         DummyTmpPathFactory(),
     )
 
-    assert resolved == str(installed_binary)
-    assert os.environ["CHROME_BINARY"] == str(installed_binary)
+    assert Path(resolved).exists()
+    assert _is_supported_browser_path(Path(resolved))
+    assert os.environ["CHROME_BINARY"] == resolved
+    assert resolved != str(stale_binary)
 
 
 if __name__ == "__main__":

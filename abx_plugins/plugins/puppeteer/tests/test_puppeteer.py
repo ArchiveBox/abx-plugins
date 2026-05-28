@@ -17,6 +17,9 @@ from abx_plugins.plugins.puppeteer.on_BinaryRequest__12_puppeteer import (
     _is_explicit_path,
     _load_binary_from_path,
 )
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    find_chromium_binary,
+)
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
@@ -67,14 +70,9 @@ def test_crawl_hook_respects_configured_chrome_binary():
     }
 
 
-def test_resolve_binary_reference_accepts_explicit_paths(
-    tmp_path: Path,
-):
+def test_resolve_binary_reference_accepts_explicit_paths(ensure_chrome_test_prereqs):
     browser_name = "chrome"
-    binary_path = tmp_path / browser_name
-    version_output = "Google Chrome for Testing 123.4.5\n"
-    binary_path.write_text(f"#!/bin/sh\necho '{version_output.strip()}'\n")
-    binary_path.chmod(0o755)
+    binary_path = Path(str(ensure_chrome_test_prereqs))
 
     binary = _load_binary_from_path(str(binary_path), browser_name)
     assert binary is not None
@@ -87,15 +85,13 @@ def test_resolve_binary_reference_rejects_bare_names():
     assert _load_binary_from_path(browser_name, browser_name) is None
 
 
-def test_binary_hook_fast_path_does_not_emit_machine_record(tmp_path: Path):
-    fake_browser = tmp_path / "fake-chrome"
-    fake_browser.write_text(
-        "#!/bin/sh\necho 'Google Chrome for Testing 123.4.5'\n",
-    )
-    fake_browser.chmod(0o755)
-
+def test_binary_hook_fast_path_does_not_emit_machine_record(
+    tmp_path: Path,
+    ensure_chrome_test_prereqs,
+):
+    browser_path = Path(str(ensure_chrome_test_prereqs))
     env = os.environ.copy()
-    env["CHROME_BINARY"] = str(fake_browser)
+    env["CHROME_BINARY"] = str(browser_path)
 
     result = subprocess.run(
         [str(BINARY_HOOK), "--name=chrome", "--binproviders=puppeteer"],
@@ -197,3 +193,9 @@ def test_puppeteer_installs_chromium():
         assert abspath and Path(abspath).exists(), (
             f"Chromium binary path invalid: {abspath}"
         )
+
+
+def test_find_chromium_binary_uses_real_browser_when_available():
+    browser_path = find_chromium_binary()
+    assert browser_path
+    assert Path(browser_path).exists()

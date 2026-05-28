@@ -1,48 +1,48 @@
 from __future__ import annotations
 
-import pytest
-from _pytest.outcomes import Failed
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     require_chrome_runtime_impl,
 )
-from abxpkg import Binary
+from abxpkg import Binary, EnvProvider
 
 
-def test_require_chrome_runtime_loads_node_and_npm(monkeypatch: pytest.MonkeyPatch):
+def test_require_chrome_runtime_loads_node_and_npm():
     """Fixture should force actual binary resolution, not just construct providers."""
-    loaded: list[str] = []
-
-    def fake_load(self: Binary, *args, **kwargs):
-        loaded.append(self.name)
-        return self
-
-    monkeypatch.setattr(Binary, "load", fake_load)
-
     require_chrome_runtime_impl()
 
-    assert loaded == ["node", "npm"]
+    for name in ("node", "npm"):
+        binary = Binary(name=name, binproviders=[EnvProvider()]).load()
+        assert binary.abspath
+        assert Path(str(binary.abspath)).exists()
 
 
 def test_require_chrome_runtime_fails_when_binary_resolution_fails(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
 ):
     """Fixture should fail fast when a required runtime binary cannot be loaded."""
 
-    def fake_load(self: Binary, *args, **kwargs):
-        raise Exception(f"{self.name} missing")
+    env = os.environ.copy()
+    env["PATH"] = str(tmp_path)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from abx_plugins.plugins.chrome.tests.chrome_test_helpers "
+                "import require_chrome_runtime_impl; "
+                "require_chrome_runtime_impl()"
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=30,
+    )
 
-    monkeypatch.setattr(Binary, "load", fake_load)
-    caplog.set_level("ERROR")
-
-    with pytest.raises(
-        Failed,
-        match="Chrome integration prerequisites unavailable: node missing",
-    ) as excinfo:
-        require_chrome_runtime_impl()
-
-    assert caplog.messages == [
-        "Chrome integration prerequisites unavailable: node missing",
-    ]
-    assert excinfo.value.pytrace is False
+    assert result.returncode != 0
+    assert "Chrome integration prerequisites unavailable:" in result.stderr

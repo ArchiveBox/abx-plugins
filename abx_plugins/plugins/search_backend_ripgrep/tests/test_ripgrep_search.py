@@ -11,19 +11,17 @@ Tests cover:
 
 import os
 import shutil
-import tempfile
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
 from abx_plugins.plugins.search_backend_ripgrep.search import (
     search,
     flush,
+    _build_cmd,
     _extract_snapshot_id,
     _get_search_roots,
     DEFAULT_CONTENT_EXCLUDES,
-    DEEP_EXCLUDES,
 )
 
 RG_PATH = shutil.which("rg")
@@ -41,11 +39,11 @@ class TestRipgrepFlush:
 class TestRipgrepSearch:
     """Test the ripgrep search function."""
 
-    def setup_method(self, _method=None):
+    @pytest.fixture(autouse=True)
+    def archive(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         """Create temporary archive directory with test files."""
         assert RG_PATH, "rg is required for ripgrep backend tests"
-        self.temp_dir = tempfile.mkdtemp()
-        self.archive_dir = Path(self.temp_dir) / "archive"
+        self.archive_dir = tmp_path / "archive"
         self.archive_dir.mkdir()
 
         # Create snapshot directories with searchable content
@@ -71,40 +69,11 @@ class TestRipgrepSearch:
             },
         )
 
-        self._orig_snap_dir = os.environ.get("SNAP_DIR")
-        self._orig_rg_binary = os.environ.get("RIPGREP_BINARY")
-        self._orig_rg_timeout = os.environ.get("RIPGREP_TIMEOUT")
-        self._orig_rg_args = os.environ.get("RIPGREP_ARGS")
-        self._orig_rg_args_extra = os.environ.get("RIPGREP_ARGS_EXTRA")
-        os.environ["SNAP_DIR"] = str(self.archive_dir)
-        os.environ["RIPGREP_BINARY"] = RG_PATH
-        os.environ.pop("RIPGREP_TIMEOUT", None)
-        os.environ.pop("RIPGREP_ARGS", None)
-        os.environ.pop("RIPGREP_ARGS_EXTRA", None)
-
-    def teardown_method(self, _method=None):
-        """Clean up temporary directory."""
-        if self._orig_snap_dir is None:
-            os.environ.pop("SNAP_DIR", None)
-        else:
-            os.environ["SNAP_DIR"] = self._orig_snap_dir
-        if self._orig_rg_binary is None:
-            os.environ.pop("RIPGREP_BINARY", None)
-        else:
-            os.environ["RIPGREP_BINARY"] = self._orig_rg_binary
-        if self._orig_rg_timeout is None:
-            os.environ.pop("RIPGREP_TIMEOUT", None)
-        else:
-            os.environ["RIPGREP_TIMEOUT"] = self._orig_rg_timeout
-        if self._orig_rg_args is None:
-            os.environ.pop("RIPGREP_ARGS", None)
-        else:
-            os.environ["RIPGREP_ARGS"] = self._orig_rg_args
-        if self._orig_rg_args_extra is None:
-            os.environ.pop("RIPGREP_ARGS_EXTRA", None)
-        else:
-            os.environ["RIPGREP_ARGS_EXTRA"] = self._orig_rg_args_extra
-        shutil.rmtree(self.temp_dir, ignore_errors=True)
+        monkeypatch.setenv("SNAP_DIR", str(self.archive_dir))
+        monkeypatch.setenv("RIPGREP_BINARY", RG_PATH)
+        monkeypatch.delenv("RIPGREP_TIMEOUT", raising=False)
+        monkeypatch.delenv("RIPGREP_ARGS", raising=False)
+        monkeypatch.delenv("RIPGREP_ARGS_EXTRA", raising=False)
 
     def _create_snapshot(self, snapshot_id: str, files: dict):
         """Create a snapshot directory with files."""
@@ -173,68 +142,72 @@ class TestRipgrepSearch:
 
     def test_search_missing_binary(self):
         """search should raise when ripgrep binary not found."""
-        with patch.dict(os.environ, {"RIPGREP_BINARY": "/nonexistent/rg"}):
-            with pytest.raises(RuntimeError) as context:
-                search("test")
-            assert "ripgrep binary not found" in str(context.value)
+        os.environ["RIPGREP_BINARY"] = "/nonexistent/rg"
+        with pytest.raises(RuntimeError) as context:
+            _build_cmd("test")
+        assert "ripgrep binary not found" in str(context.value)
 
-    def test_search_with_custom_args(self):
+    def test_search_with_custom_args(self, monkeypatch: pytest.MonkeyPatch):
         """search should use custom RIPGREP_ARGS."""
-        with patch.dict(os.environ, {"RIPGREP_ARGS": '["-i"]'}):  # Case insensitive
-            results = search("PYTHON")
-            # With -i flag, should find regardless of case
-            assert "snap-001" in results
+        monkeypatch.setenv("RIPGREP_ARGS", '["-i"]')  # Case insensitive
+        results = search("PYTHON")
+        # With -i flag, should find regardless of case
+        assert "snap-001" in results
 
-    def test_search_timeout(self):
+    def test_search_timeout(self, monkeypatch: pytest.MonkeyPatch):
         """search should handle timeout gracefully."""
-        with patch.dict(os.environ, {"RIPGREP_TIMEOUT": "5"}):
-            # Short timeout, should still complete for small archive
-            results = search("Python")
-            assert isinstance(results, list)
+        monkeypatch.setenv("RIPGREP_TIMEOUT", "5")
+        # Short timeout, should still complete for small archive
+        results = search("Python")
+        assert isinstance(results, list)
 
-    def test_search_contents_excludes_noncontent_files_and_strips_follow_flags(self):
-        with (
-            patch.dict(
-                os.environ,
-                {"RIPGREP_ARGS": '["--follow"]', "RIPGREP_ARGS_EXTRA": '["-L", "-i"]'},
-            ),
-            patch(
-                "abx_plugins.plugins.search_backend_ripgrep.search.subprocess.run",
-            ) as run,
-        ):
-            run.return_value = type("Result", (), {"stdout": ""})()
-            search("Python", search_mode="contents")
+    def test_search_contents_excludes_noncontent_files_and_strips_follow_flags(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        """contents mode should ignore noncontent globs and never follow symlinks."""
+        for index, glob in enumerate(DEFAULT_CONTENT_EXCLUDES):
+            suffix = glob.removeprefix("*")
+            self._create_snapshot(
+                f"excluded-{index}",
+                {f"metadata/excluded{suffix}": "excludedcontent"},
+            )
+        symlink_target = tmp_path / "outside.txt"
+        symlink_target.write_text("symlinkonly", encoding="utf-8")
+        symlink_path = self.archive_dir / "snap-001" / "singlefile" / "linked.html"
+        symlink_path.symlink_to(symlink_target)
 
-        cmd = run.call_args[0][0]
-        assert "--follow" not in cmd
-        assert "-L" not in cmd
-        for glob in DEFAULT_CONTENT_EXCLUDES:
-            assert f"!{glob}" in cmd
+        monkeypatch.setenv("RIPGREP_ARGS", '["--follow"]')
+        monkeypatch.setenv("RIPGREP_ARGS_EXTRA", '["-L", "-i"]')
+
+        assert search("EXCLUDEDCONTENT", search_mode="contents") == []
+        assert "snap-001" not in search("SYMLINKONLY", search_mode="contents")
 
     def test_search_deep_reincludes_json_and_logs(self):
-        with (
-            patch(
-                "abx_plugins.plugins.search_backend_ripgrep.search.subprocess.run",
-            ) as run,
-        ):
-            run.return_value = type("Result", (), {"stdout": ""})()
-            search("Python", search_mode="deep")
+        self._create_snapshot("json-match", {"metadata/page.json": "deepjsonneedle"})
+        self._create_snapshot("jsonl-match", {"metadata/page.jsonl": "deepjsonlneedle"})
+        self._create_snapshot("log-match", {"logs/run.log": "deeplogneedle"})
+        self._create_snapshot("pid-match", {"chrome/chrome.pid": "deeppidneedle"})
+        self._create_snapshot("css-match", {"assets/style.css": "deepcssneedle"})
+        self._create_snapshot("js-match", {"assets/script.js": "deepjsneedle"})
 
-        cmd = run.call_args[0][0]
-        for glob in DEEP_EXCLUDES:
-            assert f"!{glob}" in cmd
-        for glob in ("*.json", "*.jsonl", "*.log"):
-            assert f"!{glob}" not in cmd
+        assert "json-match" in search("deepjsonneedle", search_mode="deep")
+        assert "jsonl-match" in search("deepjsonlneedle", search_mode="deep")
+        assert "log-match" in search("deeplogneedle", search_mode="deep")
+        assert search("deeppidneedle", search_mode="deep") == []
+        assert search("deepcssneedle", search_mode="deep") == []
+        assert search("deepjsneedle", search_mode="deep") == []
 
 
 class TestRipgrepSearchIntegration:
     """Integration tests with realistic archive structure."""
 
-    def setup_method(self, _method=None):
+    @pytest.fixture(autouse=True)
+    def archive(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         """Create archive with realistic structure."""
         assert RG_PATH, "rg is required for ripgrep backend tests"
-        self.temp_dir = tempfile.mkdtemp()
-        self.archive_dir = Path(self.temp_dir) / "archive"
+        self.archive_dir = tmp_path / "archive"
         self.archive_dir.mkdir()
 
         # Realistic snapshot structure
@@ -268,22 +241,8 @@ class TestRipgrepSearchIntegration:
             },
         )
 
-        self._orig_snap_dir = os.environ.get("SNAP_DIR")
-        self._orig_rg_binary = os.environ.get("RIPGREP_BINARY")
-        os.environ["SNAP_DIR"] = str(self.archive_dir)
-        os.environ["RIPGREP_BINARY"] = RG_PATH
-
-    def teardown_method(self, _method=None):
-        """Clean up."""
-        if self._orig_snap_dir is None:
-            os.environ.pop("SNAP_DIR", None)
-        else:
-            os.environ["SNAP_DIR"] = self._orig_snap_dir
-        if self._orig_rg_binary is None:
-            os.environ.pop("RIPGREP_BINARY", None)
-        else:
-            os.environ["RIPGREP_BINARY"] = self._orig_rg_binary
-        shutil.rmtree(self.temp_dir, ignore_errors=True)
+        monkeypatch.setenv("SNAP_DIR", str(self.archive_dir))
+        monkeypatch.setenv("RIPGREP_BINARY", RG_PATH)
 
     def _create_snapshot(self, timestamp: str, files: dict):
         """Create snapshot with timestamp-based ID."""
@@ -313,10 +272,10 @@ class TestRipgrepSearchIntegration:
 
 
 class TestRipgrepSearchCurrentArchiveBoxLayout:
-    def setup_method(self, _method=None):
+    @pytest.fixture(autouse=True)
+    def archive(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         assert RG_PATH, "rg is required for ripgrep backend tests"
-        self.temp_dir = tempfile.mkdtemp()
-        self.data_dir = Path(self.temp_dir)
+        self.data_dir = tmp_path
         self.snapshot_id = "019cf48c-aa86-72f0-9f8f-e4ea80226fc6"
         self.snapshot_root = (
             self.data_dir
@@ -337,21 +296,8 @@ class TestRipgrepSearchCurrentArchiveBoxLayout:
         lib_dir.mkdir(parents=True, exist_ok=True)
         (lib_dir / "big.txt").write_text("google " * 1000)
 
-        self._orig_snap_dir = os.environ.get("SNAP_DIR")
-        self._orig_rg_binary = os.environ.get("RIPGREP_BINARY")
-        os.environ["SNAP_DIR"] = str(self.data_dir)
-        os.environ["RIPGREP_BINARY"] = RG_PATH
-
-    def teardown_method(self, _method=None):
-        if self._orig_snap_dir is None:
-            os.environ.pop("SNAP_DIR", None)
-        else:
-            os.environ["SNAP_DIR"] = self._orig_snap_dir
-        if self._orig_rg_binary is None:
-            os.environ.pop("RIPGREP_BINARY", None)
-        else:
-            os.environ["RIPGREP_BINARY"] = self._orig_rg_binary
-        shutil.rmtree(self.temp_dir, ignore_errors=True)
+        monkeypatch.setenv("SNAP_DIR", str(self.data_dir))
+        monkeypatch.setenv("RIPGREP_BINARY", RG_PATH)
 
     def test_search_roots_prefer_snapshot_content_dirs(self):
         roots = _get_search_roots()

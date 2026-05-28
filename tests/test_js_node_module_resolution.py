@@ -8,18 +8,22 @@ import threading
 import time
 from pathlib import Path
 
+import pytest
+
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    CHROME_CRAWL_WAIT_HOOK,
+    chrome_session,
+    get_test_env,
+)
+
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TITLE_HOOK = (
     REPO_ROOT / "abx_plugins" / "plugins" / "title" / "on_Snapshot__54_title.js"
 )
-CHROME_WAIT_HOOK = (
-    REPO_ROOT
-    / "abx_plugins"
-    / "plugins"
-    / "chrome"
-    / "on_CrawlSetup__91_chrome_wait.js"
-)
+CHROME_UTILS = REPO_ROOT / "abx_plugins" / "plugins" / "chrome" / "chrome_utils.js"
+
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 def _node_binary() -> str:
@@ -29,168 +33,122 @@ def _node_binary() -> str:
     return node_binary
 
 
-def _write_stub_module(
-    node_modules_dir: Path,
-    package_name: str,
-    contents: str,
+@pytest.fixture
+def module_resolution_url(httpserver) -> str:
+    httpserver.expect_request("/").respond_with_data(
+        """
+        <!doctype html>
+        <html>
+        <head><title>Module Alias Title</title></head>
+        <body><h1>Module Alias Fixture</h1></body>
+        </html>
+        """.strip(),
+        content_type="text/html",
+    )
+    return httpserver.url_for("/")
+
+
+def test_title_hook_respects_node_module_dir_alias(
+    tmp_path: Path,
+    module_resolution_url: str,
 ) -> None:
-    package_dir = node_modules_dir / package_name
-    package_dir.mkdir(parents=True, exist_ok=True)
-    (package_dir / "index.js").write_text(contents, encoding="utf-8")
+    with chrome_session(
+        tmp_path,
+        test_url=module_resolution_url,
+        navigate=True,
+        timeout=45,
+    ) as (
+        _process,
+        _pid,
+        snapshot_chrome_dir,
+        env,
+    ):
+        snap_dir = snapshot_chrome_dir.parent
+        title_dir = snap_dir / "title"
+        title_dir.mkdir(exist_ok=True)
+        node_modules_dir = env["NODE_MODULES_DIR"]
+        alias_env = env.copy()
+        alias_env.pop("NODE_MODULES_DIR", None)
+        alias_env.pop("NODE_PATH", None)
+        alias_env["NODE_MODULE_DIR"] = node_modules_dir
+        alias_env["SNAP_DIR"] = str(snap_dir)
 
+        result = subprocess.run(
+            [
+                _node_binary(),
+                str(TITLE_HOOK),
+                f"--url={module_resolution_url}",
+                "--snapshot-id=test-title",
+            ],
+            cwd=title_dir,
+            capture_output=True,
+            text=True,
+            env=alias_env,
+            timeout=60,
+        )
 
-def test_title_hook_respects_node_module_dir_alias(tmp_path: Path) -> None:
-    snap_dir = tmp_path / "snap"
-    chrome_dir = snap_dir / "chrome"
-    chrome_dir.mkdir(parents=True)
-    (chrome_dir / "cdp_url.txt").write_text(
-        "ws://127.0.0.1:9222/devtools/browser/test\n",
-        encoding="utf-8",
-    )
-    (chrome_dir / "target_id.txt").write_text("target-1\n", encoding="utf-8")
-
-    node_modules_dir = tmp_path / "alias_node_modules"
-    _write_stub_module(
-        node_modules_dir,
-        "puppeteer-core",
-        "module.exports = { connect: async () => ({}) };\n",
-    )
-
-    preload_path = tmp_path / "preload_title.js"
-    preload_path.write_text(
-        """
-const Module = require('module');
-const originalLoad = Module._load;
-
-Module._load = function(request, parent, isMain) {
-    if (request === '../chrome/chrome_utils.js') {
-        return {
-            connectToPage: async () => ({
-                browser: { disconnect: () => {} },
-                page: { title: async () => 'Resolved Title' },
-            }),
-            waitForNavigationComplete: async () => {},
-        };
-    }
-    return originalLoad(request, parent, isMain);
-};
-""".lstrip(),
-        encoding="utf-8",
-    )
-
-    env = os.environ.copy()
-    env.pop("NODE_MODULES_DIR", None)
-    env["NODE_MODULE_DIR"] = str(node_modules_dir)
-    env["SNAP_DIR"] = str(snap_dir)
-
-    result = subprocess.run(
-        [
-            _node_binary(),
-            "--require",
-            str(preload_path),
-            str(TITLE_HOOK),
-            "--url=https://example.com",
-            "--snapshot-id=test-title",
-        ],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=30,
-    )
-
-    output_file = snap_dir / "title" / "title.txt"
+    output_file = title_dir / "title.txt"
     assert result.returncode == 0, result.stderr
-    assert output_file.exists()
-    assert output_file.read_text(encoding="utf-8") == "Resolved Title"
-    assert "Cannot find module 'puppeteer-core'" not in result.stderr
+    assert output_file.read_text(encoding="utf-8") == "Module Alias Title"
+    assert "Cannot find module" not in result.stderr
 
 
-def test_chrome_wait_hook_resolves_puppeteer_from_lib_dir(tmp_path: Path) -> None:
-    lib_dir = tmp_path / "lib"
-    node_modules_dir = lib_dir / "npm" / "node_modules"
-    _write_stub_module(
-        node_modules_dir,
-        "puppeteer",
-        """
-module.exports = {
-  connect: async () => ({
-    disconnect: () => {},
-  }),
-};
-""".lstrip(),
-    )
+def test_chrome_wait_hook_resolves_puppeteer_from_lib_dir(
+    tmp_path: Path,
+    module_resolution_url: str,
+) -> None:
+    with chrome_session(
+        tmp_path,
+        test_url=module_resolution_url,
+        navigate=False,
+        timeout=45,
+    ) as (
+        _process,
+        _pid,
+        _snapshot_chrome_dir,
+        env,
+    ):
+        lib_env = env.copy()
+        node_modules_dir = Path(lib_env["NODE_MODULES_DIR"])
+        lib_env.pop("NODE_MODULES_DIR", None)
+        lib_env.pop("NODE_MODULE_DIR", None)
+        lib_env.pop("NODE_PATH", None)
+        lib_env["LIB_DIR"] = str(node_modules_dir.parent.parent)
 
-    preload_path = tmp_path / "preload_chrome_wait.js"
-    preload_path.write_text(
-        """
-const Module = require('module');
-const originalLoad = Module._load;
-
-Module._load = function(request, parent, isMain) {
-    if (request === './chrome_utils.js') {
-        const actual = originalLoad(request, parent, isMain);
-        return {
-            ...actual,
-            waitForChromeSessionState: async () => ({
-                cdpUrl: 'ws://127.0.0.1:9222/devtools/browser/test',
-                pid: 4321,
-            }),
-        };
-    }
-    return originalLoad(request, parent, isMain);
-};
-""".lstrip(),
-        encoding="utf-8",
-    )
-
-    crawl_dir = tmp_path / "crawl"
-    env = os.environ.copy()
-    env.pop("NODE_MODULES_DIR", None)
-    env.pop("NODE_MODULE_DIR", None)
-    env["LIB_DIR"] = str(lib_dir)
-    env["CRAWL_DIR"] = str(crawl_dir)
-
-    result = subprocess.run(
-        [
-            _node_binary(),
-            "--require",
-            str(preload_path),
-            str(CHROME_WAIT_HOOK),
-            "--url=https://example.com",
-            "--snapshot-id=test-wait",
-        ],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=30,
-    )
+        result = subprocess.run(
+            [
+                _node_binary(),
+                str(CHROME_CRAWL_WAIT_HOOK),
+                f"--url={module_resolution_url}",
+                "--snapshot-id=test-wait",
+            ],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            env=lib_env,
+            timeout=60,
+        )
 
     assert result.returncode == 0, result.stderr
-    assert "pid=4321" in result.stdout
-    assert "Cannot find module 'puppeteer'" not in result.stderr
+    assert "ready pid=" in result.stdout
+    assert "Cannot find module" not in result.stderr
 
 
 def test_chrome_launch_prerequisites_wait_for_late_installs(tmp_path: Path) -> None:
+    real_env = get_test_env()
+    real_node_modules = Path(real_env["NODE_MODULES_DIR"])
+    real_chrome_binary = Path(os.environ["CHROME_BINARY"])
+    assert real_node_modules.exists()
+    assert real_chrome_binary.exists()
+
     lib_dir = tmp_path / "lib"
-    node_modules_dir = lib_dir / "npm" / "node_modules"
-    puppeteer_dir = node_modules_dir / "puppeteer"
-    chrome_binary = tmp_path / "bin" / "chromium"
-    chrome_utils_path = json.dumps(
-        str(REPO_ROOT / "abx_plugins" / "plugins" / "chrome" / "chrome_utils.js"),
-    )
+    delayed_node_modules = lib_dir / "npm" / "node_modules"
+    delayed_node_modules.parent.mkdir(parents=True)
+    chrome_utils_path = json.dumps(str(CHROME_UTILS))
 
     def materialize_prereqs() -> None:
         time.sleep(0.5)
-        puppeteer_dir.mkdir(parents=True, exist_ok=True)
-        (puppeteer_dir / "index.js").write_text(
-            "module.exports = { launch: async () => ({}) };\n",
-            encoding="utf-8",
-        )
-        chrome_binary.parent.mkdir(parents=True, exist_ok=True)
-        chrome_binary.write_text("#!/bin/sh\necho Chromium 123\n", encoding="utf-8")
-        chrome_binary.chmod(0o755)
+        delayed_node_modules.symlink_to(real_node_modules, target_is_directory=True)
 
     writer = threading.Thread(target=materialize_prereqs, daemon=True)
     writer.start()
@@ -200,7 +158,7 @@ def test_chrome_launch_prerequisites_wait_for_late_installs(tmp_path: Path) -> N
     env.pop("NODE_MODULE_DIR", None)
     env.pop("NODE_PATH", None)
     env["LIB_DIR"] = str(lib_dir)
-    env["CHROME_BINARY"] = str(chrome_binary)
+    env["CHROME_BINARY"] = str(real_chrome_binary)
 
     result = subprocess.run(
         [
@@ -238,5 +196,5 @@ const {{ waitForChromeLaunchPrerequisites }} = require({chrome_utils_path});
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout.strip())
     assert payload["hasPuppeteer"] is True
-    assert payload["binary"] == str(chrome_binary)
+    assert payload["binary"] == str(real_chrome_binary)
     assert payload["waitedMs"] >= 400
