@@ -19,19 +19,28 @@ const {
 ensureNodeModuleResolution(module);
 
 const {
-  connectToPage,
+  connectToBrowserEndpoint,
   resolvePuppeteerModule,
+  waitForChromeSessionState,
 } = require("../chrome/chrome_utils.js");
 const puppeteer = resolvePuppeteerModule();
 
 const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
 const DATA_DIR = path.resolve((hookConfig.DATA_DIR || "").trim() || ".");
-const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || ".").trim());
-const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
-const SNAPSHOT_ID = path.basename(SNAP_DIR);
-const CHROME_SESSION_DIR = path.join(SNAP_DIR, "chrome");
-const LIVE_DIR = path.join(DATA_DIR, "cache", "chrome_screencast", SNAPSHOT_ID);
+const IS_CRAWL_SETUP = path.basename(process.argv[1] || "").startsWith("on_CrawlSetup__");
+const RUN_DIR = path.resolve(
+  (
+    (IS_CRAWL_SETUP ? hookConfig.CRAWL_DIR : hookConfig.SNAP_DIR) ||
+    hookConfig.CRAWL_DIR ||
+    hookConfig.SNAP_DIR ||
+    "."
+  ).trim()
+);
+const OUTPUT_DIR = path.join(RUN_DIR, PLUGIN_DIR);
+const LIVE_ID = path.basename(RUN_DIR);
+const CHROME_SESSION_DIR = path.join(RUN_DIR, "chrome");
+const LIVE_DIR = path.join(DATA_DIR, "cache", "chrome_screencast", LIVE_ID);
 const LATEST_FRAME = path.join(LIVE_DIR, "latest.jpg");
 if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -39,28 +48,58 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 process.chdir(OUTPUT_DIR);
 
 let browser = null;
-let cdpSession = null;
-let page = null;
 let shuttingDown = false;
 let frameCount = 0;
 let lastWriteAt = 0;
 let nextFrameNumber = 1;
 let captureTimer = null;
 
-async function captureVisibleViewportJpeg(cdpSession, quality) {
-  const metrics = await cdpSession.send("Page.getLayoutMetrics");
-  const viewport = metrics.visualViewport || metrics.layoutViewport || {};
-  const width = Math.max(1, Math.floor(viewport.clientWidth || 1440));
-  const height = Math.max(1, Math.floor(viewport.clientHeight || 900));
-  const x = Math.max(0, Math.floor(viewport.pageX || 0));
-  const y = Math.max(0, Math.floor(viewport.pageY || 0));
-  const result = await cdpSession.send("Page.captureScreenshot", {
-    format: "jpeg",
-    quality,
-    fromSurface: true,
-    captureBeyondViewport: false,
-    clip: { x, y, width, height, scale: 1 },
-  });
+function emitResult(status, output) {
+  if (IS_CRAWL_SETUP) {
+    console.error(output);
+  } else {
+    emitArchiveResultRecord(status, output);
+  }
+}
+
+async function getLastOpenPage(browser) {
+  const pageTargets = browser
+    .targets()
+    .filter((target) => target.type() === "page");
+  const target = pageTargets[pageTargets.length - 1];
+  if (!target) {
+    throw new Error("No live Chrome page target found");
+  }
+  const page = await target.page();
+  if (!page) {
+    throw new Error("Last Chrome page target has no page handle");
+  }
+  return page;
+}
+
+async function captureVisibleViewportJpeg(browser, quality) {
+  const page = await getLastOpenPage(browser);
+  const cdpSession = await page.target().createCDPSession();
+  let result;
+  try {
+    const metrics = await cdpSession.send("Page.getLayoutMetrics");
+    const viewport = metrics.visualViewport || metrics.layoutViewport || {};
+    const width = Math.max(1, Math.floor(viewport.clientWidth || 1440));
+    const height = Math.max(1, Math.floor(viewport.clientHeight || 900));
+    const x = Math.max(0, Math.floor(viewport.pageX || 0));
+    const y = Math.max(0, Math.floor(viewport.pageY || 0));
+    result = await cdpSession.send("Page.captureScreenshot", {
+      format: "jpeg",
+      quality,
+      fromSurface: true,
+      captureBeyondViewport: false,
+      clip: { x, y, width, height, scale: 1 },
+    });
+  } finally {
+    try {
+      await cdpSession.detach();
+    } catch (error) {}
+  }
   return Buffer.from(result.data, "base64");
 }
 
@@ -93,11 +132,11 @@ function cleanupOldFrames(maxFrames) {
 
 async function startScreencast() {
   if (!getEnvBool("CHROME_SCREENCAST_ENABLED", true)) {
-    emitArchiveResultRecord("skipped", "CHROME_SCREENCAST_ENABLED=False");
+    emitResult("skipped", "CHROME_SCREENCAST_ENABLED=False");
     process.exit(0);
   }
   if (!hookConfig.DATA_DIR) {
-    emitArchiveResultRecord("skipped", "DATA_DIR is not set");
+    emitResult("skipped", "DATA_DIR is not set");
     process.exit(0);
   }
 
@@ -108,16 +147,16 @@ async function startScreencast() {
 
   const timeoutMs =
     getEnvInt("CHROME_TIMEOUT", getEnvInt("TIMEOUT", 60)) * 1000;
-  const connection = await connectToPage({
-    chromeSessionDir: CHROME_SESSION_DIR,
+  const chromeSession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
     timeoutMs,
-    puppeteer,
+    requireTargetId: false,
   });
-  browser = connection.browser;
-  page = connection.page;
-  cdpSession =
-    connection.cdpSession ||
-    (await page.target().createCDPSession());
+  if (!chromeSession?.cdpUrl) {
+    throw new Error("No Chrome session found (chrome plugin must run first)");
+  }
+  browser = await connectToBrowserEndpoint(puppeteer, chromeSession.cdpUrl, {
+    defaultViewport: null,
+  });
 
   const quality = Math.max(
     1,
@@ -148,7 +187,7 @@ async function startScreencast() {
     if (now - lastWriteAt < minFrameMs) return;
     lastWriteAt = now;
     try {
-      const jpeg = await captureVisibleViewportJpeg(cdpSession, quality);
+      const jpeg = await captureVisibleViewportJpeg(browser, quality);
       writeFrame(jpeg);
     } catch (error) {
       console.error(`WARN: failed to write screencast frame: ${error.message}`);
@@ -167,23 +206,13 @@ async function stopScreencast(status = "succeeded", output = "") {
     clearInterval(captureTimer);
     captureTimer = null;
   }
-  if (cdpSession) {
-    try {
-      cdpSession.removeAllListeners("Page.screencastFrame");
-    } catch (error) {}
-    try {
-      cdpSession.detach();
-    } catch (error) {}
-    cdpSession = null;
-  }
   if (browser) {
     try {
       browser.disconnect();
     } catch (error) {}
     browser = null;
   }
-  page = null;
-  emitArchiveResultRecord(status, output || `${frameCount} screencast frames`);
+  emitResult(status, output || `${frameCount} screencast frames`);
   try {
     fs.rmSync(LIVE_DIR, { recursive: true, force: true });
   } catch (error) {}
