@@ -35,21 +35,9 @@
       "default": true,
       "description": "Enable live browser preview frames for the admin live progress UI"
     },
-    "CHROME_SCREENCAST_WIDTH": {
-      "type": "integer",
-      "default": 320,
-      "minimum": 64,
-      "description": "Maximum screencast JPEG width"
-    },
-    "CHROME_SCREENCAST_HEIGHT": {
-      "type": "integer",
-      "default": 180,
-      "minimum": 64,
-      "description": "Maximum screencast JPEG height"
-    },
     "CHROME_SCREENCAST_QUALITY": {
       "type": "integer",
-      "default": 35,
+      "default": 65,
       "minimum": 1,
       "maximum": 100,
       "description": "Live preview JPEG quality"

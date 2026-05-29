@@ -201,23 +201,6 @@ async function configure2Captcha() {
     });
 
     try {
-      // First, navigate to a page to trigger extension content scripts and wake up service worker
-      // console.error('[*] Waking up extension by visiting a page...');
-      const triggerPage = await browser.newPage();
-      try {
-        // TODO: figure out how to do this without making a live request to google.com
-        await triggerPage.goto("https://www.google.com", {
-          waitUntil: "domcontentloaded",
-          timeout: 10000,
-        });
-        await new Promise((r) => setTimeout(r, 3000)); // Give extension time to initialize
-      } catch (e) {
-        console.warn(`[!] Trigger page failed: ${e.message}`);
-      }
-      try {
-        await triggerPage.close();
-      } catch (e) {}
-
       // Get 2captcha extension info from extensions.json
       const extensions = chromeSession.extensions || [];
       const captchaExt = findExtensionMetadataByName(extensions, "twocaptcha");
@@ -424,6 +407,15 @@ async function configure2Captcha() {
         try {
           await configPage.close();
         } catch (e) {}
+        for (const page of await browser.pages()) {
+          const url = page.url() || "";
+          if (!url.startsWith(`chrome-extension://${extensionId}/options/`)) {
+            continue;
+          }
+          try {
+            await page.close();
+          } catch (e) {}
+        }
       }
     } finally {
       browser.disconnect();

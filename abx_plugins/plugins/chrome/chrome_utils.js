@@ -3120,6 +3120,27 @@ async function waitForBrowserPageReady(options = {}) {
   }
 }
 
+async function closeExistingTabs(browser) {
+  let aboutBlankPage = null;
+  const pages = await browser.pages();
+
+  aboutBlankPage =
+    pages.find((page) => (page.url() || "") === "about:blank") || null;
+  if (!aboutBlankPage) {
+    aboutBlankPage = await browser.newPage();
+  }
+
+  for (const page of await browser.pages()) {
+    const url = page.url() || "";
+    if (page === aboutBlankPage || url.startsWith(CHROME_EXTENSION_URL_PREFIX)) {
+      continue;
+    }
+    try {
+      await page.close();
+    } catch (error) {}
+  }
+}
+
 async function resolvePageByTargetId(browser, targetId, timeoutMs = 0) {
   const deadline = Date.now() + Math.max(timeoutMs, 0);
 
@@ -3903,6 +3924,7 @@ async function ensureChromeSession(options = {}) {
     ? existingSession.state?.cdpUrl
     : cdpUrl;
   let resolvedUserDataDir = userDataDir;
+  let launchedNewBrowser = false;
 
   if (!resolvedCdpUrl) {
     if (!processIsLocal) {
@@ -3934,6 +3956,7 @@ async function ensureChromeSession(options = {}) {
     resolvedPid = result.pid;
     resolvedCdpUrl = result.cdpUrl;
     resolvedUserDataDir = result.userDataDir || resolvedUserDataDir;
+    launchedNewBrowser = true;
   }
 
   if (resolvedPid) {
@@ -3986,6 +4009,22 @@ async function ensureChromeSession(options = {}) {
     requireAboutBlank: true,
     createPageIfMissing: true,
   });
+
+  if (launchedNewBrowser) {
+    let browser = null;
+    try {
+      browser = await connectToBrowserEndpoint(puppeteer, resolvedCdpUrl, {
+        defaultViewport: null,
+      });
+      await closeExistingTabs(browser);
+    } finally {
+      if (browser) {
+        try {
+          await browser.disconnect();
+        } catch (error) {}
+      }
+    }
+  }
 
   if (processIsLocal && resolvedPid) {
     try {
@@ -4161,6 +4200,7 @@ module.exports = {
   resolvePuppeteerModule,
   connectToBrowserEndpoint,
   withConnectedBrowser,
+  closeExistingTabs,
   getExtensionPaths,
   waitForExtensionTarget,
   getExtensionTargets,
