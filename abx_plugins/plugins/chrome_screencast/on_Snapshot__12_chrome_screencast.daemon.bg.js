@@ -196,7 +196,7 @@ async function startScreencast() {
   const fps = Math.max(1, Math.min(5, getEnvInt("CHROME_SCREENCAST_FPS", 1)));
   keepFramesOnExit = Math.max(
     0,
-    Math.min(LIVE_FRAME_BUFFER, getEnvInt("CHROME_SCREENCAST_KEEP", 0))
+    getEnvInt("CHROME_SCREENCAST_KEEP", 0)
   );
   const rawScale = Number.parseFloat(
     getEnv("CHROME_SCREENCAST_SCALE", "0.5")
