@@ -3132,7 +3132,10 @@ async function closeExistingTabs(browser) {
 
   for (const page of await browser.pages()) {
     const url = page.url() || "";
-    if (page === aboutBlankPage || url.startsWith(CHROME_EXTENSION_URL_PREFIX)) {
+    if (
+      page === aboutBlankPage ||
+      url.startsWith(CHROME_EXTENSION_URL_PREFIX)
+    ) {
       continue;
     }
     try {

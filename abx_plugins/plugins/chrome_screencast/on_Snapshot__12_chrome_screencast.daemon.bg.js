@@ -53,23 +53,26 @@ function emitResult(status, output) {
 }
 
 async function captureVisibleViewportJpeg(browser, quality, targetId = null) {
-  const pageTargets = browser
-    .targets()
-    .filter((target) => {
-      const url = target.url() || "";
-      return target.type() === "page" && (
-        url.startsWith("http://") ||
+  const pageTargets = browser.targets().filter((target) => {
+    const url = target.url() || "";
+    return (
+      target.type() === "page" &&
+      (url.startsWith("http://") ||
         url.startsWith("https://") ||
-        url.startsWith("chrome-extension://")
-      );
-    });
+        url.startsWith("chrome-extension://"))
+    );
+  });
   const target =
     (targetId &&
-      pageTargets.find((candidate) => getTargetIdFromTarget(candidate) === targetId)) ||
-    pageTargets.filter((candidate) => {
-      const url = candidate.url() || "";
-      return !url.startsWith("chrome-extension://");
-    }).pop() ||
+      pageTargets.find(
+        (candidate) => getTargetIdFromTarget(candidate) === targetId
+      )) ||
+    pageTargets
+      .filter((candidate) => {
+        const url = candidate.url() || "";
+        return !url.startsWith("chrome-extension://");
+      })
+      .pop() ||
     pageTargets[pageTargets.length - 1];
   if (!target) {
     throw new Error("No non-blank Chrome page target found");
@@ -193,11 +196,7 @@ async function startScreencast() {
     if (now - lastWriteAt < minFrameMs) return;
     lastWriteAt = now;
     try {
-      const jpeg = await captureVisibleViewportJpeg(
-        browser,
-        quality,
-        targetId
-      );
+      const jpeg = await captureVisibleViewportJpeg(browser, quality, targetId);
       writeFrame(jpeg);
     } catch (error) {
       if (error.message === "No non-blank Chrome page target found") return;
