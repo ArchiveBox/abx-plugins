@@ -42,6 +42,48 @@ class TestParseHtmlUrls:
         )
         assert '"status": "succeeded"' in result.stdout, "Missing success status"
 
+    def test_uses_final_snapshot_url_for_base_expanded_same_page_links(self, tmp_path):
+        """Parser rewrites base-expanded same-page links back to the final URL."""
+        headers_dir = tmp_path / "headers"
+        headers_dir.mkdir()
+        (headers_dir / "headers.json").write_text(
+            json.dumps({"final_url": "https://docs.sweeting.me/s/blog"}),
+        )
+        singlefile_dir = tmp_path / "singlefile"
+        singlefile_dir.mkdir()
+        (singlefile_dir / "singlefile.html").write_text(
+            """
+<!doctype html>
+<html>
+<head><base href="https://docs.monadical.com/"></head>
+<body><a href="https://docs.monadical.com/#About">About</a></body>
+</html>
+""",
+        )
+
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(tmp_path)
+        result = subprocess.run(
+            [str(SCRIPT_PATH), "--url", "https://blog.sweeting.me"],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        assert result.returncode == 0, result.stderr
+        urls_file = tmp_path / "parse_html_urls" / "urls.jsonl"
+        assert urls_file.exists(), "urls.jsonl not created"
+        urls = {
+            json.loads(line)["url"]
+            for line in urls_file.read_text().splitlines()
+            if line.strip()
+        }
+
+        assert "https://docs.sweeting.me/s/blog#About" in urls
+        assert "https://docs.monadical.com/#About" not in urls
+        assert "https://blog.sweeting.me/#About" not in urls
+
     def test_extracts_href_urls(self, tmp_path):
         """Test extracting URLs from anchor tags."""
         input_file = tmp_path / "page.html"

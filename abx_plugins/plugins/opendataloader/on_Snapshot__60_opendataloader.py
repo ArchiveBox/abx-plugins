@@ -412,7 +412,7 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
     semaphore_limit=1,
     semaphore_name="archivebox_opendataloader_pdf",
     semaphore_scope="multiprocess",
-    semaphore_timeout=0,
+    semaphore_timeout=1,
     semaphore_lax=False,
 )
 async def extract_opendataloader_serialized(url: str, binary: str) -> tuple[str, str]:

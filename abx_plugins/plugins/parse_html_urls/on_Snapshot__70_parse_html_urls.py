@@ -153,7 +153,7 @@ def normalize_url(url: str, root_url: str | None = None) -> str:
         return _normalize_trailing_slash(url)
 
     if url.lower().startswith(HTTP_PREFIXES):
-        return url
+        return normalize_base_fragment_url(url, root_url=root_url)
 
     # Resolve relative URL
     resolved = urljoin(root_url, url)
@@ -162,7 +162,28 @@ def normalize_url(url: str, root_url: str | None = None) -> str:
     if did_urljoin_misbehave(root_url, url, resolved):
         resolved = fix_urljoin_bug(resolved)
 
-    return _normalize_trailing_slash(resolved)
+    return _normalize_trailing_slash(
+        normalize_base_fragment_url(resolved, root_url=root_url),
+    )
+
+
+def normalize_base_fragment_url(url: str, *, root_url: str) -> str:
+    parsed = urlparse(url)
+    root = urlparse(root_url)
+    if (
+        parsed.scheme in ("http", "https")
+        and root.scheme in ("http", "https")
+        and parsed.netloc != root.netloc
+        and (parsed.fragment or url.endswith("#"))
+        and parsed.path in ("", "/")
+        and not parsed.params
+        and not parsed.query
+        and root.path not in ("", "/")
+    ):
+        return urlunparse(
+            (root.scheme, root.netloc, root.path, "", root.query, parsed.fragment),
+        )
+    return url
 
 
 def _normalize_trailing_slash(url: str) -> str:
@@ -302,6 +323,47 @@ def extract_urls_from_reader(reader, *, root_url: str, urls_found: set[str]) -> 
     parser.scan_raw_chunk("", final=True)
 
 
+def get_final_url_from_json(data: dict) -> str | None:
+    final_url = (
+        data.get("final_url") or data.get("response_url") or data.get("finalUrl")
+    )
+    if isinstance(final_url, str) and final_url.lower().startswith(HTTP_PREFIXES):
+        return final_url
+    to_url = data.get("to_url") or data.get("url")
+    if isinstance(to_url, str) and to_url.lower().startswith(HTTP_PREFIXES):
+        return to_url
+    return None
+
+
+def resolve_root_url(url: str) -> str:
+    for path in (
+        SNAP_DIR / "headers" / "headers.json",
+        SNAP_DIR / "chrome" / "navigation.json",
+    ):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        final_url = get_final_url_from_json(data)
+        if final_url:
+            return final_url
+
+    redirects_jsonl = SNAP_DIR / "redirects" / "redirects.jsonl"
+    try:
+        redirects = [
+            get_final_url_from_json(json.loads(line))
+            for line in redirects_jsonl.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+    except (OSError, json.JSONDecodeError):
+        redirects = []
+    for final_url in reversed(redirects):
+        if final_url:
+            return final_url
+
+    return url
+
+
 @click.command(
     context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
 )
@@ -317,6 +379,7 @@ def main(
         depth = int(extra_context["snapshot_depth"])
     urls_found = set()
     source_paths = tuple(iter_html_source_paths())
+    root_url = resolve_root_url(url)
     print(f"parsing {len(source_paths) if source_paths else 1} files for urls...")
     try:
         if source_paths:
@@ -324,7 +387,7 @@ def main(
                 with source_path.open(encoding="utf-8", errors="replace") as reader:
                     extract_urls_from_reader(
                         reader,
-                        root_url=url,
+                        root_url=root_url,
                         urls_found=urls_found,
                     )
         else:
@@ -340,13 +403,22 @@ def main(
 
                 req = urllib.request.Request(url, headers={"User-Agent": user_agent})
                 response = urllib.request.urlopen(req, timeout=timeout)
+                final_url = response.geturl()
+                if isinstance(final_url, str) and final_url.lower().startswith(
+                    HTTP_PREFIXES,
+                ):
+                    root_url = final_url
                 reader_cm = io.TextIOWrapper(
                     response,
                     encoding="utf-8",
                     errors="replace",
                 )
             with reader_cm as reader:
-                extract_urls_from_reader(reader, root_url=url, urls_found=urls_found)
+                extract_urls_from_reader(
+                    reader,
+                    root_url=root_url,
+                    urls_found=urls_found,
+                )
     except Exception as e:
         emit_result("failed", f"Failed to fetch {url}: {e}")
         sys.exit(1)

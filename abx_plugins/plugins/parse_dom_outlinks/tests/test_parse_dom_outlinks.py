@@ -112,6 +112,49 @@ class TestParseDomOutlinksWithChrome:
         except RuntimeError:
             raise
 
+    def test_live_blog_sweeting_redirect_uses_final_url_for_same_page_links(self):
+        """DOM outlinks must ignore HedgeDoc's stale <base> for same-page anchors."""
+        test_url = "https://blog.sweeting.me"
+        snapshot_id = "test-outlinks-blog-sweeting"
+
+        try:
+            with chrome_session(
+                self.temp_dir,
+                crawl_id="test-outlinks-blog-sweeting-crawl",
+                snapshot_id=snapshot_id,
+                test_url=test_url,
+                navigate=True,
+                timeout=60,
+            ) as (_chrome_process, _chrome_pid, snapshot_chrome_dir, env):
+                result = subprocess.run(
+                    [
+                        str(OUTLINKS_HOOK),
+                        f"--url={test_url}",
+                    ],
+                    cwd=str(snapshot_chrome_dir),
+                    capture_output=True,
+                    text=True,
+                    timeout=90,
+                    env=env,
+                )
+
+                assert result.returncode == 0, result.stderr
+                snap_dir = Path(env["SNAP_DIR"])
+                urls_output = snap_dir / "parse_dom_outlinks" / "urls.jsonl"
+                assert urls_output.exists(), "urls.jsonl not created"
+                urls = {
+                    json.loads(line)["url"]
+                    for line in urls_output.read_text().splitlines()
+                    if line.strip()
+                }
+
+                assert "https://docs.sweeting.me/s/blog#About" in urls
+                assert "https://docs.monadical.com/#About" not in urls
+                assert "https://blog.sweeting.me/#About" not in urls
+
+        except RuntimeError:
+            raise
+
     def test_outlinks_removes_outputs_when_no_crawlable_urls(self):
         """Hook should not leave output files behind when no crawlable URLs are found."""
         input_file = self.temp_dir / "no-links.html"

@@ -57,9 +57,7 @@ async function captureVisibleViewportJpeg(browser, quality, targetId = null) {
     const url = target.url() || "";
     return (
       target.type() === "page" &&
-      (url.startsWith("http://") ||
-        url.startsWith("https://") ||
-        url.startsWith("chrome-extension://"))
+      (url.startsWith("http://") || url.startsWith("https://"))
     );
   });
   const target =
@@ -67,15 +65,9 @@ async function captureVisibleViewportJpeg(browser, quality, targetId = null) {
       pageTargets.find(
         (candidate) => getTargetIdFromTarget(candidate) === targetId
       )) ||
-    pageTargets
-      .filter((candidate) => {
-        const url = candidate.url() || "";
-        return !url.startsWith("chrome-extension://");
-      })
-      .pop() ||
     pageTargets[pageTargets.length - 1];
   if (!target) {
-    throw new Error("No non-blank Chrome page target found");
+    throw new Error("No HTTP(S) Chrome page target found");
   }
   const page = await target.page();
   if (!page) {
@@ -199,7 +191,7 @@ async function startScreencast() {
       const jpeg = await captureVisibleViewportJpeg(browser, quality, targetId);
       writeFrame(jpeg);
     } catch (error) {
-      if (error.message === "No non-blank Chrome page target found") return;
+      if (error.message === "No HTTP(S) Chrome page target found") return;
       console.error(`WARN: failed to write screencast frame: ${error.message}`);
     }
   }

@@ -81,6 +81,14 @@ async function extractOutlinks(url, depth, timeoutMs) {
         urls.filter((url) => url && !url.startsWith("data:"));
       const filterW3Urls = (urls) =>
         urls.filter((url) => url && !url.startsWith("http://www.w3.org/"));
+      const resolveAttr = (elem, attr) => {
+        const raw = elem.getAttribute(attr) || "";
+        if (!raw) return "";
+        try {
+          return new URL(raw, window.location.href).href;
+        } catch (e) {}
+        return raw;
+      };
 
       // Get raw links from HTML
       const html = document.documentElement.outerHTML;
@@ -88,14 +96,14 @@ async function extractOutlinks(url, depth, timeoutMs) {
 
       // Get all <a href> links
       const hrefs = Array.from(document.querySelectorAll("a[href]"))
-        .map((elem) => elem.href)
+        .map((elem) => resolveAttr(elem, "href"))
         .filter((url) => url);
 
       // Get all <link> tags (not just stylesheets)
       const linksMap = {};
       document.querySelectorAll("link[href]").forEach((elem) => {
         const rel = elem.rel || "";
-        const href = elem.href;
+        const href = resolveAttr(elem, "href");
         if (href && rel !== "stylesheet") {
           linksMap[href] = { rel, href };
         }
@@ -104,12 +112,12 @@ async function extractOutlinks(url, depth, timeoutMs) {
 
       // Get iframes
       const iframes = Array.from(document.querySelectorAll("iframe[src]"))
-        .map((elem) => elem.src)
+        .map((elem) => resolveAttr(elem, "src"))
         .filter((url) => url);
 
       // Get images
       const images = Array.from(document.querySelectorAll("img[src]"))
-        .map((elem) => elem.src)
+        .map((elem) => resolveAttr(elem, "src"))
         .filter((url) => url && !url.startsWith("data:"));
 
       // Get CSS background images
@@ -119,7 +127,11 @@ async function extractOutlinks(url, depth, timeoutMs) {
             .getComputedStyle(elem)
             .getPropertyValue("background-image");
           const match = /url\(\s*?['"]?\s*?(\S+?)\s*?["']?\s*?\)/i.exec(bgImg);
-          return match ? match[1] : null;
+          if (!match) return null;
+          try {
+            return new URL(match[1], window.location.href).href;
+          } catch (e) {}
+          return match[1];
         })
         .filter((url) => url);
 
@@ -127,12 +139,12 @@ async function extractOutlinks(url, depth, timeoutMs) {
       const css_stylesheets = Array.from(
         document.querySelectorAll("link[rel=stylesheet]")
       )
-        .map((elem) => elem.href)
+        .map((elem) => resolveAttr(elem, "href"))
         .filter((url) => url);
 
       // Get JS scripts
       const js_scripts = Array.from(document.querySelectorAll("script[src]"))
-        .map((elem) => elem.src)
+        .map((elem) => resolveAttr(elem, "src"))
         .filter((url) => url);
 
       return {

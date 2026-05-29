@@ -105,7 +105,18 @@ def is_sonic_backend_enabled(config: Mapping[str, Any] | Any) -> bool:
 
 def is_port_listening(host: str, port: int) -> bool:
     try:
-        with socket.create_connection((host, port), timeout=0.5):
+        with socket.create_connection((host, port), timeout=0.5) as sock:
+            sock.settimeout(0.5)
+            reader = sock.makefile("r", encoding="utf-8")
+            writer = sock.makefile("w", encoding="utf-8")
+            if not reader.readline().startswith("CONNECTED"):
+                return False
+            writer.write("QUIT\n")
+            writer.flush()
+            try:
+                reader.readline()
+            except OSError:
+                pass
             return True
     except OSError:
         return False
