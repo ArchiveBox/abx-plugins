@@ -49,12 +49,19 @@
       "maximum": 5,
       "description": "Maximum screencast JPEG frames written per second"
     },
-    "CHROME_SCREENCAST_BUFFER": {
+    "CHROME_SCREENCAST_KEEP": {
       "type": "integer",
-      "default": 20,
-      "minimum": 1,
-      "maximum": 120,
-      "description": "Number of recent screencast frames to keep in the rolling cache"
+      "default": 0,
+      "minimum": 0,
+      "maximum": 10,
+      "description": "Number of screencast frames to keep after Chrome exits"
+    },
+    "CHROME_SCREENCAST_SCALE": {
+      "type": "number",
+      "default": 0.5,
+      "minimum": 0.1,
+      "maximum": 1,
+      "description": "CDP screenshot clip scale for live preview frames"
     }
   }
 }

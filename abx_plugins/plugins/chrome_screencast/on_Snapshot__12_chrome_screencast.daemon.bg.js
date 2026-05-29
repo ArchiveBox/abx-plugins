@@ -10,6 +10,7 @@ const path = require("path");
 
 const {
   ensureNodeModuleResolution,
+  getEnv,
   getEnvBool,
   getEnvInt,
   loadConfig,
@@ -34,6 +35,7 @@ const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || CRAWL_DIR).trim());
 const CHROME_SESSION_DIR = path.join(SNAP_DIR, "chrome");
 const LIVE_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
 const LATEST_FRAME = path.join(LIVE_DIR, "latest.jpg");
+const LIVE_FRAME_BUFFER = 10;
 if (CRAWL_DIR_VALUE && !fs.existsSync(LIVE_DIR)) {
   fs.mkdirSync(LIVE_DIR, { recursive: true });
 }
@@ -47,12 +49,18 @@ let frameCount = 0;
 let lastWriteAt = 0;
 let nextFrameNumber = 1;
 let captureTimer = null;
+let keepFramesOnExit = 0;
 
 function emitResult(status, output) {
   emitArchiveResultRecord(status, output);
 }
 
-async function captureVisibleViewportJpeg(browser, quality, targetId = null) {
+async function captureVisibleViewportJpeg(
+  browser,
+  quality,
+  screenshotScale,
+  targetId = null
+) {
   const pageTargets = browser.targets().filter((target) => {
     const url = target.url() || "";
     return (
@@ -92,7 +100,7 @@ async function captureVisibleViewportJpeg(browser, quality, targetId = null) {
       optimizeForSpeed: true,
       fromSurface: true,
       captureBeyondViewport: false,
-      clip: { x, y, width, height, scale: 0.5 },
+      clip: { x, y, width, height, scale: screenshotScale },
     });
   } finally {
     try {
@@ -127,6 +135,28 @@ function cleanupOldFrames(maxFrames) {
       fs.unlinkSync(path.join(LIVE_DIR, name));
     } catch (error) {}
   }
+}
+
+function cleanupFinalFrames(keepFrames) {
+  let frames = [];
+  try {
+    frames = fs
+      .readdirSync(LIVE_DIR)
+      .filter((name) => /^frame-\d+\.jpg$/.test(name))
+      .sort();
+  } catch (error) {
+    return 0;
+  }
+  const removeFrames = frames.slice(0, Math.max(0, frames.length - keepFrames));
+  for (const name of removeFrames) {
+    try {
+      fs.unlinkSync(path.join(LIVE_DIR, name));
+    } catch (error) {}
+  }
+  try {
+    fs.unlinkSync(LATEST_FRAME);
+  } catch (error) {}
+  return Math.max(0, frames.length - removeFrames.length);
 }
 
 async function startScreencast() {
@@ -164,10 +194,16 @@ async function startScreencast() {
     Math.min(100, getEnvInt("CHROME_SCREENCAST_QUALITY", 65))
   );
   const fps = Math.max(1, Math.min(5, getEnvInt("CHROME_SCREENCAST_FPS", 1)));
-  const bufferSize = Math.max(
-    1,
-    Math.min(120, getEnvInt("CHROME_SCREENCAST_BUFFER", 20))
+  keepFramesOnExit = Math.max(
+    0,
+    Math.min(LIVE_FRAME_BUFFER, getEnvInt("CHROME_SCREENCAST_KEEP", 0))
   );
+  const rawScale = Number.parseFloat(
+    getEnv("CHROME_SCREENCAST_SCALE", "0.5")
+  );
+  const screenshotScale = Number.isFinite(rawScale)
+    ? Math.max(0.1, Math.min(1, rawScale))
+    : 0.5;
   const minFrameMs = Math.floor(1000 / fps);
 
   const writeFrame = (jpeg) => {
@@ -179,7 +215,7 @@ async function startScreencast() {
     frameCount += 1;
     writeFrameAtomic(framePath, jpeg);
     writeFrameAtomic(LATEST_FRAME, jpeg);
-    cleanupOldFrames(bufferSize);
+    cleanupOldFrames(LIVE_FRAME_BUFFER);
   };
 
   async function captureFrame() {
@@ -188,7 +224,12 @@ async function startScreencast() {
     if (now - lastWriteAt < minFrameMs) return;
     lastWriteAt = now;
     try {
-      const jpeg = await captureVisibleViewportJpeg(browser, quality, targetId);
+      const jpeg = await captureVisibleViewportJpeg(
+        browser,
+        quality,
+        screenshotScale,
+        targetId
+      );
       writeFrame(jpeg);
     } catch (error) {
       if (error.message === "No HTTP(S) Chrome page target found") return;
@@ -214,7 +255,11 @@ async function stopScreencast(status = "succeeded", output = "") {
     } catch (error) {}
     browser = null;
   }
-  emitResult(status, output || `${frameCount} screencast frames`);
+  const remainingFrames = cleanupFinalFrames(keepFramesOnExit);
+  emitResult(
+    status,
+    output || `${frameCount} screencast frames (${remainingFrames} kept)`
+  );
 }
 
 async function handleShutdown(signal) {
