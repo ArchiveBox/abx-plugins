@@ -1,0 +1,21 @@
+docs/index.html.j2
+  s_2c77e5cbc3942b::t_7185818f338e4d 997
+docs/index.html
+  s_2c77e5cbc3942b::t_6850074814f8f2 997,11603
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b94b4450d62fbcb0a2107e99942e1f1828445896",
+  "prompts": {},
+  "sessions": {
+    "s_2c77e5cbc3942b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "57cbe5c0-d9f4-481a-b918-cf6d57eafdd4",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
