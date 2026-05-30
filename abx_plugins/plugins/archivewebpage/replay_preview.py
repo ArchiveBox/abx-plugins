@@ -36,6 +36,31 @@ _REPLAY_ASSETS = {
     "ui.js": "ui.js",
 }
 
+# Static fallbacks for the two bootstrap iframes the replayweb.page SW
+# normally synthesizes (see ``sw.js`` near "replay.html"/"record.html"). The
+# iframe ``<replay-web-page>`` creates points at ``/replay/replay.html?...``
+# *before* the SW has finished activating, so without these the first iframe
+# fetch 404s and ui.js silently reloads the iframe up to twice (~200ms each)
+# while waiting for the SW to claim its scope. Serving the same HTML the SW
+# would synthesize makes the first iframe load succeed regardless of SW
+# lifecycle state — once the SW is active it intercepts these paths itself
+# and our handler is never reached.
+_REPLAY_STATIC_HTML = {
+    "replay.html": (
+        '<!doctype html>\n<html class="no-overflow">\n  <head>\n'
+        "    <title>ReplayWeb.page</title>\n"
+        '    <meta name="viewport" content="width=device-width, initial-scale=1" />\n'
+        '    <script src="./ui.js"></script>\n'
+        "  </head>\n  <body>\n    <replay-app-main></replay-app-main>\n  </body>\n</html>\n"
+    ),
+    "record.html": (
+        "<!doctype html>\n<html>\n  <head>\n"
+        '    <meta charset="utf-8">\n'
+        '    <script src="ui.js"></script>\n'
+        "  </head>\n  <body>\n    <archive-web-page-app></archive-web-page-app>\n  </body>\n</html>\n"
+    ),
+}
+
 _PLUGIN_DIR = Path(__file__).resolve().parent
 
 
@@ -55,7 +80,22 @@ def find_extension_dir(config) -> Path | None:
 
 def serve_replay_asset(rel_path: str, config) -> HttpResponse | None:
     """Serve ``/replay/{sw,ui}.js`` from the locally installed extension."""
-    asset = rel_path.removeprefix("replay/").removeprefix("replay").lstrip("/")
+    if rel_path == "replay":
+        asset = ""
+    elif rel_path.startswith("replay/"):
+        asset = rel_path[len("replay/") :]
+    else:
+        asset = rel_path
+
+    static_html = _REPLAY_STATIC_HTML.get(asset)
+    if static_html is not None:
+        response = HttpResponse(
+            static_html.encode("utf-8"),
+            content_type="text/html; charset=utf-8",
+        )
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
     target = _REPLAY_ASSETS.get(asset)
     if target is None:
         return None

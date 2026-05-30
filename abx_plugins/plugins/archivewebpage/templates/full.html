@@ -7,9 +7,39 @@
         html, body { margin: 0; padding: 0; height: 100%; background: #fff; }
         replay-web-page { display: block; width: 100%; height: 100%; }
     </style>
-    <!-- ui.js + sw.js are served by archivebox from the locally installed
-         archivewebpage extension; no CDN, no cross-origin frames. -->
-    <script src="/replay/ui.js"></script>
+    <script>
+    // Pre-activate the replay SW before loading ui.js. Otherwise
+    // <replay-web-page>'s Embed class resolves doRegister() on the
+    // 'registered' event (not 'activated'), then sets inited=true and
+    // navigates the iframe to /replay/replay.html before the SW is
+    // controlling its scope — that races into a 404 + visible error-page
+    // flash and forces ui.js to silently reload the iframe up to twice
+    // (~200ms each) while it waits for the SW to claim. Awaiting
+    // 'activated' here moves the wait out of the iframe's load cycle.
+    (async () => {
+        if ('serviceWorker' in navigator) {
+            try {
+                const reg = await navigator.serviceWorker.register(
+                    '/replay/sw.js?serveIndex=1',
+                    { scope: '/replay/' },
+                );
+                if (!reg.active) {
+                    const worker = reg.installing || reg.waiting;
+                    if (worker && worker.state !== 'activated') {
+                        await new Promise((resolve) => {
+                            worker.addEventListener('statechange', () => {
+                                if (worker.state === 'activated') resolve();
+                            });
+                        });
+                    }
+                }
+            } catch (_) { /* fall through: ui.js will register + retry itself */ }
+        }
+        const s = document.createElement('script');
+        s.src = '/replay/ui.js';
+        document.head.appendChild(s);
+    })();
+    </script>
 </head>
 <body>
     <replay-web-page source="{{ output_path }}"
