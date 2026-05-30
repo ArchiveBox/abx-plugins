@@ -25,7 +25,6 @@ def _run_hook(tmp_path: Path, **env_overrides: str) -> subprocess.CompletedProce
             "CRAWL_DIR": str(crawl_dir),
             "DATA_DIR": str(tmp_path / "data"),
             "SEARCH_BACKEND_ENGINE": "sonic",
-            "USE_INDEXING_BACKEND": "true",
             "SONIC_BINARY": "/usr/bin/sonic",
             "SEARCH_BACKEND_SONIC_HOST_NAME": "127.0.0.1",
             "SEARCH_BACKEND_SONIC_PORT": str(_free_port()),
@@ -68,7 +67,6 @@ def test_sonic_supervisord_worker_is_owned_by_plugin(tmp_path: Path) -> None:
     config = {
         "DATA_DIR": str(tmp_path / "data"),
         "SEARCH_BACKEND_ENGINE": "sonic",
-        "USE_INDEXING_BACKEND": True,
         "SONIC_BINARY": "/usr/bin/sonic",
         "SEARCH_BACKEND_SONIC_HOST_NAME": "127.0.0.1",
         "SEARCH_BACKEND_SONIC_PORT": _free_port(),
@@ -103,7 +101,6 @@ def test_sonic_daemon_config_normalizes_localhost_bind_host(tmp_path: Path) -> N
     config = {
         "DATA_DIR": str(tmp_path / "data"),
         "SEARCH_BACKEND_ENGINE": "sonic",
-        "USE_INDEXING_BACKEND": True,
         "SEARCH_BACKEND_SONIC_HOST_NAME": "localhost",
         "SEARCH_BACKEND_SONIC_PORT": port,
         "SEARCH_BACKEND_SONIC_PASSWORD": "SecretPassword",
@@ -127,32 +124,36 @@ def test_sonic_start_skips_outside_archivebox(tmp_path: Path) -> None:
     assert result.stdout.strip() == "ABX_RUNTIME=abx-dl"
 
 
-def test_sonic_start_uses_indexing_switch_when_backend_not_selected(
+def test_sonic_start_skips_when_disabled_and_engine_not_sonic(tmp_path: Path) -> None:
+    result = _run_hook(
+        tmp_path,
+        SEARCH_BACKEND_ENGINE="ripgrep",
+        SEARCH_BACKEND_SONIC_ENABLED="false",
+    )
+
+    assert result.returncode == 10
+    assert result.stdout.strip() == "SEARCH_BACKEND_SONIC_ENABLED=False"
+
+
+def test_sonic_start_still_runs_when_engine_selects_other_backend(
     tmp_path: Path,
 ) -> None:
+    """Default SEARCH_BACKEND_SONIC_ENABLED=true keeps sonic indexing even if engine=sqlite."""
     result = _run_hook(tmp_path, SEARCH_BACKEND_ENGINE="sqlite")
 
     assert result.returncode == 0, result.stderr
     assert "127.0.0.1:" in result.stdout
 
 
-def test_sonic_start_forces_enabled_when_backend_selected(tmp_path: Path) -> None:
+def test_sonic_start_runs_when_engine_is_sonic_even_if_enabled_false(
+    tmp_path: Path,
+) -> None:
+    """Engine=sonic forces sonic to run regardless of SEARCH_BACKEND_SONIC_ENABLED."""
     result = _run_hook(
         tmp_path,
         SEARCH_BACKEND_ENGINE="sonic",
-        USE_INDEXING_BACKEND="false",
+        SEARCH_BACKEND_SONIC_ENABLED="false",
     )
 
     assert result.returncode == 0, result.stderr
     assert "127.0.0.1:" in result.stdout
-
-
-def test_sonic_start_skips_when_indexing_disabled(tmp_path: Path) -> None:
-    result = _run_hook(
-        tmp_path,
-        SEARCH_BACKEND_ENGINE="sqlite",
-        USE_INDEXING_BACKEND="false",
-    )
-
-    assert result.returncode == 10
-    assert result.stdout.strip() == "USE_INDEXING_BACKEND=False"

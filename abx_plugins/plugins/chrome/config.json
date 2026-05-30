@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Chrome",
-  "description": "Launch and manage a shared Chromium-compatible CDP browser session for browser-driven plugins.",
+  "description": "Needed by many other plugins to save high-fidelity archives within a real browser (does not save anything itself).",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [

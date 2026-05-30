@@ -26,12 +26,6 @@
       "minimum": 10,
       "x-fallback": "TIMEOUT",
       "description": "Timeout for archive.org submission in seconds"
-    },
-    "ARCHIVEDOTORG_USER_AGENT": {
-      "type": "string",
-      "default": "",
-      "x-fallback": "USER_AGENT",
-      "description": "User agent string"
     }
   }
 }

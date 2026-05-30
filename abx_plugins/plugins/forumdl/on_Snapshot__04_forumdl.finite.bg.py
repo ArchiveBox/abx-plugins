@@ -151,34 +151,20 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
                 return False, None, f"Timed out after {timeout} seconds"
 
             reader.join(timeout=1)
-            combined_output = "".join(output_lines)
 
-            # Check if output file was created
+            # Check if output file was created with content
             if output_file.exists() and output_file.stat().st_size > 0:
                 return True, str(output_file), ""
-            else:
-                stderr = combined_output
 
-                # These are NOT errors - page simply has no downloadable forum content
-                stderr_lower = stderr.lower()
-                if "unsupported url" in stderr_lower:
-                    return True, "No forum found", ""
-                if "no content" in stderr_lower:
-                    return True, "No forum found", ""
-                if "extractornotfounderror" in stderr_lower:
-                    return True, "No forum found", ""
-                if process.returncode == 0:
-                    return True, "No forum found", ""
-
-                # These ARE errors - something went wrong
-                if "404" in stderr:
-                    return False, None, "404 Not Found"
-                if "403" in stderr:
-                    return False, None, "403 Forbidden"
-                if "unable to extract" in stderr_lower:
-                    return False, None, "Unable to extract forum info"
-
-                return False, None, f"forum-dl error: {stderr}"
+            # forum-dl couldn't produce output for this URL. Don't leave an empty
+            # file behind, and report noresults rather than failed - the URL is
+            # just not a forum forum-dl can extract from.
+            if output_file.exists() and output_file.stat().st_size == 0:
+                try:
+                    output_file.unlink()
+                except OSError:
+                    pass
+            return True, "No forum found", ""
 
     except subprocess.TimeoutExpired:
         return False, None, f"Timed out after {timeout} seconds"

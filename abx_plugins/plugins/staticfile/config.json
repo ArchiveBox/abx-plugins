@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Static File",
-  "description": "Detect and download static-file responses directly when a URL resolves to a non-HTML asset.",
+  "description": "Download static-file responses when a URL resolves to a non-HTML asset (e.g. direct PDF, image, mp4, etc. URLs).",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [

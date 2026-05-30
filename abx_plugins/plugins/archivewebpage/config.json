@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ArchiveWeb.page",
+  "description": "Record a high-fidelity WACZ web archive of the page using the Webrecorder ArchiveWeb.page Chrome extension.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [
+    "chrome"
+  ],
+  "required_binaries": [
+    {
+      "name": "{CHROME_BINARY}",
+      "binproviders": "env,puppeteer",
+      "min_version": null,
+      "overrides": {
+        "puppeteer": {
+          "install_args": [
+            "chrome@stable"
+          ]
+        }
+      }
+    },
+    {
+      "name": "archivewebpage",
+      "binproviders": "chromewebstore",
+      "min_version": null,
+      "overrides": {
+        "chromewebstore": {
+          "install_args": [
+            "fpeoodllldobpkbkabpblcfaogecpndd",
+            "--name=archivewebpage"
+          ]
+        }
+      }
+    }
+  ],
+  "output_mimetypes": [
+    "application/wacz+zip",
+    "application/wacz"
+  ],
+  "properties": {
+    "CHROME_BINARY": {
+      "type": "string",
+      "default": "chromium",
+      "description": "Path to a Chromium-family browser binary"
+    },
+    "PERSONAS_DIR": {
+      "type": "string",
+      "default": "",
+      "description": "Shared Chrome/browser personas root"
+    },
+    "ACTIVE_PERSONA": {
+      "type": "string",
+      "default": "Default",
+      "description": "Active browser persona name"
+    },
+    "ARCHIVEWEBPAGE_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": [
+        "USE_ARCHIVEWEBPAGE",
+        "SAVE_ARCHIVEWEBPAGE",
+        "SAVE_WACZ",
+        "USE_WACZ"
+      ],
+      "description": "Enable ArchiveWeb.page WACZ recording during archiving"
+    },
+    "ARCHIVEWEBPAGE_TIMEOUT": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Maximum seconds to wait for the WACZ download after stopping recording"
+    },
+    "ARCHIVEWEBPAGE_HOOK_BUDGET_MS": {
+      "type": "integer",
+      "default": 2000,
+      "minimum": 250,
+      "description": "Soft per-hook latency budget in ms (start/stop hooks try to finish within this; not a hard cutoff for large captures)"
+    },
+    "ARCHIVEWEBPAGE_AUTORUN_BEHAVIORS": {
+      "type": "boolean",
+      "default": false,
+      "x-aliases": [
+        "ARCHIVEWEBPAGE_AUTOPILOT"
+      ],
+      "description": "Run AWP behaviors (autopilot) during recording. Off by default since infiniscroll/other plugins drive page actions."
+    },
+    "ARCHIVEWEBPAGE_COLLECTION_TITLE": {
+      "type": "string",
+      "default": "abx-dl",
+      "description": "Collection title to use when AWP has no default collection yet"
+    },
+    "CHROME_DOWNLOADS_DIR": {
+      "type": "string",
+      "default": "",
+      "description": "Chrome downloads directory (defaults to persona-scoped chrome_downloads dir)"
+    }
+  }
+}

@@ -34,12 +34,12 @@
     "SEARCH_BACKEND_ENGINE": {
       "type": "string",
       "default": "sonic",
-      "description": "Selected search backend implementation"
+      "description": "Default search backend used to serve search queries. Multiple indexing backends can run concurrently regardless of this value."
     },
-    "USE_INDEXING_BACKEND": {
+    "SEARCH_BACKEND_SONIC_ENABLED": {
       "type": "boolean",
       "default": true,
-      "description": "Enable search indexing for archived snapshots"
+      "description": "Index archived snapshots into the Sonic search backend."
     },
     "SONIC_BINARY": {
       "type": "string",

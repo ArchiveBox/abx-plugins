@@ -26,12 +26,6 @@
       "x-fallback": "TIMEOUT",
       "description": "Timeout for favicon fetch in seconds"
     },
-    "FAVICON_USER_AGENT": {
-      "type": "string",
-      "default": "",
-      "x-fallback": "USER_AGENT",
-      "description": "User agent string"
-    },
     "FAVICON_PROVIDER": {
       "type": "string",
       "default": "https://www.google.com/s2/favicons?domain={}&format=ico",

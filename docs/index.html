@@ -1113,7 +1113,7 @@ abx-dl 'https://example.com'</code></pre>
                 >
               </span>
             </label>
-            <div class="result-count"><span id="visible-count">61</span> / 61 visible</div>
+            <div class="result-count"><span id="visible-count">65</span> / 65 visible</div>
           </div>
         </div>
       </section>
@@ -1300,7 +1300,7 @@ providers: env,apt,brew">
                         <td class="cfg-default"><span class="cfg-number">3600</span></td>
                         <td>
                           <code>integer</code>
-<br><small>min 30</small>                        </td>
+<br><small>min 10</small>                        </td>
                         <td>
 <small>MEDIA_TIMEOUT</small><br><small>fallback: <code>TIMEOUT</code></small>                        </td>
                       </tr>
@@ -1503,7 +1503,7 @@ providers: env,pip,brew,apt">
                         <td class="cfg-default"><span class="cfg-number">3600</span></td>
                         <td>
                           <code>integer</code>
-<br><small>min 30</small>                        </td>
+<br><small>min 10</small>                        </td>
                         <td>
 <small>fallback: <code>TIMEOUT</code></small>                        </td>
                       </tr>
@@ -1694,7 +1694,7 @@ providers: env,pip">
                         <td class="cfg-default"><span class="cfg-number">3600</span></td>
                         <td>
                           <code>integer</code>
-<br><small>min 30</small>                        </td>
+<br><small>min 10</small>                        </td>
                         <td>
 <small>fallback: <code>TIMEOUT</code></small>                        </td>
                       </tr>
@@ -2133,7 +2133,7 @@ providers: env,apt,brew">
             <details
               id="archivedotorg"
               class="plugin-card plugin-card--snapshot"
-              data-search="archivedotorg snapshot archive.org submit urls to the internet archive wayback machine and save the resulting archive link. python snapshot embed text/plain on_snapshot__08_archivedotorg.finite.bg.py archivedotorg_enabled submit urls to archive.org wayback machine archivedotorg_timeout timeout for archive.org submission in seconds archivedotorg_user_agent user agent string"
+              data-search="archivedotorg snapshot archive.org submit urls to the internet archive wayback machine and save the resulting archive link. python snapshot embed text/plain on_snapshot__08_archivedotorg.finite.bg.py archivedotorg_enabled submit urls to archive.org wayback machine archivedotorg_timeout timeout for archive.org submission in seconds"
               data-hero-plugin="archivedotorg"
               data-hero-abx-command="uvx abx-dl --plugins archivedotorg 'https://example.com'"
               data-hero-archivebox-command="ARCHIVEDOTORG_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -2253,15 +2253,6 @@ providers: env,apt,brew">
                         <td>
 <small>fallback: <code>TIMEOUT</code></small>                        </td>
                       </tr>
-                      <tr>
-                        <td><code>ARCHIVEDOTORG_USER_AGENT</code><span class="config-key-desc">User agent string</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
-                        <td>
-                          <code>string</code>
-                        </td>
-                        <td>
-<small>fallback: <code>USER_AGENT</code></small>                        </td>
-                      </tr>
                     </tbody>
                   </table>
                 </div>
@@ -2270,7 +2261,7 @@ providers: env,apt,brew">
             <details
               id="favicon"
               class="plugin-card plugin-card--snapshot"
-              data-search="favicon snapshot favicon fetch and save the site favicon or touch icon. python snapshot embed image on_snapshot__11_favicon.finite.bg.py favicon_enabled enable favicon downloading favicon_timeout timeout for favicon fetch in seconds favicon_user_agent user agent string favicon_provider fallback favicon provider url template. supports either {} or {domain} placeholders."
+              data-search="favicon snapshot favicon fetch and save the site favicon or touch icon. python snapshot embed image on_snapshot__11_favicon.finite.bg.py favicon_enabled enable favicon downloading favicon_timeout timeout for favicon fetch in seconds favicon_provider fallback favicon provider url template. supports either {} or {domain} placeholders."
               data-hero-plugin="favicon"
               data-hero-abx-command="uvx abx-dl --plugins favicon 'https://example.com'"
               data-hero-archivebox-command="FAVICON_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -2391,15 +2382,6 @@ providers: env,apt,brew">
 <small>fallback: <code>TIMEOUT</code></small>                        </td>
                       </tr>
                       <tr>
-                        <td><code>FAVICON_USER_AGENT</code><span class="config-key-desc">User agent string</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
-                        <td>
-                          <code>string</code>
-                        </td>
-                        <td>
-<small>fallback: <code>USER_AGENT</code></small>                        </td>
-                      </tr>
-                      <tr>
                         <td><code>FAVICON_PROVIDER</code><span class="config-key-desc">Fallback favicon provider URL template. Supports either {} or {domain} placeholders.</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;https://www.google.com/s2/favicons?domain={}&amp;format=ico&quot;</span></td>
                         <td>
@@ -2414,9 +2396,187 @@ providers: env,apt,brew">
               </div>
             </details>
             <details
+              id="chrome_screencast"
+              class="plugin-card plugin-card--snapshot"
+              data-search="chrome_screencast snapshot chrome screencast stream low-resolution chrome screencast jpeg frames for the admin live progress ui. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} image/jpeg on_snapshot__12_chrome_screencast.daemon.bg.js chrome_binary path to a chromium-family browser binary chrome_screencast_enabled enable live browser preview frames for the admin live progress ui chrome_screencast_quality live preview jpeg quality chrome_screencast_fps maximum screencast jpeg frames written per second chrome_screencast_keep number of screencast frames to keep after chrome exits (there is a separate screenshot plugin for real hi-res screenshots) chrome_screencast_scale cdp screenshot clip scale for live preview frames"
+              data-hero-plugin="chrome_screencast"
+              data-hero-abx-command="uvx abx-dl --plugins chrome_screencast 'https://example.com'"
+              data-hero-archivebox-command="CHROME_SCREENCAST_ENABLED=true archivebox add &#39;https://example.com&#39;"
+            >
+              <summary>
+                <div class="plugin-card__frame">
+                  <div class="plugin-main">
+                    <div class="plugin-title-row">
+                      <h2>Chrome Screencast</h2>
+                    </div>
+                    <div class="plugin-slug"><code>chrome_screencast</code></div>
+                    <p class="plugin-summary-description">Stream low-resolution Chrome screencast JPEG frames for the admin live progress UI.</p>
+                    <div class="plugin-subline">
+                      <span class="plugin-order">#12</span>
+                      <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
+                        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                          <rect x="4.5" y="4.5" width="15" height="15" rx="2.5" fill="currentColor" opacity="0.2"></rect>
+                          <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
+                        </svg>
+                      </span>
+
+                      <span class="chip">Snapshot</span>
+                    </div>
+                    <div class="plugin-summary-facts">
+                      <div>
+                        <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span>
+                      </div>
+                      <div>
+                        <span class="chip chip--mime chip--mime-image">image/jpeg</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </summary>
+
+              <div class="plugin-body">
+                <p class="plugin-modal-description">Stream low-resolution Chrome screencast JPEG frames for the admin live progress UI.</p>
+
+                <div class="actions">
+                  <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/chrome_screencast" target="_blank" rel="noreferrer">Source on GitHub</a>
+                </div>
+
+                <h3 class="section-title">Dependencies &amp; Outputs</h3>
+                <div class="plugin-info-grid">
+                  <article class="plugin-info-card">
+                    <span>Required Plugins</span>
+                    <div class="pill-list">
+                      <a href="#chrome" class="chip chip--link">chrome</a>
+                    </div>
+                  </article>
+                  <article class="plugin-info-card">
+                    <span>Required Binaries</span>
+                    <div class="pill-list">
+                      <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                        <code>chromium</code>
+                        <small>providers=env,puppeteer</small>
+                      </span>
+                    </div>
+                  </article>
+                  <article class="plugin-info-card">
+                    <span>Output Mimetypes</span>
+                    <div class="pill-list">
+                      <span class="chip chip--mime chip--mime-image">image/jpeg</span>
+                    </div>
+                  </article>
+                </div>
+
+                <h3 class="section-title">Run It</h3>
+                <div class="run-tabs" data-run-tabs>
+                  <div class="run-tabs-bar">
+                    <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                    <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
+                  </div>
+                  <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl --plugins=chrome_screencast &#39;https://example.com&#39;</code></pre>
+                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>CHROME_SCREENCAST_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+                </div>
+                <p class="note">Runtime plugins execute while archiving a URL.</p>
+
+                <h3 class="section-title">Hook Scripts</h3>
+                <div class="hook-list">
+                  <article class="hook-card">
+                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/chrome_screencast/on_Snapshot__12_chrome_screencast.daemon.bg.js" target="_blank" rel="noreferrer">on_Snapshot__12_chrome_screencast.daemon.bg.js</a></span>
+                    <div class="hook-card-chips">
+                      <span class="plugin-language plugin-language--javascript" title="JavaScript">
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                          <rect x="4.5" y="4.5" width="15" height="15" rx="2.5" fill="currentColor" opacity="0.2"></rect>
+                          <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
+                        </svg>
+                      </span>
+                      <span class="chip">order 12</span>
+                      <span class="chip chip--bg-daemon">background (daemon)</span>
+                      <span class="hook-card-phase">Snapshot</span>
+                    </div>
+                  </article>
+                </div>
+
+                <h3 class="section-title">Env Var Config Options</h3>
+                <div class="config-table-wrap">
+                  <table class="ab-table config-table">
+                    <colgroup>
+                      <col class="col-key">
+                      <col class="col-default">
+                      <col class="col-type">
+                      <col class="col-aliases">
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th>Key</th>
+                        <th>Default</th>
+                        <th>Type</th>
+                        <th>Aliases / Fallback</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>CHROME_SCREENCAST_ENABLED</code><span class="config-key-desc">Enable live browser preview frames for the admin live progress UI</span></td>
+                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
+                        <td>
+                          <code>boolean</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>CHROME_SCREENCAST_QUALITY</code><span class="config-key-desc">Live preview JPEG quality</span></td>
+                        <td class="cfg-default"><span class="cfg-number">65</span></td>
+                        <td>
+                          <code>integer</code>
+<br><small>min 1</small>                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>CHROME_SCREENCAST_FPS</code><span class="config-key-desc">Maximum screencast JPEG frames written per second</span></td>
+                        <td class="cfg-default"><span class="cfg-number">1</span></td>
+                        <td>
+                          <code>integer</code>
+<br><small>min 1</small>                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>CHROME_SCREENCAST_KEEP</code><span class="config-key-desc">Number of screencast frames to keep after Chrome exits (there is a separate screenshot plugin for real hi-res screenshots)</span></td>
+                        <td class="cfg-default"><span class="cfg-number">0</span></td>
+                        <td>
+                          <code>integer</code>
+<br><small>min 0</small>                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>CHROME_SCREENCAST_SCALE</code><span class="config-key-desc">CDP screenshot clip scale for live preview frames</span></td>
+                        <td class="cfg-default"><span class="cfg-number">0.5</span></td>
+                        <td>
+                          <code>number</code>
+<br><small>min 0.1</small>                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
+            <details
               id="ublock"
               class="plugin-card plugin-card--snapshot"
-              data-search="ublock snapshot ublock origin lite install the ublock origin lite extension to block ads, trackers, and other page clutter during archiving. javascript snapshot chrome {chrome_binary} ublock env,puppeteer chromewebstore   {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;ddkjiahejlhfcafbddmgiahcphecmpfh&#34;, &#34;--name=ublock&#34;]}} on_snapshot__12_ublock.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary ublock_enabled enable ublock origin lite browser extension for ad blocking"
+              data-search="ublock snapshot ublock origin lite install the ublock origin lite extension to block ads, trackers, and other page clutter during archiving. javascript snapshot chrome {chrome_binary} ublock env,puppeteer chromewebstore   {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;ddkjiahejlhfcafbddmgiahcphecmpfh&#34;, &#34;--name=ublock&#34;]}} on_snapshot__12_ublock.daemon.bg.js chrome_binary path to a chromium-family browser binary ublock_enabled enable ublock origin lite browser extension for ad blocking"
               data-hero-plugin="ublock"
               data-hero-abx-command="uvx abx-dl --plugins ublock 'https://example.com'"
               data-hero-archivebox-command="UBLOCK_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -2530,13 +2690,13 @@ providers: chromewebstore">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>UBLOCK_ENABLED</code><span class="config-key-desc">Enable uBlock Origin Lite browser extension for ad blocking</span></td>
@@ -2555,7 +2715,7 @@ providers: chromewebstore">
             <details
               id="istilldontcareaboutcookies"
               class="plugin-card plugin-card--snapshot"
-              data-search="istilldontcareaboutcookies snapshot i still don&#39;t care about cookies install the i still don&#39;t care about cookies extension to dismiss cookie banners during archiving. javascript snapshot chrome {chrome_binary} istilldontcareaboutcookies env,puppeteer chromewebstore   {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;edibdbjcniadpccecjdfdjjppcpchdlm&#34;, &#34;--name=istilldontcareaboutcookies&#34;]}} on_snapshot__13_istilldontcareaboutcookies.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary istilldontcareaboutcookies_enabled enable i still don&#39;t care about cookies browser extension"
+              data-search="istilldontcareaboutcookies snapshot i still don&#39;t care about cookies install the i still don&#39;t care about cookies extension to dismiss cookie banners during archiving. javascript snapshot chrome {chrome_binary} istilldontcareaboutcookies env,puppeteer chromewebstore   {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;edibdbjcniadpccecjdfdjjppcpchdlm&#34;, &#34;--name=istilldontcareaboutcookies&#34;]}} on_snapshot__13_istilldontcareaboutcookies.daemon.bg.js chrome_binary path to a chromium-family browser binary istilldontcareaboutcookies_enabled enable i still don&#39;t care about cookies browser extension"
               data-hero-plugin="istilldontcareaboutcookies"
               data-hero-abx-command="uvx abx-dl --plugins istilldontcareaboutcookies 'https://example.com'"
               data-hero-archivebox-command="ISTILLDONTCAREABOUTCOOKIES_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -2669,13 +2829,13 @@ providers: chromewebstore">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>ISTILLDONTCAREABOUTCOOKIES_ENABLED</code><span class="config-key-desc">Enable I Still Don&#39;t Care About Cookies browser extension</span></td>
@@ -2694,7 +2854,7 @@ providers: chromewebstore">
             <details
               id="twocaptcha"
               class="plugin-card plugin-card--snapshot"
-              data-search="twocaptcha snapshot 2captcha install and configure the 2captcha extension to solve captchas during browser-based archiving. javascript snapshot chrome {chrome_binary} twocaptcha env,puppeteer chromewebstore   {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;ifibfemgeogfhoebkmokieepdoobkbpo&#34;, &#34;--name=twocaptcha&#34;]}} on_crawlsetup__95_twocaptcha_config.js on_snapshot__14_twocaptcha.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary twocaptcha_enabled enable 2captcha browser extension for automatic captcha solving twocaptcha_api_key 2captcha api key for captcha solving service (get from https://2captcha.com) twocaptcha_retry_count number of times to retry captcha solving on error twocaptcha_retry_delay delay in seconds between captcha solving retries twocaptcha_timeout timeout for captcha solving in seconds twocaptcha_auto_submit automatically submit forms after captcha is solved"
+              data-search="twocaptcha snapshot 2captcha install and configure the 2captcha extension to solve captchas during browser-based archiving. javascript snapshot chrome {chrome_binary} twocaptcha env,puppeteer chromewebstore   {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;ifibfemgeogfhoebkmokieepdoobkbpo&#34;, &#34;--name=twocaptcha&#34;]}} on_crawlsetup__95_twocaptcha_config.js on_snapshot__14_twocaptcha.daemon.bg.js chrome_binary path to a chromium-family browser binary twocaptcha_enabled enable 2captcha browser extension for automatic captcha solving twocaptcha_api_key 2captcha api key for captcha solving service (get from https://2captcha.com) twocaptcha_retry_count number of times to retry captcha solving on error twocaptcha_retry_delay delay in seconds between captcha solving retries twocaptcha_timeout timeout for captcha solving in seconds twocaptcha_auto_submit automatically submit forms after captcha is solved"
               data-hero-plugin="twocaptcha"
               data-hero-abx-command="uvx abx-dl --plugins twocaptcha 'https://example.com'"
               data-hero-archivebox-command="TWOCAPTCHA_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -2822,13 +2982,13 @@ providers: chromewebstore">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>TWOCAPTCHA_ENABLED</code><span class="config-key-desc">Enable 2captcha browser extension for automatic CAPTCHA solving</span></td>
@@ -2892,7 +3052,7 @@ providers: chromewebstore">
             <details
               id="modalcloser"
               class="plugin-card plugin-card--snapshot"
-              data-search="modalcloser snapshot modal closer automatically dismiss dialogs, cookie banners, and framework modals while the page is being archived. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} on_snapshot__15_modalcloser.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary modalcloser_enabled enable automatic modal and dialog closing modalcloser_timeout delay before auto-closing dialogs (ms) modalcloser_poll_interval how often to check for css modals (ms)"
+              data-search="modalcloser snapshot modal closer automatically dismiss dialogs, cookie banners, and framework modals while the page is being archived. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} on_snapshot__15_modalcloser.daemon.bg.js chrome_binary path to a chromium-family browser binary modalcloser_enabled enable automatic modal and dialog closing modalcloser_timeout delay before auto-closing dialogs (ms) modalcloser_poll_interval how often to check for css modals (ms)"
               data-hero-plugin="modalcloser"
               data-hero-abx-command="uvx abx-dl --plugins modalcloser 'https://example.com'"
               data-hero-archivebox-command="MODALCLOSER_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -3000,13 +3160,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>MODALCLOSER_ENABLED</code><span class="config-key-desc">Enable automatic modal and dialog closing</span></td>
@@ -3043,7 +3203,7 @@ providers: env,puppeteer">
             <details
               id="consolelog"
               class="plugin-card plugin-card--snapshot"
-              data-search="consolelog snapshot console log capture browser console messages emitted while the page loads. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/x-ndjson on_snapshot__21_consolelog.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary consolelog_enabled enable console log capture consolelog_timeout timeout for console log capture in seconds"
+              data-search="consolelog snapshot console log capture browser console messages emitted while the page loads. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/x-ndjson on_snapshot__21_consolelog.daemon.bg.js chrome_binary path to a chromium-family browser binary consolelog_enabled enable console log capture consolelog_timeout timeout for console log capture in seconds"
               data-hero-plugin="consolelog"
               data-hero-abx-command="uvx abx-dl --plugins consolelog 'https://example.com'"
               data-hero-archivebox-command="CONSOLELOG_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -3160,13 +3320,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>CONSOLELOG_ENABLED</code><span class="config-key-desc">Enable console log capture</span></td>
@@ -3194,7 +3354,7 @@ providers: env,puppeteer">
             <details
               id="dns"
               class="plugin-card plugin-card--snapshot"
-              data-search="dns snapshot dns record dns activity observed while loading the page in chrome. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/x-ndjson on_snapshot__22_dns.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary dns_enabled enable dns traffic recording during page load dns_timeout timeout for dns recording in seconds"
+              data-search="dns snapshot dns record dns activity observed while loading the page in chrome. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/x-ndjson on_snapshot__22_dns.daemon.bg.js chrome_binary path to a chromium-family browser binary dns_enabled enable dns traffic recording during page load dns_timeout timeout for dns recording in seconds"
               data-hero-plugin="dns"
               data-hero-abx-command="uvx abx-dl --plugins dns 'https://example.com'"
               data-hero-archivebox-command="DNS_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -3311,13 +3471,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>DNS_ENABLED</code><span class="config-key-desc">Enable DNS traffic recording during page load</span></td>
@@ -3345,7 +3505,7 @@ providers: env,puppeteer">
             <details
               id="sslcerts"
               class="plugin-card plugin-card--snapshot"
-              data-search="sslcerts snapshot ssl certificates capture tls certificate and connection metadata for the loaded page. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/x-ndjson on_snapshot__23_sslcerts.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary sslcerts_enabled enable ssl certificate capture sslcerts_timeout timeout for ssl capture in seconds"
+              data-search="sslcerts snapshot ssl certificates capture tls certificate and connection metadata for the loaded page. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/x-ndjson on_snapshot__23_sslcerts.daemon.bg.js chrome_binary path to a chromium-family browser binary sslcerts_enabled enable ssl certificate capture sslcerts_timeout timeout for ssl capture in seconds"
               data-hero-plugin="sslcerts"
               data-hero-abx-command="uvx abx-dl --plugins sslcerts 'https://example.com'"
               data-hero-archivebox-command="SSLCERTS_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -3462,13 +3622,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>SSLCERTS_ENABLED</code><span class="config-key-desc">Enable SSL certificate capture</span></td>
@@ -3496,7 +3656,7 @@ providers: env,puppeteer">
             <details
               id="responses"
               class="plugin-card plugin-card--snapshot"
-              data-search="responses snapshot responses capture http response metadata for requests made during page load. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/x-ndjson text image audio video application font on_snapshot__24_responses.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary responses_enabled enable http response capture responses_timeout timeout for response capture in seconds"
+              data-search="responses snapshot responses capture http response metadata for requests made during page load. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/x-ndjson text image audio video application font on_snapshot__24_responses.daemon.bg.js chrome_binary path to a chromium-family browser binary responses_enabled enable http response capture responses_timeout timeout for response capture in seconds"
               data-hero-plugin="responses"
               data-hero-abx-command="uvx abx-dl --plugins responses 'https://example.com'"
               data-hero-archivebox-command="RESPONSES_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -3622,13 +3782,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>RESPONSES_ENABLED</code><span class="config-key-desc">Enable HTTP response capture</span></td>
@@ -3656,7 +3816,7 @@ providers: env,puppeteer">
             <details
               id="redirects"
               class="plugin-card plugin-card--snapshot"
-              data-search="redirects snapshot redirects capture the redirect chain encountered while loading the page. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/x-ndjson on_snapshot__25_redirects.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary redirects_enabled enable redirect chain capture redirects_timeout timeout for redirect capture in seconds"
+              data-search="redirects snapshot redirects capture the redirect chain encountered while loading the page. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/x-ndjson on_snapshot__25_redirects.daemon.bg.js chrome_binary path to a chromium-family browser binary redirects_enabled enable redirect chain capture redirects_timeout timeout for redirect capture in seconds"
               data-hero-plugin="redirects"
               data-hero-abx-command="uvx abx-dl --plugins redirects 'https://example.com'"
               data-hero-archivebox-command="REDIRECTS_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -3773,13 +3933,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>REDIRECTS_ENABLED</code><span class="config-key-desc">Enable redirect chain capture</span></td>
@@ -3807,7 +3967,7 @@ providers: env,puppeteer">
             <details
               id="staticfile"
               class="plugin-card plugin-card--snapshot"
-              data-search="staticfile snapshot static file detect and download static-file responses directly when a url resolves to a non-html asset. javascript snapshot embed chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/pdf application/epub+zip image audio video application/json application/xml text/csv text/xml application/zip application/octet-stream application/x- on_snapshot__26_staticfile.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary staticfile_enabled enable static file detection staticfile_timeout timeout for static file detection in seconds"
+              data-search="staticfile snapshot static file download static-file responses when a url resolves to a non-html asset (e.g. direct pdf, image, mp4, etc. urls). javascript snapshot embed chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/pdf application/epub+zip image audio video application/json application/xml text/csv text/xml application/zip application/octet-stream application/x- on_snapshot__26_staticfile.daemon.bg.js chrome_binary path to a chromium-family browser binary staticfile_enabled enable static file detection staticfile_timeout timeout for static file detection in seconds"
               data-hero-plugin="staticfile"
               data-hero-abx-command="uvx abx-dl --plugins staticfile 'https://example.com'"
               data-hero-archivebox-command="STATICFILE_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -3819,7 +3979,7 @@ providers: env,puppeteer">
                       <h2>Static File</h2>
                     </div>
                     <div class="plugin-slug"><code>staticfile</code></div>
-                    <p class="plugin-summary-description">Detect and download static-file responses directly when a URL resolves to a non-HTML asset.</p>
+                    <p class="plugin-summary-description">Download static-file responses when a URL resolves to a non-HTML asset (e.g. direct PDF, image, mp4, etc. URLs).</p>
                     <div class="plugin-subline">
                       <span class="plugin-order">#26</span>
                       <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
@@ -3848,7 +4008,7 @@ providers: env,puppeteer">
               </summary>
 
               <div class="plugin-body">
-                <p class="plugin-modal-description">Detect and download static-file responses directly when a URL resolves to a non-HTML asset.</p>
+                <p class="plugin-modal-description">Download static-file responses when a URL resolves to a non-HTML asset (e.g. direct PDF, image, mp4, etc. URLs).</p>
 
                 <div class="actions">
                   <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/staticfile" target="_blank" rel="noreferrer">Source on GitHub</a>
@@ -3939,13 +4099,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>STATICFILE_ENABLED</code><span class="config-key-desc">Enable static file detection</span></td>
@@ -3973,7 +4133,7 @@ providers: env,puppeteer">
             <details
               id="headers"
               class="plugin-card plugin-card--snapshot"
-              data-search="headers snapshot headers capture http headers for the main document response. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/json on_snapshot__27_headers.daemon.bg.js chrome_binary path to chromium, chrome for testing, or chrome canary binary headers_enabled enable http headers capture headers_timeout timeout for headers capture in seconds"
+              data-search="headers snapshot headers capture http headers for the main document response. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/json on_snapshot__27_headers.daemon.bg.js chrome_binary path to a chromium-family browser binary headers_enabled enable http headers capture headers_timeout timeout for headers capture in seconds"
               data-hero-plugin="headers"
               data-hero-abx-command="uvx abx-dl --plugins headers 'https://example.com'"
               data-hero-archivebox-command="HEADERS_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -4090,13 +4250,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>HEADERS_ENABLED</code><span class="config-key-desc">Enable HTTP headers capture</span></td>
@@ -4124,7 +4284,7 @@ providers: env,puppeteer">
             <details
               id="chrome"
               class="plugin-card plugin-card--snapshot"
-              data-search="chrome snapshot chrome launch and manage a shared chromium-compatible cdp browser session for browser-driven plugins. javascript snapshot puppeteer {node_binary} {chrome_binary} env,apt,brew env,puppeteer   {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} text/plain application/json on_crawlsetup__89_chrome_kill_zombies.js on_crawlsetup__90_chrome_launch.daemon.bg.js on_crawlsetup__91_chrome_wait.js on_snapshot__09_chrome_launch.daemon.bg.js on_snapshot__10_chrome_tab.daemon.bg.js on_snapshot__11_chrome_wait.js on_snapshot__30_chrome_navigate.js chrome_enabled enable chrome browser integration for archiving chrome_binary path to chromium, chrome for testing, or chrome canary binary node_binary path to node.js binary chrome_timeout timeout for chrome operations in seconds chrome_launch_attempts maximum chrome launch attempts before failing on transient startup errors chrome_headless run chrome in headless mode personas_dir shared chrome/browser personas root active_persona active browser persona name chrome_sandbox enable chrome sandbox (disable in docker with --no-sandbox) chrome_resolution browser viewport resolution (width,height) chrome_user_data_dir path to chrome user data directory for persistent sessions (defaults to personas_dir/active_persona/chrome_profile) chrome_user_agent user agent string for chrome chrome_cdp_url connect to an already-running browser over cdp instead of launching a new local chrome process chrome_is_local whether the managed browser process is local and should have a live chrome.pid marker chrome_keepalive keep the browser alive after the owning crawl/snapshot hook exits instead of closing it during cleanup chrome_isolation whether chrome runs as one shared browser per crawl or a separate browser per snapshot chrome_args default chrome command-line arguments (static flags only, dynamic args like --user-data-dir are added at runtime) chrome_args_extra extra arguments to append to chrome command (for user customization) chrome_pageload_timeout timeout for page navigation/load in seconds chrome_wait_for page load completion condition (domcontentloaded, load, networkidle0, networkidle2) chrome_delay_after_load extra delay in seconds after page load completes before archiving (useful for js-heavy spas) chrome_check_ssl_validity whether to verify ssl certificates (disable for self-signed certs)"
+              data-search="chrome snapshot chrome needed by many other plugins to save high-fidelity archives within a real browser (does not save anything itself). javascript snapshot puppeteer {node_binary} {chrome_binary} env,apt,brew env,puppeteer   {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} text/plain application/json on_crawlsetup__89_chrome_kill_zombies.js on_crawlsetup__90_chrome_launch.daemon.bg.js on_crawlsetup__91_chrome_wait.js on_snapshot__09_chrome_launch.daemon.bg.js on_snapshot__10_chrome_tab.daemon.bg.js on_snapshot__11_chrome_wait.js on_snapshot__30_chrome_navigate.js chrome_enabled enable chrome browser integration for archiving chrome_binary path to a chromium-family browser binary node_binary path to node.js binary chrome_timeout timeout for chrome operations in seconds chrome_launch_attempts maximum chrome launch attempts before failing on transient startup errors chrome_headless run chrome in headless mode personas_dir shared chrome/browser personas root active_persona active browser persona name chrome_sandbox enable chrome sandbox (disable in docker with --no-sandbox) chrome_resolution browser viewport resolution (width,height) chrome_user_data_dir path to chrome user data directory for persistent sessions (defaults to personas_dir/active_persona/chrome_profile) chrome_user_agent user agent string for chrome chrome_cdp_url connect to an already-running browser over cdp instead of launching a new local chrome process chrome_is_local whether the managed browser process is local and should have a live chrome.pid marker chrome_keepalive keep the browser alive after the owning crawl/snapshot hook exits instead of closing it during cleanup chrome_isolation whether chrome runs as one shared browser per crawl or a separate browser per snapshot chrome_args default chrome command-line arguments (static flags only, dynamic args like --user-data-dir are added at runtime) chrome_args_extra extra arguments to append to chrome command (for user customization) chrome_pageload_timeout timeout for page navigation/load in seconds chrome_wait_for page load completion condition (domcontentloaded, load, networkidle0, networkidle2) chrome_delay_after_load extra delay in seconds after page load completes before archiving (useful for js-heavy spas) chrome_check_ssl_validity whether to verify ssl certificates (disable for self-signed certs)"
               data-hero-plugin="chrome"
               data-hero-abx-command="uvx abx-dl --plugins chrome 'https://example.com'"
               data-hero-archivebox-command="CHROME_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -4136,7 +4296,7 @@ providers: env,puppeteer">
                       <h2>Chrome</h2>
                     </div>
                     <div class="plugin-slug"><code>chrome</code></div>
-                    <p class="plugin-summary-description">Launch and manage a shared Chromium-compatible CDP browser session for browser-driven plugins.</p>
+                    <p class="plugin-summary-description">Needed by many other plugins to save high-fidelity archives within a real browser (does not save anything itself).</p>
                     <div class="plugin-subline">
                       <span class="plugin-order">#30</span>
                       <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
@@ -4163,7 +4323,7 @@ providers: env,puppeteer">
               </summary>
 
               <div class="plugin-body">
-                <p class="plugin-modal-description">Launch and manage a shared Chromium-compatible CDP browser session for browser-driven plugins.</p>
+                <p class="plugin-modal-description">Needed by many other plugins to save high-fidelity archives within a real browser (does not save anything itself).</p>
 
                 <div class="actions">
                   <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/chrome" target="_blank" rel="noreferrer">Source on GitHub</a>
@@ -4342,13 +4502,13 @@ providers: env,puppeteer">
 <small>USE_CHROME</small>                        </td>
                       </tr>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>NODE_BINARY</code><span class="config-key-desc">Path to Node.js binary</span></td>
@@ -4538,7 +4698,7 @@ providers: env,puppeteer">
             <details
               id="seo"
               class="plugin-card plugin-card--snapshot"
-              data-search="seo snapshot seo capture seo-related metadata such as meta tags and open graph fields. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/json on_snapshot__38_seo.js chrome_binary path to chromium, chrome for testing, or chrome canary binary seo_enabled enable seo metadata capture seo_timeout timeout for seo capture in seconds"
+              data-search="seo snapshot seo capture seo-related metadata such as meta tags and open graph fields. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/json on_snapshot__38_seo.js chrome_binary path to a chromium-family browser binary seo_enabled enable seo metadata capture seo_timeout timeout for seo capture in seconds"
               data-hero-plugin="seo"
               data-hero-abx-command="uvx abx-dl --plugins seo 'https://example.com'"
               data-hero-archivebox-command="SEO_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -4655,13 +4815,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>SEO_ENABLED</code><span class="config-key-desc">Enable SEO metadata capture</span></td>
@@ -4689,7 +4849,7 @@ providers: env,puppeteer">
             <details
               id="accessibility"
               class="plugin-card plugin-card--snapshot"
-              data-search="accessibility snapshot accessibility capture the browser accessibility tree for the archived page. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/json on_snapshot__39_accessibility.js chrome_binary path to chromium, chrome for testing, or chrome canary binary accessibility_enabled enable accessibility tree capture accessibility_timeout timeout for accessibility capture in seconds"
+              data-search="accessibility snapshot accessibility capture the browser accessibility tree for the archived page. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/json on_snapshot__39_accessibility.js chrome_binary path to a chromium-family browser binary accessibility_enabled enable accessibility tree capture accessibility_timeout timeout for accessibility capture in seconds"
               data-hero-plugin="accessibility"
               data-hero-abx-command="uvx abx-dl --plugins accessibility 'https://example.com'"
               data-hero-archivebox-command="ACCESSIBILITY_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -4806,13 +4966,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>ACCESSIBILITY_ENABLED</code><span class="config-key-desc">Enable accessibility tree capture</span></td>
@@ -4840,7 +5000,7 @@ providers: env,puppeteer">
             <details
               id="infiniscroll"
               class="plugin-card plugin-card--snapshot"
-              data-search="infiniscroll snapshot infinite scroll expand infinite-scroll pages and load additional content before downstream capture plugins run. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} on_snapshot__45_infiniscroll.js chrome_binary path to chromium, chrome for testing, or chrome canary binary infiniscroll_enabled enable infinite scroll page expansion infiniscroll_timeout maximum timeout for scrolling in seconds infiniscroll_scroll_delay delay between scrolls in milliseconds infiniscroll_scroll_distance distance to scroll per step in pixels infiniscroll_scroll_limit maximum number of scroll steps infiniscroll_min_height minimum page height to scroll to in pixels infiniscroll_expand_details expand &lt;details&gt; elements and click &#39;load more&#39; buttons for comments"
+              data-search="infiniscroll snapshot infinite scroll expand infinite-scroll pages and load additional content before downstream capture plugins run. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} on_snapshot__45_infiniscroll.js chrome_binary path to a chromium-family browser binary infiniscroll_enabled enable infinite scroll page expansion infiniscroll_timeout maximum timeout for scrolling in seconds infiniscroll_scroll_delay delay between scrolls in milliseconds infiniscroll_scroll_distance distance to scroll per step in pixels infiniscroll_scroll_limit maximum number of scroll steps infiniscroll_min_height minimum page height to scroll to in pixels infiniscroll_expand_details expand &lt;details&gt; elements and click &#39;load more&#39; buttons for comments"
               data-hero-plugin="infiniscroll"
               data-hero-abx-command="uvx abx-dl --plugins infiniscroll 'https://example.com'"
               data-hero-archivebox-command="INFINISCROLL_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -4948,13 +5108,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>INFINISCROLL_ENABLED</code><span class="config-key-desc">Enable infinite scroll page expansion</span></td>
@@ -5027,7 +5187,7 @@ providers: env,puppeteer">
             <details
               id="claudechrome"
               class="plugin-card plugin-card--snapshot"
-              data-search="claudechrome snapshot claude chrome use claude computer-use to interact with pages in chrome via cdp screenshots and the anthropic api. javascript snapshot embed fullscreen chrome {chrome_binary} {node_binary} claudechrome env,puppeteer env,apt,brew chromewebstore    {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;fcoeoabgfenejglbffodgkkbkcdhcgfn&#34;, &#34;--name=claudechrome&#34;]}} application/json image/png on_crawlsetup__96_claudechrome_config.js on_snapshot__47_claudechrome.js chrome_binary path to chromium, chrome for testing, or chrome canary binary node_binary path to node.js binary personas_dir shared chrome/browser personas root active_persona active browser persona name claudechrome_enabled enable claude for chrome browser extension for ai-driven page interaction claudechrome_prompt prompt for claude to execute on the page. claude can click buttons, fill forms, download files, and interact with any page element. claudechrome_timeout timeout for claude for chrome operations in seconds claudechrome_model claude model to use (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001). availability depends on your plan. claudechrome_max_actions maximum number of agentic loop iterations (screenshots + actions) per page anthropic_api_key anthropic api key for claude for chrome authentication"
+              data-search="claudechrome snapshot claude chrome use claude computer-use to interact with pages in chrome via cdp screenshots and the anthropic api. javascript snapshot embed fullscreen chrome {chrome_binary} {node_binary} claudechrome env,puppeteer env,apt,brew chromewebstore    {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;fcoeoabgfenejglbffodgkkbkcdhcgfn&#34;, &#34;--name=claudechrome&#34;]}} application/json image/png on_crawlsetup__96_claudechrome_config.js on_snapshot__47_claudechrome.js chrome_binary path to a chromium-family browser binary node_binary path to node.js binary personas_dir shared chrome/browser personas root active_persona active browser persona name claudechrome_enabled enable claude for chrome browser extension for ai-driven page interaction claudechrome_prompt prompt for claude to execute on the page. claude can click buttons, fill forms, download files, and interact with any page element. claudechrome_timeout timeout for claude for chrome operations in seconds claudechrome_model claude model to use (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001). availability depends on your plan. claudechrome_max_actions maximum number of agentic loop iterations (screenshots + actions) per page anthropic_api_key anthropic api key for claude for chrome authentication"
               data-hero-plugin="claudechrome"
               data-hero-abx-command="uvx abx-dl --plugins claudechrome 'https://example.com'"
               data-hero-archivebox-command="CLAUDECHROME_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -5173,13 +5333,13 @@ providers: chromewebstore">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>NODE_BINARY</code><span class="config-key-desc">Path to Node.js binary</span></td>
@@ -5270,7 +5430,7 @@ providers: chromewebstore">
             <details
               id="singlefile"
               class="plugin-card plugin-card--snapshot"
-              data-search="singlefile snapshot singlefile save a complete page as a single self-contained html file using the singlefile extension or cli. python snapshot embed chrome {chrome_binary} {singlefile_binary} singlefile env,puppeteer env,npm chromewebstore    {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;single-file-cli@^1.1.54&#34;, &#34;--min-release-age=0&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;mpiodijhokgodhhofbcjdecpffjipkle&#34;, &#34;--name=singlefile&#34;]}} text/html on_snapshot__50_singlefile.py chrome_binary path to chromium, chrome for testing, or chrome canary binary personas_dir shared chrome/browser personas root active_persona active browser persona name singlefile_enabled enable singlefile archiving singlefile_binary path to single-file binary node_binary path to node.js binary singlefile_timeout timeout for singlefile in seconds singlefile_user_agent user agent string singlefile_cookies_file path to cookies file singlefile_check_ssl_validity whether to verify ssl certificates singlefile_chrome_args chrome command-line arguments for singlefile singlefile_args default single-file arguments singlefile_args_extra extra arguments to append to single-file command"
+              data-search="singlefile snapshot singlefile save a complete page as a single self-contained html file using the singlefile extension or cli. python snapshot embed chrome {chrome_binary} {singlefile_binary} singlefile env,puppeteer env,npm chromewebstore    {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;single-file-cli@^1.1.54&#34;, &#34;--min-release-age=0&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;mpiodijhokgodhhofbcjdecpffjipkle&#34;, &#34;--name=singlefile&#34;]}} text/html on_snapshot__50_singlefile.py chrome_binary path to a chromium-family browser binary personas_dir shared chrome/browser personas root active_persona active browser persona name singlefile_enabled enable singlefile archiving singlefile_binary path to single-file binary node_binary path to node.js binary singlefile_timeout timeout for singlefile in seconds singlefile_user_agent user agent string singlefile_cookies_file path to cookies file singlefile_check_ssl_validity whether to verify ssl certificates singlefile_chrome_args chrome command-line arguments for singlefile singlefile_args default single-file arguments singlefile_args_extra extra arguments to append to single-file command"
               data-hero-plugin="singlefile"
               data-hero-abx-command="uvx abx-dl --plugins singlefile 'https://example.com'"
               data-hero-archivebox-command="SINGLEFILE_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -5403,13 +5563,13 @@ providers: chromewebstore">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>PERSONAS_DIR</code><span class="config-key-desc">Shared Chrome/browser personas root</span></td>
@@ -5527,7 +5687,7 @@ providers: chromewebstore">
             <details
               id="screenshot"
               class="plugin-card plugin-card--snapshot"
-              data-search="screenshot snapshot screenshot capture a png screenshot of the rendered page. javascript snapshot embed fullscreen chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} image/png on_snapshot__51_screenshot.js chrome_binary path to chromium, chrome for testing, or chrome canary binary screenshot_enabled enable screenshot capture screenshot_timeout timeout for screenshot capture in seconds screenshot_resolution screenshot resolution (width,height)"
+              data-search="screenshot snapshot screenshot capture a png screenshot of the rendered page. javascript snapshot embed fullscreen chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} image/png on_snapshot__51_screenshot.js chrome_binary path to a chromium-family browser binary screenshot_enabled enable screenshot capture screenshot_timeout timeout for screenshot capture in seconds screenshot_resolution screenshot resolution (width,height)"
               data-hero-plugin="screenshot"
               data-hero-abx-command="uvx abx-dl --plugins screenshot 'https://example.com'"
               data-hero-archivebox-command="SCREENSHOT_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -5646,13 +5806,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>SCREENSHOT_ENABLED</code><span class="config-key-desc">Enable screenshot capture</span></td>
@@ -5689,7 +5849,7 @@ providers: env,puppeteer">
             <details
               id="pdf"
               class="plugin-card plugin-card--snapshot"
-              data-search="pdf snapshot pdf render the current page to pdf using the shared chrome session. javascript snapshot embed fullscreen chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/pdf on_snapshot__52_pdf.js chrome_binary path to chromium, chrome for testing, or chrome canary binary pdf_enabled enable pdf generation pdf_timeout timeout for pdf generation in seconds pdf_resolution pdf page resolution (width,height)"
+              data-search="pdf snapshot pdf render the current page to pdf using the shared chrome session. javascript snapshot embed fullscreen chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/pdf on_snapshot__52_pdf.js chrome_binary path to a chromium-family browser binary pdf_enabled enable pdf generation pdf_timeout timeout for pdf generation in seconds pdf_resolution pdf page resolution (width,height)"
               data-hero-plugin="pdf"
               data-hero-abx-command="uvx abx-dl --plugins pdf 'https://example.com'"
               data-hero-archivebox-command="PDF_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -5808,13 +5968,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>PDF_ENABLED</code><span class="config-key-desc">Enable PDF generation</span></td>
@@ -5851,7 +6011,7 @@ providers: env,puppeteer">
             <details
               id="dom"
               class="plugin-card plugin-card--snapshot"
-              data-search="dom snapshot dom save the fully rendered dom html from the live page. javascript snapshot embed chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} text/html on_snapshot__53_dom.js chrome_binary path to chromium, chrome for testing, or chrome canary binary dom_enabled enable dom capture dom_timeout timeout for dom capture in seconds"
+              data-search="dom snapshot dom save the fully rendered dom html from the live page. javascript snapshot embed chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} text/html on_snapshot__53_dom.js chrome_binary path to a chromium-family browser binary dom_enabled enable dom capture dom_timeout timeout for dom capture in seconds"
               data-hero-plugin="dom"
               data-hero-abx-command="uvx abx-dl --plugins dom 'https://example.com'"
               data-hero-archivebox-command="DOM_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -5969,13 +6129,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>DOM_ENABLED</code><span class="config-key-desc">Enable DOM capture</span></td>
@@ -6001,9 +6161,164 @@ providers: env,puppeteer">
               </div>
             </details>
             <details
+              id="chrome_mhtml"
+              class="plugin-card plugin-card--snapshot"
+              data-search="chrome_mhtml snapshot chrome mhtml save a browser-generated mhtml snapshot of the rendered page. javascript snapshot embed fullscreen chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} multipart/related message/rfc822 on_snapshot__54_chrome_mhtml.js chrome_binary path to a chromium-family browser binary chrome_mhtml_enabled enable browser-generated mhtml capture chrome_mhtml_timeout timeout for browser-generated mhtml capture in seconds"
+              data-hero-plugin="chrome_mhtml"
+              data-hero-abx-command="uvx abx-dl --plugins chrome_mhtml 'https://example.com'"
+              data-hero-archivebox-command="CHROME_MHTML_ENABLED=true archivebox add &#39;https://example.com&#39;"
+            >
+              <summary>
+                <div class="plugin-card__frame">
+                  <div class="plugin-main">
+                    <div class="plugin-title-row">
+                      <h2>Chrome MHTML</h2>
+                    </div>
+                    <div class="plugin-slug"><code>chrome_mhtml</code></div>
+                    <p class="plugin-summary-description">Save a browser-generated MHTML snapshot of the rendered page.</p>
+                    <div class="plugin-subline">
+                      <span class="plugin-order">#54</span>
+                      <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
+                        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                          <rect x="4.5" y="4.5" width="15" height="15" rx="2.5" fill="currentColor" opacity="0.2"></rect>
+                          <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
+                        </svg>
+                      </span>
+
+                      <span class="chip">Snapshot</span>
+                      <span class="chip">Embed</span>
+                      <span class="chip">Fullscreen</span>
+                    </div>
+                    <div class="plugin-summary-facts">
+                      <div>
+                        <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span>
+                      </div>
+                      <div>
+                        <span class="chip chip--mime chip--mime-binary">multipart/related</span>
+                        <span class="chip chip--mime chip--mime-archive">message/rfc822</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </summary>
+
+              <div class="plugin-body">
+                <p class="plugin-modal-description">Save a browser-generated MHTML snapshot of the rendered page.</p>
+
+                <div class="actions">
+                  <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/chrome_mhtml" target="_blank" rel="noreferrer">Source on GitHub</a>
+                </div>
+
+                <h3 class="section-title">Dependencies &amp; Outputs</h3>
+                <div class="plugin-info-grid">
+                  <article class="plugin-info-card">
+                    <span>Required Plugins</span>
+                    <div class="pill-list">
+                      <a href="#chrome" class="chip chip--link">chrome</a>
+                    </div>
+                  </article>
+                  <article class="plugin-info-card">
+                    <span>Required Binaries</span>
+                    <div class="pill-list">
+                      <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                        <code>chromium</code>
+                        <small>providers=env,puppeteer</small>
+                      </span>
+                    </div>
+                  </article>
+                  <article class="plugin-info-card">
+                    <span>Output Mimetypes</span>
+                    <div class="pill-list">
+                      <span class="chip chip--mime chip--mime-binary">multipart/related</span>
+                      <span class="chip chip--mime chip--mime-archive">message/rfc822</span>
+                    </div>
+                  </article>
+                </div>
+
+                <h3 class="section-title">Run It</h3>
+                <div class="run-tabs" data-run-tabs>
+                  <div class="run-tabs-bar">
+                    <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                    <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
+                  </div>
+                  <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl --plugins=chrome_mhtml &#39;https://example.com&#39;</code></pre>
+                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>CHROME_MHTML_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+                </div>
+                <p class="note">Runtime plugins execute while archiving a URL.</p>
+
+                <h3 class="section-title">Hook Scripts</h3>
+                <div class="hook-list">
+                  <article class="hook-card">
+                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/chrome_mhtml/on_Snapshot__54_chrome_mhtml.js" target="_blank" rel="noreferrer">on_Snapshot__54_chrome_mhtml.js</a></span>
+                    <div class="hook-card-chips">
+                      <span class="plugin-language plugin-language--javascript" title="JavaScript">
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                          <rect x="4.5" y="4.5" width="15" height="15" rx="2.5" fill="currentColor" opacity="0.2"></rect>
+                          <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
+                        </svg>
+                      </span>
+                      <span class="chip">order 54</span>
+                      <span class="chip chip--fg">foreground</span>
+                      <span class="hook-card-phase">Snapshot</span>
+                    </div>
+                  </article>
+                </div>
+
+                <h3 class="section-title">Env Var Config Options</h3>
+                <div class="config-table-wrap">
+                  <table class="ab-table config-table">
+                    <colgroup>
+                      <col class="col-key">
+                      <col class="col-default">
+                      <col class="col-type">
+                      <col class="col-aliases">
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th>Key</th>
+                        <th>Default</th>
+                        <th>Type</th>
+                        <th>Aliases / Fallback</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>CHROME_MHTML_ENABLED</code><span class="config-key-desc">Enable browser-generated MHTML capture</span></td>
+                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
+                        <td>
+                          <code>boolean</code>
+                        </td>
+                        <td>
+<small>SAVE_CHROME_MHTML, USE_CHROME_MHTML</small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>CHROME_MHTML_TIMEOUT</code><span class="config-key-desc">Timeout for browser-generated MHTML capture in seconds</span></td>
+                        <td class="cfg-default"><span class="cfg-number">60</span></td>
+                        <td>
+                          <code>integer</code>
+<br><small>min 5</small>                        </td>
+                        <td>
+<small>fallback: <code>TIMEOUT</code></small>                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
+            <details
               id="title"
               class="plugin-card plugin-card--snapshot"
-              data-search="title snapshot title capture the final document title from the rendered page. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} text/plain on_snapshot__54_title.js chrome_binary path to chromium, chrome for testing, or chrome canary binary title_enabled enable title extraction title_timeout timeout for title extraction in seconds"
+              data-search="title snapshot title capture the final document title from the rendered page. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} text/plain on_snapshot__54_title.js chrome_binary path to a chromium-family browser binary title_enabled enable title extraction title_timeout timeout for title extraction in seconds"
               data-hero-plugin="title"
               data-hero-abx-command="uvx abx-dl --plugins title 'https://example.com'"
               data-hero-archivebox-command="TITLE_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -6120,13 +6435,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>TITLE_ENABLED</code><span class="config-key-desc">Enable title extraction</span></td>
@@ -6154,7 +6469,7 @@ providers: env,puppeteer">
             <details
               id="readability"
               class="plugin-card plugin-card--snapshot"
-              data-search="readability snapshot readability extract article html, text, and metadata using mozilla readability. python snapshot embed fullscreen {readability_binary} env,npm  {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;https://github.com/archivebox/readability-extractor&#34;]}} text/html text/plain application/json on_snapshot__56_readability.py readability_enabled enable readability text extraction readability_binary path to readability-extractor binary readability_timeout timeout for readability in seconds readability_args default readability arguments readability_args_extra extra arguments to append to readability command"
+              data-search="readability snapshot readability extract article html, text, and metadata using mozilla readability. python snapshot embed fullscreen {readability_binary} env,npm  text/html text/plain application/json on_snapshot__56_readability.py readability_enabled enable readability text extraction readability_binary path to readability-extractor binary readability_timeout timeout for readability in seconds readability_args default readability arguments readability_args_extra extra arguments to append to readability command"
               data-hero-plugin="readability"
               data-hero-abx-command="uvx abx-dl --plugins readability 'https://example.com'"
               data-hero-archivebox-command="READABILITY_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -7354,7 +7669,7 @@ min_version: 11.0.0">
             <details
               id="liteparse"
               class="plugin-card plugin-card--snapshot"
-              data-search="liteparse snapshot liteparse extract text and metadata from pdfs and documents using liteparse (by llamaindex). supports ocr via tesseract.js. python snapshot {liteparse_binary} env,npm  {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@llamaindex/liteparse&#34;]}} text/plain application/json on_snapshot__61_liteparse.py liteparse_enabled enable liteparse document extraction liteparse_binary path to lit binary liteparse_timeout timeout for liteparse extraction in seconds liteparse_args default liteparse arguments liteparse_args_extra extra arguments to append to liteparse command"
+              data-search="liteparse snapshot liteparse extract text and metadata from pdfs, office documents, and images using liteparse (by llamaindex). performs spatial pdf parsing via pdfium and optional ocr via tesseract. python snapshot {liteparse_binary} {liteparse_tesseract_binary} env,npm env,brew,apt 2.0.0 5.0.0 {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;@llamaindex/liteparse&#34;]}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;tesseract-ocr&#34;, &#34;tesseract-ocr-eng&#34;]}, &#34;brew&#34;: {&#34;install_args&#34;: [&#34;tesseract&#34;]}} text/plain application/json on_snapshot__61_liteparse.py liteparse_enabled enable liteparse document extraction liteparse_binary path to lit binary liteparse_tesseract_binary path to the tesseract binary used to discover the system tessdata directory. auto-installed by the plugin via brew/apt; not invoked at runtime — lit&#39;s bundled tesseract-rs does the actual ocr. liteparse_timeout timeout for liteparse extraction in seconds liteparse_formats output formats to produce, one file per source. `text` writes `&lt;input&gt;.txt` (lit&#39;s plain layout-preserving text — what search backends index). `json` is also supported and writes `&lt;input&gt;.json` with lit v2&#39;s structured per-page output (text, bounding boxes, font metadata, ocr confidence); not indexed by search backends. any subset of [text, json] is valid. liteparse_ocr_enabled run tesseract ocr on pages/images without embedded text (passes --no-ocr when disabled) liteparse_ocr_language tesseract ocr language code (e.g. eng, fra, deu, chi_sim) liteparse_ocr_server_url optional http ocr server url (e.g. easyocr/paddleocr wrapper) to use instead of bundled tesseract liteparse_tessdata_dir path to a tesseract tessdata directory containing &lt;lang&gt;.traineddata files. auto-detected from common system locations when empty. liteparse_max_pages maximum pages to parse per document liteparse_target_pages page range to parse, e.g. &#39;1-5,10,15-20&#39;. empty means all pages. liteparse_dpi rendering dpi used when rasterising pages for ocr / images liteparse_password password for encrypted pdfs liteparse_min_image_dimension skip image files (png/jpg/etc.) smaller than this many pixels in both width and height. avoids wasting ocr time on favicons, sprite thumbnails, and tracking pixels. set to 0 to disable filtering. liteparse_batch_size number of source documents processed per `lit batch-parse` invocation. sources are sorted largest-first so the most content-rich files come back first. smaller batches give finer-grained progressive output but slightly more lit-startup overhead. liteparse_max_sources hard cap on number of documents to process per snapshot, applied after size-desc sort so the largest files always make it. set to 0 for no cap. liteparse_parallel_workers number of concurrent `lit batch-parse` processes. each process is pinned to --num-workers=1 internally (its own multi-worker mode hurts on apple silicon); outer parallelism via this knob gives near-linear speedup up to a few procs. empirically 2 is enough to fit a typical content-heavy article under the 60s hook timeout. liteparse_args default liteparse arguments liteparse_args_extra extra arguments to append to liteparse command"
               data-hero-plugin="liteparse"
               data-hero-abx-command="uvx abx-dl --plugins liteparse 'https://example.com'"
               data-hero-archivebox-command="LITEPARSE_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -7366,7 +7681,7 @@ min_version: 11.0.0">
                       <h2>LiteParse</h2>
                     </div>
                     <div class="plugin-slug"><code>liteparse</code></div>
-                    <p class="plugin-summary-description">Extract text and metadata from PDFs and documents using LiteParse (by LlamaIndex). Supports OCR via Tesseract.js.</p>
+                    <p class="plugin-summary-description">Extract text and metadata from PDFs, Office documents, and images using LiteParse (by LlamaIndex). Performs spatial PDF parsing via PDFium and optional OCR via Tesseract.</p>
                     <div class="plugin-subline">
                       <span class="plugin-order">#61</span>
                       <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
@@ -7382,7 +7697,8 @@ min_version: 11.0.0">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">lit <small>(env,npm)</small></span>
+                        <span class="chip chip--binary-summary">lit&gt;=2.0.0 <small>(env,npm)</small></span>
+                        <span class="chip chip--binary-summary">tesseract&gt;=5.0.0 <small>(env,brew,apt)</small></span>
                       </div>
                       <div>
                         <span class="chip chip--mime chip--mime-text">text/plain</span>
@@ -7394,7 +7710,7 @@ min_version: 11.0.0">
               </summary>
 
               <div class="plugin-body">
-                <p class="plugin-modal-description">Extract text and metadata from PDFs and documents using LiteParse (by LlamaIndex). Supports OCR via Tesseract.js.</p>
+                <p class="plugin-modal-description">Extract text and metadata from PDFs, Office documents, and images using LiteParse (by LlamaIndex). Performs spatial PDF parsing via PDFium and optional OCR via Tesseract.</p>
 
                 <div class="actions">
                   <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/liteparse" target="_blank" rel="noreferrer">Source on GitHub</a>
@@ -7406,9 +7722,18 @@ min_version: 11.0.0">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="lit
-providers: env,npm">
+providers: env,npm
+min_version: 2.0.0">
                         <code>lit</code>
                         <small>providers=env,npm</small>
+                        <small>min_version=2.0.0</small>
+                      </span>
+                      <span class="chip chip--binary" title="tesseract
+providers: env,brew,apt
+min_version: 5.0.0">
+                        <code>tesseract</code>
+                        <small>providers=env,brew,apt</small>
+                        <small>min_version=5.0.0</small>
                       </span>
                     </div>
                   </article>
@@ -7489,13 +7814,139 @@ providers: env,npm">
 <span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
+                        <td><code>LITEPARSE_TESSERACT_BINARY</code><span class="config-key-desc">Path to the tesseract binary used to discover the system tessdata directory. Auto-installed by the plugin via brew/apt; not invoked at runtime — lit&#39;s bundled tesseract-rs does the actual OCR.</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;tesseract&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
                         <td><code>LITEPARSE_TIMEOUT</code><span class="config-key-desc">Timeout for LiteParse extraction in seconds</span></td>
-                        <td class="cfg-default"><span class="cfg-number">120</span></td>
+                        <td class="cfg-default"><span class="cfg-number">180</span></td>
                         <td>
                           <code>integer</code>
 <br><small>min 10</small>                        </td>
                         <td>
 <small>fallback: <code>TIMEOUT</code></small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>LITEPARSE_FORMATS</code><span class="config-key-desc">Output formats to produce, one file per source. `text` writes `&lt;input&gt;.txt` (lit&#39;s plain layout-preserving text — what search backends index). `json` is also supported and writes `&lt;input&gt;.json` with lit v2&#39;s structured per-page output (text, bounding boxes, font metadata, OCR confidence); not indexed by search backends. Any subset of [text, json] is valid.</span></td>
+                        <td class="cfg-default"><span class="cfg-bracket">[</span><div class="cfg-array"><div class="cfg-array-item"><span class="cfg-string">&quot;text&quot;</span></div></div><span class="cfg-bracket">]</span></td>
+                        <td>
+                          <code>array</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>LITEPARSE_OCR_ENABLED</code><span class="config-key-desc">Run Tesseract OCR on pages/images without embedded text (passes --no-ocr when disabled)</span></td>
+                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
+                        <td>
+                          <code>boolean</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>LITEPARSE_OCR_LANGUAGE</code><span class="config-key-desc">Tesseract OCR language code (e.g. eng, fra, deu, chi_sim)</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;eng&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>LITEPARSE_OCR_SERVER_URL</code><span class="config-key-desc">Optional HTTP OCR server URL (e.g. EasyOCR/PaddleOCR wrapper) to use instead of bundled Tesseract</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>LITEPARSE_TESSDATA_DIR</code><span class="config-key-desc">Path to a Tesseract tessdata directory containing &lt;lang&gt;.traineddata files. Auto-detected from common system locations when empty.</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<small>TESSDATA_PREFIX</small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>LITEPARSE_MAX_PAGES</code><span class="config-key-desc">Maximum pages to parse per document</span></td>
+                        <td class="cfg-default"><span class="cfg-number">1000</span></td>
+                        <td>
+                          <code>integer</code>
+<br><small>min 1</small>                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>LITEPARSE_TARGET_PAGES</code><span class="config-key-desc">Page range to parse, e.g. &#39;1-5,10,15-20&#39;. Empty means all pages.</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>LITEPARSE_DPI</code><span class="config-key-desc">Rendering DPI used when rasterising pages for OCR / images</span></td>
+                        <td class="cfg-default"><span class="cfg-number">150</span></td>
+                        <td>
+                          <code>integer</code>
+<br><small>min 50</small>                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>LITEPARSE_PASSWORD</code><span class="config-key-desc">Password for encrypted PDFs</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>LITEPARSE_MIN_IMAGE_DIMENSION</code><span class="config-key-desc">Skip image files (PNG/JPG/etc.) smaller than this many pixels in both width AND height. Avoids wasting OCR time on favicons, sprite thumbnails, and tracking pixels. Set to 0 to disable filtering.</span></td>
+                        <td class="cfg-default"><span class="cfg-number">128</span></td>
+                        <td>
+                          <code>integer</code>
+<br><small>min 0</small>                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>LITEPARSE_BATCH_SIZE</code><span class="config-key-desc">Number of source documents processed per `lit batch-parse` invocation. Sources are sorted largest-first so the most content-rich files come back first. Smaller batches give finer-grained progressive output but slightly more lit-startup overhead.</span></td>
+                        <td class="cfg-default"><span class="cfg-number">8</span></td>
+                        <td>
+                          <code>integer</code>
+<br><small>min 1</small>                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>LITEPARSE_MAX_SOURCES</code><span class="config-key-desc">Hard cap on number of documents to process per snapshot, applied after size-desc sort so the largest files always make it. Set to 0 for no cap.</span></td>
+                        <td class="cfg-default"><span class="cfg-number">100</span></td>
+                        <td>
+                          <code>integer</code>
+<br><small>min 0</small>                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>LITEPARSE_PARALLEL_WORKERS</code><span class="config-key-desc">Number of concurrent `lit batch-parse` processes. Each process is pinned to --num-workers=1 internally (its own multi-worker mode hurts on Apple Silicon); outer parallelism via this knob gives near-linear speedup up to a few procs. Empirically 2 is enough to fit a typical content-heavy article under the 60s hook timeout.</span></td>
+                        <td class="cfg-default"><span class="cfg-number">2</span></td>
+                        <td>
+                          <code>integer</code>
+<br><small>min 1</small>                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>LITEPARSE_ARGS</code><span class="config-key-desc">Default LiteParse arguments</span></td>
@@ -7521,9 +7972,238 @@ providers: env,npm">
               </div>
             </details>
             <details
+              id="archivewebpage"
+              class="plugin-card plugin-card--snapshot"
+              data-search="archivewebpage snapshot archiveweb.page record a high-fidelity wacz web archive of the page using the webrecorder archiveweb.page chrome extension. javascript snapshot embed fullscreen chrome {chrome_binary} archivewebpage env,puppeteer chromewebstore   {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;fpeoodllldobpkbkabpblcfaogecpndd&#34;, &#34;--name=archivewebpage&#34;]}} application/wacz+zip application/wacz on_snapshot__16_archivewebpage_start.js on_snapshot__65_archivewebpage_stop.js chrome_binary path to a chromium-family browser binary personas_dir shared chrome/browser personas root active_persona active browser persona name archivewebpage_enabled enable archiveweb.page wacz recording during archiving archivewebpage_timeout maximum seconds to wait for the wacz download after stopping recording archivewebpage_hook_budget_ms soft per-hook latency budget in ms (start/stop hooks try to finish within this; not a hard cutoff for large captures) archivewebpage_autorun_behaviors run awp behaviors (autopilot) during recording. off by default since infiniscroll/other plugins drive page actions. archivewebpage_collection_title collection title to use when awp has no default collection yet chrome_downloads_dir chrome downloads directory (defaults to persona-scoped chrome_downloads dir)"
+              data-hero-plugin="archivewebpage"
+              data-hero-abx-command="uvx abx-dl --plugins archivewebpage 'https://example.com'"
+              data-hero-archivebox-command="ARCHIVEWEBPAGE_ENABLED=true archivebox add &#39;https://example.com&#39;"
+            >
+              <summary>
+                <div class="plugin-card__frame">
+                  <div class="plugin-main">
+                    <div class="plugin-title-row">
+                      <h2>ArchiveWeb.page</h2>
+                    </div>
+                    <div class="plugin-slug"><code>archivewebpage</code></div>
+                    <p class="plugin-summary-description">Record a high-fidelity WACZ web archive of the page using the Webrecorder ArchiveWeb.page Chrome extension.</p>
+                    <div class="plugin-subline">
+                      <span class="plugin-order">#65</span>
+                      <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
+                        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                          <rect x="4.5" y="4.5" width="15" height="15" rx="2.5" fill="currentColor" opacity="0.2"></rect>
+                          <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
+                        </svg>
+                      </span>
+
+                      <span class="chip">Snapshot</span>
+                      <span class="chip">Embed</span>
+                      <span class="chip">Fullscreen</span>
+                    </div>
+                    <div class="plugin-summary-facts">
+                      <div>
+                        <span class="chip chip--binary-summary">chromium <small>(env,puppeteer)</small></span>
+                        <span class="chip chip--binary-summary">archivewebpage <small>(chromewebstore)</small></span>
+                      </div>
+                      <div>
+                        <span class="chip chip--mime chip--mime-binary">application/wacz+zip</span>
+                        <span class="chip chip--mime chip--mime-binary">application/wacz</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </summary>
+
+              <div class="plugin-body">
+                <p class="plugin-modal-description">Record a high-fidelity WACZ web archive of the page using the Webrecorder ArchiveWeb.page Chrome extension.</p>
+
+                <div class="actions">
+                  <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/archivewebpage" target="_blank" rel="noreferrer">Source on GitHub</a>
+                </div>
+
+                <h3 class="section-title">Dependencies &amp; Outputs</h3>
+                <div class="plugin-info-grid">
+                  <article class="plugin-info-card">
+                    <span>Required Plugins</span>
+                    <div class="pill-list">
+                      <a href="#chrome" class="chip chip--link">chrome</a>
+                    </div>
+                  </article>
+                  <article class="plugin-info-card">
+                    <span>Required Binaries</span>
+                    <div class="pill-list">
+                      <span class="chip chip--binary" title="chromium
+providers: env,puppeteer">
+                        <code>chromium</code>
+                        <small>providers=env,puppeteer</small>
+                      </span>
+                      <span class="chip chip--binary" title="archivewebpage
+providers: chromewebstore">
+                        <code>archivewebpage</code>
+                        <small>providers=chromewebstore</small>
+                      </span>
+                    </div>
+                  </article>
+                  <article class="plugin-info-card">
+                    <span>Output Mimetypes</span>
+                    <div class="pill-list">
+                      <span class="chip chip--mime chip--mime-binary">application/wacz+zip</span>
+                      <span class="chip chip--mime chip--mime-binary">application/wacz</span>
+                    </div>
+                  </article>
+                </div>
+
+                <h3 class="section-title">Run It</h3>
+                <div class="run-tabs" data-run-tabs>
+                  <div class="run-tabs-bar">
+                    <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                    <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
+                  </div>
+                  <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl --plugins=archivewebpage &#39;https://example.com&#39;</code></pre>
+                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>ARCHIVEWEBPAGE_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+                </div>
+                <p class="note">Runtime plugins execute while archiving a URL.</p>
+
+                <h3 class="section-title">Hook Scripts</h3>
+                <div class="hook-list">
+                  <article class="hook-card">
+                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/archivewebpage/on_Snapshot__16_archivewebpage_start.js" target="_blank" rel="noreferrer">on_Snapshot__16_archivewebpage_start.js</a></span>
+                    <div class="hook-card-chips">
+                      <span class="plugin-language plugin-language--javascript" title="JavaScript">
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                          <rect x="4.5" y="4.5" width="15" height="15" rx="2.5" fill="currentColor" opacity="0.2"></rect>
+                          <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
+                        </svg>
+                      </span>
+                      <span class="chip">order 16</span>
+                      <span class="chip chip--fg">foreground</span>
+                      <span class="hook-card-phase">Snapshot</span>
+                    </div>
+                  </article>
+                  <article class="hook-card">
+                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/archivewebpage/on_Snapshot__65_archivewebpage_stop.js" target="_blank" rel="noreferrer">on_Snapshot__65_archivewebpage_stop.js</a></span>
+                    <div class="hook-card-chips">
+                      <span class="plugin-language plugin-language--javascript" title="JavaScript">
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                          <rect x="4.5" y="4.5" width="15" height="15" rx="2.5" fill="currentColor" opacity="0.2"></rect>
+                          <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
+                        </svg>
+                      </span>
+                      <span class="chip">order 65</span>
+                      <span class="chip chip--fg">foreground</span>
+                      <span class="hook-card-phase">Snapshot</span>
+                    </div>
+                  </article>
+                </div>
+
+                <h3 class="section-title">Env Var Config Options</h3>
+                <div class="config-table-wrap">
+                  <table class="ab-table config-table">
+                    <colgroup>
+                      <col class="col-key">
+                      <col class="col-default">
+                      <col class="col-type">
+                      <col class="col-aliases">
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th>Key</th>
+                        <th>Default</th>
+                        <th>Type</th>
+                        <th>Aliases / Fallback</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>PERSONAS_DIR</code><span class="config-key-desc">Shared Chrome/browser personas root</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>ACTIVE_PERSONA</code><span class="config-key-desc">Active browser persona name</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;Default&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>ARCHIVEWEBPAGE_ENABLED</code><span class="config-key-desc">Enable ArchiveWeb.page WACZ recording during archiving</span></td>
+                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
+                        <td>
+                          <code>boolean</code>
+                        </td>
+                        <td>
+<small>USE_ARCHIVEWEBPAGE, SAVE_ARCHIVEWEBPAGE, SAVE_WACZ, USE_WACZ</small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>ARCHIVEWEBPAGE_TIMEOUT</code><span class="config-key-desc">Maximum seconds to wait for the WACZ download after stopping recording</span></td>
+                        <td class="cfg-default"><span class="cfg-number">60</span></td>
+                        <td>
+                          <code>integer</code>
+<br><small>min 5</small>                        </td>
+                        <td>
+<small>fallback: <code>TIMEOUT</code></small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>ARCHIVEWEBPAGE_HOOK_BUDGET_MS</code><span class="config-key-desc">Soft per-hook latency budget in ms (start/stop hooks try to finish within this; not a hard cutoff for large captures)</span></td>
+                        <td class="cfg-default"><span class="cfg-number">2000</span></td>
+                        <td>
+                          <code>integer</code>
+<br><small>min 250</small>                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>ARCHIVEWEBPAGE_AUTORUN_BEHAVIORS</code><span class="config-key-desc">Run AWP behaviors (autopilot) during recording. Off by default since infiniscroll/other plugins drive page actions.</span></td>
+                        <td class="cfg-default"><span class="cfg-bool-false">false</span></td>
+                        <td>
+                          <code>boolean</code>
+                        </td>
+                        <td>
+<small>ARCHIVEWEBPAGE_AUTOPILOT</small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>ARCHIVEWEBPAGE_COLLECTION_TITLE</code><span class="config-key-desc">Collection title to use when AWP has no default collection yet</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;abx-dl&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>CHROME_DOWNLOADS_DIR</code><span class="config-key-desc">Chrome downloads directory (defaults to persona-scoped chrome_downloads dir)</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
+            <details
               id="papersdl"
               class="plugin-card plugin-card--snapshot"
-              data-search="papersdl snapshot papers-dl fetch downloadable academic papers from paper urls and doi targets. python snapshot embed fullscreen {papersdl_binary} env,pip  {&#34;pip&#34;: {&#34;install_args&#34;: [&#34;--only-binary=aiohttp&#34;, &#34;papers-dl&#34;], &#34;install_root&#34;: &#34;{lib_dir}/pip/packages/papers-dl&#34;}} application/pdf on_snapshot__66_papersdl.finite.bg.py papersdl_enabled enable paper downloading with papers-dl papersdl_binary path to papers-dl binary papersdl_timeout timeout for paper downloads in seconds papersdl_args default papers-dl arguments papersdl_args_extra extra arguments to append to papers-dl command"
+              data-search="papersdl snapshot papers-dl fetch downloadable academic papers from paper urls and doi targets. python snapshot embed fullscreen {papersdl_binary} pip,env  {&#34;pip&#34;: {&#34;install_args&#34;: [&#34;--only-binary=aiohttp&#34;, &#34;papers-dl&#34;], &#34;install_root&#34;: &#34;{lib_dir}/pip/packages/papers-dl&#34;}} application/pdf on_snapshot__66_papersdl.finite.bg.py papersdl_enabled enable paper downloading with papers-dl papersdl_binary path to papers-dl binary papersdl_timeout timeout for paper downloads in seconds papersdl_args default papers-dl arguments papersdl_args_extra extra arguments to append to papers-dl command"
               data-hero-plugin="papersdl"
               data-hero-abx-command="uvx abx-dl --plugins papersdl 'https://example.com'"
               data-hero-archivebox-command="PAPERSDL_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -7553,7 +8233,7 @@ providers: env,npm">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">papers-dl <small>(env,pip)</small></span>
+                        <span class="chip chip--binary-summary">papers-dl <small>(pip,env)</small></span>
                       </div>
                       <div>
                         <span class="chip chip--mime chip--mime-doc">application/pdf</span>
@@ -7576,9 +8256,9 @@ providers: env,npm">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="papers-dl
-providers: env,pip">
+providers: pip,env">
                         <code>papers-dl</code>
-                        <small>providers=env,pip</small>
+                        <small>providers=pip,env</small>
                       </span>
                     </div>
                   </article>
@@ -7662,7 +8342,7 @@ providers: env,pip">
                         <td class="cfg-default"><span class="cfg-number">300</span></td>
                         <td>
                           <code>integer</code>
-<br><small>min 30</small>                        </td>
+<br><small>min 10</small>                        </td>
                         <td>
 <small>fallback: <code>TIMEOUT</code></small>                        </td>
                       </tr>
@@ -7928,7 +8608,7 @@ providers: env,pip">
             <details
               id="parse_rss_urls"
               class="plugin-card plugin-card--snapshot"
-              data-search="parse_rss_urls snapshot parse rss urls parse rss and atom feeds and emit discovered entry urls as jsonl snapshot records. python snapshot application/x-ndjson on_snapshot__72_parse_rss_urls.py parse_rss_urls_enabled enable rss/atom feed url parsing"
+              data-search="parse_rss_urls snapshot parse rss urls parse rss and atom feeds and emit discovered entry urls as jsonl snapshot records. python snapshot feedparser pip  {&#34;pip&#34;: {&#34;install_args&#34;: [&#34;feedparser&#34;], &#34;install_root&#34;: &#34;{lib_dir}/pip/packages/parse_rss_urls&#34;, &#34;module_name&#34;: &#34;feedparser&#34;}} application/x-ndjson on_snapshot__72_parse_rss_urls.py parse_rss_urls_enabled enable rss/atom feed url parsing"
               data-hero-plugin="parse_rss_urls"
               data-hero-abx-command="uvx abx-dl --plugins parse_rss_urls 'https://example.com'"
               data-hero-archivebox-command="PARSE_RSS_URLS_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -7956,6 +8636,9 @@ providers: env,pip">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
+                        <span class="chip chip--binary-summary">feedparser <small>(pip)</small></span>
+                      </div>
+                      <div>
                         <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
                       </div>
                     </div>
@@ -7972,6 +8655,16 @@ providers: env,pip">
 
                 <h3 class="section-title">Dependencies &amp; Outputs</h3>
                 <div class="plugin-info-grid">
+                  <article class="plugin-info-card">
+                    <span>Required Binaries</span>
+                    <div class="pill-list">
+                      <span class="chip chip--binary" title="feedparser
+providers: pip">
+                        <code>feedparser</code>
+                        <small>providers=pip</small>
+                      </span>
+                    </div>
+                  </article>
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
@@ -8282,7 +8975,7 @@ providers: env,pip">
             <details
               id="parse_dom_outlinks"
               class="plugin-card plugin-card--snapshot"
-              data-search="parse_dom_outlinks snapshot parse dom outlinks extract crawlable links from the rendered dom and emit them as jsonl records. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/x-ndjson on_snapshot__75_parse_dom_outlinks.js chrome_binary path to chromium, chrome for testing, or chrome canary binary parse_dom_outlinks_enabled enable dom outlinks parsing from archived pages parse_dom_outlinks_timeout timeout for dom outlinks parsing in seconds"
+              data-search="parse_dom_outlinks snapshot parse dom outlinks extract crawlable links from the rendered dom and emit them as jsonl records. javascript snapshot chrome {chrome_binary} env,puppeteer  {&#34;puppeteer&#34;: {&#34;install_args&#34;: [&#34;chrome@stable&#34;]}} application/x-ndjson on_snapshot__75_parse_dom_outlinks.js chrome_binary path to a chromium-family browser binary parse_dom_outlinks_enabled enable dom outlinks parsing from archived pages parse_dom_outlinks_timeout timeout for dom outlinks parsing in seconds"
               data-hero-plugin="parse_dom_outlinks"
               data-hero-abx-command="uvx abx-dl --plugins parse_dom_outlinks 'https://example.com'"
               data-hero-archivebox-command="PARSE_DOM_OUTLINKS_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -8399,13 +9092,13 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>PARSE_DOM_OUTLINKS_ENABLED</code><span class="config-key-desc">Enable DOM outlinks parsing from archived pages</span></td>
@@ -8433,10 +9126,10 @@ providers: env,puppeteer">
             <details
               id="search_backend_sqlite"
               class="plugin-card plugin-card--snapshot"
-              data-search="search_backend_sqlite snapshot sqlite search index archived snapshot content into a sqlite fts database for local search. python snapshot application/vnd.sqlite3 on_snapshot__90_index_sqlite.py search_backend_engine selected search backend implementation use_indexing_backend enable search indexing for archived snapshots search_backend_sqlite_db sqlite fts database filename search_backend_sqlite_separate_database use separate database file for fts index search_backend_sqlite_tokenizers fts5 tokenizer configuration"
+              data-search="search_backend_sqlite snapshot sqlite search index archived snapshot content into a sqlite fts database for local search. python snapshot application/vnd.sqlite3 on_snapshot__90_index_sqlite.py search_backend_engine default search backend used to serve search queries. multiple indexing backends can run concurrently regardless of this value. search_backend_sqlite_enabled index archived snapshots into the sqlite fts database. search_backend_sqlite_db sqlite fts database filename search_backend_sqlite_separate_database use separate database file for fts index search_backend_sqlite_tokenizers fts5 tokenizer configuration"
               data-hero-plugin="search_backend_sqlite"
               data-hero-abx-command="uvx abx-dl --plugins search_backend_sqlite 'https://example.com'"
-              data-hero-archivebox-command="archivebox add &#39;https://example.com&#39;"
+              data-hero-archivebox-command="SEARCH_BACKEND_SQLITE_ENABLED=true archivebox add &#39;https://example.com&#39;"
             >
               <summary>
                 <div class="plugin-card__frame">
@@ -8492,7 +9185,7 @@ providers: env,puppeteer">
                     <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
                   </div>
                   <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl --plugins=search_backend_sqlite &#39;https://example.com&#39;</code></pre>
-                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>archivebox add &#39;https://example.com&#39;</code></pre>
+                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>SEARCH_BACKEND_SQLITE_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
                 </div>
                 <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -8535,7 +9228,7 @@ providers: env,puppeteer">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>SEARCH_BACKEND_ENGINE</code><span class="config-key-desc">Selected search backend implementation</span></td>
+                        <td><code>SEARCH_BACKEND_ENGINE</code><span class="config-key-desc">Default search backend used to serve search queries. Multiple indexing backends can run concurrently regardless of this value.</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;sqlite&quot;</span></td>
                         <td>
                           <code>string</code>
@@ -8544,7 +9237,7 @@ providers: env,puppeteer">
 <span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
-                        <td><code>USE_INDEXING_BACKEND</code><span class="config-key-desc">Enable search indexing for archived snapshots</span></td>
+                        <td><code>SEARCH_BACKEND_SQLITE_ENABLED</code><span class="config-key-desc">Index archived snapshots into the SQLite FTS database.</span></td>
                         <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
                         <td>
                           <code>boolean</code>
@@ -8587,10 +9280,10 @@ providers: env,puppeteer">
             <details
               id="search_backend_sonic"
               class="plugin-card plugin-card--snapshot"
-              data-search="search_backend_sonic snapshot sonic search index archived snapshot content into a sonic search backend. python snapshot {sonic_binary} env,apt,brew,cargo  {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;sonic&#34;]}, &#34;brew&#34;: {&#34;install_args&#34;: [&#34;sonic&#34;]}, &#34;cargo&#34;: {&#34;install_args&#34;: [&#34;sonic-server&#34;]}} on_crawlsetup__55_sonic_start.py on_snapshot__91_index_sonic.py search_backend_engine selected search backend implementation use_indexing_backend enable search indexing for archived snapshots sonic_binary path to sonic server binary sonic_dir directory used to store the sonic config, logs, and index data search_backend_sonic_host_name sonic server hostname search_backend_sonic_port sonic server port search_backend_sonic_password sonic server password search_backend_sonic_collection sonic collection name search_backend_sonic_bucket sonic bucket name"
+              data-search="search_backend_sonic snapshot sonic search index archived snapshot content into a sonic search backend. python snapshot {sonic_binary} env,apt,brew,cargo  {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;sonic&#34;]}, &#34;brew&#34;: {&#34;install_args&#34;: [&#34;sonic&#34;]}, &#34;cargo&#34;: {&#34;install_args&#34;: [&#34;sonic-server&#34;]}} on_crawlsetup__55_sonic_start.py on_snapshot__91_index_sonic.py search_backend_engine default search backend used to serve search queries. multiple indexing backends can run concurrently regardless of this value. search_backend_sonic_enabled index archived snapshots into the sonic search backend. sonic_binary path to sonic server binary sonic_dir directory used to store the sonic config, logs, and index data search_backend_sonic_host_name sonic server hostname search_backend_sonic_port sonic server port search_backend_sonic_password sonic server password search_backend_sonic_collection sonic collection name search_backend_sonic_bucket sonic bucket name"
               data-hero-plugin="search_backend_sonic"
               data-hero-abx-command="uvx abx-dl --plugins search_backend_sonic 'https://example.com'"
-              data-hero-archivebox-command="archivebox add &#39;https://example.com&#39;"
+              data-hero-archivebox-command="SEARCH_BACKEND_SONIC_ENABLED=true archivebox add &#39;https://example.com&#39;"
             >
               <summary>
                 <div class="plugin-card__frame">
@@ -8650,7 +9343,7 @@ providers: env,apt,brew,cargo">
                     <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
                   </div>
                   <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl --plugins=search_backend_sonic &#39;https://example.com&#39;</code></pre>
-                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>archivebox add &#39;https://example.com&#39;</code></pre>
+                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>SEARCH_BACKEND_SONIC_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
                 </div>
                 <p class="note">Runtime plugins execute while archiving a URL.</p>
 
@@ -8709,7 +9402,7 @@ providers: env,apt,brew,cargo">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>SEARCH_BACKEND_ENGINE</code><span class="config-key-desc">Selected search backend implementation</span></td>
+                        <td><code>SEARCH_BACKEND_ENGINE</code><span class="config-key-desc">Default search backend used to serve search queries. Multiple indexing backends can run concurrently regardless of this value.</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;sonic&quot;</span></td>
                         <td>
                           <code>string</code>
@@ -8718,7 +9411,7 @@ providers: env,apt,brew,cargo">
 <span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
-                        <td><code>USE_INDEXING_BACKEND</code><span class="config-key-desc">Enable search indexing for archived snapshots</span></td>
+                        <td><code>SEARCH_BACKEND_SONIC_ENABLED</code><span class="config-key-desc">Index archived snapshots into the Sonic search backend.</span></td>
                         <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
                         <td>
                           <code>boolean</code>
@@ -9182,7 +9875,7 @@ providers: env,npm">
             <details
               id="base"
               class="plugin-card"
-              data-search="base base provide shared utilities, helpers, and test support used by other plugins. data_dir base data directory for the current runtime abx_runtime current host runtime name, eg. abx-dl or archivebox abx_install_cache runtime-derived install preflight cache keyed by binary name snap_dir base snapshot directory for per-snapshot hook output crawl_dir base crawl directory for per-crawl hook output lib_dir shared tools and binary installation root personas_dir shared chrome/browser personas root active_persona active browser persona name extra_context json object merged into emitted jsonl event records timeout default timeout in seconds for hooks that support a timeout fallback user_agent default user agent string for http requests and browser automation path executable search path node_modules_dir shared node.js module resolution root node_module_dir legacy alias for node_modules_dir node_path node.js module lookup path node_v8_coverage optional v8 coverage output directory for node.js hooks chrome_binary resolved chromium/chrome binary path shared across plugins chrome_user_data_dir chrome user data directory for persistent browser state (defaults to personas_dir/active_persona/chrome_profile) chrome_downloads_dir chrome downloads directory shared by browser plugins chrome_extensions_dir chrome extensions directory shared by browser plugins"
+              data-search="base base provide shared utilities, helpers, and test support used by other plugins. data_dir base data directory for the current runtime abx_runtime current host runtime name, eg. abx-dl or archivebox abx_install_cache runtime-derived install preflight cache keyed by binary name snap_dir base snapshot directory for per-snapshot hook output crawl_dir base crawl directory for per-crawl hook output lib_dir shared tools and binary installation root personas_dir shared chrome/browser personas root active_persona active browser persona name extra_context json object merged into emitted jsonl event records timeout default timeout in seconds for hooks that support a timeout fallback user_agent default user agent string for http requests and browser automation path executable search path node_modules_dir shared node.js module resolution root node_module_dir legacy alias for node_modules_dir node_path node.js module lookup path node_v8_coverage optional v8 coverage output directory for node.js hooks chrome_binary path to a chromium-family browser binary chrome_user_data_dir chrome user data directory for persistent browser state (defaults to personas_dir/active_persona/chrome_profile) chrome_downloads_dir chrome downloads directory shared by browser plugins chrome_extensions_dir chrome extensions directory shared by browser plugins"
               data-hero-plugin="base"
               data-hero-abx-command="uvx abx-dl plugins base"
               data-hero-archivebox-command="archivebox add &#39;https://example.com&#39;"
@@ -9387,7 +10080,7 @@ providers: env,npm">
 <span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Resolved Chromium/Chrome binary path shared across plugins</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
                         <td>
                           <code>string</code>
@@ -9644,6 +10337,53 @@ providers: env,npm">
                     </div>
                   </article>
                 </div>
+
+                <h3 class="section-title">Env Var Config Options</h3>
+                <div class="empty-state">This plugin does not define a <code>config.json</code> schema.</div>
+              </div>
+            </details>
+            <details
+              id="chrome_extension_mhtml"
+              class="plugin-card"
+              data-search="chrome_extension_mhtml chrome_extension_mhtml"
+              data-hero-plugin="chrome_extension_mhtml"
+              data-hero-abx-command="uvx abx-dl plugins chrome_extension_mhtml"
+              data-hero-archivebox-command="archivebox add &#39;https://example.com&#39;"
+            >
+              <summary>
+                <div class="plugin-card__frame">
+                  <div class="plugin-main">
+                    <div class="plugin-title-row">
+                      <h2>chrome_extension_mhtml</h2>
+                    </div>
+                    <div class="plugin-slug"><code>chrome_extension_mhtml</code></div>
+                    <div class="plugin-subline">
+
+                    </div>
+                  </div>
+                </div>
+              </summary>
+
+              <div class="plugin-body">
+
+                <div class="actions">
+                  <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/chrome_extension_mhtml" target="_blank" rel="noreferrer">Source on GitHub</a>
+                </div>
+
+
+                <h3 class="section-title">Run It</h3>
+                <div class="run-tabs" data-run-tabs>
+                  <div class="run-tabs-bar">
+                    <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                    <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
+                  </div>
+                  <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl plugins chrome_extension_mhtml</code></pre>
+                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>archivebox add &#39;https://example.com&#39;</code></pre>
+                </div>
+                <p class="note">Utility plugins are typically consumed indirectly, so the example shows the closest inspection workflow.</p>
+
+                <h3 class="section-title">Hook Scripts</h3>
+                <div class="empty-state">No hook scripts are defined in this plugin directory.</div>
 
                 <h3 class="section-title">Env Var Config Options</h3>
                 <div class="empty-state">This plugin does not define a <code>config.json</code> schema.</div>
@@ -10343,7 +11083,7 @@ providers: env">
             <details
               id="puppeteer"
               class="plugin-card"
-              data-search="puppeteer puppeteer install and manage chrome for testing through the puppeteer toolchain. python puppeteer npm  {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;puppeteer&#34;, &#34;@puppeteer/browsers&#34;, &#34;abxbus@^2.5.4&#34;, &#34;--min-release-age=0&#34;]}} on_binaryrequest__12_puppeteer.py chrome_binary path to chromium, chrome for testing, or chrome canary binary puppeteer_enabled enable puppeteer dependency installation during crawl setup puppeteer_timeout timeout in seconds for puppeteer-managed browser dependency installation"
+              data-search="puppeteer puppeteer install and manage chrome for testing through the puppeteer toolchain. python puppeteer npm  {&#34;npm&#34;: {&#34;install_args&#34;: [&#34;puppeteer&#34;, &#34;@puppeteer/browsers&#34;, &#34;abxbus@2.5.6&#34;, &#34;--min-release-age=0&#34;]}} on_binaryrequest__12_puppeteer.py chrome_binary path to a chromium-family browser binary puppeteer_enabled enable puppeteer dependency installation during crawl setup puppeteer_timeout timeout in seconds for puppeteer-managed browser dependency installation"
               data-hero-plugin="puppeteer"
               data-hero-abx-command="uvx abx-dl plugins --install puppeteer"
               data-hero-archivebox-command="PUPPETEER_ENABLED=true archivebox init --setup"
@@ -10447,13 +11187,13 @@ providers: npm">
                     </thead>
                     <tbody>
                       <tr>
-                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to Chromium, Chrome for Testing, or Chrome Canary binary</span></td>
+                        <td><code>CHROME_BINARY</code><span class="config-key-desc">Path to a Chromium-family browser binary</span></td>
                         <td class="cfg-default"><span class="cfg-string">&quot;chromium&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
                         <td>
-<small>CHROMIUM_BINARY</small>                        </td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>PUPPETEER_ENABLED</code><span class="config-key-desc">Enable Puppeteer dependency installation during crawl setup</span></td>
@@ -10582,9 +11322,9 @@ providers: env,apt,brew">
                         <td class="cfg-default"><span class="cfg-number">90</span></td>
                         <td>
                           <code>integer</code>
-<br><small>min 5</small>                        </td>
+<br><small>min 1</small>                        </td>
                         <td>
-<small>SEARCH_BACKEND_TIMEOUT</small><br><small>fallback: <code>TIMEOUT</code></small>                        </td>
+<small>SEARCH_BACKEND_TIMEOUT, SEARCH_BACKEND_RIPGREP_TIMEOUT</small><br><small>fallback: <code>TIMEOUT</code></small>                        </td>
                       </tr>
                       <tr>
                         <td><code>RIPGREP_ARGS</code><span class="config-key-desc">Default ripgrep arguments</span></td>
@@ -10860,7 +11600,7 @@ providers: env,apt,brew">
 
           <div class="footer-meta">
             <span>Generated from <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">ArchiveBox/abx-plugins</a> at ref <code>main</code>.</span>
-            <span>Updated 2026-05-24 12:07 UTC</span>
+            <span>Updated 2026-05-30 11:27 UTC</span>
           </div>
         </div>
       </footer>

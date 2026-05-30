@@ -1,0 +1,17 @@
+<!-- ArchiveWebPage thumbnail - WACZ preview tile. Clicking anywhere on the card
+     loads the full replayweb.page viewer in the main iframe (handled by the
+     snapshot.html thumbnail-click-overlay). -->
+<div class="extractor-thumbnail archivewebpage-thumbnail"
+     style="width: 100%; height: 100px; display: flex; align-items: center; gap: 10px; padding: 10px; box-sizing: border-box; background: #1a1a2e; color: #e6e6f0; overflow: hidden;">
+    <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="#7ed4ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+        <rect x="3" y="7" width="18" height="13" rx="1.5"/>
+        <path d="M3 11h18"/>
+        <path d="M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/>
+        <circle cx="8" cy="15" r="0.8" fill="#ff5b5b" stroke="#ff5b5b"/>
+        <path d="M11 15h7"/>
+    </svg>
+    <div style="min-width: 0; flex: 1; display: flex; flex-direction: column; justify-content: center;">
+        <div style="font-family: monospace; font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ output_path_raw }}">./{{ output_path_raw }}</div>
+        <div style="font-size: 10px; color: #9aa3b8; margin-top: 2px;">{{ result.output_size|filesizeformat }} &middot; WACZ archive</div>
+    </div>
+</div>

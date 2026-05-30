@@ -77,7 +77,10 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
 
     config = get_config()
     timeout = config.FAVICON_TIMEOUT
-    user_agent = config.FAVICON_USER_AGENT or "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
+    library_version = os.environ.get("LIBRARY_VERSION", "0.0.1")
+    user_agent = (
+        f"ArchiveBox/{library_version} (+https://github.com/ArchiveBox/ArchiveBox/)"
+    )
     provider_template = (config.FAVICON_PROVIDER or "").strip()
     headers = {"User-Agent": user_agent}
 

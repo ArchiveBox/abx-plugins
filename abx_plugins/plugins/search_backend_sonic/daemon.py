@@ -93,8 +93,10 @@ def supervisord_environment(**values: Any) -> str:
 
 
 def is_sonic_backend_enabled(config: Mapping[str, Any] | Any) -> bool:
-    return config_value(config, "SEARCH_BACKEND_ENGINE") == "sonic" or str(
-        config_value(config, "USE_INDEXING_BACKEND", True),
+    if config_value(config, "SEARCH_BACKEND_ENGINE") == "sonic":
+        return True
+    return str(
+        config_value(config, "SEARCH_BACKEND_SONIC_ENABLED", True),
     ).strip().lower() not in {
         "0",
         "false",

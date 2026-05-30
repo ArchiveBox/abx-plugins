@@ -50,7 +50,7 @@ def main() -> None:
         sys.exit(PROCESS_EXIT_SKIPPED)
 
     if not is_sonic_backend_enabled(config):
-        emit_skipped("USE_INDEXING_BACKEND=False")
+        emit_skipped("SEARCH_BACKEND_SONIC_ENABLED=False")
         sys.exit(PROCESS_EXIT_SKIPPED)
 
     host = config.SEARCH_BACKEND_SONIC_HOST_NAME

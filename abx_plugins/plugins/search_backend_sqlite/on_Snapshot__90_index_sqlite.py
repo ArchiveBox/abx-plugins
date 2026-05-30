@@ -11,13 +11,12 @@
 SQLite FTS5 search backend - indexes snapshot content for full-text search.
 
 This hook runs after all extractors and indexes text content in SQLite FTS5.
-Only runs if SEARCH_BACKEND_ENGINE=sqlite.
+Skipped when SEARCH_BACKEND_SQLITE_ENABLED=False.
 
 Usage: on_Snapshot__90_index_sqlite.py --url=<url>
 
 Environment variables:
-    SEARCH_BACKEND_ENGINE: Must be 'sqlite' for this hook to run
-    USE_INDEXING_BACKEND: Enable search indexing (default: true)
+    SEARCH_BACKEND_SQLITE_ENABLED: Index into SQLite FTS5 (default: true)
     SQLITEFTS_DB: Database filename (default: search.sqlite3)
     FTS_TOKENIZERS: FTS5 tokenizer config (default: porter unicode61 remove_diacritics 2)
     SNAP_DIR: Snapshot directory (default: cwd)
@@ -243,18 +242,15 @@ def main() -> None:
             print("Skipping SQLite indexing (ABX_RUNTIME!=archivebox)", file=sys.stderr)
             status = "skipped"
             output_str = f"ABX_RUNTIME={CONFIG.ABX_RUNTIME}"
-        # Check if this backend is enabled (permanent skips - don't retry)
-        elif CONFIG.SEARCH_BACKEND_ENGINE != "sqlite":
+        elif CONFIG.SEARCH_BACKEND_ENGINE != "sqlite" and not bool(
+            getattr(CONFIG, "SEARCH_BACKEND_SQLITE_ENABLED", True),
+        ):
             print(
-                f"Skipping SQLite indexing (SEARCH_BACKEND_ENGINE={CONFIG.SEARCH_BACKEND_ENGINE})",
+                "Skipping SQLite indexing (SEARCH_BACKEND_SQLITE_ENABLED=False)",
                 file=sys.stderr,
             )
             status = "skipped"
-            output_str = f"SEARCH_BACKEND_ENGINE={CONFIG.SEARCH_BACKEND_ENGINE}"
-        elif not bool(CONFIG.USE_INDEXING_BACKEND):
-            print("Skipping indexing (USE_INDEXING_BACKEND=False)", file=sys.stderr)
-            status = "skipped"
-            output_str = "USE_INDEXING_BACKEND=False"
+            output_str = "SEARCH_BACKEND_SQLITE_ENABLED=False"
         else:
             snapshot_id = get_snapshot_id_from_context()
             if not snapshot_id:

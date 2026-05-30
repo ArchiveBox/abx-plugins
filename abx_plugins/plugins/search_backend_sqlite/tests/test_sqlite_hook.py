@@ -22,7 +22,6 @@ def run_hook(
             "DATA_DIR": str(tmp_path),
             "SNAP_DIR": str(tmp_path),
             "SEARCH_BACKEND_ENGINE": "sqlite",
-            "USE_INDEXING_BACKEND": "true",
             "EXTRA_CONTEXT": json.dumps({"snapshot_id": snapshot_id}),
         },
     )

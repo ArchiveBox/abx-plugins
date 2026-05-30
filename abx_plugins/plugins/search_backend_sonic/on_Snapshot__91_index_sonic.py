@@ -12,12 +12,11 @@
 Sonic search backend - indexes snapshot content in Sonic server.
 
 This hook runs after all extractors and indexes text content in Sonic.
-Runs when USE_INDEXING_BACKEND is enabled or SEARCH_BACKEND_ENGINE=sonic.
+Skipped when SEARCH_BACKEND_SONIC_ENABLED=False.
 
 Usage: on_Snapshot__91_index_sonic.py --url=<url>
 
 Environment variables:
-    USE_INDEXING_BACKEND: Enable search indexing (default: true)
     SEARCH_BACKEND_HOST_NAME: Sonic server host (default: 127.0.0.1)
     SEARCH_BACKEND_PORT: Sonic server port (default: 1491)
     SEARCH_BACKEND_PASSWORD: Sonic server password (default: SecretPassword)
@@ -211,9 +210,12 @@ def main() -> None:
             status = "skipped"
             output_str = f"ABX_RUNTIME={config.ABX_RUNTIME}"
         elif not is_sonic_backend_enabled(config):
-            print("Skipping indexing (USE_INDEXING_BACKEND=False)", file=sys.stderr)
+            print(
+                "Skipping indexing (SEARCH_BACKEND_SONIC_ENABLED=False)",
+                file=sys.stderr,
+            )
             status = "skipped"
-            output_str = "USE_INDEXING_BACKEND=False"
+            output_str = "SEARCH_BACKEND_SONIC_ENABLED=False"
         else:
             snapshot_id = get_snapshot_id_from_context()
             if not snapshot_id:

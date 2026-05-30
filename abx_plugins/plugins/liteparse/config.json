@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "LiteParse",
-  "description": "Extract text and metadata from PDFs and documents using LiteParse (by LlamaIndex). Supports OCR via Tesseract.js.",
+  "description": "Extract text and metadata from PDFs, Office documents, and images using LiteParse (by LlamaIndex). Performs spatial PDF parsing via PDFium and optional OCR via Tesseract.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [],
@@ -9,11 +9,29 @@
     {
       "name": "{LITEPARSE_BINARY}",
       "binproviders": "env,npm",
-      "min_version": null,
+      "min_version": "2.0.0",
       "overrides": {
         "npm": {
           "install_args": [
             "@llamaindex/liteparse"
+          ]
+        }
+      }
+    },
+    {
+      "name": "{LITEPARSE_TESSERACT_BINARY}",
+      "binproviders": "env,brew,apt",
+      "min_version": "5.0.0",
+      "overrides": {
+        "brew": {
+          "install_args": [
+            "tesseract"
+          ]
+        },
+        "apt": {
+          "install_args": [
+            "tesseract-ocr",
+            "tesseract-ocr-eng"
           ]
         }
       }
@@ -38,12 +56,94 @@
       "default": "lit",
       "description": "Path to lit binary"
     },
+    "LITEPARSE_TESSERACT_BINARY": {
+      "type": "string",
+      "default": "tesseract",
+      "description": "Path to the tesseract binary used to discover the system tessdata directory. Auto-installed by the plugin via brew/apt; not invoked at runtime — lit's bundled tesseract-rs does the actual OCR."
+    },
     "LITEPARSE_TIMEOUT": {
       "type": "integer",
-      "default": 120,
+      "default": 180,
       "minimum": 10,
       "x-fallback": "TIMEOUT",
       "description": "Timeout for LiteParse extraction in seconds"
+    },
+    "LITEPARSE_FORMATS": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": ["text"],
+      "description": "Output formats to produce, one file per source. `text` writes `<input>.txt` (lit's plain layout-preserving text — what search backends index). `json` is also supported and writes `<input>.json` with lit v2's structured per-page output (text, bounding boxes, font metadata, OCR confidence); not indexed by search backends. Any subset of [text, json] is valid."
+    },
+    "LITEPARSE_OCR_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "description": "Run Tesseract OCR on pages/images without embedded text (passes --no-ocr when disabled)"
+    },
+    "LITEPARSE_OCR_LANGUAGE": {
+      "type": "string",
+      "default": "eng",
+      "description": "Tesseract OCR language code (e.g. eng, fra, deu, chi_sim)"
+    },
+    "LITEPARSE_OCR_SERVER_URL": {
+      "type": "string",
+      "default": "",
+      "description": "Optional HTTP OCR server URL (e.g. EasyOCR/PaddleOCR wrapper) to use instead of bundled Tesseract"
+    },
+    "LITEPARSE_TESSDATA_DIR": {
+      "type": "string",
+      "default": "",
+      "x-aliases": [
+        "TESSDATA_PREFIX"
+      ],
+      "description": "Path to a Tesseract tessdata directory containing <lang>.traineddata files. Auto-detected from common system locations when empty."
+    },
+    "LITEPARSE_MAX_PAGES": {
+      "type": "integer",
+      "default": 1000,
+      "minimum": 1,
+      "description": "Maximum pages to parse per document"
+    },
+    "LITEPARSE_TARGET_PAGES": {
+      "type": "string",
+      "default": "",
+      "description": "Page range to parse, e.g. '1-5,10,15-20'. Empty means all pages."
+    },
+    "LITEPARSE_DPI": {
+      "type": "integer",
+      "default": 150,
+      "minimum": 50,
+      "description": "Rendering DPI used when rasterising pages for OCR / images"
+    },
+    "LITEPARSE_PASSWORD": {
+      "type": "string",
+      "default": "",
+      "description": "Password for encrypted PDFs"
+    },
+    "LITEPARSE_MIN_IMAGE_DIMENSION": {
+      "type": "integer",
+      "default": 128,
+      "minimum": 0,
+      "description": "Skip image files (PNG/JPG/etc.) smaller than this many pixels in both width AND height. Avoids wasting OCR time on favicons, sprite thumbnails, and tracking pixels. Set to 0 to disable filtering."
+    },
+    "LITEPARSE_BATCH_SIZE": {
+      "type": "integer",
+      "default": 8,
+      "minimum": 1,
+      "description": "Number of source documents processed per `lit batch-parse` invocation. Sources are sorted largest-first so the most content-rich files come back first. Smaller batches give finer-grained progressive output but slightly more lit-startup overhead."
+    },
+    "LITEPARSE_MAX_SOURCES": {
+      "type": "integer",
+      "default": 100,
+      "minimum": 0,
+      "description": "Hard cap on number of documents to process per snapshot, applied after size-desc sort so the largest files always make it. Set to 0 for no cap."
+    },
+    "LITEPARSE_PARALLEL_WORKERS": {
+      "type": "integer",
+      "default": 2,
+      "minimum": 1,
+      "description": "Number of concurrent `lit batch-parse` processes. Each process is pinned to --num-workers=1 internally (its own multi-worker mode hurts on Apple Silicon); outer parallelism via this knob gives near-linear speedup up to a few procs. Empirically 2 is enough to fit a typical content-heavy article under the 60s hook timeout."
     },
     "LITEPARSE_ARGS": {
       "type": "array",

@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>{{ output_path_raw }}</title>
+    <style>
+        html, body { margin: 0; padding: 0; height: 100%; background: #fff; }
+        replay-web-page { display: block; width: 100%; height: 100%; }
+    </style>
+    <!-- ui.js + sw.js are served by archivebox from the locally installed
+         archivewebpage extension; no CDN, no cross-origin frames. -->
+    <script src="/replay/ui.js"></script>
+</head>
+<body>
+    <replay-web-page source="{{ output_path }}"
+                     {% if archived_url %}url="{{ archived_url }}"{% endif %}
+                     embed="replayonly"
+                     replaybase="/replay/"></replay-web-page>
+</body>
+</html>
