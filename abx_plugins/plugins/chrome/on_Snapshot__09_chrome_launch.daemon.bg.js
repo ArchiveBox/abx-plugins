@@ -100,15 +100,8 @@ async function main() {
         path.resolve(getEnv("CRAWL_DIR", ".")),
         "chrome"
       );
-      // Probe for a *connectable* crawl-level session, not just a session
-      // file with a cdpUrl string. ``waitForChromeSessionState`` without
-      // ``requireConnectable: true`` returns as soon as the artifacts
-      // exist, even if Chrome has since crashed or been killed (this is
-      // what masked the rc51 cabbage failure where Chrome died mid-crawl
-      // and every subsequent snapshot reported "No Chrome session found"
-      // for ~60s before the throw). With liveness probing, a dead session
-      // returns null fast and we fall through to relaunch instead of
-      // failing the whole snapshot.
+      // Probe with requireConnectable so a dead crawl-scoped Chrome
+      // returns null fast (a stale session file alone isn't enough).
       const crawlSession = await waitForChromeSessionState(crawlChromeDir, {
         timeoutMs: getEnvInt("CHROME_TIMEOUT", 60) * 1000,
         requireConnectable: true,
@@ -120,16 +113,9 @@ async function main() {
         emitArchiveResultRecord("skipped", "CHROME_ISOLATION=crawl");
         process.exit(0);
       }
-      // Crawl-level Chrome is dead or missing. Auto-relaunch it in the
-      // crawl chrome dir so this snapshot — and any subsequent snapshots
-      // in the same crawl — can use it. ``ensureChromeSession`` is
-      // idempotent: it sweeps any stale session artifacts and spawns a
-      // fresh Chromium (with the same persona/user-data-dir, so cookies
-      // and downloaded files persist across the relaunch). Holding our
-      // own .launch.lock here serializes concurrent snapshot-level
-      // recovery attempts; ``ensureChromeSession`` also takes the
-      // crawl-level .launch.lock internally so we don't race the
-      // original on_CrawlSetup__90 daemon if it's still alive but slow.
+      // Crawl Chrome is dead — relaunch it shared so subsequent snapshots
+      // can use it. ensureChromeSession is idempotent (sweeps stale
+      // artifacts, takes the crawl-level .launch.lock internally).
       console.error(
         `[!] crawl-scoped ${CHROME_BINARY} session is gone, relaunching in ${crawlChromeDir}...`
       );

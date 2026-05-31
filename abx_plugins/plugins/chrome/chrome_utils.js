@@ -1032,12 +1032,6 @@ async function launchChromium(options = {}) {
   // We intentionally do *not* retry arbitrary failures forever. Persistent
   // config issues (bad binary path, invalid flags, broken permissions, etc.)
   // should still fail deterministically on the first attempt.
-  const T0_launch = Date.now();
-  const perfEnabled = getEnvBool("CHROME_LAUNCH_PERF", false);
-  const perfMark = (label) => {
-    if (perfEnabled)
-      console.error(`[perf t+${Date.now() - T0_launch}ms launchChromium] ${label}`);
-  };
   for (let attempt = 1; attempt <= maxLaunchAttempts; attempt++) {
     let chromiumProcess = null;
     let chromePid = null;
@@ -1050,7 +1044,6 @@ async function launchChromium(options = {}) {
         chromeLaunchLock,
         getEnvInt("CHROME_LAUNCH_LOCK_TIMEOUT_MS", 120000)
       );
-      perfMark("acquired launch lock");
       console.error(
         `[*] Spawning Chromium (headless=${headless}) [attempt ${attempt}/${maxLaunchAttempts}]...`
       );
@@ -1058,7 +1051,6 @@ async function launchChromium(options = {}) {
         stdio: ["ignore", "pipe", "pipe"],
         detached: true,
       });
-      perfMark("chrome process spawned");
 
       chromePid = chromiumProcess.pid;
       const chromeStartTime = Date.now() / 1000;
@@ -1123,7 +1115,6 @@ async function launchChromium(options = {}) {
         chromiumExit,
       ]);
       const wsUrl = versionInfo.webSocketDebuggerUrl;
-      perfMark("debug port ready");
 
       console.error(`[+] Chromium ready: ${wsUrl}`);
 
@@ -1143,7 +1134,6 @@ async function launchChromium(options = {}) {
         headless,
         enableExtensionDebugging,
       });
-      perfMark("verifyStableChromiumSession done");
 
       return result;
     } catch (e) {
@@ -1859,90 +1849,73 @@ async function loadUnpackedExtensionsIntoBrowser(
   }
   let loadUnpackedUnavailable = false;
 
-  // Load extensions in parallel — each Extensions.loadUnpacked CDP call is
-  // independent, and the target-handle polling is independent too. On a slow
-  // machine this still completes in the same wall time as a single extension;
-  // sequential loading wastes (N-1) × per-extension-cost.
-  await Promise.all(
-    validExtensions.map(async (extension) => {
-      if (loadUnpackedUnavailable) {
-        extension.load_error =
-          "Extensions.loadUnpacked is unavailable in this browser";
-        console.warn(
-          `[!] Skipping CDP unpacked extension load for ${
-            extension.name || extension.id
-          }: ${extension.load_error}`
+  for (const extension of validExtensions) {
+    if (loadUnpackedUnavailable) {
+      extension.load_error =
+        "Extensions.loadUnpacked is unavailable in this browser";
+      console.warn(
+        `[!] Skipping CDP unpacked extension load for ${
+          extension.name || extension.id
+        }: ${extension.load_error}`
+      );
+      continue;
+    }
+
+    try {
+      const { id } = await cdpSession.send("Extensions.loadUnpacked", {
+        path: extension.unpacked_path,
+      });
+      if (!id) {
+        throw new Error(
+          `Extensions.loadUnpacked did not return an id for ${extension.unpacked_path}`
         );
-        return;
       }
+      extension.id = id;
+      delete extension.load_error;
 
       try {
-        const { id } = await cdpSession.send("Extensions.loadUnpacked", {
-          path: extension.unpacked_path,
-        });
-        if (!id) {
+        const target = await waitForExtensionTargetHandle(
+          browser,
+          extension.id,
+          perExtensionTimeout
+        );
+        const loaded = await loadExtensionFromTarget(extensions, target);
+        if (!loaded) {
           throw new Error(
-            `Extensions.loadUnpacked did not return an id for ${extension.unpacked_path}`
+            `Unable to attach extension target for ${extension.id}`
           );
         }
-        extension.id = id;
-        delete extension.load_error;
-
-        try {
-          const targetDeadline = Date.now() + perExtensionTimeout;
-          const target = await waitForExtensionTargetHandle(
-            browser,
-            extension.id,
-            perExtensionTimeout
-          );
-          // The target may appear before its service worker is actually
-          // running, especially when loadUnpacked is fired in parallel for
-          // multiple extensions. Poll cheaply until the manifest read
-          // succeeds — that's the deterministic signal that the SW is alive
-          // and the extension is fully attachable.
-          let loaded = null;
-          while (Date.now() < targetDeadline) {
-            loaded = await loadExtensionFromTarget(extensions, target);
-            if (loaded) break;
-            await sleep(50);
-          }
-          if (!loaded) {
-            throw new Error(
-              `Unable to attach extension target for ${extension.id}`
-            );
-          }
-          delete extension.target_error;
-        } catch (targetError) {
-          extension.target_error = `${targetError.name}: ${targetError.message}`;
-          console.warn(
-            `[!] Extension ${
-              extension.name || extension.id
-            } loaded but did not expose a background target within ` +
-              `${perExtensionTimeout}ms, continuing: ${extension.target_error}`
-          );
-        }
-      } catch (error) {
-        extension.load_error = `${error.name}: ${error.message}`;
-        if (
-          String(error.message || "").includes("Method not available") ||
-          String(error.message || "").includes(
-            "'Extensions.loadUnpacked' wasn't found"
-          )
-        ) {
-          loadUnpackedUnavailable = true;
-          console.warn(
-            `[!] Extensions.loadUnpacked is unavailable in this browser, skipping remaining CDP unpacked extension loads`
-          );
-          return;
-        }
+        delete extension.target_error;
+      } catch (targetError) {
+        extension.target_error = `${targetError.name}: ${targetError.message}`;
         console.warn(
-          `[!] Failed to load extension ${
-            extension.name || extension.unpacked_path
-          }: ${extension.load_error}`
+          `[!] Extension ${
+            extension.name || extension.id
+          } loaded but did not expose a background target within ` +
+            `${perExtensionTimeout}ms, continuing: ${extension.target_error}`
         );
       }
-    })
-  );
+    } catch (error) {
+      extension.load_error = `${error.name}: ${error.message}`;
+      if (
+        String(error.message || "").includes("Method not available") ||
+        String(error.message || "").includes(
+          "'Extensions.loadUnpacked' wasn't found"
+        )
+      ) {
+        loadUnpackedUnavailable = true;
+        console.warn(
+          `[!] Extensions.loadUnpacked is unavailable in this browser, skipping remaining CDP unpacked extension loads`
+        );
+        continue;
+      }
+      console.warn(
+        `[!] Failed to load extension ${
+          extension.name || extension.unpacked_path
+        }: ${extension.load_error}`
+      );
+    }
+  }
 
   try {
     await cdpSession.detach();
@@ -2972,12 +2945,6 @@ async function cleanupLaunchArtifacts(outputDir, chromePid = null) {
  * @returns {Promise<void>}
  */
 async function verifyStableChromiumSession(options = {}) {
-  const T0_verify = Date.now();
-  const verifyPerfEnabled = getEnvBool("CHROME_LAUNCH_PERF", false);
-  const verifyPerf = (label) => {
-    if (verifyPerfEnabled)
-      console.error(`[perf t+${Date.now() - T0_verify}ms verifyStableChromiumSession] ${label}`);
-  };
   const {
     chromePid,
     cdpUrl,
@@ -2986,17 +2953,15 @@ async function verifyStableChromiumSession(options = {}) {
   } = options;
 
   const hasExtensions = enableExtensionDebugging;
-  // Deterministic readiness signal: poll for "we can actually connect via CDP
-  // and the browser has a usable initial page". On a fast machine this
-  // succeeds on the first try (~10-30ms); on a slow machine we retry every
-  // 50ms until success or until the overall budget is exhausted. No fixed
-  // sleeps — the work itself is the signal.
+  // Deterministic readiness signal: actively poll for "connect via CDP +
+  // browser has a usable initial page". On fast machines this succeeds on
+  // the first try (~30ms); on slow machines it retries until the
+  // CHROME_LAUNCH_STABILITY_MS budget is exhausted. No fixed sleeps — the
+  // work itself is the signal.
   const overallTimeoutMs = getEnvInt(
-    "CHROME_LAUNCH_SETTLE_TIMEOUT_MS",
+    "CHROME_LAUNCH_STABILITY_MS",
     hasExtensions ? 15000 : 10000
   );
-  const probePollMs = getEnvInt("CHROME_LAUNCH_PROBE_INTERVAL_MS", 50);
-  verifyPerf(`overallTimeoutMs=${overallTimeoutMs} probePollMs=${probePollMs} hasExtensions=${hasExtensions}`);
 
   if (!chromePid || !isProcessAlive(chromePid)) {
     throw new Error(
@@ -3008,9 +2973,7 @@ async function verifyStableChromiumSession(options = {}) {
 
   const deadline = Date.now() + overallTimeoutMs;
   let lastError = null;
-  let attempts = 0;
   while (Date.now() < deadline) {
-    attempts += 1;
     if (!isProcessAlive(chromePid)) {
       throw new Error(
         hasExtensions && headless
@@ -3030,7 +2993,6 @@ async function verifyStableChromiumSession(options = {}) {
         requireAboutBlank: true,
         createPageIfMissing: true,
       });
-      verifyPerf(`connect+pageReady ok on attempt ${attempts}`);
       return;
     } catch (error) {
       lastError = error;
@@ -3041,7 +3003,7 @@ async function verifyStableChromiumSession(options = {}) {
         } catch (disconnectError) {}
       }
     }
-    await sleep(probePollMs);
+    await sleep(50);
   }
 
   throw new Error(
@@ -3816,12 +3778,6 @@ async function closeBrowserInChromeSession(options = {}) {
 }
 
 async function ensureChromeSession(options = {}) {
-  const T0_ensure = Date.now();
-  const ensurePerfEnabled = getEnvBool("CHROME_LAUNCH_PERF", false);
-  const ensurePerf = (label) => {
-    if (ensurePerfEnabled)
-      console.error(`[perf t+${Date.now() - T0_ensure}ms ensureChromeSession] ${label}`);
-  };
   const {
     outputDir = ".",
     puppeteer = resolvePuppeteerModule(),
@@ -3978,7 +3934,6 @@ async function ensureChromeSession(options = {}) {
       );
     }
 
-    ensurePerf("launchChromium starting");
     const result = await launchChromium({
       binary: resolvedBinary,
       outputDir,
@@ -3988,7 +3943,6 @@ async function ensureChromeSession(options = {}) {
     if (!result.success) {
       throw new Error(result.error || "Failed to launch Chromium");
     }
-    ensurePerf("launchChromium returned");
 
     resolvedPid = result.pid;
     resolvedCdpUrl = result.cdpUrl;
@@ -4018,20 +3972,16 @@ async function ensureChromeSession(options = {}) {
   if (needsPostLaunchBrowser) {
     let browser = null;
     try {
-      ensurePerf("connecting puppeteer for post-launch setup");
       browser = await connectToBrowserEndpoint(puppeteer, resolvedCdpUrl, {
         defaultViewport: null,
       });
-      ensurePerf("puppeteer connected for post-launch setup");
 
       if (installedExtensions.length > 0) {
-        ensurePerf(`loading ${installedExtensions.length} unpacked extensions`);
         await loadUnpackedExtensionsIntoBrowser(
           browser,
           installedExtensions,
           timeoutMs
         );
-        ensurePerf("extensions loaded");
       }
 
       if (downloadsDir) {
@@ -4045,18 +3995,15 @@ async function ensureChromeSession(options = {}) {
         await importCookiesFromFile(browser, cookiesFile, resolvedUserDataDir);
       }
 
-      ensurePerf("waitForBrowserPageReady starting");
       await waitForBrowserPageReady({
         browser,
         timeoutMs: getEnvInt("CHROME_PAGE_READY_TIMEOUT_MS", 10000),
         requireAboutBlank: true,
         createPageIfMissing: true,
       });
-      ensurePerf("waitForBrowserPageReady done");
 
       if (launchedNewBrowser) {
         await closeExistingTabs(browser);
-        ensurePerf("closeExistingTabs done");
       }
     } finally {
       if (browser) {
@@ -4066,7 +4013,6 @@ async function ensureChromeSession(options = {}) {
       }
     }
   } else {
-    ensurePerf("waitForBrowserPageReady (no-browser path) starting");
     await waitForBrowserPageReady({
       puppeteer,
       cdpUrl: resolvedCdpUrl,
@@ -4074,7 +4020,6 @@ async function ensureChromeSession(options = {}) {
       requireAboutBlank: true,
       createPageIfMissing: true,
     });
-    ensurePerf("waitForBrowserPageReady (no-browser path) done");
   }
 
   if (processIsLocal && resolvedPid) {
@@ -4086,10 +4031,9 @@ async function ensureChromeSession(options = {}) {
     // snapshot hooks will be able to connect. Process-alive is checked
     // inside the loop so a crash fails fast.
     const stabilityDeadline = Date.now() + getEnvInt(
-      "CHROME_LAUNCH_STABILITY_TIMEOUT_MS",
-      10000
+      "CHROME_LAUNCH_STABILITY_MS",
+      installedExtensions.length > 0 ? 15000 : 10000
     );
-    const probePollMs = getEnvInt("CHROME_LAUNCH_PROBE_INTERVAL_MS", 50);
     let probedOk = false;
     let lastProbeFailure = null;
     while (Date.now() < stabilityDeadline) {
@@ -4111,14 +4055,13 @@ async function ensureChromeSession(options = {}) {
       } catch (error) {
         lastProbeFailure = error?.message || String(error);
       }
-      await sleep(probePollMs);
+      await sleep(50);
     }
     if (!probedOk) {
       throw new Error(
         `Chrome session not CDP-responsive after launch setup: ${lastProbeFailure || "timeout"}`
       );
     }
-    ensurePerf("post-setup CDP readiness probe ok");
   }
 
   if (installedExtensions.length > 0) {

@@ -35,6 +35,22 @@
           ]
         }
       }
+    },
+    {
+      "name": "{LITEPARSE_IMAGEMAGICK_BINARY}",
+      "binproviders": "env,brew,apt",
+      "overrides": {
+        "brew": {
+          "install_args": [
+            "imagemagick"
+          ]
+        },
+        "apt": {
+          "install_args": [
+            "imagemagick"
+          ]
+        }
+      }
     }
   ],
   "output_mimetypes": [
@@ -60,6 +76,11 @@
       "type": "string",
       "default": "tesseract",
       "description": "Path to the tesseract binary used to discover the system tessdata directory. Auto-installed by the plugin via brew/apt; not invoked at runtime — lit's bundled tesseract-rs does the actual OCR."
+    },
+    "LITEPARSE_IMAGEMAGICK_BINARY": {
+      "type": "string",
+      "default": "convert",
+      "description": "Path to an ImageMagick binary used by LiteParse for image conversion. Auto-installed by the plugin via brew/apt; not invoked directly by this hook."
     },
     "LITEPARSE_TIMEOUT": {
       "type": "integer",

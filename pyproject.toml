@@ -3,7 +3,7 @@ name = "abx-plugins"
 version = "1.11.86"
 description = "ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)"
 authors = [{name = "Nick Sweeting"}, {name = "ArchiveBox"}]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = {text = "MIT"}
 readme = "README.md"
 keywords = ["archivebox", "plugins", "web-archiving", "hooks", "scraping"]
