@@ -1,0 +1,56 @@
+abx_plugins/plugins/chrome/on_Snapshot__09_chrome_launch.daemon.bg.js
+  s_e09843280e6970::t_965b6792a759ee 34-39
+.github/workflows/test-parallel.yml
+  s_074e76a4b61abc::t_5a090ad7e3c940 71
+abx_plugins/plugins/twocaptcha/on_CrawlSetup__95_twocaptcha_config.js
+  s_e09843280e6970::t_d7cb563adee9fc 158,220-271,309-313,358-372,379
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_56f8597a1153b7::t_10df73af8212b0 4008-4018,4021,4025,4048-4053,4055-4060,4068-4077
+  s_56f8597a1153b7::t_79d224028ba11f 1035,1053,1061
+  s_56f8597a1153b7::t_9fd6d2553f74b3 1126,1146
+  s_56f8597a1153b7::t_5385bf3aa271b1 2975
+  s_56f8597a1153b7::t_b6d2f899bc7e39 4028,4034
+  s_56f8597a1153b7::t_a71bb484551fea 4081-4114,4116,4118,4121
+  s_56f8597a1153b7::t_16adabd2e34eac 2989-2996,2998-2999,3009-3011,3013,3017-3018,3021-3044,3046-3049
+  s_56f8597a1153b7::t_0ec86d02fd4d97 1036-1040
+  s_56f8597a1153b7::t_8cd064495239ab 2976-2980
+  s_56f8597a1153b7::t_882e2f2f410752 3819
+  s_56f8597a1153b7::t_b05671cc1d050a 1862-1874,1876,1880-1883,1885,1888-1891,1893-1897,1909-1937,1939-1941,1944-1945
+  s_56f8597a1153b7::t_b6ee8d473fb62e 3981,3991
+  s_56f8597a1153b7::t_b3105344fc47f4 1892,1898-1908
+  s_56f8597a1153b7::t_d7d5c24589e0a6 3820-3824
+pyproject.toml
+  s_074e76a4b61abc::t_5a090ad7e3c940 35-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "a362ef46a6973ef42e963cbca78501ea9eb0a940",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_56f8597a1153b7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b4c160c0-b70e-4b8e-8cb5-94f06a3fc2e8",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_e09843280e6970": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3879a2be-5acf-439c-a220-1e40a4ec795a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
