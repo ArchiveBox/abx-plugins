@@ -11,11 +11,11 @@
     {
       "name": "{CHROME_BINARY}",
       "binproviders": "env,puppeteer",
-      "min_version": "149.0.0",
+      "min_version": "150.0.0",
       "overrides": {
         "puppeteer": {
           "install_args": [
-            "chrome@canary"
+            "chromium@latest"
           ]
         }
       }

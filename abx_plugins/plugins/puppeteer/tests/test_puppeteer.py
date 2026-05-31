@@ -65,7 +65,7 @@ def test_crawl_hook_respects_configured_chrome_binary():
     assert binary_record["name"] == browser_name
     assert binary_record["overrides"]["puppeteer"] == {
         "install_args": [
-            "chrome@canary",
+            "chromium@latest",
         ],
     }
 

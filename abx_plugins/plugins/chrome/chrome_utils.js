@@ -885,25 +885,9 @@ async function killZombieChrome(snapDir = null, options = {}) {
     if (!quiet) console.error("[+] No zombies found");
   }
 
-  // Clean up stale browser profile lock files from persona profile directories.
-  const personasDir = getPersonasDir();
-  if (fs.existsSync(personasDir)) {
-    try {
-      const personas = fs.readdirSync(personasDir, { withFileTypes: true });
-      for (const persona of personas) {
-        if (!persona.isDirectory()) continue;
-
-        for (const profileDirName of ["chrome_profile", "chrome_user_data"]) {
-          cleanupChromeProfileLockFiles(
-            path.join(personasDir, persona.name, profileDirName),
-            { quiet }
-          );
-        }
-      }
-    } catch (e) {
-      // Ignore errors scanning personas directory
-    }
-  }
+  const activeUserDataDir = loadConfig(path.join(__dirname, "config.json"))
+    .CHROME_USER_DATA_DIR;
+  cleanupChromeProfileLockFiles(activeUserDataDir, { quiet });
 
   return killed;
 }
