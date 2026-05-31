@@ -347,7 +347,9 @@ async function killZombieChrome(snapDir = null, options = {}) {
     const relativePath = path.relative(resolvedSnapRoot, path.resolve(dir));
     return (
       relativePath === "" ||
-      (relativePath && !relativePath.startsWith("..") && !path.isAbsolute(relativePath))
+      (relativePath &&
+        !relativePath.startsWith("..") &&
+        !path.isAbsolute(relativePath))
     );
   }
 
@@ -960,7 +962,9 @@ async function launchChromium(options = {}) {
     const versionOutput = getBrowserVersionOutput(binary);
     return {
       success: false,
-      error: `Chrome binary must be Chromium >=149.0.0 for Extensions.loadUnpacked support: ${binary} (${versionOutput || "no version output"})`,
+      error: `Chrome binary must be Chromium >=149.0.0 for Extensions.loadUnpacked support: ${binary} (${
+        versionOutput || "no version output"
+      })`,
     };
   }
 
@@ -1853,7 +1857,9 @@ async function loadUnpackedExtensionsIntoBrowser(
         );
         const loaded = await loadExtensionFromTarget(extensions, target);
         if (!loaded) {
-          throw new Error(`Unable to attach extension target for ${extension.id}`);
+          throw new Error(
+            `Unable to attach extension target for ${extension.id}`
+          );
         }
         delete extension.target_error;
       } catch (error) {
@@ -1862,7 +1868,9 @@ async function loadUnpackedExtensionsIntoBrowser(
         throw new Error(
           `Failed to load Chrome extension ${
             extension.name || extension.unpacked_path
-          } from ${extension.unpacked_path} via Extensions.loadUnpacked: ${detail}`
+          } from ${
+            extension.unpacked_path
+          } via Extensions.loadUnpacked: ${detail}`
         );
       }
     }
@@ -2988,7 +2996,9 @@ async function verifyStableChromiumSession(options = {}) {
   }
 
   throw new Error(
-    `Chromium CDP session not stable after startup: ${lastError?.message || "timeout"}`
+    `Chromium CDP session not stable after startup: ${
+      lastError?.message || "timeout"
+    }`
   );
 }
 
@@ -3973,7 +3983,7 @@ async function ensureChromeSession(options = {}) {
     }
     if (installedExtensions.length > 0) {
       console.error(
-        `[*] Loading ${installedExtensions.length} extension(s) at Chrome startup, falling back to CDP Extensions.loadUnpacked if needed`
+        `[*] Loading ${installedExtensions.length} extension(s) after Chrome launch with CDP Extensions.loadUnpacked`
       );
     }
 
@@ -4074,10 +4084,12 @@ async function ensureChromeSession(options = {}) {
     // probe to succeed — that's the deterministic signal that downstream
     // snapshot hooks will be able to connect. Process-alive is checked
     // inside the loop so a crash fails fast.
-    const stabilityDeadline = Date.now() + getEnvInt(
-      "CHROME_LAUNCH_STABILITY_MS",
-      installedExtensions.length > 0 ? 15000 : 10000
-    );
+    const stabilityDeadline =
+      Date.now() +
+      getEnvInt(
+        "CHROME_LAUNCH_STABILITY_MS",
+        installedExtensions.length > 0 ? 15000 : 10000
+      );
     let probedOk = false;
     let lastProbeFailure = null;
     while (Date.now() < stabilityDeadline) {
@@ -4088,7 +4100,10 @@ async function ensureChromeSession(options = {}) {
       }
       try {
         const reachable = await canConnectToChromeBrowser(resolvedCdpUrl, {
-          timeoutMs: Math.max(500, Math.min(stabilityDeadline - Date.now(), 1500)),
+          timeoutMs: Math.max(
+            500,
+            Math.min(stabilityDeadline - Date.now(), 1500)
+          ),
           puppeteer,
         });
         if (reachable) {
@@ -4103,7 +4118,9 @@ async function ensureChromeSession(options = {}) {
     }
     if (!probedOk) {
       throw new Error(
-        `Chrome session not CDP-responsive after launch setup: ${lastProbeFailure || "timeout"}`
+        `Chrome session not CDP-responsive after launch setup: ${
+          lastProbeFailure || "timeout"
+        }`
       );
     }
   }

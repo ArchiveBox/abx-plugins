@@ -395,43 +395,7 @@ const puppeteer = resolvePuppeteer();
     return json.loads(result.stdout)
 
 
-def test_load_all_extensions_from_browser_does_not_fail_if_one_extension_never_appears():
-    script = r"""
-const chromeUtils = require(process.argv[1]);
-const calls = [];
-const browser = {
-  targets: () => {
-    calls.push('targets');
-    return [];
-  },
-};
-
-(async () => {
-  const extensions = [{ id: 'abc123', name: 'slowext', unpacked_path: '/tmp/slowext' }];
-  const result = await chromeUtils.loadAllExtensionsFromBrowser(browser, extensions, 60000);
-  process.stdout.write(JSON.stringify({ calls, result }));
-})().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
-"""
-    env = get_test_env() | {"CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS": "25"}
-    result = subprocess.run(
-        ["node", "-e", script, str(CHROME_UTILS)],
-        capture_output=True,
-        text=True,
-        timeout=15,
-        env=env,
-    )
-
-    assert result.returncode == 0, result.stderr
-    payload = json.loads(result.stdout.strip().splitlines()[-1])
-    assert payload["calls"], payload
-    assert payload["result"][0]["id"] == "abc123"
-    assert "target_error" in payload["result"][0]
-
-
-def test_load_unpacked_extensions_stops_after_protocol_method_is_unavailable():
+def test_load_unpacked_extensions_hard_fails_after_protocol_method_is_unavailable():
     script = r"""
 const chromeUtils = require(process.argv[1]);
 let sendCalls = 0;
@@ -454,8 +418,13 @@ const browser = {
     { id: 'abc123', name: 'first', unpacked_path: '/tmp/first' },
     { id: 'def456', name: 'second', unpacked_path: '/tmp/second' },
   ];
-  const result = await chromeUtils.loadUnpackedExtensionsIntoBrowser(browser, extensions, 60000);
-  process.stdout.write(JSON.stringify({ sendCalls, result }));
+  try {
+    await chromeUtils.loadUnpackedExtensionsIntoBrowser(browser, extensions, 60000);
+  } catch (error) {
+    process.stdout.write(JSON.stringify({ sendCalls, error: error.message, extensions }));
+    return;
+  }
+  throw new Error('expected loadUnpackedExtensionsIntoBrowser to fail');
 })().catch((error) => {
   console.error(error);
   process.exit(1);
@@ -473,11 +442,12 @@ const browser = {
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout.strip().splitlines()[-1])
     assert payload["sendCalls"] == 1
-    assert "ProtocolError" in payload["result"][0]["load_error"]
-    assert "unavailable" in payload["result"][1]["load_error"]
+    assert "Extensions.loadUnpacked" in payload["error"]
+    assert "ProtocolError" in payload["extensions"][0]["load_error"]
+    assert "load_error" not in payload["extensions"][1]
 
 
-def test_load_unpacked_extensions_marks_load_errors_if_browser_session_closed():
+def test_load_unpacked_extensions_hard_fails_if_browser_session_closed():
     script = r"""
 const chromeUtils = require(process.argv[1]);
 const browser = {
@@ -495,8 +465,13 @@ const browser = {
     { id: 'abc123', name: 'first', unpacked_path: '/tmp/first' },
     { id: 'def456', name: 'second', unpacked_path: '/tmp/second' },
   ];
-  const result = await chromeUtils.loadUnpackedExtensionsIntoBrowser(browser, extensions, 60000);
-  process.stdout.write(JSON.stringify({ result }));
+  try {
+    await chromeUtils.loadUnpackedExtensionsIntoBrowser(browser, extensions, 60000);
+  } catch (error) {
+    process.stdout.write(JSON.stringify({ error: error.message, extensions }));
+    return;
+  }
+  throw new Error('expected loadUnpackedExtensionsIntoBrowser to fail');
 })().catch((error) => {
   console.error(error);
   process.exit(1);
@@ -513,8 +488,9 @@ const browser = {
 
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout.strip().splitlines()[-1])
-    assert "TargetCloseError" in payload["result"][0]["load_error"]
-    assert "TargetCloseError" in payload["result"][1]["load_error"]
+    assert "Chromium >=149.0.0" in payload["error"]
+    assert "TargetCloseError" in payload["extensions"][0]["load_error"]
+    assert "TargetCloseError" in payload["extensions"][1]["load_error"]
 
 
 def test_load_cached_extension_uses_runtime_browser_target():
