@@ -28,6 +28,10 @@ def test_require_chrome_runtime_fails_when_binary_resolution_fails(
 
     env = os.environ.copy()
     env["PATH"] = str(tmp_path)
+    env["ABXPKG_LIB_DIR"] = str(tmp_path / "abxpkg-lib")
+    env["ABXPKG_ENV_ROOT"] = str(tmp_path / "abxpkg-env")
+    env.pop("NODE_BINARY", None)
+    env.pop("NPM_BINARY", None)
     result = subprocess.run(
         [
             sys.executable,

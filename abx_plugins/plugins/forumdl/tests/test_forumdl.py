@@ -19,7 +19,10 @@ import time
 from pathlib import Path
 import pytest
 
-from abx_plugins.plugins.base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import (
+    install_required_binary_from_config,
+    parse_jsonl_output,
+)
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
@@ -50,31 +53,7 @@ def get_forumdl_binary_path() -> str | None:
     if _forumdl_binary_path:
         return _forumdl_binary_path
 
-    from abxpkg import Binary, PipProvider, EnvProvider
-
-    binary = Binary(
-        name="forum-dl",
-        binproviders=[PipProvider(), EnvProvider()],
-        overrides={
-            "pip": {
-                "install_args": [
-                    "--no-deps",
-                    "forum-dl",
-                    "chardet==5.2.0",
-                    "beautifulsoup4",
-                    "soupsieve",
-                    "lxml",
-                    "requests",
-                    "urllib3",
-                    "tenacity",
-                    "python-dateutil",
-                    "six",
-                    "html2text",
-                    "warcio",
-                ],
-            },
-        },
-    ).install()
+    binary = install_required_binary_from_config(PLUGIN_DIR, "forum-dl")
     if binary and binary.abspath:
         _forumdl_binary_path = str(binary.abspath)
         return _forumdl_binary_path

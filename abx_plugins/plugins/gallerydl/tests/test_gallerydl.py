@@ -19,7 +19,10 @@ import os
 from pathlib import Path
 import pytest
 
-from abx_plugins.plugins.base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import (
+    install_required_binary_from_config,
+    parse_jsonl_output,
+)
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
@@ -50,12 +53,7 @@ def get_gallerydl_binary_path() -> str | None:
     if _gallerydl_binary_path and Path(_gallerydl_binary_path).is_file():
         return _gallerydl_binary_path
 
-    from abxpkg import Binary, PipProvider, EnvProvider
-
-    binary = Binary(
-        name="gallery-dl",
-        binproviders=[PipProvider(), EnvProvider()],
-    ).install()
+    binary = install_required_binary_from_config(PLUGIN_DIR, "gallery-dl")
     if binary and binary.abspath:
         _gallerydl_binary_path = str(binary.abspath)
         return _gallerydl_binary_path

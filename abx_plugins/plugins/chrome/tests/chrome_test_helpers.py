@@ -346,6 +346,27 @@ class _DeterministicTestRequestHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if path == "/ads":
+            self._write(
+                200,
+                """<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Ad Fixture</title>
+</head>
+<body>
+  <main>
+    <h1>Ad Fixture</h1>
+    <div class="ad-banner" style="display:none">hidden ad slot</div>
+    <div id="sponsored-unit" style="visibility:hidden">hidden sponsored slot</div>
+    <script src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+  </main>
+</body>
+</html>""",
+            )
+            return
+
         self._write(
             404,
             "<html><head><title>Not Found</title></head><body><h1>404</h1></body></html>",
@@ -432,6 +453,7 @@ def _build_test_urls(
         "static_file_url": f"{base}/static/test.txt",
         "json_url": f"{base}/api/data.json",
         "claudechrome_url": f"{base}/claudechrome",
+        "ad_url": f"{base}/ads",
     }
     if https_base_url:
         https_base = https_base_url.rstrip("/")

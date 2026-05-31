@@ -22,7 +22,10 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import (
+    install_required_binary_from_config,
+    parse_jsonl_output,
+)
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
@@ -67,20 +70,7 @@ def test_wget_declares_only_env_apt_brew_providers():
 
 def test_verify_deps_with_abxpkg():
     """Verify wget is available via abxpkg."""
-    from abxpkg import Binary, AptProvider, BrewProvider, EnvProvider
-
-    try:
-        apt_provider = AptProvider()
-        brew_provider = BrewProvider()
-        env_provider = EnvProvider()
-    except Exception as exc:
-        pytest.fail(f"System package providers unavailable in this runtime: {exc}")
-
-    wget_binary = Binary(
-        name="wget",
-        binproviders=[apt_provider, brew_provider, env_provider],
-    )
-    wget_loaded = wget_binary.load()
+    wget_loaded = install_required_binary_from_config(PLUGIN_DIR, "wget")
 
     if wget_loaded and wget_loaded.abspath:
         assert True, "wget is available"

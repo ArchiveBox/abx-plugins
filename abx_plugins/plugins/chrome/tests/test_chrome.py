@@ -3244,6 +3244,93 @@ def test_target_crash_mid_navigation_recovers_with_fresh_tab(chrome_test_urls):
                     pass
 
 
+def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_url):
+    """Fresh CDP clients must resolve the exact target_id.txt target before navigation."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        shared_dir = Path(tmpdir) / "shared"
+        shared_dir.mkdir()
+        chrome_dir = shared_dir / "chrome"
+        chrome_dir.mkdir()
+        env = _isolated_test_env(
+            tmpdir,
+            CRAWL_DIR=str(shared_dir),
+            SNAP_DIR=str(shared_dir),
+            CHROME_HEADLESS="true",
+        )
+
+        chrome_launch_process = None
+        tab_process = None
+        try:
+            chrome_launch_process, cdp_url = launch_chromium_session(
+                env=env,
+                chrome_dir=chrome_dir,
+                crawl_id="test-fresh-target-resolve",
+                timeout=60,
+            )
+            tab_process = launch_snapshot_tab(
+                snapshot_chrome_dir=chrome_dir,
+                tab_env=env,
+                test_url=chrome_test_url,
+                snapshot_id="snap-fresh-target-resolve",
+                crawl_id="test-fresh-target-resolve",
+            )
+            target_id = (chrome_dir / "target_id.txt").read_text().strip()
+            raw_targets = _fetch_devtools_targets(cdp_url)
+            assert any(target.get("id") == target_id for target in raw_targets)
+
+            script = f"""
+const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
+const chromeSessionDir = process.argv[1];
+const expectedTargetId = process.argv[2];
+
+(async () => {{
+  const puppeteer = chromeUtils.resolvePuppeteerModule();
+  const results = await Promise.all(Array.from({{ length: 4 }}, async () => {{
+    const connection = await chromeUtils.connectToPage({{
+      chromeSessionDir,
+      timeoutMs: 5000,
+      requireTargetId: true,
+      puppeteer,
+    }});
+    try {{
+      const actualTargetId = chromeUtils.getTargetIdFromPage(connection.page);
+      await connection.page.title();
+      return actualTargetId;
+    }} finally {{
+      connection.browser.disconnect();
+    }}
+  }}));
+  if (!results.every((targetId) => targetId === expectedTargetId)) {{
+    throw new Error(`resolved unexpected targets: ${{JSON.stringify(results)}} expected=${{expectedTargetId}}`);
+  }}
+  console.log(JSON.stringify(results));
+}})().catch((error) => {{
+  console.error(error && error.stack || error);
+  process.exit(1);
+}});
+"""
+            result = subprocess.run(
+                ["node", "-e", script, str(chrome_dir), target_id],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=env,
+            )
+            assert result.returncode == 0, (
+                f"fresh CDP clients should resolve the published target:\n"
+                f"Stdout: {result.stdout}\nStderr: {result.stderr}"
+            )
+        finally:
+            for proc in (tab_process, chrome_launch_process):
+                if proc is None:
+                    continue
+                try:
+                    proc.send_signal(signal.SIGTERM)
+                    proc.wait(timeout=10)
+                except Exception:
+                    pass
+
+
 def test_popup_focus_theft_keeps_followup_hooks_on_canonical_target(chrome_test_urls):
     """Popup windows stealing focus must not move follow-up hooks off the canonical snapshot target."""
     with tempfile.TemporaryDirectory() as tmpdir:

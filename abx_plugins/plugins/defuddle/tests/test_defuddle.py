@@ -12,6 +12,7 @@ from abx_plugins.plugins.base.test_utils import (
     get_hydrated_required_binaries,
     get_hook_script,
     get_plugin_dir,
+    install_required_binary_from_config,
     parse_jsonl_output,
 )
 
@@ -56,13 +57,7 @@ def get_defuddle_binary_path() -> str | None:
     if _defuddle_binary_path and Path(_defuddle_binary_path).is_file():
         return _defuddle_binary_path
 
-    from abxpkg import Binary, EnvProvider, NpmProvider
-
-    binary = Binary(
-        name="defuddle",
-        binproviders=[NpmProvider(), EnvProvider()],
-        overrides={"npm": {"install_args": ["defuddle"]}},
-    ).install()
+    binary = install_required_binary_from_config(PLUGIN_DIR, "defuddle")
     if binary and binary.abspath:
         _defuddle_binary_path = str(binary.abspath)
         return _defuddle_binary_path

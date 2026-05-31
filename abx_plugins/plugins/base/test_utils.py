@@ -107,6 +107,51 @@ def get_hydrated_required_binaries(
     ]
 
 
+def get_hydrated_required_binary(
+    plugin_dir: Path,
+    name: str,
+    env: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Return one hydrated required_binaries record by resolved binary name."""
+    for record in get_hydrated_required_binaries(plugin_dir, env=env):
+        if record.get("name") == name:
+            return record
+    raise AssertionError(
+        f"{plugin_dir.name} config missing required_binaries entry for {name}",
+    )
+
+
+def install_required_binary_from_config(
+    plugin_dir: Path,
+    name: str,
+    env: Mapping[str, str] | None = None,
+):
+    """Install/load a binary using one hydrated config.json required_binaries record."""
+    from abxpkg import Binary, DEFAULT_PROVIDER_NAMES, PROVIDER_CLASS_BY_NAME, SemVer
+
+    record = get_hydrated_required_binary(plugin_dir, name, env=env)
+    provider_names = [
+        provider_name.strip()
+        for provider_name in str(record.get("binproviders") or "env").split(",")
+        if provider_name.strip()
+    ]
+    if provider_names == ["*"]:
+        provider_names = list(DEFAULT_PROVIDER_NAMES)
+
+    providers = [
+        PROVIDER_CLASS_BY_NAME[provider_name]() for provider_name in provider_names
+    ]
+    min_version = record.get("min_version")
+    return Binary(
+        name=record["name"],
+        binproviders=providers,
+        min_version=SemVer(min_version) if min_version else None,
+        min_release_age=record.get("min_release_age"),
+        postinstall_scripts=record.get("postinstall_scripts"),
+        overrides=record.get("overrides") or {},
+    ).install()
+
+
 def parse_jsonl_output(
     stdout: str,
     record_type: str = "ArchiveResult",

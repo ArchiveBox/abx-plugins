@@ -21,6 +21,7 @@ import pytest
 from abx_plugins.plugins.base.test_utils import (
     get_hook_script,
     get_plugin_dir,
+    install_required_binary_from_config,
     parse_jsonl_output,
 )
 
@@ -56,13 +57,7 @@ def get_mercury_binary_path() -> str | None:
     if _mercury_binary_path and Path(_mercury_binary_path).is_file():
         return _mercury_binary_path
 
-    from abxpkg import Binary, NpmProvider, EnvProvider
-
-    binary = Binary(
-        name="postlight-parser",
-        binproviders=[NpmProvider(), EnvProvider()],
-        overrides={"npm": {"install_args": ["@postlight/parser"]}},
-    ).install()
+    binary = install_required_binary_from_config(PLUGIN_DIR, "postlight-parser")
     if binary and binary.abspath:
         _mercury_binary_path = str(binary.abspath)
         return _mercury_binary_path

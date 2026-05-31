@@ -18,8 +18,9 @@ from pathlib import Path
 import pytest
 
 from abx_plugins.plugins.base.test_utils import (
-    get_plugin_dir,
     get_hook_script,
+    get_plugin_dir,
+    install_required_binary_from_config,
     parse_jsonl_output,
 )
 
@@ -100,17 +101,10 @@ def get_readability_binary_path() -> str | None:
     if _readability_binary_path and Path(_readability_binary_path).is_file():
         return _readability_binary_path
 
-    from abxpkg import Binary, NpmProvider, EnvProvider
-
-    binary = Binary(
-        name="readability-extractor",
-        binproviders=[NpmProvider(), EnvProvider()],
-        overrides={
-            "npm": {
-                "install_args": ["https://github.com/ArchiveBox/readability-extractor"],
-            },
-        },
-    ).install()
+    binary = install_required_binary_from_config(
+        PLUGIN_DIR,
+        "readability-extractor",
+    )
     if binary and binary.abspath:
         _readability_binary_path = str(binary.abspath)
         return _readability_binary_path

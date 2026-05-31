@@ -19,7 +19,10 @@ import wave
 from pathlib import Path
 import pytest
 
-from abx_plugins.plugins.base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.test_utils import (
+    install_required_binary_from_config,
+    parse_jsonl_output,
+)
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
@@ -97,13 +100,7 @@ def get_ytdlp_binary_path() -> str | None:
     if _ytdlp_binary_path and Path(_ytdlp_binary_path).is_file():
         return _ytdlp_binary_path
 
-    from abxpkg import Binary, PipProvider, EnvProvider
-
-    binary = Binary(
-        name="yt-dlp",
-        binproviders=[PipProvider(), EnvProvider()],
-        overrides={"pip": {"install_args": ["yt-dlp[default]"]}},
-    ).install()
+    binary = install_required_binary_from_config(PLUGIN_DIR, "yt-dlp")
     if binary and binary.abspath:
         _ytdlp_binary_path = str(binary.abspath)
         return _ytdlp_binary_path
@@ -113,12 +110,7 @@ def get_ytdlp_binary_path() -> str | None:
 
 def require_ffmpeg_binary() -> str:
     """Return ffmpeg binary path or fail with actionable context."""
-    from abxpkg import AptProvider, Binary, BrewProvider, EnvProvider
-
-    binary = Binary(
-        name="ffmpeg",
-        binproviders=[EnvProvider(), BrewProvider(), AptProvider()],
-    ).install()
+    binary = install_required_binary_from_config(PLUGIN_DIR, "ffmpeg")
     assert binary and binary.abspath, (
         "ffmpeg installation failed. ytdlp tests require a real ffmpeg binary."
     )

@@ -19,8 +19,9 @@ from pathlib import Path
 import pytest
 import requests
 
-from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 from abx_plugins.plugins.base.test_utils import get_hydrated_required_binaries
+from abx_plugins.plugins.base.test_utils import install_required_binary_from_config
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
@@ -41,13 +42,7 @@ def get_opendataloader_binary_path() -> str | None:
     if _opendataloader_binary_path and Path(_opendataloader_binary_path).is_file():
         return _opendataloader_binary_path
 
-    from abxpkg import Binary, PipProvider, EnvProvider
-
-    binary = Binary(
-        name="opendataloader-pdf",
-        binproviders=[PipProvider(), EnvProvider()],
-        overrides={"pip": {"install_args": ["opendataloader-pdf"]}},
-    ).install()
+    binary = install_required_binary_from_config(PLUGIN_DIR, "opendataloader-pdf")
     if binary and binary.abspath:
         _opendataloader_binary_path = str(binary.abspath)
         return _opendataloader_binary_path
@@ -73,17 +68,7 @@ def get_java_binary_path() -> str | None:
     if _java_binary_path and Path(_java_binary_path).is_file():
         return _java_binary_path
 
-    from abxpkg import AptProvider, Binary, BrewProvider, EnvProvider, SemVer
-
-    binary = Binary(
-        name="java",
-        min_version=SemVer("11.0.0"),
-        binproviders=[EnvProvider(), BrewProvider(), AptProvider()],
-        overrides={
-            "brew": {"install_args": ["openjdk"]},
-            "apt": {"install_args": ["default-jre"]},
-        },
-    ).install()
+    binary = install_required_binary_from_config(PLUGIN_DIR, "java")
     if binary and binary.abspath:
         _java_binary_path = str(binary.abspath)
         return _java_binary_path

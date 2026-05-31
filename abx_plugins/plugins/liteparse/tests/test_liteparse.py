@@ -30,7 +30,8 @@ import pytest
 import requests
 
 from abx_plugins.plugins.base.test_utils import (
-    get_hydrated_required_binaries,
+    get_hydrated_required_binary,
+    install_required_binary_from_config,
     parse_jsonl_output,
 )
 
@@ -77,23 +78,12 @@ _downloaded_cache: dict[str, bytes] = {}
 
 
 def get_liteparse_binary_path() -> str | None:
-    """Resolve lit v2 binary path, installing via abxpkg npm if needed.
-
-    `min_release_age=0` is set so freshly-released v2.x.x versions can be
-    installed in CI even before they age past the default 7-day cutoff.
-    """
+    """Resolve lit v2 binary path from LiteParse required_binaries config."""
     global _liteparse_binary_path
     if _liteparse_binary_path and Path(_liteparse_binary_path).is_file():
         return _liteparse_binary_path
 
-    from abxpkg import Binary, NpmProvider, EnvProvider, SemVer
-
-    binary = Binary(
-        name="lit",
-        binproviders=[NpmProvider(min_release_age=0), EnvProvider()],
-        min_version=SemVer("2.0.0"),
-        overrides={"npm": {"install_args": ["@llamaindex/liteparse"]}},
-    ).install()
+    binary = install_required_binary_from_config(PLUGIN_DIR, "lit")
     if binary and binary.abspath:
         _liteparse_binary_path = str(binary.abspath)
         return _liteparse_binary_path
@@ -124,17 +114,7 @@ def install_tesseract_binary() -> str:
     if _tesseract_binary_path and Path(_tesseract_binary_path).is_file():
         return _tesseract_binary_path
 
-    from abxpkg import AptProvider, Binary, BrewProvider, EnvProvider, SemVer
-
-    binary = Binary(
-        name="tesseract",
-        binproviders=[EnvProvider(), BrewProvider(), AptProvider()],
-        min_version=SemVer("5.0.0"),
-        overrides={
-            "brew": {"install_args": ["tesseract"]},
-            "apt": {"install_args": ["tesseract-ocr", "tesseract-ocr-eng"]},
-        },
-    ).install()
+    binary = install_required_binary_from_config(PLUGIN_DIR, "tesseract")
     assert binary and binary.abspath, (
         "abxpkg failed to install tesseract via env/brew/apt — required_binaries "
         "auto-install must work on Linux and macOS CI without manual setup."
@@ -154,16 +134,7 @@ def install_imagemagick_binary() -> str:
     if _imagemagick_binary_path and Path(_imagemagick_binary_path).is_file():
         return _imagemagick_binary_path
 
-    from abxpkg import AptProvider, Binary, BrewProvider, EnvProvider
-
-    binary = Binary(
-        name="convert",
-        binproviders=[EnvProvider(), BrewProvider(), AptProvider()],
-        overrides={
-            "brew": {"install_args": ["imagemagick"]},
-            "apt": {"install_args": ["imagemagick"]},
-        },
-    ).install()
+    binary = install_required_binary_from_config(PLUGIN_DIR, "convert")
     assert binary and binary.abspath, (
         "abxpkg failed to install ImageMagick via env/brew/apt — "
         "required_binaries auto-install must work on Linux and macOS CI "
@@ -321,11 +292,7 @@ def test_hook_scripts_exist():
 
 
 def test_crawl_hook_emits_lit_binary_request_record():
-    binary = next(
-        record
-        for record in get_hydrated_required_binaries(PLUGIN_DIR)
-        if record.get("name") == "lit"
-    )
+    binary = get_hydrated_required_binary(PLUGIN_DIR, "lit")
     assert binary.get("type", "BinaryRequest") == "BinaryRequest"
     assert binary.get("name") == "lit"
     assert binary.get("overrides", {}).get("npm", {}).get("install_args") == [

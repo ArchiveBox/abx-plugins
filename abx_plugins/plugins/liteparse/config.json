@@ -10,6 +10,7 @@
       "name": "{LITEPARSE_BINARY}",
       "binproviders": "env,npm",
       "min_version": "2.0.0",
+      "min_release_age": 3,
       "overrides": {
         "npm": {
           "install_args": [
@@ -39,6 +40,7 @@
     {
       "name": "{LITEPARSE_IMAGEMAGICK_BINARY}",
       "binproviders": "env,brew,apt",
+      "min_version": "6.0.0",
       "overrides": {
         "brew": {
           "install_args": [

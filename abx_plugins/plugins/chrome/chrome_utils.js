@@ -1005,7 +1005,7 @@ async function launchChromium(options = {}) {
   // Write command script for debugging
   writeCmdScript(path.join(outputDir, "cmd.sh"), binary, chromiumArgs);
 
-  const chromeLaunchLock = path.join(getPersonasDir(), ".chrome-launch.lock");
+  const chromeLaunchLock = path.join(userDataDir, ".chrome-launch.lock");
   let lastError = "Unknown Chromium launch failure";
 
   // Chromium startup has two distinct phases:
@@ -3134,34 +3134,101 @@ async function closeExistingTabs(browser) {
 
 async function resolvePageByTargetId(browser, targetId, timeoutMs = 0) {
   const deadline = Date.now() + Math.max(timeoutMs, 0);
+  let discoverySession = null;
 
-  while (true) {
-    const targets = browser.targets();
-    const target = targets.find(
-      (candidate) => getTargetIdFromTarget(candidate) === targetId
-    );
-    if (target) {
-      try {
-        const page = await target.page();
-        if (page) {
-          return page;
-        }
-      } catch (error) {}
+  async function ensureDiscoverySession() {
+    if (discoverySession) {
+      return discoverySession;
     }
-
-    const pages = await browser.pages();
-    const pageMatch = pages.find(
-      (page) => getTargetIdFromPage(page) === targetId
-    );
-    if (pageMatch) {
-      return pageMatch;
+    try {
+      discoverySession = await browser.target().createCDPSession();
+      await discoverySession.send("Target.setDiscoverTargets", {
+        discover: true,
+      });
+    } catch (error) {
+      discoverySession = null;
     }
+    return discoverySession;
+  }
 
-    if (Date.now() >= deadline) {
+  async function targetIsKnownToCdp() {
+    const session = await ensureDiscoverySession();
+    if (!session) {
+      return false;
+    }
+    try {
+      const { targetInfos = [] } = await session.send("Target.getTargets");
+      return targetInfos.some(
+        (targetInfo) =>
+          targetInfo?.targetId === targetId &&
+          (!targetInfo.type || targetInfo.type === "page")
+      );
+    } catch (error) {
+      return false;
+    }
+  }
+
+  async function pageFromTarget(target) {
+    if (!target) {
       return null;
     }
+    try {
+      return (await target.page()) || null;
+    } catch (error) {
+      return null;
+    }
+  }
 
-    await sleep(100);
+  try {
+    await ensureDiscoverySession();
+
+    while (true) {
+      const targets = browser.targets();
+      const target = targets.find(
+        (candidate) => getTargetIdFromTarget(candidate) === targetId
+      );
+      const targetPage = await pageFromTarget(target);
+      if (targetPage) {
+        return targetPage;
+      }
+
+      const pages = await browser.pages();
+      const pageMatch = pages.find(
+        (page) => getTargetIdFromPage(page) === targetId
+      );
+      if (pageMatch) {
+        return pageMatch;
+      }
+
+      const remainingMs = Math.max(deadline - Date.now(), 0);
+      if (remainingMs > 0 && typeof browser.waitForTarget === "function") {
+        const knownToCdp = await targetIsKnownToCdp();
+        if (knownToCdp) {
+          try {
+            const waitedTarget = await browser.waitForTarget(
+              (candidate) => getTargetIdFromTarget(candidate) === targetId,
+              { timeout: Math.min(remainingMs, 250) }
+            );
+            const waitedPage = await pageFromTarget(waitedTarget);
+            if (waitedPage) {
+              return waitedPage;
+            }
+          } catch (error) {}
+        }
+      }
+
+      if (Date.now() >= deadline) {
+        return null;
+      }
+
+      await sleep(100);
+    }
+  } finally {
+    if (discoverySession) {
+      try {
+        await discoverySession.detach();
+      } catch (error) {}
+    }
   }
 }
 
@@ -3969,15 +4036,6 @@ async function ensureChromeSession(options = {}) {
     launchedNewBrowser = true;
   }
 
-  if (resolvedPid) {
-    fs.writeFileSync(path.join(outputDir, "chrome.pid"), String(resolvedPid));
-  } else {
-    try {
-      fs.unlinkSync(path.join(outputDir, "chrome.pid"));
-    } catch (error) {}
-  }
-  fs.writeFileSync(path.join(outputDir, "cdp_url.txt"), resolvedCdpUrl);
-
   // Open a single browser connection for all post-launch CDP work: extension
   // load, cookie import, download dir config, page-ready probe, and tab
   // cleanup. Each connectToBrowserEndpoint call costs ~150-200ms (it
@@ -4082,6 +4140,15 @@ async function ensureChromeSession(options = {}) {
       );
     }
   }
+
+  if (resolvedPid) {
+    fs.writeFileSync(path.join(outputDir, "chrome.pid"), String(resolvedPid));
+  } else {
+    try {
+      fs.unlinkSync(path.join(outputDir, "chrome.pid"));
+    } catch (error) {}
+  }
+  fs.writeFileSync(path.join(outputDir, "cdp_url.txt"), resolvedCdpUrl);
 
   if (installedExtensions.length > 0) {
     fs.writeFileSync(

@@ -244,7 +244,8 @@ def test_snapshot_hook_reports_noresults_on_blank_page():
                     hook_process.kill()
 
 
-def test_snapshot_hook_reports_live_blocking_counts():
+def test_snapshot_hook_reports_live_blocking_counts(chrome_test_urls):
+    test_url = chrome_test_urls["ad_url"]
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         install_env = setup_test_env(tmpdir)
@@ -256,7 +257,7 @@ def test_snapshot_hook_reports_live_blocking_counts():
             tmpdir,
             crawl_id="ublock-live",
             snapshot_id="ublock-live-snap",
-            test_url=TEST_URL,
+            test_url=test_url,
             navigate=False,
             timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
         ) as (_chrome_launch_process, _chrome_pid, snapshot_chrome_dir, env):
@@ -266,7 +267,7 @@ def test_snapshot_hook_reports_live_blocking_counts():
             hook_process = subprocess.Popen(
                 [
                     str(SNAPSHOT_HOOK),
-                    f"--url={TEST_URL}",
+                    f"--url={test_url}",
                     "--snapshot-id=ublock-live-snap",
                 ],
                 cwd=str(hook_dir),
@@ -280,7 +281,7 @@ def test_snapshot_hook_reports_live_blocking_counts():
                 navigate = subprocess.run(
                     [
                         str(NAVIGATE_HOOK),
-                        f"--url={TEST_URL}",
+                        f"--url={test_url}",
                         "--snapshot-id=ublock-live-snap",
                     ],
                     cwd=str(snapshot_chrome_dir),

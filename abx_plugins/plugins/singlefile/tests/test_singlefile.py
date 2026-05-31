@@ -22,6 +22,7 @@ from abx_plugins.plugins.base.test_utils import (
     get_hydrated_required_binaries,
     get_hook_script,
     get_plugin_dir,
+    install_required_binary_from_config,
     parse_jsonl_output,
 )
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
@@ -186,11 +187,7 @@ process.stdout.write(JSON.stringify({{ freshBudget, elapsedBudget, minimumBudget
 
 def test_verify_deps_with_abxpkg():
     """Verify dependencies are available via abxpkg."""
-    from abxpkg import Binary, EnvProvider
-
-    # Verify node is available
-    node_binary = Binary(name="node", binproviders=[EnvProvider()])
-    node_loaded = node_binary.load()
+    node_loaded = install_required_binary_from_config(PLUGIN_DIR.parent / "npm", "node")
     assert node_loaded and node_loaded.abspath, "Node.js required for singlefile plugin"
     state = ensure_singlefile_extension_installed()
     assert state["cache_file"].exists(), (
