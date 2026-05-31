@@ -1,0 +1,45 @@
+pyproject.toml
+  s_074e76a4b61abc::t_d1be7439ac4e51 6
+abx_plugins/plugins/liteparse/config.json
+  s_074e76a4b61abc::t_d1be7439ac4e51 38-53,80-83
+.github/workflows/test-parallel.yml
+  s_074e76a4b61abc::t_d1be7439ac4e51 71
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_56f8597a1153b7::t_856950c8430302 1852-1870,1873-1874,1877-1883,1885,1888-1890,1892-1895,1898-1918
+  s_56f8597a1153b7::t_60f88f7a333474 2956-2960,2962,3006
+  s_56f8597a1153b7::t_0bd56fc54409ec 4034-4035,4058
+abx_plugins/plugins/chrome/on_Snapshot__09_chrome_launch.daemon.bg.js
+  s_e09843280e6970::t_f0e677a765df28 103-104,116-118
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c3c71c17a634badb59b6a889ab4396dc7ef19c98",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_56f8597a1153b7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b4c160c0-b70e-4b8e-8cb5-94f06a3fc2e8",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_e09843280e6970": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3879a2be-5acf-439c-a220-1e40a4ec795a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
