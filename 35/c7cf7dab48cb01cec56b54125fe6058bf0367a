@@ -1,0 +1,25 @@
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_c40400846d281e::t_d8e48cf5a39be1 1037
+  s_c40400846d281e::t_12110edb37e875 960,963,1036,1038-1043,1045
+  s_c40400846d281e::t_1f0d7d54a8771a 53-68,70
+abx_plugins/plugins/archivewebpage/on_Snapshot__65_archivewebpage_stop.js
+  s_c40400846d281e::t_bcb2586adde989 362-365,370
+abx_plugins/plugins/archivewebpage/on_Snapshot__16_archivewebpage_start.js
+  s_c40400846d281e::t_e0999785f70b1c 260-263,268
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "35c7cf7dab48cb01cec56b54125fe6058bf0367a",
+  "prompts": {},
+  "sessions": {
+    "s_c40400846d281e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7da0-ea86-7bc2-aa93-fd8cb3384eaa",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
