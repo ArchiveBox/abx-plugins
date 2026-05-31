@@ -216,12 +216,9 @@ def _tessdata_dir_from_tesseract_binary(
     is among the listed langs, so the caller can trust that
     ``<path>/<language>.traineddata`` exists.
     """
-    tesseract_path = shutil.which(tesseract_binary) or tesseract_binary
-    if not Path(tesseract_path).is_file():
-        return None
     try:
         proc = subprocess.run(
-            [tesseract_path, "--list-langs"],
+            [tesseract_binary, "--list-langs"],
             capture_output=True,
             text=True,
             timeout=10,

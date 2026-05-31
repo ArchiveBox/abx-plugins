@@ -169,13 +169,12 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
     cookies_file = config.YTDLP_COOKIES_FILE
     max_size = config.YTDLP_MAX_SIZE
     node_binary = config.NODE_BINARY
-    ffmpeg_binary = (os.environ.get("FFMPEG_BINARY") or "").strip()
+    ffmpeg_binary = str(config.FFMPEG_BINARY or "").strip()
     ytdlp_args = config.YTDLP_ARGS
     ytdlp_args_extra = config.YTDLP_ARGS_EXTRA
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(".")
-    process_env = os.environ.copy()
 
     # Build command (later options take precedence)
     cmd = [
@@ -185,14 +184,10 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
         f"--format=(bv*+ba/b)[filesize<={max_size}][filesize_approx<=?{max_size}]/(bv*+ba/b)",
         f"--js-runtimes=node:{node_binary}",
     ]
-
-    ffmpeg_path = Path(ffmpeg_binary).expanduser()
-    if ffmpeg_binary and ffmpeg_path.is_file():
-        ffmpeg_dir = str(ffmpeg_path.parent.resolve())
-        current_path = process_env.get("PATH", "")
-        path_parts = current_path.split(os.pathsep) if current_path else []
-        if ffmpeg_dir not in path_parts:
-            process_env["PATH"] = os.pathsep.join([ffmpeg_dir, *path_parts])
+    if ffmpeg_binary and any(
+        sep in ffmpeg_binary for sep in (os.sep, os.altsep) if sep
+    ):
+        cmd.extend(["--ffmpeg-location", ffmpeg_binary])
 
     if not check_ssl:
         cmd.append("--no-check-certificate")
@@ -219,7 +214,6 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
-            env=process_env,
         )
         ACTIVE_PROCESS = process
 

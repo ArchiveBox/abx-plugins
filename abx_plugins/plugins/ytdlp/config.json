@@ -31,7 +31,7 @@
       }
     },
     {
-      "name": "ffmpeg",
+      "name": "{FFMPEG_BINARY}",
       "binproviders": "env,apt,brew",
       "min_version": null
     }
@@ -72,6 +72,11 @@
       "type": "string",
       "default": "node",
       "description": "Path to Node.js binary for yt-dlp JS runtime"
+    },
+    "FFMPEG_BINARY": {
+      "type": "string",
+      "default": "ffmpeg",
+      "description": "Path to ffmpeg binary for yt-dlp media remuxing and downloads"
     },
     "YTDLP_TIMEOUT": {
       "type": "integer",

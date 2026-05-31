@@ -141,11 +141,11 @@ class TestRipgrepSearch:
         assert results.count("snap-001") == 1
 
     def test_search_missing_binary(self):
-        """search should raise when ripgrep binary not found."""
+        """search should tolerate a configured binary that cannot execute."""
         os.environ["RIPGREP_BINARY"] = "/nonexistent/rg"
-        with pytest.raises(RuntimeError) as context:
-            _build_cmd("test")
-        assert "ripgrep binary not found" in str(context.value)
+        cmd, _, _ = _build_cmd("test")
+        assert cmd[0] == "/nonexistent/rg"
+        assert search("test") == []
 
     def test_search_with_custom_args(self, monkeypatch: pytest.MonkeyPatch):
         """search should use custom RIPGREP_ARGS."""

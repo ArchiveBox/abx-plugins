@@ -16,16 +16,15 @@ from __future__ import annotations
 
 import json
 import mimetypes
+from email.utils import formatdate
+from html import escape as html_escape
 import zipfile
 from pathlib import Path
-
-from django import template
-from django.http import HttpResponse
-from django.utils.http import http_date
 
 # Plugin install pins ``--name=archivewebpage`` in config.json, so the
 # unpacked extension dir is always ``*__archivewebpage``.
 _EXTENSION_NAME = "archivewebpage"
+ReplayAssetResponse = tuple[bytes, str, dict[str, str]]
 
 # Mapping of URL tail under ``/replay/`` to filename inside the unpacked
 # archivewebpage extension. The replayweb.page replay frame (intercepted by
@@ -78,7 +77,7 @@ def find_extension_dir(config) -> Path | None:
     return None
 
 
-def serve_replay_asset(rel_path: str, config) -> HttpResponse | None:
+def serve_replay_asset(rel_path: str, config) -> ReplayAssetResponse | None:
     """Serve ``/replay/{sw,ui}.js`` from the locally installed extension."""
     if rel_path == "replay":
         asset = ""
@@ -89,12 +88,11 @@ def serve_replay_asset(rel_path: str, config) -> HttpResponse | None:
 
     static_html = _REPLAY_STATIC_HTML.get(asset)
     if static_html is not None:
-        response = HttpResponse(
+        return (
             static_html.encode("utf-8"),
-            content_type="text/html; charset=utf-8",
+            "text/html; charset=utf-8",
+            {"Cache-Control": "public, max-age=31536000, immutable"},
         )
-        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-        return response
 
     target = _REPLAY_ASSETS.get(asset)
     if target is None:
@@ -112,15 +110,16 @@ def serve_replay_asset(rel_path: str, config) -> HttpResponse | None:
         if file_path.suffix == ".js"
         else mimetypes.guess_type(str(file_path))[0] or "application/octet-stream"
     )
-    response = HttpResponse(body, content_type=content_type)
-    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-    response.headers["Last-Modified"] = http_date(file_path.stat().st_mtime)
+    headers = {
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "Last-Modified": formatdate(file_path.stat().st_mtime, usegmt=True),
+    }
     if file_path.name == "sw.js":
         # Allow the SW to claim the whole snapshot host scope rather than
         # only ``/replay/``; replayweb.page intercepts arbitrary in-archive
         # URLs once the worker activates.
-        response.headers["Service-Worker-Allowed"] = "/"
-    return response
+        headers["Service-Worker-Allowed"] = "/"
+    return body, content_type, headers
 
 
 def _first_archived_url(wacz_path: Path) -> str:
@@ -175,18 +174,19 @@ def render_preview_html(
     if not archived_url:
         archived_url = fallback_url or ""
 
-    template_path = _PLUGIN_DIR / "templates" / "full.html"
-    template_str = template_path.read_text(encoding="utf-8")
-    tpl = template.Engine(debug=False).from_string(template_str)
-    return tpl.render(
-        template.Context(
-            {
-                "output_path": output_path,
-                "output_path_raw": filename,
-                "archived_url": archived_url,
-                "plugin": _EXTENSION_NAME,
-            },
-        ),
+    archived_url_attr = (
+        f'url="{html_escape(archived_url, quote=True)}"' if archived_url else ""
+    )
+    return (
+        (_PLUGIN_DIR / "templates" / "full.html")
+        .read_text(encoding="utf-8")
+        .replace("{{ output_path_raw }}", html_escape(filename, quote=True))
+        .replace("{{ output_path }}", html_escape(output_path, quote=True))
+        .replace("{{ archived_url }}", html_escape(archived_url, quote=True))
+        .replace(
+            '{% if archived_url %}url="{{ archived_url }}"{% endif %}',
+            archived_url_attr,
+        )
     )
 
 

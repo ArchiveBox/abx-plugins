@@ -22,7 +22,6 @@ import subprocess
 import threading
 import uuid
 import re
-import shutil
 from pathlib import Path
 from collections.abc import Iterable
 
@@ -113,12 +112,7 @@ def _build_cmd(
 ) -> tuple[list[str], list[Path], int]:
     config = load_config(Path(__file__).with_name("config.json"))
 
-    rg_binary = str(config.RIPGREP_BINARY or "")
-    rg_path = Path(rg_binary).expanduser()
-    if rg_path.is_file():
-        resolved_rg = str(rg_path)
-    else:
-        resolved_rg = shutil.which(rg_binary) or ""
+    resolved_rg = str(config.RIPGREP_BINARY or "").strip()
     if not resolved_rg:
         raise RuntimeError(
             "ripgrep binary not found. Install with: apt install ripgrep",
