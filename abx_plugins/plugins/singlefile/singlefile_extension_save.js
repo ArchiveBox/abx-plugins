@@ -29,6 +29,9 @@ const EXTENSION = {
 const SNAPSHOT_OUTPUT_DIR = process.cwd();
 const CHROME_SESSION_DIR = path.resolve(SNAPSHOT_OUTPUT_DIR, "..", "chrome");
 const hookConfig = loadConfig();
+const CRAWL_DIR = hookConfig.CRAWL_DIR
+  ? path.resolve(String(hookConfig.CRAWL_DIR).trim())
+  : null;
 const DOWNLOADS_DIR =
   hookConfig.CHROME_DOWNLOADS_DIR ||
   path.join(
@@ -36,8 +39,8 @@ const DOWNLOADS_DIR =
     hookConfig.ACTIVE_PERSONA,
     "chrome_downloads"
   );
+const CHROME_EXTENSIONS_DIR = hookConfig.CHROME_EXTENSIONS_DIR || "";
 
-process.env.CHROME_DOWNLOADS_DIR = DOWNLOADS_DIR;
 const DOWNLOAD_POLL_INTERVAL_MS = 3000;
 const DOWNLOAD_WAIT_RESERVE_MS = 10000;
 const SERVICE_WORKER_WAKE_PATH = "/src/ui/pages/offscreen-document.html";
@@ -60,7 +63,7 @@ async function moveAcrossMounts(src, dest) {
 }
 
 function getSinglefileDownloadWaitTimeoutMs(
-  config = process.env,
+  config = hookConfig,
   elapsedMs = process.uptime() * 1000
 ) {
   const configuredTimeoutSeconds = Number(
@@ -264,7 +267,7 @@ async function main() {
     args.output_path || path.join(SNAPSHOT_OUTPUT_DIR, "singlefile.html");
   const startedAt = Date.now();
   const configuredTimeoutSeconds = Number(
-    process.env.SINGLEFILE_TIMEOUT || process.env.TIMEOUT || 60
+    hookConfig.SINGLEFILE_TIMEOUT || hookConfig.TIMEOUT || 60
   );
   const totalTimeoutMs =
     Number.isFinite(configuredTimeoutSeconds) && configuredTimeoutSeconds > 0
@@ -280,10 +283,8 @@ async function main() {
 
   console.error(`[singlefile] helper start url=${url}`);
   console.error(`[singlefile] downloads_dir=${DOWNLOADS_DIR}`);
-  if (process.env.CHROME_EXTENSIONS_DIR) {
-    console.error(
-      `[singlefile] extensions_dir=${process.env.CHROME_EXTENSIONS_DIR}`
-    );
+  if (CHROME_EXTENSIONS_DIR) {
+    console.error(`[singlefile] extensions_dir=${CHROME_EXTENSIONS_DIR}`);
   }
 
   try {
@@ -341,9 +342,7 @@ async function main() {
 
       // Resolve extension id from snapshot chrome session metadata and connect to target by id.
       console.error("[singlefile] waiting for extensions metadata...");
-      const crawlChromeDir = process.env.CRAWL_DIR
-        ? path.join(path.resolve(process.env.CRAWL_DIR), "chrome")
-        : null;
+      const crawlChromeDir = CRAWL_DIR ? path.join(CRAWL_DIR, "chrome") : null;
       const sessionExtensions =
         extensions ||
         chromeUtils.readBrowserMetadata(CHROME_SESSION_DIR)?.extensions ||

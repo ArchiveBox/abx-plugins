@@ -20,8 +20,6 @@ const path = require("path");
 const {
   ensureNodeModuleResolution,
   parseArgs,
-  getEnv,
-  getEnvInt,
   loadConfig,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
@@ -30,9 +28,18 @@ const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
 const CRAWL_DIR = path.resolve((hookConfig.CRAWL_DIR || ".").trim());
 const OUTPUT_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
-const CHROME_BINARY = (process.env.CHROME_BINARY || "chromium")
+const CHROME_BINARY = String(hookConfig.CHROME_BINARY || "chromium")
   .split("/")
   .at(-1);
+const CHROME_TAB_TIMEOUT_SECONDS =
+  Number(hookConfig.CHROME_TAB_TIMEOUT) ||
+  Number(hookConfig.CHROME_TIMEOUT) ||
+  Number(hookConfig.TIMEOUT) ||
+  60;
+const CHROME_ISOLATION =
+  String(hookConfig.CHROME_ISOLATION || "crawl").toLowerCase() === "snapshot"
+    ? "snapshot"
+    : "crawl";
 if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
@@ -53,15 +60,8 @@ async function main() {
     process.exit(1);
   }
 
-  const timeoutSeconds = getEnvInt(
-    "CHROME_TAB_TIMEOUT",
-    getEnvInt("CHROME_TIMEOUT", getEnvInt("TIMEOUT", 60))
-  );
-  const timeoutMs = timeoutSeconds * 1000;
-  const isolation =
-    getEnv("CHROME_ISOLATION", "crawl").toLowerCase() === "snapshot"
-      ? "snapshot"
-      : "crawl";
+  const timeoutMs = CHROME_TAB_TIMEOUT_SECONDS * 1000;
+  const isolation = CHROME_ISOLATION;
 
   if (isolation === "snapshot") {
     console.error("CHROME_ISOLATION=snapshot, skipping crawl-scoped wait");

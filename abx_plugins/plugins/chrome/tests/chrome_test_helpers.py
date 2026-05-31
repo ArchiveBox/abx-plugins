@@ -2,8 +2,8 @@
 Shared Chrome test helpers for plugin integration tests.
 
 This module provides common utilities for Chrome-based plugin tests, reducing
-duplication across test files. Functions delegate to chrome_utils.js (the single
-source of truth) with Python fallbacks.
+duplication across test files. Chrome lifecycle functions delegate to
+chrome_utils.js, while shared path helpers delegate to base/utils.js.
 
 Function names match the JS equivalents in snake_case:
     JS: getMachineType()  -> Python: get_machine_type()
@@ -15,7 +15,7 @@ Function names match the JS equivalents in snake_case:
     JS: getTestEnv()      -> Python: get_test_env()
 
 Usage:
-    # Path helpers (delegate to chrome_utils.js):
+    # Path helpers (delegate to base/utils.js):
     from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
         get_test_env,           # env dict with LIB_DIR, NODE_MODULES_DIR, MACHINE_TYPE
         get_machine_type,       # e.g., 'x86_64-linux', 'arm64-darwin'
@@ -97,6 +97,7 @@ if _CHROME_NAVIGATE_HOOK is None:
     )
 CHROME_NAVIGATE_HOOK = _CHROME_NAVIGATE_HOOK
 CHROME_UTILS = CHROME_PLUGIN_DIR / "chrome_utils.js"
+BASE_UTILS = PLUGINS_ROOT / "base" / "utils.js"
 PUPPETEER_BINARY_HOOK = PLUGINS_ROOT / "puppeteer" / "on_BinaryRequest__12_puppeteer.py"
 NPM_BINARY_HOOK = PLUGINS_ROOT / "npm" / "on_BinaryRequest__10_npm.py"
 logger = logging.getLogger(__name__)
@@ -608,6 +609,23 @@ def _call_chrome_utils(
     return result.returncode, result.stdout, result.stderr
 
 
+def _call_base_utils(
+    command: str,
+    *args: str,
+    env: dict | None = None,
+) -> tuple[int, str, str]:
+    """Call shared JS base utilities from Python test code."""
+    cmd = ["node", str(BASE_UTILS), command] + list(args)
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env or os.environ.copy(),
+    )
+    return result.returncode, result.stdout, result.stderr
+
+
 def wait_for_extensions_metadata(
     chrome_dir: Path,
     timeout_seconds: int = 10,
@@ -650,12 +668,11 @@ def wait_for_extensions_metadata(
 def get_machine_type() -> str:
     """Get machine type string (e.g., 'x86_64-linux', 'arm64-darwin').
 
-    Matches JS: getMachineType()
+    Matches JS base/utils.js: getMachineType()
 
-    Tries chrome_utils.js first, falls back to Python computation.
+    Tries base/utils.js first, falls back to Python computation.
     """
-    # Try JS first (single source of truth)
-    returncode, stdout, stderr = _call_chrome_utils("getMachineType")
+    returncode, stdout, stderr = _call_base_utils("getMachineType")
     if returncode == 0 and stdout.strip():
         return stdout.strip()
 
@@ -675,12 +692,11 @@ def get_machine_type() -> str:
 def get_lib_dir() -> Path:
     """Get LIB_DIR path for shared binaries and provider-managed artifacts.
 
-    Matches JS: getLibDir()
+    Matches JS base/utils.js: getLibDir()
 
-    Tries chrome_utils.js first, falls back to Python computation.
+    Tries base/utils.js first, falls back to Python computation.
     """
-    # Try JS first
-    returncode, stdout, stderr = _call_chrome_utils("getLibDir")
+    returncode, stdout, stderr = _call_base_utils("getLibDir")
     if returncode == 0 and stdout.strip():
         return Path(stdout.strip())
 
@@ -693,12 +709,11 @@ def get_lib_dir() -> Path:
 def get_node_modules_dir() -> Path:
     """Get NODE_MODULES_DIR path for npm packages.
 
-    Matches JS: getNodeModulesDir()
+    Matches JS base/utils.js: getNodeModulesDir()
 
-    Tries chrome_utils.js first, falls back to Python computation.
+    Tries base/utils.js first, falls back to Python computation.
     """
-    # Try JS first
-    returncode, stdout, stderr = _call_chrome_utils("getNodeModulesDir")
+    returncode, stdout, stderr = _call_base_utils("getNodeModulesDir")
     if returncode == 0 and stdout.strip():
         return Path(stdout.strip())
 
@@ -712,12 +727,12 @@ def get_node_modules_dir() -> Path:
 def get_extensions_dir() -> str:
     """Get the Chrome extensions directory path.
 
-    Matches JS: getExtensionsDir()
+    Matches JS base/utils.js: getChromeExtensionsDir()
 
-    Tries chrome_utils.js first, falls back to Python computation.
+    Tries base/utils.js first, falls back to Python computation.
     """
     try:
-        returncode, stdout, stderr = _call_chrome_utils("getExtensionsDir")
+        returncode, stdout, stderr = _call_base_utils("getChromeExtensionsDir")
         if returncode == 0 and stdout.strip():
             return stdout.strip()
     except subprocess.TimeoutExpired:
@@ -800,7 +815,7 @@ def get_test_env() -> dict:
 
     Matches JS: getTestEnv()
 
-    Tries ``chrome_utils.js`` first for path values, then builds an env dict on
+    Tries ``base/utils.js`` first for path values, then builds an env dict on
     top of the current process environment. Use this for subprocess calls in
     plugin tests so ``LIB_DIR``, ``NODE_MODULES_DIR``, ``NODE_PATH``,
     ``CHROME_EXTENSIONS_DIR``, and related settings match the JS runtime
@@ -808,8 +823,7 @@ def get_test_env() -> dict:
     """
     env = os.environ.copy()
 
-    # Try to get all paths from JS (single source of truth)
-    returncode, stdout, stderr = _call_chrome_utils("getTestEnv")
+    returncode, stdout, stderr = _call_base_utils("getTestEnv")
     if returncode == 0 and stdout.strip():
         try:
             js_env = json.loads(stdout)

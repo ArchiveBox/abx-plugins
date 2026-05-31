@@ -16,7 +16,7 @@
  *
  * Environment variables:
  *     NODE_MODULES_DIR: Path to node_modules directory for module resolution
- *     process.env.: Path to Chromium binary (falls back to auto-detection)
+ *     CHROME_BINARY: Path to Chromium binary (falls back to auto-detection)
  *     CHROME_RESOLUTION: Page resolution (default: 1440,2000)
  *     CHROME_HEADLESS: Run in headless mode (default: true)
  *     CHROME_CHECK_SSL_VALIDITY: Whether to check SSL certificates (default: true)
@@ -25,13 +25,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const {
-  ensureNodeModuleResolution,
-  getEnv,
-  getEnvBool,
-  getEnvInt,
-  loadConfig,
-} = require("../base/utils.js");
+const { ensureNodeModuleResolution, loadConfig } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 const {
   acquireSessionLock,
@@ -52,27 +46,41 @@ const CHROME_USER_DATA_DIR = hookConfig.CHROME_USER_DATA_DIR
 const CHROME_ARGS = Array.isArray(hookConfig.CHROME_ARGS)
   ? hookConfig.CHROME_ARGS
   : [];
+const CHROME_ARGS_EXTRA = Array.isArray(hookConfig.CHROME_ARGS_EXTRA)
+  ? hookConfig.CHROME_ARGS_EXTRA
+  : [];
 const CHROME_LAUNCH_ATTEMPTS = Number(hookConfig.CHROME_LAUNCH_ATTEMPTS) || 3;
+const CHROME_TIMEOUT_MS = (Number(hookConfig.CHROME_TIMEOUT) || 60) * 1000;
+const CHROME_INSTALL_TIMEOUT_MS =
+  (Number(hookConfig.CHROME_INSTALL_TIMEOUT) || 300) * 1000;
+const CHROME_CDP_URL = String(hookConfig.CHROME_CDP_URL || "").trim();
+const CHROME_IS_LOCAL = CHROME_CDP_URL
+  ? false
+  : hookConfig.CHROME_IS_LOCAL !== false;
+const CHROME_KEEPALIVE = hookConfig.CHROME_KEEPALIVE === true;
+const CHROME_ISOLATION =
+  String(hookConfig.CHROME_ISOLATION || "crawl").toLowerCase() === "snapshot"
+    ? "snapshot"
+    : "crawl";
 const OUTPUT_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
 if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 process.chdir(OUTPUT_DIR);
-const CHROME_BINARY = (process.env.CHROME_BINARY || "chromium")
+const CHROME_BINARY = String(hookConfig.CHROME_BINARY || "chromium")
   .split("/")
   .at(-1);
 const PERSONA_DIR =
-  process.env.PERSONA_DIR ||
-  (process.env.PERSONAS_DIR || "~/.config/abx/personas") +
-    "/" +
-    (process.env.ACTIVE_PERSONA || "Default");
+  CHROME_USER_DATA_DIR ||
+  path.join(
+    hookConfig.PERSONAS_DIR || "~/.config/abx/personas",
+    hookConfig.ACTIVE_PERSONA || "Default"
+  );
 
 // Global state for cleanup
 let chromePid = null;
 let chromeCdpUrl = null;
-let chromeProcessIsLocal = getEnv("CHROME_CDP_URL", "")
-  ? false
-  : getEnvBool("CHROME_IS_LOCAL", true);
+let chromeProcessIsLocal = CHROME_IS_LOCAL;
 let shouldCloseOnCleanup = false;
 let puppeteer = null;
 let cleanupPromise = null;
@@ -116,7 +124,7 @@ async function cleanup() {
       await killZombieChrome(CRAWL_DIR, {
         quiet: true,
         excludeCurrentRuntimeDirs: false,
-        userDataDir: CHROME_USER_DATA_DIR,
+        CHROME_USER_DATA_DIR,
       });
       console.log(`${CHROME_BINARY} exited successfully`);
       console.log(JSON.stringify({ succeeded: true, skipped: false })); // we launched and we killed it (nothing was skipped)
@@ -152,18 +160,13 @@ async function main() {
     releaseLock = await acquireSessionLock(
       path.join(OUTPUT_DIR, ".launch.lock")
     );
-    const isolation =
-      getEnv("CHROME_ISOLATION", "crawl").toLowerCase() === "snapshot"
-        ? "snapshot"
-        : "crawl";
-    const keepAlive = getEnvBool("CHROME_KEEPALIVE", false);
-    const cdpUrlOverride = getEnv("CHROME_CDP_URL", "");
-    chromeProcessIsLocal = cdpUrlOverride
-      ? false
-      : getEnvBool("CHROME_IS_LOCAL", true);
+    const isolation = CHROME_ISOLATION;
+    const keepAlive = CHROME_KEEPALIVE;
+    const cdpUrlOverride = CHROME_CDP_URL;
+    chromeProcessIsLocal = CHROME_IS_LOCAL;
     const prerequisiteTimeoutMs = Math.max(
-      getEnvInt("CHROME_TIMEOUT", 60) * 1000,
-      getEnvInt("CHROME_INSTALL_TIMEOUT", 300) * 1000
+      CHROME_TIMEOUT_MS,
+      CHROME_INSTALL_TIMEOUT_MS
     );
 
     if (isolation === "snapshot") {
@@ -191,13 +194,14 @@ async function main() {
     const session = await ensureChromeSession({
       outputDir: OUTPUT_DIR,
       puppeteer,
-      processIsLocal: chromeProcessIsLocal,
-      cdpUrl: cdpUrlOverride,
-      timeoutMs: getEnvInt("CHROME_TIMEOUT", 60) * 1000,
+      CHROME_IS_LOCAL: chromeProcessIsLocal,
+      CHROME_CDP_URL: cdpUrlOverride,
+      timeoutMs: CHROME_TIMEOUT_MS,
       binary: prerequisites.binary || null,
-      userDataDir: CHROME_USER_DATA_DIR,
-      chromeArgs: CHROME_ARGS,
-      maxLaunchAttempts: CHROME_LAUNCH_ATTEMPTS,
+      CHROME_USER_DATA_DIR,
+      CHROME_ARGS,
+      CHROME_ARGS_EXTRA,
+      CHROME_LAUNCH_ATTEMPTS,
     });
     launchInProgress = false;
 

@@ -16,9 +16,6 @@ const {
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 const {
-  getEnv,
-  getEnvBool,
-  getEnvInt,
   acquireSessionLock,
   waitForChromeSessionState,
   ensureChromeSession,
@@ -30,18 +27,32 @@ const puppeteer = resolvePuppeteerModule();
 const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
 const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || ".").trim());
+const CRAWL_DIR = path.resolve((hookConfig.CRAWL_DIR || ".").trim());
 const CHROME_USER_DATA_DIR = hookConfig.CHROME_USER_DATA_DIR
   ? path.resolve(String(hookConfig.CHROME_USER_DATA_DIR).trim())
   : null;
 const CHROME_ARGS = Array.isArray(hookConfig.CHROME_ARGS)
   ? hookConfig.CHROME_ARGS
   : [];
+const CHROME_ARGS_EXTRA = Array.isArray(hookConfig.CHROME_ARGS_EXTRA)
+  ? hookConfig.CHROME_ARGS_EXTRA
+  : [];
 const CHROME_LAUNCH_ATTEMPTS = Number(hookConfig.CHROME_LAUNCH_ATTEMPTS) || 3;
+const CHROME_TIMEOUT_MS = (Number(hookConfig.CHROME_TIMEOUT) || 60) * 1000;
+const CHROME_CDP_URL = String(hookConfig.CHROME_CDP_URL || "").trim();
+const CHROME_IS_LOCAL = CHROME_CDP_URL
+  ? false
+  : hookConfig.CHROME_IS_LOCAL !== false;
+const CHROME_KEEPALIVE = hookConfig.CHROME_KEEPALIVE === true;
+const CHROME_ISOLATION =
+  String(hookConfig.CHROME_ISOLATION || "crawl").toLowerCase() === "snapshot"
+    ? "snapshot"
+    : "crawl";
 const OUTPUT_DIR = path.join(SNAP_DIR, "chrome");
 // Tag for log lines emitted by the auto-relaunch path — mirrors the
 // CrawlSetup hook's CHROME_BINARY const so messages have a consistent
 // "chromium" / "chrome" prefix regardless of how the binary was resolved.
-const CHROME_BINARY = (process.env.CHROME_BINARY || "chromium")
+const CHROME_BINARY = String(hookConfig.CHROME_BINARY || "chromium")
   .split("/")
   .at(-1);
 if (!fs.existsSync(OUTPUT_DIR)) {
@@ -51,9 +62,7 @@ process.chdir(OUTPUT_DIR);
 
 let chromePid = null;
 let chromeCdpUrl = null;
-let chromeProcessIsLocal = getEnv("CHROME_CDP_URL", "")
-  ? false
-  : getEnvBool("CHROME_IS_LOCAL", true);
+let chromeProcessIsLocal = CHROME_IS_LOCAL;
 let shouldCloseOnCleanup = false;
 let cleanupPromise = null;
 
@@ -92,25 +101,17 @@ async function main() {
     releaseLock = await acquireSessionLock(
       path.join(OUTPUT_DIR, ".launch.lock")
     );
-    const isolation =
-      getEnv("CHROME_ISOLATION", "crawl").toLowerCase() === "snapshot"
-        ? "snapshot"
-        : "crawl";
-    const keepAlive = getEnvBool("CHROME_KEEPALIVE", false);
-    const cdpUrlOverride = getEnv("CHROME_CDP_URL", "");
-    chromeProcessIsLocal = cdpUrlOverride
-      ? false
-      : getEnvBool("CHROME_IS_LOCAL", true);
+    const isolation = CHROME_ISOLATION;
+    const keepAlive = CHROME_KEEPALIVE;
+    const cdpUrlOverride = CHROME_CDP_URL;
+    chromeProcessIsLocal = CHROME_IS_LOCAL;
 
     if (isolation === "crawl") {
-      const crawlChromeDir = path.join(
-        path.resolve(getEnv("CRAWL_DIR", ".")),
-        "chrome"
-      );
+      const crawlChromeDir = path.join(CRAWL_DIR, "chrome");
       // Probe with requireConnectable so a dead crawl-scoped Chrome
       // returns null fast (a stale session file alone isn't enough).
       const crawlSession = await waitForChromeSessionState(crawlChromeDir, {
-        timeoutMs: getEnvInt("CHROME_TIMEOUT", 60) * 1000,
+        timeoutMs: CHROME_TIMEOUT_MS,
         requireConnectable: true,
         puppeteer,
       });
@@ -129,12 +130,13 @@ async function main() {
       const relaunched = await ensureChromeSession({
         outputDir: crawlChromeDir,
         puppeteer,
-        processIsLocal: chromeProcessIsLocal,
-        cdpUrl: cdpUrlOverride,
-        timeoutMs: getEnvInt("CHROME_TIMEOUT", 60) * 1000,
-        userDataDir: CHROME_USER_DATA_DIR,
-        chromeArgs: CHROME_ARGS,
-        maxLaunchAttempts: CHROME_LAUNCH_ATTEMPTS,
+        CHROME_IS_LOCAL: chromeProcessIsLocal,
+        CHROME_CDP_URL: cdpUrlOverride,
+        timeoutMs: CHROME_TIMEOUT_MS,
+        CHROME_USER_DATA_DIR,
+        CHROME_ARGS,
+        CHROME_ARGS_EXTRA,
+        CHROME_LAUNCH_ATTEMPTS,
       });
       console.error(
         `[+] relaunched crawl-scoped ${CHROME_BINARY} pid=${
@@ -157,12 +159,13 @@ async function main() {
     const session = await ensureChromeSession({
       outputDir: OUTPUT_DIR,
       puppeteer,
-      processIsLocal: chromeProcessIsLocal,
-      cdpUrl: cdpUrlOverride,
-      timeoutMs: getEnvInt("CHROME_TIMEOUT", 60) * 1000,
-      userDataDir: CHROME_USER_DATA_DIR,
-      chromeArgs: CHROME_ARGS,
-      maxLaunchAttempts: CHROME_LAUNCH_ATTEMPTS,
+      CHROME_IS_LOCAL: chromeProcessIsLocal,
+      CHROME_CDP_URL: cdpUrlOverride,
+      timeoutMs: CHROME_TIMEOUT_MS,
+      CHROME_USER_DATA_DIR,
+      CHROME_ARGS,
+      CHROME_ARGS_EXTRA,
+      CHROME_LAUNCH_ATTEMPTS,
     });
 
     chromePid = session.pid;

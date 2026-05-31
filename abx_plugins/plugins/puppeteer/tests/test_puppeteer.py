@@ -63,11 +63,9 @@ def test_crawl_hook_respects_configured_chrome_binary():
     assert binary_record is not None
     assert binary_record.get("type", "BinaryRequest") == "BinaryRequest"
     assert binary_record["name"] == browser_name
-    assert binary_record["overrides"]["puppeteer"] == {
-        "install_args": [
-            "chromium@latest",
-        ],
-    }
+    assert binary_record["min_version"] == "150.0.0"
+    assert binary_record["postinstall_scripts"] is True
+    assert not (binary_record.get("overrides") or {}).get("puppeteer")
 
 
 def test_resolve_binary_reference_accepts_explicit_paths(ensure_chrome_test_prereqs):

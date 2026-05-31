@@ -9,7 +9,6 @@
 const fs = require("fs");
 const path = require("path");
 const http = require("http");
-const os = require("os");
 const net = require("net");
 const { spawn, execFileSync } = require("child_process");
 
@@ -19,7 +18,10 @@ const {
   getEnvBool,
   getEnvInt,
   getEnvArray,
-  getNodeModulesDir: getNodeModulesDirFromBaseUtils,
+  getSnapDir,
+  getCrawlDir,
+  getPersonasDir,
+  getChromeExtensionsDir: getExtensionsDir,
   ensureNodeModuleResolution,
   parseArgs,
   writeFileAtomic,
@@ -71,46 +73,6 @@ function isSupportedChromiumVersionOutput(output) {
 
 function isSupportedChromiumBinary(binaryPath) {
   return isSupportedChromiumVersionOutput(getBrowserVersionOutput(binaryPath));
-}
-
-/**
- * Get the current snapshot directory.
- * Priority: SNAP_DIR, or cwd.
- *
- * @returns {string} - Absolute path to snapshot directory
- */
-function getSnapDir() {
-  const snapDir = getEnv("SNAP_DIR");
-  if (snapDir) return path.resolve(snapDir);
-  return path.resolve(process.cwd());
-}
-
-/**
- * Get the current crawl directory.
- * Priority: CRAWL_DIR, or cwd.
- *
- * @returns {string} - Absolute path to crawl directory
- */
-function getCrawlDir() {
-  const crawlDir = getEnv("CRAWL_DIR");
-  if (crawlDir) return path.resolve(crawlDir);
-  return path.resolve(process.cwd());
-}
-
-/**
- * Get the personas directory.
- * Runtime hooks should pass hydrated config explicitly; this fallback only
- * reads the immutable process environment for direct utility/CLI use.
- *
- * @returns {string} - Absolute path to personas directory
- */
-function getPersonasDir() {
-  return path.resolve(
-    getEnv(
-      "PERSONAS_DIR",
-      path.join(os.homedir(), ".config", "abx", "personas")
-    )
-  );
 }
 
 /**
@@ -320,7 +282,7 @@ function waitForDebugPort(port, timeout = 30000) {
  * @param {Object} [options={}] - Cleanup options
  * @param {string[]} [options.excludeCrawlDirs=[]] - Crawl directories to never treat as stale
  * @param {boolean} [options.excludeCurrentRuntimeDirs=true] - Whether to auto-skip the current CRAWL_DIR/SNAP_DIR
- * @param {string|null} [options.userDataDir=null] - Active Chrome profile dir whose stale lock files may be cleared
+ * @param {string|null} [options.CHROME_USER_DATA_DIR=null] - Active Chrome profile dir whose stale lock files may be cleared
  * @returns {number} - Number of zombies killed
  */
 async function killZombieChrome(snapDir = null, options = {}) {
@@ -328,8 +290,8 @@ async function killZombieChrome(snapDir = null, options = {}) {
   let killed = 0;
   const currentPid = process.pid;
   const quiet = Boolean(options.quiet);
-  const activeUserDataDir = options.userDataDir
-    ? String(options.userDataDir).trim()
+  const activeUserDataDir = options.CHROME_USER_DATA_DIR
+    ? String(options.CHROME_USER_DATA_DIR).trim()
     : "";
   const excludeCurrentRuntimeDirs = options.excludeCurrentRuntimeDirs !== false;
   const excludeCrawlDirs = new Set(
@@ -914,42 +876,52 @@ async function killZombieChrome(snapDir = null, options = {}) {
  * @param {Object} options - Launch options
  * @param {string} [options.binary] - Chrome binary path (auto-detected if not provided)
  * @param {string} [options.outputDir='chrome'] - Directory for output files
- * @param {string} [options.userDataDir] - Chrome user data directory for persistent sessions
- * @param {string} [options.resolution='1440,2000'] - Window resolution
- * @param {boolean} [options.headless=true] - Run in headless mode
- * @param {boolean} [options.sandbox=true] - Enable Chrome sandbox
- * @param {boolean} [options.checkSsl=true] - Check SSL certificates
+ * @param {string} [options.CHROME_USER_DATA_DIR] - Chrome user data directory for persistent sessions
+ * @param {string} [options.CHROME_RESOLUTION='1440,2000'] - Window resolution
+ * @param {string} [options.CHROME_USER_AGENT=''] - User agent string
+ * @param {boolean} [options.CHROME_HEADLESS=true] - Run in headless mode
+ * @param {boolean} [options.CHROME_SANDBOX=true] - Enable Chrome sandbox
+ * @param {boolean} [options.CHROME_CHECK_SSL_VALIDITY=true] - Check SSL certificates
  * @param {boolean} [options.enableExtensionDebugging=false] - Enable CDP extension loading/debugging
  * @param {Array<string>} [options.extensionPaths=[]] - Unpacked extension paths to load after launch via CDP Extensions.loadUnpacked
- * @param {Array<string>} [options.chromeArgs=[]] - Hydrated base Chrome args from plugin config
- * @param {number} [options.maxLaunchAttempts=3] - Hydrated launch retry count from plugin config
+ * @param {Array<string>} [options.CHROME_ARGS=[]] - Hydrated base Chrome args from plugin config
+ * @param {Array<string>} [options.CHROME_ARGS_EXTRA=[]] - Hydrated extra Chrome args from plugin config
+ * @param {number} [options.CHROME_LAUNCH_ATTEMPTS=3] - Hydrated launch retry count from plugin config
  * @returns {Promise<Object>} - {success, cdpUrl, pid, port, process, error}
  */
 async function launchChromium(options = {}) {
   const {
     binary = findChromium(),
     outputDir = "chrome",
-    userDataDir = getEnv("CHROME_USER_DATA_DIR") ||
+    CHROME_USER_DATA_DIR = getEnv("CHROME_USER_DATA_DIR") ||
       path.join(
         getPersonasDir(),
         getEnv("ACTIVE_PERSONA", "Default"),
         "chrome_profile"
       ),
-    resolution = getEnv("CHROME_RESOLUTION") ||
+    CHROME_RESOLUTION = getEnv("CHROME_RESOLUTION") ||
       getEnv("RESOLUTION", "1440,2000"),
-    userAgent = getEnv("CHROME_USER_AGENT") || getEnv("USER_AGENT", ""),
-    headless = getEnvBool("CHROME_HEADLESS", true),
-    sandbox = getEnvBool("CHROME_SANDBOX", true),
-    checkSsl = getEnvBool(
+    CHROME_USER_AGENT = getEnv("CHROME_USER_AGENT") || getEnv("USER_AGENT", ""),
+    CHROME_HEADLESS = getEnvBool(
+      "CHROME_HEADLESS",
+      getEnvBool("IN_DOCKER", false)
+    ),
+    CHROME_SANDBOX = getEnvBool(
+      "CHROME_SANDBOX",
+      !getEnvBool("IN_DOCKER", false)
+    ),
+    CHROME_CHECK_SSL_VALIDITY = getEnvBool(
       "CHROME_CHECK_SSL_VALIDITY",
       getEnvBool("CHECK_SSL_VALIDITY", true)
     ),
     enableExtensionDebugging = false,
     extensionPaths = [],
-    chromeArgs = getEnvArray("CHROME_ARGS", []),
-    maxLaunchAttempts = getEnvInt("CHROME_LAUNCH_ATTEMPTS", 3),
+    CHROME_ARGS = getEnvArray("CHROME_ARGS", []),
+    CHROME_ARGS_EXTRA = getEnvArray("CHROME_ARGS_EXTRA", []),
+    CHROME_LAUNCH_ATTEMPTS = getEnvInt("CHROME_LAUNCH_ATTEMPTS", 3),
   } = options;
-  const launchAttempts = Math.max(1, Number(maxLaunchAttempts) || 1);
+  const launchAttempts = Math.max(1, Number(CHROME_LAUNCH_ATTEMPTS) || 1);
+  const userDataDir = CHROME_USER_DATA_DIR;
 
   if (!binary) {
     return { success: false, error: "Chrome binary not found" };
@@ -964,7 +936,7 @@ async function launchChromium(options = {}) {
     };
   }
 
-  const { width, height } = parseResolution(resolution);
+  const { width, height } = parseResolution(CHROME_RESOLUTION);
 
   // Create output directory
   if (!fs.existsSync(outputDir)) {
@@ -984,12 +956,13 @@ async function launchChromium(options = {}) {
 
   // Get base Chrome args from config (static flags from CHROME_ARGS env var)
   // These come from config.json defaults, merged by get_config() in Python
-  const baseArgs = Array.isArray(chromeArgs)
-    ? chromeArgs
+  const baseArgs = Array.isArray(CHROME_ARGS)
+    ? CHROME_ARGS
     : getEnvArray("CHROME_ARGS", []);
 
-  // Get extra user-provided args
-  const extraArgs = getEnvArray("CHROME_ARGS_EXTRA", []);
+  const extraArgs = Array.isArray(CHROME_ARGS_EXTRA)
+    ? CHROME_ARGS_EXTRA
+    : getEnvArray("CHROME_ARGS_EXTRA", []);
 
   // Build dynamic Chrome arguments (these must be computed at runtime)
   const dynamicArgs = [
@@ -998,7 +971,7 @@ async function launchChromium(options = {}) {
     "--remote-debugging-address=127.0.0.1",
 
     // Sandbox settings
-    ...(sandbox ? [] : ["--no-sandbox", "--disable-setuid-sandbox"]),
+    ...(CHROME_SANDBOX ? [] : ["--no-sandbox", "--disable-setuid-sandbox"]),
 
     // Docker-specific workarounds
     "--disable-dev-shm-usage",
@@ -1010,13 +983,13 @@ async function launchChromium(options = {}) {
     ...(userDataDir ? [`--user-data-dir=${userDataDir}`] : []),
 
     // User agent
-    ...(userAgent ? [`--user-agent=${userAgent}`] : []),
+    ...(CHROME_USER_AGENT ? [`--user-agent=${CHROME_USER_AGENT}`] : []),
 
     // Headless mode
-    ...(headless ? ["--headless=new"] : []),
+    ...(CHROME_HEADLESS ? ["--headless=new"] : []),
 
     // SSL certificate checking
-    ...(checkSsl ? [] : ["--ignore-certificate-errors"]),
+    ...(CHROME_CHECK_SSL_VALIDITY ? [] : ["--ignore-certificate-errors"]),
   ];
 
   // Combine all args: base (from config) + dynamic (runtime) + extra (user overrides)
@@ -1089,7 +1062,7 @@ async function launchChromium(options = {}) {
         getEnvInt("CHROME_LAUNCH_LOCK_TIMEOUT_MS", 120000)
       );
       console.error(
-        `[*] Spawning Chromium (headless=${headless}) [attempt ${attempt}/${launchAttempts}]...`
+        `[*] Spawning Chromium (headless=${CHROME_HEADLESS}) [attempt ${attempt}/${launchAttempts}]...`
       );
       chromiumProcess = spawn(binary, chromiumArgs, {
         stdio: ["ignore", "pipe", "pipe"],
@@ -1202,14 +1175,14 @@ async function launchChromium(options = {}) {
         lastError.includes("Chromium exited during startup") ||
         lastError.includes("Chromium exited after opening the debug port") ||
         lastError.includes("Chromium CDP session not stable after startup");
-      if (attempt >= maxLaunchAttempts || !isTransientStartupFailure) {
+      if (attempt >= launchAttempts || !isTransientStartupFailure) {
         return {
           success: false,
           error: lastError,
         };
       }
       console.error(
-        `[!] Chromium launch attempt ${attempt}/${maxLaunchAttempts} failed, retrying...`
+        `[!] Chromium launch attempt ${attempt}/${launchAttempts} failed, retrying...`
       );
       await sleep(1000);
     } finally {
@@ -2139,112 +2112,6 @@ function findAnyChromiumBinary() {
   const chromiumBinary = findChromium();
   if (chromiumBinary) return chromiumBinary;
   return null;
-}
-
-// ============================================================================
-// Shared Runtime Path Utilities
-// ============================================================================
-
-/**
- * Get the extensions directory path.
- * Centralized path calculation used by chrome launch.
- *
- * Path is derived from environment variables in this priority:
- * 1. CHROME_EXTENSIONS_DIR (explicit override)
- * 2. LIB_DIR/chromewebstore/extensions (provider-managed default)
- *
- * @returns {string} - Absolute path to extensions directory
- */
-function getExtensionsDir() {
-  return (
-    getEnv("CHROME_EXTENSIONS_DIR") ||
-    path.join(getLibDir(), "chromewebstore", "extensions")
-  );
-}
-
-/**
- * Get machine type string for platform-specific paths.
- * Matches Python's archivebox.config.paths.get_machine_type()
- *
- * @returns {string} - Machine type (e.g., 'x86_64-linux', 'arm64-darwin')
- */
-function getMachineType() {
-  if (process.env.MACHINE_TYPE) {
-    return process.env.MACHINE_TYPE;
-  }
-
-  let machine = process.arch;
-  const system = process.platform;
-
-  // Normalize machine type to match Python's convention
-  if (machine === "arm64" || machine === "aarch64") {
-    machine = "arm64";
-  } else if (machine === "x64" || machine === "x86_64" || machine === "amd64") {
-    machine = "x86_64";
-  } else if (machine === "ia32" || machine === "x86") {
-    machine = "x86";
-  }
-
-  return `${machine}-${system}`;
-}
-
-/**
- * Get LIB_DIR path for shared binaries and provider-managed artifacts.
- * Returns ~/.config/abx/lib by default.
- *
- * @returns {string} - Absolute path to lib directory
- */
-function getLibDir() {
-  if (process.env.LIB_DIR) {
-    return path.resolve(process.env.LIB_DIR);
-  }
-  const defaultRoot = path.join(os.homedir(), ".config", "abx", "lib");
-  return path.resolve(defaultRoot);
-}
-
-/**
- * Get the canonical `NODE_MODULES_DIR` used to resolve runtime JS deps.
- *
- * Chrome hooks depend on packages such as `puppeteer` and
- * `@puppeteer/browsers`. Python callers should treat this as the source of
- * truth and export the same value through `NODE_PATH` when shelling out to
- * Node so test/runtime resolution stays identical.
- *
- * @returns {string} - Absolute path to node_modules directory
- */
-function getNodeModulesDir() {
-  return getNodeModulesDirFromBaseUtils();
-}
-
-/**
- * Get the shared environment/path contract used by Python tests and JS hooks.
- *
- * This mirrors the runtime path layout closely enough that test helpers can
- * exercise the same launch/session code without re-implementing the path
- * calculation rules. Python should prefer this instead of reconstructing
- * `LIB_DIR`, `NODE_MODULES_DIR`, `CHROME_EXTENSIONS_DIR`, etc. on its own.
- *
- * @returns {Object} - Object with all test environment paths
- */
-function getTestEnv() {
-  const snapDir = getSnapDir();
-  const crawlDir = getCrawlDir();
-  const machineType = getMachineType();
-  const libDir = getLibDir();
-  const nodeModulesDir = getNodeModulesDir();
-
-  return {
-    SNAP_DIR: snapDir,
-    CRAWL_DIR: crawlDir,
-    PERSONAS_DIR: getPersonasDir(),
-    ACTIVE_PERSONA: getEnv("ACTIVE_PERSONA", "Default"),
-    MACHINE_TYPE: machineType,
-    LIB_DIR: libDir,
-    NODE_MODULES_DIR: nodeModulesDir,
-    NODE_PATH: nodeModulesDir, // Node.js uses NODE_PATH for module resolution
-    NPM_BIN_DIR: path.join(libDir, "npm", ".bin"),
-    CHROME_EXTENSIONS_DIR: getExtensionsDir(),
-  };
 }
 
 // ============================================================================
@@ -3868,11 +3735,11 @@ async function ensureChromeSession(options = {}) {
   const {
     outputDir = ".",
     puppeteer = resolvePuppeteerModule(),
-    processIsLocal = getEnv("CHROME_CDP_URL", "")
+    CHROME_CDP_URL = getEnv("CHROME_CDP_URL", ""),
+    CHROME_IS_LOCAL = CHROME_CDP_URL
       ? false
       : getEnvBool("CHROME_IS_LOCAL", true),
-    cdpUrl = getEnv("CHROME_CDP_URL", ""),
-    userDataDir = getEnv("CHROME_USER_DATA_DIR") ||
+    CHROME_USER_DATA_DIR = getEnv("CHROME_USER_DATA_DIR") ||
       path.join(
         getPersonasDir(),
         getEnv("ACTIVE_PERSONA", "Default"),
@@ -3882,11 +3749,15 @@ async function ensureChromeSession(options = {}) {
     cookiesFile = getEnv("COOKIES_TXT_FILE") || getEnv("COOKIES_FILE"),
     extensionsDir = getExtensionsDir(),
     timeoutMs = getEnvInt("CHROME_TIMEOUT", 60) * 1000,
-    reuseExisting = !cdpUrl,
+    reuseExisting = !CHROME_CDP_URL,
     binary = null,
-    chromeArgs = getEnvArray("CHROME_ARGS", []),
-    maxLaunchAttempts = getEnvInt("CHROME_LAUNCH_ATTEMPTS", 3),
+    CHROME_ARGS = getEnvArray("CHROME_ARGS", []),
+    CHROME_ARGS_EXTRA = getEnvArray("CHROME_ARGS_EXTRA", []),
+    CHROME_LAUNCH_ATTEMPTS = getEnvInt("CHROME_LAUNCH_ATTEMPTS", 3),
   } = options;
+  const cdpUrl = CHROME_CDP_URL;
+  const processIsLocal = CHROME_CDP_URL ? false : CHROME_IS_LOCAL;
+  const userDataDir = CHROME_USER_DATA_DIR;
 
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
@@ -4006,11 +3877,12 @@ async function ensureChromeSession(options = {}) {
     const result = await launchChromium({
       binary: resolvedBinary,
       outputDir,
-      userDataDir,
+      CHROME_USER_DATA_DIR: userDataDir,
       enableExtensionDebugging: installedExtensions.length > 0,
       extensionPaths: getExtensionPaths(installedExtensions),
-      chromeArgs,
-      maxLaunchAttempts,
+      CHROME_ARGS,
+      CHROME_ARGS_EXTRA,
+      CHROME_LAUNCH_ATTEMPTS,
     });
     if (!result.success) {
       throw new Error(result.error || "Failed to launch Chromium");
@@ -4301,12 +4173,8 @@ module.exports = {
   loadInstalledExtensionsFromCache,
   importCookiesFromFile,
   ensureChromeSession,
-  // Shared path utilities (single source of truth for Python/JS)
-  getMachineType,
-  getLibDir,
-  getNodeModulesDir,
+  // Chrome/browser path utilities
   getExtensionsDir,
-  getTestEnv,
   // Snapshot hook utilities (for CDP-based plugins)
   parseArgs,
   inspectChromeSessionArtifacts,
@@ -4345,15 +4213,7 @@ if (require.main === module) {
     console.log("  killChrome <pid>          Kill Chrome process by PID");
     console.log("  killZombieChrome          Clean up zombie Chrome processes");
     console.log("");
-    console.log(
-      "  getMachineType            Get machine type (e.g., x86_64-linux)"
-    );
-    console.log("  getLibDir                 Get LIB_DIR path");
-    console.log("  getNodeModulesDir         Get NODE_MODULES_DIR path");
     console.log("  getExtensionsDir          Get Chrome extensions directory");
-    console.log(
-      "  getTestEnv                Get all paths as JSON (for tests)"
-    );
     console.log("");
     console.log("  loadExtensionManifest     Load extension manifest.json");
     console.log(
@@ -4500,28 +4360,8 @@ if (require.main === module) {
           break;
         }
 
-        case "getMachineType": {
-          console.log(getMachineType());
-          break;
-        }
-
-        case "getLibDir": {
-          console.log(getLibDir());
-          break;
-        }
-
-        case "getNodeModulesDir": {
-          console.log(getNodeModulesDir());
-          break;
-        }
-
         case "getExtensionsDir": {
           console.log(getExtensionsDir());
-          break;
-        }
-
-        case "getTestEnv": {
-          console.log(JSON.stringify(getTestEnv(), null, 2));
           break;
         }
 

@@ -229,19 +229,51 @@ function getConfig(configPath = null) {
   return loadConfig(configPath);
 }
 
+function resolveCallerConfigPath(skipFn) {
+  const callerFile = getCallerFile(skipFn);
+  if (!callerFile) return BASE_CONFIG_PATH;
+  const callerConfigPath = path.join(
+    path.dirname(path.resolve(callerFile)),
+    "config.json"
+  );
+  return fs.existsSync(callerConfigPath) ? callerConfigPath : BASE_CONFIG_PATH;
+}
+
+function getConfigValue(name, defaultValue, skipFn) {
+  try {
+    const config = loadConfig(resolveCallerConfigPath(skipFn));
+    if (Object.prototype.hasOwnProperty.call(config, name)) {
+      return config[name];
+    }
+  } catch (error) {}
+
+  if (Object.prototype.hasOwnProperty.call(process.env, name)) {
+    return process.env[name];
+  }
+  return defaultValue;
+}
+
 function getEnv(name, defaultValue = "") {
-  return (process.env[name] || defaultValue).trim();
+  const value = getConfigValue(name, defaultValue, getEnv);
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
 }
 
 function getEnvBool(name, defaultValue = false) {
-  const val = getEnv(name, "").toLowerCase();
+  const value = getConfigValue(name, defaultValue, getEnvBool);
+  if (typeof value === "boolean") return value;
+  const val = String(value ?? "")
+    .trim()
+    .toLowerCase();
   if (["true", "1", "yes", "on"].includes(val)) return true;
   if (["false", "0", "no", "off"].includes(val)) return false;
   return defaultValue;
 }
 
 function getEnvInt(name, defaultValue = 0) {
-  const val = parseInt(getEnv(name, String(defaultValue)), 10);
+  const value = getConfigValue(name, defaultValue, getEnvInt);
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const val = parseInt(String(value ?? defaultValue), 10);
   return isNaN(val) ? defaultValue : val;
 }
 
@@ -252,7 +284,9 @@ function getEnvInt(name, defaultValue = 0) {
  * Otherwise, parse as comma-separated values.
  */
 function getEnvArray(name, defaultValue = []) {
-  const val = getEnv(name, "");
+  const value = getConfigValue(name, defaultValue, getEnvArray);
+  if (Array.isArray(value)) return value.map((item) => String(item));
+  const val = String(value ?? "").trim();
   if (!val) return defaultValue;
 
   if (val.startsWith("[")) {
@@ -275,16 +309,80 @@ function getEnvArray(name, defaultValue = []) {
     .filter(Boolean);
 }
 
+function getSnapDir() {
+  const snapDir = getEnv("SNAP_DIR");
+  if (snapDir) return path.resolve(snapDir);
+  return path.resolve(process.cwd());
+}
+
+function getCrawlDir() {
+  const crawlDir = getEnv("CRAWL_DIR");
+  if (crawlDir) return path.resolve(crawlDir);
+  return path.resolve(process.cwd());
+}
+
 function getLibDir() {
   const configured = (loadConfig(BASE_CONFIG_PATH).LIB_DIR || "").trim();
   if (configured) return path.resolve(configured);
   return path.resolve(path.join(os.homedir(), ".config", "abx", "lib"));
 }
 
+function getPersonasDir() {
+  const configured = (loadConfig(BASE_CONFIG_PATH).PERSONAS_DIR || "").trim();
+  if (configured) return path.resolve(configured);
+  return path.resolve(path.join(os.homedir(), ".config", "abx", "personas"));
+}
+
 function getNodeModulesDir() {
   const configured = getEnv("NODE_MODULES_DIR") || getEnv("NODE_MODULE_DIR");
   if (configured) return path.resolve(configured);
   return path.resolve(path.join(getLibDir(), "npm", "node_modules"));
+}
+
+function getChromeExtensionsDir() {
+  const configured = (
+    loadConfig(BASE_CONFIG_PATH).CHROME_EXTENSIONS_DIR || ""
+  ).trim();
+  if (configured) return path.resolve(configured);
+  return path.resolve(path.join(getLibDir(), "chromewebstore", "extensions"));
+}
+
+function getMachineType() {
+  if (process.env.MACHINE_TYPE) {
+    return process.env.MACHINE_TYPE;
+  }
+
+  let machine = process.arch;
+  const system = process.platform;
+
+  if (machine === "arm64" || machine === "aarch64") {
+    machine = "arm64";
+  } else if (machine === "x64" || machine === "x86_64" || machine === "amd64") {
+    machine = "x86_64";
+  } else if (machine === "ia32" || machine === "x86") {
+    machine = "x86";
+  }
+
+  return `${machine}-${system}`;
+}
+
+function getTestEnv() {
+  const config = loadConfig(BASE_CONFIG_PATH);
+  const libDir = getLibDir();
+  const nodeModulesDir = getNodeModulesDir();
+
+  return {
+    SNAP_DIR: getSnapDir(),
+    CRAWL_DIR: getCrawlDir(),
+    PERSONAS_DIR: getPersonasDir(),
+    ACTIVE_PERSONA: config.ACTIVE_PERSONA || "Default",
+    MACHINE_TYPE: getMachineType(),
+    LIB_DIR: libDir,
+    NODE_MODULES_DIR: nodeModulesDir,
+    NODE_PATH: nodeModulesDir,
+    NPM_BIN_DIR: path.join(libDir, "npm", ".bin"),
+    CHROME_EXTENSIONS_DIR: getChromeExtensionsDir(),
+  };
 }
 
 function ensureNodeModuleResolution(moduleRef = module) {
@@ -460,8 +558,14 @@ module.exports = {
   getEnvInt,
   getEnvArray,
   getExtraContext,
+  getSnapDir,
+  getCrawlDir,
   getLibDir,
+  getPersonasDir,
   getNodeModulesDir,
+  getChromeExtensionsDir,
+  getMachineType,
+  getTestEnv,
   ensureNodeModuleResolution,
   parseArgs,
   emitArchiveResultRecord,
@@ -469,3 +573,30 @@ module.exports = {
   writeFileAtomic,
   hasStaticFileOutput,
 };
+
+if (require.main === module) {
+  const [command] = process.argv.slice(2);
+  switch (command) {
+    case "getMachineType":
+      console.log(getMachineType());
+      break;
+    case "getLibDir":
+      console.log(getLibDir());
+      break;
+    case "getNodeModulesDir":
+      console.log(getNodeModulesDir());
+      break;
+    case "getChromeExtensionsDir":
+    case "getExtensionsDir":
+      console.log(getChromeExtensionsDir());
+      break;
+    case "getTestEnv":
+      console.log(JSON.stringify(getTestEnv(), null, 2));
+      break;
+    default:
+      console.error(
+        "Usage: utils.js <getMachineType|getLibDir|getNodeModulesDir|getChromeExtensionsDir|getTestEnv>"
+      );
+      process.exit(1);
+  }
+}

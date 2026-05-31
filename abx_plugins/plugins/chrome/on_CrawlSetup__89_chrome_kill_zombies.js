@@ -52,7 +52,7 @@ async function main() {
     killed += await killZombieChrome(sweepDir, {
       excludeCrawlDirs: [CRAWL_DIR],
       quiet: true,
-      userDataDir: index === 0 ? CHROME_USER_DATA_DIR : null,
+      CHROME_USER_DATA_DIR: index === 0 ? CHROME_USER_DATA_DIR : null,
     });
   }
   const elapsedMicros = Number(process.hrtime.bigint() - START_TIME) / 1000;

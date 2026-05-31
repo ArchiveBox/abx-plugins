@@ -565,7 +565,7 @@ const extensionJson = process.argv[4];
   const result = await chromeUtils.launchChromium({
     binary,
     outputDir,
-    userDataDir,
+    CHROME_USER_DATA_DIR: userDataDir,
     enableExtensionDebugging: true,
   });
   if (!result.success) {

@@ -132,8 +132,8 @@ async function main() {
     const result = await launchChromium({
       binary,
       outputDir,
-      userDataDir,
-      headless: true,
+      CHROME_USER_DATA_DIR: userDataDir,
+      CHROME_HEADLESS: true,
       killZombies: false, // Don't kill other Chrome instances
     });
 
