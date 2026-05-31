@@ -116,7 +116,7 @@ When `CHROME_CDP_URL` is unset, `ensureChromeSession(...)` launches local Chromi
 - CDP can attach to that page and read its title
 
 It then publishes `cdp_url.txt`. Later setup publishes separate readiness
-metadata such as `extensions.json`.
+metadata such as `browser.json`.
 
 ### External adoption
 
@@ -195,7 +195,7 @@ Downstream snapshot hooks should consume:
 
 - `SNAP_DIR/chrome/cdp_url.txt`
 - `SNAP_DIR/chrome/target_id.txt`
-- optional `SNAP_DIR/chrome/extensions.json`
+- optional `SNAP_DIR/chrome/browser.json`
 - navigation markers written later by `chrome_navigate`
 
 They should not reach back into `CRAWL_DIR/chrome/` directly unless they are intentionally crawl-scoped browser hooks.
@@ -208,7 +208,7 @@ They should not reach back into `CRAWL_DIR/chrome/` directly unless they are int
 |---|---|
 | `cdp_url.txt` | Authoritative browser readiness marker. |
 | `chrome.pid` | Local-process ownership metadata. Optional for external sessions. |
-| `extensions.json` | Loaded extension metadata. Optional if no extensions are present. |
+| `browser.json` | Browser setup metadata, including `ready` and loaded `extensions`. |
 
 ### Snapshot-only markers
 
@@ -247,7 +247,7 @@ Responsibilities:
 - configure downloads over CDP
 - import cookies if configured
 - publish `cdp_url.txt` as soon as the browser endpoint is connectable
-- publish `extensions.json` only after unpacked extensions have runtime metadata
+- publish `browser.json` only after unpacked extensions have runtime metadata
 - publish `chrome.pid` only for local sessions
 
 #### `closeBrowserInChromeSession(options)`
@@ -278,7 +278,7 @@ Important behavior:
 
 - does not require `chrome.pid` by default
 - can require `target_id.txt` with `requireTargetId: true`
-- can require parseable `extensions.json` with `requireExtensionsLoaded: true`
+- can require parseable `browser.json` with `requireBrowserReady: true`
 - is purely marker-based readiness, not browser-connection liveness
 
 #### `connectToBrowserEndpoint(puppeteer, cdpUrl, connectOptions)`
@@ -301,7 +301,7 @@ Options include:
 - `chromeSessionDir`
 - `timeoutMs`
 - `requireTargetId`
-- `requireExtensionsLoaded`
+- `requireBrowserReady`
 - `waitForNavigationComplete`
 - `pageLoadTimeoutMs`
 - `postLoadDelayMs`
@@ -353,7 +353,7 @@ Core tab lifecycle helpers used by the Chrome hooks.
 2. Crawl launch hook calls `ensureChromeSession(...)`.
 3. `cdp_url.txt` is published in `CRAWL_DIR/chrome/` as soon as the browser is connectable.
 4. Browser-wide setup completes, including CDP `Extensions.loadUnpacked`.
-5. `extensions.json` is published once extension runtime IDs/targets are known.
+5. `browser.json` is published once extension runtime IDs/targets are known.
 6. Crawl wait verifies a real CDP connection.
 7. Snapshot tab hook creates a target and publishes `SNAP_DIR/chrome/target_id.txt`.
 8. Snapshot wait verifies the target is live.
@@ -375,7 +375,7 @@ If you are writing a Chrome-dependent plugin:
 
 - use `connectToPage(...)` for snapshot/page extractors
 - use `connectToBrowserEndpoint(...)` only for crawl-scoped browser hooks that do not need a page target
-- use `waitForChromeSessionState(..., { requireExtensionsLoaded: true })` only when you truly need extension metadata before page attachment
+- use `waitForChromeSessionState(..., { requireBrowserReady: true })` only when you truly need extension metadata before page attachment
 - treat `cdp_url.txt` as the browser readiness gate
 - treat `target_id.txt` as the page readiness gate
 - treat `navigation.json` as the post-navigation readiness gate
@@ -396,7 +396,7 @@ Extension flow:
 
 - installer hooks populate extension cache metadata
 - `ensureChromeSession(...)` loads those extensions into the active browser session with CDP `Extensions.loadUnpacked`
-- `extensions.json` publishes the loaded metadata
+- `browser.json` publishes the browser setup metadata
 - downstream extension-aware hooks consume the published `extensions` metadata
 
 Download flow:

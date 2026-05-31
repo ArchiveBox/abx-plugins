@@ -78,7 +78,7 @@ async function configureClaudeChrome() {
   try {
     const chromeSession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
       timeoutMs: 10000,
-      requireExtensionsLoaded: true,
+      requireBrowserReady: true,
     });
     if (!chromeSession?.cdpUrl) {
       throw new Error("No Chrome session found (chrome plugin must run first)");
@@ -110,7 +110,7 @@ async function configureClaudeChrome() {
       const claudeExt = findExtensionMetadataByName(extensions, "claudechrome");
       if (!claudeExt || !claudeExt.id) {
         console.error(
-          "[*] Claude for Chrome extension not found in extensions.json"
+          "[*] Claude for Chrome extension not found in browser.json"
         );
         return { success: true, skipped: true };
       }

@@ -292,7 +292,7 @@ async function main() {
       chromeSessionDir: CHROME_SESSION_DIR,
       timeoutMs: remainingTimeoutMs(10000, 5000),
       requireTargetId: true,
-      requireExtensionsLoaded: true,
+      requireBrowserReady: true,
     });
     console.error("[singlefile] connected to chrome");
 
@@ -333,9 +333,9 @@ async function main() {
         : null;
       const sessionExtensions =
         extensions ||
-        chromeUtils.readExtensionsMetadata(CHROME_SESSION_DIR) ||
+        chromeUtils.readBrowserMetadata(CHROME_SESSION_DIR)?.extensions ||
         (crawlChromeDir
-          ? chromeUtils.readExtensionsMetadata(crawlChromeDir)
+          ? chromeUtils.readBrowserMetadata(crawlChromeDir)?.extensions
           : null) ||
         [];
       const sessionEntry = chromeUtils.findExtensionMetadataByName(

@@ -55,7 +55,7 @@ Module._load = function(request, parent, isMain) {
                 },
                 cdpSession: { send: async () => {} },
             }),
-            readExtensionsMetadata: () => [{ name: 'singlefile', id: 'test-extension-id', version: '1.0.0' }],
+            readBrowserMetadata: () => ({ ready: true, extensions: [{ name: 'singlefile', id: 'test-extension-id', version: '1.0.0' }] }),
             findExtensionMetadataByName: () => ({ id: 'test-extension-id', version: '1.0.0' }),
             loadExtensionManifest: () => ({ background: { service_worker: 'service-worker.js' } }),
             waitForExtensionTargetHandle: async () => ({}),

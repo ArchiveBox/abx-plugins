@@ -17,7 +17,7 @@ function sleep(ms) {
 }
 
 /**
- * Look up the AWP extension id in the chrome plugin's extensions.json. The
+ * Look up the AWP extension id in the chrome plugin's browser.json. The
  * snapshot- and crawl-scoped chrome dirs both write the same metadata, so we
  * try both.
  */
@@ -26,10 +26,11 @@ function resolveAwpExtension(chromeSessionDir, crawlChromeDir = null) {
     (dir, idx, arr) => dir && arr.indexOf(dir) === idx
   );
   for (const dir of sources) {
-    const metadata = chromeUtils.readExtensionsMetadata(dir);
-    if (!metadata) continue;
+    const metadata = chromeUtils.readBrowserMetadata(dir);
+    const extensions = metadata?.extensions;
+    if (!extensions) continue;
     const entry = chromeUtils.findExtensionMetadataByName(
-      metadata,
+      extensions,
       EXTENSION_NAME
     );
     if (entry?.id) return { id: entry.id, entry };

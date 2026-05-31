@@ -17,7 +17,7 @@
  *
  * Requirements:
  * - TWOCAPTCHA_API_KEY environment variable must be set
- * - chrome plugin must have loaded extensions (extensions.json must exist)
+ * - chrome plugin must have loaded browser metadata (browser.json must exist)
  */
 
 const path = require("path");
@@ -185,7 +185,7 @@ async function configure2Captcha() {
   try {
     const chromeSession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
       timeoutMs: chromeExtensionReadyTimeoutMs(),
-      requireExtensionsLoaded: true,
+      requireBrowserReady: true,
     });
     if (!chromeSession?.cdpUrl) {
       throw new Error("No Chrome session found (chrome plugin must run first)");
@@ -196,7 +196,7 @@ async function configure2Captcha() {
     });
 
     try {
-      // Get 2captcha extension info from extensions.json
+      // Get 2captcha extension info from browser.json
       const extensions = chromeSession.extensions || [];
       const captchaExt = findExtensionMetadataByName(extensions, "twocaptcha");
 
@@ -210,7 +210,7 @@ async function configure2Captcha() {
       if (!captchaExt.id) {
         return {
           success: false,
-          error: "2captcha extension ID not found in extensions.json",
+          error: "2captcha extension ID not found in browser.json",
         };
       }
 

@@ -612,7 +612,7 @@ def wait_for_extensions_metadata(
     chrome_dir: Path,
     timeout_seconds: int = 10,
 ) -> list[dict[str, Any]]:
-    """Wait for ``extensions.json`` to be published and return its parsed records.
+    """Wait for ``browser.json`` to be published and return its parsed records.
 
     Extension-backed hooks should treat this as the post-launch readiness gate
     for extension runtime metadata. It is stronger than merely seeing
@@ -621,25 +621,30 @@ def wait_for_extensions_metadata(
     """
     timeout_ms = max(1, int(timeout_seconds * 1000))
     returncode, stdout, stderr = _call_chrome_utils(
-        "readExtensionsMetadata",
+        "readBrowserMetadata",
         str(chrome_dir),
         str(timeout_ms),
     )
     if returncode != 0:
         raise AssertionError(
-            f"readExtensionsMetadata failed for {chrome_dir}: {stderr or stdout}",
+            f"readBrowserMetadata failed for {chrome_dir}: {stderr or stdout}",
         )
     try:
         parsed = json.loads(stdout)
     except json.JSONDecodeError as exc:
         raise AssertionError(
-            f"Invalid JSON from readExtensionsMetadata: {stdout}",
+            f"Invalid JSON from readBrowserMetadata: {stdout}",
         ) from exc
-    if not isinstance(parsed, list) or not parsed:
+    if not isinstance(parsed, dict) or parsed.get("ready") is not True:
+        raise AssertionError(
+            f"Expected ready browser metadata for {chrome_dir}, got: {parsed}",
+        )
+    extensions = parsed.get("extensions")
+    if not isinstance(extensions, list) or not extensions:
         raise AssertionError(
             f"Expected non-empty extension metadata list for {chrome_dir}, got: {parsed}",
         )
-    return parsed
+    return extensions
 
 
 def get_machine_type() -> str:

@@ -23,6 +23,7 @@ const {
   ensureNodeModuleResolution,
   loadConfig,
   parseArgs,
+  writeFileAtomic,
 } = require("../base/utils.js");
 
 ensureNodeModuleResolution(module);
@@ -314,6 +315,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
   const excludeSessionDirs = new Set(
     (options.excludeSessionDirs || []).map((dir) => path.resolve(dir))
   );
+  const resolvedSnapRoot = path.resolve(snapDir);
   if (excludeCurrentRuntimeDirs) {
     excludeSessionDirs.add(path.resolve(getSnapDir()));
     excludeSessionDirs.add(path.resolve(getCrawlDir()));
@@ -324,6 +326,14 @@ async function killZombieChrome(snapDir = null, options = {}) {
   if (!fs.existsSync(snapDir)) {
     if (!quiet) console.error("[+] No snapshot directory found");
     return 0;
+  }
+
+  function pathIsWithinSnapRoot(dir) {
+    const relativePath = path.relative(resolvedSnapRoot, path.resolve(dir));
+    return (
+      relativePath === "" ||
+      (relativePath && !relativePath.startsWith("..") && !path.isAbsolute(relativePath))
+    );
   }
 
   /**
@@ -374,8 +384,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
 
   function findOwningCrawlDir(sessionDir) {
     let currentDir = path.resolve(sessionDir);
-    const rootDir = path.resolve(snapDir);
-    while (currentDir.startsWith(rootDir)) {
+    while (pathIsWithinSnapRoot(currentDir)) {
       if (fs.existsSync(path.join(currentDir, ".heartbeat.json"))) {
         return currentDir;
       }
@@ -793,6 +802,9 @@ async function killZombieChrome(snapDir = null, options = {}) {
         path.basename(currentWorkingDir) === "chrome"
           ? path.dirname(currentWorkingDir)
           : currentWorkingDir;
+      if (!pathIsWithinSnapRoot(sessionDir)) {
+        continue;
+      }
       const resolvedCrawlDir = findOwningCrawlDir(sessionDir);
       if (crawlHeartbeatIsAlive(resolvedCrawlDir)) {
         continue;
@@ -996,7 +1008,10 @@ async function launchChromium(options = {}) {
     chromiumArgs.push("--use-mock-keychain");
   }
 
-  if (enableExtensionDebugging) {
+  if (
+    enableExtensionDebugging &&
+    !chromiumArgs.includes("--enable-unsafe-extension-debugging")
+  ) {
     chromiumArgs.push("--enable-unsafe-extension-debugging");
   }
 
@@ -1981,23 +1996,40 @@ async function waitForExtensionTarget(browser, extensionId, timeout = 30000) {
 }
 
 /**
- * Read extensions metadata from chrome session directory.
+ * Read browser setup metadata from chrome session directory.
  *
  * @param {string} chromeSessionDir - Path to chrome session directory
- * @returns {Array<Object>|null} - Parsed extensions metadata list or null if unavailable
+ * @returns {{ready: boolean, extensions: Array<Object>}|null} - Parsed browser metadata or null if unavailable
  */
-function readExtensionsMetadata(chromeSessionDir) {
-  const extensionsFile = path.join(
-    path.resolve(chromeSessionDir),
-    "extensions.json"
-  );
-  if (!fs.existsSync(extensionsFile)) return null;
+function readBrowserMetadata(chromeSessionDir) {
+  const browserFile = path.join(path.resolve(chromeSessionDir), "browser.json");
+  if (!fs.existsSync(browserFile)) return null;
   try {
-    const parsed = JSON.parse(fs.readFileSync(extensionsFile, "utf8"));
-    return Array.isArray(parsed) ? parsed : null;
+    const parsed = JSON.parse(fs.readFileSync(browserFile, "utf8"));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    return {
+      ready: parsed.ready === true,
+      extensions: Array.isArray(parsed.extensions) ? parsed.extensions : [],
+    };
   } catch (e) {
     return null;
   }
+}
+
+function writeBrowserMetadata(chromeSessionDir, extensions = []) {
+  writeFileAtomic(
+    path.join(path.resolve(chromeSessionDir), "browser.json"),
+    JSON.stringify(
+      {
+        ready: true,
+        extensions: Array.isArray(extensions) ? extensions : [],
+      },
+      null,
+      2
+    )
+  );
 }
 
 /**
@@ -2269,6 +2301,7 @@ const CHROME_SESSION_FILES = Object.freeze({
   cdpUrl: "cdp_url.txt",
   targetId: "target_id.txt",
   chromePid: "chrome.pid",
+  browser: "browser.json",
 });
 
 /**
@@ -2282,12 +2315,12 @@ const CHROME_SESSION_FILES = Object.freeze({
  * Chrome session directory.
  *
  * The crawl-level session typically owns the long-lived browser markers
- * (`chrome.pid`, `cdp_url.txt`, `extensions.json`). Snapshot-level sessions
+ * (`chrome.pid`, `cdp_url.txt`, `browser.json`). Snapshot-level sessions
  * reuse the same schema and add per-tab markers such as `target_id.txt`,
  * `url.txt`, and `navigation.json`.
  *
  * @param {string} chromeSessionDir - Path to chrome session directory
- * @returns {{sessionDir: string, cdpFile: string, targetIdFile: string, chromePidFile: string, urlFile: string, navigationFile: string}}
+ * @returns {{sessionDir: string, cdpFile: string, targetIdFile: string, chromePidFile: string, browserFile: string, urlFile: string, navigationFile: string}}
  */
 function getChromeSessionPaths(chromeSessionDir) {
   const sessionDir = path.resolve(chromeSessionDir);
@@ -2296,6 +2329,7 @@ function getChromeSessionPaths(chromeSessionDir) {
     cdpFile: path.join(sessionDir, CHROME_SESSION_FILES.cdpUrl),
     targetIdFile: path.join(sessionDir, CHROME_SESSION_FILES.targetId),
     chromePidFile: path.join(sessionDir, CHROME_SESSION_FILES.chromePid),
+    browserFile: path.join(sessionDir, CHROME_SESSION_FILES.browser),
     urlFile: path.join(sessionDir, "url.txt"),
     navigationFile: path.join(sessionDir, "navigation.json"),
   };
@@ -2318,7 +2352,7 @@ function readSessionTextFile(filePath) {
  * when a session is determined to be stale.
  *
  * The list intentionally includes both readiness markers and navigation
- * byproducts. Leaving old `navigation.json` or `extensions.json` files behind
+ * byproducts. Leaving old `navigation.json` or `browser.json` files behind
  * can trick later hooks/tests into believing a brand-new session has already
  * advanced further than it actually has.
  *
@@ -2331,14 +2365,15 @@ function getChromeSessionArtifactPaths(chromeSessionDir) {
     cdpFile,
     targetIdFile,
     chromePidFile,
+    browserFile,
   } = getChromeSessionPaths(chromeSessionDir);
   return [
     cdpFile,
     targetIdFile,
     chromePidFile,
+    browserFile,
     path.join(sessionDir, "url.txt"),
     path.join(sessionDir, "navigation.json"),
-    path.join(sessionDir, "extensions.json"),
   ];
 }
 
@@ -2508,13 +2543,16 @@ async function inspectChromeSessionArtifacts(chromeSessionDir, options = {}) {
   const rawPid = readSessionTextFile(sessionPaths.chromePidFile);
   const parsedPid = rawPid ? parseInt(rawPid, 10) : NaN;
   const pid = Number.isFinite(parsedPid) && parsedPid > 0 ? parsedPid : null;
+  const browserMetadata = readBrowserMetadata(chromeSessionDir);
   const state = {
     sessionDir: sessionPaths.sessionDir,
     cdpUrl,
     targetId,
     pid,
-    extensions: readExtensionsMetadata(chromeSessionDir),
+    browser: browserMetadata,
+    extensions: browserMetadata?.extensions ?? null,
   };
+  state.ready = state.browser?.ready === true;
 
   if (!hasArtifacts) {
     return { hasArtifacts: false, stale: false, state, reason: null };
@@ -2681,18 +2719,18 @@ async function cleanupStaleChromeSessionArtifacts(
  * @param {number} [options.timeoutMs=60000] - Timeout in milliseconds
  * @param {number} [options.intervalMs=100] - Poll interval in milliseconds
  * @param {boolean} [options.requireTargetId=false] - Require target ID marker
- * @param {boolean} [options.requireExtensionsLoaded=false] - Require extensions.json to be available and parseable
+ * @param {boolean} [options.requireBrowserReady=false] - Require browser.json to be ready
  * @param {boolean} [options.requireConnectable=false] - Require the browser endpoint to be CDP-connectable
  * @param {number} [options.probeTimeoutMs=min(intervalMs, 1000)] - Timeout for each CDP connectability probe
  * @param {Object} [options.puppeteer] - Puppeteer module for target-level connectability checks
- * @returns {Promise<{sessionDir: string, cdpUrl: string|null, targetId: string|null, pid: number|null, extensions: Array<Object>|null}|null>}
+ * @returns {Promise<{sessionDir: string, cdpUrl: string|null, targetId: string|null, pid: number|null, browser: Object|null, extensions: Array<Object>|null}|null>}
  */
 async function waitForChromeSessionState(chromeSessionDir, options = {}) {
   const {
     timeoutMs = 60000,
     intervalMs = 100,
     requireTargetId = false,
-    requireExtensionsLoaded = false,
+    requireBrowserReady = false,
     requireConnectable = false,
     probeTimeoutMs = Math.min(Math.max(intervalMs, 100), 1000),
     puppeteer = null,
@@ -2710,7 +2748,7 @@ async function waitForChromeSessionState(chromeSessionDir, options = {}) {
     if (
       state?.cdpUrl &&
       (!requireTargetId || state.targetId) &&
-      (!requireExtensionsLoaded || state.extensions !== null) &&
+      (!requireBrowserReady || state.ready) &&
       (!requireConnectable || !inspection.stale)
     ) {
       return state;
@@ -2933,9 +2971,9 @@ async function cleanupLaunchArtifacts(outputDir, chromePid = null) {
  * This is stronger than "debug port opened once". It waits through the fragile
  * startup window and proves the websocket is attachable with Puppeteer.
  *
- * It must stay strictly earlier than crawl-level extension loading. The
- * caller is responsible for inspecting extension targets and later writing
- * `extensions.json`; waiting for that file here would deadlock the launch flow.
+ * It must stay strictly earlier than crawl-level extension loading. The caller
+ * is responsible for inspecting extension targets and later writing
+ * `browser.json`; waiting for that file here would deadlock the launch flow.
  *
  * @param {Object} options - Verification options
  * @param {number} options.chromePid - Spawned Chrome PID
@@ -3302,7 +3340,7 @@ async function getBrowserCdpUrl(chromeSessionDir = "../chrome", options = {}) {
  *
  * This helper only asks DevTools to create the target and returns its runtime
  * `targetId`. Persisting snapshot-level markers such as `target_id.txt`,
- * `cdp_url.txt`, or copied `extensions.json` remains the responsibility of the
+ * `cdp_url.txt`, or copied `browser.json` remains the responsibility of the
  * snapshot tab hook.
  *
  * @param {Object} options - Tab open options
@@ -3441,7 +3479,7 @@ async function closeTabInChromeSession(options = {}) {
  * @param {string} [options.chromeSessionDir='../chrome'] - Path to chrome session directory
  * @param {number} [options.timeoutMs=60000] - Timeout for waiting
  * @param {boolean} [options.requireTargetId=true] - Require target_id.txt in session dir
- * @param {boolean} [options.requireExtensionsLoaded=false] - Require extensions.json to be available and parseable
+ * @param {boolean} [options.requireBrowserReady=false] - Require browser.json to be ready
  * @param {boolean} [options.waitForNavigationComplete=false] - Wait for navigation.json success before attaching
  * @param {number} [options.pageLoadTimeoutMs=timeoutMs] - Timeout for navigation.json readiness
  * @param {number} [options.postLoadDelayMs=0] - Additional delay after successful navigation
@@ -3455,7 +3493,7 @@ async function connectToPage(options = {}) {
     chromeSessionDir = "../chrome",
     timeoutMs = 60000,
     requireTargetId = true,
-    requireExtensionsLoaded = false,
+    requireBrowserReady = false,
     waitForNavigationComplete: shouldWaitForNavigationComplete = false,
     pageLoadTimeoutMs = timeoutMs,
     postLoadDelayMs = 0,
@@ -3512,7 +3550,7 @@ async function connectToPage(options = {}) {
       timeoutMs: Math.min(remainingMs, 500),
       intervalMs: 100,
       requireTargetId,
-      requireExtensionsLoaded,
+      requireBrowserReady,
     });
     if (!state) {
       missingTargetKey = null;
@@ -3939,10 +3977,7 @@ async function ensureChromeSession(options = {}) {
           installedExtensions,
           timeoutMs
         );
-        fs.writeFileSync(
-          path.join(outputDir, "extensions.json"),
-          JSON.stringify(installedExtensions, null, 2)
-        );
+        writeBrowserMetadata(outputDir, installedExtensions);
       } finally {
         if (browser) {
           try {
@@ -3951,6 +3986,7 @@ async function ensureChromeSession(options = {}) {
         }
       }
     }
+    writeBrowserMetadata(outputDir, installedExtensions);
     return {
       cdpUrl: existingSession.state.cdpUrl,
       pid: existingSession.state.pid,
@@ -4035,6 +4071,15 @@ async function ensureChromeSession(options = {}) {
     resolvedUserDataDir = result.userDataDir || resolvedUserDataDir;
     launchedNewBrowser = true;
   }
+
+  if (resolvedPid) {
+    fs.writeFileSync(path.join(outputDir, "chrome.pid"), String(resolvedPid));
+  } else {
+    try {
+      fs.unlinkSync(path.join(outputDir, "chrome.pid"));
+    } catch (error) {}
+  }
+  fs.writeFileSync(path.join(outputDir, "cdp_url.txt"), resolvedCdpUrl);
 
   // Open a single browser connection for all post-launch CDP work: extension
   // load, cookie import, download dir config, page-ready probe, and tab
@@ -4141,25 +4186,7 @@ async function ensureChromeSession(options = {}) {
     }
   }
 
-  if (resolvedPid) {
-    fs.writeFileSync(path.join(outputDir, "chrome.pid"), String(resolvedPid));
-  } else {
-    try {
-      fs.unlinkSync(path.join(outputDir, "chrome.pid"));
-    } catch (error) {}
-  }
-  fs.writeFileSync(path.join(outputDir, "cdp_url.txt"), resolvedCdpUrl);
-
-  if (installedExtensions.length > 0) {
-    fs.writeFileSync(
-      path.join(outputDir, "extensions.json"),
-      JSON.stringify(installedExtensions, null, 2)
-    );
-  } else {
-    try {
-      fs.unlinkSync(path.join(outputDir, "extensions.json"));
-    } catch (error) {}
-  }
+  writeBrowserMetadata(outputDir, installedExtensions);
 
   return {
     cdpUrl: resolvedCdpUrl,
@@ -4310,7 +4337,8 @@ module.exports = {
   waitForExtensionTarget,
   getExtensionTargets,
   findExtensionMetadataByName,
-  readExtensionsMetadata,
+  readBrowserMetadata,
+  writeBrowserMetadata,
   loadInstalledExtensionsFromCache,
   importCookiesFromFile,
   ensureChromeSession,
@@ -4367,7 +4395,7 @@ if (require.main === module) {
     console.log("");
     console.log("  loadExtensionManifest     Load extension manifest.json");
     console.log(
-      "  readExtensionsMetadata    Read published runtime extension metadata"
+      "  readBrowserMetadata       Read published browser setup metadata"
     );
     console.log("");
     console.log("Environment variables:");
@@ -4479,7 +4507,7 @@ if (require.main === module) {
           break;
         }
 
-        case "readExtensionsMetadata": {
+        case "readBrowserMetadata": {
           const [chromeSessionDir = ".", timeoutMsStr = "10000"] = commandArgs;
           const timeoutMs = parseInt(timeoutMsStr, 10);
           if (isNaN(timeoutMs) || timeoutMs <= 0) {
@@ -4487,14 +4515,14 @@ if (require.main === module) {
             process.exit(1);
           }
           const deadline = Date.now() + timeoutMs;
-          let metadata = readExtensionsMetadata(chromeSessionDir);
+          let metadata = readBrowserMetadata(chromeSessionDir);
           while (metadata === null && Date.now() < deadline) {
             await sleep(250);
-            metadata = readExtensionsMetadata(chromeSessionDir);
+            metadata = readBrowserMetadata(chromeSessionDir);
           }
           if (metadata === null) {
             console.error(
-              `Timeout waiting for extensions metadata in ${chromeSessionDir}`
+              `Timeout waiting for browser metadata in ${chromeSessionDir}`
             );
             process.exit(1);
           }

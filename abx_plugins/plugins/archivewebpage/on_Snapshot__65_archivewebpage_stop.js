@@ -8,8 +8,8 @@
  *
  * Everything start-hook state (extension id, snapshot tab id, AWP collection
  * id) is rederived here rather than persisted between hooks:
- *   - extension id comes from {chrome_plugin_dir}/extensions.json via
- *     chromeUtils.readExtensionsMetadata + findExtensionMetadataByName
+ *   - extension id comes from {chrome_plugin_dir}/browser.json via
+ *     chromeUtils.readBrowserMetadata + findExtensionMetadataByName
  *   - snapshot tab id comes from chromeUtils.connectToPage's target id mapped
  *     through chrome.debugger.getTargets() inside the AWP service worker
  *   - the running recorder's collId is pulled off the {type:"status"} message

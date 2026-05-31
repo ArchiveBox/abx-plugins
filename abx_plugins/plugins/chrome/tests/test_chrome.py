@@ -213,7 +213,7 @@ def _assert_snapshot_chrome_state_cleared(snapshot_chrome_dir: Path) -> None:
         "target_id.txt",
         "url.txt",
         "navigation.json",
-        "extensions.json",
+        "browser.json",
     ]:
         assert not (snapshot_chrome_dir / file_name).exists(), (
             f"{file_name} should be removed from snapshot chrome dir during teardown"
@@ -1762,8 +1762,8 @@ def test_crawl_isolation_external_cdp_keepalive_false_closes_adopted_browser_on_
             assert not (adopted_chrome_dir / "cdp_url.txt").exists(), (
                 "cdp_url.txt should be removed from crawl-owned chrome dir on teardown"
             )
-            assert not (adopted_chrome_dir / "extensions.json").exists(), (
-                "extensions.json should be removed from crawl-owned chrome dir on teardown"
+            assert not (adopted_chrome_dir / "browser.json").exists(), (
+                "browser.json should be removed from crawl-owned chrome dir on teardown"
             )
         finally:
             if adopt_process.poll() is None:
@@ -2032,7 +2032,7 @@ def test_cdp_url_is_published_before_extensions_metadata():
             "CHROME_HEADLESS": "true",
             "CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS": "5000",
         }
-        extensions_file = chrome_dir / "extensions.json"
+        browser_file = chrome_dir / "browser.json"
         cdp_file = chrome_dir / "cdp_url.txt"
         chrome_launch_process = subprocess.Popen(
             [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-cdp-before-exts"],
@@ -2045,19 +2045,19 @@ def test_cdp_url_is_published_before_extensions_metadata():
 
         try:
             deadline = time.time() + 120
-            saw_extensions = False
+            saw_browser = False
             saw_cdp = False
-            saw_cdp_before_extensions = False
+            saw_cdp_before_browser = False
 
             while time.time() < deadline:
-                saw_extensions = extensions_file.exists()
+                saw_browser = browser_file.exists()
                 saw_cdp = cdp_file.exists()
 
-                if saw_cdp and not saw_extensions:
-                    saw_cdp_before_extensions = True
+                if saw_cdp and not saw_browser:
+                    saw_cdp_before_browser = True
                     break
 
-                if saw_cdp and saw_extensions and saw_cdp_before_extensions:
+                if saw_cdp and saw_browser and saw_cdp_before_browser:
                     break
 
                 if chrome_launch_process.poll() is not None:
@@ -2068,8 +2068,8 @@ def test_cdp_url_is_published_before_extensions_metadata():
                 time.sleep(0.1)
 
             assert saw_cdp, "chrome launch should create cdp_url.txt"
-            assert saw_cdp_before_extensions, (
-                "chrome launch should publish cdp_url.txt before extensions.json"
+            assert saw_cdp_before_browser, (
+                "chrome launch should publish cdp_url.txt before browser.json"
             )
             metadata = wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
             assert any(entry["name"] == TEST_EXTENSION_NAME for entry in metadata), (
@@ -2342,7 +2342,7 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
             "cdp_url": chrome_dir / "cdp_url.txt",
             "chrome_pid": chrome_dir / "chrome.pid",
         }
-        extensions_file = chrome_dir / "extensions.json"
+        browser_file = chrome_dir / "browser.json"
         snapshot_files = {
             "target": chrome_dir / "target_id.txt",
             "url": chrome_dir / "url.txt",
@@ -2379,9 +2379,7 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
 
             cdp_url_before = shared_files["cdp_url"].read_text().strip()
             chrome_pid_before = shared_files["chrome_pid"].read_text().strip()
-            extensions_before = (
-                extensions_file.read_text() if extensions_file.exists() else None
-            )
+            browser_before = browser_file.read_text() if browser_file.exists() else None
             assert cdp_url_before.startswith(("ws://127.0.0.1:", "ws://localhost:")), (
                 cdp_url_before
             )
@@ -2464,12 +2462,14 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
             target_id_before_wait = snapshot_files["target"].read_text().strip()
             url_before_wait = snapshot_files["url"].read_text().strip()
             assert url_before_wait == chrome_test_url
-            if extensions_before is None:
-                assert not extensions_file.exists(), (
-                    "chrome_tab should not synthesize extensions.json when crawl launch did not create it"
+            if browser_before is None:
+                assert browser_file.exists(), (
+                    "chrome_tab should wait for crawl launch to publish browser.json"
                 )
+                copied_browser = json.loads(browser_file.read_text())
+                assert copied_browser.get("ready") is True, copied_browser
             else:
-                assert extensions_file.read_text() == extensions_before
+                assert browser_file.read_text() == browser_before
             assert not snapshot_files["navigation"].exists(), (
                 "chrome_tab should not create navigation.json before navigate"
             )
@@ -2533,8 +2533,8 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
             assert final_url.rstrip("/") == chrome_test_url.rstrip("/")
             assert shared_files["cdp_url"].read_text().strip() == cdp_url_before
             assert shared_files["chrome_pid"].read_text().strip() == chrome_pid_before
-            if extensions_before is not None:
-                assert extensions_file.read_text() == extensions_before
+            if browser_before is not None:
+                assert browser_file.read_text() == browser_before
             assert snapshot_files["target"].read_text().strip() == target_id_before_wait
 
             navigated_targets = _fetch_devtools_targets(cdp_url_before)
@@ -2576,7 +2576,7 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
 def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
     chrome_test_url,
 ):
-    """Shared crawl/snapshot setup should create correct extensions.json when extensions are enabled."""
+    """Shared crawl/snapshot setup should create correct browser.json when extensions are enabled."""
     with tempfile.TemporaryDirectory() as tmpdir:
         shared_dir = Path(tmpdir) / "shared"
         shared_dir.mkdir()
@@ -2598,7 +2598,7 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
             "SNAP_DIR": str(shared_dir),
             "CHROME_HEADLESS": "true",
         }
-        extensions_file = chrome_dir / "extensions.json"
+        browser_file = chrome_dir / "browser.json"
         chrome_launch_process = None
         tab_process = None
         try:
@@ -2611,7 +2611,7 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
                 env=env,
             )
             for _ in range(30):
-                if extensions_file.exists() and (chrome_dir / "cdp_url.txt").exists():
+                if browser_file.exists() and (chrome_dir / "cdp_url.txt").exists():
                     break
                 if chrome_launch_process.poll() is not None:
                     stdout, stderr = chrome_launch_process.communicate()
@@ -2620,11 +2620,14 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
                     )
                 time.sleep(1)
 
-            assert extensions_file.exists(), (
-                "chrome launch should create extensions.json when extensions are enabled"
+            assert browser_file.exists(), (
+                "chrome launch should create browser.json when extensions are enabled"
             )
-            crawl_extensions_text = extensions_file.read_text()
-            crawl_extensions = json.loads(crawl_extensions_text)
+            crawl_browser_text = browser_file.read_text()
+            crawl_browser = json.loads(crawl_browser_text)
+            assert crawl_browser.get("ready") is True, crawl_browser
+            crawl_extensions = crawl_browser.get("extensions")
+            assert isinstance(crawl_extensions, list), crawl_browser
             extension_entry = next(
                 (
                     entry
@@ -2654,8 +2657,8 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
                 snapshot_id="snap-shared-exts",
                 crawl_id="test-shared-exts",
             )
-            assert json.loads(extensions_file.read_text()) == crawl_extensions
-            assert extensions_file.read_text() == crawl_extensions_text
+            assert json.loads(browser_file.read_text()) == crawl_browser
+            assert browser_file.read_text() == crawl_browser_text
 
             snapshot_wait = subprocess.run(
                 [
@@ -2673,8 +2676,8 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
                 f"snapshot wait should succeed with extensions enabled:\n"
                 f"Stdout: {snapshot_wait.stdout}\nStderr: {snapshot_wait.stderr}"
             )
-            assert json.loads(extensions_file.read_text()) == crawl_extensions
-            assert extensions_file.read_text() == crawl_extensions_text
+            assert json.loads(browser_file.read_text()) == crawl_browser
+            assert browser_file.read_text() == crawl_browser_text
         finally:
             if tab_process is not None:
                 try:

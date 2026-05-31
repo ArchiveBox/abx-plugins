@@ -294,10 +294,10 @@ def test_extension_loads_in_chromium():
             None,
         )
         assert ext_entry, (
-            f"istilldontcareaboutcookies not present in extensions.json: {loaded_exts}"
+            f"istilldontcareaboutcookies not present in browser.json: {loaded_exts}"
         )
         ext_id = ext_entry.get("id")
-        assert ext_id, f"Extension id missing from extensions.json entry: {ext_entry}"
+        assert ext_id, f"Extension id missing from browser.json entry: {ext_entry}"
 
         try:
             # Step 3: Connect to Chromium and verify extension loaded via options page
@@ -312,7 +312,7 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
             // Wait for extension to initialize
             await new Promise(r => setTimeout(r, 2000));
             const extId = '{ext_id}';
-            console.error('Extension ID from extensions.json:', extId);
+            console.error('Extension ID from browser.json:', extId);
 
             // Try to navigate to the extension's options.html page
             const page = await browser.newPage();

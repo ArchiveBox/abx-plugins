@@ -30,6 +30,7 @@ const {
   getEnvInt,
   loadConfig,
   emitArchiveResultRecord,
+  writeFileAtomic,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 
@@ -41,7 +42,6 @@ const {
   waitForChromeSessionState,
   closeTabInChromeSession,
   resolvePuppeteerModule,
-  loadInstalledExtensionsFromCache,
 } = require("./chrome_utils.js");
 const puppeteer = resolvePuppeteerModule();
 
@@ -79,7 +79,7 @@ const SNAPSHOT_ARTIFACT_FILES = [
   "target_id.txt",
   "url.txt",
   "navigation.json",
-  "extensions.json",
+  "browser.json",
 ];
 
 function getPortFromCdpUrl(cdpUrl) {
@@ -339,6 +339,7 @@ async function main() {
     if (isolation === "snapshot") {
       const snapshotSession = await waitForChromeSessionState(OUTPUT_DIR, {
         timeoutMs: timeoutSeconds * 1000,
+        requireBrowserReady: true,
         requireConnectable: true,
         probeTimeoutMs: 1000,
         puppeteer,
@@ -389,6 +390,7 @@ async function main() {
       );
       const crawlSession = await waitForChromeSessionState(crawlChromeDir, {
         timeoutMs: timeoutSeconds * 1000,
+        requireBrowserReady: true,
         requireConnectable: true,
         probeTimeoutMs: 1000,
         puppeteer,
@@ -457,26 +459,10 @@ async function main() {
       releaseLock = null;
       publishSuccess(output, version || "");
 
-      try {
-        const { installedExtensions } = loadInstalledExtensionsFromCache();
-        if (installedExtensions.length > 0) {
-          const extensionsSession = await waitForChromeSessionState(
-            crawlChromeDir,
-            {
-              timeoutMs: timeoutSeconds * 1000,
-              requireExtensionsLoaded: true,
-            }
-          );
-          const extensions = extensionsSession?.extensions;
-          if (!extensions) {
-            throw new Error("Missing extensions metadata");
-          }
-          fs.writeFileSync(
-            path.join(OUTPUT_DIR, "extensions.json"),
-            JSON.stringify(extensions, null, 2)
-          );
-        }
-      } catch (err) {}
+      writeFileAtomic(
+        path.join(OUTPUT_DIR, "browser.json"),
+        JSON.stringify(crawlSession.browser, null, 2)
+      );
       await startTargetMonitorBestEffort();
     }
   } catch (e) {

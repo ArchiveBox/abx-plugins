@@ -6,7 +6,7 @@ Replace the current mix of:
 
 - fg/bg ordering barriers
 - numeric filename ordering used as dependency encoding
-- marker files like `cdp_url.txt`, `target_id.txt`, `extensions.json`, `navigation.json`, `prenav.json`
+- marker files like `cdp_url.txt`, `target_id.txt`, `browser.json`, `navigation.json`, `prenav.json`
 - sibling file/log polling
 
 with a smaller model:
@@ -584,11 +584,11 @@ These may remain as optional debug/manual-run artifacts, but must not be require
 
 - `CRAWL_DIR/chrome/cdp_url.txt`
 - `CRAWL_DIR/chrome/chrome.pid`
-- `CRAWL_DIR/chrome/extensions.json`
+- `CRAWL_DIR/chrome/browser.json`
 - `SNAP_DIR/chrome/cdp_url.txt`
 - `SNAP_DIR/chrome/target_id.txt`
 - `SNAP_DIR/chrome/navigation.json`
-- `SNAP_DIR/chrome/extensions.json`
+- `SNAP_DIR/chrome/browser.json`
 
 Replace with event payload fields plus reduced `env` state on:
 

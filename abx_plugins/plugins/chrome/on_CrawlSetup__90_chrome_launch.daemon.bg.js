@@ -6,13 +6,13 @@
  * Each snapshot creates its own tab via on_Snapshot__10_chrome_tab.daemon.bg.js.
  *
  * Extension caches are loaded after startup through CDP so Chrome assigns and
- * publishes the real runtime extension IDs in extensions.json.
+ * publishes the real runtime extension IDs in browser.json.
  *
  * Usage: on_CrawlSetup__90_chrome_launch.daemon.bg.js
  * Output: Writes to current directory (executor creates chrome/ dir):
  *   - cdp_url.txt: WebSocket/HTTP URL for CDP connection
  *   - chrome.pid: Chromium process ID (for cleanup)
- *   - extensions.json: Loaded extensions metadata
+ *   - browser.json: Browser setup metadata and loaded extensions
  *
  * Environment variables:
  *     NODE_MODULES_DIR: Path to node_modules directory for module resolution
