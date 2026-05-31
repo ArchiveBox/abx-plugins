@@ -72,12 +72,28 @@ def _required_binary_record(plugin_dir: Path, name: str, env: dict[str, str]) ->
 def _browserless_path(tmp_path: Path, browser_name: str) -> str:
     tool_dir = tmp_path / "tools"
     tool_dir.mkdir(parents=True, exist_ok=True)
-    for blocked_name in ("chrome",):
+    for blocked_name in (browser_name,):
         shim_path = tool_dir / blocked_name
         shim_path.write_text("#!/bin/sh\nexit 127\n")
         shim_path.chmod(0o755)
 
     return os.pathsep.join([str(tool_dir), os.environ.get("PATH", "")])
+
+
+def _existing_chromium_binary() -> Path | None:
+    candidates = [
+        os.environ.get("CHROME_BINARY", ""),
+        "/usr/bin/chromium",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+    ]
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = Path(candidate)
+        if path.exists():
+            return path
+    return None
 
 
 def _run_hook(
@@ -120,18 +136,8 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     tmp_path: Path,
     chrome_test_url: str,
 ):
-    browser_name = "chrome"
-    ci_chromium = Path("/usr/bin/chromium")
-    canary_binary = Path(
-        "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
-    )
-    existing_browser = (
-        ci_chromium
-        if ci_chromium.exists()
-        else canary_binary
-        if canary_binary.exists()
-        else None
-    )
+    browser_name = "chromium"
+    existing_browser = _existing_chromium_binary()
     chrome_binary = str(existing_browser) if existing_browser else browser_name
     machine_type = _machine_type()
     crawl_id = f"browser-install-{browser_name}"
