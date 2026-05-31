@@ -50,9 +50,24 @@ function getBrowserVersionOutput(binaryPath) {
   }
 }
 
+function parseChromiumVersion(output) {
+  const match = String(output || "").match(/(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?/);
+  if (!match) return null;
+  return match.slice(1, 5).map((part) => parseInt(part || "0", 10));
+}
+
+function chromiumVersionAtLeast(output, minimum) {
+  const version = parseChromiumVersion(output);
+  if (!version) return false;
+  for (let idx = 0; idx < minimum.length; idx++) {
+    if (version[idx] > minimum[idx]) return true;
+    if (version[idx] < minimum[idx]) return false;
+  }
+  return true;
+}
+
 function isSupportedChromiumVersionOutput(output) {
-  const version = String(output || "").trim();
-  return Boolean(version);
+  return chromiumVersionAtLeast(output, [149, 0, 0]);
 }
 
 function isSupportedChromiumBinary(binaryPath) {
@@ -942,9 +957,10 @@ async function launchChromium(options = {}) {
     return { success: false, error: "Chrome binary not found" };
   }
   if (!isSupportedChromiumBinary(binary)) {
+    const versionOutput = getBrowserVersionOutput(binary);
     return {
       success: false,
-      error: `Chrome binary is not executable or did not report a version: ${binary}`,
+      error: `Chrome binary must be Chromium >=149.0.0 for Extensions.loadUnpacked support: ${binary} (${versionOutput || "no version output"})`,
     };
   }
 
@@ -1017,17 +1033,16 @@ async function launchChromium(options = {}) {
     chromiumArgs.push("--enable-unsafe-extension-debugging");
   }
 
-  const startupExtensionPaths = Array.isArray(extensionPaths)
-    ? extensionPaths.filter(Boolean)
-    : [];
-  if (enableExtensionDebugging && startupExtensionPaths.length > 0) {
-    const joinedExtensionPaths = startupExtensionPaths.join(",");
-    chromiumArgs.push(`--disable-extensions-except=${joinedExtensionPaths}`);
-    chromiumArgs.push(`--load-extension=${joinedExtensionPaths}`);
-    chromiumArgs.push("--no-startup-window");
-  } else {
-    chromiumArgs.push("about:blank");
+  if (
+    enableExtensionDebugging &&
+    Array.isArray(extensionPaths) &&
+    extensionPaths.filter(Boolean).length > 0
+  ) {
+    console.error(
+      "[*] Loading Chrome extensions after launch with CDP Extensions.loadUnpacked"
+    );
   }
+  chromiumArgs.push("about:blank");
 
   // Write command script for debugging
   writeCmdScript(path.join(outputDir, "cmd.sh"), binary, chromiumArgs);
@@ -1785,63 +1800,6 @@ async function loadExtensionFromTarget(extensions, target) {
   );
 
   return new_extension;
-}
-
-/**
- * Load and connect to all extensions from a running browser.
- *
- * @param {Object} browser - Puppeteer browser instance
- * @param {Array} extensions - Array of extension metadata objects
- * @returns {Promise<Array>} - Array of loaded extension objects with connection handlers
- */
-async function loadAllExtensionsFromBrowser(
-  browser,
-  extensions,
-  timeout = 30000
-) {
-  console.log(
-    `[⚙️] Loading ${extensions.length} chrome extensions from browser...`
-  );
-  const perExtensionTimeout = Math.max(
-    250,
-    getEnvInt("CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS", Math.min(timeout, 5000))
-  );
-
-  for (const extension of getValidInstalledExtensions(extensions)) {
-    if (!extension.id) {
-      extension.target_error = `Extension ${
-        extension.name || extension.unpacked_path
-      } missing runtime id`;
-      console.warn(
-        `[!] ${extension.target_error}, continuing without browser connection`
-      );
-      continue;
-    }
-    try {
-      const target = await waitForExtensionTargetHandle(
-        browser,
-        extension.id,
-        perExtensionTimeout
-      );
-      const loaded = await loadExtensionFromTarget(extensions, target);
-      if (!loaded) {
-        throw new Error(
-          `Unable to attach extension target for ${extension.id}`
-        );
-      }
-      delete extension.target_error;
-    } catch (error) {
-      extension.target_error = `${error.name}: ${error.message}`;
-      console.warn(
-        `[!] Extension ${
-          extension.name || extension.id
-        } did not expose a background target within ` +
-          `${perExtensionTimeout}ms, continuing: ${extension.target_error}`
-      );
-    }
-  }
-
-  return extensions;
 }
 
 async function loadUnpackedExtensionsIntoBrowser(

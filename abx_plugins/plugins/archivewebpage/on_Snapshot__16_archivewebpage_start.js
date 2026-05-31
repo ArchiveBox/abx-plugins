@@ -257,11 +257,15 @@ async function main() {
     browser = connection.browser;
     const page = connection.page;
 
+    const tabResolutionTimeoutMs = Math.min(
+      overallTimeoutMs,
+      Math.max(10000, budgetMs * 5)
+    );
     const chromeTabId = await getChromeTabIdForPage(
       browser,
       page,
       extensionId,
-      Math.max(1500, budgetMs)
+      tabResolutionTimeoutMs
     );
     if (!chromeTabId) {
       throw new Error("Could not resolve chrome.tabs id for snapshot tab");

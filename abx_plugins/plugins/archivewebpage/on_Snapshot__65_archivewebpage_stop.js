@@ -55,8 +55,11 @@ const {
 const hookConfig = loadConfig();
 const PLUGIN_DIR = path.basename(__dirname);
 const OUTPUT_FILENAME = "archivewebpage.wacz";
-const { outputDir, candidates: chromeDirCandidates, crawlChromeDir } =
-  resolveChromeDirs(process.cwd(), hookConfig.CRAWL_DIR);
+const {
+  outputDir,
+  candidates: chromeDirCandidates,
+  crawlChromeDir,
+} = resolveChromeDirs(process.cwd(), hookConfig.CRAWL_DIR);
 process.chdir(outputDir);
 const SNAP_DIR = path.resolve(outputDir, "..");
 
@@ -197,7 +200,10 @@ async function sendStopAndDownload(
     }
 
     if (!stopOutcome.collId) {
-      return { skipped: true, reason: "no active AWP recorder for snapshot tab" };
+      return {
+        skipped: true,
+        reason: "no active AWP recorder for snapshot tab",
+      };
     }
 
     const downloadDir = path.dirname(destPath);
@@ -212,7 +218,9 @@ async function sendStopAndDownload(
       })
       .catch((error) => {
         console.error(
-          `[archivewebpage] download dir setup failed: ${error.message || error}`
+          `[archivewebpage] download dir setup failed: ${
+            error.message || error
+          }`
         );
       });
 
@@ -231,7 +239,9 @@ async function sendStopAndDownload(
         await dlBrowserSession.send("Target.createTarget", { url: dlUrl });
       } catch (error) {
         console.error(
-          `[archivewebpage] download tab createTarget failed: ${error.message || error}`
+          `[archivewebpage] download tab createTarget failed: ${
+            error.message || error
+          }`
         );
       } finally {
         try {
@@ -349,11 +359,15 @@ async function main() {
     browser = connection.browser;
     const page = connection.page;
 
+    const tabResolutionTimeoutMs = Math.min(
+      overallTimeoutMs,
+      Math.max(10000, budgetMs * 5)
+    );
     const chromeTabId = await getChromeTabIdForPage(
       browser,
       page,
       extensionId,
-      Math.max(1500, budgetMs)
+      tabResolutionTimeoutMs
     );
     if (!chromeTabId) {
       throw new Error("Could not resolve chrome.tabs id for snapshot tab");
@@ -380,13 +394,14 @@ async function main() {
       );
     }
     console.log(
-      `archiveweb.page recording saved to ${path.relative(SNAP_DIR, destPath)} (${outcome.size} bytes)`
+      `archiveweb.page recording saved to ${path.relative(
+        SNAP_DIR,
+        destPath
+      )} (${outcome.size} bytes)`
     );
-    emitArchiveResultRecord(
-      "succeeded",
-      `${PLUGIN_DIR}/${OUTPUT_FILENAME}`,
-      { output_size: outcome.size }
-    );
+    emitArchiveResultRecord("succeeded", `${PLUGIN_DIR}/${OUTPUT_FILENAME}`, {
+      output_size: outcome.size,
+    });
     process.exit(0);
   } catch (error) {
     const detail = `${error.name || "Error"}: ${error.message || error}`;
