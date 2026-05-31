@@ -747,7 +747,7 @@ def emit_installed_binary_record(
 
         env = BinProvider.build_exec_env(
             providers=[binary.loaded_binprovider],
-            base_env={},
+            base_env=os.environ,
         )
 
     record: dict[str, Any] = {
