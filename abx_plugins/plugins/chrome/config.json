@@ -27,7 +27,7 @@
       "overrides": {
         "puppeteer": {
           "install_args": [
-            "chromium"
+            "chrome@canary"
           ]
         }
       }
