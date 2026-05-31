@@ -31,6 +31,12 @@ const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
 const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || ".").trim());
 const OUTPUT_DIR = path.join(SNAP_DIR, "chrome");
+// Tag for log lines emitted by the auto-relaunch path — mirrors the
+// CrawlSetup hook's CHROME_BINARY const so messages have a consistent
+// "chromium" / "chrome" prefix regardless of how the binary was resolved.
+const CHROME_BINARY = (process.env.CHROME_BINARY || "chromium")
+  .split("/")
+  .at(-1);
 if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }

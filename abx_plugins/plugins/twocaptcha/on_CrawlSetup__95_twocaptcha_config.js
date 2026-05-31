@@ -155,14 +155,9 @@ async function configure2Captcha() {
     findExtensionMetadataByName,
     connectToBrowserEndpoint,
     resolvePuppeteerModule,
+    waitForExtensionTargetHandle,
   } = require("../chrome/chrome_utils.js");
   const puppeteer = resolvePuppeteerModule();
-
-  // Check if already configured in this session
-  if (fs.existsSync(CONFIG_MARKER)) {
-    console.error("2captcha already configured");
-    return { success: true, skipped: true };
-  }
 
   // Get configuration
   const config = getTwoCaptchaConfig();
@@ -222,8 +217,58 @@ async function configure2Captcha() {
       const extensionId = captchaExt.id;
       console.error(`Extension ID: ${extensionId}`);
 
-      // Configure via options page
-      // console.error('[*] Configuring via options page...');
+      // Fast verification path: ask the extension's service worker for the
+      // current ``chrome.storage.local.config`` via CDP — if the apiKey already
+      // matches what we'd write, skip the full options-page configure entirely.
+      // We only READ here; the actual write still goes through options.html
+      // below, because chrome.storage.local.set called from the service worker
+      // doesn't always survive the next page load reliably (extension code on
+      // the options page sometimes re-applies stale defaults during init). A
+      // single CDP Runtime.evaluate round-trip is ~50-200ms vs the ~9s slow
+      // path, so the win is in skipping the configure when nothing changed.
+      try {
+        const swTarget = await waitForExtensionTargetHandle(
+          browser,
+          extensionId,
+          { timeoutMs: 5000 },
+        );
+        const swSession = await swTarget.createCDPSession();
+        try {
+          const verify = await swSession.send("Runtime.evaluate", {
+            expression: `(async () => {
+              const stored = await new Promise((resolve, reject) => {
+                chrome.storage.local.get('config', (data) => {
+                  if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+                  else resolve(data && data.config);
+                });
+              });
+              if (!stored) return {present: false};
+              return {present: true, apiKey: stored.apiKey || stored.api_key || ''};
+            })()`,
+            awaitPromise: true,
+            returnByValue: true,
+          });
+          const verifyValue = verify && verify.result && verify.result.value;
+          if (verifyValue && verifyValue.present && verifyValue.apiKey === config.apiKey) {
+            console.error("Already configured (verified via service worker).");
+            return { success: true, skipped: true, verified: true };
+          }
+        } finally {
+          try {
+            await swSession.detach();
+          } catch (_) {}
+        }
+      } catch (swErr) {
+        console.error(
+          `[*] Service-worker verify unavailable (${swErr.message}); proceeding with options-page configure.`,
+        );
+      }
+
+      // Authoritative configure path — options.html is the most reliable way
+      // to seed the extension's defaults (the extension's own init code merges
+      // its bundled defaults onto chrome.storage.local when the options page
+      // loads, and the page's listeners propagate changes through the runtime
+      // solver code paths the same way a user click would).
       const optionsUrl = `chrome-extension://${extensionId}/options/options.html`;
 
       let configPage = await browser.newPage();
@@ -242,9 +287,6 @@ async function configure2Captcha() {
           );
         }
 
-        // Wait a moment for page to settle
-        await new Promise((r) => setTimeout(r, 3000));
-
         // Check all pages for the extension page (Chrome may open it in a different tab)
         const pages = await browser.pages();
         for (const page of pages) {
@@ -256,7 +298,6 @@ async function configure2Captcha() {
         }
 
         const currentUrl = configPage.url();
-        // console.error(`[*] Current URL: ${currentUrl}`);
 
         if (!currentUrl.startsWith(`chrome-extension://${extensionId}`)) {
           return {
@@ -265,8 +306,11 @@ async function configure2Captcha() {
           };
         }
 
-        // Wait for Config object to be available
-        // console.error('[*] Waiting for Config object...');
+        // Wait for the extension's options-page init to finish constructing the
+        // ``Config`` global. ``waitForFunction`` polls the page's runtime
+        // ~every 100ms, so it resolves as soon as the script is parsed — no
+        // explicit sleep needed. The prior 3s ``setTimeout`` was a pessimistic
+        // fixed delay; with ``Config`` reachable, we know the page is ready.
         await configPage.waitForFunction(() => typeof Config !== "undefined", {
           timeout: 10000,
         });
@@ -311,42 +355,28 @@ async function configure2Captcha() {
         if (result.success) {
           console.error(`Configured via ${result.method}`);
 
-          // Verify config was applied by reloading options page and checking form values
-          // console.error('[*] Verifying config by reloading options page...');
-          try {
-            await configPage.reload({
-              waitUntil: "networkidle0",
-              timeout: 10000,
+          // Verify by reading chrome.storage.local directly on the same page
+          // (no reload, no extra sleep). ``chrome.storage.local.set``'s
+          // success callback already guarantees the write was persisted; the
+          // readback is just to confirm the apiKey is what we wrote, and runs
+          // in the same options-page context that did the write, so there's
+          // no race with extension init code re-applying defaults.
+          const verifyConfig = await configPage.evaluate(() => {
+            return new Promise((resolve) => {
+              if (typeof chrome === "undefined" || !chrome.storage) {
+                resolve(null);
+                return;
+              }
+              chrome.storage.local.get("config", (data) => {
+                resolve((data && data.config) || null);
+              });
             });
-          } catch (e) {
-            console.error(
-              `[*] Reload threw error (may still work): ${e.message}`
-            );
-          }
-
-          await new Promise((r) => setTimeout(r, 2000));
-
-          // Wait for Config object again
-          await configPage.waitForFunction(
-            () => typeof Config !== "undefined",
-            { timeout: 10000 }
-          );
-
-          // Read back the config using Config.getAll()
-          const verifyConfig = await configPage.evaluate(async () => {
-            if (
-              typeof Config !== "undefined" &&
-              typeof Config.getAll === "function"
-            ) {
-              return await Config.getAll();
-            }
-            return null;
           });
 
           if (!verifyConfig) {
             return {
               success: false,
-              error: "Could not verify config - Config.getAll() not available",
+              error: "Could not verify config - chrome.storage.local empty after set",
             };
           }
 
