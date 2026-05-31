@@ -724,11 +724,7 @@ def get_extensions_dir() -> str:
         pass  # Fall through to default computation
 
     # Fallback to default computation if JS call fails
-    personas_dir = os.environ.get("PERSONAS_DIR") or str(
-        Path.home() / ".config" / "abx" / "personas",
-    )
-    persona = os.environ.get("ACTIVE_PERSONA", "Default")
-    return str(Path(personas_dir) / persona / "chrome_extensions")
+    return str(get_lib_dir() / "chromewebstore" / "extensions")
 
 
 def find_chromium(data_dir: str | None = None) -> str | None:

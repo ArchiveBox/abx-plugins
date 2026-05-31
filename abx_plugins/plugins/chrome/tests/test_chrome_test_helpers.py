@@ -117,16 +117,18 @@ def test_get_extensions_dir_default():
         assert ext_path.name in {"extensions", "chrome_extensions"}
 
 
-def test_get_extensions_dir_with_custom_persona():
-    """Test get_extensions_dir() respects ACTIVE_PERSONA env var."""
+def test_get_extensions_dir_ignores_persona_by_default():
+    """Test get_extensions_dir() uses the provider-managed LIB_DIR path by default."""
     old_persona = os.environ.get("ACTIVE_PERSONA")
     old_personas_dir = os.environ.get("PERSONAS_DIR")
     try:
         os.environ["ACTIVE_PERSONA"] = "TestPersona"
         os.environ["PERSONAS_DIR"] = "/tmp/test-personas"
         ext_dir = get_extensions_dir()
-        assert "TestPersona" in ext_dir
-        assert "/tmp/test-personas" in ext_dir
+        assert "TestPersona" not in ext_dir
+        assert "/tmp/test-personas" not in ext_dir
+        assert Path(ext_dir).name == "extensions"
+        assert Path(ext_dir).parent.name == "chromewebstore"
     finally:
         if old_persona:
             os.environ["ACTIVE_PERSONA"] = old_persona
