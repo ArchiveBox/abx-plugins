@@ -45,38 +45,38 @@ Defined in [config.json](./config.json).
 
 ### Core session options
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `CHROME_ENABLED` | `true` | Enable browser-backed archiving. |
-| `CHROME_BINARY` | `chromium` | Local Chromium, Chrome for Testing, or Chrome Canary binary to launch when not adopting an existing browser. |
-| `CHROME_CDP_URL` | `""` | Adopt an already-running browser instead of launching a local one. Accepts WS or HTTP CDP endpoints. |
-| `CHROME_IS_LOCAL` | `true` | Whether the owned browser process is local and should publish `chrome.pid`. If `CHROME_CDP_URL` is set, runtime behavior is external/non-local. |
-| `CHROME_KEEPALIVE` | `false` | Whether the owning launch hook should exit immediately and leave the browser running, instead of staying alive and closing it during cleanup. |
-| `CHROME_ISOLATION` | `crawl` | `crawl` for one browser per crawl, `snapshot` for one browser per snapshot. |
+| Variable           | Default    | Meaning                                                                                                                                         |
+| ------------------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CHROME_ENABLED`   | `true`     | Enable browser-backed archiving.                                                                                                                |
+| `CHROME_BINARY`    | `chromium` | Local Chromium, Chrome for Testing, or Chrome Canary binary to launch when not adopting an existing browser.                                    |
+| `CHROME_CDP_URL`   | `""`       | Adopt an already-running browser instead of launching a local one. Accepts WS or HTTP CDP endpoints.                                            |
+| `CHROME_IS_LOCAL`  | `true`     | Whether the owned browser process is local and should publish `chrome.pid`. If `CHROME_CDP_URL` is set, runtime behavior is external/non-local. |
+| `CHROME_KEEPALIVE` | `false`    | Whether the owning launch hook should exit immediately and leave the browser running, instead of staying alive and closing it during cleanup.   |
+| `CHROME_ISOLATION` | `crawl`    | `crawl` for one browser per crawl, `snapshot` for one browser per snapshot.                                                                     |
 
 ### Runtime browser options
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `CHROME_TIMEOUT` | `60` | General Chrome operation timeout in seconds. |
-| `CHROME_PAGELOAD_TIMEOUT` | `60` | Navigation/page-load timeout in seconds. |
-| `CHROME_WAIT_FOR` | `load` | Puppeteer navigation completion condition. |
-| `CHROME_DELAY_AFTER_LOAD` | `0` | Extra delay after page load completes. |
-| `CHROME_HEADLESS` | `true` | Run headless. |
-| `CHROME_SANDBOX` | `true` | Enable Chromium sandbox. |
-| `CHROME_RESOLUTION` | `1440,2000` | Viewport/window size. |
-| `CHROME_USER_AGENT` | `""` | Optional browser user agent override. |
-| `CHROME_CHECK_SSL_VALIDITY` | `true` | Whether to reject invalid TLS certs. |
+| Variable                    | Default     | Meaning                                      |
+| --------------------------- | ----------- | -------------------------------------------- |
+| `CHROME_TIMEOUT`            | `60`        | General Chrome operation timeout in seconds. |
+| `CHROME_PAGELOAD_TIMEOUT`   | `60`        | Navigation/page-load timeout in seconds.     |
+| `CHROME_WAIT_FOR`           | `load`      | Puppeteer navigation completion condition.   |
+| `CHROME_DELAY_AFTER_LOAD`   | `0`         | Extra delay after page load completes.       |
+| `CHROME_HEADLESS`           | `true`      | Run headless.                                |
+| `CHROME_SANDBOX`            | `true`      | Enable Chromium sandbox.                     |
+| `CHROME_RESOLUTION`         | `1440,2000` | Viewport/window size.                        |
+| `CHROME_USER_AGENT`         | `""`        | Optional browser user agent override.        |
+| `CHROME_CHECK_SSL_VALIDITY` | `true`      | Whether to reject invalid TLS certs.         |
 
 ### Profile / extension / download options
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `CHROME_USER_DATA_DIR` | `PERSONAS_DIR/ACTIVE_PERSONA/chrome_profile` | User data dir for persistent local profile state. |
-| `CHROME_EXTENSIONS_DIR` | persona-derived | Extension cache directory. |
-| `CHROME_DOWNLOADS_DIR` | persona-derived | Download output directory configured via CDP after launch/adoption. |
-| `CHROME_ARGS` | see config | Static Chromium flags. |
-| `CHROME_ARGS_EXTRA` | `[]` | Final extra flags appended at launch. |
+| Variable                | Default                                      | Meaning                                                             |
+| ----------------------- | -------------------------------------------- | ------------------------------------------------------------------- |
+| `CHROME_USER_DATA_DIR`  | `PERSONAS_DIR/ACTIVE_PERSONA/chrome_profile` | User data dir for persistent local profile state.                   |
+| `CHROME_EXTENSIONS_DIR` | persona-derived                              | Extension cache directory.                                          |
+| `CHROME_DOWNLOADS_DIR`  | persona-derived                              | Download output directory configured via CDP after launch/adoption. |
+| `CHROME_ARGS`           | see config                                   | Static Chromium flags.                                              |
+| `CHROME_ARGS_EXTRA`     | `[]`                                         | Final extra flags appended at launch.                               |
 
 ## Session Modes
 
@@ -84,9 +84,9 @@ Defined in [config.json](./config.json).
 
 Ownership:
 
-- [on_CrawlSetup__90_chrome_launch.daemon.bg.js](./on_CrawlSetup__90_chrome_launch.daemon.bg.js) owns the browser session
-- [on_CrawlSetup__91_chrome_wait.js](./on_CrawlSetup__91_chrome_wait.js) verifies the crawl-scoped session is connectable
-- [on_Snapshot__10_chrome_tab.daemon.bg.js](./on_Snapshot__10_chrome_tab.daemon.bg.js) creates one page/tab per snapshot
+- [on_CrawlSetup\_\_90_chrome_launch.daemon.bg.js](./on_CrawlSetup__90_chrome_launch.daemon.bg.js) owns the browser session
+- [on_CrawlSetup\_\_91_chrome_wait.js](./on_CrawlSetup__91_chrome_wait.js) verifies the crawl-scoped session is connectable
+- [on_Snapshot\_\_10_chrome_tab.daemon.bg.js](./on_Snapshot__10_chrome_tab.daemon.bg.js) creates one page/tab per snapshot
 
 Contract:
 
@@ -97,8 +97,8 @@ Contract:
 
 Ownership:
 
-- [on_Snapshot__09_chrome_launch.daemon.bg.js](./on_Snapshot__09_chrome_launch.daemon.bg.js) owns the browser session for that snapshot
-- [on_Snapshot__10_chrome_tab.daemon.bg.js](./on_Snapshot__10_chrome_tab.daemon.bg.js) adopts or verifies the already-published snapshot session
+- [on_Snapshot\_\_09_chrome_launch.daemon.bg.js](./on_Snapshot__09_chrome_launch.daemon.bg.js) owns the browser session for that snapshot
+- [on_Snapshot\_\_10_chrome_tab.daemon.bg.js](./on_Snapshot__10_chrome_tab.daemon.bg.js) adopts or verifies the already-published snapshot session
 
 Contract:
 
@@ -157,22 +157,22 @@ This is useful when:
 
 ### Crawl hooks
 
-| Hook | Priority | Purpose |
-|---|---:|---|
-| `on_CrawlSetup__90_chrome_launch.daemon.bg.js` | 90 | Launch/adopt crawl-scoped browser when `CHROME_ISOLATION=crawl`. No-op when `snapshot`. |
-| `on_CrawlSetup__91_chrome_wait.js` | 91 | Wait for a connectable crawl session when `crawl`. Reports `"snapshot isolation active"` when `snapshot`. |
+| Hook                                           | Priority | Purpose                                                                                                   |
+| ---------------------------------------------- | -------: | --------------------------------------------------------------------------------------------------------- |
+| `on_CrawlSetup__90_chrome_launch.daemon.bg.js` |       90 | Launch/adopt crawl-scoped browser when `CHROME_ISOLATION=crawl`. No-op when `snapshot`.                   |
+| `on_CrawlSetup__91_chrome_wait.js`             |       91 | Wait for a connectable crawl session when `crawl`. Reports `"snapshot isolation active"` when `snapshot`. |
 
 Chromium and extension dependencies are resolved before crawl setup from
 `config.json > required_binaries` during orchestrator preflight.
 
 ### Snapshot hooks
 
-| Hook | Priority | Purpose |
-|---|---:|---|
-| `on_Snapshot__09_chrome_launch.daemon.bg.js` | 9 | Launch/adopt snapshot-scoped browser when `CHROME_ISOLATION=snapshot`. No-op readiness check when `crawl`. |
-| `on_Snapshot__10_chrome_tab.daemon.bg.js` | 10 | Create or adopt the snapshot page target. |
-| `on_Snapshot__11_chrome_wait.js` | 11 | Verify snapshot `cdp_url.txt` + `target_id.txt` point at a live target. |
-| `on_Snapshot__30_chrome_navigate.js` | 30 | Navigate the snapshot page and publish navigation markers. |
+| Hook                                         | Priority | Purpose                                                                                                    |
+| -------------------------------------------- | -------: | ---------------------------------------------------------------------------------------------------------- |
+| `on_Snapshot__09_chrome_launch.daemon.bg.js` |        9 | Launch/adopt snapshot-scoped browser when `CHROME_ISOLATION=snapshot`. No-op readiness check when `crawl`. |
+| `on_Snapshot__10_chrome_tab.daemon.bg.js`    |       10 | Create or adopt the snapshot page target.                                                                  |
+| `on_Snapshot__11_chrome_wait.js`             |       11 | Verify snapshot `cdp_url.txt` + `target_id.txt` point at a live target.                                    |
+| `on_Snapshot__30_chrome_navigate.js`         |       30 | Navigate the snapshot page and publish navigation markers.                                                 |
 
 ## Directory Layout
 
@@ -204,19 +204,19 @@ They should not reach back into `CRAWL_DIR/chrome/` directly unless they are int
 
 ### Common session markers
 
-| File | Meaning |
-|---|---|
-| `cdp_url.txt` | Authoritative browser readiness marker. |
-| `chrome.pid` | Local-process ownership metadata. Optional for external sessions. |
+| File           | Meaning                                                            |
+| -------------- | ------------------------------------------------------------------ |
+| `cdp_url.txt`  | Authoritative browser readiness marker.                            |
+| `chrome.pid`   | Local-process ownership metadata. Optional for external sessions.  |
 | `browser.json` | Browser setup metadata, including `ready` and loaded `extensions`. |
 
 ### Snapshot-only markers
 
-| File | Meaning |
-|---|---|
-| `target_id.txt` | Authoritative page-target marker for the snapshot. |
-| `url.txt` | Requested URL used for snapshot reuse checks. |
-| `navigation.json` | Structured navigation result, including errors. |
+| File              | Meaning                                            |
+| ----------------- | -------------------------------------------------- |
+| `target_id.txt`   | Authoritative page-target marker for the snapshot. |
+| `url.txt`         | Requested URL used for snapshot reuse checks.      |
+| `navigation.json` | Structured navigation result, including errors.    |
 
 ### Readiness rules
 
@@ -352,7 +352,7 @@ Core tab lifecycle helpers used by the Chrome hooks.
 1. Extension installer hooks populate the extension cache.
 2. Crawl launch hook calls `ensureChromeSession(...)`.
 3. `cdp_url.txt` is published in `CRAWL_DIR/chrome/` as soon as the browser is connectable.
-4. Browser-wide setup completes, including launch-time extension loading and any CDP `Extensions.loadUnpacked` fallback.
+4. Browser-wide setup completes, including CDP `Extensions.loadUnpacked` loading for installed extensions.
 5. `browser.json` is published once extension runtime IDs are known.
 6. Crawl wait verifies a real CDP connection.
 7. Snapshot tab hook creates a target and publishes `SNAP_DIR/chrome/target_id.txt`.
@@ -395,7 +395,7 @@ Chrome itself does not know about specific extension plugins.
 Extension flow:
 
 - installer hooks populate extension cache metadata
-- `ensureChromeSession(...)` loads those extensions at browser startup and falls back to CDP `Extensions.loadUnpacked`
+- `ensureChromeSession(...)` loads those extensions via CDP `Extensions.loadUnpacked`; failures are fatal because downstream hooks need runtime extension IDs
 - `browser.json` publishes the browser setup metadata
 - downstream extension-aware hooks consume the published `extensions` metadata
 

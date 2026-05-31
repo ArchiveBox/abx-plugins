@@ -11,8 +11,8 @@ Tests verify:
 7. Tab cleanup on SIGTERM
 8. Chromium cleanup on crawl end
 
-NOTE: Extension tests use Chromium/Canary and load unpacked extensions before
-snapshot tabs are created.
+NOTE: Extension tests use Chromium/Canary and load unpacked extensions via CDP
+before snapshot tabs are created.
 """
 
 import json
@@ -493,6 +493,54 @@ const browser = {
     assert "TargetCloseError" in payload["extensions"][1]["load_error"]
 
 
+def test_load_unpacked_extensions_hard_fails_if_extension_target_never_appears():
+    script = r"""
+const chromeUtils = require(process.argv[1]);
+const browser = {
+  target: () => ({
+    createCDPSession: async () => ({
+      send: async () => ({ id: 'abc123' }),
+      detach: async () => {},
+    }),
+  }),
+  targets: () => [],
+  on: () => {},
+  off: () => {},
+};
+
+(async () => {
+  const extensions = [
+    { name: 'first', unpacked_path: '/tmp/first' },
+  ];
+  try {
+    await chromeUtils.loadUnpackedExtensionsIntoBrowser(browser, extensions, 25);
+  } catch (error) {
+    process.stdout.write(JSON.stringify({ error: error.message, extensions }));
+    return;
+  }
+  throw new Error('expected loadUnpackedExtensionsIntoBrowser to fail');
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
+"""
+    env = get_test_env() | {"CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS": "25"}
+    result = subprocess.run(
+        ["node", "-e", script, str(CHROME_UTILS)],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout.strip().splitlines()[-1])
+    assert "Failed to attach Chrome extension first target" in payload["error"]
+    assert payload["extensions"][0]["id"] == "abc123"
+    assert "target_error" in payload["extensions"][0]
+    assert "load_error" not in payload["extensions"][0]
+
+
 def test_load_cached_extension_uses_runtime_browser_target():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
@@ -796,6 +844,17 @@ def test_verify_chrome_available():
     assert any(
         browser_name in result.stdout for browser_name in ("Chrome", "Chromium")
     ), f"Unexpected version output: {result.stdout}"
+    script = "const utils = require(process.argv[1]); process.stdout.write(String(utils.isSupportedChromiumVersionOutput(process.argv[2])));"
+    support_result = subprocess.run(
+        ["node", "-e", script, str(CHROME_UTILS), result.stdout],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert support_result.returncode == 0, support_result.stderr
+    assert support_result.stdout == "true", (
+        f"Chromium >=149.0.0 is required for Extensions.loadUnpacked support, got: {result.stdout}"
+    )
 
 
 def test_chrome_launch_respects_sandbox_env():

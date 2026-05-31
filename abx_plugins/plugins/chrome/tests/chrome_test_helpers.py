@@ -953,14 +953,23 @@ def _chromium_install_lock(env: dict):
 def _resolve_existing_chromium(env: dict) -> str | None:
     """Return an existing Chromium path if already installed and valid."""
     from_env = env.get("CHROME_BINARY")
-    if from_env and Path(from_env).exists():
+    if from_env and Path(from_env).exists() and _is_supported_chromium(from_env, env):
         return from_env
     returncode, stdout, _stderr = _call_chrome_utils("findChromium", env=env)
     if returncode == 0 and stdout.strip():
         candidate = stdout.strip()
-        if Path(candidate).exists():
+        if Path(candidate).exists() and _is_supported_chromium(candidate, env):
             return candidate
     return None
+
+
+def _is_supported_chromium(binary_path: str, env: dict) -> bool:
+    returncode, stdout, _stderr = _call_chrome_utils(
+        "isSupportedChromiumBinary",
+        binary_path,
+        env=env,
+    )
+    return returncode == 0 and stdout.strip().lower() == "true"
 
 
 def _has_puppeteer_module(env: dict) -> bool:

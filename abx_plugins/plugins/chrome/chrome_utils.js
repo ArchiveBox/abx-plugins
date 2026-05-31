@@ -928,7 +928,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
  * @param {boolean} [options.sandbox=true] - Enable Chrome sandbox
  * @param {boolean} [options.checkSsl=true] - Check SSL certificates
  * @param {boolean} [options.enableExtensionDebugging=false] - Enable CDP extension loading/debugging
- * @param {Array<string>} [options.extensionPaths=[]] - Unpacked extension paths to load at browser startup
+ * @param {Array<string>} [options.extensionPaths=[]] - Unpacked extension paths to load after launch via CDP Extensions.loadUnpacked
  * @returns {Promise<Object>} - {success, cdpUrl, pid, port, process, error}
  */
 async function launchChromium(options = {}) {
@@ -1849,7 +1849,19 @@ async function loadUnpackedExtensionsIntoBrowser(
         }
         extension.id = id;
         delete extension.load_error;
+      } catch (error) {
+        const detail = `${error.name}: ${error.message}`;
+        extension.load_error = detail;
+        throw new Error(
+          `Failed to load Chrome extension ${
+            extension.name || extension.unpacked_path
+          } from ${
+            extension.unpacked_path
+          } via Extensions.loadUnpacked: ${detail}`
+        );
+      }
 
+      try {
         const target = await waitForExtensionTargetHandle(
           browser,
           extension.id,
@@ -1864,13 +1876,13 @@ async function loadUnpackedExtensionsIntoBrowser(
         delete extension.target_error;
       } catch (error) {
         const detail = `${error.name}: ${error.message}`;
-        extension.load_error = detail;
+        extension.target_error = detail;
         throw new Error(
-          `Failed to load Chrome extension ${
+          `Failed to attach Chrome extension ${
             extension.name || extension.unpacked_path
-          } from ${
-            extension.unpacked_path
-          } via Extensions.loadUnpacked: ${detail}`
+          } target after Extensions.loadUnpacked returned ${
+            extension.id
+          }: ${detail}`
         );
       }
     }
@@ -4260,6 +4272,9 @@ module.exports = {
   // Chromium binary finding
   findChromium,
   findAnyChromiumBinary,
+  parseChromiumVersion,
+  isSupportedChromiumVersionOutput,
+  isSupportedChromiumBinary,
   // Extension utilities
   loadExtensionManifest,
   isTargetExtension,
@@ -4313,6 +4328,9 @@ if (require.main === module) {
     console.log("");
     console.log("Commands:");
     console.log("  findChromium              Find Chromium binary");
+    console.log(
+      "  isSupportedChromiumBinary <path>  Check Chromium >=149.0.0 support"
+    );
     console.log("  launchChromium            Launch Chrome with CDP debugging");
     console.log("  getCookiesViaCdp <port>  Read browser cookies via CDP port");
     console.log(
@@ -4363,6 +4381,14 @@ if (require.main === module) {
             console.error("Chromium binary not found");
             process.exit(1);
           }
+          break;
+        }
+
+        case "isSupportedChromiumBinary": {
+          const [binaryPath] = commandArgs;
+          console.log(
+            Boolean(binaryPath && isSupportedChromiumBinary(binaryPath))
+          );
           break;
         }
 
