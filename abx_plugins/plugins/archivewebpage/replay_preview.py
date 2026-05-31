@@ -180,13 +180,13 @@ def render_preview_html(
     return (
         (_PLUGIN_DIR / "templates" / "full.html")
         .read_text(encoding="utf-8")
-        .replace("{{ output_path_raw }}", html_escape(filename, quote=True))
-        .replace("{{ output_path }}", html_escape(output_path, quote=True))
-        .replace("{{ archived_url }}", html_escape(archived_url, quote=True))
         .replace(
             '{% if archived_url %}url="{{ archived_url }}"{% endif %}',
             archived_url_attr,
         )
+        .replace("{{ output_path_raw }}", html_escape(filename, quote=True))
+        .replace("{{ output_path }}", html_escape(output_path, quote=True))
+        .replace("{{ archived_url }}", html_escape(archived_url, quote=True))
     )
 
 

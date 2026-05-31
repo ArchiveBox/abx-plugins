@@ -2207,7 +2207,7 @@ function findAnyChromiumBinary() {
  *
  * Path is derived from environment variables in this priority:
  * 1. CHROME_EXTENSIONS_DIR (explicit override)
- * 2. PERSONAS_DIR/ACTIVE_PERSONA/chrome_extensions (default)
+ * 2. LIB_DIR/chromewebstore/extensions (provider-managed default)
  *
  * @returns {string} - Absolute path to extensions directory
  */
@@ -2215,7 +2215,7 @@ function getExtensionsDir() {
   const config = loadConfig(path.join(__dirname, "config.json"));
   return (
     config.CHROME_EXTENSIONS_DIR ||
-    path.join(getPersonasDir(), config.ACTIVE_PERSONA, "chrome_extensions")
+    path.join(getLibDir(), "chromewebstore", "extensions")
   );
 }
 

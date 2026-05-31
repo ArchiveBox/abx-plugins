@@ -517,6 +517,18 @@ def load_config(
                 payload["CHROME_BINARY"] = str(ci_chromium_path)
             elif canary_path.exists():
                 payload["CHROME_BINARY"] = str(canary_path)
+    if "CHROME_EXTENSIONS_DIR" in payload:
+        env = os.environ if environ is None else environ
+        has_explicit_extensions_dir = "CHROME_EXTENSIONS_DIR" in env or bool(
+            user_config and "CHROME_EXTENSIONS_DIR" in user_config,
+        )
+        if not has_explicit_extensions_dir and not payload.get("CHROME_EXTENSIONS_DIR"):
+            lib_dir = Path(
+                str(payload.get("LIB_DIR") or Path.home() / ".config" / "abx" / "lib"),
+            ).expanduser()
+            payload["CHROME_EXTENSIONS_DIR"] = str(
+                (lib_dir / "chromewebstore" / "extensions").resolve(),
+            )
     model = build_config_model(title, properties)
     return model.model_validate(payload)
 
