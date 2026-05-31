@@ -53,6 +53,22 @@
           ]
         }
       }
+    },
+    {
+      "name": "imagesize",
+      "binproviders": "pip",
+      "min_version": "2.0.0",
+      "min_release_age": 3,
+      "postinstall_scripts": false,
+      "overrides": {
+        "pip": {
+          "install_root": "{LIB_DIR}/pip/packages/liteparse",
+          "module_name": "imagesize",
+          "install_args": [
+            "imagesize>=2.0.0"
+          ]
+        }
+      }
     }
   ],
   "output_mimetypes": [
