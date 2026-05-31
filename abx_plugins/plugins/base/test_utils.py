@@ -84,11 +84,15 @@ def get_hydrated_required_binaries(
     """Return required_binaries with `{PLACEHOLDER}` values formatted from config defaults + env."""
     config = load_plugin_config(plugin_dir)
     properties = config.get("properties") or {}
-    context: dict[str, Any] = {
-        key: value.get("default")
-        for key, value in properties.items()
-        if isinstance(value, dict) and "default" in value
-    }
+    context: dict[str, Any] = dict(os.environ)
+    context.setdefault("LIB_DIR", str(Path.home() / ".config" / "abx" / "lib"))
+    context.update(
+        {
+            key: value.get("default")
+            for key, value in properties.items()
+            if isinstance(value, dict) and "default" in value
+        },
+    )
     if env:
         context.update({key: value for key, value in env.items() if value is not None})
 

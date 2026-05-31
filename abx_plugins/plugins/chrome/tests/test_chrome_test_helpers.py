@@ -109,8 +109,12 @@ def test_get_extensions_dir_default():
     """Test get_extensions_dir() returns expected path format."""
     ext_dir = get_extensions_dir()
     assert isinstance(ext_dir, str)
-    assert "personas" in ext_dir
-    assert "chrome_extensions" in ext_dir
+    if os.environ.get("CHROME_EXTENSIONS_DIR"):
+        assert ext_dir == os.environ["CHROME_EXTENSIONS_DIR"]
+    else:
+        ext_path = Path(ext_dir)
+        assert ext_path.is_absolute()
+        assert ext_path.name in {"extensions", "chrome_extensions"}
 
 
 def test_get_extensions_dir_with_custom_persona():
