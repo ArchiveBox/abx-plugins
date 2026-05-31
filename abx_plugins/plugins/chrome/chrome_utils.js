@@ -2115,6 +2115,8 @@ function findChromium() {
   const libDir = getEnv("LIB_DIR");
   if (libDir) {
     const libCandidates = [
+      path.join(libDir, "env", "bin", "chromium"),
+      path.join(libDir, "env", "bin", "chrome"),
       path.join(libDir, "puppeteer", "bin", "chromium"),
       path.join(libDir, "puppeteer", "bin", "chrome"),
       path.join(libDir, "puppeteer", "bin", "chrome-headless-shell"),
