@@ -3291,6 +3291,25 @@ async function openTabInChromeSession(options = {}) {
             if (!targetId) {
               throw new Error("Failed to resolve target ID for new tab");
             }
+            await withConnectedBrowser(
+              {
+                puppeteer: puppeteerModule,
+                cdpUrl,
+                connectOptions: { defaultViewport: null },
+              },
+              async (verificationBrowser) => {
+                const verificationPage = await resolvePageByTargetId(
+                  verificationBrowser,
+                  targetId,
+                  Math.max(1000, deadline - Date.now())
+                );
+                if (!verificationPage) {
+                  throw new Error(
+                    `New tab target ${targetId} was not visible from a fresh Chrome session`
+                  );
+                }
+              }
+            );
             return { targetId };
           }
         );
@@ -3359,7 +3378,7 @@ async function closeTabInChromeSession(options = {}) {
  * @param {boolean} [options.waitForNavigationComplete=false] - Wait for navigation.json success before attaching
  * @param {number} [options.pageLoadTimeoutMs=timeoutMs] - Timeout for navigation.json readiness
  * @param {number} [options.postLoadDelayMs=0] - Additional delay after successful navigation
- * @param {number|null} [options.missingTargetGraceMs=null] - How long to tolerate a missing published target before failing; defaults to the overall timeout
+ * @param {number} [options.missingTargetGraceMs=3000] - How long to tolerate a missing published target before failing
  * @param {Object} options.puppeteer - Puppeteer module
  * @returns {Promise<Object>} - { browser, page, cdpSession, targetId, cdpUrl, extensions }
  * @throws {Error} - If connection fails or page not found
@@ -3373,7 +3392,7 @@ async function connectToPage(options = {}) {
     waitForNavigationComplete: shouldWaitForNavigationComplete = false,
     pageLoadTimeoutMs = timeoutMs,
     postLoadDelayMs = 0,
-    missingTargetGraceMs = null,
+    missingTargetGraceMs = 3000,
     puppeteer,
   } = options;
 
@@ -3415,19 +3434,12 @@ async function connectToPage(options = {}) {
   let lastError = new Error(CHROME_SESSION_REQUIRED_ERROR);
   let missingTargetKey = null;
   let missingTargetSince = 0;
-  let releaseConnectLock = null;
-  const staleTargetGraceMs =
-    missingTargetGraceMs === null || missingTargetGraceMs === undefined
-      ? timeoutMs
-      : Math.min(timeoutMs, Math.max(0, missingTargetGraceMs));
+  const staleTargetGraceMs = Math.min(
+    timeoutMs,
+    Math.max(0, missingTargetGraceMs)
+  );
 
-  try {
-    releaseConnectLock = await acquireSessionLock(
-      path.join(chromeSessionDir, ".connect.lock"),
-      Math.max(1000, timeoutMs),
-      100
-    );
-    while (Date.now() < deadline) {
+  while (Date.now() < deadline) {
     const remainingMs = Math.max(deadline - Date.now(), 0);
     const state = await waitForChromeSessionState(chromeSessionDir, {
       timeoutMs: Math.min(remainingMs, 500),
@@ -3526,11 +3538,6 @@ async function connectToPage(options = {}) {
       break;
     }
     await sleep(100);
-    }
-  } finally {
-    if (releaseConnectLock) {
-      releaseConnectLock();
-    }
   }
 
   throw lastError;
