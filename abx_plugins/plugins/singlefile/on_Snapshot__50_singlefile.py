@@ -175,8 +175,11 @@ def save_singlefile(
             file=sys.stderr,
         )
         cmd.extend(["--browser-server", cdp_remote_url])
-    elif chrome_args:
-        cmd.extend(["--browser-args", json.dumps(chrome_args)])
+    else:
+        if chrome_args:
+            cmd.extend(["--browser-args", json.dumps(chrome_args)])
+        if config.CHROME_BINARY:
+            cmd.extend(["--browser-executable-path", config.CHROME_BINARY])
 
     # SSL handling
     if not check_ssl:

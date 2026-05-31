@@ -46,6 +46,19 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function moveAcrossMounts(src, dest) {
+  try {
+    await fs.promises.rename(src, dest);
+  } catch (err) {
+    if (err && err.code === "EXDEV") {
+      await fs.promises.copyFile(src, dest);
+      await fs.promises.unlink(src);
+      return;
+    }
+    throw err;
+  }
+}
+
 function getSinglefileDownloadWaitTimeoutMs(
   config = process.env,
   elapsedMs = process.uptime() * 1000
@@ -199,7 +212,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
         console.error(
           `[singlefile] Moving download from ${best.file} -> ${out_path}`
         );
-        await fs.promises.rename(best.dl_path, out_path);
+        await moveAcrossMounts(best.dl_path, out_path);
         const out_stat = await fs.promises.stat(out_path);
         console.error(`[singlefile] Moved file size=${out_stat.size} bytes`);
         return out_path;
@@ -227,7 +240,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
         console.error(
           `[singlefile] Moving newest download from ${newest.file} -> ${out_path}`
         );
-        await fs.promises.rename(newest.dl_path, out_path);
+        await moveAcrossMounts(newest.dl_path, out_path);
         const out_stat = await fs.promises.stat(out_path);
         console.error(`[singlefile] Moved file size=${out_stat.size} bytes`);
         return out_path;
