@@ -1,0 +1,46 @@
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_c40400846d281e::t_99c1b57a0a9b83 888-890
+abx_plugins/plugins/dom/config.json
+  s_074e76a4b61abc::t_2b1d8237d07594 14
+  s_074e76a4b61abc::t_0343b3fce9b5b7 18
+abx_plugins/plugins/screenshot/config.json
+  s_074e76a4b61abc::t_2b1d8237d07594 14
+  s_074e76a4b61abc::t_0343b3fce9b5b7 18
+abx_plugins/plugins/chrome/config.json
+  s_074e76a4b61abc::t_0343b3fce9b5b7 30
+  s_074e76a4b61abc::t_2b1d8237d07594 26
+abx_plugins/plugins/puppeteer/on_BinaryRequest__12_puppeteer.py
+  s_074e76a4b61abc::t_0343b3fce9b5b7 75
+abx_plugins/plugins/pdf/config.json
+  s_074e76a4b61abc::t_2b1d8237d07594 14
+  s_074e76a4b61abc::t_0343b3fce9b5b7 18
+abx_plugins/plugins/singlefile/config.json
+  s_074e76a4b61abc::t_2b1d8237d07594 14
+  s_074e76a4b61abc::t_0343b3fce9b5b7 18
+abx_plugins/plugins/puppeteer/tests/test_puppeteer.py
+  s_074e76a4b61abc::t_0343b3fce9b5b7 68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "06834687b0e3bc7c18d1fa653d8b9cb474af9823",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_c40400846d281e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7da0-ea86-7bc2-aa93-fd8cb3384eaa",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
