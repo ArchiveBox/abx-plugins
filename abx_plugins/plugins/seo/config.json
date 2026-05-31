@@ -10,8 +10,8 @@
   "required_binaries": [
     {
       "name": "{CHROME_BINARY}",
-      "binproviders": "env,puppeteer",
-      "min_version": "150.0.0",
+      "binproviders": "env,puppeteer,playwright",
+      "min_version": "149.0.0",
       "postinstall_scripts": true
     }
   ],
