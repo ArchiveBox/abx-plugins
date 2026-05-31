@@ -911,6 +911,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
  * @param {boolean} [options.sandbox=true] - Enable Chrome sandbox
  * @param {boolean} [options.checkSsl=true] - Check SSL certificates
  * @param {boolean} [options.enableExtensionDebugging=false] - Enable CDP extension loading/debugging
+ * @param {Array<string>} [options.extensionPaths=[]] - Unpacked extension paths to load at browser startup
  * @returns {Promise<Object>} - {success, cdpUrl, pid, port, process, error}
  */
 async function launchChromium(options = {}) {
@@ -929,6 +930,7 @@ async function launchChromium(options = {}) {
       getEnvBool("CHECK_SSL_VALIDITY", true)
     ),
     enableExtensionDebugging = false,
+    extensionPaths = [],
   } = options;
   const config = loadConfig(path.join(__dirname, "config.json"));
   const maxLaunchAttempts = Math.max(
@@ -1015,7 +1017,17 @@ async function launchChromium(options = {}) {
     chromiumArgs.push("--enable-unsafe-extension-debugging");
   }
 
-  chromiumArgs.push("about:blank");
+  const startupExtensionPaths = Array.isArray(extensionPaths)
+    ? extensionPaths.filter(Boolean)
+    : [];
+  if (enableExtensionDebugging && startupExtensionPaths.length > 0) {
+    const joinedExtensionPaths = startupExtensionPaths.join(",");
+    chromiumArgs.push(`--disable-extensions-except=${joinedExtensionPaths}`);
+    chromiumArgs.push(`--load-extension=${joinedExtensionPaths}`);
+    chromiumArgs.push("--no-startup-window");
+  } else {
+    chromiumArgs.push("about:blank");
+  }
 
   // Write command script for debugging
   writeCmdScript(path.join(outputDir, "cmd.sh"), binary, chromiumArgs);
@@ -2159,11 +2171,11 @@ function findChromium() {
   const libDir = getEnv("LIB_DIR");
   if (libDir) {
     const libCandidates = [
-      path.join(libDir, "puppeteer", "bin", "chrome"),
       path.join(libDir, "puppeteer", "bin", "chromium"),
+      path.join(libDir, "puppeteer", "bin", "chrome"),
       path.join(libDir, "puppeteer", "bin", "chrome-headless-shell"),
-      path.join(libDir, "playwright", "bin", "chrome"),
       path.join(libDir, "playwright", "bin", "chromium"),
+      path.join(libDir, "playwright", "bin", "chrome"),
     ];
     for (const c of libCandidates) {
       if (validateBinary(c)) return c;
@@ -2991,11 +3003,9 @@ async function verifyStableChromiumSession(options = {}) {
   } = options;
 
   const hasExtensions = enableExtensionDebugging;
-  // Deterministic readiness signal: actively poll for "connect via CDP +
-  // browser has a usable initial page". On fast machines this succeeds on
-  // the first try (~30ms); on slow machines it retries until the
-  // CHROME_LAUNCH_STABILITY_MS budget is exhausted. No fixed sleeps — the
-  // work itself is the signal.
+  // Deterministic readiness signal: actively poll for "connect via CDP".
+  // Extension startup cannot synthesize a probe page here because extensions
+  // need to finish their pre-page-load setup before the first snapshot tab.
   const overallTimeoutMs = getEnvInt(
     "CHROME_LAUNCH_STABILITY_MS",
     hasExtensions ? 15000 : 10000
@@ -3025,12 +3035,21 @@ async function verifyStableChromiumSession(options = {}) {
       browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, {
         defaultViewport: null,
       });
-      await waitForBrowserPageReady({
-        browser,
-        timeoutMs: Math.max(1000, deadline - Date.now()),
-        requireAboutBlank: true,
-        createPageIfMissing: true,
-      });
+      if (hasExtensions) {
+        const remainingMs = Math.max(1000, deadline - Date.now());
+        await withTimeout(
+          () => browser.version(),
+          remainingMs,
+          `Timed out probing browser version after ${remainingMs}ms`
+        );
+      } else {
+        await waitForBrowserPageReady({
+          browser,
+          timeoutMs: Math.max(1000, deadline - Date.now()),
+          requireAboutBlank: true,
+          createPageIfMissing: true,
+        });
+      }
       return;
     } catch (error) {
       lastError = error;
@@ -3962,6 +3981,11 @@ async function ensureChromeSession(options = {}) {
             Object.assign(extension, existingExtension);
           }
         }
+        await loadAllExtensionsFromBrowser(
+          browser,
+          installedExtensions,
+          timeoutMs
+        );
         const unloadedExtensions = getValidInstalledExtensions(
           installedExtensions
         ).filter((ext) => !ext.id);
@@ -3972,11 +3996,6 @@ async function ensureChromeSession(options = {}) {
             timeoutMs
           );
         }
-        await loadAllExtensionsFromBrowser(
-          browser,
-          installedExtensions,
-          timeoutMs
-        );
         writeBrowserMetadata(outputDir, installedExtensions);
       } finally {
         if (browser) {
@@ -4052,7 +4071,7 @@ async function ensureChromeSession(options = {}) {
     }
     if (installedExtensions.length > 0) {
       console.error(
-        `[*] Deferring ${installedExtensions.length} extension(s) to CDP Extensions.loadUnpacked after Chrome startup`
+        `[*] Loading ${installedExtensions.length} extension(s) at Chrome startup, falling back to CDP Extensions.loadUnpacked if needed`
       );
     }
 
@@ -4061,6 +4080,7 @@ async function ensureChromeSession(options = {}) {
       outputDir,
       userDataDir,
       enableExtensionDebugging: installedExtensions.length > 0,
+      extensionPaths: getExtensionPaths(installedExtensions),
     });
     if (!result.success) {
       throw new Error(result.error || "Failed to launch Chromium");
@@ -4099,11 +4119,21 @@ async function ensureChromeSession(options = {}) {
       });
 
       if (installedExtensions.length > 0) {
-        await loadUnpackedExtensionsIntoBrowser(
+        await loadAllExtensionsFromBrowser(
           browser,
           installedExtensions,
           timeoutMs
         );
+        const unloadedExtensions = getValidInstalledExtensions(
+          installedExtensions
+        ).filter((ext) => !ext.id);
+        if (unloadedExtensions.length > 0) {
+          await loadUnpackedExtensionsIntoBrowser(
+            browser,
+            unloadedExtensions,
+            timeoutMs
+          );
+        }
       }
 
       if (downloadsDir) {

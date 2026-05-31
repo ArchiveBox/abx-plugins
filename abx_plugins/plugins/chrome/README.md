@@ -247,7 +247,7 @@ Responsibilities:
 - configure downloads over CDP
 - import cookies if configured
 - publish `cdp_url.txt` as soon as the browser endpoint is connectable
-- publish `browser.json` only after unpacked extensions have runtime metadata
+- publish `browser.json` only after unpacked extensions have loaded and runtime IDs are known
 - publish `chrome.pid` only for local sessions
 
 #### `closeBrowserInChromeSession(options)`
@@ -352,8 +352,8 @@ Core tab lifecycle helpers used by the Chrome hooks.
 1. Extension installer hooks populate the extension cache.
 2. Crawl launch hook calls `ensureChromeSession(...)`.
 3. `cdp_url.txt` is published in `CRAWL_DIR/chrome/` as soon as the browser is connectable.
-4. Browser-wide setup completes, including CDP `Extensions.loadUnpacked`.
-5. `browser.json` is published once extension runtime IDs/targets are known.
+4. Browser-wide setup completes, including launch-time extension loading and any CDP `Extensions.loadUnpacked` fallback.
+5. `browser.json` is published once extension runtime IDs are known.
 6. Crawl wait verifies a real CDP connection.
 7. Snapshot tab hook creates a target and publishes `SNAP_DIR/chrome/target_id.txt`.
 8. Snapshot wait verifies the target is live.
@@ -395,7 +395,7 @@ Chrome itself does not know about specific extension plugins.
 Extension flow:
 
 - installer hooks populate extension cache metadata
-- `ensureChromeSession(...)` loads those extensions into the active browser session with CDP `Extensions.loadUnpacked`
+- `ensureChromeSession(...)` loads those extensions at browser startup and falls back to CDP `Extensions.loadUnpacked`
 - `browser.json` publishes the browser setup metadata
 - downstream extension-aware hooks consume the published `extensions` metadata
 

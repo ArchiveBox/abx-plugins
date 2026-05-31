@@ -11,8 +11,8 @@ Tests verify:
 7. Tab cleanup on SIGTERM
 8. Chromium cleanup on crawl end
 
-NOTE: Extension tests use Chromium/Chrome-for-Testing and load unpacked
-extensions through CDP Extensions.loadUnpacked after browser startup.
+NOTE: Extension tests use Chromium/Canary and load unpacked extensions before
+snapshot tabs are created.
 """
 
 import json
@@ -2641,9 +2641,6 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
             assert extension_entry.get("unpacked_path") == cached_ext["unpacked_path"]
             assert extension_entry.get("id"), extension_entry
             assert extension_entry.get("id") != cached_ext.get("id"), extension_entry
-            assert extension_entry.get("target_url", "").endswith(
-                "/service_worker.js",
-            ), extension_entry
             assert "load_error" not in extension_entry, extension_entry
             assert (
                 wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
