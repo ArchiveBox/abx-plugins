@@ -71,6 +71,7 @@ IMAGE_URL_OCR = "https://tesseract-ocr.github.io/tessdoc/images/eurotext.png"
 # per test session.
 _liteparse_binary_path: str | None = None
 _tesseract_binary_path: str | None = None
+_imagemagick_binary_path: str | None = None
 _tessdata_dir: str | None = None
 _downloaded_cache: dict[str, bytes] = {}
 
@@ -140,6 +141,36 @@ def install_tesseract_binary() -> str:
     )
     _tesseract_binary_path = str(binary.abspath)
     return _tesseract_binary_path
+
+
+def install_imagemagick_binary() -> str:
+    """Auto-install ImageMagick via abxpkg (brew on macOS, apt on Linux).
+
+    Mirrors the ``required_binaries`` declaration in the plugin's config.json
+    so image OCR tests cover the same dependency install path used by normal
+    plugin preflight.
+    """
+    global _imagemagick_binary_path
+    if _imagemagick_binary_path and Path(_imagemagick_binary_path).is_file():
+        return _imagemagick_binary_path
+
+    from abxpkg import AptProvider, Binary, BrewProvider, EnvProvider
+
+    binary = Binary(
+        name="convert",
+        binproviders=[EnvProvider(), BrewProvider(), AptProvider()],
+        overrides={
+            "brew": {"install_args": ["imagemagick"]},
+            "apt": {"install_args": ["imagemagick"]},
+        },
+    ).install()
+    assert binary and binary.abspath, (
+        "abxpkg failed to install ImageMagick via env/brew/apt — "
+        "required_binaries auto-install must work on Linux and macOS CI "
+        "without manual setup."
+    )
+    _imagemagick_binary_path = str(binary.abspath)
+    return _imagemagick_binary_path
 
 
 def discover_tessdata_dir(tesseract_binary: str) -> str:
@@ -270,6 +301,9 @@ def _run_hook(
     env["LITEPARSE_BINARY"] = require_liteparse_binary()
     if install_tesseract:
         env["LITEPARSE_TESSERACT_BINARY"] = install_tesseract_binary()
+        imagemagick_binary = install_imagemagick_binary()
+        env["LITEPARSE_IMAGEMAGICK_BINARY"] = imagemagick_binary
+        env["PATH"] = f"{Path(imagemagick_binary).parent}:{env.get('PATH', '')}"
     if extra_env:
         env.update(extra_env)
     return subprocess.run(
@@ -300,9 +334,11 @@ def test_crawl_hook_emits_lit_binary_request_record():
 
 
 def test_verify_deps_with_install_hooks():
-    """lit v2 binary can be installed and resolved via abxpkg."""
+    """lit v2 and OCR support binaries can be installed and resolved via abxpkg."""
     binary_path = require_liteparse_binary()
     assert Path(binary_path).is_file()
+    assert Path(install_tesseract_binary()).is_file()
+    assert Path(install_imagemagick_binary()).is_file()
 
     # Confirm we actually got v2+, not legacy v1.
     result = subprocess.run(
