@@ -178,8 +178,7 @@ def test_find_chromium_binary():
 
 def test_find_chromium_uses_real_runtime_browser(real_chromium_binary: Path):
     """findChromium() should resolve a real browser from runtime-supported locations."""
-    env = get_test_env()
-    env.pop("CHROME_BINARY", None)
+    env = {**os.environ, **get_test_env(), "CHROME_BINARY": ""}
 
     returncode, stdout, stderr = _call_chrome_utils("findChromium", env=env)
 
