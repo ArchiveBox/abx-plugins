@@ -30,6 +30,13 @@ const puppeteer = resolvePuppeteerModule();
 const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
 const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || ".").trim());
+const CHROME_USER_DATA_DIR = hookConfig.CHROME_USER_DATA_DIR
+  ? path.resolve(String(hookConfig.CHROME_USER_DATA_DIR).trim())
+  : null;
+const CHROME_ARGS = Array.isArray(hookConfig.CHROME_ARGS)
+  ? hookConfig.CHROME_ARGS
+  : [];
+const CHROME_LAUNCH_ATTEMPTS = Number(hookConfig.CHROME_LAUNCH_ATTEMPTS) || 3;
 const OUTPUT_DIR = path.join(SNAP_DIR, "chrome");
 // Tag for log lines emitted by the auto-relaunch path — mirrors the
 // CrawlSetup hook's CHROME_BINARY const so messages have a consistent
@@ -125,15 +132,22 @@ async function main() {
         processIsLocal: chromeProcessIsLocal,
         cdpUrl: cdpUrlOverride,
         timeoutMs: getEnvInt("CHROME_TIMEOUT", 60) * 1000,
+        userDataDir: CHROME_USER_DATA_DIR,
+        chromeArgs: CHROME_ARGS,
+        maxLaunchAttempts: CHROME_LAUNCH_ATTEMPTS,
       });
       console.error(
-        `[+] relaunched crawl-scoped ${CHROME_BINARY} pid=${relaunched.pid || "remote"} cdp=${relaunched.cdpUrl.split("/devtools/")[0]}`
+        `[+] relaunched crawl-scoped ${CHROME_BINARY} pid=${
+          relaunched.pid || "remote"
+        } cdp=${relaunched.cdpUrl.split("/devtools/")[0]}`
       );
       releaseLock();
       releaseLock = null;
       emitArchiveResultRecord(
         "succeeded",
-        `relaunched crawl-scoped pid=${relaunched.pid || "external"} port=${relaunched.port || "?"}`
+        `relaunched crawl-scoped pid=${relaunched.pid || "external"} port=${
+          relaunched.port || "?"
+        }`
       );
       process.exit(0);
     }
@@ -146,6 +160,9 @@ async function main() {
       processIsLocal: chromeProcessIsLocal,
       cdpUrl: cdpUrlOverride,
       timeoutMs: getEnvInt("CHROME_TIMEOUT", 60) * 1000,
+      userDataDir: CHROME_USER_DATA_DIR,
+      chromeArgs: CHROME_ARGS,
+      maxLaunchAttempts: CHROME_LAUNCH_ATTEMPTS,
     });
 
     chromePid = session.pid;

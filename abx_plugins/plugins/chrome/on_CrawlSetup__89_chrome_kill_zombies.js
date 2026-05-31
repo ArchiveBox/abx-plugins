@@ -21,6 +21,9 @@ const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
 const CRAWL_DIR = path.resolve((hookConfig.CRAWL_DIR || ".").trim());
 const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || CRAWL_DIR).trim());
+const CHROME_USER_DATA_DIR = hookConfig.CHROME_USER_DATA_DIR
+  ? path.resolve(String(hookConfig.CHROME_USER_DATA_DIR).trim())
+  : null;
 const OUTPUT_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
 const START_CPU = process.cpuUsage();
 const START_TIME = process.hrtime.bigint();
@@ -44,10 +47,12 @@ function getSweepDirs() {
 
 async function main() {
   let killed = 0;
-  for (const sweepDir of getSweepDirs()) {
+  const sweepDirs = getSweepDirs();
+  for (const [index, sweepDir] of sweepDirs.entries()) {
     killed += await killZombieChrome(sweepDir, {
       excludeCrawlDirs: [CRAWL_DIR],
       quiet: true,
+      userDataDir: index === 0 ? CHROME_USER_DATA_DIR : null,
     });
   }
   const elapsedMicros = Number(process.hrtime.bigint() - START_TIME) / 1000;

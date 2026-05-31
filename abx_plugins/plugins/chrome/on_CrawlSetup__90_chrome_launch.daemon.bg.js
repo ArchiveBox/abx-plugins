@@ -46,6 +46,13 @@ const PLUGIN_NAME = "chrome_launch";
 const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
 const CRAWL_DIR = path.resolve((hookConfig.CRAWL_DIR || ".").trim());
+const CHROME_USER_DATA_DIR = hookConfig.CHROME_USER_DATA_DIR
+  ? path.resolve(String(hookConfig.CHROME_USER_DATA_DIR).trim())
+  : null;
+const CHROME_ARGS = Array.isArray(hookConfig.CHROME_ARGS)
+  ? hookConfig.CHROME_ARGS
+  : [];
+const CHROME_LAUNCH_ATTEMPTS = Number(hookConfig.CHROME_LAUNCH_ATTEMPTS) || 3;
 const OUTPUT_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
 if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -109,6 +116,7 @@ async function cleanup() {
       await killZombieChrome(CRAWL_DIR, {
         quiet: true,
         excludeCurrentRuntimeDirs: false,
+        userDataDir: CHROME_USER_DATA_DIR,
       });
       console.log(`${CHROME_BINARY} exited successfully`);
       console.log(JSON.stringify({ succeeded: true, skipped: false })); // we launched and we killed it (nothing was skipped)
@@ -187,6 +195,9 @@ async function main() {
       cdpUrl: cdpUrlOverride,
       timeoutMs: getEnvInt("CHROME_TIMEOUT", 60) * 1000,
       binary: prerequisites.binary || null,
+      userDataDir: CHROME_USER_DATA_DIR,
+      chromeArgs: CHROME_ARGS,
+      maxLaunchAttempts: CHROME_LAUNCH_ATTEMPTS,
     });
     launchInProgress = false;
 

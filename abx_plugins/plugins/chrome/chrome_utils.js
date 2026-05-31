@@ -21,7 +21,6 @@ const {
   getEnvArray,
   getNodeModulesDir: getNodeModulesDirFromBaseUtils,
   ensureNodeModuleResolution,
-  loadConfig,
   parseArgs,
   writeFileAtomic,
 } = require("../base/utils.js");
@@ -100,13 +99,18 @@ function getCrawlDir() {
 
 /**
  * Get the personas directory.
- * Returns the configured personas directory from loadConfig().
+ * Runtime hooks should pass hydrated config explicitly; this fallback only
+ * reads the immutable process environment for direct utility/CLI use.
  *
  * @returns {string} - Absolute path to personas directory
  */
 function getPersonasDir() {
-  const config = loadConfig(path.join(__dirname, "config.json"));
-  return path.resolve(config.PERSONAS_DIR);
+  return path.resolve(
+    getEnv(
+      "PERSONAS_DIR",
+      path.join(os.homedir(), ".config", "abx", "personas")
+    )
+  );
 }
 
 /**
@@ -316,6 +320,7 @@ function waitForDebugPort(port, timeout = 30000) {
  * @param {Object} [options={}] - Cleanup options
  * @param {string[]} [options.excludeCrawlDirs=[]] - Crawl directories to never treat as stale
  * @param {boolean} [options.excludeCurrentRuntimeDirs=true] - Whether to auto-skip the current CRAWL_DIR/SNAP_DIR
+ * @param {string|null} [options.userDataDir=null] - Active Chrome profile dir whose stale lock files may be cleared
  * @returns {number} - Number of zombies killed
  */
 async function killZombieChrome(snapDir = null, options = {}) {
@@ -323,6 +328,9 @@ async function killZombieChrome(snapDir = null, options = {}) {
   let killed = 0;
   const currentPid = process.pid;
   const quiet = Boolean(options.quiet);
+  const activeUserDataDir = options.userDataDir
+    ? String(options.userDataDir).trim()
+    : "";
   const excludeCurrentRuntimeDirs = options.excludeCurrentRuntimeDirs !== false;
   const excludeCrawlDirs = new Set(
     (options.excludeCrawlDirs || []).map((dir) => path.resolve(dir))
@@ -885,9 +893,9 @@ async function killZombieChrome(snapDir = null, options = {}) {
     if (!quiet) console.error("[+] No zombies found");
   }
 
-  const activeUserDataDir = loadConfig(path.join(__dirname, "config.json"))
-    .CHROME_USER_DATA_DIR;
-  cleanupChromeProfileLockFiles(activeUserDataDir, { quiet });
+  if (activeUserDataDir) {
+    cleanupChromeProfileLockFiles(path.resolve(activeUserDataDir), { quiet });
+  }
 
   return killed;
 }
@@ -913,14 +921,20 @@ async function killZombieChrome(snapDir = null, options = {}) {
  * @param {boolean} [options.checkSsl=true] - Check SSL certificates
  * @param {boolean} [options.enableExtensionDebugging=false] - Enable CDP extension loading/debugging
  * @param {Array<string>} [options.extensionPaths=[]] - Unpacked extension paths to load after launch via CDP Extensions.loadUnpacked
+ * @param {Array<string>} [options.chromeArgs=[]] - Hydrated base Chrome args from plugin config
+ * @param {number} [options.maxLaunchAttempts=3] - Hydrated launch retry count from plugin config
  * @returns {Promise<Object>} - {success, cdpUrl, pid, port, process, error}
  */
 async function launchChromium(options = {}) {
   const {
     binary = findChromium(),
     outputDir = "chrome",
-    userDataDir = loadConfig(path.join(__dirname, "config.json"))
-      .CHROME_USER_DATA_DIR,
+    userDataDir = getEnv("CHROME_USER_DATA_DIR") ||
+      path.join(
+        getPersonasDir(),
+        getEnv("ACTIVE_PERSONA", "Default"),
+        "chrome_profile"
+      ),
     resolution = getEnv("CHROME_RESOLUTION") ||
       getEnv("RESOLUTION", "1440,2000"),
     userAgent = getEnv("CHROME_USER_AGENT") || getEnv("USER_AGENT", ""),
@@ -932,12 +946,10 @@ async function launchChromium(options = {}) {
     ),
     enableExtensionDebugging = false,
     extensionPaths = [],
+    chromeArgs = getEnvArray("CHROME_ARGS", []),
+    maxLaunchAttempts = getEnvInt("CHROME_LAUNCH_ATTEMPTS", 3),
   } = options;
-  const config = loadConfig(path.join(__dirname, "config.json"));
-  const maxLaunchAttempts = Math.max(
-    1,
-    Number(config.CHROME_LAUNCH_ATTEMPTS) || 1
-  );
+  const launchAttempts = Math.max(1, Number(maxLaunchAttempts) || 1);
 
   if (!binary) {
     return { success: false, error: "Chrome binary not found" };
@@ -972,7 +984,9 @@ async function launchChromium(options = {}) {
 
   // Get base Chrome args from config (static flags from CHROME_ARGS env var)
   // These come from config.json defaults, merged by get_config() in Python
-  const baseArgs = getEnvArray("CHROME_ARGS", []);
+  const baseArgs = Array.isArray(chromeArgs)
+    ? chromeArgs
+    : getEnvArray("CHROME_ARGS", []);
 
   // Get extra user-provided args
   const extraArgs = getEnvArray("CHROME_ARGS_EXTRA", []);
@@ -1062,7 +1076,7 @@ async function launchChromium(options = {}) {
   // We intentionally do *not* retry arbitrary failures forever. Persistent
   // config issues (bad binary path, invalid flags, broken permissions, etc.)
   // should still fail deterministically on the first attempt.
-  for (let attempt = 1; attempt <= maxLaunchAttempts; attempt++) {
+  for (let attempt = 1; attempt <= launchAttempts; attempt++) {
     let chromiumProcess = null;
     let chromePid = null;
     let recentStderr = "";
@@ -1075,7 +1089,7 @@ async function launchChromium(options = {}) {
         getEnvInt("CHROME_LAUNCH_LOCK_TIMEOUT_MS", 120000)
       );
       console.error(
-        `[*] Spawning Chromium (headless=${headless}) [attempt ${attempt}/${maxLaunchAttempts}]...`
+        `[*] Spawning Chromium (headless=${headless}) [attempt ${attempt}/${launchAttempts}]...`
       );
       chromiumProcess = spawn(binary, chromiumArgs, {
         stdio: ["ignore", "pipe", "pipe"],
@@ -2142,9 +2156,8 @@ function findAnyChromiumBinary() {
  * @returns {string} - Absolute path to extensions directory
  */
 function getExtensionsDir() {
-  const config = loadConfig(path.join(__dirname, "config.json"));
   return (
-    config.CHROME_EXTENSIONS_DIR ||
+    getEnv("CHROME_EXTENSIONS_DIR") ||
     path.join(getLibDir(), "chromewebstore", "extensions")
   );
 }
@@ -2224,8 +2237,7 @@ function getTestEnv() {
     SNAP_DIR: snapDir,
     CRAWL_DIR: crawlDir,
     PERSONAS_DIR: getPersonasDir(),
-    ACTIVE_PERSONA: loadConfig(path.join(__dirname, "config.json"))
-      .ACTIVE_PERSONA,
+    ACTIVE_PERSONA: getEnv("ACTIVE_PERSONA", "Default"),
     MACHINE_TYPE: machineType,
     LIB_DIR: libDir,
     NODE_MODULES_DIR: nodeModulesDir,
@@ -3860,14 +3872,20 @@ async function ensureChromeSession(options = {}) {
       ? false
       : getEnvBool("CHROME_IS_LOCAL", true),
     cdpUrl = getEnv("CHROME_CDP_URL", ""),
-    userDataDir = loadConfig(path.join(__dirname, "config.json"))
-      .CHROME_USER_DATA_DIR,
+    userDataDir = getEnv("CHROME_USER_DATA_DIR") ||
+      path.join(
+        getPersonasDir(),
+        getEnv("ACTIVE_PERSONA", "Default"),
+        "chrome_profile"
+      ),
     downloadsDir = getEnv("CHROME_DOWNLOADS_DIR"),
     cookiesFile = getEnv("COOKIES_TXT_FILE") || getEnv("COOKIES_FILE"),
     extensionsDir = getExtensionsDir(),
     timeoutMs = getEnvInt("CHROME_TIMEOUT", 60) * 1000,
     reuseExisting = !cdpUrl,
     binary = null,
+    chromeArgs = getEnvArray("CHROME_ARGS", []),
+    maxLaunchAttempts = getEnvInt("CHROME_LAUNCH_ATTEMPTS", 3),
   } = options;
 
   if (!fs.existsSync(outputDir)) {
@@ -3991,6 +4009,8 @@ async function ensureChromeSession(options = {}) {
       userDataDir,
       enableExtensionDebugging: installedExtensions.length > 0,
       extensionPaths: getExtensionPaths(installedExtensions),
+      chromeArgs,
+      maxLaunchAttempts,
     });
     if (!result.success) {
       throw new Error(result.error || "Failed to launch Chromium");
