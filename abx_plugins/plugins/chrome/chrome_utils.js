@@ -1827,38 +1827,25 @@ async function loadUnpackedExtensionsIntoBrowser(
     for (const extension of validExtensions) {
       extension.load_error = loadError;
     }
-    console.warn(
-      `[!] Browser-level extension loading is unavailable, continuing: ${loadError}`
+    throw new Error(
+      `Extensions.loadUnpacked requires Chromium >=149.0.0 and a browser CDP session; failed to create CDP session: ${loadError}`
     );
-    return extensions;
   }
-  let loadUnpackedUnavailable = false;
 
-  for (const extension of validExtensions) {
-    if (loadUnpackedUnavailable) {
-      extension.load_error =
-        "Extensions.loadUnpacked is unavailable in this browser";
-      console.warn(
-        `[!] Skipping CDP unpacked extension load for ${
-          extension.name || extension.id
-        }: ${extension.load_error}`
-      );
-      continue;
-    }
-
-    try {
-      const { id } = await cdpSession.send("Extensions.loadUnpacked", {
-        path: extension.unpacked_path,
-      });
-      if (!id) {
-        throw new Error(
-          `Extensions.loadUnpacked did not return an id for ${extension.unpacked_path}`
-        );
-      }
-      extension.id = id;
-      delete extension.load_error;
-
+  try {
+    for (const extension of validExtensions) {
       try {
+        const { id } = await cdpSession.send("Extensions.loadUnpacked", {
+          path: extension.unpacked_path,
+        });
+        if (!id) {
+          throw new Error(
+            `Extensions.loadUnpacked did not return an id for ${extension.unpacked_path}`
+          );
+        }
+        extension.id = id;
+        delete extension.load_error;
+
         const target = await waitForExtensionTargetHandle(
           browser,
           extension.id,
@@ -1866,45 +1853,24 @@ async function loadUnpackedExtensionsIntoBrowser(
         );
         const loaded = await loadExtensionFromTarget(extensions, target);
         if (!loaded) {
-          throw new Error(
-            `Unable to attach extension target for ${extension.id}`
-          );
+          throw new Error(`Unable to attach extension target for ${extension.id}`);
         }
         delete extension.target_error;
-      } catch (targetError) {
-        extension.target_error = `${targetError.name}: ${targetError.message}`;
-        console.warn(
-          `[!] Extension ${
-            extension.name || extension.id
-          } loaded but did not expose a background target within ` +
-            `${perExtensionTimeout}ms, continuing: ${extension.target_error}`
+      } catch (error) {
+        const detail = `${error.name}: ${error.message}`;
+        extension.load_error = detail;
+        throw new Error(
+          `Failed to load Chrome extension ${
+            extension.name || extension.unpacked_path
+          } from ${extension.unpacked_path} via Extensions.loadUnpacked: ${detail}`
         );
       }
-    } catch (error) {
-      extension.load_error = `${error.name}: ${error.message}`;
-      if (
-        String(error.message || "").includes("Method not available") ||
-        String(error.message || "").includes(
-          "'Extensions.loadUnpacked' wasn't found"
-        )
-      ) {
-        loadUnpackedUnavailable = true;
-        console.warn(
-          `[!] Extensions.loadUnpacked is unavailable in this browser, skipping remaining CDP unpacked extension loads`
-        );
-        continue;
-      }
-      console.warn(
-        `[!] Failed to load extension ${
-          extension.name || extension.unpacked_path
-        }: ${extension.load_error}`
-      );
     }
+  } finally {
+    try {
+      await cdpSession.detach();
+    } catch (error) {}
   }
-
-  try {
-    await cdpSession.detach();
-  } catch (error) {}
 
   return extensions;
 }
@@ -3927,33 +3893,11 @@ async function ensureChromeSession(options = {}) {
           existingSession.state.cdpUrl,
           { defaultViewport: null }
         );
-        for (const extension of installedExtensions) {
-          const existingExtension = (
-            existingSession.state.extensions || []
-          ).find(
-            (existing) =>
-              existing?.name === extension.name ||
-              existing?.unpacked_path === extension.unpacked_path
-          );
-          if (existingExtension?.id) {
-            Object.assign(extension, existingExtension);
-          }
-        }
-        await loadAllExtensionsFromBrowser(
+        await loadUnpackedExtensionsIntoBrowser(
           browser,
           installedExtensions,
           timeoutMs
         );
-        const unloadedExtensions = getValidInstalledExtensions(
-          installedExtensions
-        ).filter((ext) => !ext.id);
-        if (unloadedExtensions.length > 0) {
-          await loadUnpackedExtensionsIntoBrowser(
-            browser,
-            unloadedExtensions,
-            timeoutMs
-          );
-        }
         writeBrowserMetadata(outputDir, installedExtensions);
       } finally {
         if (browser) {
@@ -4077,21 +4021,11 @@ async function ensureChromeSession(options = {}) {
       });
 
       if (installedExtensions.length > 0) {
-        await loadAllExtensionsFromBrowser(
+        await loadUnpackedExtensionsIntoBrowser(
           browser,
           installedExtensions,
           timeoutMs
         );
-        const unloadedExtensions = getValidInstalledExtensions(
-          installedExtensions
-        ).filter((ext) => !ext.id);
-        if (unloadedExtensions.length > 0) {
-          await loadUnpackedExtensionsIntoBrowser(
-            browser,
-            unloadedExtensions,
-            timeoutMs
-          );
-        }
       }
 
       if (downloadsDir) {
@@ -4313,7 +4247,6 @@ module.exports = {
   loadExtensionManifest,
   isTargetExtension,
   loadExtensionFromTarget,
-  loadAllExtensionsFromBrowser,
   loadUnpackedExtensionsIntoBrowser,
   waitForExtensionTargetHandle,
   // New puppeteer best-practices helpers
