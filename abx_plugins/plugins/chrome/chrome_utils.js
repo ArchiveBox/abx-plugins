@@ -887,6 +887,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
  * @param {Array<string>} [options.CHROME_ARGS=[]] - Hydrated base Chrome args from plugin config
  * @param {Array<string>} [options.CHROME_ARGS_EXTRA=[]] - Hydrated extra Chrome args from plugin config
  * @param {number} [options.CHROME_LAUNCH_ATTEMPTS=3] - Hydrated launch retry count from plugin config
+ * @param {number} [options.timeoutMs] - Hydrated Chrome operation timeout in milliseconds
  * @returns {Promise<Object>} - {success, cdpUrl, pid, port, process, error}
  */
 async function launchChromium(options = {}) {
@@ -919,6 +920,7 @@ async function launchChromium(options = {}) {
     CHROME_ARGS = getEnvArray("CHROME_ARGS", []),
     CHROME_ARGS_EXTRA = getEnvArray("CHROME_ARGS_EXTRA", []),
     CHROME_LAUNCH_ATTEMPTS = getEnvInt("CHROME_LAUNCH_ATTEMPTS", 3),
+    timeoutMs = getEnvInt("CHROME_TIMEOUT", 60) * 1000,
   } = options;
   const launchAttempts = Math.max(1, Number(CHROME_LAUNCH_ATTEMPTS) || 1);
   const userDataDir = CHROME_USER_DATA_DIR;
@@ -1148,8 +1150,9 @@ async function launchChromium(options = {}) {
         chromePid,
         cdpUrl: wsUrl,
         outputDir,
-        headless,
+        headless: CHROME_HEADLESS,
         enableExtensionDebugging,
+        timeoutMs,
       });
 
       return result;
@@ -2801,6 +2804,7 @@ async function cleanupLaunchArtifacts(outputDir, chromePid = null) {
  * @param {string} options.cdpUrl - Browser websocket endpoint
  * @param {boolean} [options.headless=true] - Whether browser is headless
  * @param {boolean} [options.enableExtensionDebugging=false] - Whether extension debugging is enabled
+ * @param {number} [options.timeoutMs] - Hydrated Chrome operation timeout in milliseconds
  * @returns {Promise<void>}
  */
 async function verifyStableChromiumSession(options = {}) {
@@ -2809,6 +2813,7 @@ async function verifyStableChromiumSession(options = {}) {
     cdpUrl,
     headless = true,
     enableExtensionDebugging = false,
+    timeoutMs = getEnvInt("CHROME_TIMEOUT", 60) * 1000,
   } = options;
 
   const hasExtensions = enableExtensionDebugging;
@@ -2817,7 +2822,7 @@ async function verifyStableChromiumSession(options = {}) {
   // need to finish their pre-page-load setup before the first snapshot tab.
   const overallTimeoutMs = getEnvInt(
     "CHROME_LAUNCH_STABILITY_MS",
-    hasExtensions ? 15000 : 10000
+    Math.max(timeoutMs, hasExtensions ? 15000 : 10000)
   );
 
   if (!chromePid || !isProcessAlive(chromePid)) {
@@ -3883,6 +3888,7 @@ async function ensureChromeSession(options = {}) {
       CHROME_ARGS,
       CHROME_ARGS_EXTRA,
       CHROME_LAUNCH_ATTEMPTS,
+      timeoutMs,
     });
     if (!result.success) {
       throw new Error(result.error || "Failed to launch Chromium");
@@ -3978,7 +3984,7 @@ async function ensureChromeSession(options = {}) {
       Date.now() +
       getEnvInt(
         "CHROME_LAUNCH_STABILITY_MS",
-        installedExtensions.length > 0 ? 15000 : 10000
+        Math.max(timeoutMs, installedExtensions.length > 0 ? 15000 : 10000)
       );
     let probedOk = false;
     let lastProbeFailure = null;
