@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
+    abxpkg_native_overrides,
     emit_archive_result_record,
     emit_installed_binary_record,
 )
@@ -64,6 +65,17 @@ def test_python_emit_installed_binary_record_merges_extra_context_from_env(
     assert record["binary_id"] == "binary-123"
     assert record["plugin_name"] == "test-plugin"
     assert record["hook_name"] == "test-hook"
+
+
+def test_abxpkg_native_overrides_omits_plugin_metadata():
+    assert abxpkg_native_overrides(
+        {
+            "pip": {
+                "install_args": ["imagesize>=2.0.0"],
+                "module_name": "imagesize",
+            },
+        },
+    ) == {"pip": {"install_args": ["imagesize>=2.0.0"]}}
 
 
 def test_js_emit_snapshot_record_merges_extra_context_from_env():

@@ -132,6 +132,7 @@ def install_required_binary_from_config(
 ):
     """Install/load a binary using one hydrated config.json required_binaries record."""
     from abxpkg import Binary, SemVer
+    from abx_plugins.plugins.base.utils import abxpkg_native_overrides
 
     record = get_hydrated_required_binary(plugin_dir, name, env=env)
     min_version = record.get("min_version")
@@ -144,7 +145,7 @@ def install_required_binary_from_config(
         min_version=SemVer(min_version) if min_version else None,
         min_release_age=record.get("min_release_age"),
         postinstall_scripts=record.get("postinstall_scripts"),
-        overrides=record.get("overrides") or {},
+        overrides=abxpkg_native_overrides(record.get("overrides")),
     ).install()
 
 
@@ -157,11 +158,12 @@ def install_binary_with_abxpkg(
 ):
     """Install/load a binary directly with abxpkg providers."""
     from abxpkg import Binary
+    from abx_plugins.plugins.base.utils import abxpkg_native_overrides
 
     binary = Binary(
         name=name,
         binproviders=_abxpkg_providers_for_env(binproviders, env=env),
-        overrides=dict(overrides or {}),
+        overrides=abxpkg_native_overrides(overrides),
     )
     try:
         return binary.load()

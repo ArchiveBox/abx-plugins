@@ -364,6 +364,49 @@ def _provider_names(binproviders: Any) -> list[str]:
     return [name for name in names if name] or ["env"]
 
 
+_ABXPKG_OVERRIDE_KEYS = {
+    "PATH",
+    "INSTALLER_BIN",
+    "euid",
+    "install_root",
+    "bin_dir",
+    "dry_run",
+    "postinstall_scripts",
+    "min_release_age",
+    "install_timeout",
+    "version_timeout",
+    "abspath",
+    "version",
+    "install_args",
+    "packages",
+    "install",
+    "update",
+    "uninstall",
+    "docs_url",
+    "search",
+}
+
+
+def abxpkg_native_overrides(overrides: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Return only provider override keys that are native abxpkg concepts."""
+    if not isinstance(overrides, Mapping):
+        return {}
+
+    native: dict[str, Any] = {}
+    for provider_name, provider_overrides in overrides.items():
+        if isinstance(provider_overrides, list):
+            native[str(provider_name)] = {"install_args": provider_overrides}
+        elif isinstance(provider_overrides, Mapping):
+            allowed = {
+                str(key): value
+                for key, value in provider_overrides.items()
+                if str(key) in _ABXPKG_OVERRIDE_KEYS
+            }
+            if allowed:
+                native[str(provider_name)] = allowed
+    return native
+
+
 def _abxpkg_provider_kwargs(
     provider_name: str,
     payload: Mapping[str, Any],
@@ -427,7 +470,7 @@ def _load_required_binary_path(
             min_version=SemVer(min_version) if min_version else None,
             min_release_age=hydrated_record.get("min_release_age"),
             postinstall_scripts=hydrated_record.get("postinstall_scripts"),
-            overrides=hydrated_record.get("overrides") or {},
+            overrides=abxpkg_native_overrides(hydrated_record.get("overrides")),
         ).load()
     except Exception:
         return None

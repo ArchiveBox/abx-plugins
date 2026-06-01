@@ -1851,8 +1851,15 @@ async function loadUnpackedExtensionsIntoBrowser(
       } catch (error) {
         const detail = `${error.name}: ${error.message}`;
         extension.target_error = detail;
-        throw new Error(
-          `Failed to attach Chrome extension ${
+        if (!extension.manifest) {
+          const manifest = loadExtensionManifest(extension.unpacked_path);
+          if (manifest) {
+            extension.manifest = manifest;
+            extension.manifest_version = manifest.manifest_version || null;
+          }
+        }
+        console.warn(
+          `[⚠️] Could not attach Chrome extension ${
             extension.name || extension.unpacked_path
           } target after Extensions.loadUnpacked returned ${
             extension.id

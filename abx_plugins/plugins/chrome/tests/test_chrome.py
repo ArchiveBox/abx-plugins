@@ -493,9 +493,25 @@ const browser = {
     assert "TargetCloseError" in payload["extensions"][1]["load_error"]
 
 
-def test_load_unpacked_extensions_hard_fails_if_extension_target_never_appears():
+def test_load_unpacked_extensions_keeps_id_if_extension_target_never_appears(tmp_path):
+    unpacked_dir = tmp_path / "first"
+    unpacked_dir.mkdir()
+    (unpacked_dir / "manifest.json").write_text(
+        json.dumps(
+            {
+                "manifest_version": 3,
+                "name": "first",
+                "version": "1.0.0",
+                "background": {"service_worker": "service_worker.js"},
+            },
+        ),
+    )
+    (unpacked_dir / "service_worker.js").write_text(
+        "chrome.runtime.onInstalled.addListener(() => {});\n",
+    )
     script = r"""
 const chromeUtils = require(process.argv[1]);
+const unpackedPath = process.argv[2];
 const browser = {
   target: () => ({
     createCDPSession: async () => ({
@@ -510,15 +526,10 @@ const browser = {
 
 (async () => {
   const extensions = [
-    { name: 'first', unpacked_path: '/tmp/first' },
+    { name: 'first', unpacked_path: unpackedPath },
   ];
-  try {
-    await chromeUtils.loadUnpackedExtensionsIntoBrowser(browser, extensions, 25);
-  } catch (error) {
-    process.stdout.write(JSON.stringify({ error: error.message, extensions }));
-    return;
-  }
-  throw new Error('expected loadUnpackedExtensionsIntoBrowser to fail');
+  await chromeUtils.loadUnpackedExtensionsIntoBrowser(browser, extensions, 25);
+  process.stdout.write(JSON.stringify({ extensions }));
 })().catch((error) => {
   console.error(error);
   process.exit(1);
@@ -526,7 +537,7 @@ const browser = {
 """
     env = get_test_env() | {"CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS": "25"}
     result = subprocess.run(
-        ["node", "-e", script, str(CHROME_UTILS)],
+        ["node", "-e", script, str(CHROME_UTILS), str(unpacked_dir)],
         capture_output=True,
         text=True,
         timeout=15,
@@ -535,8 +546,8 @@ const browser = {
 
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout.strip().splitlines()[-1])
-    assert "Failed to attach Chrome extension first target" in payload["error"]
     assert payload["extensions"][0]["id"] == "abc123"
+    assert payload["extensions"][0]["manifest"]["name"] == "first"
     assert "target_error" in payload["extensions"][0]
     assert "load_error" not in payload["extensions"][0]
 
@@ -774,7 +785,8 @@ def _isolated_test_env(tmpdir: str | Path, **updates: str) -> dict:
     xdg_config_home = home_dir / ".config"
     xdg_cache_home = home_dir / ".cache"
     xdg_data_home = home_dir / ".local" / "share"
-    chrome_extensions_dir = personas_dir / "Default" / "chrome_extensions"
+    lib_dir = tmpdir / "lib"
+    chrome_extensions_dir = lib_dir / "chromewebstore" / "extensions"
     chrome_downloads_dir = personas_dir / "Default" / "chrome_downloads"
     chrome_user_data_dir = personas_dir / "Default" / "chrome_profile"
 
@@ -796,6 +808,7 @@ def _isolated_test_env(tmpdir: str | Path, **updates: str) -> dict:
         {
             "SNAP_DIR": str(snap_dir),
             "CRAWL_DIR": str(crawl_dir),
+            "LIB_DIR": str(lib_dir),
             "PERSONAS_DIR": str(personas_dir),
             "HOME": str(home_dir),
             "XDG_CONFIG_HOME": str(xdg_config_home),
