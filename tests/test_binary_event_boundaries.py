@@ -32,8 +32,6 @@ def _iter_non_test_hook_files() -> list[Path]:
         rel_parts = path.relative_to(PLUGINS_ROOT).parts
         if "tests" in rel_parts:
             continue
-        if path.name.startswith("on_BinaryRequest__"):
-            continue
         if not path.name.startswith("on_"):
             continue
         files.append(path)
@@ -66,9 +64,22 @@ def test_non_binary_hooks_only_emit_binary_events() -> None:
                 failures.append(f"{rel}:{match.start()} matched /{pattern}/")
 
     assert not failures, (
-        "Non-on_BinaryRequest hooks must not instantiate abxpkg Binary/provider objects "
-        "or import abxpkg directly. They should emit BinaryRequest events and let the "
-        "on_BinaryRequest hooks resolve/install them:\n" + "\n".join(failures)
+        "Plugin hooks must not instantiate abxpkg Binary/provider objects "
+        "or import abxpkg directly. They should declare required_binaries in config.json "
+        "and resolve binaries through the shared plugin config helpers:\n"
+        + "\n".join(failures)
+    )
+
+
+def test_no_binary_request_provider_hooks_remain() -> None:
+    hooks = sorted(
+        path.relative_to(PLUGINS_ROOT)
+        for path in PLUGINS_ROOT.rglob("on_BinaryRequest__*")
+        if path.is_file()
+    )
+    assert not hooks, (
+        "Binary provider hook plugins should not exist; abxpkg built-in providers "
+        "handle required_binaries directly:\n" + "\n".join(str(path) for path in hooks)
     )
 
 

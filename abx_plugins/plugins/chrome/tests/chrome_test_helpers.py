@@ -68,8 +68,6 @@ from _pytest.fixtures import FixtureLookupError
 from abx_plugins.plugins.base.test_utils import (
     assert_isolated_snapshot_env,
     get_hydrated_required_binaries,
-    parse_jsonl_output,
-    parse_jsonl_records,
     run_hook as _base_run_hook,
     run_hook_and_parse as _base_run_hook_and_parse,
 )
@@ -98,8 +96,6 @@ if _CHROME_NAVIGATE_HOOK is None:
 CHROME_NAVIGATE_HOOK = _CHROME_NAVIGATE_HOOK
 CHROME_UTILS = CHROME_PLUGIN_DIR / "chrome_utils.js"
 BASE_UTILS = PLUGINS_ROOT / "base" / "utils.js"
-PUPPETEER_BINARY_HOOK = PLUGINS_ROOT / "puppeteer" / "on_BinaryRequest__12_puppeteer.py"
-NPM_BINARY_HOOK = PLUGINS_ROOT / "npm" / "on_BinaryRequest__10_npm.py"
 logger = logging.getLogger(__name__)
 
 
@@ -500,7 +496,7 @@ def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
         Path(os.environ[key]).mkdir(parents=True, exist_ok=True)
 
     env = get_test_env()
-    chrome_binary = install_chromium_with_hooks(env)
+    chrome_binary = install_chromium_with_abxpkg(env)
     if not chrome_binary:
         raise RuntimeError("Chrome not found after install")
 
@@ -935,17 +931,6 @@ def run_hook(
     )
 
 
-def apply_machine_updates(records: list[dict[str, Any]], env: dict) -> None:
-    """Apply Machine update records to env dict in-place."""
-    for record in records:
-        if record.get("type") != "Machine":
-            continue
-        config = record.get("config")
-        if not isinstance(config, dict):
-            continue
-        env.update(config)
-
-
 @contextmanager
 def _chromium_install_lock(env: dict):
     """Serialize shared Chromium/Puppeteer installs across parallel test processes."""
@@ -1011,46 +996,53 @@ def _required_binary_record(
     )
 
 
-def _ensure_puppeteer_with_hooks(env: dict, timeout: int) -> None:
-    """Install the JS ``puppeteer`` package through the plugin hook chain.
+def _ensure_puppeteer_with_abxpkg(env: dict, timeout: int) -> None:
+    """Install the JS ``puppeteer`` package through abxpkg's npm provider.
 
     The Chrome JS hooks resolve Puppeteer from the shared runtime loader even
     when a browser binary already exists on disk, so test setup must ensure the
     npm package lifecycle is complete before attempting any launch/install flow.
     """
+    from abxpkg import Binary, NpmProvider
+
     if _has_puppeteer_module(env):
         return
 
-    puppeteer_record = _required_binary_record(
-        PLUGINS_ROOT / "puppeteer",
-        "puppeteer",
-        env,
+    lib_dir = Path(
+        env.get("LIB_DIR")
+        or os.environ.get("LIB_DIR")
+        or Path.home() / ".config" / "abx" / "lib",
     )
-
-    npm_cmd = [
-        str(NPM_BINARY_HOOK),
-        "--name=puppeteer",
-        f"--binproviders={puppeteer_record.get('binproviders', '*')}",
-    ]
-    puppeteer_overrides = puppeteer_record.get("overrides")
-    if puppeteer_overrides:
-        npm_cmd.append(f"--overrides={json.dumps(puppeteer_overrides)}")
-
-    npm_result = subprocess.run(
-        npm_cmd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        env=env,
+    npm_root = lib_dir / "npm"
+    binary = Binary(
+        name="puppeteer",
+        binproviders=[
+            NpmProvider(
+                install_root=npm_root,
+                install_timeout=timeout,
+            ),
+        ],
+        postinstall_scripts=True,
     )
-    if npm_result.returncode != 0:
-        raise RuntimeError(
-            f"Npm puppeteer install failed:\nstdout: {npm_result.stdout}\nstderr: {npm_result.stderr}",
-        )
+    binary.install()
 
-    apply_machine_updates(parse_jsonl_records(npm_result.stdout), env)
-    if env.get("NODE_MODULES_DIR") and not env.get("NODE_PATH"):
-        env["NODE_PATH"] = env["NODE_MODULES_DIR"]
+    node_modules_dir = npm_root / "node_modules"
+    env.setdefault("NODE_MODULES_DIR", str(node_modules_dir))
+    env.setdefault("NODE_PATH", str(node_modules_dir))
+    npm_bin_dir = node_modules_dir / ".bin"
+    env.setdefault("NPM_BIN_DIR", str(npm_bin_dir))
+    env["PATH"] = os.pathsep.join(
+        [
+            str(npm_bin_dir),
+            *[
+                part
+                for part in env.get("PATH", os.environ.get("PATH", "")).split(
+                    os.pathsep,
+                )
+                if part
+            ],
+        ],
+    )
 
     if not _has_puppeteer_module(env):
         raise RuntimeError(
@@ -1058,24 +1050,20 @@ def _ensure_puppeteer_with_hooks(env: dict, timeout: int) -> None:
         )
 
 
-def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
-    """Install Chrome via the same hook sequence used by runtime code.
+def install_chromium_with_abxpkg(env: dict, timeout: int = 300) -> str:
+    """Install Chrome via abxpkg providers.
 
     The order matters:
     1. ensure the ``puppeteer`` JS package exists
     2. reuse an existing Chrome if one is already valid for this env
-    3. otherwise emit the Chrome BinaryRequest record and satisfy it via the Puppeteer
-       binary hook
-
-    Any Machine updates emitted by hooks are folded back into ``env`` so later
-    subprocesses inherit the resolved ``CHROME_BINARY`` / npm path settings.
+    3. otherwise install Chrome with the Puppeteer provider
 
     Returns absolute path to Chrome binary.
     """
     with _chromium_install_lock(env):
         # Always ensure JS dependency exists, even if Chrome already exists
         # on the host. chrome_launch resolves Puppeteer at runtime.
-        _ensure_puppeteer_with_hooks(env, timeout=timeout)
+        _ensure_puppeteer_with_abxpkg(env, timeout=timeout)
 
         existing = _resolve_existing_chromium(env)
         if existing:
@@ -1085,46 +1073,35 @@ def install_chromium_with_hooks(env: dict, timeout: int = 300) -> str:
         chrome_name = env.get("CHROME_BINARY") or "chromium"
         chrome_record = _required_binary_record(CHROME_PLUGIN_DIR, chrome_name, env)
 
-        chrome_cmd = [
-            str(PUPPETEER_BINARY_HOOK),
-            f"--name={chrome_record.get('name', 'chrome')}",
-            f"--binproviders={chrome_record.get('binproviders', '*')}",
-        ]
-        chrome_overrides = chrome_record.get("overrides")
-        if chrome_overrides:
-            chrome_cmd.append(f"--overrides={json.dumps(chrome_overrides)}")
+        from abxpkg import Binary, PuppeteerProvider, SemVer
 
-        result = subprocess.run(
-            chrome_cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=env,
+        lib_dir = Path(
+            env.get("LIB_DIR")
+            or os.environ.get("LIB_DIR")
+            or Path.home() / ".config" / "abx" / "lib",
         )
-        if result.returncode != 0:
-            raise RuntimeError(f"Puppeteer Chrome install failed: {result.stderr}")
+        chrome_binary = Binary(
+            name=chrome_record.get("name", "chrome"),
+            min_version=SemVer(chrome_record["min_version"])
+            if chrome_record.get("min_version")
+            else None,
+            binproviders=[
+                PuppeteerProvider(
+                    install_root=lib_dir / "puppeteer",
+                    install_timeout=timeout,
+                ),
+            ],
+            postinstall_scripts=chrome_record.get("postinstall_scripts"),
+            overrides=chrome_record.get("overrides") or {},
+        )
+        loaded_chrome = chrome_binary.install()
 
-        records = parse_jsonl_records(result.stdout)
-        chrome_record = None
-        for record in records:
-            if record.get("type") == "Binary" and record.get("name") == "chrome":
-                chrome_record = record
-                break
-        if not chrome_record:
-            chrome_record = parse_jsonl_output(
-                result.stdout,
-                record_type="Binary",
-            )
-        if not chrome_record:
-            raise RuntimeError("Chrome Binary record not found after install")
-
-        chrome_path = chrome_record.get("abspath")
-        if not isinstance(chrome_path, str) or not Path(chrome_path).exists():
+        chrome_path = str(loaded_chrome.loaded_abspath or "")
+        if not chrome_path or not Path(chrome_path).exists():
             raise RuntimeError(
                 f"Chrome binary not found after install: {chrome_path}",
             )
 
-        apply_machine_updates(records, env)
         env["CHROME_BINARY"] = chrome_path
 
         resolved = _resolve_existing_chromium(env)
@@ -1257,7 +1234,7 @@ def setup_test_env(tmpdir: Path) -> dict:
     assert_isolated_snapshot_env(env)
 
     try:
-        install_chromium_with_hooks(env)
+        install_chromium_with_abxpkg(env)
     except RuntimeError as e:
         raise RuntimeError(str(e))
     return env
@@ -1691,10 +1668,10 @@ def chrome_session(
         env.setdefault("CHROME_DEBUG_PORT_TIMEOUT_MS", str(startup_timeout * 1000))
 
         # Reuse already-provisioned Chromium when available (session fixture sets CHROME_BINARY).
-        # Falling back to hook-based install on each test is slow and can hang on flaky networks.
+        # Falling back to install on each test is slow and can hang on flaky networks.
         chrome_binary = env.get("CHROME_BINARY")
         if not chrome_binary or not Path(chrome_binary).exists():
-            chrome_binary = install_chromium_with_hooks(env)
+            chrome_binary = install_chromium_with_abxpkg(env)
             env["CHROME_BINARY"] = chrome_binary
 
         chrome_launch_process, _cdp_url = launch_chromium_session(

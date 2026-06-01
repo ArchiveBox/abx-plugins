@@ -11,7 +11,6 @@ Tests verify:
 7. Handles non-paper URLs gracefully
 """
 
-import json
 import os
 import subprocess
 import tempfile
@@ -19,12 +18,11 @@ from pathlib import Path
 import pytest
 
 from abx_plugins.plugins.base.test_utils import (
-    get_hydrated_required_binaries,
+    install_required_binary_from_config,
     parse_jsonl_output,
 )
 
 PLUGIN_DIR = Path(__file__).parent.parent
-PLUGINS_ROOT = PLUGIN_DIR.parent
 _PAPERSDL_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_papersdl.*"), None)
 if _PAPERSDL_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
@@ -49,7 +47,7 @@ def require_papersdl_binary() -> str:
 
 
 def get_papersdl_binary_path():
-    """Get the installed papers-dl binary path from cache or by running installation."""
+    """Get the installed papers-dl binary path from cache or by installing with abxpkg."""
     global _papersdl_binary_path, _papersdl_install_error, _papersdl_lib_root
     if _papersdl_binary_path and Path(_papersdl_binary_path).is_file():
         return _papersdl_binary_path
@@ -60,63 +58,14 @@ def get_papersdl_binary_path():
     env = os.environ.copy()
     env["LIB_DIR"] = str(Path(_papersdl_lib_root))
 
-    papersdl_record = next(
-        (
-            record
-            for record in get_hydrated_required_binaries(PLUGIN_DIR, env=env)
-            if record.get("name") == "papers-dl"
-        ),
-        None,
-    )
-    if not papersdl_record:
-        _papersdl_install_error = (
-            "papersdl config missing required_binaries entry for papers-dl"
-        )
-        return None
-
-    pip_hook = PLUGINS_ROOT / "pip" / "on_BinaryRequest__11_pip.py"
-    cmd = [str(pip_hook)]
-    for key, value in papersdl_record.items():
-        if value is None:
-            continue
-        option = f"--{key.replace('_', '-')}"
-        if isinstance(value, str):
-            cmd.append(f"{option}={value}")
-        else:
-            cmd.append(f"{option}={json.dumps(value)}")
-
     try:
-        install_result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=300,
-            env=env,
-        )
+        loaded = install_required_binary_from_config(PLUGIN_DIR, "papers-dl", env=env)
     except Exception as err:
-        _papersdl_install_error = f"pip hook execution failed: {err}"
+        _papersdl_install_error = f"abxpkg install failed: {err}"
         return None
 
-    for install_line in install_result.stdout.strip().split("\n"):
-        if not install_line.strip():
-            continue
-        try:
-            install_record = json.loads(install_line)
-        except json.JSONDecodeError:
-            continue
-        if (
-            install_record.get("type") == "Binary"
-            and install_record.get("name") == "papers-dl"
-        ):
-            _papersdl_binary_path = install_record.get("abspath")
-            return _papersdl_binary_path
-
-    _papersdl_install_error = (
-        f"pip hook failed with returncode={install_result.returncode}. "
-        f"stderr={install_result.stderr.strip()[:400]} "
-        f"stdout={install_result.stdout.strip()[:400]}"
-    )
-    return None
+    _papersdl_binary_path = str(loaded.loaded_abspath or "")
+    return _papersdl_binary_path or None
 
 
 def test_hook_script_exists():

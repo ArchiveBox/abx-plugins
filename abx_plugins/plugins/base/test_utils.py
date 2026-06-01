@@ -131,29 +131,84 @@ def install_required_binary_from_config(
     env: Mapping[str, str] | None = None,
 ):
     """Install/load a binary using one hydrated config.json required_binaries record."""
-    from abxpkg import Binary, DEFAULT_PROVIDER_NAMES, PROVIDER_CLASS_BY_NAME, SemVer
+    from abxpkg import Binary, SemVer
 
     record = get_hydrated_required_binary(plugin_dir, name, env=env)
-    provider_names = [
-        provider_name.strip()
-        for provider_name in str(record.get("binproviders") or "env").split(",")
-        if provider_name.strip()
-    ]
-    if provider_names == ["*"]:
-        provider_names = list(DEFAULT_PROVIDER_NAMES)
-
-    providers = [
-        PROVIDER_CLASS_BY_NAME[provider_name]() for provider_name in provider_names
-    ]
     min_version = record.get("min_version")
     return Binary(
         name=record["name"],
-        binproviders=providers,
+        binproviders=_abxpkg_providers_for_env(
+            str(record.get("binproviders") or "env"),
+            env=env,
+        ),
         min_version=SemVer(min_version) if min_version else None,
         min_release_age=record.get("min_release_age"),
         postinstall_scripts=record.get("postinstall_scripts"),
         overrides=record.get("overrides") or {},
     ).install()
+
+
+def install_binary_with_abxpkg(
+    name: str,
+    *,
+    binproviders: str = "env",
+    env: Mapping[str, str] | None = None,
+    overrides: Mapping[str, Any] | None = None,
+):
+    """Install/load a binary directly with abxpkg providers."""
+    from abxpkg import Binary
+
+    binary = Binary(
+        name=name,
+        binproviders=_abxpkg_providers_for_env(binproviders, env=env),
+        overrides=dict(overrides or {}),
+    )
+    try:
+        return binary.load()
+    except Exception:
+        return binary.install()
+
+
+def _abxpkg_providers_for_env(
+    binproviders: str,
+    *,
+    env: Mapping[str, str] | None = None,
+):
+    """Build abxpkg providers with test-scoped install/cache directories."""
+    from abxpkg import DEFAULT_PROVIDER_NAMES, PROVIDER_CLASS_BY_NAME
+
+    provider_names = [
+        provider_name.strip()
+        for provider_name in str(binproviders or "env").split(",")
+        if provider_name.strip()
+    ]
+    if provider_names == ["*"]:
+        provider_names = list(DEFAULT_PROVIDER_NAMES)
+
+    env_values = env or os.environ
+    lib_dir_value = env_values.get("LIB_DIR") or os.environ.get("LIB_DIR", "")
+    lib_dir = Path(lib_dir_value).expanduser() if lib_dir_value else None
+    extensions_dir_value = env_values.get("CHROME_EXTENSIONS_DIR") or os.environ.get(
+        "CHROME_EXTENSIONS_DIR",
+        "",
+    )
+
+    providers = []
+    for provider_name in provider_names:
+        provider_class = PROVIDER_CLASS_BY_NAME[provider_name]
+        kwargs: dict[str, Any] = {}
+        if provider_name == "chromewebstore" and extensions_dir_value:
+            extensions_dir = Path(extensions_dir_value).expanduser()
+            kwargs["bin_dir"] = extensions_dir
+            kwargs["install_root"] = (
+                lib_dir / "chromewebstore"
+                if lib_dir is not None
+                else extensions_dir.parent / "chromewebstore"
+            )
+        elif lib_dir is not None and provider_name != "env":
+            kwargs["install_root"] = lib_dir / provider_name
+        providers.append(provider_class(**kwargs))
+    return providers
 
 
 def parse_jsonl_output(

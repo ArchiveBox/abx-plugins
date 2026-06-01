@@ -4,9 +4,7 @@
   "description": "Needed by many other plugins to save high-fidelity archives within a real browser (does not save anything itself).",
   "type": "object",
   "additionalProperties": false,
-  "required_plugins": [
-    "puppeteer"
-  ],
+  "required_plugins": [],
   "required_binaries": [
     {
       "name": "{NODE_BINARY}",

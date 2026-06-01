@@ -1,6 +1,5 @@
 """Live end-to-end tests for browser selection via CHROME_BINARY."""
 
-import json
 import os
 import platform
 import signal
@@ -11,22 +10,19 @@ from pathlib import Path
 import pytest
 
 from abx_plugins.plugins.base.test_utils import (
-    get_hydrated_required_binaries,
     parse_jsonl_output,
-    parse_jsonl_records,
+)
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    install_chromium_with_abxpkg,
 )
 
 
 SCREENSHOT_PLUGIN_DIR = Path(__file__).resolve().parent.parent
 CHROME_PLUGIN_DIR = SCREENSHOT_PLUGIN_DIR.parent / "chrome"
-PUPPETEER_PLUGIN_DIR = SCREENSHOT_PLUGIN_DIR.parent / "puppeteer"
-NPM_PLUGIN_DIR = SCREENSHOT_PLUGIN_DIR.parent / "npm"
 SCREENSHOT_HOOK = next(SCREENSHOT_PLUGIN_DIR.glob("on_Snapshot__*_screenshot.*"))
 CHROME_LAUNCH_HOOK = CHROME_PLUGIN_DIR / "on_CrawlSetup__90_chrome_launch.daemon.bg.js"
 CHROME_TAB_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__10_chrome_tab.daemon.bg.js"
 CHROME_NAVIGATE_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__30_chrome_navigate.js"
-PUPPETEER_BINARY_HOOK = PUPPETEER_PLUGIN_DIR / "on_BinaryRequest__12_puppeteer.py"
-NPM_BINARY_HOOK = NPM_PLUGIN_DIR / "on_BinaryRequest__10_npm.py"
 
 
 def _machine_type() -> str:
@@ -37,36 +33,6 @@ def _machine_type() -> str:
     elif machine in ("x86_64", "amd64"):
         machine = "x86_64"
     return f"{machine}-{system}"
-
-
-def _apply_machine_updates(records: list[dict], env: dict[str, str]) -> None:
-    for record in records:
-        if record.get("type") == "Machine":
-            config = record.get("config")
-            if isinstance(config, dict):
-                env.update({str(key): str(value) for key, value in config.items()})
-            continue
-        if record.get("type") != "Binary":
-            continue
-        abspath = record.get("abspath")
-        if not isinstance(abspath, str) or not abspath:
-            continue
-        name = str(record.get("name") or "")
-        if name in {"chrome", "chromium"}:
-            env["CHROME_BINARY"] = abspath
-        elif name == "node":
-            env["NODE_BINARY"] = abspath
-        elif name == "npm":
-            env["NPM_BINARY"] = abspath
-
-
-def _required_binary_record(plugin_dir: Path, name: str, env: dict[str, str]) -> dict:
-    for record in get_hydrated_required_binaries(plugin_dir, env=env):
-        if record.get("name") == name:
-            return record
-    raise AssertionError(
-        f"{plugin_dir.name} config missing required_binaries entry for {name}",
-    )
 
 
 def _browserless_path(tmp_path: Path, browser_name: str) -> str:
@@ -174,51 +140,9 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     if hasattr(os, "geteuid") and os.geteuid() == 0:
         env["CHROME_SANDBOX"] = "false"
 
-    puppeteer_record = _required_binary_record(PUPPETEER_PLUGIN_DIR, "puppeteer", env)
-
-    npm_result = subprocess.run(
-        [
-            str(NPM_BINARY_HOOK),
-            "--name=puppeteer",
-            f"--binproviders={puppeteer_record.get('binproviders', '*')}",
-            "--overrides=" + json.dumps(puppeteer_record.get("overrides") or {}),
-        ],
-        cwd=str(root_dir),
-        capture_output=True,
-        text=True,
-        timeout=600,
-        env=env,
-    )
-    assert npm_result.returncode == 0, (
-        f"puppeteer npm install failed\nstdout:\n{npm_result.stdout}\nstderr:\n{npm_result.stderr}"
-    )
-    _apply_machine_updates(parse_jsonl_records(npm_result.stdout), env)
-
-    chrome_record = _required_binary_record(CHROME_PLUGIN_DIR, browser_name, env)
-    assert chrome_record["name"] == browser_name
-
     if existing_browser:
         env["CHROME_BINARY"] = chrome_binary
-    else:
-        browser_result = subprocess.run(
-            [
-                str(PUPPETEER_BINARY_HOOK),
-                f"--name={chrome_record['name']}",
-                f"--binproviders={chrome_record.get('binproviders', '*')}",
-                "--overrides=" + json.dumps(chrome_record.get("overrides") or {}),
-            ],
-            cwd=str(root_dir),
-            capture_output=True,
-            text=True,
-            timeout=600,
-            env=env,
-        )
-        assert browser_result.returncode == 0, (
-            f"{browser_name} install failed\nstdout:\n{browser_result.stdout}\nstderr:\n{browser_result.stderr}"
-        )
-
-        install_records = parse_jsonl_records(browser_result.stdout)
-        _apply_machine_updates(install_records, env)
+    install_chromium_with_abxpkg(env, timeout=600)
     env["CHROME_KEEPALIVE"] = "false"
     installed_browser = Path(env["CHROME_BINARY"]).resolve()
     assert installed_browser.exists(), env["CHROME_BINARY"]

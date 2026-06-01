@@ -17,7 +17,10 @@ from pathlib import Path
 import pytest
 import requests
 
-from abx_plugins.plugins.base.test_utils import parse_jsonl_records
+from abx_plugins.plugins.base.test_utils import (
+    install_required_binary_from_config,
+    parse_jsonl_records,
+)
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     chrome_session,
     setup_test_env,
@@ -30,9 +33,6 @@ PLUGIN_DIR = Path(__file__).parent.parent
 CONFIG_SCRIPT = PLUGIN_DIR / "on_CrawlSetup__95_twocaptcha_config.js"
 SNAPSHOT_HOOK = PLUGIN_DIR / "on_Snapshot__14_twocaptcha.daemon.bg.js"
 NAVIGATE_HOOK = PLUGIN_DIR.parent / "chrome" / "on_Snapshot__30_chrome_navigate.js"
-CHROMEWEBSTORE_HOOK = (
-    PLUGIN_DIR.parent / "chromewebstore" / "on_BinaryRequest__90_chromewebstore.py"
-)
 BASE_UTILS_JS = PLUGIN_DIR.parent / "base" / "utils.js"
 CHROME_UTILS_JS = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
 EXTENSION_NAME = "twocaptcha"
@@ -55,23 +55,11 @@ kill_chrome = kill_chromium_session
 
 def install_twocaptcha_extension(
     env: dict[str, str],
-) -> subprocess.CompletedProcess[str]:
-    provider_result = subprocess.run(
-        [
-            str(CHROMEWEBSTORE_HOOK),
-            f"--name={EXTENSION_NAME}",
-            "--binproviders=chromewebstore",
-            f"--overrides={json.dumps({'chromewebstore': {'install_args': [EXTENSION_WEBSTORE_ID, f'--name={EXTENSION_NAME}']}})}",
-        ],
-        env=env,
-        timeout=180,
-        capture_output=True,
-        text=True,
-    )
-    assert provider_result.returncode == 0, (
-        f"Provider install failed: {provider_result.stderr}\nstdout: {provider_result.stdout}"
-    )
-    return provider_result
+):
+    loaded = install_required_binary_from_config(PLUGIN_DIR, EXTENSION_NAME, env=env)
+    assert loaded.loaded_abspath is not None, f"abxpkg did not resolve {EXTENSION_NAME}"
+    assert loaded.loaded_abspath.exists(), loaded.loaded_abspath
+    return loaded
 
 
 def test_snapshot_hook_reports_skipped_when_disabled():
@@ -136,8 +124,7 @@ class TestTwoCaptcha:
             env["TWOCAPTCHA_API_KEY"] = self.api_key
 
             # Install
-            result = install_twocaptcha_extension(env)
-            assert result.returncode == 0, f"Install failed: {result.stderr}"
+            install_twocaptcha_extension(env)
 
             cache = Path(env["CHROME_EXTENSIONS_DIR"]) / "twocaptcha.extension.json"
             assert cache.exists()

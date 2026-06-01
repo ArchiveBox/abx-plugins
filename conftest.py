@@ -14,7 +14,6 @@ import pytest
 
 from abx_plugins.plugins.base.test_utils import (
     assert_isolated_snapshot_env,
-    parse_jsonl_records,
 )
 
 pytest_plugins = ["abx_plugins.plugins.chrome.tests.chrome_test_helpers"]
@@ -25,7 +24,6 @@ logger = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parent
 PLUGINS_ROOT = REPO_ROOT / "abx_plugins" / "plugins"
 CLAUDECODE_CONFIG = PLUGINS_ROOT / "claudecode" / "config.json"
-NPM_BINARY_HOOK = PLUGINS_ROOT / "npm" / "on_BinaryRequest__10_npm.py"
 
 existing_pythonpath = os.environ.get("PYTHONPATH", "")
 pythonpath_entries = [str(REPO_ROOT)]
@@ -167,7 +165,7 @@ def isolated_test_env(
     resolved_uv_cache.mkdir(parents=True, exist_ok=True)
 
     monkeypatch.setenv("HOME", str(home_dir))
-    # Mirror abx-dl runtime semantics: both resolve to the current run directory.
+    # Isolated plugin tests use one run directory for crawl and snapshot state.
     monkeypatch.setenv("CRAWL_DIR", str(run_dir))
     monkeypatch.setenv("SNAP_DIR", str(run_dir))
     monkeypatch.setenv("UV_CACHE_DIR", str(resolved_uv_cache))
@@ -211,14 +209,14 @@ def ensure_chrome_test_prereqs(ensure_chromium_and_puppeteer_installed):
 
 
 def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
-    """Install Chromium and Puppeteer once via hook-based install.
+    """Install Chromium and Puppeteer once via abxpkg.
 
     Overrides the default from chrome_test_helpers only to auto-disable
     the Chrome sandbox when running as root (common in containers/CI).
     """
     from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
         get_test_env,
-        install_chromium_with_hooks,
+        install_chromium_with_abxpkg,
     )
 
     if not os.environ.get("SNAP_DIR"):
@@ -235,9 +233,9 @@ def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
         os.environ.setdefault("CHROME_SANDBOX", "false")
         env.setdefault("CHROME_SANDBOX", "false")
 
-    chromium_binary = install_chromium_with_hooks(env)
+    chromium_binary = install_chromium_with_abxpkg(env)
     if not chromium_binary:
-        raise RuntimeError("Chromium not found after hook-based install")
+        raise RuntimeError("Chromium not found after abxpkg install")
 
     # Default tests to the hook-installed Puppeteer Chrome, but keep any
     # explicit runtime CHROME_BINARY override authoritative.
@@ -262,15 +260,8 @@ def ensure_claude_code_prereqs(tmp_path_factory):
     live Anthropic credentials are unavailable.
     """
 
-    def apply_machine_updates(records: list[dict], env: dict[str, str]) -> None:
-        for record in records:
-            if record.get("type") != "Machine":
-                continue
-            config = record.get("config")
-            if isinstance(config, dict):
-                env.update({str(key): str(value) for key, value in config.items()})
-
-    def install_claude_code_with_hooks() -> str:
+    def install_claude_code_with_abxpkg() -> str:
+        from abxpkg import Binary, NpmProvider, SemVer
         from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_test_env
 
         env = get_test_env()
@@ -303,59 +294,42 @@ def ensure_claude_code_prereqs(tmp_path_factory):
                     "Claude Code config did not declare a claude BinaryRequest record",
                 )
 
-            npm_cmd = [
-                str(NPM_BINARY_HOOK),
-                "--name=claude",
-                f"--binproviders={binary_record.get('binproviders', '*')}",
-            ]
             overrides = binary_record.get("overrides")
-            if overrides:
-                npm_cmd.append(f"--overrides={json.dumps(overrides)}")
-            # Forward any remaining top-level binary-record fields (e.g.
-            # ``postinstall_scripts``, ``min_release_age``) so the npm hook
-            # sees them as Binary kwargs via ``parse_extra_hook_args``.
-            _forwarded = {
-                key: value
-                for key, value in binary_record.items()
-                if key not in {"name", "binproviders", "overrides", "min_version"}
-                and value is not None
-            }
-            for key, value in _forwarded.items():
-                flag = "--" + key.replace("_", "-")
-                npm_cmd.append(
-                    f"{flag}={json.dumps(value) if not isinstance(value, str) else value}",
-                )
+            loaded = Binary(
+                name="claude",
+                binproviders=[
+                    NpmProvider(
+                        install_root=lib_dir / "npm",
+                        install_timeout=600,
+                    ),
+                ],
+                min_version=SemVer(binary_record["min_version"])
+                if binary_record.get("min_version")
+                else None,
+                min_release_age=binary_record.get("min_release_age"),
+                postinstall_scripts=binary_record.get("postinstall_scripts"),
+                overrides=overrides or {},
+            ).install()
 
-            npm_result = subprocess.run(
-                npm_cmd,
-                capture_output=True,
-                text=True,
-                timeout=600,
-                env=env,
+            node_modules_dir = lib_dir / "npm" / "node_modules"
+            env.setdefault("NODE_MODULES_DIR", str(node_modules_dir))
+            env.setdefault("NODE_PATH", str(node_modules_dir))
+            env.setdefault("NPM_BIN_DIR", str(node_modules_dir / ".bin"))
+            env["PATH"] = os.pathsep.join(
+                [
+                    str(node_modules_dir / ".bin"),
+                    *[
+                        part
+                        for part in env.get("PATH", os.environ.get("PATH", "")).split(
+                            os.pathsep,
+                        )
+                        if part
+                    ],
+                ],
             )
-            if npm_result.returncode != 0:
-                raise RuntimeError(
-                    f"Claude Code npm install failed:\nstdout: {npm_result.stdout}\nstderr: {npm_result.stderr}",
-                )
 
-            records = parse_jsonl_records(npm_result.stdout)
-            apply_machine_updates(records, env)
-
-            claude_record = next(
-                (
-                    record
-                    for record in records
-                    if record.get("type") == "Binary" and record.get("name") == "claude"
-                ),
-                None,
-            )
-            if not claude_record:
-                raise RuntimeError(
-                    "Claude Code npm install did not emit a resolved claude Binary record",
-                )
-
-            claude_bin = claude_record.get("abspath")
-            if not isinstance(claude_bin, str) or not Path(claude_bin).exists():
+            claude_bin = str(loaded.loaded_abspath or "")
+            if not claude_bin or not Path(claude_bin).exists():
                 raise RuntimeError(
                     f"Claude Code binary not found after install: {claude_bin}",
                 )
@@ -364,13 +338,13 @@ def ensure_claude_code_prereqs(tmp_path_factory):
             os.environ["CLAUDECODE_BINARY"] = claude_bin
             return claude_bin
 
-    # Check claude binary from env, otherwise install via hooks.
+    # Check claude binary from env, otherwise install via abxpkg.
     claude_bin = os.environ.get("CLAUDECODE_BINARY")
     if not claude_bin:
         try:
-            claude_bin = install_claude_code_with_hooks()
+            claude_bin = install_claude_code_with_abxpkg()
         except Exception as exc:
-            pytest.fail(f"Claude Code CLI install via hooks failed: {exc}")
+            pytest.fail(f"Claude Code CLI install via abxpkg failed: {exc}")
     elif not Path(claude_bin).exists():
         pytest.fail(f"CLAUDECODE_BINARY is set but does not exist: {claude_bin}")
 

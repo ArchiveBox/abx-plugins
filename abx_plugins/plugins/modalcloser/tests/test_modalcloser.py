@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.test_utils import install_required_binary_from_config
+from abx_plugins.plugins.base.test_utils import install_binary_with_abxpkg
 
 # Import shared Chrome test helpers
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
@@ -90,7 +90,7 @@ def test_hook_script_exists():
 
 def test_verify_deps_with_abxpkg():
     """Verify dependencies are available via abxpkg after hook installation."""
-    node_loaded = install_required_binary_from_config(PLUGIN_DIR.parent / "npm", "node")
+    node_loaded = install_binary_with_abxpkg("node", binproviders="env,apt,brew")
     assert node_loaded and node_loaded.abspath, (
         "Node.js required for modalcloser plugin"
     )

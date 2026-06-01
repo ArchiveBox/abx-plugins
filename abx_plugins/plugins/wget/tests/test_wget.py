@@ -29,21 +29,9 @@ from abx_plugins.plugins.base.test_utils import (
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
-PLUGINS_ROOT = PLUGIN_DIR.parent
 WGET_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_wget.*"))
-BREW_HOOK = next((PLUGINS_ROOT / "brew").glob("on_BinaryRequest__*_brew.py"), None)
-APT_HOOK = next((PLUGINS_ROOT / "apt").glob("on_BinaryRequest__*_apt.py"), None)
 TEST_URL = "https://example.com"
 PLUGIN_CONFIG = json.loads((PLUGIN_DIR / "config.json").read_text())
-
-
-def _provider_runtime_unavailable(proc: subprocess.CompletedProcess[str]) -> bool:
-    combined = f"{proc.stdout}\n{proc.stderr}"
-    return (
-        "BinProviderOverrides" in combined
-        or "PydanticUndefinedAnnotation" in combined
-        or "not fully defined" in combined
-    )
 
 
 def test_hook_script_exists():
@@ -114,68 +102,11 @@ def test_reports_missing_dependency_when_not_installed():
         )
 
 
-def test_can_install_wget_via_provider():
-    """Test that wget can be installed via brew/apt provider hooks."""
-
-    # Determine which provider to use
-    if shutil.which("brew"):
-        provider_hook = BREW_HOOK
-        provider_name = "brew"
-    elif shutil.which("apt-get"):
-        provider_hook = APT_HOOK
-        provider_name = "apt"
-    else:
-        pytest.fail("Neither brew nor apt-get is available on this system")
-
-    assert provider_hook and provider_hook.exists(), (
-        f"Provider hook not found: {provider_hook}"
-    )
-
-    result = subprocess.run(
-        [
-            str(provider_hook),
-            "--name",
-            "wget",
-            "--binproviders",
-            "apt,brew,env",
-        ],
-        capture_output=True,
-        text=True,
-        timeout=300,  # Installation can take time
-    )
-
-    if result.returncode != 0 and _provider_runtime_unavailable(result):
-        pytest.fail("Provider hook runtime unavailable in this environment")
-
-    # Should succeed (wget installs successfully or is already installed)
-    assert result.returncode == 0, f"{provider_name} install failed: {result.stderr}"
-
-    # Should output Binary JSONL record
-    assert "Binary" in result.stdout or "wget" in result.stderr, (
-        f"Should output installation info: stdout={result.stdout}, stderr={result.stderr}"
-    )
-
-    # Parse JSONL if present
-    if result.stdout.strip():
-        pass
-        for line in result.stdout.strip().split("\n"):
-            pass
-            try:
-                record = json.loads(line)
-                if record.get("type") == "Binary":
-                    assert record["name"] == "wget"
-                    assert record["binprovider"] in ["brew", "apt", "env"]
-                    assert record["abspath"], "Should have binary path"
-                    assert Path(record["abspath"]).exists(), (
-                        f"Binary should exist at {record['abspath']}"
-                    )
-                    break
-            except json.JSONDecodeError:
-                continue
-
-    # Verify wget is now available
-    result = subprocess.run(["which", "wget"], capture_output=True, text=True)
-    assert result.returncode == 0, "wget should be available after installation"
+def test_can_install_wget_via_abxpkg_provider():
+    """Test that wget can be resolved or installed via abxpkg providers."""
+    loaded = install_required_binary_from_config(PLUGIN_DIR, "wget")
+    assert loaded.loaded_abspath is not None, "wget should resolve after installation"
+    assert loaded.loaded_abspath.exists(), loaded.loaded_abspath
 
 
 @pytest.fixture
@@ -192,34 +123,7 @@ def local_example_url(httpserver):
 def test_archives_example_com(local_example_url):
     """Test full workflow: ensure wget installed then archive a real HTML page."""
 
-    # First ensure wget is installed via provider
-    if shutil.which("brew"):
-        provider_hook = BREW_HOOK
-    elif shutil.which("apt-get"):
-        provider_hook = APT_HOOK
-    else:
-        pytest.fail("Neither brew nor apt-get is available on this system")
-
-    assert provider_hook and provider_hook.exists(), (
-        f"Provider hook not found: {provider_hook}"
-    )
-
-    # Run installation (idempotent - will succeed if already installed)
-    install_result = subprocess.run(
-        [
-            str(provider_hook),
-            "--name",
-            "wget",
-            "--binproviders",
-            "apt,brew,env",
-        ],
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
-
-    if install_result.returncode != 0:
-        pass
+    install_required_binary_from_config(PLUGIN_DIR, "wget")
 
     # Now test archiving
     with tempfile.TemporaryDirectory() as tmpdir:

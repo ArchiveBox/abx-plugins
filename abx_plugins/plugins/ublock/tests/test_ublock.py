@@ -14,7 +14,11 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.test_utils import parse_jsonl_records
+from abxpkg import PROVIDER_CLASS_BY_NAME
+from abx_plugins.plugins.base.test_utils import (
+    install_required_binary_from_config,
+    parse_jsonl_records,
+)
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     chrome_session,
     setup_test_env,
@@ -27,9 +31,6 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
-CHROMEWEBSTORE_HOOK = (
-    PLUGIN_DIR.parent / "chromewebstore" / "on_BinaryRequest__90_chromewebstore.py"
-)
 SNAPSHOT_HOOK = PLUGIN_DIR / "on_Snapshot__12_ublock.daemon.bg.js"
 NAVIGATE_HOOK = PLUGIN_DIR.parent / "chrome" / "on_Snapshot__30_chrome_navigate.js"
 BASE_UTILS_JS = PLUGIN_DIR.parent / "base" / "utils.js"
@@ -39,29 +40,15 @@ EXTENSION_NAME = "ublock"
 EXTENSION_WEBSTORE_ID = "ddkjiahejlhfcafbddmgiahcphecmpfh"
 
 
-def install_ublock_extension(env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    provider_result = subprocess.run(
-        [
-            str(CHROMEWEBSTORE_HOOK),
-            f"--name={EXTENSION_NAME}",
-            "--binproviders=chromewebstore",
-            f"--overrides={json.dumps({'chromewebstore': {'install_args': [EXTENSION_WEBSTORE_ID, f'--name={EXTENSION_NAME}']}})}",
-        ],
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=180,
-    )
-    assert provider_result.returncode == 0, (
-        f"Provider install failed: {provider_result.stderr}\nstdout: {provider_result.stdout}"
-    )
-    return provider_result
+def install_ublock_extension(env: dict[str, str]):
+    loaded = install_required_binary_from_config(PLUGIN_DIR, EXTENSION_NAME, env=env)
+    assert loaded.loaded_abspath is not None, "abxpkg did not resolve ublock"
+    assert loaded.loaded_abspath.exists(), loaded.loaded_abspath
+    return loaded
 
 
-def test_chromewebstore_provider_exists():
-    assert CHROMEWEBSTORE_HOOK.exists(), (
-        f"Provider hook not found: {CHROMEWEBSTORE_HOOK}"
-    )
+def test_chromewebstore_provider_available():
+    assert "chromewebstore" in PROVIDER_CLASS_BY_NAME
 
 
 def test_extension_metadata():
@@ -78,10 +65,9 @@ def test_install_creates_cache():
         env = os.environ.copy()
         env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
 
-        result = install_ublock_extension(env)
-
-        # Check output mentions installation
-        assert "Resolved extension ublock" in result.stderr or "ublock" in result.stdout
+        loaded = install_ublock_extension(env)
+        assert loaded.loaded_binprovider is not None
+        assert loaded.loaded_binprovider.name == "chromewebstore"
 
         # Check cache file was created
         cache_file = ext_dir / "ublock.extension.json"
@@ -111,13 +97,7 @@ def test_install_twice_uses_cache():
 
         # Second install - should use cache and be faster
         provider2 = install_ublock_extension(env)
-
-        # Second run should mention cache reuse
-        assert (
-            "already installed" in provider2.stderr.lower()
-            or "cache" in provider2.stderr.lower()
-            or provider2.returncode == 0
-        )
+        assert provider2.loaded_abspath is not None
 
 
 def test_no_configuration_required():
@@ -130,14 +110,8 @@ def test_no_configuration_required():
         env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
         # No API keys needed - works with default filter lists
 
-        install_result = install_ublock_extension(env)
-        assert install_result.returncode == 0, (
-            f"Install failed: {install_result.stderr}"
-        )
-
-        # Should not require any API keys
-        combined_output = install_result.stdout + install_result.stderr
-        assert "API" not in combined_output or install_result.returncode == 0
+        loaded = install_ublock_extension(env)
+        assert loaded.loaded_abspath is not None
 
 
 def test_large_extension_size():
@@ -149,8 +123,7 @@ def test_large_extension_size():
         env = os.environ.copy()
         env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
 
-        result = install_ublock_extension(env)
-        assert result.returncode == 0, f"Install failed: {result.stderr}"
+        install_ublock_extension(env)
 
         crx_file = ext_dir / "ddkjiahejlhfcafbddmgiahcphecmpfh__ublock.crx"
         if crx_file.exists():
@@ -250,8 +223,7 @@ def test_snapshot_hook_reports_live_blocking_counts(chrome_test_urls):
         tmpdir = Path(tmpdir)
         install_env = setup_test_env(tmpdir)
         install_env["CHROME_HEADLESS"] = "true"
-        install_result = install_ublock_extension(install_env)
-        assert install_result.returncode == 0, install_result.stderr
+        install_ublock_extension(install_env)
 
         with chrome_session(
             tmpdir,
@@ -487,9 +459,8 @@ def test_extension_loads_in_chromium():
 
         # Step 1: Install the uBlock extension
         print("[test] Installing uBlock extension...", flush=True)
-        result = install_ublock_extension(env)
-        print(f"[test] Extension install rc={result.returncode}", flush=True)
-        assert result.returncode == 0, f"Extension install failed: {result.stderr}"
+        loaded = install_ublock_extension(env)
+        print(f"[test] Extension installed at {loaded.loaded_abspath}", flush=True)
 
         # Verify extension cache was created
         cache_file = ext_dir / "ublock.extension.json"
@@ -671,8 +642,7 @@ def test_blocks_ads_on_canyoublockit_extreme():
 
         ext_dir = Path(env_base["CHROME_EXTENSIONS_DIR"])
 
-        result = install_ublock_extension(env_base)
-        assert result.returncode == 0, f"Extension install failed: {result.stderr}"
+        install_ublock_extension(env_base)
 
         cache_file = ext_dir / "ublock.extension.json"
         assert cache_file.exists(), "Extension cache not created"

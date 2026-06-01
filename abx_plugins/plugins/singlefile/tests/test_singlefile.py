@@ -19,10 +19,10 @@ from pathlib import Path
 import pytest
 
 from abx_plugins.plugins.base.test_utils import (
-    get_hydrated_required_binaries,
     get_hook_script,
     get_plugin_dir,
     install_required_binary_from_config,
+    install_binary_with_abxpkg,
     parse_jsonl_output,
 )
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
@@ -42,9 +42,6 @@ SNAPSHOT_HOOK = _SNAPSHOT_HOOK
 SINGLEFILE_HELPER = PLUGIN_DIR / "singlefile_extension_save.js"
 BASE_UTILS = PLUGIN_DIR.parent / "base" / "utils.js"
 CHROME_UTILS = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
-CHROMEWEBSTORE_HOOK = (
-    PLUGIN_DIR.parent / "chromewebstore" / "on_BinaryRequest__90_chromewebstore.py"
-)
 TEST_URL = "https://example.com"
 
 # Module-level cache for extension install location
@@ -99,25 +96,13 @@ def ensure_singlefile_extension_installed() -> dict[str, Path]:
         },
     )
 
-    required_binaries = get_hydrated_required_binaries(PLUGIN_DIR, env=env_install)
-    extension_request = next(
-        binary for binary in required_binaries if binary.get("name") == "singlefile"
-    )
-
-    provider_result = subprocess.run(
-        [
-            str(CHROMEWEBSTORE_HOOK),
-            "--name=singlefile",
-            "--binproviders=chromewebstore",
-            f"--overrides={json.dumps(extension_request.get('overrides', {}))}",
-        ],
-        capture_output=True,
-        text=True,
+    loaded = install_required_binary_from_config(
+        PLUGIN_DIR,
+        "singlefile",
         env=env_install,
-        timeout=180,
     )
-    assert provider_result.returncode == 0, (
-        f"SingleFile extension provider hook failed: {provider_result.stderr}\nstdout: {provider_result.stdout}"
+    assert loaded.loaded_abspath is not None, (
+        "abxpkg did not resolve SingleFile extension"
     )
 
     cache_file = extensions_dir / "singlefile.extension.json"
@@ -187,7 +172,7 @@ process.stdout.write(JSON.stringify({{ freshBudget, elapsedBudget, minimumBudget
 
 def test_verify_deps_with_abxpkg():
     """Verify dependencies are available via abxpkg."""
-    node_loaded = install_required_binary_from_config(PLUGIN_DIR.parent / "npm", "node")
+    node_loaded = install_binary_with_abxpkg("node", binproviders="env,apt,brew")
     assert node_loaded and node_loaded.abspath, "Node.js required for singlefile plugin"
     state = ensure_singlefile_extension_installed()
     assert state["cache_file"].exists(), (
@@ -220,24 +205,13 @@ def test_singlefile_cli_archives_example_com():
             },
         )
 
-        required_binaries = get_hydrated_required_binaries(PLUGIN_DIR, env=env_install)
-        extension_request = next(
-            binary for binary in required_binaries if binary.get("name") == "singlefile"
-        )
-        provider_result = subprocess.run(
-            [
-                str(CHROMEWEBSTORE_HOOK),
-                "--name=singlefile",
-                "--binproviders=chromewebstore",
-                f"--overrides={json.dumps(extension_request.get('overrides', {}))}",
-            ],
-            capture_output=True,
-            text=True,
+        loaded = install_required_binary_from_config(
+            PLUGIN_DIR,
+            "singlefile",
             env=env_install,
-            timeout=180,
         )
-        assert provider_result.returncode == 0, (
-            f"SingleFile extension provider hook failed: {provider_result.stderr}\nstdout: {provider_result.stdout}"
+        assert loaded.loaded_abspath is not None, (
+            "abxpkg did not resolve SingleFile extension"
         )
 
         old_env = os.environ.copy()
@@ -400,24 +374,13 @@ def test_singlefile_with_extension_uses_existing_chrome():
         )
 
         # Install SingleFile extension cache before launching Chrome
-        required_binaries = get_hydrated_required_binaries(PLUGIN_DIR, env=env_install)
-        extension_request = next(
-            binary for binary in required_binaries if binary.get("name") == "singlefile"
-        )
-        provider_result = subprocess.run(
-            [
-                str(CHROMEWEBSTORE_HOOK),
-                "--name=singlefile",
-                "--binproviders=chromewebstore",
-                f"--overrides={json.dumps(extension_request.get('overrides', {}))}",
-            ],
-            capture_output=True,
-            text=True,
+        loaded = install_required_binary_from_config(
+            PLUGIN_DIR,
+            "singlefile",
             env=env_install,
-            timeout=180,
         )
-        assert provider_result.returncode == 0, (
-            f"SingleFile extension provider hook failed: {provider_result.stderr}\nstdout: {provider_result.stdout}"
+        assert loaded.loaded_abspath is not None, (
+            "abxpkg did not resolve SingleFile extension"
         )
 
         # Launch Chrome session with extensions loaded

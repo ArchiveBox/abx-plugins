@@ -7,7 +7,6 @@ Tests verify:
 3. Extraction runs with real trafilatura binary on local HTML sourced from pytest-httpserver
 """
 
-import json
 import os
 import shutil
 import subprocess
@@ -21,11 +20,11 @@ from abx_plugins.plugins.base.test_utils import (
     get_hydrated_required_binaries,
     get_hook_script,
     get_plugin_dir,
+    install_binary_with_abxpkg,
     parse_jsonl_output,
 )
 
 PLUGIN_DIR = get_plugin_dir(__file__)
-PLUGINS_ROOT = PLUGIN_DIR.parent
 _TRAFILATURA_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__[0-9]*_trafilatura.*")
 if _TRAFILATURA_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
@@ -33,7 +32,6 @@ TRAFILATURA_HOOK = _TRAFILATURA_HOOK
 TEST_URL = "https://example.com"
 
 _trafilatura_binary_path = None
-_trafilatura_lib_root = None
 
 
 def _script_cmd(script: Path) -> list[str]:
@@ -43,61 +41,20 @@ def _script_cmd(script: Path) -> list[str]:
 
 
 def get_trafilatura_binary_path() -> str | None:
-    """Install trafilatura using real plugin hooks and return installed binary path."""
+    """Install trafilatura using abxpkg and return installed binary path."""
     global _trafilatura_binary_path
     if _trafilatura_binary_path and Path(_trafilatura_binary_path).is_file():
         return _trafilatura_binary_path
 
-    pip_hook = PLUGINS_ROOT / "pip" / "on_BinaryRequest__11_pip.py"
-    if not pip_hook.exists():
-        return None
-
-    binproviders = "*"
-    overrides = None
-
+    binproviders = "pip,env"
     for record in get_hydrated_required_binaries(PLUGIN_DIR):
         if record.get("name") == "trafilatura":
-            binproviders = record.get("binproviders", "*")
-            overrides = record.get("overrides")
+            binproviders = record.get("binproviders", binproviders)
             break
 
-    global _trafilatura_lib_root
-    if not _trafilatura_lib_root:
-        _trafilatura_lib_root = tempfile.mkdtemp(prefix="trafilatura-lib-")
-
-    env = os.environ.copy()
-    env["LIB_DIR"] = str(Path(_trafilatura_lib_root) / "lib")
-    env["SNAP_DIR"] = str(Path(_trafilatura_lib_root) / "data")
-    env["CRAWL_DIR"] = str(Path(_trafilatura_lib_root) / "crawl")
-
-    cmd = [
-        *_script_cmd(pip_hook),
-        "--name",
-        "trafilatura",
-        f"--binproviders={binproviders}",
-    ]
-    if overrides:
-        cmd.append(f"--overrides={json.dumps(overrides)}")
-
-    install_result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=300,
-        env=env,
-    )
-    for line in install_result.stdout.strip().split("\n"):
-        if not line.strip().startswith("{"):
-            continue
-        try:
-            record = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if record.get("type") == "Binary" and record.get("name") == "trafilatura":
-            _trafilatura_binary_path = record.get("abspath")
-            return _trafilatura_binary_path
-
-    return None
+    loaded = install_binary_with_abxpkg("trafilatura", binproviders=binproviders)
+    _trafilatura_binary_path = str(loaded.loaded_abspath or "")
+    return _trafilatura_binary_path or None
 
 
 def require_trafilatura_binary() -> str:

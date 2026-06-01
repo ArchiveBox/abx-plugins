@@ -153,9 +153,9 @@ async function openAwpHelperTab(browser, extensionId) {
  * Resolve the chrome session/plugin dir candidates for the running hook by
  * walking up from process.cwd() (which the runner sets to the plugin output
  * dir). The chrome plugin convention is that its snapshot session markers live
- * at SNAP_DIR/chrome. We also probe SNAP_DIR/chrome/chrome because abx-dl's
- * --dir=. mode (where SNAP_DIR env is the literal ".") causes the chrome
- * plugin to nest its session one level deeper.
+ * at SNAP_DIR/chrome. We also probe SNAP_DIR/chrome/chrome for standalone
+ * runs where SNAP_DIR env is the literal "." and the chrome plugin nests its
+ * session one level deeper.
  */
 function resolveChromeDirs(cwd, crawlDirEnv) {
   const outputDir = path.resolve(cwd);

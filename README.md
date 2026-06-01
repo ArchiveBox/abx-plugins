@@ -6,7 +6,10 @@
 
 ArchiveBox-compatible plugin suite (hooks and config schemas).
 
-This package contains only the plugins, to run them use [`abx-dl`](https://github.com/archiveBox/abx-dl) or [`archivebox`](https://github.com/archiveBox/ArchiveBox).
+This package contains standalone plugin hook scripts and config schemas. A hook
+can be run directly as a CLI; runners such as [`abx-dl`](https://github.com/archiveBox/abx-dl)
+and [`archivebox`](https://github.com/archiveBox/ArchiveBox) add orchestration,
+environment setup, and cache projection around the same scripts.
 
 <img width="1000" height="1082" alt="Screenshot 2026-03-11 at 6 53 03 AM" src="https://github.com/user-attachments/assets/08c5f63b-05e2-4947-adca-f64e8c5ad8b3" />
 
@@ -23,7 +26,6 @@ Each plugin lives under `plugins/<name>/` and may include:
 
 - `config.json` config schema
 - `config.json > required_binaries` binary dependency declarations (optional)
-- `on_BinaryRequest__...` binary provider hooks (optional) - resolve/install one requested binary and emit `Binary`
 - `on_CrawlSetup__...` crawl setup hook scripts (optional) - shared setup/process startup, emit no stdout JSONL records
 - `on_Snapshot__...` per-snapshot hooks - emit `ArchiveResult` and may also emit `Snapshot` / `Tag`
 
@@ -48,8 +50,8 @@ Hooks run with:
 Lifecycle:
 
 1. `config.json > required_binaries` declares plugin dependencies.
-2. During the orchestrator install phase, those declarations are turned into `BinaryRequest` events.
-3. `on_BinaryRequest__*` provider hooks resolve/install one requested binary and emit `Binary` records.
+2. Hook config helpers hydrate `*_BINARY` values from env, known local paths, and abxpkg provider state so hooks can run as standalone CLIs.
+3. Runners may perform an install preflight from the same declarations. `abx-dl` and ArchiveBox use abxpkg services/cache backends to prepare env/DB state, but hooks must not depend on those services being active.
 
 `config.json` declaration:
 
@@ -68,41 +70,29 @@ Lifecycle:
 ]
 ```
 
-`on_BinaryRequest` input/output:
-
-- CLI input should accept `--binary-id`, `--machine-id`, `--name` (plus optional provider args).
-- Output should emit exactly one `Binary` fact like:
+Runners may project resolved binary metadata internally as `BinaryEvent` records shaped like:
 
 ```json
 {"type":"Binary","name":"yt-dlp","abspath":"/abs/path","version":"2025.01.01","sha256":"<optional>","binprovider":"pip","machine_id":"<recommended>","binary_id":"<recommended>"}
 ```
 
-Semantics:
-
-- `stdout`: JSONL records only
-- `stderr`: human logs/debug
-- exit `0`: success or intentional skip
-- exit non-zero: hard failure
-
 Notes:
 
-- Install resolution is orchestrator-managed preflight work driven directly from `config.json > required_binaries`.
-- Only binprovider plugins should implement `on_BinaryRequest__*`.
-- `on_BinaryRequest__*` hooks emit `Binary` records only.
-- `on_BinaryRequest__*` hooks do not emit `Machine`, `Process`, `ArchiveResult`, `Snapshot`, or `Tag` records.
+- Install resolution is optional runtime preflight work driven directly from `config.json > required_binaries`.
+- Binary provider plugins are no longer part of this package; binary provider behavior lives in `abxpkg`.
 - Standalone `abx-dl` stores derived binary cache entries in `derived.env`; ArchiveBox stores the equivalent cache in DB `machine_binary` rows. Plugins should stay unaware of both storage layers.
 
 State/OS:
 
 - working dir: `CRAWL_DIR/<plugin>/`
 - durable install root: `LIB_DIR` (e.g. npm prefix, pip venv, puppeteer cache)
-- providers: `apt` (Debian/Ubuntu), `brew` (macOS/Linux), many hooks currently assume POSIX paths
+- built-in providers include `apt` (Debian/Ubuntu), `brew` (macOS/Linux), and language/runtime-specific installers; many hooks currently assume POSIX paths
 
 ### Hook family contract
 
 Lifecycle:
 
-- `on_BinaryRequest__*` runs during install preflight and emits `Binary` records only
+- optional binary preflight can run before crawl setup, but hook scripts also resolve declared binaries through shared config helpers when run directly
 - `on_CrawlSetup__*` runs before snapshot extraction and emits no stdout JSONL records
 - `on_Snapshot__*` runs once per snapshot and may emit `ArchiveResult`, `Snapshot`, and `Tag` records only
 
@@ -142,14 +132,12 @@ The `base/` plugin provides shared Python and JS helpers that all other plugins 
 from abx_plugins.plugins.base.utils import (
     load_config,
     emit_archive_result_record,
-    emit_installed_binary_record,
     emit_snapshot_record,
 )
 ```
 
 - `load_config()` — load plugin `config.json` via jambo with env var + alias + fallback resolution, merged with shared base/common runtime vars like `SNAP_DIR`, `CRAWL_DIR`, `LIB_DIR`, `PERSONAS_DIR`, `EXTRA_CONTEXT`, `TIMEOUT`, and `USER_AGENT`
 - `emit_archive_result_record(status, output_str)` — print `{"type":"ArchiveResult",...}` JSONL to stdout
-- `emit_installed_binary_record(name, abspath, version, ...)` — emit `Binary` JSONL record
 - `emit_snapshot_record(record)` — emit `{"type":"Snapshot",...}` JSONL to stdout
 - `write_text_atomic(path, content)` — write file atomically (temp + rename)
 - `find_html_source(snap_dir, ...)` — locate HTML from sibling plugins
@@ -196,8 +184,7 @@ from base.test_utils import parse_jsonl_output, run_hook, get_hook_script
 
 Hooks emit plain JSONL records to stdout. The current hook families and records are:
 
-- `on_BinaryRequest__*` → `Binary`
 - `on_CrawlSetup__*` → no stdout JSONL records
 - `on_Snapshot__*` → `ArchiveResult`, `Snapshot`, `Tag`
 
-`abx-dl` and ArchiveBox map those records into their own internal event systems. Plugins do not need to know or emit any bus envelope format.
+`abx-dl` and ArchiveBox map those records into their own internal event systems. Binary request events are produced from plugin config and handled by `abxpkg`, not by plugin hook scripts. Plugins do not need to know or emit any bus envelope format.

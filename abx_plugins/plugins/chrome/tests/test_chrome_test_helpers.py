@@ -26,7 +26,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_node_modules_dir,
     get_extensions_dir,
     find_chromium_binary,
-    install_chromium_with_hooks,
+    install_chromium_with_abxpkg,
     setup_test_env,
 )
 
@@ -482,7 +482,7 @@ def test_lib_dir_is_directory():
                 os.environ.pop("HOME", None)
 
 
-def test_install_chromium_with_hooks_reuses_existing_chrome_via_env(
+def test_install_chromium_with_abxpkg_reuses_existing_chrome_via_env(
     tmp_path: Path,
     real_chromium_binary: Path,
 ):
@@ -494,7 +494,7 @@ def test_install_chromium_with_hooks_reuses_existing_chrome_via_env(
             "LIB_DIR": str(tmp_path / "lib"),
         },
     )
-    resolved = install_chromium_with_hooks(env, timeout=120)
+    resolved = install_chromium_with_abxpkg(env, timeout=120)
 
     assert resolved == str(real_chromium_binary)
     assert env["CHROME_BINARY"] == str(real_chromium_binary)

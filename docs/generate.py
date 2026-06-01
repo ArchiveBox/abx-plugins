@@ -27,7 +27,7 @@ LANGUAGE_NAMES = {
     "py": "Python",
     "sh": "Shell",
 }
-HOOK_PHASES = ("Crawl", "Snapshot", "Binary")
+HOOK_PHASES = ("Crawl", "Snapshot")
 
 
 def github_tree_url(relative_path: str) -> str:
@@ -288,7 +288,6 @@ def collect_hooks(plugin_dir: Path) -> list[dict[str, Any]]:
             (
                 "on_CrawlSetup__",
                 "on_Snapshot__",
-                "on_BinaryRequest__",
             ),
         ):
             continue
@@ -329,7 +328,7 @@ def build_commands(
     config_fields: list[dict[str, Any]],
 ) -> dict[str, str]:
     has_snapshot = any(hook["phase"] == "Snapshot" for hook in hooks)
-    has_setup = any(hook["phase"] in {"CrawlSetup", "BinaryRequest"} for hook in hooks)
+    has_setup = any(hook["phase"] == "CrawlSetup" for hook in hooks)
     enable_key = next(
         (field["key"] for field in config_fields if field["key"].endswith("_ENABLED")),
         None,
@@ -391,14 +390,11 @@ def plugin_sort_metadata(
 ) -> tuple[int, int | float, str, int | None]:
     snapshot_order = highest_hook_order_for_phase(hooks, "Snapshot")
     crawl_order = highest_hook_order_for_phase(hooks, "Crawl")
-    binary_order = highest_hook_order_for_phase(hooks, "Binary")
 
     if snapshot_order is not None:
         return (0, snapshot_order, "Snapshot", snapshot_order)
     if crawl_order is not None:
         return (1, crawl_order, "Crawl", crawl_order)
-    if binary_order is not None:
-        return (2, binary_order, "Binary", binary_order)
     return (3, float("inf"), "", None)
 
 

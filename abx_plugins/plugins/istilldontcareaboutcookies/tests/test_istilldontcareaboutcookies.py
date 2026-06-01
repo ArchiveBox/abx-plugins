@@ -14,7 +14,11 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.test_utils import parse_jsonl_records
+from abxpkg import PROVIDER_CLASS_BY_NAME
+from abx_plugins.plugins.base.test_utils import (
+    install_required_binary_from_config,
+    parse_jsonl_records,
+)
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     chrome_session,
     setup_test_env,
@@ -27,9 +31,6 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
-CHROMEWEBSTORE_HOOK = (
-    PLUGIN_DIR.parent / "chromewebstore" / "on_BinaryRequest__90_chromewebstore.py"
-)
 SNAPSHOT_HOOK = PLUGIN_DIR / "on_Snapshot__13_istilldontcareaboutcookies.daemon.bg.js"
 NAVIGATE_HOOK = PLUGIN_DIR.parent / "chrome" / "on_Snapshot__30_chrome_navigate.js"
 BASE_UTILS_JS = PLUGIN_DIR.parent / "base" / "utils.js"
@@ -41,29 +42,15 @@ EXTENSION_WEBSTORE_ID = "edibdbjcniadpccecjdfdjjppcpchdlm"
 
 def install_cookie_extension(
     env: dict[str, str],
-) -> subprocess.CompletedProcess[str]:
-    provider_result = subprocess.run(
-        [
-            str(CHROMEWEBSTORE_HOOK),
-            f"--name={EXTENSION_NAME}",
-            "--binproviders=chromewebstore",
-            f"--overrides={json.dumps({'chromewebstore': {'install_args': [EXTENSION_WEBSTORE_ID, f'--name={EXTENSION_NAME}']}})}",
-        ],
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=180,
-    )
-    assert provider_result.returncode == 0, (
-        f"Provider install failed: {provider_result.stderr}\nstdout: {provider_result.stdout}"
-    )
-    return provider_result
+):
+    loaded = install_required_binary_from_config(PLUGIN_DIR, EXTENSION_NAME, env=env)
+    assert loaded.loaded_abspath is not None, f"abxpkg did not resolve {EXTENSION_NAME}"
+    assert loaded.loaded_abspath.exists(), loaded.loaded_abspath
+    return loaded
 
 
-def test_chromewebstore_provider_exists():
-    assert CHROMEWEBSTORE_HOOK.exists(), (
-        f"Provider hook not found: {CHROMEWEBSTORE_HOOK}"
-    )
+def test_chromewebstore_provider_available():
+    assert "chromewebstore" in PROVIDER_CLASS_BY_NAME
 
 
 def test_extension_metadata():
@@ -80,13 +67,9 @@ def test_install_creates_cache():
         env = os.environ.copy()
         env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
 
-        result = install_cookie_extension(env)
-
-        # Check output mentions installation
-        assert (
-            "Resolved extension istilldontcareaboutcookies" in result.stderr
-            or "istilldontcareaboutcookies" in result.stdout
-        )
+        loaded = install_cookie_extension(env)
+        assert loaded.loaded_binprovider is not None
+        assert loaded.loaded_binprovider.name == "chromewebstore"
 
         # Check cache file was created
         cache_file = ext_dir / "istilldontcareaboutcookies.extension.json"
@@ -116,10 +99,8 @@ def test_install_uses_existing_cache():
         env = os.environ.copy()
         env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
 
-        result = install_cookie_extension(env)
-
-        # Should use cache or install successfully
-        assert result.returncode == 0
+        loaded = install_cookie_extension(env)
+        assert loaded.loaded_abspath is not None
 
 
 def test_no_configuration_required():
@@ -132,10 +113,8 @@ def test_no_configuration_required():
         env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
         # No special env vars needed - works out of the box
 
-        result = install_cookie_extension(env)
-
-        # Should not require any API keys or configuration
-        assert "API" not in (result.stdout + result.stderr) or result.returncode == 0
+        loaded = install_cookie_extension(env)
+        assert loaded.loaded_abspath is not None
 
 
 def test_snapshot_hook_reports_skipped_when_disabled():
@@ -254,8 +233,7 @@ def test_extension_loads_in_chromium():
         ext_dir = Path(env["CHROME_EXTENSIONS_DIR"])
 
         # Step 1: Install the extension
-        result = install_cookie_extension(env)
-        assert result.returncode == 0, f"Extension install failed: {result.stderr}"
+        install_cookie_extension(env)
 
         # Verify extension cache was created
         cache_file = ext_dir / "istilldontcareaboutcookies.extension.json"
@@ -535,8 +513,7 @@ def test_snapshot_hook_reports_hidden_cookie_popups(httpserver):
         tmpdir = Path(tmpdir)
         install_env = setup_test_env(tmpdir)
         install_env["CHROME_HEADLESS"] = "true"
-        install_result = install_cookie_extension(install_env)
-        assert install_result.returncode == 0, install_result.stderr
+        install_cookie_extension(install_env)
 
         httpserver.expect_request(COOKIE_TEST_PATH).respond_with_data(
             COOKIE_TEST_HTML_STUB,
@@ -737,8 +714,7 @@ def test_hides_cookie_consent_on_static_page(httpserver):
         env_with_ext = env_base.copy()
         env_with_ext["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
 
-        result = install_cookie_extension(env_with_ext)
-        assert result.returncode == 0, f"Extension install failed: {result.stderr}"
+        install_cookie_extension(env_with_ext)
 
         cache_file = ext_dir / "istilldontcareaboutcookies.extension.json"
         assert cache_file.exists(), "Extension cache not created"

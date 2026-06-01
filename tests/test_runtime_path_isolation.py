@@ -114,3 +114,50 @@ def test_load_config_resolves_aliases_to_canonical_fields() -> None:
 
     assert config.FAVICON_ENABLED is False
     assert "SAVE_FAVICON" not in config.model_dump(mode="json")
+
+
+def test_load_config_hydrates_binary_fields_from_abxpkg_env_provider(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plugin_dir = tmp_path / "plugin"
+    plugin_dir.mkdir()
+    fake_bin_dir = tmp_path / "bin"
+    fake_bin_dir.mkdir()
+    fake_tool = fake_bin_dir / "fake-tool"
+    fake_tool.write_text("#!/bin/sh\necho 'fake-tool 1.0.0'\n")
+    fake_tool.chmod(0o755)
+    config_path = plugin_dir / "config.json"
+    config_path.write_text(
+        """
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FakeTool",
+  "type": "object",
+  "additionalProperties": false,
+  "required_binaries": [
+    {
+      "name": "{FAKE_TOOL_BINARY}",
+      "binproviders": "env",
+      "min_version": null
+    }
+  ],
+  "properties": {
+    "FAKE_TOOL_BINARY": {
+      "type": "string",
+      "default": "fake-tool"
+    }
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("FAKE_TOOL_BINARY", "fake-tool")
+    monkeypatch.setenv("PATH", str(fake_bin_dir))
+
+    config = load_config(config_path, user_config={})
+
+    resolved = Path(config.FAKE_TOOL_BINARY)
+    assert resolved.name == "fake-tool"
+    assert resolved.exists()

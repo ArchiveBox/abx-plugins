@@ -173,6 +173,14 @@ def _collect_required_schema_paths(
     return paths
 
 
+def _collect_required_binary_records(config_path: Path) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    paths = [BASE_CONFIG_PATH.resolve(), *_collect_required_schema_paths(config_path)]
+    for path in paths:
+        records.extend(_load_schema(path).required_binaries)
+    return records
+
+
 @lru_cache(maxsize=None)
 def _build_merged_properties(config_path_str: str) -> tuple[str, dict[str, Any]]:
     config_path = Path(config_path_str)
@@ -321,6 +329,134 @@ def _resolve_schema_payload(
             break
 
     return payload
+
+
+def _hydrate_value(value: Any, context: Mapping[str, Any]) -> Any:
+    if isinstance(value, str):
+        try:
+            return value.format(**context)
+        except Exception:
+            return value
+    if isinstance(value, list):
+        return [_hydrate_value(item, context) for item in value]
+    if isinstance(value, dict):
+        return {key: _hydrate_value(item, context) for key, item in value.items()}
+    return value
+
+
+def _placeholder_config_key(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    stripped = value.strip()
+    if not (stripped.startswith("{") and stripped.endswith("}")):
+        return None
+    key = stripped[1:-1].strip()
+    return key if key.endswith("_BINARY") else None
+
+
+def _provider_names(binproviders: Any) -> list[str]:
+    if isinstance(binproviders, str):
+        names = [part.strip() for part in binproviders.split(",")]
+    elif isinstance(binproviders, list):
+        names = [str(part).strip() for part in binproviders]
+    else:
+        names = ["env"]
+    return [name for name in names if name] or ["env"]
+
+
+def _abxpkg_provider_kwargs(
+    provider_name: str,
+    payload: Mapping[str, Any],
+) -> dict[str, Any]:
+    lib_dir_value = str(payload.get("LIB_DIR") or "").strip()
+    lib_dir = Path(lib_dir_value).expanduser() if lib_dir_value else None
+    if provider_name == "env":
+        return {"PATH": os.environ.get("PATH", "")}
+    if provider_name == "chromewebstore":
+        extensions_dir_value = str(payload.get("CHROME_EXTENSIONS_DIR") or "").strip()
+        kwargs: dict[str, Any] = {}
+        if lib_dir is not None:
+            kwargs["install_root"] = lib_dir / "chromewebstore"
+        if extensions_dir_value:
+            extensions_dir = Path(extensions_dir_value).expanduser()
+            kwargs["extension_links_dir"] = extensions_dir
+            if lib_dir is None:
+                kwargs["install_root"] = extensions_dir.parent / "chromewebstore"
+        return kwargs
+    if lib_dir is not None and provider_name != "env":
+        return {"install_root": lib_dir / provider_name}
+    return {}
+
+
+def _load_required_binary_path(
+    record: Mapping[str, Any],
+    payload: Mapping[str, Any],
+) -> str | None:
+    try:
+        from abxpkg import (
+            Binary,
+            DEFAULT_PROVIDER_NAMES,
+            PROVIDER_CLASS_BY_NAME,
+            SemVer,
+        )
+    except Exception:
+        return None
+
+    hydrated_record = cast(dict[str, Any], _hydrate_value(dict(record), payload))
+    name = str(hydrated_record.get("name") or "").strip()
+    if not name:
+        return None
+    provider_names = _provider_names(hydrated_record.get("binproviders") or "env")
+    if provider_names == ["*"]:
+        provider_names = list(DEFAULT_PROVIDER_NAMES)
+    providers = []
+    for provider_name in provider_names:
+        provider_class = PROVIDER_CLASS_BY_NAME.get(provider_name)
+        if provider_class is None:
+            continue
+        providers.append(
+            provider_class(**_abxpkg_provider_kwargs(provider_name, payload)),
+        )
+    if not providers:
+        return None
+
+    min_version = hydrated_record.get("min_version")
+    try:
+        loaded = Binary(
+            name=name,
+            binproviders=providers,
+            min_version=SemVer(min_version) if min_version else None,
+            min_release_age=hydrated_record.get("min_release_age"),
+            postinstall_scripts=hydrated_record.get("postinstall_scripts"),
+            overrides=hydrated_record.get("overrides") or {},
+        ).load()
+    except Exception:
+        return None
+    if loaded.loaded_abspath:
+        return str(loaded.loaded_abspath)
+    return None
+
+
+def _hydrate_required_binary_config_values(
+    config_path: Path,
+    payload: dict[str, Any],
+) -> None:
+    """Resolve declared binary config keys from env/known abxpkg provider state.
+
+    Hook scripts must be runnable as standalone CLIs. This deliberately uses
+    abxpkg directly and only loads already-available binaries; service-driven
+    install/cache preflight is an optimization supplied by abx-dl/ArchiveBox.
+    """
+    env = os.environ
+    for record in _collect_required_binary_records(config_path):
+        key = _placeholder_config_key(record.get("name"))
+        if key is None or key not in payload:
+            continue
+        if key in env and Path(str(env[key])).expanduser().exists():
+            continue
+        loaded_path = _load_required_binary_path(record, payload)
+        if loaded_path:
+            payload[key] = loaded_path
 
 
 @lru_cache(maxsize=None)
@@ -484,6 +620,7 @@ def load_config(
     global_config: Mapping[str, Any] | None = None,
     user_config: Mapping[str, str] | None = None,
     environ: Mapping[str, str] | None = None,
+    hydrate_binaries: bool = True,
 ) -> Any:
     """Load typed plugin config using `jambo` plus `x-aliases` and `x-fallback`.
 
@@ -529,6 +666,8 @@ def load_config(
             payload["CHROME_EXTENSIONS_DIR"] = str(
                 (lib_dir / "chromewebstore" / "extensions").resolve(),
             )
+    if hydrate_binaries:
+        _hydrate_required_binary_config_values(resolved_path, payload)
     model = build_config_model(title, properties)
     return model.model_validate(payload)
 
@@ -539,6 +678,7 @@ def get_config(
     global_config: Mapping[str, Any] | None = None,
     user_config: Mapping[str, str] | None = None,
     environ: Mapping[str, str] | None = None,
+    hydrate_binaries: bool = True,
 ) -> Any:
     """Alias for `load_config()` that preserves direct-caller config lookup."""
     if config_path is None:
@@ -548,6 +688,7 @@ def get_config(
         global_config=global_config,
         user_config=user_config,
         environ=environ,
+        hydrate_binaries=hydrate_binaries,
     )
 
 
