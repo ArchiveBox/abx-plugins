@@ -1,0 +1,83 @@
+abx_plugins/plugins/base/utils.py
+  s_c5ae786df4a14c::t_0daf86e8c66974 176-183,334-366,371-372,375-377,380-381,385-390,395,402-416,420-439,444-459
+  s_1ff935dadc9b9f::t_13414472a9f103 367-370,378-379,382-384,391-394,396-401,417-419,440-443
+  s_c5ae786df4a14c::t_3cdda0bfbdd285 623,669-670,681,691
+  s_c5ae786df4a14c::t_aa55fa64b78941 373-374
+abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py
+  s_c5ae786df4a14c::t_05dfe4753631f5 29,485,497
+abx_plugins/plugins/wget/tests/test_wget.py
+  s_c5ae786df4a14c::t_99452d78eeacb2 105-109,126
+abx_plugins/plugins/trafilatura/tests/test_trafilatura.py
+  s_c5ae786df4a14c::t_08c0d369c6722c 23,44,49,52,55-57
+abx_plugins/plugins/modalcloser/tests/test_modalcloser.py
+  s_c5ae786df4a14c::t_4320462c6ab994 24,93
+README.md
+  s_c5ae786df4a14c::t_6a6cb1eb132f3c 89
+  s_c5ae786df4a14c::t_8123bd7064e3b8 82,190
+  s_c5ae786df4a14c::t_58577399de4c13 9-12,53-54,73,81,95
+docs/generate.py
+  s_c5ae786df4a14c::t_8123bd7064e3b8 30,331
+conftest.py
+  s_c5ae786df4a14c::t_e2da48dadee6d2 168
+  s_c5ae786df4a14c::t_ffd2b001f0012c 212,219,236,238
+  s_c5ae786df4a14c::t_fbd30d46531da5 263-264,298-323,325-328,331-332,341,345,347
+abx_plugins/plugins/twocaptcha/tests/test_twocaptcha.py
+  s_c5ae786df4a14c::t_dd523f2015c3f5 20-23,58-62,127
+abx_plugins/plugins/pdf/tests/test_pdf.py
+  s_c5ae786df4a14c::t_6e99073bdfa809 24,50
+abx_plugins/plugins/singlefile/tests/test_singlefile.py
+  s_c5ae786df4a14c::t_19b888c6b26685 25,99-101,105,175,208-210,214,377-379,383
+tests/test_binary_event_boundaries.py
+  s_c5ae786df4a14c::t_f36f18b2f32c6b 67-68,71-80
+  s_c5ae786df4a14c::t_abc62279c9176e 69-70,81-82
+abx_plugins/plugins/istilldontcareaboutcookies/tests/test_istilldontcareaboutcookies.py
+  s_c5ae786df4a14c::t_b018f0b7d52f26 17-21,45-49,52-53,70-72,102-103,116-117,236,516,717
+abx_plugins/plugins/infiniscroll/tests/test_infiniscroll.py
+  s_c5ae786df4a14c::t_4320462c6ab994 23,128
+abx_plugins/plugins/chrome/config.json
+  s_c5ae786df4a14c::t_707e3a4241befc 7
+abx_plugins/plugins/papersdl/tests/test_papersdl.py
+  s_c5ae786df4a14c::t_f8cb8def08a58b 21,50,62,64,67-68
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  s_c5ae786df4a14c::t_9dd22e0ad309a8 999-1000,1006-1007,1011-1013,1016-1039,1041-1042,1044,1066,1076-1080,1083-1097,1099-1100
+  s_c5ae786df4a14c::t_eae64cff4de116 499,1053-1054,1059,1237,1671,1674
+abx_plugins/plugins/ublock/tests/test_ublock.py
+  s_c5ae786df4a14c::t_2b9bceaded02d7 462-463,645
+  s_c5ae786df4a14c::t_ab6faa83861b13 17-21,43-47,50-51,68-70,100,113-114,126,226
+tests/test_runtime_path_isolation.py
+  s_c5ae786df4a14c::t_b4f9d9b2267c89 161-163
+  s_c5ae786df4a14c::t_d763b4a4f71517 121,156-159
+  s_c5ae786df4a14c::t_bfe3bd6d590c14 128
+  s_c5ae786df4a14c::t_9920b7d079c140 117-120,122-127,129-155,160
+abx_plugins/plugins/screenshot/tests/test_screenshot_browser_install_e2e.py
+  s_c5ae786df4a14c::t_2f653732b7f1d1 145
+abx_plugins/plugins/archivewebpage/awp_internal.js
+  s_c5ae786df4a14c::t_3397d249ae906b 156-158
+abx_plugins/plugins/base/test_utils.py
+  s_c5ae786df4a14c::t_261c90bf554df8 134,140-141,143,156,159-178,187-192,194-195,199-209,211
+  s_c5ae786df4a14c::t_f65fd1e0dcda78 151-155,157-158,179-186,196-198,210,212-213
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "555a0d1bb26dbf1e7c3c2d5ecc4fc437c929eabf",
+  "prompts": {},
+  "sessions": {
+    "s_1ff935dadc9b9f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e820e-52cc-7311-9ae4-f3f56880ac41",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_c5ae786df4a14c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e81c2-3271-70c1-8ea7-2c49783fb389",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
