@@ -7,6 +7,7 @@ from abx_plugins.plugins.base.utils import (
     BASE_CONFIG_PATH,
     build_config_model,
     load_config,
+    resolve_plugin_configs,
 )
 
 
@@ -72,6 +73,34 @@ def test_load_config_preserves_resolved_runtime_dirs_over_schema_defaults(
     assert config.DATA_DIR == str(data_dir)
     assert config.CRAWL_DIR == str(crawl_dir)
     assert config.SNAP_DIR == str(snap_dir)
+
+
+def test_resolve_plugin_configs_derives_chrome_extensions_dir_from_lib_dir(
+    tmp_path: Path,
+) -> None:
+    lib_dir = tmp_path / "lib"
+
+    resolved = resolve_plugin_configs(
+        {
+            "base": {
+                "LIB_DIR": {
+                    "type": "string",
+                    "default": "",
+                },
+                "CHROME_EXTENSIONS_DIR": {
+                    "type": "string",
+                    "default": "",
+                },
+            },
+        },
+        global_config={"LIB_DIR": str(lib_dir)},
+        user_config={},
+        environ={},
+    )
+
+    assert resolved["base"]["CHROME_EXTENSIONS_DIR"] == str(
+        (lib_dir / "chromewebstore" / "extensions").resolve(),
+    )
 
 
 def test_build_config_model_infers_typed_fields_from_schema() -> None:

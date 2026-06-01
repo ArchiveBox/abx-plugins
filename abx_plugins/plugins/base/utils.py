@@ -479,21 +479,84 @@ def _load_required_binary_path(
     return None
 
 
-def _hydrate_required_binary_config_values(
-    config_path: Path,
-    payload: dict[str, Any],
-) -> None:
-    """Resolve declared binary config keys from env/known abxpkg provider state.
+def _schema_properties(schema: Mapping[str, Any]) -> dict[str, Any]:
+    properties = schema["properties"] if "properties" in schema else schema
+    return dict(properties) if isinstance(properties, Mapping) else {}
 
-    Hook scripts must be runnable as standalone CLIs. This deliberately uses
-    abxpkg directly and only loads already-available binaries; service-driven
-    install/cache preflight is an optimization supplied by abx-dl/ArchiveBox.
-    """
-    env = os.environ
-    for record in _collect_required_binary_records(config_path):
+
+def _schema_required_binaries(schema: Mapping[str, Any]) -> list[dict[str, Any]]:
+    raw_records = schema["required_binaries"] if "required_binaries" in schema else []
+    if not isinstance(raw_records, list):
+        return []
+    return [dict(record) for record in raw_records if isinstance(record, Mapping)]
+
+
+def _raw_config_value_is_present(
+    key: str,
+    *,
+    user_config: Mapping[str, str] | None,
+    environ: Mapping[str, str],
+) -> bool:
+    env_value = str(environ.get(key) or "").strip()
+    user_value = str((user_config or {}).get(key) or "").strip()
+    return bool(env_value or user_value)
+
+
+def _hydrate_browser_config_values(
+    payload: dict[str, Any],
+    *,
+    user_config: Mapping[str, str] | None,
+    environ: Mapping[str, str] | None,
+) -> None:
+    env = os.environ if environ is None else environ
+    if "CHROME_BINARY" in payload:
+        ci_chromium_path = Path("/usr/bin/chromium")
+        canary_path = Path(
+            "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+        )
+        has_explicit_browser = _raw_config_value_is_present(
+            "CHROME_BINARY",
+            user_config=user_config,
+            environ=env,
+        )
+        if not has_explicit_browser and not payload.get("CHROME_BINARY"):
+            if ci_chromium_path.exists():
+                payload["CHROME_BINARY"] = str(ci_chromium_path)
+            elif canary_path.exists():
+                payload["CHROME_BINARY"] = str(canary_path)
+
+    if "CHROME_EXTENSIONS_DIR" in payload:
+        has_explicit_extensions_dir = _raw_config_value_is_present(
+            "CHROME_EXTENSIONS_DIR",
+            user_config=user_config,
+            environ=env,
+        )
+        if not has_explicit_extensions_dir and not payload.get("CHROME_EXTENSIONS_DIR"):
+            lib_dir = Path(
+                str(payload.get("LIB_DIR") or Path.home() / ".config" / "abx" / "lib"),
+            ).expanduser()
+            payload["CHROME_EXTENSIONS_DIR"] = str(
+                (lib_dir / "chromewebstore" / "extensions").resolve(),
+            )
+
+
+def _hydrate_config_payload(
+    payload: dict[str, Any],
+    *,
+    user_config: Mapping[str, str] | None,
+    environ: Mapping[str, str] | None,
+    required_binaries: list[dict[str, Any]] | None = None,
+) -> None:
+    _hydrate_browser_config_values(
+        payload,
+        user_config=user_config,
+        environ=environ,
+    )
+    for record in required_binaries or []:
         key = _placeholder_config_key(record.get("name"))
         if key is None or key not in payload:
             continue
+        env = os.environ if environ is None else environ
         if key in env and Path(str(env[key])).expanduser().exists():
             continue
         loaded_path = _load_required_binary_path(record, payload)
@@ -608,11 +671,18 @@ def resolve_plugin_configs(
     for _ in range(max(len(plugin_schemas), 1) + 1):
         changed = False
         for plugin_name, schema in sorted(plugin_schemas.items()):
+            properties = _schema_properties(schema)
             payload = _resolve_schema_payload(
-                schema,
+                properties,
                 resolved_config=resolved_values,
                 user_config=user_config,
                 environ=environ,
+            )
+            _hydrate_config_payload(
+                payload,
+                user_config=user_config,
+                environ=environ,
+                required_binaries=_schema_required_binaries(schema),
             )
             if (
                 plugin_name in resolved_sections
@@ -620,7 +690,7 @@ def resolve_plugin_configs(
             ):
                 plugin_config = resolved_sections[plugin_name]
             else:
-                model = build_config_model(plugin_name, schema)
+                model = build_config_model(plugin_name, properties)
                 plugin_config = normalize_config_value(
                     model.model_validate(payload).model_dump(mode="json"),
                 )
@@ -682,34 +752,14 @@ def load_config(
         user_config=user_config,
         environ=environ,
     )
-    if "CHROME_BINARY" in payload:
-        env = os.environ if environ is None else environ
-        has_explicit_browser = "CHROME_BINARY" in env or bool(
-            user_config and "CHROME_BINARY" in user_config,
-        )
-        ci_chromium_path = Path("/usr/bin/chromium")
-        canary_path = Path(
-            "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
-        )
-        if not has_explicit_browser:
-            if ci_chromium_path.exists():
-                payload["CHROME_BINARY"] = str(ci_chromium_path)
-            elif canary_path.exists():
-                payload["CHROME_BINARY"] = str(canary_path)
-    if "CHROME_EXTENSIONS_DIR" in payload:
-        env = os.environ if environ is None else environ
-        has_explicit_extensions_dir = "CHROME_EXTENSIONS_DIR" in env or bool(
-            user_config and "CHROME_EXTENSIONS_DIR" in user_config,
-        )
-        if not has_explicit_extensions_dir and not payload.get("CHROME_EXTENSIONS_DIR"):
-            lib_dir = Path(
-                str(payload.get("LIB_DIR") or Path.home() / ".config" / "abx" / "lib"),
-            ).expanduser()
-            payload["CHROME_EXTENSIONS_DIR"] = str(
-                (lib_dir / "chromewebstore" / "extensions").resolve(),
-            )
-    if hydrate_binaries:
-        _hydrate_required_binary_config_values(resolved_path, payload)
+    _hydrate_config_payload(
+        payload,
+        user_config=user_config,
+        environ=environ,
+        required_binaries=_collect_required_binary_records(resolved_path)
+        if hydrate_binaries
+        else None,
+    )
     model = build_config_model(title, properties)
     return model.model_validate(payload)
 

@@ -66,9 +66,15 @@ def is_replay_target(filename_or_path: str) -> bool:
 
 def find_extension_dir(config) -> Path | None:
     """Resolve the unpacked archivewebpage chrome extension on disk."""
-    ext_root = Path(config.CHROME_EXTENSIONS_DIR).expanduser()
-    for child in ext_root.glob(f"*__{_EXTENSION_NAME}"):
-        return child
+    ext_roots = []
+    if config.CHROME_EXTENSIONS_DIR:
+        ext_roots.append(Path(config.CHROME_EXTENSIONS_DIR).expanduser())
+    ext_roots.append(
+        Path(config.LIB_DIR).expanduser() / "chromewebstore" / "extensions",
+    )
+    for ext_root in ext_roots:
+        for child in ext_root.glob(f"*__{_EXTENSION_NAME}"):
+            return child
     return None
 
 
