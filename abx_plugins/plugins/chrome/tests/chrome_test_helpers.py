@@ -71,7 +71,7 @@ from abx_plugins.plugins.base.test_utils import (
     run_hook as _base_run_hook,
     run_hook_and_parse as _base_run_hook_and_parse,
 )
-from abx_plugins.plugins.base.utils import get_personas_dir
+from abx_plugins.plugins.base.utils import get_personas_dir, load_required_binary
 
 # Plugin directory locations
 CHROME_PLUGIN_DIR = Path(__file__).parent.parent
@@ -967,20 +967,25 @@ def _is_supported_chromium(binary_path: str, env: dict) -> bool:
     return returncode == 0 and stdout.strip().lower() == "true"
 
 
-def _has_puppeteer_module(env: dict) -> bool:
-    """Return True if Node can resolve the puppeteer package in this env."""
+def _has_node_module(env: dict, module_name: str) -> bool:
+    """Return True if Node can resolve the requested package in this env."""
     probe_env = env.copy()
     node_modules_dir = probe_env.get("NODE_MODULES_DIR", "").strip()
     if node_modules_dir and not probe_env.get("NODE_PATH"):
         probe_env["NODE_PATH"] = node_modules_dir
     result = subprocess.run(
-        ["node", "-e", "require.resolve('puppeteer')"],
+        ["node", "-e", "require.resolve(process.argv[1])", module_name],
         capture_output=True,
         text=True,
         timeout=20,
         env=probe_env,
     )
     return result.returncode == 0
+
+
+def _has_puppeteer_module(env: dict) -> bool:
+    """Return True if Node can resolve the puppeteer package in this env."""
+    return _has_node_module(env, "puppeteer")
 
 
 def _required_binary_record(
@@ -1005,26 +1010,12 @@ def _ensure_puppeteer_with_abxpkg(env: dict, timeout: int) -> None:
     """
     from abxpkg import Binary, NpmProvider
 
-    if _has_puppeteer_module(env):
-        return
-
     lib_dir = Path(
         env.get("LIB_DIR")
         or os.environ.get("LIB_DIR")
         or Path.home() / ".config" / "abx" / "lib",
     )
     npm_root = lib_dir / "npm"
-    binary = Binary(
-        name="puppeteer",
-        binproviders=[
-            NpmProvider(
-                install_root=npm_root,
-                install_timeout=timeout,
-            ),
-        ],
-        postinstall_scripts=True,
-    )
-    binary.install()
 
     node_modules_dir = npm_root / "node_modules"
     env.setdefault("NODE_MODULES_DIR", str(node_modules_dir))
@@ -1045,8 +1036,34 @@ def _ensure_puppeteer_with_abxpkg(env: dict, timeout: int) -> None:
     )
 
     if not _has_puppeteer_module(env):
+        binary = Binary(
+            name="puppeteer",
+            binproviders=[
+                NpmProvider(
+                    install_root=npm_root,
+                    install_timeout=timeout,
+                ),
+            ],
+            postinstall_scripts=True,
+        )
+        binary.install()
+
+    if not _has_node_module(env, "abxbus"):
+        abxbus_record = _required_binary_record(CHROME_PLUGIN_DIR, "abxbus", env)
+        load_required_binary(
+            abxbus_record,
+            config=env,
+            environ=env,
+            install=True,
+        )
+
+    if not _has_puppeteer_module(env):
         raise RuntimeError(
             "Puppeteer dependency preflight completed but require.resolve('puppeteer') still fails",
+        )
+    if not _has_node_module(env, "abxbus"):
+        raise RuntimeError(
+            "Chrome abxbus dependency preflight completed but require.resolve('abxbus') still fails",
         )
 
 
