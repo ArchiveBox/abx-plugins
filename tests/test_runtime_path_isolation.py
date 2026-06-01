@@ -89,7 +89,7 @@ def test_resolve_plugin_configs_derives_chrome_extensions_dir_from_lib_dir(
                 },
                 "CHROME_EXTENSIONS_DIR": {
                     "type": "string",
-                    "default": "",
+                    "default": "{LIB_DIR}/chromewebstore/extensions",
                 },
             },
         },

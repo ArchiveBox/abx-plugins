@@ -249,9 +249,10 @@ def resolve_alias(
         return key
 
     for schema in plugin_schemas.values():
-        if key in schema:
+        properties = _schema_properties(schema)
+        if key in properties:
             return key
-        for canonical_key, prop in schema.items():
+        for canonical_key, prop in properties.items():
             aliases = prop["x-aliases"] if "x-aliases" in prop else []
             if key in aliases:
                 return canonical_key
@@ -321,9 +322,12 @@ def _resolve_schema_payload(
                     changed = True
                 continue
 
-            if "default" in prop and payload.get(key) != prop["default"]:
-                payload[key] = prop["default"]
-                resolved[key] = prop["default"]
+            if "default" in prop:
+                default_value = _hydrate_value(prop["default"], resolved)
+                if payload.get(key) == default_value:
+                    continue
+                payload[key] = default_value
+                resolved[key] = default_value
                 changed = True
         if not changed:
             break
@@ -491,55 +495,6 @@ def _schema_required_binaries(schema: Mapping[str, Any]) -> list[dict[str, Any]]
     return [dict(record) for record in raw_records if isinstance(record, Mapping)]
 
 
-def _raw_config_value_is_present(
-    key: str,
-    *,
-    user_config: Mapping[str, str] | None,
-    environ: Mapping[str, str],
-) -> bool:
-    env_value = str(environ.get(key) or "").strip()
-    user_value = str((user_config or {}).get(key) or "").strip()
-    return bool(env_value or user_value)
-
-
-def _hydrate_browser_config_values(
-    payload: dict[str, Any],
-    *,
-    user_config: Mapping[str, str] | None,
-    environ: Mapping[str, str] | None,
-) -> None:
-    env = os.environ if environ is None else environ
-    if "CHROME_BINARY" in payload:
-        ci_chromium_path = Path("/usr/bin/chromium")
-        canary_path = Path(
-            "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
-        )
-        has_explicit_browser = _raw_config_value_is_present(
-            "CHROME_BINARY",
-            user_config=user_config,
-            environ=env,
-        )
-        if not has_explicit_browser and not payload.get("CHROME_BINARY"):
-            if ci_chromium_path.exists():
-                payload["CHROME_BINARY"] = str(ci_chromium_path)
-            elif canary_path.exists():
-                payload["CHROME_BINARY"] = str(canary_path)
-
-    if "CHROME_EXTENSIONS_DIR" in payload:
-        has_explicit_extensions_dir = _raw_config_value_is_present(
-            "CHROME_EXTENSIONS_DIR",
-            user_config=user_config,
-            environ=env,
-        )
-        if not has_explicit_extensions_dir and not payload.get("CHROME_EXTENSIONS_DIR"):
-            lib_dir = Path(
-                str(payload.get("LIB_DIR") or Path.home() / ".config" / "abx" / "lib"),
-            ).expanduser()
-            payload["CHROME_EXTENSIONS_DIR"] = str(
-                (lib_dir / "chromewebstore" / "extensions").resolve(),
-            )
-
-
 def _hydrate_config_payload(
     payload: dict[str, Any],
     *,
@@ -547,11 +502,6 @@ def _hydrate_config_payload(
     environ: Mapping[str, str] | None,
     required_binaries: list[dict[str, Any]] | None = None,
 ) -> None:
-    _hydrate_browser_config_values(
-        payload,
-        user_config=user_config,
-        environ=environ,
-    )
     for record in required_binaries or []:
         key = _placeholder_config_key(record.get("name"))
         if key is None or key not in payload:
@@ -677,12 +627,6 @@ def resolve_plugin_configs(
                 resolved_config=resolved_values,
                 user_config=user_config,
                 environ=environ,
-            )
-            _hydrate_config_payload(
-                payload,
-                user_config=user_config,
-                environ=environ,
-                required_binaries=_schema_required_binaries(schema),
             )
             if (
                 plugin_name in resolved_sections
