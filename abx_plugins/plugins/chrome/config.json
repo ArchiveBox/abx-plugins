@@ -19,6 +19,21 @@
       }
     },
     {
+      "name": "abxbus",
+      "binproviders": "npm",
+      "min_version": "2.5.9",
+      "min_release_age": 0,
+      "overrides": {
+        "npm": {
+          "install_args": [
+            "abxbus@2.5.9"
+          ],
+          "abspath": "{LIB_DIR}/npm/node_modules/abxbus/dist/cjs/index.js",
+          "version": "2.5.9"
+        }
+      }
+    },
+    {
       "name": "{CHROME_BINARY}",
       "binproviders": "env,puppeteer,playwright",
       "min_version": "149.0.0",
