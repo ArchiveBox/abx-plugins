@@ -176,6 +176,7 @@ def _abxpkg_providers_for_env(
 ):
     """Build abxpkg providers with test-scoped install/cache directories."""
     from abxpkg import DEFAULT_PROVIDER_NAMES, PROVIDER_CLASS_BY_NAME
+    from abx_plugins.plugins.base.utils import _abxpkg_provider_kwargs
 
     provider_names = [
         provider_name.strip()
@@ -185,29 +186,16 @@ def _abxpkg_providers_for_env(
     if provider_names == ["*"]:
         provider_names = list(DEFAULT_PROVIDER_NAMES)
 
-    env_values = env or os.environ
-    lib_dir_value = env_values.get("LIB_DIR") or os.environ.get("LIB_DIR", "")
-    lib_dir = Path(lib_dir_value).expanduser() if lib_dir_value else None
-    extensions_dir_value = env_values.get("CHROME_EXTENSIONS_DIR") or os.environ.get(
-        "CHROME_EXTENSIONS_DIR",
-        "",
-    )
+    payload = dict(os.environ)
+    if env:
+        payload.update(env)
 
     providers = []
     for provider_name in provider_names:
         provider_class = PROVIDER_CLASS_BY_NAME[provider_name]
-        kwargs: dict[str, Any] = {}
-        if provider_name == "chromewebstore" and extensions_dir_value:
-            extensions_dir = Path(extensions_dir_value).expanduser()
-            kwargs["bin_dir"] = extensions_dir
-            kwargs["install_root"] = (
-                lib_dir / "chromewebstore"
-                if lib_dir is not None
-                else extensions_dir.parent / "chromewebstore"
-            )
-        elif lib_dir is not None and provider_name != "env":
-            kwargs["install_root"] = lib_dir / provider_name
-        providers.append(provider_class(**kwargs))
+        providers.append(
+            provider_class(**_abxpkg_provider_kwargs(provider_name, payload)),
+        )
     return providers
 
 

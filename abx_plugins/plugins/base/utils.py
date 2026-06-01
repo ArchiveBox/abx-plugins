@@ -377,11 +377,10 @@ def _abxpkg_provider_kwargs(
         kwargs: dict[str, Any] = {}
         if lib_dir is not None:
             kwargs["install_root"] = lib_dir / "chromewebstore"
-        if extensions_dir_value:
+        elif extensions_dir_value:
             extensions_dir = Path(extensions_dir_value).expanduser()
-            kwargs["extension_links_dir"] = extensions_dir
-            if lib_dir is None:
-                kwargs["install_root"] = extensions_dir.parent / "chromewebstore"
+            if extensions_dir.name == "extensions":
+                kwargs["install_root"] = extensions_dir.parent
         return kwargs
     if lib_dir is not None and provider_name != "env":
         return {"install_root": lib_dir / provider_name}
