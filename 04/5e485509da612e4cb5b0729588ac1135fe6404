@@ -1,0 +1,21 @@
+abx_plugins/plugins/archivewebpage/replay_preview.py
+  s_c40400846d281e::t_ab975f420b3e25 120-132
+  s_c40400846d281e::t_279a5719cb6db4 1
+  s_c40400846d281e::t_9429a2f4723239 201-228,230-235
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "045e485509da612e4cb5b0729588ac1135fe6404",
+  "prompts": {},
+  "sessions": {
+    "s_c40400846d281e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7da0-ea86-7bc2-aa93-fd8cb3384eaa",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
