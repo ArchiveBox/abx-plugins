@@ -22,7 +22,7 @@ import os
 import subprocess
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 SNAPSHOT_ISOLATION_ENV_KEYS = ("HOME", "SNAP_DIR", "LIB_DIR", "PERSONAS_DIR")
 
@@ -81,34 +81,12 @@ def get_hydrated_required_binaries(
     plugin_dir: Path,
     env: Mapping[str, str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Return required_binaries with `{PLACEHOLDER}` values formatted from config defaults + env."""
-    config = load_plugin_config(plugin_dir)
-    properties = config.get("properties") or {}
-    context: dict[str, Any] = dict(os.environ)
-    context.setdefault("LIB_DIR", str(Path.home() / ".config" / "abx" / "lib"))
-    context.update(
-        {
-            key: value.get("default")
-            for key, value in properties.items()
-            if isinstance(value, dict) and "default" in value
-        },
+    """Return required_binaries hydrated through the runtime config implementation."""
+    from abx_plugins.plugins.base.utils import (
+        get_hydrated_required_binaries as runtime_required_binaries,
     )
-    if env:
-        context.update({key: value for key, value in env.items() if value is not None})
 
-    def hydrate(value: Any) -> Any:
-        if isinstance(value, str):
-            return value.format(**context)
-        if isinstance(value, list):
-            return [hydrate(item) for item in value]
-        if isinstance(value, dict):
-            return {key: hydrate(item) for key, item in value.items()}
-        return value
-
-    return [
-        cast(dict[str, Any], hydrate(item))
-        for item in get_required_binaries(plugin_dir)
-    ]
+    return runtime_required_binaries(plugin_dir / "config.json", environ=env)
 
 
 def get_hydrated_required_binary(
@@ -117,12 +95,16 @@ def get_hydrated_required_binary(
     env: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Return one hydrated required_binaries record by resolved binary name."""
-    for record in get_hydrated_required_binaries(plugin_dir, env=env):
-        if record.get("name") == name:
-            return record
-    raise AssertionError(
-        f"{plugin_dir.name} config missing required_binaries entry for {name}",
+    from abx_plugins.plugins.base.utils import (
+        get_hydrated_required_binary as runtime_required_binary,
     )
+
+    try:
+        return runtime_required_binary(name, plugin_dir / "config.json", environ=env)
+    except KeyError as err:
+        raise AssertionError(
+            f"{plugin_dir.name} config missing required_binaries entry for {name}",
+        ) from err
 
 
 def install_required_binary_from_config(
@@ -131,22 +113,14 @@ def install_required_binary_from_config(
     env: Mapping[str, str] | None = None,
 ):
     """Install/load a binary using one hydrated config.json required_binaries record."""
-    from abxpkg import Binary, SemVer
-    from abx_plugins.plugins.base.utils import abxpkg_native_overrides
+    from abx_plugins.plugins.base.utils import load_required_binary_from_config
 
-    record = get_hydrated_required_binary(plugin_dir, name, env=env)
-    min_version = record.get("min_version")
-    return Binary(
-        name=record["name"],
-        binproviders=_abxpkg_providers_for_env(
-            str(record.get("binproviders") or "env"),
-            env=env,
-        ),
-        min_version=SemVer(min_version) if min_version else None,
-        min_release_age=record.get("min_release_age"),
-        postinstall_scripts=record.get("postinstall_scripts"),
-        overrides=abxpkg_native_overrides(record.get("overrides")),
-    ).install()
+    return load_required_binary_from_config(
+        name,
+        plugin_dir / "config.json",
+        environ=env,
+        install=True,
+    )
 
 
 def install_binary_with_abxpkg(
@@ -158,47 +132,20 @@ def install_binary_with_abxpkg(
 ):
     """Install/load a binary directly with abxpkg providers."""
     from abxpkg import Binary
-    from abx_plugins.plugins.base.utils import abxpkg_native_overrides
+    from abx_plugins.plugins.base.utils import (
+        abxpkg_native_overrides,
+        build_binproviders,
+    )
 
     binary = Binary(
         name=name,
-        binproviders=_abxpkg_providers_for_env(binproviders, env=env),
+        binproviders=build_binproviders(binproviders, environ=env),
         overrides=abxpkg_native_overrides(overrides),
     )
     try:
         return binary.load()
     except Exception:
         return binary.install()
-
-
-def _abxpkg_providers_for_env(
-    binproviders: str,
-    *,
-    env: Mapping[str, str] | None = None,
-):
-    """Build abxpkg providers with test-scoped install/cache directories."""
-    from abxpkg import DEFAULT_PROVIDER_NAMES, PROVIDER_CLASS_BY_NAME
-    from abx_plugins.plugins.base.utils import _abxpkg_provider_kwargs
-
-    provider_names = [
-        provider_name.strip()
-        for provider_name in str(binproviders or "env").split(",")
-        if provider_name.strip()
-    ]
-    if provider_names == ["*"]:
-        provider_names = list(DEFAULT_PROVIDER_NAMES)
-
-    payload = dict(os.environ)
-    if env:
-        payload.update(env)
-
-    providers = []
-    for provider_name in provider_names:
-        provider_class = PROVIDER_CLASS_BY_NAME[provider_name]
-        providers.append(
-            provider_class(**_abxpkg_provider_kwargs(provider_name, payload)),
-        )
-    return providers
 
 
 def parse_jsonl_output(

@@ -180,9 +180,14 @@ def test_fails_without_chrome_session():
         assert result.returncode != 0, (
             f"Should fail without chrome session: {result.stderr}"
         )
-        assert "No Chrome session found (chrome plugin must run first)" in (
-            result.stdout + result.stderr
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json, f"Should have ArchiveResult JSONL output: {result.stdout}"
+        assert result_json["status"] == "failed"
+        assert (
+            "No Chrome session found (chrome plugin must run first)"
+            in result_json["output_str"]
         )
+        assert "No Chrome session found (chrome plugin must run first)" in result.stderr
 
 
 def test_config_timeout_honored(title_test_urls):

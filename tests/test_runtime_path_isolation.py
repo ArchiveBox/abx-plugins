@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -82,24 +83,16 @@ def test_resolve_plugin_configs_derives_chrome_extensions_dir_from_lib_dir(
 
     resolved = resolve_plugin_configs(
         {
-            "base": {
-                "LIB_DIR": {
-                    "type": "string",
-                    "default": "",
-                },
-                "CHROME_EXTENSIONS_DIR": {
-                    "type": "string",
-                    "default": "{LIB_DIR}/chromewebstore/extensions",
-                },
-            },
+            "base": json.loads(BASE_CONFIG_PATH.read_text()),
+            "chrome": json.loads(CHROME_CONFIG.read_text()),
         },
         global_config={"LIB_DIR": str(lib_dir)},
         user_config={},
         environ={},
     )
 
-    assert resolved["base"]["CHROME_EXTENSIONS_DIR"] == str(
-        (lib_dir / "chromewebstore" / "extensions").resolve(),
+    assert resolved["chrome"]["CHROME_EXTENSIONS_DIR"] == str(
+        lib_dir / "chromewebstore" / "extensions",
     )
 
 

@@ -35,15 +35,17 @@ from typing import Any
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     get_extra_context,
-    load_config,
 )
-from abx_plugins.plugins.search_backend_sonic.daemon import is_sonic_backend_enabled
+from abx_plugins.plugins.search_backend_sonic.daemon import (
+    is_sonic_backend_enabled,
+    load_sonic_config,
+)
 
 
 # Extractor metadata
 PLUGIN_NAME = "index_sonic"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-CONFIG = load_config()
+CONFIG = load_sonic_config()
 SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -203,7 +205,7 @@ def main() -> None:
     text_size_kb = 0
 
     try:
-        config = load_config()
+        config = load_sonic_config()
 
         if config.ABX_RUNTIME != "archivebox":
             print("Skipping Sonic indexing (ABX_RUNTIME!=archivebox)", file=sys.stderr)

@@ -123,12 +123,6 @@
       "default": "",
       "description": "Chrome downloads directory shared by browser plugins",
       "x-scope": "crawl_execution"
-    },
-    "CHROME_EXTENSIONS_DIR": {
-      "type": "string",
-      "default": "",
-      "description": "Chrome extensions directory shared by browser plugins",
-      "x-scope": "crawl_execution"
     }
   }
 }

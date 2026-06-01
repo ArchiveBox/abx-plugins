@@ -93,6 +93,12 @@
       "default": "",
       "description": "Path to Chrome user data directory for persistent sessions (defaults to PERSONAS_DIR/ACTIVE_PERSONA/chrome_profile)"
     },
+    "CHROME_EXTENSIONS_DIR": {
+      "type": "string",
+      "default": "{LIB_DIR}/chromewebstore/extensions",
+      "x-scope": "crawl_execution",
+      "description": "Chrome extensions directory shared by browser plugins"
+    },
     "CHROME_USER_AGENT": {
       "type": "string",
       "default": "",

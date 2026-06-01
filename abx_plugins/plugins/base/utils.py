@@ -14,7 +14,6 @@ Import directly via the package path::
 
 from __future__ import annotations
 
-import inspect
 import json
 import os
 import stat
@@ -24,11 +23,6 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, TextIO, cast
 
-from jambo import SchemaConverter
-from pydantic import BaseModel, ConfigDict, Field, create_model, field_validator
-from pydantic.fields import FieldInfo
-from pydantic_core import PydanticUndefined
-
 
 # ---------------------------------------------------------------------------
 # Shared config resolution
@@ -37,32 +31,6 @@ from pydantic_core import PydanticUndefined
 BASE_CONFIG_PATH = Path(__file__).with_name("config.json")
 PLUGINS_DIR = BASE_CONFIG_PATH.parent.parent
 PROCESS_EXIT_SKIPPED = 10
-
-
-class ConfigSchemaDocument(BaseModel):
-    title: str = "PluginConfig"
-    description: str = ""
-    output_mimetypes: list[str] = Field(default_factory=list)
-    properties: dict[str, Any] = Field(default_factory=dict)
-    required_plugins: list[str] = Field(default_factory=list)
-    required_binaries: list[dict[str, Any]] = Field(default_factory=list)
-
-    @field_validator("required_binaries", mode="before")
-    @classmethod
-    def validate_required_binaries(cls, value: Any) -> list[dict[str, Any]]:
-        if not isinstance(value, list):
-            return []
-        return [
-            item
-            for item in value
-            if isinstance(item, dict)
-            and "name" in item
-            and isinstance(item["name"], str)
-            and item["name"]
-        ]
-
-
-ConfigSchemaDocument.model_rebuild()
 
 
 def normalize_config_value(value: Any) -> Any:
@@ -144,13 +112,14 @@ def _resolve_config_path(
     stack_depth: int = 1,
 ) -> Path:
     if config_path is None:
-        caller_file = inspect.stack()[stack_depth].filename
+        caller_file = sys._getframe(stack_depth).f_code.co_filename
         return (Path(caller_file).parent / "config.json").resolve()
     return Path(config_path).resolve()
 
 
-def _load_schema(path: Path) -> ConfigSchemaDocument:
-    return ConfigSchemaDocument.model_validate_json(path.read_text())
+def _load_schema(path: Path) -> dict[str, Any]:
+    data = json.loads(path.read_text())
+    return data if isinstance(data, dict) else {}
 
 
 def _collect_required_schema_paths(
@@ -165,7 +134,10 @@ def _collect_required_schema_paths(
 
     schema = _load_schema(resolved)
     paths: list[Path] = []
-    for required_plugin in schema.required_plugins:
+    required_plugins = schema.get("required_plugins") or []
+    for required_plugin in (
+        required_plugins if isinstance(required_plugins, list) else []
+    ):
         required_path = (PLUGINS_DIR / str(required_plugin) / "config.json").resolve()
         if required_path.exists():
             paths.extend(_collect_required_schema_paths(required_path, seen))
@@ -177,7 +149,7 @@ def _collect_required_binary_records(config_path: Path) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     paths = [BASE_CONFIG_PATH.resolve(), *_collect_required_schema_paths(config_path)]
     for path in paths:
-        records.extend(_load_schema(path).required_binaries)
+        records.extend(_schema_required_binaries(_load_schema(path)))
     return records
 
 
@@ -188,8 +160,8 @@ def _build_merged_properties(config_path_str: str) -> tuple[str, dict[str, Any]]
     properties: dict[str, Any] = {}
     paths = [BASE_CONFIG_PATH.resolve(), *_collect_required_schema_paths(config_path)]
     for path in paths:
-        properties.update(_load_schema(path).properties)
-    return root_schema.title, properties
+        properties.update(_schema_properties(_load_schema(path)))
+    return str(root_schema.get("title") or "PluginConfig"), properties
 
 
 def _lookup_raw_value(
@@ -317,8 +289,11 @@ def _resolve_schema_payload(
                     continue
 
             if key in resolved:
-                if payload.get(key) != resolved[key]:
-                    payload[key] = resolved[key]
+                resolved_value = resolved[key]
+                if "default" in prop and resolved_value == prop["default"]:
+                    resolved_value = _hydrate_value(prop["default"], resolved)
+                if payload.get(key) != resolved_value:
+                    payload[key] = resolved_value
                     changed = True
                 continue
 
@@ -418,7 +393,7 @@ def _abxpkg_provider_kwargs(
     lib_dir_value = str(payload.get("LIB_DIR") or "").strip()
     lib_dir = Path(lib_dir_value).expanduser() if lib_dir_value else None
     if provider_name == "env":
-        return {"PATH": os.environ.get("PATH", "")}
+        return {"PATH": str(payload.get("PATH") or os.environ.get("PATH", ""))}
     if provider_name == "chromewebstore":
         extensions_dir_value = str(payload.get("CHROME_EXTENSIONS_DIR") or "").strip()
         kwargs: dict[str, Any] = {}
@@ -434,48 +409,84 @@ def _abxpkg_provider_kwargs(
     return {}
 
 
+def build_binproviders(
+    binproviders: Any = "env",
+    *,
+    config: Mapping[str, Any] | None = None,
+    environ: Mapping[str, str] | None = None,
+) -> list[Any]:
+    """Build abxpkg providers using the same hydrated config context as hooks."""
+    from abxpkg import DEFAULT_PROVIDER_NAMES, PROVIDER_CLASS_BY_NAME
+
+    payload: dict[str, Any] = dict(os.environ if environ is None else environ)
+    if config:
+        payload.update(
+            {key: normalize_config_value(value) for key, value in config.items()},
+        )
+
+    provider_names = _provider_names(binproviders)
+    if provider_names == ["*"]:
+        provider_names = list(DEFAULT_PROVIDER_NAMES)
+
+    return [
+        PROVIDER_CLASS_BY_NAME[provider_name](
+            **_abxpkg_provider_kwargs(provider_name, payload),
+        )
+        for provider_name in provider_names
+    ]
+
+
+def hydrate_required_binary(
+    record: Mapping[str, Any],
+    config: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Hydrate one required_binaries record from a resolved plugin config payload."""
+    return cast(dict[str, Any], _hydrate_value(dict(record), config))
+
+
+def load_required_binary(
+    record: Mapping[str, Any],
+    *,
+    config: Mapping[str, Any] | None = None,
+    environ: Mapping[str, str] | None = None,
+    install: bool = False,
+) -> Any:
+    """Load or install one required_binaries record with abxpkg."""
+    from abxpkg import Binary, SemVer
+
+    payload: dict[str, Any] = dict(os.environ if environ is None else environ)
+    if config:
+        payload.update(
+            {key: normalize_config_value(value) for key, value in config.items()},
+        )
+
+    hydrated_record = hydrate_required_binary(record, payload)
+    name = str(hydrated_record.get("name") or "").strip()
+    if not name:
+        raise ValueError("required_binaries record is missing a name")
+
+    min_version = hydrated_record.get("min_version")
+    binary = Binary(
+        name=name,
+        binproviders=build_binproviders(
+            hydrated_record.get("binproviders") or "env",
+            config=payload,
+            environ=environ,
+        ),
+        min_version=SemVer(min_version) if min_version else None,
+        min_release_age=hydrated_record.get("min_release_age"),
+        postinstall_scripts=hydrated_record.get("postinstall_scripts"),
+        overrides=abxpkg_native_overrides(hydrated_record.get("overrides")),
+    )
+    return binary.install() if install else binary.load()
+
+
 def _load_required_binary_path(
     record: Mapping[str, Any],
     payload: Mapping[str, Any],
 ) -> str | None:
     try:
-        from abxpkg import (
-            Binary,
-            DEFAULT_PROVIDER_NAMES,
-            PROVIDER_CLASS_BY_NAME,
-            SemVer,
-        )
-    except Exception:
-        return None
-
-    hydrated_record = cast(dict[str, Any], _hydrate_value(dict(record), payload))
-    name = str(hydrated_record.get("name") or "").strip()
-    if not name:
-        return None
-    provider_names = _provider_names(hydrated_record.get("binproviders") or "env")
-    if provider_names == ["*"]:
-        provider_names = list(DEFAULT_PROVIDER_NAMES)
-    providers = []
-    for provider_name in provider_names:
-        provider_class = PROVIDER_CLASS_BY_NAME.get(provider_name)
-        if provider_class is None:
-            continue
-        providers.append(
-            provider_class(**_abxpkg_provider_kwargs(provider_name, payload)),
-        )
-    if not providers:
-        return None
-
-    min_version = hydrated_record.get("min_version")
-    try:
-        loaded = Binary(
-            name=name,
-            binproviders=providers,
-            min_version=SemVer(min_version) if min_version else None,
-            min_release_age=hydrated_record.get("min_release_age"),
-            postinstall_scripts=hydrated_record.get("postinstall_scripts"),
-            overrides=abxpkg_native_overrides(hydrated_record.get("overrides")),
-        ).load()
+        loaded = load_required_binary(record, config=payload)
     except Exception:
         return None
     if loaded.loaded_abspath:
@@ -515,7 +526,10 @@ def _hydrate_config_payload(
 
 
 @lru_cache(maxsize=None)
-def _schema_model(schema_json: str) -> type[BaseModel]:
+def _schema_model(schema_json: str):
+    from jambo import SchemaConverter
+    from pydantic import ConfigDict
+
     model = SchemaConverter.build(json.loads(schema_json))
     model.model_config = ConfigDict(
         validate_assignment=True,
@@ -542,15 +556,20 @@ def _open_object_annotation(prop: Mapping[str, Any]) -> type[Any] | None:
 
 
 def _open_object_default(default_value: Any) -> Any:
+    from pydantic_core import PydanticUndefined
+
     if default_value is None or default_value is PydanticUndefined:
         return {}
     return default_value
 
 
 def _patch_open_object_fields(
-    model: type[BaseModel],
+    model,
     properties: Mapping[str, Any],
-) -> type[BaseModel]:
+):
+    from pydantic import Field, create_model
+    from pydantic.fields import FieldInfo
+
     fields: dict[str, tuple[Any, FieldInfo]] = {}
     changed = False
     for key, field in model.model_fields.items():
@@ -576,7 +595,7 @@ def _patch_open_object_fields(
     if not changed:
         return model
     return cast(
-        type[BaseModel],
+        Any,
         create_model(
             model.__name__,
             __config__=model.model_config,
@@ -589,7 +608,7 @@ def _patch_open_object_fields(
 def build_config_model(
     title: str,
     properties: Mapping[str, Any],
-) -> type[BaseModel]:
+):
     """Build the typed pydantic config model for JSONSchema properties."""
     model = _schema_model(
         json.dumps(
@@ -670,6 +689,114 @@ def resolve_plugin_config(
     )[plugin_name]
 
 
+def _resolve_config_payload(
+    config_path: Path | str | None,
+    *,
+    stack_depth: int,
+    global_config: Mapping[str, Any] | None,
+    user_config: Mapping[str, str] | None,
+    environ: Mapping[str, str] | None,
+) -> tuple[Path, str, dict[str, Any], dict[str, Any]]:
+    resolved_path = _resolve_config_path(config_path, stack_depth=stack_depth + 1)
+    title, properties = _build_merged_properties(str(resolved_path))
+    payload = _resolve_schema_payload(
+        properties,
+        resolved_config=dict(global_config or {}),
+        user_config=user_config,
+        environ=environ,
+    )
+    return resolved_path, title, properties, payload
+
+
+def get_hydrated_required_binaries(
+    config_path: Path | str | None = None,
+    *,
+    global_config: Mapping[str, Any] | None = None,
+    user_config: Mapping[str, str] | None = None,
+    environ: Mapping[str, str] | None = None,
+) -> list[dict[str, Any]]:
+    """Return required_binaries hydrated from the same config path as load_config()."""
+    resolved_path, _, _, payload = _resolve_config_payload(
+        config_path,
+        stack_depth=2,
+        global_config=global_config,
+        user_config=user_config,
+        environ=environ,
+    )
+    return [
+        hydrate_required_binary(record, payload)
+        for record in _collect_required_binary_records(resolved_path)
+    ]
+
+
+def _find_hydrated_required_binary(
+    records: list[dict[str, Any]],
+    payload: Mapping[str, Any],
+    name: str,
+    resolved_path: Path,
+) -> dict[str, Any]:
+    for record in records:
+        hydrated_record = hydrate_required_binary(record, payload)
+        if hydrated_record.get("name") == name:
+            return hydrated_record
+    raise KeyError(f"{resolved_path} required_binaries is missing {name!r}")
+
+
+def get_hydrated_required_binary(
+    name: str,
+    config_path: Path | str | None = None,
+    *,
+    global_config: Mapping[str, Any] | None = None,
+    user_config: Mapping[str, str] | None = None,
+    environ: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Return one hydrated required_binaries record by resolved binary name."""
+    resolved_path, _, _, payload = _resolve_config_payload(
+        config_path,
+        stack_depth=2,
+        global_config=global_config,
+        user_config=user_config,
+        environ=environ,
+    )
+    return _find_hydrated_required_binary(
+        _collect_required_binary_records(resolved_path),
+        payload,
+        name,
+        resolved_path,
+    )
+
+
+def load_required_binary_from_config(
+    name: str,
+    config_path: Path | str | None = None,
+    *,
+    global_config: Mapping[str, Any] | None = None,
+    user_config: Mapping[str, str] | None = None,
+    environ: Mapping[str, str] | None = None,
+    install: bool = False,
+) -> Any:
+    """Load or install a named required_binaries entry from plugin config.json."""
+    resolved_path, _, _, payload = _resolve_config_payload(
+        config_path,
+        stack_depth=2,
+        global_config=global_config,
+        user_config=user_config,
+        environ=environ,
+    )
+    record = _find_hydrated_required_binary(
+        _collect_required_binary_records(resolved_path),
+        payload,
+        name,
+        resolved_path,
+    )
+    return load_required_binary(
+        record,
+        config=payload,
+        environ=environ,
+        install=install,
+    )
+
+
 def load_config(
     config_path: Path | str | None = None,
     *,
@@ -688,11 +815,10 @@ def load_config(
     3. `x-fallback`
     4. schema defaults
     """
-    resolved_path = _resolve_config_path(config_path, stack_depth=2)
-    title, properties = _build_merged_properties(str(resolved_path))
-    payload = _resolve_schema_payload(
-        properties,
-        resolved_config=dict(global_config or {}),
+    resolved_path, title, properties, payload = _resolve_config_payload(
+        config_path,
+        stack_depth=2,
+        global_config=global_config,
         user_config=user_config,
         environ=environ,
     )
@@ -839,8 +965,7 @@ def _parse_extra_context(raw: str, source: str) -> dict[str, Any]:
 def get_extra_context() -> dict[str, Any]:
     context: dict[str, Any] = {}
 
-    config = load_config(BASE_CONFIG_PATH)
-    env_raw = (config.EXTRA_CONTEXT or "").strip()
+    env_raw = (os.environ.get("EXTRA_CONTEXT") or "").strip()
     if env_raw:
         context.update(_parse_extra_context(env_raw, "EXTRA_CONTEXT"))
 
