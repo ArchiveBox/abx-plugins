@@ -15,7 +15,7 @@
         "pip": {
           "install_root": "{LIB_DIR}/pip/packages/papers-dl",
           "install_args": [
-            "--only-binary=aiohttp",
+            "--only-binary=PyMuPDF,PyMuPDFb",
             "papers-dl"
           ]
         }
