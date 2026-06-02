@@ -11,6 +11,9 @@ from abx_plugins.plugins.base.utils import load_required_binary
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CHROME_CONFIG = REPO_ROOT / "abx_plugins" / "plugins" / "chrome" / "config.json"
+ARCHIVEWEBPAGE_CONFIG = (
+    REPO_ROOT / "abx_plugins" / "plugins" / "archivewebpage" / "config.json"
+)
 
 
 def test_chrome_config_installs_abxbus_js_module(tmp_path: Path) -> None:
@@ -55,10 +58,18 @@ def test_chrome_config_installs_abxbus_js_module(tmp_path: Path) -> None:
 
 
 def test_chrome_config_installs_puppeteer_js_module(tmp_path: Path) -> None:
+    _assert_config_installs_puppeteer(CHROME_CONFIG, tmp_path)
+
+
+def test_archivewebpage_config_installs_puppeteer_js_module(tmp_path: Path) -> None:
+    _assert_config_installs_puppeteer(ARCHIVEWEBPAGE_CONFIG, tmp_path)
+
+
+def _assert_config_installs_puppeteer(config_path: Path, tmp_path: Path) -> None:
     node_binary = shutil.which("node")
     assert node_binary, "Node.js is required for Chrome JS dependency tests"
 
-    config = json.loads(CHROME_CONFIG.read_text(encoding="utf-8"))
+    config = json.loads(config_path.read_text(encoding="utf-8"))
     record = next(
         item
         for item in config["required_binaries"]

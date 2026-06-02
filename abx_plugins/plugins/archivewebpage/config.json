@@ -15,6 +15,21 @@
       "postinstall_scripts": true
     },
     {
+      "name": "puppeteer-browsers",
+      "binproviders": "npm",
+      "min_version": null,
+      "postinstall_scripts": false,
+      "min_release_age": 0,
+      "overrides": {
+        "npm": {
+          "install_args": [
+            "@puppeteer/browsers",
+            "puppeteer"
+          ]
+        }
+      }
+    },
+    {
       "name": "archivewebpage",
       "binproviders": "chromewebstore",
       "min_version": null,
