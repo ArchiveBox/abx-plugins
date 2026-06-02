@@ -52,7 +52,8 @@ PLUGIN_NAME = "singlefile"
 BIN_NAME = "single-file"
 BIN_PROVIDERS = "env,npm"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-CONFIG = load_config()
+CONFIG_PATH = Path(__file__).resolve().parent / "config.json"
+CONFIG = load_config(CONFIG_PATH)
 SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -140,7 +141,7 @@ def save_singlefile(
     """
     print("saving singlefile.html using single-file-cli...")
     # Load config from config.json (auto-resolves x-aliases and x-fallback from env)
-    config = load_config()
+    config = load_config(CONFIG_PATH)
     timeout = int(timeout or config.SINGLEFILE_TIMEOUT or 60)
     user_agent = config.SINGLEFILE_USER_AGENT
     check_ssl = config.SINGLEFILE_CHECK_SSL_VALIDITY
@@ -415,7 +416,7 @@ def main(url: str):
     error = ""
 
     try:
-        config = load_config()
+        config = load_config(CONFIG_PATH)
 
         # Check if SingleFile is enabled
         if not config.SINGLEFILE_ENABLED:

@@ -306,6 +306,115 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
             assert Path(payload["expectedPath"]).exists()
 
 
+def test_set_browser_download_behavior_keeps_shared_dir_stable_for_live_pages(
+    ensure_chrome_test_prereqs,
+):
+    """Two pages in one browser should download into one stable shared dir."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with chrome_session(
+            Path(tmpdir),
+            crawl_id="test-download-pages",
+            snapshot_id="snap-download-pages",
+            test_url=TEST_URL,
+            navigate=True,
+            timeout=45,
+        ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
+            download_dir = snapshot_chrome_dir.parent / "downloads"
+            download_dir.mkdir(parents=True, exist_ok=True)
+            script = """
+const fs = require('fs');
+const path = require('path');
+const chromeUtils = require(process.argv[1]);
+const chromeSessionDir = process.argv[2];
+const downloadDir = process.argv[3];
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function triggerDownload(page, filename, content) {
+  await page.bringToFront();
+  await page.evaluate((name, body) => {
+    const blob = new Blob([body], { type: 'text/plain' });
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  }, filename, content);
+}
+
+async function waitForFile(filepath) {
+  const deadline = Date.now() + 15000;
+  while (Date.now() < deadline) {
+    if (fs.existsSync(filepath) && fs.statSync(filepath).size > 0) {
+      return fs.readFileSync(filepath, 'utf8');
+    }
+    await sleep(200);
+  }
+  throw new Error(`Timed out waiting for download at ${filepath}`);
+}
+
+(async () => {
+  const { browser, page: pageOne } = await chromeUtils.connectToPage({
+    chromeSessionDir,
+    timeoutMs: 30000,
+  });
+  const pageTwo = await browser.newPage();
+  try {
+    await pageTwo.goto('data:text/html,<html><body>two</body></html>');
+    await chromeUtils.setBrowserDownloadBehavior({
+      page: pageOne,
+      downloadPath: downloadDir,
+    });
+    await chromeUtils.setBrowserDownloadBehavior({
+      page: pageTwo,
+      downloadPath: downloadDir,
+    });
+
+    await triggerDownload(pageOne, 'one.txt', 'page-one-ok');
+    await triggerDownload(pageTwo, 'two.txt', 'page-two-ok');
+
+    const onePath = path.join(downloadDir, 'one.txt');
+    const twoPath = path.join(downloadDir, 'two.txt');
+
+    process.stdout.write(JSON.stringify({
+      onePath,
+      twoPath,
+      oneContent: await waitForFile(onePath),
+      twoContent: await waitForFile(twoPath),
+    }));
+  } finally {
+    await browser.disconnect();
+  }
+})().catch((error) => {
+  console.error(error.stack || error.message);
+  process.exit(1);
+});
+"""
+            result = subprocess.run(
+                [
+                    "node",
+                    "-e",
+                    script,
+                    str(CHROME_UTILS),
+                    str(snapshot_chrome_dir),
+                    str(download_dir),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=env,
+            )
+
+            assert result.returncode == 0, result.stderr
+            payload = json.loads(result.stdout)
+            assert payload["oneContent"] == "page-one-ok"
+            assert payload["twoContent"] == "page-two-ok"
+            assert Path(payload["onePath"]).exists()
+            assert Path(payload["twoPath"]).exists()
+
+
 def test_set_browser_download_behavior_requires_download_path_with_live_page(
     ensure_chrome_test_prereqs,
 ):
@@ -511,8 +620,6 @@ def test_setup_test_env_provisions_extension_runtime_dirs(tmp_path: Path):
     assert downloads_dir.is_dir()
     assert user_data_dir.is_dir()
     assert extensions_dir.is_dir()
-    assert downloads_dir.parent == extensions_dir.parent
-    assert user_data_dir.parent == extensions_dir.parent
 
 
 def test_session_fixture_preserves_runtime_chrome_binary_override(

@@ -2735,16 +2735,7 @@ async function setBrowserDownloadBehavior(options = {}) {
   // Keep the CDP session alive for the lifetime of the caller's browser/page
   // connection. Extension-driven downloads regress if we detach immediately
   // after configuring download behavior.
-  try {
-    await session.send("Browser.setDownloadBehavior", {
-      behavior: "allow",
-      downloadPath,
-    });
-    console.error(
-      `[+] Configured Chrome download directory via CDP: ${downloadPath}`
-    );
-    return true;
-  } catch (browserError) {
+  if (page) {
     try {
       await session.send("Page.setDownloadBehavior", {
         behavior: "allow",
@@ -2755,11 +2746,25 @@ async function setBrowserDownloadBehavior(options = {}) {
       );
       return true;
     } catch (pageError) {
-      throw new Error(
-        `Browser.setDownloadBehavior failed: ${browserError.message}; ` +
+      if (!browser) {
+        throw new Error(
           `Page.setDownloadBehavior failed: ${pageError.message}`
-      );
+        );
+      }
     }
+  }
+
+  try {
+    await session.send("Browser.setDownloadBehavior", {
+      behavior: "allow",
+      downloadPath,
+    });
+    console.error(
+      `[+] Configured Chrome download directory via CDP: ${downloadPath}`
+    );
+    return true;
+  } catch (browserError) {
+    throw new Error(`Browser.setDownloadBehavior failed: ${browserError.message}`);
   }
 }
 

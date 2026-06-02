@@ -81,6 +81,7 @@ Module._load = function(request, parent, isMain) {
     env = os.environ.copy()
     env["NODE_MODULES_DIR"] = str(node_modules_dir)
     env["TEST_URL"] = "https://example.com"
+    env["CHROME_DOWNLOADS_DIR"] = str(run_dir / "downloads")
 
     result = subprocess.run(
         [

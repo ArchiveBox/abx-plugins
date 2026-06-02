@@ -206,10 +206,16 @@ async function sendStopAndDownload(
       };
     }
 
-    const downloadDir = path.dirname(destPath);
+    const downloadDir = hookConfig.CHROME_DOWNLOADS_DIR
+      ? path.resolve(String(hookConfig.CHROME_DOWNLOADS_DIR).trim())
+      : path.dirname(destPath);
+    fs.mkdirSync(downloadDir, { recursive: true });
+    const downloadFilename = `archivewebpage-${process.pid}-${Date.now()}`;
     const dlUrl = `chrome-extension://${extensionId}/w/api/c/${encodeURIComponent(
       stopOutcome.collId
-    )}/dl?format=wacz&pages=all&filename=archivewebpage`;
+    )}/dl?format=wacz&pages=all&filename=${encodeURIComponent(
+      downloadFilename
+    )}`;
 
     await chromeUtils
       .setBrowserDownloadBehavior({
