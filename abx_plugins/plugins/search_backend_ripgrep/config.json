@@ -21,10 +21,10 @@
   ],
   "output_mimetypes": [],
   "properties": {
-    "SEARCH_BACKEND_ENGINE": {
-      "type": "string",
-      "default": "ripgrep",
-      "description": "Selected search backend implementation"
+    "SEARCH_BACKEND_RIPGREP_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "description": "Search archived snapshot files directly with ripgrep."
     },
     "RIPGREP_BINARY": {
       "type": "string",

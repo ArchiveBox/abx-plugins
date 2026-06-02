@@ -242,9 +242,7 @@ def main() -> None:
             print("Skipping SQLite indexing (ABX_RUNTIME!=archivebox)", file=sys.stderr)
             status = "skipped"
             output_str = f"ABX_RUNTIME={CONFIG.ABX_RUNTIME}"
-        elif CONFIG.SEARCH_BACKEND_ENGINE != "sqlite" and not bool(
-            getattr(CONFIG, "SEARCH_BACKEND_SQLITE_ENABLED", True),
-        ):
+        elif not CONFIG.SEARCH_BACKEND_SQLITE_ENABLED:
             print(
                 "Skipping SQLite indexing (SEARCH_BACKEND_SQLITE_ENABLED=False)",
                 file=sys.stderr,

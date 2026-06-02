@@ -21,7 +21,7 @@ def run_hook(
             "ABX_RUNTIME": "archivebox",
             "DATA_DIR": str(tmp_path),
             "SNAP_DIR": str(tmp_path),
-            "SEARCH_BACKEND_ENGINE": "sqlite",
+            "SEARCH_BACKEND_SQLITE_ENABLED": "true",
             "EXTRA_CONTEXT": json.dumps({"snapshot_id": snapshot_id}),
         },
     )

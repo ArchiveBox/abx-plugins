@@ -20,6 +20,7 @@ from abx_plugins.plugins.base.test_utils import (
     parse_jsonl_records,
 )
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    chrome_extension_install_env,
     chrome_session,
     setup_test_env,
     launch_chromium_session,
@@ -59,11 +60,7 @@ def test_extension_metadata():
 def test_install_creates_cache():
     """Test that install creates extension cache"""
     with tempfile.TemporaryDirectory() as tmpdir:
-        ext_dir = Path(tmpdir) / "chrome_extensions"
-        ext_dir.mkdir(parents=True)
-
-        env = os.environ.copy()
-        env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
+        env, ext_dir = chrome_extension_install_env(tmpdir)
 
         loaded = install_ublock_extension(env)
         assert loaded.loaded_binprovider is not None
@@ -82,11 +79,7 @@ def test_install_creates_cache():
 def test_install_twice_uses_cache():
     """Test that running install twice uses existing cache on second run"""
     with tempfile.TemporaryDirectory() as tmpdir:
-        ext_dir = Path(tmpdir) / "chrome_extensions"
-        ext_dir.mkdir(parents=True)
-
-        env = os.environ.copy()
-        env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
+        env, ext_dir = chrome_extension_install_env(tmpdir)
 
         # First install - downloads the extension
         install_ublock_extension(env)
@@ -103,11 +96,7 @@ def test_install_twice_uses_cache():
 def test_no_configuration_required():
     """Test that uBlock Origin Lite works without configuration"""
     with tempfile.TemporaryDirectory() as tmpdir:
-        ext_dir = Path(tmpdir) / "chrome_extensions"
-        ext_dir.mkdir(parents=True)
-
-        env = os.environ.copy()
-        env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
+        env, _ext_dir = chrome_extension_install_env(tmpdir)
         # No API keys needed - works with default filter lists
 
         loaded = install_ublock_extension(env)
@@ -117,11 +106,7 @@ def test_no_configuration_required():
 def test_large_extension_size():
     """Test that uBlock Origin Lite is downloaded successfully."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        ext_dir = Path(tmpdir) / "chrome_extensions"
-        ext_dir.mkdir(parents=True)
-
-        env = os.environ.copy()
-        env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
+        env, ext_dir = chrome_extension_install_env(tmpdir)
 
         install_ublock_extension(env)
 
@@ -623,16 +608,13 @@ def test_blocks_ads_on_canyoublockit_extreme():
         ext_default_dir = ext_personas_dir / "Default"
         baseline_default_dir = baseline_personas_dir / "Default"
         for directory in (
-            ext_default_dir / "chrome_extensions",
             ext_default_dir / "chrome_downloads",
             ext_default_dir / "chrome_user_data",
-            baseline_default_dir / "chrome_extensions",
             baseline_default_dir / "chrome_downloads",
             baseline_default_dir / "chrome_user_data",
         ):
             directory.mkdir(parents=True, exist_ok=True)
         env_base["PERSONAS_DIR"] = str(ext_personas_dir)
-        env_base["CHROME_EXTENSIONS_DIR"] = str(ext_default_dir / "chrome_extensions")
         env_base["CHROME_DOWNLOADS_DIR"] = str(ext_default_dir / "chrome_downloads")
         env_base["CHROME_USER_DATA_DIR"] = str(ext_default_dir / "chrome_user_data")
 
@@ -651,10 +633,12 @@ def test_blocks_ads_on_canyoublockit_extreme():
 
         crawl_root = Path(env_base["CRAWL_DIR"])
         env_no_ext = env_base.copy()
-        env_no_ext["PERSONAS_DIR"] = str(baseline_personas_dir)
-        env_no_ext["CHROME_EXTENSIONS_DIR"] = str(
-            baseline_default_dir / "chrome_extensions",
+        baseline_install_env, baseline_extensions_dir = chrome_extension_install_env(
+            tmpdir / "baseline-install",
         )
+        env_no_ext["PERSONAS_DIR"] = str(baseline_personas_dir)
+        env_no_ext["LIB_DIR"] = baseline_install_env["LIB_DIR"]
+        env_no_ext["CHROME_EXTENSIONS_DIR"] = str(baseline_extensions_dir)
         env_no_ext["CHROME_DOWNLOADS_DIR"] = str(
             baseline_default_dir / "chrome_downloads",
         )

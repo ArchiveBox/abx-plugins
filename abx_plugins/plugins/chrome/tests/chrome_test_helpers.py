@@ -633,32 +633,70 @@ def wait_for_extensions_metadata(
     ``chrome.pid`` or ``cdp_url.txt`` because the browser may still be in the
     startup window before extensions finish loading.
     """
-    timeout_ms = max(1, int(timeout_seconds * 1000))
-    returncode, stdout, stderr = _call_chrome_utils(
-        "readBrowserMetadata",
-        str(chrome_dir),
-        str(timeout_ms),
+    deadline = time.time() + timeout_seconds
+    last_parsed: Any = None
+
+    while time.time() < deadline:
+        timeout_ms = max(1, int((deadline - time.time()) * 1000))
+        returncode, stdout, stderr = _call_chrome_utils(
+            "readBrowserMetadata",
+            str(chrome_dir),
+            str(timeout_ms),
+        )
+        if returncode != 0:
+            raise AssertionError(
+                f"readBrowserMetadata failed for {chrome_dir}: {stderr or stdout}",
+            )
+        try:
+            parsed = json.loads(stdout)
+        except json.JSONDecodeError as exc:
+            raise AssertionError(
+                f"Invalid JSON from readBrowserMetadata: {stdout}",
+            ) from exc
+        last_parsed = parsed
+        if not isinstance(parsed, dict) or parsed.get("ready") is not True:
+            raise AssertionError(
+                f"Expected ready browser metadata for {chrome_dir}, got: {parsed}",
+            )
+        extensions = parsed.get("extensions")
+        if isinstance(extensions, list) and extensions:
+            return extensions
+        time.sleep(0.1)
+
+    raise AssertionError(
+        f"Expected non-empty extension metadata list for {chrome_dir}, got: {last_parsed}",
     )
-    if returncode != 0:
+
+
+def write_browser_metadata(
+    chrome_dir: Path,
+    extensions: list[dict[str, Any]] | None = None,
+) -> None:
+    """Publish browser readiness metadata via the runtime JS implementation."""
+    script = r"""
+const chromeUtils = require(process.argv[1]);
+const chromeDir = process.argv[2];
+const extensions = JSON.parse(process.argv[3]);
+chromeUtils.writeBrowserMetadata(chromeDir, extensions);
+"""
+    result = subprocess.run(
+        [
+            "node",
+            "-e",
+            script,
+            str(CHROME_UTILS),
+            str(chrome_dir),
+            json.dumps(extensions or []),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=os.environ.copy(),
+    )
+    if result.returncode != 0:
         raise AssertionError(
-            f"readBrowserMetadata failed for {chrome_dir}: {stderr or stdout}",
+            f"writeBrowserMetadata failed for {chrome_dir}: {result.stderr or result.stdout}",
         )
-    try:
-        parsed = json.loads(stdout)
-    except json.JSONDecodeError as exc:
-        raise AssertionError(
-            f"Invalid JSON from readBrowserMetadata: {stdout}",
-        ) from exc
-    if not isinstance(parsed, dict) or parsed.get("ready") is not True:
-        raise AssertionError(
-            f"Expected ready browser metadata for {chrome_dir}, got: {parsed}",
-        )
-    extensions = parsed.get("extensions")
-    if not isinstance(extensions, list) or not extensions:
-        raise AssertionError(
-            f"Expected non-empty extension metadata list for {chrome_dir}, got: {parsed}",
-        )
-    return extensions
 
 
 def get_machine_type() -> str:
@@ -720,22 +758,44 @@ def get_node_modules_dir() -> Path:
     return lib_dir / "npm" / "node_modules"
 
 
-def get_extensions_dir() -> str:
+def get_extensions_dir(env: dict | None = None) -> str:
     """Get the Chrome extensions directory path.
 
     Matches JS base/utils.js: getChromeExtensionsDir()
-
-    Tries base/utils.js first, falls back to Python computation.
     """
-    try:
-        returncode, stdout, stderr = _call_base_utils("getChromeExtensionsDir")
-        if returncode == 0 and stdout.strip():
-            return stdout.strip()
-    except subprocess.TimeoutExpired:
-        pass  # Fall through to default computation
+    returncode, stdout, stderr = _call_base_utils("getChromeExtensionsDir", env=env)
+    if returncode != 0 or not stdout.strip():
+        raise RuntimeError(
+            f"base utils failed to resolve Chrome extensions dir: {stderr or stdout}",
+        )
+    return stdout.strip()
 
-    # Fallback to default computation if JS call fails
-    return str(get_lib_dir() / "chromewebstore" / "extensions")
+
+def chrome_extension_install_env(tmpdir: str | Path) -> tuple[dict[str, str], Path]:
+    """Build a minimal install-time env for chromewebstore-backed extensions."""
+    install_root = Path(tmpdir).resolve()
+    snap_dir = install_root / "snap"
+    crawl_dir = install_root / "crawl"
+    personas_dir = install_root / "personas"
+    lib_dir = install_root / "lib"
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "SNAP_DIR": str(snap_dir),
+            "CRAWL_DIR": str(crawl_dir),
+            "PERSONAS_DIR": str(personas_dir),
+            "LIB_DIR": str(lib_dir),
+        },
+    )
+    extensions_dir = Path(get_extensions_dir(env=env))
+    env["CHROME_EXTENSIONS_DIR"] = str(extensions_dir)
+
+    snap_dir.mkdir(parents=True, exist_ok=True)
+    crawl_dir.mkdir(parents=True, exist_ok=True)
+    personas_dir.mkdir(parents=True, exist_ok=True)
+    extensions_dir.mkdir(parents=True, exist_ok=True)
+    return env, extensions_dir
 
 
 def find_chromium(data_dir: str | None = None) -> str | None:
@@ -1167,8 +1227,10 @@ def setup_test_env(tmpdir: Path) -> dict:
     extension tests can exercise the real launch/session lifecycle:
     - crawl state lives under ``<tmpdir>/crawl``
     - snapshot state lives under ``<tmpdir>/snap``
-    - persona-scoped ``chrome_extensions``, ``chrome_downloads``, and
-      ``chrome_profile`` dirs are provisioned together
+    - install-scoped ``chromewebstore/extensions`` is resolved by the Chrome
+      config helper
+    - persona-scoped ``chrome_downloads`` and ``chrome_profile`` dirs are
+      provisioned as runtime browser state
     - Chrome + npm dependencies are installed through hooks, not hand-written
       test setup
 
@@ -1205,23 +1267,9 @@ def setup_test_env(tmpdir: Path) -> dict:
     xdg_config_home = home_dir / ".config"
     xdg_cache_home = home_dir / ".cache"
     xdg_data_home = home_dir / ".local" / "share"
-    chrome_extensions_dir = personas_dir / "Default" / "chrome_extensions"
     chrome_downloads_dir = personas_dir / "Default" / "chrome_downloads"
     chrome_user_data_dir = personas_dir / "Default" / "chrome_profile"
-
-    # Create all directories
-    node_modules_dir.mkdir(parents=True, exist_ok=True)
-    npm_bin_dir.mkdir(parents=True, exist_ok=True)
-    home_dir.mkdir(parents=True, exist_ok=True)
-    xdg_config_home.mkdir(parents=True, exist_ok=True)
-    xdg_cache_home.mkdir(parents=True, exist_ok=True)
-    xdg_data_home.mkdir(parents=True, exist_ok=True)
-    chrome_extensions_dir.mkdir(parents=True, exist_ok=True)
-    chrome_downloads_dir.mkdir(parents=True, exist_ok=True)
-    chrome_user_data_dir.mkdir(parents=True, exist_ok=True)
-    snap_dir.mkdir(parents=True, exist_ok=True)
     crawl_dir = tmpdir / "crawl"
-    crawl_dir.mkdir(parents=True, exist_ok=True)
 
     # Build complete env dict
     env = os.environ.copy()
@@ -1238,11 +1286,25 @@ def setup_test_env(tmpdir: Path) -> dict:
             "XDG_CONFIG_HOME": str(xdg_config_home),
             "XDG_CACHE_HOME": str(xdg_cache_home),
             "XDG_DATA_HOME": str(xdg_data_home),
-            "CHROME_EXTENSIONS_DIR": str(chrome_extensions_dir),
             "CHROME_DOWNLOADS_DIR": str(chrome_downloads_dir),
             "CHROME_USER_DATA_DIR": str(chrome_user_data_dir),
         },
     )
+    chrome_extensions_dir = Path(get_extensions_dir(env=env))
+    env["CHROME_EXTENSIONS_DIR"] = str(chrome_extensions_dir)
+
+    # Create all directories
+    node_modules_dir.mkdir(parents=True, exist_ok=True)
+    npm_bin_dir.mkdir(parents=True, exist_ok=True)
+    home_dir.mkdir(parents=True, exist_ok=True)
+    xdg_config_home.mkdir(parents=True, exist_ok=True)
+    xdg_cache_home.mkdir(parents=True, exist_ok=True)
+    xdg_data_home.mkdir(parents=True, exist_ok=True)
+    chrome_extensions_dir.mkdir(parents=True, exist_ok=True)
+    chrome_downloads_dir.mkdir(parents=True, exist_ok=True)
+    chrome_user_data_dir.mkdir(parents=True, exist_ok=True)
+    snap_dir.mkdir(parents=True, exist_ok=True)
+    crawl_dir.mkdir(parents=True, exist_ok=True)
 
     # Only set headless if not already in environment (allow override for debugging)
     if "CHROME_HEADLESS" not in os.environ:
@@ -1623,7 +1685,6 @@ def chrome_session(
         xdg_cache_home = home_dir / ".cache"
         xdg_data_home = home_dir / ".local" / "share"
         chrome_persona_dir = personas_dir / "Default"
-        chrome_extensions_dir = chrome_persona_dir / "chrome_extensions"
         chrome_downloads_dir = chrome_persona_dir / "chrome_downloads"
         chrome_user_data_dir = chrome_persona_dir / "chrome_profile"
         env = os.environ.copy()
@@ -1654,7 +1715,6 @@ def chrome_session(
         xdg_config_home.mkdir(parents=True, exist_ok=True)
         xdg_cache_home.mkdir(parents=True, exist_ok=True)
         xdg_data_home.mkdir(parents=True, exist_ok=True)
-        chrome_extensions_dir.mkdir(parents=True, exist_ok=True)
         chrome_downloads_dir.mkdir(parents=True, exist_ok=True)
         chrome_user_data_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1672,7 +1732,6 @@ def chrome_session(
                 "XDG_CONFIG_HOME": str(xdg_config_home),
                 "XDG_CACHE_HOME": str(xdg_cache_home),
                 "XDG_DATA_HOME": str(xdg_data_home),
-                "CHROME_EXTENSIONS_DIR": str(chrome_extensions_dir),
                 "CHROME_DOWNLOADS_DIR": str(chrome_downloads_dir),
                 "CHROME_USER_DATA_DIR": str(chrome_user_data_dir),
                 "CHROME_HEADLESS": "true",
@@ -1680,6 +1739,9 @@ def chrome_session(
         )
         if env_overrides:
             env.update(env_overrides)
+        chrome_extensions_dir = Path(get_extensions_dir(env=env))
+        chrome_extensions_dir.mkdir(parents=True, exist_ok=True)
+        env["CHROME_EXTENSIONS_DIR"] = str(chrome_extensions_dir)
         chrome_timeout = int(env.get("CHROME_TIMEOUT") or "60")
         startup_timeout = max(int(timeout), chrome_timeout + 15)
         env.setdefault("CHROME_DEBUG_PORT_TIMEOUT_MS", str(startup_timeout * 1000))

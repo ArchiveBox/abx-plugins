@@ -10,14 +10,9 @@
     "application/vnd.sqlite3"
   ],
   "properties": {
-    "SEARCH_BACKEND_ENGINE": {
-      "type": "string",
-      "default": "sqlite",
-      "description": "Default search backend used to serve search queries. Multiple indexing backends can run concurrently regardless of this value."
-    },
     "SEARCH_BACKEND_SQLITE_ENABLED": {
       "type": "boolean",
-      "default": true,
+      "default": false,
       "description": "Index archived snapshots into the SQLite FTS database."
     },
     "SEARCH_BACKEND_SQLITE_DB": {

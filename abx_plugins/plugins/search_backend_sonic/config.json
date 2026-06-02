@@ -31,11 +31,6 @@
   ],
   "output_mimetypes": [],
   "properties": {
-    "SEARCH_BACKEND_ENGINE": {
-      "type": "string",
-      "default": "sonic",
-      "description": "Default search backend used to serve search queries. Multiple indexing backends can run concurrently regardless of this value."
-    },
     "SEARCH_BACKEND_SONIC_ENABLED": {
       "type": "boolean",
       "default": true,

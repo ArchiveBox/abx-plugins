@@ -4,7 +4,7 @@ Tests for ripgrep binary detection and archivebox install functionality.
 
 Guards against regressions in:
 1. Ripgrep hook not resolving binary names via shutil.which()
-2. SEARCH_BACKEND_ENGINE not being passed to hook environment
+2. Ripgrep required binary hydration staying local to the ripgrep plugin
 """
 
 from pathlib import Path

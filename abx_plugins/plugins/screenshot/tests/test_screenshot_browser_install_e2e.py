@@ -13,6 +13,7 @@ from abx_plugins.plugins.base.test_utils import (
     parse_jsonl_output,
 )
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    get_extensions_dir,
     install_chromium_with_abxpkg,
 )
 
@@ -116,12 +117,10 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     screenshot_dir = snapshot_dir / "screenshot"
     lib_dir = root_dir / "lib" / machine_type
     personas_dir = root_dir / "personas"
-    default_extensions_dir = personas_dir / "Default" / "chrome_extensions"
 
     chrome_dir.mkdir(parents=True, exist_ok=True)
     snapshot_chrome_dir.mkdir(parents=True, exist_ok=True)
     screenshot_dir.mkdir(parents=True, exist_ok=True)
-    default_extensions_dir.mkdir(parents=True, exist_ok=True)
 
     env = os.environ.copy()
     env.update(
@@ -137,7 +136,10 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
             "PATH": _browserless_path(tmp_path, browser_name),
         },
     )
-    if hasattr(os, "geteuid") and os.geteuid() == 0:
+    extensions_dir = Path(get_extensions_dir(env=env))
+    extensions_dir.mkdir(parents=True, exist_ok=True)
+    env["CHROME_EXTENSIONS_DIR"] = str(extensions_dir)
+    if os.name == "posix" and os.geteuid() == 0:
         env["CHROME_SANDBOX"] = "false"
 
     if existing_browser:

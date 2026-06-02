@@ -114,7 +114,7 @@ def test_get_extensions_dir_default():
     else:
         ext_path = Path(ext_dir)
         assert ext_path.is_absolute()
-        assert ext_path.name in {"extensions", "chrome_extensions"}
+        assert ext_path.name == "extensions"
 
 
 def test_get_extensions_dir_ignores_persona_by_default():

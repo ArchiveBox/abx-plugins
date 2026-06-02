@@ -15,7 +15,7 @@ def test_sonic_supervisord_worker_is_owned_by_plugin(tmp_path: Path) -> None:
 
     config = {
         "DATA_DIR": str(tmp_path / "data"),
-        "SEARCH_BACKEND_ENGINE": "sonic",
+        "SEARCH_BACKEND_SONIC_ENABLED": True,
         "SONIC_BINARY": "/usr/bin/sonic",
         "SEARCH_BACKEND_SONIC_HOST_NAME": "127.0.0.1",
         "SEARCH_BACKEND_SONIC_PORT": _free_port(),
@@ -49,7 +49,7 @@ def test_sonic_daemon_config_normalizes_localhost_bind_host(tmp_path: Path) -> N
     port = _free_port()
     config = {
         "DATA_DIR": str(tmp_path / "data"),
-        "SEARCH_BACKEND_ENGINE": "sonic",
+        "SEARCH_BACKEND_SONIC_ENABLED": True,
         "SEARCH_BACKEND_SONIC_HOST_NAME": "localhost",
         "SEARCH_BACKEND_SONIC_PORT": port,
         "SEARCH_BACKEND_SONIC_PASSWORD": "SecretPassword",

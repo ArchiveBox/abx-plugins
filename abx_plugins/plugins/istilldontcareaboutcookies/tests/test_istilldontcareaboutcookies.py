@@ -20,6 +20,7 @@ from abx_plugins.plugins.base.test_utils import (
     parse_jsonl_records,
 )
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    chrome_extension_install_env,
     chrome_session,
     setup_test_env,
     launch_chromium_session,
@@ -61,11 +62,7 @@ def test_extension_metadata():
 def test_install_creates_cache():
     """Test that install creates extension cache"""
     with tempfile.TemporaryDirectory() as tmpdir:
-        ext_dir = Path(tmpdir) / "chrome_extensions"
-        ext_dir.mkdir(parents=True)
-
-        env = os.environ.copy()
-        env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
+        env, ext_dir = chrome_extension_install_env(tmpdir)
 
         loaded = install_cookie_extension(env)
         assert loaded.loaded_binprovider is not None
@@ -84,8 +81,7 @@ def test_install_creates_cache():
 def test_install_uses_existing_cache():
     """Test that install uses existing cache when available"""
     with tempfile.TemporaryDirectory() as tmpdir:
-        ext_dir = Path(tmpdir) / "chrome_extensions"
-        ext_dir.mkdir(parents=True)
+        env, ext_dir = chrome_extension_install_env(tmpdir)
 
         # Create fake cache
         fake_extension_dir = (
@@ -96,9 +92,6 @@ def test_install_uses_existing_cache():
         manifest = {"version": "1.1.8", "name": "I still don't care about cookies"}
         (fake_extension_dir / "manifest.json").write_text(json.dumps(manifest))
 
-        env = os.environ.copy()
-        env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
-
         loaded = install_cookie_extension(env)
         assert loaded.loaded_abspath is not None
 
@@ -106,11 +99,7 @@ def test_install_uses_existing_cache():
 def test_no_configuration_required():
     """Test that extension works without any configuration"""
     with tempfile.TemporaryDirectory() as tmpdir:
-        ext_dir = Path(tmpdir) / "chrome_extensions"
-        ext_dir.mkdir(parents=True)
-
-        env = os.environ.copy()
-        env["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
+        env, _ext_dir = chrome_extension_install_env(tmpdir)
         # No special env vars needed - works out of the box
 
         loaded = install_cookie_extension(env)
@@ -626,16 +615,12 @@ def test_hides_cookie_consent_on_static_page(httpserver):
         print("STEP 1: BASELINE TEST (no extension)")
         print("=" * 60)
 
-        personas_dir = Path(env_base["PERSONAS_DIR"])
-
         env_no_ext = env_base.copy()
-        env_no_ext["CHROME_EXTENSIONS_DIR"] = str(
-            personas_dir / "Default" / "empty_extensions",
+        baseline_install_env, baseline_extensions_dir = chrome_extension_install_env(
+            tmpdir / "baseline-install",
         )
-        (personas_dir / "Default" / "empty_extensions").mkdir(
-            parents=True,
-            exist_ok=True,
-        )
+        env_no_ext["LIB_DIR"] = baseline_install_env["LIB_DIR"]
+        env_no_ext["CHROME_EXTENSIONS_DIR"] = str(baseline_extensions_dir)
 
         # Launch baseline Chromium in crawls directory
         baseline_crawl_id = "baseline-no-ext"

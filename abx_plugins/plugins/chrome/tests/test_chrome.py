@@ -37,12 +37,14 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_UTILS,
     LoggedPopen,
     find_chromium_binary,
+    get_extensions_dir,
     get_test_env,
     kill_chrome,
     kill_chromium_session,
     launch_chromium_session,
     launch_snapshot_tab,
     wait_for_extensions_metadata,
+    write_browser_metadata,
 )
 from abx_plugins.plugins.base.test_utils import assert_isolated_snapshot_env
 
@@ -555,15 +557,13 @@ const browser = {
 def test_load_cached_extension_uses_runtime_browser_target():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
-        extensions_dir = tmpdir_path / "chrome_extensions"
-        extensions_dir.mkdir()
+        env = _isolated_test_env(
+            tmpdir,
+        )
+        extensions_dir = Path(env["CHROME_EXTENSIONS_DIR"])
         cached_ext = _write_test_extension_cache(extensions_dir)
         output_dir = tmpdir_path / "chrome"
         user_data_dir = tmpdir_path / "chrome_profile"
-        env = _isolated_test_env(
-            tmpdir,
-            CHROME_EXTENSIONS_DIR=str(extensions_dir),
-        )
         script = r"""
 const chromeUtils = require(process.argv[1]);
 const outputDir = process.argv[2];
@@ -786,7 +786,6 @@ def _isolated_test_env(tmpdir: str | Path, **updates: str) -> dict:
     xdg_cache_home = home_dir / ".cache"
     xdg_data_home = home_dir / ".local" / "share"
     lib_dir = tmpdir / "lib"
-    chrome_extensions_dir = lib_dir / "chromewebstore" / "extensions"
     chrome_downloads_dir = personas_dir / "Default" / "chrome_downloads"
     chrome_user_data_dir = personas_dir / "Default" / "chrome_profile"
 
@@ -798,7 +797,6 @@ def _isolated_test_env(tmpdir: str | Path, **updates: str) -> dict:
         xdg_config_home,
         xdg_cache_home,
         xdg_data_home,
-        chrome_extensions_dir,
         chrome_downloads_dir,
         chrome_user_data_dir,
     ):
@@ -814,12 +812,14 @@ def _isolated_test_env(tmpdir: str | Path, **updates: str) -> dict:
             "XDG_CONFIG_HOME": str(xdg_config_home),
             "XDG_CACHE_HOME": str(xdg_cache_home),
             "XDG_DATA_HOME": str(xdg_data_home),
-            "CHROME_EXTENSIONS_DIR": str(chrome_extensions_dir),
             "CHROME_DOWNLOADS_DIR": str(chrome_downloads_dir),
             "CHROME_USER_DATA_DIR": str(chrome_user_data_dir),
         },
     )
     env.update(updates)
+    chrome_extensions_dir = Path(get_extensions_dir(env=env))
+    chrome_extensions_dir.mkdir(parents=True, exist_ok=True)
+    env["CHROME_EXTENSIONS_DIR"] = str(chrome_extensions_dir)
     assert_isolated_snapshot_env(env)
     return env
 
@@ -1203,10 +1203,11 @@ def test_chrome_can_adopt_existing_cdp_url_without_local_pid(chrome_test_url):
         provider_chrome_dir = provider_crawl_dir / "chrome"
         provider_chrome_dir.mkdir()
 
-        provider_env = get_test_env() | {
-            "CRAWL_DIR": str(provider_crawl_dir),
-            "CHROME_HEADLESS": "true",
-        }
+        provider_env = _isolated_test_env(
+            tmpdir,
+            CRAWL_DIR=str(provider_crawl_dir),
+            CHROME_HEADLESS="true",
+        )
         provider_process = subprocess.Popen(
             [str(CHROME_LAUNCH_HOOK), "--crawl-id=provider-crawl"],
             cwd=str(provider_chrome_dir),
@@ -1235,18 +1236,19 @@ def test_chrome_can_adopt_existing_cdp_url_without_local_pid(chrome_test_url):
             provider_pid = int((provider_chrome_dir / "chrome.pid").read_text().strip())
             os.kill(provider_pid, 0)
 
-            crawl_dir = Path(tmpdir) / "crawl"
+            crawl_dir = Path(tmpdir) / "adopted-crawl"
             crawl_dir.mkdir()
             chrome_dir = crawl_dir / "chrome"
             chrome_dir.mkdir()
 
-            adopt_env = get_test_env() | {
-                "CRAWL_DIR": str(crawl_dir),
-                "CHROME_HEADLESS": "true",
-                "CHROME_CDP_URL": provider_cdp_url,
-                "CHROME_IS_LOCAL": "false",
-                "CHROME_KEEPALIVE": "true",
-            }
+            adopt_env = _isolated_test_env(
+                tmpdir,
+                CRAWL_DIR=str(crawl_dir),
+                CHROME_HEADLESS="true",
+                CHROME_CDP_URL=provider_cdp_url,
+                CHROME_IS_LOCAL="false",
+                CHROME_KEEPALIVE="true",
+            )
 
             launch = subprocess.run(
                 [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-adopted-crawl"],
@@ -2065,14 +2067,10 @@ def test_cdp_url_is_published_before_extensions_metadata():
         shared_dir.mkdir()
         chrome_dir = shared_dir / "chrome"
         chrome_dir.mkdir()
-        extensions_dir = Path(tmpdir) / "chrome_extensions"
-        extensions_dir.mkdir()
 
+        install_env = _isolated_test_env(tmpdir)
+        extensions_dir = Path(get_extensions_dir(env=install_env))
         _write_test_extension_cache(extensions_dir)
-        install_env = _isolated_test_env(
-            tmpdir,
-            CHROME_EXTENSIONS_DIR=str(extensions_dir),
-        )
 
         env = install_env | {
             "CRAWL_DIR": str(shared_dir),
@@ -2105,7 +2103,10 @@ def test_cdp_url_is_published_before_extensions_metadata():
                     saw_cdp_before_browser = True
                     break
 
-                if saw_cdp and saw_browser and saw_cdp_before_browser:
+                if saw_cdp and saw_browser:
+                    saw_cdp_before_browser = (
+                        cdp_file.stat().st_mtime_ns <= browser_file.stat().st_mtime_ns
+                    )
                     break
 
                 if chrome_launch_process.poll() is not None:
@@ -2630,13 +2631,9 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
         shared_dir.mkdir()
         chrome_dir = shared_dir / "chrome"
         chrome_dir.mkdir()
-        extensions_dir = Path(tmpdir) / "chrome_extensions"
-        extensions_dir.mkdir()
 
-        install_env = _isolated_test_env(
-            tmpdir,
-            CHROME_EXTENSIONS_DIR=str(extensions_dir),
-        )
+        install_env = _isolated_test_env(tmpdir)
+        extensions_dir = Path(get_extensions_dir(env=install_env))
         cached_ext = _write_test_extension_cache(extensions_dir)
         extension_cache = extensions_dir / f"{TEST_EXTENSION_NAME}.extension.json"
         assert extension_cache.exists(), "test extension cache should exist"
@@ -2805,6 +2802,7 @@ def test_crawl_wait_retries_until_published_cdp_endpoint_becomes_connectable(
             adopted_chrome_dir.joinpath("cdp_url.txt").write_text(
                 "ws://127.0.0.1:9/devtools/browser/not-ready-yet",
             )
+            write_browser_metadata(adopted_chrome_dir)
 
             adopted_env = _isolated_test_env(
                 tmpdir,
