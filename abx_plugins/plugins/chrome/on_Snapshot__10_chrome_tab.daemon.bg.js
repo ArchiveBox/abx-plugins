@@ -308,6 +308,12 @@ async function main() {
             `Live snapshot target already exists for different URL (${existingUrl})`
           );
         }
+        if (existingSnapshotSession.state.browser) {
+          writeFileAtomic(
+            path.join(OUTPUT_DIR, "browser.json"),
+            JSON.stringify(existingSnapshotSession.state.browser, null, 2)
+          );
+        }
         currentCdpUrl = existingSnapshotSession.state.cdpUrl;
         targetId = existingSnapshotSession.state.targetId;
         fs.writeFileSync(path.join(OUTPUT_DIR, "cdp_url.txt"), currentCdpUrl);
@@ -359,6 +365,12 @@ async function main() {
         throw new Error("Failed to resolve target ID for snapshot-scoped tab");
       }
 
+      if (snapshotSession.browser) {
+        writeFileAtomic(
+          path.join(OUTPUT_DIR, "browser.json"),
+          JSON.stringify(snapshotSession.browser, null, 2)
+        );
+      }
       fs.writeFileSync(path.join(OUTPUT_DIR, "cdp_url.txt"), currentCdpUrl);
       if (snapshotSession.pid) {
         fs.writeFileSync(
@@ -430,6 +442,10 @@ async function main() {
         throw new Error("Failed to resolve target ID for new tab");
       }
 
+      writeFileAtomic(
+        path.join(OUTPUT_DIR, "browser.json"),
+        JSON.stringify(crawlSession.browser, null, 2)
+      );
       fs.writeFileSync(
         path.join(OUTPUT_DIR, "cdp_url.txt"),
         crawlSession.cdpUrl
@@ -458,11 +474,6 @@ async function main() {
       releaseLock();
       releaseLock = null;
       publishSuccess(output, version || "");
-
-      writeFileAtomic(
-        path.join(OUTPUT_DIR, "browser.json"),
-        JSON.stringify(crawlSession.browser, null, 2)
-      );
       await startTargetMonitorBestEffort();
     }
   } catch (e) {

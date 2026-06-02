@@ -16,8 +16,7 @@ const fs = require("fs");
 const path = require("path");
 const {
   ensureNodeModuleResolution,
-  getEnv,
-  getEnvBool,
+    getEnvBool,
   loadConfig,
   parseArgs,
   emitArchiveResultRecord,
@@ -78,7 +77,16 @@ async function takeScreenshot(url) {
 
   // Wait for chrome_navigate to complete (writes navigation.json)
   // Keep runtime default aligned with config.json (default: 60s).
-  const timeoutSeconds = parseInt(getEnv("SCREENSHOT_TIMEOUT", "60"), 10);
+  const timeoutSource = Object.prototype.hasOwnProperty.call(
+    process.env,
+    "SCREENSHOT_TIMEOUT"
+  )
+    ? process.env.SCREENSHOT_TIMEOUT
+    : hookConfig.SCREENSHOT_TIMEOUT;
+  const timeoutSeconds = Number(timeoutSource ?? 60);
+  if (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0) {
+    throw new Error(`Invalid SCREENSHOT_TIMEOUT=${timeoutSource}`);
+  }
   const timeoutMs = timeoutSeconds * 1000;
   const { browser, page } = await connectToPage({
     chromeSessionDir: CHROME_SESSION_DIR,
