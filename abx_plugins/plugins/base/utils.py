@@ -242,11 +242,13 @@ def _resolve_schema_payload(
     properties: dict[str, Any],
     *,
     resolved_config: dict[str, Any] | None = None,
+    explicit_config_keys: set[str] | None = None,
     user_config: Mapping[str, str] | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     environ = os.environ if environ is None else environ
     resolved = dict(resolved_config or {})
+    explicit_config_keys = explicit_config_keys or set()
     payload: dict[str, Any] = {}
 
     for _ in range(max(len(properties), 1) + 1):
@@ -297,7 +299,15 @@ def _resolve_schema_payload(
 
             if key in resolved:
                 resolved_value = resolved[key]
-                if "default" in prop and resolved_value == prop["default"]:
+                default_value = prop.get("default")
+                if (
+                    key not in explicit_config_keys
+                    and isinstance(default_value, str)
+                    and "{" in default_value
+                ):
+                    resolved_value = _hydrate_value(default_value, resolved)
+                    resolved[key] = resolved_value
+                elif "default" in prop and resolved_value == prop["default"]:
                     resolved_value = _hydrate_value(prop["default"], resolved)
                 if payload.get(key) != resolved_value:
                     payload[key] = resolved_value
@@ -642,6 +652,7 @@ def resolve_plugin_configs(
         key: normalize_config_value(value)
         for key, value in (global_config or {}).items()
     }
+    explicit_config_keys = set(resolved_values)
     resolved_payloads: dict[str, dict[str, Any]] = {}
 
     for _ in range(max(len(plugin_schemas), 1) + 1):
@@ -651,6 +662,7 @@ def resolve_plugin_configs(
             payload = _resolve_schema_payload(
                 properties,
                 resolved_config=resolved_values,
+                explicit_config_keys=explicit_config_keys,
                 user_config=user_config,
                 environ=environ,
             )
@@ -709,6 +721,7 @@ def _resolve_config_payload(
     payload = _resolve_schema_payload(
         properties,
         resolved_config=dict(global_config or {}),
+        explicit_config_keys=set(global_config or {}),
         user_config=user_config,
         environ=environ,
     )
