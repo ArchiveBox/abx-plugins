@@ -34,6 +34,21 @@
       }
     },
     {
+      "name": "puppeteer-browsers",
+      "binproviders": "npm",
+      "min_version": null,
+      "postinstall_scripts": false,
+      "min_release_age": 0,
+      "overrides": {
+        "npm": {
+          "install_args": [
+            "@puppeteer/browsers",
+            "puppeteer"
+          ]
+        }
+      }
+    },
+    {
       "name": "{CHROME_BINARY}",
       "binproviders": "env,puppeteer,playwright",
       "min_version": "149.0.0",
