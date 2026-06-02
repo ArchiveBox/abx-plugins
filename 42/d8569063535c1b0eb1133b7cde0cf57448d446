@@ -1,0 +1,19 @@
+abx_plugins/plugins/claudecode/tests/test_claudecode.py
+  s_ccefc8ac08198c::t_2933f55175d487 37-45,145,170,194
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "42d8569063535c1b0eb1133b7cde0cf57448d446",
+  "prompts": {},
+  "sessions": {
+    "s_ccefc8ac08198c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e86b5-1bab-7df2-80cb-660ce277c3ec",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
