@@ -1,0 +1,21 @@
+abx_plugins/plugins/base/utils.py
+  s_1ff935dadc9b9f::t_5849c6b2928eac 156-164
+abx_plugins/plugins/search_backend_ripgrep/tests/test_ripgrep_search.py
+  s_1ff935dadc9b9f::t_a0ae6496bc276a 143-155
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "6ebd05553c2b7e88a9ac6d762ddd8f99dfbe8e86",
+  "prompts": {},
+  "sessions": {
+    "s_1ff935dadc9b9f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e820e-52cc-7311-9ae4-f3f56880ac41",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
