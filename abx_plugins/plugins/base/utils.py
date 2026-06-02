@@ -18,8 +18,9 @@ import json
 import os
 import stat
 import sys
+import time
 from collections.abc import Mapping, MutableMapping
-from functools import lru_cache
+from functools import lru_cache, wraps
 from pathlib import Path
 from typing import Any, TextIO, cast
 
@@ -31,6 +32,28 @@ from typing import Any, TextIO, cast
 BASE_CONFIG_PATH = Path(__file__).with_name("config.json")
 PLUGINS_DIR = BASE_CONFIG_PATH.parent.parent
 PROCESS_EXIT_SKIPPED = 10
+
+
+def _perf_trace(label):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if os.environ.get("ARCHIVEBOX_PERF_TRACE") != "1":
+                return func(*args, **kwargs)
+            started_at = time.perf_counter()
+            try:
+                return func(*args, **kwargs)
+            finally:
+                elapsed_ms = (time.perf_counter() - started_at) * 1000
+                print(
+                    f"PERF_TRACE label={label} ms={elapsed_ms:.3f}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
+        return wrapper
+
+    return decorator
 
 
 def normalize_config_value(value: Any) -> Any:
@@ -444,6 +467,7 @@ def hydrate_required_binary(
     return cast(dict[str, Any], _hydrate_value(dict(record), config))
 
 
+@_perf_trace("abx_plugins.base.load_required_binary")
 def load_required_binary(
     record: Mapping[str, Any],
     *,
@@ -481,6 +505,7 @@ def load_required_binary(
     return binary.install() if install else binary.load()
 
 
+@_perf_trace("abx_plugins.base._load_required_binary_path")
 def _load_required_binary_path(
     record: Mapping[str, Any],
     payload: Mapping[str, Any],
@@ -506,6 +531,7 @@ def _schema_required_binaries(schema: Mapping[str, Any]) -> list[dict[str, Any]]
     return [dict(record) for record in raw_records if isinstance(record, Mapping)]
 
 
+@_perf_trace("abx_plugins.base._hydrate_config_payload")
 def _hydrate_config_payload(
     payload: dict[str, Any],
     *,
@@ -605,6 +631,7 @@ def _patch_open_object_fields(
     )
 
 
+@_perf_trace("abx_plugins.base.build_config_model")
 def build_config_model(
     title: str,
     properties: Mapping[str, Any],
@@ -689,6 +716,7 @@ def resolve_plugin_config(
     )[plugin_name]
 
 
+@_perf_trace("abx_plugins.base._resolve_config_payload")
 def _resolve_config_payload(
     config_path: Path | str | None,
     *,
@@ -797,6 +825,7 @@ def load_required_binary_from_config(
     )
 
 
+@_perf_trace("abx_plugins.base.load_config")
 def load_config(
     config_path: Path | str | None = None,
     *,
