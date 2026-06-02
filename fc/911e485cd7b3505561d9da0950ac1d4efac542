@@ -1,0 +1,66 @@
+abx_plugins/plugins/search_backend_ripgrep/config.json
+  s_c5ae786df4a14c::t_fbc42cb5508602 24-27
+abx_plugins/plugins/istilldontcareaboutcookies/tests/test_istilldontcareaboutcookies.py
+  s_1ff935dadc9b9f::t_2396b672e90967 619-620,622-623
+  s_1ff935dadc9b9f::t_ba7b65e04045c7 23,65,84,102
+abx_plugins/plugins/search_backend_sonic/tests/test_sonic_start.py
+  s_c5ae786df4a14c::t_675327222bdba9 18,52
+abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py
+  s_1ff935dadc9b9f::t_ed83bd9f384a3a 117
+abx_plugins/plugins/search_backend_sqlite/config.json
+  s_c5ae786df4a14c::t_7ad6c2ae8ed3f2 15
+abx_plugins/plugins/screenshot/tests/test_screenshot_browser_install_e2e.py
+  s_1ff935dadc9b9f::t_789564f110c89f 16,139-142
+abx_plugins/plugins/search_backend_sqlite/tests/test_sqlite_hook.py
+  s_c5ae786df4a14c::t_675327222bdba9 24
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_1ff935dadc9b9f::t_1f464207724ede 2106-2107,2109
+  s_1ff935dadc9b9f::t_738d6a64469ecb 1206-1210,1244-1251,2108
+  s_1ff935dadc9b9f::t_9f7ca0fb195c98 1239
+  s_1ff935dadc9b9f::t_9d279f4bd89d9f 2071,2635
+  s_1ff935dadc9b9f::t_6f4e30250c145b 40,2072,2636
+  s_1ff935dadc9b9f::t_0eea387cf513fe 47,563-566,820-822,2805
+abx_plugins/plugins/ublock/tests/test_ublock.py
+  s_1ff935dadc9b9f::t_1878c26ec58c9f 636-637,639-641
+  s_1ff935dadc9b9f::t_f3ea12e89c864f 23,63,82,99,109
+abx_plugins/plugins/search_backend_ripgrep/tests/test_ripgrep_detection.py
+  s_c5ae786df4a14c::t_675327222bdba9 7
+abx_plugins/plugins/singlefile/tests/test_singlefile.py
+  s_1ff935dadc9b9f::t_49ebc432bf51fa 231-270,272-279
+  s_1ff935dadc9b9f::t_041b49ecc49acb 171-199
+  s_1ff935dadc9b9f::t_f7097274555a62 300-364
+  s_1ff935dadc9b9f::t_40ccc4e8069641 28,74,160,287
+  s_1ff935dadc9b9f::t_ddbaecdea0c017 373-390,492-534
+abx_plugins/plugins/search_backend_sqlite/on_Snapshot__90_index_sqlite.py
+  s_c5ae786df4a14c::t_675327222bdba9 245
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  s_1ff935dadc9b9f::t_a3bb078f086e20 636-644,646-668
+  s_1ff935dadc9b9f::t_513786965707e1 761,766-771
+  s_1ff935dadc9b9f::t_8674ee4f692199 671-672,674,773-798
+  s_1ff935dadc9b9f::t_cfba5cc8a2fa6f 1742-1744
+  s_1ff935dadc9b9f::t_62d19331c31db9 675-696,698,1230-1233,1293-1307
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "fc911e485cd7b3505561d9da0950ac1d4efac542",
+  "prompts": {},
+  "sessions": {
+    "s_1ff935dadc9b9f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e820e-52cc-7311-9ae4-f3f56880ac41",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_c5ae786df4a14c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e81c2-3271-70c1-8ea7-2c49783fb389",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
