@@ -153,8 +153,15 @@ def _resolve_config_path(
     stack_depth: int = 1,
 ) -> Path:
     if config_path is None:
-        caller_file = sys._getframe(stack_depth).f_code.co_filename
-        return (Path(caller_file).parent / "config.json").resolve()
+        frame = sys._getframe(stack_depth)
+        base_utils_path = Path(__file__).resolve()
+        while frame:
+            caller_file = Path(frame.f_code.co_filename).resolve()
+            candidate = caller_file.parent / "config.json"
+            if caller_file != base_utils_path and candidate.exists():
+                return candidate.resolve()
+            frame = frame.f_back
+        raise FileNotFoundError("No plugin config.json found for load_config() caller")
     return Path(config_path).resolve()
 
 
