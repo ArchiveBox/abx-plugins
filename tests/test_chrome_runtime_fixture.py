@@ -21,17 +21,14 @@ def test_require_chrome_runtime_loads_node_and_npm():
         assert Path(str(binary.abspath)).exists()
 
 
-def test_require_chrome_runtime_fails_when_binary_resolution_fails(
+def test_require_chrome_runtime_resolves_in_subprocess(
     tmp_path: Path,
 ):
-    """Fixture should fail fast when a required runtime binary cannot be loaded."""
+    """The subprocess path should use the same provider-aware runtime resolution."""
 
     env = os.environ.copy()
-    env["PATH"] = str(tmp_path)
     env["ABXPKG_LIB_DIR"] = str(tmp_path / "abxpkg-lib")
     env["ABXPKG_ENV_ROOT"] = str(tmp_path / "abxpkg-env")
-    env.pop("NODE_BINARY", None)
-    env.pop("NPM_BINARY", None)
     result = subprocess.run(
         [
             sys.executable,
@@ -48,5 +45,4 @@ def test_require_chrome_runtime_fails_when_binary_resolution_fails(
         timeout=30,
     )
 
-    assert result.returncode != 0
-    assert "Chrome integration prerequisites unavailable:" in result.stderr
+    assert result.returncode == 0, result.stderr

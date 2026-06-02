@@ -157,6 +157,7 @@ def index_in_sonic(snapshot_id: str, texts: list[str], config: Any) -> None:
     except ModuleNotFoundError:
         raise RuntimeError("sonic-client not installed. Run: pip install sonic-client")
     ingest_client: Any = sonic.IngestClient
+    control_client: Any = sonic.ControlClient
 
     with ingest_client(
         config.SEARCH_BACKEND_SONIC_HOST_NAME,
@@ -184,6 +185,13 @@ def index_in_sonic(snapshot_id: str, texts: list[str], config: Any) -> None:
                 snapshot_id,
                 chunk,
             )
+
+    with control_client(
+        config.SEARCH_BACKEND_SONIC_HOST_NAME,
+        config.SEARCH_BACKEND_SONIC_PORT,
+        config.SEARCH_BACKEND_SONIC_PASSWORD,
+    ) as control:
+        control.trigger("consolidate")
 
 
 def get_snapshot_id_from_context() -> str:

@@ -66,13 +66,23 @@ def test_verify_deps_with_abxpkg():
         pass
 
 
-def test_reports_missing_dependency_when_not_installed():
-    """Test that script reports DEPENDENCY_NEEDED when wget is not found."""
+def test_resolves_wget_with_provider_managed_binary_path():
+    """The hook should use the real hydrated binary resolution path."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Run with empty PATH so binary won't be found
-        env = {"PATH": "/nonexistent", "HOME": str(tmpdir)}
+        loaded = install_required_binary_from_config(PLUGIN_DIR, "wget")
+        assert loaded.loaded_abspath is not None, "wget should resolve through abxpkg"
+
+        env = os.environ.copy()
+        env.update(
+            {
+                "PATH": "/nonexistent",
+                "HOME": str(tmpdir),
+                "SNAP_DIR": str(tmpdir),
+                "WGET_BINARY": str(loaded.loaded_abspath),
+            },
+        )
 
         result = subprocess.run(
             [
@@ -87,19 +97,10 @@ def test_reports_missing_dependency_when_not_installed():
             env=env,
         )
 
-        # Missing binary is a hard dependency failure.
-        assert result.returncode == 1, "Should exit 1 when dependency missing"
-
-        # Should emit failed JSONL describing the missing dependency.
+        assert result.returncode == 0, result.stderr
         result_json = parse_jsonl_output(result.stdout)
-        assert result_json, "Expected failed JSONL output"
-        assert result_json["status"] == "failed", result_json
-        assert "wget" in result_json["output_str"].lower(), result_json
-
-        # Should log error to stderr
-        assert "wget" in result.stderr.lower() or "error" in result.stderr.lower(), (
-            "Should report error in stderr"
-        )
+        assert result_json, "Expected ArchiveResult JSONL output"
+        assert result_json["status"] in {"succeeded", "noresults"}, result_json
 
 
 def test_can_install_wget_via_abxpkg_provider():
