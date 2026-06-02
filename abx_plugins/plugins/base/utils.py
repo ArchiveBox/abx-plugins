@@ -20,6 +20,7 @@ import stat
 import sys
 import time
 from collections.abc import Mapping, MutableMapping
+from contextlib import contextmanager
 from functools import lru_cache, wraps
 from pathlib import Path
 from typing import Any, TextIO, cast
@@ -54,6 +55,23 @@ def _perf_trace(label):
         return wrapper
 
     return decorator
+
+
+@contextmanager
+def _perf_span(label: str):
+    if os.environ.get("ARCHIVEBOX_PERF_TRACE") != "1":
+        yield
+        return
+    started_at = time.perf_counter()
+    try:
+        yield
+    finally:
+        elapsed_ms = (time.perf_counter() - started_at) * 1000
+        print(
+            f"PERF_TRACE label={label} ms={elapsed_ms:.3f}",
+            file=sys.stderr,
+            flush=True,
+        )
 
 
 def normalize_config_value(value: Any) -> Any:
@@ -478,31 +496,35 @@ def load_required_binary(
     """Load or install one required_binaries record with abxpkg."""
     from abxpkg import Binary, SemVer
 
-    payload: dict[str, Any] = dict(os.environ if environ is None else environ)
-    if config:
-        payload.update(
-            {key: normalize_config_value(value) for key, value in config.items()},
+    with _perf_span("abx_plugins.base.load_required_binary.payload"):
+        payload: dict[str, Any] = dict(os.environ if environ is None else environ)
+        if config:
+            payload.update(
+                {key: normalize_config_value(value) for key, value in config.items()},
+            )
+
+    with _perf_span("abx_plugins.base.load_required_binary.hydrate_record"):
+        hydrated_record = hydrate_required_binary(record, payload)
+        name = str(hydrated_record.get("name") or "").strip()
+        if not name:
+            raise ValueError("required_binaries record is missing a name")
+
+    with _perf_span("abx_plugins.base.load_required_binary.build_binary"):
+        min_version = hydrated_record.get("min_version")
+        binary = Binary(
+            name=name,
+            binproviders=build_binproviders(
+                hydrated_record.get("binproviders") or "env",
+                config=payload,
+                environ=environ,
+            ),
+            min_version=SemVer(min_version) if min_version else None,
+            min_release_age=hydrated_record.get("min_release_age"),
+            postinstall_scripts=hydrated_record.get("postinstall_scripts"),
+            overrides=abxpkg_native_overrides(hydrated_record.get("overrides")),
         )
-
-    hydrated_record = hydrate_required_binary(record, payload)
-    name = str(hydrated_record.get("name") or "").strip()
-    if not name:
-        raise ValueError("required_binaries record is missing a name")
-
-    min_version = hydrated_record.get("min_version")
-    binary = Binary(
-        name=name,
-        binproviders=build_binproviders(
-            hydrated_record.get("binproviders") or "env",
-            config=payload,
-            environ=environ,
-        ),
-        min_version=SemVer(min_version) if min_version else None,
-        min_release_age=hydrated_record.get("min_release_age"),
-        postinstall_scripts=hydrated_record.get("postinstall_scripts"),
-        overrides=abxpkg_native_overrides(hydrated_record.get("overrides")),
-    )
-    return binary.install() if install else binary.load()
+    with _perf_span("abx_plugins.base.load_required_binary.abxpkg_load_or_install"):
+        return binary.install() if install else binary.load()
 
 
 @_perf_trace("abx_plugins.base._load_required_binary_path")
@@ -540,13 +562,19 @@ def _hydrate_config_payload(
     required_binaries: list[dict[str, Any]] | None = None,
 ) -> None:
     for record in required_binaries or []:
-        key = _placeholder_config_key(record.get("name"))
-        if key is None or key not in payload:
-            continue
-        env = os.environ if environ is None else environ
-        if key in env and Path(str(env[key])).expanduser().exists():
-            continue
-        loaded_path = _load_required_binary_path(record, payload)
+        with _perf_span(
+            "abx_plugins.base._hydrate_config_payload.required_binary_check",
+        ):
+            key = _placeholder_config_key(record.get("name"))
+            if key is None or key not in payload:
+                continue
+            env = os.environ if environ is None else environ
+            if key in env and Path(str(env[key])).expanduser().exists():
+                continue
+        with _perf_span(
+            "abx_plugins.base._hydrate_config_payload.load_required_binary_path",
+        ):
+            loaded_path = _load_required_binary_path(record, payload)
         if loaded_path:
             payload[key] = loaded_path
 
