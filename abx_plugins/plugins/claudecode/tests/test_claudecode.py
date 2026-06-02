@@ -34,6 +34,15 @@ from abx_plugins.plugins.claudecode.claudecode_utils import (
 PLUGIN_DIR = get_plugin_dir(__file__)
 
 
+def run_claude_code_with_retry(*args, attempts: int = 3, **kwargs):
+    latest = ("", "", 1)
+    for _attempt in range(attempts):
+        latest = run_claude_code(*args, **kwargs)
+        if latest[2] == 0:
+            return latest
+    return latest
+
+
 class TestClaudeCodePlugin:
     """Test the claudecode base plugin."""
 
@@ -133,7 +142,7 @@ class TestClaudeCodeIntegration:
     def test_run_claude_code_simple_prompt(self):
         """Claude Code CLI should respond to a simple prompt."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            stdout, stderr, returncode = run_claude_code(
+            stdout, stderr, returncode = run_claude_code_with_retry(
                 prompt="Respond with exactly: ARCHIVEBOX_TEST_OK",
                 work_dir=tmpdir,
                 timeout=60,
@@ -158,7 +167,7 @@ class TestClaudeCodeIntegration:
 
             system_prompt = build_system_prompt(snap_dir=snap_dir)
 
-            stdout, stderr, returncode = run_claude_code(
+            stdout, stderr, returncode = run_claude_code_with_retry(
                 prompt=(
                     "List the extractor output directories you can see in "
                     "the snapshot. Respond with just the directory names, "
@@ -182,7 +191,7 @@ class TestClaudeCodeIntegration:
             output_dir = Path(tmpdir) / "output"
             output_dir.mkdir()
 
-            stdout, stderr, returncode = run_claude_code(
+            stdout, stderr, returncode = run_claude_code_with_retry(
                 prompt=(
                     f"Write the text 'hello from claude' to the file "
                     f"{output_dir}/test_output.txt"
