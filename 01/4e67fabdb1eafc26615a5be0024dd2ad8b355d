@@ -1,0 +1,23 @@
+abx_plugins/plugins/chrome/config.json
+  s_ccefc8ac08198c::t_740503b904f0b5 38-44,46,48-50
+  s_ccefc8ac08198c::t_7447b0f853a4b0 37,45,47
+tests/test_chrome_abxbus_dependency.py
+  s_ccefc8ac08198c::t_78315688fbb111 55-62,66-79,81-97
+  s_ccefc8ac08198c::t_95f6cbdcce575d 63-65,80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "014e67fabdb1eafc26615a5be0024dd2ad8b355d",
+  "prompts": {},
+  "sessions": {
+    "s_ccefc8ac08198c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e86b5-1bab-7df2-80cb-660ce277c3ec",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
