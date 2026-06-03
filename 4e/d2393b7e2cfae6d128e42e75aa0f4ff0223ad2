@@ -1,0 +1,19 @@
+abx_plugins/plugins/gallerydl/tests/test_gallerydl.py
+  s_ccefc8ac08198c::t_925dafd3510206 188-189,192-209
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "4ed2393b7e2cfae6d128e42e75aa0f4ff0223ad2",
+  "prompts": {},
+  "sessions": {
+    "s_ccefc8ac08198c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e86b5-1bab-7df2-80cb-660ce277c3ec",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
