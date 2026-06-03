@@ -16,29 +16,51 @@
     // flash and forces ui.js to silently reload the iframe up to twice
     // (~200ms each) while it waits for the SW to claim. Awaiting
     // 'activated' here moves the wait out of the iframe's load cycle.
-    (async () => {
-        if ('serviceWorker' in navigator) {
-            try {
-                const reg = await navigator.serviceWorker.register(
-                    '/replay/sw.js?serveIndex=1',
-                    { scope: '/replay/' },
-                );
-                if (!reg.active) {
-                    const worker = reg.installing || reg.waiting;
-                    if (worker && worker.state !== 'activated') {
-                        await new Promise((resolve) => {
-                            worker.addEventListener('statechange', () => {
-                                if (worker.state === 'activated') resolve();
-                            });
-                        });
-                    }
-                }
-            } catch (_) { /* fall through: ui.js will register + retry itself */ }
-        }
+    function appendReplayUi() {
+        if (document.querySelector('script[src="/replay/ui.js"]')) return;
         const s = document.createElement('script');
         s.src = '/replay/ui.js';
         document.head.appendChild(s);
-    })();
+    }
+
+    function withTimeout(promise, timeoutMs) {
+        return Promise.race([
+            promise,
+            new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('timed out')), timeoutMs);
+            }),
+        ]);
+    }
+
+    async function waitForActivation(reg) {
+        if (reg.active && reg.active.state === 'activated') return;
+        const worker = reg.installing || reg.waiting || reg.active;
+        if (!worker || worker.state === 'activated') return;
+        await Promise.race([
+            new Promise((resolve) => {
+                worker.addEventListener('statechange', () => {
+                    if (worker.state === 'activated') resolve();
+                });
+            }),
+            new Promise((resolve) => setTimeout(resolve, 3000)),
+        ]);
+    }
+
+    (async () => {
+        appendReplayUi();
+        if ('serviceWorker' in navigator) {
+            try {
+                const reg = await withTimeout(
+                    navigator.serviceWorker.register(
+                        '/replay/sw.js?serveIndex=1',
+                        { scope: '/replay/' },
+                    ),
+                    3000,
+                );
+                await waitForActivation(reg);
+            } catch (_) { /* fall through: ui.js will register + retry itself */ }
+        }
+    })().catch(() => {});
     </script>
 </head>
 <body>
