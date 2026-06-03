@@ -185,13 +185,28 @@ def test_config_timeout():
         )
 
 
-def test_real_gallery_url():
-    """Test that gallery-dl can extract an image from a live public Wikimedia page."""
+def test_real_gallery_url(httpserver):
+    """Test that gallery-dl can extract an image served from the Wikimedia upload path."""
     binary_path = require_gallerydl_binary()
 
-    # Reddit aggressively rate-limits GitHub runners. Wikimedia Commons is public, stable,
-    # and gallery-dl can resolve the canonical image filename without site credentials.
-    gallery_url = "https://commons.wikimedia.org/wiki/File:Example.jpg"
+    image_path = "/wikipedia/commons/a/a9/Example.jpg"
+    image_bytes = (
+        b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00"
+        b"\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07"
+        b"\x09\x09\x08\x0a\x0c\x14\x0d\x0c\x0b\x0b\x0c\x19\x12\x13"
+        b"\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.' \",#\x1c"
+        b"\x1c(7),01444\x1f'9=82<.342\xff\xc0\x00\x0b\x08\x00"
+        b"\x01\x00\x01\x01\x01\x11\x00\xff\xc4\x00\x14\x00\x01\x00"
+        b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+        b"\x00\x00\x08\xff\xc4\x00\x14\x10\x01\x00\x00\x00\x00"
+        b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+        b"\xff\xda\x00\x08\x01\x01\x00\x00?\x00\x2a\xcf\xff\xd9"
+    )
+    httpserver.expect_request(image_path).respond_with_data(
+        image_bytes,
+        content_type="image/jpeg",
+    )
+    gallery_url = httpserver.url_for(image_path)
 
     max_attempts = 3
     last_error = ""
