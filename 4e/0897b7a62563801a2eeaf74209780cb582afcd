@@ -1,0 +1,21 @@
+abx_plugins/plugins/opencode/views.py
+  s_6b96473078dfa1::t_e77f3d4ee51ae8 14,151,160,164,173-175
+  s_6b96473078dfa1::t_27a1a382bab68b 6,9,215,218,221-251,253-254,256-274
+  s_6b96473078dfa1::t_bbf73d703ed13b 201,206-214,216-217,219-220
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "4e0897b7a62563801a2eeaf74209780cb582afcd",
+  "prompts": {},
+  "sessions": {
+    "s_6b96473078dfa1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8e71-a862-71c3-9b0c-d2bc975f2d0f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
