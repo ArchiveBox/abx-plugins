@@ -3,10 +3,8 @@ from __future__ import annotations
 import base64
 import importlib
 import os
-import platform
 import re
 import subprocess
-import sys
 import threading
 import time
 from pathlib import Path
@@ -31,6 +29,7 @@ _PROCESS_LOCK = threading.Lock()
 _PROXY_PREFIX = "/admin/agent/opencode"
 _PROXY_PREFIX_REGEX = _PROXY_PREFIX.replace("/", r"\/")
 _PROXY_PREFIX_NO_SLASH_REGEX = _PROXY_PREFIX.lstrip("/").replace("/", r"\/")
+_CONFIG_PATH = Path(__file__).with_name("config.json")
 
 _TEXT_CONTENT_TYPES = (
     "text/",
@@ -198,80 +197,43 @@ def _settings(config: dict) -> dict:
         "state_home": opencode_dir / "state",
         "cache_home": opencode_dir / "cache",
         "home": opencode_dir / "home",
-        "binary": _resolve_binary(binary, config),
+        "binary": binary,
+        "config": config,
         "timeout": timeout,
     }
 
 
-def _resolve_binary(binary: str, config: dict) -> str:
+def _resolve_binary(binary: str, config: dict) -> tuple[str, dict[str, str]]:
     binary_path = Path(binary).expanduser()
     if binary_path.is_absolute() or os.sep in binary:
-        return str(binary_path)
+        return str(binary_path), {}
 
-    candidates = [
-        Path(str(config.get("LIB_BIN_DIR", ""))) / binary,
-        Path(str(config.get("LIB_DIR", ""))) / "bin" / binary,
-        Path(str(config.get("LIB_DIR", ""))) / "env" / "bin" / binary,
-        *list(_platform_binary_candidates(binary, config)),
-    ]
-    for candidate in candidates:
-        if candidate.name == binary and _binary_works(candidate):
-            return str(candidate)
-    return binary
-
-
-def _platform_binary_candidates(binary: str, config: dict):
-    if binary != "opencode":
-        return ()
-
-    lib_dir = Path(str(config.get("LIB_DIR", "")))
-    package_dir = lib_dir / "pnpm" / "packages" / "opencode" / "node_modules" / ".pnpm"
-    if not package_dir.exists():
-        return ()
-
-    system = {"darwin": "darwin", "linux": "linux"}.get(sys.platform)
-    machine = platform.machine().lower()
-    arch = {
-        "amd64": "x64",
-        "x86_64": "x64",
-        "aarch64": "arm64",
-        "arm64": "arm64",
-    }.get(machine)
-    preferred = []
-    if system and arch:
-        preferred = [
-            f"opencode-{system}-{arch}",
-            f"opencode-{system}-{arch}-baseline",
-            f"opencode-{system}-{arch}-musl",
-            f"opencode-{system}-{arch}-baseline-musl",
-        ]
-
-    candidates: list[Path] = []
-    for package in preferred:
-        candidates.extend(
-            package_dir.glob(f"{package}@*/node_modules/{package}/bin/opencode"),
-        )
-    candidates.extend(
-        package_dir.glob("opencode-*@*/node_modules/opencode-*/bin/opencode"),
-    )
-    return tuple(dict.fromkeys(candidates))
-
-
-def _binary_works(binary: Path) -> bool:
-    if not binary.exists():
-        return False
     try:
-        result = subprocess.run(
-            [str(binary), "--version"],
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=5,
-            check=False,
+        from abxpkg import BinProvider
+        from abx_plugins.plugins.base.utils import load_required_binary_from_config
+
+        loaded = load_required_binary_from_config(
+            binary,
+            _CONFIG_PATH,
+            global_config=config,
+            environ=os.environ,
+            install=False,
         )
-    except (OSError, subprocess.SubprocessError):
-        return False
-    return result.returncode == 0
+    except Exception as err:
+        raise RuntimeError(
+            f"OpenCode binary is not installed from required_binaries: {err}",
+        ) from err
+
+    if not loaded or not loaded.loaded_abspath:
+        raise RuntimeError("OpenCode binary is not installed from required_binaries.")
+
+    provider = loaded.loaded_binprovider
+    binary_env = (
+        BinProvider.build_exec_env(providers=[provider], base_env={})
+        if provider is not None
+        else {}
+    )
+    return str(loaded.loaded_abspath), binary_env
 
 
 def _project_route(workdir: Path) -> str:
@@ -388,10 +350,14 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
             return True, ""
 
         workdir = settings["workdir"].resolve()
-        binary = settings["binary"]
+        try:
+            binary, binary_env = _resolve_binary(settings["binary"], settings["config"])
+        except RuntimeError as err:
+            return False, str(err)
 
         env = {
             **os.environ,
+            **binary_env,
             "ARCHIVEBOX_BASE_URL": str(settings.get("archivebox_base_url", "")),
             "ARCHIVEBOX_ADMIN_URL": str(settings.get("archivebox_admin_url", "")),
             "ARCHIVEBOX_API_URL": str(settings.get("archivebox_api_url", "")),
