@@ -35,7 +35,6 @@ import tempfile
 import threading
 from pathlib import Path
 
-import imagesize
 import rich_click as click
 
 from abx_plugins.plugins.base.utils import (
@@ -109,6 +108,8 @@ def _image_is_too_small(path: Path, min_dim: int) -> bool:
     if min_dim <= 0:
         return False
     try:
+        import imagesize
+
         width, height = imagesize.get(str(path))
     except (ValueError, OSError):
         return False

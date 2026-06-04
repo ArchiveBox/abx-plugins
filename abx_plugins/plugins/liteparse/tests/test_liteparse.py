@@ -270,6 +270,11 @@ def _run_hook(
     env = os.environ.copy()
     env["SNAP_DIR"] = str(snap_dir)
     env["LITEPARSE_BINARY"] = require_liteparse_binary()
+    imagesize_binary = install_required_binary_from_config(PLUGIN_DIR, "imagesize")
+    assert imagesize_binary and imagesize_binary.abspath, (
+        "abxpkg failed to install the imagesize runtime via uv — required_binaries "
+        "auto-install must make hook imports available without manual setup."
+    )
     if install_tesseract:
         env["LITEPARSE_TESSERACT_BINARY"] = install_tesseract_binary()
         imagemagick_binary = install_imagemagick_binary()
@@ -304,6 +309,11 @@ def test_verify_deps_with_install_hooks():
     """lit v2 and OCR support binaries can be installed and resolved via abxpkg."""
     binary_path = require_liteparse_binary()
     assert Path(binary_path).is_file()
+    imagesize_binary = install_required_binary_from_config(PLUGIN_DIR, "imagesize")
+    assert imagesize_binary and imagesize_binary.abspath, (
+        "abxpkg failed to install the imagesize runtime via uv — required_binaries "
+        "auto-install must make hook imports available without manual setup."
+    )
     assert Path(install_tesseract_binary()).is_file()
     assert Path(install_imagemagick_binary()).is_file()
 
