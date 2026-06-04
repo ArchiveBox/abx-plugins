@@ -1,0 +1,23 @@
+abx_plugins/plugins/opencode/views.py
+  s_be3edb5822a954::t_17610fd0490f41 4,75-76,80-102,123-125,127-128,132,134,168,355-358,360-362,488,493-496,499-503,528
+abx_plugins/plugins/search_backend_sonic/on_CrawlSetup__89_sonic_start.py
+  s_be3edb5822a954::t_30299261c9fa33 7,25-26,33-34
+pyproject.toml
+  s_be3edb5822a954::t_ab96ba4725187d 24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "238d00741d5fb4b5e602e4d0f1805a241004fa2c",
+  "prompts": {},
+  "sessions": {
+    "s_be3edb5822a954": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8c46-aad7-7802-ab71-f24622948dc9",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
