@@ -1,0 +1,35 @@
+abx_plugins/plugins/opencode/views.py
+  s_6b96473078dfa1::t_887f164031b89c 68
+  s_6b96473078dfa1::t_4631747e7a08f1 64-67,69
+  s_6b96473078dfa1::t_a2a2531c54eee0 223-235,238-242
+  s_6b96473078dfa1::t_a1f0bba973882d 318,342-353
+  s_6b96473078dfa1::t_4cc172a9874853 212,430-434
+  s_6b96473078dfa1::t_4d49ce6d483458 326
+  s_6b96473078dfa1::t_cd7c228d8ed691 410,412,414,416
+tests/test_dependency_boundaries.py
+  s_6b96473078dfa1::t_26369bbac0bcf6 22,89
+abx_plugins/plugins/search_backend_sonic/config.json
+  s_6b96473078dfa1::t_38c0a22b958441 6-8
+abx_plugins/plugins/opencode/config.json
+  s_6b96473078dfa1::t_3a5ff9240051a6 77
+abx_plugins/plugins/search_backend_sqlite/config.json
+  s_6b96473078dfa1::t_38c0a22b958441 6-8
+abx_plugins/plugins/opencode/templates/opencode/agent.html
+  s_6b96473078dfa1::t_daadd8e35e3ced 37-111,172-208
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "a0c3a63cc1200d257e6c4083d5227fbf8f1b7216",
+  "prompts": {},
+  "sessions": {
+    "s_6b96473078dfa1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8e71-a862-71c3-9b0c-d2bc975f2d0f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
