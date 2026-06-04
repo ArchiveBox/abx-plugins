@@ -77,9 +77,7 @@ jobs:
       - name: Install dependencies with uv
         run: |
           uv venv
-          uv sync --dev --all-extras --no-sources --no-cache
-          uv pip install --no-deps -e "${{ runner.temp }}/abxpkg"
-          uv pip install --no-deps -e ".[dev]"
+          uv pip install --group dev -e "${{ runner.temp }}/abxpkg" -e .
 
       - name: Run prek
         env:
@@ -248,9 +246,7 @@ jobs:
       - name: Install dependencies with uv
         run: |
           uv venv
-          uv sync --dev --all-extras --no-sources --no-cache
-          uv pip install --no-deps -e "${{ runner.temp }}/abxpkg"
-          uv pip install --no-deps -e ".[dev]"
+          uv pip install --group dev -e "${{ runner.temp }}/abxpkg" -e .
 
       - name: Select Chromium for extension-capable CDP
         if: ${{ matrix.test.needs_chromium }}
