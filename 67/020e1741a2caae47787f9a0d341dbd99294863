@@ -1,0 +1,195 @@
+abx_plugins/plugins/base/utils.py
+  s_be3edb5822a954::t_8151ee7f71c09d 328-330
+  s_be3edb5822a954::t_104cd6816fac48 127,129,165-166,168,173-180
+  s_be3edb5822a954::t_d6ee755d15f0d3 286-287,309-310
+  s_be3edb5822a954::t_a9268e1b0b74ee 133-135,138-144,146,148-162
+abx_plugins/plugins/archivewebpage/config.json
+  s_be3edb5822a954::t_f39b592fd87de7 19,24-25
+  s_be3edb5822a954::t_fd24cbd0cc6b7a 18
+abx_plugins/plugins/readability/on_Snapshot__56_readability.py
+  s_be3edb5822a954::t_172e02681131fe 1,43
+abx_plugins/plugins/liteparse/tests/test_liteparse.py
+  s_be3edb5822a954::t_172e02681131fe 298
+abx_plugins/plugins/base/utils.js
+  s_be3edb5822a954::t_474a27d8896b40 137-158,200-201,215,221-229
+  s_be3edb5822a954::t_50ef0fa42814d2 195-199,202-205,207-212,216-220
+  s_be3edb5822a954::t_463491db8093f1 381-383,427-442
+abx_plugins/plugins/singlefile/config.json
+  s_be3edb5822a954::t_f79739301fa238 21,26
+  s_be3edb5822a954::t_f39b592fd87de7 19,23-24
+abx_plugins/plugins/opencode/config.json
+  s_6b96473078dfa1::t_0da7ba28cec20f 6-8
+  s_6b96473078dfa1::t_0ae8a70beaf230 9
+  s_6b96473078dfa1::t_8df475578ab5a7 50
+  s_6b96473078dfa1::t_16e666c9a7466d 74-78
+  s_6b96473078dfa1::t_24d89413f9f26e 1-5,10-49,51-73,79-86
+abx_plugins/plugins/defuddle/config.json
+  s_be3edb5822a954::t_f39b592fd87de7 11,14-15
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_ccefc8ac08198c::t_e54b48f7972d70 638-640
+  s_ccefc8ac08198c::t_4b1f442f91e861 641-642,644-648,652-655,657-699,701-702
+  s_be3edb5822a954::t_869a51c5b55871 643,700
+  s_ccefc8ac08198c::t_da2e69a7b4deaa 649-651,656
+conftest.py
+  s_be3edb5822a954::t_6f704c740ff777 260,292-297,300-301,304
+  s_be3edb5822a954::t_8e5dd8da9e29ad 149
+  s_be3edb5822a954::t_3a06d0f7bcdd53 139
+  s_be3edb5822a954::t_db493d175803cb 222
+abx_plugins/plugins/trafilatura/config.json
+  s_be3edb5822a954::t_a83936fb21d57d 11,14
+abx_plugins/plugins/opencode/templates/opencode/agent.html
+  s_6b96473078dfa1::t_2a175b5dc85046 84,87-92,94
+  s_6b96473078dfa1::t_db4fa01f298cd1 52-53,70-79
+  s_6b96473078dfa1::t_d64d0c16a5d406 50-51,54-68,80-83,95-96
+  s_6b96473078dfa1::t_2f913601d848b0 69,85-86
+  s_6b96473078dfa1::t_4d43d2427d25cf 1-49,97-100
+  s_6b96473078dfa1::t_82b97589dfeb60 93
+pyproject.toml
+  s_be3edb5822a954::t_3e6a9db3ec3ae0 3,23,110
+abx_plugins/plugins/opencode/urls.py
+  s_6b96473078dfa1::t_24d89413f9f26e 1-10,12-13
+abx_plugins/plugins/liteparse/config.json
+  s_be3edb5822a954::t_f39b592fd87de7 16
+  s_be3edb5822a954::t_1f31a80f45f422 11,15,60,65-66
+abx_plugins/plugins/claudecodeextract/config.json
+  s_be3edb5822a954::t_f39b592fd87de7 13,16-17
+abx_plugins/plugins/parse_rss_urls/config.json
+  s_be3edb5822a954::t_1f31a80f45f422 11,15-16
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  s_be3edb5822a954::t_db493d175803cb 494-500,502
+  s_be3edb5822a954::t_463491db8093f1 765
+  s_be3edb5822a954::t_3e6454c30dcd69 1072,1076,1083,1085,1088-1090,1093,1105-1110
+  s_be3edb5822a954::t_c519c2453ea469 1236,1263-1265,1285-1286,1301,1700-1701,1704-1705,1733-1734
+  s_be3edb5822a954::t_5e9e03db6c4e8c 108,751
+tests/test_plugin_config_metadata.py
+  s_be3edb5822a954::t_3d9420584ec08e 160
+  s_be3edb5822a954::t_f80e1bed732b98 4,172-190,192-197,199-212,217-222,224-230,243-246,252-256,260-271
+  s_be3edb5822a954::t_eb812754b9b80a 161
+  s_be3edb5822a954::t_2997a8261672cd 191,198
+  s_be3edb5822a954::t_b8e36b7c1984ec 115-123,128-133,135-144,151-154,159,168
+  s_be3edb5822a954::t_5ba3857972ae2d 124-125,127,134,145,147-149,155-158,162-167,169-171,213-214,216,223,231,233-237,239-241,247-251,257-259,272-274
+abx_plugins/plugins/search_backend_sonic/on_CrawlSetup__89_sonic_start.py
+  s_be3edb5822a954::t_78c3b7badb755d 2-23,25,28-67
+abx_plugins/plugins/claudecodecleanup/config.json
+  s_be3edb5822a954::t_f39b592fd87de7 13,16-17
+abx_plugins/plugins/twocaptcha/on_CrawlSetup__95_twocaptcha_config.js
+  s_be3edb5822a954::t_c4b99d08d9f386 29,40
+  s_be3edb5822a954::t_522203bcbf3fc9 39,41-42,151-157
+abx_plugins/plugins/twocaptcha/tests/test_twocaptcha_snapshot_isolation.py
+  s_be3edb5822a954::t_522203bcbf3fc9 1-30
+tests/test_chrome_abxbus_dependency.py
+  s_be3edb5822a954::t_39ebe8ba0b1b7b 77
+  s_be3edb5822a954::t_d9055f97ce10f2 95-98
+  s_be3edb5822a954::t_60f12362946fda 43-46
+abx_plugins/plugins/opencode/apps.py
+  s_6b96473078dfa1::t_24d89413f9f26e 1-7
+abx_plugins/plugins/liteparse/on_Snapshot__61_liteparse.py
+  s_be3edb5822a954::t_172e02681131fe 1,50
+abx_plugins/plugins/mercury/on_Snapshot__57_mercury.py
+  s_be3edb5822a954::t_172e02681131fe 1,32
+tests/test_plugin_executables_have_shebang.py
+  s_be3edb5822a954::t_fcfd08889c8369 64-65
+  s_be3edb5822a954::t_bead1c36937253 54-55,57,59-63,66-72,74-78,80
+abx_plugins/plugins/opencode/views.py
+  s_6b96473078dfa1::t_0698c3bd840a03 26,60-62,69-70,120,122,125,134-135,191-196,281-282,330-332,334-337,339,341,474-476,478-481,483,485
+  s_be3edb5822a954::t_fcb7183458a27d 379-380,382
+  s_6b96473078dfa1::t_b25851dca092ed 59,64,148,150,158-159,161-162,175-176,188,197-198,259,261-262,264,287,289-290
+  s_6b96473078dfa1::t_439cfa8f830603 215,377
+  s_6b96473078dfa1::t_f1cab04f9de88f 413,438
+  s_6b96473078dfa1::t_017b2aca5b4ea4 32,371
+  s_6b96473078dfa1::t_b1555e6d56a1a8 163,263,284-285,404-407
+  s_6b96473078dfa1::t_2c5dab72174e6f 160,260,288
+  s_6b96473078dfa1::t_af9a1532e447f4 71
+  s_6b96473078dfa1::t_191988b7935cef 186,201-208,210-214,216-221,223-225,266,313
+  s_6b96473078dfa1::t_b049866dbccb70 372,509,520-523
+  s_6b96473078dfa1::t_cbb3bf8eef8ff8 52-55,57,63,72-76,173-174,190
+  s_6b96473078dfa1::t_db8a97d4980a77 169-172,199-200
+  s_6b96473078dfa1::t_e1f47ccf2860cf 226-227
+  s_6b96473078dfa1::t_c778afabad2166 228-244,354-355
+  s_6b96473078dfa1::t_f5d28512fa372a 408-409,532-533,535-537,540
+  s_6b96473078dfa1::t_33af68290ea636 410-412,414-415,418
+  s_6b96473078dfa1::t_67d9a3eba0b5ef 396
+  s_6b96473078dfa1::t_9fcb7a62d95158 344-349,353,356,360
+  s_6b96473078dfa1::t_24de5467cf78a5 16-19,177-183,185
+  s_be3edb5822a954::t_72a6ddd5b551a3 102-106,144-145,147,381,383-384,388,391,393,501,503,505-506
+  s_6b96473078dfa1::t_9340efdc5571b2 294,350-352
+  s_6b96473078dfa1::t_1b6ffe31f4b45f 13,385-387,389-390,392,394-395,398-399,490-498,534
+  s_6b96473078dfa1::t_ee7d6f4ae8b6f1 34
+  s_6b96473078dfa1::t_fa8fc7eb49f73e 402-403,454,456
+  s_6b96473078dfa1::t_2993b3d1d02f38 65-68
+  s_6b96473078dfa1::t_3e78d9a7e6735d 33
+  s_6b96473078dfa1::t_955b570113996c 286
+  s_6b96473078dfa1::t_ab95701286df3e 416-417
+  s_6b96473078dfa1::t_24d89413f9f26e 1-12,14,22-25,27-31,35-51,56,58,77-101,107-109,111-114,116-119,126-133,138-143,151-157,164-168,245-257,265,267-272,274-279,291-293,295-301,303-312,314-329,343,357-359,361-370,373-376,378,400-401,439-448,450-453,455,457-467,469,471-473,487-489,499-500,502,504,507-508,510-515,517-519,524-529,531,538-539,541-547
+  s_6b96473078dfa1::t_05aa0f0eb9cf35 280
+  s_6b96473078dfa1::t_28987ecdc13a7d 258
+  s_6b96473078dfa1::t_41693762599da8 283
+  s_6b96473078dfa1::t_edb6570c59d6c4 115,137,468
+  s_6b96473078dfa1::t_c4c27ee25aeefe 397
+  s_6b96473078dfa1::t_c47082dd4d254f 123-124,136
+  s_6b96473078dfa1::t_93317864c176f5 273,302
+abx_plugins/plugins/chrome/config.json
+  s_be3edb5822a954::t_206e2cf4bda88f 38
+  s_be3edb5822a954::t_f39b592fd87de7 23,27-28,32,39,44-45
+abx_plugins/plugins/claudecode/config.json
+  s_be3edb5822a954::t_f39b592fd87de7 23,27-28
+abx_plugins/plugins/singlefile/on_Snapshot__50_singlefile.py
+  s_be3edb5822a954::t_172e02681131fe 1,46
+tests/test_js_node_module_resolution.py
+  s_be3edb5822a954::t_463491db8093f1 116,145
+abx_plugins/plugins/defuddle/tests/test_defuddle.py
+  s_be3edb5822a954::t_172e02681131fe 78-79
+abx_plugins/plugins/archivewebpage/on_Snapshot__16_archivewebpage_start.js
+  s_be3edb5822a954::t_351a3b8e45a048 162,169,172-174,177,287
+  s_be3edb5822a954::t_06bbf63f9e91c8 313
+abx_plugins/plugins/mercury/config.json
+  s_be3edb5822a954::t_f39b592fd87de7 11,14-15
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_ccefc8ac08198c::t_25873cada1e599 62-64,68,4240
+  s_be3edb5822a954::t_6e15f05916876f 1658-1662,1696-1699,1729,1739,1851,1896-1902
+  s_ccefc8ac08198c::t_eb1736abdd1395 65-67,69-70,72-75,947-948,958-961,1008,4241
+  s_be3edb5822a954::t_b9c9ab5ed99781 25,2674,2677
+  s_be3edb5822a954::t_17844db830ec19 4007-4012
+  s_be3edb5822a954::t_f12397678a300a 71
+  s_be3edb5822a954::t_e118bdf5e65132 11,1506-1513,1515,1518,1528-1532,1869,1871,1875,1886
+  s_be3edb5822a954::t_96c9bad0ce016b 1514,1516-1517,1519-1527
+abx_plugins/plugins/readability/config.json
+  s_be3edb5822a954::t_11e320df94755d 15-18
+  s_be3edb5822a954::t_f39b592fd87de7 11-14,19-20
+abx_plugins/plugins/opendataloader/config.json
+  s_be3edb5822a954::t_a83936fb21d57d 11,14
+abx_plugins/plugins/forumdl/config.json
+  s_be3edb5822a954::t_a83936fb21d57d 11,14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "67020e1741a2caae47787f9a0d341dbd99294863",
+  "prompts": {},
+  "sessions": {
+    "s_6b96473078dfa1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8e71-a862-71c3-9b0c-d2bc975f2d0f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_be3edb5822a954": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8c46-aad7-7802-ab71-f24622948dc9",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_ccefc8ac08198c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e86b5-1bab-7df2-80cb-660ce277c3ec",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
