@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import importlib
 import os
 import re
 import shutil
@@ -21,10 +22,6 @@ from django.http import (
 )
 from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
-
-from archivebox.config import CONSTANTS
-from archivebox.core.routes_util import build_admin_url, get_api_base_url, get_base_url
-from archivebox.machine.models import Machine
 
 
 _PROCESS: subprocess.Popen | None = None
@@ -75,7 +72,32 @@ You are running inside an ArchiveBox collection directory.
 
 
 def _machine_config() -> dict:
+    machine_models = importlib.import_module("archivebox.machine.models")
+    Machine = machine_models.Machine
     return dict(Machine.current().config or {})
+
+
+def _archivebox_data_dir_default() -> Path:
+    try:
+        archivebox_config = importlib.import_module("archivebox.config")
+        return Path(getattr(archivebox_config.CONSTANTS, "DATA_DIR", Path.cwd()))
+    except Exception:
+        return Path.cwd()
+
+
+def _archivebox_route_urls(request: HttpRequest, route_config) -> tuple[str, str, str]:
+    routes_util = importlib.import_module("archivebox.core.routes_util")
+    base_url = routes_util.get_base_url(
+        request=request,
+        config=route_config,
+    ).rstrip("/")
+    admin_url = routes_util.build_admin_url(
+        "/admin/",
+        request=request,
+        config=route_config,
+    ).rstrip("/")
+    api_url = f"{routes_util.get_api_base_url(request=request, config=route_config).rstrip('/')}/api/"
+    return base_url, admin_url, api_url
 
 
 def _config_value(config: dict, key: str, default):
@@ -98,16 +120,18 @@ def _require_enabled(config: dict) -> None:
 
 
 def _require_superuser(request: HttpRequest):
-    user = request.user
+    user = getattr(request, "user", None)
+    if user is None:
+        return redirect(f"/admin/login/?next={request.get_full_path()}")
     if (
-        user.is_authenticated
-        and user.is_active
+        bool(getattr(user, "is_authenticated", False))
+        and bool(getattr(user, "is_active", False))
         and bool(getattr(user, "is_superuser", False))
     ):
         return None
-    if user.is_authenticated:
+    if bool(getattr(user, "is_authenticated", False)):
         return HttpResponseForbidden(
-            "ArchiveBox agent access requires a superuser account.",
+            b"ArchiveBox agent access requires a superuser account.",
         )
     return redirect(f"/admin/login/?next={request.get_full_path()}")
 
@@ -141,7 +165,7 @@ def _origin_allowed(request: HttpRequest, path: str | None = None) -> bool:
 def _settings(config: dict) -> dict:
     host = str(_config_value(config, "OPENCODE_HOST", "127.0.0.1"))
     port = int(_config_value(config, "OPENCODE_PORT", 4096))
-    default_data_dir = getattr(CONSTANTS, "DATA_DIR", Path.cwd())
+    default_data_dir = _archivebox_data_dir_default()
     workdir = Path(
         str(_config_value(config, "OPENCODE_WORKDIR", default_data_dir)),
     ).expanduser()
@@ -328,20 +352,14 @@ def agent_view(request: HttpRequest):
 
     settings = _settings(config)
     route_config = request.__dict__.get("archivebox_config")
-    settings["archivebox_base_url"] = get_base_url(
-        request=request,
-        config=route_config,
-    ).rstrip("/")
-    settings["archivebox_admin_url"] = build_admin_url(
-        "/admin/",
-        request=request,
-        config=route_config,
-    ).rstrip("/")
-    settings["archivebox_api_url"] = (
-        f"{get_api_base_url(request=request, config=route_config).rstrip('/')}/api/"
-    )
+    base_url, admin_url, api_url = _archivebox_route_urls(request, route_config)
+    settings["archivebox_base_url"] = base_url
+    settings["archivebox_admin_url"] = admin_url
+    settings["archivebox_api_url"] = api_url
     ok, error = _ensure_opencode(settings)
-    from archivebox.core.admin_site import archivebox_admin
+    archivebox_admin = importlib.import_module(
+        "archivebox.core.admin_site",
+    ).archivebox_admin
 
     context = {
         **archivebox_admin.each_context(request),
@@ -467,26 +485,22 @@ def opencode_proxy_view(request: HttpRequest, path: str | None = None):
         return auth_response
     if not _origin_allowed(request, path):
         return HttpResponseForbidden(
-            "Cross-origin OpenCode agent requests are blocked.",
+            b"Cross-origin OpenCode agent requests are blocked.",
         )
 
     settings = _settings(config)
     route_config = request.__dict__.get("archivebox_config")
-    settings["archivebox_base_url"] = get_base_url(
-        request=request,
-        config=route_config,
-    ).rstrip("/")
-    settings["archivebox_admin_url"] = build_admin_url(
-        "/admin/",
-        request=request,
-        config=route_config,
-    ).rstrip("/")
-    settings["archivebox_api_url"] = (
-        f"{get_api_base_url(request=request, config=route_config).rstrip('/')}/api/"
-    )
+    base_url, admin_url, api_url = _archivebox_route_urls(request, route_config)
+    settings["archivebox_base_url"] = base_url
+    settings["archivebox_admin_url"] = admin_url
+    settings["archivebox_api_url"] = api_url
     ok, error = _ensure_opencode(settings)
     if not ok:
-        return HttpResponse(error, status=502, content_type="text/plain; charset=utf-8")
+        return HttpResponse(
+            error.encode(),
+            status=502,
+            content_type="text/plain; charset=utf-8",
+        )
 
     if request.method == "GET" and (path or "").endswith("/event"):
         response = StreamingHttpResponse(
@@ -511,7 +525,7 @@ def opencode_proxy_view(request: HttpRequest, path: str | None = None):
         )
     except requests.RequestException as err:
         return HttpResponse(
-            str(err),
+            str(err).encode(),
             status=502,
             content_type="text/plain; charset=utf-8",
         )

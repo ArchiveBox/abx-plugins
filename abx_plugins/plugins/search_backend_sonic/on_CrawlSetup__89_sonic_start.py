@@ -4,6 +4,7 @@
 # ///
 
 import argparse
+import importlib
 import os
 import sys
 import time
@@ -21,17 +22,16 @@ def start_archivebox_sonic_worker(config) -> None:
     if os.environ.get("ABX_RUNTIME", "").lower() != "archivebox":
         return
 
-    from archivebox.workers.supervisord_util import (
-        get_or_create_supervisord_process,
-        start_worker,
+    supervisord_util = importlib.import_module(
+        "archivebox.workers.supervisord_util",
     )
 
     worker = get_sonic_supervisord_worker(config)
     if worker is None:
         return
 
-    supervisor = get_or_create_supervisord_process(daemonize=False)
-    start_worker(supervisor, worker, lazy=False)
+    supervisor = supervisord_util.get_or_create_supervisord_process(daemonize=False)
+    supervisord_util.start_worker(supervisor, worker, lazy=False)
 
 
 def wait_until_listening(host: str, port: int, timeout: float = 30.0) -> None:
