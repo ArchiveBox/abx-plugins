@@ -229,7 +229,7 @@ def _resolve_binary(binary: str, config: dict) -> tuple[str, dict[str, str]]:
 
     provider = loaded.loaded_binprovider
     binary_env = (
-        BinProvider.build_exec_env(providers=[provider], base_env={})
+        BinProvider.build_exec_env(providers=[provider], base_env=os.environ.copy())
         if provider is not None
         else {}
     )
