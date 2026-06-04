@@ -1,0 +1,27 @@
+tests/test_chrome_runtime_fixture.py
+  s_be3edb5822a954::t_c9437dc3f56cf3 9,14-15,18-23,30-47,56-58,72
+  s_be3edb5822a954::t_41f28bcc522e37 24-27,29
+conftest.py
+  s_be3edb5822a954::t_0e0e07596ea660 222
+pyproject.toml
+  s_be3edb5822a954::t_946d35dbab466f 3
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  s_be3edb5822a954::t_9b866a42baa90f 113-115
+  s_be3edb5822a954::t_4bd9f17be7155b 105-112,501
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "a83fc418f72ba94b3e8e8b7a227c5a8c339eac1b",
+  "prompts": {},
+  "sessions": {
+    "s_be3edb5822a954": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8c46-aad7-7802-ab71-f24622948dc9",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
