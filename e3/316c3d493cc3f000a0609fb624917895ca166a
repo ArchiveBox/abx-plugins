@@ -1,0 +1,23 @@
+abx_plugins/plugins/opencode/views.py
+  s_be3edb5822a954::t_5531612976a448 150,154,158,388-397,401
+pyproject.toml
+  s_be3edb5822a954::t_a49e9775ebbd64 3
+abx_plugins/plugins/mercury/config.json
+  s_be3edb5822a954::t_5531612976a448 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "e3316c3d493cc3f000a0609fb624917895ca166a",
+  "prompts": {},
+  "sessions": {
+    "s_be3edb5822a954": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8c46-aad7-7802-ab71-f24622948dc9",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
