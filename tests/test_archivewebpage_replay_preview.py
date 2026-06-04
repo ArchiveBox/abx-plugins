@@ -35,3 +35,21 @@ def test_replay_preview_bootstrap_always_appends_ui_after_service_worker_wait(
     assert "setTimeout(resolve, 3000)" in html
     assert "appendReplayUi();\n        if ('serviceWorker' in navigator)" in html
     assert "s.src = '/replay/ui.js'" in html
+
+    onedomain_html = replay_preview.render_preview_html(
+        "archivewebpage.wacz",
+        "/snapshot/06a219240eb5778d8000f850baa5d427/archivewebpage/archivewebpage.wacz",
+        wacz_path=wacz_path,
+    )
+
+    assert (
+        "s.src = '/snapshot/06a219240eb5778d8000f850baa5d427/replay/ui.js'"
+        in onedomain_html
+    )
+    assert (
+        "scope: '/snapshot/06a219240eb5778d8000f850baa5d427/replay/'" in onedomain_html
+    )
+    assert (
+        'replaybase="/snapshot/06a219240eb5778d8000f850baa5d427/replay/"'
+        in onedomain_html
+    )

@@ -17,9 +17,9 @@
     // (~200ms each) while it waits for the SW to claim. Awaiting
     // 'activated' here moves the wait out of the iframe's load cycle.
     function appendReplayUi() {
-        if (document.querySelector('script[src="/replay/ui.js"]')) return;
+        if (document.querySelector('script[src="{{ replay_base }}ui.js"]')) return;
         const s = document.createElement('script');
-        s.src = '/replay/ui.js';
+        s.src = '{{ replay_base }}ui.js';
         document.head.appendChild(s);
     }
 
@@ -52,8 +52,8 @@
             try {
                 const reg = await withTimeout(
                     navigator.serviceWorker.register(
-                        '/replay/sw.js?serveIndex=1',
-                        { scope: '/replay/' },
+                        '{{ replay_base }}sw.js?serveIndex=1',
+                        { scope: '{{ replay_base }}' },
                     ),
                     3000,
                 );
@@ -67,6 +67,6 @@
     <replay-web-page source="{{ output_path }}"
                      {% if archived_url %}url="{{ archived_url }}"{% endif %}
                      embed="replayonly"
-                     replaybase="/replay/"></replay-web-page>
+                     replaybase="{{ replay_base }}"></replay-web-page>
 </body>
 </html>

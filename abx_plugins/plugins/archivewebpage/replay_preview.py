@@ -13,6 +13,7 @@ import json
 import mimetypes
 from email.utils import formatdate
 from html import escape as html_escape
+from urllib.parse import urlsplit
 import zipfile
 from pathlib import Path
 
@@ -163,6 +164,24 @@ def _first_archived_url(wacz_path: Path) -> str:
     return ""
 
 
+def _replay_base_for_output_path(output_path: str) -> str:
+    """Return the route prefix used to serve replayweb.page assets.
+
+    Subdomain replay serves snapshot files from the host root, so ``/replay/``
+    is correct. One-domain replay serves the same files under
+    ``/snapshot/<id>/...``; in that mode the service worker and ui.js must be
+    loaded from ``/snapshot/<id>/replay/`` so they route back through
+    ``SnapshotReplayView`` instead of escaping to a nonexistent root route.
+    """
+    path = urlsplit(output_path or "").path
+    marker = "/archivewebpage/"
+    if marker in path:
+        prefix = path.split(marker, 1)[0].rstrip("/")
+        if prefix:
+            return f"{prefix}/replay/"
+    return "/replay/"
+
+
 def render_preview_html(
     filename: str,
     output_path: str,
@@ -182,6 +201,7 @@ def render_preview_html(
     if not archived_url:
         archived_url = fallback_url or ""
 
+    replay_base = _replay_base_for_output_path(output_path)
     archived_url_attr = (
         f'url="{html_escape(archived_url, quote=True)}"' if archived_url else ""
     )
@@ -195,6 +215,7 @@ def render_preview_html(
         .replace("{{ output_path_raw }}", html_escape(filename, quote=True))
         .replace("{{ output_path }}", html_escape(output_path, quote=True))
         .replace("{{ archived_url }}", html_escape(archived_url, quote=True))
+        .replace("{{ replay_base }}", html_escape(replay_base, quote=True))
     )
 
 
