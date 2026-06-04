@@ -147,15 +147,15 @@ def _origin_allowed(request: HttpRequest, path: str | None = None) -> bool:
     if pty_connect:
         return True
 
-    origin = request.headers.get("Origin")
+    origin = _request_header(request, "Origin")
     if origin:
         return origin == expected
 
-    referer = request.headers.get("Referer")
+    referer = _request_header(request, "Referer")
     if referer:
         return referer.startswith(f"{expected}/")
 
-    fetch_site = request.headers.get("Sec-Fetch-Site")
+    fetch_site = _request_header(request, "Sec-Fetch-Site")
     if fetch_site:
         return fetch_site in {"same-origin", "same-site", "none"}
 
@@ -385,10 +385,20 @@ def _proxy_url(settings: dict, path: str | None) -> str:
     return urljoin(settings["origin"], rel)
 
 
+def _request_header(request: HttpRequest, name: str) -> str | None:
+    if name == "Content-Type":
+        value = request.META.get("CONTENT_TYPE")
+    elif name == "Content-Length":
+        value = request.META.get("CONTENT_LENGTH")
+    else:
+        value = request.META.get(f"HTTP_{name.upper().replace('-', '_')}")
+    return str(value) if value else None
+
+
 def _request_headers(request: HttpRequest, settings: dict) -> dict[str, str]:
     forwarded = {}
     for key in ("Accept", "Accept-Language", "Content-Type", "Range", "User-Agent"):
-        value = request.headers.get(key)
+        value = _request_header(request, key)
         if value:
             forwarded[key] = value
     return forwarded
