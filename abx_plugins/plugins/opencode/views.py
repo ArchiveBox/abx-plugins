@@ -7,9 +7,8 @@ import re
 import subprocess
 import threading
 import time
-from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 from urllib.parse import urljoin
 
 import httpx
@@ -79,13 +78,9 @@ You are running inside an ArchiveBox collection directory.
 
 
 def _machine_config() -> dict[str, Any]:
-    machine_models = importlib.import_module("archivebox.machine.models")
-    Machine = machine_models.Machine
-    config = Machine.current().config
-    if not isinstance(config, Mapping):
-        return {}
-    config_map = cast(Mapping[str, Any], config)
-    return {key: value for key, value in config_map.items()}
+    config_module = importlib.import_module("archivebox.config.common")
+    resolved = config_module.get_config()
+    return dict(resolved.model_dump(mode="json"))
 
 
 def _archivebox_data_dir_default() -> Path:
