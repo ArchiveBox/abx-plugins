@@ -46,7 +46,7 @@
     },
     "OPENCODE_ENABLED": {
       "type": "boolean",
-      "default": false,
+      "default": true,
       "description": "Enable the admin-only /admin/agent OpenCode web UI route"
     },
     "OPENCODE_BINARY": {
