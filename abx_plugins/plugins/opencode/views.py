@@ -3,13 +3,15 @@ from __future__ import annotations
 import base64
 import importlib
 import os
+import platform
 import re
 import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 import requests
@@ -146,7 +148,7 @@ def _origin_allowed(request: HttpRequest, path: str | None = None) -> bool:
     if request.method in {"GET", "HEAD", "OPTIONS", "TRACE"}:
         return True
 
-    expected = f"{request.scheme}://{request.get_host()}"
+    expected_host = request.get_host()
     pty_connect = bool(
         path and path.startswith("pty/") and path.endswith("/connect-token"),
     )
@@ -155,17 +157,22 @@ def _origin_allowed(request: HttpRequest, path: str | None = None) -> bool:
 
     origin = _request_header(request, "Origin")
     if origin:
-        return origin == expected
+        return _same_host(origin, expected_host)
 
     referer = _request_header(request, "Referer")
     if referer:
-        return referer.startswith(f"{expected}/")
+        return _same_host(referer, expected_host)
 
     fetch_site = _request_header(request, "Sec-Fetch-Site")
     if fetch_site:
         return fetch_site in {"same-origin", "same-site", "none"}
 
     return False
+
+
+def _same_host(value: str, expected_host: str) -> bool:
+    parsed = urlsplit(value)
+    return parsed.scheme in {"http", "https"} and parsed.netloc == expected_host
 
 
 def _settings(config: dict) -> dict:
@@ -191,9 +198,80 @@ def _settings(config: dict) -> dict:
         "state_home": opencode_dir / "state",
         "cache_home": opencode_dir / "cache",
         "home": opencode_dir / "home",
-        "binary": binary,
+        "binary": _resolve_binary(binary, config),
         "timeout": timeout,
     }
+
+
+def _resolve_binary(binary: str, config: dict) -> str:
+    binary_path = Path(binary).expanduser()
+    if binary_path.is_absolute() or os.sep in binary:
+        return str(binary_path)
+
+    candidates = [
+        Path(str(config.get("LIB_BIN_DIR", ""))) / binary,
+        Path(str(config.get("LIB_DIR", ""))) / "bin" / binary,
+        Path(str(config.get("LIB_DIR", ""))) / "env" / "bin" / binary,
+        *list(_platform_binary_candidates(binary, config)),
+    ]
+    for candidate in candidates:
+        if candidate.name == binary and _binary_works(candidate):
+            return str(candidate)
+    return binary
+
+
+def _platform_binary_candidates(binary: str, config: dict):
+    if binary != "opencode":
+        return ()
+
+    lib_dir = Path(str(config.get("LIB_DIR", "")))
+    package_dir = lib_dir / "pnpm" / "packages" / "opencode" / "node_modules" / ".pnpm"
+    if not package_dir.exists():
+        return ()
+
+    system = {"darwin": "darwin", "linux": "linux"}.get(sys.platform)
+    machine = platform.machine().lower()
+    arch = {
+        "amd64": "x64",
+        "x86_64": "x64",
+        "aarch64": "arm64",
+        "arm64": "arm64",
+    }.get(machine)
+    preferred = []
+    if system and arch:
+        preferred = [
+            f"opencode-{system}-{arch}",
+            f"opencode-{system}-{arch}-baseline",
+            f"opencode-{system}-{arch}-musl",
+            f"opencode-{system}-{arch}-baseline-musl",
+        ]
+
+    candidates: list[Path] = []
+    for package in preferred:
+        candidates.extend(
+            package_dir.glob(f"{package}@*/node_modules/{package}/bin/opencode"),
+        )
+    candidates.extend(
+        package_dir.glob("opencode-*@*/node_modules/opencode-*/bin/opencode"),
+    )
+    return tuple(dict.fromkeys(candidates))
+
+
+def _binary_works(binary: Path) -> bool:
+    if not binary.exists():
+        return False
+    try:
+        result = subprocess.run(
+            [str(binary), "--version"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0
 
 
 def _project_route(workdir: Path) -> str:
