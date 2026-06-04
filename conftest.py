@@ -219,7 +219,7 @@ def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
         os.environ["PERSONAS_DIR"] = str(
             tmp_path_factory.mktemp("chrome_test_personas"),
         )
-    os.environ["LIB_DIR"] = str(tmp_path_factory.mktemp("chrome_test_lib"))
+    os.environ.setdefault("LIB_DIR", str(tmp_path_factory.mktemp("chrome_test_lib")))
 
     env = get_test_env()
 

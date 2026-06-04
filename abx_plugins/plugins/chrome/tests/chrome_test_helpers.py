@@ -101,11 +101,18 @@ logger = logging.getLogger(__name__)
 
 def require_chrome_runtime_impl() -> None:
     """Require chrome runtime prerequisites for integration tests."""
-    from abxpkg import Binary, EnvProvider
-
     try:
-        Binary(name="node", binproviders=[EnvProvider()]).load()
-        Binary(name="pnpm", binproviders=[EnvProvider()]).load()
+        env = get_test_env()
+        node_name = env.get("NODE_BINARY") or "node"
+        node_record = _required_binary_record(CHROME_PLUGIN_DIR, node_name, env)
+        load_required_binary(node_record, config=env, environ=env)
+        chrome_binary = install_chromium_with_abxpkg(
+            env,
+            timeout=int(env.get("ABXPKG_INSTALL_TIMEOUT") or "300"),
+        )
+        existing_chrome_binary = os.environ.get("CHROME_BINARY")
+        if not existing_chrome_binary or not Path(existing_chrome_binary).exists():
+            os.environ["CHROME_BINARY"] = chrome_binary
     except Exception as exc:
         logger.error("Chrome integration prerequisites unavailable: %s", exc)
         pytest.fail(
@@ -491,7 +498,7 @@ def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
     os.environ["XDG_CONFIG_HOME"] = str(Path(os.environ["HOME"]) / ".config")
     os.environ["XDG_CACHE_HOME"] = str(Path(os.environ["HOME"]) / ".cache")
     os.environ["XDG_DATA_HOME"] = str(Path(os.environ["HOME"]) / ".local" / "share")
-    os.environ["LIB_DIR"] = str(tmp_path_factory.mktemp("chrome_test_lib"))
+    os.environ.setdefault("LIB_DIR", str(tmp_path_factory.mktemp("chrome_test_lib")))
 
     for key in (
         "HOME",
