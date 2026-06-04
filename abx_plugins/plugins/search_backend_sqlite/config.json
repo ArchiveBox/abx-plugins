@@ -3,6 +3,9 @@
   "title": "SQLite Search",
   "description": "Index archived snapshot content into a SQLite FTS database for local search.",
   "type": "object",
+  "x-runtimes": [
+    "archivebox"
+  ],
   "additionalProperties": false,
   "required_plugins": [],
   "required_binaries": [],

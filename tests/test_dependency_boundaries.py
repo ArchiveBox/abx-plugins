@@ -19,7 +19,7 @@ def _is_forbidden_import(module_name: str) -> bool:
 def _is_allowlisted_path(path: Path) -> bool:
     rel_parts = path.relative_to(PLUGINS_ROOT).parts
     top_level_dir = rel_parts[0] if rel_parts else ""
-    if top_level_dir.startswith("search_backend_"):
+    if top_level_dir == "opencode" or top_level_dir.startswith("search_backend_"):
         return True
     return any("ldap" in part.lower() for part in rel_parts)
 
@@ -86,6 +86,6 @@ def test_plugin_dependency_boundaries() -> None:
 
     assert not failures, (
         "Forbidden dependency imports detected. "
-        "Only search backends and ldap-related paths may import archivebox/django:\n"
+        "Only search backends, opencode, and ldap-related paths may import archivebox/django:\n"
         + "\n".join(failures)
     )

@@ -74,7 +74,7 @@
     "OPENCODE_STATE_DIR": {
       "type": "string",
       "default": "",
-      "description": "Directory for OpenCode config, state, cache, sessions, and generated ArchiveBox skill. Defaults to DATA_DIR/opencode"
+      "description": "Directory for OpenCode config, state, cache, sessions, and editable ArchiveBox skill at SKILL.md. Defaults to DATA_DIR/opencode"
     },
     "OPENCODE_TIMEOUT": {
       "type": "integer",

@@ -3,6 +3,9 @@
   "title": "Sonic Search",
   "description": "Index archived snapshot content into a Sonic search backend.",
   "type": "object",
+  "x-runtimes": [
+    "archivebox"
+  ],
   "additionalProperties": false,
   "required_plugins": [],
   "required_binaries": [

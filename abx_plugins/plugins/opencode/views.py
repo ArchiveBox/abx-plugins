@@ -4,7 +4,6 @@ import base64
 import importlib
 import os
 import re
-import shutil
 import subprocess
 import threading
 import time
@@ -62,6 +61,12 @@ You are running inside an ArchiveBox collection directory.
 - Prefer the `archivebox` CLI for authenticated changes, e.g. `archivebox add`, `archivebox schedule`, `archivebox update`, and `archivebox shell`.
 - Run ArchiveBox CLI commands from the ArchiveBox collection directory above.
 - Get command help with `archivebox list --help`, `archivebox add --help`, `archivebox schedule --help`, etc. Do not use `archivebox help <command>`.
+- Use `--depth=0` by default. Only use recursive crawling when the user explicitly asks for it; use `--depth=1` when you need pages one hop out.
+- Before any recursive crawl, constrain scope with ArchiveBox config such as `CRAWL_MAX_URLS`, `CRAWL_MAX_SIZE`, `SNAPSHOT_MAX_*`, `URL_ALLOWLIST`, `URL_DENYLIST`, and related limits.
+- Respect the configured `archivebox config --get ONLY_NEW` behavior unless the user explicitly says otherwise. Remind users that expected crawl URLs can be skipped when the collection already contains snapshots with the same URL.
+- Always audit newly discovered crawl URLs before letting a crawl run broadly. Treat junk URLs such as privacy policies, legal pages, tag archives, sitemap files, feeds, login/logout URLs, and other low-value boilerplate as unwanted unless the user explicitly asked to archive them.
+- Always watch crawl output and logs as the crawl progresses, and correct errors early instead of waiting until the crawl finishes.
+- If a crawl contains bad URLs, pause it, edit the crawl's `urls` field to remove them, delete any unneeded snapshots already created under that crawl, then resume the crawl.
 - Use `archivebox shell -c '...'` or `archivebox shell <<'PY' ... PY` for Django ORM work. Shell Plus prints an import banner first; keep stderr visible while debugging.
 - Use full ArchiveBox module paths in shell code: `from archivebox.crawls.models import Crawl, CrawlSchedule` and `from archivebox.core.models import Snapshot, ArchiveResult`.
 - If a model/field/relation is unclear, inspect `_meta.fields` before guessing, e.g. `archivebox shell -c "from archivebox.crawls.models import Crawl; print([f.name for f in Crawl._meta.fields])"`.
@@ -204,6 +209,7 @@ def _project_route(workdir: Path) -> str:
 
 def _ensure_project_files(settings: dict) -> None:
     workdir = settings["workdir"].resolve()
+    workdir.mkdir(parents=True, exist_ok=True)
     git_dir = workdir / ".git"
     if not git_dir.exists():
         git_dir.mkdir()
@@ -214,18 +220,26 @@ def _ensure_project_files(settings: dict) -> None:
                 "ArchiveBox marker so OpenCode treats DATA_DIR as the project root.\n",
             )
 
-    skill_path = (
+    editable_skill_path = settings["opencode_dir"] / "SKILL.md"
+    editable_skill_path.parent.mkdir(parents=True, exist_ok=True)
+    if not editable_skill_path.exists():
+        editable_skill_path.write_text(
+            _ARCHIVEBOX_SKILL.format(
+                archivebox_data_dir=workdir,
+                archivebox_base_url=settings.get("archivebox_base_url", ""),
+                archivebox_admin_url=settings.get("archivebox_admin_url", ""),
+                archivebox_api_url=settings.get("archivebox_api_url", ""),
+            ),
+        )
+
+    opencode_skill_path = (
         settings["config_home"] / "opencode" / "skills" / "archivebox" / "SKILL.md"
     )
-    skill_path.parent.mkdir(parents=True, exist_ok=True)
-    skill = _ARCHIVEBOX_SKILL.format(
-        archivebox_data_dir=workdir,
-        archivebox_base_url=settings.get("archivebox_base_url", ""),
-        archivebox_admin_url=settings.get("archivebox_admin_url", ""),
-        archivebox_api_url=settings.get("archivebox_api_url", ""),
-    )
-    if not skill_path.exists() or skill_path.read_text() != skill:
-        skill_path.write_text(skill)
+    opencode_skill_path.parent.mkdir(parents=True, exist_ok=True)
+    if opencode_skill_path.resolve() != editable_skill_path.resolve():
+        if opencode_skill_path.exists() or opencode_skill_path.is_symlink():
+            opencode_skill_path.unlink()
+        opencode_skill_path.symlink_to(editable_skill_path)
 
 
 def _ensure_default_session(settings: dict) -> None:
@@ -301,9 +315,7 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
             return True, ""
 
         workdir = settings["workdir"].resolve()
-        binary = shutil.which(settings["binary"]) or settings["binary"]
-        if not shutil.which(binary) and not Path(binary).exists():
-            return False, f"OpenCode binary not found: {settings['binary']}"
+        binary = settings["binary"]
 
         env = {
             **os.environ,
@@ -311,7 +323,7 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
             "ARCHIVEBOX_ADMIN_URL": str(settings.get("archivebox_admin_url", "")),
             "ARCHIVEBOX_API_URL": str(settings.get("archivebox_api_url", "")),
             "BROWSER": "false",
-            "GIT_CEILING_DIRECTORIES": str(workdir),
+            "GIT_CEILING_DIRECTORIES": f"{workdir}{os.pathsep}{workdir.parent}",
             "HOME": str(settings["home"]),
             "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
             "XDG_CONFIG_HOME": str(settings["config_home"]),
@@ -327,15 +339,18 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
             "--port",
             str(settings["port"]),
         ]
-        _PROCESS = subprocess.Popen(
-            cmd,
-            cwd=workdir,
-            env=env,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
+        try:
+            _PROCESS = subprocess.Popen(
+                cmd,
+                cwd=workdir,
+                env=env,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except FileNotFoundError:
+            return False, f"OpenCode binary not found: {settings['binary']}"
 
     deadline = time.monotonic() + settings["timeout"]
     while time.monotonic() < deadline:
@@ -392,12 +407,13 @@ def _proxy_url(settings: dict, path: str | None) -> str:
 
 
 def _request_header(request: HttpRequest, name: str) -> str | None:
+    meta = getattr(request, "META", {})
     if name == "Content-Type":
-        value = request.META.get("CONTENT_TYPE")
+        value = meta.get("CONTENT_TYPE")
     elif name == "Content-Length":
-        value = request.META.get("CONTENT_LENGTH")
+        value = meta.get("CONTENT_LENGTH")
     else:
-        value = request.META.get(f"HTTP_{name.upper().replace('-', '_')}")
+        value = meta.get(f"HTTP_{name.upper().replace('-', '_')}")
     return str(value) if value else None
 
 
@@ -411,9 +427,11 @@ def _request_headers(request: HttpRequest, settings: dict) -> dict[str, str]:
 
 
 def _request_params(request: HttpRequest) -> tuple[tuple[str, str], ...]:
-    return tuple(
-        (key, str(value)) for key, values in request.GET.lists() for value in values
-    )
+    if hasattr(request.GET, "lists"):
+        return tuple(
+            (key, str(value)) for key, values in request.GET.lists() for value in values
+        )
+    return tuple((key, str(value)) for key, value in dict(request.GET).items())
 
 
 async def _event_chunks(request: HttpRequest, settings: dict, path: str | None):
