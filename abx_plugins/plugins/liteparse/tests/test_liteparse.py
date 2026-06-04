@@ -295,7 +295,7 @@ def test_crawl_hook_emits_lit_binary_request_record():
     binary = get_hydrated_required_binary(PLUGIN_DIR, "lit")
     assert binary.get("type", "BinaryRequest") == "BinaryRequest"
     assert binary.get("name") == "lit"
-    assert binary.get("overrides", {}).get("npm", {}).get("install_args") == [
+    assert binary.get("overrides", {}).get("pnpm", {}).get("install_args") == [
         "@llamaindex/liteparse",
     ]
 

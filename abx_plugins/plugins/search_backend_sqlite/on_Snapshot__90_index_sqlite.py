@@ -1,11 +1,6 @@
-#!/usr/bin/env -S uv run --active --script
+#!/usr/bin/env -S abxpkg run --script python3
 # /// script
 # requires-python = ">=3.12"
-# dependencies = [
-#   "pydantic-settings",
-#   "jambo",
-#   "abx-plugins",
-# ]
 # ///
 """
 SQLite FTS5 search backend - indexes snapshot content for full-text search.

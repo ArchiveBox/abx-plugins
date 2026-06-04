@@ -8,7 +8,7 @@
   "required_binaries": [
     {
       "name": "{GALLERYDL_BINARY}",
-      "binproviders": "env,pip,brew,apt",
+      "binproviders": "env,uv,brew,apt",
       "min_version": null
     }
   ],

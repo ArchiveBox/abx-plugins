@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OpenCode Agent",
+  "description": "Expose an admin-only embedded OpenCode web agent UI for ArchiveBox.",
+  "type": "object",
+  "x-runtimes": [
+    "archivebox"
+  ],
+  "x-install-when-disabled": true,
+  "additionalProperties": false,
+  "required_plugins": [],
+  "required_binaries": [
+    {
+      "name": "{NODE_BINARY}",
+      "binproviders": "env,apt,brew",
+      "min_version": null,
+      "overrides": {
+        "apt": {
+          "install_args": [
+            "nodejs"
+          ]
+        }
+      }
+    },
+    {
+      "name": "{OPENCODE_BINARY}",
+      "binproviders": "env,pnpm",
+      "min_version": null,
+      "postinstall_scripts": true,
+      "overrides": {
+        "pnpm": {
+          "install_root": "{LIB_DIR}/pnpm/packages/opencode",
+          "install_args": [
+            "opencode-ai"
+          ]
+        }
+      }
+    }
+  ],
+  "output_mimetypes": [],
+  "properties": {
+    "NODE_BINARY": {
+      "type": "string",
+      "default": "node",
+      "description": "Path to Node.js binary"
+    },
+    "OPENCODE_ENABLED": {
+      "type": "boolean",
+      "default": false,
+      "description": "Enable the admin-only /admin/agent OpenCode web UI route"
+    },
+    "OPENCODE_BINARY": {
+      "type": "string",
+      "default": "opencode",
+      "description": "Path to OpenCode CLI binary"
+    },
+    "OPENCODE_HOST": {
+      "type": "string",
+      "default": "127.0.0.1",
+      "description": "Host for the local OpenCode web server"
+    },
+    "OPENCODE_PORT": {
+      "type": "integer",
+      "default": 4096,
+      "minimum": 1,
+      "maximum": 65535,
+      "description": "Port for the local OpenCode web server"
+    },
+    "OPENCODE_WORKDIR": {
+      "type": "string",
+      "default": "",
+      "description": "Working directory for OpenCode. Defaults to the ArchiveBox data directory"
+    },
+    "OPENCODE_STATE_DIR": {
+      "type": "string",
+      "default": "",
+      "description": "Directory for OpenCode config, state, cache, sessions, and generated ArchiveBox skill. Defaults to DATA_DIR/opencode"
+    },
+    "OPENCODE_TIMEOUT": {
+      "type": "integer",
+      "default": 30,
+      "minimum": 1,
+      "description": "Seconds to wait for OpenCode startup and proxied requests"
+    }
+  }
+}

@@ -8,10 +8,10 @@
   "required_binaries": [
     {
       "name": "{YTDLP_BINARY}",
-      "binproviders": "env,pip,brew,apt",
+      "binproviders": "env,uv,brew,apt",
       "min_version": null,
       "overrides": {
-        "pip": {
+        "uv": {
           "install_args": [
             "yt-dlp[default]"
           ]

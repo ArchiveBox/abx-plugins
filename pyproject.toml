@@ -1,6 +1,6 @@
 [project]
 name = "abx-plugins"
-version = "1.11.156"
+version = "1.11.158"
 description = "ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)"
 authors = [{name = "Nick Sweeting"}, {name = "ArchiveBox"}]
 requires-python = ">=3.12"
@@ -20,7 +20,7 @@ classifiers = [
 ]
 dependencies = [
     "abxbus==2.5.9",
-    "abxpkg>=1.11.154",
+    "abxpkg>=1.11.158",
     "jambo>=0.1.7",
     "rich-click>=1.9.7",
     "uv>=0.8.22",
@@ -107,5 +107,5 @@ pythonVersion = "3.12"
 pythonPlatform = "Linux"
 
 [tool.codespell]
-ignore-words-list = "abx,bu,wit,dont,cant,wont,re-use,re-used,re-using,re-usable,thats,doesnt,fith,FitH,doubleclick,administrar"
+ignore-words-list = "abx,bu,wit,dont,cant,wont,re-use,re-used,re-using,re-usable,thats,doesnt,fith,FitH,doubleclick,administrar,te"
 skip = "*.json"

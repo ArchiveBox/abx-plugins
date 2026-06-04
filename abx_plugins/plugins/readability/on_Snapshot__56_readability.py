@@ -1,12 +1,6 @@
-#!/usr/bin/env -S uv run --active --script
+#!/usr/bin/env -S abxpkg run --script python3
 # /// script
 # requires-python = ">=3.12"
-# dependencies = [
-#     "pydantic-settings",
-#     "jambo",
-#     "rich-click",
-#     "abx-plugins",
-# ]
 # ///
 """
 Extract article content using Mozilla's Readability.
@@ -46,7 +40,7 @@ import rich_click as click
 # Extractor metadata
 PLUGIN_NAME = "readability"
 BIN_NAME = "readability-extractor"
-BIN_PROVIDERS = "env,npm"
+BIN_PROVIDERS = "env,pnpm"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 CONFIG = load_config()
 SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()

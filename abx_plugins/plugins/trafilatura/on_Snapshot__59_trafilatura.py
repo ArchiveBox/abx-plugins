@@ -1,11 +1,6 @@
-#!/usr/bin/env -S uv run --active --script
+#!/usr/bin/env -S abxpkg run --script python3
 # /// script
 # requires-python = ">=3.12"
-# dependencies = [
-#   "pydantic-settings",
-#   "jambo",
-#   "abx-plugins",
-# ]
 # ///
 """Extract article content using trafilatura from local HTML snapshots."""
 

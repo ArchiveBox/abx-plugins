@@ -1,13 +1,6 @@
-#!/usr/bin/env -S uv run --active --script
+#!/usr/bin/env -S abxpkg run --script python3
 # /// script
 # requires-python = ">=3.12"
-# dependencies = [
-#     "pydantic-settings",
-#     "jambo",
-#     "rich-click",
-#     "abxbus",
-#     "abx-plugins",
-# ]
 # ///
 """
 Archive a URL using SingleFile.
@@ -50,7 +43,7 @@ import rich_click as click
 # Extractor metadata
 PLUGIN_NAME = "singlefile"
 BIN_NAME = "single-file"
-BIN_PROVIDERS = "env,npm"
+BIN_PROVIDERS = "env,pnpm"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 CONFIG_PATH = Path(__file__).resolve().parent / "config.json"
 CONFIG = load_config(CONFIG_PATH)

@@ -8,10 +8,11 @@
   "required_binaries": [
     {
       "name": "{MERCURY_BINARY}",
-      "binproviders": "npm,env",
+      "binproviders": "pnpm,env",
       "min_version": null,
       "overrides": {
-        "npm": {
+        "pnpm": {
+          "install_root": "{LIB_DIR}/pnpm/packages/mercury",
           "install_args": [
             "@postlight/parser"
           ]

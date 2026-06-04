@@ -635,6 +635,71 @@ const extensionJson = process.argv[4];
         assert any(target["type"] == "service_worker" for target in payload["targets"])
 
 
+def test_launch_chromium_replaces_static_user_agent_version_with_real_browser_version(
+    tmp_path: Path,
+):
+    env = _isolated_test_env(
+        tmp_path,
+        CHROME_USER_AGENT="Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    )
+    output_dir = tmp_path / "chrome"
+    user_data_dir = tmp_path / "chrome_profile"
+    script = r"""
+const { execFileSync } = require('child_process');
+  const chromeUtils = require(process.argv[1]);
+  const outputDir = process.argv[2];
+  const userDataDir = process.argv[3];
+
+(async () => {
+  const binary = chromeUtils.findChromium();
+  const versionOutput = execFileSync(binary, ['--version'], { encoding: 'utf8' }).trim();
+  const expectedVersion = chromeUtils.parseChromiumUserAgentVersion(versionOutput);
+  const result = await chromeUtils.launchChromium({
+    binary,
+    outputDir,
+    CHROME_USER_DATA_DIR: userDataDir,
+  });
+  if (!result.success) {
+    throw new Error(result.error || 'Chrome launch failed');
+  }
+  const puppeteer = chromeUtils.resolvePuppeteerModule();
+  const browser = await chromeUtils.connectToBrowserEndpoint(puppeteer, result.cdpUrl, {
+    defaultViewport: null,
+  });
+  try {
+    const page = await browser.newPage();
+    const userAgent = await page.evaluate(() => navigator.userAgent);
+    process.stdout.write(JSON.stringify({ expectedVersion, userAgent }));
+  } finally {
+    await browser.close().catch(() => {});
+  }
+})().catch((error) => {
+  console.error(error && (error.stack || error.message || String(error)));
+  process.exit(1);
+});
+"""
+    result = subprocess.run(
+        [
+            "node",
+            "-e",
+            script,
+            str(CHROME_UTILS),
+            str(output_dir),
+            str(user_data_dir),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout.strip().splitlines()[-1])
+    assert payload["expectedVersion"]
+    assert f"Chrome/{payload['expectedVersion']}" in payload["userAgent"]
+    assert "Chrome/131.0.0.0" not in payload["userAgent"]
+
+
 def _cleanup_launch_process(
     chrome_launch_process: subprocess.Popen[str] | None,
     chrome_dir: Path,

@@ -1,0 +1,100 @@
+{% extends "admin/base.html" %}
+{% load i18n %}
+
+{% block title %}Agent{% endblock %}
+
+{% block breadcrumbs %}
+    <div class="breadcrumbs">
+        <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+        &rsaquo; Agent
+    </div>
+{% endblock %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <style>
+        body.opencode-agent #content {
+            padding: 0;
+        }
+        body.opencode-agent #content-main {
+            height: calc(100vh - 150px);
+            min-height: 560px;
+        }
+        .opencode-agent-error {
+            margin: 24px;
+            color: #0f172a;
+            font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .opencode-agent-error code {
+            color: #0369a1;
+        }
+        .opencode-agent-frame {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            display: block;
+        }
+    </style>
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} opencode-agent{% endblock %}
+
+{% block content %}
+    <div id="content-main">
+        {% if error %}
+            <div class="opencode-agent-error">
+                {{ error }}
+                {% if command %}<br><br><code>{{ command }}</code>{% endif %}
+            </div>
+        {% else %}
+            <script>
+                (() => {
+                    const workdir = "{{ workdir|escapejs }}";
+                    const recentSessionId = "{{ recent_session_id|escapejs }}";
+                    const merge = (left, right) => {
+                        if (!left || typeof left !== "object" || Array.isArray(left)) return right;
+                        const out = {...left};
+                        for (const [key, value] of Object.entries(right)) {
+                            out[key] = value && typeof value === "object" && !Array.isArray(value) ? merge(out[key], value) : value;
+                        }
+                        return out;
+                    };
+                    const seed = (key, value) => {
+                        try {
+                            localStorage.setItem(key, JSON.stringify(merge(JSON.parse(localStorage.getItem(key) || "{}"), value)));
+                        } catch {
+                            localStorage.setItem(key, JSON.stringify(value));
+                        }
+                    };
+                    const setJSON = (key, value) => localStorage.setItem(key, JSON.stringify(value));
+                    const page = {
+                        activeProject: workdir,
+                        activeWorkspace: workdir,
+                        gettingStartedDismissed: true,
+                        workspaceExpanded: {[workdir]: true},
+                    };
+                    if (recentSessionId) {
+                        page.lastProjectSession = {[workdir]: {directory: workdir, id: recentSessionId, at: Date.now()}};
+                    }
+                    seed("opencode.global.dat:layout.page", page);
+                    seed("opencode.global.dat:layout", {
+                        sidebar: {opened: true, width: 280},
+                        fileTree: {opened: true, width: 280, tab: "all"},
+                    });
+                    const serverKey = `${location.origin}/admin/agent/opencode`;
+                    setJSON("opencode.global.dat:server", {
+                        list: [],
+                        projects: {
+                            [serverKey]: [{worktree: workdir, expanded: true}],
+                        },
+                        lastProject: {
+                            [serverKey]: workdir,
+                        },
+                    });
+                    localStorage.setItem("opencode.settings.dat:defaultServerUrl", serverKey);
+                })();
+            </script>
+            <iframe src="{{ proxy_url }}" title="OpenCode Agent" class="opencode-agent-frame"></iframe>
+        {% endif %}
+    </div>
+{% endblock %}

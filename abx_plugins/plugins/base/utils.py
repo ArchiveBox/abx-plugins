@@ -124,40 +124,60 @@ def _resolve_config_path(
     return Path(config_path).resolve()
 
 
+@lru_cache(maxsize=None)
 def _load_schema(path: Path) -> dict[str, Any]:
-    data = json.loads(path.read_text())
+    data = json.loads(path.resolve().read_text())
     return data if isinstance(data, dict) else {}
 
 
-def _collect_required_schema_paths(
-    config_path: Path,
-    seen: set[Path] | None = None,
-) -> list[Path]:
-    seen = seen or set()
-    resolved = config_path.resolve()
-    if resolved in seen:
-        return []
-    seen.add(resolved)
-
-    schema = _load_schema(resolved)
+@lru_cache(maxsize=None)
+def _collect_required_schema_path_strs(config_path: Path) -> tuple[str, ...]:
+    seen: set[Path] = set()
     paths: list[Path] = []
-    required_plugins = schema.get("required_plugins") or []
-    for required_plugin in (
-        required_plugins if isinstance(required_plugins, list) else []
-    ):
-        required_path = (PLUGINS_DIR / str(required_plugin) / "config.json").resolve()
-        if required_path.exists():
-            paths.extend(_collect_required_schema_paths(required_path, seen))
-    paths.append(resolved)
-    return paths
+
+    def walk(path: Path) -> None:
+        resolved = path.resolve()
+        if resolved in seen:
+            return
+        seen.add(resolved)
+        schema = _load_schema(resolved)
+        required_plugins = schema.get("required_plugins") or []
+        for required_plugin in (
+            required_plugins if isinstance(required_plugins, list) else []
+        ):
+            required_path = (
+                PLUGINS_DIR / str(required_plugin) / "config.json"
+            ).resolve()
+            if required_path.exists():
+                walk(required_path)
+        paths.append(resolved)
+
+    walk(config_path.resolve())
+    return tuple(str(path) for path in paths)
 
 
-def _collect_required_binary_records(config_path: Path) -> list[dict[str, Any]]:
+def _collect_required_schema_paths(config_path: Path) -> list[Path]:
+    return [
+        Path(path) for path in _collect_required_schema_path_strs(config_path.resolve())
+    ]
+
+
+@lru_cache(maxsize=None)
+def _collect_required_binary_records_cached(
+    config_path: Path,
+) -> tuple[dict[str, Any], ...]:
     records: list[dict[str, Any]] = []
     paths = [BASE_CONFIG_PATH.resolve(), *_collect_required_schema_paths(config_path)]
     for path in paths:
         records.extend(_schema_required_binaries(_load_schema(path)))
-    return records
+    return tuple(records)
+
+
+def _collect_required_binary_records(config_path: Path) -> list[dict[str, Any]]:
+    return [
+        dict(record)
+        for record in _collect_required_binary_records_cached(config_path.resolve())
+    ]
 
 
 @lru_cache(maxsize=None)
@@ -263,6 +283,8 @@ def _resolve_schema_payload(
             )
             if found:
                 resolved_value = _coerce_raw_value(raw_value, prop, persisted=persisted)
+                if isinstance(resolved_value, str) and "{" in resolved_value:
+                    resolved_value = _hydrate_value(resolved_value, resolved)
                 if payload.get(key) != resolved_value:
                     payload[key] = resolved_value
                     resolved[key] = resolved_value
@@ -284,6 +306,8 @@ def _resolve_schema_payload(
                         prop,
                         persisted=fallback_persisted,
                     )
+                    if isinstance(fallback_value, str) and "{" in fallback_value:
+                        fallback_value = _hydrate_value(fallback_value, resolved)
                     if payload.get(key) != fallback_value:
                         payload[key] = fallback_value
                         resolved[key] = fallback_value
@@ -300,7 +324,10 @@ def _resolve_schema_payload(
             if key in resolved:
                 resolved_value = resolved[key]
                 default_value = prop.get("default")
-                if (
+                if isinstance(resolved_value, str) and "{" in resolved_value:
+                    resolved_value = _hydrate_value(resolved_value, resolved)
+                    resolved[key] = resolved_value
+                elif (
                     key not in explicit_config_keys
                     and isinstance(default_value, str)
                     and "{" in default_value

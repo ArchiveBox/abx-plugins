@@ -113,7 +113,7 @@ def test_chrome_wait_hook_resolves_puppeteer_from_lib_dir(
         lib_env.pop("NODE_MODULES_DIR", None)
         lib_env.pop("NODE_MODULE_DIR", None)
         lib_env.pop("NODE_PATH", None)
-        lib_env["LIB_DIR"] = str(node_modules_dir.parent.parent)
+        lib_env["LIB_DIR"] = str(node_modules_dir.parents[3])
 
         result = subprocess.run(
             [
@@ -142,7 +142,7 @@ def test_chrome_launch_prerequisites_wait_for_late_installs(tmp_path: Path) -> N
     assert real_chrome_binary.exists()
 
     lib_dir = tmp_path / "lib"
-    delayed_node_modules = lib_dir / "npm" / "node_modules"
+    delayed_node_modules = lib_dir / "pnpm" / "packages" / "chrome" / "node_modules"
     delayed_node_modules.parent.mkdir(parents=True)
     chrome_utils_path = json.dumps(str(CHROME_UTILS))
 

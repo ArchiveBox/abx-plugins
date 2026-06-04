@@ -8,6 +8,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 const http = require("http");
 const net = require("net");
 const { spawn, execFileSync } = require("child_process");
@@ -21,6 +22,7 @@ const {
   getSnapDir,
   getCrawlDir,
   getPersonasDir,
+  getNodeModulesDir,
   getChromeExtensionsDir: getExtensionsDir,
   ensureNodeModuleResolution,
   parseArgs,
@@ -55,6 +57,20 @@ function parseChromiumVersion(output) {
   const match = String(output || "").match(/(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?/);
   if (!match) return null;
   return match.slice(1, 5).map((part) => parseInt(part || "0", 10));
+}
+
+function parseChromiumUserAgentVersion(output) {
+  const version = parseChromiumVersion(output);
+  return version ? `${version[0]}.0.0.0` : "";
+}
+
+function replaceChromeUserAgentVersion(userAgent, browserVersionOutput) {
+  const version = parseChromiumUserAgentVersion(browserVersionOutput);
+  if (!version) return userAgent || "";
+  return String(userAgent || "").replace(
+    /(Chrome|HeadlessChrome)\/(?:\{)?\d+\.\d+\.\d+(?:\.\d+)?(?:\})?/g,
+    `$1/${version}`
+  );
 }
 
 function chromiumVersionAtLeast(output, minimum) {
@@ -928,8 +944,8 @@ async function launchChromium(options = {}) {
   if (!binary) {
     return { success: false, error: "Chrome binary not found" };
   }
-  if (!isSupportedChromiumBinary(binary)) {
-    const versionOutput = getBrowserVersionOutput(binary);
+  const versionOutput = getBrowserVersionOutput(binary);
+  if (!isSupportedChromiumVersionOutput(versionOutput)) {
     return {
       success: false,
       error: `Chrome binary must be Chromium >=149.0.0 for Extensions.loadUnpacked support: ${binary} (${
@@ -939,6 +955,10 @@ async function launchChromium(options = {}) {
   }
 
   const { width, height } = parseResolution(CHROME_RESOLUTION);
+  const chromeUserAgent = replaceChromeUserAgentVersion(
+    CHROME_USER_AGENT,
+    versionOutput
+  );
 
   // Create output directory
   if (!fs.existsSync(outputDir)) {
@@ -985,7 +1005,7 @@ async function launchChromium(options = {}) {
     ...(userDataDir ? [`--user-data-dir=${userDataDir}`] : []),
 
     // User agent
-    ...(CHROME_USER_AGENT ? [`--user-agent=${CHROME_USER_AGENT}`] : []),
+    ...(chromeUserAgent ? [`--user-agent=${chromeUserAgent}`] : []),
 
     // Headless mode
     ...(CHROME_HEADLESS ? ["--headless=new"] : []),
@@ -1483,6 +1503,33 @@ function getValidInstalledExtensions(extensions) {
   return extensions.filter((ext) => ext?.unpacked_path);
 }
 
+function extensionLoadPath(extension) {
+  const unpackedPath = extension?.unpacked_path;
+  if (!unpackedPath) return unpackedPath;
+  const metadataDir = path.join(unpackedPath, "_metadata");
+  if (!fs.existsSync(metadataDir)) return unpackedPath;
+
+  const stat = fs.statSync(unpackedPath);
+  const sourceMtime = Math.floor(stat.mtimeMs);
+  const safeName = `${path.basename(unpackedPath)}-${sourceMtime}-${process.pid}-`;
+  const stagedRoot = path.join(os.tmpdir(), "abx-chrome-extension-load");
+  fs.mkdirSync(stagedRoot, { recursive: true });
+  const stagedPath = fs.mkdtempSync(path.join(stagedRoot, safeName));
+  const stagedManifest = path.join(stagedPath, "manifest.json");
+  fs.cpSync(unpackedPath, stagedPath, {
+    recursive: true,
+    filter: (src) => path.basename(src) !== "_metadata",
+  });
+  if (!fs.existsSync(stagedManifest)) {
+    try {
+      fs.rmSync(stagedPath, { recursive: true, force: true });
+    } catch (error) {}
+    throw new Error(`Staged extension is missing manifest.json: ${stagedPath}`);
+  }
+  extension.load_path = stagedPath;
+  return stagedPath;
+}
+
 async function tryGetExtensionContext(target, targetType) {
   if (targetType !== "service_worker") return null;
   return await target.worker();
@@ -1608,7 +1655,11 @@ async function waitForExtensionTargetHandle(
   throw error;
 }
 
-async function isTargetExtension(target) {
+async function isTargetExtension(target, options = {}) {
+  const manifestTimeoutMs = Math.max(
+    250,
+    Number(options.manifestTimeoutMs || 1000)
+  );
   let target_type;
   let target_ctx;
   let target_url;
@@ -1642,8 +1693,10 @@ async function isTargetExtension(target) {
   if (target_is_extension) {
     try {
       if (target_ctx) {
-        manifest = await target_ctx.evaluate(() =>
-          chrome.runtime.getManifest()
+        manifest = await withTimeout(
+          () => target_ctx.evaluate(() => chrome.runtime.getManifest()),
+          manifestTimeoutMs,
+          `Timed out reading manifest for extension ${extension_id}`
         );
         manifest_version = manifest?.manifest_version || null;
         manifest_name = manifest?.name || null;
@@ -1673,7 +1726,7 @@ async function isTargetExtension(target) {
  * @param {Object} target - Puppeteer target object
  * @returns {Promise<Object|null>} - Updated extension object or null if not an extension
  */
-async function loadExtensionFromTarget(extensions, target) {
+async function loadExtensionFromTarget(extensions, target, options = {}) {
   const {
     target_is_bg,
     target_is_extension,
@@ -1683,7 +1736,7 @@ async function loadExtensionFromTarget(extensions, target) {
     extension_id,
     manifest_version,
     manifest,
-  } = await isTargetExtension(target);
+  } = await isTargetExtension(target, options);
 
   if (!(target_is_bg && extension_id && target_ctx)) {
     return null;
@@ -1795,7 +1848,7 @@ async function loadUnpackedExtensionsIntoBrowser(
   );
   const perExtensionTimeout = Math.max(
     250,
-    getEnvInt("CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS", Math.min(timeout, 10000))
+    getEnvInt("CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS", Math.min(timeout, 2000))
   );
   let cdpSession = null;
   try {
@@ -1813,12 +1866,13 @@ async function loadUnpackedExtensionsIntoBrowser(
   try {
     for (const extension of validExtensions) {
       try {
+        const loadPath = extensionLoadPath(extension);
         const { id } = await cdpSession.send("Extensions.loadUnpacked", {
-          path: extension.unpacked_path,
+          path: loadPath,
         });
         if (!id) {
           throw new Error(
-            `Extensions.loadUnpacked did not return an id for ${extension.unpacked_path}`
+            `Extensions.loadUnpacked did not return an id for ${loadPath}`
           );
         }
         extension.id = id;
@@ -1829,9 +1883,7 @@ async function loadUnpackedExtensionsIntoBrowser(
         throw new Error(
           `Failed to load Chrome extension ${
             extension.name || extension.unpacked_path
-          } from ${
-            extension.unpacked_path
-          } via Extensions.loadUnpacked: ${detail}`
+          } from ${extension.load_path || extension.unpacked_path} via Extensions.loadUnpacked: ${detail}`
         );
       }
 
@@ -1841,7 +1893,14 @@ async function loadUnpackedExtensionsIntoBrowser(
           extension.id,
           perExtensionTimeout
         );
-        const loaded = await loadExtensionFromTarget(extensions, target);
+        const loaded = await withTimeout(
+          () =>
+            loadExtensionFromTarget(extensions, target, {
+              manifestTimeoutMs: Math.min(perExtensionTimeout, 1000),
+            }),
+          perExtensionTimeout,
+          `Timed out attaching extension target for ${extension.id}`
+        );
         if (!loaded) {
           throw new Error(
             `Unable to attach extension target for ${extension.id}`
@@ -2612,9 +2671,10 @@ function requirePuppeteerModule(puppeteer, callerName) {
  * @throws {Error} - If no puppeteer package is installed
  */
 function resolvePuppeteerModule() {
+  const searchPaths = [getNodeModulesDir(), process.cwd(), __dirname];
   for (const moduleName of ["puppeteer-core", "puppeteer"]) {
     try {
-      return require(moduleName);
+      return require(require.resolve(moduleName, { paths: searchPaths }));
     } catch (e) {}
   }
   throw new Error(
@@ -3944,6 +4004,12 @@ async function ensureChromeSession(options = {}) {
           installedExtensions,
           timeoutMs
         );
+        try {
+          await browser.disconnect();
+        } catch (error) {}
+        browser = await connectToBrowserEndpoint(puppeteer, resolvedCdpUrl, {
+          defaultViewport: null,
+        });
       }
 
       if (downloadsDir) {
@@ -4171,6 +4237,8 @@ module.exports = {
   parseChromiumVersion,
   isSupportedChromiumVersionOutput,
   isSupportedChromiumBinary,
+  parseChromiumUserAgentVersion,
+  replaceChromeUserAgentVersion,
   // Extension utilities
   loadExtensionManifest,
   isTargetExtension,

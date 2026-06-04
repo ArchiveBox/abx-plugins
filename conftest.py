@@ -135,10 +135,8 @@ def isolated_test_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> dict[str, Path]:
     """Apply per-test env overrides and let monkeypatch restore global state after each test."""
-    from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_lib_dir
-
     # Keep runtime HOME/cache state outside any test-owned snapshot tmp_path so
-    # hook subprocesses cannot pollute SNAP_DIR with uv/npm/browser artifacts.
+    # hook subprocesses cannot pollute SNAP_DIR with uv/pnpm/browser artifacts.
     test_root = tmp_path_factory.mktemp("abx_plugins_env")
     home_dir = test_root / "home"
     run_dir = test_root / "run"
@@ -148,11 +146,7 @@ def isolated_test_env(
     for directory in (home_dir, run_dir, lib_dir, personas_dir):
         directory.mkdir(parents=True, exist_ok=True)
 
-    # Resolve LIB_DIR BEFORE monkeypatching HOME, so path helpers
-    # (chrome_utils.js / Path.home()) see the real home directory.
-    resolved_lib = (
-        Path(os.environ["LIB_DIR"]) if "LIB_DIR" in os.environ else get_lib_dir()
-    )
+    resolved_lib = Path(os.environ["LIB_DIR"]) if "LIB_DIR" in os.environ else lib_dir
     resolved_uv_cache = Path(
         os.environ.get(
             "UV_CACHE_DIR",
@@ -225,6 +219,7 @@ def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
         os.environ["PERSONAS_DIR"] = str(
             tmp_path_factory.mktemp("chrome_test_personas"),
         )
+    os.environ["LIB_DIR"] = str(tmp_path_factory.mktemp("chrome_test_lib"))
 
     env = get_test_env()
 
@@ -261,8 +256,8 @@ def ensure_claude_code_prereqs(tmp_path_factory):
     """
 
     def install_claude_code_with_abxpkg() -> str:
-        from abxpkg import Binary, NpmProvider, SemVer
         from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_test_env
+        from abx_plugins.plugins.base.utils import load_required_binary
 
         env = get_test_env()
         env["LIB_DIR"] = str(tmp_path_factory.mktemp("claudecode_test_lib"))
@@ -294,26 +289,19 @@ def ensure_claude_code_prereqs(tmp_path_factory):
                     "Claude Code config did not declare a claude BinaryRequest record",
                 )
 
-            overrides = binary_record.get("overrides")
-            loaded = Binary(
-                name="claude",
-                binproviders=[
-                    NpmProvider(
-                        install_root=lib_dir / "npm",
-                        install_timeout=600,
-                    ),
-                ],
-                min_version=SemVer(binary_record["min_version"])
-                if binary_record.get("min_version")
-                else None,
-                min_release_age=binary_record.get("min_release_age"),
-                postinstall_scripts=binary_record.get("postinstall_scripts"),
-                overrides=overrides or {},
-            ).install()
+            loaded = load_required_binary(
+                binary_record,
+                config=env,
+                environ=env,
+                install=True,
+            )
 
-            node_modules_dir = lib_dir / "npm" / "node_modules"
+            node_modules_dir = (
+                lib_dir / "pnpm" / "packages" / "claudecode" / "node_modules"
+            )
             env.setdefault("NODE_MODULES_DIR", str(node_modules_dir))
             env.setdefault("NODE_PATH", str(node_modules_dir))
+            env.setdefault("PNPM_BIN_DIR", str(node_modules_dir / ".bin"))
             env.setdefault("NPM_BIN_DIR", str(node_modules_dir / ".bin"))
             env["PATH"] = os.pathsep.join(
                 [

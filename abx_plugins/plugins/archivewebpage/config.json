@@ -15,13 +15,14 @@
       "postinstall_scripts": true
     },
     {
-      "name": "puppeteer-browsers",
-      "binproviders": "npm",
+      "name": "browsers",
+      "binproviders": "pnpm",
       "min_version": null,
       "postinstall_scripts": false,
       "min_release_age": 0,
       "overrides": {
-        "npm": {
+        "pnpm": {
+          "install_root": "{LIB_DIR}/pnpm/packages/archivewebpage",
           "install_args": [
             "@puppeteer/browsers",
             "puppeteer"

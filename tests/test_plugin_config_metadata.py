@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from typing import Any, cast
 
@@ -109,5 +110,165 @@ def test_every_plugin_has_config_json_with_required_metadata() -> None:
                     )
 
     assert not failures, "Plugin config metadata validation failed:\n" + "\n".join(
+        failures,
+    )
+
+
+def test_required_binary_configs_use_uv_and_pnpm_not_pip_or_npm() -> None:
+    failures: list[str] = []
+
+    for plugin_dir in _iter_plugin_dirs():
+        config_path = plugin_dir / "config.json"
+        if not config_path.exists():
+            continue
+        config = cast(
+            dict[str, Any],
+            json.loads(config_path.read_text(encoding="utf-8")),
+        )
+        required_binaries = config.get("required_binaries")
+        if not isinstance(required_binaries, list):
+            continue
+        for index, item in enumerate(required_binaries):
+            if not isinstance(item, dict):
+                continue
+            item = cast(dict[str, Any], item)
+            label = f"{plugin_dir.name}: required_binaries[{index}]"
+            binproviders = {
+                provider.strip()
+                for provider in str(item.get("binproviders") or "").split(",")
+                if provider.strip()
+            }
+            if "pip" in binproviders:
+                failures.append(f"{label}.binproviders must use uv instead of pip")
+            if "npm" in binproviders:
+                failures.append(f"{label}.binproviders must use pnpm instead of npm")
+            raw_overrides = item.get("overrides")
+            overrides = (
+                cast(dict[str, Any], raw_overrides)
+                if isinstance(raw_overrides, dict)
+                else {}
+            )
+            if "pip" in overrides:
+                failures.append(f"{label}.overrides must use uv instead of pip")
+            if "npm" in overrides:
+                failures.append(f"{label}.overrides must use pnpm instead of npm")
+            if any(
+                isinstance(value, dict) and "module_name" in value
+                for value in overrides.values()
+            ):
+                failures.append(f"{label}.overrides must not declare module_name")
+            if "pnpm" in binproviders:
+                pnpm_overrides = overrides.get("pnpm")
+                if not isinstance(pnpm_overrides, dict) or not pnpm_overrides.get(
+                    "install_root",
+                ):
+                    failures.append(
+                        f"{label}.overrides.pnpm must declare an isolated install_root",
+                    )
+
+    assert not failures, "Plugin provider policy validation failed:\n" + "\n".join(
+        failures,
+    )
+
+
+def _package_name(package_spec: str) -> str:
+    if package_spec.startswith("@"):
+        return "@" + package_spec[1:].split("@", 1)[0]
+    return package_spec.split("@", 1)[0]
+
+
+def _hydrated_binary_name(name: str, config: dict[str, Any]) -> str:
+    if not (name.startswith("{") and name.endswith("}")):
+        return name
+    key = name[1:-1]
+    prop = (config.get("properties") or {}).get(key)
+    default = prop.get("default") if isinstance(prop, dict) else None
+    return default if isinstance(default, str) and default else name
+
+
+def _pnpm_package_bin(package_spec: str) -> dict[str, str]:
+    proc = subprocess.run(
+        ["pnpm", "view", package_spec, "--json"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert proc.returncode == 0, proc.stderr
+    payload = json.loads(proc.stdout)
+    assert isinstance(payload, dict), payload
+    package_name = payload.get("name")
+    raw_bin = payload.get("bin")
+    if isinstance(raw_bin, str) and isinstance(package_name, str):
+        return {package_name.rsplit("/", 1)[-1]: raw_bin}
+    return raw_bin if isinstance(raw_bin, dict) else {}
+
+
+def test_pnpm_required_binary_names_match_package_exposed_clis() -> None:
+    failures: list[str] = []
+
+    for plugin_dir in _iter_plugin_dirs():
+        config_path = plugin_dir / "config.json"
+        if not config_path.exists():
+            continue
+        config = cast(
+            dict[str, Any],
+            json.loads(config_path.read_text(encoding="utf-8")),
+        )
+        required_binaries = config.get("required_binaries")
+        if not isinstance(required_binaries, list):
+            continue
+        for index, item in enumerate(required_binaries):
+            if not isinstance(item, dict):
+                continue
+            item = cast(dict[str, Any], item)
+            binproviders = {
+                provider.strip()
+                for provider in str(item.get("binproviders") or "").split(",")
+                if provider.strip()
+            }
+            if "pnpm" not in binproviders:
+                continue
+            raw_overrides = item.get("overrides")
+            overrides = (
+                cast(dict[str, Any], raw_overrides)
+                if isinstance(raw_overrides, dict)
+                else {}
+            )
+            raw_pnpm_overrides = overrides.get("pnpm")
+            pnpm_overrides = (
+                cast(dict[str, Any], raw_pnpm_overrides)
+                if isinstance(raw_pnpm_overrides, dict)
+                else {}
+            )
+            install_args = pnpm_overrides.get("install_args")
+            package_spec = next(
+                (
+                    str(arg)
+                    for arg in (
+                        install_args
+                        if isinstance(install_args, list)
+                        else [item["name"]]
+                    )
+                    if str(arg) and not str(arg).startswith("-")
+                ),
+                "",
+            )
+            if not package_spec:
+                failures.append(
+                    f"{plugin_dir.name}: required_binaries[{index}] missing pnpm install package",
+                )
+                continue
+            package_bins = _pnpm_package_bin(package_spec)
+            binary_name = _hydrated_binary_name(str(item["name"]), config)
+            label = f"{plugin_dir.name}: required_binaries[{index}] {binary_name!r} via {_package_name(package_spec)!r}"
+            if binary_name in package_bins:
+                continue
+            if pnpm_overrides.get("abspath") and not package_bins:
+                continue
+            failures.append(
+                f"{label} does not match package bin names {sorted(package_bins)!r}",
+            )
+
+    assert not failures, "pnpm required binary metadata mismatch:\n" + "\n".join(
         failures,
     )

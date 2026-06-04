@@ -105,7 +105,7 @@ def require_chrome_runtime_impl() -> None:
 
     try:
         Binary(name="node", binproviders=[EnvProvider()]).load()
-        Binary(name="npm", binproviders=[EnvProvider()]).load()
+        Binary(name="pnpm", binproviders=[EnvProvider()]).load()
     except Exception as exc:
         logger.error("Chrome integration prerequisites unavailable: %s", exc)
         pytest.fail(
@@ -491,8 +491,15 @@ def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
     os.environ["XDG_CONFIG_HOME"] = str(Path(os.environ["HOME"]) / ".config")
     os.environ["XDG_CACHE_HOME"] = str(Path(os.environ["HOME"]) / ".cache")
     os.environ["XDG_DATA_HOME"] = str(Path(os.environ["HOME"]) / ".local" / "share")
+    os.environ["LIB_DIR"] = str(tmp_path_factory.mktemp("chrome_test_lib"))
 
-    for key in ("HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME"):
+    for key in (
+        "HOME",
+        "XDG_CONFIG_HOME",
+        "XDG_CACHE_HOME",
+        "XDG_DATA_HOME",
+        "LIB_DIR",
+    ):
         Path(os.environ[key]).mkdir(parents=True, exist_ok=True)
 
     env = get_test_env()
@@ -741,7 +748,7 @@ def get_lib_dir() -> Path:
 
 
 def get_node_modules_dir() -> Path:
-    """Get NODE_MODULES_DIR path for npm packages.
+    """Get NODE_MODULES_DIR path for pnpm packages.
 
     Matches JS base/utils.js: getNodeModulesDir()
 
@@ -755,7 +762,7 @@ def get_node_modules_dir() -> Path:
     if os.environ.get("NODE_MODULES_DIR"):
         return Path(os.environ["NODE_MODULES_DIR"])
     lib_dir = get_lib_dir()
-    return lib_dir / "npm" / "node_modules"
+    return lib_dir / "pnpm" / "packages" / "chrome" / "node_modules"
 
 
 def get_extensions_dir(env: dict | None = None) -> str:
@@ -1062,29 +1069,28 @@ def _required_binary_record(
 
 
 def _ensure_puppeteer_with_abxpkg(env: dict, timeout: int) -> None:
-    """Install the JS ``puppeteer`` package through abxpkg's npm provider.
+    """Install Chrome JS dependencies through plugin required_binaries.
 
     The Chrome JS hooks resolve Puppeteer from the shared runtime loader even
     when a browser binary already exists on disk, so test setup must ensure the
-    npm package lifecycle is complete before attempting any launch/install flow.
+    package lifecycle is complete before attempting any launch/install flow.
     """
-    from abxpkg import Binary, NpmProvider
-
     lib_dir = Path(
         env.get("LIB_DIR")
         or os.environ.get("LIB_DIR")
         or Path.home() / ".config" / "abx" / "lib",
     )
-    npm_root = lib_dir / "npm"
+    pnpm_root = lib_dir / "pnpm" / "packages" / "chrome"
 
-    node_modules_dir = npm_root / "node_modules"
+    node_modules_dir = pnpm_root / "node_modules"
     env.setdefault("NODE_MODULES_DIR", str(node_modules_dir))
     env.setdefault("NODE_PATH", str(node_modules_dir))
-    npm_bin_dir = node_modules_dir / ".bin"
-    env.setdefault("NPM_BIN_DIR", str(npm_bin_dir))
+    pnpm_bin_dir = node_modules_dir / ".bin"
+    env.setdefault("PNPM_BIN_DIR", str(pnpm_bin_dir))
+    env.setdefault("NPM_BIN_DIR", str(pnpm_bin_dir))
     env["PATH"] = os.pathsep.join(
         [
-            str(npm_bin_dir),
+            str(pnpm_bin_dir),
             *[
                 part
                 for part in env.get("PATH", os.environ.get("PATH", "")).split(
@@ -1096,17 +1102,13 @@ def _ensure_puppeteer_with_abxpkg(env: dict, timeout: int) -> None:
     )
 
     if not _has_puppeteer_module(env):
-        binary = Binary(
-            name="puppeteer",
-            binproviders=[
-                NpmProvider(
-                    install_root=npm_root,
-                    install_timeout=timeout,
-                ),
-            ],
-            postinstall_scripts=True,
+        browsers_record = _required_binary_record(CHROME_PLUGIN_DIR, "browsers", env)
+        load_required_binary(
+            browsers_record,
+            config=env,
+            environ=env,
+            install=True,
         )
-        binary.install()
 
     if not _has_node_module(env, "abxbus"):
         abxbus_record = _required_binary_record(CHROME_PLUGIN_DIR, "abxbus", env)
@@ -1231,7 +1233,7 @@ def setup_test_env(tmpdir: Path) -> dict:
       config helper
     - persona-scoped ``chrome_downloads`` and ``chrome_profile`` dirs are
       provisioned as runtime browser state
-    - Chrome + npm dependencies are installed through hooks, not hand-written
+    - Chrome + pnpm dependencies are installed through hooks, not hand-written
       test setup
 
     Returns env dict with ``SNAP_DIR``, ``CRAWL_DIR``, ``PERSONAS_DIR``,
@@ -1258,9 +1260,9 @@ def setup_test_env(tmpdir: Path) -> dict:
     # Keep crawl/snap state rooted in the caller's tmpdir so every test is isolated.
     snap_dir = tmpdir / "snap"
     lib_dir = get_lib_dir()
-    npm_dir = lib_dir / "npm"
-    npm_bin_dir = npm_dir / ".bin"
-    node_modules_dir = npm_dir / "node_modules"
+    pnpm_dir = lib_dir / "pnpm" / "packages" / "chrome"
+    pnpm_bin_dir = pnpm_dir / "node_modules" / ".bin"
+    node_modules_dir = pnpm_dir / "node_modules"
 
     personas_dir = tmpdir / "personas"
     home_dir = tmpdir / "home"
@@ -1280,7 +1282,8 @@ def setup_test_env(tmpdir: Path) -> dict:
             "PERSONAS_DIR": str(personas_dir),
             "LIB_DIR": str(lib_dir),
             "MACHINE_TYPE": machine_type,
-            "NPM_BIN_DIR": str(npm_bin_dir),
+            "PNPM_BIN_DIR": str(pnpm_bin_dir),
+            "NPM_BIN_DIR": str(pnpm_bin_dir),
             "NODE_MODULES_DIR": str(node_modules_dir),
             "HOME": str(home_dir),
             "XDG_CONFIG_HOME": str(xdg_config_home),
@@ -1295,7 +1298,7 @@ def setup_test_env(tmpdir: Path) -> dict:
 
     # Create all directories
     node_modules_dir.mkdir(parents=True, exist_ok=True)
-    npm_bin_dir.mkdir(parents=True, exist_ok=True)
+    pnpm_bin_dir.mkdir(parents=True, exist_ok=True)
     home_dir.mkdir(parents=True, exist_ok=True)
     xdg_config_home.mkdir(parents=True, exist_ok=True)
     xdg_cache_home.mkdir(parents=True, exist_ok=True)
@@ -1694,12 +1697,12 @@ def chrome_session(
         existing_node_modules = env.get("NODE_MODULES_DIR")
         if existing_node_modules and Path(existing_node_modules).exists():
             node_modules_dir = Path(existing_node_modules).resolve()
-            npm_dir = node_modules_dir.parent
-            lib_dir = npm_dir.parent
+            pnpm_dir = node_modules_dir.parent.parent
+            lib_dir = pnpm_dir.parent.parent
         else:
             lib_dir = get_lib_dir()
-            npm_dir = lib_dir / "npm"
-            node_modules_dir = npm_dir / "node_modules"
+            pnpm_dir = lib_dir / "pnpm" / "packages" / "chrome"
+            node_modules_dir = pnpm_dir / "node_modules"
         # Create lib structure for puppeteer installation
         node_modules_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1727,7 +1730,8 @@ def chrome_session(
                 "MACHINE_TYPE": machine_type,
                 "NODE_MODULES_DIR": str(node_modules_dir),
                 "NODE_PATH": str(node_modules_dir),
-                "NPM_BIN_DIR": str(npm_dir / ".bin"),
+                "PNPM_BIN_DIR": str(node_modules_dir / ".bin"),
+                "NPM_BIN_DIR": str(node_modules_dir / ".bin"),
                 "HOME": str(home_dir),
                 "XDG_CONFIG_HOME": str(xdg_config_home),
                 "XDG_CACHE_HOME": str(xdg_cache_home),

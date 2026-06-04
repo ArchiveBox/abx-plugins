@@ -8,12 +8,12 @@
   "required_binaries": [
     {
       "name": "{PAPERSDL_BINARY}",
-      "binproviders": "pip,env",
+      "binproviders": "uv,env",
       "min_version": null,
       "postinstall_scripts": true,
       "overrides": {
-        "pip": {
-          "install_root": "{LIB_DIR}/pip/packages/papers-dl",
+        "uv": {
+          "install_root": "{LIB_DIR}/uv/packages/papers-dl",
           "install_args": [
             "--no-deps",
             "--only-binary=PyMuPDF,PyMuPDFb",

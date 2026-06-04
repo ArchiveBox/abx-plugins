@@ -1,13 +1,6 @@
-#!/usr/bin/env -S uv run --active --script
+#!/usr/bin/env -S abxpkg run --script python3
 # /// script
 # requires-python = ">=3.12"
-# dependencies = [
-#   "pydantic-settings",
-#   "jambo",
-#   "rich-click",
-#   "abx-plugins",
-#   "imagesize",
-# ]
 # ///
 """
 Extract text from PDFs, Office documents, and images using LiteParse
@@ -54,7 +47,7 @@ from abx_plugins.plugins.base.utils import (
 
 PLUGIN_NAME = "liteparse"
 BIN_NAME = "lit"
-BIN_PROVIDERS = "env,npm"
+BIN_PROVIDERS = "env,pnpm"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 CONFIG = load_config()
 SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()

@@ -8,10 +8,10 @@
   "required_binaries": [
     {
       "name": "{TRAFILATURA_BINARY}",
-      "binproviders": "env,pip",
+      "binproviders": "uv,env",
       "min_version": null,
       "overrides": {
-        "pip": {
+        "uv": {
           "install_args": [
             "trafilatura"
           ]

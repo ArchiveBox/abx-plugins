@@ -8,11 +8,12 @@
   "required_binaries": [
     {
       "name": "{LITEPARSE_BINARY}",
-      "binproviders": "env,npm",
+      "binproviders": "env,pnpm",
       "min_version": "2.0.0",
       "min_release_age": 3,
       "overrides": {
-        "npm": {
+        "pnpm": {
+          "install_root": "{LIB_DIR}/pnpm/packages/liteparse",
           "install_args": [
             "@llamaindex/liteparse"
           ]
@@ -56,14 +57,13 @@
     },
     {
       "name": "imagesize",
-      "binproviders": "pip",
+      "binproviders": "uv",
       "min_version": "2.0.0",
       "min_release_age": 3,
       "postinstall_scripts": false,
       "overrides": {
-        "pip": {
-          "install_root": "{LIB_DIR}/pip/packages/liteparse",
-          "module_name": "imagesize",
+        "uv": {
+          "install_root": "{LIB_DIR}/uv/packages/liteparse",
           "install_args": [
             "imagesize>=2.0.0"
           ]

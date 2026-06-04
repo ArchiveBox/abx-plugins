@@ -134,6 +134,28 @@ function parseConfigValue(rawValue, prop = {}) {
   return trimmed;
 }
 
+function hydrateConfigValue(value, context) {
+  if (typeof value === "string") {
+    return value.replace(/\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (match, key) => {
+      const replacement = context[key];
+      if (replacement === undefined || replacement === null) return match;
+      return String(replacement);
+    });
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => hydrateConfigValue(item, context));
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        hydrateConfigValue(item, context),
+      ])
+    );
+  }
+  return value;
+}
+
 function resolveConfigPath(configPath = null) {
   if (configPath) return path.resolve(configPath);
   const callerFile = getCallerFile(loadConfig);
@@ -170,21 +192,41 @@ function loadConfig(configPath = null) {
         };
 
   const config = {};
-  for (const [name, prop] of Object.entries(properties)) {
-    const choices = [name, ...(prop["x-aliases"] || [])];
-    if (prop["x-fallback"]) {
-      choices.push(prop["x-fallback"]);
-    }
+  for (
+    let idx = 0;
+    idx < Math.max(Object.keys(properties).length, 1) + 1;
+    idx++
+  ) {
+    let changed = false;
+    for (const [name, prop] of Object.entries(properties)) {
+      const choices = [name, ...(prop["x-aliases"] || [])];
+      if (prop["x-fallback"]) {
+        choices.push(prop["x-fallback"]);
+      }
 
-    let rawValue;
-    for (const choice of choices) {
-      if (Object.prototype.hasOwnProperty.call(process.env, choice)) {
-        rawValue = process.env[choice];
-        break;
+      let rawValue;
+      for (const choice of choices) {
+        if (Object.prototype.hasOwnProperty.call(process.env, choice)) {
+          rawValue = process.env[choice];
+          break;
+        }
+      }
+
+      let value = parseConfigValue(rawValue, prop);
+      if (
+        rawValue === undefined &&
+        prop["x-fallback"] &&
+        config[prop["x-fallback"]] !== undefined
+      ) {
+        value = config[prop["x-fallback"]];
+      }
+      value = hydrateConfigValue(value, config);
+      if (config[name] !== value) {
+        config[name] = value;
+        changed = true;
       }
     }
-
-    config[name] = parseConfigValue(rawValue, prop);
+    if (!changed) break;
   }
 
   if (!config.PERSONAS_DIR) {
@@ -336,7 +378,9 @@ function getPersonasDir() {
 function getNodeModulesDir() {
   const configured = getEnv("NODE_MODULES_DIR") || getEnv("NODE_MODULE_DIR");
   if (configured) return path.resolve(configured);
-  return path.resolve(path.join(getLibDir(), "npm", "node_modules"));
+  return path.resolve(
+    path.join(getLibDir(), "pnpm", "packages", "chrome", "node_modules")
+  );
 }
 
 function getChromeExtensionsDir() {
@@ -380,7 +424,22 @@ function getTestEnv() {
     LIB_DIR: libDir,
     NODE_MODULES_DIR: nodeModulesDir,
     NODE_PATH: nodeModulesDir,
-    NPM_BIN_DIR: path.join(libDir, "npm", ".bin"),
+    PNPM_BIN_DIR: path.join(
+      libDir,
+      "pnpm",
+      "packages",
+      "chrome",
+      "node_modules",
+      ".bin"
+    ),
+    NPM_BIN_DIR: path.join(
+      libDir,
+      "pnpm",
+      "packages",
+      "chrome",
+      "node_modules",
+      ".bin"
+    ),
     CHROME_EXTENSIONS_DIR: getChromeExtensionsDir(),
   };
 }

@@ -40,7 +40,10 @@ def test_chrome_config_installs_abxbus_js_module(tmp_path: Path) -> None:
     assert loaded.loaded_abspath
     assert Path(loaded.loaded_abspath).exists()
 
-    node_modules_dir = lib_dir / "npm" / "node_modules"
+    install_root = Path(
+        record["overrides"]["pnpm"]["install_root"].replace("{LIB_DIR}", str(lib_dir)),
+    )
+    node_modules_dir = install_root / "node_modules"
     result = subprocess.run(
         [
             node_binary,
@@ -71,9 +74,7 @@ def _assert_config_installs_puppeteer(config_path: Path, tmp_path: Path) -> None
 
     config = json.loads(config_path.read_text(encoding="utf-8"))
     record = next(
-        item
-        for item in config["required_binaries"]
-        if item["name"] == "puppeteer-browsers"
+        item for item in config["required_binaries"] if item["name"] == "browsers"
     )
 
     lib_dir = tmp_path / "lib"
@@ -91,7 +92,10 @@ def _assert_config_installs_puppeteer(config_path: Path, tmp_path: Path) -> None
     assert loaded.loaded_abspath
     assert Path(loaded.loaded_abspath).exists()
 
-    node_modules_dir = lib_dir / "npm" / "node_modules"
+    install_root = Path(
+        record["overrides"]["pnpm"]["install_root"].replace("{LIB_DIR}", str(lib_dir)),
+    )
+    node_modules_dir = install_root / "node_modules"
     result = subprocess.run(
         [
             node_binary,

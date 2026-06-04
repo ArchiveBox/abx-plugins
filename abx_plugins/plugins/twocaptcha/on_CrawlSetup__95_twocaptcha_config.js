@@ -26,6 +26,7 @@ const {
   PROCESS_EXIT_SKIPPED,
   ensureNodeModuleResolution,
   parseArgs,
+  getEnv,
   getEnvBool,
   getEnvInt,
   loadConfig,
@@ -35,6 +36,10 @@ ensureNodeModuleResolution(module);
 const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
 const CRAWL_DIR = path.resolve((hookConfig.CRAWL_DIR || ".").trim());
+const CHROME_ISOLATION =
+  String(getEnv("CHROME_ISOLATION", "crawl")).toLowerCase() === "snapshot"
+    ? "snapshot"
+    : "crawl";
 const OUTPUT_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
 if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -143,6 +148,13 @@ function getTwoCaptchaConfig() {
 }
 
 async function configure2Captcha() {
+  if (CHROME_ISOLATION === "snapshot") {
+    console.error(
+      "[*] CHROME_ISOLATION=snapshot, skipping crawl-scoped 2captcha setup"
+    );
+    return { success: true, skipped: true };
+  }
+
   if (!hasConfiguredApiKey()) {
     console.error(
       "[*] TWOCAPTCHA_API_KEY not configured, skipping 2captcha setup"

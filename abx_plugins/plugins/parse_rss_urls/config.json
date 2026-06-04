@@ -8,13 +8,12 @@
   "required_binaries": [
     {
       "name": "feedparser",
-      "binproviders": "pip",
+      "binproviders": "uv",
       "min_version": null,
       "postinstall_scripts": true,
       "overrides": {
-        "pip": {
-          "install_root": "{LIB_DIR}/pip/packages/parse_rss_urls",
-          "module_name": "feedparser",
+        "uv": {
+          "install_root": "{LIB_DIR}/uv/packages/parse_rss_urls",
           "install_args": [
             "feedparser"
           ]

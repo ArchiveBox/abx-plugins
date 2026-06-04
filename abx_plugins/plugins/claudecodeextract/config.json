@@ -10,10 +10,11 @@
   "required_binaries": [
     {
       "name": "{CLAUDECODE_BINARY}",
-      "binproviders": "env,npm",
+      "binproviders": "env,pnpm",
       "min_version": null,
       "overrides": {
-        "npm": {
+        "pnpm": {
+          "install_root": "{LIB_DIR}/pnpm/packages/claudecode",
           "install_args": [
             "@anthropic-ai/claude-code"
           ]

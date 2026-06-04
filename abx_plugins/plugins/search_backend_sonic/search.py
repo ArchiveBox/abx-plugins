@@ -1,10 +1,6 @@
-#!/usr/bin/env -S uv run --active --script
+#!/usr/bin/env -S abxpkg run --script python3
 # /// script
 # requires-python = ">=3.12"
-# dependencies = [
-#   "sonic-client",
-#   "abx-plugins",
-# ]
 # ///
 #
 # Sonic search backend - search and flush operations.

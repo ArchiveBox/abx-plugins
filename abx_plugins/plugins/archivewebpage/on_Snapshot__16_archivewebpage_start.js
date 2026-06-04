@@ -159,20 +159,22 @@ async function runStartHandshake(
     );
 
   try {
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
         result = await handshake();
         break;
       } catch (err) {
         const msg = err?.message || String(err);
         if (
-          attempt === 0 &&
+          attempt < 2 &&
           (msg.includes("Execution context was destroyed") ||
             msg.includes("Target closed") ||
-            msg.includes("Session closed"))
+            msg.includes("Session closed") ||
+            msg.includes("AWP popup-port handshake") ||
+            msg.includes("timed out waiting for"))
         ) {
           console.error(
-            `[archivewebpage] start evaluate destroyed mid-flight, reopening helper popup and retrying`
+            `[archivewebpage] start handshake failed (${msg}), reopening helper popup and retrying`
           );
           try {
             await helperPage.close({ runBeforeUnload: false });
@@ -282,7 +284,7 @@ async function main() {
           "ARCHIVEWEBPAGE_COLLECTION_TITLE",
           "abx-dl"
         )} - ${url}`,
-        timeoutMs: Math.max(2000, budgetMs * 2),
+        timeoutMs: Math.min(overallTimeoutMs, Math.max(10000, budgetMs * 5)),
       }
     );
     if (handshake.status?.failureMsg) {
@@ -307,11 +309,8 @@ async function main() {
     console.log(
       `archiveweb.page recording started (coll=${handshake.collId}, tab=${chromeTabId}, ${elapsed}ms)`
     );
-    // Emit "skipped" so the start hook doesn't produce a stray archive result
-    // card with no output file — the WACZ archive result comes from the
-    // matching stop hook (on_Snapshot__65_archivewebpage_stop.js).
     emitArchiveResultRecord(
-      "skipped",
+      "succeeded",
       `recording started coll=${handshake.collId} tab=${chromeTabId}`
     );
     process.exit(0);

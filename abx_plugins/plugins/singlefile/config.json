@@ -16,13 +16,14 @@
     },
     {
       "name": "{SINGLEFILE_BINARY}",
-      "binproviders": "env,npm",
+      "binproviders": "env,pnpm",
       "min_version": null,
+      "min_release_age": 0,
       "overrides": {
-        "npm": {
+        "pnpm": {
+          "install_root": "{LIB_DIR}/pnpm/packages/singlefile",
           "install_args": [
-            "single-file-cli@^1.1.54",
-            "--min-release-age=0"
+            "single-file-cli@^1.1.54"
           ]
         }
       }

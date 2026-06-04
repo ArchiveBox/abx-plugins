@@ -1,11 +1,6 @@
-#!/usr/bin/env -S uv run --active --script
+#!/usr/bin/env -S abxpkg run --script python3
 # /// script
 # requires-python = ">=3.12"
-# dependencies = [
-#   "click",
-#   "jambo",
-#   "abx-plugins",
-# ]
 # ///
 #
 # Generate a cryptographic Merkle hash tree of all files in a snapshot directory.

@@ -20,27 +20,29 @@
     },
     {
       "name": "abxbus",
-      "binproviders": "npm",
+      "binproviders": "pnpm",
       "min_version": "2.5.9",
       "min_release_age": 0,
       "overrides": {
-        "npm": {
+        "pnpm": {
+          "install_root": "{LIB_DIR}/pnpm/packages/chrome",
           "install_args": [
             "abxbus@2.5.9"
           ],
-          "abspath": "{LIB_DIR}/npm/node_modules/abxbus/dist/cjs/index.js",
+          "abspath": "{LIB_DIR}/pnpm/packages/chrome/node_modules/abxbus/dist/cjs/index.js",
           "version": "2.5.9"
         }
       }
     },
     {
-      "name": "puppeteer-browsers",
-      "binproviders": "npm",
+      "name": "browsers",
+      "binproviders": "pnpm",
       "min_version": null,
       "postinstall_scripts": false,
       "min_release_age": 0,
       "overrides": {
-        "npm": {
+        "pnpm": {
+          "install_root": "{LIB_DIR}/pnpm/packages/chrome",
           "install_args": [
             "@puppeteer/browsers",
             "puppeteer"
