@@ -92,14 +92,6 @@ def _archivebox_data_dir_default() -> Path:
         return Path.cwd()
 
 
-def _archivebox_lib_dir_default() -> Path | None:
-    try:
-        config_module = importlib.import_module("archivebox.config.common")
-        return Path(config_module.get_config(include_machine=False).LIB_DIR)
-    except Exception:
-        return None
-
-
 def _archivebox_route_urls(request: HttpRequest, route_config) -> tuple[str, str, str]:
     routes_util = importlib.import_module("archivebox.core.routes_util")
     base_url = routes_util.get_base_url(
@@ -224,10 +216,8 @@ def _resolve_binary(binary: str, config: dict) -> tuple[str, dict[str, str]]:
         # required_binary resolution to the ArchiveBox plugin contract so an
         # ambient abx-dl default cannot hide the opencode plugin binary.
         binary_config = {**config, "ABX_RUNTIME": "archivebox"}
-        lib_dir = binary_config.get("LIB_DIR") or _archivebox_lib_dir_default()
-        if lib_dir:
-            binary_config["LIB_DIR"] = str(lib_dir)
         binary_environ = os.environ.copy()
+        lib_dir = binary_config.get("LIB_DIR")
         if lib_dir:
             binary_environ["LIB_DIR"] = str(lib_dir)
             binary_environ.setdefault("ABXPKG_LIB_DIR", str(lib_dir))
