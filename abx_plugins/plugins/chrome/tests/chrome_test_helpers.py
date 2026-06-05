@@ -1337,9 +1337,9 @@ def launch_chromium_session(
 ) -> tuple[LoggedPopen, str]:
     """Launch the crawl-level Chrome hook and return ``(process, cdp_url)``.
 
-    This waits for the crawl hook to publish ``cdp_url.txt`` in the crawl's
-    ``chrome`` dir, not just for a child process to exist. That keeps tests on
-    the same readiness contract as production snapshot hooks.
+    This waits for the crawl hook to publish a browser-ready session in the
+    crawl's ``chrome`` dir, not just for a child process to exist. Snapshot tab
+    hooks require the same browser-ready contract before they attach.
 
     Args:
         env: Environment dict (from setup_test_env)
@@ -1387,7 +1387,14 @@ def launch_chromium_session(
 
     for _ in range(timeout):
         cdp_file = chrome_dir / "cdp_url.txt"
-        if cdp_file.exists():
+        browser_file = chrome_dir / "browser.json"
+        browser_ready = False
+        if browser_file.exists():
+            try:
+                browser_ready = bool(json.loads(browser_file.read_text()).get("ready"))
+            except (json.JSONDecodeError, OSError):
+                browser_ready = False
+        if cdp_file.exists() and browser_ready:
             cdp_url = cdp_file.read_text().strip()
             if cdp_url:
                 break
@@ -1395,7 +1402,7 @@ def launch_chromium_session(
         if process_status is not None:
             stdout_handle.flush()
             stderr_handle.flush()
-            if cdp_file.exists():
+            if cdp_file.exists() and browser_ready:
                 cdp_url = cdp_file.read_text().strip()
                 if cdp_url:
                     break
