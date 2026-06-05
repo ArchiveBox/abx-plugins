@@ -2,10 +2,11 @@
 """Comprehensive tests for parse_rss_urls extractor covering various RSS/Atom variants."""
 
 import json
-import subprocess
 from pathlib import Path
 
 import pytest
+
+from .test_helpers import run_parse_rss_urls
 
 PLUGIN_DIR = Path(__file__).parent.parent
 SCRIPT_PATH = next(PLUGIN_DIR.glob("on_Snapshot__*_parse_rss_urls.*"), None)
@@ -32,7 +33,7 @@ class TestRssVariants:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -77,7 +78,7 @@ class TestRssVariants:
 </rdf:RDF>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -123,7 +124,7 @@ class TestRssVariants:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -177,7 +178,7 @@ class TestAtomVariants:
 </feed>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -223,7 +224,7 @@ class TestAtomVariants:
 </feed>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -260,7 +261,7 @@ class TestDateFormats:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -291,7 +292,7 @@ class TestDateFormats:
 </feed>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -323,7 +324,7 @@ class TestDateFormats:
 </feed>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -354,7 +355,7 @@ class TestDateFormats:
 </feed>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -385,7 +386,7 @@ class TestDateFormats:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -423,7 +424,7 @@ class TestTagsAndCategories:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -470,7 +471,7 @@ class TestTagsAndCategories:
 </feed>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -507,7 +508,7 @@ class TestTagsAndCategories:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -541,7 +542,7 @@ class TestTagsAndCategories:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -587,7 +588,7 @@ class TestCustomNamespaces:
 </rdf:RDF>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -629,7 +630,7 @@ class TestCustomNamespaces:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -667,7 +668,7 @@ class TestCustomNamespaces:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -707,7 +708,7 @@ class TestEdgeCases:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -744,7 +745,7 @@ class TestEdgeCases:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -778,7 +779,7 @@ class TestEdgeCases:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -813,7 +814,7 @@ class TestEdgeCases:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -851,7 +852,7 @@ class TestEdgeCases:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -886,7 +887,7 @@ class TestEdgeCases:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -924,7 +925,7 @@ class TestEdgeCases:
             encoding="utf-8",
         )
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -961,7 +962,7 @@ class TestEdgeCases:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -1003,7 +1004,7 @@ class TestEdgeCases:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -1057,7 +1058,7 @@ class TestRealWorldFeeds:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -1095,7 +1096,7 @@ class TestRealWorldFeeds:
 </feed>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -1133,7 +1134,7 @@ class TestRealWorldFeeds:
 </feed>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,

@@ -3,10 +3,11 @@
 
 import json
 import os
-import subprocess
 from pathlib import Path
 
 import pytest
+
+from .test_helpers import run_parse_rss_urls
 
 PLUGIN_DIR = Path(__file__).parent.parent
 SCRIPT_PATH = next(PLUGIN_DIR.glob("on_Snapshot__*_parse_rss_urls.*"), None)
@@ -18,7 +19,7 @@ class TestParseRssUrls:
     def test_parses_real_rss_feed(self, tmp_path):
         """Test parsing a real RSS feed from the web."""
         # Use httpbin.org which provides a sample RSS feed
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [
                 str(SCRIPT_PATH),
                 "--url",
@@ -62,7 +63,7 @@ class TestParseRssUrls:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -108,7 +109,7 @@ class TestParseRssUrls:
 </feed>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -138,7 +139,7 @@ class TestParseRssUrls:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -153,7 +154,7 @@ class TestParseRssUrls:
 
     def test_exits_1_when_file_not_found(self, tmp_path):
         """Test that script exits with code 1 when file doesn't exist."""
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", "file:///nonexistent/feed.rss"],
             cwd=tmp_path,
             capture_output=True,
@@ -178,7 +179,7 @@ class TestParseRssUrls:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -209,7 +210,7 @@ class TestParseRssUrls:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -240,7 +241,7 @@ class TestParseRssUrls:
 </rss>
         """)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,
@@ -283,7 +284,7 @@ class TestParseRssUrls:
         env = os.environ.copy()
         env["SNAP_DIR"] = str(tmp_path)
 
-        result = subprocess.run(
+        result = run_parse_rss_urls(
             [str(SCRIPT_PATH), "--url", f"file://{input_file}"],
             cwd=tmp_path,
             capture_output=True,

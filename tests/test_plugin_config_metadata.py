@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any, cast
 
@@ -186,9 +188,27 @@ def _hydrated_binary_name(name: str, config: dict[str, Any]) -> str:
     return default if isinstance(default, str) and default else name
 
 
+def _pnpm_binary() -> str:
+    from abxpkg import PnpmProvider
+
+    lib_dir = Path(
+        os.environ.get("ABXPKG_LIB_DIR")
+        or os.environ.get("LIB_DIR")
+        or tempfile.gettempdir(),
+    )
+    provider = PnpmProvider(
+        install_root=lib_dir / "pnpm" / "packages" / "plugin_config_metadata",
+        postinstall_scripts=True,
+        min_release_age=0,
+    )
+    loaded = provider.INSTALLER_BINARY()
+    assert loaded and loaded.loaded_abspath
+    return str(loaded.loaded_abspath)
+
+
 def _pnpm_package_bin(package_spec: str) -> dict[str, str]:
     proc = subprocess.run(
-        ["pnpm", "view", package_spec, "--json"],
+        [_pnpm_binary(), "view", package_spec, "--json"],
         capture_output=True,
         text=True,
         timeout=30,
