@@ -4,6 +4,7 @@ import base64
 import importlib
 import os
 import re
+import shutil
 import subprocess
 import threading
 import time
@@ -255,15 +256,12 @@ def _project_route(workdir: Path) -> str:
 def _ensure_project_files(settings: dict) -> None:
     workdir = settings["workdir"].resolve()
     workdir.mkdir(parents=True, exist_ok=True)
-    git_dir = workdir / ".git"
-    if not git_dir.exists():
-        git_dir.mkdir()
-    if git_dir.is_dir():
-        git_marker = git_dir / "not-a-git"
-        if not git_marker.exists():
-            git_marker.write_text(
-                "ArchiveBox marker so OpenCode treats DATA_DIR as the project root.\n",
-            )
+    git_marker = workdir / ".git" / "not-a-git"
+    if git_marker.exists():
+        # Older ArchiveBox builds used a fake .git marker. Current OpenCode
+        # hangs on that shape, so remove only that exact marker directory and
+        # let OpenCode's public project init endpoint create the real metadata.
+        shutil.rmtree(git_marker.parent)
 
     editable_skill_path = settings["opencode_dir"] / "SKILL.md"
     editable_skill_path.parent.mkdir(parents=True, exist_ok=True)
@@ -292,11 +290,21 @@ def _ensure_default_session(settings: dict) -> None:
     params = {"directory": workdir}
     timeout = settings["timeout"]
     try:
-        requests.get(
+        project = requests.get(
             f"{settings['origin']}/project/current",
             params=params,
             timeout=timeout,
-        ).raise_for_status()
+        )
+        project.raise_for_status()
+        if (
+            Path(str(project.json().get("worktree") or "/")).resolve()
+            != Path(workdir).resolve()
+        ):
+            requests.post(
+                f"{settings['origin']}/project/git/init",
+                params=params,
+                timeout=timeout,
+            ).raise_for_status()
         sessions = requests.get(
             f"{settings['origin']}/session",
             params={**params, "roots": "true", "limit": 55},
@@ -372,7 +380,7 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
             "ARCHIVEBOX_ADMIN_URL": str(settings.get("archivebox_admin_url", "")),
             "ARCHIVEBOX_API_URL": str(settings.get("archivebox_api_url", "")),
             "BROWSER": "false",
-            "GIT_CEILING_DIRECTORIES": f"{workdir}{os.pathsep}{workdir.parent}",
+            "GIT_CEILING_DIRECTORIES": str(workdir),
             "HOME": str(settings["home"]),
             "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
             "XDG_CONFIG_HOME": str(settings["config_home"]),

@@ -81,6 +81,73 @@ function getConfiguredNameservers() {
   }
 }
 
+function writeDnsRecord({ hostname, ip, port = null, url = "", requestId = null, seenResolutions, source = "cdp" }) {
+  if (!hostname || !ip || hostname === ip) {
+    return false;
+  }
+
+  const resolutionKey = `${hostname}:${ip}`;
+  if (seenResolutions.has(resolutionKey)) {
+    return false;
+  }
+  seenResolutions.set(resolutionKey, true);
+
+  const isIPv6 = ip.includes(":");
+  if (!firstResolvedIp) {
+    firstResolvedIp = ip;
+  }
+  if (!primaryIp && hostname === primaryHostname) {
+    primaryIp = ip;
+  }
+
+  const dnsRecord = {
+    ts: new Date().toISOString(),
+    hostname: hostname,
+    ip: ip,
+    port: port || null,
+    type: isIPv6 ? "AAAA" : "A",
+    protocol: url.startsWith("https://") ? "https" : "http",
+    url: url,
+    requestId: requestId,
+    source: source,
+    nameservers: [...configuredNameservers],
+  };
+
+  fs.appendFileSync(path.join(OUTPUT_DIR, OUTPUT_FILE), JSON.stringify(dnsRecord) + "\n");
+  recordCount += 1;
+  emitProgress(`${recordCount} DNS record${recordCount === 1 ? "" : "s"}`);
+  return true;
+}
+
+async function lookupTargetHost(targetUrl, seenResolutions) {
+  const hostname = extractHostname(targetUrl);
+  if (!hostname) {
+    return;
+  }
+
+  // Newer Chromium builds can complete navigation without populating
+  // response.remoteIPAddress in CDP. Use Node's real resolver as a fallback so
+  // the DNS hook still records the target host instead of producing an empty file.
+  for (const resolver of [dns.promises.resolve4, dns.promises.resolve6]) {
+    try {
+      const ips = await resolver(hostname);
+      for (const ip of ips) {
+        writeDnsRecord({
+          hostname,
+          ip,
+          url: targetUrl,
+          seenResolutions,
+          source: "node-dns",
+        });
+      }
+    } catch (e) {
+      if (!["ENODATA", "ENOTFOUND", "ENOTIMP", "ETIMEOUT"].includes(e.code)) {
+        console.error(`WARN: DNS fallback failed for ${hostname}: ${e.message}`);
+      }
+    }
+  }
+}
+
 async function setupListener(targetUrl) {
   const outputPath = path.join(OUTPUT_DIR, OUTPUT_FILE);
   const timeout = getEnvInt("DNS_TIMEOUT", 30) * 1000;
@@ -132,44 +199,14 @@ async function setupListener(targetUrl) {
         return;
       }
 
-      // Create a unique key for this resolution
-      const resolutionKey = `${hostname}:${remoteIPAddress}`;
-
-      // Skip if we've already recorded this resolution
-      if (seenResolutions.has(resolutionKey)) {
-        return;
-      }
-      seenResolutions.set(resolutionKey, true);
-
-      // Determine record type (A for IPv4, AAAA for IPv6)
-      const isIPv6 = remoteIPAddress.includes(":");
-      const recordType = isIPv6 ? "AAAA" : "A";
-
-      if (!firstResolvedIp) {
-        firstResolvedIp = remoteIPAddress;
-      }
-      if (!primaryIp && hostname === primaryHostname) {
-        primaryIp = remoteIPAddress;
-      }
-
-      // Create DNS record
-      const timestamp = new Date().toISOString();
-      const dnsRecord = {
-        ts: timestamp,
-        hostname: hostname,
+      writeDnsRecord({
+        hostname,
         ip: remoteIPAddress,
-        port: remotePort || null,
-        type: recordType,
-        protocol: url.startsWith("https://") ? "https" : "http",
-        url: url,
+        port: remotePort,
+        url,
         requestId: params.requestId,
-        nameservers: [...configuredNameservers],
-      };
-
-      // Append to output file
-      fs.appendFileSync(outputPath, JSON.stringify(dnsRecord) + "\n");
-      recordCount += 1;
-      emitProgress(`${recordCount} DNS record${recordCount === 1 ? "" : "s"}`);
+        seenResolutions,
+      });
     } catch (e) {
       // Ignore errors
     }
@@ -230,7 +267,7 @@ async function setupListener(targetUrl) {
     }
   });
 
-  return { browser, page, client };
+  return { browser, page, client, seenResolutions };
 }
 
 function emitResult(status = "succeeded") {
@@ -307,6 +344,9 @@ async function main() {
       await waitForNavigationComplete(CHROME_SESSION_DIR, timeout * 4, 500);
     } catch (e) {
       console.error(`WARN: ${e.message}`);
+    }
+    if (recordCount === 0) {
+      await lookupTargetHost(url, connection.seenResolutions);
     }
 
     // console.error('DNS listener active, waiting for cleanup signal...');
