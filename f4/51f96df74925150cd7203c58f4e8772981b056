@@ -1,0 +1,21 @@
+abx_plugins/plugins/dns/on_Snapshot__22_dns.daemon.bg.js
+  s_6b96473078dfa1::t_4a072de355de68 84-150,202-203,205-206,208-209,270,348-349
+abx_plugins/plugins/opencode/views.py
+  s_6b96473078dfa1::t_f3f45e21baa88a 7,259-264,293,297-298,300,302-307,383
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "f451f96df74925150cd7203c58f4e8772981b056",
+  "prompts": {},
+  "sessions": {
+    "s_6b96473078dfa1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8e71-a862-71c3-9b0c-d2bc975f2d0f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
