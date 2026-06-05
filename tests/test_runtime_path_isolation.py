@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -6,6 +7,7 @@ import pytest
 from abx_plugins.plugins.base.test_utils import assert_isolated_snapshot_env
 from abx_plugins.plugins.base.utils import (
     BASE_CONFIG_PATH,
+    build_binproviders,
     build_config_model,
     load_config,
     resolve_plugin_configs,
@@ -94,6 +96,31 @@ def test_resolve_plugin_configs_derives_chrome_extensions_dir_from_lib_dir(
     assert resolved["chrome"]["CHROME_EXTENSIONS_DIR"] == str(
         lib_dir / "chromewebstore" / "extensions",
     )
+
+
+def test_build_binproviders_scopes_env_provider_to_lib_dir(
+    tmp_path: Path,
+) -> None:
+    lib_dir = tmp_path / "lib"
+    ambient_bin = tmp_path / "ambient-bin"
+    ambient_bin.mkdir()
+
+    providers = build_binproviders(
+        "env,pnpm",
+        config={"LIB_DIR": str(lib_dir), "PATH": str(ambient_bin)},
+        environ={"LIB_DIR": str(lib_dir), "PATH": str(ambient_bin)},
+    )
+
+    by_name = {provider.name: provider for provider in providers}
+    by_name["env"].setup_PATH()
+    by_name["pnpm"].setup_PATH()
+
+    assert by_name["env"].install_root == lib_dir / "env"
+    assert by_name["env"].PATH.split(os.pathsep)[:2] == [
+        str(lib_dir / "env" / "bin"),
+        str(ambient_bin),
+    ]
+    assert by_name["pnpm"].install_root == lib_dir / "pnpm"
 
 
 def test_build_config_model_infers_typed_fields_from_schema() -> None:
