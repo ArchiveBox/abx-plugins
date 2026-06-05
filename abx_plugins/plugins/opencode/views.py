@@ -212,10 +212,14 @@ def _resolve_binary(binary: str, config: dict) -> tuple[str, dict[str, str]]:
         from abxpkg import BinProvider
         from abx_plugins.plugins.base.utils import load_required_binary_from_config
 
+        # This view only runs inside ArchiveBox's admin app. Force runtime-scoped
+        # required_binary resolution to the ArchiveBox plugin contract so an
+        # ambient abx-dl default cannot hide the opencode plugin binary.
+        binary_config = {**config, "ABX_RUNTIME": "archivebox"}
         loaded = load_required_binary_from_config(
             binary,
             _CONFIG_PATH,
-            global_config=config,
+            global_config=binary_config,
             environ=os.environ,
             install=False,
         )
