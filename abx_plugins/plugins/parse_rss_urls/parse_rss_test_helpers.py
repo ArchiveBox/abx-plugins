@@ -8,7 +8,7 @@ from typing import Any
 from abx_plugins.plugins.base.test_utils import install_required_binary_from_config
 from abxpkg import BinProvider
 
-PLUGIN_DIR = Path(__file__).parent.parent
+PLUGIN_DIR = Path(__file__).parent
 _PARSE_RSS_URLS_PROVIDER: BinProvider | None = None
 
 

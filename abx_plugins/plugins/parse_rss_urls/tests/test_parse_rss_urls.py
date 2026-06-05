@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from .test_helpers import run_parse_rss_urls
+from abx_plugins.plugins.parse_rss_urls.parse_rss_test_helpers import run_parse_rss_urls
 
 PLUGIN_DIR = Path(__file__).parent.parent
 SCRIPT_PATH = next(PLUGIN_DIR.glob("on_Snapshot__*_parse_rss_urls.*"), None)
