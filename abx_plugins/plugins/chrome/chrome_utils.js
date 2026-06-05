@@ -3055,7 +3055,17 @@ async function waitForBrowserPageReady(options = {}) {
 
 async function closeExistingTabs(browser) {
   let aboutBlankPage = null;
-  const pages = await browser.pages();
+  let pages = [];
+
+  try {
+    pages = await browser.pages();
+  } catch (error) {
+    // Extension service-worker targets can disappear while Puppeteer enumerates
+    // pages during launch. Chrome is already CDP-ready here; tab cleanup is a
+    // best-effort hygiene step and must not invalidate the browser session.
+    console.warn(`[⚠️] Could not enumerate Chrome tabs for cleanup: ${error}`);
+    return;
+  }
 
   aboutBlankPage =
     pages.find((page) => (page.url() || "") === "about:blank") || null;
@@ -3063,7 +3073,15 @@ async function closeExistingTabs(browser) {
     aboutBlankPage = await browser.newPage();
   }
 
-  for (const page of await browser.pages()) {
+  let cleanupPages = [];
+  try {
+    cleanupPages = await browser.pages();
+  } catch (error) {
+    console.warn(`[⚠️] Could not re-enumerate Chrome tabs for cleanup: ${error}`);
+    return;
+  }
+
+  for (const page of cleanupPages) {
     const url = page.url() || "";
     if (
       page === aboutBlankPage ||
