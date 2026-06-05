@@ -216,11 +216,17 @@ def _resolve_binary(binary: str, config: dict) -> tuple[str, dict[str, str]]:
         # required_binary resolution to the ArchiveBox plugin contract so an
         # ambient abx-dl default cannot hide the opencode plugin binary.
         binary_config = {**config, "ABX_RUNTIME": "archivebox"}
+        binary_environ = os.environ.copy()
+        lib_dir = binary_config.get("LIB_DIR")
+        if lib_dir:
+            binary_environ["LIB_DIR"] = str(lib_dir)
+            binary_environ.setdefault("ABXPKG_LIB_DIR", str(lib_dir))
+        binary_environ["ABX_RUNTIME"] = "archivebox"
         loaded = load_required_binary_from_config(
             binary,
             _CONFIG_PATH,
             global_config=binary_config,
-            environ=os.environ,
+            environ=binary_environ,
             install=False,
         )
     except Exception as err:
@@ -233,7 +239,7 @@ def _resolve_binary(binary: str, config: dict) -> tuple[str, dict[str, str]]:
 
     provider = loaded.loaded_binprovider
     binary_env = (
-        BinProvider.build_exec_env(providers=[provider], base_env=os.environ.copy())
+        BinProvider.build_exec_env(providers=[provider], base_env=binary_environ)
         if provider is not None
         else {}
     )
