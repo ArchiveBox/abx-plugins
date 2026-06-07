@@ -1,0 +1,45 @@
+abx_plugins/plugins/papersdl/config.json
+  s_7cc75db5230061::t_311eececce9938 19
+abx_plugins/plugins/chrome/config.json
+  s_7cc75db5230061::t_1d28240252cb62 61
+abx_plugins/plugins/opendataloader/config.json
+  s_7cc75db5230061::t_d7fe23083a04a4 33
+abx_plugins/plugins/singlefile/on_Snapshot__50_singlefile.py
+  s_7cc75db5230061::t_ff305f384f10b4 432-435,438,448
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_81e20780ac8398::t_140e5044aaee23 612,723,743
+  s_81e20780ac8398::t_710b446951358a 597-605,669-685,688,692,862,869
+  s_caee737aa27cc1::t_b32fb976a0024e 490-495,502,504-505,507-513,522-524,530,532,536,540-544,548,550-551,755,905
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "1003f876f99ec5e4d2ff276d65b1f2a9e6125371",
+  "prompts": {},
+  "sessions": {
+    "s_7cc75db5230061": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9181-9d0e-7f61-a8dc-95dc82bc59e7",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_81e20780ac8398": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ea0de-6443-7891-868e-aa82f96b0668",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_caee737aa27cc1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ea10a-8be0-70f1-86ed-41d44fbe8b50",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
