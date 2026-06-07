@@ -73,6 +73,103 @@ function replaceChromeUserAgentVersion(userAgent, browserVersionOutput) {
   );
 }
 
+function getOption(options, key, fallback) {
+  return Object.prototype.hasOwnProperty.call(options, key) &&
+    options[key] !== undefined
+    ? options[key]
+    : fallback;
+}
+
+function resolveChromeLaunchOptions(options = {}) {
+  return {
+    CHROME_USER_DATA_DIR: getOption(
+      options,
+      "CHROME_USER_DATA_DIR",
+      getEnv("CHROME_USER_DATA_DIR") ||
+        path.join(
+          getPersonasDir(),
+          getEnv("ACTIVE_PERSONA", "Default"),
+          "chrome_profile"
+        )
+    ),
+    CHROME_RESOLUTION: getOption(
+      options,
+      "CHROME_RESOLUTION",
+      getEnv("CHROME_RESOLUTION") || getEnv("RESOLUTION", "1440,2000")
+    ),
+    CHROME_USER_AGENT: getOption(
+      options,
+      "CHROME_USER_AGENT",
+      getEnv("CHROME_USER_AGENT") || getEnv("USER_AGENT", "")
+    ),
+    CHROME_HEADLESS: getOption(
+      options,
+      "CHROME_HEADLESS",
+      getEnvBool("CHROME_HEADLESS", getEnvBool("IN_DOCKER", false))
+    ),
+    CHROME_SANDBOX: getOption(
+      options,
+      "CHROME_SANDBOX",
+      getEnvBool("CHROME_SANDBOX", !getEnvBool("IN_DOCKER", false))
+    ),
+    CHROME_CHECK_SSL_VALIDITY: getOption(
+      options,
+      "CHROME_CHECK_SSL_VALIDITY",
+      getEnvBool(
+        "CHROME_CHECK_SSL_VALIDITY",
+        getEnvBool("CHECK_SSL_VALIDITY", true)
+      )
+    ),
+    CHROME_ARGS: getOption(
+      options,
+      "CHROME_ARGS",
+      getEnvArray("CHROME_ARGS", [])
+    ),
+    CHROME_ARGS_EXTRA: getOption(
+      options,
+      "CHROME_ARGS_EXTRA",
+      getEnvArray("CHROME_ARGS_EXTRA", [])
+    ),
+    CHROME_LAUNCH_ATTEMPTS: getOption(
+      options,
+      "CHROME_LAUNCH_ATTEMPTS",
+      getEnvInt("CHROME_LAUNCH_ATTEMPTS", 3)
+    ),
+  };
+}
+
+function getChromeSessionOptionsFromConfig(hookConfig = {}) {
+  const CHROME_CDP_URL = String(hookConfig.CHROME_CDP_URL || "").trim();
+  return {
+    CHROME_CDP_URL,
+    CHROME_IS_LOCAL: CHROME_CDP_URL
+      ? false
+      : hookConfig.CHROME_IS_LOCAL !== false,
+    CHROME_USER_DATA_DIR: hookConfig.CHROME_USER_DATA_DIR
+      ? path.resolve(String(hookConfig.CHROME_USER_DATA_DIR).trim())
+      : null,
+    CHROME_RESOLUTION: String(
+      hookConfig.CHROME_RESOLUTION || hookConfig.RESOLUTION || "1440,2000"
+    ),
+    CHROME_USER_AGENT: String(
+      hookConfig.CHROME_USER_AGENT || hookConfig.USER_AGENT || ""
+    ),
+    CHROME_HEADLESS: hookConfig.CHROME_HEADLESS !== false,
+    CHROME_SANDBOX: hookConfig.CHROME_SANDBOX !== false,
+    CHROME_CHECK_SSL_VALIDITY:
+      hookConfig.CHROME_CHECK_SSL_VALIDITY !== false &&
+      hookConfig.CHECK_SSL_VALIDITY !== false,
+    CHROME_ARGS: Array.isArray(hookConfig.CHROME_ARGS)
+      ? hookConfig.CHROME_ARGS
+      : [],
+    CHROME_ARGS_EXTRA: Array.isArray(hookConfig.CHROME_ARGS_EXTRA)
+      ? hookConfig.CHROME_ARGS_EXTRA
+      : [],
+    CHROME_LAUNCH_ATTEMPTS: Number(hookConfig.CHROME_LAUNCH_ATTEMPTS) || 3,
+    timeoutMs: (Number(hookConfig.CHROME_TIMEOUT) || 60) * 1000,
+  };
+}
+
 function chromiumVersionAtLeast(output, minimum) {
   const version = parseChromiumVersion(output);
   if (!version) return false;
@@ -910,34 +1007,21 @@ async function launchChromium(options = {}) {
   const {
     binary = findChromium(),
     outputDir = "chrome",
-    CHROME_USER_DATA_DIR = getEnv("CHROME_USER_DATA_DIR") ||
-      path.join(
-        getPersonasDir(),
-        getEnv("ACTIVE_PERSONA", "Default"),
-        "chrome_profile"
-      ),
-    CHROME_RESOLUTION = getEnv("CHROME_RESOLUTION") ||
-      getEnv("RESOLUTION", "1440,2000"),
-    CHROME_USER_AGENT = getEnv("CHROME_USER_AGENT") || getEnv("USER_AGENT", ""),
-    CHROME_HEADLESS = getEnvBool(
-      "CHROME_HEADLESS",
-      getEnvBool("IN_DOCKER", false)
-    ),
-    CHROME_SANDBOX = getEnvBool(
-      "CHROME_SANDBOX",
-      !getEnvBool("IN_DOCKER", false)
-    ),
-    CHROME_CHECK_SSL_VALIDITY = getEnvBool(
-      "CHROME_CHECK_SSL_VALIDITY",
-      getEnvBool("CHECK_SSL_VALIDITY", true)
-    ),
     enableExtensionDebugging = false,
     extensionPaths = [],
-    CHROME_ARGS = getEnvArray("CHROME_ARGS", []),
-    CHROME_ARGS_EXTRA = getEnvArray("CHROME_ARGS_EXTRA", []),
-    CHROME_LAUNCH_ATTEMPTS = getEnvInt("CHROME_LAUNCH_ATTEMPTS", 3),
     timeoutMs = getEnvInt("CHROME_TIMEOUT", 60) * 1000,
   } = options;
+  const {
+    CHROME_USER_DATA_DIR,
+    CHROME_RESOLUTION,
+    CHROME_USER_AGENT,
+    CHROME_HEADLESS,
+    CHROME_SANDBOX,
+    CHROME_CHECK_SSL_VALIDITY,
+    CHROME_ARGS,
+    CHROME_ARGS_EXTRA,
+    CHROME_LAUNCH_ATTEMPTS,
+  } = resolveChromeLaunchOptions(options);
   const launchAttempts = Math.max(1, Number(CHROME_LAUNCH_ATTEMPTS) || 1);
   const userDataDir = CHROME_USER_DATA_DIR;
 
@@ -3834,40 +3918,17 @@ async function ensureChromeSession(options = {}) {
     CHROME_IS_LOCAL = CHROME_CDP_URL
       ? false
       : getEnvBool("CHROME_IS_LOCAL", true),
-    CHROME_USER_DATA_DIR = getEnv("CHROME_USER_DATA_DIR") ||
-      path.join(
-        getPersonasDir(),
-        getEnv("ACTIVE_PERSONA", "Default"),
-        "chrome_profile"
-      ),
     downloadsDir = getEnv("CHROME_DOWNLOADS_DIR"),
     cookiesFile = getEnv("COOKIES_TXT_FILE") || getEnv("COOKIES_FILE"),
     extensionsDir = getExtensionsDir(),
     timeoutMs = getEnvInt("CHROME_TIMEOUT", 60) * 1000,
     reuseExisting = !CHROME_CDP_URL,
     binary = null,
-    CHROME_RESOLUTION = getEnv("CHROME_RESOLUTION") ||
-      getEnv("RESOLUTION", "1440,2000"),
-    CHROME_USER_AGENT = getEnv("CHROME_USER_AGENT") || getEnv("USER_AGENT", ""),
-    CHROME_HEADLESS = getEnvBool(
-      "CHROME_HEADLESS",
-      getEnvBool("IN_DOCKER", false)
-    ),
-    CHROME_SANDBOX = getEnvBool(
-      "CHROME_SANDBOX",
-      !getEnvBool("IN_DOCKER", false)
-    ),
-    CHROME_CHECK_SSL_VALIDITY = getEnvBool(
-      "CHROME_CHECK_SSL_VALIDITY",
-      getEnvBool("CHECK_SSL_VALIDITY", true)
-    ),
-    CHROME_ARGS = getEnvArray("CHROME_ARGS", []),
-    CHROME_ARGS_EXTRA = getEnvArray("CHROME_ARGS_EXTRA", []),
-    CHROME_LAUNCH_ATTEMPTS = getEnvInt("CHROME_LAUNCH_ATTEMPTS", 3),
   } = options;
+  const chromeLaunchOptions = resolveChromeLaunchOptions(options);
   const cdpUrl = CHROME_CDP_URL;
   const processIsLocal = CHROME_CDP_URL ? false : CHROME_IS_LOCAL;
-  const userDataDir = CHROME_USER_DATA_DIR;
+  const userDataDir = chromeLaunchOptions.CHROME_USER_DATA_DIR;
 
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
@@ -3987,17 +4048,10 @@ async function ensureChromeSession(options = {}) {
     const result = await launchChromium({
       binary: resolvedBinary,
       outputDir,
+      ...chromeLaunchOptions,
       CHROME_USER_DATA_DIR: userDataDir,
-      CHROME_RESOLUTION,
-      CHROME_USER_AGENT,
-      CHROME_HEADLESS,
-      CHROME_SANDBOX,
-      CHROME_CHECK_SSL_VALIDITY,
       enableExtensionDebugging: installedExtensions.length > 0,
       extensionPaths: getExtensionPaths(installedExtensions),
-      CHROME_ARGS,
-      CHROME_ARGS_EXTRA,
-      CHROME_LAUNCH_ATTEMPTS,
       timeoutMs,
     });
     if (!result.success) {
@@ -4267,6 +4321,8 @@ module.exports = {
   // Zombie cleanup
   killZombieChrome,
   // Chrome launching
+  resolveChromeLaunchOptions,
+  getChromeSessionOptionsFromConfig,
   launchChromium,
   killChrome,
   // Chromium binary finding
