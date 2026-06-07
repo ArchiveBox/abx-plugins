@@ -3846,6 +3846,21 @@ async function ensureChromeSession(options = {}) {
     timeoutMs = getEnvInt("CHROME_TIMEOUT", 60) * 1000,
     reuseExisting = !CHROME_CDP_URL,
     binary = null,
+    CHROME_RESOLUTION = getEnv("CHROME_RESOLUTION") ||
+      getEnv("RESOLUTION", "1440,2000"),
+    CHROME_USER_AGENT = getEnv("CHROME_USER_AGENT") || getEnv("USER_AGENT", ""),
+    CHROME_HEADLESS = getEnvBool(
+      "CHROME_HEADLESS",
+      getEnvBool("IN_DOCKER", false)
+    ),
+    CHROME_SANDBOX = getEnvBool(
+      "CHROME_SANDBOX",
+      !getEnvBool("IN_DOCKER", false)
+    ),
+    CHROME_CHECK_SSL_VALIDITY = getEnvBool(
+      "CHROME_CHECK_SSL_VALIDITY",
+      getEnvBool("CHECK_SSL_VALIDITY", true)
+    ),
     CHROME_ARGS = getEnvArray("CHROME_ARGS", []),
     CHROME_ARGS_EXTRA = getEnvArray("CHROME_ARGS_EXTRA", []),
     CHROME_LAUNCH_ATTEMPTS = getEnvInt("CHROME_LAUNCH_ATTEMPTS", 3),
@@ -3973,6 +3988,11 @@ async function ensureChromeSession(options = {}) {
       binary: resolvedBinary,
       outputDir,
       CHROME_USER_DATA_DIR: userDataDir,
+      CHROME_RESOLUTION,
+      CHROME_USER_AGENT,
+      CHROME_HEADLESS,
+      CHROME_SANDBOX,
+      CHROME_CHECK_SSL_VALIDITY,
       enableExtensionDebugging: installedExtensions.length > 0,
       extensionPaths: getExtensionPaths(installedExtensions),
       CHROME_ARGS,

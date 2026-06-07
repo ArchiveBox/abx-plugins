@@ -44,6 +44,15 @@ const CHROME_IS_LOCAL = CHROME_CDP_URL
   ? false
   : hookConfig.CHROME_IS_LOCAL !== false;
 const CHROME_KEEPALIVE = hookConfig.CHROME_KEEPALIVE === true;
+const CHROME_RESOLUTION =
+  String(hookConfig.CHROME_RESOLUTION || hookConfig.RESOLUTION || "1440,2000");
+const CHROME_USER_AGENT =
+  String(hookConfig.CHROME_USER_AGENT || hookConfig.USER_AGENT || "");
+const CHROME_HEADLESS = hookConfig.CHROME_HEADLESS !== false;
+const CHROME_SANDBOX = hookConfig.CHROME_SANDBOX !== false;
+const CHROME_CHECK_SSL_VALIDITY =
+  hookConfig.CHROME_CHECK_SSL_VALIDITY !== false &&
+  hookConfig.CHECK_SSL_VALIDITY !== false;
 const CHROME_ISOLATION =
   String(hookConfig.CHROME_ISOLATION || "crawl").toLowerCase() === "snapshot"
     ? "snapshot"
@@ -134,6 +143,11 @@ async function main() {
         CHROME_CDP_URL: cdpUrlOverride,
         timeoutMs: CHROME_TIMEOUT_MS,
         CHROME_USER_DATA_DIR,
+        CHROME_RESOLUTION,
+        CHROME_USER_AGENT,
+        CHROME_HEADLESS,
+        CHROME_SANDBOX,
+        CHROME_CHECK_SSL_VALIDITY,
         CHROME_ARGS,
         CHROME_ARGS_EXTRA,
         CHROME_LAUNCH_ATTEMPTS,
@@ -163,6 +177,11 @@ async function main() {
       CHROME_CDP_URL: cdpUrlOverride,
       timeoutMs: CHROME_TIMEOUT_MS,
       CHROME_USER_DATA_DIR,
+      CHROME_RESOLUTION,
+      CHROME_USER_AGENT,
+      CHROME_HEADLESS,
+      CHROME_SANDBOX,
+      CHROME_CHECK_SSL_VALIDITY,
       CHROME_ARGS,
       CHROME_ARGS_EXTRA,
       CHROME_LAUNCH_ATTEMPTS,
