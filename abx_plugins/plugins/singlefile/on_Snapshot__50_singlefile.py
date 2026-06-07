@@ -432,7 +432,7 @@ def main(url: str):
         print("generating singlefile.html...")
         try:
             success, output, error = asyncio.run(
-                save_singlefile_with_extension_serialized(url, max(5, timeout - 35)),
+                save_singlefile_with_extension_serialized(url, max(10, timeout - 5)),
             )
         except TimeoutError as err:
             success, output, error = False, None, str(err)
