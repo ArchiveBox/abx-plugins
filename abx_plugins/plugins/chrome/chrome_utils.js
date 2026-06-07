@@ -2403,10 +2403,32 @@ async function connectToBrowserEndpoint(
   cdpUrl,
   connectOptions = {}
 ) {
-  return await puppeteer.connect({
+  const options = {
     ...getPuppeteerConnectOptionsForCdpUrl(cdpUrl),
     ...connectOptions,
-  });
+  };
+  const deadline =
+    Date.now() + getEnvInt("CHROME_CONNECT_RETRY_TIMEOUT_MS", 5000);
+  let lastError = null;
+
+  while (Date.now() <= deadline) {
+    try {
+      return await puppeteer.connect(options);
+    } catch (error) {
+      lastError = error;
+      const message = String(error?.message || error || "");
+      const isTargetChurn =
+        message.includes("No target with given id found") ||
+        message.includes("Target closed") ||
+        message.includes("Session closed");
+      if (!isTargetChurn || Date.now() >= deadline) {
+        throw error;
+      }
+      await sleep(100);
+    }
+  }
+
+  throw lastError;
 }
 
 async function withTimeout(promiseFactory, timeoutMs, timeoutMessage) {
