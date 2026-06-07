@@ -64,8 +64,10 @@ def test_chrome_config_installs_puppeteer_js_module(tmp_path: Path) -> None:
     _assert_config_installs_puppeteer(CHROME_CONFIG, tmp_path)
 
 
-def test_archivewebpage_config_installs_puppeteer_js_module(tmp_path: Path) -> None:
-    _assert_config_installs_puppeteer(ARCHIVEWEBPAGE_CONFIG, tmp_path)
+def test_archivewebpage_config_depends_on_chrome_for_puppeteer_js_module() -> None:
+    config = json.loads(ARCHIVEWEBPAGE_CONFIG.read_text(encoding="utf-8"))
+    assert "chrome" in config["required_plugins"]
+    assert not any(item["name"] == "browsers" for item in config["required_binaries"])
 
 
 def _assert_config_installs_puppeteer(config_path: Path, tmp_path: Path) -> None:
