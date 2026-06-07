@@ -112,9 +112,31 @@ class TestParseDomOutlinksWithChrome:
         except RuntimeError:
             raise
 
-    def test_live_blog_sweeting_redirect_uses_final_url_for_same_page_links(self):
+    def test_redirected_page_uses_final_url_for_same_page_links(self, httpserver):
         """DOM outlinks must ignore HedgeDoc's stale <base> for same-page anchors."""
-        test_url = "https://blog.sweeting.me"
+        httpserver.expect_request("/").respond_with_data(
+            "",
+            status=302,
+            headers={"Location": "/s/blog"},
+        )
+        httpserver.expect_request("/s/blog").respond_with_data(
+            """
+            <!doctype html>
+            <html>
+              <head>
+                <base href="https://docs.monadical.com/">
+                <title>Redirected Blog</title>
+              </head>
+              <body>
+                <h1 id="About">About</h1>
+                <a href="#About">About</a>
+              </body>
+            </html>
+            """,
+            content_type="text/html",
+        )
+        test_url = httpserver.url_for("/")
+        final_url = httpserver.url_for("/s/blog")
         snapshot_id = "test-outlinks-blog-sweeting"
 
         try:
@@ -148,9 +170,9 @@ class TestParseDomOutlinksWithChrome:
                     if line.strip()
                 }
 
-                assert "https://docs.sweeting.me/s/blog#About" in urls
+                assert f"{final_url}#About" in urls
                 assert "https://docs.monadical.com/#About" not in urls
-                assert "https://blog.sweeting.me/#About" not in urls
+                assert f"{test_url}#About" not in urls
 
         except RuntimeError:
             raise
