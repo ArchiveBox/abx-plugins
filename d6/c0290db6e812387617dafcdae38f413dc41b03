@@ -1,0 +1,19 @@
+abx_plugins/plugins/singlefile/on_Snapshot__50_singlefile.py
+  s_7cc75db5230061::t_dc930e2c415972 435
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "d6c0290db6e812387617dafcdae38f413dc41b03",
+  "prompts": {},
+  "sessions": {
+    "s_7cc75db5230061": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9181-9d0e-7f61-a8dc-95dc82bc59e7",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
