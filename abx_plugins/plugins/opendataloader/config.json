@@ -30,7 +30,7 @@
         },
         "apt": {
           "install_args": [
-            "default-jre"
+            "default-jre-headless"
           ]
         }
       }

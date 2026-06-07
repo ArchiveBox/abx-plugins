@@ -426,13 +426,16 @@ def main(url: str):
             emit_archive_result_record("noresults", "staticfile already handled")
             sys.exit(0)
 
-        # Prefer SingleFile extension via existing Chrome session
         timeout = config.SINGLEFILE_TIMEOUT
         started_at = time.monotonic()
         print("generating singlefile.html...")
+        # Prefer the existing Chrome extension path, but keep enough of the hook
+        # budget for the CLI fallback because extension downloads can silently
+        # fail on some pages in headless Chrome.
+        extension_timeout = max(10, min(timeout - 15, int(timeout * 0.75)))
         try:
             success, output, error = asyncio.run(
-                save_singlefile_with_extension_serialized(url, max(10, timeout - 5)),
+                save_singlefile_with_extension_serialized(url, extension_timeout),
             )
         except TimeoutError as err:
             success, output, error = False, None, str(err)
@@ -442,9 +445,7 @@ def main(url: str):
                 0,
                 int(timeout - (time.monotonic() - started_at) - 5),
             )
-            if fallback_timeout >= 10 and not any(
-                token in extension_error for token in SINGLEFILE_NORESULTS_TOKENS
-            ):
+            if fallback_timeout >= 10:
                 print(
                     f"[singlefile] extension save failed, trying single-file-cli standalone fallback: {extension_error}",
                     file=sys.stderr,

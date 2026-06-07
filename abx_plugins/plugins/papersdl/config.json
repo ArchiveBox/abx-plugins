@@ -16,7 +16,7 @@
           "install_root": "{LIB_DIR}/uv/packages/papers-dl",
           "install_args": [
             "--no-deps",
-            "--only-binary=PyMuPDF,PyMuPDFb",
+            "--only-binary=PyMuPDF",
             "papers-dl==0.0.25",
             "aiohttp>=3.13.2",
             "aiohappyeyeballs>=2.5.0",
@@ -43,7 +43,6 @@
             "pdftitle==0.11",
             "pycparser==2.21",
             "PyMuPDF>=1.23.26",
-            "PyMuPDFb>=1.23.22",
             "PyPDF2==2.0.0",
             "pyperclip==1.8.2",
             "requests==2.31.0",

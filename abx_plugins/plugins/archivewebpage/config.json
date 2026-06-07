@@ -15,22 +15,6 @@
       "postinstall_scripts": true
     },
     {
-      "name": "browsers",
-      "binproviders": "pnpm",
-      "min_version": null,
-      "postinstall_scripts": false,
-      "min_release_age": 0,
-      "overrides": {
-        "pnpm": {
-          "install_root": "{LIB_DIR}/pnpm/packages/archivewebpage",
-          "install_args": [
-            "@puppeteer/browsers",
-            "puppeteer"
-          ]
-        }
-      }
-    },
-    {
       "name": "archivewebpage",
       "binproviders": "chromewebstore",
       "min_version": null,

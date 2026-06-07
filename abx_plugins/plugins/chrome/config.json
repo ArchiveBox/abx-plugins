@@ -58,6 +58,7 @@
       "overrides": {
         "playwright": {
           "install_args": [
+            "--with-deps",
             "chromium",
             "--no-shell"
           ]

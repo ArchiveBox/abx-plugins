@@ -436,52 +436,6 @@ async function killZombieChrome(snapDir = null, options = {}) {
     );
   }
 
-  /**
-   * Recursively find all chrome/chrome.pid files in directory tree
-   * @param {string} dir - Directory to search
-   * @param {number} depth - Current recursion depth (limit to 10)
-   * @returns {Array<{pidFile: string, chromeDir: string, sessionDir: string}>} - Array of PID file info
-   */
-  function findChromePidFiles(dir, depth = 0) {
-    if (depth > 10) return []; // Prevent infinite recursion
-
-    const results = [];
-    try {
-      const entries = fs.readdirSync(dir, { withFileTypes: true });
-
-      for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
-
-        const fullPath = path.join(dir, entry.name);
-
-        // Found a chrome directory - only consider the shared browser marker.
-        if (entry.name === "chrome") {
-          try {
-            const crawlDir = dir; // Parent of chrome/ is the crawl dir
-            const chromePidFile = path.join(fullPath, "chrome.pid");
-            if (fs.existsSync(chromePidFile)) {
-              results.push({
-                pidFile: chromePidFile,
-                chromeDir: fullPath,
-                sessionDir: crawlDir,
-              });
-            }
-          } catch (e) {
-            // Skip if can't read chrome dir
-          }
-        } else {
-          // Recurse into subdirectory (skip hidden dirs and node_modules)
-          if (!entry.name.startsWith(".") && entry.name !== "node_modules") {
-            results.push(...findChromePidFiles(fullPath, depth + 1));
-          }
-        }
-      }
-    } catch (e) {
-      // Skip if can't read directory
-    }
-    return results;
-  }
-
   function findOwningCrawlDir(sessionDir) {
     let currentDir = path.resolve(sessionDir);
     while (pathIsWithinSnapRoot(currentDir)) {
@@ -533,18 +487,30 @@ async function killZombieChrome(snapDir = null, options = {}) {
     }
   }
 
-  function findChromeHookPidFiles(dir, depth = 0) {
-    if (depth > 10) return [];
+  function findChromeRuntimeFiles(dir, depth = 0, results = null) {
+    if (depth > 10) return results || { chromePids: [], hookPids: [], personaDirs: [] };
 
-    const results = [];
+    const found = results || { chromePids: [], hookPids: [], personaDirs: [] };
+    const normalizeHookPidFileName = (fileName) =>
+      fileName.slice(0, -4).replace(/\.[0-9a-f]{32}$/i, "");
+
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
         if (!entry.isDirectory()) continue;
         const fullPath = path.join(dir, entry.name);
+
         if (entry.name === "chrome") {
+          const crawlDir = dir;
+          const chromePidFile = path.join(fullPath, "chrome.pid");
           try {
-            const crawlDir = dir;
+            if (fs.existsSync(chromePidFile)) {
+              found.chromePids.push({
+                pidFile: chromePidFile,
+                chromeDir: fullPath,
+                sessionDir: crawlDir,
+              });
+            }
             for (const chromeEntry of fs.readdirSync(fullPath, {
               withFileTypes: true,
             })) {
@@ -553,55 +519,36 @@ async function killZombieChrome(snapDir = null, options = {}) {
               if (chromeEntry.name === "chrome.pid") continue;
               if (!chromeEntry.name.startsWith("on_")) continue;
               if (!chromeEntry.name.includes("chrome_")) continue;
-              const pidFile = path.join(fullPath, chromeEntry.name);
-              results.push({
-                pidFile,
-                hookName: chromeEntry.name.slice(0, -4),
+              found.hookPids.push({
+                pidFile: path.join(fullPath, chromeEntry.name),
+                hookName: normalizeHookPidFileName(chromeEntry.name),
                 chromeDir: fullPath,
                 sessionDir: crawlDir,
               });
             }
           } catch (error) {
-            // Skip unreadable chrome directories
+            // Skip unreadable chrome directories.
           }
-        } else if (
-          !entry.name.startsWith(".") &&
-          entry.name !== "node_modules"
-        ) {
-          results.push(...findChromeHookPidFiles(fullPath, depth + 1));
+          continue;
         }
-      }
-    } catch (error) {
-      // Skip unreadable directories
-    }
-    return results;
-  }
 
-  function findRuntimePersonaDirs(dir, depth = 0) {
-    if (depth > 10) return [];
-
-    const results = [];
-    try {
-      const entries = fs.readdirSync(dir, { withFileTypes: true });
-      for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
-        const fullPath = path.join(dir, entry.name);
         if (entry.name === ".persona") {
-          results.push({
+          found.personaDirs.push({
             personaDir: fullPath,
             sessionDir: path.dirname(fullPath),
           });
-        } else if (
-          !entry.name.startsWith(".") &&
-          entry.name !== "node_modules"
-        ) {
-          results.push(...findRuntimePersonaDirs(fullPath, depth + 1));
+          continue;
+        }
+
+        if (!entry.name.startsWith(".") && entry.name !== "node_modules") {
+          findChromeRuntimeFiles(fullPath, depth + 1, found);
         }
       }
     } catch (error) {
-      // Skip unreadable directories
+      // Skip unreadable directories.
     }
-    return results;
+
+    return found;
   }
 
   function getParentPid(pid) {
@@ -647,13 +594,22 @@ async function killZombieChrome(snapDir = null, options = {}) {
   }
 
   function getProcessWorkingDir(pid) {
+    const procCwdPath = `/proc/${pid}/cwd`;
+    try {
+      if (fs.existsSync(procCwdPath)) {
+        return path.resolve(fs.readlinkSync(procCwdPath));
+      }
+    } catch (error) {
+      // Fall back to lsof on platforms without /proc, e.g. macOS.
+    }
+
     try {
       const output = execFileSync(
         "lsof",
         ["-a", "-p", String(pid), "-d", "cwd", "-Fn"],
         {
           encoding: "utf8",
-          timeout: 5000,
+          timeout: 500,
           stdio: ["ignore", "pipe", "ignore"],
         }
       );
@@ -710,13 +666,30 @@ async function killZombieChrome(snapDir = null, options = {}) {
     }
   }
 
+  let chromeHookProcesses = null;
+  const hookWorkingDirCache = new Map();
+
+  function getChromeHookProcesses() {
+    if (chromeHookProcesses === null) {
+      chromeHookProcesses = findChromeHookProcesses();
+    }
+    return chromeHookProcesses;
+  }
+
+  function getChromeHookWorkingDir(pid) {
+    if (!hookWorkingDirCache.has(pid)) {
+      hookWorkingDirCache.set(pid, getProcessWorkingDir(pid));
+    }
+    return hookWorkingDirCache.get(pid);
+  }
+
   function crawlHasLiveChromeHook(crawlDir) {
     const resolvedCrawlDir = path.resolve(crawlDir);
-    for (const { pid } of findChromeHookProcesses()) {
+    for (const { pid } of getChromeHookProcesses()) {
       if (pid === currentPid || !isProcessAlive(pid)) {
         continue;
       }
-      const currentWorkingDir = getProcessWorkingDir(pid);
+      const currentWorkingDir = getChromeHookWorkingDir(pid);
       if (!currentWorkingDir) {
         continue;
       }
@@ -747,7 +720,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
       }
     }
 
-    const deadline = Date.now() + 5000;
+    const deadline = Date.now() + 1000;
     while (Date.now() < deadline) {
       if (!isProcessAlive(pid)) {
         return true;
@@ -767,7 +740,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
       }
     }
 
-    const killDeadline = Date.now() + 5000;
+    const killDeadline = Date.now() + 1000;
     while (Date.now() < killDeadline) {
       if (!isProcessAlive(pid)) {
         return true;
@@ -779,8 +752,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
   }
 
   try {
-    const chromePids = findChromePidFiles(snapDir);
-    const hookPids = findChromeHookPidFiles(snapDir);
+    const { chromePids, hookPids, personaDirs } = findChromeRuntimeFiles(snapDir);
     const handledHookPids = new Set();
 
     for (const { pidFile, chromeDir, sessionDir } of chromePids) {
@@ -887,14 +859,14 @@ async function killZombieChrome(snapDir = null, options = {}) {
       }
     }
 
-    for (const { pid, hookName } of findChromeHookProcesses()) {
+    for (const { pid, hookName } of getChromeHookProcesses()) {
       if (handledHookPids.has(pid)) {
         continue;
       }
       if (pid === currentPid) {
         continue;
       }
-      const currentWorkingDir = getProcessWorkingDir(pid);
+      const currentWorkingDir = getChromeHookWorkingDir(pid);
       if (!currentWorkingDir) {
         continue;
       }
@@ -930,7 +902,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
       }
     }
 
-    for (const { personaDir, sessionDir } of findRuntimePersonaDirs(snapDir)) {
+    for (const { personaDir, sessionDir } of personaDirs) {
       const resolvedCrawlDir = findOwningCrawlDir(sessionDir);
       if (
         excludeCrawlDirs.has(resolvedCrawlDir) ||
