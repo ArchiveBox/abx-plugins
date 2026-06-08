@@ -45,22 +45,23 @@ def test_submits_to_archivedotorg():
             timeout=90,
         )
 
-        assert result.returncode in (0, 1)
+        assert result.returncode == 0, result.stderr
 
         # Parse clean JSONL output
         result_json = parse_jsonl_output(result.stdout)
+        assert result_json, "Should have ArchiveResult JSONL output"
 
-        if result.returncode == 0:
-            # Success - should have ArchiveResult
-            assert result_json, "Should have ArchiveResult JSONL output on success"
+        if result_json["status"] == "succeeded":
             assert result_json["status"] == "succeeded", (
                 f"Should succeed: {result_json}"
             )
+            assert result_json["output_str"] == "archivedotorg/archive.org.txt", (
+                result_json
+            )
         else:
-            # Transient errors still emit failed ArchiveResult JSONL.
-            assert result_json, "Should emit failed ArchiveResult JSONL on error"
-            assert result_json["status"] == "failed", result_json
-            assert result.stderr, "Should have error message in stderr"
+            assert result_json["status"] == "noresults", result_json
+            assert result_json["output_str"], "Should include Archive.org response"
+            assert "NORESULTS:" in result.stderr, result.stderr
 
 
 def test_config_save_archivedotorg_false_skips():
@@ -118,16 +119,17 @@ def test_handles_timeout():
             timeout=30,
         )
 
-        # Timeout is a transient error - should exit 1 with failed JSONL
-        assert result.returncode in (0, 1), "Should complete without hanging"
+        assert result.returncode == 0, result.stderr
 
         # With a low-but-valid timeout the hook may time out or get an HTTP error from
-        # archive.org (e.g. 403).  Either way it should emit proper JSONL.
-        if result.returncode == 1:
-            result_json = parse_jsonl_output(result.stdout)
-            assert result_json, "Should emit failed JSONL on error"
-            assert result_json["status"] == "failed", result_json
-            assert result_json["output_str"], "Should include error description"
+        # archive.org (e.g. 403/429). Either way it should emit proper JSONL and
+        # never turn a normal Archive.org refusal into a failed hook.
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json, "Should emit ArchiveResult JSONL"
+        assert result_json["status"] in {"succeeded", "noresults"}, result_json
+        assert result_json["output_str"], (
+            "Should include output path or error description"
+        )
 
 
 if __name__ == "__main__":

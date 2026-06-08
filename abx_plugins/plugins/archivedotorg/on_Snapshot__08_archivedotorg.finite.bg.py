@@ -185,9 +185,9 @@ def main(url: str):
             )
             sys.exit(0)
         else:
-            print(f"ERROR: {error}", file=sys.stderr)
-            emit_archive_result_record("failed", error or "")
-            sys.exit(1)
+            print(f"NORESULTS: {error}", file=sys.stderr)
+            emit_archive_result_record("noresults", error or "")
+            sys.exit(0)
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"
