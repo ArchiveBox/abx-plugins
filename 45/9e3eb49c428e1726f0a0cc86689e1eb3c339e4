@@ -1,0 +1,57 @@
+abx_plugins/plugins/mercury/on_Snapshot__57_mercury.py
+  s_81e20780ac8398::t_3c6a52920fea42 16,126-127,132-135,148,150-154,156
+  s_81e20780ac8398::t_048bfb6c720172 17,20,40-87,89-92,94-95,97-100,198
+  s_81e20780ac8398::t_33d9d8447c7583 15,101,110,191,193-195,199-201,210
+abx_plugins/plugins/papersdl/on_Snapshot__66_papersdl.finite.bg.py
+  s_ccefc8ac08198c::t_697df72468e865 25-36
+  s_ccefc8ac08198c::t_56905552910567 5
+abx_plugins/plugins/forumdl/on_Snapshot__04_forumdl.finite.bg.py
+  s_ccefc8ac08198c::t_56905552910567 5
+  s_ccefc8ac08198c::t_697df72468e865 13-24
+abx_plugins/plugins/wget/on_Snapshot__06_wget.finite.bg.py
+  s_ccefc8ac08198c::t_56905552910567 5
+  s_ccefc8ac08198c::t_697df72468e865 24-35
+abx_plugins/plugins/archivedotorg/on_Snapshot__08_archivedotorg.finite.bg.py
+  s_ccefc8ac08198c::t_56905552910567 5
+  s_ccefc8ac08198c::t_697df72468e865 12-22
+abx_plugins/plugins/favicon/on_Snapshot__11_favicon.finite.bg.py
+  s_ccefc8ac08198c::t_697df72468e865 13-22
+  s_ccefc8ac08198c::t_56905552910567 5
+abx_plugins/plugins/modalcloser/on_Snapshot__15_modalcloser.daemon.bg.js
+  s_ccefc8ac08198c::t_6eb819acf7aebf 23-45,379-380
+abx_plugins/plugins/git/on_Snapshot__05_git.finite.bg.py
+  s_ccefc8ac08198c::t_56905552910567 5
+  s_ccefc8ac08198c::t_697df72468e865 13-24
+abx_plugins/plugins/ytdlp/on_Snapshot__02_ytdlp.finite.bg.py
+  s_ccefc8ac08198c::t_56905552910567 5
+  s_ccefc8ac08198c::t_697df72468e865 26-37
+abx_plugins/plugins/redirects/on_Snapshot__25_redirects.daemon.bg.js
+  s_ccefc8ac08198c::t_506818d05c908c 13-35,335
+abx_plugins/plugins/gallerydl/on_Snapshot__03_gallerydl.finite.bg.py
+  s_ccefc8ac08198c::t_56905552910567 5
+  s_ccefc8ac08198c::t_697df72468e865 13-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "459e3eb49c428e1726f0a0cc86689e1eb3c339e4",
+  "prompts": {},
+  "sessions": {
+    "s_81e20780ac8398": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ea0de-6443-7891-868e-aa82f96b0668",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_ccefc8ac08198c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e86b5-1bab-7df2-80cb-660ce277c3ec",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
