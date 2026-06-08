@@ -20,6 +20,29 @@
  *     MODALCLOSER_POLL_INTERVAL: How often to check for CSS modals in ms (default: 500)
  */
 
+
+// Cleanup can SIGTERM the process immediately after spawn; remember early
+// signals and replay them to the hook-specific cleanup handler once it exists.
+let __abxEarlyShutdownSignal = null;
+function __abxRememberEarlyShutdown(signal) {
+  if (__abxEarlyShutdownSignal === null) {
+    __abxEarlyShutdownSignal = signal;
+  }
+}
+function __abxInstallShutdownHandler(handler) {
+  process.removeAllListeners("SIGTERM");
+  process.removeAllListeners("SIGINT");
+  process.on("SIGTERM", () => handler("SIGTERM"));
+  process.on("SIGINT", () => handler("SIGINT"));
+  if (__abxEarlyShutdownSignal !== null) {
+    const signal = __abxEarlyShutdownSignal;
+    __abxEarlyShutdownSignal = null;
+    setImmediate(() => handler(signal));
+  }
+}
+process.on("SIGTERM", () => __abxRememberEarlyShutdown("SIGTERM"));
+process.on("SIGINT", () => __abxRememberEarlyShutdown("SIGINT"));
+
 const fs = require("fs");
 const path = require("path");
 const { loadConfig } = require("../base/utils.js");
@@ -353,8 +376,8 @@ async function main() {
   const connectTimeoutMs =
     getEnvInt("CHROME_TIMEOUT", getEnvInt("TIMEOUT", 15)) * 1000;
 
-  // Handle SIGTERM for clean exit
-  process.on("SIGTERM", () => {
+  // Handle SIGTERM/SIGINT for clean exit
+  __abxInstallShutdownHandler(() => {
     running = false;
     const total = dialogsClosed + cssModalsClosed;
     console.error(

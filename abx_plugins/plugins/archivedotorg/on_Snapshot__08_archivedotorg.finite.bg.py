@@ -2,11 +2,23 @@
 # /// script
 # requires-python = ">=3.12"
 # ///
+# ruff: noqa: E402
 #
 # Submit a URL to archive.org for archiving and save the resulting archive.org link.
 #
 # Usage:
 #     ./on_Snapshot__08_archivedotorg.finite.bg.py --url=<url> > events.jsonl
+
+import signal
+
+# Snapshot cleanup sends SIGTERM to the whole hook process group as the polite
+# shutdown signal before the hard SIGKILL deadline. This hook is a finite
+# downloader, so treating SIGTERM as "stop now" corrupts the normal contract:
+# an in-flight download becomes a failed ArchiveResult even though cleanup would
+# have allowed it to finish within the hook timeout. Installing SIG_IGN before
+# any heavy imports or network work makes cleanup mean "finish promptly if you
+# can"; the later SIGKILL deadline still enforces the hard stop.
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
 import os
 import sys

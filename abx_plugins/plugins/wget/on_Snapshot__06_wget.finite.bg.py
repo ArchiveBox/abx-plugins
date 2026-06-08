@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # ///
+# ruff: noqa: E402
 #
 # Archive a URL using wget.
 #
@@ -19,6 +20,18 @@
 #     WGET_ARGS: Default wget arguments (JSON array)
 #     WGET_ARGS_EXTRA: Extra arguments to append (JSON array)
 #
+
+import signal
+
+# Snapshot cleanup sends SIGTERM to the whole hook process group as the polite
+# shutdown signal before the hard SIGKILL deadline. This hook is a finite
+# downloader, so treating SIGTERM as "stop now" corrupts the normal contract:
+# an in-flight download becomes a failed ArchiveResult even though cleanup would
+# have allowed it to finish within the hook timeout. Installing SIG_IGN before
+# any heavy imports or subprocess creation also makes downloader children inherit
+# the same disposition across exec, so the whole process group either finishes
+# its work and exits normally or is stopped by the later SIGKILL deadline.
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
 import os
 import re

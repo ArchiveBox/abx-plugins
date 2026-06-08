@@ -11,6 +11,29 @@
  * Output: Emits the saved main-response path
  */
 
+
+// Cleanup can SIGTERM the process immediately after spawn; remember early
+// signals and replay them to the hook-specific cleanup handler once it exists.
+let __abxEarlyShutdownSignal = null;
+function __abxRememberEarlyShutdown(signal) {
+  if (__abxEarlyShutdownSignal === null) {
+    __abxEarlyShutdownSignal = signal;
+  }
+}
+function __abxInstallShutdownHandler(handler) {
+  process.removeAllListeners("SIGTERM");
+  process.removeAllListeners("SIGINT");
+  process.on("SIGTERM", () => handler("SIGTERM"));
+  process.on("SIGINT", () => handler("SIGINT"));
+  if (__abxEarlyShutdownSignal !== null) {
+    const signal = __abxEarlyShutdownSignal;
+    __abxEarlyShutdownSignal = null;
+    setImmediate(() => handler(signal));
+  }
+}
+process.on("SIGTERM", () => __abxRememberEarlyShutdown("SIGTERM"));
+process.on("SIGINT", () => __abxRememberEarlyShutdown("SIGINT"));
+
 const fs = require("fs");
 const path = require("path");
 const {
@@ -530,8 +553,7 @@ async function main() {
   const timeout = getEnvInt("STATICFILE_TIMEOUT", 30) * 1000;
 
   // Register signal handlers for graceful shutdown
-  process.on("SIGTERM", () => handleShutdown("SIGTERM"));
-  process.on("SIGINT", () => handleShutdown("SIGINT"));
+  __abxInstallShutdownHandler(handleShutdown);
 
   try {
     // Set up static file listener BEFORE navigation and finish on the

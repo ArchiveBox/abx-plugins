@@ -2,12 +2,23 @@
 # /// script
 # requires-python = ">=3.12"
 # ///
+# ruff: noqa: E402
 #
 # Extract favicon from a URL and save it to the local filesystem.
 # Supports multiple favicon sources including HTML link tags and a configurable fallback provider.
 #
 # Usage:
 #     ./on_Snapshot__11_favicon.finite.bg.py --url=<url>
+
+import signal
+
+# Snapshot cleanup sends SIGTERM to the whole hook process group as the polite
+# shutdown signal before the hard SIGKILL deadline. This hook is finite work, so
+# treating SIGTERM as "stop now" can turn normal cleanup into a failed
+# ArchiveResult. Installing SIG_IGN before imports that may perform setup keeps
+# cleanup from interrupting the result path; SIGKILL still enforces the hard
+# timeout if the hook does not finish.
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
 import os
 import re
