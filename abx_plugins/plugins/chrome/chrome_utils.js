@@ -4200,17 +4200,15 @@ async function ensureChromeSession(options = {}) {
       });
 
       if (installedExtensions.length > 0) {
+        // Keep this existing browser connection after Extensions.loadUnpacked.
+        // A fresh Puppeteer connect enumerates extension targets and can lose a
+        // race against short-lived MV3/archiveweb.page targets that close after
+        // Chrome reports them but before Target.attachToTarget runs.
         await loadUnpackedExtensionsIntoBrowser(
           browser,
           installedExtensions,
           timeoutMs
         );
-        try {
-          await browser.disconnect();
-        } catch (error) {}
-        browser = await connectToBrowserEndpoint(puppeteer, resolvedCdpUrl, {
-          defaultViewport: null,
-        });
       }
 
       if (downloadsDir) {
