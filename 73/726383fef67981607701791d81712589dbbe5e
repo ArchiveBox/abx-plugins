@@ -1,0 +1,21 @@
+abx_plugins/plugins/archivedotorg/on_Snapshot__08_archivedotorg.finite.bg.py
+  s_ccefc8ac08198c::t_571b967cdae13a 188-190
+abx_plugins/plugins/archivedotorg/tests/test_archivedotorg.py
+  s_ccefc8ac08198c::t_22ca0adb80f9cb 48,52,54,59-60,62-64,122,125-129,131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "73726383fef67981607701791d81712589dbbe5e",
+  "prompts": {},
+  "sessions": {
+    "s_ccefc8ac08198c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e86b5-1bab-7df2-80cb-660ce277c3ec",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
