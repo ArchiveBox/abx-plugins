@@ -144,6 +144,40 @@ def find_indexable_content() -> list[tuple[str, str]]:
     return results
 
 
+def _metadata_values(raw_value: Any, *, split_tags: bool = False) -> list[str]:
+    if raw_value is None:
+        return []
+    if isinstance(raw_value, (list, tuple, set)):
+        values = raw_value
+    elif split_tags:
+        values = re.split(r"[,\n]", str(raw_value))
+    else:
+        values = [raw_value]
+    cleaned = []
+    for value in values:
+        text = re.sub(r"\s+", " ", str(value or "")).strip()
+        if text:
+            cleaned.append(text)
+    return cleaned
+
+
+def build_metadata_content(
+    url: str,
+    extra_context: dict[str, Any] | None = None,
+) -> str:
+    """Build always-indexed Snapshot metadata text for Sonic."""
+    context = extra_context or get_extra_context()
+    values = [
+        *_metadata_values(context.get("snapshot_url") or context.get("url") or url),
+        *_metadata_values(context.get("snapshot_title") or context.get("title")),
+        *_metadata_values(
+            context.get("snapshot_tags") or context.get("tags"),
+            split_tags=True,
+        ),
+    ]
+    return "\n".join(dict.fromkeys(values))
+
+
 def index_in_sonic(snapshot_id: str, texts: list[str], config: Any) -> None:
     """Index texts in Sonic."""
     try:
@@ -225,7 +259,11 @@ def main() -> None:
             if not snapshot_id:
                 raise RuntimeError("missing snapshot_id in extra context")
 
-            contents = find_indexable_content()
+            contents = []
+            metadata_content = build_metadata_content(args.url)
+            if metadata_content:
+                contents.append(("metadata", metadata_content))
+            contents.extend(find_indexable_content())
 
             if not contents:
                 status = "noresults"
