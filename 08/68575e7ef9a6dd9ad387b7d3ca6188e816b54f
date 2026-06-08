@@ -1,0 +1,19 @@
+abx_plugins/plugins/search_backend_sonic/on_Snapshot__91_index_sonic.py
+  s_81e20780ac8398::t_47c9753f46995f 147-165,167-174,176-180,262-266
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "0868575e7ef9a6dd9ad387b7d3ca6188e816b54f",
+  "prompts": {},
+  "sessions": {
+    "s_81e20780ac8398": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ea0de-6443-7891-868e-aa82f96b0668",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
