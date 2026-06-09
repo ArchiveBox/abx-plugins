@@ -330,7 +330,11 @@ def test_config_scroll_limit_honored(infiniscroll_test_url):
             assert re.fullmatch(r"scrolled [\d,]+px", output_str), (
                 f"Should have valid output_str: {output_str}"
             )
-            scrolled_px = int(output_str.removeprefix("scrolled ").removesuffix("px").replace(",", ""))
+            scrolled_px = int(
+                output_str.removeprefix("scrolled ")
+                .removesuffix("px")
+                .replace(",", ""),
+            )
             assert scrolled_px > 0, result_json
             assert result_json["status"] == "succeeded", (
                 f"Should succeed with scroll limit: {result_json}"

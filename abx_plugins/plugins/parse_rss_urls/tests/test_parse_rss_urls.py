@@ -39,7 +39,9 @@ class TestParseRssUrls:
         assert lines, f"No URLs extracted from real RSS feed: {result.stdout!r}"
         entries = [json.loads(line) for line in lines]
         assert all(entry["type"] == "Snapshot" for entry in entries)
-        assert all(entry["url"].startswith(("http://", "https://")) for entry in entries)
+        assert all(
+            entry["url"].startswith(("http://", "https://")) for entry in entries
+        )
         assert "URLs parsed" in result.stderr or "URLs parsed" in result.stdout
 
     def test_extracts_urls_from_rss_feed(self, tmp_path):

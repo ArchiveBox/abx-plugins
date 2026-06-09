@@ -225,7 +225,7 @@ def _configure_chrome_httpserver(httpserver) -> dict[str, str]:
     }});
   </script>
 </body>
-</html>"""
+</html>""",
     )
     httpserver.expect_request("/redirect").respond_with_data(
         "",
@@ -421,7 +421,9 @@ def chrome_test_url(chrome_test_urls):
 @pytest.fixture
 def chrome_test_https_url(chrome_test_urls):
     https_url = chrome_test_urls.get("https_base_url")
-    assert https_url, "HTTPS fixture unavailable; provide chrome_test_urls['https_base_url']"
+    assert https_url, (
+        "HTTPS fixture unavailable; provide chrome_test_urls['https_base_url']"
+    )
     return https_url
 
 

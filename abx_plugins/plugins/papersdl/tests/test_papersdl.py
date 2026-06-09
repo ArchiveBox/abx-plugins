@@ -232,9 +232,13 @@ def test_real_public_paper_download():
         assert result_json["status"] == "succeeded", result_json
 
         papersdl_dir = tmpdir / "papersdl"
-        downloaded_files = sorted(path for path in papersdl_dir.iterdir() if path.is_file())
+        downloaded_files = sorted(
+            path for path in papersdl_dir.iterdir() if path.is_file()
+        )
         pdf_files = [path for path in downloaded_files if path.suffix.lower() == ".pdf"]
-        assert len(pdf_files) == 1, f"Expected exactly one downloaded PDF: {downloaded_files}"
+        assert len(pdf_files) == 1, (
+            f"Expected exactly one downloaded PDF: {downloaded_files}"
+        )
 
         output_path = pdf_files[0]
         assert result_json["output_str"] == f"papersdl/{output_path.name}", result_json

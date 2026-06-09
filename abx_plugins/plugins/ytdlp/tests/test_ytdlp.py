@@ -309,7 +309,9 @@ def test_extracts_local_media_url(media_test_url):
         assert output_path in media_files, (
             f"ArchiveResult should point at a downloaded media artifact: {result_json}"
         )
-        assert output_path.stat().st_size > 0, f"Downloaded media is empty: {output_path}"
+        assert output_path.stat().st_size > 0, (
+            f"Downloaded media is empty: {output_path}"
+        )
 
         print(
             f"Successfully extracted {len(media_files)} file(s) in {elapsed_time:.2f}s",
@@ -369,7 +371,9 @@ def test_uses_real_ffmpeg_binary_from_env_when_not_on_path(media_test_url):
         assert result_json["status"] == "succeeded", result_json
         output_path = tmpdir_path / result_json["output_str"]
         assert output_path.is_file(), f"ArchiveResult output missing: {output_path}"
-        assert output_path.stat().st_size > 0, f"Downloaded media is empty: {output_path}"
+        assert output_path.stat().st_size > 0, (
+            f"Downloaded media is empty: {output_path}"
+        )
 
 
 if __name__ == "__main__":

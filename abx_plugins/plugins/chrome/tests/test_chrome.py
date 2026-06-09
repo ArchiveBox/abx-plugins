@@ -474,11 +474,11 @@ const { execFileSync } = require('child_process');
     result = subprocess.run(
         [
             "node",
-                "-e",
-                script,
-                str(CHROME_UTILS),
-                str(output_dir),
-            ],
+            "-e",
+            script,
+            str(CHROME_UTILS),
+            str(output_dir),
+        ],
         capture_output=True,
         text=True,
         timeout=120,

@@ -132,15 +132,20 @@ class TestConsolelogWithChrome:
                 f"stdout: {stdout}\nstderr: {stderr}"
             )
             assert result_json["status"] == "succeeded", result_json
-            assert result_json["output_str"].endswith("errors | 0 warnings"), result_json
+            assert result_json["output_str"].endswith("errors | 0 warnings"), (
+                result_json
+            )
 
             content = console_output.read_text().strip()
             assert content, "Console output should not be empty"
-            records = [json.loads(line) for line in content.splitlines() if line.strip()]
+            records = [
+                json.loads(line) for line in content.splitlines() if line.strip()
+            ]
             assert records, "Console output should contain JSONL records"
             assert any(
                 record.get("type") == "log"
-                and "archivebox-console-test" in " ".join(map(str, record.get("args", [])))
+                and "archivebox-console-test"
+                in " ".join(map(str, record.get("args", [])))
                 for record in records
             ), records
             for record in records:

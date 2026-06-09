@@ -13,7 +13,9 @@ SINGLEFILE_HELPER = (
 )
 
 
-def test_singlefile_helper_source_installs_node_resolution_before_chrome_utils() -> None:
+def test_singlefile_helper_source_installs_node_resolution_before_chrome_utils() -> (
+    None
+):
     """Parser-only guard: NODE_MODULES_DIR resolution must precede chrome_utils loading."""
     source = SINGLEFILE_HELPER.read_text(encoding="utf-8")
 

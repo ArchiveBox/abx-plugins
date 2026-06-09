@@ -260,6 +260,7 @@ def test_config_save_warc(local_example_url):
 
         assert result.returncode == 0, result.stderr
         result_json = parse_jsonl_output(result.stdout)
+        assert result_json is not None, result.stdout
         assert result_json == {
             "type": "ArchiveResult",
             "status": "succeeded",
@@ -394,6 +395,7 @@ def test_config_timeout_honored(local_example_url):
 
         assert result.returncode == 0, result.stderr
         result_json = parse_jsonl_output(result.stdout)
+        assert result_json is not None, result.stdout
         assert result_json["type"] == "ArchiveResult", result_json
         assert result_json["status"] == "succeeded", result_json
         assert result_json["output_str"].startswith("wget/"), result_json
@@ -435,6 +437,7 @@ def test_config_user_agent(httpserver):
 
         assert result.returncode == 0, result.stderr
         result_json = parse_jsonl_output(result.stdout)
+        assert result_json is not None, result.stdout
         assert result_json["type"] == "ArchiveResult", result_json
         assert result_json["status"] == "succeeded", result_json
         assert result_json["output_str"].startswith("wget/"), result_json

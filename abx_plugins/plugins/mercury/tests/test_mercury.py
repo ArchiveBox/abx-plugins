@@ -200,8 +200,7 @@ def test_extracts_from_served_test_url_html(httpserver):
         metadata = json.loads(article_json.read_text())
         assert metadata.get("title") == "Served Source Marker", metadata
         assert any(
-            request.path == "/test_url.html"
-            for request, _response in httpserver.log
+            request.path == "/test_url.html" for request, _response in httpserver.log
         ), "Mercury did not fetch the served test_url.html fixture"
 
 

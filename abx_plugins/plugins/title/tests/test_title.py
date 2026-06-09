@@ -248,7 +248,9 @@ def test_handles_https_urls():
                 "testhttps",
             )
 
-        assert nav_result.returncode == 0, f"HTTPS navigation failed: {nav_result.stderr}"
+        assert nav_result.returncode == 0, (
+            f"HTTPS navigation failed: {nav_result.stderr}"
+        )
         assert_title_succeeded(result, title_dir, "Example Domain")
 
 

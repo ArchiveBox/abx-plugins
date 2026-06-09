@@ -420,7 +420,9 @@ def test_invalid_opendataloader_binary_path_reports_failed_status():
             env=env,
         )
 
-        assert result.returncode == 1, f"Hook should fail on missing CLI: {result.stderr}"
+        assert result.returncode == 1, (
+            f"Hook should fail on missing CLI: {result.stderr}"
+        )
         record = parse_jsonl_output(result.stdout)
         assert record, "Should emit ArchiveResult JSONL output"
         assert record["status"] == "failed", record

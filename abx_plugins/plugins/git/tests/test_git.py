@@ -90,7 +90,9 @@ def test_handles_non_git_url():
             "status": "noresults",
             "output_str": "Not a git URL",
         }, result_json
-        assert "Skipping git clone for non-git URL: https://example.com" in result.stderr
+        assert (
+            "Skipping git clone for non-git URL: https://example.com" in result.stderr
+        )
 
 
 def test_real_git_repo():
