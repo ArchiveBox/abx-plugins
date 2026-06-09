@@ -39,6 +39,34 @@ CHROME_UTILS_JS = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
 CHROME_STARTUP_TIMEOUT_SECONDS = 45
 EXTENSION_NAME = "ublock"
 EXTENSION_WEBSTORE_ID = "ddkjiahejlhfcafbddmgiahcphecmpfh"
+AD_SERVICE_URLS = (
+    "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js",
+    "https://googleads.g.doubleclick.net/pagead/ads?client=ca-pub-1234567890&format=auto",
+    "https://googleads.g.doubleclick.net/pagead/imgad?id=CICAgKDLwJm9AhABGAEoATIIA1AB",
+)
+
+
+def serve_ad_fixture(httpserver, path: str = "/ublock-ad-fixture") -> str:
+    httpserver.expect_request(path).respond_with_data(
+        f"""<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>uBlock Ad Fixture</title>
+  <script src="{AD_SERVICE_URLS[0]}"></script>
+</head>
+<body>
+  <main>
+    <h1>uBlock Ad Fixture</h1>
+    <ins class="adsbygoogle" data-ad-client="ca-pub-1234567890" data-ad-slot="1234567890"></ins>
+    <iframe title="doubleclick-ad" src="{AD_SERVICE_URLS[1]}"></iframe>
+    <img alt="ad" src="{AD_SERVICE_URLS[2]}">
+  </main>
+</body>
+</html>""",
+        content_type="text/html; charset=utf-8",
+    )
+    return httpserver.url_for(path)
 
 
 def install_ublock_extension(env: dict[str, str]):
@@ -111,19 +139,20 @@ def test_large_extension_size():
         install_ublock_extension(env)
 
         crx_file = ext_dir / "ddkjiahejlhfcafbddmgiahcphecmpfh__ublock.crx"
-        if crx_file.exists():
-            size_bytes = crx_file.stat().st_size
-            assert size_bytes > 100_000, (
-                f"uBlock Origin Lite should be > 100KB, got {size_bytes} bytes"
-            )
+        assert crx_file.exists(), f"uBlock CRX should exist at {crx_file}"
+        size_bytes = crx_file.stat().st_size
+        assert size_bytes > 100_000, (
+            f"uBlock Origin Lite should be > 100KB, got {size_bytes} bytes"
+        )
 
 
-def test_snapshot_hook_reports_skipped_when_disabled():
+def test_snapshot_hook_reports_skipped_when_disabled(httpserver):
+    test_url = httpserver.url_for("/ublock-disabled")
     env = os.environ.copy()
     env["UBLOCK_ENABLED"] = "false"
 
     result = subprocess.run(
-        [str(SNAPSHOT_HOOK), "--url=https://example.com"],
+        [str(SNAPSHOT_HOOK), f"--url={test_url}"],
         capture_output=True,
         text=True,
         env=env,
@@ -202,8 +231,8 @@ def test_snapshot_hook_reports_noresults_on_blank_page():
                     hook_process.kill()
 
 
-def test_snapshot_hook_reports_live_blocking_counts(chrome_test_urls):
-    test_url = chrome_test_urls["ad_url"]
+def test_snapshot_hook_reports_live_blocking_counts(httpserver):
+    test_url = serve_ad_fixture(httpserver)
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         install_env = setup_test_env(tmpdir)
@@ -264,7 +293,8 @@ def test_snapshot_hook_reports_live_blocking_counts(chrome_test_urls):
                 blocked_str, hidden_str = archive_result["output_str"].split(" | ")
                 blocked = int(blocked_str.split()[0])
                 hidden = int(hidden_str.split()[0])
-                assert blocked > 0 or hidden > 0, archive_result
+                assert blocked > 0, archive_result
+                assert hidden >= 0, archive_result
             finally:
                 if hook_process.poll() is None:
                     hook_process.kill()
@@ -276,7 +306,12 @@ def check_ad_blocking(cdp_url: str, test_url: str, env: dict, script_dir: Path) 
     Returns dict with:
         - adElementsFound: int - number of ad-related elements found
         - adElementsVisible: int - number of visible ad elements
+        - adRequests: int - number of ad/tracker requests seen by the page
         - blockedRequests: int - number of blocked network requests (ads/trackers)
+        - failedAdRequests: int - number of ad/tracker requests that failed for any reason
+        - adRequestUrls: list[str] - ad/tracker request URLs observed by Chrome
+        - blockedAdRequestUrls: list[str] - ad/tracker URLs blocked by uBlock
+        - failedAdRequestErrors: list[dict] - failed ad/tracker URLs and Chrome errors
         - totalRequests: int - total network requests made
         - percentBlocked: int - percentage of ad elements hidden (0-100)
     """
@@ -293,8 +328,13 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
             await page.setViewport({{ width: 1440, height: 900 }});
 
             // Track network requests
+            let adRequests = 0;
             let blockedRequests = 0;
+            let failedAdRequests = 0;
             let totalRequests = 0;
+            const adRequestUrls = [];
+            const blockedAdRequestUrls = [];
+            const failedAdRequestErrors = [];
             const adDomains = ['doubleclick', 'googlesyndication', 'googleadservices', 'facebook.com/tr',
                                'analytics', 'adservice', 'advertising', 'taboola', 'outbrain', 'criteo',
                                'amazon-adsystem', 'ads.yahoo', 'gemini.yahoo', 'yimg.com/cv/', 'beap.gemini'];
@@ -303,14 +343,22 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                 totalRequests++;
                 const url = request.url().toLowerCase();
                 if (adDomains.some(d => url.includes(d))) {{
-                    // This is an ad request
+                    adRequests++;
+                    adRequestUrls.push(request.url());
                 }}
             }});
 
             page.on('requestfailed', request => {{
                 const url = request.url().toLowerCase();
+                const failure = request.failure();
+                const errorText = ((failure && failure.errorText) || '').toUpperCase();
                 if (adDomains.some(d => url.includes(d))) {{
+                    failedAdRequests++;
+                    failedAdRequestErrors.push({{ url: request.url(), errorText }});
+                }}
+                if (adDomains.some(d => url.includes(d)) && errorText.includes('ERR_BLOCKED_BY_CLIENT')) {{
                     blockedRequests++;
+                    blockedAdRequestUrls.push(request.url());
                 }}
             }});
 
@@ -372,6 +420,11 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
             }});
 
             result.blockedRequests = blockedRequests;
+            result.failedAdRequests = failedAdRequests;
+            result.adRequests = adRequests;
+            result.adRequestUrls = adRequestUrls;
+            result.blockedAdRequestUrls = blockedAdRequestUrls;
+            result.failedAdRequestErrors = failedAdRequestErrors;
             result.totalRequests = totalRequests;
             // Calculate how many ad elements were hidden (found but not visible)
             const hiddenAds = result.adElementsFound - result.adElementsVisible;
@@ -415,10 +468,6 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
         )
 
     return json.loads(output_lines[-1])
-
-
-# Live test URL with deliberately ad-heavy content for stable blocker verification.
-TEST_URL = "https://canyoublockit.com/extreme-test/"
 
 
 def test_extension_loads_in_chromium():
@@ -524,23 +573,18 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
             const dashboardUrl = 'chrome-extension://' + extId + '/dashboard.html';
             console.error('Loading:', dashboardUrl);
 
-            try {{
-                await newPage.goto(dashboardUrl, {{ waitUntil: 'domcontentloaded', timeout: 15000 }});
-                const title = await newPage.title();
-                const content = await newPage.content();
-                const hasUblock = content.toLowerCase().includes('ublock') || title.toLowerCase().includes('ublock');
+            await newPage.goto(dashboardUrl, {{ waitUntil: 'domcontentloaded', timeout: 15000 }});
+            const title = await newPage.title();
+            const content = await newPage.content();
+            const hasUblock = content.toLowerCase().includes('ublock') || title.toLowerCase().includes('ublock');
 
-                return {{
-                    loaded: true,
-                    extensionId: extId,
-                    pageTitle: title,
-                    hasExtensionName: hasUblock,
-                    contentLength: content.length
-                }};
-            }} catch (e) {{
-                console.error('Dashboard load failed:', e.message);
-                return {{ loaded: true, extensionId: extId, dashboardError: e.message }};
-            }}
+            return {{
+                loaded: true,
+                extensionId: extId,
+                pageTitle: title,
+                hasExtensionName: hasUblock,
+                contentLength: content.length
+            }};
         }},
     );
     console.log(JSON.stringify(result));
@@ -578,6 +622,10 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
             assert test_result.get("loaded"), (
                 f"uBlock extension should be loaded in Chromium. Result: {test_result}"
             )
+            assert test_result.get("hasExtensionName"), (
+                f"uBlock dashboard should load and identify itself. Result: {test_result}"
+            )
+            assert test_result.get("contentLength", 0) > 0, test_result
             print(f"Extension loaded successfully: {test_result}")
 
         finally:
@@ -585,17 +633,22 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                 kill_chromium_session(chrome_launch_process, chrome_dir)
 
 
-def test_blocks_ads_on_canyoublockit_extreme():
-    """Live test: verify uBlock Origin Lite blocks ads on canyoublockit.com/extreme-test.
+def test_blocks_ads_on_httpserver_page_with_real_ad_service_urls(httpserver):
+    """Verify uBlock Origin Lite blocks real ad-service URLs from a local page.
 
     This test runs TWO browser sessions:
     1. WITHOUT extension - verifies ads are NOT blocked (baseline)
     2. WITH extension - verifies ads ARE blocked
 
-    This ensures we're actually testing the extension's effect, not just
-    that a test page happens to show ads as blocked. No mocks are used.
+    The outer page is served by pytest-httpserver so the test can run without
+    reaching a live publisher page. The ad subresource URLs stay real, and the
+    baseline distinguishes ordinary network failures from uBlock's
+    ERR_BLOCKED_BY_CLIENT failures.
     """
     import time
+
+    test_url = serve_ad_fixture(httpserver)
+    expected_ad_urls = {url.lower() for url in AD_SERVICE_URLS}
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -645,9 +698,6 @@ def test_blocks_ads_on_canyoublockit_extreme():
         env_no_ext["CHROME_USER_DATA_DIR"] = str(
             baseline_default_dir / "chrome_user_data",
         )
-
-        attempt_failures: list[str] = []
-        max_attempts = 3
 
         ext_env = env_base.copy()
         ext_crawl_id = "test-with-ext"
@@ -709,205 +759,153 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                 encoding="utf-8",
             )
             dash_script_path.chmod(0o755)
-            subprocess.run(
+            dashboard_result = subprocess.run(
                 [str(dash_script_path)],
                 capture_output=True,
+                text=True,
                 timeout=15,
                 env=ext_env,
             )
+            assert dashboard_result.returncode == 0, dashboard_result.stderr
 
             print("Waiting for uBlock filter lists to download and initialize...")
             time.sleep(30)
             kill_chromium_session(ext_process, ext_chrome_dir)
             ext_process = None
 
-            for attempt in range(1, max_attempts + 1):
-                print("\n" + "=" * 60)
-                print(f"STEP 2.{attempt}: BASELINE TEST (no extension)")
-                print("=" * 60)
+            print("\n" + "=" * 60)
+            print("STEP 2: BASELINE TEST (no extension)")
+            print("=" * 60)
 
-                baseline_env = env_no_ext.copy()
-                baseline_crawl_id = f"baseline-no-ext-{attempt}"
-                baseline_crawl_dir = crawl_root / baseline_crawl_id
-                baseline_crawl_dir.mkdir(parents=True, exist_ok=True)
-                baseline_chrome_dir = baseline_crawl_dir / "chrome"
-                baseline_env["CRAWL_DIR"] = str(baseline_crawl_dir)
-                baseline_process = None
+            baseline_env = env_no_ext.copy()
+            baseline_crawl_id = "baseline-no-ext"
+            baseline_crawl_dir = crawl_root / baseline_crawl_id
+            baseline_crawl_dir.mkdir(parents=True, exist_ok=True)
+            baseline_chrome_dir = baseline_crawl_dir / "chrome"
+            baseline_env["CRAWL_DIR"] = str(baseline_crawl_dir)
+            baseline_process = None
 
-                try:
-                    baseline_process, baseline_cdp_url = launch_chromium_session(
-                        baseline_env,
-                        baseline_chrome_dir,
-                        baseline_crawl_id,
-                        timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
-                    )
-                    print(f"Baseline Chromium launched: {baseline_cdp_url}")
-                    time.sleep(2)
-                    baseline_result = check_ad_blocking(
-                        baseline_cdp_url,
-                        TEST_URL,
-                        baseline_env,
-                        tmpdir,
-                    )
-                    print(
-                        f"Baseline result: {baseline_result['adElementsVisible']} visible ads "
-                        f"(found {baseline_result['adElementsFound']} ad elements, "
-                        f"{baseline_result['totalRequests']} total requests)",
-                    )
-                finally:
-                    if baseline_process:
-                        kill_chromium_session(baseline_process, baseline_chrome_dir)
-
-                if baseline_result["adElementsFound"] == 0:
-                    attempt_failures.append(
-                        f"attempt {attempt}: baseline found no ad elements on {TEST_URL}",
-                    )
-                    continue
-
-                weak_signal = baseline_result["adElementsVisible"] < 10
-                if weak_signal:
-                    print(
-                        f"[warning] baseline only exposed {baseline_result['adElementsVisible']} visible ads; "
-                        "continuing because the live ad signal can vary across samples",
-                    )
-
-                print(
-                    f"\n✓ Baseline confirmed: {baseline_result['adElementsVisible']} visible ads without extension",
+            try:
+                baseline_process, baseline_cdp_url = launch_chromium_session(
+                    baseline_env,
+                    baseline_chrome_dir,
+                    baseline_crawl_id,
+                    timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
                 )
+                print(f"Baseline Chromium launched: {baseline_cdp_url}")
+                time.sleep(2)
+                baseline_result = check_ad_blocking(
+                    baseline_cdp_url,
+                    test_url,
+                    baseline_env,
+                    tmpdir,
+                )
+                print(
+                    f"Baseline result: {baseline_result['adElementsVisible']} visible ads "
+                    f"(found {baseline_result['adElementsFound']} ad elements, "
+                    f"{baseline_result['adRequests']} ad requests, "
+                    f"{baseline_result['blockedRequests']} blocked ad requests, "
+                    f"{baseline_result['totalRequests']} total requests)",
+                )
+            finally:
+                if baseline_process:
+                    kill_chromium_session(baseline_process, baseline_chrome_dir)
 
-                print("\n" + "=" * 60)
-                print(f"STEP 3.{attempt}: TEST WITH EXTENSION")
-                print("=" * 60)
+            assert baseline_result["adElementsFound"] > 0, baseline_result
+            assert baseline_result["adElementsVisible"] > 0, baseline_result
+            baseline_ad_urls = {url.lower() for url in baseline_result["adRequestUrls"]}
+            assert expected_ad_urls.issubset(baseline_ad_urls), baseline_result
+            assert baseline_result["adRequests"] >= len(AD_SERVICE_URLS), (
+                baseline_result
+            )
+            assert baseline_result["blockedRequests"] == 0, baseline_result
+            assert baseline_result["blockedAdRequestUrls"] == [], baseline_result
 
-                ext_attempt_env = ext_env.copy()
-                ext_attempt_crawl_id = f"test-with-ext-{attempt}"
-                ext_attempt_crawl_dir = crawl_root / ext_attempt_crawl_id
-                ext_attempt_crawl_dir.mkdir(parents=True, exist_ok=True)
-                ext_attempt_chrome_dir = ext_attempt_crawl_dir / "chrome"
-                ext_attempt_env["CRAWL_DIR"] = str(ext_attempt_crawl_dir)
-                ext_attempt_process = None
+            print(
+                f"\n✓ Baseline confirmed: {baseline_result['adElementsVisible']} visible ads without extension",
+            )
 
-                try:
-                    ext_attempt_process, ext_attempt_cdp_url = launch_chromium_session(
-                        ext_attempt_env,
+            print("\n" + "=" * 60)
+            print("STEP 3: TEST WITH EXTENSION")
+            print("=" * 60)
+
+            ext_attempt_env = ext_env.copy()
+            ext_attempt_crawl_id = "test-with-ext"
+            ext_attempt_crawl_dir = crawl_root / ext_attempt_crawl_id
+            ext_attempt_crawl_dir.mkdir(parents=True, exist_ok=True)
+            ext_attempt_chrome_dir = ext_attempt_crawl_dir / "chrome"
+            ext_attempt_env["CRAWL_DIR"] = str(ext_attempt_crawl_dir)
+            ext_attempt_process = None
+
+            try:
+                ext_attempt_process, ext_attempt_cdp_url = launch_chromium_session(
+                    ext_attempt_env,
+                    ext_attempt_chrome_dir,
+                    ext_attempt_crawl_id,
+                    timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+                )
+                wait_for_extensions_metadata(
+                    ext_attempt_chrome_dir,
+                    timeout_seconds=10,
+                )
+                ext_result = check_ad_blocking(
+                    ext_attempt_cdp_url,
+                    test_url,
+                    ext_attempt_env,
+                    tmpdir,
+                )
+            finally:
+                if ext_attempt_process:
+                    kill_chromium_session(
+                        ext_attempt_process,
                         ext_attempt_chrome_dir,
-                        ext_attempt_crawl_id,
-                        timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
                     )
-                    wait_for_extensions_metadata(
-                        ext_attempt_chrome_dir,
-                        timeout_seconds=10,
-                    )
-                    ext_result = check_ad_blocking(
-                        ext_attempt_cdp_url,
-                        TEST_URL,
-                        ext_attempt_env,
-                        tmpdir,
-                    )
-                except RuntimeError as err:
-                    attempt_failures.append(
-                        f"attempt {attempt}: extension check failed: {err}",
-                    )
-                    continue
-                finally:
-                    if ext_attempt_process:
-                        kill_chromium_session(
-                            ext_attempt_process,
-                            ext_attempt_chrome_dir,
-                        )
-                print(
-                    f"Extension result: {ext_result['adElementsVisible']} visible ads "
-                    f"(found {ext_result['adElementsFound']} ad elements, "
-                    f"{ext_result['totalRequests']} total requests)",
-                )
+            print(
+                f"Extension result: {ext_result['adElementsVisible']} visible ads "
+                f"(found {ext_result['adElementsFound']} ad elements, "
+                f"{ext_result['adRequests']} ad requests, "
+                f"{ext_result['blockedRequests']} blocked ad requests, "
+                f"{ext_result['totalRequests']} total requests)",
+            )
 
-                print("\n" + "=" * 60)
-                print(f"STEP 4.{attempt}: COMPARISON")
-                print("=" * 60)
-                print(
-                    f"Baseline (no extension): {baseline_result['adElementsVisible']} visible ads, "
-                    f"{baseline_result['totalRequests']} total requests",
-                )
-                print(
-                    f"With extension: {ext_result['adElementsVisible']} visible ads, "
-                    f"{ext_result['totalRequests']} total requests",
-                )
+            print("\n" + "=" * 60)
+            print("STEP 4: COMPARISON")
+            print("=" * 60)
+            print(
+                f"Baseline (no extension): {baseline_result['adElementsVisible']} visible ads, "
+                f"{baseline_result['adRequests']} ad requests, "
+                f"{baseline_result['blockedRequests']} blocked ad requests, "
+                f"{baseline_result['totalRequests']} total requests",
+            )
+            print(
+                f"With extension: {ext_result['adElementsVisible']} visible ads, "
+                f"{ext_result['adRequests']} ad requests, "
+                f"{ext_result['blockedRequests']} blocked ad requests, "
+                f"{ext_result['totalRequests']} total requests",
+            )
 
-                ads_blocked = (
-                    baseline_result["adElementsVisible"]
-                    - ext_result["adElementsVisible"]
-                )
-                reduction_percent = (
-                    (ads_blocked / baseline_result["adElementsVisible"] * 100)
-                    if baseline_result["adElementsVisible"] > 0
-                    else 0
-                )
+            print(
+                "Blocked ad URLs: "
+                + ", ".join(sorted(ext_result["blockedAdRequestUrls"])),
+            )
 
-                print(
-                    f"Reduction: {ads_blocked} fewer visible ads ({reduction_percent:.0f}% reduction)",
-                )
-
-                request_reduction_percent = (
-                    (
-                        (baseline_result["totalRequests"] - ext_result["totalRequests"])
-                        / baseline_result["totalRequests"]
-                        * 100
-                    )
-                    if baseline_result["totalRequests"] > 0
-                    else 0
-                )
-                print(
-                    "Request reduction: "
-                    f"{baseline_result['totalRequests']} -> {ext_result['totalRequests']} "
-                    f"({request_reduction_percent:.0f}% reduction)",
-                )
-
-                strong_dom_and_request_reduction = (
-                    ext_result["adElementsVisible"]
-                    <= baseline_result["adElementsVisible"] - 2
-                    and ext_result["totalRequests"]
-                    < baseline_result["totalRequests"] * 0.8
-                )
-                weak_signal_request_reduction = (
-                    weak_signal and request_reduction_percent >= 15
-                )
-
-                if strong_dom_and_request_reduction or weak_signal_request_reduction:
-                    print("\n✓ SUCCESS: uBlock correctly blocks ads!")
-                    print(
-                        f"  - Baseline: {baseline_result['adElementsVisible']} visible ads",
-                    )
-                    print(
-                        f"  - With extension: {ext_result['adElementsVisible']} visible ads",
-                    )
-                    print(
-                        f"  - Blocked: {ads_blocked} ads ({reduction_percent:.0f}% reduction)",
-                    )
-                    print(
-                        "  - Total requests: "
-                        f"{baseline_result['totalRequests']} -> {ext_result['totalRequests']}",
-                    )
-                    if weak_signal and not strong_dom_and_request_reduction:
-                        print(
-                            "  - Accepting request reduction because the live baseline exposed too few visible ads "
-                            "for a reliable DOM-count comparison",
-                        )
-                    return
-
-                attempt_failures.append(
-                    "attempt "
-                    f"{attempt}: baseline={baseline_result['adElementsVisible']} visible ads, "
-                    f"extension={ext_result['adElementsVisible']} visible ads, "
-                    f"baseline_requests={baseline_result['totalRequests']}, "
-                    f"extension_requests={ext_result['totalRequests']}, "
-                    f"request_reduction={request_reduction_percent:.0f}%"
-                    + (" (weak baseline signal)" if weak_signal else ""),
-                )
+            ext_ad_urls = {url.lower() for url in ext_result["adRequestUrls"]}
+            blocked_ad_urls = {
+                url.lower() for url in ext_result["blockedAdRequestUrls"]
+            }
+            assert expected_ad_urls.issubset(ext_ad_urls), ext_result
+            assert len(blocked_ad_urls & expected_ad_urls) >= 2, ext_result
+            assert blocked_ad_urls.issubset(ext_ad_urls), ext_result
+            assert all(
+                "ERR_BLOCKED_BY_CLIENT" in error["errorText"]
+                for error in ext_result["failedAdRequestErrors"]
+                if error["url"].lower() in blocked_ad_urls
+            ), ext_result
+            assert ext_result["blockedRequests"] >= 1, ext_result
+            assert ext_result["blockedRequests"] > baseline_result["blockedRequests"], {
+                "baseline": baseline_result,
+                "extension": ext_result,
+            }
         finally:
             if ext_process:
                 kill_chromium_session(ext_process, ext_chrome_dir)
-
-        pytest.fail(
-            "uBlock did not produce a strong enough reduction on canyoublockit.com/extreme-test after "
-            f"{max_attempts} live attempts:\n" + "\n".join(attempt_failures),
-        )

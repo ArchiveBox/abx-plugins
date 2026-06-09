@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from abx_plugins.plugins.base.test_utils import get_hook_script, get_plugin_dir
+from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
     chrome_session,
@@ -120,23 +121,31 @@ class TestConsolelogWithChrome:
             else:
                 stdout, stderr = result.communicate()
 
-            # At minimum, verify no crash
-            assert "Traceback" not in stderr
+            assert result.returncode == 0, (
+                f"Consolelog hook did not shut down cleanly.\n"
+                f"stdout: {stdout}\nstderr: {stderr}"
+            )
 
-            # If output file exists, verify it's valid JSONL and has output
-            if console_output.exists():
-                with open(console_output) as f:
-                    content = f.read().strip()
-                    assert content, "Console output should not be empty"
-                    for line in content.split("\n"):
-                        if line.strip():
-                            try:
-                                record = json.loads(line)
-                                # Verify structure
-                                assert "timestamp" in record
-                                assert "type" in record
-                            except json.JSONDecodeError:
-                                pass  # Some lines may be incomplete
+            result_json = parse_jsonl_output(stdout)
+            assert result_json is not None, (
+                f"Consolelog hook should emit final ArchiveResult.\n"
+                f"stdout: {stdout}\nstderr: {stderr}"
+            )
+            assert result_json["status"] == "succeeded", result_json
+            assert result_json["output_str"].endswith("errors | 0 warnings"), result_json
+
+            content = console_output.read_text().strip()
+            assert content, "Console output should not be empty"
+            records = [json.loads(line) for line in content.splitlines() if line.strip()]
+            assert records, "Console output should contain JSONL records"
+            assert any(
+                record.get("type") == "log"
+                and "archivebox-console-test" in " ".join(map(str, record.get("args", [])))
+                for record in records
+            ), records
+            for record in records:
+                assert "timestamp" in record
+                assert "type" in record
 
 
 if __name__ == "__main__":

@@ -2,13 +2,12 @@
 Integration tests for git plugin
 
 Tests verify:
-    pass
 1. Validate hook checks for git binary
 2. Verify deps with abxpkg
 3. Standalone git extractor execution
 """
 
-import shutil
+import os
 import subprocess
 import sys
 import tempfile
@@ -42,7 +41,11 @@ def test_verify_deps_with_abxpkg():
 
 def test_reports_missing_git():
     with tempfile.TemporaryDirectory() as tmpdir:
-        env = {"PATH": "/nonexistent"}
+        tmpdir_path = Path(tmpdir)
+        missing_git = tmpdir_path / "missing-git-binary"
+
+        env = os.environ.copy()
+        env["GIT_BINARY"] = str(missing_git)
         result = subprocess.run(
             [
                 sys.executable,
@@ -55,18 +58,18 @@ def test_reports_missing_git():
             text=True,
             env=env,
         )
-        if result.returncode != 0:
-            combined = result.stdout + result.stderr
-            assert (
-                "DEPENDENCY_NEEDED" in combined
-                or "git" in combined.lower()
-                or "ERROR=" in combined
-            )
+
+        assert result.returncode == 1, result.stdout + result.stderr
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json is not None, f"stdout={result.stdout} stderr={result.stderr}"
+        assert result_json["type"] == "ArchiveResult"
+        assert result_json["status"] == "failed"
+        assert "FileNotFoundError" in result_json["output_str"], result_json
+        assert str(missing_git) in result_json["output_str"], result_json
+        assert "ERROR: FileNotFoundError" in result.stderr
 
 
 def test_handles_non_git_url():
-    assert shutil.which("git"), "git binary not available"
-
     with tempfile.TemporaryDirectory() as tmpdir:
         result = subprocess.run(
             [
@@ -79,24 +82,22 @@ def test_handles_non_git_url():
             text=True,
             timeout=30,
         )
-        # Should fail or skip for non-git URL
-        assert result.returncode in (0, 1)
+        assert result.returncode == 0
 
-        # Parse clean JSONL output
         result_json = parse_jsonl_output(result.stdout)
-
-        if result_json:
-            assert result_json["status"] == "noresults", (
-                f"Non-git URL should report noresults: {result_json}"
-            )
-            assert result_json["output_str"] == "Not a git URL", result_json
+        assert result_json == {
+            "type": "ArchiveResult",
+            "status": "noresults",
+            "output_str": "Not a git URL",
+        }, result_json
+        assert "Skipping git clone for non-git URL: https://example.com" in result.stderr
 
 
 def test_real_git_repo():
     """Test that git can clone a real GitHub repository."""
-    import os
-
-    assert shutil.which("git"), "git binary not available"
+    git_loaded = install_required_binary_from_config(PLUGIN_DIR, "git")
+    assert git_loaded and git_loaded.abspath, "git is required for git plugin tests"
+    assert Path(git_loaded.abspath).is_file(), git_loaded.abspath
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -106,6 +107,7 @@ def test_real_git_repo():
 
         env = os.environ.copy()
         env["GIT_TIMEOUT"] = "120"  # Give it time to clone
+        env["GIT_BINARY"] = str(git_loaded.abspath)
         env["SNAP_DIR"] = str(tmpdir)
         env["CRAWL_DIR"] = str(tmpdir)
 
@@ -135,14 +137,18 @@ def test_real_git_repo():
         assert result_json, (
             f"Should have ArchiveResult JSONL output. stdout: {result.stdout}"
         )
-        assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
+        assert result_json == {
+            "type": "ArchiveResult",
+            "status": "succeeded",
+            "output_str": "git",
+        }, result_json
 
-        # Check that the git repo was cloned in the hook's output path.
-        assert result_json.get("output_str", "").startswith("git"), result_json
-        output_path = tmpdir / (result_json.get("output_str") or "git")
-        git_dirs = list(output_path.glob("**/.git"))
-        assert len(git_dirs) > 0, (
+        output_path = tmpdir / "git"
+        assert (output_path / ".git").is_dir(), (
             f"Should have cloned a git repository. Output path: {output_path}"
+        )
+        assert (output_path / "README.md").is_file(), (
+            f"Expected repository file missing from cloned checkout: {output_path}"
         )
 
         print(f"Successfully cloned repository in {elapsed_time:.2f}s")

@@ -134,6 +134,22 @@ function parseConfigValue(rawValue, prop = {}) {
   return trimmed;
 }
 
+function getPlatformUserConfigDir() {
+  if (process.platform === "darwin") {
+    return path.join(os.homedir(), "Library", "Application Support", "abx");
+  }
+  if (process.platform === "win32") {
+    return path.join(
+      process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"),
+      "abx"
+    );
+  }
+  return path.join(
+    process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config"),
+    "abx"
+  );
+}
+
 function hydrateConfigValue(value, context) {
   if (typeof value === "string") {
     return value.replace(/\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (match, key) => {
@@ -230,7 +246,7 @@ function loadConfig(configPath = null) {
   }
 
   if (!config.PERSONAS_DIR) {
-    config.PERSONAS_DIR = path.join(os.homedir(), ".config", "abx", "personas");
+    config.PERSONAS_DIR = path.join(getPlatformUserConfigDir(), "personas");
   }
   if (
     Object.prototype.hasOwnProperty.call(config, "CHROME_USER_DATA_DIR") &&
@@ -366,13 +382,13 @@ function getCrawlDir() {
 function getLibDir() {
   const configured = (loadConfig(BASE_CONFIG_PATH).LIB_DIR || "").trim();
   if (configured) return path.resolve(configured);
-  return path.resolve(path.join(os.homedir(), ".config", "abx", "lib"));
+  return path.resolve(path.join(getPlatformUserConfigDir(), "lib"));
 }
 
 function getPersonasDir() {
   const configured = (loadConfig(BASE_CONFIG_PATH).PERSONAS_DIR || "").trim();
   if (configured) return path.resolve(configured);
-  return path.resolve(path.join(os.homedir(), ".config", "abx", "personas"));
+  return path.resolve(path.join(getPlatformUserConfigDir(), "personas"));
 }
 
 function getNodeModulesDir() {

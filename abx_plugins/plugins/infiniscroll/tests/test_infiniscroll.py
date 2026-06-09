@@ -260,9 +260,6 @@ def test_scrolls_page_and_outputs_stats(infiniscroll_test_url):
 
             # Verify output_str format: "scrolled X,XXXpx"
             output_str = result_json.get("output_str", "")
-            assert output_str.startswith("scrolled "), (
-                f"output_str should start with 'scrolled ': {output_str}"
-            )
             assert re.fullmatch(r"scrolled [\d,]+px", output_str), (
                 f"output_str should contain only scrolled pixel count: {output_str}"
             )
@@ -295,6 +292,7 @@ def test_config_scroll_limit_honored(infiniscroll_test_url):
                 "100000"  # High threshold so limit kicks in
             )
 
+            start_time = time.time()
             result = subprocess.run(
                 [
                     str(INFINISCROLL_HOOK),
@@ -307,8 +305,12 @@ def test_config_scroll_limit_honored(infiniscroll_test_url):
                 timeout=60,
                 env=env,
             )
+            elapsed = time.time() - start_time
 
             assert result.returncode == 0, f"Infiniscroll failed: {result.stderr}"
+            assert elapsed < 8, (
+                f"INFINISCROLL_SCROLL_LIMIT=2 should stop after two short scroll delays, took {elapsed:.1f}s"
+            )
 
             # Parse output and verify scroll count
             result_json = None
@@ -325,10 +327,11 @@ def test_config_scroll_limit_honored(infiniscroll_test_url):
             assert result_json is not None, "Should have JSONL output"
             output_str = result_json.get("output_str", "")
 
-            # Verify output format and that it completed (scroll limit enforced internally)
-            assert output_str.startswith("scrolled "), (
+            assert re.fullmatch(r"scrolled [\d,]+px", output_str), (
                 f"Should have valid output_str: {output_str}"
             )
+            scrolled_px = int(output_str.removeprefix("scrolled ").removesuffix("px").replace(",", ""))
+            assert scrolled_px > 0, result_json
             assert result_json["status"] == "succeeded", (
                 f"Should succeed with scroll limit: {result_json}"
             )
@@ -376,6 +379,19 @@ def test_config_timeout_honored(infiniscroll_test_url):
             assert result.returncode == 0, (
                 f"Should complete even with timeout: {result.stderr}"
             )
+            result_json = None
+            for line in result.stdout.strip().split("\n"):
+                if line.strip().startswith("{"):
+                    record = json.loads(line)
+                    if record.get("type") == "ArchiveResult":
+                        result_json = record
+                        break
+            assert result_json is not None, result.stdout
+            assert result_json["status"] == "succeeded", result_json
+            assert re.fullmatch(
+                r"scrolled [\d,]+px",
+                result_json.get("output_str", ""),
+            ), result_json
 
 
 if __name__ == "__main__":

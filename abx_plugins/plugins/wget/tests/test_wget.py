@@ -2,7 +2,6 @@
 Integration tests for wget plugin
 
 Tests verify:
-    pass
 1. Validate hook checks for wget binary
 2. Verify deps with abxpkg
 3. Config options work (WGET_ENABLED, WGET_SAVE_WARC, etc.)
@@ -14,7 +13,6 @@ Tests verify:
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -59,14 +57,11 @@ def test_wget_declares_only_env_apt_brew_providers():
 def test_verify_deps_with_abxpkg():
     """Verify wget is available via abxpkg."""
     wget_loaded = install_required_binary_from_config(PLUGIN_DIR, "wget")
-
-    if wget_loaded and wget_loaded.abspath:
-        assert True, "wget is available"
-    else:
-        pass
+    assert wget_loaded and wget_loaded.abspath, "wget is required for wget plugin tests"
+    assert Path(wget_loaded.abspath).is_file(), wget_loaded.abspath
 
 
-def test_resolves_wget_with_provider_managed_binary_path():
+def test_resolves_wget_with_provider_managed_binary_path(local_example_url):
     """The hook should use the real hydrated binary resolution path."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -89,7 +84,7 @@ def test_resolves_wget_with_provider_managed_binary_path():
                 sys.executable,
                 str(WGET_HOOK),
                 "--url",
-                TEST_URL,
+                local_example_url,
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -100,7 +95,10 @@ def test_resolves_wget_with_provider_managed_binary_path():
         assert result.returncode == 0, result.stderr
         result_json = parse_jsonl_output(result.stdout)
         assert result_json, "Expected ArchiveResult JSONL output"
-        assert result_json["status"] in {"succeeded", "noresults"}, result_json
+        assert result_json["type"] == "ArchiveResult", result_json
+        assert result_json["status"] == "succeeded", result_json
+        assert result_json["output_str"].startswith("wget/"), result_json
+        assert (tmpdir / result_json["output_str"]).is_file(), result_json
 
 
 def test_can_install_wget_via_abxpkg_provider():
@@ -234,12 +232,10 @@ def test_config_save_wget_false_skips():
         assert result_json["output_str"] == "WGET_ENABLED=False", result_json
 
 
-def test_config_save_warc():
+def test_config_save_warc(local_example_url):
     """Test that WGET_SAVE_WARC=True creates WARC files."""
 
-    # Ensure wget is available
-    if not shutil.which("wget"):
-        pass
+    install_required_binary_from_config(PLUGIN_DIR, "wget")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -253,7 +249,7 @@ def test_config_save_warc():
             [
                 str(WGET_HOOK),
                 "--url",
-                TEST_URL,
+                local_example_url,
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -262,15 +258,23 @@ def test_config_save_warc():
             timeout=120,
         )
 
-        if result.returncode == 0:
-            # Look for WARC files in warc/ subdirectory
-            warc_dir = tmpdir / "wget" / "warc"
-            if warc_dir.exists():
-                warc_files = list(warc_dir.rglob("*"))
-                warc_files = [f for f in warc_files if f.is_file()]
-                assert len(warc_files) > 0, (
-                    "WARC file not created when WGET_SAVE_WARC=True"
-                )
+        assert result.returncode == 0, result.stderr
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json == {
+            "type": "ArchiveResult",
+            "status": "succeeded",
+            "output_str": result_json["output_str"],
+        }, result_json
+        assert result_json["output_str"].startswith("wget/"), result_json
+        assert (tmpdir / result_json["output_str"]).is_file(), result_json
+
+        warc_dir = tmpdir / "wget" / "warc"
+        assert warc_dir.is_dir(), "WARC output directory was not created"
+        warc_files = [f for f in warc_dir.rglob("*") if f.is_file()]
+        assert warc_files, "WARC file not created when WGET_SAVE_WARC=True"
+        assert any(f.suffix == ".gz" and f.stat().st_size > 0 for f in warc_files), (
+            f"Expected a non-empty compressed WARC file, got: {warc_files}"
+        )
 
 
 def test_staticfile_present_skips():
@@ -328,9 +332,12 @@ def test_staticfile_present_skips():
 
 def test_handles_404_gracefully(httpserver):
     """Test that wget fails gracefully on 404."""
-
-    if not shutil.which("wget"):
-        pass
+    install_required_binary_from_config(PLUGIN_DIR, "wget")
+    httpserver.expect_request("/nonexistent-page-404").respond_with_data(
+        "Not Found",
+        status=404,
+        content_type="text/plain",
+    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -349,21 +356,19 @@ def test_handles_404_gracefully(httpserver):
         )
 
         # Should fail
-        assert result.returncode != 0, "Should fail on 404"
-        combined = result.stdout + result.stderr
-        assert (
-            "404" in combined
-            or "Not Found" in combined
-            or "No files downloaded" in combined
-            or "exit=8" in combined
-        ), "Should report 404 or no files downloaded"
+        assert result.returncode == 1, "Should fail on 404"
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json == {
+            "type": "ArchiveResult",
+            "status": "failed",
+            "output_str": "wget failed (exit=8)",
+        }, result_json
+        assert "ERROR: wget failed (exit=8)" in result.stderr
 
 
-def test_config_timeout_honored():
+def test_config_timeout_honored(local_example_url):
     """Test that WGET_TIMEOUT config is respected."""
-
-    if not shutil.which("wget"):
-        pass
+    install_required_binary_from_config(PLUGIN_DIR, "wget")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -371,13 +376,14 @@ def test_config_timeout_honored():
         # Set very short timeout
         env = os.environ.copy()
         env["WGET_TIMEOUT"] = "5"
+        env["SNAP_DIR"] = str(tmpdir)
 
         # This should still succeed for example.com (it's fast)
         result = subprocess.run(
             [
                 str(WGET_HOOK),
                 "--url",
-                TEST_URL,
+                local_example_url,
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -386,15 +392,25 @@ def test_config_timeout_honored():
             timeout=30,
         )
 
-        # Verify it completed (success or fail, but didn't hang)
-        assert result.returncode in (0, 1), "Should complete (success or fail)"
+        assert result.returncode == 0, result.stderr
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json["type"] == "ArchiveResult", result_json
+        assert result_json["status"] == "succeeded", result_json
+        assert result_json["output_str"].startswith("wget/"), result_json
+        assert (tmpdir / result_json["output_str"]).is_file(), result_json
 
 
-def test_config_user_agent():
+def test_config_user_agent(httpserver):
     """Test that WGET_USER_AGENT config is used."""
-
-    if not shutil.which("wget"):
-        pass
+    install_required_binary_from_config(PLUGIN_DIR, "wget")
+    httpserver.expect_request(
+        "/",
+        headers={"User-Agent": "TestBot/1.0"},
+    ).respond_with_data(
+        "<!doctype html><html><body><h1>User Agent OK</h1></body></html>",
+        status=200,
+        content_type="text/html",
+    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -402,12 +418,13 @@ def test_config_user_agent():
         # Set custom user agent
         env = os.environ.copy()
         env["WGET_USER_AGENT"] = "TestBot/1.0"
+        env["SNAP_DIR"] = str(tmpdir)
 
         result = subprocess.run(
             [
                 str(WGET_HOOK),
                 "--url",
-                TEST_URL,
+                httpserver.url_for("/"),
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -416,15 +433,12 @@ def test_config_user_agent():
             timeout=120,
         )
 
-        # Should succeed (example.com doesn't block)
-        if result.returncode == 0:
-            # Parse clean JSONL output
-            result_json = parse_jsonl_output(result.stdout)
-
-            assert result_json, "Should have ArchiveResult JSONL output"
-            assert result_json["status"] == "succeeded", (
-                f"Should succeed: {result_json}"
-            )
+        assert result.returncode == 0, result.stderr
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json["type"] == "ArchiveResult", result_json
+        assert result_json["status"] == "succeeded", result_json
+        assert result_json["output_str"].startswith("wget/"), result_json
+        assert (tmpdir / result_json["output_str"]).is_file(), result_json
 
 
 if __name__ == "__main__":

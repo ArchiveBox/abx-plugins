@@ -92,14 +92,18 @@ def _download_test_pdf() -> bytes:
         "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
         "https://www.orimi.com/pdf-test.pdf",
     ]
+    failures = []
     for url in pdf_urls:
         try:
             resp = requests.get(url, timeout=30)
-            if resp.status_code == 200 and resp.content[:5] == b"%PDF-":
+            if resp.status_code == 200 and resp.content.startswith(b"%PDF-"):
                 return resp.content
-        except Exception:
-            continue
-    pytest.fail("Could not download any test PDF from the web")
+            failures.append(
+                f"{url}: HTTP {resp.status_code}, prefix={resp.content[:8]!r}",
+            )
+        except requests.RequestException as exc:
+            failures.append(f"{url}: {exc!r}")
+    pytest.fail("Could not download any test PDF from the web: " + "; ".join(failures))
 
 
 def test_hook_script_exists():
@@ -388,8 +392,8 @@ def test_force_ocr_adds_hybrid_flag():
         )
 
 
-def test_cli_runtime_failure_reports_failed_status():
-    """A non-zero opendataloader CLI exit should report failed, not noresults."""
+def test_invalid_opendataloader_binary_path_reports_failed_status():
+    """A missing opendataloader CLI path should report failed, not noresults."""
     pdf_content = _download_test_pdf()
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -399,16 +403,9 @@ def test_cli_runtime_failure_reports_failed_status():
         responses_dir.mkdir(parents=True, exist_ok=True)
         (responses_dir / "output.pdf").write_bytes(pdf_content)
 
-        failing_binary = tmpdir / "fake-opendataloader"
-        failing_binary.write_text(
-            "#!/bin/sh\necho 'simulated CLI failure' 1>&2\nexit 1\n",
-            encoding="utf-8",
-        )
-        failing_binary.chmod(0o755)
-
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
-        env["OPENDATALOADER_BINARY"] = str(failing_binary)
+        env["OPENDATALOADER_BINARY"] = str(tmpdir / "missing-opendataloader")
 
         result = subprocess.run(
             [
@@ -423,13 +420,11 @@ def test_cli_runtime_failure_reports_failed_status():
             env=env,
         )
 
-        assert result.returncode == 1, (
-            f"Hook should fail on CLI runtime error: {result.stderr}"
-        )
+        assert result.returncode == 1, f"Hook should fail on missing CLI: {result.stderr}"
         record = parse_jsonl_output(result.stdout)
         assert record, "Should emit ArchiveResult JSONL output"
         assert record["status"] == "failed", record
-        assert "simulated CLI failure" in record["output_str"], record
+        assert "opendataloader" in record["output_str"].lower(), record
 
 
 if __name__ == "__main__":

@@ -134,10 +134,7 @@ class TestDNSWithChrome:
                 line = line.strip()
                 if not line:
                     continue
-                try:
-                    records.append(json.loads(line))
-                except json.JSONDecodeError:
-                    pass
+                records.append(json.loads(line))
 
             assert records, "No DNS records parsed"
             has_ip_record = any(r.get("hostname") and r.get("ip") for r in records)
@@ -156,10 +153,7 @@ class TestDNSWithChrome:
                 line = line.strip()
                 if not line.startswith("{"):
                     continue
-                try:
-                    record = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
+                record = json.loads(line)
                 if record.get("type") == "ArchiveResult":
                     archive_result = record
                     break

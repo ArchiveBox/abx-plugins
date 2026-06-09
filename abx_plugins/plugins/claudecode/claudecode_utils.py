@@ -223,7 +223,6 @@ def run_claude_code(
         "TWOCAPTCHA_API_KEY",
         "API_KEY_2CAPTCHA",
         "OPENAI_API_KEY",
-        "COOKIES_TXT_FILE",
         "COOKIES_FILE",
         "SSH_AUTH_SOCK",
         "SSH_AGENT_PID",

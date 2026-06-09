@@ -11,9 +11,9 @@ Tests verify:
 7. Config options work
 """
 
-import os
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
@@ -125,6 +125,7 @@ def test_screenshot_with_chrome_session(chrome_test_url):
                 result_json = parse_jsonl_output(result.stdout)
 
                 assert result_json and result_json["status"] == "succeeded"
+                assert result_json["output_str"] == "screenshot/screenshot.png"
                 screenshot_file = screenshot_dir / "screenshot.png"
                 assert (
                     screenshot_file.exists() and screenshot_file.stat().st_size > 1000
@@ -198,28 +199,19 @@ def test_skips_when_staticfile_exists(chrome_test_url):
 
         assert result_json, "Should have ArchiveResult JSONL output"
         assert result_json["status"] == "noresults", f"Should noresult: {result_json}"
+        assert result_json["output_str"] == "staticfile already handled"
+        assert not (screenshot_dir / "screenshot.png").exists()
 
 
 def test_config_save_screenshot_false_skips(chrome_test_url):
     """Test that SCREENSHOT_ENABLED=False exits with skipped JSONL."""
-
-    # FIRST check what Python sees
-    print(
-        f"\n[DEBUG PYTHON] NODE_V8_COVERAGE in os.environ: {'NODE_V8_COVERAGE' in os.environ}",
-    )
-    print(f"[DEBUG PYTHON] Value: {os.environ.get('NODE_V8_COVERAGE', 'NOT SET')}")
-
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
-        env = os.environ.copy()
+        env = get_test_env()
         env["SCREENSHOT_ENABLED"] = "False"
         env["SNAP_DIR"] = str(snap_dir)
-
-        # Check what's in the copied env
-        print(f"[DEBUG ENV COPY] NODE_V8_COVERAGE in env: {'NODE_V8_COVERAGE' in env}")
-        print(f"[DEBUG ENV COPY] Value: {env.get('NODE_V8_COVERAGE', 'NOT SET')}")
 
         result = subprocess.run(
             [
@@ -234,9 +226,6 @@ def test_config_save_screenshot_false_skips(chrome_test_url):
             timeout=30,
         )
 
-        print(f"[DEBUG RESULT] Exit code: {result.returncode}")
-        print(f"[DEBUG RESULT] Stderr: {result.stderr[:200]}")
-
         assert result.returncode == 0, (
             f"Should exit 0 when feature disabled: {result.stderr}"
         )
@@ -249,10 +238,12 @@ def test_config_save_screenshot_false_skips(chrome_test_url):
         assert result_json, "Should emit JSONL when disabled"
         assert result_json["type"] == "ArchiveResult"
         assert result_json["status"] == "skipped"
+        assert result_json["output_str"] == "SCREENSHOT_ENABLED=False"
+        assert not (snap_dir / "screenshot" / "screenshot.png").exists()
 
 
-def test_reports_missing_chrome(chrome_test_url):
-    """Test that script reports error when Chrome is not found."""
+def test_reports_missing_chrome_session(chrome_test_url):
+    """Test that script reports an ArchiveResult failure when no Chrome session exists."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
@@ -275,20 +266,19 @@ def test_reports_missing_chrome(chrome_test_url):
             timeout=30,
         )
 
-        # Should fail and report missing Chrome
-        if result.returncode != 0:
-            combined = result.stdout + result.stderr
-            assert (
-                "chrome" in combined.lower()
-                or "browser" in combined.lower()
-                or "ERROR=" in combined
-            )
+        assert result.returncode != 0, (
+            f"Should fail when no chrome session exists.\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json is not None, "Should emit failed ArchiveResult"
+        assert result_json["status"] == "failed", result_json
+        combined = result.stdout + result.stderr
+        assert "chrome" in combined.lower(), combined
 
 
 def test_waits_for_navigation_timeout(chrome_test_url):
     """Test that screenshot waits for navigation.json and times out quickly if missing."""
-    import time
-
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir / "snap"
@@ -334,18 +324,21 @@ def test_waits_for_navigation_timeout(chrome_test_url):
 
 
 def test_config_timeout_honored(chrome_test_url):
-    """Test that CHROME_TIMEOUT config is respected."""
+    """Test that SCREENSHOT_TIMEOUT config controls the navigation wait budget."""
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
+        chrome_dir = snap_dir / "chrome"
+        chrome_dir.mkdir()
+        (chrome_dir / "cdp_url.txt").write_text("ws://chrome-cdp.localhost:9222/test")
+        (chrome_dir / "target_id.txt").write_text("test-target")
 
-        # Set very short timeout
-        env = os.environ.copy()
-        env["CHROME_TIMEOUT"] = "5"
-        env["SNAP_DIR"] = str(snap_dir)
+        env = get_test_env() | {"SNAP_DIR": str(snap_dir)}
+        env["SCREENSHOT_TIMEOUT"] = "1"
 
+        start = time.time()
         result = subprocess.run(
             [
                 str(SCREENSHOT_HOOK),
@@ -356,11 +349,15 @@ def test_config_timeout_honored(chrome_test_url):
             capture_output=True,
             text=True,
             env=env,
-            timeout=30,
+            timeout=5,
         )
+        elapsed = time.time() - start
 
-        # Should complete (success or fail, but not hang)
-        assert result.returncode in (0, 1), "Should complete without hanging"
+        assert result.returncode != 0, "Should fail when navigation never completes"
+        assert elapsed < 2.5, f"Should honor 1s timeout, took {elapsed:.1f}s"
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json is not None
+        assert result_json["status"] == "failed", result_json
 
 
 def test_missing_url_argument():
@@ -405,6 +402,10 @@ def test_url_only_without_snapshot_id_argument(chrome_test_url):
 
         # Should skip successfully and not require --snapshot-id
         assert result.returncode == 0, "Should not require snapshot-id"
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json is not None
+        assert result_json["status"] == "skipped", result_json
+        assert result_json["output_str"] == "SCREENSHOT_ENABLED=False"
 
 
 def test_no_cdp_url_fails(chrome_test_url):
@@ -505,7 +506,7 @@ def test_invalid_cdp_url_fails(chrome_test_url):
 
 
 def test_invalid_timeout_uses_default(chrome_test_url):
-    """Test that invalid SCREENSHOT_TIMEOUT falls back to default."""
+    """Test that invalid SCREENSHOT_TIMEOUT fails through the hook's ArchiveResult path."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir / "snap"
@@ -524,8 +525,6 @@ def test_invalid_timeout_uses_default(chrome_test_url):
             "invalid"  # Should fallback to default (10s becomes NaN, treated as 0)
         )
 
-        import time
-
         start = time.time()
         result = subprocess.run(
             [
@@ -541,9 +540,12 @@ def test_invalid_timeout_uses_default(chrome_test_url):
         )
         elapsed = time.time() - start
 
-        # With invalid timeout, parseInt returns NaN, which should be handled
         assert result.returncode != 0
-        assert elapsed < 2  # Should fail quickly, not wait 10s
+        assert elapsed < 2
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json is not None
+        assert result_json["status"] == "failed", result_json
+        assert "Invalid SCREENSHOT_TIMEOUT=invalid" in result_json["output_str"]
 
 
 if __name__ == "__main__":

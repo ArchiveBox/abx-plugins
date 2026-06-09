@@ -9,7 +9,7 @@ Tests verify:
 5. Fails gracefully when no chrome session exists
 6. Background script runs and handles SIGTERM correctly
 7. Config options work (timeout, poll interval)
-8. Live test: hides cookie consent on filmin.es
+8. Local CookieYes-style consent popup is hidden by the real hook
 """
 
 import json
@@ -35,7 +35,6 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 PLUGIN_DIR = Path(__file__).resolve().parent.parent
 MODALCLOSER_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_modalcloser.*"), None)
 TEST_URL = "https://www.singsing.movie/"
-COOKIE_CONSENT_TEST_URL = "https://www.filmin.es/"
 CHROME_STARTUP_TIMEOUT_SECONDS = 45
 
 
@@ -62,6 +61,32 @@ def _modal_page_url(httpserver) -> str:
     return httpserver.url_for("/modal")
 
 
+def _cookieyes_page_url(httpserver) -> str:
+    """Serve a deterministic CookieYes-style consent popup."""
+    html = """<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>CookieYes Fixture</title>
+</head>
+<body class="modal-open" style="overflow: hidden;">
+  <main><h1>CookieYes Fixture</h1></main>
+  <div class="cky-overlay" style="display:block; visibility:visible; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:9998;"></div>
+  <div class="cky-consent-container cky-popup-center" role="region" style="display:block; visibility:visible; position:fixed; inset:auto 24px 24px auto; width:320px; padding:16px; background:#151527; color:#fff; z-index:9999;">
+    <p class="cky-title">Consentimiento de cookies</p>
+    <button class="cky-btn cky-btn-reject">Rechazar todo</button>
+    <button class="cky-btn cky-btn-accept">Aceptar todo</button>
+  </div>
+</body>
+</html>
+"""
+    httpserver.expect_request("/cookieyes").respond_with_data(
+        html,
+        content_type="text/html; charset=utf-8",
+    )
+    return httpserver.url_for("/cookieyes")
+
+
 def _plain_page_url(httpserver) -> str:
     """Serve a deterministic page with no dismissible modals or banners."""
     html = """<!doctype html>
@@ -80,6 +105,70 @@ def _plain_page_url(httpserver) -> str:
         content_type="text/html; charset=utf-8",
     )
     return httpserver.url_for("/plain")
+
+
+def _inspect_cookieyes_state(snapshot_chrome_dir: Path, env: dict[str, str]) -> dict:
+    """Read visible CookieYes state from the active Chrome page without mutating it."""
+    script = r"""
+const chromeUtils = require(process.argv[1]);
+const chromeSessionDir = process.argv[2];
+
+(async () => {
+  const puppeteer = chromeUtils.resolvePuppeteerModule();
+  const { browser, page } = await chromeUtils.connectToPage({
+    chromeSessionDir,
+    timeoutMs: 10000,
+    waitForNavigationComplete: true,
+    puppeteer,
+  });
+  try {
+    const state = await page.evaluate(() => {
+      function visible(selector) {
+        const el = document.querySelector(selector);
+        if (!el) return { found: false, visible: false };
+        const style = window.getComputedStyle(el);
+        return {
+          found: true,
+          visible: style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0',
+          display: style.display,
+          visibility: style.visibility,
+          opacity: style.opacity,
+        };
+      }
+      return {
+        container: visible('.cky-consent-container'),
+        overlay: visible('.cky-overlay'),
+        bodyOverflow: window.getComputedStyle(document.body).overflow,
+        bodyHasModalClass: document.body.classList.contains('modal-open'),
+      };
+    });
+    process.stdout.write(JSON.stringify(state));
+  } finally {
+    await browser.disconnect();
+  }
+})().catch(error => {
+  console.error(error && (error.stack || error.message || String(error)));
+  process.exit(1);
+});
+"""
+    chrome_utils = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
+    result = subprocess.run(
+        [
+            "node",
+            "-e",
+            script,
+            str(chrome_utils),
+            str(snapshot_chrome_dir),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=20,
+        env=env,
+    )
+    assert result.returncode == 0, (
+        f"CookieYes state inspection failed.\nstdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+    return json.loads(result.stdout)
 
 
 def test_hook_script_exists():
@@ -467,201 +556,76 @@ def test_config_poll_interval(httpserver):
                 modalcloser_process.kill()
 
 
-def test_hides_cookie_consent_on_filmin():
-    """Live test: verify modalcloser hides cookie consent popup on filmin.es."""
-    base_utils_path = (PLUGIN_DIR.parent / "base" / "utils.js").resolve()
-
-    # Create a test script that uses puppeteer directly
-    test_script = """
-const { ensureNodeModuleResolution } = require(__BASE_UTILS_PATH__);
-ensureNodeModuleResolution(module);
-
-function resolvePuppeteer() {
-    for (const moduleName of ['puppeteer-core', 'puppeteer']) {
-        try {
-            return require(moduleName);
-        } catch (error) {}
-    }
-    throw new Error('Missing puppeteer dependency (need puppeteer-core or puppeteer)');
-}
-
-const puppeteer = resolvePuppeteer();
-
-async function closeModals(page) {
-    return page.evaluate(() => {
-        let closed = 0;
-
-        // Bootstrap 4/5
-        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-            document.querySelectorAll('.modal.show').forEach(el => {
-                try {
-                    const modal = bootstrap.Modal.getInstance(el);
-                    if (modal) { modal.hide(); closed++; }
-                } catch (e) {}
-            });
-        }
-
-        // Bootstrap 3 / jQuery
-        if (typeof jQuery !== 'undefined' && jQuery.fn && jQuery.fn.modal) {
-            try {
-                const $modals = jQuery('.modal.in, .modal.show');
-                if ($modals.length > 0) {
-                    $modals.modal('hide');
-                    closed += $modals.length;
-                }
-            } catch (e) {}
-        }
-
-        // Generic selectors including cookie consent
-        const genericSelectors = [
-            // CookieYes (cky) specific selectors
-            '.cky-consent-container',
-            '.cky-popup-center',
-            '.cky-overlay',
-            '.cky-modal',
-            '#ckyPreferenceCenter',
-            // Generic cookie consent
-            '#cookie-consent', '.cookie-banner', '.cookie-notice',
-            '#cookieConsent', '.cookie-consent', '.cookies-banner',
-            '[class*="cookie"][class*="banner"]',
-            '[class*="cookie"][class*="notice"]',
-            '[class*="consent"]',
-            '[class*="gdpr"]',
-            '.modal-overlay', '.modal-backdrop',
-            '.popup-overlay', '.newsletter-popup',
-        ];
-
-        genericSelectors.forEach(selector => {
-            try {
-                document.querySelectorAll(selector).forEach(el => {
-                    const style = window.getComputedStyle(el);
-                    if (style.display === 'none' || style.visibility === 'hidden') return;
-                    el.style.display = 'none';
-                    el.style.visibility = 'hidden';
-                    el.style.opacity = '0';
-                    el.style.pointerEvents = 'none';
-                    closed++;
-                });
-            } catch (e) {}
-        });
-
-        document.body.style.overflow = '';
-        document.body.classList.remove('modal-open', 'overflow-hidden', 'no-scroll');
-
-        return closed;
-    });
-}
-
-async function main() {
-    const browser = await puppeteer.launch({
-        headless: 'new',
-        executablePath: process.env.CHROME_BINARY || '/usr/bin/chromium',
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled']
-    });
-
-    const page = await browser.newPage();
-    // Set real user agent to bypass headless detection
-    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    await page.setViewport({ width: 1440, height: 900 });
-
-    console.error('Navigating to filmin.es...');
-    await page.goto('https://www.filmin.es/', { waitUntil: 'networkidle2', timeout: 30000 });
-
-    // Wait for cookie consent to appear
-    await new Promise(r => setTimeout(r, 3000));
-
-    // Check BEFORE
-    const before = await page.evaluate(() => {
-        const el = document.querySelector('.cky-consent-container');
-        if (!el) return { found: false };
-        const style = window.getComputedStyle(el);
-        return { found: true, display: style.display, visibility: style.visibility };
-    });
-
-    console.error('Before:', JSON.stringify(before));
-
-    // Run modal closer
-    const closed = await closeModals(page);
-    console.error('Closed:', closed, 'modals');
-
-    // Check AFTER
-    const after = await page.evaluate(() => {
-        const el = document.querySelector('.cky-consent-container');
-        if (!el) return { found: false };
-        const style = window.getComputedStyle(el);
-        return { found: true, display: style.display, visibility: style.visibility };
-    });
-
-    console.error('After:', JSON.stringify(after));
-
-    await browser.close();
-
-    // Output result as JSON for Python to parse
-    const result = {
-        before_found: before.found,
-        before_visible: before.found && before.display !== 'none' && before.visibility !== 'hidden',
-        after_hidden: !after.found || after.display === 'none' || after.visibility === 'hidden',
-        modals_closed: closed
-    };
-    console.log(JSON.stringify(result));
-}
-
-main().catch(e => {
-    console.error('Error:', e.message);
-    process.exit(1);
-});
-"""
-    test_script = test_script.replace(
-        "__BASE_UTILS_PATH__",
-        json.dumps(str(base_utils_path)),
-    )
-
+def test_hides_cookieyes_consent_with_real_hook(httpserver):
+    """Verify modalcloser hides a CookieYes popup through the real hook path."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-        script_path = tmpdir / "test_cookie_consent.js"
-        script_path.write_text(f"#!/usr/bin/env node\n{test_script}", encoding="utf-8")
-        script_path.chmod(0o755)
+        modalcloser_process = None
+        try:
+            test_url = _cookieyes_page_url(httpserver)
+            with chrome_session(
+                Path(tmpdir),
+                crawl_id="test-cookieyes",
+                snapshot_id="snap-cookieyes",
+                test_url=test_url,
+                timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+            ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
+                before = _inspect_cookieyes_state(snapshot_chrome_dir, env)
+                assert before["container"]["found"] is True, before
+                assert before["container"]["visible"] is True, before
+                assert before["overlay"]["visible"] is True, before
 
-        snap_dir = tmpdir / "snap"
-        snap_dir.mkdir(parents=True, exist_ok=True)
-        env = get_test_env() | {"SNAP_DIR": str(snap_dir)}
+                modalcloser_dir = snapshot_chrome_dir.parent / "modalcloser"
+                modalcloser_dir.mkdir()
+                env["MODALCLOSER_POLL_INTERVAL"] = "200"
 
-        result = subprocess.run(
-            ["node", str(script_path)],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=60,
-        )
+                modalcloser_process = subprocess.Popen(
+                    [
+                        str(MODALCLOSER_HOOK),
+                        f"--url={test_url}",
+                        "--snapshot-id=snap-cookieyes",
+                    ],
+                    cwd=str(modalcloser_dir),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    env=env,
+                )
 
-        print(f"stderr: {result.stderr}")
-        print(f"stdout: {result.stdout}")
+                time.sleep(1.5)
+                assert modalcloser_process.poll() is None, "Should still be running"
 
-        assert result.returncode == 0, f"Test script failed: {result.stderr}"
+                after = _inspect_cookieyes_state(snapshot_chrome_dir, env)
+                assert after["container"]["found"] is True, after
+                assert after["container"]["visible"] is False, after
+                assert after["overlay"]["visible"] is False, after
+                assert after["bodyHasModalClass"] is False, after
 
-        # Parse the JSON output
-        output_lines = [
-            line for line in result.stdout.strip().split("\n") if line.startswith("{")
-        ]
-        assert len(output_lines) > 0, (
-            f"No JSON output from test script. stdout: {result.stdout}"
-        )
+                modalcloser_process.send_signal(signal.SIGTERM)
+                stdout, stderr = modalcloser_process.communicate(timeout=5)
 
-        test_result = json.loads(output_lines[-1])
+                assert modalcloser_process.returncode == 0, (
+                    f"Should exit 0 on SIGTERM: {stderr}"
+                )
 
-        # The cookie consent should have been found initially (or page changed)
-        # After running closeModals, it should be hidden
-        if test_result["before_found"]:
-            assert test_result["after_hidden"], (
-                f"Cookie consent should be hidden after modalcloser. Result: {test_result}"
-            )
-            assert test_result["modals_closed"] > 0, (
-                f"Should have closed at least one modal. Result: {test_result}"
-            )
-        else:
-            # Page may have changed, just verify no errors
-            print("Cookie consent element not found (page may have changed)")
+                result_json = None
+                for line in stdout.strip().split("\n"):
+                    line = line.strip()
+                    if not line.startswith("{"):
+                        continue
+                    record = json.loads(line)
+                    if record.get("type") == "ArchiveResult":
+                        result_json = record
+                        break
+
+                assert result_json is not None, stdout
+                assert result_json["status"] == "succeeded", result_json
+                output_str = result_json.get("output_str", "")
+                assert output_str.endswith("modals closed"), result_json
+                assert int(output_str.split()[0]) >= 2, result_json
+
+        finally:
+            if modalcloser_process and modalcloser_process.poll() is None:
+                modalcloser_process.kill()
 
 
 if __name__ == "__main__":

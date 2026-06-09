@@ -913,7 +913,7 @@ def _resolve_path(path_value: str) -> Path:
 def get_lib_dir() -> Path:
     """Return library directory.
 
-    Priority: LIB_DIR env var, otherwise ~/.config/abx/lib.
+    Priority: LIB_DIR env var, otherwise the platform user-config abx/lib dir.
     """
     config = load_config(BASE_CONFIG_PATH)
     return _resolve_path(str(config.LIB_DIR))

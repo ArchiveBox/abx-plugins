@@ -36,11 +36,6 @@ TEST_URL = "https://www.youtube.com/watch?v=jNQXAC9IVRw"
 _ytdlp_binary_path = None
 
 
-def _has_ssl_cert_error(result: subprocess.CompletedProcess[str]) -> bool:
-    combined = f"{result.stdout}\n{result.stderr}"
-    return "CERTIFICATE_VERIFY_FAILED" in combined
-
-
 def _build_test_wav_bytes() -> bytes:
     """Build a short deterministic WAV payload for local-media extractor tests."""
     sample_rate = 8000
@@ -238,6 +233,12 @@ def test_config_timeout(non_video_test_url):
         assert elapsed_time <= 10.0, (
             f"Non-media URL should still fail quickly even with a valid configured timeout, took {elapsed_time:.2f}s"
         )
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json == {
+            "type": "ArchiveResult",
+            "status": "noresults",
+            "output_str": "No media found",
+        }, result_json
 
 
 def test_extracts_local_media_url(media_test_url):
@@ -277,10 +278,11 @@ def test_extracts_local_media_url(media_test_url):
         assert result_json, (
             f"Should have ArchiveResult JSONL output. stdout: {result.stdout}"
         )
-        assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
+        assert result_json["type"] == "ArchiveResult", result_json
+        assert result_json["status"] == "succeeded", result_json
 
         # Check that some video/audio files were downloaded
-        output_files = list(tmpdir.glob("**/*"))
+        output_files = sorted(tmpdir.glob("**/*"))
         media_files = [
             f
             for f in output_files
@@ -302,6 +304,12 @@ def test_extracts_local_media_url(media_test_url):
         assert len(media_files) > 0, (
             f"Should have downloaded at least one video/audio file. Files: {output_files}"
         )
+        output_path = tmpdir / result_json["output_str"]
+        assert output_path.is_file(), f"ArchiveResult output missing: {output_path}"
+        assert output_path in media_files, (
+            f"ArchiveResult should point at a downloaded media artifact: {result_json}"
+        )
+        assert output_path.stat().st_size > 0, f"Downloaded media is empty: {output_path}"
 
         print(
             f"Successfully extracted {len(media_files)} file(s) in {elapsed_time:.2f}s",
@@ -357,7 +365,11 @@ def test_uses_real_ffmpeg_binary_from_env_when_not_on_path(media_test_url):
         assert result_json, (
             f"Should have ArchiveResult JSONL output. stdout: {result.stdout}"
         )
+        assert result_json["type"] == "ArchiveResult", result_json
         assert result_json["status"] == "succeeded", result_json
+        output_path = tmpdir_path / result_json["output_str"]
+        assert output_path.is_file(), f"ArchiveResult output missing: {output_path}"
+        assert output_path.stat().st_size > 0, f"Downloaded media is empty: {output_path}"
 
 
 if __name__ == "__main__":

@@ -3872,7 +3872,7 @@ async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
   try {
     contents = fs.readFileSync(cookiesFile, "utf-8");
   } catch (e) {
-    console.error(`[!] Failed to read COOKIES_TXT_FILE: ${e.message}`);
+    console.error(`[!] Failed to read COOKIES_FILE: ${e.message}`);
     return;
   }
 
@@ -4028,7 +4028,7 @@ async function ensureChromeSession(options = {}) {
       ? false
       : getEnvBool("CHROME_IS_LOCAL", true),
     downloadsDir = getEnv("CHROME_DOWNLOADS_DIR"),
-    cookiesFile = getEnv("COOKIES_TXT_FILE") || getEnv("COOKIES_FILE"),
+    cookiesFile = getEnv("COOKIES_FILE"),
     extensionsDir = getExtensionsDir(),
     timeoutMs = getEnvInt("CHROME_TIMEOUT", 60) * 1000,
     reuseExisting = !CHROME_CDP_URL,

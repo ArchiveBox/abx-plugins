@@ -125,31 +125,34 @@ def test_extracts_with_mercury_parser(httpserver):
         assert output_file.exists(), "content.html not created"
 
         content = output_file.read_text()
-        assert len(content) > 0, "Output should not be empty"
+        assert "mercury parser" in content.lower(), content[:500]
+        content_txt = snap_dir / "mercury" / "content.txt"
+        assert content_txt.exists(), "content.txt not created"
+        assert "mercury parser" in content_txt.read_text(errors="ignore").lower()
+        article_json = snap_dir / "mercury" / "article.json"
+        assert article_json.exists(), "article.json not created"
+        metadata = json.loads(article_json.read_text())
+        assert metadata.get("title") == "Example Article", metadata
 
 
-def test_extracts_with_local_html_source_present(httpserver):
-    """Test real mercury extraction when local singlefile source is present."""
+def test_extracts_from_served_test_url_html(httpserver):
+    """Mercury should parse a specific served HTML file with postlight-parser."""
     binary_path = require_mercury_binary()
-    test_url = httpserver.url_for("/mercury-with-local-source")
+    test_url = httpserver.url_for("/test_url.html")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        httpserver.expect_request("/mercury-with-local-source").respond_with_data(
-            "<html><head><title>Remote Source</title></head><body>"
-            "<article><h1>Remote Source Marker</h1><p>Fetched URL content for mercury parser.</p></article>"
-            "</body></html>",
-            content_type="text/html; charset=utf-8",
-        )
-
-        # Create local singlefile source to cover the 'local source exists' path.
-        singlefile_dir = tmpdir / "singlefile"
-        singlefile_dir.mkdir(parents=True, exist_ok=True)
-        (singlefile_dir / "singlefile.html").write_text(
-            "<html><head><title>Local Source</title></head><body>"
-            "<article><h1>Local Source Marker</h1><p>Local singlefile fixture content.</p></article>"
+        test_url_html = tmpdir / "test_url.html"
+        test_url_html.write_text(
+            "<html><head><title>Served Source</title></head><body>"
+            "<article><h1>Served Source Marker</h1><p>Served test URL fixture content for mercury parser.</p></article>"
             "</body></html>",
             encoding="utf-8",
+        )
+
+        httpserver.expect_request("/test_url.html").respond_with_data(
+            test_url_html.read_text(encoding="utf-8"),
+            content_type="text/html; charset=utf-8",
         )
 
         env = os.environ.copy()
@@ -189,14 +192,17 @@ def test_extracts_with_local_html_source_present(httpserver):
         content_txt = tmpdir / "mercury" / "content.txt"
         assert content_txt.exists(), "content.txt not created"
         extracted_text = content_txt.read_text(errors="ignore").strip()
-        assert len(extracted_text) > 10, "Extracted text should not be empty"
+        extracted_text_lower = extracted_text.lower()
+        assert "served test url fixture content" in extracted_text_lower
 
         article_json = tmpdir / "mercury" / "article.json"
         assert article_json.exists(), "article.json not created"
         metadata = json.loads(article_json.read_text())
-        assert metadata.get("title"), (
-            f"Expected non-empty title in metadata: {metadata}"
-        )
+        assert metadata.get("title") == "Served Source Marker", metadata
+        assert any(
+            request.path == "/test_url.html"
+            for request, _response in httpserver.log
+        ), "Mercury did not fetch the served test_url.html fixture"
 
 
 def test_config_save_mercury_false_skips():

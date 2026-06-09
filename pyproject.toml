@@ -30,7 +30,10 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
+    "pytest-github-actions-annotate-failures>=0.3.0",
     "pytest-httpserver>=1.1.0",
+    "pytest-sugar>=1.0.0",
+    "pytest-timeout>=2.3.1",
     "feedparser>=6.0.0",
     "django>=6.0",
     "imagesize>=2.0.0",
@@ -82,6 +85,8 @@ Documentation = "https://github.com/ArchiveBox/ArchiveBox"
 [tool.pytest.ini_options]
 testpaths = ["abx_plugins/plugins", "tests"]
 addopts = ["-p", "abx_plugins.pytest_bootstrap", "-p", "no:cacheprovider"]
+timeout = 600
+timeout_method = "thread"
 
 [tool.uv]
 exclude-newer = "5 days"

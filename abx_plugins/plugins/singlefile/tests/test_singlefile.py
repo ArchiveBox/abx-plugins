@@ -263,20 +263,21 @@ def test_singlefile_with_chrome_session():
 
             # Verify output
             output_file = singlefile_output_dir / "singlefile.html"
-            if output_file.exists():
-                html_content = output_file.read_text()
-                assert len(html_content) > 500, "Output file too small"
-                assert "Example Domain" in html_content, (
-                    "Should contain example.com content"
-                )
-            else:
-                # If singlefile couldn't connect to Chrome, it may have failed
-                # Check if it mentioned browser-server in its args (indicating it tried to use CDP)
-                assert (
-                    result.returncode == 0
-                    or "browser-server" in result.stderr
-                    or "cdp" in result.stderr.lower()
-                ), f"Singlefile should attempt CDP connection. stderr: {result.stderr}"
+            assert result.returncode == 0, (
+                f"SingleFile hook failed.\nstdout: {result.stdout}\nstderr: {result.stderr}"
+            )
+            result_json = parse_jsonl_output(result.stdout)
+            assert result_json is not None, "Should emit ArchiveResult JSONL"
+            assert result_json["status"] == "succeeded", result_json
+            assert result_json["output_str"] == "singlefile/singlefile.html"
+            assert output_file.exists(), (
+                f"singlefile.html not created. stdout: {result.stdout}, stderr: {result.stderr}"
+            )
+            html_content = output_file.read_text()
+            assert len(html_content) > 500, "Output file too small"
+            assert "Example Domain" in html_content, (
+                "Should contain example.com content"
+            )
 
 
 def test_singlefile_with_extension_uses_existing_chrome():
@@ -560,6 +561,8 @@ def test_singlefile_disabled_skips():
         assert result_json, "Should emit JSONL when disabled"
         assert result_json["type"] == "ArchiveResult"
         assert result_json["status"] == "skipped"
+        assert result_json["output_str"] == "SINGLEFILE_ENABLED=False"
+        assert not (tmpdir / "singlefile" / "singlefile.html").exists()
 
 
 if __name__ == "__main__":

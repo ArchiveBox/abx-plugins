@@ -1,5 +1,7 @@
 import json
 import os
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -165,48 +167,37 @@ def test_load_config_resolves_aliases_to_canonical_fields() -> None:
     assert "SAVE_FAVICON" not in config.model_dump(mode="json")
 
 
-def test_load_config_hydrates_binary_fields_from_abxpkg_env_provider(
+def test_load_config_hydrates_chrome_node_binary_from_real_env_provider(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plugin_dir = tmp_path / "plugin"
-    plugin_dir.mkdir()
-    fake_bin_dir = tmp_path / "bin"
-    fake_bin_dir.mkdir()
-    fake_tool = fake_bin_dir / "fake-tool"
-    fake_tool.write_text("#!/bin/sh\necho 'fake-tool 1.0.0'\n")
-    fake_tool.chmod(0o755)
-    config_path = plugin_dir / "config.json"
-    config_path.write_text(
-        """
-{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "FakeTool",
-  "type": "object",
-  "additionalProperties": false,
-  "required_binaries": [
-    {
-      "name": "{FAKE_TOOL_BINARY}",
-      "binproviders": "env",
-      "min_version": null
-    }
-  ],
-  "properties": {
-    "FAKE_TOOL_BINARY": {
-      "type": "string",
-      "default": "fake-tool"
-    }
-  }
-}
-""",
-        encoding="utf-8",
+    node_binary = shutil.which("node")
+    if not node_binary:
+        raise AssertionError("Node.js is required to hydrate Chrome NODE_BINARY")
+
+    lib_dir = tmp_path / "lib"
+    personas_dir = tmp_path / "personas"
+    monkeypatch.setenv("NODE_BINARY", "node")
+    monkeypatch.setenv("PATH", os.environ.get("PATH", ""))
+
+    config = load_config(
+        CHROME_CONFIG,
+        global_config={
+            "LIB_DIR": str(lib_dir),
+            "PERSONAS_DIR": str(personas_dir),
+        },
+        environ=os.environ.copy(),
+        user_config={"NODE_BINARY": "node"},
     )
 
-    monkeypatch.setenv("FAKE_TOOL_BINARY", "fake-tool")
-    monkeypatch.setenv("PATH", str(fake_bin_dir))
-
-    config = load_config(config_path, user_config={})
-
-    resolved = Path(config.FAKE_TOOL_BINARY)
-    assert resolved.name == "fake-tool"
+    resolved = Path(config.NODE_BINARY)
+    assert resolved.name == "node"
     assert resolved.exists()
+
+    version = subprocess.run(
+        [str(resolved), "--version"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert version.returncode == 0, version.stderr

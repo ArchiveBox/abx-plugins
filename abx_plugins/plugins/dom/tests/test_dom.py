@@ -145,6 +145,7 @@ def test_config_save_dom_false_skips():
         assert result_json, "Should emit JSONL when disabled"
         assert result_json["type"] == "ArchiveResult"
         assert result_json["status"] == "skipped"
+        assert result_json["output_str"] == "DOM_ENABLED=False", result_json
 
 
 def test_staticfile_present_skips():

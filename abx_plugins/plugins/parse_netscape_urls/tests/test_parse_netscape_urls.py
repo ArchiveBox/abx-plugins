@@ -4,8 +4,6 @@
 import json
 import os
 import subprocess
-import threading
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
@@ -158,48 +156,30 @@ class TestParseNetscapeUrls:
         entry = json.loads(lines[0])
         assert entry["url"] == "https://example.com"
 
-    def test_resolves_relative_urls_against_source_page_url(self, tmp_path):
+    def test_resolves_relative_urls_against_source_page_url(self, tmp_path, httpserver):
         """Test that relative bookmark HREFs are emitted as absolute URLs."""
-        input_file = tmp_path / "bookmarks.html"
-        input_file.write_text("""
-<DT><A HREF="/about.html" ADD_DATE="1609459200">About</A>
-<DT><A HREF="docs/page.html" ADD_DATE="1609459200">Docs</A>
-        """)
-
-        class QuietHandler(SimpleHTTPRequestHandler):
-            def log_message(self, format, *args):
-                return
-
-        server = ThreadingHTTPServer(
-            ("127.0.0.1", 0),
-            lambda *args, **kwargs: QuietHandler(
-                *args,
-                directory=str(tmp_path),
-                **kwargs,
-            ),
+        httpserver.expect_request("/bookmarks.html").respond_with_data(
+            """
+            <DT><A HREF="/about.html" ADD_DATE="1609459200">About</A>
+            <DT><A HREF="docs/page.html" ADD_DATE="1609459200">Docs</A>
+            """.strip(),
+            content_type="text/html; charset=utf-8",
         )
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-
-        try:
-            base_url = f"http://127.0.0.1:{server.server_address[1]}/bookmarks.html"
-            result = subprocess.run(
-                [
-                    str(SCRIPT_PATH),
-                    "--url",
-                    base_url,
-                ],
-                cwd=tmp_path,
-                capture_output=True,
-                text=True,
-                env={
-                    **os.environ,
-                    "SNAP_DIR": str(tmp_path),
-                },
-            )
-        finally:
-            server.shutdown()
-            server.server_close()
+        base_url = httpserver.url_for("/bookmarks.html")
+        result = subprocess.run(
+            [
+                str(SCRIPT_PATH),
+                "--url",
+                base_url,
+            ],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                "SNAP_DIR": str(tmp_path),
+            },
+        )
 
         assert result.returncode == 0
         lines = [
@@ -210,12 +190,8 @@ class TestParseNetscapeUrls:
         assert len(lines) == 2
 
         entries = [json.loads(line) for line in lines]
-        expected_root_relative = (
-            f"http://127.0.0.1:{server.server_address[1]}/about.html"
-        )
-        expected_path_relative = (
-            f"http://127.0.0.1:{server.server_address[1]}/docs/page.html"
-        )
+        expected_root_relative = httpserver.url_for("/about.html")
+        expected_path_relative = httpserver.url_for("/docs/page.html")
         assert entries[0]["url"] == expected_root_relative
         assert entries[1]["url"] == expected_path_relative
 

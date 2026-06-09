@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import json
-import os
-import subprocess
-import tempfile
 from pathlib import Path
 from typing import Any, cast
+
+from abx_plugins.plugins.base.test_utils import install_required_binary_from_config
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -173,12 +172,6 @@ def test_required_binary_configs_use_uv_and_pnpm_not_pip_or_npm() -> None:
     )
 
 
-def _package_name(package_spec: str) -> str:
-    if package_spec.startswith("@"):
-        return "@" + package_spec[1:].split("@", 1)[0]
-    return package_spec.split("@", 1)[0]
-
-
 def _hydrated_binary_name(name: str, config: dict[str, Any]) -> str:
     if not (name.startswith("{") and name.endswith("}")):
         return name
@@ -188,42 +181,7 @@ def _hydrated_binary_name(name: str, config: dict[str, Any]) -> str:
     return default if isinstance(default, str) and default else name
 
 
-def _pnpm_binary() -> str:
-    from abxpkg import PnpmProvider
-
-    lib_dir = Path(
-        os.environ.get("ABXPKG_LIB_DIR")
-        or os.environ.get("LIB_DIR")
-        or tempfile.gettempdir(),
-    )
-    provider = PnpmProvider(
-        install_root=lib_dir / "pnpm" / "packages" / "plugin_config_metadata",
-        postinstall_scripts=True,
-        min_release_age=0,
-    )
-    loaded = provider.INSTALLER_BINARY()
-    assert loaded and loaded.loaded_abspath
-    return str(loaded.loaded_abspath)
-
-
-def _pnpm_package_bin(package_spec: str) -> dict[str, str]:
-    proc = subprocess.run(
-        [_pnpm_binary(), "view", package_spec, "--json"],
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    assert proc.returncode == 0, proc.stderr
-    payload = json.loads(proc.stdout)
-    assert isinstance(payload, dict), payload
-    package_name = payload.get("name")
-    raw_bin = payload.get("bin")
-    if isinstance(raw_bin, str) and isinstance(package_name, str):
-        return {package_name.rsplit("/", 1)[-1]: raw_bin}
-    return raw_bin if isinstance(raw_bin, dict) else {}
-
-
-def test_pnpm_required_binary_names_match_package_exposed_clis() -> None:
+def test_pnpm_required_binaries_resolve_through_plugin_config() -> None:
     failures: list[str] = []
 
     for plugin_dir in _iter_plugin_dirs():
@@ -248,47 +206,25 @@ def test_pnpm_required_binary_names_match_package_exposed_clis() -> None:
             }
             if "pnpm" not in binproviders:
                 continue
-            raw_overrides = item.get("overrides")
-            overrides = (
-                cast(dict[str, Any], raw_overrides)
-                if isinstance(raw_overrides, dict)
-                else {}
-            )
-            raw_pnpm_overrides = overrides.get("pnpm")
-            pnpm_overrides = (
-                cast(dict[str, Any], raw_pnpm_overrides)
-                if isinstance(raw_pnpm_overrides, dict)
-                else {}
-            )
-            install_args = pnpm_overrides.get("install_args")
-            package_spec = next(
-                (
-                    str(arg)
-                    for arg in (
-                        install_args
-                        if isinstance(install_args, list)
-                        else [item["name"]]
-                    )
-                    if str(arg) and not str(arg).startswith("-")
-                ),
-                "",
-            )
-            if not package_spec:
+            binary_name = _hydrated_binary_name(str(item["name"]), config)
+            try:
+                loaded = install_required_binary_from_config(plugin_dir, binary_name)
+            except Exception as err:
                 failures.append(
-                    f"{plugin_dir.name}: required_binaries[{index}] missing pnpm install package",
+                    f"{plugin_dir.name}: required_binaries[{index}] {binary_name!r} failed to resolve via config: {type(err).__name__}: {err}",
                 )
                 continue
-            package_bins = _pnpm_package_bin(package_spec)
-            binary_name = _hydrated_binary_name(str(item["name"]), config)
-            label = f"{plugin_dir.name}: required_binaries[{index}] {binary_name!r} via {_package_name(package_spec)!r}"
-            if binary_name in package_bins:
+            abspath = loaded.abspath
+            if not abspath:
+                failures.append(
+                    f"{plugin_dir.name}: required_binaries[{index}] {binary_name!r} resolved without an abspath",
+                )
                 continue
-            if pnpm_overrides.get("abspath") and not package_bins:
-                continue
-            failures.append(
-                f"{label} does not match package bin names {sorted(package_bins)!r}",
-            )
+            if not Path(abspath).exists():
+                failures.append(
+                    f"{plugin_dir.name}: required_binaries[{index}] {binary_name!r} abspath does not exist: {abspath}",
+                )
 
-    assert not failures, "pnpm required binary metadata mismatch:\n" + "\n".join(
+    assert not failures, "pnpm required binary config resolution failed:\n" + "\n".join(
         failures,
     )

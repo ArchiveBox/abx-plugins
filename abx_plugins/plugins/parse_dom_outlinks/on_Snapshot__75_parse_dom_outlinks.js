@@ -159,7 +159,6 @@ async function extractOutlinks(url, depth, timeoutMs) {
         js_scripts: [...new Set(filterDataUrls(js_scripts))],
       };
     });
-
     const urlsPath = path.join(OUTPUT_DIR, URLS_FILE);
     const crawlableUrls = outlinksData.hrefs.filter((href) => {
       // Only include http/https URLs, exclude static assets

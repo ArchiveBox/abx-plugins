@@ -3,24 +3,22 @@ Integration tests for favicon plugin
 
 Tests verify:
 1. Plugin script exists
-2. Favicon extraction works for real example.com
+2. Favicon extraction works against deterministic local HTTP fixtures
 3. Output file is actual image data
 4. Tries multiple favicon URLs
 5. Falls back to a configured favicon provider
-6. Config options work (TIMEOUT, USER_AGENT)
+6. Timeout config is honored
 7. Handles failures gracefully
 """
 
-from contextlib import contextmanager
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os
 import subprocess
 import tempfile
-import threading
+import time
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
 
 import pytest
+from werkzeug.wrappers import Response
 
 from abx_plugins.plugins.base.test_utils import (
     get_plugin_dir,
@@ -34,7 +32,6 @@ _FAVICON_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_favicon.*")
 if _FAVICON_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 FAVICON_HOOK = _FAVICON_HOOK
-TEST_URL = "https://example.com"
 TEST_ICO_BYTES = b"\x00\x00\x01\x00mock-ico"
 
 
@@ -43,63 +40,31 @@ def test_hook_script_exists():
     assert FAVICON_HOOK.exists(), f"Hook script not found: {FAVICON_HOOK}"
 
 
-@contextmanager
-def run_favicon_test_server():
-    requests: list[str] = []
-
-    class Handler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            requests.append(self.path)
-            parsed = urlparse(self.path)
-
-            if parsed.path == "/":
-                body = b"<html><head><title>favicon test</title></head><body></body></html>"
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-                return
-
-            if parsed.path in ("/favicon.ico", "/favicon.png", "/apple-touch-icon.png"):
-                self.send_response(404)
-                self.end_headers()
-                return
-
-            if parsed.path == "/provider":
-                query = parse_qs(parsed.query)
-                if query.get("domain") == ["127.0.0.1"]:
-                    body = TEST_ICO_BYTES
-                    self.send_response(200)
-                    self.send_header("Content-Type", "image/x-icon")
-                    self.send_header("Content-Length", str(len(body)))
-                    self.end_headers()
-                    self.wfile.write(body)
-                    return
-
-            self.send_response(404)
-            self.end_headers()
-
-        def log_message(self, format, *args):
-            return
-
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    try:
-        yield server, requests
-    finally:
-        server.shutdown()
-        server.server_close()
-        thread.join(timeout=5)
+def _run_favicon_hook(tmpdir: Path, url: str, env: dict[str, str]):
+    return subprocess.run(
+        [
+            str(FAVICON_HOOK),
+            "--url",
+            url,
+        ],
+        cwd=tmpdir,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
 
 
-def test_extracts_favicon_from_example_com():
-    """Test full workflow: extract favicon from real example.com.
-
-    Note: example.com doesn't have a favicon and the fallback provider may also fail,
-    so we test that the extraction completes and reports appropriate status.
-    """
+def test_extracts_linked_favicon_from_httpserver_page(httpserver):
+    """Test full workflow: extract linked favicon from deterministic local page."""
+    httpserver.expect_request("/").respond_with_data(
+        '<html><head><link rel="icon" href="/assets/favicon.ico"></head><body></body></html>',
+        content_type="text/html; charset=utf-8",
+    )
+    httpserver.expect_request("/assets/favicon.ico").respond_with_data(
+        TEST_ICO_BYTES,
+        content_type="image/x-icon",
+    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -108,179 +73,110 @@ def test_extracts_favicon_from_example_com():
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
 
-        # Run favicon extraction
-        result = subprocess.run(
-            [
-                str(FAVICON_HOOK),
-                "--url",
-                TEST_URL,
-            ],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            timeout=60,
-            env=env,
-        )
+        result = _run_favicon_hook(tmpdir, httpserver.url_for("/"), env)
 
-        # May succeed (if fallback provider works) or fail (if no favicon)
-        assert result.returncode in (0, 1), "Should complete extraction attempt"
-
-        # Parse clean JSONL output
+        assert result.returncode == 0, result.stderr
         result_json = parse_jsonl_output(result.stdout)
-
         assert result_json, "Should have ArchiveResult JSONL output"
+        assert result_json["status"] == "succeeded", result_json
+        assert result_json["output_str"] == "favicon/favicon.ico"
 
-        # If it succeeded, verify the favicon file
-        if result_json["status"] == "succeeded":
-            favicon_file = snap_dir / "favicon" / "favicon.ico"
-            assert favicon_file.exists(), "favicon.ico not created"
-            assert result_json["output_str"] == "favicon/favicon.ico"
-
-            # Verify file is not empty and contains actual image data
-            file_size = favicon_file.stat().st_size
-            assert file_size > 0, "Favicon file should not be empty"
-            assert file_size < 1024 * 1024, (
-                f"Favicon file suspiciously large: {file_size} bytes"
-            )
-
-            # Check for common image magic bytes
-            favicon_data = favicon_file.read_bytes()
-            # ICO, PNG, GIF, JPEG, or WebP
-            is_image = (
-                favicon_data[:4] == b"\x00\x00\x01\x00"  # ICO
-                or favicon_data[:8] == b"\x89PNG\r\n\x1a\n"  # PNG
-                or favicon_data[:3] == b"GIF"  # GIF
-                or favicon_data[:2] == b"\xff\xd8"  # JPEG
-                or favicon_data[8:12] == b"WEBP"  # WebP
-            )
-            assert is_image, "Favicon file should be a valid image format"
-        else:
-            assert result_json["status"] == "noresults", (
-                f"Should report noresults when no favicon is found: {result_json}"
-            )
+        favicon_file = snap_dir / "favicon" / "favicon.ico"
+        assert favicon_file.exists(), "favicon.ico not created"
+        assert favicon_file.read_bytes() == TEST_ICO_BYTES
 
 
-def test_config_timeout_honored():
-    """Test that TIMEOUT config is respected."""
+def test_config_timeout_honored(httpserver):
+    """Test that FAVICON_TIMEOUT config is respected by real HTTP requests."""
+    httpserver.expect_request("/").respond_with_data(
+        "<html><head></head><body></body></html>",
+        content_type="text/html; charset=utf-8",
+    )
+
+    def slow_favicon(_request):
+        time.sleep(10)
+        return Response("too late", status=200, content_type="text/plain")
+
+    httpserver.expect_request("/favicon.ico").respond_with_handler(slow_favicon)
+    httpserver.expect_request("/favicon.png").respond_with_data("", status=404)
+    httpserver.expect_request("/apple-touch-icon.png").respond_with_data("", status=404)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-
-        # Set very short timeout (but example.com should still succeed)
-        import os
-
         env = os.environ.copy()
-        env["TIMEOUT"] = "5"
+        env["FAVICON_TIMEOUT"] = "5"
         env["SNAP_DIR"] = str(tmpdir)
+        env["FAVICON_PROVIDER"] = ""
 
-        result = subprocess.run(
-            [
-                str(FAVICON_HOOK),
-                "--url",
-                TEST_URL,
-            ],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=30,
-        )
+        start = time.time()
+        result = _run_favicon_hook(tmpdir, httpserver.url_for("/"), env)
+        elapsed = time.time() - start
 
-        # Should complete (success or fail, but not hang)
-        assert result.returncode in (0, 1), "Should complete without hanging"
+        assert result.returncode == 0, result.stderr
+        assert elapsed < 8, f"Should honor FAVICON_TIMEOUT, took {elapsed:.1f}s"
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json is not None
+        assert result_json["status"] == "noresults", result_json
+        assert result_json["output_str"] == "No favicon found"
 
 
-def test_config_user_agent():
-    """Test that USER_AGENT config is used."""
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-
-        # Set custom user agent
-        import os
-
-        env = os.environ.copy()
-        env["USER_AGENT"] = "TestBot/1.0"
-        env["SNAP_DIR"] = str(tmpdir)
-
-        result = subprocess.run(
-            [
-                str(FAVICON_HOOK),
-                "--url",
-                TEST_URL,
-            ],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=60,
-        )
-
-        # Should complete without hanging and report the actual extraction result.
-        if result.returncode == 0:
-            # Parse clean JSONL output
-            result_json = parse_jsonl_output(result.stdout)
-
-            if result_json:
-                assert result_json["status"] in ("succeeded", "noresults"), (
-                    f"Should succeed or report noresults: {result_json}"
-                )
-
-
-def test_handles_https_urls():
-    """Test that HTTPS URLs work correctly."""
+def test_handles_noresults_for_missing_favicon(httpserver):
+    """Test that missing favicons report noresults with an exact ArchiveResult."""
+    httpserver.expect_request("/").respond_with_data(
+        "<html><head></head><body></body></html>",
+        content_type="text/html; charset=utf-8",
+    )
+    httpserver.expect_request("/favicon.ico").respond_with_data("", status=404)
+    httpserver.expect_request("/favicon.png").respond_with_data("", status=404)
+    httpserver.expect_request("/apple-touch-icon.png").respond_with_data("", status=404)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
         env = os.environ.copy()
         env["SNAP_DIR"] = str(tmpdir)
-        result = subprocess.run(
-            [
-                str(FAVICON_HOOK),
-                "--url",
-                "https://example.org",
-            ],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            timeout=60,
-            env=env,
-        )
+        env["FAVICON_PROVIDER"] = ""
+        result = _run_favicon_hook(tmpdir, httpserver.url_for("/"), env)
 
-        if result.returncode == 0:
-            favicon_file = tmpdir / "favicon" / "favicon.ico"
-            if favicon_file.exists():
-                assert favicon_file.stat().st_size > 0
+        assert result.returncode == 0, result.stderr
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json is not None
+        assert result_json["status"] == "noresults", result_json
+        assert result_json["output_str"] == "No favicon found"
+        assert not (tmpdir / "favicon" / "favicon.ico").exists()
 
 
-def test_falls_back_to_configured_provider_and_emits_relative_output_path():
+def test_falls_back_to_configured_provider_and_emits_relative_output_path(httpserver):
     """Configured provider fallback should save favicon.ico and emit a relative path."""
+    httpserver.expect_request("/").respond_with_data(
+        "<html><head><title>favicon test</title></head><body></body></html>",
+        content_type="text/html; charset=utf-8",
+    )
+    httpserver.expect_request("/favicon.ico").respond_with_data("", status=404)
+    httpserver.expect_request("/favicon.png").respond_with_data("", status=404)
+    httpserver.expect_request("/apple-touch-icon.png").respond_with_data("", status=404)
+    httpserver.expect_request(
+        "/provider",
+        query_string={"domain": "127.0.0.1"},
+    ).respond_with_data(
+        TEST_ICO_BYTES,
+        content_type="image/x-icon",
+    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
 
-        with run_favicon_test_server() as (server, requests):
-            env = os.environ.copy()
-            env["SNAP_DIR"] = str(snap_dir)
-            env["FAVICON_PROVIDER"] = (
-                f"http://127.0.0.1:{server.server_port}/provider?domain={{}}"
-            )
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(snap_dir)
+        env["FAVICON_PROVIDER"] = f"{httpserver.url_for('/provider')}?domain={{}}"
 
-            result = subprocess.run(
-                [
-                    str(FAVICON_HOOK),
-                    "--url",
-                    f"http://127.0.0.1:{server.server_port}/",
-                ],
-                cwd=tmpdir,
-                capture_output=True,
-                text=True,
-                timeout=30,
-                env=env,
-            )
+        result = _run_favicon_hook(
+            tmpdir,
+            httpserver.url_for("/").replace("localhost", "127.0.0.1", 1),
+            env,
+        )
 
         assert result.returncode == 0, result.stderr
 
@@ -293,42 +189,10 @@ def test_falls_back_to_configured_provider_and_emits_relative_output_path():
         assert favicon_file.exists(), "favicon.ico not created"
         assert favicon_file.read_bytes() == TEST_ICO_BYTES
         assert any(
-            path.startswith("/provider?domain=127.0.0.1") for path in requests
+            request.path == "/provider"
+            and request.query_string.decode() == "domain=127.0.0.1"
+            for request, _response in httpserver.log
         ), "Configured fallback provider was not called"
-
-
-def test_handles_missing_favicon_gracefully():
-    """Test that favicon plugin handles sites without favicons gracefully.
-
-    Note: The plugin falls back to the configured favicon provider, which may
-    return a generic icon even if the site doesn't have one.
-    """
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-
-        # Try a URL that likely doesn't have a favicon
-        env = os.environ.copy()
-        env["SNAP_DIR"] = str(tmpdir)
-        result = subprocess.run(
-            [
-                str(FAVICON_HOOK),
-                "--url",
-                "https://example.com/nonexistent",
-            ],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            timeout=60,
-            env=env,
-        )
-
-        # May succeed (provider fallback) or fail gracefully
-        assert result.returncode in (0, 1), "Should complete (may succeed or fail)"
-
-        if result.returncode != 0:
-            combined = result.stdout + result.stderr
-            assert "No favicon found" in combined or "ERROR=" in combined
 
 
 if __name__ == "__main__":

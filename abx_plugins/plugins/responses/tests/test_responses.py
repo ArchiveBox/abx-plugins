@@ -169,10 +169,12 @@ class TestResponsesWithChrome:
             for line in stdout.splitlines():
                 if not line.strip():
                     continue
+                if not line.strip().startswith("{"):
+                    continue
                 try:
                     record = json.loads(line)
                 except json.JSONDecodeError:
-                    continue
+                    pytest.fail(f"Malformed JSONL record in responses stdout: {line}")
                 if record.get("type") == "ArchiveResult":
                     archive_result_records.append(record)
 
@@ -184,14 +186,10 @@ class TestResponsesWithChrome:
                     assert content, "Responses output should not be empty"
                     for line in content.split("\n"):
                         if line.strip():
-                            try:
-                                record = json.loads(line)
-                                # Verify structure
-                                assert "url" in record
-                                assert "resourceType" in record
-                                records.append(record)
-                            except json.JSONDecodeError:
-                                pass  # Some lines may be incomplete
+                            record = json.loads(line)
+                            assert "url" in record
+                            assert "resourceType" in record
+                            records.append(record)
 
                 assert records, (
                     "Responses output should include at least one valid record"
@@ -244,20 +242,26 @@ class TestResponsesWithChrome:
                     strict=True,
                 )
 
-                if archive_result_records:
-                    archive_result = archive_result_records[-1]
-                    parsed_main_url = urlparse(test_url)
-                    main_pathname = parsed_main_url.path or "/"
-                    main_filename = posixpath.basename(main_pathname) or "index.html"
-                    main_dir_raw = posixpath.dirname(main_pathname)
-                    main_dir = "" if main_dir_raw == "." else main_dir_raw.lstrip("/")
-                    expected_output = posixpath.join(
-                        "responses",
-                        parsed_main_url.hostname or "",
-                        main_dir,
-                        main_filename,
-                    )
-                    assert archive_result["output_str"] == expected_output
+                assert archive_result_records, (
+                    f"Missing ArchiveResult from responses hook stdout: {stdout}"
+                )
+                archive_result = archive_result_records[-1]
+                parsed_main_url = urlparse(test_url)
+                main_pathname = parsed_main_url.path or "/"
+                main_filename = posixpath.basename(main_pathname) or "index.html"
+                main_dir_raw = posixpath.dirname(main_pathname)
+                main_dir = "" if main_dir_raw == "." else main_dir_raw.lstrip("/")
+                expected_output = posixpath.join(
+                    "responses",
+                    parsed_main_url.hostname or "",
+                    main_dir,
+                    main_filename,
+                )
+                assert archive_result == {
+                    "type": "ArchiveResult",
+                    "status": "succeeded",
+                    "output_str": expected_output,
+                }, archive_result
 
 
 if __name__ == "__main__":

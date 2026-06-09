@@ -58,9 +58,9 @@ class TestParseDomOutlinksWithChrome:
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_outlinks_extracts_links_from_page(self, chrome_test_url):
+    def test_outlinks_extracts_links_from_page(self, chrome_test_urls):
         """DOM outlinks hook should extract and categorize links from page."""
-        test_url = chrome_test_url
+        test_url = chrome_test_urls["base_url"]
         snapshot_id = "test-outlinks-snapshot"
 
         try:
@@ -107,6 +107,9 @@ class TestParseDomOutlinksWithChrome:
                 ]
                 assert urls_data, "urls.jsonl should contain at least one URL"
                 assert all(entry["type"] == "Snapshot" for entry in urls_data)
+                urls = {entry["url"] for entry in urls_data}
+                assert chrome_test_urls["linked_url"] in urls
+                assert chrome_test_urls["redirect_url"] in urls
                 assert archive_result["output_str"] == f"{len(urls_data)} URLs parsed"
 
         except RuntimeError:

@@ -7,6 +7,7 @@ These tests verify the Python helper functions used across Chrome plugin tests.
 import json
 import os
 import subprocess
+import sys
 import pytest
 import tempfile
 from pathlib import Path
@@ -25,7 +26,6 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_lib_dir,
     get_node_modules_dir,
     get_extensions_dir,
-    find_chromium_binary,
     install_chromium_with_abxpkg,
     setup_test_env,
 )
@@ -167,15 +167,6 @@ def test_get_test_env_paths_are_absolute():
     assert Path(env["NODE_PATH"]).is_absolute()
 
 
-def test_find_chromium_binary():
-    """Test find_chromium_binary() returns a path or None."""
-    binary = find_chromium_binary()
-    if binary:
-        assert isinstance(binary, str)
-        # Should be an absolute path if found
-        assert os.path.isabs(binary)
-
-
 def test_find_chromium_uses_real_runtime_browser(real_chromium_binary: Path):
     """findChromium() should resolve a real browser from runtime-supported locations."""
     env = {**os.environ, **get_test_env(), "CHROME_BINARY": ""}
@@ -196,8 +187,7 @@ def test_find_chromium_accepts_command_name_chrome_binary(
     browser_name = "chrome-runtime"
     binary_path = tmp_path / "bin" / browser_name
     binary_path.parent.mkdir(parents=True, exist_ok=True)
-    binary_path.write_text(f"#!/bin/sh\nexec '{real_chromium_binary}' \"$@\"\n")
-    binary_path.chmod(0o755)
+    binary_path.symlink_to(real_chromium_binary)
 
     env = os.environ.copy()
     env.update(
@@ -210,7 +200,7 @@ def test_find_chromium_accepts_command_name_chrome_binary(
     returncode, stdout, stderr = _call_chrome_utils("findChromium", env=env)
 
     assert returncode == 0, stderr
-    assert stdout.strip() == str(binary_path)
+    assert Path(stdout.strip()).samefile(real_chromium_binary)
 
 
 def test_set_browser_download_behavior_downloads_file_with_live_page(
@@ -566,29 +556,29 @@ def test_parse_jsonl_output_filters_custom_type():
     assert result["data"] == "log1"
 
 
-def test_machine_type_consistency():
-    """Test that machine type is consistent across calls."""
-    mt1 = get_machine_type()
-    mt2 = get_machine_type()
-    assert mt1 == mt2, "Machine type should be stable across calls"
+def test_get_lib_dir_uses_platform_user_config_dir_by_default(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Default LIB_DIR should follow the platform user config root."""
+    home_dir = tmp_path / "home"
+    xdg_config_home = tmp_path / "xdg-config"
+    home_dir.mkdir()
+    xdg_config_home.mkdir()
 
+    monkeypatch.delenv("LIB_DIR", raising=False)
+    monkeypatch.delenv("NODE_MODULES_DIR", raising=False)
+    monkeypatch.setenv("HOME", str(home_dir))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg_config_home))
 
-def test_lib_dir_is_directory():
-    """Test that lib_dir points to an actual directory when HOME is set."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        old_home = os.environ.get("HOME")
-        try:
-            os.environ["HOME"] = tmpdir
-            lib_dir = Path(tmpdir) / ".config" / "abx" / "lib"
-            lib_dir.mkdir(parents=True, exist_ok=True)
+    if sys.platform == "darwin":
+        expected = home_dir / "Library" / "Application Support" / "abx" / "lib"
+    elif sys.platform == "win32":
+        expected = home_dir / "AppData" / "Roaming" / "abx" / "lib"
+    else:
+        expected = xdg_config_home / "abx" / "lib"
 
-            result = get_lib_dir()
-            assert isinstance(result, Path)
-        finally:
-            if old_home:
-                os.environ["HOME"] = old_home
-            else:
-                os.environ.pop("HOME", None)
+    assert get_lib_dir() == expected.resolve()
 
 
 def test_install_chromium_with_abxpkg_reuses_existing_chrome_via_env(
@@ -609,17 +599,35 @@ def test_install_chromium_with_abxpkg_reuses_existing_chrome_via_env(
     assert env["CHROME_BINARY"] == str(real_chromium_binary)
 
 
-def test_setup_test_env_provisions_extension_runtime_dirs(tmp_path: Path):
-    """Extension test env should include explicit downloads and user-data dirs."""
+def test_setup_test_env_uses_derived_runtime_dirs(tmp_path: Path):
+    """Extension test env should let runtime config derive browser state dirs."""
     env = setup_test_env(tmp_path)
 
-    downloads_dir = Path(env["CHROME_DOWNLOADS_DIR"])
-    user_data_dir = Path(env["CHROME_USER_DATA_DIR"])
-    extensions_dir = Path(env["CHROME_EXTENSIONS_DIR"])
+    extensions_dir = Path(get_extensions_dir(env=env))
+    expected_user_data_dir = (
+        Path(env["PERSONAS_DIR"]) / env["ACTIVE_PERSONA"] / "chrome_profile"
+    )
 
-    assert downloads_dir.is_dir()
-    assert user_data_dir.is_dir()
+    assert "CHROME_DOWNLOADS_DIR" not in env
+    assert "CHROME_EXTENSIONS_DIR" not in env
+    assert "CHROME_USER_DATA_DIR" not in env
+    assert env["ACTIVE_PERSONA"] == "Default"
+    assert Path(env["PERSONAS_DIR"]).is_dir()
     assert extensions_dir.is_dir()
+
+    script = (
+        f"const chromeUtils = require({json.dumps(str(CHROME_UTILS))});\n"
+        "process.stdout.write(JSON.stringify(chromeUtils.resolveChromeLaunchOptions({}).CHROME_USER_DATA_DIR));\n"
+    )
+    result = subprocess.run(
+        ["node", "-e", script],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    assert Path(json.loads(result.stdout)) == expected_user_data_dir
 
 
 def test_session_fixture_preserves_runtime_chrome_binary_override(

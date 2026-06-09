@@ -151,7 +151,7 @@ def test_extracts_article_with_real_binary(httpserver):
             [
                 str(DEFUDDLE_HOOK),
                 "--url",
-                TEST_URL,
+                test_url,
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -176,7 +176,7 @@ def test_extracts_article_with_real_binary(httpserver):
             in (output_dir / "content.txt").read_text(encoding="utf-8").lower()
         )
         metadata = json.loads((output_dir / "article.json").read_text(encoding="utf-8"))
-        assert metadata.get("title")
+        assert metadata.get("title") == "Defuddle Test Article", metadata
 
 
 def test_prefers_dom_output_over_singlefile_when_both_exist():

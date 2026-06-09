@@ -48,6 +48,7 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 URLS_FILE = Path("urls.jsonl")
 NORESULTS_OUTPUT = "0 URLs parsed"
+UNSAFE_XML_MARKERS = ("<!doctype", "<!entity", "<!notation", "<xi:include", "<xinclude:include")
 
 feedparser: Any | None
 try:
@@ -80,6 +81,12 @@ def emit_result(status: str, output_str: str) -> None:
     emit_archive_result_record(status, output_str)
     if output_str:
         click.echo(output_str, err=True)
+
+
+def reject_xml_file_loading_features(content: str) -> None:
+    lowered = content.lower()
+    if any(marker in lowered for marker in UNSAFE_XML_MARKERS):
+        raise ValueError("RSS/Atom input contains XML declarations that can reference external files")
 
 
 def persist_records(records: list[dict]) -> tuple[str, str]:
@@ -115,6 +122,7 @@ def main(
     print("parsing 1 files for urls...")
     try:
         content = fetch_content(url)
+        reject_xml_file_loading_features(content)
     except Exception as e:
         emit_result("failed", f"Failed to fetch {url}: {e}")
         sys.exit(1)

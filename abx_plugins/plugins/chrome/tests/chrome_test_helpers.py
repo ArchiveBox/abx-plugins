@@ -29,7 +29,6 @@ Usage:
     # For Chrome session tests:
     from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
         chrome_session,         # Context manager (Full Chrome + tab setup with automatic cleanup)
-        cleanup_chrome,         # Manual cleanup by PID (rarely needed)
     )
 
     # For extension tests:
@@ -51,13 +50,12 @@ import logging
 import os
 import platform
 import signal
-import ssl
 import fcntl
+import re
 import subprocess
-import threading
 import time
 import urllib.parse
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import urllib.request
 from pathlib import Path
 from typing import Any, TextIO
 from contextlib import contextmanager
@@ -69,7 +67,6 @@ from abx_plugins.plugins.base.test_utils import (
     assert_isolated_snapshot_env,
     get_hydrated_required_binaries,
     run_hook as _base_run_hook,
-    run_hook_and_parse as _base_run_hook_and_parse,
 )
 from abx_plugins.plugins.base.utils import get_personas_dir, load_required_binary
 
@@ -124,7 +121,7 @@ def require_chrome_runtime_impl() -> None:
 require_chrome_runtime = pytest.fixture(scope="module")(require_chrome_runtime_impl)
 
 
-# Prefer root-level URL fixtures if they exist, otherwise fall back to a local server.
+# Prefer root-level URL fixtures if they exist, otherwise use pytest-httpserver.
 _ROOT_URL_FIXTURE_NAMES = (
     "local_test_urls",
     "test_urls",
@@ -143,45 +140,10 @@ class LoggedPopen(subprocess.Popen[str]):
     _chrome_pid: int | None
 
 
-class _DeterministicTestRequestHandler(BaseHTTPRequestHandler):
-    """HTTP handler that serves predictable pages for Chrome-dependent tests."""
-
-    server_version = "ABXDeterministicHTTP/1.0"
-
-    def log_message(self, format: str, *args: Any) -> None:
-        # Keep pytest output clean unless a test fails.
-        return
-
-    def _origin(self) -> str:
-        host = self.headers.get("Host", "127.0.0.1")
-        scheme = "https" if isinstance(self.connection, ssl.SSLSocket) else "http"
-        return f"{scheme}://{host}"
-
-    def _write(
-        self,
-        status: int,
-        body: str,
-        content_type: str = "text/html; charset=utf-8",
-        headers: dict[str, str] | None = None,
-    ) -> None:
-        payload = body.encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(payload)))
-        self.send_header("Connection", "close")
-        if headers:
-            for key, value in headers.items():
-                self.send_header(key, value)
-        self.end_headers()
-        self.wfile.write(payload)
-
-    def do_GET(self) -> None:
-        parsed = urllib.parse.urlparse(self.path)
-        path = parsed.path or "/"
-        origin = self._origin()
-
-        if path in ("/", "/index.html"):
-            html = f"""<!doctype html>
+def _configure_chrome_httpserver(httpserver) -> dict[str, str]:
+    """Register deterministic Chrome test routes on pytest-httpserver."""
+    origin = httpserver.url_for("/").rstrip("/")
+    index_html = f"""<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -201,54 +163,38 @@ class _DeterministicTestRequestHandler(BaseHTTPRequestHandler):
   </main>
 </body>
 </html>"""
-            self._write(200, html)
-            return
-
-        if path == "/linked":
-            self._write(
-                200,
-                "<html><head><title>Linked Page</title></head><body><h1>Linked Page</h1></body></html>",
-            )
-            return
-
-        if path == "/slow":
-            delay_ms = 5000
-            try:
-                delay_ms = max(
-                    0,
-                    int(urllib.parse.parse_qs(parsed.query).get("delay", ["5000"])[0]),
-                )
-            except Exception:
-                delay_ms = 5000
-            time.sleep(delay_ms / 1000.0)
-            self._write(
-                200,
-                f"""<!doctype html>
+    httpserver.expect_request("/").respond_with_data(
+        index_html,
+        content_type="text/html; charset=utf-8",
+    )
+    httpserver.expect_request("/index.html").respond_with_data(
+        index_html,
+        content_type="text/html; charset=utf-8",
+    )
+    httpserver.expect_request("/linked").respond_with_data(
+        "<html><head><title>Linked Page</title></head><body><h1>Linked Page</h1></body></html>",
+    )
+    httpserver.expect_request("/slow").respond_with_data(
+        """<!doctype html>
 <html>
-<head><meta charset="utf-8"><title>Slow Page {delay_ms}</title></head>
+<head><meta charset="utf-8"><title>Slow Page</title></head>
 <body>
   <main>
     <h1>Slow Page</h1>
-    <p>delay_ms={delay_ms}</p>
+    <p>delay_ms=0</p>
   </main>
 </body>
 </html>""",
-            )
-            return
-
-        if path == "/popup-child":
-            self._write(
-                200,
-                """<!doctype html>
+    )
+    httpserver.expect_request("/popup-child").respond_with_data(
+        """<!doctype html>
 <html>
 <head><meta charset="utf-8"><title>Popup Child</title></head>
 <body><h1>Popup Child</h1><p>This popup should not replace the canonical snapshot target.</p></body>
 </html>""",
-            )
-            return
-
-        if path == "/popup-parent":
-            html = f"""<!doctype html>
+    )
+    httpserver.expect_request("/popup-parent").respond_with_data(
+        f"""<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -280,44 +226,28 @@ class _DeterministicTestRequestHandler(BaseHTTPRequestHandler):
   </script>
 </body>
 </html>"""
-            self._write(200, html)
-            return
-
-        if path == "/redirect":
-            self.send_response(302)
-            self.send_header("Location", "/")
-            self.send_header("Content-Length", "0")
-            self.send_header("Connection", "close")
-            self.end_headers()
-            return
-
-        if path in ("/nonexistent-page-404", "/not-found"):
-            self._write(
-                404,
-                "<html><head><title>Not Found</title></head><body><h1>404 Not Found</h1></body></html>",
-            )
-            return
-
-        if path == "/static/test.txt":
-            self._write(
-                200,
-                "static fixture payload",
-                content_type="text/plain; charset=utf-8",
-            )
-            return
-
-        if path == "/api/data.json":
-            self._write(
-                200,
-                '{"ok": true, "source": "deterministic-fixture"}',
-                content_type="application/json",
-            )
-            return
-
-        if path == "/claudechrome":
-            self._write(
-                200,
-                """<!doctype html>
+    )
+    httpserver.expect_request("/redirect").respond_with_data(
+        "",
+        status=302,
+        headers={"Location": "/"},
+    )
+    httpserver.expect_request(
+        re.compile(r"^/(?:nonexistent-page-404|not-found)$"),
+    ).respond_with_data(
+        "<html><head><title>Not Found</title></head><body><h1>404 Not Found</h1></body></html>",
+        status=404,
+    )
+    httpserver.expect_request("/static/test.txt").respond_with_data(
+        "static fixture payload",
+        content_type="text/plain; charset=utf-8",
+    )
+    httpserver.expect_request("/api/data.json").respond_with_data(
+        '{"ok": true, "source": "deterministic-fixture"}',
+        content_type="application/json",
+    )
+    httpserver.expect_request("/claudechrome").respond_with_data(
+        """<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -347,13 +277,9 @@ class _DeterministicTestRequestHandler(BaseHTTPRequestHandler):
   </div>
 </body>
 </html>""",
-            )
-            return
-
-        if path == "/ads":
-            self._write(
-                200,
-                """<!doctype html>
+    )
+    httpserver.expect_request("/ads").respond_with_data(
+        """<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -368,76 +294,12 @@ class _DeterministicTestRequestHandler(BaseHTTPRequestHandler):
   </main>
 </body>
 </html>""",
-            )
-            return
-
-        self._write(
-            404,
-            "<html><head><title>Not Found</title></head><body><h1>404</h1></body></html>",
-        )
-
-
-def _start_local_server(
-    *,
-    use_tls: bool = False,
-    cert_file: Path | None = None,
-    key_file: Path | None = None,
-) -> tuple[ThreadingHTTPServer, threading.Thread]:
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _DeterministicTestRequestHandler)
-    server.daemon_threads = True
-    if use_tls:
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        context.load_cert_chain(certfile=str(cert_file), keyfile=str(key_file))
-        server.socket = context.wrap_socket(server.socket, server_side=True)
-
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    return server, thread
-
-
-def _generate_self_signed_cert(tmpdir: Path) -> tuple[Path, Path] | None:
-    cert_file = tmpdir / "local-test-cert.pem"
-    key_file = tmpdir / "local-test-key.pem"
-    command = [
-        "openssl",
-        "req",
-        "-x509",
-        "-newkey",
-        "rsa:2048",
-        "-nodes",
-        "-days",
-        "2",
-        "-subj",
-        "/CN=127.0.0.1",
-        "-addext",
-        "subjectAltName=DNS:localhost,IP:127.0.0.1",
-        "-keyout",
-        str(key_file),
-        "-out",
-        str(cert_file),
-    ]
-    result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode != 0:
-        fallback = [
-            "openssl",
-            "req",
-            "-x509",
-            "-newkey",
-            "rsa:2048",
-            "-nodes",
-            "-days",
-            "2",
-            "-subj",
-            "/CN=127.0.0.1",
-            "-keyout",
-            str(key_file),
-            "-out",
-            str(cert_file),
-        ]
-        result = subprocess.run(fallback, capture_output=True, text=True)
-    if result.returncode != 0:
-        return None
-    return cert_file, key_file
+    )
+    httpserver.expect_request(re.compile(r"^/snapshot-\d+$")).respond_with_data(
+        "<html><head><title>Snapshot Page</title></head><body><h1>Snapshot Page</h1></body></html>",
+    )
+    httpserver.expect_request("/favicon.ico").respond_with_data("", status=404)
+    return _build_test_urls(origin)
 
 
 def _build_test_urls(
@@ -494,11 +356,19 @@ def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
     """Install Chrome and Puppeteer once for test sessions that require Chrome."""
     os.environ["SNAP_DIR"] = str(tmp_path_factory.mktemp("chrome_test_data"))
     os.environ["PERSONAS_DIR"] = str(tmp_path_factory.mktemp("chrome_test_personas"))
+    os.environ["ACTIVE_PERSONA"] = "Default"
     os.environ["HOME"] = str(tmp_path_factory.mktemp("chrome_test_home"))
     os.environ["XDG_CONFIG_HOME"] = str(Path(os.environ["HOME"]) / ".config")
     os.environ["XDG_CACHE_HOME"] = str(Path(os.environ["HOME"]) / ".cache")
     os.environ["XDG_DATA_HOME"] = str(Path(os.environ["HOME"]) / ".local" / "share")
     os.environ.setdefault("LIB_DIR", str(tmp_path_factory.mktemp("chrome_test_lib")))
+    for inherited_key in (
+        "CHROME_DOWNLOADS_DIR",
+        "CHROME_EXTENSIONS_DIR",
+        "CHROME_USER_DATA_DIR",
+        "COOKIES_FILE",
+    ):
+        os.environ.pop(inherited_key, None)
 
     for key in (
         "HOME",
@@ -528,9 +398,9 @@ ensure_chromium_and_puppeteer_installed = pytest.fixture(scope="session")(
 )
 
 
-@pytest.fixture(scope="session")
-def chrome_test_urls(request, tmp_path_factory):
-    """Provide deterministic test URLs, preferring a root conftest fixture when available."""
+@pytest.fixture
+def chrome_test_urls(request, httpserver):
+    """Provide deterministic test URLs from pytest-httpserver."""
     for fixture_name in _ROOT_URL_FIXTURE_NAMES:
         try:
             upstream = request.getfixturevalue(fixture_name)
@@ -540,45 +410,18 @@ def chrome_test_urls(request, tmp_path_factory):
         if urls:
             return urls
 
-    server_tmpdir = tmp_path_factory.mktemp("chrome_test_server")
-    http_server, _http_thread = _start_local_server()
-    https_server = None
-    https_urls = None
-
-    cert_pair = _generate_self_signed_cert(server_tmpdir)
-    if cert_pair:
-        cert_file, key_file = cert_pair
-        https_server, _https_thread = _start_local_server(
-            use_tls=True,
-            cert_file=cert_file,
-            key_file=key_file,
-        )
-        https_urls = f"https://chrome-test.localhost:{https_server.server_port}"
-
-    urls = _build_test_urls(
-        f"http://chrome-test.localhost:{http_server.server_port}",
-        https_urls,
-    )
-    try:
-        yield urls
-    finally:
-        # Cleanly end the background servers so later test sessions do not reuse stale ports.
-        http_server.shutdown()
-        http_server.server_close()
-        if https_server:
-            https_server.shutdown()
-            https_server.server_close()
+    return _configure_chrome_httpserver(httpserver)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def chrome_test_url(chrome_test_urls):
     return chrome_test_urls["base_url"]
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def chrome_test_https_url(chrome_test_urls):
     https_url = chrome_test_urls.get("https_base_url")
-    assert https_url, "Local HTTPS fixture unavailable (openssl required)"
+    assert https_url, "HTTPS fixture unavailable; provide chrome_test_urls['https_base_url']"
     return https_url
 
 
@@ -713,6 +556,68 @@ chromeUtils.writeBrowserMetadata(chromeDir, extensions);
         )
 
 
+def port_from_cdp_url(cdp_url: str) -> int:
+    """Return the DevTools HTTP port for a browser websocket endpoint."""
+    parsed = urllib.parse.urlparse(cdp_url)
+    if not parsed.port:
+        raise ValueError(f"CDP URL does not include a port: {cdp_url}")
+    return parsed.port
+
+
+def fetch_devtools_targets(cdp_url: str) -> list[dict[str, Any]]:
+    """Read the live DevTools target list for a real browser endpoint."""
+    port = port_from_cdp_url(cdp_url)
+    with urllib.request.urlopen(
+        f"http://127.0.0.1:{port}/json/list",
+        timeout=10,
+    ) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    assert isinstance(payload, list), payload
+    return payload
+
+
+def close_target_via_cdp(cdp_url: str, target_id: str) -> None:
+    """Close a real DevTools target through Chrome's HTTP endpoint."""
+    port = port_from_cdp_url(cdp_url)
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{port}/json/close/{target_id}",
+        method="PUT",
+    )
+    with urllib.request.urlopen(request, timeout=10):
+        return
+
+
+def create_target_via_cdp(cdp_url: str, url: str) -> dict[str, Any]:
+    """Create a real page target through Chrome's HTTP endpoint."""
+    port = port_from_cdp_url(cdp_url)
+    encoded_url = urllib.parse.quote(url, safe="")
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{port}/json/new?{encoded_url}",
+        method="PUT",
+    )
+    with urllib.request.urlopen(request, timeout=10) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    assert isinstance(payload, dict), payload
+    return payload
+
+
+def get_cookies_via_cdp(port: int, env: dict[str, str]) -> list[dict[str, Any]]:
+    """Read browser cookies via the chrome_utils.js CLI helper."""
+    result = subprocess.run(
+        [str(CHROME_UTILS), "getCookiesViaCdp", str(port)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
+    assert result.returncode == 0, (
+        f"Failed to read cookies via CDP: {result.stderr}\nStdout: {result.stdout}"
+    )
+    payload = json.loads(result.stdout or "[]")
+    assert isinstance(payload, list), payload
+    return payload
+
+
 def get_machine_type() -> str:
     """Get machine type string (e.g., 'x86_64-linux', 'arm64-darwin').
 
@@ -751,7 +656,19 @@ def get_lib_dir() -> Path:
     # Fallback to Python
     if os.environ.get("LIB_DIR"):
         return Path(os.environ["LIB_DIR"])
-    return Path.home() / ".config" / "abx" / "lib"
+    if platform.system().lower() == "darwin":
+        return Path.home() / "Library" / "Application Support" / "abx" / "lib"
+    if platform.system().lower() == "windows":
+        return (
+            Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming")
+            / "abx"
+            / "lib"
+        )
+    return (
+        Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+        / "abx"
+        / "lib"
+    )
 
 
 def get_node_modules_dir() -> Path:
@@ -799,11 +716,18 @@ def chrome_extension_install_env(tmpdir: str | Path) -> tuple[dict[str, str], Pa
             "SNAP_DIR": str(snap_dir),
             "CRAWL_DIR": str(crawl_dir),
             "PERSONAS_DIR": str(personas_dir),
+            "ACTIVE_PERSONA": "Default",
             "LIB_DIR": str(lib_dir),
         },
     )
+    for inherited_key in (
+        "CHROME_DOWNLOADS_DIR",
+        "CHROME_EXTENSIONS_DIR",
+        "CHROME_USER_DATA_DIR",
+        "COOKIES_FILE",
+    ):
+        env.pop(inherited_key, None)
     extensions_dir = Path(get_extensions_dir(env=env))
-    env["CHROME_EXTENSIONS_DIR"] = str(extensions_dir)
 
     snap_dir.mkdir(parents=True, exist_ok=True)
     crawl_dir.mkdir(parents=True, exist_ok=True)
@@ -812,7 +736,7 @@ def chrome_extension_install_env(tmpdir: str | Path) -> tuple[dict[str, str], Pa
     return env, extensions_dir
 
 
-def find_chromium(data_dir: str | None = None) -> str | None:
+def find_chromium() -> str | None:
     """Find the Chromium binary path.
 
     Matches JS: findChromium()
@@ -822,15 +746,10 @@ def find_chromium(data_dir: str | None = None) -> str | None:
     - host Chromium locations
     - abxpkg-managed Puppeteer/Playwright provider shims under LIB_DIR
 
-    Args:
-        data_dir: Optional SNAP_DIR override
-
     Returns:
         Path to Chromium binary or None if not found
     """
     env = os.environ.copy()
-    if data_dir:
-        env["SNAP_DIR"] = str(data_dir)
     returncode, stdout, stderr = _call_chrome_utils("findChromium", env=env)
     if returncode == 0 and stdout.strip():
         return stdout.strip()
@@ -861,7 +780,7 @@ def kill_chrome(pid: int, output_dir: str | None = None) -> bool:
     return returncode == 0
 
 
-def _is_pid_alive(pid: int) -> bool:
+def is_pid_alive(pid: int) -> bool:
     """Return True if the process still exists."""
     try:
         os.kill(pid, 0)
@@ -870,14 +789,14 @@ def _is_pid_alive(pid: int) -> bool:
     return True
 
 
-def _wait_for_pid_exit(pid: int, timeout_seconds: float = 15.0) -> bool:
+def wait_for_pid_exit(pid: int, timeout_seconds: float = 15.0) -> bool:
     """Wait for a process to exit and return True if it did."""
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
-        if not _is_pid_alive(pid):
+        if not is_pid_alive(pid):
             return True
         time.sleep(0.25)
-    return not _is_pid_alive(pid)
+    return not is_pid_alive(pid)
 
 
 def get_test_env() -> dict:
@@ -911,67 +830,6 @@ def get_test_env() -> dict:
     env.setdefault("CRAWL_DIR", str(Path.cwd()))
     env.setdefault("PERSONAS_DIR", str(get_personas_dir()))
     return env
-
-
-# Backward compatibility aliases (deprecated, use new names)
-find_chromium_binary = find_chromium
-kill_chrome_via_js = kill_chrome
-get_machine_type_from_js = get_machine_type
-get_test_env_from_js = get_test_env
-
-
-# =============================================================================
-# Module-level constants (lazy-loaded on first access)
-# Import these directly: from chrome_test_helpers import LIB_DIR, NODE_MODULES_DIR
-# =============================================================================
-
-# These are computed once when first accessed
-_LIB_DIR: Path | None = None
-_NODE_MODULES_DIR: Path | None = None
-
-
-def _get_lib_dir_cached() -> Path:
-    global _LIB_DIR
-    if _LIB_DIR is None:
-        _LIB_DIR = get_lib_dir()
-    return _LIB_DIR
-
-
-def _get_node_modules_dir_cached() -> Path:
-    global _NODE_MODULES_DIR
-    if _NODE_MODULES_DIR is None:
-        _NODE_MODULES_DIR = get_node_modules_dir()
-    return _NODE_MODULES_DIR
-
-
-# Module-level constants that can be imported directly
-# Usage: from chrome_test_helpers import LIB_DIR, NODE_MODULES_DIR
-class _LazyPath:
-    """Lazy path that computes value on first access."""
-
-    def __init__(self, getter):
-        self._getter = getter
-        self._value = None
-
-    def __fspath__(self):
-        if self._value is None:
-            self._value = self._getter()
-        return str(self._value)
-
-    def __truediv__(self, other):
-        if self._value is None:
-            self._value = self._getter()
-        return self._value / other
-
-    def __str__(self):
-        return self.__fspath__()
-
-    def __repr__(self):
-        return f"<LazyPath: {self.__fspath__()}>"
-
-
-LIB_DIR = _LazyPath(_get_lib_dir_cached)
-NODE_MODULES_DIR = _LazyPath(_get_node_modules_dir_cached)
 
 
 # =============================================================================
@@ -1083,9 +941,7 @@ def _ensure_puppeteer_with_abxpkg(env: dict, timeout: int) -> None:
     package lifecycle is complete before attempting any launch/install flow.
     """
     lib_dir = Path(
-        env.get("LIB_DIR")
-        or os.environ.get("LIB_DIR")
-        or Path.home() / ".config" / "abx" / "lib",
+        env.get("LIB_DIR") or os.environ.get("LIB_DIR") or get_lib_dir(),
     )
     pnpm_root = lib_dir / "pnpm" / "packages" / "chrome"
 
@@ -1162,9 +1018,7 @@ def install_chromium_with_abxpkg(env: dict, timeout: int = 300) -> str:
         from abxpkg import Binary, PuppeteerProvider, SemVer
 
         lib_dir = Path(
-            env.get("LIB_DIR")
-            or os.environ.get("LIB_DIR")
-            or Path.home() / ".config" / "abx" / "lib",
+            env.get("LIB_DIR") or os.environ.get("LIB_DIR") or get_lib_dir(),
         )
         chrome_binary = Binary(
             name=chrome_record.get("name", "chrome"),
@@ -1197,32 +1051,6 @@ def install_chromium_with_abxpkg(env: dict, timeout: int = 300) -> str:
         return chrome_path
 
 
-def run_hook_and_parse(
-    hook_script: Path,
-    url: str,
-    snapshot_id: str,
-    cwd: Path | None = None,
-    env: dict | None = None,
-    timeout: int = 60,
-    extra_args: list[str] | None = None,
-) -> tuple[int, dict[str, Any] | None, str]:
-    """Run a hook and parse its JSONL output.
-
-    Chrome-aware wrapper: defaults env to get_test_env().
-    """
-    if env is None:
-        env = get_test_env()
-    return _base_run_hook_and_parse(
-        hook_script,
-        url,
-        snapshot_id,
-        cwd=cwd,
-        env=env,
-        timeout=timeout,
-        extra_args=extra_args,
-    )
-
-
 # =============================================================================
 # Extension Test Helpers
 # Used by extension tests (ublock, istilldontcareaboutcookies, twocaptcha)
@@ -1238,8 +1066,8 @@ def setup_test_env(tmpdir: Path) -> dict:
     - snapshot state lives under ``<tmpdir>/snap``
     - install-scoped ``chromewebstore/extensions`` is resolved by the Chrome
       config helper
-    - persona-scoped ``chrome_downloads`` and ``chrome_profile`` dirs are
-      provisioned as runtime browser state
+    - persona-scoped Chrome state is derived by runtime config from
+      ``PERSONAS_DIR``/``ACTIVE_PERSONA`` unless explicitly overridden
     - Chrome + pnpm dependencies are installed through hooks, not hand-written
       test setup
 
@@ -1252,15 +1080,6 @@ def setup_test_env(tmpdir: Path) -> dict:
     Returns:
         Environment dict with all paths set.
     """
-
-    # Determine machine type (matches archivebox.config.paths.get_machine_type())
-    machine = platform.machine().lower()
-    system = platform.system().lower()
-    if machine in ("arm64", "aarch64"):
-        machine = "arm64"
-    elif machine in ("x86_64", "amd64"):
-        machine = "x86_64"
-    machine_type = f"{machine}-{system}"
 
     tmpdir = Path(tmpdir).resolve()
 
@@ -1276,8 +1095,6 @@ def setup_test_env(tmpdir: Path) -> dict:
     xdg_config_home = home_dir / ".config"
     xdg_cache_home = home_dir / ".cache"
     xdg_data_home = home_dir / ".local" / "share"
-    chrome_downloads_dir = personas_dir / "Default" / "chrome_downloads"
-    chrome_user_data_dir = personas_dir / "Default" / "chrome_profile"
     crawl_dir = tmpdir / "crawl"
 
     # Build complete env dict
@@ -1287,8 +1104,9 @@ def setup_test_env(tmpdir: Path) -> dict:
             "SNAP_DIR": str(snap_dir),
             "CRAWL_DIR": str(crawl_dir),
             "PERSONAS_DIR": str(personas_dir),
+            "ACTIVE_PERSONA": "Default",
             "LIB_DIR": str(lib_dir),
-            "MACHINE_TYPE": machine_type,
+            "MACHINE_TYPE": get_machine_type(),
             "PNPM_BIN_DIR": str(pnpm_bin_dir),
             "NPM_BIN_DIR": str(pnpm_bin_dir),
             "NODE_MODULES_DIR": str(node_modules_dir),
@@ -1296,23 +1114,26 @@ def setup_test_env(tmpdir: Path) -> dict:
             "XDG_CONFIG_HOME": str(xdg_config_home),
             "XDG_CACHE_HOME": str(xdg_cache_home),
             "XDG_DATA_HOME": str(xdg_data_home),
-            "CHROME_DOWNLOADS_DIR": str(chrome_downloads_dir),
-            "CHROME_USER_DATA_DIR": str(chrome_user_data_dir),
         },
     )
+    for inherited_key in (
+        "CHROME_DOWNLOADS_DIR",
+        "CHROME_EXTENSIONS_DIR",
+        "CHROME_USER_DATA_DIR",
+        "COOKIES_FILE",
+    ):
+        env.pop(inherited_key, None)
     chrome_extensions_dir = Path(get_extensions_dir(env=env))
-    env["CHROME_EXTENSIONS_DIR"] = str(chrome_extensions_dir)
 
     # Create all directories
     node_modules_dir.mkdir(parents=True, exist_ok=True)
     pnpm_bin_dir.mkdir(parents=True, exist_ok=True)
+    personas_dir.mkdir(parents=True, exist_ok=True)
     home_dir.mkdir(parents=True, exist_ok=True)
     xdg_config_home.mkdir(parents=True, exist_ok=True)
     xdg_cache_home.mkdir(parents=True, exist_ok=True)
     xdg_data_home.mkdir(parents=True, exist_ok=True)
     chrome_extensions_dir.mkdir(parents=True, exist_ok=True)
-    chrome_downloads_dir.mkdir(parents=True, exist_ok=True)
-    chrome_user_data_dir.mkdir(parents=True, exist_ok=True)
     snap_dir.mkdir(parents=True, exist_ok=True)
     crawl_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1475,8 +1296,8 @@ def kill_chromium_session(
 
     if (
         chrome_pid is not None
-        and _is_pid_alive(chrome_pid)
-        and not _wait_for_pid_exit(chrome_pid)
+        and is_pid_alive(chrome_pid)
+        and not wait_for_pid_exit(chrome_pid)
     ):
         kill_chrome(chrome_pid, str(chrome_dir))
 
@@ -1484,71 +1305,6 @@ def kill_chromium_session(
         handle = getattr(chrome_launch_process, attr, None)
         if handle:
             handle.close()
-
-
-@contextmanager
-def chromium_session(env: dict, chrome_dir: Path, crawl_id: str):
-    """Context manager for Chromium sessions with automatic cleanup.
-
-    Usage:
-        with chromium_session(env, chrome_dir, 'test-crawl') as (process, cdp_url):
-            # Use cdp_url to connect with puppeteer
-            pass
-        # Chromium automatically cleaned up
-
-    Args:
-        env: Environment dict (from setup_test_env)
-        chrome_dir: Directory for Chrome files
-        crawl_id: ID for the crawl
-
-    Yields:
-        Tuple of (chrome_launch_process, cdp_url)
-    """
-    chrome_launch_process = None
-    try:
-        chrome_launch_process, cdp_url = launch_chromium_session(
-            env,
-            chrome_dir,
-            crawl_id,
-        )
-        yield chrome_launch_process, cdp_url
-    finally:
-        if chrome_launch_process:
-            kill_chromium_session(chrome_launch_process, chrome_dir)
-
-
-# =============================================================================
-# Tab-based Test Helpers
-# Used by tab-based tests (infiniscroll, modalcloser)
-# =============================================================================
-
-
-def cleanup_chrome(
-    chrome_launch_process: subprocess.Popen,
-    chrome_pid: int,
-    chrome_dir: Path | None = None,
-) -> None:
-    """Clean up Chrome processes using chrome_utils.js killChrome.
-
-    Uses the centralized kill logic from chrome_utils.js which handles:
-    - SIGTERM then SIGKILL
-    - Process group killing
-    - Zombie process cleanup
-
-    Args:
-        chrome_launch_process: The Popen object for the chrome launch hook
-        chrome_pid: The PID of the Chrome process
-        chrome_dir: Optional path to chrome output directory
-    """
-    # First try to terminate the launch process gracefully
-    try:
-        chrome_launch_process.send_signal(signal.SIGTERM)
-        chrome_launch_process.wait(timeout=5)
-    except Exception:
-        pass
-
-    if _is_pid_alive(chrome_pid) and not _wait_for_pid_exit(chrome_pid):
-        kill_chrome(chrome_pid, str(chrome_dir) if chrome_dir else None)
 
 
 def launch_snapshot_tab(
@@ -1683,15 +1439,6 @@ def chrome_session(
     chrome_pid = None
     chrome_dir: Path | None = None
     try:
-        # Create proper directory structure in tmpdir
-        machine = platform.machine().lower()
-        system = platform.system().lower()
-        if machine in ("arm64", "aarch64"):
-            machine = "arm64"
-        elif machine in ("x86_64", "amd64"):
-            machine = "x86_64"
-        machine_type = f"{machine}-{system}"
-
         tmpdir = Path(tmpdir).resolve()
         # Model real runtime layout: one crawl root + one snapshot root per session.
         crawl_dir = tmpdir / "crawl" / crawl_id
@@ -1701,9 +1448,6 @@ def chrome_session(
         xdg_config_home = home_dir / ".config"
         xdg_cache_home = home_dir / ".cache"
         xdg_data_home = home_dir / ".local" / "share"
-        chrome_persona_dir = personas_dir / "Default"
-        chrome_downloads_dir = chrome_persona_dir / "chrome_downloads"
-        chrome_user_data_dir = chrome_persona_dir / "chrome_profile"
         env = os.environ.copy()
 
         # Prefer an already-provisioned NODE_MODULES_DIR (set by session-level chrome fixture)
@@ -1732,16 +1476,15 @@ def chrome_session(
         xdg_config_home.mkdir(parents=True, exist_ok=True)
         xdg_cache_home.mkdir(parents=True, exist_ok=True)
         xdg_data_home.mkdir(parents=True, exist_ok=True)
-        chrome_downloads_dir.mkdir(parents=True, exist_ok=True)
-        chrome_user_data_dir.mkdir(parents=True, exist_ok=True)
 
         env.update(
             {
                 "SNAP_DIR": str(snap_dir),
                 "CRAWL_DIR": str(crawl_dir),
                 "PERSONAS_DIR": str(personas_dir),
+                "ACTIVE_PERSONA": "Default",
                 "LIB_DIR": str(lib_dir),
-                "MACHINE_TYPE": machine_type,
+                "MACHINE_TYPE": get_machine_type(),
                 "NODE_MODULES_DIR": str(node_modules_dir),
                 "NODE_PATH": str(node_modules_dir),
                 "PNPM_BIN_DIR": str(node_modules_dir / ".bin"),
@@ -1750,16 +1493,20 @@ def chrome_session(
                 "XDG_CONFIG_HOME": str(xdg_config_home),
                 "XDG_CACHE_HOME": str(xdg_cache_home),
                 "XDG_DATA_HOME": str(xdg_data_home),
-                "CHROME_DOWNLOADS_DIR": str(chrome_downloads_dir),
-                "CHROME_USER_DATA_DIR": str(chrome_user_data_dir),
                 "CHROME_HEADLESS": "true",
             },
         )
+        for inherited_key in (
+            "CHROME_DOWNLOADS_DIR",
+            "CHROME_EXTENSIONS_DIR",
+            "CHROME_USER_DATA_DIR",
+            "COOKIES_FILE",
+        ):
+            env.pop(inherited_key, None)
         if env_overrides:
             env.update(env_overrides)
         chrome_extensions_dir = Path(get_extensions_dir(env=env))
         chrome_extensions_dir.mkdir(parents=True, exist_ok=True)
-        env["CHROME_EXTENSIONS_DIR"] = str(chrome_extensions_dir)
         chrome_timeout = int(env.get("CHROME_TIMEOUT") or "60")
         startup_timeout = max(int(timeout), chrome_timeout + 15)
         env.setdefault("CHROME_DEBUG_PORT_TIMEOUT_MS", str(startup_timeout * 1000))
@@ -1799,7 +1546,7 @@ def chrome_session(
                 timeout=max(60, chrome_timeout + 15),
             )
         except RuntimeError:
-            cleanup_chrome(chrome_launch_process, chrome_pid)
+            kill_chromium_session(chrome_launch_process, chrome_dir)
             raise
 
         # Navigate to URL if requested
@@ -1818,14 +1565,10 @@ def chrome_session(
                     env=tab_env,
                 )
                 if result.returncode != 0:
-                    cleanup_chrome(
-                        chrome_launch_process,
-                        chrome_pid,
-                        chrome_dir=chrome_dir,
-                    )
+                    kill_chromium_session(chrome_launch_process, chrome_dir)
                     raise RuntimeError(f"Navigation failed: {result.stderr}")
             except subprocess.TimeoutExpired:
-                cleanup_chrome(chrome_launch_process, chrome_pid, chrome_dir=chrome_dir)
+                kill_chromium_session(chrome_launch_process, chrome_dir)
                 raise RuntimeError("Navigation timed out after 120s")
 
         yield chrome_launch_process, chrome_pid, snapshot_chrome_dir, env
@@ -1840,5 +1583,5 @@ def chrome_session(
             handle = getattr(tab_process, attr, None) if tab_process else None
             if handle:
                 handle.close()
-        if chrome_launch_process and chrome_pid:
-            cleanup_chrome(chrome_launch_process, chrome_pid, chrome_dir=chrome_dir)
+        if chrome_launch_process and chrome_dir:
+            kill_chromium_session(chrome_launch_process, chrome_dir)

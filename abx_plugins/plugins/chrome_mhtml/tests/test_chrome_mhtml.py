@@ -3,12 +3,7 @@
 import os
 import subprocess
 import tempfile
-import threading
-import urllib.parse
-from contextlib import contextmanager
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -32,36 +27,23 @@ MHTML_PARENT_TOKEN = "ABX_MHTML_PARENT_TOKEN_7391"
 MHTML_OOPIF_CHILD_TOKEN = "ABX_MHTML_OOPIF_CHILD_TOKEN_7391"
 
 
-class _MhtmlFrameRequestHandler(BaseHTTPRequestHandler):
-    server_version = "ABXMhtmlFrameHTTP/1.0"
-
-    def log_message(self, format: str, *args: Any) -> None:
-        return
-
-    def _write(self, body: str) -> None:
-        payload = body.encode("utf-8")
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", str(len(payload)))
-        self.send_header("Connection", "close")
-        self.end_headers()
-        self.wfile.write(payload)
-
-    def do_GET(self) -> None:
-        parsed = urllib.parse.urlparse(self.path)
-        if parsed.path == "/child":
-            self._write(
-                f"""<!doctype html>
+@pytest.fixture
+def mhtml_oopif_test_url(httpserver):
+    child_url = httpserver.url_for("/child").replace(
+        "localhost",
+        "oopif-child.localhost",
+        1,
+    )
+    httpserver.expect_request("/child").respond_with_data(
+        f"""<!doctype html>
 <html>
 <head><meta charset="utf-8"><title>MHTML OOPIF Child</title></head>
 <body><main><h1>{MHTML_OOPIF_CHILD_TOKEN}</h1></main></body>
 </html>""",
-            )
-            return
-
-        child_url = getattr(self.server, "child_url")
-        self._write(
-            f"""<!doctype html>
+        content_type="text/html; charset=utf-8",
+    )
+    httpserver.expect_request("/parent").respond_with_data(
+        f"""<!doctype html>
 <html>
 <head><meta charset="utf-8"><title>MHTML OOPIF Parent</title></head>
 <body>
@@ -69,25 +51,9 @@ class _MhtmlFrameRequestHandler(BaseHTTPRequestHandler):
   <iframe id="cross-site-frame" src="{child_url}"></iframe>
 </body>
 </html>""",
-        )
-
-
-class _MhtmlThreadingHTTPServer(ThreadingHTTPServer):
-    child_url: str
-
-
-@contextmanager
-def mhtml_oopif_test_url():
-    server = _MhtmlThreadingHTTPServer(("127.0.0.1", 0), _MhtmlFrameRequestHandler)
-    server.daemon_threads = True
-    server.child_url = f"http://oopif-child.localhost:{server.server_port}/child"
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    try:
-        yield f"http://127.0.0.1:{server.server_port}/parent"
-    finally:
-        server.shutdown()
-        server.server_close()
+        content_type="text/html; charset=utf-8",
+    )
+    return httpserver.url_for("/parent").replace("localhost", "127.0.0.1", 1)
 
 
 def test_hook_script_exists():
@@ -117,10 +83,14 @@ def test_mhtml_preview_templates_live_with_mhtml_plugins(plugin_name):
     )
 
 
-def test_extracts_mhtml_from_cross_site_iframe(require_chrome_runtime):
+def test_extracts_mhtml_from_cross_site_iframe(
+    require_chrome_runtime,
+    mhtml_oopif_test_url,
+):
     """MHTML capture should include the cross-site iframe frame tree."""
-    with tempfile.TemporaryDirectory() as tmpdir, mhtml_oopif_test_url() as test_url:
+    with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
+        test_url = mhtml_oopif_test_url
 
         with chrome_session(
             tmpdir,
@@ -186,3 +156,4 @@ def test_config_chrome_mhtml_false_skips():
         assert result_json
         assert result_json["type"] == "ArchiveResult"
         assert result_json["status"] == "skipped"
+        assert result_json["output_str"] == "CHROME_MHTML_ENABLED=False"

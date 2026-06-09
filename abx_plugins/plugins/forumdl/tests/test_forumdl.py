@@ -2,7 +2,6 @@
 Integration tests for forumdl plugin
 
 Tests verify:
-    pass
 1. Hook script exists
 2. Dependencies installed via validation hooks
 3. Verify deps with abxpkg
@@ -186,6 +185,12 @@ def test_config_timeout():
         assert elapsed_time <= 35.0, (
             f"Should complete within 35 seconds, took {elapsed_time:.2f}s"
         )
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json == {
+            "type": "ArchiveResult",
+            "status": "noresults",
+            "output_str": "No forum found",
+        }, result_json
 
 
 def test_real_forum_url():
@@ -236,13 +241,17 @@ def test_real_forum_url():
         assert result_json, (
             f"Should have ArchiveResult JSONL output. stdout: {result.stdout}"
         )
-        assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
+        assert result_json == {
+            "type": "ArchiveResult",
+            "status": "succeeded",
+            "output_str": "forumdl/forum.jsonl",
+        }, result_json
 
         # Check that forum files were downloaded
-        output_files = list(tmpdir.glob("**/*"))
+        output_files = sorted(tmpdir.glob("**/*"))
         forum_files = [f for f in output_files if f.is_file()]
 
-        assert len(forum_files) > 0, (
+        assert forum_files == [tmpdir / "forumdl" / "forum.jsonl"], (
             f"Should have downloaded at least one forum file. Files: {output_files}"
         )
 
@@ -250,6 +259,8 @@ def test_real_forum_url():
         jsonl_file = tmpdir / "forumdl" / "forum.jsonl"
         assert jsonl_file.exists(), "Should have created forum.jsonl"
         assert jsonl_file.stat().st_size > 0, "forum.jsonl should not be empty"
+        first_line = jsonl_file.read_text(encoding="utf-8").splitlines()[0]
+        assert first_line.startswith("{"), first_line
 
         print(
             f"Successfully extracted {len(forum_files)} file(s) in {elapsed_time:.2f}s",

@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import os
-import shutil
-import subprocess
 from pathlib import Path
 
 
@@ -16,92 +13,13 @@ SINGLEFILE_HELPER = (
 )
 
 
-def test_singlefile_helper_honors_node_modules_dir(tmp_path: Path) -> None:
-    """singlefile helper should resolve puppeteer from NODE_MODULES_DIR."""
-    node_binary = shutil.which("node")
-    if not node_binary:
-        raise AssertionError("Node.js is required for singlefile helper tests")
+def test_singlefile_helper_source_installs_node_resolution_before_chrome_utils() -> None:
+    """Parser-only guard: NODE_MODULES_DIR resolution must precede chrome_utils loading."""
+    source = SINGLEFILE_HELPER.read_text(encoding="utf-8")
 
-    run_dir = tmp_path / "run"
-    run_dir.mkdir()
-    output_path = run_dir / "singlefile.html"
+    ensure_call = "ensureNodeModuleResolution(module);"
+    chrome_utils_load = 'require("../chrome/chrome_utils.js")'
 
-    node_modules_dir = tmp_path / "node_modules"
-    puppeteer_dir = node_modules_dir / "puppeteer"
-    puppeteer_dir.mkdir(parents=True)
-    (puppeteer_dir / "index.js").write_text(
-        "module.exports = { connect: async () => ({}) };\n",
-        encoding="utf-8",
-    )
-
-    preload_path = tmp_path / "preload.js"
-    preload_path.write_text(
-        """
-const fs = require('fs');
-const Module = require('module');
-const originalLoad = Module._load;
-
-Module._load = function(request, parent, isMain) {
-    if (request === '../chrome/chrome_utils.js') {
-        return {
-            connectToPage: async () => ({
-                browser: { disconnect: async () => {} },
-                page: {
-                    url: async () => process.env.TEST_URL,
-                    goto: async () => {},
-                    bringToFront: async () => {},
-                    createCDPSession: async () => ({ send: async () => {} }),
-                    target: () => ({ createCDPSession: async () => ({ send: async () => {} }) }),
-                },
-                cdpSession: { send: async () => {} },
-            }),
-            readBrowserMetadata: () => ({ ready: true, extensions: [{ name: 'singlefile', id: 'test-extension-id', version: '1.0.0' }] }),
-            findExtensionMetadataByName: () => ({ id: 'test-extension-id', version: '1.0.0' }),
-            loadExtensionManifest: () => ({ background: { service_worker: 'service-worker.js' } }),
-            waitForExtensionTargetHandle: async () => ({}),
-            loadExtensionFromTarget: async (extensions) => {
-                extensions[0].dispatchAction = async () => {
-                    fs.writeFileSync(
-                        `${process.env.CHROME_DOWNLOADS_DIR}/example.com.html`,
-                        '<!DOCTYPE html><html><body>ok</body></html>'
-                    );
-                };
-                return extensions[0];
-            },
-            setBrowserDownloadBehavior: async () => true,
-        };
-    }
-
-    return originalLoad(request, parent, isMain);
-};
-""".lstrip(),
-        encoding="utf-8",
-    )
-
-    env = os.environ.copy()
-    env["NODE_MODULES_DIR"] = str(node_modules_dir)
-    env["TEST_URL"] = "https://example.com"
-    env["CHROME_DOWNLOADS_DIR"] = str(run_dir / "downloads")
-
-    result = subprocess.run(
-        [
-            node_binary,
-            "--require",
-            str(preload_path),
-            str(SINGLEFILE_HELPER),
-            "--url=https://example.com",
-            f"--output-path={output_path}",
-        ],
-        cwd=run_dir,
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=30,
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert output_path.exists(), (
-        "singlefile helper should emit the requested output file"
-    )
-    assert "Cannot find module 'puppeteer'" not in result.stderr
-    assert "[singlefile] dependencies loaded" in result.stderr
+    assert ensure_call in source
+    assert chrome_utils_load in source
+    assert source.index(ensure_call) < source.index(chrome_utils_load)

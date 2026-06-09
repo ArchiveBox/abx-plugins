@@ -100,6 +100,18 @@ def run_title_capture(title_dir, snapshot_chrome_dir, env, url, snapshot_id):
     return nav_result, result
 
 
+def assert_title_succeeded(result, title_dir, expected_title):
+    assert result.returncode == 0, f"Extraction failed: {result.stderr}"
+    record = parse_jsonl_output(result.stdout)
+    assert record == {
+        "type": "ArchiveResult",
+        "status": "succeeded",
+        "output_str": expected_title,
+    }
+    title_file = title_dir / "title.txt"
+    assert title_file.read_text().strip() == expected_title
+
+
 def test_hook_script_exists():
     """Verify hook script exists."""
     assert TITLE_HOOK.exists(), f"Hook script not found: {TITLE_HOOK}"
@@ -134,27 +146,7 @@ def test_extracts_title_from_example_com(title_test_urls):
             )
             assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
-        assert result.returncode == 0, f"Extraction failed: {result.stderr}"
-
-        # Parse clean JSONL output
-        result_json = parse_jsonl_output(result.stdout)
-
-        assert result_json, "Should have ArchiveResult JSONL output"
-        assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
-        assert result_json["output_str"] == "Example Domain"
-
-        # Verify output file exists (hook writes to current directory)
-        title_file = title_dir / "title.txt"
-        assert title_file.exists(), "title.txt not created"
-
-        # Verify title contains deterministic fixture title
-        title_text = title_file.read_text().strip()
-        assert len(title_text) > 0, "Title should not be empty"
-        assert "example" in title_text.lower(), "Title should contain 'example'"
-
-        assert "example domain" in title_text.lower(), (
-            f"Expected 'Example Domain', got: {title_text}"
-        )
+        assert_title_succeeded(result, title_dir, "Example Domain")
 
 
 def test_fails_without_chrome_session():
@@ -223,19 +215,19 @@ def test_config_timeout_honored(title_test_urls):
             )
             assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
-        # Should complete (success or fail, but not hang)
-        assert result.returncode in (0, 1), "Should complete without hanging"
+        assert_title_succeeded(result, title_dir, "Example Domain")
 
 
-def test_handles_https_urls(chrome_test_https_url):
-    """Test HTTPS behavior deterministically (success or explicit cert failure)."""
+def test_handles_https_urls():
+    """Test HTTPS title extraction against a real live URL."""
+    test_url = "https://example.com/"
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
         with chrome_session(
             tmpdir,
-            test_url=chrome_test_https_url,
+            test_url=test_url,
             navigate=False,
             timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
         ) as (
@@ -246,33 +238,18 @@ def test_handles_https_urls(chrome_test_https_url):
         ):
             title_dir = snapshot_chrome_dir.parent / "title"
             title_dir.mkdir(exist_ok=True)
-            # Keep this bounded so a failed TLS navigation cannot hang the hook for long.
             env["TITLE_TIMEOUT"] = "5"
 
             nav_result, result = run_title_capture(
                 title_dir,
                 snapshot_chrome_dir,
                 env,
-                chrome_test_https_url,
+                test_url,
                 "testhttps",
             )
 
-        if nav_result.returncode == 0:
-            assert result.returncode == 0, (
-                f"Title extraction should succeed after successful HTTPS navigation: {result.stderr}"
-            )
-            output_title_file = title_dir / "title.txt"
-            assert output_title_file.exists(), "title.txt not created for HTTPS page"
-            title_text = output_title_file.read_text().strip()
-            assert len(title_text) > 0, "Title should not be empty"
-        else:
-            nav_output = (nav_result.stdout + nav_result.stderr).lower()
-            assert "err_cert" in nav_output or "certificate" in nav_output, (
-                f"Expected explicit TLS certificate error, got: {nav_result.stderr}"
-            )
-            assert result.returncode != 0, (
-                "Title hook should fail when HTTPS navigation fails due certificate validation"
-            )
+        assert nav_result.returncode == 0, f"HTTPS navigation failed: {nav_result.stderr}"
+        assert_title_succeeded(result, title_dir, "Example Domain")
 
 
 def test_handles_404_gracefully(title_test_urls):
@@ -304,8 +281,7 @@ def test_handles_404_gracefully(title_test_urls):
             )
             assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
-        # May succeed or fail depending on server behavior
-        assert result.returncode in (0, 1), "Should complete (may succeed or fail)"
+        assert_title_succeeded(result, title_dir, "Not Found Fixture")
 
 
 def test_handles_redirects(title_test_urls):
@@ -337,13 +313,7 @@ def test_handles_redirects(title_test_urls):
             )
             assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
-        # Should succeed and follow redirect
-        if result.returncode == 0:
-            # Hook writes to current directory
-            output_title_file = title_dir / "title.txt"
-            if output_title_file.exists():
-                title_text = output_title_file.read_text().strip()
-                assert "example" in title_text.lower()
+        assert_title_succeeded(result, title_dir, "Example Domain")
 
 
 if __name__ == "__main__":

@@ -78,22 +78,20 @@ def test_install_creates_cache():
         assert cache_data["name"] == "istilldontcareaboutcookies"
 
 
-def test_install_uses_existing_cache():
-    """Test that install uses existing cache when available"""
+def test_install_twice_uses_provider_cache():
+    """Running the real provider install twice should reuse the provider cache."""
     with tempfile.TemporaryDirectory() as tmpdir:
         env, ext_dir = chrome_extension_install_env(tmpdir)
 
-        # Create fake cache
-        fake_extension_dir = (
-            ext_dir / "edibdbjcniadpccecjdfdjjppcpchdlm__istilldontcareaboutcookies"
-        )
-        fake_extension_dir.mkdir(parents=True)
+        first = install_cookie_extension(env)
+        assert first.loaded_abspath is not None
+        assert first.loaded_abspath.exists()
+        cache_file = ext_dir / "istilldontcareaboutcookies.extension.json"
+        assert cache_file.exists(), "Cache file should exist after first install"
 
-        manifest = {"version": "1.1.8", "name": "I still don't care about cookies"}
-        (fake_extension_dir / "manifest.json").write_text(json.dumps(manifest))
-
-        loaded = install_cookie_extension(env)
-        assert loaded.loaded_abspath is not None
+        second = install_cookie_extension(env)
+        assert second.loaded_abspath == first.loaded_abspath
+        assert second.loaded_abspath.exists()
 
 
 def test_no_configuration_required():
@@ -563,14 +561,9 @@ def test_snapshot_hook_reports_hidden_cookie_popups(httpserver):
                             for record in records
                             if record.get("type") == "ArchiveResult"
                         )
-                        assert archive_result["status"] in {"succeeded", "noresults"}, (
-                            archive_result
-                        )
+                        assert archive_result["status"] == "succeeded", archive_result
                         hidden_count = int(archive_result["output_str"].split()[0])
-                        if archive_result["status"] == "succeeded":
-                            assert hidden_count > 0, archive_result
-                        else:
-                            assert hidden_count == 0, archive_result
+                        assert hidden_count > 0, archive_result
                         return
                     finally:
                         if hook_process.poll() is None:

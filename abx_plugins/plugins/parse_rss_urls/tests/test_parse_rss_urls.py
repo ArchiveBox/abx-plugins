@@ -18,7 +18,6 @@ class TestParseRssUrls:
 
     def test_parses_real_rss_feed(self, tmp_path):
         """Test parsing a real RSS feed from the web."""
-        # Use httpbin.org which provides a sample RSS feed
         result = run_parse_rss_urls(
             [
                 str(SCRIPT_PATH),
@@ -31,15 +30,17 @@ class TestParseRssUrls:
             timeout=30,
         )
 
-        # HN RSS feed should parse successfully
-        if result.returncode == 0:
-            # Output goes to stdout (JSONL)
-            content = result.stdout
-            assert len(content) > 0, "No URLs extracted from real RSS feed"
-
-            # Verify at least one URL was extracted
-            lines = content.strip().split("\n")
-            assert len(lines) > 0, "No entries found in RSS feed"
+        assert result.returncode == 0, result.stderr
+        lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if line.strip() and '"type": "Snapshot"' in line
+        ]
+        assert lines, f"No URLs extracted from real RSS feed: {result.stdout!r}"
+        entries = [json.loads(line) for line in lines]
+        assert all(entry["type"] == "Snapshot" for entry in entries)
+        assert all(entry["url"].startswith(("http://", "https://")) for entry in entries)
+        assert "URLs parsed" in result.stderr or "URLs parsed" in result.stdout
 
     def test_extracts_urls_from_rss_feed(self, tmp_path):
         """Test extracting URLs from an RSS 2.0 feed."""

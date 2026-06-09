@@ -812,20 +812,16 @@ class TestEdgeCases:
             text=True,
         )
 
-        # Current regex works line-by-line, so this might not match
-        # Document current behavior
-        if result.returncode == 0:
-            # Output goes to stdout (JSONL)
-            content = result.stdout.strip()
-            if content:
-                lines = [
-                    line
-                    for line in content.split("\n")
-                    if line.strip() and '"type": "Snapshot"' in line
-                ]
-                if lines:
-                    entry = json.loads(lines[0])
-                    assert "example.com" in entry["url"]
+        assert result.returncode == 0
+        lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if line.strip() and '"type": "Snapshot"' in line
+        ]
+        assert len(lines) == 1
+        entry = json.loads(lines[0])
+        assert entry["url"] == "https://example.com"
+        assert entry["title"] == "Multi-line Bookmark"
 
     def test_missing_add_date(self, tmp_path):
         """Test bookmark without ADD_DATE attribute - should still extract URL."""
@@ -868,18 +864,16 @@ class TestEdgeCases:
             text=True,
         )
 
-        # Current regex requires non-empty title [^<]+, so this input produces no valid records.
         assert result.returncode == 0
-        result_json = json.loads(
-            next(
-                line
-                for line in result.stdout.strip().split("\n")
-                if line.strip().startswith("{")
-            ),
-        )
-        assert result_json["type"] == "ArchiveResult"
-        assert result_json["status"] == "noresults"
-        assert result_json["output_str"] == "0 URLs parsed"
+        lines = [
+            line
+            for line in result.stdout.strip().split("\n")
+            if line.strip() and '"type": "Snapshot"' in line
+        ]
+        assert len(lines) == 1
+        entry = json.loads(lines[0])
+        assert entry["url"] == "https://example.com"
+        assert "title" not in entry
 
     def test_special_chars_in_url(self, tmp_path):
         """Test URLs with special characters."""
@@ -888,6 +882,7 @@ class TestEdgeCases:
 <DT><A HREF="https://example.com/path?q=test&foo=bar&baz=qux#section" ADD_DATE="1609459200">Special URL</A>
 <DT><A HREF="https://example.com/path%20with%20spaces" ADD_DATE="1609459200">Encoded Spaces</A>
 <DT><A HREF="https://example.com/unicode/日本語" ADD_DATE="1609459200">Unicode Path</A>
+<DT><A HREF="https://en.wikipedia.org/wiki/John_F._Kennedy_High_School_(Sacramento,_California)?useskin=vector" ADD_DATE="1609459200">Parenthesized URL</A>
         """)
 
         result = subprocess.run(
@@ -906,9 +901,13 @@ class TestEdgeCases:
         ]
         entries = [json.loads(line) for line in lines]
 
-        assert len(entries) == 3
+        assert len(entries) == 4
         assert "q=test&foo=bar" in entries[0]["url"]
         assert "%20" in entries[1]["url"]
+        assert (
+            entries[3]["url"]
+            == "https://en.wikipedia.org/wiki/John_F._Kennedy_High_School_(Sacramento,_California)?useskin=vector"
+        )
 
     def test_javascript_url(self, tmp_path):
         """Test javascript: URLs (should still be extracted)."""

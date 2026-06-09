@@ -4,6 +4,7 @@ Integration tests for archivedotorg plugin
 Tests verify standalone archive.org extractor execution.
 """
 
+import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -25,7 +26,7 @@ def test_hook_script_exists():
 
 def test_submits_to_archivedotorg():
     with tempfile.TemporaryDirectory() as tmpdir:
-        import os
+        tmpdir = Path(tmpdir)
 
         env = os.environ.copy()
         # Keep the hook's own network timeout below subprocess timeout so failures
@@ -47,27 +48,21 @@ def test_submits_to_archivedotorg():
 
         assert result.returncode == 0, result.stderr
 
-        # Parse clean JSONL output
         result_json = parse_jsonl_output(result.stdout)
         assert result_json, "Should have ArchiveResult JSONL output"
-
-        if result_json["status"] == "succeeded":
-            assert result_json["status"] == "succeeded", (
-                f"Should succeed: {result_json}"
-            )
-            assert result_json["output_str"] == "archivedotorg/archive.org.txt", (
-                result_json
-            )
-        else:
-            assert result_json["status"] == "noresults", result_json
-            assert result_json["output_str"], "Should include Archive.org response"
-            assert "NORESULTS:" in result.stderr, result.stderr
+        assert result_json == {
+            "type": "ArchiveResult",
+            "status": "succeeded",
+            "output_str": "archivedotorg/archive.org.txt",
+        }, result_json
+        output_path = tmpdir / "archivedotorg" / "archive.org.txt"
+        assert output_path.is_file(), f"Archive.org output missing: {output_path}"
+        archived_url = output_path.read_text(encoding="utf-8").strip()
+        assert archived_url.startswith("https://web.archive.org/"), archived_url
 
 
 def test_config_save_archivedotorg_false_skips():
     with tempfile.TemporaryDirectory() as tmpdir:
-        import os
-
         env = os.environ.copy()
         env["ARCHIVEDOTORG_ENABLED"] = "False"
 
@@ -101,7 +96,7 @@ def test_config_save_archivedotorg_false_skips():
 
 def test_handles_timeout():
     with tempfile.TemporaryDirectory() as tmpdir:
-        import os
+        tmpdir = Path(tmpdir)
 
         env = os.environ.copy()
         env["ARCHIVEDOTORG_TIMEOUT"] = "10"
@@ -121,15 +116,17 @@ def test_handles_timeout():
 
         assert result.returncode == 0, result.stderr
 
-        # With a low-but-valid timeout the hook may time out or get an HTTP error from
-        # archive.org (e.g. 403/429). Either way it should emit proper JSONL and
-        # never turn a normal Archive.org refusal into a failed hook.
         result_json = parse_jsonl_output(result.stdout)
         assert result_json, "Should emit ArchiveResult JSONL"
-        assert result_json["status"] in {"succeeded", "noresults"}, result_json
-        assert result_json["output_str"], (
-            "Should include output path or error description"
-        )
+        assert result_json == {
+            "type": "ArchiveResult",
+            "status": "succeeded",
+            "output_str": "archivedotorg/archive.org.txt",
+        }, result_json
+        output_path = tmpdir / "archivedotorg" / "archive.org.txt"
+        assert output_path.is_file(), f"Archive.org output missing: {output_path}"
+        archived_url = output_path.read_text(encoding="utf-8").strip()
+        assert archived_url.startswith("https://web.archive.org/"), archived_url
 
 
 if __name__ == "__main__":
