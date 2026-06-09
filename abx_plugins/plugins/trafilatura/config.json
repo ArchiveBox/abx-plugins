@@ -19,6 +19,10 @@
       }
     }
   ],
+  "input_url_patterns": [
+    "http://",
+    "https://"
+  ],
   "output_mimetypes": [
     "text/plain",
     "text/markdown",

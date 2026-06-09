@@ -33,6 +33,10 @@
       }
     }
   ],
+  "input_url_patterns": [
+    "http://",
+    "https://"
+  ],
   "output_mimetypes": [
     "application/json"
   ],

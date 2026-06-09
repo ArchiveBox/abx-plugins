@@ -3,12 +3,13 @@
   "title": "SQLite Search",
   "description": "Index archived snapshot content into a SQLite FTS database for local search.",
   "type": "object",
-  "x-runtimes": [
-    "archivebox"
-  ],
   "additionalProperties": false,
   "required_plugins": [],
   "required_binaries": [],
+  "input_url_patterns": [
+    "http://",
+    "https://"
+  ],
   "output_mimetypes": [
     "application/vnd.sqlite3"
   ],
@@ -44,5 +45,8 @@
       ],
       "description": "FTS5 tokenizer configuration"
     }
-  }
+  },
+  "x-runtimes": [
+    "archivebox"
+  ]
 }

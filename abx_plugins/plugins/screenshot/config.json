@@ -15,6 +15,10 @@
       "postinstall_scripts": true
     }
   ],
+  "input_url_patterns": [
+    "http://",
+    "https://"
+  ],
   "output_mimetypes": [
     "image/png"
   ],

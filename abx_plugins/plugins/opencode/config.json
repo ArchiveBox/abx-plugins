@@ -3,10 +3,6 @@
   "title": "OpenCode Agent",
   "description": "Expose an admin-only embedded OpenCode web agent UI for ArchiveBox.",
   "type": "object",
-  "x-runtimes": [
-    "archivebox"
-  ],
-  "x-install-when-disabled": true,
   "additionalProperties": false,
   "required_plugins": [],
   "required_binaries": [
@@ -36,6 +32,10 @@
         }
       }
     }
+  ],
+  "input_url_patterns": [
+    "http://",
+    "https://"
   ],
   "output_mimetypes": [],
   "properties": {
@@ -82,5 +82,9 @@
       "minimum": 1,
       "description": "Seconds to wait for OpenCode startup and proxied requests"
     }
-  }
+  },
+  "x-runtimes": [
+    "archivebox"
+  ],
+  "x-install-when-disabled": true
 }

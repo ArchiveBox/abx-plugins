@@ -21,6 +21,11 @@
       }
     }
   ],
+  "input_url_patterns": [
+    "http://",
+    "https://",
+    "file:"
+  ],
   "output_mimetypes": [
     "application/x-ndjson"
   ],

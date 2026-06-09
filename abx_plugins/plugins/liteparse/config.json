@@ -71,6 +71,10 @@
       }
     }
   ],
+  "input_url_patterns": [
+    "http://",
+    "https://"
+  ],
   "output_mimetypes": [
     "text/plain",
     "application/json"
@@ -93,7 +97,7 @@
     "LITEPARSE_TESSERACT_BINARY": {
       "type": "string",
       "default": "tesseract",
-      "description": "Path to the tesseract binary used to discover the system tessdata directory. Auto-installed by the plugin via brew/apt; not invoked at runtime — lit's bundled tesseract-rs does the actual OCR."
+      "description": "Path to the tesseract binary used to discover the system tessdata directory. Auto-installed by the plugin via brew/apt; not invoked at runtime \u2014 lit's bundled tesseract-rs does the actual OCR."
     },
     "LITEPARSE_IMAGEMAGICK_BINARY": {
       "type": "string",
@@ -112,8 +116,10 @@
       "items": {
         "type": "string"
       },
-      "default": ["text"],
-      "description": "Output formats to produce, one file per source. `text` writes `<input>.txt` (lit's plain layout-preserving text — what search backends index). `json` is also supported and writes `<input>.json` with lit v2's structured per-page output (text, bounding boxes, font metadata, OCR confidence); not indexed by search backends. Any subset of [text, json] is valid."
+      "default": [
+        "text"
+      ],
+      "description": "Output formats to produce, one file per source. `text` writes `<input>.txt` (lit's plain layout-preserving text \u2014 what search backends index). `json` is also supported and writes `<input>.json` with lit v2's structured per-page output (text, bounding boxes, font metadata, OCR confidence); not indexed by search backends. Any subset of [text, json] is valid."
     },
     "LITEPARSE_OCR_ENABLED": {
       "type": "boolean",
