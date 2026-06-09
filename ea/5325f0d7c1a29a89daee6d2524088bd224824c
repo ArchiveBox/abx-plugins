@@ -1,0 +1,169 @@
+abx_plugins/plugins/archivedotorg/tests/test_archivedotorg.py
+  s_cdb7ab28cd51df::t_1f7c7280875d4d 7,29,53-61,99,121-129
+abx_plugins/plugins/ytdlp/tests/test_ytdlp.py
+  s_cdb7ab28cd51df::t_7d62601839f9b1 236-241,281-282,285,307-312,368,370-372
+abx_plugins/plugins/opendataloader/tests/test_opendataloader.py
+  s_cdb7ab28cd51df::t_ee87e1aa8036a8 95,99,101-106
+  s_cdb7ab28cd51df::t_d16407932f54ee 395-396,408,423,427
+abx_plugins/plugins/papersdl/tests/test_papersdl.py
+  s_cdb7ab28cd51df::t_a085bea6b45124 190-195,202-243
+abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py
+  s_cdb7ab28cd51df::t_6848290ecaf5e9 10,559-579,581
+  s_cdb7ab28cd51df::t_f0d59c98aeff20 602-603,611-613
+  s_cdb7ab28cd51df::t_6e407cdb0baec5 607-609,614-615,618-630
+  s_cdb7ab28cd51df::t_ba2bd9657eaf33 606
+  s_cdb7ab28cd51df::t_3a82a633ee4de7 190
+  s_cdb7ab28cd51df::t_034a2ed0a827ed 203
+abx_plugins/plugins/mercury/tests/test_mercury.py
+  s_cdb7ab28cd51df::t_2e0812371c7e80 141,203
+  s_cdb7ab28cd51df::t_e6a75893a4ec2a 204
+  s_cdb7ab28cd51df::t_e12c0653d10791 138-139,145-148,150,153-155,196,201-202,205
+  s_cdb7ab28cd51df::t_93c3115e3faf6f 195
+  s_cdb7ab28cd51df::t_4f8c207f186c6e 128-134
+  s_cdb7ab28cd51df::t_bdf0e0c67bf5b0 135
+tests/test_singlefile_extension_save.py
+  s_cdb7ab28cd51df::t_aca853715e7beb 16-18,20-21,23-25
+abx_plugins/plugins/parse_netscape_urls/on_Snapshot__73_parse_netscape_urls.py
+  s_cdb7ab28cd51df::t_c5f848c02a890e 59-61
+  s_cdb7ab28cd51df::t_ec88a2f7ad873a 57-58,70,72
+  s_cdb7ab28cd51df::t_e0db02819d4f5b 235-267,270-291,299
+  s_cdb7ab28cd51df::t_84bb251aaab63e 352-381
+  s_cdb7ab28cd51df::t_a2362c021db2bc 212-234,268-269,292-298,300-302
+abx_plugins/plugins/parse_netscape_urls/tests/test_parse_netscape_urls.py
+  s_cdb7ab28cd51df::t_d16407932f54ee 159,161-181,193-194
+abx_plugins/plugins/parse_dom_outlinks/tests/test_parse_dom_outlinks.py
+  s_cdb7ab28cd51df::t_414b5829a52a7e 61,63,110-112
+abx_plugins/plugins/ublock/tests/test_ublock.py
+  s_ccefc8ac08198c::t_1c904cd2b69fb0 816,897
+  s_ccefc8ac08198c::t_a810a5ef21c23f 142-146,149-150,155,234,296-297
+  s_ccefc8ac08198c::t_07afd65341ac38 353-354
+  s_ccefc8ac08198c::t_fb0e1ce737bde9 311-314,333,335-337,347,356-359,361,423,425-427
+  s_ccefc8ac08198c::t_8e7b1178874f63 762,765,769,776-778,780-786,788-793,795-798,800-801,804-805,807-808,810-815,821,824-826,828-830,832-838,840-845,847-849,851-852,854-855,857-865,867-875,877-881,883-887,890-891,906-908
+  s_ccefc8ac08198c::t_dfa03ae5e1f58b 309,331,346,424,806,866,876,882,895
+  s_ccefc8ac08198c::t_04ad42bcbdacaf 888-889
+  s_ccefc8ac08198c::t_61d383e35633c9 900
+  s_ccefc8ac08198c::t_94fb868f94e099 576-587,625-628
+  s_ccefc8ac08198c::t_13657bc60ba54f 636-637,643-646,650-651,799,817-820,822,853,892-894,896,898-899,901-905
+  s_ccefc8ac08198c::t_78899e1bbd8d20 42-69,235
+abx_plugins/plugins/istilldontcareaboutcookies/tests/test_istilldontcareaboutcookies.py
+  s_cdb7ab28cd51df::t_17d0437e1262bf 564,566
+  s_cdb7ab28cd51df::t_6c358b6f628bf6 81-82,86-90,92-94
+tests/test_runtime_path_isolation.py
+  s_cdb7ab28cd51df::t_8c56db2ce5744b 3-4,170,174-176,178-181,183-191,193-194,196-203
+abx_plugins/plugins/parse_rss_urls/tests/test_parse_rss_urls.py
+  s_cdb7ab28cd51df::t_d16407932f54ee 33-43
+abx_plugins/plugins/forumdl/tests/test_forumdl.py
+  s_cdb7ab28cd51df::t_92370d8fcb7698 188-193,244-248,251,254,262-263
+tests/test_plugin_config_metadata.py
+  s_cdb7ab28cd51df::t_e70ad2ecef2fc8 7-8,184,209-212,214,217-221,223-226,228
+abx_plugins/plugins/dns/tests/test_dns.py
+  s_cdb7ab28cd51df::t_1aebc687801e1d 137,156
+abx_plugins/plugins/responses/tests/test_responses.py
+  s_cdb7ab28cd51df::t_eaa1fa787f3184 172-173,177,189-192,245-264
+abx_plugins/plugins/modalcloser/tests/test_modalcloser.py
+  s_cdb7ab28cd51df::t_96f8b2eb3745a3 64-89,110-173,559-575,577-579,581-592,594-595,597-601,603-604,606-608,610-624,626-628
+  s_cdb7ab28cd51df::t_e4ad951c6ad68f 12
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_cdb7ab28cd51df::t_bcac061ea4b3a1 3875,4031
+abx_plugins/plugins/consolelog/tests/test_consolelog.py
+  s_cdb7ab28cd51df::t_f89d6e5fa70931 18,124-134,136-148
+  s_cdb7ab28cd51df::t_67a0449f721e5a 135
+abx_plugins/plugins/git/tests/test_git.py
+  s_cdb7ab28cd51df::t_ed491b89df5a5b 45,48,64-69
+  s_cdb7ab28cd51df::t_2dc445bb695e67 44,46,85
+  s_cdb7ab28cd51df::t_01d959f8048558 10,47,61-63,88-93,98-100,110,140-147,150-151
+abx_plugins/plugins/infiniscroll/tests/test_infiniscroll.py
+  s_cdb7ab28cd51df::t_e773c327af58d7 295,308,311-313
+  s_cdb7ab28cd51df::t_a9e32e82262cee 330,333-334,382-394
+abx_plugins/plugins/parse_rss_urls/on_Snapshot__72_parse_rss_urls.py
+  s_15f59ac80abb8e::t_90d7e6527ba4ff 51,86-91,125
+abx_plugins/plugins/chrome_mhtml/tests/test_chrome_mhtml.py
+  s_cdb7ab28cd51df::t_7a35072eeee1df 30-38,43-46,54-56,86-89,91,93,159
+pyproject.toml
+  s_cdb7ab28cd51df::t_6202a66f42df38 33,35-36,88-89
+abx_plugins/plugins/singlefile/tests/test_singlefile.py
+  s_cdb7ab28cd51df::t_09030ba7741ed5 266-280,564
+  s_cdb7ab28cd51df::t_70a440e4652757 565
+abx_plugins/plugins/defuddle/tests/test_defuddle.py
+  s_cdb7ab28cd51df::t_a105009449c2f3 154,179
+abx_plugins/plugins/favicon/tests/test_favicon.py
+  s_cdb7ab28cd51df::t_cdef77ca266e0e 109,173
+  s_cdb7ab28cd51df::t_71533761ab722a 97,107,116
+  s_cdb7ab28cd51df::t_b6b64028674f76 6,17,43-67,76,78,81-82,84-86,89-94,96,100-102,111-113,115,117-120,123-131,138-139,141-146,149,151-164,171-172,174-179,192-194
+  s_cdb7ab28cd51df::t_65ffe5a64a010b 10,21,98
+abx_plugins/plugins/screenshot/tests/test_screenshot.py
+  s_cdb7ab28cd51df::t_13c161fecbc971 16,128,202-203,212,241-242,245-246,269-277,327,333-336,338-339,341,352,354,356-360,405-408,509,544-548
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_cdb7ab28cd51df::t_0a839dd973b8a8 647
+  s_cdb7ab28cd51df::t_17621a8c1854de 654-660
+  s_cdb7ab28cd51df::t_52e67190865b8f 37-39,42,49
+  s_cdb7ab28cd51df::t_d6c95fd20afbf3 2056,2081
+  s_cdb7ab28cd51df::t_1e736131dd114b 40,683
+  s_cdb7ab28cd51df::t_0e0c81c269d2fb 369,477-481,761
+  s_cdb7ab28cd51df::t_18ca195fe46cc7 44,51,548,1231,1251,1271,1273,1426,1478,1482,1525,1556,1560,1618,1640,1653,1713,1745,1749,1817,1852,1863,2672,3446
+  s_cdb7ab28cd51df::t_8a827c8b1774b6 363
+  s_cdb7ab28cd51df::t_8e547a9fcdb3e7 969,994,1999,2102,2106,2264,2266,2357,2418,2921,2957,2984,3062,3067,3153,3263,3270
+abx_plugins/plugins/wget/tests/test_wget.py
+  s_cdb7ab28cd51df::t_a2738d57181112 60-61,64,87,98-101,235,238,252,261-277,335-340,359-366,369,371,386,395-400,403,405-413,427,436-441
+  s_cdb7ab28cd51df::t_7fa74190ff0d22 379,421
+abx_plugins/plugins/title/tests/test_title.py
+  s_cdb7ab28cd51df::t_d16407932f54ee 103-114,149,218,251,284,316
+  s_cdb7ab28cd51df::t_e092ff91082618 221-223,230,247
+  s_cdb7ab28cd51df::t_06c7994ab4aac9 252
+abx_plugins/plugins/dom/tests/test_dom.py
+  s_cdb7ab28cd51df::t_3f315989229a6e 148
+abx_plugins/plugins/base/utils.js
+  s_cdb7ab28cd51df::t_5dc0b00e439e12 137-152,249,385,391
+abx_plugins/plugins/parse_netscape_urls/tests/test_parse_netscape_urls_comprehensive.py
+  s_cdb7ab28cd51df::t_d16407932f54ee 815-824
+  s_cdb7ab28cd51df::t_0d41daac7f4681 868-876
+  s_cdb7ab28cd51df::t_81e306bda752ef 885,904,907-910
+abx_plugins/plugins/base/utils.py
+  s_cdb7ab28cd51df::t_5652a156cc82b2 916
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  s_cdb7ab28cd51df::t_39f801eb20dc94 1109,1487
+  s_cdb7ab28cd51df::t_08ba418cc899ca 739,783,792,796,799,1299-1300
+  s_cdb7ab28cd51df::t_0c037b9a376fc4 1069-1070,1119-1125,1499-1505
+  s_cdb7ab28cd51df::t_ed73f04b6ab86f 723-729
+  s_cdb7ab28cd51df::t_b6c698cb3b8157 667-671,944
+  s_cdb7ab28cd51df::t_5f112c30a61c16 559-620
+  s_cdb7ab28cd51df::t_d42cdd315f6eed 659-666,1021
+  s_cdb7ab28cd51df::t_cdba0936590227 54,58,124,143-145,174-178,180,184,188-190,195-197,229-250,280-282,297-302,401-403,413,416,421,424
+  s_cdb7ab28cd51df::t_219806bb6cc316 359,365-371,719,1107,1485
+  s_cdb7ab28cd51df::t_f7eaf52db29a4e 1131
+  s_cdb7ab28cd51df::t_6e500020298ed4 146
+  s_cdb7ab28cd51df::t_73b8d76f420b28 166-173
+  s_cdb7ab28cd51df::t_c2f969c964025f 1549,1568,1571,1586-1587
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "ea5325f0d7c1a29a89daee6d2524088bd224824c",
+  "prompts": {},
+  "sessions": {
+    "s_15f59ac80abb8e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa8a-3bcf-7290-a54d-15bd828c06a5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_ccefc8ac08198c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e86b5-1bab-7df2-80cb-660ce277c3ec",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_cdb7ab28cd51df": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa76-c893-7193-bd47-d91b6111304f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
