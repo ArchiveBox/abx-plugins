@@ -297,6 +297,9 @@ def test_singlefile_with_extension_uses_existing_chrome():
             "abxpkg did not resolve SingleFile extension"
         )
 
+        downloads_dir = tmpdir / "chrome_downloads"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+
         # Launch Chrome session with extensions loaded
         with chrome_session(
             tmpdir=tmpdir,
@@ -307,11 +310,12 @@ def test_singlefile_with_extension_uses_existing_chrome():
             timeout=30,
             env_overrides={
                 "CHROME_EXTENSIONS_DIR": str(extensions_dir),
+                "CHROME_DOWNLOADS_DIR": str(downloads_dir),
             },
         ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
             singlefile_output_dir = snapshot_chrome_dir.parent / "singlefile"
             singlefile_output_dir.mkdir(parents=True, exist_ok=True)
-            downloads_dir = Path(env["CHROME_DOWNLOADS_DIR"])
+            assert Path(env["CHROME_DOWNLOADS_DIR"]) == downloads_dir
 
             # Ensure ../chrome points to snapshot chrome session (contains target_id.txt)
             chrome_dir = singlefile_output_dir.parent / "chrome"
