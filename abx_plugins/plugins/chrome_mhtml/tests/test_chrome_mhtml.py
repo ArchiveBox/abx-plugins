@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from pytest_httpserver import HTTPServer
 
 from abx_plugins.plugins.base.test_utils import (
     get_hook_script,
@@ -25,13 +26,16 @@ MHTML_HOOK = _MHTML_HOOK
 CHROME_STARTUP_TIMEOUT_SECONDS = 45
 MHTML_PARENT_TOKEN = "ABX_MHTML_PARENT_TOKEN_7391"
 MHTML_OOPIF_CHILD_TOKEN = "ABX_MHTML_OOPIF_CHILD_TOKEN_7391"
+MHTML_OOPIF_CHILD_HOST = "oopif-child.test"
 
 
 @pytest.fixture
-def mhtml_oopif_test_url(httpserver):
+def mhtml_oopif_test_url():
+    httpserver = HTTPServer(threaded=True)
+    httpserver.start()
     child_url = httpserver.url_for("/child").replace(
         "localhost",
-        "oopif-child.localhost",
+        MHTML_OOPIF_CHILD_HOST,
         1,
     )
     httpserver.expect_request("/child").respond_with_data(
@@ -53,7 +57,10 @@ def mhtml_oopif_test_url(httpserver):
 </html>""",
         content_type="text/html; charset=utf-8",
     )
-    return httpserver.url_for("/parent").replace("localhost", "127.0.0.1", 1)
+    try:
+        yield httpserver.url_for("/parent").replace("localhost", "127.0.0.1", 1)
+    finally:
+        httpserver.stop()
 
 
 def test_hook_script_exists():
@@ -96,7 +103,9 @@ def test_extracts_mhtml_from_cross_site_iframe(
             tmpdir,
             test_url=test_url,
             timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
-            env_overrides={"CHROME_ARGS_EXTRA": "--site-per-process"},
+            env_overrides={
+                "CHROME_ARGS_EXTRA": f'["--site-per-process","--host-resolver-rules=MAP {MHTML_OOPIF_CHILD_HOST} 127.0.0.1"]',
+            },
         ) as (
             _process,
             _pid,

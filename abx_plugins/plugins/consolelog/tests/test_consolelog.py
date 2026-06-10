@@ -51,11 +51,13 @@ class TestConsolelogWithChrome:
         """Clean up."""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_consolelog_captures_output(self):
+    def test_consolelog_captures_output(self, httpserver):
         """Consolelog hook should capture console output from page."""
-        test_url = (
-            'data:text/html,<script>console.log("archivebox-console-test")</script>'
+        httpserver.expect_request("/consolelog").respond_with_data(
+            '<!doctype html><script>console.log("archivebox-console-test")</script>',
+            content_type="text/html; charset=utf-8",
         )
+        test_url = httpserver.url_for("/consolelog")
         snapshot_id = "test-consolelog-snapshot"
 
         with chrome_session(

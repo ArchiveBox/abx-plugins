@@ -29,6 +29,7 @@ def test_submits_to_archivedotorg():
         tmpdir = Path(tmpdir)
 
         env = os.environ.copy()
+        env["SNAP_DIR"] = str(tmpdir)
         # Keep the hook's own network timeout below subprocess timeout so failures
         # return cleanly as exit=1 instead of being killed by pytest.
         env["ARCHIVEDOTORG_TIMEOUT"] = "45"
@@ -99,6 +100,7 @@ def test_handles_timeout():
         tmpdir = Path(tmpdir)
 
         env = os.environ.copy()
+        env["SNAP_DIR"] = str(tmpdir)
         env["ARCHIVEDOTORG_TIMEOUT"] = "10"
 
         result = subprocess.run(
