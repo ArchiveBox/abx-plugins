@@ -335,6 +335,14 @@ def main(
     try:
         content = fetch_content(url)
     except Exception as e:
+        if url.startswith(("http://", "https://")):
+            # Snapshot URL fetching is only a fallback when no staticfile import
+            # artifact exists. Normal webpages, blocked requests, or transient
+            # network errors should not make this parser hook look broken.
+            status, output_str = persist_records([])
+            print(output_str)
+            emit_result(status, output_str)
+            sys.exit(0)
         emit_result("failed", f"Failed to fetch {url}: {e}")
         sys.exit(1)
 

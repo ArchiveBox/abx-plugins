@@ -155,6 +155,27 @@ class TestParseRssUrls:
         assert "0 URLs parsed" in result.stderr
         assert not (tmp_path / "parse_rss_urls" / "urls.jsonl").exists()
 
+    def test_http_fetch_failure_reports_noresults(self, tmp_path, httpserver):
+        """HTTP fallback fetch failures mean the URL was not parseable as RSS."""
+        httpserver.expect_request("/not-a-feed").respond_with_data(
+            "<html><title>Not a feed</title></html>",
+            status=500,
+            content_type="text/html",
+        )
+
+        result = run_parse_rss_urls(
+            [str(SCRIPT_PATH), "--url", httpserver.url_for("/not-a-feed")],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        assert '"status": "noresults"' in result.stdout
+        assert '"output_str": "0 URLs parsed"' in result.stdout
+        assert '"status": "failed"' not in result.stdout
+        assert not (tmp_path / "parse_rss_urls" / "urls.jsonl").exists()
+
     def test_exits_1_when_file_not_found(self, tmp_path):
         """Test that script exits with code 1 when file doesn't exist."""
         result = run_parse_rss_urls(
