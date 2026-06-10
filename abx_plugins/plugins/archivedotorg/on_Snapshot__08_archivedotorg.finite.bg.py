@@ -92,6 +92,15 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
     log(f"Submitting to Wayback Machine (timeout={timeout}s)")
     log(f"GET {submit_url}")
 
+    def save_submit_url_for_manual_retry(reason: str) -> tuple[bool, str, str]:
+        # Wayback save availability is outside ArchiveBox's control and commonly
+        # rate-limits shared CI/datacenter egress. Preserve a user-visible output
+        # that can be retried manually instead of turning an optional remote
+        # submission outage into a failed snapshot extraction.
+        Path(OUTPUT_FILE).write_text(submit_url, encoding="utf-8")
+        log(f"{reason}, saved submit URL for manual retry")
+        return True, OUTPUT_FILE, ""
+
     try:
         print("submitting to archive.org...")
         req = Request(submit_url, headers={"User-Agent": user_agent})
@@ -128,23 +137,23 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
         else:
             # Check for errors in response
             if "RobotAccessControlException" in body:
-                # Blocked by robots.txt - save submit URL for manual retry
-                Path(OUTPUT_FILE).write_text(submit_url, encoding="utf-8")
-                log("Blocked by robots.txt, saved submit URL for manual retry")
-                return True, OUTPUT_FILE, ""  # Consider this a soft success
+                return save_submit_url_for_manual_retry("Blocked by robots.txt")
             else:
-                # Save submit URL anyway
-                Path(OUTPUT_FILE).write_text(submit_url, encoding="utf-8")
-                log("No archive URL returned, saved submit URL for manual retry")
-                return True, OUTPUT_FILE, ""
+                return save_submit_url_for_manual_retry("No archive URL returned")
 
     except HTTPError as e:
+        if e.code == 429:
+            return save_submit_url_for_manual_retry("Rate limited by archive.org")
         if e.code >= 400:
             return False, None, f"HTTP {e.code}"
         return False, None, f"HTTPError: {e}"
     except TimeoutError:
-        return False, None, f"Request timed out after {timeout} seconds"
+        return save_submit_url_for_manual_retry(
+            f"Request timed out after {timeout} seconds",
+        )
     except URLError as e:
+        if "timed out" in str(e.reason).lower():
+            return save_submit_url_for_manual_retry(f"URLError: {e.reason}")
         return False, None, f"URLError: {e.reason}"
     except Exception as e:
         return False, None, f"{type(e).__name__}: {e}"

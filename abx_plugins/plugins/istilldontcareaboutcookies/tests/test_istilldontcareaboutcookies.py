@@ -127,14 +127,20 @@ def test_snapshot_hook_reports_skipped_when_disabled():
     )
 
 
-def test_snapshot_hook_reports_noresults_on_blank_page():
+def test_snapshot_hook_reports_noresults_on_blank_page(httpserver):
+    httpserver.expect_request("/blank").respond_with_data(
+        "<!doctype html><html><head><title>Blank</title></head><body></body></html>",
+        content_type="text/html",
+    )
+    test_url = httpserver.url_for("/blank")
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         with chrome_session(
             tmpdir,
             crawl_id="cookie-noresults",
             snapshot_id="cookie-noresults-snap",
-            test_url="about:blank",
+            test_url=test_url,
             navigate=False,
             timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
         ) as (_chrome_launch_process, _chrome_pid, snapshot_chrome_dir, env):
@@ -144,7 +150,7 @@ def test_snapshot_hook_reports_noresults_on_blank_page():
             hook_process = subprocess.Popen(
                 [
                     str(SNAPSHOT_HOOK),
-                    "--url=about:blank",
+                    f"--url={test_url}",
                     "--snapshot-id=cookie-noresults-snap",
                 ],
                 cwd=str(hook_dir),
@@ -158,7 +164,7 @@ def test_snapshot_hook_reports_noresults_on_blank_page():
                 navigate = subprocess.run(
                     [
                         str(NAVIGATE_HOOK),
-                        "--url=about:blank",
+                        f"--url={test_url}",
                         "--snapshot-id=cookie-noresults-snap",
                     ],
                     cwd=str(snapshot_chrome_dir),

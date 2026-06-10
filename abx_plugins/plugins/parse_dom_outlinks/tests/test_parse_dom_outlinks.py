@@ -180,18 +180,18 @@ class TestParseDomOutlinksWithChrome:
         except RuntimeError:
             raise
 
-    def test_outlinks_removes_outputs_when_no_crawlable_urls(self):
+    def test_outlinks_removes_outputs_when_no_crawlable_urls(self, httpserver):
         """Hook should not leave output files behind when no crawlable URLs are found."""
-        input_file = self.temp_dir / "no-links.html"
-        input_file.write_text(
+        httpserver.expect_request("/no-links").respond_with_data(
             """<!doctype html>
 <html>
 <head><title>No Links</title></head>
 <body><p>No crawlable links on this page.</p></body>
 </html>
 """,
+            content_type="text/html",
         )
-        test_url = input_file.resolve().as_uri()
+        test_url = httpserver.url_for("/no-links")
         snapshot_id = "test-outlinks-empty"
 
         try:
