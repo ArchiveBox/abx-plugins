@@ -30,6 +30,7 @@ from abx_plugins.plugins.base.utils import (
     get_extra_context,
     iter_staticfile_text_inputs,
     load_config,
+    read_file_url_text,
     write_text_atomic,
 )
 
@@ -390,6 +391,15 @@ def main(
                         root_url=root_url,
                         urls_found=urls_found,
                     )
+        elif (file_content := read_file_url_text(url)) is not None:
+            import io
+
+            with io.StringIO(file_content) as reader:
+                extract_urls_from_reader(
+                    reader,
+                    root_url=root_url,
+                    urls_found=urls_found,
+                )
         elif url.startswith(("http://", "https://")):
             timeout = CONFIG.TIMEOUT
             user_agent = CONFIG.USER_AGENT

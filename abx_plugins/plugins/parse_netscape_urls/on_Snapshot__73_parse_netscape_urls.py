@@ -29,6 +29,7 @@ from abx_plugins.plugins.base.utils import (
     get_extra_context,
     iter_staticfile_text_inputs,
     load_config,
+    read_file_url_text,
     write_text_atomic,
 )
 
@@ -187,6 +188,9 @@ def fetch_content(url: str) -> str:
         return "\n".join(
             path.read_text(encoding="utf-8", errors="replace") for path in source_paths
         )
+    file_content = read_file_url_text(url)
+    if file_content is not None:
+        return file_content
     if not url.startswith(("http://", "https://")):
         return ""
     timeout = CONFIG.TIMEOUT

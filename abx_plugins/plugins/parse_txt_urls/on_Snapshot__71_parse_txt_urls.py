@@ -28,6 +28,7 @@ from abx_plugins.plugins.base.utils import (
     get_extra_context,
     iter_staticfile_text_inputs,
     load_config,
+    read_file_url_text,
     write_text_atomic,
 )
 
@@ -211,6 +212,8 @@ def main(
                 source_path.open(encoding="utf-8", errors="replace")
                 for source_path in source_paths
             ]
+        elif (file_content := read_file_url_text(url)) is not None:
+            readers = [io.StringIO(file_content)]
         elif url.startswith(("http://", "https://")):
             config = load_config()
             timeout = config.TIMEOUT

@@ -18,6 +18,7 @@ import json
 import os
 import stat
 import sys
+from urllib.parse import unquote, urlparse
 from collections.abc import Mapping, MutableMapping
 from functools import lru_cache
 from pathlib import Path
@@ -149,7 +150,7 @@ def _maybe_skip_unsupported_snapshot_url(schema: Mapping[str, Any]) -> None:
     url = _argv_url()
     if not (_is_snapshot_hook() and url):
         return
-    if url.startswith(("http://", "https://")):
+    if url.startswith(("http://", "https://", "file://")):
         return
     # ArchiveBox represents pasted/stdin import content as one synthetic
     # snapshot URL. Only plugins that explicitly declare they consume that
@@ -956,6 +957,21 @@ def iter_staticfile_text_inputs(snap_dir: Path | str | None = None) -> tuple[Pat
         for path in sorted(staticfile_dir.glob("*.txt"))
         if path.is_file() and path.stat().st_size > 0
     )
+
+
+def read_file_url_text(url: str) -> str | None:
+    """Read direct file:// hook input for standalone abx-plugins/abx-dl use.
+
+    ArchiveBox validates and blocks user-supplied file URLs before they become
+    crawl work. The plugin package remains a lower-level downloader/parser
+    toolkit, so direct hook invocations are still allowed to parse local files.
+    """
+    if not url.startswith("file://"):
+        return None
+    parsed = urlparse(url)
+    if parsed.netloc not in ("", "localhost"):
+        raise ValueError(f"unsupported file URL host: {parsed.netloc}")
+    return Path(unquote(parsed.path)).read_text(encoding="utf-8", errors="replace")
 
 
 def _resolve_path(path_value: str) -> Path:

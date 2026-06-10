@@ -52,6 +52,7 @@ import platform
 import signal
 import fcntl
 import re
+import ssl
 import subprocess
 import time
 import urllib.parse
@@ -62,6 +63,7 @@ from contextlib import contextmanager
 
 import pytest
 from _pytest.fixtures import FixtureLookupError
+from pytest_httpserver import HTTPServer
 
 from abx_plugins.plugins.base.test_utils import (
     assert_isolated_snapshot_env,
@@ -302,6 +304,53 @@ def _configure_chrome_httpserver(httpserver) -> dict[str, str]:
     return _build_test_urls(origin)
 
 
+def _create_https_test_server(tmp_path_factory) -> HTTPServer:
+    cert_dir = tmp_path_factory.mktemp("chrome_test_https")
+    cert_path = cert_dir / "localhost.crt"
+    key_path = cert_dir / "localhost.key"
+    openssl_config = cert_dir / "openssl.cnf"
+    openssl_config.write_text(
+        """[req]
+distinguished_name=req_distinguished_name
+x509_extensions=v3_req
+prompt=no
+[req_distinguished_name]
+CN=localhost
+[v3_req]
+subjectAltName=@alt_names
+[alt_names]
+DNS.1=localhost
+IP.1=127.0.0.1
+""",
+        encoding="utf-8",
+    )
+    subprocess.run(
+        [
+            "openssl",
+            "req",
+            "-x509",
+            "-newkey",
+            "rsa:2048",
+            "-nodes",
+            "-keyout",
+            str(key_path),
+            "-out",
+            str(cert_path),
+            "-days",
+            "1",
+            "-config",
+            str(openssl_config),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ssl_context.load_cert_chain(certfile=cert_path, keyfile=key_path)
+    return HTTPServer(host="127.0.0.1", port=0, ssl_context=ssl_context)
+
+
 def _build_test_urls(
     base_url: str,
     https_base_url: str | None = None,
@@ -399,7 +448,7 @@ ensure_chromium_and_puppeteer_installed = pytest.fixture(scope="session")(
 
 
 @pytest.fixture
-def chrome_test_urls(request, httpserver):
+def chrome_test_urls(request, httpserver, tmp_path_factory):
     """Provide deterministic test URLs from pytest-httpserver."""
     for fixture_name in _ROOT_URL_FIXTURE_NAMES:
         try:
@@ -410,7 +459,22 @@ def chrome_test_urls(request, httpserver):
         if urls:
             return urls
 
-    return _configure_chrome_httpserver(httpserver)
+    urls = _configure_chrome_httpserver(httpserver)
+    https_server = _create_https_test_server(tmp_path_factory)
+    https_server.start()
+    request.addfinalizer(https_server.stop)
+    _configure_chrome_httpserver(https_server)
+    urls.update(
+        {
+            key: value
+            for key, value in _build_test_urls(
+                urls["base_url"],
+                https_server.url_for("/"),
+            ).items()
+            if key.startswith("https_")
+        },
+    )
+    return urls
 
 
 @pytest.fixture
