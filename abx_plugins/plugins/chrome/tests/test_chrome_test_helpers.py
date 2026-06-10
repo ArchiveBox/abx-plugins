@@ -609,7 +609,7 @@ def test_setup_test_env_uses_derived_runtime_dirs(tmp_path: Path):
     )
 
     assert "CHROME_DOWNLOADS_DIR" not in env
-    assert "CHROME_EXTENSIONS_DIR" not in env
+    assert env["CHROME_EXTENSIONS_DIR"] == str(extensions_dir)
     assert "CHROME_USER_DATA_DIR" not in env
     assert env["ACTIVE_PERSONA"] == "Default"
     assert Path(env["PERSONAS_DIR"]).is_dir()

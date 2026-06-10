@@ -21,13 +21,14 @@ import signal
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
 import os
+import base64
+import json
 import re
+import subprocess
 import sys
 
 from pathlib import Path
-from urllib.error import HTTPError
 from urllib.parse import quote, urljoin, urlparse
-from urllib.request import Request, urlopen
 
 from abx_plugins.plugins.base.utils import emit_archive_result_record, get_config
 
@@ -46,13 +47,53 @@ OUTPUT_FILE = "favicon.ico"
 SUCCESS_OUTPUT = f"{PLUGIN_DIR}/{OUTPUT_FILE}"
 
 
+class HttpDeadlineExceeded(TimeoutError):
+    pass
+
+
 def http_get(url: str, headers: dict[str, str], timeout: int) -> tuple[int, bytes]:
-    req = Request(url, headers=headers)
+    # urllib's socket timeout does not bound total request time when the peer
+    # accepts the connection and delays the response. FAVICON_TIMEOUT is the
+    # per-candidate extractor budget, so run the blocking fetch in a plain
+    # Python child process and let subprocess enforce the deadline. A thread is
+    # not enough here: a blocked urllib worker can keep interpreter shutdown
+    # waiting, which turns one slow favicon endpoint into a full snapshot stall.
+    fetch_code = r"""
+import base64, json, sys
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
+url = sys.argv[1]
+headers = json.loads(sys.argv[2])
+timeout = int(sys.argv[3])
+req = Request(url, headers=headers)
+try:
+    with urlopen(req, timeout=timeout) as response:
+        body = response.read()
+        print(json.dumps({"ok": True, "status": response.getcode() or 0, "body": base64.b64encode(body).decode("ascii")}))
+except HTTPError as e:
+    body = e.read()
+    print(json.dumps({"ok": True, "status": e.code, "body": base64.b64encode(body).decode("ascii")}))
+except BaseException as e:
+    print(json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"}))
+"""
     try:
-        with urlopen(req, timeout=timeout) as response:
-            return response.getcode() or 0, response.read()
-    except HTTPError as e:
-        return e.code, e.read()
+        proc = subprocess.run(
+            [sys.executable, "-c", fetch_code, url, json.dumps(headers), str(timeout)],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as err:
+        raise HttpDeadlineExceeded(f"timed out after {timeout} seconds") from err
+    if proc.returncode != 0:
+        raise RuntimeError(
+            proc.stderr.strip() or f"favicon fetch exited {proc.returncode}",
+        )
+    result = json.loads(proc.stdout.strip() or "{}")
+    if not result.get("ok"):
+        raise RuntimeError(result.get("error") or "favicon fetch failed")
+    return int(result["status"]), base64.b64decode(result.get("body") or "")
 
 
 def save_favicon(body: bytes) -> str:
@@ -80,13 +121,12 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
     Returns: (success, output_path, error_message)
     """
 
-    config = get_config()
-    timeout = config.FAVICON_TIMEOUT
+    timeout = int(CONFIG.FAVICON_TIMEOUT)
     library_version = os.environ.get("LIBRARY_VERSION", "0.0.1")
     user_agent = (
         f"ArchiveBox/{library_version} (+https://github.com/ArchiveBox/ArchiveBox/)"
     )
-    provider_template = (config.FAVICON_PROVIDER or "").strip()
+    provider_template = (CONFIG.FAVICON_PROVIDER or "").strip()
     headers = {"User-Agent": user_agent}
 
     # Build list of possible favicon URLs
@@ -129,6 +169,8 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
             status_code, body = http_get(favicon_url, headers=headers, timeout=timeout)
             if 200 <= status_code < 300 and body:
                 return True, save_favicon(body), ""
+        except HttpDeadlineExceeded:
+            break
         except Exception:
             continue
 
