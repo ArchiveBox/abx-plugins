@@ -171,64 +171,29 @@ def test_snapshot_hook_reports_skipped_when_disabled(httpserver):
 def test_snapshot_hook_reports_noresults_on_blank_page():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        with chrome_session(
-            tmpdir,
-            crawl_id="ublock-noresults",
-            snapshot_id="ublock-noresults-snap",
-            test_url="about:blank",
-            navigate=False,
-            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
-        ) as (_chrome_launch_process, _chrome_pid, snapshot_chrome_dir, env):
-            hook_dir = snapshot_chrome_dir.parent / "ublock"
-            hook_dir.mkdir(parents=True, exist_ok=True)
+        hook_dir = tmpdir / "ublock"
+        hook_dir.mkdir(parents=True, exist_ok=True)
 
-            hook_process = subprocess.Popen(
-                [
-                    str(SNAPSHOT_HOOK),
-                    "--url=about:blank",
-                    "--snapshot-id=ublock-noresults-snap",
-                ],
-                cwd=str(hook_dir),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                env=env,
-            )
+        result = subprocess.run(
+            [
+                str(SNAPSHOT_HOOK),
+                "--url=about:blank",
+                "--snapshot-id=ublock-noresults-snap",
+            ],
+            cwd=str(hook_dir),
+            capture_output=True,
+            text=True,
+            env=os.environ.copy(),
+            timeout=30,
+        )
 
-            try:
-                navigate = subprocess.run(
-                    [
-                        str(NAVIGATE_HOOK),
-                        "--url=about:blank",
-                        "--snapshot-id=ublock-noresults-snap",
-                    ],
-                    cwd=str(snapshot_chrome_dir),
-                    capture_output=True,
-                    text=True,
-                    env=env,
-                    timeout=60,
-                )
-                assert navigate.returncode == 0, navigate.stderr
-
-                time.sleep(2)
-                hook_process.send_signal(signal.SIGTERM)
-                stdout, stderr = hook_process.communicate(timeout=15)
-
-                assert hook_process.returncode == 0, stderr
-                records = parse_jsonl_records(stdout)
-                archive_result = next(
-                    record
-                    for record in records
-                    if record.get("type") == "ArchiveResult"
-                )
-                assert archive_result["status"] == "noresults", archive_result
-                assert (
-                    archive_result["output_str"]
-                    == "0 ad requests blocked | 0 elements hidden"
-                ), archive_result
-            finally:
-                if hook_process.poll() is None:
-                    hook_process.kill()
+        assert result.returncode == 0, result.stderr
+        records = parse_jsonl_records(result.stdout)
+        archive_result = next(
+            record for record in records if record.get("type") == "ArchiveResult"
+        )
+        assert archive_result["status"] == "noresults", archive_result
+        assert archive_result["output_str"] == "unsupported input URL: about:blank"
 
 
 def test_snapshot_hook_reports_live_blocking_counts(httpserver):

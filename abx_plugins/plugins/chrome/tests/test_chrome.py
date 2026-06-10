@@ -318,14 +318,22 @@ function resolvePuppeteer() {
 }
 const puppeteer = resolvePuppeteer();
 (async () => {
-  const { browser, page } = await utils.connectToPage({
+  const { browser, page, targetId } = await utils.connectToPage({
     chromeSessionDir,
     timeoutMs: 10000,
+    waitForNavigationComplete: true,
+    postLoadDelayMs: 200,
     puppeteer,
   });
+  const title = await page.title() || await page.evaluate(() => {
+    return document.title || document.querySelector('h1')?.textContent?.trim() || '';
+  });
   const payload = {
-    title: await page.title(),
+    title,
     url: page.url(),
+    targetId,
+    actualTargetId: utils.getTargetIdFromPage(page),
+    bodyText: await page.evaluate(() => document.body?.innerText || ''),
   };
   process.stdout.write(JSON.stringify(payload));
   await browser.disconnect();
@@ -3287,10 +3295,10 @@ def test_popup_focus_theft_keeps_followup_hooks_on_canonical_target(chrome_test_
             assert popup_target is not None, targets
 
             probed_page = _probe_current_snapshot_page(chrome_dir, env)
-            assert probed_page["title"] == "Popup Parent"
+            assert probed_page["title"] == "Popup Parent", probed_page
             assert probed_page["url"].rstrip("/") == chrome_test_urls[
                 "popup_parent_url"
-            ].rstrip("/")
+            ].rstrip("/"), probed_page
         finally:
             for proc in (tab_process, chrome_launch_process):
                 if proc is None:

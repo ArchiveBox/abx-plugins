@@ -203,7 +203,14 @@ function maybeSkipUnsupportedSnapshotUrl(schema) {
   // Only plugins that explicitly opt in should consume that source; everything
   // else should no-result before starting browsers/downloaders or networking.
   if (url === INTERNAL_INPUT_URL && schema["x-accepts-internal-input"]) return;
-  emitArchiveResultRecord("noresults", `unsupported input URL: ${url}`);
+  writeFdFully(
+    1,
+    `${JSON.stringify({
+      type: "ArchiveResult",
+      status: "noresults",
+      output_str: `unsupported input URL: ${url}`,
+    })}\n`
+  );
   process.exit(0);
 }
 

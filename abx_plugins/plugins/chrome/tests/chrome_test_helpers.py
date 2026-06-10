@@ -64,6 +64,7 @@ from contextlib import contextmanager
 import pytest
 from _pytest.fixtures import FixtureLookupError
 from pytest_httpserver import HTTPServer
+from werkzeug.wrappers import Response
 
 from abx_plugins.plugins.base.test_utils import (
     assert_isolated_snapshot_env,
@@ -176,24 +177,31 @@ def _configure_chrome_httpserver(httpserver) -> dict[str, str]:
     httpserver.expect_request("/linked").respond_with_data(
         "<html><head><title>Linked Page</title></head><body><h1>Linked Page</h1></body></html>",
     )
-    httpserver.expect_request("/slow").respond_with_data(
-        """<!doctype html>
+
+    def slow_page(_request):
+        time.sleep(5)
+        return Response(
+            """<!doctype html>
 <html>
 <head><meta charset="utf-8"><title>Slow Page</title></head>
 <body>
   <main>
     <h1>Slow Page</h1>
-    <p>delay_ms=0</p>
+    <p>delay_ms=5000</p>
   </main>
 </body>
 </html>""",
-    )
+            content_type="text/html; charset=utf-8",
+        )
+
+    httpserver.expect_request("/slow").respond_with_handler(slow_page)
     httpserver.expect_request("/popup-child").respond_with_data(
         """<!doctype html>
 <html>
 <head><meta charset="utf-8"><title>Popup Child</title></head>
 <body><h1>Popup Child</h1><p>This popup should not replace the canonical snapshot target.</p></body>
 </html>""",
+        content_type="text/html; charset=utf-8",
     )
     httpserver.expect_request("/popup-parent").respond_with_data(
         f"""<!doctype html>
@@ -228,6 +236,7 @@ def _configure_chrome_httpserver(httpserver) -> dict[str, str]:
   </script>
 </body>
 </html>""",
+        content_type="text/html; charset=utf-8",
     )
     httpserver.expect_request("/redirect").respond_with_data(
         "",
@@ -1190,6 +1199,7 @@ def setup_test_env(tmpdir: Path) -> dict:
     ):
         env.pop(inherited_key, None)
     chrome_extensions_dir = Path(get_extensions_dir(env=env))
+    env["CHROME_EXTENSIONS_DIR"] = str(chrome_extensions_dir)
 
     # Create all directories
     node_modules_dir.mkdir(parents=True, exist_ok=True)
@@ -1572,6 +1582,7 @@ def chrome_session(
         if env_overrides:
             env.update(env_overrides)
         chrome_extensions_dir = Path(get_extensions_dir(env=env))
+        env["CHROME_EXTENSIONS_DIR"] = str(chrome_extensions_dir)
         chrome_extensions_dir.mkdir(parents=True, exist_ok=True)
         chrome_timeout = int(env.get("CHROME_TIMEOUT") or "60")
         startup_timeout = max(int(timeout), chrome_timeout + 15)
