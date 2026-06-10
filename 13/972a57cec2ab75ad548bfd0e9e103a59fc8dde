@@ -1,0 +1,24 @@
+abx_plugins/plugins/archivedotorg/on_Snapshot__08_archivedotorg.finite.bg.py
+  s_15f59ac80abb8e::t_e28a20f59282fd 95-103,140,142,145-146,151,153,155-156
+abx_plugins/plugins/parse_dom_outlinks/tests/test_parse_dom_outlinks.py
+  s_15f59ac80abb8e::t_59fe7cd06d790f 183,185,192,194
+abx_plugins/plugins/istilldontcareaboutcookies/tests/test_istilldontcareaboutcookies.py
+  s_15f59ac80abb8e::t_1ea38aade8cfcb 153
+  s_15f59ac80abb8e::t_e15bbbdbfdca80 130-136,143,167
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "13972a57cec2ab75ad548bfd0e9e103a59fc8dde",
+  "prompts": {},
+  "sessions": {
+    "s_15f59ac80abb8e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa8a-3bcf-7290-a54d-15bd828c06a5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
