@@ -15,9 +15,6 @@
       "postinstall_scripts": true
     }
   ],
-  "input_url_patterns": [
-    "https://"
-  ],
   "output_mimetypes": [
     "application/x-ndjson"
   ],

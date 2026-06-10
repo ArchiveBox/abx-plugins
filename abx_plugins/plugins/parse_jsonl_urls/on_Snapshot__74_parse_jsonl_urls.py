@@ -6,7 +6,7 @@
 Parse JSONL bookmark files and extract URLs.
 
 This is a standalone extractor that can run without ArchiveBox.
-It reads JSONL-format bookmark exports (one JSON object per line).
+It reads JSONL-format bookmark exports from SNAP_DIR/staticfile/*.txt or an HTTP URL.
 
 Usage: ./on_Snapshot__74_parse_jsonl_urls.py --url=<url>
 Output: Appends discovered URLs to SNAP_DIR/parse_jsonl_urls/urls.jsonl
@@ -24,7 +24,6 @@ import sys
 from pathlib import Path
 from datetime import datetime
 from html import unescape
-from urllib.parse import urlparse
 
 from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url
 from abx_plugins.plugins.base.utils import (
@@ -32,6 +31,7 @@ from abx_plugins.plugins.base.utils import (
     emit_snapshot_record,
     emit_tag_record,
     get_extra_context,
+    iter_staticfile_text_inputs,
     load_config,
     write_text_atomic,
 )
@@ -135,22 +135,22 @@ def json_object_to_entry(link: dict) -> dict | None:
 
 
 def fetch_content(url: str) -> str:
-    """Fetch content from a URL (supports file:// and https://)."""
-    parsed = urlparse(url)
+    """Fetch content from snapshot source artifacts or an HTTP URL."""
+    source_paths = iter_staticfile_text_inputs(SNAP_DIR)
+    if source_paths:
+        return "\n".join(
+            path.read_text(encoding="utf-8", errors="replace") for path in source_paths
+        )
+    if not url.startswith(("http://", "https://")):
+        return ""
+    timeout = CONFIG.TIMEOUT
+    user_agent = CONFIG.USER_AGENT
 
-    if parsed.scheme == "file":
-        file_path = parsed.path
-        with open(file_path, encoding="utf-8", errors="replace") as f:
-            return f.read()
-    else:
-        timeout = CONFIG.TIMEOUT
-        user_agent = CONFIG.USER_AGENT
+    import urllib.request
 
-        import urllib.request
-
-        req = urllib.request.Request(url, headers={"User-Agent": user_agent})
-        with urllib.request.urlopen(req, timeout=timeout) as response:
-            return response.read().decode("utf-8", errors="replace")
+    req = urllib.request.Request(url, headers={"User-Agent": user_agent})
+    with urllib.request.urlopen(req, timeout=timeout) as response:
+        return response.read().decode("utf-8", errors="replace")
 
 
 def emit_result(status: str, output_str: str) -> None:

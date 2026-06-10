@@ -15,6 +15,7 @@ const path = require("path");
 
 const BASE_CONFIG_PATH = path.join(__dirname, "config.json");
 const PROCESS_EXIT_SKIPPED = 10;
+const INTERNAL_INPUT_URL = "archivebox://internal";
 const configCache = new Map();
 
 function fsyncIfRegularFile(fd) {
@@ -179,6 +180,33 @@ function resolveConfigPath(configPath = null) {
   return path.join(path.dirname(path.resolve(callerFile)), "config.json");
 }
 
+function argvUrl() {
+  const argv = process.argv.slice(2);
+  for (let idx = 0; idx < argv.length; idx++) {
+    const arg = String(argv[idx] || "");
+    if (arg === "--url" && idx + 1 < argv.length) {
+      return String(argv[idx + 1] || "").trim();
+    }
+    if (arg.startsWith("--url=")) {
+      return arg.slice("--url=".length).trim();
+    }
+  }
+  return "";
+}
+
+function maybeSkipUnsupportedSnapshotUrl(schema) {
+  const scriptName = path.basename(process.argv[1] || process.argv[0] || "");
+  const url = argvUrl();
+  if (!scriptName.startsWith("on_Snapshot__") || !url) return;
+  if (url.startsWith("http://") || url.startsWith("https://")) return;
+  // ArchiveBox uses one synthetic snapshot URL for pasted/stdin import text.
+  // Only plugins that explicitly opt in should consume that source; everything
+  // else should no-result before starting browsers/downloaders or networking.
+  if (url === INTERNAL_INPUT_URL && schema["x-accepts-internal-input"]) return;
+  emitArchiveResultRecord("noresults", `unsupported input URL: ${url}`);
+  process.exit(0);
+}
+
 function loadConfig(configPath = null) {
   const pluginConfigPath = resolveConfigPath(configPath);
   const pluginMtime = fs.statSync(pluginConfigPath).mtimeMs;
@@ -198,6 +226,7 @@ function loadConfig(configPath = null) {
     pluginConfigPath === BASE_CONFIG_PATH
       ? baseSchema
       : JSON.parse(fs.readFileSync(pluginConfigPath, "utf8"));
+  maybeSkipUnsupportedSnapshotUrl(pluginSchema);
 
   const properties =
     pluginConfigPath === BASE_CONFIG_PATH
@@ -624,8 +653,27 @@ function hasStaticFileOutput(staticfileDir = "../staticfile") {
   return false;
 }
 
+function iterStaticfileTextInputs(snapDir = null) {
+  const base = path.resolve(snapDir || process.env.SNAP_DIR || ".");
+  const staticfileDir = path.join(base, "staticfile");
+  if (!fs.existsSync(staticfileDir)) return [];
+  return fs
+    .readdirSync(staticfileDir)
+    .filter((name) => name.endsWith(".txt"))
+    .map((name) => path.join(staticfileDir, name))
+    .filter((filePath) => {
+      try {
+        return fs.statSync(filePath).isFile() && fs.statSync(filePath).size > 0;
+      } catch (error) {
+        return false;
+      }
+    })
+    .sort();
+}
+
 module.exports = {
   PROCESS_EXIT_SKIPPED,
+  INTERNAL_INPUT_URL,
   getConfig,
   loadConfig,
   getEnv,
@@ -647,6 +695,7 @@ module.exports = {
   emitSnapshotRecord,
   writeFileAtomic,
   hasStaticFileOutput,
+  iterStaticfileTextInputs,
 };
 
 if (require.main === module) {

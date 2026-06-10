@@ -3,16 +3,15 @@
 # requires-python = ">=3.12"
 # ///
 """
-Parse plain text files and extract URLs.
+Parse plain text inputs and extract URLs.
 
 This is a standalone extractor that can run without ArchiveBox.
-It reads text content from a URL (file:// or https://) and extracts all URLs found.
+It reads text content from SNAP_DIR/staticfile/*.txt or an HTTP URL and extracts all URLs found.
 
 Usage: ./on_Snapshot__71_parse_txt_urls.py --url=<url>
 Output: Appends discovered URLs to SNAP_DIR/parse_txt_urls/urls.jsonl
 
 Examples:
-    ./on_Snapshot__71_parse_txt_urls.py --url=file:///path/to/urls.txt
     ./on_Snapshot__71_parse_txt_urls.py --url=https://example.com/urls.txt
 """
 
@@ -21,13 +20,13 @@ import re
 import sys
 import io
 from pathlib import Path
-from urllib.parse import urlparse
 
 from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
     get_extra_context,
+    iter_staticfile_text_inputs,
     load_config,
     write_text_atomic,
 )
@@ -192,7 +191,7 @@ def add_urls_from_text_chunk(
 @click.command(
     context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
 )
-@click.option("--url", required=True, help="URL to parse (file:// or https://)")
+@click.option("--url", required=True, help="URL to parse")
 @click.option("--depth", type=int, default=0, help="Current depth level")
 def main(
     url: str,
@@ -204,12 +203,15 @@ def main(
     if "snapshot_depth" in extra_context:
         depth = int(extra_context["snapshot_depth"])
     urls_found = set()
-    print("parsing 1 files for urls...")
+    source_paths = iter_staticfile_text_inputs()
+    print(f"parsing {len(source_paths) if source_paths else 1} files for urls...")
     try:
-        parsed = urlparse(url)
-        if parsed.scheme == "file":
-            reader_cm = open(parsed.path, encoding="utf-8", errors="replace")
-        else:
+        if source_paths:
+            readers = [
+                source_path.open(encoding="utf-8", errors="replace")
+                for source_path in source_paths
+            ]
+        elif url.startswith(("http://", "https://")):
             config = load_config()
             timeout = config.TIMEOUT
             user_agent = config.USER_AGENT
@@ -218,28 +220,31 @@ def main(
 
             req = urllib.request.Request(url, headers={"User-Agent": user_agent})
             response = urllib.request.urlopen(req, timeout=timeout)
-            reader_cm = io.TextIOWrapper(response, encoding="utf-8", errors="replace")
+            readers = [io.TextIOWrapper(response, encoding="utf-8", errors="replace")]
+        else:
+            readers = []
 
-        carry = ""
-        with reader_cm as reader:
-            while True:
-                chunk = reader.read(READ_CHUNK_SIZE)
-                if not chunk:
-                    break
-                carry = add_urls_from_text_chunk(
-                    chunk,
-                    carry=carry,
-                    final=False,
-                    source_url=url,
-                    urls_found=urls_found,
-                )
-        add_urls_from_text_chunk(
-            "",
-            carry=carry,
-            final=True,
-            source_url=url,
-            urls_found=urls_found,
-        )
+        for reader in readers:
+            carry = ""
+            with reader:
+                while True:
+                    chunk = reader.read(READ_CHUNK_SIZE)
+                    if not chunk:
+                        break
+                    carry = add_urls_from_text_chunk(
+                        chunk,
+                        carry=carry,
+                        final=False,
+                        source_url=url,
+                        urls_found=urls_found,
+                    )
+            add_urls_from_text_chunk(
+                "",
+                carry=carry,
+                final=True,
+                source_url=url,
+                urls_found=urls_found,
+            )
     except Exception as e:
         message = f"Failed to fetch {url}: {e}"
         emit_result("failed", message)

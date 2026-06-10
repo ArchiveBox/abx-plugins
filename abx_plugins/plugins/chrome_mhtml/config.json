@@ -15,10 +15,6 @@
       "postinstall_scripts": true
     }
   ],
-  "input_url_patterns": [
-    "http://",
-    "https://"
-  ],
   "output_mimetypes": [
     "multipart/related",
     "message/rfc822"

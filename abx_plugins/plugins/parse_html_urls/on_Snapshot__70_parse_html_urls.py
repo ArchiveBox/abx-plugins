@@ -6,13 +6,12 @@
 # Parse HTML files and extract href URLs.
 #
 # This is a standalone extractor that can run without ArchiveBox.
-# It reads HTML content and extracts all <a href="..."> URLs.
+# It reads HTML/text content and extracts all <a href="..."> URLs.
 #
 # Usage: ./on_Snapshot__70_parse_html_urls.py --url=<url>
 # Output: Appends discovered URLs to SNAP_DIR/parse_html_urls/urls.jsonl
 #
 # Examples:
-#     ./on_Snapshot__70_parse_html_urls.py --url=file:///path/to/page.html
 #     ./on_Snapshot__70_parse_html_urls.py --url=https://example.com/page.html
 
 import json
@@ -29,6 +28,7 @@ from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
     get_extra_context,
+    iter_staticfile_text_inputs,
     load_config,
     write_text_atomic,
 )
@@ -293,6 +293,12 @@ def iter_html_source_paths():
     ]
 
     seen_paths: set[Path] = set()
+    for source_path in iter_staticfile_text_inputs(SNAP_DIR):
+        resolved = source_path.resolve()
+        if resolved not in seen_paths:
+            seen_paths.add(resolved)
+            yield resolved
+
     for base in (Path.cwd(), Path.cwd().parent):
         for pattern in search_patterns:
             for match in base.glob(pattern):
@@ -384,35 +390,33 @@ def main(
                         root_url=root_url,
                         urls_found=urls_found,
                     )
-        else:
-            parsed = urlparse(url)
-            if parsed.scheme == "file":
-                reader_cm = open(parsed.path, encoding="utf-8", errors="replace")
-            else:
-                timeout = CONFIG.TIMEOUT
-                user_agent = CONFIG.USER_AGENT
+        elif url.startswith(("http://", "https://")):
+            timeout = CONFIG.TIMEOUT
+            user_agent = CONFIG.USER_AGENT
 
-                import io
-                import urllib.request
+            import io
+            import urllib.request
 
-                req = urllib.request.Request(url, headers={"User-Agent": user_agent})
-                response = urllib.request.urlopen(req, timeout=timeout)
-                final_url = response.geturl()
-                if isinstance(final_url, str) and final_url.lower().startswith(
-                    HTTP_PREFIXES,
-                ):
-                    root_url = final_url
-                reader_cm = io.TextIOWrapper(
-                    response,
-                    encoding="utf-8",
-                    errors="replace",
-                )
+            req = urllib.request.Request(url, headers={"User-Agent": user_agent})
+            response = urllib.request.urlopen(req, timeout=timeout)
+            final_url = response.geturl()
+            if isinstance(final_url, str) and final_url.lower().startswith(
+                HTTP_PREFIXES,
+            ):
+                root_url = final_url
+            reader_cm = io.TextIOWrapper(
+                response,
+                encoding="utf-8",
+                errors="replace",
+            )
             with reader_cm as reader:
                 extract_urls_from_reader(
                     reader,
                     root_url=root_url,
                     urls_found=urls_found,
                 )
+        else:
+            pass
     except Exception as e:
         emit_result("failed", f"Failed to fetch {url}: {e}")
         sys.exit(1)

@@ -31,6 +31,7 @@ from typing import Any, TextIO, cast
 BASE_CONFIG_PATH = Path(__file__).with_name("config.json")
 PLUGINS_DIR = BASE_CONFIG_PATH.parent.parent
 PROCESS_EXIT_SKIPPED = 10
+INTERNAL_INPUT_URL = "archivebox://internal"
 
 
 def normalize_config_value(value: Any) -> Any:
@@ -128,6 +129,43 @@ def _resolve_config_path(
 def _load_schema(path: Path) -> dict[str, Any]:
     data = json.loads(path.resolve().read_text())
     return data if isinstance(data, dict) else {}
+
+
+def _argv_url() -> str:
+    argv = sys.argv[1:]
+    for index, arg in enumerate(argv):
+        if arg == "--url" and index + 1 < len(argv):
+            return str(argv[index + 1]).strip()
+        if arg.startswith("--url="):
+            return arg.split("=", 1)[1].strip()
+    return ""
+
+
+def _is_snapshot_hook() -> bool:
+    return Path(sys.argv[0] or "").name.startswith("on_Snapshot__")
+
+
+def _maybe_skip_unsupported_snapshot_url(schema: Mapping[str, Any]) -> None:
+    url = _argv_url()
+    if not (_is_snapshot_hook() and url):
+        return
+    if url.startswith(("http://", "https://")):
+        return
+    # ArchiveBox represents pasted/stdin import content as one synthetic
+    # snapshot URL. Only plugins that explicitly declare they consume that
+    # internal input should run; every other snapshot hook should cheaply
+    # no-result before starting browsers/downloaders or touching the network.
+    if url == INTERNAL_INPUT_URL and bool(schema.get("x-accepts-internal-input")):
+        return
+
+    record = {
+        "type": "ArchiveResult",
+        "status": "noresults",
+        "output_str": f"unsupported input URL: {url}",
+    }
+    sys.stdout.write(json.dumps(record) + "\n")
+    sys.stdout.flush()
+    raise SystemExit(0)
 
 
 @lru_cache(maxsize=None)
@@ -874,6 +912,7 @@ def load_config(
         user_config=user_config,
         environ=environ,
     )
+    _maybe_skip_unsupported_snapshot_url(_load_schema(resolved_path))
     _hydrate_config_payload(
         payload,
         user_config=user_config,
@@ -903,6 +942,19 @@ def get_config(
         user_config=user_config,
         environ=environ,
         hydrate_binaries=hydrate_binaries,
+    )
+
+
+def iter_staticfile_text_inputs(snap_dir: Path | str | None = None) -> tuple[Path, ...]:
+    """Return source text artifacts shared through the staticfile output dir."""
+    base = Path(snap_dir or os.environ.get("SNAP_DIR") or ".").expanduser().resolve()
+    staticfile_dir = base / "staticfile"
+    if not staticfile_dir.is_dir():
+        return ()
+    return tuple(
+        path
+        for path in sorted(staticfile_dir.glob("*.txt"))
+        if path.is_file() and path.stat().st_size > 0
     )
 
 

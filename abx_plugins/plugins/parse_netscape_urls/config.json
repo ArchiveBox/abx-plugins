@@ -6,11 +6,6 @@
   "additionalProperties": false,
   "required_plugins": [],
   "required_binaries": [],
-  "input_url_patterns": [
-    "http://",
-    "https://",
-    "file:"
-  ],
   "output_mimetypes": [
     "application/x-ndjson"
   ],
@@ -23,5 +18,6 @@
       ],
       "description": "Enable Netscape bookmarks HTML URL parsing"
     }
-  }
+  },
+  "x-accepts-internal-input": true
 }

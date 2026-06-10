@@ -21,11 +21,6 @@
       }
     }
   ],
-  "input_url_patterns": [
-    "http://",
-    "https://",
-    "file:"
-  ],
   "output_mimetypes": [
     "application/x-ndjson"
   ],
@@ -38,5 +33,6 @@
       ],
       "description": "Enable RSS/Atom feed URL parsing"
     }
-  }
+  },
+  "x-accepts-internal-input": true
 }

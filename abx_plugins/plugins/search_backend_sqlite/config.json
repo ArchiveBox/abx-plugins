@@ -6,10 +6,6 @@
   "additionalProperties": false,
   "required_plugins": [],
   "required_binaries": [],
-  "input_url_patterns": [
-    "http://",
-    "https://"
-  ],
   "output_mimetypes": [
     "application/vnd.sqlite3"
   ],
