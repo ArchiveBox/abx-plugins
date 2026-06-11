@@ -1,0 +1,19 @@
+abx_plugins/plugins/parse_html_urls/on_Snapshot__70_parse_html_urls.py
+  s_15f59ac80abb8e::t_9afa16263f5d40 297-300
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "6dadc938f454c20b9d7b35825193d4baae43284a",
+  "prompts": {},
+  "sessions": {
+    "s_15f59ac80abb8e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa8a-3bcf-7290-a54d-15bd828c06a5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
