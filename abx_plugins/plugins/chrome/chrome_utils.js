@@ -1997,7 +1997,7 @@ async function loadExtensionFromTarget(extensions, target, options = {}) {
   // Update the extension in the array
   Object.assign(extension, new_extension);
 
-  console.log(
+  console.error(
     `[🔌] Connected to extension ${extension.name} (${extension.version})`
   );
 
@@ -2014,7 +2014,7 @@ async function loadUnpackedExtensionsIntoBrowser(
     return extensions;
   }
 
-  console.log(
+  console.error(
     `[⚙️] Loading ${validExtensions.length} unpacked chrome extensions into browser...`
   );
   const perExtensionTimeout = Math.max(

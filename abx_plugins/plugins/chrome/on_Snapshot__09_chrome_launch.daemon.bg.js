@@ -79,10 +79,19 @@ let chromeCdpUrl = null;
 let chromeProcessIsLocal = CHROME_IS_LOCAL;
 let shouldCloseOnCleanup = false;
 let cleanupPromise = null;
+let launchInProgress = false;
+let cleanupRequestedDuringLaunch = false;
 
 async function cleanup() {
   if (cleanupPromise) {
     return cleanupPromise;
+  }
+  if (launchInProgress && !chromeCdpUrl) {
+    cleanupRequestedDuringLaunch = true;
+    console.error(
+      "[*] Deferring chrome cleanup until launch publishes a CDP session"
+    );
+    return;
   }
   cleanupPromise = (async () => {
     if (shouldCloseOnCleanup) {
@@ -140,6 +149,7 @@ async function main() {
       console.error(
         `[!] crawl-scoped ${CHROME_BINARY} session is gone, relaunching in ${crawlChromeDir}...`
       );
+      launchInProgress = true;
       const relaunched = await ensureChromeSession({
         outputDir: crawlChromeDir,
         puppeteer,
@@ -147,6 +157,10 @@ async function main() {
         CHROME_IS_LOCAL: chromeProcessIsLocal,
         CHROME_CDP_URL: cdpUrlOverride,
       });
+      launchInProgress = false;
+      chromePid = relaunched.pid;
+      chromeCdpUrl = relaunched.cdpUrl;
+      shouldCloseOnCleanup = false;
       console.error(
         `[+] relaunched crawl-scoped ${CHROME_BINARY} pid=${
           relaunched.pid || "remote"
@@ -163,8 +177,8 @@ async function main() {
       process.exit(0);
     }
 
-    // console.log('launching local chrome browser...');
-    console.log("chrome is launching...");
+    console.error("chrome is launching...");
+    launchInProgress = true;
     const session = await ensureChromeSession({
       outputDir: OUTPUT_DIR,
       puppeteer,
@@ -172,6 +186,7 @@ async function main() {
       CHROME_IS_LOCAL: chromeProcessIsLocal,
       CHROME_CDP_URL: cdpUrlOverride,
     });
+    launchInProgress = false;
 
     chromePid = session.pid;
     chromeCdpUrl = session.cdpUrl;
@@ -183,6 +198,13 @@ async function main() {
     );
     releaseLock();
     releaseLock = null;
+
+    if (cleanupRequestedDuringLaunch) {
+      cleanupRequestedDuringLaunch = false;
+      console.error("[*] Running deferred chrome cleanup requested during launch");
+      await cleanup();
+      return;
+    }
 
     if (!shouldCloseOnCleanup) {
       process.exit(0);
@@ -204,6 +226,7 @@ async function main() {
     if (releaseLock) {
       releaseLock();
     }
+    launchInProgress = false;
     console.error(`ERROR: ${error.name}: ${error.message}`);
     process.exit(1);
   }

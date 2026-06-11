@@ -169,7 +169,7 @@ async function main() {
   let releaseLock = null;
 
   try {
-    console.log("waiting for other chrome instances to finish launching...");
+    console.error("waiting for other chrome instances to finish launching...");
     releaseLock = await acquireSessionLock(
       path.join(OUTPUT_DIR, ".launch.lock")
     );
@@ -183,7 +183,7 @@ async function main() {
     );
 
     if (isolation === "snapshot") {
-      console.log(
+      console.error(
         "skipping crawl-scoped browser launch (CHROME_ISOLATION=snapshot)"
       );
       releaseLock();
@@ -191,14 +191,14 @@ async function main() {
       process.exit(0);
     }
 
-    console.log(`waiting for ${CHROME_BINARY} to be installed...`);
+    console.error(`waiting for ${CHROME_BINARY} to be installed...`);
     const prerequisites = await waitForChromeLaunchPrerequisites({
       requireLocalBinary: !cdpUrlOverride && chromeProcessIsLocal,
       timeoutMs: prerequisiteTimeoutMs,
     });
     puppeteer = prerequisites.puppeteer;
 
-    console.log(
+    console.error(
       cdpUrlOverride
         ? `connecting ${CHROME_BINARY} ${cdpUrlOverride}...`
         : `launching ${CHROME_BINARY} ${PERSONA_DIR}...`
@@ -219,14 +219,14 @@ async function main() {
     shouldCloseOnCleanup = !keepAlive;
 
     for (const extension of session.installedExtensions) {
-      console.log(
+      console.error(
         `loading extension: ${
           extension.name || extension.id || extension.unpacked_path
         }...`
       );
     }
     if (session.reusedExisting) {
-      console.log(`reusing live ${CHROME_BINARY} session in ${OUTPUT_DIR}`);
+      console.error(`reusing live ${CHROME_BINARY} session in ${OUTPUT_DIR}`);
     }
 
     console.error(`[+] ${CHROME_BINARY} session started`);
@@ -247,7 +247,7 @@ async function main() {
       process.exit(0);
     }
 
-    console.log(
+    console.error(
       `${CHROME_BINARY} running pid=${
         chromePid || "remote"
       }, waiting for cleanup...`

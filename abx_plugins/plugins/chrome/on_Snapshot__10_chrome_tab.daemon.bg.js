@@ -73,6 +73,7 @@ const PLUGIN_NAME = "chrome_tab";
 const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
 const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || ".").trim());
+const CRAWL_DIR = path.resolve((hookConfig.CRAWL_DIR || ".").trim());
 const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
 if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -418,10 +419,7 @@ async function main() {
       publishSuccess(output, version || "");
       await startTargetMonitorBestEffort();
     } else {
-      const crawlChromeDir = path.join(
-        path.resolve(getEnv("CRAWL_DIR", ".")),
-        "chrome"
-      );
+      const crawlChromeDir = path.join(CRAWL_DIR, "chrome");
       const crawlSession = await waitForChromeSessionState(crawlChromeDir, {
         timeoutMs: timeoutSeconds * 1000,
         requireBrowserReady: true,
