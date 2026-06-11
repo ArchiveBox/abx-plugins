@@ -43,7 +43,7 @@ PLUGIN_NAME = "gallerydl"
 BIN_NAME = "gallery-dl"
 BIN_PROVIDERS = "env,pip"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-CONFIG = load_config()
+CONFIG = load_config(hydrate_binaries=False)
 SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -77,7 +77,7 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
     Returns: (success, output_path, error_message)
     """
     # Load config from config.json (auto-resolves x-aliases and x-fallback from env)
-    config = load_config()
+    config = load_config(hydrate_binaries=False)
     timeout = config.GALLERYDL_TIMEOUT
     check_ssl = config.GALLERYDL_CHECK_SSL_VALIDITY
     gallerydl_args = config.GALLERYDL_ARGS
@@ -224,7 +224,7 @@ def main(url: str):
     error = ""
 
     try:
-        config = load_config()
+        config = load_config(hydrate_binaries=False)
 
         # Check if gallery-dl is enabled
         if not config.GALLERYDL_ENABLED:
@@ -241,8 +241,9 @@ def main(url: str):
             emit_archive_result_record("succeeded", "staticfile already handled")
             sys.exit(0)
 
-        # Get binary from environment
-        binary = config.GALLERYDL_BINARY
+        # Hydrate the binary only after cheap skip checks have passed.
+        hydrated_config = load_config()
+        binary = hydrated_config.GALLERYDL_BINARY
 
         # Run extraction
         success, output, error = save_gallery(url, binary)
