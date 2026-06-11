@@ -1,0 +1,23 @@
+conftest.py
+  s_15f59ac80abb8e::t_19cf96f9c80b5f 252,254-255,339-340,342-343,345-346
+abx_plugins/plugins/claudecode/claudecode_utils.py
+  s_15f59ac80abb8e::t_19cf96f9c80b5f 239-241,243-247
+abx_plugins/plugins/ublock/tests/test_ublock.py
+  s_15f59ac80abb8e::t_19cf96f9c80b5f 261-266
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "a782b0c2a719a8b02f2bd18dc67951ce8f90c619",
+  "prompts": {},
+  "sessions": {
+    "s_15f59ac80abb8e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa8a-3bcf-7290-a54d-15bd828c06a5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
