@@ -170,6 +170,7 @@ async function runStartHandshake(
           throw new Error("Could not resolve chrome.tabs id for snapshot tab");
         }
         result = await handshake(targetTabId);
+        result.targetTabId = targetTabId;
         break;
       } catch (err) {
         const msg = err?.message || String(err);
@@ -301,11 +302,11 @@ async function main() {
       );
     }
     console.log(
-      `archiveweb.page recording started (coll=${handshake.collId}, tab=${chromeTabId}, ${elapsed}ms)`
+      `archiveweb.page recording started (coll=${handshake.collId}, tab=${handshake.targetTabId}, ${elapsed}ms)`
     );
     emitArchiveResultRecord(
       "succeeded",
-      `recording started coll=${handshake.collId} tab=${chromeTabId}`
+      `recording started coll=${handshake.collId} tab=${handshake.targetTabId}`
     );
     process.exit(0);
   } catch (error) {
