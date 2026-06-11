@@ -285,12 +285,6 @@ def iter_html_source_paths():
         "*_dom/output.html",
         "dom/*.html",
         "*_dom/*.html",
-        "wget/**/*.html",
-        "*_wget/**/*.html",
-        "wget/**/*.htm",
-        "*_wget/**/*.htm",
-        "wget/**/*.htm*",
-        "*_wget/**/*.htm*",
     ]
 
     seen_paths: set[Path] = set()
@@ -300,6 +294,10 @@ def iter_html_source_paths():
             seen_paths.add(resolved)
             yield resolved
 
+    # Do not parse wget mirror HTML for crawl discovery. Wget rewrites links
+    # for offline browsing, including anchors and query-bearing local filenames
+    # like index.html@query.html, so those files are archive outputs rather
+    # than canonical page inputs.
     for base in (Path.cwd(), Path.cwd().parent):
         for pattern in search_patterns:
             for match in base.glob(pattern):
