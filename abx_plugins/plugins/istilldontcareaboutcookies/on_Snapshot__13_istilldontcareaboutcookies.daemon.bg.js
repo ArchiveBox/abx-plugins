@@ -182,8 +182,14 @@ async function main() {
     browser = connection.browser;
     const page = connection.page;
 
-    await waitForNavigationComplete(CHROME_SESSION_DIR, timeoutMs, 0);
+    // Snapshot background hooks must emit stdout once their page observer is
+    // attached so the scheduler can advance to the navigation/extraction hooks
+    // they are meant to observe. Waiting for navigation before this line
+    // deadlocks the hook order: navigation cannot happen until readiness is
+    // published, but readiness was waiting for navigation to happen first.
     emitProgress(formatPopupCount(0));
+
+    await waitForNavigationComplete(CHROME_SESSION_DIR, timeoutMs, 0);
 
     while (running) {
       try {
