@@ -64,6 +64,7 @@ from contextlib import contextmanager
 import pytest
 from _pytest.fixtures import FixtureLookupError
 from pytest_httpserver import HTTPServer
+from werkzeug import Response
 
 from abx_plugins.plugins.base.test_utils import (
     assert_isolated_snapshot_env,
@@ -176,18 +177,27 @@ def _configure_chrome_httpserver(httpserver) -> dict[str, str]:
     httpserver.expect_request("/linked").respond_with_data(
         "<html><head><title>Linked Page</title></head><body><h1>Linked Page</h1></body></html>",
     )
-    httpserver.expect_request("/slow").respond_with_data(
-        """<!doctype html>
+
+    def slow_response(request):
+        delay_ms = int(request.args.get("delay", "0") or "0")
+        if delay_ms > 0:
+            time.sleep(delay_ms / 1000)
+        return Response(
+            f"""<!doctype html>
 <html>
 <head><meta charset="utf-8"><title>Slow Page</title></head>
 <body>
   <main>
     <h1>Slow Page</h1>
-    <p>delay_ms=0</p>
+    <p>delay_ms={delay_ms}</p>
   </main>
 </body>
 </html>""",
-    )
+            status=200,
+            content_type="text/html; charset=utf-8",
+        )
+
+    httpserver.expect_request("/slow").respond_with_handler(slow_response)
     httpserver.expect_request("/popup-child").respond_with_data(
         """<!doctype html>
 <html>
@@ -401,6 +411,32 @@ def _coerce_upstream_urls(value: Any) -> dict[str, str] | None:
     return urls
 
 
+def _add_https_test_urls(
+    urls: dict[str, str],
+    request,
+    tmp_path_factory,
+) -> dict[str, str]:
+    """Add deterministic HTTPS URLs when an upstream fixture did not provide them."""
+    if urls.get("https_base_url"):
+        return urls
+
+    https_server = _create_https_test_server(tmp_path_factory)
+    https_server.start()
+    request.addfinalizer(https_server.stop)
+    _configure_chrome_httpserver(https_server)
+    urls.update(
+        {
+            key: value
+            for key, value in _build_test_urls(
+                urls["base_url"],
+                https_server.url_for("/"),
+            ).items()
+            if key.startswith("https_")
+        },
+    )
+    return urls
+
+
 def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
     """Install Chrome and Puppeteer once for test sessions that require Chrome."""
     os.environ["SNAP_DIR"] = str(tmp_path_factory.mktemp("chrome_test_data"))
@@ -457,24 +493,10 @@ def chrome_test_urls(request, httpserver, tmp_path_factory):
             continue
         urls = _coerce_upstream_urls(upstream)
         if urls:
-            return urls
+            return _add_https_test_urls(urls, request, tmp_path_factory)
 
     urls = _configure_chrome_httpserver(httpserver)
-    https_server = _create_https_test_server(tmp_path_factory)
-    https_server.start()
-    request.addfinalizer(https_server.stop)
-    _configure_chrome_httpserver(https_server)
-    urls.update(
-        {
-            key: value
-            for key, value in _build_test_urls(
-                urls["base_url"],
-                https_server.url_for("/"),
-            ).items()
-            if key.startswith("https_")
-        },
-    )
-    return urls
+    return _add_https_test_urls(urls, request, tmp_path_factory)
 
 
 @pytest.fixture

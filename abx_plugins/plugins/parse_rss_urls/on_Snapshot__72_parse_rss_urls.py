@@ -17,6 +17,7 @@ Examples:
 
 import json
 import os
+import re
 import sys
 from importlib import import_module
 from pathlib import Path
@@ -55,6 +56,8 @@ UNSAFE_XML_MARKERS = (
     "<xi:include",
     "<xinclude:include",
 )
+XML_ROOT_RE = re.compile(r"<([A-Za-z_][\w:.-]*)\b")
+FEED_ROOT_NAMES = {"rss", "feed", "rdf:rdf"}
 
 feedparser: Any | None
 try:
@@ -100,6 +103,43 @@ def reject_xml_file_loading_features(content: str) -> None:
         )
 
 
+def strip_xml_prefix(content: str) -> str:
+    remaining = content.lstrip()
+    if remaining.lower().startswith("<?xml"):
+        end = remaining.find("?>")
+        remaining = remaining[end + 2 :].lstrip() if end != -1 else remaining
+
+    while remaining.startswith("<!--"):
+        end = remaining.find("-->")
+        if end == -1:
+            return remaining
+        remaining = remaining[end + 3 :].lstrip()
+
+    if remaining.lower().startswith("<!doctype"):
+        subset_start = remaining.find("[")
+        first_tag_end = remaining.find(">")
+        if subset_start != -1 and (first_tag_end == -1 or subset_start < first_tag_end):
+            end = remaining.find("]>")
+            remaining = remaining[end + 2 :].lstrip() if end != -1 else remaining
+        elif first_tag_end != -1:
+            remaining = remaining[first_tag_end + 1 :].lstrip()
+
+    while remaining.startswith("<!--"):
+        end = remaining.find("-->")
+        if end == -1:
+            return remaining
+        remaining = remaining[end + 3 :].lstrip()
+
+    return remaining
+
+
+def looks_like_feed_content(content: str) -> bool:
+    root = XML_ROOT_RE.match(strip_xml_prefix(content))
+    if not root:
+        return False
+    return root.group(1).lower() in FEED_ROOT_NAMES
+
+
 def persist_records(records: list[dict]) -> tuple[str, str]:
     """Write extracted URLs when present, otherwise clear stale output after success."""
     if records:
@@ -133,7 +173,6 @@ def main(
     print("parsing 1 files for urls...")
     try:
         content = fetch_content(url)
-        reject_xml_file_loading_features(content)
     except Exception as e:
         if url.startswith(("http://", "https://")):
             # Snapshot URL fetching is only a fallback when no staticfile import
@@ -144,6 +183,18 @@ def main(
             emit_result(status, output_str)
             sys.exit(0)
         emit_result("failed", f"Failed to fetch {url}: {e}")
+        sys.exit(1)
+
+    if not looks_like_feed_content(content):
+        status, output_str = persist_records([])
+        print(output_str)
+        emit_result(status, output_str)
+        sys.exit(0)
+
+    try:
+        reject_xml_file_loading_features(content)
+    except Exception as e:
+        emit_result("failed", f"Failed to parse RSS/Atom feed from {url}: {e}")
         sys.exit(1)
 
     # Parse the feed

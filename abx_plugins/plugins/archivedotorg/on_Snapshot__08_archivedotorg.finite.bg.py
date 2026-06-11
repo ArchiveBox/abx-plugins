@@ -25,7 +25,7 @@ import sys
 from ipaddress import ip_address
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 from urllib.request import Request, urlopen
 
 from abx_plugins.plugins.base.utils import emit_archive_result_record, load_config
@@ -42,6 +42,7 @@ OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 OUTPUT_FILE = "archive.org.txt"
+URL_PATH_SAFE_CHARS = ":/?#[]@!$&'()*+,;=%"
 
 
 def should_skip_archivedotorg_url(url: str) -> str:
@@ -71,6 +72,15 @@ def should_skip_archivedotorg_url(url: str) -> str:
     return ""
 
 
+def build_archivedotorg_submit_url(endpoint_template: str, url: str) -> str:
+    escaped_url = quote(url, safe=URL_PATH_SAFE_CHARS)
+    if "{url}" in endpoint_template:
+        return endpoint_template.format(url=escaped_url)
+    if "{}" in endpoint_template:
+        return endpoint_template.format(escaped_url)
+    return f"{endpoint_template.rstrip('/')}/{escaped_url}"
+
+
 def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
     """
     Submit URL to archive.org Wayback Machine.
@@ -83,12 +93,13 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
 
     config = load_config()
     timeout = config.ARCHIVEDOTORG_TIMEOUT
+    endpoint_template = str(config.ARCHIVEDOTORG_ENDPOINT or "").strip()
     library_version = os.environ.get("LIBRARY_VERSION", "0.0.1")
     user_agent = (
         f"ArchiveBox/{library_version} (+https://github.com/ArchiveBox/ArchiveBox/)"
     )
 
-    submit_url = f"https://web.archive.org/save/{url}"
+    submit_url = build_archivedotorg_submit_url(endpoint_template, url)
     log(f"Submitting to Wayback Machine (timeout={timeout}s)")
     log(f"GET {submit_url}")
 

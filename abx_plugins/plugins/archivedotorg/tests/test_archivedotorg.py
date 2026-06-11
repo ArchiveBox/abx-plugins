@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 import pytest
+from werkzeug.wrappers import Response
 
 from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
@@ -24,27 +25,43 @@ def test_hook_script_exists():
     assert ARCHIVEDOTORG_HOOK.exists()
 
 
-def test_submits_to_archivedotorg():
+def _run_archivedotorg_hook(
+    tmpdir: Path,
+    env: dict[str, str],
+) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [
+            str(ARCHIVEDOTORG_HOOK),
+            "--url",
+            TEST_URL,
+        ],
+        cwd=tmpdir,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=30,
+    )
+
+
+def test_submits_to_configured_archivedotorg_endpoint(httpserver):
+    archived_path = "/web/20260610123456/https://example.com"
+    httpserver.expect_request("/save/https://example.com").respond_with_data(
+        "saved",
+        status=200,
+        headers={
+            "Content-Location": archived_path,
+            "X-Archive-Orig-Url": TEST_URL,
+        },
+    )
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
         env = os.environ.copy()
-        # Keep the hook's own network timeout below subprocess timeout so failures
-        # return cleanly as exit=1 instead of being killed by pytest.
-        env["ARCHIVEDOTORG_TIMEOUT"] = "45"
+        env["SNAP_DIR"] = str(tmpdir)
+        env["ARCHIVEDOTORG_ENDPOINT"] = f"{httpserver.url_for('/save')}/{{url}}"
 
-        result = subprocess.run(
-            [
-                str(ARCHIVEDOTORG_HOOK),
-                "--url",
-                TEST_URL,
-            ],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=90,
-        )
+        result = _run_archivedotorg_hook(tmpdir, env)
 
         assert result.returncode == 0, result.stderr
 
@@ -58,7 +75,8 @@ def test_submits_to_archivedotorg():
         output_path = tmpdir / "archivedotorg" / "archive.org.txt"
         assert output_path.is_file(), f"Archive.org output missing: {output_path}"
         archived_url = output_path.read_text(encoding="utf-8").strip()
-        assert archived_url.startswith("https://web.archive.org/"), archived_url
+        assert archived_url == f"https://web.archive.org{archived_path}"
+        assert len(httpserver.log) == 1
 
 
 def test_config_save_archivedotorg_false_skips():
@@ -94,25 +112,22 @@ def test_config_save_archivedotorg_false_skips():
         assert result_json["output_str"] == "ARCHIVEDOTORG_ENABLED=False", result_json
 
 
-def test_handles_timeout():
+def test_archivedotorg_http_429_is_deterministic_noresults(httpserver):
+    def rate_limited(_request):
+        return Response("rate limited", status=429, content_type="text/plain")
+
+    httpserver.expect_request("/save/https://example.com").respond_with_handler(
+        rate_limited,
+    )
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
         env = os.environ.copy()
-        env["ARCHIVEDOTORG_TIMEOUT"] = "10"
+        env["SNAP_DIR"] = str(tmpdir)
+        env["ARCHIVEDOTORG_ENDPOINT"] = f"{httpserver.url_for('/save')}/{{url}}"
 
-        result = subprocess.run(
-            [
-                str(ARCHIVEDOTORG_HOOK),
-                "--url",
-                TEST_URL,
-            ],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=30,
-        )
+        result = _run_archivedotorg_hook(tmpdir, env)
 
         assert result.returncode == 0, result.stderr
 
@@ -120,13 +135,13 @@ def test_handles_timeout():
         assert result_json, "Should emit ArchiveResult JSONL"
         assert result_json == {
             "type": "ArchiveResult",
-            "status": "succeeded",
-            "output_str": "archivedotorg/archive.org.txt",
+            "status": "noresults",
+            "output_str": "HTTP 429",
         }, result_json
         output_path = tmpdir / "archivedotorg" / "archive.org.txt"
-        assert output_path.is_file(), f"Archive.org output missing: {output_path}"
-        archived_url = output_path.read_text(encoding="utf-8").strip()
-        assert archived_url.startswith("https://web.archive.org/"), archived_url
+        assert not output_path.exists(), (
+            f"Archive.org output should not exist: {output_path}"
+        )
 
 
 if __name__ == "__main__":

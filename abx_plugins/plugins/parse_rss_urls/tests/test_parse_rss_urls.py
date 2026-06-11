@@ -176,6 +176,58 @@ class TestParseRssUrls:
         assert '"status": "failed"' not in result.stdout
         assert not (tmp_path / "parse_rss_urls" / "urls.jsonl").exists()
 
+    def test_http_html_page_reports_noresults(self, tmp_path, httpserver):
+        """Ordinary HTTP HTML pages are not RSS feeds and should not fail crawls."""
+        httpserver.expect_request("/article").respond_with_data(
+            "<!doctype html><html><head><title>Article</title></head><body>"
+            '<a href="https://example.com/linked">Linked page</a>'
+            "</body></html>",
+            status=200,
+            content_type="text/html; charset=utf-8",
+        )
+
+        result = run_parse_rss_urls(
+            [str(SCRIPT_PATH), "--url", httpserver.url_for("/article")],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert '"status": "noresults"' in result.stdout
+        assert '"output_str": "0 URLs parsed"' in result.stdout
+        assert '"type": "Snapshot"' not in result.stdout
+        assert not (tmp_path / "parse_rss_urls" / "urls.jsonl").exists()
+
+    def test_http_rss_feed_with_unsafe_xml_fails(self, tmp_path, httpserver):
+        """Feed-shaped XML errors remain hard failures instead of silent noresults."""
+        httpserver.expect_request("/feed.rss").respond_with_data(
+            """<?xml version="1.0"?>
+<!DOCTYPE rss [
+  <!ENTITY local SYSTEM "file:///etc/passwd">
+]>
+<rss version="2.0">
+  <channel>
+    <item><link>https://example.com/post</link></item>
+  </channel>
+</rss>
+""",
+            status=200,
+            content_type="application/rss+xml",
+        )
+
+        result = run_parse_rss_urls(
+            [str(SCRIPT_PATH), "--url", httpserver.url_for("/feed.rss")],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 1
+        assert '"status": "failed"' in result.stdout
+        assert "XML declarations that can reference external files" in result.stderr
+        assert not (tmp_path / "parse_rss_urls" / "urls.jsonl").exists()
+
     def test_exits_1_when_file_not_found(self, tmp_path):
         """Test that script exits with code 1 when file doesn't exist."""
         result = run_parse_rss_urls(

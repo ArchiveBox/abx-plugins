@@ -6,10 +6,13 @@ These tests verify the Python helper functions used across Chrome plugin tests.
 
 import json
 import os
+import ssl
 import subprocess
 import sys
 import pytest
 import tempfile
+import time
+import urllib.request
 from pathlib import Path
 
 from abx_plugins.plugins.base.test_utils import (
@@ -19,6 +22,8 @@ from abx_plugins.plugins.base.test_utils import (
 )
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     _call_chrome_utils,
+    _add_https_test_urls,
+    _build_test_urls,
     CHROME_UTILS,
     chrome_session,
     get_test_env,
@@ -53,6 +58,44 @@ def _is_supported_browser_path(path: Path) -> bool:
         return False
     version = f"{proc.stdout}\n{proc.stderr}".strip()
     return bool(version)
+
+
+def test_chrome_test_urls_slow_route_honors_delay(chrome_test_urls):
+    """The slow fixture URL must stay in-flight long enough for target-close races."""
+    delay_ms = 600
+    slow_url = f"{chrome_test_urls['origin']}/slow?delay={delay_ms}"
+
+    started = time.monotonic()
+    with urllib.request.urlopen(slow_url, timeout=5) as response:
+        body = response.read().decode("utf-8")
+    elapsed = time.monotonic() - started
+
+    assert response.status == 200
+    assert f"delay_ms={delay_ms}" in body
+    assert elapsed >= (delay_ms / 1000) * 0.8
+
+
+def test_https_fallback_is_added_when_upstream_urls_lack_https(
+    request,
+    tmp_path_factory,
+    httpserver,
+):
+    """HTTPS-dependent plugins should receive a real local HTTPS URL."""
+    urls = _build_test_urls(httpserver.url_for("/"))
+
+    resolved = _add_https_test_urls(urls, request, tmp_path_factory)
+
+    assert resolved["https_base_url"].startswith("https://")
+    context = ssl._create_unverified_context()
+    with urllib.request.urlopen(
+        resolved["https_base_url"],
+        timeout=5,
+        context=context,
+    ) as response:
+        body = response.read().decode("utf-8")
+
+    assert response.status == 200
+    assert "Example Domain" in body
 
 
 def test_get_machine_type():

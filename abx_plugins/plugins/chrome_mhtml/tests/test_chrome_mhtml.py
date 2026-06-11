@@ -1,5 +1,6 @@
 """Integration tests for the chrome_mhtml plugin."""
 
+import json
 import os
 import subprocess
 import tempfile
@@ -22,6 +23,7 @@ _MHTML_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_chrome_mhtml.*")
 if _MHTML_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 MHTML_HOOK = _MHTML_HOOK
+CHROME_UTILS = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
 CHROME_STARTUP_TIMEOUT_SECONDS = 45
 MHTML_PARENT_TOKEN = "ABX_MHTML_PARENT_TOKEN_7391"
 MHTML_OOPIF_CHILD_TOKEN = "ABX_MHTML_OOPIF_CHILD_TOKEN_7391"
@@ -31,7 +33,7 @@ MHTML_OOPIF_CHILD_TOKEN = "ABX_MHTML_OOPIF_CHILD_TOKEN_7391"
 def mhtml_oopif_test_url(httpserver):
     child_url = httpserver.url_for("/child").replace(
         "localhost",
-        "oopif-child.localhost",
+        "oopif-child.test",
         1,
     )
     httpserver.expect_request("/child").respond_with_data(
@@ -48,7 +50,14 @@ def mhtml_oopif_test_url(httpserver):
 <head><meta charset="utf-8"><title>MHTML OOPIF Parent</title></head>
 <body>
   <main><h1>{MHTML_PARENT_TOKEN}</h1></main>
-  <iframe id="cross-site-frame" src="{child_url}"></iframe>
+  <iframe id="cross-site-frame"></iframe>
+  <script>
+    window.addEventListener("load", () => {{
+      setTimeout(() => {{
+        document.getElementById("cross-site-frame").src = "{child_url}";
+      }}, 0);
+    }});
+  </script>
 </body>
 </html>""",
         content_type="text/html; charset=utf-8",
@@ -83,6 +92,63 @@ def test_mhtml_preview_templates_live_with_mhtml_plugins(plugin_name):
     )
 
 
+def wait_for_oopif_child_frame(snapshot_chrome_dir: Path, env: dict[str, str]) -> None:
+    script = r"""
+const chromeUtils = require(process.argv[1]);
+const chromeSessionDir = process.argv[2];
+const childToken = process.argv[3];
+
+(async () => {
+    const puppeteer = chromeUtils.resolvePuppeteerModule();
+    const connection = await chromeUtils.connectToPage({
+        chromeSessionDir,
+        timeoutMs: 30000,
+        requireTargetId: true,
+        puppeteer,
+    });
+    const deadline = Date.now() + 30000;
+    try {
+        while (Date.now() < deadline) {
+            for (const frame of connection.page.frames()) {
+                if (!frame.url().includes('/child')) continue;
+                try {
+                    const text = await frame.evaluate(() => document.body?.innerText || '');
+                    if (text.includes(childToken)) {
+                        process.stdout.write(JSON.stringify({url: frame.url(), text}));
+                        return;
+                    }
+                } catch (error) {}
+            }
+            await new Promise(resolve => setTimeout(resolve, 250));
+        }
+        throw new Error(`Timed out waiting for OOPIF child frame token: ${childToken}`);
+    } finally {
+        connection.browser.disconnect();
+    }
+})().catch(error => {
+    console.error(error.stack || error.message);
+    process.exit(1);
+});
+"""
+    result = subprocess.run(
+        [
+            "node",
+            "-e",
+            script,
+            str(CHROME_UTILS),
+            str(snapshot_chrome_dir),
+            MHTML_OOPIF_CHILD_TOKEN,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=40,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert MHTML_OOPIF_CHILD_TOKEN in payload["text"]
+
+
 def test_extracts_mhtml_from_cross_site_iframe(
     require_chrome_runtime,
     mhtml_oopif_test_url,
@@ -91,18 +157,30 @@ def test_extracts_mhtml_from_cross_site_iframe(
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         test_url = mhtml_oopif_test_url
+        chrome_args_extra = json.dumps(
+            [
+                "--site-per-process",
+                "--host-resolver-rules=MAP oopif-child.test 127.0.0.1",
+                "--proxy-server=direct://",
+                "--proxy-bypass-list=*",
+            ],
+        )
+        env_overrides = {
+            "CHROME_ARGS_EXTRA": chrome_args_extra,
+        }
 
         with chrome_session(
             tmpdir,
             test_url=test_url,
             timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
-            env_overrides={"CHROME_ARGS_EXTRA": "--site-per-process"},
+            env_overrides=env_overrides,
         ) as (
             _process,
             _pid,
             snapshot_chrome_dir,
             env,
         ):
+            wait_for_oopif_child_frame(snapshot_chrome_dir, env)
             output_dir = snapshot_chrome_dir.parent / "chrome_mhtml"
             output_dir.mkdir(exist_ok=True)
 

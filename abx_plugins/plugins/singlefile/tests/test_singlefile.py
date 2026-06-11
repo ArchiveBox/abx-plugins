@@ -94,6 +94,7 @@ def ensure_singlefile_extension_installed() -> dict[str, Path]:
 
     _singlefile_install_state = {
         "install_root": install_root,
+        "lib_dir": Path(env_install["LIB_DIR"]),
         "extensions_dir": extensions_dir,
         "cache_file": cache_file,
         "unpacked_path": unpacked_path,
@@ -176,11 +177,10 @@ def test_singlefile_cli_archives_example_com():
             navigate=True,
             timeout=30,
             env_overrides={
-                "CHROME_EXTENSIONS_DIR": str(extensions_dir),
+                "LIB_DIR": env_install["LIB_DIR"],
             },
         ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
             env["SINGLEFILE_ENABLED"] = "true"
-            env["CHROME_EXTENSIONS_DIR"] = str(extensions_dir)
 
             singlefile_output_dir = snapshot_chrome_dir.parent / "singlefile"
             singlefile_output_dir.mkdir(parents=True, exist_ok=True)
@@ -237,7 +237,7 @@ def test_singlefile_with_chrome_session():
             navigate=False,  # Don't navigate, singlefile will do that
             timeout=20,
             env_overrides={
-                "CHROME_EXTENSIONS_DIR": str(install_state["extensions_dir"]),
+                "LIB_DIR": str(install_state["lib_dir"]),
             },
         ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
             snap_dir = Path(env["SNAP_DIR"])
@@ -246,7 +246,6 @@ def test_singlefile_with_chrome_session():
 
             # Use env from chrome_session
             env["SINGLEFILE_ENABLED"] = "true"
-            env["CHROME_EXTENSIONS_DIR"] = str(install_state["extensions_dir"])
 
             # Run singlefile - it should find and use the existing Chrome session
             result = subprocess.run(
@@ -296,6 +295,7 @@ def test_singlefile_with_extension_uses_existing_chrome():
         assert loaded.loaded_abspath is not None, (
             "abxpkg did not resolve SingleFile extension"
         )
+        downloads_dir = tmpdir / "downloads"
 
         # Launch Chrome session with extensions loaded
         with chrome_session(
@@ -306,7 +306,8 @@ def test_singlefile_with_extension_uses_existing_chrome():
             navigate=True,
             timeout=30,
             env_overrides={
-                "CHROME_EXTENSIONS_DIR": str(extensions_dir),
+                "LIB_DIR": env_install["LIB_DIR"],
+                "CHROME_DOWNLOADS_DIR": str(downloads_dir),
             },
         ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
             singlefile_output_dir = snapshot_chrome_dir.parent / "singlefile"
@@ -320,7 +321,6 @@ def test_singlefile_with_extension_uses_existing_chrome():
 
             env["SINGLEFILE_ENABLED"] = "true"
             env["SINGLEFILE_BINARY"] = "/nonexistent/single-file"
-            env["CHROME_EXTENSIONS_DIR"] = str(extensions_dir)
             env["CHROME_HEADLESS"] = "false"
             env.pop("CRAWL_DIR", None)
 
@@ -379,7 +379,7 @@ def test_singlefile_extension_loader_prefers_cached_background_target():
             navigate=True,
             timeout=30,
             env_overrides={
-                "CHROME_EXTENSIONS_DIR": str(install_state["extensions_dir"]),
+                "LIB_DIR": str(install_state["lib_dir"]),
             },
         ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
             metadata = wait_for_extensions_metadata(

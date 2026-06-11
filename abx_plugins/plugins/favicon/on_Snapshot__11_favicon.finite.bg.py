@@ -23,6 +23,7 @@ signal.signal(signal.SIGTERM, signal.SIG_IGN)
 import os
 import re
 import sys
+import time
 
 from pathlib import Path
 from urllib.error import HTTPError
@@ -46,7 +47,7 @@ OUTPUT_FILE = "favicon.ico"
 SUCCESS_OUTPUT = f"{PLUGIN_DIR}/{OUTPUT_FILE}"
 
 
-def http_get(url: str, headers: dict[str, str], timeout: int) -> tuple[int, bytes]:
+def http_get(url: str, headers: dict[str, str], timeout: float) -> tuple[int, bytes]:
     req = Request(url, headers=headers)
     try:
         with urlopen(req, timeout=timeout) as response:
@@ -82,12 +83,19 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
 
     config = get_config()
     timeout = config.FAVICON_TIMEOUT
+    deadline = time.monotonic() + timeout
     library_version = os.environ.get("LIBRARY_VERSION", "0.0.1")
     user_agent = (
         f"ArchiveBox/{library_version} (+https://github.com/ArchiveBox/ArchiveBox/)"
     )
     provider_template = (config.FAVICON_PROVIDER or "").strip()
     headers = {"User-Agent": user_agent}
+
+    def remaining_timeout() -> float:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError(f"FAVICON_TIMEOUT exceeded after {timeout} seconds")
+        return remaining
 
     # Build list of possible favicon URLs
     parsed = urlparse(url)
@@ -102,7 +110,11 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
 
     # Try to extract favicon URL from HTML link tags
     try:
-        status_code, body = http_get(url, headers=headers, timeout=timeout)
+        status_code, body = http_get(
+            url,
+            headers=headers,
+            timeout=remaining_timeout(),
+        )
         if 200 <= status_code < 300 and body:
             html = body.decode("utf-8", errors="replace")
             # Look for <link rel="icon" href="...">
@@ -126,9 +138,15 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
     # Try each URL until we find one that works
     for favicon_url in favicon_urls:
         try:
-            status_code, body = http_get(favicon_url, headers=headers, timeout=timeout)
+            status_code, body = http_get(
+                favicon_url,
+                headers=headers,
+                timeout=remaining_timeout(),
+            )
             if 200 <= status_code < 300 and body:
                 return True, save_favicon(body), ""
+        except TimeoutError:
+            return False, None, "No favicon found"
         except Exception:
             continue
 
@@ -136,7 +154,11 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
     provider_url = build_provider_url(provider_template, domain)
     if provider_url:
         try:
-            status_code, body = http_get(provider_url, headers=headers, timeout=timeout)
+            status_code, body = http_get(
+                provider_url,
+                headers=headers,
+                timeout=remaining_timeout(),
+            )
             if 200 <= status_code < 300 and body:
                 return True, save_favicon(body), ""
         except Exception:

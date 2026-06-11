@@ -26,6 +26,11 @@
       "minimum": 10,
       "x-fallback": "TIMEOUT",
       "description": "Timeout for archive.org submission in seconds"
+    },
+    "ARCHIVEDOTORG_ENDPOINT": {
+      "type": "string",
+      "default": "https://web.archive.org/save/{url}",
+      "description": "Wayback Machine save endpoint template. Supports {url} or {} placeholders for the submitted URL."
     }
   }
 }
