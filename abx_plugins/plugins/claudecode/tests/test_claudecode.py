@@ -6,9 +6,9 @@ Tests verify:
 2. Config schema is valid
 3. required_binaries declares the Claude CLI dependency correctly
 4. dependency preflight respects CLAUDECODE_ENABLED
-5. dependency preflight warns when ANTHROPIC_API_KEY is missing
+5. dependency preflight warns when Claude Code auth is missing
 6. Utility functions work correctly (system prompt building, metadata)
-7. Claude Code CLI actually runs and responds (integration, requires ANTHROPIC_API_KEY)
+7. Claude Code CLI actually runs and responds (integration, requires Claude Code auth)
 """
 
 import json
@@ -55,6 +55,7 @@ class TestClaudeCodePlugin:
         assert config.get("$schema") == "http://json-schema.org/draft-07/schema#"
         assert "CLAUDECODE_ENABLED" in config["properties"]
         assert "ANTHROPIC_API_KEY" in config["properties"]
+        assert "CLAUDE_CODE_OAUTH_TOKEN" in config["properties"]
         assert "CLAUDECODE_BINARY" in config["properties"]
         assert "CLAUDECODE_MODEL" in config["properties"]
         assert "CLAUDECODE_TIMEOUT" in config["properties"]
@@ -136,7 +137,8 @@ class TestClaudeCodeUtils:
 class TestClaudeCodeIntegration:
     """Integration tests that actually run Claude Code CLI.
 
-    These tests require claude binary in PATH and ANTHROPIC_API_KEY set.
+    These tests require claude binary in PATH and ANTHROPIC_API_KEY or
+    CLAUDE_CODE_OAUTH_TOKEN set.
     """
 
     def test_run_claude_code_simple_prompt(self):

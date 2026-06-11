@@ -67,6 +67,11 @@
       "default": "",
       "description": "Anthropic API key for Claude Code authentication"
     },
+    "CLAUDE_CODE_OAUTH_TOKEN": {
+      "type": "string",
+      "default": "",
+      "description": "Claude Code OAuth token for Claude Code authentication"
+    },
     "CLAUDECODE_MODEL": {
       "type": "string",
       "default": "claude-sonnet-4-6",

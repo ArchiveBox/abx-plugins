@@ -176,6 +176,7 @@ jobs:
     if: ${{ needs.changes.outputs.docs-only != 'true' }}
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       ABX_PYTEST_TEE_SUBPROCESS_OUTPUT: "1"
 
     strategy:

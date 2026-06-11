@@ -230,10 +230,19 @@ def run_claude_code(
     }
     env = {k: v for k, v in os.environ.items() if k not in DENIED_ENV_VARS}
 
-    # Ensure API key is set
+    # Claude Code supports both API-key auth and the OAuth token used by the
+    # official GitHub action. Preserve either real credential for the CLI while
+    # still filtering unrelated secrets out of the agent environment.
     api_key = str(config.ANTHROPIC_API_KEY or "")
     if api_key:
         env["ANTHROPIC_API_KEY"] = api_key
+    oauth_token = str(
+        config.CLAUDE_CODE_OAUTH_TOKEN
+        or os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
+        or "",
+    )
+    if oauth_token:
+        env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
 
     print(f"[*] Running Claude Code in {work_dir}...", file=sys.stderr)
     print(

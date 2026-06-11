@@ -20,9 +20,10 @@ Environment variables:
     CLAUDECODECLEANUP_TIMEOUT: Timeout in seconds (default: 180)
     CLAUDECODECLEANUP_MODEL: Claude model to use (default: claude-sonnet-4-6)
     CLAUDECODECLEANUP_MAX_TURNS: Max agentic turns (default: 50)
-    ANTHROPIC_API_KEY: API key for Claude
+    ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN: Claude Code auth
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -87,11 +88,21 @@ def main(url: str, snapshot_id: str):
             emit_archive_result_record("skipped", "CLAUDECODECLEANUP_ENABLED=False")
             sys.exit(0)
 
-        # Check for API key
+        # Check for real Claude Code auth before doing expensive prompt setup.
+        # The CLI accepts either the API key path or the OAuth token path used
+        # by the official GitHub Action; do not force one credential type.
         api_key = str(CONFIG.ANTHROPIC_API_KEY or "")
-        if not api_key:
-            print("ERROR: ANTHROPIC_API_KEY not set", file=sys.stderr)
-            emit_archive_result_record("failed", "ANTHROPIC_API_KEY not set")
+        oauth_token = str(
+            getattr(CONFIG, "CLAUDE_CODE_OAUTH_TOKEN", "")
+            or os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
+            or "",
+        )
+        if not api_key and not oauth_token:
+            print(
+                "ERROR: ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN not set",
+                file=sys.stderr,
+            )
+            emit_archive_result_record("failed", "Claude Code auth not set")
             sys.exit(1)
 
         # Get configuration

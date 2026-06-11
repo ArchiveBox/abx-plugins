@@ -7,7 +7,7 @@ Tests verify:
 3. Hook skips when disabled
 4. Hook fails gracefully when API key is missing
 5. Hook fails gracefully when claude binary is not found
-6. Full extraction pipeline runs against real snapshot data (integration, requires ANTHROPIC_API_KEY)
+6. Full extraction pipeline runs against real snapshot data (integration, requires Claude Code auth)
 """
 
 import json
@@ -171,7 +171,7 @@ class TestClaudeCodeExtractPlugin:
             assert result["status"] == "skipped"
 
     def test_hook_fails_without_api_key(self):
-        """Hook should fail when ANTHROPIC_API_KEY is not set."""
+        """Hook should fail when no Claude Code credential is set."""
         with tempfile.TemporaryDirectory() as tmpdir:
             snap_dir = Path(tmpdir) / "snap"
             snap_dir.mkdir()
@@ -182,6 +182,7 @@ class TestClaudeCodeExtractPlugin:
             env["SNAP_DIR"] = str(snap_dir)
             env["CLAUDECODEEXTRACT_ENABLED"] = "true"
             env.pop("ANTHROPIC_API_KEY", None)
+            env.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
 
             returncode, stdout, stderr = run_hook(
                 EXTRACT_HOOK,
@@ -196,7 +197,7 @@ class TestClaudeCodeExtractPlugin:
             result = parse_jsonl_output(stdout)
             assert result is not None, f"Expected JSONL output, got: {stdout}"
             assert result["status"] == "failed"
-            assert "ANTHROPIC_API_KEY" in result["output_str"]
+            assert "auth" in result["output_str"]
 
     def test_hook_fails_gracefully_with_missing_binary(self):
         """Hook should fail gracefully when claude binary is not found."""
@@ -234,7 +235,8 @@ class TestClaudeCodeExtractPlugin:
 class TestClaudeCodeExtractIntegration:
     """Integration tests that run the full extract pipeline with real Claude Code.
 
-    These tests require claude binary in PATH and ANTHROPIC_API_KEY set.
+    These tests require claude binary in PATH and ANTHROPIC_API_KEY or
+    CLAUDE_CODE_OAUTH_TOKEN set.
     """
 
     def test_extract_generates_markdown_from_snapshot(self):
