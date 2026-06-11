@@ -1,0 +1,45 @@
+abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py
+  s_cdb7ab28cd51df::t_430341d21300d0 9,14-15,25-26,63-98
+abx_plugins/plugins/chrome_mhtml/tests/test_chrome_mhtml.py
+  s_cdb7ab28cd51df::t_80640bad742188 36,163
+  s_cdb7ab28cd51df::t_352e070a3872c5 26,95-139,141-151,168-170,176,183
+  s_cdb7ab28cd51df::t_f1a400678f2942 164-165
+  s_cdb7ab28cd51df::t_0f3b0c22d0d88d 3,160-162,166-167
+  s_cdb7ab28cd51df::t_4ba90d4b82cde6 53-60
+abx_plugins/plugins/singlefile/tests/test_singlefile.py
+  s_cdb7ab28cd51df::t_87e6805922874d 298,310
+  s_cdb7ab28cd51df::t_8ecdfbffedf70e 97,180,240,309,382
+abx_plugins/plugins/archivedotorg/tests/test_archivedotorg.py
+  s_cdb7ab28cd51df::t_641d59433d778e 12,28-29,31-56,62,64,78-79,115-122,128,130,138-139,143
+  s_cdb7ab28cd51df::t_d15f12753b11ad 61,127
+abx_plugins/plugins/archivedotorg/config.json
+  s_cdb7ab28cd51df::t_9c9dcc202827fe 29-33
+abx_plugins/plugins/archivedotorg/on_Snapshot__08_archivedotorg.finite.bg.py
+  s_cdb7ab28cd51df::t_aa1ba11b8c49a9 28,45,75-83,96,102
+abx_plugins/plugins/favicon/on_Snapshot__11_favicon.finite.bg.py
+  s_cdb7ab28cd51df::t_4417cecd095baf 26,50,86,94-99,113-117,141-145,148-149,157-161
+abx_plugins/plugins/parse_rss_urls/on_Snapshot__72_parse_rss_urls.py
+  s_cdb7ab28cd51df::t_921dbd4ade25f4 20,59-60,136,138-142,188-197
+  s_cdb7ab28cd51df::t_8c347bfd765aaf 106-135,137
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  s_cdb7ab28cd51df::t_e07db91e38e12e 67,185,196-197
+  s_cdb7ab28cd51df::t_fa8210c8eda596 181-184,186,192,198-200,414-439,496,499
+abx_plugins/plugins/parse_rss_urls/tests/test_parse_rss_urls.py
+  s_cdb7ab28cd51df::t_3a97765333e4a7 179-230
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "ffc70424e8efd1f7d0ecd429a60a46021cc954d1",
+  "prompts": {},
+  "sessions": {
+    "s_cdb7ab28cd51df": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa76-c893-7193-bd47-d91b6111304f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
