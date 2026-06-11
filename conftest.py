@@ -249,10 +249,10 @@ ensure_chromium_and_puppeteer_installed = pytest.fixture(scope="session")(
 
 @pytest.fixture(scope="session")
 def ensure_claude_code_prereqs(tmp_path_factory):
-    """Ensure Claude Code CLI is installed and ANTHROPIC_API_KEY is set.
+    """Ensure Claude Code CLI is installed and auth is configured.
 
-    Used by Claude Code integration tests. Skips the dependent tests when
-    live Anthropic credentials are unavailable.
+    Used by Claude Code integration tests. Fails the dependent tests when live
+    Claude Code credentials are unavailable.
     """
 
     def install_claude_code_with_abxpkg() -> str:
@@ -336,12 +336,14 @@ def ensure_claude_code_prereqs(tmp_path_factory):
     elif not Path(claude_bin).exists():
         pytest.fail(f"CLAUDECODE_BINARY is set but does not exist: {claude_bin}")
 
-    # Check API key
+    # Check auth. Claude Code accepts both API-key auth and the OAuth token used
+    # by the official action; plugin tests should exercise either real path.
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
+    oauth_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN", "")
+    if not api_key and not oauth_token:
         pytest.fail(
-            "ANTHROPIC_API_KEY not set.  Claude Code integration tests "
-            "require a valid API key.",
+            "ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN not set. Claude Code "
+            "integration tests require real Claude Code auth.",
         )
 
     # Quick smoke test: claude --version
