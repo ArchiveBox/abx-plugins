@@ -1,0 +1,35 @@
+abx_plugins/plugins/claudecodecleanup/on_Snapshot__92_claudecodecleanup.py
+  s_15f59ac80abb8e::t_4fb51ff9935e1c 26,95-97,99
+  s_15f59ac80abb8e::t_238b9b6f0444a4 23,91-93,100-102,104-105
+abx_plugins/plugins/claudecode/config.json
+  s_15f59ac80abb8e::t_a14d30ee2d9025 70-74
+abx_plugins/plugins/claudecode/claudecode_utils.py
+  s_15f59ac80abb8e::t_18d57aab9c5630 233-235,239-241,243-245
+.github/workflows/test-parallel.yml
+  s_15f59ac80abb8e::t_60b87e32b91fac 179
+abx_plugins/plugins/claudecodeextract/on_Snapshot__58_claudecodeextract.py
+  s_15f59ac80abb8e::t_765de89f63b188 25,90-92,94
+  s_15f59ac80abb8e::t_2fcd46445ec725 22,86-88,95-97,99-100
+abx_plugins/plugins/claudecodeextract/tests/test_claudecodeextract.py
+  s_15f59ac80abb8e::t_46c1517bd29198 10,174,185,200,238-239
+abx_plugins/plugins/claudecodecleanup/tests/test_claudecodecleanup.py
+  s_15f59ac80abb8e::t_fff25200ffe92b 11,259,270,285,323-324
+abx_plugins/plugins/claudecode/tests/test_claudecode.py
+  s_15f59ac80abb8e::t_e5f6027657bf19 9,11,58,140-141
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "4e0fd1d4181018272cd2c7bf23cb0a7e0fdff023",
+  "prompts": {},
+  "sessions": {
+    "s_15f59ac80abb8e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa8a-3bcf-7290-a54d-15bd828c06a5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
