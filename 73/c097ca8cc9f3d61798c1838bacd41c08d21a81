@@ -1,0 +1,67 @@
+abx_plugins/plugins/claudechrome/on_Snapshot__47_claudechrome.js
+  s_15f59ac80abb8e::t_a60ea49379c75a 42,65,74
+abx_plugins/plugins/base/utils.js
+  s_15f59ac80abb8e::t_3847e0e705e476 392,439
+  s_15f59ac80abb8e::t_025abd3e9130be 672
+  s_15f59ac80abb8e::t_b12658cb22b671 406,442-443
+abx_plugins/plugins/chrome/on_CrawlSetup__89_chrome_kill_zombies.js
+  s_15f59ac80abb8e::t_8e31fdc776c8c4 18-21,27-28
+  s_15f59ac80abb8e::t_81858a93353574 38
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  s_cdb7ab28cd51df::t_b9e6c628516516 20,438,723,734-735,797,824,886,909,953,1028,1101-1105,1144,1177,1524,1556
+  s_15f59ac80abb8e::t_aef80d9d3699e9 754,756,758,897-901
+  s_15f59ac80abb8e::t_60128d1b595875 772,774,777
+  s_15f59ac80abb8e::t_0c0e0565f929ce 902,915
+  s_cdb7ab28cd51df::t_2e60c675d3239b 118,421-424
+abx_plugins/plugins/chrome/config.json
+  s_15f59ac80abb8e::t_c029c1cb6b5a06 28,32,45
+abx_plugins/plugins/archivewebpage/replay_preview.py
+  s_15f59ac80abb8e::t_fd2eea7c5fa99d 71
+abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py
+  s_15f59ac80abb8e::t_acc0d328599f26 73,78,80,85,87,112-115,119,148,163,561,567,591
+abx_plugins/plugins/base/test_utils.py
+  s_cdb7ab28cd51df::t_d00f72570a55c1 27
+pyproject.toml
+  s_cdb7ab28cd51df::t_04fa32f8d80af2 35
+  s_cdb7ab28cd51df::t_6fb88bad56cc0b 33
+  s_cdb7ab28cd51df::t_49ab9bc0eb11b0 34
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_15f59ac80abb8e::t_347636aa71ff2d 2220,2301,4504
+  s_cdb7ab28cd51df::t_981606d3f7ff94 191-197,1116,1119,1124
+  s_15f59ac80abb8e::t_c24cdbe8ae2dff 4421,4644-4645
+  s_15f59ac80abb8e::t_ca243f9997b68e 24,69-70,75-85,135,141,164-165,174-175,4011,4019,4021
+  s_15f59ac80abb8e::t_e850d05b9d946c 166-173
+abx_plugins/plugins/singlefile/singlefile_extension_save.js
+  s_15f59ac80abb8e::t_b5bd67e618090b 16,33,37-38
+abx_plugins/plugins/archivewebpage/on_Snapshot__65_archivewebpage_stop.js
+  s_15f59ac80abb8e::t_f4d4ffe160901a 209-211
+abx_plugins/plugins/base/utils.py
+  s_15f59ac80abb8e::t_b8f28f6726472a 476,974,977
+abx_plugins/plugins/base/config.json
+  s_15f59ac80abb8e::t_324e85aca056d9 47
+  s_15f59ac80abb8e::t_7cdaee1dd8933f 38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "73c097ca8cc9f3d61798c1838bacd41c08d21a81",
+  "prompts": {},
+  "sessions": {
+    "s_15f59ac80abb8e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa8a-3bcf-7290-a54d-15bd828c06a5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_cdb7ab28cd51df": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa76-c893-7193-bd47-d91b6111304f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
