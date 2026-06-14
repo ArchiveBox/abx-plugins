@@ -62,23 +62,34 @@ async function waitForAwpExtension(
  * chrome.debugger.getTargets() returns a TargetInfo with both ``id`` (CDP
  * target id, same value as puppeteer's ``page.target()._targetId``) and
  * ``tabId`` (the chrome.tabs integer id) for ``type==='page'`` targets, so
- * the mapping is a direct lookup.
- *
- * Run the lookup from the already-open AWP popup page instead of the
- * service worker. On a fresh Chrome profile the service worker target can
- * exist before it is usable enough for debugger target discovery, but opening
- * the popup is also the real AWP control surface used by the start/stop
- * handshake. Doing the lookup there keeps the lifecycle deterministic without
- * introducing a second readiness concept.
+ * the mapping is a direct lookup. Polls because the AWP service worker may
+ * be in the middle of waking up when we first call.
  */
-async function getChromeTabIdForPage(helperPage, page, timeoutMs) {
+async function getChromeTabIdForPage(browser, page, extensionId, timeoutMs) {
   const targetId = chromeUtils.getTargetIdFromPage(page);
   if (!targetId) return null;
 
   const deadline = Date.now() + Math.max(1000, timeoutMs);
   while (Date.now() < deadline) {
+    const swTarget = await chromeUtils
+      .waitForExtensionTargetHandle(
+        browser,
+        extensionId,
+        Math.min(deadline - Date.now(), 2000)
+      )
+      .catch(() => null);
+    if (!swTarget) {
+      await sleep(50);
+      continue;
+    }
+    const ctx = await swTarget.worker().catch(() => null);
+    if (!ctx) {
+      await sleep(50);
+      continue;
+    }
+
     try {
-      const tabId = await helperPage.evaluate(async (idToFind) => {
+      const tabId = await ctx.evaluate(async (idToFind) => {
         const targets = await new Promise((resolve) => {
           chrome.debugger.getTargets((t) => resolve(t || []));
         });
@@ -89,7 +100,7 @@ async function getChromeTabIdForPage(helperPage, page, timeoutMs) {
       }, targetId);
       if (tabId) return tabId;
     } catch (error) {
-      // The helper page may still be finishing extension-page startup.
+      // SW may have suspended between calls; loop and try again
     }
     await sleep(75);
   }

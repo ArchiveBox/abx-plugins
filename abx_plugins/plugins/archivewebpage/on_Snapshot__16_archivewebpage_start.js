@@ -52,7 +52,7 @@ process.chdir(path.resolve(process.cwd()));
 async function runStartHandshake(
   browser,
   extensionId,
-  targetPage,
+  targetTabId,
   url,
   options
 ) {
@@ -61,7 +61,7 @@ async function runStartHandshake(
   let result = null;
   let lastError = null;
 
-  const handshake = async (targetTabId) =>
+  const handshake = async () =>
     helperPage.evaluate(
       async ({ tabId, url, autorun, collectionTitle, timeoutMs }) => {
         function withTimeout(promise, ms, message) {
@@ -161,15 +161,7 @@ async function runStartHandshake(
   try {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const targetTabId = await getChromeTabIdForPage(
-          helperPage,
-          targetPage,
-          timeoutMs
-        );
-        if (!targetTabId) {
-          throw new Error("Could not resolve chrome.tabs id for snapshot tab");
-        }
-        result = await handshake(targetTabId);
+        result = await handshake();
         result.targetTabId = targetTabId;
         break;
       } catch (err) {
@@ -268,10 +260,24 @@ async function main() {
     browser = connection.browser;
     const page = connection.page;
 
+    const tabResolutionTimeoutMs = Math.min(
+      overallTimeoutMs,
+      Math.max(10000, budgetMs * 5)
+    );
+    const chromeTabId = await getChromeTabIdForPage(
+      browser,
+      page,
+      extensionId,
+      tabResolutionTimeoutMs
+    );
+    if (!chromeTabId) {
+      throw new Error("Could not resolve chrome.tabs id for snapshot tab");
+    }
+
     const handshake = await runStartHandshake(
       browser,
       extensionId,
-      page,
+      chromeTabId,
       url,
       {
         autorun: getEnvBool("ARCHIVEWEBPAGE_AUTORUN_BEHAVIORS", false),

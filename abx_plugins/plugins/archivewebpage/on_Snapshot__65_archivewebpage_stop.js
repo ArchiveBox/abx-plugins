@@ -11,7 +11,7 @@
  *   - extension id comes from {chrome_plugin_dir}/browser.json via
  *     chromeUtils.readBrowserMetadata + findExtensionMetadataByName
  *   - snapshot tab id comes from chromeUtils.connectToPage's target id mapped
- *     through chrome.debugger.getTargets() inside the AWP popup page
+ *     through chrome.debugger.getTargets() inside the AWP service worker
  *   - the running recorder's collId is pulled off the {type:"status"} message
  *     AWP posts back on the popup-port after a startUpdates handshake
  *
@@ -158,7 +158,7 @@ async function stopAndCollectCollId(helperPage, targetTabId) {
 async function sendStopAndDownload(
   browser,
   extensionId,
-  targetPage,
+  targetTabId,
   destPath,
   timeoutMs
 ) {
@@ -169,14 +169,6 @@ async function sendStopAndDownload(
   try {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const targetTabId = await getChromeTabIdForPage(
-          helperPage,
-          targetPage,
-          timeoutMs
-        );
-        if (!targetTabId) {
-          throw new Error("Could not resolve chrome.tabs id for snapshot tab");
-        }
         stopOutcome = await stopAndCollectCollId(helperPage, targetTabId);
         break;
       } catch (err) {
@@ -373,11 +365,25 @@ async function main() {
     browser = connection.browser;
     const page = connection.page;
 
+    const tabResolutionTimeoutMs = Math.min(
+      overallTimeoutMs,
+      Math.max(10000, budgetMs * 5)
+    );
+    const chromeTabId = await getChromeTabIdForPage(
+      browser,
+      page,
+      extensionId,
+      tabResolutionTimeoutMs
+    );
+    if (!chromeTabId) {
+      throw new Error("Could not resolve chrome.tabs id for snapshot tab");
+    }
+
     const destPath = path.join(outputDir, OUTPUT_FILENAME);
     const outcome = await sendStopAndDownload(
       browser,
       extensionId,
-      page,
+      chromeTabId,
       destPath,
       overallTimeoutMs
     );
