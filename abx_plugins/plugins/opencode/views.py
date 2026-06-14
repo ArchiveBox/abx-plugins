@@ -116,7 +116,7 @@ def _config_value(config: dict, key: str, default):
 
 
 def _opencode_enabled(config: dict) -> bool:
-    value = config.get("OPENCODE_ENABLED", True)
+    value = config.get("OPENCODE_ENABLED", False)
     if isinstance(value, bool):
         return value
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
