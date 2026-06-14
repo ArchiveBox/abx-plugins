@@ -4,7 +4,6 @@
   "description": "Expose an admin-only embedded OpenCode web agent UI for ArchiveBox.",
   "type": "object",
   "additionalProperties": false,
-  "x-install-when-disabled": true,
   "required_plugins": [],
   "required_binaries": [
     {
