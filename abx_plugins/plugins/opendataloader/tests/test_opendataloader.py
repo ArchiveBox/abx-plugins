@@ -197,6 +197,7 @@ def test_noresults_without_sources():
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
         env["OPENDATALOADER_BINARY"] = binary_path
+        env["OPENDATALOADER_ENABLED"] = "True"
 
         result = subprocess.run(
             [
@@ -235,6 +236,7 @@ def test_extract_single_pdf():
         env["SNAP_DIR"] = str(snap_dir)
         env["OPENDATALOADER_BINARY"] = binary_path
         env["JAVA_BINARY"] = java_binary
+        env["OPENDATALOADER_ENABLED"] = "True"
 
         result = subprocess.run(
             [
@@ -299,6 +301,7 @@ def test_extract_multiple_pdfs():
         env["SNAP_DIR"] = str(snap_dir)
         env["OPENDATALOADER_BINARY"] = binary_path
         env["JAVA_BINARY"] = java_binary
+        env["OPENDATALOADER_ENABLED"] = "True"
 
         result = subprocess.run(
             [
@@ -356,6 +359,7 @@ def test_force_ocr_adds_hybrid_flag():
         env["SNAP_DIR"] = str(snap_dir)
         env["OPENDATALOADER_BINARY"] = binary_path
         env["JAVA_BINARY"] = java_binary
+        env["OPENDATALOADER_ENABLED"] = "True"
         env["OPENDATALOADER_FORCE_OCR"] = "true"
 
         result = subprocess.run(
@@ -406,6 +410,7 @@ def test_invalid_opendataloader_binary_path_reports_failed_status():
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
         env["OPENDATALOADER_BINARY"] = str(tmpdir / "missing-opendataloader")
+        env["OPENDATALOADER_ENABLED"] = "True"
 
         result = subprocess.run(
             [
