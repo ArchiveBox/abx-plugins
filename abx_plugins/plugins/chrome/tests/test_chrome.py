@@ -165,18 +165,31 @@ const requireTargetId = process.argv[3] === 'true';
     return json.loads(result.stdout.strip())
 
 
-def _assert_snapshot_chrome_state_cleared(snapshot_chrome_dir: Path) -> None:
+def _assert_snapshot_page_state_cleared(snapshot_chrome_dir: Path) -> None:
     for file_name in [
-        "cdp_url.txt",
-        "chrome.pid",
         "target_id.txt",
         "url.txt",
         "navigation.json",
-        "browser.json",
     ]:
         assert not (snapshot_chrome_dir / file_name).exists(), (
             f"{file_name} should be removed from snapshot chrome dir during teardown"
         )
+
+
+def _assert_snapshot_browser_state_cleared(snapshot_chrome_dir: Path) -> None:
+    for file_name in [
+        "cdp_url.txt",
+        "chrome.pid",
+        "browser.json",
+    ]:
+        assert not (snapshot_chrome_dir / file_name).exists(), (
+            f"{file_name} should be removed from snapshot chrome dir during browser teardown"
+        )
+
+
+def _assert_snapshot_chrome_state_cleared(snapshot_chrome_dir: Path) -> None:
+    _assert_snapshot_page_state_cleared(snapshot_chrome_dir)
+    _assert_snapshot_browser_state_cleared(snapshot_chrome_dir)
 
 
 def test_cleanup_chrome_profile_lock_files_removes_all_stale_profile_locks(tmp_path):
@@ -1893,7 +1906,20 @@ def test_snapshot_isolation_external_cdp_keepalive_false_closes_adopted_browser_
             tab_process.send_signal(signal.SIGTERM)
             tab_process.wait(timeout=20)
             tab_process = None
-            _assert_snapshot_chrome_state_cleared(snapshot_chrome_dir)
+            _assert_snapshot_page_state_cleared(snapshot_chrome_dir)
+            assert (
+                snapshot_chrome_dir / "cdp_url.txt"
+            ).read_text().strip() == provider_cdp_url
+            browser_metadata = json.loads(
+                (snapshot_chrome_dir / "browser.json").read_text(),
+            )
+            assert browser_metadata.get("ready") is True, (
+                "tab teardown must leave browser metadata for the owning snapshot launch hook"
+            )
+            assert isinstance(browser_metadata.get("extensions"), list), (
+                browser_metadata
+            )
+            assert not (snapshot_chrome_dir / "chrome.pid").exists()
 
             launch_process.send_signal(signal.SIGTERM)
             launch_process.wait(timeout=20)
@@ -2851,7 +2877,10 @@ def test_tab_cleanup_on_sigterm(chrome_test_url):
         stdout, stderr = tab_process.communicate(timeout=10)
 
         assert tab_process.returncode == 0, f"Tab process should exit cleanly: {stderr}"
-        _assert_snapshot_chrome_state_cleared(snapshot_chrome_dir)
+        _assert_snapshot_page_state_cleared(snapshot_chrome_dir)
+        assert (snapshot_chrome_dir / "cdp_url.txt").exists(), (
+            "tab cleanup must leave the browser CDP marker for crawl-level browser ownership"
+        )
 
         # Chrome should still be running
         try:
