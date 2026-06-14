@@ -19,11 +19,6 @@
     "application/x-ndjson"
   ],
   "properties": {
-    "CHROME_BINARY": {
-      "type": "string",
-      "default": "chromium",
-      "description": "Path to a Chromium-family browser binary"
-    },
     "PARSE_DOM_OUTLINKS_ENABLED": {
       "type": "boolean",
       "default": true,

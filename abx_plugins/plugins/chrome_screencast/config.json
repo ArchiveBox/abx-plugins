@@ -19,11 +19,6 @@
     "image/jpeg"
   ],
   "properties": {
-    "CHROME_BINARY": {
-      "type": "string",
-      "default": "chromium",
-      "description": "Path to a Chromium-family browser binary"
-    },
     "CHROME_SCREENCAST_ENABLED": {
       "type": "boolean",
       "default": true,

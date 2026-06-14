@@ -53,7 +53,6 @@ def test_require_chrome_runtime_resolves_in_subprocess(
     """The subprocess path should use the same provider-aware runtime resolution."""
 
     env = os.environ.copy()
-    env["LIB_DIR"] = str(tmp_path / "lib")
     env["ABXPKG_LIB_DIR"] = str(tmp_path / "lib")
     env["ABXPKG_ENV_ROOT"] = str(tmp_path / "env")
     result = subprocess.run(

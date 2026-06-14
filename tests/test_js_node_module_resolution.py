@@ -113,7 +113,7 @@ def test_chrome_wait_hook_resolves_puppeteer_from_lib_dir(
         lib_env.pop("NODE_MODULES_DIR", None)
         lib_env.pop("NODE_MODULE_DIR", None)
         lib_env.pop("NODE_PATH", None)
-        lib_env["LIB_DIR"] = str(node_modules_dir.parents[3])
+        lib_env["ABXPKG_LIB_DIR"] = str(node_modules_dir.parents[3])
 
         result = subprocess.run(
             [
@@ -157,7 +157,7 @@ def test_chrome_launch_prerequisites_wait_for_late_installs(tmp_path: Path) -> N
     env.pop("NODE_MODULES_DIR", None)
     env.pop("NODE_MODULE_DIR", None)
     env.pop("NODE_PATH", None)
-    env["LIB_DIR"] = str(lib_dir)
+    env["ABXPKG_LIB_DIR"] = str(lib_dir)
     env["CHROME_BINARY"] = str(real_chrome_binary)
 
     result = subprocess.run(

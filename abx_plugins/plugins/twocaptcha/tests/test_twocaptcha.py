@@ -512,7 +512,7 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                             time.sleep(2)
 
                 if not token:
-                    pytest.fail(
+                    raise AssertionError(
                         "2captcha live solve failed after "
                         f"{LIVE_SOLVE_MAX_ATTEMPTS} attempts:\n"
                         + "\n".join(attempt_errors),

@@ -56,7 +56,7 @@ def get_papersdl_binary_path():
         _papersdl_lib_root = tempfile.mkdtemp(prefix="papersdl-lib-")
 
     env = os.environ.copy()
-    env["LIB_DIR"] = str(Path(_papersdl_lib_root))
+    env["ABXPKG_LIB_DIR"] = str(Path(_papersdl_lib_root))
 
     try:
         loaded = install_required_binary_from_config(PLUGIN_DIR, "papers-dl", env=env)

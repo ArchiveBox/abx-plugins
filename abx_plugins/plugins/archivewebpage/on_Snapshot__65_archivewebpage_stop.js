@@ -206,8 +206,9 @@ async function sendStopAndDownload(
       };
     }
 
-    const downloadDir = hookConfig.CHROME_DOWNLOADS_DIR
-      ? path.resolve(String(hookConfig.CHROME_DOWNLOADS_DIR).trim())
+    const chromeLaunchOptions = chromeUtils.resolveChromeLaunchOptions(hookConfig);
+    const downloadDir = chromeLaunchOptions.CHROME_DOWNLOADS_DIR
+      ? path.resolve(chromeLaunchOptions.CHROME_DOWNLOADS_DIR)
       : path.dirname(destPath);
     fs.mkdirSync(downloadDir, { recursive: true });
     const downloadFilename = `archivewebpage-${process.pid}-${Date.now()}`;

@@ -663,7 +663,7 @@ def _isolated_test_env(tmpdir: str | Path, **updates: str) -> dict:
         {
             "SNAP_DIR": str(snap_dir),
             "CRAWL_DIR": str(crawl_dir),
-            "LIB_DIR": str(lib_dir),
+            "ABXPKG_LIB_DIR": str(lib_dir),
             "PERSONAS_DIR": str(personas_dir),
             "ACTIVE_PERSONA": "Default",
             "HOME": str(home_dir),
@@ -845,7 +845,7 @@ def test_chrome_launch_and_tab_creation(chrome_test_url):
         try:
             os.kill(chrome_pid, 0)
         except OSError:
-            pytest.fail(f"Chrome process {chrome_pid} is not running")
+            raise AssertionError(f"Chrome process {chrome_pid} is not running")
 
         # Create snapshot directory and tab
         snapshot_dir = Path(tmpdir) / "snapshot1"
@@ -1073,7 +1073,7 @@ def test_chrome_can_adopt_existing_cdp_url_without_local_pid(chrome_test_url):
             for _ in range(45):
                 if provider_process.poll() is not None:
                     stdout, stderr = provider_process.communicate()
-                    pytest.fail(
+                    raise AssertionError(
                         f"provider chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
                     )
                 if (provider_chrome_dir / "cdp_url.txt").exists() and (
@@ -1162,7 +1162,7 @@ def test_chrome_can_adopt_existing_cdp_url_without_local_pid(chrome_test_url):
                 for _ in range(60):
                     if tab_process.poll() is not None:
                         stdout, stderr = tab_process.communicate()
-                        pytest.fail(
+                        raise AssertionError(
                             f"adopted snapshot tab exited early:\nStdout: {stdout}\nStderr: {stderr}",
                         )
                     if (snapshot_chrome_dir / "cdp_url.txt").exists() and (
@@ -1333,7 +1333,7 @@ def test_snapshot_isolation_launches_and_cleans_up_local_browser(chrome_test_url
         for _ in range(60):
             if launch_process.poll() is not None:
                 stdout, stderr = launch_process.communicate()
-                pytest.fail(
+                raise AssertionError(
                     f"snapshot-isolated launch hook exited early:\nStdout: {stdout}\nStderr: {stderr}",
                 )
             if (
@@ -1379,7 +1379,7 @@ def test_snapshot_isolation_launches_and_cleans_up_local_browser(chrome_test_url
         for _ in range(60):
             if tab_process.poll() is not None:
                 stdout, stderr = tab_process.communicate()
-                pytest.fail(
+                raise AssertionError(
                     f"snapshot-isolated tab hook exited early:\nStdout: {stdout}\nStderr: {stderr}",
                 )
             if (
@@ -1651,7 +1651,7 @@ def test_crawl_isolation_external_cdp_keepalive_false_closes_adopted_browser_on_
             for _ in range(60):
                 if adopt_process.poll() is not None:
                     stdout, stderr = adopt_process.communicate()
-                    pytest.fail(
+                    raise AssertionError(
                         f"adopted crawl launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
                     )
                 if (adopted_chrome_dir / "cdp_url.txt").exists():
@@ -1850,7 +1850,7 @@ def test_snapshot_isolation_external_cdp_keepalive_false_closes_adopted_browser_
             for _ in range(60):
                 if launch_process.poll() is not None:
                     stdout, stderr = launch_process.communicate()
-                    pytest.fail(
+                    raise AssertionError(
                         f"snapshot launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
                     )
                 if (snapshot_chrome_dir / "cdp_url.txt").exists():
@@ -2002,7 +2002,7 @@ def test_cdp_url_is_published_before_extensions_metadata():
 
                 if chrome_launch_process.poll() is not None:
                     stdout, stderr = chrome_launch_process.communicate()
-                    pytest.fail(
+                    raise AssertionError(
                         f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
                     )
                 time.sleep(0.1)
@@ -2049,7 +2049,7 @@ def test_crawl_wait_accepts_http_cdp_url_for_external_browser(chrome_test_url):
                     break
                 if provider_process.poll() is not None:
                     stdout, stderr = provider_process.communicate()
-                    pytest.fail(
+                    raise AssertionError(
                         f"provider launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
                     )
                 time.sleep(1)
@@ -2303,7 +2303,7 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
                     break
                 if chrome_launch_process.poll() is not None:
                     stdout, stderr = chrome_launch_process.communicate()
-                    pytest.fail(
+                    raise AssertionError(
                         f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
                     )
                 time.sleep(1)
@@ -2549,7 +2549,7 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
                     break
                 if chrome_launch_process.poll() is not None:
                     stdout, stderr = chrome_launch_process.communicate()
-                    pytest.fail(
+                    raise AssertionError(
                         f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
                     )
                 time.sleep(1)
@@ -2790,7 +2790,7 @@ def test_cleanup_stale_chrome_session_artifacts_keeps_live_session():
                     break
                 if chrome_launch_process.poll() is not None:
                     stdout, stderr = chrome_launch_process.communicate()
-                    pytest.fail(
+                    raise AssertionError(
                         f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
                     )
                 time.sleep(1)
@@ -2860,7 +2860,7 @@ def test_tab_cleanup_on_sigterm(chrome_test_url):
         try:
             os.kill(chrome_pid, 0)
         except OSError:
-            pytest.fail("Chrome should still be running after tab cleanup")
+            raise AssertionError("Chrome should still be running after tab cleanup")
 
         # Cleanup
         _cleanup_launch_process(chrome_launch_process, chrome_dir)
@@ -2897,7 +2897,7 @@ def test_snapshot_wait_survives_idle_delay_with_shared_dirs(chrome_test_url):
                 break
             if chrome_launch_process.poll() is not None:
                 stdout, stderr = chrome_launch_process.communicate()
-                pytest.fail(
+                raise AssertionError(
                     f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
                 )
             time.sleep(1)
@@ -3454,7 +3454,9 @@ def test_multiple_snapshots_share_chrome(chrome_test_urls):
             try:
                 os.kill(chrome_pid, 0)
             except OSError:
-                pytest.fail("Chrome should still be running after creating 3 tabs")
+                raise AssertionError(
+                    "Chrome should still be running after creating 3 tabs",
+                )
         finally:
             if chrome_launch_process is not None:
                 _cleanup_launch_process(chrome_launch_process, chrome_dir)
@@ -3491,7 +3493,7 @@ def test_chrome_cleanup_on_crawl_end():
                 break
             if chrome_launch_process.poll() is not None:
                 stdout, stderr = chrome_launch_process.communicate()
-                pytest.fail(
+                raise AssertionError(
                     f"Chrome launch process exited early:\nStdout: {stdout}\nStderr: {stderr}",
                 )
             time.sleep(1)
@@ -3503,7 +3505,7 @@ def test_chrome_cleanup_on_crawl_end():
         try:
             os.kill(chrome_pid, 0)
         except OSError:
-            pytest.fail("Chrome should be running")
+            raise AssertionError("Chrome should be running")
 
         # Send SIGTERM to chrome launch process
         chrome_launch_process.send_signal(signal.SIGTERM)
@@ -3562,7 +3564,7 @@ def test_zombie_prevention_hook_killed():
             os.kill(chrome_pid, 0)
             os.kill(hook_pid, 0)
         except OSError:
-            pytest.fail("Both Chrome and hook should be running")
+            raise AssertionError("Both Chrome and hook should be running")
 
         # Simulate hook getting SIGKILL'd (can't cleanup)
         os.kill(hook_pid, signal.SIGKILL)
@@ -3572,7 +3574,7 @@ def test_zombie_prevention_hook_killed():
         try:
             os.kill(chrome_pid, 0)
         except OSError:
-            pytest.fail("Chrome should still be running after hook SIGKILL")
+            raise AssertionError("Chrome should still be running after hook SIGKILL")
 
         # Simulate Crawl.cleanup() using the shared Chrome cleanup logic.
         assert kill_chrome(chrome_pid, str(chrome_dir)), (
@@ -3582,7 +3584,7 @@ def test_zombie_prevention_hook_killed():
         # Chrome should now be dead
         try:
             os.kill(chrome_pid, 0)
-            pytest.fail("Chrome should be killed after cleanup")
+            raise AssertionError("Chrome should be killed after cleanup")
         except OSError:
             # Expected - Chrome is dead
             pass

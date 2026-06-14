@@ -41,7 +41,7 @@ Hooks run with:
 
 - `SNAP_DIR` - base snapshot directory (default: `.`)
 - `CRAWL_DIR` - base crawl directory (default: `.`)
-- `LIB_DIR` - binaries/tools root (default: `~/.config/abx/lib`)
+- `ABXPKG_LIB_DIR` - binaries/tools root (default: `~/.config/abx/lib`)
 - `PERSONAS_DIR` - persona profiles root (default: `~/.config/abx/personas`)
 - `ACTIVE_PERSONA` - persona name (default: `Default`)
 
@@ -85,7 +85,7 @@ Notes:
 State/OS:
 
 - working dir: `CRAWL_DIR/<plugin>/`
-- durable install root: `LIB_DIR` (e.g. npm prefix, pip venv, puppeteer cache)
+- durable install root: `ABXPKG_LIB_DIR` (e.g. npm prefix, pip venv, puppeteer cache)
 - built-in providers include `apt` (Debian/Ubuntu), `brew` (macOS/Linux), and language/runtime-specific installers; many hooks currently assume POSIX paths
 
 ### Hook family contract
@@ -136,13 +136,13 @@ from abx_plugins.plugins.base.utils import (
 )
 ```
 
-- `load_config()` — load plugin `config.json` via jambo with env var + alias + fallback resolution, merged with shared base/common runtime vars like `SNAP_DIR`, `CRAWL_DIR`, `LIB_DIR`, `PERSONAS_DIR`, `EXTRA_CONTEXT`, `TIMEOUT`, and `USER_AGENT`
+- `load_config()` — load plugin `config.json` via jambo with env var + alias + fallback resolution, merged with shared base/common runtime vars like `SNAP_DIR`, `CRAWL_DIR`, `ABXPKG_LIB_DIR`, `PERSONAS_DIR`, `EXTRA_CONTEXT`, `TIMEOUT`, and `USER_AGENT`
 - `emit_archive_result_record(status, output_str)` — print `{"type":"ArchiveResult",...}` JSONL to stdout
 - `emit_snapshot_record(record)` — emit `{"type":"Snapshot",...}` JSONL to stdout
 - `write_text_atomic(path, content)` — write file atomically (temp + rename)
 - `find_html_source(snap_dir, ...)` — locate HTML from sibling plugins
 - `has_staticfile_output(snap_dir, path)` — check if a sibling plugin produced a file
-- `enforce_lib_permissions()` — lock down `LIB_DIR` so snapshot hooks can read/execute but not write
+- `enforce_lib_permissions()` — lock down `ABXPKG_LIB_DIR` so snapshot hooks can read/execute but not write
 
 **JS** (`base/utils.js`):
 ```javascript

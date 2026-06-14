@@ -659,7 +659,7 @@ def test_blocks_ads_on_httpserver_page_with_real_ad_service_urls(httpserver):
             tmpdir / "baseline-install",
         )
         env_no_ext["PERSONAS_DIR"] = str(baseline_personas_dir)
-        env_no_ext["LIB_DIR"] = baseline_install_env["LIB_DIR"]
+        env_no_ext["ABXPKG_LIB_DIR"] = baseline_install_env["ABXPKG_LIB_DIR"]
         env_no_ext["CHROME_EXTENSIONS_DIR"] = str(baseline_extensions_dir)
         env_no_ext["CHROME_DOWNLOADS_DIR"] = str(
             baseline_default_dir / "chrome_downloads",

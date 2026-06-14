@@ -284,33 +284,6 @@ function loadConfig(configPath = null) {
   if (!config.PERSONAS_DIR) {
     config.PERSONAS_DIR = path.join(getPlatformUserConfigDir(), "personas");
   }
-  if (
-    Object.prototype.hasOwnProperty.call(config, "CHROME_USER_DATA_DIR") &&
-    !config.CHROME_USER_DATA_DIR
-  ) {
-    config.CHROME_USER_DATA_DIR = path.join(
-      config.PERSONAS_DIR,
-      config.ACTIVE_PERSONA || "Default",
-      "chrome_profile"
-    );
-  }
-  if (Object.prototype.hasOwnProperty.call(config, "CHROME_BINARY")) {
-    const ciChromiumPath = "/usr/bin/chromium";
-    const canaryPath =
-      "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary";
-    const hasExplicitBrowser = Object.prototype.hasOwnProperty.call(
-      process.env,
-      "CHROME_BINARY"
-    );
-    if (!hasExplicitBrowser) {
-      if (fs.existsSync(ciChromiumPath)) {
-        config.CHROME_BINARY = ciChromiumPath;
-      } else if (process.platform === "darwin" && fs.existsSync(canaryPath)) {
-        config.CHROME_BINARY = canaryPath;
-      }
-    }
-  }
-
   configCache.set(cacheKey, {
     config,
     pluginMtime,
@@ -416,7 +389,7 @@ function getCrawlDir() {
 }
 
 function getLibDir() {
-  const configured = (loadConfig(BASE_CONFIG_PATH).LIB_DIR || "").trim();
+  const configured = (loadConfig(BASE_CONFIG_PATH).ABXPKG_LIB_DIR || "").trim();
   if (configured) return path.resolve(configured);
   return path.resolve(path.join(getPlatformUserConfigDir(), "lib"));
 }
@@ -430,17 +403,7 @@ function getPersonasDir() {
 function getNodeModulesDir() {
   const configured = getEnv("NODE_MODULES_DIR") || getEnv("NODE_MODULE_DIR");
   if (configured) return path.resolve(configured);
-  return path.resolve(
-    path.join(getLibDir(), "pnpm", "packages", "chrome", "node_modules")
-  );
-}
-
-function getChromeExtensionsDir() {
-  const configured = (
-    loadConfig(BASE_CONFIG_PATH).CHROME_EXTENSIONS_DIR || ""
-  ).trim();
-  if (configured) return path.resolve(configured);
-  return path.resolve(path.join(getLibDir(), "chromewebstore", "extensions"));
+  return path.resolve(path.join(getLibDir(), "pnpm", "node_modules"));
 }
 
 function getMachineType() {
@@ -473,26 +436,11 @@ function getTestEnv() {
     PERSONAS_DIR: getPersonasDir(),
     ACTIVE_PERSONA: config.ACTIVE_PERSONA || "Default",
     MACHINE_TYPE: getMachineType(),
-    LIB_DIR: libDir,
+    ABXPKG_LIB_DIR: libDir,
     NODE_MODULES_DIR: nodeModulesDir,
     NODE_PATH: nodeModulesDir,
-    PNPM_BIN_DIR: path.join(
-      libDir,
-      "pnpm",
-      "packages",
-      "chrome",
-      "node_modules",
-      ".bin"
-    ),
-    NPM_BIN_DIR: path.join(
-      libDir,
-      "pnpm",
-      "packages",
-      "chrome",
-      "node_modules",
-      ".bin"
-    ),
-    CHROME_EXTENSIONS_DIR: getChromeExtensionsDir(),
+    PNPM_BIN_DIR: path.join(libDir, "pnpm", "node_modules", ".bin"),
+    NPM_BIN_DIR: path.join(libDir, "pnpm", "node_modules", ".bin"),
   };
 }
 
@@ -693,7 +641,6 @@ module.exports = {
   getLibDir,
   getPersonasDir,
   getNodeModulesDir,
-  getChromeExtensionsDir,
   getMachineType,
   getTestEnv,
   ensureNodeModuleResolution,
@@ -717,16 +664,12 @@ if (require.main === module) {
     case "getNodeModulesDir":
       console.log(getNodeModulesDir());
       break;
-    case "getChromeExtensionsDir":
-    case "getExtensionsDir":
-      console.log(getChromeExtensionsDir());
-      break;
     case "getTestEnv":
       console.log(JSON.stringify(getTestEnv(), null, 2));
       break;
     default:
       console.error(
-        "Usage: utils.js <getMachineType|getLibDir|getNodeModulesDir|getChromeExtensionsDir|getTestEnv>"
+        "Usage: utils.js <getMachineType|getLibDir|getNodeModulesDir|getTestEnv>"
       );
       process.exit(1);
   }

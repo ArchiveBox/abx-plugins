@@ -84,7 +84,7 @@ def test_handles_non_forum_url(local_http_base_url):
         env = os.environ.copy()
         env["FORUMDL_BINARY"] = binary_path
         env["SNAP_DIR"] = str(tmpdir)
-        env.pop("LIB_DIR", None)
+        env.pop("ABXPKG_LIB_DIR", None)
 
         # Run forum-dl extraction hook on non-forum URL
         result = subprocess.run(
@@ -122,7 +122,7 @@ def test_config_save_forumdl_false_skips():
         env = os.environ.copy()
         env["FORUMDL_ENABLED"] = "False"
         env["SNAP_DIR"] = str(tmpdir)
-        env.pop("LIB_DIR", None)
+        env.pop("ABXPKG_LIB_DIR", None)
 
         result = subprocess.run(
             [
@@ -162,7 +162,7 @@ def test_config_timeout():
         env["FORUMDL_BINARY"] = binary_path
         env["FORUMDL_TIMEOUT"] = "30"
         env["SNAP_DIR"] = str(tmpdir)
-        env.pop("LIB_DIR", None)
+        env.pop("ABXPKG_LIB_DIR", None)
 
         start_time = time.time()
         result = subprocess.run(
@@ -212,7 +212,7 @@ def test_real_forum_url():
         env["FORUMDL_TIMEOUT"] = "60"
         env["FORUMDL_OUTPUT_FORMAT"] = "jsonl"  # Use jsonl format
         env["SNAP_DIR"] = str(tmpdir)
-        env.pop("LIB_DIR", None)
+        env.pop("ABXPKG_LIB_DIR", None)
         # HTML output could be added via: env['FORUMDL_ARGS_EXTRA'] = json.dumps(['--files-output', './files'])
 
         start_time = time.time()

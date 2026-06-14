@@ -24,7 +24,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-SNAPSHOT_ISOLATION_ENV_KEYS = ("HOME", "SNAP_DIR", "LIB_DIR", "PERSONAS_DIR")
+SNAPSHOT_ISOLATION_ENV_KEYS = ("HOME", "SNAP_DIR", "ABXPKG_LIB_DIR", "PERSONAS_DIR")
 
 
 def get_plugin_dir(test_file: str) -> Path:

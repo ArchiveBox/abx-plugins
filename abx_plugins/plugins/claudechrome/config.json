@@ -45,26 +45,6 @@
     "image/png"
   ],
   "properties": {
-    "CHROME_BINARY": {
-      "type": "string",
-      "default": "chromium",
-      "description": "Path to a Chromium-family browser binary"
-    },
-    "NODE_BINARY": {
-      "type": "string",
-      "default": "node",
-      "description": "Path to Node.js binary"
-    },
-    "PERSONAS_DIR": {
-      "type": "string",
-      "default": "",
-      "description": "Shared Chrome/browser personas root"
-    },
-    "ACTIVE_PERSONA": {
-      "type": "string",
-      "default": "Default",
-      "description": "Active browser persona name"
-    },
     "CLAUDECHROME_ENABLED": {
       "type": "boolean",
       "default": false,

@@ -218,9 +218,9 @@ def _resolve_binary(binary: str, config: dict) -> tuple[str, dict[str, str]]:
         # ambient abx-dl default cannot hide the opencode plugin binary.
         binary_config = {**config, "ABX_RUNTIME": "archivebox"}
         binary_environ = os.environ.copy()
-        lib_dir = binary_config.get("LIB_DIR")
+        lib_dir = binary_config.get("ABXPKG_LIB_DIR")
         if lib_dir:
-            binary_environ["LIB_DIR"] = str(lib_dir)
+            binary_environ["ABXPKG_LIB_DIR"] = str(lib_dir)
             binary_environ.setdefault("ABXPKG_LIB_DIR", str(lib_dir))
         binary_environ["ABX_RUNTIME"] = "archivebox"
         loaded = load_required_binary_from_config(

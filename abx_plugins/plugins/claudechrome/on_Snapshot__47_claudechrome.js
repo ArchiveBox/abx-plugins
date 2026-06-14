@@ -39,6 +39,7 @@ ensureNodeModuleResolution(module);
 const {
   connectToPage,
   resolvePuppeteerModule,
+  resolveChromeLaunchOptions,
   setBrowserDownloadBehavior,
 } = require("../chrome/chrome_utils.js");
 
@@ -61,6 +62,7 @@ const { execFileSync } = require("child_process");
 
 const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
+const chromeLaunchOptions = resolveChromeLaunchOptions(hookConfig);
 const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || ".").trim());
 const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
 if (!fs.existsSync(OUTPUT_DIR)) {
@@ -69,13 +71,7 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 process.chdir(OUTPUT_DIR);
 
 const CHROME_SESSION_DIR = "../chrome";
-const DOWNLOADS_DIR =
-  hookConfig.CHROME_DOWNLOADS_DIR ||
-  path.join(
-    hookConfig.PERSONAS_DIR,
-    hookConfig.ACTIVE_PERSONA,
-    "chrome_downloads"
-  );
+const DOWNLOADS_DIR = chromeLaunchOptions.CHROME_DOWNLOADS_DIR;
 
 const DEFAULT_PROMPT =
   'Look at the current page. If there are any "expand", "show more", ' +

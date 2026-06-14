@@ -8,12 +8,6 @@
   "required_binaries": [],
   "output_mimetypes": [],
   "properties": {
-    "DATA_DIR": {
-      "type": "string",
-      "default": "",
-      "description": "Base data directory for the current runtime",
-      "x-scope": "crawl_execution"
-    },
     "ABX_RUNTIME": {
       "type": "string",
       "default": "abx-dl",
@@ -41,7 +35,7 @@
       "description": "Base crawl directory for per-crawl hook output",
       "x-scope": "crawl_execution"
     },
-    "LIB_DIR": {
+    "ABXPKG_LIB_DIR": {
       "type": "string",
       "default": "",
       "description": "Shared tools and binary installation root",
@@ -50,7 +44,7 @@
     "PERSONAS_DIR": {
       "type": "string",
       "default": "",
-      "description": "Shared Chrome/browser personas root",
+      "description": "Shared personas root",
       "x-scope": "crawl_execution"
     },
     "ACTIVE_PERSONA": {
@@ -104,30 +98,6 @@
       "type": "string",
       "default": "",
       "description": "Optional V8 coverage output directory for Node.js hooks",
-      "x-scope": "crawl_execution"
-    },
-    "CHROME_BINARY": {
-      "type": "string",
-      "default": "",
-      "description": "Path to a Chromium-family browser binary",
-      "x-scope": "crawl_execution"
-    },
-    "CHROME_USER_DATA_DIR": {
-      "type": "string",
-      "default": "",
-      "description": "Chrome user data directory for persistent browser state (defaults to PERSONAS_DIR/ACTIVE_PERSONA/chrome_profile)",
-      "x-scope": "crawl_execution"
-    },
-    "CHROME_DOWNLOADS_DIR": {
-      "type": "string",
-      "default": "",
-      "description": "Chrome downloads directory shared by browser plugins",
-      "x-scope": "crawl_execution"
-    },
-    "CHROME_EXTENSIONS_DIR": {
-      "type": "string",
-      "default": "",
-      "description": "Chrome extensions directory shared by browser plugins",
       "x-scope": "crawl_execution"
     }
   }

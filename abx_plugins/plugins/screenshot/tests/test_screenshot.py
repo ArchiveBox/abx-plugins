@@ -109,13 +109,15 @@ def test_screenshot_with_chrome_session(chrome_test_url):
                         env=env,
                     )
                 except subprocess.TimeoutExpired:
-                    pytest.fail("Screenshot capture timed out")
+                    raise AssertionError("Screenshot capture timed out")
 
                 if (
                     result.returncode != 0
                     and "Screenshot capture timed out" in result.stderr
                 ):
-                    pytest.fail(f"Screenshot capture timed out: {result.stderr}")
+                    raise AssertionError(
+                        f"Screenshot capture timed out: {result.stderr}",
+                    )
 
                 assert result.returncode == 0, (
                     f"Screenshot extraction failed:\nStderr: {result.stderr}"

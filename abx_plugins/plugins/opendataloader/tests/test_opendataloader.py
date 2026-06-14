@@ -103,7 +103,9 @@ def _download_test_pdf() -> bytes:
             )
         except requests.RequestException as exc:
             failures.append(f"{url}: {exc!r}")
-    pytest.fail("Could not download any test PDF from the web: " + "; ".join(failures))
+    raise AssertionError(
+        "Could not download any test PDF from the web: " + "; ".join(failures),
+    )
 
 
 def test_hook_script_exists():

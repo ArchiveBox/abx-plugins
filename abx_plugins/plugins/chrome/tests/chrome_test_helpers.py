@@ -17,7 +17,7 @@ Function names match the JS equivalents in snake_case:
 Usage:
     # Path helpers (delegate to base/utils.js):
     from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
-        get_test_env,           # env dict with LIB_DIR, NODE_MODULES_DIR, MACHINE_TYPE
+        get_test_env,           # env dict with ABXPKG_LIB_DIR, NODE_MODULES_DIR, MACHINE_TYPE
         get_machine_type,       # e.g., 'x86_64-linux', 'arm64-darwin'
         get_lib_dir,            # Path to lib dir
         get_node_modules_dir,   # Path to node_modules
@@ -115,9 +115,8 @@ def require_chrome_runtime_impl() -> None:
             os.environ["CHROME_BINARY"] = chrome_binary
     except Exception as exc:
         logger.error("Chrome integration prerequisites unavailable: %s", exc)
-        pytest.fail(
+        raise AssertionError(
             f"Chrome integration prerequisites unavailable: {exc}",
-            pytrace=False,
         )
 
 
@@ -419,7 +418,10 @@ def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
     os.environ["XDG_CONFIG_HOME"] = str(Path(os.environ["HOME"]) / ".config")
     os.environ["XDG_CACHE_HOME"] = str(Path(os.environ["HOME"]) / ".cache")
     os.environ["XDG_DATA_HOME"] = str(Path(os.environ["HOME"]) / ".local" / "share")
-    os.environ.setdefault("LIB_DIR", str(tmp_path_factory.mktemp("chrome_test_lib")))
+    os.environ.setdefault(
+        "ABXPKG_LIB_DIR",
+        str(tmp_path_factory.mktemp("chrome_test_lib")),
+    )
     for inherited_key in (
         "CHROME_DOWNLOADS_DIR",
         "CHROME_EXTENSIONS_DIR",
@@ -433,7 +435,7 @@ def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
         "XDG_CONFIG_HOME",
         "XDG_CACHE_HOME",
         "XDG_DATA_HOME",
-        "LIB_DIR",
+        "ABXPKG_LIB_DIR",
     ):
         Path(os.environ[key]).mkdir(parents=True, exist_ok=True)
 
@@ -718,7 +720,7 @@ def get_machine_type() -> str:
 
 
 def get_lib_dir() -> Path:
-    """Get LIB_DIR path for shared binaries and provider-managed artifacts.
+    """Get ABXPKG_LIB_DIR path for shared binaries and provider-managed artifacts.
 
     Matches JS base/utils.js: getLibDir()
 
@@ -729,8 +731,8 @@ def get_lib_dir() -> Path:
         return Path(stdout.strip())
 
     # Fallback to Python
-    if os.environ.get("LIB_DIR"):
-        return Path(os.environ["LIB_DIR"])
+    if os.environ.get("ABXPKG_LIB_DIR"):
+        return Path(os.environ["ABXPKG_LIB_DIR"])
     if platform.system().lower() == "darwin":
         return Path.home() / "Library" / "Application Support" / "abx" / "lib"
     if platform.system().lower() == "windows":
@@ -749,11 +751,11 @@ def get_lib_dir() -> Path:
 def get_node_modules_dir() -> Path:
     """Get NODE_MODULES_DIR path for pnpm packages.
 
-    Matches JS base/utils.js: getNodeModulesDir()
+    Matches JS chrome_utils.js: getNodeModulesDir()
 
-    Tries base/utils.js first, falls back to Python computation.
+    Tries chrome_utils.js first, falls back to Python computation.
     """
-    returncode, stdout, stderr = _call_base_utils("getNodeModulesDir")
+    returncode, stdout, stderr = _call_chrome_utils("getNodeModulesDir")
     if returncode == 0 and stdout.strip():
         return Path(stdout.strip())
 
@@ -767,12 +769,12 @@ def get_node_modules_dir() -> Path:
 def get_extensions_dir(env: dict | None = None) -> str:
     """Get the Chrome extensions directory path.
 
-    Matches JS base/utils.js: getChromeExtensionsDir()
+    Matches JS chrome_utils.js: getExtensionsDir()
     """
-    returncode, stdout, stderr = _call_base_utils("getChromeExtensionsDir", env=env)
+    returncode, stdout, stderr = _call_chrome_utils("getExtensionsDir", env=env)
     if returncode != 0 or not stdout.strip():
         raise RuntimeError(
-            f"base utils failed to resolve Chrome extensions dir: {stderr or stdout}",
+            f"chrome utils failed to resolve Chrome extensions dir: {stderr or stdout}",
         )
     return stdout.strip()
 
@@ -792,7 +794,7 @@ def chrome_extension_install_env(tmpdir: str | Path) -> tuple[dict[str, str], Pa
             "CRAWL_DIR": str(crawl_dir),
             "PERSONAS_DIR": str(personas_dir),
             "ACTIVE_PERSONA": "Default",
-            "LIB_DIR": str(lib_dir),
+            "ABXPKG_LIB_DIR": str(lib_dir),
         },
     )
     for inherited_key in (
@@ -819,7 +821,7 @@ def find_chromium() -> str | None:
     Uses chrome_utils.js which checks:
     - CHROME_BINARY env var
     - host Chromium locations
-    - abxpkg-managed Puppeteer/Playwright provider shims under LIB_DIR
+    - abxpkg-managed Puppeteer/Playwright provider shims under ABXPKG_LIB_DIR
 
     Returns:
         Path to Chromium binary or None if not found
@@ -881,7 +883,7 @@ def get_test_env() -> dict:
 
     Tries ``base/utils.js`` first for path values, then builds an env dict on
     top of the current process environment. Use this for subprocess calls in
-    plugin tests so ``LIB_DIR``, ``NODE_MODULES_DIR``, ``NODE_PATH``,
+    plugin tests so ``ABXPKG_LIB_DIR``, ``NODE_MODULES_DIR``, ``NODE_PATH``,
     ``CHROME_EXTENSIONS_DIR``, and related settings match the JS runtime
     contract.
     """
@@ -892,18 +894,25 @@ def get_test_env() -> dict:
         try:
             js_env = json.loads(stdout)
             env.update(js_env)
+            node_modules_dir = get_node_modules_dir()
+            env["NODE_MODULES_DIR"] = str(node_modules_dir)
+            env["NODE_PATH"] = str(node_modules_dir)
+            env["PNPM_BIN_DIR"] = str(node_modules_dir / ".bin")
+            env["NPM_BIN_DIR"] = str(node_modules_dir / ".bin")
+            env["CHROME_EXTENSIONS_DIR"] = get_extensions_dir(env=env)
             return env
         except json.JSONDecodeError:
             pass
 
     # Fallback to Python computation
     lib_dir = get_lib_dir()
-    env["LIB_DIR"] = str(lib_dir)
+    env["ABXPKG_LIB_DIR"] = str(lib_dir)
     env["NODE_MODULES_DIR"] = str(get_node_modules_dir())
     env["MACHINE_TYPE"] = get_machine_type()
     env.setdefault("SNAP_DIR", str(Path.cwd()))
     env.setdefault("CRAWL_DIR", str(Path.cwd()))
     env.setdefault("PERSONAS_DIR", str(get_personas_dir()))
+    env["CHROME_EXTENSIONS_DIR"] = get_extensions_dir(env=env)
     return env
 
 
@@ -941,7 +950,7 @@ def run_hook(
 @contextmanager
 def _chromium_install_lock(env: dict):
     """Serialize shared Chromium/Puppeteer installs across parallel test processes."""
-    lib_dir = Path(env.get("LIB_DIR") or get_lib_dir())
+    lib_dir = Path(env.get("ABXPKG_LIB_DIR") or get_lib_dir())
     lib_dir.mkdir(parents=True, exist_ok=True)
     lock_path = lib_dir / ".chrome_install.lock"
     with lock_path.open("w") as lock_file:
@@ -1016,7 +1025,7 @@ def _ensure_puppeteer_with_abxpkg(env: dict, timeout: int) -> None:
     package lifecycle is complete before attempting any launch/install flow.
     """
     lib_dir = Path(
-        env.get("LIB_DIR") or os.environ.get("LIB_DIR") or get_lib_dir(),
+        env.get("ABXPKG_LIB_DIR") or os.environ.get("ABXPKG_LIB_DIR") or get_lib_dir(),
     )
     pnpm_root = lib_dir / "pnpm" / "packages" / "chrome"
 
@@ -1089,27 +1098,12 @@ def install_chromium_with_abxpkg(env: dict, timeout: int = 300) -> str:
 
         chrome_name = env.get("CHROME_BINARY") or "chromium"
         chrome_record = _required_binary_record(CHROME_PLUGIN_DIR, chrome_name, env)
-
-        from abxpkg import Binary, PuppeteerProvider, SemVer
-
-        lib_dir = Path(
-            env.get("LIB_DIR") or os.environ.get("LIB_DIR") or get_lib_dir(),
+        loaded_chrome = load_required_binary(
+            chrome_record,
+            config=env,
+            environ=env,
+            install=True,
         )
-        chrome_binary = Binary(
-            name=chrome_record.get("name", "chrome"),
-            min_version=SemVer(chrome_record["min_version"])
-            if chrome_record.get("min_version")
-            else None,
-            binproviders=[
-                PuppeteerProvider(
-                    install_root=lib_dir / "puppeteer",
-                    install_timeout=timeout,
-                ),
-            ],
-            postinstall_scripts=chrome_record.get("postinstall_scripts"),
-            overrides=chrome_record.get("overrides") or {},
-        )
-        loaded_chrome = chrome_binary.install()
 
         chrome_path = str(loaded_chrome.loaded_abspath or "")
         if not chrome_path or not Path(chrome_path).exists():
@@ -1147,7 +1141,7 @@ def setup_test_env(tmpdir: Path) -> dict:
       test setup
 
     Returns env dict with ``SNAP_DIR``, ``CRAWL_DIR``, ``PERSONAS_DIR``,
-    ``LIB_DIR``, ``NODE_MODULES_DIR``, ``NODE_PATH``, ``CHROME_BINARY``, etc.
+    ``ABXPKG_LIB_DIR``, ``NODE_MODULES_DIR``, ``NODE_PATH``, ``CHROME_BINARY``, etc.
 
     Args:
         tmpdir: Base temporary directory for the test
@@ -1180,7 +1174,7 @@ def setup_test_env(tmpdir: Path) -> dict:
             "CRAWL_DIR": str(crawl_dir),
             "PERSONAS_DIR": str(personas_dir),
             "ACTIVE_PERSONA": "Default",
-            "LIB_DIR": str(lib_dir),
+            "ABXPKG_LIB_DIR": str(lib_dir),
             "MACHINE_TYPE": get_machine_type(),
             "PNPM_BIN_DIR": str(pnpm_bin_dir),
             "NPM_BIN_DIR": str(pnpm_bin_dir),
@@ -1527,7 +1521,7 @@ def chrome_session(
         env = os.environ.copy()
 
         # Prefer an already-provisioned NODE_MODULES_DIR (set by session-level chrome fixture)
-        # so we don't force per-test reinstall under tmp LIB_DIR paths.
+        # so we don't force per-test reinstall under tmp ABXPKG_LIB_DIR paths.
         existing_node_modules = env.get("NODE_MODULES_DIR")
         if existing_node_modules and Path(existing_node_modules).exists():
             node_modules_dir = Path(existing_node_modules).resolve()
@@ -1559,7 +1553,7 @@ def chrome_session(
                 "CRAWL_DIR": str(crawl_dir),
                 "PERSONAS_DIR": str(personas_dir),
                 "ACTIVE_PERSONA": "Default",
-                "LIB_DIR": str(lib_dir),
+                "ABXPKG_LIB_DIR": str(lib_dir),
                 "MACHINE_TYPE": get_machine_type(),
                 "NODE_MODULES_DIR": str(node_modules_dir),
                 "NODE_PATH": str(node_modules_dir),

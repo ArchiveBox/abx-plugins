@@ -473,7 +473,7 @@ def _abxpkg_provider_kwargs(
     provider_name: str,
     payload: Mapping[str, Any],
 ) -> dict[str, Any]:
-    lib_dir_value = str(payload.get("LIB_DIR") or "").strip()
+    lib_dir_value = str(payload.get("ABXPKG_LIB_DIR") or "").strip()
     lib_dir = Path(lib_dir_value).expanduser() if lib_dir_value else None
     if provider_name == "env":
         kwargs: dict[str, Any] = {
@@ -481,16 +481,6 @@ def _abxpkg_provider_kwargs(
         }
         if lib_dir is not None:
             kwargs["install_root"] = lib_dir / "env"
-        return kwargs
-    if provider_name == "chromewebstore":
-        extensions_dir_value = str(payload.get("CHROME_EXTENSIONS_DIR") or "").strip()
-        kwargs: dict[str, Any] = {}
-        if lib_dir is not None:
-            kwargs["install_root"] = lib_dir / "chromewebstore"
-        elif extensions_dir_value:
-            extensions_dir = Path(extensions_dir_value).expanduser()
-            if extensions_dir.name == "extensions":
-                kwargs["install_root"] = extensions_dir.parent
         return kwargs
     if lib_dir is not None and provider_name != "env":
         return {"install_root": lib_dir / provider_name}
@@ -981,10 +971,10 @@ def _resolve_path(path_value: str) -> Path:
 def get_lib_dir() -> Path:
     """Return library directory.
 
-    Priority: LIB_DIR env var, otherwise the platform user-config abx/lib dir.
+    Priority: ABXPKG_LIB_DIR env var, otherwise the platform user-config abx/lib dir.
     """
     config = load_config(BASE_CONFIG_PATH)
-    return _resolve_path(str(config.LIB_DIR))
+    return _resolve_path(str(config.ABXPKG_LIB_DIR))
 
 
 def get_personas_dir() -> Path:

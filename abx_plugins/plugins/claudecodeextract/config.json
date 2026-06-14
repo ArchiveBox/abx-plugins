@@ -14,7 +14,7 @@
       "min_version": null,
       "overrides": {
         "pnpm": {
-          "install_root": "{LIB_DIR}/pnpm/packages/claudecode",
+          "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/claudecode",
           "install_args": [
             "@anthropic-ai/claude-code"
           ]
@@ -26,11 +26,6 @@
     "text/markdown"
   ],
   "properties": {
-    "CLAUDECODE_BINARY": {
-      "type": "string",
-      "default": "claude",
-      "description": "Path to Claude Code CLI binary"
-    },
     "CLAUDECODEEXTRACT_ENABLED": {
       "type": "boolean",
       "default": false,

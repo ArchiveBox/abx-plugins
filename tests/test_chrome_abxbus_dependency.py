@@ -27,12 +27,12 @@ def test_chrome_config_installs_abxbus_js_module(tmp_path: Path) -> None:
 
     lib_dir = tmp_path / "lib"
     env = os.environ.copy()
-    env["LIB_DIR"] = str(lib_dir)
+    env["ABXPKG_LIB_DIR"] = str(lib_dir)
     env["ABXPKG_MIN_RELEASE_AGE"] = "0"
 
     loaded = load_required_binary(
         record,
-        config={"LIB_DIR": str(lib_dir)},
+        config={"ABXPKG_LIB_DIR": str(lib_dir)},
         environ=env,
         install=True,
     )
@@ -41,7 +41,10 @@ def test_chrome_config_installs_abxbus_js_module(tmp_path: Path) -> None:
     assert Path(loaded.loaded_abspath).exists()
 
     install_root = Path(
-        record["overrides"]["pnpm"]["install_root"].replace("{LIB_DIR}", str(lib_dir)),
+        record["overrides"]["pnpm"]["install_root"].replace(
+            "{ABXPKG_LIB_DIR}",
+            str(lib_dir),
+        ),
     )
     node_modules_dir = install_root / "node_modules"
     result = subprocess.run(
@@ -81,12 +84,12 @@ def _assert_config_installs_puppeteer(config_path: Path, tmp_path: Path) -> None
 
     lib_dir = tmp_path / "lib"
     env = os.environ.copy()
-    env["LIB_DIR"] = str(lib_dir)
+    env["ABXPKG_LIB_DIR"] = str(lib_dir)
     env["ABXPKG_MIN_RELEASE_AGE"] = "0"
 
     loaded = load_required_binary(
         record,
-        config={"LIB_DIR": str(lib_dir)},
+        config={"ABXPKG_LIB_DIR": str(lib_dir)},
         environ=env,
         install=True,
     )
@@ -95,7 +98,10 @@ def _assert_config_installs_puppeteer(config_path: Path, tmp_path: Path) -> None
     assert Path(loaded.loaded_abspath).exists()
 
     install_root = Path(
-        record["overrides"]["pnpm"]["install_root"].replace("{LIB_DIR}", str(lib_dir)),
+        record["overrides"]["pnpm"]["install_root"].replace(
+            "{ABXPKG_LIB_DIR}",
+            str(lib_dir),
+        ),
     )
     node_modules_dir = install_root / "node_modules"
     result = subprocess.run(

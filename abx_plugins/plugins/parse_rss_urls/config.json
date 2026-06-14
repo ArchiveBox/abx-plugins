@@ -13,7 +13,7 @@
       "postinstall_scripts": true,
       "overrides": {
         "uv": {
-          "install_root": "{LIB_DIR}/uv/packages/parse_rss_urls",
+          "install_root": "{ABXPKG_LIB_DIR}/uv/packages/parse_rss_urls",
           "install_args": [
             "feedparser"
           ]

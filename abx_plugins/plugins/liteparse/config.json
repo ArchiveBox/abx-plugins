@@ -13,7 +13,7 @@
       "min_release_age": 3,
       "overrides": {
         "pnpm": {
-          "install_root": "{LIB_DIR}/pnpm/packages/liteparse",
+          "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/liteparse",
           "install_args": [
             "@llamaindex/liteparse"
           ]

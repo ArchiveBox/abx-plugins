@@ -19,11 +19,6 @@
     "application/pdf"
   ],
   "properties": {
-    "CHROME_BINARY": {
-      "type": "string",
-      "default": "chromium",
-      "description": "Path to a Chromium-family browser binary"
-    },
     "PDF_ENABLED": {
       "type": "boolean",
       "default": true,

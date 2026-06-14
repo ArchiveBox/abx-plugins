@@ -70,21 +70,21 @@ def test_get_machine_type():
 
 
 def test_get_lib_dir_with_env_var():
-    """Test get_lib_dir() respects LIB_DIR env var."""
+    """Test get_lib_dir() respects ABXPKG_LIB_DIR env var."""
     with tempfile.TemporaryDirectory() as tmpdir:
         custom_lib = Path(tmpdir) / "custom_lib"
         custom_lib.mkdir()
 
-        old_lib_dir = os.environ.get("LIB_DIR")
+        old_lib_dir = os.environ.get("ABXPKG_LIB_DIR")
         try:
-            os.environ["LIB_DIR"] = str(custom_lib)
+            os.environ["ABXPKG_LIB_DIR"] = str(custom_lib)
             lib_dir = get_lib_dir()
             assert lib_dir == custom_lib
         finally:
             if old_lib_dir:
-                os.environ["LIB_DIR"] = old_lib_dir
+                os.environ["ABXPKG_LIB_DIR"] = old_lib_dir
             else:
-                os.environ.pop("LIB_DIR", None)
+                os.environ.pop("ABXPKG_LIB_DIR", None)
 
 
 def test_get_node_modules_dir_with_env_var():
@@ -109,16 +109,14 @@ def test_get_extensions_dir_default():
     """Test get_extensions_dir() returns expected path format."""
     ext_dir = get_extensions_dir()
     assert isinstance(ext_dir, str)
-    if os.environ.get("CHROME_EXTENSIONS_DIR"):
-        assert ext_dir == os.environ["CHROME_EXTENSIONS_DIR"]
-    else:
-        ext_path = Path(ext_dir)
-        assert ext_path.is_absolute()
-        assert ext_path.name == "extensions"
+    ext_path = Path(ext_dir)
+    assert ext_path.is_absolute()
+    assert ext_path.name == "extensions"
+    assert ext_path.parent.name == "chromewebstore"
 
 
 def test_get_extensions_dir_ignores_persona_by_default():
-    """Test get_extensions_dir() uses the provider-managed LIB_DIR path by default."""
+    """Test get_extensions_dir() uses the provider-managed ABXPKG_LIB_DIR path by default."""
     old_persona = os.environ.get("ACTIVE_PERSONA")
     old_personas_dir = os.environ.get("PERSONAS_DIR")
     try:
@@ -147,7 +145,7 @@ def test_get_test_env_returns_dict():
 
     # Should include key paths
     assert "MACHINE_TYPE" in env
-    assert "LIB_DIR" in env
+    assert "ABXPKG_LIB_DIR" in env
     assert "NODE_MODULES_DIR" in env
     assert "NODE_PATH" in env  # Critical for module resolution
     assert "NPM_BIN_DIR" in env
@@ -162,7 +160,7 @@ def test_get_test_env_paths_are_absolute():
     env = get_test_env()
 
     # All path-like values should be absolute
-    assert Path(env["LIB_DIR"]).is_absolute()
+    assert Path(env["ABXPKG_LIB_DIR"]).is_absolute()
     assert Path(env["NODE_MODULES_DIR"]).is_absolute()
     assert Path(env["NODE_PATH"]).is_absolute()
 
@@ -560,13 +558,13 @@ def test_get_lib_dir_uses_platform_user_config_dir_by_default(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    """Default LIB_DIR should follow the platform user config root."""
+    """Default ABXPKG_LIB_DIR should follow the platform user config root."""
     home_dir = tmp_path / "home"
     xdg_config_home = tmp_path / "xdg-config"
     home_dir.mkdir()
     xdg_config_home.mkdir()
 
-    monkeypatch.delenv("LIB_DIR", raising=False)
+    monkeypatch.delenv("ABXPKG_LIB_DIR", raising=False)
     monkeypatch.delenv("NODE_MODULES_DIR", raising=False)
     monkeypatch.setenv("HOME", str(home_dir))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg_config_home))
@@ -590,7 +588,7 @@ def test_install_chromium_with_abxpkg_reuses_existing_chrome_via_env(
     env.update(
         {
             "CHROME_BINARY": str(real_chromium_binary),
-            "LIB_DIR": str(tmp_path / "lib"),
+            "ABXPKG_LIB_DIR": str(tmp_path / "lib"),
         },
     )
     resolved = install_chromium_with_abxpkg(env, timeout=120)

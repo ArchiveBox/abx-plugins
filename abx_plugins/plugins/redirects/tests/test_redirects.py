@@ -101,7 +101,7 @@ class TestRedirectsWithChrome:
                     time.sleep(0.1)
                 else:
                     stdout, stderr = result.communicate(timeout=20)
-                    pytest.fail(
+                    raise AssertionError(
                         f"redirects hook never became ready\nstdout:\n{stdout}\nstderr:\n{stderr}",
                     )
 

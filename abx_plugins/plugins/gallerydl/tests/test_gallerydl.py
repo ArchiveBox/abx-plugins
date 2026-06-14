@@ -290,7 +290,7 @@ def test_real_gallery_url(httpserver):
             )
             return
 
-    pytest.fail(
+    raise AssertionError(
         f"Live gallery download did not yield an image after {max_attempts} attempts. Last error: {last_error}",
     )
 

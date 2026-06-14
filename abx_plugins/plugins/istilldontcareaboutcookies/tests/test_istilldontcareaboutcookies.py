@@ -618,7 +618,7 @@ def test_hides_cookie_consent_on_static_page(httpserver):
         baseline_install_env, baseline_extensions_dir = chrome_extension_install_env(
             tmpdir / "baseline-install",
         )
-        env_no_ext["LIB_DIR"] = baseline_install_env["LIB_DIR"]
+        env_no_ext["ABXPKG_LIB_DIR"] = baseline_install_env["ABXPKG_LIB_DIR"]
         env_no_ext["CHROME_EXTENSIONS_DIR"] = str(baseline_extensions_dir)
 
         # Launch baseline Chromium in crawls directory
@@ -678,7 +678,7 @@ def test_hides_cookie_consent_on_static_page(httpserver):
             )
             print(f"HTML snippet: {baseline_result.get('html_snippet', '')[:200]}")
 
-            pytest.fail(
+            raise AssertionError(
                 f"Cannot test extension: no cookie consent visible in baseline on {test_url}. "
                 f"Elements found: {len(baseline_result['elements_found'])}. "
                 "The fixture HTML may need to be updated.",

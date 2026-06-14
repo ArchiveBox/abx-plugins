@@ -7,7 +7,6 @@ import subprocess
 import time
 from pathlib import Path
 
-import pytest
 
 from abx_plugins.plugins.base.test_utils import (
     parse_jsonl_output,
@@ -88,7 +87,7 @@ def _wait_for_file(path: Path, process: subprocess.Popen[str], timeout: int) -> 
             return
         if process.poll() is not None:
             stdout, stderr = process.communicate(timeout=5)
-            pytest.fail(
+            raise AssertionError(
                 f"{path.name} was not created.\nstdout:\n{stdout}\nstderr:\n{stderr}",
             )
         time.sleep(0.25)
@@ -96,7 +95,9 @@ def _wait_for_file(path: Path, process: subprocess.Popen[str], timeout: int) -> 
         stdout, stderr = process.communicate(timeout=5)
     except subprocess.TimeoutExpired:
         stdout = stderr = "(process still running)"
-    pytest.fail(f"Timed out waiting for {path}.\nstdout:\n{stdout}\nstderr:\n{stderr}")
+    raise AssertionError(
+        f"Timed out waiting for {path}.\nstdout:\n{stdout}\nstderr:\n{stderr}",
+    )
 
 
 def test_live_install_and_screenshot_extraction_respects_chrome_binary(
@@ -131,7 +132,7 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
             "CRAWL_DIR": str(crawl_dir),
             "SNAP_DIR": str(snapshot_dir),
             "PERSONAS_DIR": str(personas_dir),
-            "LIB_DIR": str(lib_dir),
+            "ABXPKG_LIB_DIR": str(lib_dir),
             "MACHINE_TYPE": machine_type,
             "PATH": _browserless_path(tmp_path, browser_name),
         },

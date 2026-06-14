@@ -33,21 +33,6 @@
     "application/wacz"
   ],
   "properties": {
-    "CHROME_BINARY": {
-      "type": "string",
-      "default": "chromium",
-      "description": "Path to a Chromium-family browser binary"
-    },
-    "PERSONAS_DIR": {
-      "type": "string",
-      "default": "",
-      "description": "Shared Chrome/browser personas root"
-    },
-    "ACTIVE_PERSONA": {
-      "type": "string",
-      "default": "Default",
-      "description": "Active browser persona name"
-    },
     "ARCHIVEWEBPAGE_ENABLED": {
       "type": "boolean",
       "default": true,
@@ -84,11 +69,6 @@
       "type": "string",
       "default": "abx-dl",
       "description": "Collection title to use when AWP has no default collection yet"
-    },
-    "CHROME_DOWNLOADS_DIR": {
-      "type": "string",
-      "default": "",
-      "description": "Chrome downloads directory (defaults to persona-scoped chrome_downloads dir)"
     }
   }
 }

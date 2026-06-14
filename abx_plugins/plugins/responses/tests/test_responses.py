@@ -174,7 +174,9 @@ class TestResponsesWithChrome:
                 try:
                     record = json.loads(line)
                 except json.JSONDecodeError:
-                    pytest.fail(f"Malformed JSONL record in responses stdout: {line}")
+                    raise AssertionError(
+                        f"Malformed JSONL record in responses stdout: {line}",
+                    )
                 if record.get("type") == "ArchiveResult":
                     archive_result_records.append(record)
 

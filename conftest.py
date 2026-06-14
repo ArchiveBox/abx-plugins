@@ -146,7 +146,11 @@ def isolated_test_env(
     for directory in (home_dir, run_dir, lib_dir, personas_dir):
         directory.mkdir(parents=True, exist_ok=True)
 
-    resolved_lib = Path(os.environ["LIB_DIR"]) if "LIB_DIR" in os.environ else lib_dir
+    resolved_lib = (
+        Path(os.environ["ABXPKG_LIB_DIR"])
+        if "ABXPKG_LIB_DIR" in os.environ
+        else lib_dir
+    )
     resolved_uv_cache = Path(
         os.environ.get(
             "UV_CACHE_DIR",
@@ -164,8 +168,8 @@ def isolated_test_env(
     monkeypatch.setenv("SNAP_DIR", str(run_dir))
     monkeypatch.setenv("UV_CACHE_DIR", str(resolved_uv_cache))
 
-    if "LIB_DIR" not in os.environ:
-        monkeypatch.setenv("LIB_DIR", str(resolved_lib))
+    if "ABXPKG_LIB_DIR" not in os.environ:
+        monkeypatch.setenv("ABXPKG_LIB_DIR", str(resolved_lib))
     if "PERSONAS_DIR" not in os.environ:
         monkeypatch.setenv("PERSONAS_DIR", str(personas_dir))
     if "TWOCAPTCHA_API_KEY" not in os.environ and "API_KEY_2CAPTCHA" not in os.environ:
@@ -175,7 +179,7 @@ def isolated_test_env(
         {
             "HOME": str(home_dir),
             "SNAP_DIR": str(run_dir),
-            "LIB_DIR": os.environ["LIB_DIR"],
+            "ABXPKG_LIB_DIR": os.environ["ABXPKG_LIB_DIR"],
             "PERSONAS_DIR": os.environ["PERSONAS_DIR"],
         },
     )
@@ -185,7 +189,7 @@ def isolated_test_env(
         "home": home_dir,
         "crawl": run_dir,
         "snap": run_dir,
-        "lib": Path(os.environ["LIB_DIR"]),
+        "lib": Path(os.environ["ABXPKG_LIB_DIR"]),
         "personas": Path(os.environ["PERSONAS_DIR"]),
     }
 
@@ -219,7 +223,10 @@ def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
         os.environ["PERSONAS_DIR"] = str(
             tmp_path_factory.mktemp("chrome_test_personas"),
         )
-    os.environ.setdefault("LIB_DIR", str(tmp_path_factory.mktemp("chrome_test_lib")))
+    os.environ.setdefault(
+        "ABXPKG_LIB_DIR",
+        str(tmp_path_factory.mktemp("chrome_test_lib")),
+    )
 
     env = get_test_env()
 
@@ -260,11 +267,11 @@ def ensure_claude_code_prereqs(tmp_path_factory):
         from abx_plugins.plugins.base.utils import load_required_binary
 
         env = get_test_env()
-        env["LIB_DIR"] = str(tmp_path_factory.mktemp("claudecode_test_lib"))
+        env["ABXPKG_LIB_DIR"] = str(tmp_path_factory.mktemp("claudecode_test_lib"))
         env["CRAWL_DIR"] = str(tmp_path_factory.mktemp("claudecode_test_data"))
         env["CLAUDECODE_ENABLED"] = "true"
 
-        lib_dir = Path(env["LIB_DIR"])
+        lib_dir = Path(env["ABXPKG_LIB_DIR"])
         lib_dir.mkdir(parents=True, exist_ok=True)
         lock_path = lib_dir / ".claudecode_install.lock"
 
@@ -332,16 +339,18 @@ def ensure_claude_code_prereqs(tmp_path_factory):
         try:
             claude_bin = install_claude_code_with_abxpkg()
         except Exception as exc:
-            pytest.fail(f"Claude Code CLI install via abxpkg failed: {exc}")
+            raise AssertionError(f"Claude Code CLI install via abxpkg failed: {exc}")
     elif not Path(claude_bin).exists():
-        pytest.fail(f"CLAUDECODE_BINARY is set but does not exist: {claude_bin}")
+        raise AssertionError(
+            f"CLAUDECODE_BINARY is set but does not exist: {claude_bin}",
+        )
 
     # Check auth. Claude Code accepts both API-key auth and the OAuth token used
     # by the official action; plugin tests should exercise either real path.
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     oauth_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN", "")
     if not api_key and not oauth_token:
-        pytest.fail(
+        raise AssertionError(
             "ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN not set. Claude Code "
             "integration tests require real Claude Code auth.",
         )
@@ -354,7 +363,7 @@ def ensure_claude_code_prereqs(tmp_path_factory):
         timeout=10,
     )
     if result.returncode != 0:
-        pytest.fail(
+        raise AssertionError(
             f"'claude --version' failed (rc={result.returncode}): {result.stderr}",
         )
 
@@ -369,7 +378,7 @@ def ensure_anthropic_api_key():
     """
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key:
-        pytest.fail(
+        raise AssertionError(
             "ANTHROPIC_API_KEY not set.  Integration tests that call the "
             "Anthropic API require a valid API key.",
         )

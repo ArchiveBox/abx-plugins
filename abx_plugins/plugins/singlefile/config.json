@@ -21,7 +21,7 @@
       "min_release_age": 0,
       "overrides": {
         "pnpm": {
-          "install_root": "{LIB_DIR}/pnpm/packages/singlefile",
+          "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/singlefile",
           "install_args": [
             "single-file-cli@^1.1.54"
           ]
@@ -46,21 +46,6 @@
     "text/html"
   ],
   "properties": {
-    "CHROME_BINARY": {
-      "type": "string",
-      "default": "chromium",
-      "description": "Path to a Chromium-family browser binary"
-    },
-    "PERSONAS_DIR": {
-      "type": "string",
-      "default": "",
-      "description": "Shared Chrome/browser personas root"
-    },
-    "ACTIVE_PERSONA": {
-      "type": "string",
-      "default": "Default",
-      "description": "Active browser persona name"
-    },
     "SINGLEFILE_ENABLED": {
       "type": "boolean",
       "default": true,
@@ -77,11 +62,6 @@
         "SINGLE_FILE_BINARY"
       ],
       "description": "Path to single-file binary"
-    },
-    "NODE_BINARY": {
-      "type": "string",
-      "default": "node",
-      "description": "Path to Node.js binary"
     },
     "SINGLEFILE_TIMEOUT": {
       "type": "integer",

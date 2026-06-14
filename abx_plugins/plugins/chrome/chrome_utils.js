@@ -21,8 +21,7 @@ const {
   getSnapDir,
   getCrawlDir,
   getPersonasDir,
-  getNodeModulesDir,
-  getChromeExtensionsDir: getExtensionsDir,
+  getLibDir,
   ensureNodeModuleResolution,
   parseArgs,
   writeFileAtomic,
@@ -38,19 +37,6 @@ const CHROME_PROFILE_LOCK_FILES = [
   "SingletonCookie",
   "DevToolsActivePort",
 ];
-
-function getBrowserVersionOutput(binaryPath) {
-  if (!binaryPath) return "";
-  try {
-    return execFileSync(binaryPath, ["--version"], {
-      encoding: "utf8",
-      timeout: 5000,
-      stdio: ["ignore", "pipe", "pipe"],
-    }).trim();
-  } catch (e) {
-    return "";
-  }
-}
 
 function parseChromiumVersion(output) {
   const match = String(output || "").match(/(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?/);
@@ -80,16 +66,23 @@ function getOption(options, key, fallback) {
 }
 
 function resolveChromeLaunchOptions(options = {}) {
+  const activePersona = getEnv("ACTIVE_PERSONA", "Default") || "Default";
+  const personaDir = path.join(getPersonasDir(), activePersona);
   return {
     CHROME_USER_DATA_DIR: getOption(
       options,
       "CHROME_USER_DATA_DIR",
-      getEnv("CHROME_USER_DATA_DIR") ||
-        path.join(
-          getPersonasDir(),
-          getEnv("ACTIVE_PERSONA", "Default"),
-          "chrome_profile"
-        )
+      path.join(personaDir, "chrome_profile")
+    ),
+    CHROME_DOWNLOADS_DIR: getOption(
+      options,
+      "CHROME_DOWNLOADS_DIR",
+      path.join(personaDir, "chrome_downloads")
+    ),
+    CHROME_EXTENSIONS_DIR: getOption(
+      options,
+      "CHROME_EXTENSIONS_DIR",
+      getExtensionsDir()
     ),
     CHROME_RESOLUTION: getOption(
       options,
@@ -139,14 +132,13 @@ function resolveChromeLaunchOptions(options = {}) {
 
 function getChromeSessionOptionsFromConfig(hookConfig = {}) {
   const CHROME_CDP_URL = String(hookConfig.CHROME_CDP_URL || "").trim();
+  const chromeLaunchOptions = resolveChromeLaunchOptions(hookConfig);
   return {
     CHROME_CDP_URL,
     CHROME_IS_LOCAL: CHROME_CDP_URL
       ? false
       : hookConfig.CHROME_IS_LOCAL !== false,
-    CHROME_USER_DATA_DIR: hookConfig.CHROME_USER_DATA_DIR
-      ? path.resolve(String(hookConfig.CHROME_USER_DATA_DIR).trim())
-      : null,
+    CHROME_USER_DATA_DIR: path.resolve(chromeLaunchOptions.CHROME_USER_DATA_DIR),
     CHROME_RESOLUTION: String(
       hookConfig.CHROME_RESOLUTION || hookConfig.RESOLUTION || "1440,2000"
     ),
@@ -169,6 +161,18 @@ function getChromeSessionOptionsFromConfig(hookConfig = {}) {
   };
 }
 
+function getExtensionsDir() {
+  return path.resolve(path.join(getLibDir(), "chromewebstore", "extensions"));
+}
+
+function getNodeModulesDir() {
+  const configured = getEnv("NODE_MODULES_DIR") || getEnv("NODE_MODULE_DIR");
+  if (configured) return path.resolve(configured);
+  return path.resolve(
+    path.join(getLibDir(), "pnpm", "packages", "chrome", "node_modules")
+  );
+}
+
 function chromiumVersionAtLeast(output, minimum) {
   const version = parseChromiumVersion(output);
   if (!version) return false;
@@ -184,7 +188,13 @@ function isSupportedChromiumVersionOutput(output) {
 }
 
 function isSupportedChromiumBinary(binaryPath) {
-  return isSupportedChromiumVersionOutput(getBrowserVersionOutput(binaryPath));
+  if (!binaryPath) return false;
+  try {
+    fs.accessSync(binaryPath, fs.constants.X_OK);
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 /**
@@ -1103,21 +1113,15 @@ async function launchChromium(options = {}) {
   if (!binary) {
     return { success: false, error: "Chrome binary not found" };
   }
-  const versionOutput = getBrowserVersionOutput(binary);
-  if (!isSupportedChromiumVersionOutput(versionOutput)) {
+  if (!isSupportedChromiumBinary(binary)) {
     return {
       success: false,
-      error: `Chrome binary must be Chromium >=149.0.0 for Extensions.loadUnpacked support: ${binary} (${
-        versionOutput || "no version output"
-      })`,
+      error: `Chrome binary is not executable: ${binary}`,
     };
   }
 
   const { width, height } = parseResolution(CHROME_RESOLUTION);
-  const chromeUserAgent = replaceChromeUserAgentVersion(
-    CHROME_USER_AGENT,
-    versionOutput
-  );
+  const chromeUserAgent = CHROME_USER_AGENT;
 
   // Create output directory
   if (!fs.existsSync(outputDir)) {
@@ -2213,7 +2217,7 @@ function getExtensionTargets(browser) {
  * 1. `CHROME_BINARY`, if explicitly provided at runtime
  * 2. `/usr/bin/chromium` on CI/Linux hosts
  * 3. Chromium-family browsers on the host
- * 5. abxpkg-managed Playwright/Puppeteer provider shims under `LIB_DIR`
+ * 5. abxpkg-managed Playwright/Puppeteer provider shims under `ABXPKG_LIB_DIR`
  *
  * This helper intentionally avoids auto-selecting Google Chrome stable. Users
  * may explicitly provide another Chromium-based browser through CHROME_BINARY;
@@ -2294,7 +2298,7 @@ function findChromium() {
 
   // 3. Search the stable shims created by abxpkg browser binproviders.
   // Do not walk provider cache internals here; Puppeteer/Playwright own that.
-  const libDir = getEnv("LIB_DIR");
+  const libDir = getEnv("ABXPKG_LIB_DIR");
   if (libDir) {
     const libCandidates = [
       path.join(libDir, "env", "bin", "chromium"),
@@ -4004,6 +4008,7 @@ async function closeBrowserInChromeSession(options = {}) {
 }
 
 async function ensureChromeSession(options = {}) {
+  const chromeLaunchOptions = resolveChromeLaunchOptions(options);
   const {
     outputDir = ".",
     puppeteer = resolvePuppeteerModule(),
@@ -4011,14 +4016,13 @@ async function ensureChromeSession(options = {}) {
     CHROME_IS_LOCAL = CHROME_CDP_URL
       ? false
       : getEnvBool("CHROME_IS_LOCAL", true),
-    downloadsDir = getEnv("CHROME_DOWNLOADS_DIR"),
+    downloadsDir = chromeLaunchOptions.CHROME_DOWNLOADS_DIR,
     cookiesFile = getEnv("COOKIES_FILE"),
-    extensionsDir = getExtensionsDir(),
+    extensionsDir = chromeLaunchOptions.CHROME_EXTENSIONS_DIR,
     timeoutMs = getEnvInt("CHROME_TIMEOUT", 60) * 1000,
     reuseExisting = !CHROME_CDP_URL,
     binary = null,
   } = options;
-  const chromeLaunchOptions = resolveChromeLaunchOptions(options);
   const cdpUrl = CHROME_CDP_URL;
   const processIsLocal = CHROME_CDP_URL ? false : CHROME_IS_LOCAL;
   const userDataDir = chromeLaunchOptions.CHROME_USER_DATA_DIR;
@@ -4414,6 +4418,7 @@ module.exports = {
   // Chrome launching
   resolveChromeLaunchOptions,
   getChromeSessionOptionsFromConfig,
+  getNodeModulesDir,
   launchChromium,
   killChrome,
   // Chromium binary finding
@@ -4496,7 +4501,7 @@ if (require.main === module) {
     console.log("  CRAWL_DIR                 Base crawl directory");
     console.log("  PERSONAS_DIR              Personas directory");
     console.log(
-      "  LIB_DIR                   Library directory (computed if not set)"
+      "  ABXPKG_LIB_DIR                   Library directory (computed if not set)"
     );
     console.log("  MACHINE_TYPE              Machine type override");
     console.log("  NODE_MODULES_DIR          Node modules directory");
@@ -4633,6 +4638,11 @@ if (require.main === module) {
 
         case "getExtensionsDir": {
           console.log(getExtensionsDir());
+          break;
+        }
+
+        case "getNodeModulesDir": {
+          console.log(getNodeModulesDir());
           break;
         }
 

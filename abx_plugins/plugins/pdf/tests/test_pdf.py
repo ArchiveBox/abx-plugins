@@ -94,7 +94,7 @@ def test_extracts_pdf_from_example_com(chrome_test_url):
                 or "timeout" in result_json.get("output_str", "").lower()
             ):
                 pass
-            pytest.fail(f"Extraction failed: {result_json}")
+            raise AssertionError(f"Extraction failed: {result_json}")
 
         assert result.returncode == 0, f"Should exit 0 on success: {result.stderr}"
 

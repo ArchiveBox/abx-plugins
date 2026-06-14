@@ -13,7 +13,7 @@
       "postinstall_scripts": true,
       "overrides": {
         "uv": {
-          "install_root": "{LIB_DIR}/uv/packages/papers-dl",
+          "install_root": "{ABXPKG_LIB_DIR}/uv/packages/papers-dl",
           "install_args": [
             "--no-deps",
             "--only-binary=PyMuPDF",

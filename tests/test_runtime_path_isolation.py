@@ -27,7 +27,7 @@ def test_assert_isolated_snapshot_env_allows_separate_sibling_dirs(
     env = {
         "HOME": str(tmp_path / "home"),
         "SNAP_DIR": str(tmp_path / "snap"),
-        "LIB_DIR": str(tmp_path / "lib"),
+        "ABXPKG_LIB_DIR": str(tmp_path / "lib"),
         "PERSONAS_DIR": str(tmp_path / "personas"),
     }
 
@@ -90,7 +90,7 @@ def test_resolve_plugin_configs_derives_chrome_extensions_dir_from_lib_dir(
             "base": json.loads(BASE_CONFIG_PATH.read_text()),
             "chrome": json.loads(CHROME_CONFIG.read_text()),
         },
-        global_config={"LIB_DIR": str(lib_dir)},
+        global_config={"ABXPKG_LIB_DIR": str(lib_dir)},
         user_config={},
         environ={},
     )
@@ -109,8 +109,8 @@ def test_build_binproviders_scopes_env_provider_to_lib_dir(
 
     providers = build_binproviders(
         "env,pnpm",
-        config={"LIB_DIR": str(lib_dir), "PATH": str(ambient_bin)},
-        environ={"LIB_DIR": str(lib_dir), "PATH": str(ambient_bin)},
+        config={"ABXPKG_LIB_DIR": str(lib_dir), "PATH": str(ambient_bin)},
+        environ={"ABXPKG_LIB_DIR": str(lib_dir), "PATH": str(ambient_bin)},
     )
 
     by_name = {provider.name: provider for provider in providers}
@@ -183,7 +183,7 @@ def test_load_config_hydrates_chrome_node_binary_from_real_env_provider(
     config = load_config(
         CHROME_CONFIG,
         global_config={
-            "LIB_DIR": str(lib_dir),
+            "ABXPKG_LIB_DIR": str(lib_dir),
             "PERSONAS_DIR": str(personas_dir),
         },
         environ=os.environ.copy(),

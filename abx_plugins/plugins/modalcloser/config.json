@@ -17,11 +17,6 @@
   ],
   "output_mimetypes": [],
   "properties": {
-    "CHROME_BINARY": {
-      "type": "string",
-      "default": "chromium",
-      "description": "Path to a Chromium-family browser binary"
-    },
     "MODALCLOSER_ENABLED": {
       "type": "boolean",
       "default": true,

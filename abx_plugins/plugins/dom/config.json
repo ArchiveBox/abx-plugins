@@ -19,11 +19,6 @@
     "text/html"
   ],
   "properties": {
-    "CHROME_BINARY": {
-      "type": "string",
-      "default": "chromium",
-      "description": "Path to a Chromium-family browser binary"
-    },
     "DOM_ENABLED": {
       "type": "boolean",
       "default": true,
