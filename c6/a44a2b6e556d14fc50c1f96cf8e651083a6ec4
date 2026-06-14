@@ -1,0 +1,21 @@
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_15f59ac80abb8e::t_f0673c2ce8d7a5 2013,2017,2028
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_15f59ac80abb8e::t_ea374519fde575 1360-1363,2579-2581
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "c6a44a2b6e556d14fc50c1f96cf8e651083a6ec4",
+  "prompts": {},
+  "sessions": {
+    "s_15f59ac80abb8e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa8a-3bcf-7290-a54d-15bd828c06a5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
