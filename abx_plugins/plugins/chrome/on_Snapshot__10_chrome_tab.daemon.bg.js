@@ -97,13 +97,14 @@ const SNAPSHOT_PAGE_MARKER_FILES = [
   "url.txt",
   "navigation.json",
 ];
+// The tab hook only owns page-level markers. Browser markers (`cdp_url.txt`,
+// `chrome.pid`, `browser.json`) can live in the same chrome dir in crawl and
+// snapshot isolation, and are still needed by the browser-owning launch hook to
+// close Chrome and clean extension staging directories.
 const SNAPSHOT_ARTIFACT_FILES = [
-  "cdp_url.txt",
-  "chrome.pid",
   "target_id.txt",
   "url.txt",
   "navigation.json",
-  "browser.json",
 ];
 
 function getPortFromCdpUrl(cdpUrl) {

@@ -1293,12 +1293,18 @@ def test_snapshot_isolation_launches_and_cleans_up_local_browser(chrome_test_url
         snapshot_chrome_dir = snapshot_dir / "chrome"
         snapshot_chrome_dir.mkdir()
 
-        tab_env = get_test_env() | {
+        tab_env = _isolated_test_env(tmpdir) | {
             "CRAWL_DIR": str(crawl_dir),
             "SNAP_DIR": str(snapshot_dir),
             "CHROME_HEADLESS": "true",
             "CHROME_ISOLATION": "snapshot",
         }
+        extensions_dir = Path(get_extensions_dir(env=tab_env))
+        cached_ext = _write_test_extension_cache(extensions_dir)
+        metadata_dir = Path(cached_ext["unpacked_path"]) / "_metadata"
+        metadata_dir.mkdir()
+        (metadata_dir / "verified_contents.json").write_text("{}")
+        staged_load_path = None
 
         launch_process = subprocess.Popen(
             [
@@ -1314,17 +1320,40 @@ def test_snapshot_isolation_launches_and_cleans_up_local_browser(chrome_test_url
             env=tab_env,
         )
 
+        browser_file = snapshot_chrome_dir / "browser.json"
         for _ in range(60):
             if launch_process.poll() is not None:
                 stdout, stderr = launch_process.communicate()
                 pytest.fail(
                     f"snapshot-isolated launch hook exited early:\nStdout: {stdout}\nStderr: {stderr}",
                 )
-            if (snapshot_chrome_dir / "cdp_url.txt").exists() and (
-                snapshot_chrome_dir / "chrome.pid"
-            ).exists():
+            if (
+                (snapshot_chrome_dir / "cdp_url.txt").exists()
+                and (snapshot_chrome_dir / "chrome.pid").exists()
+                and browser_file.exists()
+            ):
                 break
             time.sleep(1)
+
+        assert browser_file.exists(), (
+            "snapshot launch should publish browser metadata before tab setup"
+        )
+        browser_metadata = json.loads(browser_file.read_text())
+        extension_entry = next(
+            (
+                entry
+                for entry in browser_metadata.get("extensions", [])
+                if entry.get("name") == TEST_EXTENSION_NAME
+            ),
+            None,
+        )
+        assert extension_entry is not None, browser_metadata
+        staged_load_path = Path(extension_entry["load_path"])
+        assert staged_load_path.is_dir(), extension_entry
+        assert staged_load_path.parent.name == "abx-chrome-extension-load"
+        assert (staged_load_path / "manifest.json").exists()
+        assert not (staged_load_path / "_metadata").exists()
+        assert metadata_dir.exists(), "extension cache should not be modified"
 
         tab_process = subprocess.Popen(
             [
@@ -1393,6 +1422,13 @@ def test_snapshot_isolation_launches_and_cleans_up_local_browser(chrome_test_url
         try:
             tab_process.send_signal(signal.SIGTERM)
             tab_process.wait(timeout=20)
+            assert staged_load_path.exists(), (
+                "tab cleanup must leave staged extensions available for the "
+                "still-running snapshot browser"
+            )
+            assert browser_file.exists(), (
+                "tab cleanup must leave browser metadata for snapshot launch cleanup"
+            )
         finally:
             launch_process.send_signal(signal.SIGTERM)
             launch_process.wait(timeout=20)
@@ -1400,6 +1436,10 @@ def test_snapshot_isolation_launches_and_cleans_up_local_browser(chrome_test_url
         with pytest.raises(OSError):
             os.kill(chrome_pid, 0)
         _assert_snapshot_chrome_state_cleared(snapshot_chrome_dir)
+        assert not staged_load_path.exists(), (
+            "staged extension copy should be removed when the snapshot-isolated "
+            "browser session is closed"
+        )
 
 
 def test_crawl_isolation_local_keepalive_true_keeps_browser_running_after_hook_exit(
@@ -2472,6 +2512,9 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
         install_env = _isolated_test_env(tmpdir)
         extensions_dir = Path(get_extensions_dir(env=install_env))
         cached_ext = _write_test_extension_cache(extensions_dir)
+        metadata_dir = Path(cached_ext["unpacked_path"]) / "_metadata"
+        metadata_dir.mkdir()
+        (metadata_dir / "verified_contents.json").write_text("{}")
         extension_cache = extensions_dir / f"{TEST_EXTENSION_NAME}.extension.json"
         assert extension_cache.exists(), "test extension cache should exist"
 
@@ -2483,6 +2526,7 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
         browser_file = chrome_dir / "browser.json"
         chrome_launch_process = None
         tab_process = None
+        staged_load_path = None
         try:
             chrome_launch_process = subprocess.Popen(
                 [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-shared-exts"],
@@ -2524,6 +2568,12 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
             assert extension_entry.get("id"), extension_entry
             assert extension_entry.get("id") != cached_ext.get("id"), extension_entry
             assert "load_error" not in extension_entry, extension_entry
+            staged_load_path = Path(extension_entry["load_path"])
+            assert staged_load_path.is_dir(), extension_entry
+            assert staged_load_path.parent.name == "abx-chrome-extension-load"
+            assert (staged_load_path / "manifest.json").exists()
+            assert not (staged_load_path / "_metadata").exists()
+            assert metadata_dir.exists(), "extension cache should not be modified"
             assert (
                 wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
                 == crawl_extensions
@@ -2570,6 +2620,11 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
                     chrome_launch_process.wait(timeout=10)
                 except Exception:
                     pass
+            if staged_load_path is not None:
+                assert not staged_load_path.exists(), (
+                    "staged extension copy should be removed when the owning Chrome "
+                    "session is closed"
+                )
 
 
 def test_chrome_wait_rejects_stale_cdp_markers(chrome_test_url):

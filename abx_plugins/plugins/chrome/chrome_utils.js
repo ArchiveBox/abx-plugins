@@ -33,6 +33,10 @@ ensureNodeModuleResolution(module);
 
 const CHROME_SESSION_REQUIRED_ERROR =
   "No Chrome session found (chrome plugin must run first)";
+const CHROME_EXTENSION_STAGE_ROOT = path.join(
+  os.tmpdir(),
+  "abx-chrome-extension-load"
+);
 const CHROME_PROFILE_LOCK_FILES = [
   "SingletonLock",
   "SingletonSocket",
@@ -1683,7 +1687,7 @@ function extensionLoadPath(extension) {
   const stat = fs.statSync(unpackedPath);
   const sourceMtime = Math.floor(stat.mtimeMs);
   const safeName = `${path.basename(unpackedPath)}-${sourceMtime}-${process.pid}-`;
-  const stagedRoot = path.join(os.tmpdir(), "abx-chrome-extension-load");
+  const stagedRoot = CHROME_EXTENSION_STAGE_ROOT;
   fs.mkdirSync(stagedRoot, { recursive: true });
   const stagedPath = fs.mkdtempSync(path.join(stagedRoot, safeName));
   const stagedManifest = path.join(stagedPath, "manifest.json");
@@ -1699,6 +1703,30 @@ function extensionLoadPath(extension) {
   }
   extension.load_path = stagedPath;
   return stagedPath;
+}
+
+function isPathInside(childPath, parentPath) {
+  const relativePath = path.relative(path.resolve(parentPath), path.resolve(childPath));
+  return Boolean(relativePath) && !relativePath.startsWith("..") && !path.isAbsolute(relativePath);
+}
+
+function cleanupStagedExtensionLoadPaths(extensions) {
+  if (!Array.isArray(extensions) || extensions.length === 0) return [];
+  const cleanedPaths = [];
+
+  for (const extension of extensions) {
+    const loadPath = extension?.load_path;
+    if (!loadPath || !isPathInside(loadPath, CHROME_EXTENSION_STAGE_ROOT)) {
+      continue;
+    }
+    try {
+      if (!fs.existsSync(loadPath)) continue;
+      fs.rmSync(loadPath, { recursive: true, force: true });
+      cleanedPaths.push(loadPath);
+    } catch (error) {}
+  }
+
+  return cleanedPaths;
 }
 
 async function tryGetExtensionContext(target, targetType) {
@@ -2779,6 +2807,17 @@ async function cleanupStaleChromeSessionArtifacts(
   if (!inspection.stale) {
     return { ...inspection, cleanedFiles };
   }
+
+  // Extensions with Chrome Web Store `_metadata` cannot be loaded directly via
+  // CDP, so extensionLoadPath() stages a metadata-free copy and records it in
+  // browser.json. Chrome serves unpacked extension resources from that path for
+  // the lifetime of the browser session, so deleting it immediately after
+  // Extensions.loadUnpacked can break a still-running extension. The stale/closed
+  // session boundary is the first point where those copied resources are no
+  // longer owned by a live browser.
+  cleanedFiles.push(
+    ...cleanupStagedExtensionLoadPaths(inspection.state?.extensions)
+  );
 
   for (const filePath of getChromeSessionArtifactPaths(chromeSessionDir)) {
     if (!fs.existsSync(filePath)) continue;
@@ -4458,6 +4497,7 @@ module.exports = {
   isTargetExtension,
   loadExtensionFromTarget,
   loadUnpackedExtensionsIntoBrowser,
+  cleanupStagedExtensionLoadPaths,
   waitForExtensionTargetHandle,
   // New puppeteer best-practices helpers
   resolvePuppeteerModule,
