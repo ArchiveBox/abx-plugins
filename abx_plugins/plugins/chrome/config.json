@@ -19,6 +19,20 @@
       }
     },
     {
+      "name": "playwright",
+      "binproviders": "pnpm",
+      "min_version": null,
+      "postinstall_scripts": true,
+      "overrides": {
+        "pnpm": {
+          "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/playwright",
+          "install_args": [
+            "playwright@next"
+          ]
+        }
+      }
+    },
+    {
       "name": "abxbus",
       "binproviders": "pnpm",
       "min_version": "2.5.9",
