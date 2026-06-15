@@ -73,7 +73,7 @@ Defined in [config.json](./config.json).
 | Variable                | Default                                      | Meaning                                                             |
 | ----------------------- | -------------------------------------------- | ------------------------------------------------------------------- |
 | `CHROME_USER_DATA_DIR`  | `PERSONAS_DIR/ACTIVE_PERSONA/chrome_profile` | User data dir for persistent local profile state.                   |
-| `CHROME_EXTENSIONS_DIR` | persona-derived                              | Extension cache directory.                                          |
+| `CHROMEWEBSTORE_EXTENSIONS_DIR` | abxpkg-managed                              | Chrome Web Store extension artifact directory.                      |
 | `CHROME_DOWNLOADS_DIR`  | persona-derived                              | Download output directory configured via CDP after launch/adoption. |
 | `CHROME_ARGS`           | see config                                   | Static Chromium flags.                                              |
 | `CHROME_ARGS_EXTRA`     | `[]`                                         | Final extra flags appended at launch.                               |

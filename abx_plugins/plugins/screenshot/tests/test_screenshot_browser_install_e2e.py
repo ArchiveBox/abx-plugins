@@ -139,7 +139,7 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     )
     extensions_dir = Path(get_extensions_dir(env=env))
     extensions_dir.mkdir(parents=True, exist_ok=True)
-    env["CHROME_EXTENSIONS_DIR"] = str(extensions_dir)
+    env["CHROMEWEBSTORE_EXTENSIONS_DIR"] = str(extensions_dir)
     if os.name == "posix" and os.geteuid() == 0:
         env["CHROME_SANDBOX"] = "false"
 

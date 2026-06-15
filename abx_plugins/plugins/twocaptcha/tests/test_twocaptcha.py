@@ -126,7 +126,9 @@ class TestTwoCaptcha:
             # Install
             install_twocaptcha_extension(env)
 
-            cache = Path(env["CHROME_EXTENSIONS_DIR"]) / "twocaptcha.extension.json"
+            cache = (
+                Path(env["CHROMEWEBSTORE_EXTENSIONS_DIR"]) / "twocaptcha.extension.json"
+            )
             assert cache.exists()
             data = json.loads(cache.read_text())
             assert data["webstore_id"] == "ifibfemgeogfhoebkmokieepdoobkbpo"

@@ -80,7 +80,7 @@ def test_load_config_preserves_resolved_runtime_dirs_over_schema_defaults(
     assert config.SNAP_DIR == str(snap_dir)
 
 
-def test_resolve_plugin_configs_derives_chrome_extensions_dir_from_lib_dir(
+def test_chromewebstore_provider_derives_extensions_dir_from_lib_dir(
     tmp_path: Path,
 ) -> None:
     lib_dir = tmp_path / "lib"
@@ -94,8 +94,13 @@ def test_resolve_plugin_configs_derives_chrome_extensions_dir_from_lib_dir(
         user_config={},
         environ={},
     )
+    provider = build_binproviders(
+        "chromewebstore",
+        config=resolved["chrome"],
+        environ={"ABXPKG_LIB_DIR": str(lib_dir)},
+    )[0]
 
-    assert resolved["chrome"]["CHROME_EXTENSIONS_DIR"] == str(
+    assert provider.ENV["CHROMEWEBSTORE_EXTENSIONS_DIR"] == str(
         lib_dir / "chromewebstore" / "extensions",
     )
 

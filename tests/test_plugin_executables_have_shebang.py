@@ -124,8 +124,8 @@ def test_javascript_plugin_hooks_use_abxpkg_node_script_runner() -> None:
             failures.append(f"{rel_path}: missing local config.json for --deps-from")
         if not any(line.strip() == "// /// script" for line in lines[:5]):
             failures.append(f"{rel_path}: missing abxpkg script metadata block")
-        if not any("runtime_binproviders" in line for line in lines[:20]):
-            failures.append(f"{rel_path}: missing runtime_binproviders metadata")
+        if any("ABX" in line and "=" in line for line in lines[:20]):
+            failures.append(f"{rel_path}: must not set ABX* config in script metadata")
         if any(line.strip().startswith("// dependencies = [") for line in lines[:20]):
             failures.append(f"{rel_path}: must not declare inline script dependencies")
 

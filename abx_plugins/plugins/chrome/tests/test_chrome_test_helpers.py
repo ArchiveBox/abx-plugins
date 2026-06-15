@@ -42,17 +42,13 @@ def real_chromium_binary(ensure_chrome_test_prereqs) -> Path:
 
 
 def _is_supported_browser_path(path: Path) -> bool:
-    try:
-        proc = subprocess.run(
-            [str(path), "--version"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except Exception:
-        return False
-    version = f"{proc.stdout}\n{proc.stderr}".strip()
-    return bool(version)
+    env = {**os.environ, **get_test_env()}
+    returncode, stdout, _stderr = _call_chrome_utils(
+        "isSupportedChromiumBinary",
+        str(path),
+        env=env,
+    )
+    return returncode == 0 and stdout.strip().lower() == "true"
 
 
 def test_get_machine_type():
@@ -138,6 +134,36 @@ def test_get_extensions_dir_ignores_persona_by_default():
             os.environ.pop("PERSONAS_DIR", None)
 
 
+def test_call_chrome_utils_builds_chrome_required_binary_exec_env(
+    ensure_chrome_test_prereqs,
+    tmp_path: Path,
+):
+    """Direct chrome_utils.js test calls must get the same env Chrome hooks get."""
+    env = os.environ.copy()
+    env["ABXPKG_LIB_DIR"] = os.environ["ABXPKG_LIB_DIR"]
+    env["SNAP_DIR"] = str(tmp_path / "snap")
+    env["CRAWL_DIR"] = str(tmp_path / "crawl")
+    env["PERSONAS_DIR"] = str(tmp_path / "personas")
+    env["ACTIVE_PERSONA"] = "Default"
+    for path_key in ("SNAP_DIR", "CRAWL_DIR", "PERSONAS_DIR"):
+        Path(env[path_key]).mkdir(parents=True, exist_ok=True)
+    for inherited_key in (
+        "NODE_MODULES_DIR",
+        "NODE_PATH",
+        "PNPM_HOME",
+        "PNPM_BIN_DIR",
+        "NPM_BIN_DIR",
+        "CHROMEWEBSTORE_EXTENSIONS_DIR",
+    ):
+        env.pop(inherited_key, None)
+
+    returncode, stdout, stderr = _call_chrome_utils("getNodeModulesDir", env=env)
+
+    assert returncode == 0, stderr
+    assert Path(stdout.strip()).is_dir()
+    assert Path(stdout.strip()).name == "node_modules"
+
+
 def test_get_test_env_returns_dict():
     """Test get_test_env() returns properly formatted environment dict."""
     env = get_test_env()
@@ -149,7 +175,8 @@ def test_get_test_env_returns_dict():
     assert "NODE_MODULES_DIR" in env
     assert "NODE_PATH" in env  # Critical for module resolution
     assert "NPM_BIN_DIR" in env
-    assert "CHROME_EXTENSIONS_DIR" not in env
+    assert "CHROMEWEBSTORE_EXTENSIONS_DIR" in env
+    assert Path(env["CHROMEWEBSTORE_EXTENSIONS_DIR"]).is_absolute()
 
     # Verify NODE_PATH equals NODE_MODULES_DIR (for Node.js module resolution)
     assert env["NODE_PATH"] == env["NODE_MODULES_DIR"]
@@ -187,7 +214,7 @@ def test_find_chromium_accepts_command_name_chrome_binary(
     binary_path.parent.mkdir(parents=True, exist_ok=True)
     binary_path.symlink_to(real_chromium_binary)
 
-    env = os.environ.copy()
+    env = {**os.environ, **get_test_env()}
     env.update(
         {
             "CHROME_BINARY": browser_name,
@@ -607,8 +634,8 @@ def test_setup_test_env_uses_derived_runtime_dirs(tmp_path: Path):
     )
 
     assert "CHROME_DOWNLOADS_DIR" not in env
-    assert "CHROME_EXTENSIONS_DIR" not in env
     assert "CHROME_USER_DATA_DIR" not in env
+    assert Path(env["CHROMEWEBSTORE_EXTENSIONS_DIR"]) == extensions_dir
     assert env["ACTIVE_PERSONA"] == "Default"
     assert Path(env["PERSONAS_DIR"]).is_dir()
     assert extensions_dir.is_dir()
@@ -630,7 +657,7 @@ def test_setup_test_env_uses_derived_runtime_dirs(tmp_path: Path):
     assert Path(resolved["CHROME_DOWNLOADS_DIR"]) == (
         Path(env["PERSONAS_DIR"]) / env["ACTIVE_PERSONA"] / "chrome_downloads"
     )
-    assert Path(resolved["CHROME_EXTENSIONS_DIR"]) == extensions_dir
+    assert Path(resolved["CHROMEWEBSTORE_EXTENSIONS_DIR"]) == extensions_dir
 
 
 def test_session_fixture_preserves_runtime_chrome_binary_override(

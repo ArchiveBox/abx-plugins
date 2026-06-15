@@ -1,8 +1,5 @@
 #!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries node
 // /// script
-// [tool.abxpkg]
-// ABXPKG_BINPROVIDERS = "env,apt,brew"
-// runtime_binproviders = ["chromewebstore"]
 // ///
 /**
  * Launch or adopt a snapshot-scoped Chrome session when CHROME_ISOLATION=snapshot.

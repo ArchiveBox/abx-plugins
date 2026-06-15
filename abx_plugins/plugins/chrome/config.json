@@ -53,7 +53,6 @@
       "binproviders": "pnpm",
       "min_version": null,
       "postinstall_scripts": false,
-      "min_release_age": 0,
       "overrides": {
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/chrome",
@@ -97,6 +96,11 @@
       "type": "string",
       "default": "chromium",
       "description": "Path to a Chromium-family browser binary"
+    },
+    "CHROMEWEBSTORE_EXTENSIONS_DIR": {
+      "type": "string",
+      "default": "",
+      "description": "abxpkg-managed Chrome Web Store extension download/cache directory. This is intentionally not derived from PERSONAS_DIR/ACTIVE_PERSONA like runtime Chrome profile paths; Chrome reads unpacked extension artifacts from here while running with persona-derived user data dirs."
     },
     "NODE_BINARY": {
       "type": "string",

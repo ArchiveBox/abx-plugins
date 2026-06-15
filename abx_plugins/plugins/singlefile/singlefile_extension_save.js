@@ -35,7 +35,8 @@ const CRAWL_DIR = hookConfig.CRAWL_DIR
   ? path.resolve(String(hookConfig.CRAWL_DIR).trim())
   : null;
 const DOWNLOADS_DIR = chromeLaunchOptions.CHROME_DOWNLOADS_DIR;
-const CHROME_EXTENSIONS_DIR = chromeLaunchOptions.CHROME_EXTENSIONS_DIR;
+const CHROMEWEBSTORE_EXTENSIONS_DIR =
+  chromeLaunchOptions.CHROMEWEBSTORE_EXTENSIONS_DIR;
 
 const DOWNLOAD_POLL_INTERVAL_MS = 3000;
 const DOWNLOAD_WAIT_RESERVE_MS = 10000;
@@ -279,8 +280,10 @@ async function main() {
 
   console.error(`[singlefile] helper start url=${url}`);
   console.error(`[singlefile] downloads_dir=${DOWNLOADS_DIR}`);
-  if (CHROME_EXTENSIONS_DIR) {
-    console.error(`[singlefile] extensions_dir=${CHROME_EXTENSIONS_DIR}`);
+  if (CHROMEWEBSTORE_EXTENSIONS_DIR) {
+    console.error(
+      `[singlefile] extensions_dir=${CHROMEWEBSTORE_EXTENSIONS_DIR}`
+    );
   }
 
   try {

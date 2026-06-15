@@ -20,6 +20,7 @@ const {
   getEnvArray,
   getSnapDir,
   getCrawlDir,
+  getLibDir,
   getPersonasDir,
   ensureNodeModuleResolution,
   parseArgs,
@@ -70,7 +71,7 @@ function resolveChromeLaunchOptions(options = {}) {
   return {
     CHROME_USER_DATA_DIR: path.join(personaDir, "chrome_profile"),
     CHROME_DOWNLOADS_DIR: path.join(personaDir, "chrome_downloads"),
-    CHROME_EXTENSIONS_DIR: getExtensionsDir(),
+    CHROMEWEBSTORE_EXTENSIONS_DIR: getExtensionsDir(),
     CHROME_RESOLUTION: getOption(
       options,
       "CHROME_RESOLUTION",
@@ -150,12 +151,10 @@ function getChromeSessionOptionsFromConfig(hookConfig = {}) {
 
 function getExtensionsDir() {
   const configured = getEnv("CHROMEWEBSTORE_EXTENSIONS_DIR");
-  if (!configured) {
-    throw new Error(
-      "CHROMEWEBSTORE_EXTENSIONS_DIR is required; run Chrome hooks through abxpkg/abx-dl/archivebox so provider env is resolved once and passed to the hook"
-    );
-  }
-  return path.resolve(configured);
+  if (configured) return path.resolve(configured);
+  // Unlike runtime Chrome profile paths derived from PERSONAS_DIR/ACTIVE_PERSONA,
+  // this is the abxpkg-managed extension download/cache dir Chrome reads from.
+  return path.resolve(path.join(getLibDir(), "chromewebstore", "extensions"));
 }
 
 function getNodeModulesDir() {
@@ -4013,7 +4012,7 @@ async function ensureChromeSession(options = {}) {
       : getEnvBool("CHROME_IS_LOCAL", true),
     downloadsDir = chromeLaunchOptions.CHROME_DOWNLOADS_DIR,
     cookiesFile = getEnv("COOKIES_FILE"),
-    extensionsDir = chromeLaunchOptions.CHROME_EXTENSIONS_DIR,
+    extensionsDir = chromeLaunchOptions.CHROMEWEBSTORE_EXTENSIONS_DIR,
     timeoutMs = getEnvInt("CHROME_TIMEOUT", 60) * 1000,
     reuseExisting = !CHROME_CDP_URL,
     binary = null,

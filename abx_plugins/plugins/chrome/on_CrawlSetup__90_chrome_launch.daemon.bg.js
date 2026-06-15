@@ -1,8 +1,5 @@
 #!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries node
 // /// script
-// [tool.abxpkg]
-// ABXPKG_BINPROVIDERS = "env,apt,brew"
-// runtime_binproviders = ["chromewebstore"]
 // ///
 /**
  * Launch a shared Chromium browser session for the entire crawl.
@@ -25,7 +22,7 @@
  *     CHROME_RESOLUTION: Page resolution (default: 1440,2000)
  *     CHROME_HEADLESS: Run in headless mode (default: true)
  *     CHROME_CHECK_SSL_VALIDITY: Whether to check SSL certificates (default: true)
- *     CHROME_EXTENSIONS_DIR: Directory containing Chrome extensions
+ *     CHROMEWEBSTORE_EXTENSIONS_DIR: Directory containing Chrome Web Store extension artifacts
  */
 
 

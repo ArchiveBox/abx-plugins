@@ -34,6 +34,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_TAB_HOOK,
     CHROME_UTILS,
     LoggedPopen,
+    _call_chrome_utils,
     close_target_via_cdp,
     create_target_via_cdp,
     fetch_devtools_targets,
@@ -76,6 +77,7 @@ def test_acquire_session_lock_creates_missing_parent_dir(tmp_path):
         capture_output=True,
         text=True,
         timeout=10,
+        env={**os.environ, **get_test_env()},
     )
     assert result.returncode == 0, result.stderr
     assert lock_file.parent.is_dir()
@@ -214,6 +216,7 @@ process.stdout.write(JSON.stringify(cleaned.map(filePath => path.basename(filePa
         capture_output=True,
         text=True,
         timeout=15,
+        env={**os.environ, **get_test_env()},
     )
 
     assert result.returncode == 0, result.stderr
@@ -244,6 +247,7 @@ process.stdout.write(JSON.stringify(cleaned.map(filePath => path.basename(filePa
         capture_output=True,
         text=True,
         timeout=15,
+        env={**os.environ, **get_test_env()},
     )
 
     assert result.returncode == 0, result.stderr
@@ -674,14 +678,14 @@ def _isolated_test_env(tmpdir: str | Path, **updates: str) -> dict:
     )
     for inherited_key in (
         "CHROME_DOWNLOADS_DIR",
-        "CHROME_EXTENSIONS_DIR",
+        "CHROMEWEBSTORE_EXTENSIONS_DIR",
         "CHROME_USER_DATA_DIR",
         "COOKIES_FILE",
     ):
         env.pop(inherited_key, None)
     env.update(updates)
-    chrome_extensions_dir = Path(get_extensions_dir(env=env))
-    chrome_extensions_dir.mkdir(parents=True, exist_ok=True)
+    chromewebstore_extensions_dir = Path(get_extensions_dir(env=env))
+    chromewebstore_extensions_dir.mkdir(parents=True, exist_ok=True)
     assert_isolated_snapshot_env(env)
     return env
 
@@ -725,6 +729,7 @@ def test_verify_chrome_available():
         capture_output=True,
         text=True,
         timeout=10,
+        env={**os.environ, **get_test_env()},
     )
     assert support_result.returncode == 0, support_result.stderr
     assert support_result.stdout == "true", (
@@ -3637,15 +3642,13 @@ def test_kill_zombie_chrome_respects_live_crawl_heartbeat():
                 ),
             )
 
-            result = subprocess.run(
-                [str(CHROME_UTILS), "killZombieChrome", str(root_dir)],
-                capture_output=True,
-                text=True,
-                timeout=30,
+            returncode, stdout, stderr = _call_chrome_utils(
+                "killZombieChrome",
+                str(root_dir),
                 env=get_test_env(),
             )
-            assert result.returncode == 0, result.stderr
-            assert result.stdout.strip() == "0", result.stdout
+            assert returncode == 0, stderr
+            assert stdout.strip() == "0", stdout
             os.kill(chrome_pid, 0)
         finally:
             _cleanup_launch_process(chrome_launch_process, chrome_dir)

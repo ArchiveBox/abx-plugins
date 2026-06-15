@@ -71,7 +71,10 @@ from abx_plugins.plugins.base.test_utils import (
     get_hydrated_required_binaries,
     run_hook as _base_run_hook,
 )
-from abx_plugins.plugins.base.utils import get_personas_dir, load_required_binary
+from abx_plugins.plugins.base.utils import (
+    get_personas_dir,
+    load_required_binary,
+)
 
 # Plugin directory locations
 CHROME_PLUGIN_DIR = Path(__file__).parent.parent
@@ -424,7 +427,7 @@ def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
     )
     for inherited_key in (
         "CHROME_DOWNLOADS_DIR",
-        "CHROME_EXTENSIONS_DIR",
+        "CHROMEWEBSTORE_EXTENSIONS_DIR",
         "CHROME_USER_DATA_DIR",
         "COOKIES_FILE",
     ):
@@ -528,13 +531,41 @@ def _call_chrome_utils(
     Returns:
         Tuple of (returncode, stdout, stderr)
     """
-    cmd = [str(CHROME_UTILS), command] + list(args)
+    payload = os.environ.copy()
+    if env:
+        payload.update(env)
+
+    # chrome_utils.js is a runtime helper, not an installer. Tests that call it
+    # directly must still get the same provider-built env that Chrome hooks get
+    # from their shebang/deps path, otherwise NODE_MODULES_DIR and package PATHs
+    # drift from real hook execution.
+    env_result = subprocess.run(
+        [
+            "abxpkg",
+            "env",
+            "--install",
+            "--json",
+            "--deps-from=./config.json:required_binaries",
+            "node",
+        ],
+        cwd=str(CHROME_PLUGIN_DIR),
+        capture_output=True,
+        text=True,
+        timeout=300,
+        env=payload,
+    )
+    if env_result.returncode != 0:
+        return env_result.returncode, env_result.stdout, env_result.stderr
+    payload.update(json.loads(env_result.stdout or "{}"))
+
+    cmd = ["node", str(CHROME_UTILS), command, *list(args)]
     result = subprocess.run(
         cmd,
+        cwd=str(CHROME_PLUGIN_DIR),
         capture_output=True,
         text=True,
         timeout=30,
-        env=env or os.environ.copy(),
+        env=payload,
     )
     return result.returncode, result.stdout, result.stderr
 
@@ -680,17 +711,15 @@ def create_target_via_cdp(cdp_url: str, url: str) -> dict[str, Any]:
 
 def get_cookies_via_cdp(port: int, env: dict[str, str]) -> list[dict[str, Any]]:
     """Read browser cookies via the chrome_utils.js CLI helper."""
-    result = subprocess.run(
-        [str(CHROME_UTILS), "getCookiesViaCdp", str(port)],
-        capture_output=True,
-        text=True,
-        timeout=30,
+    returncode, stdout, stderr = _call_chrome_utils(
+        "getCookiesViaCdp",
+        str(port),
         env=env,
     )
-    assert result.returncode == 0, (
-        f"Failed to read cookies via CDP: {result.stderr}\nStdout: {result.stdout}"
+    assert returncode == 0, (
+        f"Failed to read cookies via CDP: {stderr}\nStdout: {stdout}"
     )
-    payload = json.loads(result.stdout or "[]")
+    payload = json.loads(stdout or "[]")
     assert isinstance(payload, list), payload
     return payload
 
@@ -799,7 +828,7 @@ def chrome_extension_install_env(tmpdir: str | Path) -> tuple[dict[str, str], Pa
     )
     for inherited_key in (
         "CHROME_DOWNLOADS_DIR",
-        "CHROME_EXTENSIONS_DIR",
+        "CHROMEWEBSTORE_EXTENSIONS_DIR",
         "CHROME_USER_DATA_DIR",
         "COOKIES_FILE",
     ):
@@ -898,6 +927,7 @@ def get_test_env() -> dict:
             env["NODE_PATH"] = str(node_modules_dir)
             env["PNPM_BIN_DIR"] = str(node_modules_dir / ".bin")
             env["NPM_BIN_DIR"] = str(node_modules_dir / ".bin")
+            env["CHROMEWEBSTORE_EXTENSIONS_DIR"] = get_extensions_dir(env=env)
             return env
         except json.JSONDecodeError:
             pass
@@ -905,11 +935,16 @@ def get_test_env() -> dict:
     # Fallback to Python computation
     lib_dir = get_lib_dir()
     env["ABXPKG_LIB_DIR"] = str(lib_dir)
-    env["NODE_MODULES_DIR"] = str(get_node_modules_dir())
+    node_modules_dir = get_node_modules_dir()
+    env["NODE_MODULES_DIR"] = str(node_modules_dir)
+    env["NODE_PATH"] = str(node_modules_dir)
+    env["PNPM_BIN_DIR"] = str(node_modules_dir / ".bin")
+    env["NPM_BIN_DIR"] = str(node_modules_dir / ".bin")
     env["MACHINE_TYPE"] = get_machine_type()
     env.setdefault("SNAP_DIR", str(Path.cwd()))
     env.setdefault("CRAWL_DIR", str(Path.cwd()))
     env.setdefault("PERSONAS_DIR", str(get_personas_dir()))
+    env["CHROMEWEBSTORE_EXTENSIONS_DIR"] = get_extensions_dir(env=env)
     return env
 
 
@@ -1183,7 +1218,7 @@ def setup_test_env(tmpdir: Path) -> dict:
     )
     for inherited_key in (
         "CHROME_DOWNLOADS_DIR",
-        "CHROME_EXTENSIONS_DIR",
+        "CHROMEWEBSTORE_EXTENSIONS_DIR",
         "CHROME_USER_DATA_DIR",
         "COOKIES_FILE",
     ):
@@ -1560,7 +1595,7 @@ def chrome_session(
         )
         for inherited_key in (
             "CHROME_DOWNLOADS_DIR",
-            "CHROME_EXTENSIONS_DIR",
+            "CHROMEWEBSTORE_EXTENSIONS_DIR",
             "CHROME_USER_DATA_DIR",
             "COOKIES_FILE",
         ):
