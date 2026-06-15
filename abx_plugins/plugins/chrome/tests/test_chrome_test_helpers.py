@@ -149,7 +149,7 @@ def test_get_test_env_returns_dict():
     assert "NODE_MODULES_DIR" in env
     assert "NODE_PATH" in env  # Critical for module resolution
     assert "NPM_BIN_DIR" in env
-    assert "CHROME_EXTENSIONS_DIR" in env
+    assert "CHROME_EXTENSIONS_DIR" not in env
 
     # Verify NODE_PATH equals NODE_MODULES_DIR (for Node.js module resolution)
     assert env["NODE_PATH"] == env["NODE_MODULES_DIR"]
@@ -607,7 +607,7 @@ def test_setup_test_env_uses_derived_runtime_dirs(tmp_path: Path):
     )
 
     assert "CHROME_DOWNLOADS_DIR" not in env
-    assert env["CHROME_EXTENSIONS_DIR"] == str(extensions_dir)
+    assert "CHROME_EXTENSIONS_DIR" not in env
     assert "CHROME_USER_DATA_DIR" not in env
     assert env["ACTIVE_PERSONA"] == "Default"
     assert Path(env["PERSONAS_DIR"]).is_dir()
@@ -615,7 +615,7 @@ def test_setup_test_env_uses_derived_runtime_dirs(tmp_path: Path):
 
     script = (
         f"const chromeUtils = require({json.dumps(str(CHROME_UTILS))});\n"
-        "process.stdout.write(JSON.stringify(chromeUtils.resolveChromeLaunchOptions({}).CHROME_USER_DATA_DIR));\n"
+        "process.stdout.write(JSON.stringify(chromeUtils.resolveChromeLaunchOptions({})));\n"
     )
     result = subprocess.run(
         ["node", "-e", script],
@@ -625,7 +625,12 @@ def test_setup_test_env_uses_derived_runtime_dirs(tmp_path: Path):
         env=env,
     )
     assert result.returncode == 0, result.stderr
-    assert Path(json.loads(result.stdout)) == expected_user_data_dir
+    resolved = json.loads(result.stdout)
+    assert Path(resolved["CHROME_USER_DATA_DIR"]) == expected_user_data_dir
+    assert Path(resolved["CHROME_DOWNLOADS_DIR"]) == (
+        Path(env["PERSONAS_DIR"]) / env["ACTIVE_PERSONA"] / "chrome_downloads"
+    )
+    assert Path(resolved["CHROME_EXTENSIONS_DIR"]) == extensions_dir
 
 
 def test_session_fixture_preserves_runtime_chrome_binary_override(

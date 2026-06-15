@@ -401,9 +401,13 @@ function getPersonasDir() {
 }
 
 function getNodeModulesDir() {
-  const configured = getEnv("NODE_MODULES_DIR") || getEnv("NODE_MODULE_DIR");
-  if (configured) return path.resolve(configured);
-  return path.resolve(path.join(getLibDir(), "pnpm", "node_modules"));
+  const configured = getEnv("NODE_MODULES_DIR");
+  if (!configured) {
+    throw new Error(
+      "NODE_MODULES_DIR is required; run hooks through abxpkg/abx-dl/archivebox so provider env is resolved once and passed to the hook"
+    );
+  }
+  return path.resolve(configured);
 }
 
 function getMachineType() {
@@ -429,6 +433,12 @@ function getTestEnv() {
   const config = loadConfig(BASE_CONFIG_PATH);
   const libDir = getLibDir();
   const nodeModulesDir = getNodeModulesDir();
+  const pnpmBinDir = getEnv("PNPM_HOME");
+  if (!pnpmBinDir) {
+    throw new Error(
+      "PNPM_HOME is required; run tests through fixtures that use abxpkg provider env"
+    );
+  }
 
   return {
     SNAP_DIR: getSnapDir(),
@@ -439,8 +449,8 @@ function getTestEnv() {
     ABXPKG_LIB_DIR: libDir,
     NODE_MODULES_DIR: nodeModulesDir,
     NODE_PATH: nodeModulesDir,
-    PNPM_BIN_DIR: path.join(libDir, "pnpm", "node_modules", ".bin"),
-    NPM_BIN_DIR: path.join(libDir, "pnpm", "node_modules", ".bin"),
+    PNPM_BIN_DIR: pnpmBinDir,
+    NPM_BIN_DIR: pnpmBinDir,
   };
 }
 

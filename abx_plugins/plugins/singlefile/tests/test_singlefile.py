@@ -71,7 +71,7 @@ def ensure_singlefile_extension_installed() -> dict[str, Path]:
         _singlefile_install_root = tempfile.mkdtemp(prefix="singlefile-ext-")
 
     install_root = Path(_singlefile_install_root)
-    env_install, extensions_dir = chrome_extension_install_env(install_root)
+    env_install, _extensions_dir = chrome_extension_install_env(install_root)
 
     loaded = install_required_binary_from_config(
         PLUGIN_DIR,
@@ -82,6 +82,7 @@ def ensure_singlefile_extension_installed() -> dict[str, Path]:
         "abxpkg did not resolve SingleFile extension"
     )
 
+    extensions_dir = loaded.loaded_abspath.parent
     cache_file = extensions_dir / "singlefile.extension.json"
     assert cache_file.exists(), f"Extension cache file not created: {cache_file}"
 
@@ -94,6 +95,7 @@ def ensure_singlefile_extension_installed() -> dict[str, Path]:
 
     _singlefile_install_state = {
         "install_root": install_root,
+        "abxpkg_lib_dir": Path(env_install["ABXPKG_LIB_DIR"]),
         "extensions_dir": extensions_dir,
         "cache_file": cache_file,
         "unpacked_path": unpacked_path,
@@ -157,7 +159,7 @@ def test_singlefile_cli_archives_example_com():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        env_install, extensions_dir = chrome_extension_install_env(tmpdir / "install")
+        env_install, _extensions_dir = chrome_extension_install_env(tmpdir / "install")
 
         loaded = install_required_binary_from_config(
             PLUGIN_DIR,
@@ -167,6 +169,7 @@ def test_singlefile_cli_archives_example_com():
         assert loaded.loaded_abspath is not None, (
             "abxpkg did not resolve SingleFile extension"
         )
+        extensions_dir = loaded.loaded_abspath.parent
 
         with chrome_session(
             tmpdir=tmpdir,
@@ -176,11 +179,11 @@ def test_singlefile_cli_archives_example_com():
             navigate=True,
             timeout=30,
             env_overrides={
-                "CHROME_EXTENSIONS_DIR": str(extensions_dir),
+                "ABXPKG_LIB_DIR": env_install["ABXPKG_LIB_DIR"],
             },
         ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
             env["SINGLEFILE_ENABLED"] = "true"
-            env["CHROME_EXTENSIONS_DIR"] = str(extensions_dir)
+            assert extensions_dir == loaded.loaded_abspath.parent
 
             singlefile_output_dir = snapshot_chrome_dir.parent / "singlefile"
             singlefile_output_dir.mkdir(parents=True, exist_ok=True)
@@ -237,7 +240,7 @@ def test_singlefile_with_chrome_session():
             navigate=False,  # Don't navigate, singlefile will do that
             timeout=20,
             env_overrides={
-                "CHROME_EXTENSIONS_DIR": str(install_state["extensions_dir"]),
+                "ABXPKG_LIB_DIR": str(install_state["abxpkg_lib_dir"]),
             },
         ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
             snap_dir = Path(env["SNAP_DIR"])
@@ -246,7 +249,6 @@ def test_singlefile_with_chrome_session():
 
             # Use env from chrome_session
             env["SINGLEFILE_ENABLED"] = "true"
-            env["CHROME_EXTENSIONS_DIR"] = str(install_state["extensions_dir"])
 
             # Run singlefile - it should find and use the existing Chrome session
             result = subprocess.run(
@@ -285,7 +287,7 @@ def test_singlefile_with_extension_uses_existing_chrome():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        env_install, extensions_dir = chrome_extension_install_env(tmpdir / "install")
+        env_install, _extensions_dir = chrome_extension_install_env(tmpdir / "install")
 
         # Install SingleFile extension cache before launching Chrome
         loaded = install_required_binary_from_config(
@@ -296,9 +298,7 @@ def test_singlefile_with_extension_uses_existing_chrome():
         assert loaded.loaded_abspath is not None, (
             "abxpkg did not resolve SingleFile extension"
         )
-
-        downloads_dir = tmpdir / "chrome_downloads"
-        downloads_dir.mkdir(parents=True, exist_ok=True)
+        extensions_dir = loaded.loaded_abspath.parent
 
         # Launch Chrome session with extensions loaded
         with chrome_session(
@@ -309,13 +309,15 @@ def test_singlefile_with_extension_uses_existing_chrome():
             navigate=True,
             timeout=30,
             env_overrides={
-                "CHROME_EXTENSIONS_DIR": str(extensions_dir),
-                "CHROME_DOWNLOADS_DIR": str(downloads_dir),
+                "ABXPKG_LIB_DIR": env_install["ABXPKG_LIB_DIR"],
             },
         ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
             singlefile_output_dir = snapshot_chrome_dir.parent / "singlefile"
             singlefile_output_dir.mkdir(parents=True, exist_ok=True)
-            assert Path(env["CHROME_DOWNLOADS_DIR"]) == downloads_dir
+            assert extensions_dir == loaded.loaded_abspath.parent
+            downloads_dir = (
+                Path(env["PERSONAS_DIR"]) / env["ACTIVE_PERSONA"] / "chrome_downloads"
+            )
 
             # Ensure ../chrome points to snapshot chrome session (contains target_id.txt)
             chrome_dir = singlefile_output_dir.parent / "chrome"
@@ -324,7 +326,6 @@ def test_singlefile_with_extension_uses_existing_chrome():
 
             env["SINGLEFILE_ENABLED"] = "true"
             env["SINGLEFILE_BINARY"] = "/nonexistent/single-file"
-            env["CHROME_EXTENSIONS_DIR"] = str(extensions_dir)
             env["CHROME_HEADLESS"] = "false"
             env.pop("CRAWL_DIR", None)
 
@@ -383,7 +384,7 @@ def test_singlefile_extension_loader_prefers_cached_background_target():
             navigate=True,
             timeout=30,
             env_overrides={
-                "CHROME_EXTENSIONS_DIR": str(install_state["extensions_dir"]),
+                "ABXPKG_LIB_DIR": str(install_state["abxpkg_lib_dir"]),
             },
         ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
             metadata = wait_for_extensions_metadata(

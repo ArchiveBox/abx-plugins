@@ -1,4 +1,9 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S abxpkg run --script --deps-from=../chrome/config.json:required_binaries,./config.json:required_binaries node
+// /// script
+// [tool.abxpkg]
+// ABXPKG_BINPROVIDERS = "env,apt,brew"
+// runtime_binproviders = ["chromewebstore"]
+// ///
 /**
  * Save a browser-generated MHTML snapshot using Chrome/Puppeteer.
  *

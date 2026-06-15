@@ -1,4 +1,9 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries node
+// /// script
+// [tool.abxpkg]
+// ABXPKG_BINPROVIDERS = "env,apt,brew"
+// runtime_binproviders = ["chromewebstore"]
+// ///
 /**
  * Wait for Chrome session files to exist (cdp_url.txt + target_id.txt).
  *

@@ -1,4 +1,9 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries node
+// /// script
+// [tool.abxpkg]
+// ABXPKG_BINPROVIDERS = "env,apt,brew"
+// runtime_binproviders = ["chromewebstore"]
+// ///
 /**
  * Sweep stale Chrome processes before crawl-scoped launch starts.
  *
@@ -11,7 +16,6 @@ const path = require("path");
 const {
   ensureNodeModuleResolution,
   loadConfig,
-  PROCESS_EXIT_SKIPPED,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 
@@ -55,7 +59,7 @@ async function main() {
   const cpuUsage =
     elapsedMicros > 0 ? Math.round((cpuMicros / elapsedMicros) * 100) : 0;
   console.log(`${killed} chrome zombies. cpu usage: ${cpuUsage}%`);
-  process.exit(PROCESS_EXIT_SKIPPED);
+  process.exit(0);
 }
 
 main()

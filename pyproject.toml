@@ -84,8 +84,8 @@ Documentation = "https://github.com/ArchiveBox/ArchiveBox"
 "Bug Tracker" = "https://github.com/ArchiveBox/abx-plugins/issues"
 
 [tool.pytest.ini_options]
-testpaths = ["abx_plugins/plugins", "tests"]
-addopts = ["-p", "abx_plugins.pytest_bootstrap", "-p", "no:cacheprovider"]
+testpaths = ["abx_plugins/plugins", "tests", "README.md", "AGENTS.md", "skills", "docs"]
+addopts = ["-p", "abx_plugins.pytest_bootstrap", "-p", "no:cacheprovider", "--codeblocks"]
 timeout = 600
 timeout_method = "thread"
 

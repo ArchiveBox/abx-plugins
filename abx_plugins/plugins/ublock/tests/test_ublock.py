@@ -458,12 +458,11 @@ def test_extension_loads_in_chromium():
         print(f"[test] SNAP_DIR={env.get('SNAP_DIR')}", flush=True)
         print(f"[test] CHROME_BINARY={env.get('CHROME_BINARY')}", flush=True)
 
-        ext_dir = Path(env["CHROME_EXTENSIONS_DIR"])
-
         # Step 1: Install the uBlock extension
         print("[test] Installing uBlock extension...", flush=True)
         loaded = install_ublock_extension(env)
         print(f"[test] Extension installed at {loaded.loaded_abspath}", flush=True)
+        ext_dir = loaded.loaded_abspath.parent
 
         # Verify extension cache was created
         cache_file = ext_dir / "ublock.extension.json"
@@ -644,9 +643,8 @@ def test_blocks_ads_on_httpserver_page_with_real_ad_service_urls(httpserver):
         print("STEP 1: INSTALLING EXTENSION")
         print("=" * 60)
 
-        ext_dir = Path(env_base["CHROME_EXTENSIONS_DIR"])
-
-        install_ublock_extension(env_base)
+        loaded = install_ublock_extension(env_base)
+        ext_dir = loaded.loaded_abspath.parent
 
         cache_file = ext_dir / "ublock.extension.json"
         assert cache_file.exists(), "Extension cache not created"
@@ -655,12 +653,11 @@ def test_blocks_ads_on_httpserver_page_with_real_ad_service_urls(httpserver):
 
         crawl_root = Path(env_base["CRAWL_DIR"])
         env_no_ext = env_base.copy()
-        baseline_install_env, baseline_extensions_dir = chrome_extension_install_env(
+        baseline_install_env, _baseline_extensions_dir = chrome_extension_install_env(
             tmpdir / "baseline-install",
         )
         env_no_ext["PERSONAS_DIR"] = str(baseline_personas_dir)
         env_no_ext["ABXPKG_LIB_DIR"] = baseline_install_env["ABXPKG_LIB_DIR"]
-        env_no_ext["CHROME_EXTENSIONS_DIR"] = str(baseline_extensions_dir)
         env_no_ext["CHROME_DOWNLOADS_DIR"] = str(
             baseline_default_dir / "chrome_downloads",
         )

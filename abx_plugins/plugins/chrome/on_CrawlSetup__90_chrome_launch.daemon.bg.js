@@ -1,4 +1,9 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries node
+// /// script
+// [tool.abxpkg]
+// ABXPKG_BINPROVIDERS = "env,apt,brew"
+// runtime_binproviders = ["chromewebstore"]
+// ///
 /**
  * Launch a shared Chromium browser session for the entire crawl.
  *

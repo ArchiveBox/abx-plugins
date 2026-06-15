@@ -223,10 +223,9 @@ def test_extension_loads_in_chromium():
         env = setup_test_env(tmpdir)
         env.setdefault("CHROME_HEADLESS", "true")
 
-        ext_dir = Path(env["CHROME_EXTENSIONS_DIR"])
-
         # Step 1: Install the extension
-        install_cookie_extension(env)
+        loaded = install_cookie_extension(env)
+        ext_dir = loaded.loaded_abspath.parent
 
         # Verify extension cache was created
         cache_file = ext_dir / "istilldontcareaboutcookies.extension.json"
@@ -605,8 +604,6 @@ def test_hides_cookie_consent_on_static_page(httpserver):
         env_base = setup_test_env(tmpdir)
         env_base["CHROME_HEADLESS"] = "true"
 
-        ext_dir = Path(env_base["CHROME_EXTENSIONS_DIR"])
-
         # ============================================================
         # STEP 1: BASELINE - Run WITHOUT extension, verify cookie consent IS visible
         # ============================================================
@@ -615,11 +612,10 @@ def test_hides_cookie_consent_on_static_page(httpserver):
         print("=" * 60)
 
         env_no_ext = env_base.copy()
-        baseline_install_env, baseline_extensions_dir = chrome_extension_install_env(
+        baseline_install_env, _baseline_extensions_dir = chrome_extension_install_env(
             tmpdir / "baseline-install",
         )
         env_no_ext["ABXPKG_LIB_DIR"] = baseline_install_env["ABXPKG_LIB_DIR"]
-        env_no_ext["CHROME_EXTENSIONS_DIR"] = str(baseline_extensions_dir)
 
         # Launch baseline Chromium in crawls directory
         baseline_crawl_id = "baseline-no-ext"
@@ -696,9 +692,8 @@ def test_hides_cookie_consent_on_static_page(httpserver):
         print("=" * 60)
 
         env_with_ext = env_base.copy()
-        env_with_ext["CHROME_EXTENSIONS_DIR"] = str(ext_dir)
-
-        install_cookie_extension(env_with_ext)
+        loaded = install_cookie_extension(env_with_ext)
+        ext_dir = loaded.loaded_abspath.parent
 
         cache_file = ext_dir / "istilldontcareaboutcookies.extension.json"
         assert cache_file.exists(), "Extension cache not created"

@@ -21,7 +21,6 @@ const {
   getSnapDir,
   getCrawlDir,
   getPersonasDir,
-  getLibDir,
   ensureNodeModuleResolution,
   parseArgs,
   writeFileAtomic,
@@ -69,21 +68,9 @@ function resolveChromeLaunchOptions(options = {}) {
   const activePersona = getEnv("ACTIVE_PERSONA", "Default") || "Default";
   const personaDir = path.join(getPersonasDir(), activePersona);
   return {
-    CHROME_USER_DATA_DIR: getOption(
-      options,
-      "CHROME_USER_DATA_DIR",
-      path.join(personaDir, "chrome_profile")
-    ),
-    CHROME_DOWNLOADS_DIR: getOption(
-      options,
-      "CHROME_DOWNLOADS_DIR",
-      path.join(personaDir, "chrome_downloads")
-    ),
-    CHROME_EXTENSIONS_DIR: getOption(
-      options,
-      "CHROME_EXTENSIONS_DIR",
-      getExtensionsDir()
-    ),
+    CHROME_USER_DATA_DIR: path.join(personaDir, "chrome_profile"),
+    CHROME_DOWNLOADS_DIR: path.join(personaDir, "chrome_downloads"),
+    CHROME_EXTENSIONS_DIR: getExtensionsDir(),
     CHROME_RESOLUTION: getOption(
       options,
       "CHROME_RESOLUTION",
@@ -162,15 +149,23 @@ function getChromeSessionOptionsFromConfig(hookConfig = {}) {
 }
 
 function getExtensionsDir() {
-  return path.resolve(path.join(getLibDir(), "chromewebstore", "extensions"));
+  const configured = getEnv("CHROMEWEBSTORE_EXTENSIONS_DIR");
+  if (!configured) {
+    throw new Error(
+      "CHROMEWEBSTORE_EXTENSIONS_DIR is required; run Chrome hooks through abxpkg/abx-dl/archivebox so provider env is resolved once and passed to the hook"
+    );
+  }
+  return path.resolve(configured);
 }
 
 function getNodeModulesDir() {
-  const configured = getEnv("NODE_MODULES_DIR") || getEnv("NODE_MODULE_DIR");
-  if (configured) return path.resolve(configured);
-  return path.resolve(
-    path.join(getLibDir(), "pnpm", "packages", "chrome", "node_modules")
-  );
+  const configured = getEnv("NODE_MODULES_DIR");
+  if (!configured) {
+    throw new Error(
+      "NODE_MODULES_DIR is required; run Chrome hooks through abxpkg/abx-dl/archivebox so provider env is resolved once and passed to the hook"
+    );
+  }
+  return path.resolve(configured);
 }
 
 function chromiumVersionAtLeast(output, minimum) {
@@ -4506,7 +4501,6 @@ if (require.main === module) {
     console.log("  MACHINE_TYPE              Machine type override");
     console.log("  NODE_MODULES_DIR          Node modules directory");
     console.log("  CHROME_BINARY             Chrome binary path");
-    console.log("  CHROME_EXTENSIONS_DIR     Extensions directory");
     process.exit(1);
   }
 

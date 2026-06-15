@@ -598,6 +598,8 @@ def _hydrate_config_payload(
         env = os.environ if environ is None else environ
         if key in env and Path(str(env[key])).expanduser().exists():
             continue
+        if payload.get(key) and Path(str(payload[key])).expanduser().exists():
+            continue
         loaded_path = _load_required_binary_path(record, payload)
         if loaded_path:
             payload[key] = loaded_path
@@ -608,14 +610,15 @@ def _schema_model(schema_json: str):
     from jambo import SchemaConverter
     from pydantic import ConfigDict
 
-    model = SchemaConverter.build(json.loads(schema_json))
+    schema = json.loads(schema_json)
+    model = SchemaConverter.build(schema)
     model.model_config = ConfigDict(
         validate_assignment=True,
         use_enum_values=True,
         validate_default=True,
     )
     model.model_rebuild(force=True)
-    return model
+    return _patch_open_object_fields(model, _schema_properties(schema))
 
 
 def _open_object_annotation(prop: Mapping[str, Any]) -> type[Any] | None:
@@ -688,7 +691,7 @@ def build_config_model(
     properties: Mapping[str, Any],
 ):
     """Build the typed pydantic config model for JSONSchema properties."""
-    model = _schema_model(
+    return _schema_model(
         json.dumps(
             {
                 "title": title,
@@ -698,7 +701,6 @@ def build_config_model(
             sort_keys=True,
         ),
     )
-    return _patch_open_object_fields(model, properties)
 
 
 def resolve_plugin_configs(

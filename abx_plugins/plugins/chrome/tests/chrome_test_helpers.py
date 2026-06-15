@@ -884,8 +884,7 @@ def get_test_env() -> dict:
     Tries ``base/utils.js`` first for path values, then builds an env dict on
     top of the current process environment. Use this for subprocess calls in
     plugin tests so ``ABXPKG_LIB_DIR``, ``NODE_MODULES_DIR``, ``NODE_PATH``,
-    ``CHROME_EXTENSIONS_DIR``, and related settings match the JS runtime
-    contract.
+    and related settings match the JS runtime contract.
     """
     env = os.environ.copy()
 
@@ -899,7 +898,6 @@ def get_test_env() -> dict:
             env["NODE_PATH"] = str(node_modules_dir)
             env["PNPM_BIN_DIR"] = str(node_modules_dir / ".bin")
             env["NPM_BIN_DIR"] = str(node_modules_dir / ".bin")
-            env["CHROME_EXTENSIONS_DIR"] = get_extensions_dir(env=env)
             return env
         except json.JSONDecodeError:
             pass
@@ -912,7 +910,6 @@ def get_test_env() -> dict:
     env.setdefault("SNAP_DIR", str(Path.cwd()))
     env.setdefault("CRAWL_DIR", str(Path.cwd()))
     env.setdefault("PERSONAS_DIR", str(get_personas_dir()))
-    env["CHROME_EXTENSIONS_DIR"] = get_extensions_dir(env=env)
     return env
 
 
@@ -1133,8 +1130,7 @@ def setup_test_env(tmpdir: Path) -> dict:
     extension tests can exercise the real launch/session lifecycle:
     - crawl state lives under ``<tmpdir>/crawl``
     - snapshot state lives under ``<tmpdir>/snap``
-    - install-scoped ``chromewebstore/extensions`` is resolved by the Chrome
-      config helper
+    - extension install locations come from abxpkg provider load/install state
     - persona-scoped Chrome state is derived by runtime config from
       ``PERSONAS_DIR``/``ACTIVE_PERSONA`` unless explicitly overridden
     - Chrome + pnpm dependencies are installed through hooks, not hand-written
@@ -1192,9 +1188,6 @@ def setup_test_env(tmpdir: Path) -> dict:
         "COOKIES_FILE",
     ):
         env.pop(inherited_key, None)
-    chrome_extensions_dir = Path(get_extensions_dir(env=env))
-    env["CHROME_EXTENSIONS_DIR"] = str(chrome_extensions_dir)
-
     # Create all directories
     node_modules_dir.mkdir(parents=True, exist_ok=True)
     pnpm_bin_dir.mkdir(parents=True, exist_ok=True)
@@ -1203,7 +1196,6 @@ def setup_test_env(tmpdir: Path) -> dict:
     xdg_config_home.mkdir(parents=True, exist_ok=True)
     xdg_cache_home.mkdir(parents=True, exist_ok=True)
     xdg_data_home.mkdir(parents=True, exist_ok=True)
-    chrome_extensions_dir.mkdir(parents=True, exist_ok=True)
     snap_dir.mkdir(parents=True, exist_ok=True)
     crawl_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1575,9 +1567,6 @@ def chrome_session(
             env.pop(inherited_key, None)
         if env_overrides:
             env.update(env_overrides)
-        chrome_extensions_dir = Path(get_extensions_dir(env=env))
-        env["CHROME_EXTENSIONS_DIR"] = str(chrome_extensions_dir)
-        chrome_extensions_dir.mkdir(parents=True, exist_ok=True)
         chrome_timeout = int(env.get("CHROME_TIMEOUT") or "60")
         startup_timeout = max(int(timeout), chrome_timeout + 15)
         env.setdefault("CHROME_DEBUG_PORT_TIMEOUT_MS", str(startup_timeout * 1000))
