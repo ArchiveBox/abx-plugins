@@ -1,0 +1,73 @@
+pyproject.toml
+  s_15f59ac80abb8e::t_50935ff3253d61 87-88
+tests/test_plugin_executables_have_shebang.py
+  s_21c22bdc8ca099::t_347be67242ae3b 94-95,97,119,123-124,129-130
+  s_21c22bdc8ca099::t_087bb25671d8a1 3,33-50,90,118
+  s_cdb7ab28cd51df::t_628ffeac34638e 104-117,120-122,125-128,131,133-137
+skills/abx-plugins/SKILL.md
+  s_15f59ac80abb8e::t_f83b3536d8f9b0 24,51
+  s_15f59ac80abb8e::t_3e7e13744b950f 1-23,25-50,52-59
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  s_cdb7ab28cd51df::t_cb002529e6f7d1 887
+  s_cdb7ab28cd51df::t_dcb9b652cdca2e 1133
+abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py
+  s_cdb7ab28cd51df::t_75f03a2b1d71be 152,610,618,628-633
+abx_plugins/plugins/singlefile/tests/test_singlefile.py
+  s_cdb7ab28cd51df::t_f0d7ff4d987653 318-320
+  s_cdb7ab28cd51df::t_e49e5a870a2e04 74,85,162,172,182,186,243,290,301,312,317,387
+  s_cdb7ab28cd51df::t_f74e7654aea9c9 98
+abx_plugins/plugins/base/utils.py
+  s_cdb7ab28cd51df::t_83a1aaebaf7132 601-602
+  s_cdb7ab28cd51df::t_aaeea4a68542c4 613-614,621,694
+abx_plugins/plugins/ublock/tests/test_ublock.py
+  s_cdb7ab28cd51df::t_d6f43cd8c22d65 465,646-647,656
+AGENTS.md
+  s_15f59ac80abb8e::t_b456c57b155308 20,48
+  s_15f59ac80abb8e::t_417f00307a7210 1-19,21-47,49-70
+abx_plugins/plugins/istilldontcareaboutcookies/tests/test_istilldontcareaboutcookies.py
+  s_cdb7ab28cd51df::t_dbddf991cf539e 227-228,615,695-696
+abx_plugins/plugins/chrome/on_CrawlSetup__89_chrome_kill_zombies.js
+  s_cdb7ab28cd51df::t_10638349883e91 1-6,62
+abx_plugins/plugins/base/utils.js
+  s_cdb7ab28cd51df::t_d649c33bf67e51 404-405,407,410,436-441
+  s_cdb7ab28cd51df::t_8d1c72f9f60244 409
+  s_cdb7ab28cd51df::t_c35fd85da69680 406,408
+  s_cdb7ab28cd51df::t_bf569017940c08 452-453
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_cdb7ab28cd51df::t_36a842bdba0fca 73
+  s_cdb7ab28cd51df::t_b0b866633d28e5 71-72
+  s_cdb7ab28cd51df::t_7378f828c7abf9 154,156-157,167
+  s_cdb7ab28cd51df::t_e2dcb702b046b3 152-153,155,158,162-166,168
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "071f3a7364f35a284346f20610764b0372b73f8c",
+  "prompts": {},
+  "sessions": {
+    "s_15f59ac80abb8e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa8a-3bcf-7290-a54d-15bd828c06a5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_21c22bdc8ca099": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ec7c1-85db-7431-ad60-b883d19e23f3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_cdb7ab28cd51df": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa76-c893-7193-bd47-d91b6111304f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
