@@ -103,7 +103,8 @@
         "type": "string"
       },
       "default": [
-        "--browser-headless"
+        "--browser-headless",
+        "--load-deferred-images-dispatch-scroll-event"
       ],
       "x-aliases": [
         "SINGLEFILE_DEFAULT_ARGS"
