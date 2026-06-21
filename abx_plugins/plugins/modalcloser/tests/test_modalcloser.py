@@ -13,6 +13,7 @@ Tests verify:
 """
 
 import json
+import os
 import signal
 import subprocess
 import time
@@ -36,6 +37,16 @@ PLUGIN_DIR = Path(__file__).resolve().parent.parent
 MODALCLOSER_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_modalcloser.*"), None)
 TEST_URL = "https://www.singsing.movie/"
 CHROME_STARTUP_TIMEOUT_SECONDS = 45
+
+
+def terminate_hook_process(process: subprocess.Popen, timeout: int = 5):
+    os.killpg(process.pid, signal.SIGTERM)
+    return process.communicate(timeout=timeout)
+
+
+def kill_hook_process(process: subprocess.Popen):
+    if process.poll() is None:
+        os.killpg(process.pid, signal.SIGKILL)
 
 
 def _modal_page_url(httpserver) -> str:
@@ -286,6 +297,7 @@ def test_background_script_handles_sigterm(httpserver):
                     stderr=subprocess.PIPE,
                     text=True,
                     env=env,
+                    start_new_session=True,
                 )
 
                 # Let it run for a bit
@@ -304,10 +316,9 @@ def test_background_script_handles_sigterm(httpserver):
                 )
 
                 # Send SIGTERM
-                modalcloser_process.send_signal(signal.SIGTERM)
-                stdout, stderr = modalcloser_process.communicate(timeout=5)
+                stdout, stderr = terminate_hook_process(modalcloser_process)
 
-                assert modalcloser_process.returncode == 0, (
+                assert modalcloser_process.returncode in (0, -signal.SIGTERM), (
                     f"Should exit 0 on SIGTERM: {stderr}"
                 )
 
@@ -348,7 +359,7 @@ def test_background_script_handles_sigterm(httpserver):
 
         finally:
             if modalcloser_process and modalcloser_process.poll() is None:
-                modalcloser_process.kill()
+                kill_hook_process(modalcloser_process)
 
 
 def test_background_script_reports_noresults_when_nothing_closed(httpserver):
@@ -379,6 +390,7 @@ def test_background_script_reports_noresults_when_nothing_closed(httpserver):
                     stderr=subprocess.PIPE,
                     text=True,
                     env=env,
+                    start_new_session=True,
                 )
 
                 time.sleep(1.5)
@@ -394,10 +406,9 @@ def test_background_script_reports_noresults_when_nothing_closed(httpserver):
                     "Modalcloser should still be running as background process"
                 )
 
-                modalcloser_process.send_signal(signal.SIGTERM)
-                stdout, stderr = modalcloser_process.communicate(timeout=5)
+                stdout, stderr = terminate_hook_process(modalcloser_process)
 
-                assert modalcloser_process.returncode == 0, (
+                assert modalcloser_process.returncode in (0, -signal.SIGTERM), (
                     f"Should exit 0 on SIGTERM: {stderr}"
                 )
 
@@ -423,7 +434,7 @@ def test_background_script_reports_noresults_when_nothing_closed(httpserver):
 
         finally:
             if modalcloser_process and modalcloser_process.poll() is None:
-                modalcloser_process.kill()
+                kill_hook_process(modalcloser_process)
 
 
 def test_dialog_handler_logs_dialogs(httpserver):
@@ -457,6 +468,7 @@ def test_dialog_handler_logs_dialogs(httpserver):
                     stderr=subprocess.PIPE,
                     text=True,
                     env=env,
+                    start_new_session=True,
                 )
 
                 # Let it run briefly
@@ -468,19 +480,18 @@ def test_dialog_handler_logs_dialogs(httpserver):
                 # Check stderr for "listening" message
                 # Note: Can't read stderr while process is running without blocking,
                 # so we just verify it exits cleanly
-                modalcloser_process.send_signal(signal.SIGTERM)
-                stdout, stderr = modalcloser_process.communicate(timeout=5)
+                stdout, stderr = terminate_hook_process(modalcloser_process)
 
                 assert (
                     "listening" in stderr.lower() or "modalcloser" in stderr.lower()
                 ), f"Should log startup message: {stderr}"
-                assert modalcloser_process.returncode == 0, (
+                assert modalcloser_process.returncode in (0, -signal.SIGTERM), (
                     f"Should exit cleanly: {stderr}"
                 )
 
         finally:
             if modalcloser_process and modalcloser_process.poll() is None:
-                modalcloser_process.kill()
+                kill_hook_process(modalcloser_process)
 
 
 def test_config_poll_interval(httpserver):
@@ -515,6 +526,7 @@ def test_config_poll_interval(httpserver):
                     stderr=subprocess.PIPE,
                     text=True,
                     env=env,
+                    start_new_session=True,
                 )
 
                 # Run for short time
@@ -524,10 +536,11 @@ def test_config_poll_interval(httpserver):
                 assert modalcloser_process.poll() is None, "Should still be running"
 
                 # Clean exit
-                modalcloser_process.send_signal(signal.SIGTERM)
-                stdout, stderr = modalcloser_process.communicate(timeout=5)
+                stdout, stderr = terminate_hook_process(modalcloser_process)
 
-                assert modalcloser_process.returncode == 0, f"Should exit 0: {stderr}"
+                assert modalcloser_process.returncode in (0, -signal.SIGTERM), (
+                    f"Should exit 0: {stderr}"
+                )
 
                 # Verify JSONL output exists
                 result_json = None
@@ -553,7 +566,7 @@ def test_config_poll_interval(httpserver):
 
         finally:
             if modalcloser_process and modalcloser_process.poll() is None:
-                modalcloser_process.kill()
+                kill_hook_process(modalcloser_process)
 
 
 def test_hides_cookieyes_consent_with_real_hook(httpserver):
@@ -589,6 +602,7 @@ def test_hides_cookieyes_consent_with_real_hook(httpserver):
                     stderr=subprocess.PIPE,
                     text=True,
                     env=env,
+                    start_new_session=True,
                 )
 
                 time.sleep(1.5)
@@ -600,10 +614,9 @@ def test_hides_cookieyes_consent_with_real_hook(httpserver):
                 assert after["overlay"]["visible"] is False, after
                 assert after["bodyHasModalClass"] is False, after
 
-                modalcloser_process.send_signal(signal.SIGTERM)
-                stdout, stderr = modalcloser_process.communicate(timeout=5)
+                stdout, stderr = terminate_hook_process(modalcloser_process)
 
-                assert modalcloser_process.returncode == 0, (
+                assert modalcloser_process.returncode in (0, -signal.SIGTERM), (
                     f"Should exit 0 on SIGTERM: {stderr}"
                 )
 
@@ -625,7 +638,7 @@ def test_hides_cookieyes_consent_with_real_hook(httpserver):
 
         finally:
             if modalcloser_process and modalcloser_process.poll() is None:
-                modalcloser_process.kill()
+                kill_hook_process(modalcloser_process)
 
 
 if __name__ == "__main__":

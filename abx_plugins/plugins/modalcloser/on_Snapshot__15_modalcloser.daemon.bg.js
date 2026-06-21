@@ -375,11 +375,16 @@ async function main() {
   let dialogsClosed = 0;
   let cssModalsClosed = 0;
   let running = true;
+  let exiting = false;
   const connectTimeoutMs =
     getEnvInt("CHROME_TIMEOUT", getEnvInt("TIMEOUT", 15)) * 1000;
 
   // Handle SIGTERM/SIGINT for clean exit
   __abxInstallShutdownHandler(() => {
+    if (exiting) {
+      return;
+    }
+    exiting = true;
     running = false;
     const total = dialogsClosed + cssModalsClosed;
     console.error(
@@ -392,7 +397,7 @@ async function main() {
     emitArchiveResultRecord(status, outputStr);
 
     if (browser) browser.disconnect();
-    process.exit(0);
+    setImmediate(() => process.exit(0));
   });
 
   try {

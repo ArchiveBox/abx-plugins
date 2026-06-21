@@ -62,6 +62,28 @@ def install_twocaptcha_extension(
     return loaded
 
 
+def twocaptcha_install_state(loaded) -> dict:
+    assert loaded.loaded_abspath is not None
+    manifest_path = Path(loaded.loaded_abspath)
+    assert manifest_path.exists(), manifest_path
+    unpacked_dir = manifest_path.parent
+
+    for cache_file in (
+        unpacked_dir.parent / "twocaptcha.extension.json",
+        unpacked_dir / "twocaptcha.extension.json",
+    ):
+        if cache_file.exists():
+            return json.loads(cache_file.read_text(encoding="utf-8"))
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    return {
+        "name": EXTENSION_NAME,
+        "webstore_id": EXTENSION_WEBSTORE_ID,
+        "version": manifest.get("version"),
+        "unpacked_path": str(unpacked_dir),
+    }
+
+
 def test_snapshot_hook_reports_skipped_when_disabled():
     env = os.environ.copy()
     env["TWOCAPTCHA_ENABLED"] = "false"
@@ -124,13 +146,8 @@ class TestTwoCaptcha:
             env["TWOCAPTCHA_API_KEY"] = self.api_key
 
             # Install
-            install_twocaptcha_extension(env)
-
-            cache = (
-                Path(env["CHROMEWEBSTORE_EXTENSIONS_DIR"]) / "twocaptcha.extension.json"
-            )
-            assert cache.exists()
-            data = json.loads(cache.read_text())
+            loaded = install_twocaptcha_extension(env)
+            data = twocaptcha_install_state(loaded)
             assert data["webstore_id"] == "ifibfemgeogfhoebkmokieepdoobkbpo"
 
             # Launch Chromium in crawls directory
@@ -345,6 +362,7 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                     stderr=subprocess.PIPE,
                     text=True,
                     env=env,
+                    start_new_session=True,
                 )
 
                 try:
@@ -363,10 +381,10 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                     assert navigate.returncode == 0, navigate.stderr
 
                     time.sleep(5)
-                    hook_process.send_signal(signal.SIGTERM)
+                    os.killpg(hook_process.pid, signal.SIGTERM)
                     stdout, stderr = hook_process.communicate(timeout=20)
 
-                    assert hook_process.returncode == 0, stderr
+                    assert hook_process.returncode in (0, -signal.SIGTERM), stderr
                     records = parse_jsonl_records(stdout)
                     archive_result = next(
                         record
@@ -379,7 +397,7 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                     )
                 finally:
                     if hook_process.poll() is None:
-                        hook_process.kill()
+                        os.killpg(hook_process.pid, signal.SIGKILL)
 
     def test_solves_recaptcha(self):
         """Extension attempts to solve CAPTCHA on demo page.

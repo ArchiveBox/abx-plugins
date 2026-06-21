@@ -166,9 +166,14 @@ async function main() {
 
   let browser = null;
   let running = true;
+  let exiting = false;
   let solvedCaptchas = 0;
 
   const emitAndExit = () => {
+    if (exiting) {
+      return;
+    }
+    exiting = true;
     const status = solvedCaptchas > 0 ? "succeeded" : "noresults";
     emitArchiveResultRecord(status, formatCaptchaCount(solvedCaptchas));
     if (browser) {
@@ -176,7 +181,7 @@ async function main() {
         browser.disconnect();
       } catch (error) {}
     }
-    process.exit(0);
+    setImmediate(() => process.exit(0));
   };
 
   __abxInstallShutdownHandler(() => {
