@@ -75,7 +75,7 @@ def test_crawl_hook_emits_defuddle_binary_request_record():
         for record in get_hydrated_required_binaries(PLUGIN_DIR)
         if record.get("name") == "defuddle"
     )
-    assert binary.get("binproviders") == "env,pnpm"
+    assert binary.get("binproviders") == "pnpm,env"
     assert binary.get("overrides", {}).get("pnpm", {}).get("install_args") == [
         "defuddle",
     ]

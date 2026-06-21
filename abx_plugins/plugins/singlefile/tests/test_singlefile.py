@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 
 from abx_plugins.plugins.base.test_utils import (
+    get_hydrated_required_binaries,
     get_hook_script,
     get_plugin_dir,
     install_required_binary_from_config,
@@ -149,6 +150,15 @@ process.stdout.write(JSON.stringify({{ freshBudget, elapsedBudget, minimumBudget
     assert payload["freshBudget"] == 50000
     assert payload["elapsedBudget"] == 35000
     assert payload["minimumBudget"] == 3000
+
+
+def test_singlefile_cli_binary_prefers_managed_pnpm_provider():
+    binary = next(
+        record
+        for record in get_hydrated_required_binaries(PLUGIN_DIR)
+        if record.get("name") == "single-file"
+    )
+    assert binary.get("binproviders") == "pnpm,env"
 
 
 def test_verify_deps_with_abxpkg():

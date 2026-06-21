@@ -1130,6 +1130,9 @@ def install_chromium_with_abxpkg(env: dict, timeout: int = 300) -> str:
             return existing
 
         chrome_name = env.get("CHROME_BINARY") or "chromium"
+        if chrome_name != "chromium":
+            env.pop("CHROME_BINARY", None)
+            chrome_name = "chromium"
         chrome_record = _required_binary_record(CHROME_PLUGIN_DIR, chrome_name, env)
         loaded_chrome = load_required_binary(
             chrome_record,

@@ -11,6 +11,7 @@ Tests verify:
 """
 
 import io
+import importlib.util
 import os
 import subprocess
 import tempfile
@@ -164,6 +165,44 @@ def test_handles_non_video_url(non_video_test_url):
             f"Non-media URL should report noresults: {result_json}"
         )
         assert result_json["output_str"] == "No media found", result_json
+
+
+def test_transient_network_reset_reports_noresults(monkeypatch):
+    spec = importlib.util.spec_from_file_location("ytdlp_hook", YTDLP_HOOK)
+    assert spec and spec.loader
+    ytdlp_hook = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ytdlp_hook)
+
+    class FakeConfig:
+        YTDLP_TIMEOUT = 5
+        YTDLP_CHECK_SSL_VALIDITY = True
+        YTDLP_COOKIES_FILE = ""
+        YTDLP_MAX_SIZE = "750m"
+        NODE_BINARY = "node"
+        FFMPEG_BINARY = ""
+        YTDLP_ARGS = []
+        YTDLP_ARGS_EXTRA = []
+
+    class FakeStdout:
+        def __iter__(self):
+            return iter(["ERROR: [Errno 54] Connection reset by peer\n"])
+
+    class FakeProcess:
+        stdout = FakeStdout()
+        returncode = 1
+
+        def wait(self, timeout):
+            return 1
+
+    monkeypatch.setattr(ytdlp_hook, "load_config", lambda: FakeConfig())
+    monkeypatch.setattr(ytdlp_hook.subprocess, "Popen", lambda *args, **kwargs: FakeProcess())
+    monkeypatch.setattr(ytdlp_hook, "downloaded_files", lambda output_dir: [])
+
+    success, output, error = ytdlp_hook.save_ytdlp("https://example.com/", "yt-dlp")
+
+    assert success is True
+    assert output == "No media found"
+    assert error == ""
 
 
 def test_config_ytdlp_enabled_false_skips():

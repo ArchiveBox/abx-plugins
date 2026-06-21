@@ -13,14 +13,6 @@ const {
   loadConfig,
   parseArgs,
 } = require("../base/utils.js");
-const chromeUtils = require("../chrome/chrome_utils.js");
-
-// Match the rest of the JS hook lifecycle: ArchiveBox resolves provider-owned
-// node_modules once and passes NODE_MODULES_DIR to hook subprocesses. Helper
-// scripts launched from Python must honor the same lookup path or they will
-// fail to resolve shared dependencies like puppeteer-core even when the parent
-// hook already has them available.
-ensureNodeModuleResolution(module);
 
 const EXTENSION = {
   webstore_id: "mpiodijhokgodhhofbcjdecpffjipkle",
@@ -30,13 +22,12 @@ const EXTENSION = {
 const SNAPSHOT_OUTPUT_DIR = process.cwd();
 const CHROME_SESSION_DIR = path.resolve(SNAPSHOT_OUTPUT_DIR, "..", "chrome");
 const hookConfig = loadConfig();
-const chromeLaunchOptions = chromeUtils.resolveChromeLaunchOptions(hookConfig);
+let chromeUtils = null;
 const CRAWL_DIR = hookConfig.CRAWL_DIR
   ? path.resolve(String(hookConfig.CRAWL_DIR).trim())
   : null;
-const DOWNLOADS_DIR = chromeLaunchOptions.CHROME_DOWNLOADS_DIR;
 const CHROMEWEBSTORE_EXTENSIONS_DIR =
-  chromeLaunchOptions.CHROMEWEBSTORE_EXTENSIONS_DIR;
+  hookConfig.CHROMEWEBSTORE_EXTENSIONS_DIR || null;
 
 const DOWNLOAD_POLL_INTERVAL_MS = 3000;
 const DOWNLOAD_WAIT_RESERVE_MS = 10000;
@@ -44,6 +35,32 @@ const SERVICE_WORKER_WAKE_PATH = "/src/ui/pages/offscreen-document.html";
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForSingleFileExtension(
+  crawlChromeDir,
+  initialExtensions,
+  timeoutMs
+) {
+  const deadline = Date.now() + Math.max(500, timeoutMs);
+  while (Date.now() < deadline) {
+    const extensionSources = [
+      initialExtensions,
+      chromeUtils.readBrowserMetadata(CHROME_SESSION_DIR)?.extensions,
+      crawlChromeDir
+        ? chromeUtils.readBrowserMetadata(crawlChromeDir)?.extensions
+        : null,
+    ].filter(Array.isArray);
+    for (const source of extensionSources) {
+      const entry = chromeUtils.findExtensionMetadataByName(
+        source,
+        EXTENSION.name
+      );
+      if (entry?.id) return entry;
+    }
+    await wait(100);
+  }
+  return null;
 }
 
 async function moveAcrossMounts(src, dest) {
@@ -279,17 +296,22 @@ async function main() {
   }
 
   console.error(`[singlefile] helper start url=${url}`);
-  console.error(`[singlefile] downloads_dir=${DOWNLOADS_DIR}`);
-  if (CHROMEWEBSTORE_EXTENSIONS_DIR) {
-    console.error(
-      `[singlefile] extensions_dir=${CHROMEWEBSTORE_EXTENSIONS_DIR}`
-    );
-  }
-
   try {
     console.error("[singlefile] loading dependencies...");
     if (process.cwd() !== SNAPSHOT_OUTPUT_DIR) {
       process.chdir(SNAPSHOT_OUTPUT_DIR);
+    }
+    // Match the rest of the JS hook lifecycle: ArchiveBox resolves provider-owned
+    // node_modules once and passes NODE_MODULES_DIR to hook subprocesses.
+    ensureNodeModuleResolution(module);
+    chromeUtils = require("../chrome/chrome_utils.js");
+    const chromeLaunchOptions = chromeUtils.resolveChromeLaunchOptions(hookConfig);
+    const downloadsDir = chromeLaunchOptions.CHROME_DOWNLOADS_DIR;
+    console.error(`[singlefile] downloads_dir=${downloadsDir}`);
+    if (chromeLaunchOptions.CHROMEWEBSTORE_EXTENSIONS_DIR) {
+      console.error(
+        `[singlefile] extensions_dir=${chromeLaunchOptions.CHROMEWEBSTORE_EXTENSIONS_DIR}`
+      );
     }
     console.error("[singlefile] dependencies loaded");
 
@@ -341,16 +363,10 @@ async function main() {
       // Resolve extension id from snapshot chrome session metadata and connect to target by id.
       console.error("[singlefile] waiting for extensions metadata...");
       const crawlChromeDir = CRAWL_DIR ? path.join(CRAWL_DIR, "chrome") : null;
-      const sessionExtensions =
-        extensions ||
-        chromeUtils.readBrowserMetadata(CHROME_SESSION_DIR)?.extensions ||
-        (crawlChromeDir
-          ? chromeUtils.readBrowserMetadata(crawlChromeDir)?.extensions
-          : null) ||
-        [];
-      const sessionEntry = chromeUtils.findExtensionMetadataByName(
-        sessionExtensions,
-        EXTENSION.name
+      const sessionEntry = await waitForSingleFileExtension(
+        crawlChromeDir,
+        extensions,
+        Math.min(totalTimeoutMs, Math.max(30000, remainingTimeoutMs(10000, 5000)))
       );
       if (!sessionEntry?.id) {
         console.error(
@@ -392,12 +408,12 @@ async function main() {
       console.error("[singlefile] setting download dir...");
       await chromeUtils.setBrowserDownloadBehavior({
         page,
-        downloadPath: DOWNLOADS_DIR,
+        downloadPath: downloadsDir,
       });
 
       console.error("[singlefile] triggering save via extension...");
       const output = await saveSinglefileWithExtension(page, extension, {
-        downloadsDir: DOWNLOADS_DIR,
+        downloadsDir,
         outputPath,
       });
       if (output && fs.existsSync(output)) {

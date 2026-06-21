@@ -262,6 +262,19 @@ def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
                 return True, "No media found", ""
             if process.returncode == 0:
                 return True, "No media found", ""
+            transient_network_errors = (
+                "Connection reset by peer",
+                "Connection aborted",
+                "Remote end closed connection",
+                "RemoteDisconnected",
+                "Read timed out",
+                "Connection timed out",
+                "Temporary failure in name resolution",
+                "Name or service not known",
+                "Network is unreachable",
+            )
+            if any(message in stderr for message in transient_network_errors):
+                return True, "No media found", ""
 
             # These ARE errors - something went wrong
             if "HTTP Error 404" in stderr:

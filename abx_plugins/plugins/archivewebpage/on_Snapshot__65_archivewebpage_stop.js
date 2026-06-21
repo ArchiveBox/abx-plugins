@@ -365,7 +365,7 @@ async function main() {
   const { id: extensionId } = await waitForAwpExtension(
     chromeSessionDir,
     crawlChromeDir,
-    Math.max(2000, budgetMs * 2)
+    Math.min(overallTimeoutMs, Math.max(30000, budgetMs * 10))
   );
   if (!extensionId) {
     emitArchiveResultRecord(
