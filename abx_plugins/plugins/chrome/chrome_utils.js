@@ -1115,7 +1115,12 @@ async function launchChromium(options = {}) {
   }
 
   const { width, height } = parseResolution(CHROME_RESOLUTION);
-  const chromeUserAgent = CHROME_USER_AGENT;
+  const chromeUserAgent = CHROME_USER_AGENT
+    ? replaceChromeUserAgentVersion(
+        CHROME_USER_AGENT,
+        execFileSync(binary, ["--version"], { encoding: "utf8" })
+      )
+    : "";
 
   // Create output directory
   if (!fs.existsSync(outputDir)) {
