@@ -62,6 +62,6 @@ async function main() {
 main()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error(`Fatal error: ${error.message}`);
-    process.exit(1);
+    console.error(`Warning: chrome zombie cleanup failed: ${error.message}`);
+    process.exit(0);
   });
