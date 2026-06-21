@@ -1,6 +1,6 @@
 #!/usr/bin/env -S abxpkg run --script --deps-from=../claudecode/config.json:required_binaries,./config.json:required_binaries python3
 # /// script
-# requires-python = ">=3.12"
+# requires-python = ">=3.12,<3.14"
 # ///
 """
 Extract or transform snapshot content using Claude Code AI agent.

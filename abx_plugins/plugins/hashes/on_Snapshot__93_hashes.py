@@ -1,6 +1,6 @@
 #!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries python3
 # /// script
-# requires-python = ">=3.12"
+# requires-python = ">=3.12,<3.14"
 # ///
 #
 # Generate a cryptographic Merkle hash tree of all files in a snapshot directory.

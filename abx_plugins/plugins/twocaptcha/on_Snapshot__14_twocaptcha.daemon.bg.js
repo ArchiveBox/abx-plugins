@@ -198,7 +198,18 @@ async function main() {
     browser = connection.browser;
     const page = connection.page;
 
-    await waitForNavigationComplete(CHROME_SESSION_DIR, timeoutMs, 0);
+    try {
+      await waitForNavigationComplete(CHROME_SESSION_DIR, timeoutMs, 0);
+    } catch (error) {
+      if (
+        String(error.message || "").includes("Timeout waiting for navigation")
+      ) {
+        running = false;
+        emitAndExit();
+        return;
+      }
+      throw error;
+    }
     emitProgress("0 captchas detected");
 
     while (running) {

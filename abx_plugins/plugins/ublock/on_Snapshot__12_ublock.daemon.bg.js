@@ -227,7 +227,18 @@ async function main() {
       }
     });
 
-    await waitForNavigationComplete(CHROME_SESSION_DIR, timeoutMs, 0);
+    try {
+      await waitForNavigationComplete(CHROME_SESSION_DIR, timeoutMs, 0);
+    } catch (error) {
+      if (
+        String(error.message || "").includes("Timeout waiting for navigation")
+      ) {
+        running = false;
+        emitAndExit();
+        return;
+      }
+      throw error;
+    }
 
     while (running) {
       try {
