@@ -83,8 +83,15 @@ def ensure_singlefile_extension_installed() -> dict[str, Path]:
     )
 
     extensions_dir = loaded.loaded_abspath.parent
-    cache_file = extensions_dir / "singlefile.extension.json"
-    assert cache_file.exists(), f"Extension cache file not created: {cache_file}"
+    cache_candidates = (
+        extensions_dir.parent / "singlefile.extension.json",
+        extensions_dir / "singlefile.extension.json",
+    )
+    cache_file = next((path for path in cache_candidates if path.exists()), None)
+    assert cache_file is not None, (
+        "Extension cache file not created in any expected location: "
+        + ", ".join(str(path) for path in cache_candidates)
+    )
 
     payload = json.loads(cache_file.read_text())
     unpacked_path = Path(payload.get("unpacked_path", ""))
