@@ -149,6 +149,7 @@ async function main() {
 
   let browser = null;
   let running = true;
+  let exiting = false;
   let hiddenPopups = 0;
   let lastProgressLine = "";
 
@@ -160,6 +161,10 @@ async function main() {
   }
 
   const emitAndExit = () => {
+    if (exiting) {
+      return;
+    }
+    exiting = true;
     const status = hiddenPopups > 0 ? "succeeded" : "noresults";
     emitArchiveResultRecord(status, formatPopupCount(hiddenPopups));
     if (browser) {
@@ -167,7 +172,7 @@ async function main() {
         browser.disconnect();
       } catch (error) {}
     }
-    process.exit(0);
+    setImmediate(() => process.exit(0));
   };
 
   __abxInstallShutdownHandler(() => {

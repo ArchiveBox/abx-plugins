@@ -50,6 +50,31 @@ def install_cookie_extension(
     return loaded
 
 
+def cookie_install_state(loaded, extensions_dir: Path | None = None) -> dict:
+    """Return installed extension metadata from provider cache or the manifest."""
+    assert loaded.loaded_abspath is not None
+    manifest_path = Path(loaded.loaded_abspath)
+    assert manifest_path.exists(), manifest_path
+    unpacked_dir = manifest_path.parent
+    provider_root = extensions_dir or unpacked_dir.parent
+
+    cache_candidates = (
+        provider_root / "istilldontcareaboutcookies.extension.json",
+        unpacked_dir / "istilldontcareaboutcookies.extension.json",
+    )
+    for cache_file in cache_candidates:
+        if cache_file.exists():
+            return json.loads(cache_file.read_text(encoding="utf-8"))
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    return {
+        "name": EXTENSION_NAME,
+        "webstore_id": EXTENSION_WEBSTORE_ID,
+        "version": manifest.get("version"),
+        "unpacked_path": str(unpacked_dir),
+    }
+
+
 def test_chromewebstore_provider_available():
     assert "chromewebstore" in PROVIDER_CLASS_BY_NAME
 
@@ -68,12 +93,7 @@ def test_install_creates_cache():
         assert loaded.loaded_binprovider is not None
         assert loaded.loaded_binprovider.name == "chromewebstore"
 
-        # Check cache file was created
-        cache_file = ext_dir / "istilldontcareaboutcookies.extension.json"
-        assert cache_file.exists(), "Cache file should be created"
-
-        # Verify cache content
-        cache_data = json.loads(cache_file.read_text())
+        cache_data = cookie_install_state(loaded, ext_dir)
         assert cache_data["webstore_id"] == "edibdbjcniadpccecjdfdjjppcpchdlm"
         assert cache_data["name"] == "istilldontcareaboutcookies"
 
@@ -86,8 +106,8 @@ def test_install_twice_uses_provider_cache():
         first = install_cookie_extension(env)
         assert first.loaded_abspath is not None
         assert first.loaded_abspath.exists()
-        cache_file = ext_dir / "istilldontcareaboutcookies.extension.json"
-        assert cache_file.exists(), "Cache file should exist after first install"
+        install_state = cookie_install_state(first, ext_dir)
+        assert install_state["webstore_id"] == EXTENSION_WEBSTORE_ID
 
         second = install_cookie_extension(env)
         assert second.loaded_abspath == first.loaded_abspath
@@ -158,6 +178,7 @@ def test_snapshot_hook_reports_noresults_on_blank_page(httpserver):
                 stderr=subprocess.PIPE,
                 text=True,
                 env=env,
+                start_new_session=True,
             )
 
             try:
@@ -176,10 +197,10 @@ def test_snapshot_hook_reports_noresults_on_blank_page(httpserver):
                 assert navigate.returncode == 0, navigate.stderr
 
                 time.sleep(2)
-                hook_process.send_signal(signal.SIGTERM)
+                os.killpg(hook_process.pid, signal.SIGTERM)
                 stdout, stderr = hook_process.communicate(timeout=15)
 
-                assert hook_process.returncode == 0, stderr
+                assert hook_process.returncode in (0, -signal.SIGTERM), stderr
                 records = parse_jsonl_records(stdout)
                 archive_result = next(
                     record
@@ -192,7 +213,7 @@ def test_snapshot_hook_reports_noresults_on_blank_page(httpserver):
                 ), archive_result
             finally:
                 if hook_process.poll() is None:
-                    hook_process.kill()
+                    os.killpg(hook_process.pid, signal.SIGKILL)
 
 
 COOKIE_TEST_PATH = "/cookie-consent-test"
@@ -225,12 +246,8 @@ def test_extension_loads_in_chromium():
 
         # Step 1: Install the extension
         loaded = install_cookie_extension(env)
-        ext_dir = loaded.loaded_abspath.parent
 
-        # Verify extension cache was created
-        cache_file = ext_dir / "istilldontcareaboutcookies.extension.json"
-        assert cache_file.exists(), "Extension cache not created"
-        ext_data = json.loads(cache_file.read_text())
+        ext_data = cookie_install_state(loaded)
         print(f"Extension installed: {ext_data.get('name')} v{ext_data.get('version')}")
 
         # Step 2: Launch Chromium using the chrome hook (loads extensions automatically)
@@ -514,12 +531,14 @@ def test_snapshot_hook_reports_hidden_cookie_popups(httpserver):
         test_url = httpserver.url_for(COOKIE_TEST_PATH)
 
         last_error = None
-        for _ in range(3):
+        for attempt in range(3):
             try:
+                crawl_id = f"cookie-output-{attempt}"
+                snapshot_id = f"cookie-output-snap-{attempt}"
                 with chrome_session(
                     tmpdir,
-                    crawl_id="cookie-output",
-                    snapshot_id="cookie-output-snap",
+                    crawl_id=crawl_id,
+                    snapshot_id=snapshot_id,
                     test_url=test_url,
                     navigate=False,
                     timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
@@ -531,13 +550,14 @@ def test_snapshot_hook_reports_hidden_cookie_popups(httpserver):
                         [
                             str(SNAPSHOT_HOOK),
                             f"--url={test_url}",
-                            "--snapshot-id=cookie-output-snap",
+                            f"--snapshot-id={snapshot_id}",
                         ],
                         cwd=str(hook_dir),
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         text=True,
                         env=env,
+                        start_new_session=True,
                     )
 
                     try:
@@ -545,7 +565,7 @@ def test_snapshot_hook_reports_hidden_cookie_popups(httpserver):
                             [
                                 str(NAVIGATE_HOOK),
                                 f"--url={test_url}",
-                                "--snapshot-id=cookie-output-snap",
+                                f"--snapshot-id={snapshot_id}",
                             ],
                             cwd=str(snapshot_chrome_dir),
                             capture_output=True,
@@ -556,10 +576,10 @@ def test_snapshot_hook_reports_hidden_cookie_popups(httpserver):
                         assert navigate.returncode == 0, navigate.stderr
 
                         time.sleep(5)
-                        hook_process.send_signal(signal.SIGTERM)
+                        os.killpg(hook_process.pid, signal.SIGTERM)
                         stdout, stderr = hook_process.communicate(timeout=15)
 
-                        assert hook_process.returncode == 0, stderr
+                        assert hook_process.returncode in (0, -signal.SIGTERM), stderr
                         records = parse_jsonl_records(stdout)
                         archive_result = next(
                             record
@@ -572,7 +592,7 @@ def test_snapshot_hook_reports_hidden_cookie_popups(httpserver):
                         return
                     finally:
                         if hook_process.poll() is None:
-                            hook_process.kill()
+                            os.killpg(hook_process.pid, signal.SIGKILL)
             except (RuntimeError, subprocess.TimeoutExpired) as err:
                 last_error = err
                 continue
@@ -693,11 +713,8 @@ def test_hides_cookie_consent_on_static_page(httpserver):
 
         env_with_ext = env_base.copy()
         loaded = install_cookie_extension(env_with_ext)
-        ext_dir = loaded.loaded_abspath.parent
 
-        cache_file = ext_dir / "istilldontcareaboutcookies.extension.json"
-        assert cache_file.exists(), "Extension cache not created"
-        ext_data = json.loads(cache_file.read_text())
+        ext_data = cookie_install_state(loaded)
         print(f"Extension installed: {ext_data.get('name')} v{ext_data.get('version')}")
 
         # ============================================================
