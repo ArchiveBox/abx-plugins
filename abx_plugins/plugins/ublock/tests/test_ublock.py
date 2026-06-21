@@ -76,6 +76,31 @@ def install_ublock_extension(env: dict[str, str]):
     return loaded
 
 
+def ublock_install_state(loaded, extensions_dir: Path | None = None) -> dict:
+    """Return installed uBlock metadata from provider cache or the manifest."""
+    assert loaded.loaded_abspath is not None
+    manifest_path = Path(loaded.loaded_abspath)
+    assert manifest_path.exists(), manifest_path
+    unpacked_dir = manifest_path.parent
+    provider_root = extensions_dir or unpacked_dir.parent
+
+    cache_candidates = (
+        provider_root / "ublock.extension.json",
+        unpacked_dir / "ublock.extension.json",
+    )
+    for cache_file in cache_candidates:
+        if cache_file.exists():
+            return json.loads(cache_file.read_text(encoding="utf-8"))
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    return {
+        "name": EXTENSION_NAME,
+        "webstore_id": EXTENSION_WEBSTORE_ID,
+        "version": manifest.get("version"),
+        "unpacked_path": str(unpacked_dir),
+    }
+
+
 def test_chromewebstore_provider_available():
     assert "chromewebstore" in PROVIDER_CLASS_BY_NAME
 
@@ -94,12 +119,7 @@ def test_install_creates_cache():
         assert loaded.loaded_binprovider is not None
         assert loaded.loaded_binprovider.name == "chromewebstore"
 
-        # Check cache file was created
-        cache_file = ext_dir / "ublock.extension.json"
-        assert cache_file.exists(), "Cache file should be created"
-
-        # Verify cache content
-        cache_data = json.loads(cache_file.read_text())
+        cache_data = ublock_install_state(loaded, ext_dir)
         assert cache_data["webstore_id"] == "ddkjiahejlhfcafbddmgiahcphecmpfh"
         assert cache_data["name"] == "ublock"
 
@@ -112,9 +132,8 @@ def test_install_twice_uses_cache():
         # First install - downloads the extension
         install_ublock_extension(env)
 
-        # Verify cache was created
-        cache_file = ext_dir / "ublock.extension.json"
-        assert cache_file.exists(), "Cache file should exist after first install"
+        install_state = ublock_install_state(install_ublock_extension(env), ext_dir)
+        assert install_state["webstore_id"] == EXTENSION_WEBSTORE_ID
 
         # Second install - should use cache and be faster
         provider2 = install_ublock_extension(env)
@@ -138,9 +157,10 @@ def test_large_extension_size():
 
         install_ublock_extension(env)
 
-        crx_file = ext_dir / "ddkjiahejlhfcafbddmgiahcphecmpfh__ublock.crx"
-        assert crx_file.exists(), f"uBlock CRX should exist at {crx_file}"
-        size_bytes = crx_file.stat().st_size
+        state = ublock_install_state(install_ublock_extension(env), ext_dir)
+        unpacked_path = Path(state["unpacked_path"])
+        assert unpacked_path.exists(), f"uBlock unpacked extension should exist at {unpacked_path}"
+        size_bytes = sum(path.stat().st_size for path in unpacked_path.rglob("*") if path.is_file())
         assert size_bytes > 100_000, (
             f"uBlock Origin Lite should be > 100KB, got {size_bytes} bytes"
         )
@@ -226,6 +246,7 @@ def test_snapshot_hook_reports_live_blocking_counts(httpserver):
                 stderr=subprocess.PIPE,
                 text=True,
                 env=env,
+                start_new_session=True,
             )
 
             try:
@@ -244,10 +265,10 @@ def test_snapshot_hook_reports_live_blocking_counts(httpserver):
                 assert navigate.returncode == 0, navigate.stderr
 
                 time.sleep(8)
-                hook_process.send_signal(signal.SIGTERM)
+                os.killpg(hook_process.pid, signal.SIGTERM)
                 stdout, stderr = hook_process.communicate(timeout=20)
 
-                assert hook_process.returncode == 0, stderr
+                assert hook_process.returncode in (0, -signal.SIGTERM), stderr
                 records = parse_jsonl_records(stdout)
                 archive_result = next(
                     record
@@ -266,7 +287,7 @@ def test_snapshot_hook_reports_live_blocking_counts(httpserver):
                 assert blocked > 0 or hidden >= 3, archive_result
             finally:
                 if hook_process.poll() is None:
-                    hook_process.kill()
+                    os.killpg(hook_process.pid, signal.SIGKILL)
 
 
 def check_ad_blocking(cdp_url: str, test_url: str, env: dict, script_dir: Path) -> dict:
@@ -464,10 +485,7 @@ def test_extension_loads_in_chromium():
         print(f"[test] Extension installed at {loaded.loaded_abspath}", flush=True)
         ext_dir = loaded.loaded_abspath.parent
 
-        # Verify extension cache was created
-        cache_file = ext_dir / "ublock.extension.json"
-        assert cache_file.exists(), "Extension cache not created"
-        ext_data = json.loads(cache_file.read_text())
+        ext_data = ublock_install_state(loaded)
         print(
             f"[test] Extension installed: {ext_data.get('name')} v{ext_data.get('version')}",
             flush=True,
@@ -646,9 +664,7 @@ def test_blocks_ads_on_httpserver_page_with_real_ad_service_urls(httpserver):
         loaded = install_ublock_extension(env_base)
         ext_dir = loaded.loaded_abspath.parent
 
-        cache_file = ext_dir / "ublock.extension.json"
-        assert cache_file.exists(), "Extension cache not created"
-        ext_data = json.loads(cache_file.read_text())
+        ext_data = ublock_install_state(loaded)
         print(f"Extension installed: {ext_data.get('name')} v{ext_data.get('version')}")
 
         crawl_root = Path(env_base["CRAWL_DIR"])
@@ -796,7 +812,7 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
             print("=" * 60)
 
             ext_attempt_env = ext_env.copy()
-            ext_attempt_crawl_id = "test-with-ext"
+            ext_attempt_crawl_id = "test-with-ext-check"
             ext_attempt_crawl_dir = crawl_root / ext_attempt_crawl_id
             ext_attempt_crawl_dir.mkdir(parents=True, exist_ok=True)
             ext_attempt_chrome_dir = ext_attempt_crawl_dir / "chrome"

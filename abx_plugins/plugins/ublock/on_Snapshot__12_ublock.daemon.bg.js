@@ -176,10 +176,15 @@ async function main() {
 
   let browser = null;
   let running = true;
+  let exiting = false;
   let blockedRequests = 0;
   let hiddenElements = 0;
 
   const emitAndExit = () => {
+    if (exiting) {
+      return;
+    }
+    exiting = true;
     const status =
       blockedRequests > 0 || hiddenElements > 0 ? "succeeded" : "noresults";
     emitArchiveResultRecord(
@@ -191,7 +196,7 @@ async function main() {
         browser.disconnect();
       } catch (error) {}
     }
-    process.exit(0);
+    setImmediate(() => process.exit(0));
   };
 
   __abxInstallShutdownHandler(() => {
