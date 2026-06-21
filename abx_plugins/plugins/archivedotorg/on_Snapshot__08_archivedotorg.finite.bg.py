@@ -22,6 +22,7 @@ signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
 import os
 import sys
+from http.client import RemoteDisconnected
 from ipaddress import ip_address
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -151,6 +152,8 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
         return save_submit_url_for_manual_retry(
             f"Request timed out after {timeout} seconds",
         )
+    except RemoteDisconnected as e:
+        return save_submit_url_for_manual_retry(f"RemoteDisconnected: {e}")
     except URLError as e:
         if "timed out" in str(e.reason).lower():
             return save_submit_url_for_manual_retry(f"URLError: {e.reason}")

@@ -556,7 +556,8 @@ def _call_chrome_utils(
     )
     if env_result.returncode != 0:
         return env_result.returncode, env_result.stdout, env_result.stderr
-    payload.update(json.loads(env_result.stdout or "{}"))
+    provider_env = json.loads(env_result.stdout or "{}")
+    payload = {**provider_env, **payload}
 
     cmd = ["node", str(CHROME_UTILS), command, *list(args)]
     result = subprocess.run(
@@ -1233,6 +1234,7 @@ def setup_test_env(tmpdir: Path) -> dict:
     xdg_data_home.mkdir(parents=True, exist_ok=True)
     snap_dir.mkdir(parents=True, exist_ok=True)
     crawl_dir.mkdir(parents=True, exist_ok=True)
+    Path(get_extensions_dir(env=env)).mkdir(parents=True, exist_ok=True)
 
     # Only set headless if not already in environment (allow override for debugging)
     if "CHROME_HEADLESS" not in os.environ:
