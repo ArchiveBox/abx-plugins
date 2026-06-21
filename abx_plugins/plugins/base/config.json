@@ -35,6 +35,12 @@
       "description": "Base crawl directory for per-crawl hook output",
       "x-scope": "crawl_execution"
     },
+    "DATA_DIR": {
+      "type": "string",
+      "default": "",
+      "description": "ArchiveBox collection directory",
+      "x-scope": "crawl_execution"
+    },
     "ABXPKG_LIB_DIR": {
       "type": "string",
       "default": "",
