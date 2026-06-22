@@ -159,8 +159,12 @@ def test_large_extension_size():
 
         state = ublock_install_state(install_ublock_extension(env), ext_dir)
         unpacked_path = Path(state["unpacked_path"])
-        assert unpacked_path.exists(), f"uBlock unpacked extension should exist at {unpacked_path}"
-        size_bytes = sum(path.stat().st_size for path in unpacked_path.rglob("*") if path.is_file())
+        assert unpacked_path.exists(), (
+            f"uBlock unpacked extension should exist at {unpacked_path}"
+        )
+        size_bytes = sum(
+            path.stat().st_size for path in unpacked_path.rglob("*") if path.is_file()
+        )
         assert size_bytes > 100_000, (
             f"uBlock Origin Lite should be > 100KB, got {size_bytes} bytes"
         )
@@ -483,7 +487,6 @@ def test_extension_loads_in_chromium():
         print("[test] Installing uBlock extension...", flush=True)
         loaded = install_ublock_extension(env)
         print(f"[test] Extension installed at {loaded.loaded_abspath}", flush=True)
-        ext_dir = loaded.loaded_abspath.parent
 
         ext_data = ublock_install_state(loaded)
         print(
@@ -662,7 +665,6 @@ def test_blocks_ads_on_httpserver_page_with_real_ad_service_urls(httpserver):
         print("=" * 60)
 
         loaded = install_ublock_extension(env_base)
-        ext_dir = loaded.loaded_abspath.parent
 
         ext_data = ublock_install_state(loaded)
         print(f"Extension installed: {ext_data.get('name')} v{ext_data.get('version')}")
