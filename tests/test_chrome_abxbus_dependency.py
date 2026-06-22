@@ -63,6 +63,32 @@ def test_chrome_config_installs_abxbus_js_module(tmp_path: Path) -> None:
     assert result.stdout == "function"
 
 
+def test_chrome_config_keeps_min_release_age_zero_packages_in_separate_pnpm_root() -> (
+    None
+):
+    config = json.loads(CHROME_CONFIG.read_text(encoding="utf-8"))
+    pnpm_records = [
+        item
+        for item in config["required_binaries"]
+        if "pnpm" in str(item.get("binproviders") or "").split(",")
+    ]
+    roots_by_policy: dict[str, set[object]] = {}
+    for record in pnpm_records:
+        root = record["overrides"]["pnpm"]["install_root"]
+        roots_by_policy.setdefault(root, set()).add(record.get("min_release_age"))
+
+    mixed_roots = {
+        root: policies
+        for root, policies in roots_by_policy.items()
+        # pnpm validates every lockfile entry against the active policy. A
+        # package intentionally installed with min_release_age=0 can write newer
+        # transitive deps, so it must not share a lockfile with default-strict
+        # browser packages that should keep the registry age gate enabled.
+        if 0 in policies and len(policies) > 1
+    }
+    assert not mixed_roots
+
+
 def test_chrome_config_installs_puppeteer_js_module(tmp_path: Path) -> None:
     _assert_config_installs_puppeteer(CHROME_CONFIG, tmp_path)
 
@@ -85,7 +111,7 @@ def _assert_config_installs_puppeteer(config_path: Path, tmp_path: Path) -> None
     lib_dir = tmp_path / "lib"
     env = os.environ.copy()
     env["ABXPKG_LIB_DIR"] = str(lib_dir)
-    env["ABXPKG_MIN_RELEASE_AGE"] = "0"
+    env["ABXPKG_MIN_RELEASE_AGE"] = "3"
 
     loaded = load_required_binary(
         record,

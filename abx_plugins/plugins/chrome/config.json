@@ -39,11 +39,11 @@
       "min_release_age": 0,
       "overrides": {
         "pnpm": {
-          "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/chrome",
+          "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/abxbus",
           "install_args": [
             "abxbus@2.5.9"
           ],
-          "abspath": "{ABXPKG_LIB_DIR}/pnpm/packages/chrome/node_modules/abxbus/dist/cjs/index.js",
+          "abspath": "{ABXPKG_LIB_DIR}/pnpm/packages/abxbus/node_modules/abxbus/dist/cjs/index.js",
           "version": "2.5.9"
         }
       }
