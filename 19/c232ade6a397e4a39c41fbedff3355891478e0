@@ -1,0 +1,45 @@
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_70b3b8284ef391::t_7d64ded6905e3a 25
+abx_plugins/plugins/singlefile/tests/test_singlefile.py
+  s_70b3b8284ef391::t_ef3f11eb4a8d23 144
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  s_70b3b8284ef391::t_211e2882a9530e 978-981,983,990
+  s_70b3b8284ef391::t_de73774ac7d659 109-115,133-134
+  s_70b3b8284ef391::t_83c9a8cbc29cf4 126-132
+abx_plugins/plugins/singlefile/singlefile_extension_save.js
+  s_70b3b8284ef391::t_7d64ded6905e3a 24
+abx_plugins/plugins/twocaptcha/on_CrawlSetup__95_twocaptcha_config.js
+  s_70b3b8284ef391::t_7d64ded6905e3a 166
+abx_plugins/plugins/ublock/tests/test_ublock.py
+  s_70b3b8284ef391::t_e6b777b825f808 56,58-62,64,70-72
+  s_70b3b8284ef391::t_c3afe8bfc65be6 657-661,693
+  s_70b3b8284ef391::t_83c9a8cbc29cf4 908-910
+  s_70b3b8284ef391::t_698349dba1ef4f 57,63
+tests/test_chrome_runtime_fixture.py
+  s_70b3b8284ef391::t_d7a78245036170 36-40
+abx_plugins/plugins/base/utils.js
+  s_70b3b8284ef391::t_7d64ded6905e3a 404
+abx_plugins/plugins/istilldontcareaboutcookies/tests/test_istilldontcareaboutcookies.py
+  s_70b3b8284ef391::t_e6b777b825f808 225,227-237,240
+  s_70b3b8284ef391::t_698349dba1ef4f 226,238-239,243-248
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_70b3b8284ef391::t_ace7f6bd751e80 273
+  s_70b3b8284ef391::t_7d64ded6905e3a 265-266,269-270,283
+  s_70b3b8284ef391::t_44aa589c24e7fa 267
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "19c232ade6a397e4a39c41fbedff3355891478e0",
+  "prompts": {},
+  "sessions": {
+    "s_70b3b8284ef391": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ec4bb-38fe-7723-b66e-d0af77a36fd0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
