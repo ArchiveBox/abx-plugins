@@ -241,10 +241,11 @@ def _resolve_binary(binary: str, config: dict) -> tuple[str, dict[str, str]]:
     return str(loaded.loaded_abspath), binary_env
 
 
-def _project_route(workdir: Path) -> str:
+def _project_route(workdir: Path, session_id: str = "") -> str:
     encoded = base64.b64encode(str(workdir.resolve()).encode()).decode()
     encoded = encoded.replace("+", "-").replace("/", "_").rstrip("=")
-    return f"{_PROXY_PREFIX}/{encoded}/session"
+    route = f"{_PROXY_PREFIX}/{encoded}/session"
+    return f"{route}/{session_id}" if session_id else route
 
 
 def _ensure_project_files(settings: dict) -> None:
@@ -433,6 +434,7 @@ def agent_view(request: HttpRequest):
         "archivebox.core.admin_site",
     ).archivebox_admin
 
+    recent_session_id = _recent_session_id(settings) if ok else ""
     context = {
         **archivebox_admin.each_context(request),
         "title": "Agent",
@@ -440,9 +442,14 @@ def agent_view(request: HttpRequest):
         "command": f"{settings['binary']} serve --hostname {settings['host']} --port {settings['port']}"
         if error
         else "",
-        "proxy_url": _project_route(settings["workdir"]),
+        # OpenCode 1.17+ keeps durable sessions on the explicit
+        # /<dirBase64>/session/<sessionId> route. We still seed localStorage
+        # below because the sidebar state uses it, but the iframe itself must
+        # open the durable session URL so a fresh browser does not land on the
+        # transient new-session route and appear to have lost prior sessions.
+        "proxy_url": _project_route(settings["workdir"], recent_session_id),
         "workdir": str(settings["workdir"].resolve()),
-        "recent_session_id": _recent_session_id(settings) if ok else "",
+        "recent_session_id": recent_session_id,
     }
     return render(
         request,
