@@ -174,8 +174,11 @@ def test_get_test_env_returns_dict():
     assert "CHROMEWEBSTORE_EXTENSIONS_DIR" in env
     assert Path(env["CHROMEWEBSTORE_EXTENSIONS_DIR"]).is_absolute()
 
-    # Verify NODE_PATH equals NODE_MODULES_DIR (for Node.js module resolution)
-    assert env["NODE_PATH"] == env["NODE_MODULES_DIR"]
+    # The provider-built NODE_PATH can include several real package roots
+    # (chrome, playwright, abxbus, etc.). The important contract for test
+    # subprocesses is that the chrome package root remains present so imports
+    # resolve exactly as they do under the runtime hook/shebang path.
+    assert env["NODE_MODULES_DIR"] in env["NODE_PATH"].split(os.pathsep)
 
 
 def test_get_test_env_paths_are_absolute():

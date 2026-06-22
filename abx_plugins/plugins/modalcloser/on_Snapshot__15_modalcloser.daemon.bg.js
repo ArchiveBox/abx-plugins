@@ -408,7 +408,21 @@ async function main() {
       puppeteer,
     });
     browser = connection.browser;
-    const page = connection.page;
+    let page = connection.page;
+    if (url && page.url() !== url) {
+      // Snapshot target markers are the normal handoff, but Chrome can briefly
+      // expose stale target metadata while pages are being created/navigated in
+      // parallel test and crawl runs. Modalcloser operates on the archived URL,
+      // so prefer the live page whose URL matches the snapshot instead of
+      // quietly polling an about:blank or previous target and reporting
+      // noresults even though a visible modal exists on the real page.
+      const matchingPage = (await browser.pages()).find(
+        (candidate) => candidate.url() === url
+      );
+      if (matchingPage) {
+        page = matchingPage;
+      }
+    }
     emitProgress(formatClosedCount(0));
 
     // console.error(`Modalcloser listening on ${url}`);

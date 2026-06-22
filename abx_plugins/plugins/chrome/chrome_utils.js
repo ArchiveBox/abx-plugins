@@ -1106,7 +1106,28 @@ async function launchChromium(options = {}) {
   }
 
   const { width, height } = parseResolution(CHROME_RESOLUTION);
-  const chromeUserAgent = CHROME_USER_AGENT;
+  let chromeUserAgent = CHROME_USER_AGENT;
+  if (chromeUserAgent) {
+    try {
+      // The default config intentionally stores a generic/static Chrome UA so it
+      // stays stable across platforms. At launch time we know the actual browser
+      // binary, so replace only the Chrome major segment before passing it to
+      // Chromium. This preserves the configured UA shape while avoiding stale
+      // replay fingerprints like Chrome/131 when Playwright/Puppeteer installed
+      // a newer browser.
+      const browserVersionOutput = execFileSync(binary, ["--version"], {
+        encoding: "utf8",
+      }).trim();
+      chromeUserAgent = replaceChromeUserAgentVersion(
+        chromeUserAgent,
+        browserVersionOutput
+      );
+    } catch (error) {
+      console.error(
+        `WARN: Could not derive Chromium version for configured user agent: ${error.message}`
+      );
+    }
+  }
 
   // Create output directory
   if (!fs.existsSync(outputDir)) {

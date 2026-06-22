@@ -28,6 +28,7 @@ ensureNodeModuleResolution(module);
 const {
   connectToPage,
   resolvePuppeteerModule,
+  waitForNavigationComplete,
 } = require("../chrome/chrome_utils.js");
 const hookConfig = loadConfig();
 
@@ -56,9 +57,6 @@ if (!getEnvBool("SCREENSHOT_ENABLED", true)) {
   emitArchiveResultRecord("skipped", "SCREENSHOT_ENABLED=False");
   flushCoverageAndExit(0);
 }
-
-// Now safe to require puppeteer
-const puppeteer = resolvePuppeteerModule();
 
 // Extractor metadata
 const PLUGIN_NAME = "screenshot";
@@ -90,10 +88,17 @@ async function takeScreenshot(url) {
     throw new Error(`Invalid SCREENSHOT_TIMEOUT=${timeoutSource}`);
   }
   const timeoutMs = timeoutSeconds * 1000;
+
+  // Navigation is the lifecycle gate for screenshot capture. Check that marker
+  // before loading Puppeteer or opening a CDP connection so a missing/failed
+  // chrome_navigate result fails on SCREENSHOT_TIMEOUT itself instead of paying
+  // browser module startup cost first.
+  await waitForNavigationComplete(CHROME_SESSION_DIR, timeoutMs);
+
+  const puppeteer = resolvePuppeteerModule();
   const { browser, page } = await connectToPage({
     chromeSessionDir: CHROME_SESSION_DIR,
     timeoutMs,
-    waitForNavigationComplete: true,
     puppeteer,
   });
 

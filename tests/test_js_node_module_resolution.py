@@ -117,7 +117,6 @@ def test_chrome_wait_hook_resolves_puppeteer_from_lib_dir(
 
         result = subprocess.run(
             [
-                _node_binary(),
                 str(CHROME_CRAWL_WAIT_HOOK),
                 f"--url={module_resolution_url}",
                 "--snapshot-id=test-wait",

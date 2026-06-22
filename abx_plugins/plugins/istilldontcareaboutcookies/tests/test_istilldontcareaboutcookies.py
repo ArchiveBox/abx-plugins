@@ -657,6 +657,10 @@ def test_hides_cookie_consent_on_static_page(httpserver):
             tmpdir / "baseline-install",
         )
         env_no_ext["ABXPKG_LIB_DIR"] = baseline_install_env["ABXPKG_LIB_DIR"]
+        # Keep the baseline browser pointed at the empty extension directory
+        # created above. Otherwise it can inherit the main test env's extension
+        # cache and hide the consent banner before the extension-under-test runs.
+        env_no_ext["CHROMEWEBSTORE_EXTENSIONS_DIR"] = str(_baseline_extensions_dir)
 
         # Launch baseline Chromium in crawls directory
         baseline_crawl_id = "baseline-no-ext"

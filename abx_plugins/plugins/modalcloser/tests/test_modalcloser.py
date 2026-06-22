@@ -14,6 +14,7 @@ Tests verify:
 
 import json
 import os
+import select
 import signal
 import subprocess
 import time
@@ -50,7 +51,7 @@ def kill_hook_process(process: subprocess.Popen):
 
 
 def _modal_page_url(httpserver) -> str:
-    """Serve a deterministic page with visible modal/cookie elements."""
+    """Serve a deterministic page with a visible non-cookie modal."""
     html = """<!doctype html>
 <html>
 <head>
@@ -59,8 +60,8 @@ def _modal_page_url(httpserver) -> str:
 </head>
 <body class="modal-open" style="overflow: hidden;">
   <main><h1>Modal Fixture</h1></main>
-  <div id="cookie-consent" class="cookie-banner" style="display:block; visibility:visible; position:fixed; inset:0; background: rgba(0,0,0,0.8); z-index:9999;">
-    Cookie banner
+  <div id="blocking-modal" class="modal-overlay overlay-visible" style="display:block; visibility:visible; position:fixed; inset:0; background: rgba(0,0,0,0.8); z-index:9999;">
+    Blocking modal
   </div>
 </body>
 </html>
@@ -300,23 +301,45 @@ def test_background_script_handles_sigterm(httpserver):
                     start_new_session=True,
                 )
 
-                # Let it run for a bit
-                time.sleep(2)
-
-                # Verify it's still running (background script)
-                if modalcloser_process.poll() is not None:
-                    stdout, stderr = modalcloser_process.communicate(timeout=5)
-                    raise AssertionError(
-                        "Modalcloser exited early.\n"
-                        f"Stdout: {stdout}\n"
-                        f"Stderr: {stderr}",
+                progress_stdout = []
+                deadline = time.monotonic() + 15
+                closed_modal = False
+                assert modalcloser_process.stdout is not None
+                while time.monotonic() < deadline:
+                    if modalcloser_process.poll() is not None:
+                        stdout, stderr = modalcloser_process.communicate(timeout=5)
+                        raise AssertionError(
+                            "Modalcloser exited early.\n"
+                            f"Stdout: {''.join(progress_stdout)}{stdout}\n"
+                            f"Stderr: {stderr}",
+                        )
+                    readable, _, _ = select.select(
+                        [modalcloser_process.stdout],
+                        [],
+                        [],
+                        0.2,
                     )
-                assert modalcloser_process.poll() is None, (
-                    "Modalcloser should still be running as background process"
+                    if not readable:
+                        continue
+                    line = modalcloser_process.stdout.readline()
+                    progress_stdout.append(line)
+                    first_token = line.strip().split(maxsplit=1)[0:1]
+                    if (
+                        first_token
+                        and first_token[0].isdigit()
+                        and int(first_token[0]) > 0
+                    ):
+                        closed_modal = True
+                        break
+
+                assert closed_modal, (
+                    "Modalcloser should close the visible modal before SIGTERM. "
+                    f"Stdout: {''.join(progress_stdout)}"
                 )
 
                 # Send SIGTERM
                 stdout, stderr = terminate_hook_process(modalcloser_process)
+                stdout = "".join(progress_stdout) + stdout
 
                 assert modalcloser_process.returncode in (0, -signal.SIGTERM), (
                     f"Should exit 0 on SIGTERM: {stderr}"
