@@ -535,28 +535,10 @@ def _call_chrome_utils(
     if env:
         payload.update(env)
 
-    # chrome_utils.js is a runtime helper, not an installer. Tests that call it
-    # directly must still get the same provider-built env that Chrome hooks get
-    # from their shebang/deps path, otherwise NODE_MODULES_DIR and package PATHs
-    # drift from real hook execution.
-    env_result = subprocess.run(
-        [
-            "abxpkg",
-            "env",
-            "--install",
-            "--json",
-            "--deps-from=./config.json:required_binaries",
-            "node",
-        ],
-        cwd=str(CHROME_PLUGIN_DIR),
-        capture_output=True,
-        text=True,
-        timeout=300,
-        env=payload,
-    )
+    env_result = _run_chrome_required_binary_env(payload)
     if env_result.returncode != 0:
         return env_result.returncode, env_result.stdout, env_result.stderr
-    payload.update(json.loads(env_result.stdout or "{}"))
+    payload.update(_parse_abxpkg_env_delta(env_result.stdout, base_env=payload))
 
     cmd = ["node", str(CHROME_UTILS), command, *list(args)]
     result = subprocess.run(
@@ -568,6 +550,67 @@ def _call_chrome_utils(
         env=payload,
     )
     return result.returncode, result.stdout, result.stderr
+
+
+def _run_chrome_required_binary_env(
+    env: dict,
+    *,
+    timeout: int = 300,
+) -> subprocess.CompletedProcess[str]:
+    """Resolve the same provider-built env Chrome hooks receive at runtime."""
+    payload = env.copy()
+    for key in (
+        "NODE_MODULES_DIR",
+        "NODE_MODULE_DIR",
+        "NODE_PATH",
+        "PNPM_HOME",
+        "PNPM_BIN_DIR",
+        "NPM_BIN_DIR",
+    ):
+        payload.pop(key, None)
+
+    # chrome_utils.js is a runtime helper, not an installer. Tests that call it
+    # directly must still get the same provider-built env that Chrome hooks get
+    # from their shebang/deps path. abxpkg env emits deltas relative to its
+    # input env, so stale derived module paths from an earlier probe must not
+    # make the complete provider-built NODE_PATH disappear from JSON output.
+    return subprocess.run(
+        [
+            "abxpkg",
+            "env",
+            "--install",
+            "--json",
+            "--deps-from=./config.json:required_binaries",
+            "node",
+        ],
+        cwd=str(CHROME_PLUGIN_DIR),
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        env=payload,
+    )
+
+
+def _parse_abxpkg_env_delta(
+    stdout: str,
+    *,
+    base_env: dict,
+) -> dict[str, str]:
+    """Parse ``abxpkg env --json`` output back into a complete env fragment."""
+    parsed = json.loads(stdout or "{}")
+    for key in ("PATH", "NODE_PATH", "PYTHONPATH"):
+        value = parsed.get(key)
+        base_value = base_env.get(key)
+        if not isinstance(value, str) or not base_value:
+            continue
+        # abxpkg emits shell-friendly path deltas. Python subprocess envs need
+        # the complete value, otherwise a prefix like "/tmp/lib/env/bin:" drops
+        # the caller's node/pnpm/python search paths before chrome_utils runs.
+        if value.endswith(os.pathsep):
+            parsed[key] = f"{value}{base_value}"
+        elif value.startswith(os.pathsep):
+            parsed[key] = f"{base_value}{value}"
+    return parsed
 
 
 def _call_base_utils(
@@ -1052,60 +1095,33 @@ def _required_binary_record(
 def _ensure_puppeteer_with_abxpkg(env: dict, timeout: int) -> None:
     """Install Chrome JS dependencies through plugin required_binaries.
 
-    The Chrome JS hooks resolve Puppeteer from the shared runtime loader even
-    when a browser binary already exists on disk, so test setup must ensure the
-    package lifecycle is complete before attempting any launch/install flow.
+    The Chrome JS hooks resolve their module paths from the provider-built env
+    emitted by abxpkg/abx-dl/archivebox. Test setup has to use that same env
+    because Chrome's required_binaries now span separate pnpm package roots
+    such as playwright, abxbus, and @puppeteer/browsers.
     """
-    lib_dir = Path(
-        env.get("ABXPKG_LIB_DIR") or os.environ.get("ABXPKG_LIB_DIR") or get_lib_dir(),
-    )
-    pnpm_root = lib_dir / "pnpm" / "packages" / "chrome"
+    env_result = _run_chrome_required_binary_env(env, timeout=timeout)
+    if env_result.returncode != 0:
+        raise RuntimeError(
+            f"Chrome dependency env preflight failed: {env_result.stderr or env_result.stdout}",
+        )
+    env.update(_parse_abxpkg_env_delta(env_result.stdout, base_env=env))
 
-    node_modules_dir = pnpm_root / "node_modules"
-    env.setdefault("NODE_MODULES_DIR", str(node_modules_dir))
-    env.setdefault("NODE_PATH", str(node_modules_dir))
-    pnpm_bin_dir = node_modules_dir / ".bin"
+    if not _has_puppeteer_module(env):
+        raise RuntimeError(
+            "Chrome dependency env preflight completed but require.resolve('puppeteer') still fails",
+        )
+    if not _has_node_module(env, "abxbus"):
+        raise RuntimeError(
+            "Chrome dependency env preflight completed but require.resolve('abxbus') still fails",
+        )
+
+    node_modules_dir = Path(
+        env.get("NODE_MODULES_DIR") or get_node_modules_dir(),
+    )
+    pnpm_bin_dir = Path(env.get("PNPM_HOME") or node_modules_dir / ".bin")
     env.setdefault("PNPM_BIN_DIR", str(pnpm_bin_dir))
     env.setdefault("NPM_BIN_DIR", str(pnpm_bin_dir))
-    env["PATH"] = os.pathsep.join(
-        [
-            str(pnpm_bin_dir),
-            *[
-                part
-                for part in env.get("PATH", os.environ.get("PATH", "")).split(
-                    os.pathsep,
-                )
-                if part
-            ],
-        ],
-    )
-
-    if not _has_puppeteer_module(env):
-        browsers_record = _required_binary_record(CHROME_PLUGIN_DIR, "browsers", env)
-        load_required_binary(
-            browsers_record,
-            config=env,
-            environ=env,
-            install=True,
-        )
-
-    if not _has_node_module(env, "abxbus"):
-        abxbus_record = _required_binary_record(CHROME_PLUGIN_DIR, "abxbus", env)
-        load_required_binary(
-            abxbus_record,
-            config=env,
-            environ=env,
-            install=True,
-        )
-
-    if not _has_puppeteer_module(env):
-        raise RuntimeError(
-            "Puppeteer dependency preflight completed but require.resolve('puppeteer') still fails",
-        )
-    if not _has_node_module(env, "abxbus"):
-        raise RuntimeError(
-            "Chrome abxbus dependency preflight completed but require.resolve('abxbus') still fails",
-        )
 
 
 def install_chromium_with_abxpkg(env: dict, timeout: int = 300) -> str:
@@ -1223,9 +1239,13 @@ def setup_test_env(tmpdir: Path) -> dict:
         "COOKIES_FILE",
     ):
         env.pop(inherited_key, None)
+    extensions_dir = Path(get_extensions_dir(env=env))
+    env["CHROMEWEBSTORE_EXTENSIONS_DIR"] = str(extensions_dir)
+
     # Create all directories
     node_modules_dir.mkdir(parents=True, exist_ok=True)
     pnpm_bin_dir.mkdir(parents=True, exist_ok=True)
+    extensions_dir.mkdir(parents=True, exist_ok=True)
     personas_dir.mkdir(parents=True, exist_ok=True)
     home_dir.mkdir(parents=True, exist_ok=True)
     xdg_config_home.mkdir(parents=True, exist_ok=True)

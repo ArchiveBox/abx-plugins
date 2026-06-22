@@ -83,22 +83,18 @@ def test_get_lib_dir_with_env_var():
                 os.environ.pop("ABXPKG_LIB_DIR", None)
 
 
-def test_get_node_modules_dir_with_env_var():
-    """Test get_node_modules_dir() respects NODE_MODULES_DIR env var."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        custom_nm = Path(tmpdir) / "node_modules"
-        custom_nm.mkdir()
+def test_get_node_modules_dir_resolves_runtime_env(ensure_chrome_test_prereqs):
+    """Test get_node_modules_dir() uses the provider-built Chrome hook env."""
+    nm_dir = get_node_modules_dir()
+    assert nm_dir.is_dir()
+    assert nm_dir.name == "node_modules"
 
-        old_nm_dir = os.environ.get("NODE_MODULES_DIR")
-        try:
-            os.environ["NODE_MODULES_DIR"] = str(custom_nm)
-            nm_dir = get_node_modules_dir()
-            assert nm_dir == custom_nm
-        finally:
-            if old_nm_dir:
-                os.environ["NODE_MODULES_DIR"] = old_nm_dir
-            else:
-                os.environ.pop("NODE_MODULES_DIR", None)
+    returncode, stdout, stderr = _call_chrome_utils(
+        "getNodeModulesDir",
+        env=get_test_env(),
+    )
+    assert returncode == 0, stderr
+    assert Path(stdout.strip()) == nm_dir
 
 
 def test_get_extensions_dir_default():
