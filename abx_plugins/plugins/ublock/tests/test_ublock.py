@@ -53,14 +53,23 @@ def serve_ad_fixture(httpserver, path: str = "/ublock-ad-fixture") -> str:
 <head>
   <meta charset="utf-8">
   <title>uBlock Ad Fixture</title>
+  <style>
+    .ad-slot, .adsbygoogle, .sponsored-ad {{
+      display: block;
+      width: 320px;
+      height: 100px;
+      border: 1px solid #c00;
+      background: #fee;
+    }}
+  </style>
   <script src="{AD_SERVICE_URLS[0]}"></script>
 </head>
 <body>
   <main>
     <h1>uBlock Ad Fixture</h1>
-    <ins class="adsbygoogle" data-ad-client="ca-pub-1234567890" data-ad-slot="1234567890"></ins>
-    <iframe title="doubleclick-ad" src="{AD_SERVICE_URLS[1]}"></iframe>
-    <img alt="ad" src="{AD_SERVICE_URLS[2]}">
+    <ins class="adsbygoogle ad-slot" data-ad-client="ca-pub-1234567890" data-ad-slot="1234567890">Google ad slot</ins>
+    <iframe class="sponsored-ad" title="doubleclick-ad" src="{AD_SERVICE_URLS[1]}"></iframe>
+    <img class="ad-slot" alt="ad" src="{AD_SERVICE_URLS[2]}">
   </main>
 </body>
 </html>""",
@@ -645,6 +654,11 @@ def test_blocks_ads_on_httpserver_page_with_real_ad_service_urls(httpserver):
         # Set up isolated env with proper directory structure
         env_base = setup_test_env(tmpdir)
         env_base["CHROME_HEADLESS"] = "true"
+        ext_install_env, ext_extensions_dir = chrome_extension_install_env(
+            tmpdir / "ublock-install",
+        )
+        env_base["ABXPKG_LIB_DIR"] = ext_install_env["ABXPKG_LIB_DIR"]
+        env_base["CHROMEWEBSTORE_EXTENSIONS_DIR"] = str(ext_extensions_dir)
         ext_personas_dir = tmpdir / "personas-ext"
         baseline_personas_dir = tmpdir / "personas-baseline"
         ext_default_dir = ext_personas_dir / "Default"
@@ -676,6 +690,7 @@ def test_blocks_ads_on_httpserver_page_with_real_ad_service_urls(httpserver):
         )
         env_no_ext["PERSONAS_DIR"] = str(baseline_personas_dir)
         env_no_ext["ABXPKG_LIB_DIR"] = baseline_install_env["ABXPKG_LIB_DIR"]
+        env_no_ext["CHROMEWEBSTORE_EXTENSIONS_DIR"] = str(_baseline_extensions_dir)
         env_no_ext["CHROME_DOWNLOADS_DIR"] = str(
             baseline_default_dir / "chrome_downloads",
         )
@@ -887,6 +902,12 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
             ), ext_result
             assert ext_result["blockedRequests"] >= 1, ext_result
             assert ext_result["blockedRequests"] > baseline_result["blockedRequests"], {
+                "baseline": baseline_result,
+                "extension": ext_result,
+            }
+            assert (
+                ext_result["adElementsVisible"] < baseline_result["adElementsVisible"]
+            ), {
                 "baseline": baseline_result,
                 "extension": ext_result,
             }

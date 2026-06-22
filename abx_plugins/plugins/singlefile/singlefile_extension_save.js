@@ -13,7 +13,6 @@ const {
   loadConfig,
   parseArgs,
 } = require("../base/utils.js");
-const chromeUtils = require("../chrome/chrome_utils.js");
 
 // Match the rest of the JS hook lifecycle: ArchiveBox resolves provider-owned
 // node_modules once and passes NODE_MODULES_DIR to hook subprocesses. Helper
@@ -21,6 +20,8 @@ const chromeUtils = require("../chrome/chrome_utils.js");
 // fail to resolve shared dependencies like puppeteer-core even when the parent
 // hook already has them available.
 ensureNodeModuleResolution(module);
+
+const chromeUtils = require("../chrome/chrome_utils.js");
 
 const EXTENSION = {
   webstore_id: "mpiodijhokgodhhofbcjdecpffjipkle",

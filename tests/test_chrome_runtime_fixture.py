@@ -33,7 +33,11 @@ def test_require_chrome_runtime_loads_provider_managed_chrome_runtime():
             timeout=20,
         )
         assert result.returncode == 0, result.stderr
-        assert str(node_modules_dir) in result.stdout
+        resolved_path = Path(result.stdout.strip())
+        assert resolved_path.exists(), result.stdout
+        assert str(Path(env["ABXPKG_LIB_DIR"])) in str(resolved_path)
+
+    assert str(node_modules_dir) in env["NODE_PATH"]
 
     chrome_binary = Path(os.environ["CHROME_BINARY"])
     assert chrome_binary.exists()

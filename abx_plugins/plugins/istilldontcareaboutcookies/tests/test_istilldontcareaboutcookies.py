@@ -222,9 +222,30 @@ COOKIE_TEST_HTML_STUB = """<!doctype html>
 <head>
   <meta charset="utf-8">
   <title>Cookie Consent Test Fixture</title>
+  <style>
+    #onetrust-consent-sdk {
+      position: fixed;
+      inset: auto 24px 24px 24px;
+      z-index: 2147483647;
+      display: block;
+      visibility: visible;
+      opacity: 1;
+      min-height: 180px;
+      padding: 24px;
+      background: #151527;
+      color: #fff;
+    }
+    #onetrust-banner-sdk { display: block; min-height: 140px; }
+    #onetrust-reject-all-handler { min-width: 120px; min-height: 40px; margin: 8px; }
+  </style>
 </head>
 <body>
-  <div class="cky-consent-container cky-popup-center" tabindex="-1" aria-label="Consentimiento de cookies" role="region"><div class="cky-consent-bar" data-cky-tag="notice" style="border-color: #151527; background-color: #151527;"><div class="cky-notice"><p class="cky-title" aria-level="2" data-cky-tag="title" role="heading" style="color: #FFFFFF;">Consentimiento de cookies</p><div class="cky-notice-group"><div class="cky-notice-des" data-cky-tag="description" style="color: #FFFFFF;"><p>En Filmin usamos cookies para el funcionamiento del sitio web, para mejorar y personalizar la experiencia de usuario y para recopilar información sobre las actividades de navegación que nos ayudan a mejorar. Puedes aceptar todo, rechazar o administrar las preferencias de cookies.&nbsp;<a href="https://www.filmin.es/aviso-legal#politica-de-cookies" class="cky-policy" aria-label="Aviso legal" target="_blank" rel="noopener" style="color: #FFFFFF; border-color: transparent; background-color: transparent;" data-cky-tag="readmore-button">Aviso legal</a></p></div><div class="cky-notice-btn-wrapper" data-cky-tag="notice-buttons"><button class="cky-btn cky-btn-customize" aria-label="Preferencias" aria-haspopup="dialog" aria-controls="ckyPreferenceCenter" data-cky-tag="settings-button" style="color: #FFFFFF; border-color: #FFFFFF; background-color: RGBA(0, 0, 0, 0);">Preferencias</button> <button class="cky-btn cky-btn-reject" aria-label="Rechazar todo" data-cky-tag="reject-button" style="color: #141426; border-color: #02FFA1; background-color: #02FFA1;">Rechazar todo</button> <button class="cky-btn cky-btn-accept" aria-label="Aceptar todo" data-cky-tag="accept-button" style="color: #141426; border-color: #02FFA1; background-color: #02FFA1;">Aceptar todo</button></div></div></div></div></div>
+  <div id="onetrust-consent-sdk" role="region" aria-label="Cookie consent">
+    <div id="onetrust-banner-sdk">
+      <p>We use cookies to run this site and measure traffic.</p>
+      <button id="onetrust-reject-all-handler" onclick="document.getElementById('onetrust-consent-sdk').style.display = 'none'">Reject all</button>
+    </div>
+  </div>
 </body>
 </html>
 """

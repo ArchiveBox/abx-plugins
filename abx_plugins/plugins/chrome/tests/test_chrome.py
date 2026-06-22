@@ -262,12 +262,15 @@ process.stdout.write(JSON.stringify(cleaned.map(filePath => path.basename(filePa
 def test_chrome_user_data_dir_defaults_to_persona_chrome_profile(tmp_path):
     personas_dir = tmp_path / "personas"
     script = """
-const baseUtils = require(process.argv[1]);
-const configPath = process.argv[2];
+const chromeUtils = require(process.argv[1]);
+const baseUtils = require(process.argv[2]);
+const configPath = process.argv[3];
 const config = baseUtils.loadConfig(configPath);
-process.stdout.write(config.CHROME_USER_DATA_DIR);
+const options = chromeUtils.resolveChromeLaunchOptions(config);
+process.stdout.write(options.CHROME_USER_DATA_DIR);
 """
     env = os.environ.copy()
+    env.update(get_test_env())
     env["PERSONAS_DIR"] = str(personas_dir)
     env.pop("ACTIVE_PERSONA", None)
     env.pop("CHROME_USER_DATA_DIR", None)
@@ -277,6 +280,7 @@ process.stdout.write(config.CHROME_USER_DATA_DIR);
             "node",
             "-e",
             script,
+            str(CHROME_UTILS),
             str(CHROME_UTILS.parent.parent / "base" / "utils.js"),
             str(CHROME_UTILS.parent / "config.json"),
         ],

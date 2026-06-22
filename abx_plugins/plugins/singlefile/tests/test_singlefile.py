@@ -141,6 +141,7 @@ process.stdout.write(JSON.stringify({{ freshBudget, elapsedBudget, minimumBudget
             cwd=tmpdir,
             capture_output=True,
             text=True,
+            env=get_test_env(),
             timeout=10,
         )
 

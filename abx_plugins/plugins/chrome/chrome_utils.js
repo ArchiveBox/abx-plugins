@@ -22,6 +22,7 @@ const {
   getCrawlDir,
   getLibDir,
   getPersonasDir,
+  getNodeModulesDir,
   ensureNodeModuleResolution,
   parseArgs,
   writeFileAtomic,
@@ -155,16 +156,6 @@ function getExtensionsDir() {
   // Unlike runtime Chrome profile paths derived from PERSONAS_DIR/ACTIVE_PERSONA,
   // this is the abxpkg-managed extension download/cache dir Chrome reads from.
   return path.resolve(path.join(getLibDir(), "chromewebstore", "extensions"));
-}
-
-function getNodeModulesDir() {
-  const configured = getEnv("NODE_MODULES_DIR");
-  if (!configured) {
-    throw new Error(
-      "NODE_MODULES_DIR is required; run Chrome hooks through abxpkg/abx-dl/archivebox so provider env is resolved once and passed to the hook"
-    );
-  }
-  return path.resolve(configured);
 }
 
 function chromiumVersionAtLeast(output, minimum) {

@@ -401,7 +401,7 @@ function getPersonasDir() {
 }
 
 function getNodeModulesDir() {
-  const configured = getEnv("NODE_MODULES_DIR");
+  const configured = getEnv("NODE_MODULES_DIR") || getEnv("NODE_MODULE_DIR");
   if (!configured) {
     throw new Error(
       "NODE_MODULES_DIR is required; run hooks through abxpkg/abx-dl/archivebox so provider env is resolved once and passed to the hook"

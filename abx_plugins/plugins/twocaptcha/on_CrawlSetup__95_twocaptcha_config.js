@@ -33,7 +33,6 @@ const {
   getEnvInt,
   loadConfig,
 } = require("../base/utils.js");
-ensureNodeModuleResolution(module);
 
 const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
@@ -164,6 +163,7 @@ async function configure2Captcha() {
     return { success: true, skipped: true };
   }
 
+  ensureNodeModuleResolution(module);
   const {
     waitForChromeSessionState,
     findExtensionMetadataByName,

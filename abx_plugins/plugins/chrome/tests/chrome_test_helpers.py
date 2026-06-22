@@ -106,6 +106,13 @@ def require_chrome_runtime_impl() -> None:
     """Require chrome runtime prerequisites for integration tests."""
     try:
         env = get_test_env()
+        env_result = _run_chrome_required_binary_env(
+            env,
+            timeout=int(env.get("ABXPKG_INSTALL_TIMEOUT") or "300"),
+        )
+        if env_result.returncode != 0:
+            raise RuntimeError(env_result.stderr or env_result.stdout)
+        env.update(_parse_abxpkg_env_delta(env_result.stdout, base_env=env))
         node_name = env.get("NODE_BINARY") or "node"
         node_record = _required_binary_record(CHROME_PLUGIN_DIR, node_name, env)
         load_required_binary(node_record, config=env, environ=env)
@@ -116,6 +123,15 @@ def require_chrome_runtime_impl() -> None:
         existing_chrome_binary = os.environ.get("CHROME_BINARY")
         if not existing_chrome_binary or not Path(existing_chrome_binary).exists():
             os.environ["CHROME_BINARY"] = chrome_binary
+        for key in (
+            "ABXPKG_LIB_DIR",
+            "NODE_MODULES_DIR",
+            "NODE_MODULE_DIR",
+            "NODE_PATH",
+            "PATH",
+        ):
+            if env.get(key):
+                os.environ[key] = env[key]
     except Exception as exc:
         logger.error("Chrome integration prerequisites unavailable: %s", exc)
         raise AssertionError(
@@ -959,15 +975,19 @@ def get_test_env() -> dict:
     and related settings match the JS runtime contract.
     """
     env = os.environ.copy()
+    env_result = _run_chrome_required_binary_env(env)
+    if env_result.returncode == 0 and env_result.stdout.strip():
+        env.update(_parse_abxpkg_env_delta(env_result.stdout, base_env=env))
+    provider_node_path = env.get("NODE_PATH")
 
-    returncode, stdout, stderr = _call_base_utils("getTestEnv")
+    returncode, stdout, stderr = _call_base_utils("getTestEnv", env=env)
     if returncode == 0 and stdout.strip():
         try:
             js_env = json.loads(stdout)
             env.update(js_env)
             node_modules_dir = get_node_modules_dir()
             env["NODE_MODULES_DIR"] = str(node_modules_dir)
-            env["NODE_PATH"] = str(node_modules_dir)
+            env["NODE_PATH"] = provider_node_path or str(node_modules_dir)
             env["PNPM_BIN_DIR"] = str(node_modules_dir / ".bin")
             env["NPM_BIN_DIR"] = str(node_modules_dir / ".bin")
             env["CHROMEWEBSTORE_EXTENSIONS_DIR"] = get_extensions_dir(env=env)
