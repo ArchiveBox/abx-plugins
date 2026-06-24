@@ -1,0 +1,23 @@
+abx_plugins/plugins/ublock/on_Snapshot__12_ublock.daemon.bg.js
+  s_70b3b8284ef391::t_b0dbdb9856495a 230-241
+abx_plugins/plugins/twocaptcha/on_Snapshot__14_twocaptcha.daemon.bg.js
+  s_70b3b8284ef391::t_64b10d62e8eed6 202-210
+abx_plugins/plugins/istilldontcareaboutcookies/on_Snapshot__13_istilldontcareaboutcookies.daemon.bg.js
+  s_70b3b8284ef391::t_b3e50b2bb80ba1 199-208
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "fca2ecf36745666c159558b9498250b04d3d1a11",
+  "prompts": {},
+  "sessions": {
+    "s_70b3b8284ef391": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ec4bb-38fe-7723-b66e-d0af77a36fd0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
