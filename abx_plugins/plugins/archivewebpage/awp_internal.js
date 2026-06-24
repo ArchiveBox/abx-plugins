@@ -62,49 +62,57 @@ async function waitForAwpExtension(
  * chrome.debugger.getTargets() returns a TargetInfo with both ``id`` (CDP
  * target id, same value as puppeteer's ``page.target()._targetId``) and
  * ``tabId`` (the chrome.tabs integer id) for ``type==='page'`` targets, so
- * the mapping is a direct lookup. Polls because the AWP service worker may
- * be in the middle of waking up when we first call.
+ * the mapping is a direct lookup. Evaluate from the AWP popup page because
+ * MV3 service-worker targets are not guaranteed to be attachable in headless
+ * Chrome even after Extensions.loadUnpacked returns the extension id.
  */
 async function getChromeTabIdForPage(browser, page, extensionId, timeoutMs) {
   const targetId = chromeUtils.getTargetIdFromPage(page);
   if (!targetId) return null;
 
   const deadline = Date.now() + Math.max(1000, timeoutMs);
-  while (Date.now() < deadline) {
-    const swTarget = await chromeUtils
-      .waitForExtensionTargetHandle(
-        browser,
-        extensionId,
-        Math.min(deadline - Date.now(), 2000)
-      )
-      .catch(() => null);
-    if (!swTarget) {
-      await sleep(50);
-      continue;
+  let helperPage = null;
+  try {
+    while (Date.now() < deadline) {
+      try {
+        if (!helperPage || helperPage.isClosed()) {
+          helperPage = await openAwpHelperTab(browser, extensionId);
+        }
+        const tabId = await helperPage.evaluate(async (idToFind) => {
+          const targets = await new Promise((resolve, reject) => {
+            chrome.debugger.getTargets((targetInfos) => {
+              const error = chrome.runtime.lastError;
+              if (error) {
+                reject(new Error(error.message || String(error)));
+                return;
+              }
+              resolve(targetInfos || []);
+            });
+          });
+          const match = targets.find(
+            (t) => t.type === "page" && t.id === idToFind
+          );
+          return match?.tabId ?? null;
+        }, targetId);
+        if (tabId !== null && tabId !== undefined) return tabId;
+      } catch (error) {
+        try {
+          if (helperPage && !helperPage.isClosed()) {
+            await helperPage.close({ runBeforeUnload: false });
+          }
+        } catch (closeError) {}
+        helperPage = null;
+      }
+      await sleep(75);
     }
-    const ctx = await swTarget.worker().catch(() => null);
-    if (!ctx) {
-      await sleep(50);
-      continue;
-    }
-
+    return null;
+  } finally {
     try {
-      const tabId = await ctx.evaluate(async (idToFind) => {
-        const targets = await new Promise((resolve) => {
-          chrome.debugger.getTargets((t) => resolve(t || []));
-        });
-        const match = targets.find(
-          (t) => t.type === "page" && t.id === idToFind
-        );
-        return match?.tabId ?? null;
-      }, targetId);
-      if (tabId) return tabId;
-    } catch (error) {
-      // SW may have suspended between calls; loop and try again
-    }
-    await sleep(75);
+      if (helperPage && !helperPage.isClosed()) {
+        await helperPage.close({ runBeforeUnload: false });
+      }
+    } catch (error) {}
   }
-  return null;
 }
 
 /**
@@ -142,7 +150,20 @@ async function openAwpHelperTab(browser, extensionId) {
       );
     if (match) {
       const page = await match.page();
-      if (page) return page;
+      if (page) {
+        try {
+          await page.waitForFunction(
+            (expectedUrl) =>
+              location.href === expectedUrl &&
+              document.readyState !== "loading" &&
+              typeof chrome !== "undefined" &&
+              Boolean(chrome.runtime?.connect),
+            { timeout: Math.max(250, deadline - Date.now()) },
+            helperUrl
+          );
+          return page;
+        } catch (error) {}
+      }
     }
     await sleep(50);
   }

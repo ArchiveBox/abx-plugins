@@ -38,7 +38,7 @@
     "DATA_DIR": {
       "type": "string",
       "default": "",
-      "description": "ArchiveBox collection directory",
+      "description": "Base collection directory for shared crawl/index state",
       "x-scope": "crawl_execution"
     },
     "ABXPKG_LIB_DIR": {

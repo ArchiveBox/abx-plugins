@@ -9,12 +9,6 @@
   ],
   "required_binaries": [
     {
-      "name": "{CHROME_BINARY}",
-      "binproviders": "env,puppeteer,playwright",
-      "min_version": "149.0.0",
-      "postinstall_scripts": true
-    },
-    {
       "name": "{SINGLEFILE_BINARY}",
       "binproviders": "env,pnpm",
       "min_version": null,

@@ -7,14 +7,7 @@
   "required_plugins": [
     "chrome"
   ],
-  "required_binaries": [
-    {
-      "name": "{CHROME_BINARY}",
-      "binproviders": "env,puppeteer,playwright",
-      "min_version": "149.0.0",
-      "postinstall_scripts": true
-    }
-  ],
+  "required_binaries": [],
   "output_mimetypes": [
     "application/json"
   ],
