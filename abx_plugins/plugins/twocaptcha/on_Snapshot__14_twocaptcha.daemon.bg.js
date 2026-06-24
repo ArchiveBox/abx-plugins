@@ -197,9 +197,17 @@ async function main() {
     });
     browser = connection.browser;
     const page = connection.page;
-
-    await waitForNavigationComplete(CHROME_SESSION_DIR, timeoutMs, 0);
     emitProgress("0 captchas detected");
+
+    try {
+      // CAPTCHA observation is useful only after navigation, but the observer
+      // must be considered ready before chrome_navigate can run. Earlier
+      // foreground hooks may delay navigation.json past TWOCAPTCHA_TIMEOUT, so
+      // treat that wait as advisory and keep the observer alive until cleanup.
+      await waitForNavigationComplete(CHROME_SESSION_DIR, timeoutMs, 0);
+    } catch (error) {
+      console.error(`WARN: ${error.message}`);
+    }
 
     while (running) {
       try {

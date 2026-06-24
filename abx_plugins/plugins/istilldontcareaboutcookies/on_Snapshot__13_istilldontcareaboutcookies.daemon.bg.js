@@ -196,7 +196,16 @@ async function main() {
     // published, but readiness was waiting for navigation to happen first.
     emitProgress(formatPopupCount(0));
 
-    await waitForNavigationComplete(CHROME_SESSION_DIR, timeoutMs, 0);
+    try {
+      // This hook observes the page across the whole snapshot phase, but it is
+      // scheduled before foreground extractors and before chrome_navigate. A
+      // slow earlier extractor can delay navigation.json past this plugin's
+      // own timeout; that should not become a failed ArchiveResult because the
+      // observer is already attached and can still see the eventual navigation.
+      await waitForNavigationComplete(CHROME_SESSION_DIR, timeoutMs, 0);
+    } catch (error) {
+      console.error(`WARN: ${error.message}`);
+    }
 
     while (running) {
       try {

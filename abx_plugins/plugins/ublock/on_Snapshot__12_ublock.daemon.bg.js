@@ -227,7 +227,18 @@ async function main() {
       }
     });
 
-    await waitForNavigationComplete(CHROME_SESSION_DIR, timeoutMs, 0);
+    try {
+      // Pre-navigation observer hooks start before foreground extractors such
+      // as wget. Those earlier hooks can legitimately consume most of the
+      // snapshot budget before chrome_navigate writes navigation.json, so a
+      // missing navigation artifact is not proof that this observer failed.
+      // Keep the listener alive until snapshot cleanup sends SIGTERM; if
+      // navigation happens later, the same CDP page/request listeners still see
+      // the page activity and can report real counts.
+      await waitForNavigationComplete(CHROME_SESSION_DIR, timeoutMs, 0);
+    } catch (error) {
+      console.error(`WARN: ${error.message}`);
+    }
 
     while (running) {
       try {
