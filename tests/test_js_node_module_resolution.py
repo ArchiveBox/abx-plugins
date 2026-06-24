@@ -135,7 +135,18 @@ def test_chrome_wait_hook_resolves_puppeteer_from_lib_dir(
 
 def test_chrome_launch_prerequisites_wait_for_late_installs(tmp_path: Path) -> None:
     real_env = get_test_env()
-    real_node_modules = Path(real_env["NODE_MODULES_DIR"])
+    real_node_modules = next(
+        (
+            Path(entry)
+            for entry in real_env["NODE_PATH"].split(os.pathsep)
+            if entry
+            and (
+                (Path(entry) / "puppeteer").exists()
+                or (Path(entry) / "puppeteer-core").exists()
+            )
+        ),
+        Path(real_env["NODE_MODULES_DIR"]),
+    )
     real_chrome_binary = Path(os.environ["CHROME_BINARY"])
     assert real_node_modules.exists()
     assert real_chrome_binary.exists()
@@ -152,11 +163,11 @@ def test_chrome_launch_prerequisites_wait_for_late_installs(tmp_path: Path) -> N
     writer = threading.Thread(target=materialize_prereqs, daemon=True)
     writer.start()
 
-    env = os.environ.copy()
-    env.pop("NODE_MODULES_DIR", None)
-    env.pop("NODE_MODULE_DIR", None)
-    env.pop("NODE_PATH", None)
+    env = real_env.copy()
     env["ABXPKG_LIB_DIR"] = str(lib_dir)
+    env["NODE_MODULES_DIR"] = str(delayed_node_modules)
+    env["NODE_MODULE_DIR"] = str(delayed_node_modules)
+    env["NODE_PATH"] = str(delayed_node_modules)
     env["CHROME_BINARY"] = str(real_chrome_binary)
 
     result = subprocess.run(
