@@ -1,0 +1,25 @@
+abx_plugins/plugins/claudecodecleanup/config.json
+  s_70b3b8284ef391::t_5edd57eb6f3941 10
+abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py
+  s_70b3b8284ef391::t_5edd57eb6f3941 86-97
+abx_plugins/plugins/claudecodeextract/config.json
+  s_70b3b8284ef391::t_5edd57eb6f3941 10
+abx_plugins/plugins/base/config.json
+  s_70b3b8284ef391::t_ce308e4eaa7774 41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "5227df6d3cda7bbdb976b9129bd5d78fde154899",
+  "prompts": {},
+  "sessions": {
+    "s_70b3b8284ef391": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ec4bb-38fe-7723-b66e-d0af77a36fd0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
