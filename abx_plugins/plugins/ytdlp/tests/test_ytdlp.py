@@ -119,6 +119,27 @@ def test_hook_script_exists():
     assert YTDLP_HOOK.exists(), f"Hook not found: {YTDLP_HOOK}"
 
 
+def test_card_template_loads_browser_media_on_click():
+    """Card template should not fetch archived media until the user asks to play it."""
+    template = (PLUGIN_DIR / "templates" / "card.html").read_text()
+
+    assert "ytdlp-load-player" in template
+    assert 'data-src="{{ file.url|default:file.path|urlencode }}"' in template
+    assert "media.src = src" in template
+    assert "<video" not in template
+    assert "<audio" not in template
+
+
+def test_card_template_links_non_browser_media_without_player():
+    """Non-browser-playable yt-dlp outputs should stay as regular file links."""
+    template = (PLUGIN_DIR / "templates" / "card.html").read_text()
+
+    assert "{% if file.is_browser_playable %}" in template
+    assert "{% else %}" in template
+    assert "Download file" in template
+    assert 'href="{{ file.url|default:file.path|urlencode }}"' in template
+
+
 def test_verify_deps_with_abxpkg():
     """Verify yt-dlp resolves through the real dependency preflight."""
     binary_path = require_ytdlp_binary()
