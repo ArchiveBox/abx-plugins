@@ -150,7 +150,9 @@ jobs:
             needs_brew=false
             if [[ "$test_file" == abx_plugins/plugins/*/tests/* ]]; then
               plugin_dir="${test_file%/tests/*}"
-              if grep -Riq "chrom" "$plugin_dir"; then
+              plugin_name="$(basename "$plugin_dir")"
+              if [[ "$plugin_name" == "chrome" ]] || \
+                 jq -e '(.required_plugins // []) | index("chrome") != null' "$plugin_dir/config.json" >/dev/null; then
                 needs_chromium=true
               fi
             elif grep -iq "chrom" "$test_file"; then
