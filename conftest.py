@@ -263,10 +263,9 @@ def ensure_claude_code_prereqs(tmp_path_factory):
     """
 
     def install_claude_code_with_abxpkg() -> str:
-        from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_test_env
         from abx_plugins.plugins.base.utils import load_required_binary
 
-        env = get_test_env()
+        env = os.environ.copy()
         env["ABXPKG_LIB_DIR"] = str(tmp_path_factory.mktemp("claudecode_test_lib"))
         env["CRAWL_DIR"] = str(tmp_path_factory.mktemp("claudecode_test_data"))
         env["CLAUDECODE_ENABLED"] = "true"

@@ -119,15 +119,7 @@ _CHROME_PROVIDER_ENV_KEYS = (
 def require_chrome_runtime_impl() -> None:
     """Require chrome runtime prerequisites for integration tests."""
     try:
-        env = get_test_env()
-        env_result = _run_chrome_required_binary_env(
-            env,
-            timeout=int(env.get("ABXPKG_INSTALL_TIMEOUT") or "300"),
-            install=True,
-        )
-        if env_result.returncode != 0:
-            raise RuntimeError(env_result.stderr or env_result.stdout)
-        env.update(_parse_abxpkg_env_delta(env_result.stdout, base_env=env))
+        env = get_test_env(install_required_binaries=True)
         node_name = env.get("NODE_BINARY") or "node"
         node_record = _required_binary_record(CHROME_PLUGIN_DIR, node_name, env)
         load_required_binary(node_record, config=env, environ=env)
@@ -924,7 +916,20 @@ def get_extensions_dir(env: dict | None = None) -> str:
 
     Matches JS chrome_utils.js: getExtensionsDir()
     """
-    returncode, stdout, stderr = _call_chrome_utils("getExtensionsDir", env=env)
+    payload = os.environ.copy()
+    if env:
+        payload.update(env)
+    if not payload.get("NODE_MODULES_DIR"):
+        lib_dir = Path(payload.get("ABXPKG_LIB_DIR") or get_lib_dir())
+        node_modules_dir = lib_dir / "pnpm" / "packages" / "chrome" / "node_modules"
+        payload["NODE_MODULES_DIR"] = str(node_modules_dir)
+        payload["NODE_MODULE_DIR"] = str(node_modules_dir)
+        payload["NODE_PATH"] = str(node_modules_dir)
+    returncode, stdout, stderr = _call_chrome_utils(
+        "getExtensionsDir",
+        env=payload,
+        resolve_required_binary_env=False,
+    )
     if returncode != 0 or not stdout.strip():
         raise RuntimeError(
             f"chrome utils failed to resolve Chrome extensions dir: {stderr or stdout}",
@@ -957,6 +962,15 @@ def chrome_extension_install_env(tmpdir: str | Path) -> tuple[dict[str, str], Pa
         "COOKIES_FILE",
     ):
         env.pop(inherited_key, None)
+    node_modules_dir = lib_dir / "pnpm" / "packages" / "chrome" / "node_modules"
+    env.update(
+        {
+            "NODE_MODULES_DIR": str(node_modules_dir),
+            "NODE_MODULE_DIR": str(node_modules_dir),
+            "NODE_PATH": str(node_modules_dir),
+            "PNPM_HOME": str(node_modules_dir / ".bin"),
+        },
+    )
     extensions_dir = Path(get_extensions_dir(env=env))
 
     snap_dir.mkdir(parents=True, exist_ok=True)
@@ -1048,6 +1062,20 @@ def get_test_env(*, install_required_binaries: bool = False) -> dict:
         env.update(provider_env)
     elif install_required_binaries:
         raise RuntimeError(error)
+    else:
+        lib_dir = get_lib_dir()
+        node_modules_dir = lib_dir / "pnpm" / "packages" / "chrome" / "node_modules"
+        env.update(
+            {
+                "ABXPKG_LIB_DIR": str(lib_dir),
+                "NODE_MODULES_DIR": str(node_modules_dir),
+                "NODE_MODULE_DIR": str(node_modules_dir),
+                "NODE_PATH": str(node_modules_dir),
+                "PNPM_HOME": str(node_modules_dir / ".bin"),
+                "PNPM_BIN_DIR": str(node_modules_dir / ".bin"),
+                "NPM_BIN_DIR": str(node_modules_dir / ".bin"),
+            },
+        )
     provider_node_path = env.get("NODE_PATH")
 
     returncode, stdout, stderr = _call_base_utils("getTestEnv", env=env)
