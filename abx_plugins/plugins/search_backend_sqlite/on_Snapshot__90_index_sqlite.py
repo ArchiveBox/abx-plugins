@@ -27,14 +27,14 @@ from pathlib import Path
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     get_extra_context,
-    load_config,
 )
+from abx_plugins.plugins.search_backend_sqlite.search import load_sqlite_config
 
 
 # Extractor metadata
 PLUGIN_NAME = "index_sqlite"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-CONFIG = load_config()
+CONFIG = load_sqlite_config()
 DATA_DIR = Path(CONFIG.DATA_DIR or ".").resolve()
 SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR

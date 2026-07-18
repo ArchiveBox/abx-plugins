@@ -20,11 +20,34 @@ from abx_plugins.plugins.search_backend_sqlite.search import (
     get_db_path,
     search,
     flush,
+    load_sqlite_config,
 )
 
 
 SQLITEFTS_DB = "search.sqlite3"
 FTS_TOKENIZERS = "porter unicode61 remove_diacritics 2"
+
+
+def test_load_sqlite_config_resolves_runtime_values_and_aliases(tmp_path: Path):
+    config = load_sqlite_config(
+        {
+            "ABX_RUNTIME": "archivebox",
+            "DATA_DIR": str(tmp_path),
+            "SNAP_DIR": str(tmp_path / "snapshot"),
+            "SEARCH_BACKEND_SQLITE_ENABLED": "false",
+            "SQLITEFTS_DB": "custom-search.sqlite3",
+            "FTS_SEPARATE_DATABASE": "false",
+            "FTS_TOKENIZERS": "unicode61",
+        },
+    )
+
+    assert config.ABX_RUNTIME == "archivebox"
+    assert config.DATA_DIR == str(tmp_path)
+    assert config.SNAP_DIR == str(tmp_path / "snapshot")
+    assert config.SEARCH_BACKEND_SQLITE_ENABLED is False
+    assert config.SEARCH_BACKEND_SQLITE_DB == "custom-search.sqlite3"
+    assert config.SEARCH_BACKEND_SQLITE_SEPARATE_DATABASE is False
+    assert config.SEARCH_BACKEND_SQLITE_TOKENIZERS == "unicode61"
 
 
 class TestSqliteSearchBackend:

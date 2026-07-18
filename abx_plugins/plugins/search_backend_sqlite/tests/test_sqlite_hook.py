@@ -2,6 +2,7 @@ import json
 import os
 import sqlite3
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -82,3 +83,42 @@ def test_hook_without_content_skips_cleanly(tmp_path: Path) -> None:
     assert '"status": "noresults"' in result.stdout
     assert '"output_str": "No indexable content"' in result.stdout
     assert not (tmp_path / "search.sqlite3").exists()
+
+
+def test_hook_cold_start_avoids_typed_schema_imports(tmp_path: Path) -> None:
+    """The per-snapshot hot path must not rebuild Jambo/Pydantic models."""
+    (tmp_path / "readability").mkdir(parents=True)
+    (tmp_path / "search_backend_sqlite").mkdir(parents=True)
+    (tmp_path / "readability" / "content.txt").write_text("Cold start content")
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "ABX_RUNTIME": "archivebox",
+            "DATA_DIR": str(tmp_path),
+            "SNAP_DIR": str(tmp_path),
+            "SEARCH_BACKEND_SQLITE_ENABLED": "true",
+            "EXTRA_CONTEXT": json.dumps({"snapshot_id": "snap-cold-start"}),
+        },
+    )
+    result = subprocess.run(
+        [sys.executable, "-X", "importtime", str(HOOK), "--url=https://example.com"],
+        cwd=str(tmp_path / "search_backend_sqlite"),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "pydantic" not in result.stderr
+    assert "jambo" not in result.stderr
+
+    conn = sqlite3.connect(str(tmp_path / "search.sqlite3"))
+    try:
+        row = conn.execute(
+            "SELECT snapshot_id, content FROM search_index",
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row == ("snap-cold-start", "Cold start content")
