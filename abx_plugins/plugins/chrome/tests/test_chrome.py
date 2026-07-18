@@ -654,7 +654,7 @@ def _isolated_test_env(tmpdir: str | Path, **updates: str) -> dict:
     xdg_config_home = home_dir / ".config"
     xdg_cache_home = home_dir / ".cache"
     xdg_data_home = home_dir / ".local" / "share"
-    lib_dir = tmpdir / "lib"
+    lib_dir = Path(env["ABXPKG_LIB_DIR"]).resolve()
 
     for path in (
         snap_dir,
@@ -688,7 +688,17 @@ def _isolated_test_env(tmpdir: str | Path, **updates: str) -> dict:
     ):
         env.pop(inherited_key, None)
     env.update(updates)
-    chromewebstore_extensions_dir = Path(get_extensions_dir(env=env))
+    returncode, extensions_stdout, extensions_stderr = _call_chrome_utils(
+        "getExtensionsDir",
+        env=env,
+        resolve_required_binary_env=False,
+    )
+    if returncode != 0 or not extensions_stdout.strip():
+        raise RuntimeError(
+            "chrome utils failed to resolve Chrome extensions dir: "
+            f"{extensions_stderr or extensions_stdout}",
+        )
+    chromewebstore_extensions_dir = Path(extensions_stdout.strip())
     chromewebstore_extensions_dir.mkdir(parents=True, exist_ok=True)
     assert_isolated_snapshot_env(env)
     return env

@@ -228,7 +228,7 @@ def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
         str(tmp_path_factory.mktemp("chrome_test_lib")),
     )
 
-    env = get_test_env()
+    env = get_test_env(install_required_binaries=True)
 
     # Disable Chrome sandbox when running as root (common in containers/CI)
     if os.geteuid() == 0:
