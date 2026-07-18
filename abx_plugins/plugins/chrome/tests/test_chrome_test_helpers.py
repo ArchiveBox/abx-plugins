@@ -20,6 +20,7 @@ from abx_plugins.plugins.base.test_utils import (
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     _call_chrome_utils,
     CHROME_UTILS,
+    chrome_extension_install_env,
     chrome_session,
     get_test_env,
     get_machine_type,
@@ -128,6 +129,26 @@ def test_get_extensions_dir_ignores_persona_by_default():
             os.environ["PERSONAS_DIR"] = old_personas_dir
         else:
             os.environ.pop("PERSONAS_DIR", None)
+
+
+def test_chrome_extension_install_env_isolates_inherited_extensions_dir(
+    tmp_path: Path,
+):
+    """An explicit install root must not reuse the process-wide extension cache."""
+    inherited_extensions_dir = tmp_path / "global-lib" / "chromewebstore" / "extensions"
+    old_extensions_dir = os.environ.get("CHROMEWEBSTORE_EXTENSIONS_DIR")
+    try:
+        os.environ["CHROMEWEBSTORE_EXTENSIONS_DIR"] = str(inherited_extensions_dir)
+        env, extensions_dir = chrome_extension_install_env(tmp_path / "isolated")
+    finally:
+        if old_extensions_dir is None:
+            os.environ.pop("CHROMEWEBSTORE_EXTENSIONS_DIR", None)
+        else:
+            os.environ["CHROMEWEBSTORE_EXTENSIONS_DIR"] = old_extensions_dir
+
+    expected = tmp_path / "isolated" / "lib" / "chromewebstore" / "extensions"
+    assert extensions_dir == expected.resolve()
+    assert "CHROMEWEBSTORE_EXTENSIONS_DIR" not in env
 
 
 def test_call_chrome_utils_builds_chrome_required_binary_exec_env(

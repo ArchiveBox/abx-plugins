@@ -555,9 +555,10 @@ def _call_chrome_utils(
     Returns:
         Tuple of (returncode, stdout, stderr)
     """
-    payload = os.environ.copy()
-    if env:
-        payload.update(env)
+    # Callers pass complete subprocess environments. Treat them as
+    # authoritative so deliberately removed isolation keys are not restored
+    # from the pytest process environment.
+    payload = os.environ.copy() if env is None else env.copy()
 
     if resolve_required_binary_env:
         returncode, provider_env, error = _resolve_chrome_required_binary_env(
@@ -916,9 +917,10 @@ def get_extensions_dir(env: dict | None = None) -> str:
 
     Matches JS chrome_utils.js: getExtensionsDir()
     """
-    payload = os.environ.copy()
-    if env:
-        payload.update(env)
+    # A supplied subprocess environment is already complete and authoritative.
+    # Merging the parent environment back into it can restore keys the caller
+    # deliberately removed to isolate an extension installation.
+    payload = os.environ.copy() if env is None else env.copy()
     if not payload.get("NODE_MODULES_DIR"):
         lib_dir = Path(payload.get("ABXPKG_LIB_DIR") or get_lib_dir())
         node_modules_dir = lib_dir / "pnpm" / "packages" / "chrome" / "node_modules"
