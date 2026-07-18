@@ -1,0 +1,23 @@
+.github/workflows/claude.yml
+  s_f8414d52051f83::t_406d8b5a16b7a0 85
+.pre-commit-config.yaml
+  s_f8414d52051f83::t_406d8b5a16b7a0 46
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_406d8b5a16b7a0 58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "70cf0cbf04851ca285a68cbe98e0ac71a155a42d",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
