@@ -21,14 +21,15 @@ import signal
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
 import os
-import base64
-import json
 import re
-import subprocess
 import sys
+import tempfile
+import time
 
 from pathlib import Path
+from urllib.error import HTTPError
 from urllib.parse import quote, urljoin, urlparse
+from urllib.request import Request, urlopen
 
 from abx_plugins.plugins.base.utils import emit_archive_result_record, get_config
 
@@ -52,48 +53,56 @@ class HttpDeadlineExceeded(TimeoutError):
 
 
 def http_get(url: str, headers: dict[str, str], timeout: int) -> tuple[int, bytes]:
-    # urllib's socket timeout does not bound total request time when the peer
-    # accepts the connection and delays the response. FAVICON_TIMEOUT is the
-    # per-candidate extractor budget, so run the blocking fetch in a plain
-    # Python child process and let subprocess enforce the deadline. A thread is
-    # not enough here: a blocked urllib worker can keep interpreter shutdown
-    # waiting, which turns one slow favicon endpoint into a full snapshot stall.
-    fetch_code = r"""
-import base64, json, sys
-from urllib.error import HTTPError
-from urllib.request import Request, urlopen
-url = sys.argv[1]
-headers = json.loads(sys.argv[2])
-timeout = int(sys.argv[3])
-req = Request(url, headers=headers)
-try:
-    with urlopen(req, timeout=timeout) as response:
-        body = response.read()
-        print(json.dumps({"ok": True, "status": response.getcode() or 0, "body": base64.b64encode(body).decode("ascii")}))
-except HTTPError as e:
-    body = e.read()
-    print(json.dumps({"ok": True, "status": e.code, "body": base64.b64encode(body).decode("ascii")}))
-except BaseException as e:
-    print(json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"}))
-"""
-    try:
-        proc = subprocess.run(
-            [sys.executable, "-c", fetch_code, url, json.dumps(headers), str(timeout)],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
-    except subprocess.TimeoutExpired as err:
-        raise HttpDeadlineExceeded(f"timed out after {timeout} seconds") from err
-    if proc.returncode != 0:
-        raise RuntimeError(
-            proc.stderr.strip() or f"favicon fetch exited {proc.returncode}",
-        )
-    result = json.loads(proc.stdout.strip() or "{}")
-    if not result.get("ok"):
-        raise RuntimeError(result.get("error") or "favicon fetch failed")
-    return int(result["status"]), base64.b64decode(result.get("body") or "")
+    # urllib's socket timeout does not bound total response time after a peer
+    # accepts the connection. Fork the already-loaded hook process so the
+    # parent can enforce a wall-clock deadline without paying for another
+    # Python interpreter and full plugin import on every candidate URL.
+    with tempfile.TemporaryFile() as result_file:
+        child_pid = os.fork()
+        if child_pid == 0:
+            request = Request(url, headers=headers)
+            status = 0
+            body = b""
+            returncode = 0
+            try:
+                try:
+                    with urlopen(request, timeout=timeout) as response:
+                        status = int(response.getcode() or 0)
+                        body = response.read()
+                except HTTPError as err:
+                    status = int(err.code)
+                    body = err.read()
+                result_file.write(f"{status}\n".encode() + body)
+            except BaseException as err:
+                returncode = 1
+                result_file.write(f"{type(err).__name__}: {err}".encode())
+            finally:
+                result_file.flush()
+                os._exit(returncode)
+
+        deadline = time.monotonic() + timeout
+        child_status = None
+        while time.monotonic() < deadline:
+            waited_pid, child_status = os.waitpid(child_pid, os.WNOHANG)
+            if waited_pid == child_pid:
+                break
+            time.sleep(0.01)
+        else:
+            os.kill(child_pid, signal.SIGKILL)
+            os.waitpid(child_pid, 0)
+            raise HttpDeadlineExceeded(f"timed out after {timeout} seconds")
+
+        result_file.seek(0)
+        payload = result_file.read()
+        if not os.WIFEXITED(child_status) or os.WEXITSTATUS(child_status) != 0:
+            raise RuntimeError(
+                payload.decode(errors="replace") or "favicon fetch failed",
+            )
+        try:
+            raw_status, body = payload.split(b"\n", 1)
+            return int(raw_status), body
+        except (ValueError, TypeError) as err:
+            raise RuntimeError("invalid favicon fetch result") from err
 
 
 def save_favicon(body: bytes) -> str:

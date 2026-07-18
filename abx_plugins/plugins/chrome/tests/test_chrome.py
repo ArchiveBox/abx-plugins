@@ -2687,7 +2687,7 @@ def test_crawl_wait_retries_until_published_cdp_endpoint_becomes_connectable(
         (
             provider_dir,
             provider_chrome_dir,
-            _provider_env,
+            provider_env,
             provider_cdp_url,
             provider_pid,
         ) = _launch_keepalive_local_provider_browser(
@@ -2703,7 +2703,7 @@ def test_crawl_wait_retries_until_published_cdp_endpoint_becomes_connectable(
             adopted_chrome_dir.joinpath("cdp_url.txt").write_text(
                 "ws://127.0.0.1:9/devtools/browser/not-ready-yet",
             )
-            write_browser_metadata(adopted_chrome_dir)
+            write_browser_metadata(adopted_chrome_dir, env=provider_env)
 
             adopted_env = _isolated_test_env(
                 tmpdir,

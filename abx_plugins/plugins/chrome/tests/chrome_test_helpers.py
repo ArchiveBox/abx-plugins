@@ -695,6 +695,8 @@ def wait_for_extensions_metadata(
 def write_browser_metadata(
     chrome_dir: Path,
     extensions: list[dict[str, Any]] | None = None,
+    *,
+    env: dict[str, str],
 ) -> None:
     """Publish browser readiness metadata via the runtime JS implementation."""
     script = r"""
@@ -715,7 +717,7 @@ chromeUtils.writeBrowserMetadata(chromeDir, extensions);
         capture_output=True,
         text=True,
         timeout=30,
-        env=os.environ.copy(),
+        env=env,
     )
     if result.returncode != 0:
         raise AssertionError(
