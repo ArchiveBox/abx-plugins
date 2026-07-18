@@ -1,0 +1,26 @@
+abx_plugins/plugins/search_backend_sqlite/on_Snapshot__90_index_sqlite.py
+  s_f8414d52051f83::t_78d98805dac6c5 31,37
+abx_plugins/plugins/search_backend_sqlite/search.py
+  s_f8414d52051f83::t_78d98805dac6c5 12-13,15-18,25-63,66
+abx_plugins/plugins/search_backend_sqlite/tests/test_sqlite_hook.py
+  s_f8414d52051f83::t_b92fc4198e937a 5,86-124
+abx_plugins/plugins/search_backend_sqlite/tests/test_sqlite_search.py
+  s_f8414d52051f83::t_cb8e3ccfe2bd6e 23,31-50
+  s_f8414d52051f83::t_ca3d450607ff7b 51-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "eb2cdf954298b31b6e4e59a2ec9d75b6600e7ec9",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
