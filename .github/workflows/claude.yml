@@ -82,7 +82,7 @@ jobs:
           version: 1.0
 
       - name: Install JS tooling
-        run: pnpm add -g prettier
+        run: pnpm add -g prettier@3.9.5
 
       - name: Install dependencies with uv
         run: |
