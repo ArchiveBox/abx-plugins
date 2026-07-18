@@ -43,8 +43,10 @@ repos:
         pass_filenames: false
       - id: ts-prettier
         name: ts-prettier
-        entry: bash -lc 'if command -v prettier >/dev/null 2>&1; then prettier "$@"; else npx --yes prettier@3.9.5 "$@"; fi' --
-        language: system
+        entry: prettier
+        language: node
+        additional_dependencies:
+          - prettier@3.9.5
         files: ^abx_plugins/plugins/.*\.js$
         exclude: \.(sh|py|html|json)$
       # - id: ts-eslint
