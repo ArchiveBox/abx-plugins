@@ -596,8 +596,16 @@ def _hydrate_config_payload(
         if key is None or key not in payload:
             continue
         env = os.environ if environ is None else environ
-        if key in env and Path(str(env[key])).expanduser().exists():
-            continue
+        if key in env:
+            explicit_env_path = Path(str(env[key])).expanduser()
+            # A command name such as ``node`` still needs host/provider
+            # hydration. An explicit path is authoritative even when it does
+            # not exist, so the hook can report that exact configuration error
+            # instead of silently replacing it with another discovered binary.
+            if explicit_env_path.is_absolute() or explicit_env_path.parent != Path("."):
+                continue
+            if explicit_env_path.exists():
+                continue
         if payload.get(key) and Path(str(payload[key])).expanduser().exists():
             continue
         loaded_path = _load_required_binary_path(record, payload)

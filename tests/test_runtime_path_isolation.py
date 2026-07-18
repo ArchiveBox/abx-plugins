@@ -206,3 +206,16 @@ def test_load_config_hydrates_chrome_node_binary_from_real_env_provider(
         timeout=10,
     )
     assert version.returncode == 0, version.stderr
+
+
+def test_load_config_preserves_explicit_missing_binary_path(tmp_path: Path) -> None:
+    missing_claude = tmp_path / "missing" / "claude"
+    config = load_config(
+        BASE_CONFIG_PATH.parent.parent / "claudecode" / "config.json",
+        environ={
+            "CLAUDECODE_BINARY": str(missing_claude),
+            "PATH": os.environ.get("PATH", ""),
+        },
+    )
+
+    assert config.CLAUDECODE_BINARY == str(missing_claude)
