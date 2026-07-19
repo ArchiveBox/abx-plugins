@@ -1,0 +1,39 @@
+abx_plugins/plugins/istilldontcareaboutcookies/tests/test_istilldontcareaboutcookies.py
+  s_f8414d52051f83::t_07ba81d56a44a2 554-580,582-612
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_c6da7353ed1777 87-90,153
+.github/actions/verify-chromium-launch/action.yml
+  s_f8414d52051f83::t_88443d5ce715a7 26-29
+  s_f8414d52051f83::t_fee7cc925d9f4a 9
+skills/abx-plugins/SKILL.md
+  s_f8414d52051f83::t_ad5172a690a192 24,50
+AGENTS.md
+  s_f8414d52051f83::t_ad5172a690a192 20,47
+abx_plugins/plugins/twocaptcha/tests/test_twocaptcha.py
+  s_f8414d52051f83::t_f551f6d7532ae7 473-507,509-510
+  s_f8414d52051f83::t_3203262ae55ef0 512-517
+abx_plugins/plugins/favicon/tests/test_favicon.py
+  s_f8414d52051f83::t_d3fc478a3ee4ae 97-100
+abx_plugins/plugins/gallerydl/tests/test_gallerydl.py
+  s_f8414d52051f83::t_28242550a72b93 212-248
+  s_f8414d52051f83::t_bb8560f8e51981 211
+  s_f8414d52051f83::t_cc9726ed3cb886 249-262
+abx_plugins/plugins/claudecode/tests/test_claudecode.py
+  s_f8414d52051f83::t_f551f6d7532ae7 138,163,187
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "afb5e06dc115916801cf5bdc7523a44f7c4f1002",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
