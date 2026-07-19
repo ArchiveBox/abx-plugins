@@ -551,75 +551,65 @@ def test_snapshot_hook_reports_hidden_cookie_popups(httpserver):
         )
         test_url = httpserver.url_for(COOKIE_TEST_PATH)
 
-        last_error = None
-        for attempt in range(3):
+        crawl_id = "cookie-output"
+        snapshot_id = "cookie-output-snap"
+        with chrome_session(
+            tmpdir,
+            crawl_id=crawl_id,
+            snapshot_id=snapshot_id,
+            test_url=test_url,
+            navigate=False,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        ) as (_chrome_launch_process, _chrome_pid, snapshot_chrome_dir, env):
+            hook_dir = snapshot_chrome_dir.parent / "istilldontcareaboutcookies"
+            hook_dir.mkdir(parents=True, exist_ok=True)
+
+            hook_process = subprocess.Popen(
+                [
+                    str(SNAPSHOT_HOOK),
+                    f"--url={test_url}",
+                    f"--snapshot-id={snapshot_id}",
+                ],
+                cwd=str(hook_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env,
+                start_new_session=True,
+            )
+
             try:
-                crawl_id = f"cookie-output-{attempt}"
-                snapshot_id = f"cookie-output-snap-{attempt}"
-                with chrome_session(
-                    tmpdir,
-                    crawl_id=crawl_id,
-                    snapshot_id=snapshot_id,
-                    test_url=test_url,
-                    navigate=False,
-                    timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
-                ) as (_chrome_launch_process, _chrome_pid, snapshot_chrome_dir, env):
-                    hook_dir = snapshot_chrome_dir.parent / "istilldontcareaboutcookies"
-                    hook_dir.mkdir(parents=True, exist_ok=True)
+                navigate = subprocess.run(
+                    [
+                        str(NAVIGATE_HOOK),
+                        f"--url={test_url}",
+                        f"--snapshot-id={snapshot_id}",
+                    ],
+                    cwd=str(snapshot_chrome_dir),
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=120,
+                )
+                assert navigate.returncode == 0, navigate.stderr
 
-                    hook_process = subprocess.Popen(
-                        [
-                            str(SNAPSHOT_HOOK),
-                            f"--url={test_url}",
-                            f"--snapshot-id={snapshot_id}",
-                        ],
-                        cwd=str(hook_dir),
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True,
-                        env=env,
-                        start_new_session=True,
-                    )
+                time.sleep(5)
+                os.killpg(hook_process.pid, signal.SIGTERM)
+                stdout, stderr = hook_process.communicate(timeout=15)
 
-                    try:
-                        navigate = subprocess.run(
-                            [
-                                str(NAVIGATE_HOOK),
-                                f"--url={test_url}",
-                                f"--snapshot-id={snapshot_id}",
-                            ],
-                            cwd=str(snapshot_chrome_dir),
-                            capture_output=True,
-                            text=True,
-                            env=env,
-                            timeout=120,
-                        )
-                        assert navigate.returncode == 0, navigate.stderr
-
-                        time.sleep(5)
-                        os.killpg(hook_process.pid, signal.SIGTERM)
-                        stdout, stderr = hook_process.communicate(timeout=15)
-
-                        assert hook_process.returncode in (0, -signal.SIGTERM), stderr
-                        records = parse_jsonl_records(stdout)
-                        archive_result = next(
-                            record
-                            for record in records
-                            if record.get("type") == "ArchiveResult"
-                        )
-                        assert archive_result["status"] == "succeeded", archive_result
-                        hidden_count = int(archive_result["output_str"].split()[0])
-                        assert hidden_count > 0, archive_result
-                        return
-                    finally:
-                        if hook_process.poll() is None:
-                            os.killpg(hook_process.pid, signal.SIGKILL)
-            except (RuntimeError, subprocess.TimeoutExpired) as err:
-                last_error = err
-                continue
-
-        if last_error:
-            raise last_error
+                assert hook_process.returncode in (0, -signal.SIGTERM), stderr
+                records = parse_jsonl_records(stdout)
+                archive_result = next(
+                    record
+                    for record in records
+                    if record.get("type") == "ArchiveResult"
+                )
+                assert archive_result["status"] == "succeeded", archive_result
+                hidden_count = int(archive_result["output_str"].split()[0])
+                assert hidden_count > 0, archive_result
+            finally:
+                if hook_process.poll() is None:
+                    os.killpg(hook_process.pid, signal.SIGKILL)
 
 
 def test_hides_cookie_consent_on_static_page(httpserver):

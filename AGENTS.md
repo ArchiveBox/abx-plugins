@@ -17,8 +17,7 @@
 
 ## Development Setup
 
-<!--pytest.mark.skip(reason="pytest invocation")-->
-```bash
+```console
 uv sync
 uv run pytest --collect-only -q
 ```
@@ -45,8 +44,7 @@ find abx_plugins/plugins/title -maxdepth 1 -type f | sort
 
 Run targeted plugin tests:
 
-<!--pytest.mark.skip(reason="pytest invocation")-->
-```bash
+```console
 uv run pytest abx_plugins/plugins/title/tests -q
 uv run pytest abx_plugins/plugins/chrome/tests -q
 uv run pytest tests/test_runtime_path_isolation.py -q

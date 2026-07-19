@@ -84,38 +84,14 @@ jobs:
           PYTHONPATH: ${{ runner.temp }}/abxpkg
         run: uv run --no-sync --no-sources prek run --all-files
 
-  changes:
-    name: Detect changed paths
-    runs-on: ubuntu-24.04
-    outputs:
-      docs-only: ${{ steps.changed-files.outputs.docs-only }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 2
-
-      - name: Detect docs-only changes
-        id: changed-files
-        run: |
-          docs_only=false
-
-          if git rev-parse --verify HEAD^ >/dev/null 2>&1; then
-            changed_files=$(git diff --name-only HEAD^ HEAD | sed '/^$/d')
-            if [ -n "$changed_files" ] && ! printf '%s\n' "$changed_files" | grep -qv '^docs/'; then
-              docs_only=true
-            fi
-          fi
-
-          echo "docs-only=$docs_only" >> "$GITHUB_OUTPUT"
-          echo "docs-only=$docs_only"
+      - name: Run documentation code blocks
+        env:
+          PYTHONPATH: ${{ runner.temp }}/abxpkg
+        run: uv run --no-sync --no-sources pytest -vv --tb=long README.md AGENTS.md skills docs
 
   discover-tests:
     name: Discover test files
     runs-on: ubuntu-24.04
-    needs: [changes]
-    if: ${{ needs.changes.outputs.docs-only != 'true' }}
     outputs:
       test-files: ${{ steps.set-matrix.outputs.test-files }}
 
@@ -174,8 +150,7 @@ jobs:
   run-tests:
     name: ${{ matrix.test.name }}
     runs-on: ubuntu-24.04
-    needs: [prek, changes, discover-tests]
-    if: ${{ needs.changes.outputs.docs-only != 'true' }}
+    needs: [prek, discover-tests]
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

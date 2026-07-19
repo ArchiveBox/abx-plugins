@@ -208,91 +208,58 @@ def test_real_gallery_url(httpserver):
     )
     gallery_url = httpserver.url_for(image_path)
 
-    max_attempts = 3
-    last_error = ""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        env = os.environ.copy()
+        env["GALLERYDL_TIMEOUT"] = "60"
+        env["GALLERYDL_BINARY"] = binary_path
+        env["SNAP_DIR"] = str(tmpdir)
 
-    for attempt in range(1, max_attempts + 1):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir = Path(tmpdir)
-            env = os.environ.copy()
-            env["GALLERYDL_TIMEOUT"] = "60"
-            env["GALLERYDL_BINARY"] = binary_path
-            env["SNAP_DIR"] = str(tmpdir)
+        start_time = time.time()
+        result = subprocess.run(
+            [str(GALLERYDL_HOOK), "--url", gallery_url],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=90,
+        )
+        elapsed_time = time.time() - start_time
 
-            start_time = time.time()
-            result = subprocess.run(
-                [
-                    str(GALLERYDL_HOOK),
-                    "--url",
-                    gallery_url,
-                ],
-                cwd=tmpdir,
-                capture_output=True,
-                text=True,
-                env=env,
-                timeout=90,
-            )
-            elapsed_time = time.time() - start_time
+        assert result.returncode == 0, result.stderr
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json and result_json.get("status") == "succeeded", (
+            result.stdout,
+            result.stderr,
+        )
 
-            if result.returncode != 0:
-                last_error = f"attempt={attempt} returncode={result.returncode} stderr={result.stderr}"
-                continue
+        output_str = (result_json.get("output_str") or "").strip()
+        assert output_str, (result.stdout, result.stderr)
+        assert output_str.startswith(f"{PLUGIN_DIR.name}/"), output_str
 
-            result_json = parse_jsonl_output(result.stdout)
+        output_path = tmpdir / output_str
+        assert output_path.is_file(), output_path
+        assert output_path.suffix.lower() in (
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".webp",
+            ".bmp",
+        ), output_path
+        assert output_path.stat().st_size > 0, output_path
 
-            if not result_json or result_json.get("status") != "succeeded":
-                last_error = f"attempt={attempt} invalid ArchiveResult stdout={result.stdout} stderr={result.stderr}"
-                continue
-
-            output_str = (result_json.get("output_str") or "").strip()
-            if not output_str:
-                last_error = f"attempt={attempt} empty output_str stdout={result.stdout} stderr={result.stderr}"
-                continue
-            if not output_str.startswith(f"{PLUGIN_DIR.name}/"):
-                last_error = f"attempt={attempt} output_str not SNAP_DIR-relative output_str={output_str}"
-                continue
-
-            output_path = tmpdir / output_str
-            if not output_path.is_file():
-                last_error = f"attempt={attempt} output missing path={output_path}"
-                continue
-
-            if output_path.suffix.lower() not in (
-                ".jpg",
-                ".jpeg",
-                ".png",
-                ".gif",
-                ".webp",
-                ".bmp",
-            ):
-                last_error = f"attempt={attempt} output is not image path={output_path}"
-                continue
-
-            if output_path.stat().st_size <= 0:
-                last_error = f"attempt={attempt} output file empty path={output_path}"
-                continue
-
-            # Ensure the extractor really downloaded image media, not just metadata.
-            output_files = list(tmpdir.rglob("*"))
-            image_files = [
-                f
-                for f in output_files
-                if f.is_file()
-                and f.suffix.lower()
-                in (".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp")
-            ]
-            if not image_files:
-                last_error = f"attempt={attempt} no image files under SNAP_DIR={tmpdir}"
-                continue
-
-            print(
-                f"Successfully extracted {len(image_files)} image(s) in {elapsed_time:.2f}s",
-            )
-            return
-
-    raise AssertionError(
-        f"Live gallery download did not yield an image after {max_attempts} attempts. Last error: {last_error}",
-    )
+        image_files = [
+            path
+            for path in tmpdir.rglob("*")
+            if path.is_file()
+            and path.suffix.lower()
+            in (".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp")
+        ]
+        assert image_files, tmpdir
+        print(
+            f"Successfully extracted {len(image_files)} image(s) in {elapsed_time:.2f}s",
+        )
 
 
 if __name__ == "__main__":

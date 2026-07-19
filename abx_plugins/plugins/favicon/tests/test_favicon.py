@@ -94,7 +94,10 @@ def test_config_timeout_honored(httpserver):
     )
 
     def slow_favicon(_request):
-        time.sleep(10)
+        # Stay beyond the configured five-second deadline without blocking the
+        # single-threaded fixture server long enough to make later candidates
+        # consume a second full timeout window.
+        time.sleep(6)
         return Response("too late", status=200, content_type="text/plain")
 
     httpserver.expect_request("/favicon.ico").respond_with_handler(slow_favicon)

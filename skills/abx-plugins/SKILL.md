@@ -21,8 +21,7 @@ description: Use this when working on ArchiveBox plugin hooks, config schemas, h
 
 ## Development Setup
 
-<!--pytest.mark.skip(reason="pytest invocation")-->
-```bash
+```console
 uv sync
 uv run pytest --collect-only -q
 ```
@@ -48,8 +47,7 @@ node -c abx_plugins/plugins/chrome/chrome_utils.js
 
 ## Verification
 
-<!--pytest.mark.skip(reason="pytest invocation")-->
-```bash
+```console
 uv run pytest abx_plugins/plugins/title/tests -q
 uv run pytest abx_plugins/plugins/chrome/tests -q
 uv run pytest tests/test_runtime_path_isolation.py -q
