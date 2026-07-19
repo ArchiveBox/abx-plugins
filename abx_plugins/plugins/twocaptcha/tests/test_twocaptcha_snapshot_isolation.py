@@ -4,7 +4,10 @@ import subprocess
 from .test_twocaptcha import CONFIG_SCRIPT
 
 
-def test_config_hook_skips_crawl_setup_when_chrome_is_snapshot_isolated(tmp_path):
+def test_config_hook_skips_crawl_setup_when_chrome_is_snapshot_isolated(
+    tmp_path,
+    ensure_chrome_test_prereqs,
+):
     env = os.environ.copy()
     crawl_dir = tmp_path / "crawl"
     crawl_dir.mkdir()

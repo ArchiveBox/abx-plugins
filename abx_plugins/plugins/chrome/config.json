@@ -22,7 +22,7 @@
       "name": "playwright",
       "binproviders": "pnpm",
       "min_version": null,
-      "postinstall_scripts": true,
+      "postinstall_scripts": false,
       "overrides": {
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/playwright",
