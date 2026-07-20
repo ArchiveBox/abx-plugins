@@ -1,0 +1,20 @@
+.github/actions/verify-chromium-launch/action.yml
+  s_f8414d52051f83::t_57e506615e38f3 20
+  s_f8414d52051f83::t_603fbb01f947c2 19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "3ba19642fa965e9e24cf32130e373cf02404492c",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
