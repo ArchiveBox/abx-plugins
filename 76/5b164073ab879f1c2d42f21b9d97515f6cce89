@@ -1,0 +1,24 @@
+abx_plugins/plugins/search_backend_ripgrep/tests/test_ripgrep_search.py
+  s_f8414d52051f83::t_18a5fc9cdc78e2 27,35-40
+abx_plugins/plugins/singlefile/singlefile_extension_save.js
+  s_f8414d52051f83::t_223aad12468e7d 2-4
+abx_plugins/plugins/singlefile/on_Snapshot__50_singlefile.py
+  s_f8414d52051f83::t_223aad12468e7d 148-152
+  s_f8414d52051f83::t_f55dc2a2bbd84b 153-155
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "765b164073ab879f1c2d42f21b9d97515f6cce89",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
