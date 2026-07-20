@@ -28,8 +28,10 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Clone abxpkg
-        run: git clone --depth=1 https://github.com/ArchiveBox/abxpkg.git "${{ runner.temp }}/abxpkg"
+      - name: Clone runtime repositories
+        run: |
+          git clone --depth=1 https://github.com/ArchiveBox/abxpkg.git "${{ runner.temp }}/abxpkg"
+          git clone --depth=1 https://github.com/ArchiveBox/abx-dl.git "${{ runner.temp }}/abx-dl"
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
@@ -77,7 +79,10 @@ jobs:
       - name: Install dependencies with uv
         run: |
           uv venv
-          uv pip install --group dev -e "${{ runner.temp }}/abxpkg" -e .
+          uv pip install --group dev \
+            -e "${{ runner.temp }}/abxpkg" \
+            -e "${{ runner.temp }}/abx-dl" \
+            -e .
 
       - name: Run prek
         env:
@@ -87,7 +92,10 @@ jobs:
       - name: Run documentation code blocks
         env:
           PYTHONPATH: ${{ runner.temp }}/abxpkg
-        run: uv run --no-sync --no-sources pytest -vv --tb=long README.md AGENTS.md skills docs
+        run: |
+          plugin_readmes=$(find abx_plugins/plugins -name README.md -type f | sort)
+          uv run --no-sync --no-sources pytest -vv --tb=long \
+            README.md AGENTS.md skills docs $plugin_readmes
 
   discover-tests:
     name: Discover test files

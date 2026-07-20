@@ -155,7 +155,11 @@ const { loadConfig, getEnv, getEnvBool, getEnvInt, getEnvArray, emitArchiveResul
 
 **Test helpers** (`base/test_utils.py`):
 ```python
-from base.test_utils import parse_jsonl_output, run_hook, get_hook_script
+from abx_plugins.plugins.base.test_utils import (
+    get_hook_script,
+    parse_jsonl_output,
+    run_hook,
+)
 ```
 
 - `parse_jsonl_output(stdout)` — extract first matching JSONL record from hook stdout
