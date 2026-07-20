@@ -21,15 +21,18 @@ jobs:
   prek:
     name: Pre-commit checks
     runs-on: ubuntu-24.04
-    env:
-      LIB_DIR: ${{ runner.temp }}/abx-lib
-      ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
           fetch-depth: 1
+
+      - name: Configure managed library
+        run: |
+          mkdir -p "$RUNNER_TEMP/abx-lib/env/bin"
+          echo "LIB_DIR=$RUNNER_TEMP/abx-lib" >> "$GITHUB_ENV"
+          echo "ABXPKG_LIB_DIR=$RUNNER_TEMP/abx-lib" >> "$GITHUB_ENV"
 
       - name: Clone runtime repositories
         run: |
@@ -83,7 +86,6 @@ jobs:
 
       - name: Install dependencies with uv
         run: |
-          mkdir -p "$LIB_DIR/env/bin"
           uv venv
           uv pip install --group dev \
             -e "${{ runner.temp }}/abxpkg" \
