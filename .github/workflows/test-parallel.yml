@@ -315,7 +315,6 @@ jobs:
         env:
           PYTHONPATH: ${{ runner.temp }}/abxpkg
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
-          CHROME_SANDBOX: "false"
           CHROME_HEADLESS: "True"
         run: |
           uv run --no-sync --no-sources pytest -xvs -rA "${{ matrix.test.path }}" --basetemp="$RUNNER_TEMP/pytest-out"
