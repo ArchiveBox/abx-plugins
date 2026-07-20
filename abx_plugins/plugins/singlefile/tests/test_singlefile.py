@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 
 from abx_plugins.plugins.base.test_utils import (
+    get_hydrated_required_binaries,
     get_hook_script,
     get_plugin_dir,
     install_required_binary_from_config,
@@ -285,9 +286,15 @@ def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
         "singlefile",
         env=env_install,
     )
+    cli_records = [
+        record
+        for record in get_hydrated_required_binaries(PLUGIN_DIR, env=env_install)
+        if "pnpm" in str(record.get("binproviders", "")).split(",")
+    ]
+    assert len(cli_records) == 1, cli_records
     singlefile_cli = install_required_binary_from_config(
         PLUGIN_DIR,
-        "single-file",
+        str(cli_records[0]["name"]),
         env=env_install,
     )
     assert loaded.loaded_abspath is not None, (
