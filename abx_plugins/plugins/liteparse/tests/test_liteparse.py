@@ -299,6 +299,15 @@ def test_crawl_hook_emits_lit_binary_request_record():
     ]
 
 
+def test_crawl_hook_finds_lit_declaration_after_environment_hydration():
+    lit_path = require_liteparse_binary()
+    env = {**os.environ, "LITEPARSE_BINARY": lit_path}
+
+    binary = get_hydrated_required_binary(PLUGIN_DIR, "lit", env=env)
+
+    assert binary["name"] == lit_path
+
+
 def test_verify_deps_with_install_hooks():
     """lit v2 and OCR support binaries can be installed and resolved via abxpkg."""
     binary_path = require_liteparse_binary()

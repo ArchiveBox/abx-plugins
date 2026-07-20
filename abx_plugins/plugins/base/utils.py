@@ -822,14 +822,35 @@ def get_hydrated_required_binaries(
 
 def _find_hydrated_required_binary(
     records: list[dict[str, Any]],
+    properties: Mapping[str, Any],
     payload: Mapping[str, Any],
     name: str,
     resolved_path: Path,
 ) -> dict[str, Any]:
-    for record in records:
-        hydrated_record = hydrate_required_binary(record, payload)
+    hydrated_records = [
+        (record, hydrate_required_binary(record, payload)) for record in records
+    ]
+
+    # Prefer the effective runtime name so callers can select an explicitly
+    # configured path without it being mistaken for another declaration.
+    for _, hydrated_record in hydrated_records:
         if hydrated_record.get("name") == name:
             return hydrated_record
+
+    # A required binary whose name comes from a config property still has a
+    # stable declaration identity: that property's schema default.  Environment
+    # hydration may replace the runtime name with an absolute path, but callers
+    # must continue to be able to select the declaration by its configured
+    # command name (for example ``lit`` or ``wget``).
+    for record, hydrated_record in hydrated_records:
+        key = _placeholder_config_key(record.get("name"))
+        property_schema = properties.get(key) if key is not None else None
+        if (
+            isinstance(property_schema, Mapping)
+            and property_schema.get("default") == name
+        ):
+            return hydrated_record
+
     raise KeyError(f"{resolved_path} required_binaries is missing {name!r}")
 
 
@@ -842,7 +863,7 @@ def get_hydrated_required_binary(
     environ: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Return one hydrated required_binaries record by resolved binary name."""
-    resolved_path, _, _, payload = _resolve_config_payload(
+    resolved_path, _, properties, payload = _resolve_config_payload(
         config_path,
         stack_depth=2,
         global_config=global_config,
@@ -851,6 +872,7 @@ def get_hydrated_required_binary(
     )
     return _find_hydrated_required_binary(
         _collect_required_binary_records(resolved_path),
+        properties,
         payload,
         name,
         resolved_path,
@@ -867,7 +889,7 @@ def load_required_binary_from_config(
     install: bool = False,
 ) -> Any:
     """Load or install a named required_binaries entry from plugin config.json."""
-    resolved_path, _, _, payload = _resolve_config_payload(
+    resolved_path, _, properties, payload = _resolve_config_payload(
         config_path,
         stack_depth=2,
         global_config=global_config,
@@ -876,6 +898,7 @@ def load_required_binary_from_config(
     )
     record = _find_hydrated_required_binary(
         _collect_required_binary_records(resolved_path),
+        properties,
         payload,
         name,
         resolved_path,
