@@ -26,16 +26,14 @@ uv sync --inexact
 uv run pytest --collect-only -q
 ```
 
-## User-Facing Setup
+## User-Facing Inspection
 
-Most users run plugins through ArchiveBox or `abx-dl`:
+Inspect the installed plugin runtime through `abx-dl`:
 
 ```bash
-output_dir="$(mktemp -d)"
-trap 'rm -rf -- "$output_dir"' EXIT
-abx-dl plugins
-abx-dl install chrome singlefile ublock
-abx-dl dl --dir "$output_dir" --plugins=title,screenshot,pdf 'https://example.com'
+abx-dl version
+abx-dl config --get TITLE_ENABLED
+abx-dl plugins title
 ```
 
 ## Basic Usage
