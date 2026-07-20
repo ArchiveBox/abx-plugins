@@ -235,18 +235,6 @@ async function main() {
     console.error(`[+] CDP URL: ${chromeCdpUrl}`);
     releaseLock();
     releaseLock = null;
-    // Background hook stdout is the parent scheduler's readiness contract.
-    // Emit only after browser.json/cdp_url.txt exist and the launch lock is
-    // released so snapshot hooks can safely consume the shared Chrome session.
-    console.log(
-      JSON.stringify({
-        type: "ProcessReady",
-        plugin: PLUGIN_DIR,
-        hook: "on_CrawlSetup__90_chrome_launch.daemon.bg",
-        cdp_url: chromeCdpUrl,
-        pid: chromePid || null,
-      })
-    );
 
     if (cleanupRequestedDuringLaunch) {
       cleanupRequestedDuringLaunch = false;
