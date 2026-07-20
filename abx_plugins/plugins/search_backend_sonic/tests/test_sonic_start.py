@@ -1,4 +1,5 @@
 import socket
+import shlex
 from pathlib import Path
 
 
@@ -16,7 +17,7 @@ def test_sonic_supervisord_worker_is_owned_by_plugin(tmp_path: Path) -> None:
     config = {
         "DATA_DIR": str(tmp_path / "data"),
         "SEARCH_BACKEND_SONIC_ENABLED": True,
-        "SONIC_BINARY": "/usr/bin/sonic",
+        "SONIC_BINARY": "sonic",
         "SEARCH_BACKEND_SONIC_HOST_NAME": "127.0.0.1",
         "SEARCH_BACKEND_SONIC_PORT": _free_port(),
         "SEARCH_BACKEND_SONIC_PASSWORD": "SecretPassword",
@@ -25,11 +26,16 @@ def test_sonic_supervisord_worker_is_owned_by_plugin(tmp_path: Path) -> None:
     worker = get_sonic_supervisord_worker(config)
 
     assert worker is not None
+    command = shlex.split(worker["command"])
+    sonic_binary = Path(command[0])
+    assert sonic_binary.is_absolute()
+    assert sonic_binary.is_file()
     assert worker["name"] == "worker_sonic"
-    assert worker["command"].startswith("/usr/bin/sonic -c ")
-    assert worker["command"].endswith(
-        f"-c {tmp_path / 'data' / 'sonic' / 'config.cfg'}",
-    )
+    assert command == [
+        str(sonic_binary),
+        "-c",
+        str(tmp_path / "data" / "sonic" / "config.cfg"),
+    ]
     assert worker["directory"] == str(tmp_path / "data" / "sonic")
     assert f'SONIC_DIR="{tmp_path / "data" / "sonic"}"' in worker["environment"]
     assert f'DATA_DIR="{tmp_path / "data"}"' in worker["environment"]

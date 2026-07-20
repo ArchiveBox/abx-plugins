@@ -11,7 +11,10 @@ from types import SimpleNamespace
 from typing import Any, Literal, TypedDict
 from collections.abc import Mapping
 
-from abx_plugins.plugins.base.utils import write_text_atomic
+from abx_plugins.plugins.base.utils import (
+    load_required_binary_from_config,
+    write_text_atomic,
+)
 
 
 SONIC_WORKER_NAME = "worker_sonic"
@@ -272,9 +275,17 @@ def get_sonic_supervisord_worker(
         return None
 
     daemon_event = prepare_sonic_daemon(config)
-    sonic_binary = str(config_value(config, "SONIC_BINARY", ""))
-    if not Path(sonic_binary).is_absolute():
-        raise RuntimeError("SONIC_BINARY was not resolved by abxpkg")
+    config_payload = dict(config) if isinstance(config, Mapping) else vars(config)
+    requested_binary = str(config_value(config, "SONIC_BINARY", "sonic"))
+    loaded_binary = load_required_binary_from_config(
+        requested_binary,
+        CONFIG_PATH,
+        global_config=config_payload,
+        install=True,
+    )
+    if not loaded_binary.loaded_abspath:
+        raise RuntimeError("abxpkg did not resolve SONIC_BINARY")
+    sonic_binary = str(loaded_binary.loaded_abspath)
     data_dir = config_value(config, "DATA_DIR")
     return {
         "name": daemon_event.worker_name,
