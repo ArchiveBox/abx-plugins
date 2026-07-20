@@ -46,7 +46,6 @@ const {
   loadConfig,
   parseArgs,
   emitArchiveResultRecord,
-  emitProcessReadyRecord,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 
@@ -254,7 +253,6 @@ async function main() {
     browser = connection.browser;
     page = connection.page;
     emitProgress();
-    emitProcessReadyRecord({ plugin: PLUGIN_DIR, output: "console.jsonl" });
 
     // Register signal handlers for graceful shutdown
     __abxInstallShutdownHandler(handleShutdown);

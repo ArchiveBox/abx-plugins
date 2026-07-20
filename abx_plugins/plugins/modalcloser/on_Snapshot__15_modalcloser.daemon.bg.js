@@ -65,7 +65,6 @@ const {
   getEnvInt,
   parseArgs,
   emitArchiveResultRecord,
-  emitProcessReadyRecord,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 
@@ -444,8 +443,6 @@ async function main() {
         // Dialog may have been dismissed by page
       }
     });
-
-    emitProcessReadyRecord({ plugin: PLUGIN_DIR });
 
     // Poll for CSS modals
     while (running) {

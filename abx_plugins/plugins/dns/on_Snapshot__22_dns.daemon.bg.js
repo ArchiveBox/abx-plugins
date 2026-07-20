@@ -48,7 +48,6 @@ const {
   loadConfig,
   parseArgs,
   emitArchiveResultRecord,
-  emitProcessReadyRecord,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 
@@ -359,7 +358,6 @@ async function main() {
     browser = connection.browser;
     page = connection.page;
     emitProgress("0 DNS records");
-    emitProcessReadyRecord({ plugin: PLUGIN_DIR, output: OUTPUT_FILE });
 
     // Register signal handlers for graceful shutdown
     __abxInstallShutdownHandler(handleShutdown);

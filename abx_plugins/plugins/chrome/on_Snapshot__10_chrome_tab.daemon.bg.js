@@ -55,7 +55,6 @@ const {
   getEnvInt,
   loadConfig,
   emitArchiveResultRecord,
-  emitProcessReadyRecord,
   writeFileAtomic,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
@@ -135,6 +134,7 @@ function publishSuccess(outputStr, versionOverride = "") {
   finalOutput = outputStr || "";
   finalError = "";
   cmdVersion = versionOverride || cmdVersion || "";
+  emitResult("succeeded");
 }
 
 function cleanupFiles(fileNames, reason) {
@@ -360,11 +360,6 @@ async function main() {
         releaseLock = null;
         publishSuccess(output, version || "");
         await startTargetMonitorBestEffort();
-        emitProcessReadyRecord({
-          plugin: PLUGIN_DIR,
-          target_id: targetId,
-          cdp_url: currentCdpUrl,
-        });
         keepAliveTimer = setInterval(() => {}, 1000);
         await new Promise(() => {});
       }
@@ -527,11 +522,6 @@ async function main() {
     process.exit(1);
   }
 
-  emitProcessReadyRecord({
-    plugin: PLUGIN_DIR,
-    target_id: targetId,
-    cdp_url: currentCdpUrl,
-  });
   // console.log('tab is loaded, waiting for cleanup...');
   keepAliveTimer = setInterval(() => {}, 1000);
   await new Promise(() => {}); // Keep alive until SIGTERM

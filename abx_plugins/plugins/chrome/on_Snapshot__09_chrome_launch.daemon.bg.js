@@ -38,7 +38,6 @@ const {
   ensureNodeModuleResolution,
   loadConfig,
   emitArchiveResultRecord,
-  emitProcessReadyRecord,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 const {
@@ -79,7 +78,6 @@ process.chdir(OUTPUT_DIR);
 
 let chromePid = null;
 let chromeCdpUrl = null;
-let chromePort = null;
 let chromeProcessIsLocal = CHROME_IS_LOCAL;
 let shouldCloseOnCleanup = false;
 let cleanupPromise = null;
@@ -110,14 +108,9 @@ async function cleanup() {
         console.error(
           "Chrome cleanup did not fully stop the browser process tree"
         );
-        emitArchiveResultRecord("failed", "Chrome cleanup failed");
         process.exit(1);
       }
     }
-    emitArchiveResultRecord(
-      "succeeded",
-      `pid=${chromePid || "external"} port=${chromePort || "?"}`
-    );
     process.exit(0);
   })();
   return cleanupPromise;
@@ -199,9 +192,12 @@ async function main() {
 
     chromePid = session.pid;
     chromeCdpUrl = session.cdpUrl;
-    chromePort = session.port;
     shouldCloseOnCleanup = !keepAlive;
 
+    emitArchiveResultRecord(
+      "succeeded",
+      `pid=${chromePid || "external"} port=${session.port || "?"}`
+    );
     releaseLock();
     releaseLock = null;
 
@@ -213,18 +209,9 @@ async function main() {
     }
 
     if (!shouldCloseOnCleanup) {
-      emitArchiveResultRecord(
-        "succeeded",
-        `pid=${chromePid || "external"} port=${chromePort || "?"}`
-      );
       process.exit(0);
     }
 
-    emitProcessReadyRecord({
-      plugin: PLUGIN_DIR,
-      cdp_url: chromeCdpUrl,
-      pid: chromePid || null,
-    });
     setInterval(() => {}, 1000000);
   } catch (error) {
     if (chromeCdpUrl || chromePid) {

@@ -41,7 +41,6 @@ const {
   loadConfig,
   parseArgs,
   emitArchiveResultRecord,
-  emitProcessReadyRecord,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 
@@ -196,7 +195,6 @@ async function main() {
     // deadlocks the hook order: navigation cannot happen until readiness is
     // published, but readiness was waiting for navigation to happen first.
     emitProgress(formatPopupCount(0));
-    emitProcessReadyRecord({ plugin: PLUGIN_DIR });
 
     try {
       // This hook observes the page across the whole snapshot phase, but it is

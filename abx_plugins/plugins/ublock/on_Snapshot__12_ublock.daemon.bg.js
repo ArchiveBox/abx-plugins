@@ -41,7 +41,6 @@ const {
   loadConfig,
   parseArgs,
   emitArchiveResultRecord,
-  emitProcessReadyRecord,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 
@@ -227,8 +226,6 @@ async function main() {
         emitProgress(blockedRequests, hiddenElements);
       }
     });
-
-    emitProcessReadyRecord({ plugin: PLUGIN_DIR });
 
     try {
       // Pre-navigation observer hooks start before foreground extractors such
