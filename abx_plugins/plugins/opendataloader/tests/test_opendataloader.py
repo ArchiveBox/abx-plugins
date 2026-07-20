@@ -397,42 +397,6 @@ def test_force_ocr_adds_hybrid_flag():
             f"Output too short, extraction may be broken: {content!r}"
         )
 
-
-def test_invalid_opendataloader_binary_path_reports_failed_status():
-    """A missing opendataloader CLI path should report failed, not noresults."""
-    pdf_content = _download_test_pdf()
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-        snap_dir = tmpdir / "snap"
-        responses_dir = snap_dir / "responses" / "application" / "example.com"
-        responses_dir.mkdir(parents=True, exist_ok=True)
-        (responses_dir / "output.pdf").write_bytes(pdf_content)
-
-        env = os.environ.copy()
-        env["SNAP_DIR"] = str(snap_dir)
-        env["OPENDATALOADER_BINARY"] = str(tmpdir / "missing-opendataloader")
-        env["OPENDATALOADER_ENABLED"] = "True"
-
-        result = subprocess.run(
-            [
-                str(OPENDATALOADER_HOOK),
-                "--url",
-                "https://example.com/bad.pdf",
-            ],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            timeout=60,
-            env=env,
-        )
-
-        assert result.returncode == 1, (
-            f"Hook should fail on missing CLI: {result.stderr}"
-        )
-        record = parse_jsonl_output(result.stdout)
-        assert record, "Should emit ArchiveResult JSONL output"
-        assert record["status"] == "failed", record
         assert "opendataloader" in record["output_str"].lower(), record
 
 

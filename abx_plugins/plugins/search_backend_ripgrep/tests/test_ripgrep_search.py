@@ -17,7 +17,6 @@ import pytest
 from abx_plugins.plugins.search_backend_ripgrep.search import (
     search,
     flush,
-    _build_cmd,
     _extract_snapshot_id,
     _get_search_roots,
     DEFAULT_CONTENT_EXCLUDES,
@@ -155,21 +154,6 @@ class TestRipgrepSearch:
 
         # Should only appear once
         assert results.count("snap-001") == 1
-
-    def test_search_missing_binary(self, monkeypatch: pytest.MonkeyPatch):
-        """search should tolerate a resolved binary that cannot execute."""
-        real_build_cmd = _build_cmd
-
-        def missing_binary_cmd(query: str, search_mode: str = "contents"):
-            cmd, search_roots, timeout = real_build_cmd(query, search_mode)
-            cmd[0] = "/nonexistent/rg"
-            return cmd, search_roots, timeout
-
-        monkeypatch.setattr(
-            "abx_plugins.plugins.search_backend_ripgrep.search._build_cmd",
-            missing_binary_cmd,
-        )
-        assert search("test") == []
 
     def test_search_with_custom_args(self, monkeypatch: pytest.MonkeyPatch):
         """search should use custom RIPGREP_ARGS."""

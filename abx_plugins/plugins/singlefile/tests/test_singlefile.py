@@ -284,9 +284,15 @@ def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
         "singlefile",
         env=env_install,
     )
+    singlefile_cli = install_required_binary_from_config(
+        PLUGIN_DIR,
+        "single-file",
+        env=env_install,
+    )
     assert loaded.loaded_abspath is not None, (
         "abxpkg did not resolve SingleFile extension"
     )
+    assert singlefile_cli.loaded_abspath is not None
     extensions_dir = loaded.loaded_abspath.parent
 
     with chrome_session(
@@ -312,7 +318,7 @@ def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
             chrome_dir.symlink_to(snapshot_chrome_dir)
 
         env["SINGLEFILE_ENABLED"] = "true"
-        env["SINGLEFILE_BINARY"] = "/nonexistent/single-file"
+        env["SINGLEFILE_BINARY"] = str(singlefile_cli.loaded_abspath)
         env["CHROME_HEADLESS"] = "false"
         env.pop("CRAWL_DIR", None)
 
