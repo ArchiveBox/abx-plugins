@@ -67,17 +67,11 @@ class OpendataloaderRunError(RuntimeError):
 
 def _opendataloader_env(java_binary: str) -> dict[str, str] | None:
     java_path = Path(str(java_binary or "").strip()).expanduser()
-    if not str(java_path):
+    if not java_path.is_absolute() or not java_path.is_file():
         return None
 
     env = os.environ.copy()
-    java_bin_dir = str(java_path.resolve(strict=False).parent)
-    current_path = env["PATH"] if "PATH" in env else ""
-    path_parts = current_path.split(os.pathsep) if current_path else []
-    if java_bin_dir not in path_parts:
-        env["PATH"] = os.pathsep.join([java_bin_dir, *path_parts])
-
-    java_home = java_path.resolve(strict=False).parent.parent
+    java_home = java_path.resolve().parent.parent
     if (java_home / "bin" / "java").is_file():
         env["JAVA_HOME"] = str(java_home)
     return env

@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import has_staticfile_output
+from abx_plugins.plugins.base.test_utils import install_binary_with_abxpkg
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -69,9 +70,10 @@ def test_js_has_staticfile_output_accepts_succeeded_static_artifact(
         encoding="utf-8",
     )
 
+    node = install_binary_with_abxpkg("node", binproviders="env,apt,brew")
     result = subprocess.run(
         [
-            "node",
+            str(node.loaded_abspath),
             "-e",
             (
                 "const { hasStaticFileOutput } = require("
@@ -105,9 +107,10 @@ def test_js_has_staticfile_output_rejects_html_noresults(tmp_path: Path) -> None
         encoding="utf-8",
     )
 
+    node = install_binary_with_abxpkg("node", binproviders="env,apt,brew")
     result = subprocess.run(
         [
-            "node",
+            str(node.loaded_abspath),
             "-e",
             (
                 "const { hasStaticFileOutput } = require("

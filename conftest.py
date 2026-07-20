@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import fcntl
-import json
 import logging
 import os
 import shlex
@@ -272,7 +271,8 @@ def ensure_claude_code_prereqs(tmp_path_factory):
     """
 
     def install_claude_code_with_abxpkg() -> str:
-        from abx_plugins.plugins.base.utils import load_required_binary
+        from abxpkg import BinProvider
+        from abx_plugins.plugins.base.utils import load_required_binary_from_config
 
         env = os.environ.copy()
         env["ABXPKG_LIB_DIR"] = str(tmp_path_factory.mktemp("claudecode_test_lib"))
@@ -286,49 +286,13 @@ def ensure_claude_code_prereqs(tmp_path_factory):
         with lock_path.open("w") as lock_file:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
 
-            config = json.loads(CLAUDECODE_CONFIG.read_text())
-            required_binaries = config.get("required_binaries") or []
-            binary_record = next(
-                (
-                    dict(record)
-                    for record in required_binaries
-                    if isinstance(record, dict)
-                    and record.get("name") == "{CLAUDECODE_BINARY}"
-                ),
-                {},
-            )
-            if binary_record.get("name") == "{CLAUDECODE_BINARY}":
-                binary_record["name"] = "claude"
-            if binary_record.get("name") != "claude":
-                raise RuntimeError(
-                    "Claude Code config did not declare a claude BinaryRequest record",
-                )
-
-            loaded = load_required_binary(
-                binary_record,
-                config=env,
+            binary_name = env.get("CLAUDECODE_BINARY", "claude")
+            loaded = load_required_binary_from_config(
+                binary_name,
+                CLAUDECODE_CONFIG,
+                global_config=env,
                 environ=env,
                 install=True,
-            )
-
-            node_modules_dir = (
-                lib_dir / "pnpm" / "packages" / "claudecode" / "node_modules"
-            )
-            env.setdefault("NODE_MODULES_DIR", str(node_modules_dir))
-            env.setdefault("NODE_PATH", str(node_modules_dir))
-            env.setdefault("PNPM_BIN_DIR", str(node_modules_dir / ".bin"))
-            env.setdefault("NPM_BIN_DIR", str(node_modules_dir / ".bin"))
-            env["PATH"] = os.pathsep.join(
-                [
-                    str(node_modules_dir / ".bin"),
-                    *[
-                        part
-                        for part in env.get("PATH", os.environ.get("PATH", "")).split(
-                            os.pathsep,
-                        )
-                        if part
-                    ],
-                ],
             )
 
             claude_bin = str(loaded.loaded_abspath or "")
@@ -337,21 +301,20 @@ def ensure_claude_code_prereqs(tmp_path_factory):
                     f"Claude Code binary not found after install: {claude_bin}",
                 )
 
-            os.environ.update(env)
+            provider = loaded.loaded_binprovider
+            exec_env = (
+                BinProvider.build_exec_env(providers=[provider], base_env=env)
+                if provider is not None
+                else env
+            )
+            os.environ.update(exec_env)
             os.environ["CLAUDECODE_BINARY"] = claude_bin
             return claude_bin
 
-    # Check claude binary from env, otherwise install via abxpkg.
-    claude_bin = os.environ.get("CLAUDECODE_BINARY")
-    if not claude_bin:
-        try:
-            claude_bin = install_claude_code_with_abxpkg()
-        except Exception as exc:
-            raise AssertionError(f"Claude Code CLI install via abxpkg failed: {exc}")
-    elif not Path(claude_bin).exists():
-        raise AssertionError(
-            f"CLAUDECODE_BINARY is set but does not exist: {claude_bin}",
-        )
+    try:
+        claude_bin = install_claude_code_with_abxpkg()
+    except Exception as exc:
+        raise AssertionError(f"Claude Code CLI install via abxpkg failed: {exc}")
 
     # Check auth. Claude Code accepts both API-key auth and the OAuth token used
     # by the official action; plugin tests should exercise either real path.

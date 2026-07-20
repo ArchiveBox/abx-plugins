@@ -274,7 +274,6 @@ def _run_hook(
         env["LITEPARSE_TESSERACT_BINARY"] = install_tesseract_binary()
         imagemagick_binary = install_imagemagick_binary()
         env["LITEPARSE_IMAGEMAGICK_BINARY"] = imagemagick_binary
-        env["PATH"] = f"{Path(imagemagick_binary).parent}:{env.get('PATH', '')}"
     if extra_env:
         env.update(extra_env)
     return subprocess.run(

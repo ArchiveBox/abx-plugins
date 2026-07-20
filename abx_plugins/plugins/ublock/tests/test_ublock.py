@@ -451,7 +451,7 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
     script_path.chmod(0o755)
 
     result = subprocess.run(
-        ["node", str(script_path)],
+        [env["NODE_BINARY"], str(script_path)],
         cwd=str(script_dir),
         capture_output=True,
         text=True,

@@ -87,7 +87,7 @@ def load_mercury_config(environ: dict[str, str] | None = None) -> MercuryConfig:
             or env.get("USE_MERCURY"),
             True,
         ),
-        MERCURY_BINARY=env.get("MERCURY_BINARY") or "postlight-parser",
+        MERCURY_BINARY=env.get("MERCURY_BINARY", ""),
         MERCURY_TIMEOUT=parse_int(env.get("MERCURY_TIMEOUT"), timeout),
         MERCURY_ARGS=parse_args_env(
             env.get("MERCURY_ARGS") or env.get("MERCURY_DEFAULT_ARGS"),
@@ -205,6 +205,10 @@ def main():
             print("Skipping mercury (MERCURY_ENABLED=False)", file=sys.stderr)
             emit_archive_result_record("skipped", "MERCURY_ENABLED=False")
             sys.exit(0)
+
+        mercury_binary = Path(config.MERCURY_BINARY)
+        if not mercury_binary.is_absolute() or not mercury_binary.is_file():
+            raise RuntimeError("MERCURY_BINARY was not resolved by abxpkg")
 
         # Run extraction
         status, output = extract_mercury(args.url, config, output_dir)

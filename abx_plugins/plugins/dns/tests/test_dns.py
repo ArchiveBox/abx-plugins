@@ -18,6 +18,7 @@ from abx_plugins.plugins.base.test_utils import get_hook_script, get_plugin_dir
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
     chrome_session,
+    get_test_env,
 )
 
 pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
@@ -31,15 +32,17 @@ TEST_URL = "https://example.com"
 
 def get_system_nameservers():
     """Return the nameservers Node sees for the current runtime."""
+    env = get_test_env()
     result = subprocess.run(
         [
-            "node",
+            env["NODE_BINARY"],
             "-e",
             "const dns=require('dns'); console.log(JSON.stringify(dns.getServers()))",
         ],
         capture_output=True,
         text=True,
         check=True,
+        env=env,
     )
     return json.loads(result.stdout.strip())
 

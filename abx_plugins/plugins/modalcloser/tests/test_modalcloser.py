@@ -166,7 +166,7 @@ const chromeSessionDir = process.argv[2];
     chrome_utils = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
     result = subprocess.run(
         [
-            "node",
+            env["NODE_BINARY"],
             "-e",
             script,
             str(chrome_utils),

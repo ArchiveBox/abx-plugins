@@ -22,7 +22,7 @@ def test_require_chrome_runtime_loads_provider_managed_chrome_runtime():
     for module_name in ("puppeteer", "abxbus"):
         result = subprocess.run(
             [
-                "node",
+                env["NODE_BINARY"],
                 "-e",
                 "console.log(require.resolve(process.argv[1]))",
                 module_name,

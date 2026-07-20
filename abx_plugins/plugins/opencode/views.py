@@ -205,10 +205,6 @@ def _settings(config: dict) -> dict:
 
 
 def _resolve_binary(binary: str, config: dict) -> tuple[str, dict[str, str]]:
-    binary_path = Path(binary).expanduser()
-    if binary_path.is_absolute() or os.sep in binary:
-        return str(binary_path), {}
-
     try:
         from abxpkg import BinProvider
         from abx_plugins.plugins.base.utils import load_required_binary_from_config

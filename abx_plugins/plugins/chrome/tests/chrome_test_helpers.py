@@ -787,7 +787,7 @@ chromeUtils.writeBrowserMetadata(chromeDir, extensions);
 """
     result = subprocess.run(
         [
-            "node",
+            env["NODE_BINARY"],
             "-e",
             script,
             str(CHROME_UTILS),
@@ -1111,11 +1111,14 @@ def _chromium_install_lock(env: dict):
 def _has_node_module(env: dict, module_name: str) -> bool:
     """Return True if Node can resolve the requested package in this env."""
     probe_env = env.copy()
+    node_binary = probe_env.get("NODE_BINARY", "")
+    if not Path(node_binary).is_absolute() or not Path(node_binary).is_file():
+        raise RuntimeError("NODE_BINARY was not resolved by abxpkg")
     node_modules_dir = probe_env.get("NODE_MODULES_DIR", "").strip()
     if node_modules_dir and not probe_env.get("NODE_PATH"):
         probe_env["NODE_PATH"] = node_modules_dir
     result = subprocess.run(
-        ["node", "-e", "require.resolve(process.argv[1])", module_name],
+        [node_binary, "-e", "require.resolve(process.argv[1])", module_name],
         capture_output=True,
         text=True,
         timeout=20,
@@ -1169,13 +1172,6 @@ def _ensure_puppeteer_with_abxpkg(env: dict, timeout: int) -> None:
         raise RuntimeError(
             "Chrome dependency env preflight completed but require.resolve('abxbus') still fails",
         )
-
-    node_modules_dir = Path(
-        env.get("NODE_MODULES_DIR") or get_node_modules_dir(),
-    )
-    pnpm_bin_dir = Path(env.get("PNPM_HOME") or node_modules_dir / ".bin")
-    env.setdefault("PNPM_BIN_DIR", str(pnpm_bin_dir))
-    env.setdefault("NPM_BIN_DIR", str(pnpm_bin_dir))
 
 
 def resolve_node_with_abxpkg(env: dict) -> str:

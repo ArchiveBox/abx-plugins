@@ -153,50 +153,6 @@ def test_extracts_local_html_outputs_with_real_binary(httpserver):
         )
 
 
-def test_extracts_local_html_with_binary_resolved_from_path(chrome_test_url):
-    binary_path = require_trafilatura_binary()
-    test_url = chrome_test_url
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-        snap_dir = tmpdir / "snap"
-        singlefile_dir = snap_dir / "singlefile"
-        singlefile_dir.mkdir(parents=True, exist_ok=True)
-
-        response = requests.get(test_url, timeout=10)
-        response.raise_for_status()
-        (singlefile_dir / "singlefile.html").write_text(response.text, encoding="utf-8")
-
-        env = os.environ.copy()
-        env["SNAP_DIR"] = str(snap_dir)
-        env["TRAFILATURA_BINARY"] = "trafilatura"
-        env["PATH"] = f"{Path(binary_path).parent}:{env.get('PATH', '')}"
-
-        result = subprocess.run(
-            [
-                str(TRAFILATURA_HOOK),
-                "--url",
-                test_url,
-            ],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            timeout=120,
-            env=env,
-        )
-
-        assert result.returncode == 0, f"Extraction failed: {result.stderr}"
-        assert (snap_dir / "trafilatura" / "content.txt").exists(), (
-            "content.txt not created"
-        )
-        assert (
-            "example domain"
-            in (snap_dir / "trafilatura" / "content.txt")
-            .read_text(errors="ignore")
-            .lower()
-        )
-
-
 def test_output_format_toggles_map_to_expected_files(httpserver):
     binary_path = require_trafilatura_binary()
     test_url = httpserver.url_for("/trafilatura-format-test")

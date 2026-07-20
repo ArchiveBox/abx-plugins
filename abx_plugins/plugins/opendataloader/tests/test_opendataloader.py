@@ -127,38 +127,24 @@ def test_install_hook_requests_java_dependency():
     assert java_record["binproviders"] == "env,apt,brew"
 
 
-def test_opendataloader_env_sets_java_home_and_path(tmp_path):
+def test_opendataloader_env_uses_abxpkg_resolved_java_without_changing_path():
     from abx_plugins.plugins.opendataloader.on_Snapshot__60_opendataloader import (
         _opendataloader_env,
     )
 
-    java_bin = tmp_path / "jdk" / "bin" / "java"
-    java_bin.parent.mkdir(parents=True, exist_ok=True)
-    java_bin.write_text("", encoding="utf-8")
-    java_bin.chmod(0o755)
+    loaded_java = install_required_binary_from_config(PLUGIN_DIR, "java")
+    java_path = Path(str(loaded_java.loaded_abspath or ""))
+    assert java_path.is_absolute()
+    assert java_path.is_file()
 
-    env = _opendataloader_env(str(java_bin))
-    assert env is not None
-    assert env["JAVA_HOME"] == str(java_bin.parent.parent)
-    assert env["PATH"].split(os.pathsep)[0] == str(java_bin.parent)
-
-
-def test_opendataloader_env_does_not_duplicate_java_bin_in_path(tmp_path, monkeypatch):
-    from abx_plugins.plugins.opendataloader.on_Snapshot__60_opendataloader import (
-        _opendataloader_env,
-    )
-
-    java_bin = tmp_path / "jdk" / "bin" / "java"
-    java_bin.parent.mkdir(parents=True, exist_ok=True)
-    java_bin.write_text("", encoding="utf-8")
-    java_bin.chmod(0o755)
-
-    monkeypatch.setenv("PATH", str(java_bin.parent))
-    env = _opendataloader_env(str(java_bin))
+    original_path = os.environ.get("PATH")
+    env = _opendataloader_env(str(java_path))
 
     assert env is not None
-    assert env["JAVA_HOME"] == str(java_bin.parent.parent)
-    assert env["PATH"] == str(java_bin.parent)
+    assert env.get("PATH") == original_path
+    resolved_java = java_path.resolve()
+    assert env["JAVA_HOME"] == str(resolved_java.parent.parent)
+    assert (Path(env["JAVA_HOME"]) / "bin" / "java").samefile(resolved_java)
 
 
 def test_config_disabled_skips():

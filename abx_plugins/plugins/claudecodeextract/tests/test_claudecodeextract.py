@@ -6,8 +6,7 @@ Tests verify:
 2. Config schema is valid and declares claudecode dependency
 3. Hook skips when disabled
 4. Hook fails gracefully when API key is missing
-5. Hook fails gracefully when claude binary is not found
-6. Full extraction pipeline runs against real snapshot data (integration, requires Claude Code auth)
+5. Full extraction pipeline runs against real snapshot data (integration, requires Claude Code auth)
 """
 
 import json

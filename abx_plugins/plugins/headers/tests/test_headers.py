@@ -125,21 +125,18 @@ def test_hook_script_exists():
     assert HEADERS_HOOK.exists(), f"Hook script not found: {HEADERS_HOOK}"
 
 
-def test_node_is_available():
-    """Test that Node.js is available on the system."""
-    result = subprocess.run(["which", "node"], capture_output=True, text=True)
-    assert result.returncode == 0, f"node not found in PATH: {result.stderr}"
+def test_node_is_available_from_abxpkg():
+    """Test the exact Node.js path exported by abxpkg."""
+    env = get_test_env()
+    binary_path = env["NODE_BINARY"]
+    assert Path(binary_path).is_file(), f"Binary should exist at {binary_path}"
 
-    binary_path = result.stdout.strip()
-    assert Path(binary_path).exists(), f"Binary should exist at {binary_path}"
-
-    # Test that node is executable and get version
     result = subprocess.run(
-        ["node", "--version"],
+        [binary_path, "--version"],
         capture_output=True,
         text=True,
         timeout=10,
-        env=get_test_env(),
+        env=env,
     )
     assert result.returncode == 0, f"node not executable: {result.stderr}"
     assert result.stdout.startswith("v"), (

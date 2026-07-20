@@ -4,14 +4,12 @@ Integration tests for readability plugin
 Tests verify:
 1. Validate hook checks for readability-extractor binary
 2. Verify deps with abxpkg
-3. Plugin reports missing dependency correctly
-4. Extraction works against real example.com content
+3. Extraction works against real example.com content
 """
 
 import json
 import os
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
@@ -115,49 +113,6 @@ def get_readability_binary_path() -> str | None:
 def test_hook_script_exists():
     """Verify hook script exists."""
     assert READABILITY_HOOK.exists(), f"Hook script not found: {READABILITY_HOOK}"
-
-
-def test_reports_missing_dependency_when_not_installed():
-    """Test that script reports DEPENDENCY_NEEDED when readability-extractor is not found."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-        snap_dir = tmpdir / "snap"
-        home_dir = tmpdir / "home"
-        snap_dir.mkdir(parents=True, exist_ok=True)
-        home_dir.mkdir(parents=True, exist_ok=True)
-
-        # Create HTML source so it doesn't fail on missing HTML
-        create_example_html(snap_dir)
-
-        # Run with empty PATH so binary won't be found
-        env = {"PATH": "/nonexistent", "HOME": str(home_dir), "SNAP_DIR": str(snap_dir)}
-
-        result = subprocess.run(
-            [
-                sys.executable,
-                str(READABILITY_HOOK),
-                "--url",
-                TEST_URL,
-            ],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            env=env,
-        )
-
-        # Missing binary should emit failed JSONL
-        assert result.returncode == 1, "Should exit 1 when dependency missing"
-
-        record = parse_jsonl_output(result.stdout)
-        assert record, "Should emit JSONL for failed dependency"
-        assert record["type"] == "ArchiveResult"
-        assert record["status"] == "failed"
-
-        # Should log error to stderr
-        assert (
-            "readability-extractor" in result.stderr.lower()
-            or "error" in result.stderr.lower()
-        ), "Should report error in stderr"
 
 
 def test_verify_deps_with_abxpkg():

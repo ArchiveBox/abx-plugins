@@ -9,7 +9,6 @@ Tests verify:
 
 import os
 import subprocess
-import sys
 import tempfile
 import time
 from pathlib import Path
@@ -37,36 +36,6 @@ def test_verify_deps_with_abxpkg():
     git_loaded = install_required_binary_from_config(PLUGIN_DIR, "git")
 
     assert git_loaded and git_loaded.abspath, "git is required for git plugin tests"
-
-
-def test_reports_missing_git():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir_path = Path(tmpdir)
-        missing_git = tmpdir_path / "missing-git-binary"
-
-        env = os.environ.copy()
-        env["GIT_BINARY"] = str(missing_git)
-        result = subprocess.run(
-            [
-                sys.executable,
-                str(GIT_HOOK),
-                "--url",
-                TEST_URL,
-            ],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            env=env,
-        )
-
-        assert result.returncode == 1, result.stdout + result.stderr
-        result_json = parse_jsonl_output(result.stdout)
-        assert result_json is not None, f"stdout={result.stdout} stderr={result.stderr}"
-        assert result_json["type"] == "ArchiveResult"
-        assert result_json["status"] == "failed"
-        assert "FileNotFoundError" in result_json["output_str"], result_json
-        assert str(missing_git) in result_json["output_str"], result_json
-        assert "ERROR: FileNotFoundError" in result.stderr
 
 
 def test_handles_non_git_url():

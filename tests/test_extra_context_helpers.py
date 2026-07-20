@@ -9,6 +9,7 @@ from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_installed_binary_record,
 )
+from abx_plugins.plugins.base.test_utils import install_binary_with_abxpkg
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -81,10 +82,11 @@ def test_abxpkg_native_overrides_omits_plugin_metadata():
 def test_js_emit_snapshot_record_merges_extra_context_from_env():
     env = os.environ.copy()
     env["EXTRA_CONTEXT"] = json.dumps({"id": "snap-999"})
+    node = install_binary_with_abxpkg("node", binproviders="env,apt,brew")
 
     result = subprocess.run(
         [
-            "node",
+            str(node.loaded_abspath),
             "-e",
             (
                 "const { emitSnapshotRecord } = require('./abx_plugins/plugins/base/utils.js');"

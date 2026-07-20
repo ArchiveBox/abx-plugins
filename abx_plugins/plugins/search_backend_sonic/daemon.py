@@ -272,7 +272,9 @@ def get_sonic_supervisord_worker(
         return None
 
     daemon_event = prepare_sonic_daemon(config)
-    sonic_binary = str(config_value(config, "SONIC_BINARY", "sonic"))
+    sonic_binary = str(config_value(config, "SONIC_BINARY", ""))
+    if not Path(sonic_binary).is_absolute():
+        raise RuntimeError("SONIC_BINARY was not resolved by abxpkg")
     data_dir = config_value(config, "DATA_DIR")
     return {
         "name": daemon_event.worker_name,

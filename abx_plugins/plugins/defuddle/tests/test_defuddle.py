@@ -1,7 +1,6 @@
 import json
 import os
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 from urllib.request import urlopen
@@ -13,7 +12,6 @@ from abx_plugins.plugins.base.test_utils import (
     get_hook_script,
     get_plugin_dir,
     install_required_binary_from_config,
-    parse_jsonl_output,
 )
 
 
@@ -79,37 +77,6 @@ def test_crawl_hook_emits_defuddle_binary_request_record():
     assert binary.get("overrides", {}).get("pnpm", {}).get("install_args") == [
         "defuddle",
     ]
-
-
-def test_reports_missing_dependency_when_not_installed():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-        snap_dir = tmpdir / "snap"
-        home_dir = tmpdir / "home"
-        snap_dir.mkdir(parents=True, exist_ok=True)
-        home_dir.mkdir(parents=True, exist_ok=True)
-        create_example_html(snap_dir)
-
-        env = {"PATH": "/nonexistent", "HOME": str(home_dir), "SNAP_DIR": str(snap_dir)}
-        result = subprocess.run(
-            [
-                sys.executable,
-                str(DEFUDDLE_HOOK),
-                "--url",
-                TEST_URL,
-            ],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            env=env,
-        )
-
-        assert result.returncode == 1
-        record = parse_jsonl_output(result.stdout)
-        assert record, "Should have ArchiveResult JSONL output"
-        assert record["type"] == "ArchiveResult"
-        assert record["status"] == "failed"
-        assert "defuddle" in result.stderr.lower() or "error" in result.stderr.lower()
 
 
 def test_verify_deps_with_abxpkg():

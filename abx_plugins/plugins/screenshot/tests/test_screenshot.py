@@ -256,7 +256,7 @@ def test_reports_missing_chrome_session(chrome_test_url):
 
         result = subprocess.run(
             [
-                "node",
+                env["NODE_BINARY"],
                 str(SCREENSHOT_HOOK),
                 f"--url={chrome_test_url}",
                 "--snapshot-id=test123",

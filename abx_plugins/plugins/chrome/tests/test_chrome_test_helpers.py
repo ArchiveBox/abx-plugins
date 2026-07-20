@@ -471,7 +471,13 @@ const chromeSessionDir = process.argv[2];
 });
 """
             result = subprocess.run(
-                ["node", "-e", script, str(CHROME_UTILS), str(snapshot_chrome_dir)],
+                [
+                    env["NODE_BINARY"],
+                    "-e",
+                    script,
+                    str(CHROME_UTILS),
+                    str(snapshot_chrome_dir),
+                ],
                 capture_output=True,
                 text=True,
                 timeout=60,
@@ -649,7 +655,7 @@ def test_setup_test_env_uses_derived_runtime_dirs(tmp_path: Path):
         "process.stdout.write(JSON.stringify(chromeUtils.resolveChromeLaunchOptions({})));\n"
     )
     result = subprocess.run(
-        ["node", "-e", script],
+        [env["NODE_BINARY"], "-e", script],
         capture_output=True,
         text=True,
         timeout=10,

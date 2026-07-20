@@ -129,13 +129,14 @@ const elapsedBudget = getSinglefileDownloadWaitTimeoutMs({{ SINGLEFILE_TIMEOUT: 
 const minimumBudget = getSinglefileDownloadWaitTimeoutMs({{ SINGLEFILE_TIMEOUT: 10 }}, 9000);
 process.stdout.write(JSON.stringify({{ freshBudget, elapsedBudget, minimumBudget }}));
 """
+    env = get_test_env()
     result = subprocess.run(
-        ["node", "-e", script],
+        [env["NODE_BINARY"], "-e", script],
         cwd=tmp_path,
         capture_output=True,
         text=True,
         timeout=10,
-        env=get_test_env(),
+        env=env,
     )
 
     assert result.returncode == 0, result.stderr
@@ -488,7 +489,7 @@ function collectTargets(browser, extensionId) {
 """
         result = subprocess.run(
             [
-                "node",
+                env["NODE_BINARY"],
                 "-e",
                 script,
                 str(CHROME_UTILS),

@@ -72,12 +72,13 @@ def test_acquire_session_lock_creates_missing_parent_dir(tmp_path):
         "  process.exit(1);\n"
         "});\n"
     )
+    env = {**os.environ, **get_test_env()}
     result = subprocess.run(
-        ["node", "-e", script, str(lock_file)],
+        [env["NODE_BINARY"], "-e", script, str(lock_file)],
         capture_output=True,
         text=True,
         timeout=10,
-        env={**os.environ, **get_test_env()},
+        env=env,
     )
     assert result.returncode == 0, result.stderr
     assert lock_file.parent.is_dir()
@@ -110,7 +111,7 @@ def _probe_browser_page_via_cdp(cdp_url: str, env: dict) -> dict:
         "});\n"
     )
     result = subprocess.run(
-        ["node", "-e", script, cdp_url],
+        [env["NODE_BINARY"], "-e", script, cdp_url],
         capture_output=True,
         text=True,
         timeout=30,
@@ -149,7 +150,7 @@ const requireTargetId = process.argv[3] === 'true';
 """
     result = subprocess.run(
         [
-            "node",
+            env["NODE_BINARY"],
             "-e",
             script,
             str(CHROME_UTILS),
@@ -211,12 +212,13 @@ const utils = require(process.argv[1]);
 const cleaned = utils.cleanupChromeProfileLockFiles(process.argv[2], { quiet: true });
 process.stdout.write(JSON.stringify(cleaned.map(filePath => path.basename(filePath)).sort()));
 """
+    env = {**os.environ, **get_test_env()}
     result = subprocess.run(
-        ["node", "-e", script, str(CHROME_UTILS), str(profile_dir)],
+        [env["NODE_BINARY"], "-e", script, str(CHROME_UTILS), str(profile_dir)],
         capture_output=True,
         text=True,
         timeout=15,
-        env={**os.environ, **get_test_env()},
+        env=env,
     )
 
     assert result.returncode == 0, result.stderr
@@ -242,12 +244,13 @@ const utils = require(process.argv[1]);
 const cleaned = utils.cleanupChromeProfileLockFiles(process.argv[2], { quiet: true });
 process.stdout.write(JSON.stringify(cleaned.map(filePath => path.basename(filePath)).sort()));
 """
+    env = {**os.environ, **get_test_env()}
     result = subprocess.run(
-        ["node", "-e", script, str(CHROME_UTILS), str(profile_dir)],
+        [env["NODE_BINARY"], "-e", script, str(CHROME_UTILS), str(profile_dir)],
         capture_output=True,
         text=True,
         timeout=15,
-        env={**os.environ, **get_test_env()},
+        env=env,
     )
 
     assert result.returncode == 0, result.stderr
@@ -277,7 +280,7 @@ process.stdout.write(options.CHROME_USER_DATA_DIR);
 
     result = subprocess.run(
         [
-            "node",
+            env["NODE_BINARY"],
             "-e",
             script,
             str(CHROME_UTILS),
@@ -365,7 +368,7 @@ const puppeteer = resolvePuppeteer();
 """
     result = subprocess.run(
         [
-            "node",
+            env["NODE_BINARY"],
             "-e",
             script,
             str(base_utils),
@@ -433,7 +436,7 @@ const extensionJson = process.argv[3];
 """
         result = subprocess.run(
             [
-                "node",
+                env["NODE_BINARY"],
                 "-e",
                 script,
                 str(CHROME_UTILS),
@@ -502,7 +505,7 @@ const { execFileSync } = require('child_process');
 """
     result = subprocess.run(
         [
-            "node",
+            env["NODE_BINARY"],
             "-e",
             script,
             str(CHROME_UTILS),
@@ -738,12 +741,13 @@ def test_verify_chrome_available():
         browser_name in result.stdout for browser_name in ("Chrome", "Chromium")
     ), f"Unexpected version output: {result.stdout}"
     script = "const utils = require(process.argv[1]); process.stdout.write(String(utils.isSupportedChromiumVersionOutput(process.argv[2])));"
+    env = {**os.environ, **get_test_env()}
     support_result = subprocess.run(
-        ["node", "-e", script, str(CHROME_UTILS), result.stdout],
+        [env["NODE_BINARY"], "-e", script, str(CHROME_UTILS), result.stdout],
         capture_output=True,
         text=True,
         timeout=10,
-        env={**os.environ, **get_test_env()},
+        env=env,
     )
     assert support_result.returncode == 0, support_result.stderr
     assert support_result.stdout == "true", (
@@ -3215,7 +3219,7 @@ const expectedTargetId = process.argv[2];
 }});
 """
             result = subprocess.run(
-                ["node", "-e", script, str(chrome_dir), target_id],
+                [env["NODE_BINARY"], "-e", script, str(chrome_dir), target_id],
                 capture_output=True,
                 text=True,
                 timeout=30,

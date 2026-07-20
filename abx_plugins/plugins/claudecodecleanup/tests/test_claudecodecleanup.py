@@ -7,8 +7,7 @@ Tests verify:
 3. Hook runs at priority 92 (before hashes at 93)
 4. Hook skips when disabled
 5. Hook fails gracefully when API key is missing
-6. Hook fails gracefully when claude binary is not found
-7. Full cleanup pipeline runs against real snapshot with duplicates (integration, requires Claude Code auth)
+6. Full cleanup pipeline runs against real snapshot with duplicates (integration, requires Claude Code auth)
 """
 
 import json
