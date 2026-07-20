@@ -1,0 +1,85 @@
+abx_plugins/plugins/responses/tests/test_responses.py
+  s_f8414d52051f83::t_978c092aa9d91f 48-51
+  s_f8414d52051f83::t_78cc717265e1b9 9
+conftest.py
+  s_f8414d52051f83::t_0608be23309b18 243-256
+  s_f8414d52051f83::t_d45d0ce5194614 242
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_f8414d52051f83::t_1d4f5bfab3ff01 4360
+  s_f8414d52051f83::t_3d2d7926728d5e 1094-1097,4301,4343
+  s_f8414d52051f83::t_f3edef8b6a82dc 1
+  s_f8414d52051f83::t_791bb8902b8e4a 1058,1075,1222-1225,1238,1350,1353-1356,2184,2186-2188,2190,2193,2717-2722,2724,3959,4280
+abx_plugins/plugins/screenshot/tests/test_screenshot_browser_install_e2e.py
+  s_f8414d52051f83::t_b50630b2b27e03 113,120
+  s_f8414d52051f83::t_79a988f766e2ea 114-116
+abx_plugins/plugins/singlefile/singlefile_extension_save.js
+  s_f8414d52051f83::t_f3edef8b6a82dc 1
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_f8414d52051f83::t_0aa218cfe47121 402,477,722
+  s_f8414d52051f83::t_32d01c398bacdd 724
+tests/test_chrome_abxbus_dependency.py
+  s_f8414d52051f83::t_dc5be9e2f82209 18-34,36
+  s_f8414d52051f83::t_552a70a36ba3a7 37,47,128
+abx_plugins/plugins/search_backend_ripgrep/tests/test_ripgrep_detection.py
+  s_f8414d52051f83::t_c49b1ad34fb36e 5-6
+abx_plugins/plugins/search_backend_ripgrep/tests/test_ripgrep_search.py
+  s_f8414d52051f83::t_4180e7107f9d67 25-31,33-48,64,93,231,268,299,322
+tests/test_js_node_module_resolution.py
+  s_f8414d52051f83::t_0aa218cfe47121 131,159-161,166,169
+  s_f8414d52051f83::t_d45d0ce5194614 27-29
+  s_f8414d52051f83::t_6b4ddb5c549081 48,66-69,81
+abx_plugins/plugins/singlefile/on_Snapshot__50_singlefile.py
+  s_f8414d52051f83::t_3d2d7926728d5e 65
+abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py
+  s_f8414d52051f83::t_32d01c398bacdd 226
+  s_f8414d52051f83::t_5829772433b2b8 667,672,690
+  s_f8414d52051f83::t_0aa218cfe47121 215-221,228
+  s_f8414d52051f83::t_3e57a21582d563 610,614,624-628
+.github/actions/verify-chromium-launch/action.yml
+  s_f8414d52051f83::t_4d7edacda4028a 5,20,28-29
+  s_f8414d52051f83::t_f51215f715f667 2
+  s_f8414d52051f83::t_83a4e1a62b0694 24,32,39-75,246-247
+  s_f8414d52051f83::t_e7567d016daa6a 22
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_5f52f81dd0ae86 262
+  s_f8414d52051f83::t_1dfbad83a7413a 258-259,261
+abx_plugins/plugins/chrome/extract_cookies.js
+  s_f8414d52051f83::t_1d4f5bfab3ff01 23,113
+  s_f8414d52051f83::t_f3edef8b6a82dc 1
+  s_f8414d52051f83::t_8f124f1cd5a529 115
+abx_plugins/plugins/chrome/on_CrawlSetup__90_chrome_launch.daemon.bg.js
+  s_f8414d52051f83::t_3d2d7926728d5e 21
+  s_f8414d52051f83::t_1d4f5bfab3ff01 60,189
+abx_plugins/plugins/chrome/on_Snapshot__09_chrome_launch.daemon.bg.js
+  s_f8414d52051f83::t_1d4f5bfab3ff01 49,63,160,190
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  s_f8414d52051f83::t_02e49e32ca66ca 967,972,1199
+  s_f8414d52051f83::t_461bbd5ad4f3a7 1621-1625,1649-1652
+  s_f8414d52051f83::t_7f66e2d2db8a58 708-716
+  s_f8414d52051f83::t_79a988f766e2ea 956,1181-1195,1201
+  s_f8414d52051f83::t_d45d0ce5194614 103-104,579-582
+  s_f8414d52051f83::t_1679f39206503f 540,705-707,717-718,724,873,876-878,886,889,893,901,904,908,1027-1028,1037,1039,1043-1062
+  s_f8414d52051f83::t_526658dbf5f121 73,912,914-919
+  s_f8414d52051f83::t_5829772433b2b8 125,472,890-891,905-907,1581-1582
+  s_f8414d52051f83::t_0608be23309b18 132-136,473-484
+  s_f8414d52051f83::t_203048e0daddcf 128
+  s_f8414d52051f83::t_f5eb619d78e5df 1198
+docs/index.html
+  s_f8414d52051f83::t_209e07f4cc360e 1135,1165,1192,1194,1369,1399,1425,1427,1563,1593,1618,1620,2273,2303,2323,2396,2412,2568,2692,2816,2999,3126,3255,3384,3513,3651,3780,3924,4053,4079-4081,4104-4105,4108-4125,4128,4131,4292-4300,4473,4602,4731,4815-4819,4821-4822,4894,4922-4924,4952,4954,5096,5125-5127,5155,5157,5288,5312,5452,5592,5722,5855,5984,6014,6039,6041,6157,6185,6210,6212,6328,6357,6382,6384,6500,6789,6817,6843,6845,6956,6984,7010,7012,7162,7190,7192,7215,7218,7483,7610-7613,7615-7616,7670,7700,7723,7725,8075,8103,8126,8128,8442,8571,8674,8716,8901,9190,9284-9292,9305,9402,9423,9451,9453,9540-9548,9624,9626-9628,9635,9637-9638,9642-9647,9653,9656,9659-9676,9684,9693-9784,9790,9869-9870,9872,10169
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "91f0c0989a19492510b50050e89e442eee1cb4fe",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
