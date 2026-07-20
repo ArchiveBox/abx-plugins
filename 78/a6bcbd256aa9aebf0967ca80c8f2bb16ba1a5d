@@ -1,0 +1,59 @@
+abx_plugins/plugins/chrome_screencast/on_Snapshot__12_chrome_screencast.daemon.bg.js
+  s_f8414d52051f83::t_6e1b0a5ddd0272 44,309
+abx_plugins/plugins/responses/on_Snapshot__24_responses.daemon.bg.js
+  s_f8414d52051f83::t_cbad1989e759e0 56,385
+abx_plugins/plugins/consolelog/on_Snapshot__21_consolelog.daemon.bg.js
+  s_f8414d52051f83::t_c8383aa09acc84 49,257
+abx_plugins/plugins/sslcerts/on_Snapshot__23_sslcerts.daemon.bg.js
+  s_f8414d52051f83::t_695472b35cc10d 51,573
+abx_plugins/plugins/istilldontcareaboutcookies/on_Snapshot__13_istilldontcareaboutcookies.daemon.bg.js
+  s_f8414d52051f83::t_f9edc4fe93ec67 44,199
+abx_plugins/plugins/base/utils.js
+  s_f8414d52051f83::t_15c39912349d2c 578-589,671
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_f8414d52051f83::t_d54dd0df021f0b 976,1002-1007,1010-1034
+  s_f8414d52051f83::t_d904eb278a8e47 907-910,950,964,974-975,987,997-998
+abx_plugins/plugins/modalcloser/on_Snapshot__15_modalcloser.daemon.bg.js
+  s_f8414d52051f83::t_7e09b042ad59f2 68,448
+  s_f8414d52051f83::t_9285d566d6d503 449
+README.md
+  s_f8414d52051f83::t_0fd1b9bd33efe8 97
+  s_f8414d52051f83::t_d5753e8144df07 96,113,124,193-195
+  s_f8414d52051f83::t_3924907238e910 150,155
+tests/test_daemon_readiness_contract.py
+  s_f8414d52051f83::t_4f81c18280411a 1-13,15-33
+  s_f8414d52051f83::t_dc7099b75b869e 14
+abx_plugins/plugins/twocaptcha/on_Snapshot__14_twocaptcha.daemon.bg.js
+  s_f8414d52051f83::t_22050789f54003 44,202
+abx_plugins/plugins/consolelog/tests/test_consolelog.py
+  s_f8414d52051f83::t_a0e77e6abe2866 131-137
+abx_plugins/plugins/chrome/on_Snapshot__09_chrome_launch.daemon.bg.js
+  s_f8414d52051f83::t_7c44f2244fe8c3 82,113,117-120,202,216-219
+  s_f8414d52051f83::t_8cc2ffa9597152 41,223-227
+abx_plugins/plugins/dns/on_Snapshot__22_dns.daemon.bg.js
+  s_f8414d52051f83::t_1bfe300eea0170 362
+  s_f8414d52051f83::t_7e9c11f9e58f78 51
+abx_plugins/plugins/chrome/on_CrawlSetup__90_chrome_launch.daemon.bg.js
+  s_f8414d52051f83::t_d7e0bbc4e709c5 53-57,245-250
+abx_plugins/plugins/ublock/on_Snapshot__12_ublock.daemon.bg.js
+  s_f8414d52051f83::t_3f7379c13d1b2d 44,231
+  s_f8414d52051f83::t_52027e44e41b30 232
+abx_plugins/plugins/chrome/on_Snapshot__10_chrome_tab.daemon.bg.js
+  s_f8414d52051f83::t_9272356cf99f91 58,363-367,530-534
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "78a6bcbd256aa9aebf0967ca80c8f2bb16ba1a5d",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": null
+    }
+  }
+}
