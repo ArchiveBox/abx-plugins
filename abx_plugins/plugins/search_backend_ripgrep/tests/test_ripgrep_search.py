@@ -24,7 +24,7 @@ from abx_plugins.plugins.search_backend_ripgrep.search import (
 from abx_plugins.plugins.base.test_utils import (
     get_hydrated_required_binaries,
     get_plugin_dir,
-    install_binary_with_abxpkg,
+    install_required_binary_from_config,
 )
 
 PLUGIN_DIR = get_plugin_dir(__file__)
@@ -32,14 +32,12 @@ PLUGIN_DIR = get_plugin_dir(__file__)
 
 @pytest.fixture(scope="module")
 def rg_path() -> str:
-    record = next(
-        item
-        for item in get_hydrated_required_binaries(PLUGIN_DIR)
-        if item.get("name") == "rg"
-    )
-    loaded = install_binary_with_abxpkg(
-        "rg",
-        binproviders=str(record["binproviders"]),
+    records = get_hydrated_required_binaries(PLUGIN_DIR)
+    assert len(records) == 1, records
+    resolved_name = str(records[0]["name"])
+    loaded = install_required_binary_from_config(
+        PLUGIN_DIR,
+        resolved_name,
     )
     assert loaded.loaded_abspath
     resolved = Path(loaded.loaded_abspath)

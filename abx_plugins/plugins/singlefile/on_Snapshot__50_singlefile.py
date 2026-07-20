@@ -145,7 +145,14 @@ def save_singlefile(
     for arg in config.CHROME_ARGS_EXTRA or []:
         if arg not in chrome_args:
             chrome_args.append(arg)
-    if not config.CHROME_SANDBOX:
+    linux_without_display = (
+        sys.platform.startswith("linux")
+        and not os.environ.get(
+            "DISPLAY",
+            "",
+        ).strip()
+    )
+    if not config.CHROME_SANDBOX or linux_without_display:
         for arg in ("--no-sandbox", "--disable-setuid-sandbox"):
             if arg not in chrome_args:
                 chrome_args.append(arg)

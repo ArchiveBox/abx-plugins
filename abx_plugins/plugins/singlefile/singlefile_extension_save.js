@@ -1,4 +1,7 @@
 #!/usr/bin/env -S abxpkg run --script --deps-from=../chrome/config.json:required_binaries,./config.json:required_binaries node
+// /// script
+// ///
+
 /**
  * Save a page using the SingleFile Chrome extension via an existing Chrome session.
  *
