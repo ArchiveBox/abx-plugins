@@ -17,8 +17,8 @@
 
 ## Development Setup
 
-```console
-uv sync
+```bash
+uv sync --inexact
 uv run pytest --collect-only -q
 ```
 
@@ -44,7 +44,7 @@ find abx_plugins/plugins/title -maxdepth 1 -type f | sort
 
 Run targeted plugin tests:
 
-```console
+```bash
 uv run pytest abx_plugins/plugins/title/tests -q
 uv run pytest abx_plugins/plugins/chrome/tests -q
 uv run pytest tests/test_runtime_path_isolation.py -q
