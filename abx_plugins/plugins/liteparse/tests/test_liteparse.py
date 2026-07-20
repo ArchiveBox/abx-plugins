@@ -291,7 +291,7 @@ def test_hook_scripts_exist():
 
 
 def test_crawl_hook_emits_lit_binary_request_record():
-    binary = get_hydrated_required_binary(PLUGIN_DIR, "lit")
+    binary = get_hydrated_required_binary(PLUGIN_DIR, "lit", env={})
     assert binary.get("type", "BinaryRequest") == "BinaryRequest"
     assert binary.get("name") == "lit"
     assert binary.get("overrides", {}).get("pnpm", {}).get("install_args") == [
