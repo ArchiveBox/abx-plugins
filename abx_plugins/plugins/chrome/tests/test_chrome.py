@@ -1084,16 +1084,48 @@ def test_tab_hook_uses_validated_browser_for_version_probe(chrome_test_url):
                 crawl_id="test-tab-version-probe",
             )
 
-            stdout_lines = [
-                line.strip()
-                for line in (snapshot_chrome_dir / "chrome_tab.stdout.log")
-                .read_text(encoding="utf-8", errors="replace")
-                .splitlines()
+            stdout_log = snapshot_chrome_dir / "chrome_tab.stdout.log"
+            startup_records = [
+                json.loads(line)
+                for line in stdout_log.read_text(
+                    encoding="utf-8",
+                    errors="replace",
+                ).splitlines()
                 if line.strip().startswith("{")
             ]
-            assert stdout_lines, "chrome_tab should emit an ArchiveResult"
-            payload = json.loads(stdout_lines[-1])
-            assert payload["status"] == "succeeded", payload
+            ready_records = [
+                record
+                for record in startup_records
+                if record.get("type") == "ProcessReady"
+            ]
+            archive_results = [
+                record
+                for record in startup_records
+                if record.get("type") == "ArchiveResult"
+            ]
+            assert len(ready_records) == 1, ready_records
+            assert archive_results == [], archive_results
+
+            tab_process.send_signal(signal.SIGTERM)
+            tab_process.wait(timeout=10)
+            assert tab_process.returncode == 0
+            tab_process = None
+
+            final_records = [
+                json.loads(line)
+                for line in stdout_log.read_text(
+                    encoding="utf-8",
+                    errors="replace",
+                ).splitlines()
+                if line.strip().startswith("{")
+            ]
+            archive_results = [
+                record
+                for record in final_records
+                if record.get("type") == "ArchiveResult"
+            ]
+            assert len(archive_results) == 1, archive_results
+            assert archive_results[0]["status"] == "succeeded", archive_results[0]
         finally:
             if tab_process is not None:
                 try:
