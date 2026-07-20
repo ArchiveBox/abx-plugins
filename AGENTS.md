@@ -27,9 +27,11 @@ uv run pytest --collect-only -q
 Most users run these plugins through ArchiveBox or `abx-dl`:
 
 ```bash
+output_dir="$(mktemp -d)"
+trap 'rm -rf -- "$output_dir"' EXIT
 abx-dl plugins
 abx-dl install chrome singlefile ublock
-abx-dl dl --plugins=title,screenshot,pdf 'https://example.com'
+abx-dl dl --dir "$output_dir" --plugins=title,screenshot,pdf 'https://example.com'
 ```
 
 ## Basic Usage
@@ -46,7 +48,7 @@ Run targeted plugin tests:
 
 ```bash
 uv run pytest abx_plugins/plugins/title/tests -q
-uv run pytest abx_plugins/plugins/chrome/tests -q
+uv run pytest abx_plugins/plugins/chrome/tests/test_chrome.py -q
 uv run pytest tests/test_runtime_path_isolation.py -q
 ```
 
