@@ -20,7 +20,7 @@ classifiers = [
 ]
 dependencies = [
     "abxbus==2.5.28",
-    "abxpkg>=1.11.268",
+    "abxpkg>=1.11.271",
     "httpx>=0.28.1",
     "imagesize>=2.0.0",
     "jambo>=0.1.7",
