@@ -128,6 +128,13 @@ class TestConsolelogWithChrome:
                 f"stdout: {stdout}\nstderr: {stderr}"
             )
 
+            ready_json = parse_jsonl_output(stdout, record_type="ProcessReady")
+            assert ready_json == {
+                "type": "ProcessReady",
+                "plugin": "consolelog",
+                "output": "console.jsonl",
+            }, ready_json
+
             result_json = parse_jsonl_output(stdout)
             assert result_json is not None, (
                 f"Consolelog hook should emit final ArchiveResult.\n"

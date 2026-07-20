@@ -93,8 +93,8 @@ State/OS:
 Lifecycle:
 
 - optional binary preflight can run before crawl setup, but hook scripts also resolve declared binaries through shared config helpers when run directly
-- `on_CrawlSetup__*` runs before snapshot extraction and emits no stdout JSONL records
-- `on_Snapshot__*` runs once per snapshot and may emit `ArchiveResult`, `Snapshot`, and `Tag` records only
+- `on_CrawlSetup__*` runs before snapshot extraction; long-lived background hooks emit `ProcessReady` after their shared resource is usable
+- `on_Snapshot__*` runs once per snapshot and may emit `ProcessReady`, `ArchiveResult`, `Snapshot`, and `Tag` records only
 
 State:
 
@@ -110,6 +110,7 @@ Output records:
 ```
 
 - `Snapshot` and `Tag` records may appear before the final `ArchiveResult`
+- long-lived `.daemon.bg.` hooks emit `ProcessReady` only after their listener, browser, or other shared resource is genuinely usable, then emit their final `ArchiveResult` during cleanup when applicable
 
 Semantics:
 
@@ -120,7 +121,7 @@ Semantics:
 
 Rules:
 
-- `on_CrawlSetup__*` hooks should communicate only through side effects such as files, sockets, or long-lived processes, not stdout JSONL records
+- `on_CrawlSetup__*` hooks communicate through side effects such as files, sockets, or long-lived processes; a long-lived background hook emits only its structured `ProcessReady` lifecycle record on stdout
 - `on_Snapshot__*` hooks should not emit `Machine`, `Process`, or `Binary` records
 
 ### Base plugin utilities
@@ -146,11 +147,12 @@ from abx_plugins.plugins.base.utils import (
 
 **JS** (`base/utils.js`):
 ```javascript
-const { loadConfig, getEnv, getEnvBool, getEnvInt, getEnvArray, emitArchiveResultRecord, emitSnapshotRecord } = require('../base/utils.js');
+const { loadConfig, getEnv, getEnvBool, getEnvInt, getEnvArray, emitProcessReadyRecord, emitArchiveResultRecord, emitSnapshotRecord } = require('../base/utils.js');
 ```
 
 - `loadConfig()` — load plugin `config.json` merged with shared base/common runtime vars using env var + alias + fallback resolution
 - `emitArchiveResultRecord(status, outputStr)` — emit `ArchiveResult` JSONL to stdout
+- `emitProcessReadyRecord(extra)` — emit `ProcessReady` JSONL after a long-lived hook's resource is usable
 - `emitSnapshotRecord(record)` — emit `Snapshot` JSONL to stdout
 
 **Test helpers** (`base/test_utils.py`):
@@ -188,7 +190,8 @@ from abx_plugins.plugins.base.test_utils import (
 
 Hooks emit plain JSONL records to stdout. The current hook families and records are:
 
-- `on_CrawlSetup__*` → no stdout JSONL records
-- `on_Snapshot__*` → `ArchiveResult`, `Snapshot`, `Tag`
+- long-lived `.daemon.bg.` hooks → `ProcessReady` after actual resource readiness
+- `on_CrawlSetup__*` → `ProcessReady` for long-lived background hooks, otherwise no stdout JSONL records
+- `on_Snapshot__*` → `ProcessReady` for long-lived background hooks plus final `ArchiveResult`; finite hooks emit `ArchiveResult`, `Snapshot`, and `Tag`
 
 `abx-dl` and ArchiveBox map those records into their own internal event systems. Binary request events are produced from plugin config and handled by `abxpkg`, not by plugin hook scripts. Plugins do not need to know or emit any bus envelope format.

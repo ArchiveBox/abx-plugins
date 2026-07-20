@@ -41,6 +41,7 @@ const {
   loadConfig,
   parseArgs,
   emitArchiveResultRecord,
+  emitProcessReadyRecord,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 
@@ -198,6 +199,7 @@ async function main() {
     browser = connection.browser;
     const page = connection.page;
     emitProgress("0 captchas detected");
+    emitProcessReadyRecord({ plugin: PLUGIN_DIR });
 
     try {
       // CAPTCHA observation is useful only after navigation, but the observer

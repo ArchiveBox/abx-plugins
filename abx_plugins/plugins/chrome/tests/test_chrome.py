@@ -904,8 +904,10 @@ def test_chrome_launch_and_tab_creation(chrome_test_url):
         _cleanup_launch_process(chrome_launch_process, chrome_dir)
 
 
-def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):
-    """chrome_tab should emit one succeeded ArchiveResult and remain alive after startup."""
+def test_tab_hook_emits_ready_and_single_success_result_then_stays_alive(
+    chrome_test_url,
+):
+    """chrome_tab publishes real readiness and remains alive until cleanup."""
     with tempfile.TemporaryDirectory() as tmpdir:
         crawl_dir = Path(tmpdir) / "crawl"
         crawl_dir.mkdir()
@@ -945,6 +947,7 @@ def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):
             stdout_log = snapshot_chrome_dir / "chrome_tab.stdout.log"
             deadline = time.monotonic() + 10
             archive_results = []
+            ready_records = []
             while time.monotonic() < deadline:
                 assert tab_process.poll() is None, (
                     "chrome_tab should stay alive after publishing its startup result"
@@ -958,6 +961,7 @@ def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):
                     if line.strip()
                 ]
                 archive_results = []
+                ready_records = []
                 for line in stdout_lines:
                     if not line.startswith("{"):
                         continue
@@ -967,7 +971,9 @@ def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):
                         continue
                     if record.get("type") == "ArchiveResult":
                         archive_results.append(record)
-                if len(archive_results) == 1:
+                    if record.get("type") == "ProcessReady":
+                        ready_records.append(record)
+                if len(ready_records) == 1:
                     _wait_for_process_to_remain_running(tab_process, stable_seconds=1.0)
                     stdout_lines = [
                         line.strip()
@@ -978,6 +984,7 @@ def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):
                         if line.strip()
                     ]
                     archive_results = []
+                    ready_records = []
                     for line in stdout_lines:
                         if not line.startswith("{"):
                             continue
@@ -987,13 +994,44 @@ def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):
                             continue
                         if record.get("type") == "ArchiveResult":
                             archive_results.append(record)
+                        if record.get("type") == "ProcessReady":
+                            ready_records.append(record)
                     break
                 time.sleep(0.1)
 
-            assert len(archive_results) == 1, (
-                f"chrome_tab should emit exactly one ArchiveResult on successful startup, got {archive_results}\n"
+            assert archive_results == [], (
+                f"chrome_tab must not emit ArchiveResult before cleanup, got {archive_results}\n"
                 f"Stdout log:\n{stdout_log.read_text(encoding='utf-8', errors='replace')}"
             )
+            assert len(ready_records) == 1, (
+                f"chrome_tab should emit exactly one ProcessReady after the target monitor is active, got {ready_records}\n"
+                f"Stdout log:\n{stdout_log.read_text(encoding='utf-8', errors='replace')}"
+            )
+            assert ready_records[0]["plugin"] == "chrome", ready_records[0]
+            assert (
+                ready_records[0]["target_id"]
+                == (snapshot_chrome_dir / "target_id.txt").read_text().strip()
+            )
+
+            tab_process.send_signal(signal.SIGTERM)
+            tab_process.wait(timeout=10)
+            assert tab_process.returncode == 0
+            tab_process = None
+
+            final_records = [
+                json.loads(line)
+                for line in stdout_log.read_text(
+                    encoding="utf-8",
+                    errors="replace",
+                ).splitlines()
+                if line.strip().startswith("{")
+            ]
+            archive_results = [
+                record
+                for record in final_records
+                if record.get("type") == "ArchiveResult"
+            ]
+            assert len(archive_results) == 1, archive_results
             assert archive_results[0]["status"] == "succeeded", archive_results[0]
         finally:
             if tab_process is not None:

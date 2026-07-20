@@ -575,6 +575,18 @@ function emitArchiveResultRecord(status, outputStr, extra = {}) {
   );
 }
 
+function emitProcessReadyRecord(extra = {}) {
+  writeFdFully(
+    1,
+    `${JSON.stringify(
+      mergeExtraContext({
+        type: "ProcessReady",
+        ...extra,
+      })
+    )}\n`
+  );
+}
+
 function emitSnapshotRecord(record) {
   const snapshotRecord = mergeExtraContext({
     type: "Snapshot",
@@ -656,6 +668,7 @@ module.exports = {
   ensureNodeModuleResolution,
   parseArgs,
   emitArchiveResultRecord,
+  emitProcessReadyRecord,
   emitSnapshotRecord,
   writeFileAtomic,
   hasStaticFileOutput,

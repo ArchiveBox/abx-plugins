@@ -41,6 +41,7 @@ const {
   loadConfig,
   parseArgs,
   emitArchiveResultRecord,
+  emitProcessReadyRecord,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 
@@ -305,6 +306,7 @@ async function main() {
 
   try {
     await startScreencast();
+    emitProcessReadyRecord({ plugin: PLUGIN_DIR, output_dir: LIVE_DIR });
     await new Promise(() => {});
   } catch (error) {
     const message = `${error.name}: ${error.message}`;
