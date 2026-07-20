@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 import requests
 
-from abx_plugins.plugins.base.test_utils import get_hydrated_required_binaries
+from abx_plugins.plugins.base.test_utils import get_hydrated_required_binary
 from abx_plugins.plugins.base.test_utils import install_required_binary_from_config
 from abx_plugins.plugins.base.test_utils import parse_jsonl_output
 
@@ -120,8 +120,7 @@ def test_verify_deps_with_install_hooks():
 
 
 def test_install_hook_requests_java_dependency():
-    records = get_hydrated_required_binaries(PLUGIN_DIR)
-    java_record = next(record for record in records if record.get("name") == "java")
+    java_record = get_hydrated_required_binary(PLUGIN_DIR, "java")
     assert java_record["min_version"] == "11.0.0"
     assert java_record["overrides"]["brew"]["install_args"] == ["openjdk"]
     assert java_record["binproviders"] == "env,apt,brew"

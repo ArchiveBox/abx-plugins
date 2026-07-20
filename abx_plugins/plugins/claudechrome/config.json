@@ -39,6 +39,11 @@
     "image/png"
   ],
   "properties": {
+    "NODE_BINARY": {
+      "type": "string",
+      "default": "node",
+      "description": "Path to Node.js binary"
+    },
     "CLAUDECHROME_ENABLED": {
       "type": "boolean",
       "default": false,
