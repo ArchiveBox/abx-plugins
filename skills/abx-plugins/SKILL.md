@@ -49,9 +49,9 @@ node -c abx_plugins/plugins/chrome/chrome_utils.js
 
 ```bash
 uv run pytest \
-  abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py::test_get_node_modules_dir_resolves_runtime_env \
-  abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py::test_find_chromium_uses_real_runtime_browser \
-  abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py::test_set_browser_download_behavior_downloads_file_with_live_page \
+  abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py::test_get_machine_type \
+  abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py::test_get_lib_dir_with_env_var \
+  abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py::test_chrome_extension_install_env_isolates_inherited_extensions_dir \
   -q
 ```
 
