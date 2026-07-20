@@ -1,0 +1,28 @@
+skills/abx-plugins/SKILL.md
+  s_f8414d52051f83::t_25464db623c1d8 53
+  s_f8414d52051f83::t_a384e02d041fb3 34-35,38
+.pre-commit-config.yaml
+  s_f8414d52051f83::t_612344d3e94ea0 15
+AGENTS.md
+  s_f8414d52051f83::t_a384e02d041fb3 30-31,34
+  s_f8414d52051f83::t_25464db623c1d8 51
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_5ae0de05deab8d 24-26,86
+  s_f8414d52051f83::t_0c7257332a5910 46-48,196-198
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "4a16d4d47a6c663d50d4b991a72b5a2199c2353f",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
