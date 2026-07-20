@@ -9,7 +9,7 @@
     {
       "name": "{NODE_BINARY}",
       "binproviders": "env,apt,brew",
-      "min_version": null,
+      "min_version": "22.12.0",
       "overrides": {
         "apt": {
           "install_args": [
