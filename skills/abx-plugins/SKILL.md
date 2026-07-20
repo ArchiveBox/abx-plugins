@@ -48,8 +48,11 @@ node -c abx_plugins/plugins/chrome/chrome_utils.js
 ## Verification
 
 ```bash
-uv run pytest abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py -q
-uv run prek run --all-files
+uv run pytest \
+  abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py::test_get_node_modules_dir_resolves_runtime_env \
+  abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py::test_find_chromium_uses_real_runtime_browser \
+  abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py::test_set_browser_download_behavior_downloads_file_with_live_page \
+  -q
 ```
 
 Chrome-specific logic belongs in the Chrome plugin helpers. Plugins inherit config from `required_plugins`; do not duplicate config already provided by dependencies.

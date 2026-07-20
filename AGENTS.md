@@ -50,7 +50,6 @@ Run targeted plugin tests:
 uv run pytest abx_plugins/plugins/title/tests -q
 uv run pytest \
   abx_plugins/plugins/chrome/tests/test_chrome.py::test_chrome_launch_and_tab_creation \
-  abx_plugins/plugins/chrome/tests/test_chrome.py::test_chrome_navigation \
   -q
 uv run pytest tests/test_runtime_path_isolation.py -q
 ```
