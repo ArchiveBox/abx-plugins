@@ -62,7 +62,7 @@ def temp_path_for(path: Path) -> Path:
 
 # Chrome session directory (relative to extractor output dir)
 # Note: Chrome binary is obtained via CHROME_BINARY env var, not searched for.
-# The centralized Chrome binary search is in chrome_utils.js findChromium().
+# Chrome launch consumes the CHROME_BINARY path resolved by abxpkg.
 CHROME_SESSION_DIR = "../chrome"
 SINGLEFILE_NORESULTS_TOKENS = (
     "SingleFile extension completed but no output file found",

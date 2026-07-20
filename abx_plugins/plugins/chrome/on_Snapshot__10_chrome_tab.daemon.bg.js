@@ -16,8 +16,6 @@
  *
  * Environment variables:
  *     CRAWL_DIR: Crawl output directory (to find crawl's Chrome session)
- *     CHROME_BINARY: Path to Chromium binary (optional, for version info)
- *
  * This is a background hook that stays alive until SIGTERM so the tab
  * can be closed cleanly at the end of the snapshot run.
  */

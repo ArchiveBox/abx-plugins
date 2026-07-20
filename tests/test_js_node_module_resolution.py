@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
-import threading
-import time
 from pathlib import Path
 
 import pytest
@@ -27,9 +24,9 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 def _node_binary() -> str:
-    node_binary = shutil.which("node")
-    if not node_binary:
-        raise AssertionError("Node.js is required for JS module resolution tests")
+    node_binary = os.environ.get("NODE_BINARY")
+    if not node_binary or not Path(node_binary).is_file():
+        raise AssertionError("NODE_BINARY was not resolved by abxpkg")
     return node_binary
 
 
@@ -48,7 +45,7 @@ def module_resolution_url(httpserver) -> str:
     return httpserver.url_for("/")
 
 
-def test_title_hook_respects_node_module_dir_alias(
+def test_title_hook_uses_abxpkg_exported_node_path(
     tmp_path: Path,
     module_resolution_url: str,
 ) -> None:
@@ -66,12 +63,10 @@ def test_title_hook_respects_node_module_dir_alias(
         snap_dir = snapshot_chrome_dir.parent
         title_dir = snap_dir / "title"
         title_dir.mkdir(exist_ok=True)
-        node_modules_dir = env["NODE_MODULES_DIR"]
-        alias_env = env.copy()
-        alias_env.pop("NODE_MODULES_DIR", None)
-        alias_env.pop("NODE_PATH", None)
-        alias_env["NODE_MODULE_DIR"] = node_modules_dir
-        alias_env["SNAP_DIR"] = str(snap_dir)
+        hook_env = env.copy()
+        hook_env["SNAP_DIR"] = str(snap_dir)
+        assert hook_env["NODE_MODULES_DIR"]
+        assert hook_env["NODE_PATH"]
 
         result = subprocess.run(
             [
@@ -83,7 +78,7 @@ def test_title_hook_respects_node_module_dir_alias(
             cwd=title_dir,
             capture_output=True,
             text=True,
-            env=alias_env,
+            env=hook_env,
             timeout=60,
         )
 
@@ -133,7 +128,7 @@ def test_chrome_wait_hook_resolves_puppeteer_from_lib_dir(
     assert "Cannot find module" not in result.stderr
 
 
-def test_chrome_launch_prerequisites_wait_for_late_installs(tmp_path: Path) -> None:
+def test_chrome_launch_prerequisites_use_resolved_runtime_env(tmp_path: Path) -> None:
     real_env = get_test_env()
     real_node_modules = next(
         (
@@ -151,23 +146,9 @@ def test_chrome_launch_prerequisites_wait_for_late_installs(tmp_path: Path) -> N
     assert real_node_modules.exists()
     assert real_chrome_binary.exists()
 
-    lib_dir = tmp_path / "lib"
-    delayed_node_modules = lib_dir / "pnpm" / "packages" / "chrome" / "node_modules"
-    delayed_node_modules.parent.mkdir(parents=True)
     chrome_utils_path = json.dumps(str(CHROME_UTILS))
 
-    def materialize_prereqs() -> None:
-        time.sleep(0.5)
-        delayed_node_modules.symlink_to(real_node_modules, target_is_directory=True)
-
-    writer = threading.Thread(target=materialize_prereqs, daemon=True)
-    writer.start()
-
     env = real_env.copy()
-    env["ABXPKG_LIB_DIR"] = str(lib_dir)
-    env["NODE_MODULES_DIR"] = str(delayed_node_modules)
-    env["NODE_MODULE_DIR"] = str(delayed_node_modules)
-    env["NODE_PATH"] = str(delayed_node_modules)
     env["CHROME_BINARY"] = str(real_chrome_binary)
 
     result = subprocess.run(
@@ -175,23 +156,17 @@ def test_chrome_launch_prerequisites_wait_for_late_installs(tmp_path: Path) -> N
             _node_binary(),
             "-e",
             f"""
-const {{ waitForChromeLaunchPrerequisites }} = require({chrome_utils_path});
-(async () => {{
-  const startedAt = Date.now();
-  const prereqs = await waitForChromeLaunchPrerequisites({{
-    timeoutMs: 5000,
-    initialIntervalMs: 50,
-    maxIntervalMs: 100,
-  }});
+const {{ getChromeLaunchPrerequisites }} = require({chrome_utils_path});
+try {{
+  const prereqs = getChromeLaunchPrerequisites();
   console.log(JSON.stringify({{
-    waitedMs: Date.now() - startedAt,
     hasPuppeteer: !!prereqs.puppeteer,
     binary: prereqs.binary,
   }}));
-}})().catch(error => {{
+}} catch (error) {{
   console.error(error.message);
   process.exit(1);
-}});
+}}
 """.strip(),
         ],
         cwd=tmp_path,
@@ -201,10 +176,7 @@ const {{ waitForChromeLaunchPrerequisites }} = require({chrome_utils_path});
         timeout=10,
     )
 
-    writer.join(timeout=2)
-
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout.strip())
     assert payload["hasPuppeteer"] is True
     assert payload["binary"] == str(real_chrome_binary)
-    assert payload["waitedMs"] >= 400

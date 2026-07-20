@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries node
 /**
  * Extract cookies from Chrome via CDP and write to Netscape cookies.txt format.
  *
@@ -20,7 +20,7 @@ const path = require("path");
 const { ensureNodeModuleResolution, getEnv } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 const {
-  findAnyChromiumBinary,
+  findChromium,
   launchChromium,
   killChrome,
   getCookiesViaCdp,
@@ -110,9 +110,9 @@ async function main() {
     process.exit(1);
   }
 
-  const binary = findAnyChromiumBinary();
+  const binary = findChromium();
   if (!binary) {
-    console.error("ERROR: Chromium-based browser binary not found");
+    console.error("ERROR: CHROME_BINARY was not resolved by abxpkg");
     process.exit(1);
   }
 

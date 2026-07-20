@@ -6,6 +6,7 @@ network response capture.
 """
 
 import json
+import os
 import posixpath
 import shutil
 import subprocess
@@ -44,8 +45,10 @@ class TestResponsesPlugin:
 
     def test_unique_filename_does_not_duplicate_existing_suffix(self):
         """Short encoded URLs should not get .ext appended twice."""
-        node_binary = shutil.which("node")
-        assert node_binary, "Node.js is required for JS filename helper tests"
+        node_binary = os.environ.get("NODE_BINARY")
+        assert node_binary and Path(node_binary).is_file(), (
+            "NODE_BINARY was not resolved by abxpkg"
+        )
 
         result = subprocess.run(
             [

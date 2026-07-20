@@ -8,7 +8,6 @@ Tests verify:
 """
 
 import os
-import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -32,12 +31,6 @@ TRAFILATURA_HOOK = _TRAFILATURA_HOOK
 TEST_URL = "https://example.com"
 
 _trafilatura_binary_path = None
-
-
-def _script_cmd(script: Path) -> list[str]:
-    if shutil.which("uv"):
-        return [str(script)]
-    return [str(script)]
 
 
 def get_trafilatura_binary_path() -> str | None:

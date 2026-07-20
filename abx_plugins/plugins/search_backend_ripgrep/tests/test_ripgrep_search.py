@@ -10,7 +10,6 @@ Tests cover:
 """
 
 import os
-import shutil
 from pathlib import Path
 
 import pytest
@@ -23,8 +22,30 @@ from abx_plugins.plugins.search_backend_ripgrep.search import (
     _get_search_roots,
     DEFAULT_CONTENT_EXCLUDES,
 )
+from abx_plugins.plugins.base.test_utils import (
+    get_hydrated_required_binaries,
+    get_plugin_dir,
+    install_binary_with_abxpkg,
+)
 
-RG_PATH = shutil.which("rg")
+PLUGIN_DIR = get_plugin_dir(__file__)
+
+
+@pytest.fixture(scope="module")
+def rg_path() -> str:
+    record = next(
+        item
+        for item in get_hydrated_required_binaries(PLUGIN_DIR)
+        if item.get("name") == "rg"
+    )
+    loaded = install_binary_with_abxpkg(
+        "rg",
+        binproviders=str(record["binproviders"]),
+    )
+    assert loaded.loaded_abspath
+    resolved = Path(loaded.loaded_abspath)
+    assert resolved.is_file()
+    return str(resolved)
 
 
 class TestRipgrepFlush:
@@ -40,9 +61,8 @@ class TestRipgrepSearch:
     """Test the ripgrep search function."""
 
     @pytest.fixture(autouse=True)
-    def archive(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    def archive(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rg_path: str):
         """Create temporary archive directory with test files."""
-        assert RG_PATH, "rg is required for ripgrep backend tests"
         self.archive_dir = tmp_path / "archive"
         self.archive_dir.mkdir()
 
@@ -70,7 +90,7 @@ class TestRipgrepSearch:
         )
 
         monkeypatch.setenv("SNAP_DIR", str(self.archive_dir))
-        monkeypatch.setenv("RIPGREP_BINARY", RG_PATH)
+        monkeypatch.setenv("RIPGREP_BINARY", rg_path)
         monkeypatch.delenv("RIPGREP_TIMEOUT", raising=False)
         monkeypatch.delenv("RIPGREP_ARGS", raising=False)
         monkeypatch.delenv("RIPGREP_ARGS_EXTRA", raising=False)
@@ -82,10 +102,6 @@ class TestRipgrepSearch:
             file_path = snap_dir / path
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.write_text(content)
-
-    def _has_ripgrep(self) -> bool:
-        """Check if ripgrep is available."""
-        return shutil.which("rg") is not None
 
     def test_search_no_archive_dir(self):
         """search should return empty list when archive dir doesn't exist."""
@@ -212,9 +228,8 @@ class TestRipgrepSearchIntegration:
     """Integration tests with realistic archive structure."""
 
     @pytest.fixture(autouse=True)
-    def archive(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    def archive(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rg_path: str):
         """Create archive with realistic structure."""
-        assert RG_PATH, "rg is required for ripgrep backend tests"
         self.archive_dir = tmp_path / "archive"
         self.archive_dir.mkdir()
 
@@ -250,7 +265,7 @@ class TestRipgrepSearchIntegration:
         )
 
         monkeypatch.setenv("SNAP_DIR", str(self.archive_dir))
-        monkeypatch.setenv("RIPGREP_BINARY", RG_PATH)
+        monkeypatch.setenv("RIPGREP_BINARY", rg_path)
 
     def _create_snapshot(self, timestamp: str, files: dict):
         """Create snapshot with timestamp-based ID."""
@@ -281,8 +296,7 @@ class TestRipgrepSearchIntegration:
 
 class TestRipgrepSearchCurrentArchiveBoxLayout:
     @pytest.fixture(autouse=True)
-    def archive(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-        assert RG_PATH, "rg is required for ripgrep backend tests"
+    def archive(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rg_path: str):
         self.data_dir = tmp_path
         self.snapshot_id = "019cf48c-aa86-72f0-9f8f-e4ea80226fc6"
         self.snapshot_root = (
@@ -305,7 +319,7 @@ class TestRipgrepSearchCurrentArchiveBoxLayout:
         (lib_dir / "big.txt").write_text("google " * 1000)
 
         monkeypatch.setenv("SNAP_DIR", str(self.data_dir))
-        monkeypatch.setenv("RIPGREP_BINARY", RG_PATH)
+        monkeypatch.setenv("RIPGREP_BINARY", rg_path)
 
     def test_search_roots_prefer_snapshot_content_dirs(self):
         roots = _get_search_roots()

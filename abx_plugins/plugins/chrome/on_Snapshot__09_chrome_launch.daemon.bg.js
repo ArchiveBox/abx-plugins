@@ -46,6 +46,7 @@ const {
   ensureChromeSession,
   closeBrowserInChromeSession,
   getChromeSessionOptionsFromConfig,
+  findChromium,
   resolvePuppeteerModule,
 } = require("./chrome_utils.js");
 const puppeteer = resolvePuppeteerModule();
@@ -59,6 +60,7 @@ const CHROME_USER_DATA_DIR = chromeSessionOptions.CHROME_USER_DATA_DIR;
 const CHROME_TIMEOUT_MS = chromeSessionOptions.timeoutMs;
 const CHROME_CDP_URL = chromeSessionOptions.CHROME_CDP_URL;
 const CHROME_IS_LOCAL = chromeSessionOptions.CHROME_IS_LOCAL;
+const CHROME_BINARY_PATH = CHROME_CDP_URL ? null : findChromium();
 const CHROME_KEEPALIVE = hookConfig.CHROME_KEEPALIVE === true;
 const CHROME_ISOLATION =
   String(hookConfig.CHROME_ISOLATION || "crawl").toLowerCase() === "snapshot"
@@ -155,6 +157,7 @@ async function main() {
       const relaunched = await ensureChromeSession({
         outputDir: crawlChromeDir,
         puppeteer,
+        binary: CHROME_BINARY_PATH,
         ...chromeSessionOptions,
         CHROME_IS_LOCAL: chromeProcessIsLocal,
         CHROME_CDP_URL: cdpUrlOverride,
@@ -184,6 +187,7 @@ async function main() {
     const session = await ensureChromeSession({
       outputDir: OUTPUT_DIR,
       puppeteer,
+      binary: CHROME_BINARY_PATH,
       ...chromeSessionOptions,
       CHROME_IS_LOCAL: chromeProcessIsLocal,
       CHROME_CDP_URL: cdpUrlOverride,

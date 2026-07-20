@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries node
 /**
  * Chrome Browser Session Utilities
  *
@@ -115,11 +115,6 @@ function resolveChromeLaunchOptions(options = {}) {
       "CHROME_ARGS_EXTRA",
       getEnvArray("CHROME_ARGS_EXTRA", [])
     ),
-    CHROME_LAUNCH_ATTEMPTS: getOption(
-      options,
-      "CHROME_LAUNCH_ATTEMPTS",
-      getEnvInt("CHROME_LAUNCH_ATTEMPTS", 3)
-    ),
   };
 }
 
@@ -149,7 +144,6 @@ function getChromeSessionOptionsFromConfig(hookConfig = {}) {
     CHROME_ARGS_EXTRA: Array.isArray(hookConfig.CHROME_ARGS_EXTRA)
       ? hookConfig.CHROME_ARGS_EXTRA
       : [],
-    CHROME_LAUNCH_ATTEMPTS: Number(hookConfig.CHROME_LAUNCH_ATTEMPTS) || 3,
     timeoutMs: (Number(hookConfig.CHROME_TIMEOUT) || 60) * 1000,
   };
 }
@@ -1061,7 +1055,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
  * runtime setup such as extension loading publishes its own readiness metadata.
  *
  * @param {Object} options - Launch options
- * @param {string} [options.binary] - Chrome binary path (auto-detected if not provided)
+ * @param {string} [options.binary] - abxpkg-resolved Chrome binary path
  * @param {string} [options.outputDir='chrome'] - Directory for output files
  * @param {string} [options.CHROME_USER_DATA_DIR] - Chrome user data directory for persistent sessions
  * @param {string} [options.CHROME_RESOLUTION='1440,2000'] - Window resolution
@@ -1073,13 +1067,12 @@ async function killZombieChrome(snapDir = null, options = {}) {
  * @param {Array<string>} [options.extensionPaths=[]] - Unpacked extension paths to load after launch via CDP Extensions.loadUnpacked
  * @param {Array<string>} [options.CHROME_ARGS=[]] - Hydrated base Chrome args from plugin config
  * @param {Array<string>} [options.CHROME_ARGS_EXTRA=[]] - Hydrated extra Chrome args from plugin config
- * @param {number} [options.CHROME_LAUNCH_ATTEMPTS=3] - Hydrated launch retry count from plugin config
  * @param {number} [options.timeoutMs] - Hydrated Chrome operation timeout in milliseconds
  * @returns {Promise<Object>} - {success, cdpUrl, pid, port, process, error}
  */
 async function launchChromium(options = {}) {
   const {
-    binary = findChromium(),
+    binary,
     outputDir = "chrome",
     enableExtensionDebugging = false,
     extensionPaths = [],
@@ -1094,13 +1087,14 @@ async function launchChromium(options = {}) {
     CHROME_CHECK_SSL_VALIDITY,
     CHROME_ARGS,
     CHROME_ARGS_EXTRA,
-    CHROME_LAUNCH_ATTEMPTS,
   } = resolveChromeLaunchOptions(options);
-  const launchAttempts = Math.max(1, Number(CHROME_LAUNCH_ATTEMPTS) || 1);
   const userDataDir = CHROME_USER_DATA_DIR;
 
   if (!binary) {
-    return { success: false, error: "Chrome binary not found" };
+    return {
+      success: false,
+      error: "CHROME_BINARY was not resolved by abxpkg",
+    };
   }
   if (!isSupportedChromiumBinary(binary)) {
     return {
@@ -1218,8 +1212,6 @@ async function launchChromium(options = {}) {
   writeCmdScript(path.join(outputDir, "cmd.sh"), binary, chromiumArgs);
 
   const chromeLaunchLock = path.join(userDataDir, ".chrome-launch.lock");
-  let lastError = "Unknown Chromium launch failure";
-
   // Chromium startup has two distinct phases:
   // 1. process/bootstrap: the native browser process starts, initializes the
   //    profile, binds the remote debugging port, and prints DevTools metadata
@@ -1227,24 +1219,10 @@ async function launchChromium(options = {}) {
   //    real CDP client to attach and for the initial about:blank page to be
   //    usable
   //
-  // In principle this should be deterministic, but in practice we sometimes
-  // see first-launch native failures inside Chromium itself, especially when
-  // using a fresh profile and/or loading unpacked extensions in headless mode.
-  // Those crashes happen *after* we have already done our deterministic setup
-  // (profile dir creation, SingletonLock cleanup, debug port selection, args
-  // construction, launch locking), so there is no higher-level app signal we
-  // can check in advance to know the first attempt will die.
-  //
-  // The important boundary here is that we only retry failures that clearly
-  // occurred during Chromium's own early startup lifecycle:
-  // - the process exits before the DevTools port is ready
-  // - the process exits during the short post-launch settle window
-  // - the DevTools socket opens, but a real CDP session cannot be stabilized
-  //
-  // We intentionally do *not* retry arbitrary failures forever. Persistent
-  // config issues (bad binary path, invalid flags, broken permissions, etc.)
-  // should still fail deterministically on the first attempt.
-  for (let attempt = 1; attempt <= launchAttempts; attempt++) {
+  // abxpkg has already completed binary installation and resolution before
+  // this function runs. Launch exactly once so any startup failure is reported
+  // directly instead of being hidden behind caller-side retries.
+  {
     let chromiumProcess = null;
     let chromePid = null;
     let recentStderr = "";
@@ -1257,7 +1235,7 @@ async function launchChromium(options = {}) {
         getEnvInt("CHROME_LAUNCH_LOCK_TIMEOUT_MS", 120000)
       );
       console.error(
-        `[*] Spawning Chromium (headless=${CHROME_HEADLESS}) [attempt ${attempt}/${launchAttempts}]...`
+        `[*] Spawning Chromium (headless=${CHROME_HEADLESS})...`
       );
       chromiumProcess = spawn(binary, chromiumArgs, {
         stdio: ["ignore", "pipe", "pipe"],
@@ -1369,29 +1347,13 @@ async function launchChromium(options = {}) {
       ]
         .filter(Boolean)
         .join(" ");
-      lastError = extraOutput
+      const launchError = extraOutput
         ? `${e.name}: ${e.message} (${extraOutput})`
         : `${e.name}: ${e.message}`;
-      // Only retry failures that map to Chromium's startup/stabilization
-      // window. Everything else should bubble out directly so permanent
-      // misconfiguration still fails fast and loudly.
-      const isTransientStartupFailure =
-        lastError.includes("Chromium exited before opening the debug port") ||
-        lastError.includes("Timeout waiting for Chrome debug port") ||
-        lastError.includes("Chrome DevTools targets to stabilize") ||
-        lastError.includes("Chromium exited during startup") ||
-        lastError.includes("Chromium exited after opening the debug port") ||
-        lastError.includes("Chromium CDP session not stable after startup");
-      if (attempt >= launchAttempts || !isTransientStartupFailure) {
-        return {
-          success: false,
-          error: lastError,
-        };
-      }
-      console.error(
-        `[!] Chromium launch attempt ${attempt}/${launchAttempts} failed, retrying...`
-      );
-      await sleep(1000);
+      return {
+        success: false,
+        error: launchError,
+      };
     } finally {
       if (releaseLaunchLock) {
         releaseLaunchLock();
@@ -1399,7 +1361,6 @@ async function launchChromium(options = {}) {
     }
   }
 
-  return { success: false, error: lastError };
 }
 
 /**
@@ -2220,123 +2181,16 @@ function getExtensionTargets(browser) {
 }
 
 /**
- * Resolve the Chromium-compatible browser binary to launch.
+ * Return the Chromium binary path resolved by abxpkg before hook execution.
  *
- * Resolution order matters because tests and runtime callers may override the
- * browser at the environment layer:
- * 1. `CHROME_BINARY`, if explicitly provided at runtime
- * 2. `/usr/bin/chromium` on CI/Linux hosts
- * 3. Chromium-family browsers on the host
- * 5. abxpkg-managed Playwright/Puppeteer provider shims under `ABXPKG_LIB_DIR`
+ * Binary discovery, version selection, installation, and provider fallback all
+ * belong to abxpkg. Runtime Chrome code consumes the resulting configured path
+ * without searching the host or provider directories again.
  *
- * This helper intentionally avoids auto-selecting Google Chrome stable. Users
- * may explicitly provide another Chromium-based browser through CHROME_BINARY;
- * extension loading remains the runtime capability check.
- *
- * @returns {string|null} - Absolute path to browser binary or null if not found
+ * @returns {string|null} - Configured browser binary path or null if unavailable
  */
 function findChromium() {
-  const validateBinary = (binaryPath) => isSupportedChromiumBinary(binaryPath);
-
-  const resolveBinaryReference = (binaryPath) => {
-    if (!binaryPath) return null;
-
-    const hasPathSeparator =
-      binaryPath.includes(path.sep) ||
-      (path.sep === "\\" && binaryPath.includes("/"));
-    if (path.isAbsolute(binaryPath) || hasPathSeparator) {
-      const absPath = path.resolve(binaryPath);
-      return validateBinary(absPath) ? absPath : null;
-    }
-
-    try {
-      const locator = process.platform === "win32" ? "where" : "which";
-      const resolved = execFileSync(locator, [binaryPath], {
-        encoding: "utf8",
-        timeout: 5000,
-        stdio: "pipe",
-      })
-        .split(/\r?\n/)
-        .find(Boolean)
-        ?.trim();
-      return resolved && validateBinary(resolved) ? resolved : null;
-    } catch (e) {
-      return validateBinary(binaryPath) ? binaryPath : null;
-    }
-  };
-
-  // 1. Check CHROME_BINARY env var first
-  const chromeBinary = getEnv("CHROME_BINARY");
-  if (chromeBinary) {
-    const resolvedBinary = resolveBinaryReference(chromeBinary);
-    if (resolvedBinary) {
-      return resolvedBinary;
-    }
-    console.error(
-      `[!] Warning: CHROME_BINARY="${chromeBinary}" is not an executable browser binary.`
-    );
-  }
-
-  const ciChromiumPath = "/usr/bin/chromium";
-  if (validateBinary(ciChromiumPath)) {
-    return ciChromiumPath;
-  }
-
-  const macCanaryPath =
-    "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary";
-  if (process.platform === "darwin" && validateBinary(macCanaryPath)) {
-    return macCanaryPath;
-  }
-
-  const hostChromiumCandidates =
-    process.platform === "darwin"
-      ? ["/Applications/Chromium.app/Contents/MacOS/Chromium"]
-      : ["chromium", "chromium-browser"];
-  for (const candidate of hostChromiumCandidates) {
-    const resolvedChromium = resolveBinaryReference(candidate);
-    if (resolvedChromium) {
-      return resolvedChromium;
-    }
-  }
-
-  // 2. Warn that no CHROME_BINARY is configured, searching managed installs
-  if (!chromeBinary) {
-    console.error(
-      "[!] Warning: CHROME_BINARY not set, searching managed installs..."
-    );
-  }
-
-  // 3. Search the stable shims created by abxpkg browser binproviders.
-  // Do not walk provider cache internals here; Puppeteer/Playwright own that.
-  const libDir = getEnv("ABXPKG_LIB_DIR");
-  if (libDir) {
-    const libCandidates = [
-      path.join(libDir, "env", "bin", "chromium"),
-      path.join(libDir, "env", "bin", "chrome"),
-      path.join(libDir, "puppeteer", "bin", "chromium"),
-      path.join(libDir, "puppeteer", "bin", "chrome"),
-      path.join(libDir, "puppeteer", "bin", "chrome-headless-shell"),
-      path.join(libDir, "playwright", "bin", "chromium"),
-      path.join(libDir, "playwright", "bin", "chrome"),
-    ];
-    for (const c of libCandidates) {
-      if (validateBinary(c)) return c;
-    }
-  }
-
-  return null;
-}
-
-/**
- * Find the supported test/local browser path. Prefers explicit CHROME_BINARY,
- * then CI Chromium, Chrome Canary, host Chromium, then managed Chromium.
- *
- * @returns {string|null} - Absolute path or command name to browser binary
- */
-function findAnyChromiumBinary() {
-  const chromiumBinary = findChromium();
-  if (chromiumBinary) return chromiumBinary;
-  return null;
+  return getEnv("CHROME_BINARY") || null;
 }
 
 // ============================================================================
@@ -2860,55 +2714,14 @@ function resolvePuppeteerModule() {
   );
 }
 
-async function waitForChromeLaunchPrerequisites(options = {}) {
-  const {
-    requireLocalBinary = true,
-    timeoutMs = Math.max(getEnvInt("CHROME_TIMEOUT", 60) * 1000, 300000),
-    initialIntervalMs = 100,
-    maxIntervalMs = 1000,
-  } = options;
-
-  const startedAt = Date.now();
-  let intervalMs = initialIntervalMs;
-  let lastPuppeteerError = "";
-  let lastBinaryError = "";
-
-  while (Date.now() - startedAt < timeoutMs) {
-    let puppeteer = null;
-    let binary = null;
-
-    try {
-      puppeteer = resolvePuppeteerModule();
-      lastPuppeteerError = "";
-    } catch (error) {
-      lastPuppeteerError = error.message;
-    }
-
-    if (requireLocalBinary) {
-      binary = findChromium();
-      if (!binary) {
-        lastBinaryError = "Chromium binary not found yet";
-      } else {
-        lastBinaryError = "";
-      }
-    }
-
-    if (puppeteer && (!requireLocalBinary || binary)) {
-      return { puppeteer, binary };
-    }
-
-    await sleep(intervalMs);
-    intervalMs = Math.min(maxIntervalMs, Math.round(intervalMs * 1.5));
+function getChromeLaunchPrerequisites(options = {}) {
+  const { requireLocalBinary = true } = options;
+  const puppeteer = resolvePuppeteerModule();
+  const binary = requireLocalBinary ? findChromium() : null;
+  if (requireLocalBinary && !binary) {
+    throw new Error("CHROME_BINARY was not resolved by abxpkg");
   }
-
-  const details = [lastPuppeteerError, lastBinaryError]
-    .filter(Boolean)
-    .join("; ");
-  throw new Error(
-    details
-      ? `Timed out waiting for Chrome launch prerequisites: ${details}`
-      : "Timed out waiting for Chrome launch prerequisites"
-  );
+  return { puppeteer, binary };
 }
 
 /**
@@ -4142,9 +3955,8 @@ async function ensureChromeSession(options = {}) {
       );
     }
 
-    resolvedBinary = resolvedBinary || findChromium();
     if (!resolvedBinary) {
-      throw new Error("Chromium binary not found");
+      throw new Error("CHROME_BINARY was not resolved by abxpkg");
     }
     if (installedExtensions.length > 0) {
       console.error(
@@ -4433,7 +4245,6 @@ module.exports = {
   killChrome,
   // Chromium binary finding
   findChromium,
-  findAnyChromiumBinary,
   parseChromiumVersion,
   isSupportedChromiumVersionOutput,
   isSupportedChromiumBinary,
@@ -4466,7 +4277,7 @@ module.exports = {
   inspectChromeSessionArtifacts,
   cleanupStaleChromeSessionArtifacts,
   waitForChromeSessionState,
-  waitForChromeLaunchPrerequisites,
+  getChromeLaunchPrerequisites,
   getBrowserCdpUrl,
   openTabInChromeSession,
   closeTabInChromeSession,
@@ -4487,7 +4298,7 @@ if (require.main === module) {
     console.log("Usage: chrome_utils.js <command> [args...]");
     console.log("");
     console.log("Commands:");
-    console.log("  findChromium              Find Chromium binary");
+    console.log("  findChromium              Print configured Chromium binary");
     console.log(
       "  isSupportedChromiumBinary <path>  Check Chromium >=149.0.0 support"
     );
@@ -4529,7 +4340,7 @@ if (require.main === module) {
           if (binary) {
             console.log(binary);
           } else {
-            console.error("Chromium binary not found");
+            console.error("CHROME_BINARY was not resolved by abxpkg");
             process.exit(1);
           }
           break;
@@ -4546,6 +4357,7 @@ if (require.main === module) {
         case "launchChromium": {
           const [outputDir] = commandArgs;
           const result = await launchChromium({
+            binary: findChromium(),
             outputDir: outputDir || "chrome",
           });
           if (result.success) {

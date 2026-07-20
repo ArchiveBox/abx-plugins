@@ -249,11 +249,9 @@ def test_reports_missing_chrome_session(chrome_test_url):
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
-        # Set CHROME_BINARY to nonexistent path
         snap_dir = tmpdir / "snap"
         snap_dir.mkdir(parents=True, exist_ok=True)
         env = get_test_env() | {"SNAP_DIR": str(snap_dir)}
-        env["CHROME_BINARY"] = "/nonexistent/chrome"
         env["SCREENSHOT_TIMEOUT"] = "2"
 
         result = subprocess.run(

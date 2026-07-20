@@ -39,7 +39,6 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     close_target_via_cdp,
     create_target_via_cdp,
     fetch_devtools_targets,
-    find_chromium,
     get_extensions_dir,
     get_cookies_via_cdp,
     get_test_env,
@@ -400,7 +399,7 @@ const extensionJson = process.argv[3];
 
 (async () => {
   const extension = JSON.parse(extensionJson);
-  const binary = chromeUtils.findChromium();
+  const binary = process.env.CHROME_BINARY;
   const result = await chromeUtils.launchChromium({
     binary,
     outputDir,
@@ -475,7 +474,7 @@ const { execFileSync } = require('child_process');
   const outputDir = process.argv[2];
 
 (async () => {
-  const binary = chromeUtils.findChromium();
+  const binary = process.env.CHROME_BINARY;
   const versionOutput = execFileSync(binary, ['--version'], { encoding: 'utf8' }).trim();
   const expectedVersion = chromeUtils.parseChromiumUserAgentVersion(versionOutput);
   const result = await chromeUtils.launchChromium({
@@ -720,9 +719,9 @@ def test_hook_scripts_exist():
 
 def test_verify_chrome_available():
     """Verify Chrome is available via CHROME_BINARY env var."""
-    chrome_binary = os.environ.get("CHROME_BINARY") or find_chromium()
+    chrome_binary = os.environ["CHROME_BINARY"]
 
-    assert chrome_binary, "Chrome binary should be available (set by fixture or found)"
+    assert chrome_binary, "Chrome binary should be set by the abxpkg fixture"
     assert Path(chrome_binary).exists(), (
         f"Chrome binary should exist at {chrome_binary}"
     )
@@ -1002,67 +1001,6 @@ def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):
                 f"Stdout log:\n{stdout_log.read_text(encoding='utf-8', errors='replace')}"
             )
             assert archive_results[0]["status"] == "succeeded", archive_results[0]
-        finally:
-            if tab_process is not None:
-                try:
-                    tab_process.send_signal(signal.SIGTERM)
-                    tab_process.wait(timeout=10)
-                except Exception:
-                    pass
-            _cleanup_launch_process(chrome_launch_process, chrome_dir)
-
-
-def test_tab_hook_uses_validated_browser_for_version_probe(chrome_test_url):
-    """chrome_tab should ignore stale CHROME_BINARY paths for version probes."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        crawl_dir = Path(tmpdir) / "crawl"
-        crawl_dir.mkdir()
-        chrome_dir = crawl_dir / "chrome"
-        chrome_dir.mkdir()
-
-        env = _isolated_test_env(
-            tmpdir,
-            CHROME_HEADLESS="true",
-            CRAWL_DIR=str(crawl_dir),
-        )
-
-        chrome_launch_process, _cdp_url = launch_chromium_session(
-            env,
-            chrome_dir,
-            "test-tab-version-probe",
-            timeout=45,
-        )
-
-        snapshot_dir = Path(tmpdir) / "snapshot-version-probe"
-        snapshot_dir.mkdir()
-        snapshot_chrome_dir = snapshot_dir / "chrome"
-        snapshot_chrome_dir.mkdir()
-
-        stale_binary = Path(tmpdir) / "bin" / "missing-chromium"
-
-        tab_process = None
-        try:
-            env["CRAWL_DIR"] = str(crawl_dir)
-            env["SNAP_DIR"] = str(snapshot_dir)
-            env["CHROME_BINARY"] = str(stale_binary)
-            tab_process = launch_snapshot_tab(
-                snapshot_chrome_dir=snapshot_chrome_dir,
-                tab_env=env,
-                test_url=chrome_test_url,
-                snapshot_id="snap-version-probe",
-                crawl_id="test-tab-version-probe",
-            )
-
-            stdout_lines = [
-                line.strip()
-                for line in (snapshot_chrome_dir / "chrome_tab.stdout.log")
-                .read_text(encoding="utf-8", errors="replace")
-                .splitlines()
-                if line.strip().startswith("{")
-            ]
-            assert stdout_lines, "chrome_tab should emit an ArchiveResult"
-            payload = json.loads(stdout_lines[-1])
-            assert payload["status"] == "succeeded", payload
         finally:
             if tab_process is not None:
                 try:

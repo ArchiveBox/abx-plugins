@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -16,10 +15,26 @@ ARCHIVEWEBPAGE_CONFIG = (
 )
 
 
-def test_chrome_config_installs_abxbus_js_module(tmp_path: Path) -> None:
-    node_binary = shutil.which("node")
-    assert node_binary, "Node.js is required for Chrome JS dependency tests"
+def _resolve_node_binary(config: dict, lib_dir: Path, env: dict[str, str]) -> str:
+    record = next(
+        item for item in config["required_binaries"] if item["name"] == "{NODE_BINARY}"
+    )
+    node_record = {
+        **record,
+        "name": str(config["properties"]["NODE_BINARY"]["default"]),
+    }
+    loaded = load_required_binary(
+        node_record,
+        config={"ABXPKG_LIB_DIR": str(lib_dir)},
+        environ=env,
+        install=True,
+    )
+    assert loaded.loaded_abspath
+    assert Path(loaded.loaded_abspath).is_file()
+    return str(loaded.loaded_abspath)
 
+
+def test_chrome_config_installs_abxbus_js_module(tmp_path: Path) -> None:
     config = json.loads(CHROME_CONFIG.read_text(encoding="utf-8"))
     record = next(
         item for item in config["required_binaries"] if item["name"] == "abxbus"
@@ -29,6 +44,7 @@ def test_chrome_config_installs_abxbus_js_module(tmp_path: Path) -> None:
     env = os.environ.copy()
     env["ABXPKG_LIB_DIR"] = str(lib_dir)
     env["ABXPKG_MIN_RELEASE_AGE"] = "0"
+    node_binary = _resolve_node_binary(config, lib_dir, env)
 
     loaded = load_required_binary(
         record,
@@ -100,9 +116,6 @@ def test_archivewebpage_config_depends_on_chrome_for_puppeteer_js_module() -> No
 
 
 def _assert_config_installs_puppeteer(config_path: Path, tmp_path: Path) -> None:
-    node_binary = shutil.which("node")
-    assert node_binary, "Node.js is required for Chrome JS dependency tests"
-
     config = json.loads(config_path.read_text(encoding="utf-8"))
     record = next(
         item for item in config["required_binaries"] if item["name"] == "browsers"
@@ -112,6 +125,7 @@ def _assert_config_installs_puppeteer(config_path: Path, tmp_path: Path) -> None
     env = os.environ.copy()
     env["ABXPKG_LIB_DIR"] = str(lib_dir)
     env["ABXPKG_MIN_RELEASE_AGE"] = "3"
+    node_binary = _resolve_node_binary(config, lib_dir, env)
 
     loaded = load_required_binary(
         record,

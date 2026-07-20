@@ -48,7 +48,6 @@ Usage:
 import json
 import logging
 import os
-import platform
 import signal
 import fcntl
 import re
@@ -71,10 +70,7 @@ from abx_plugins.plugins.base.test_utils import (
     get_hydrated_required_binaries,
     run_hook as _base_run_hook,
 )
-from abx_plugins.plugins.base.utils import (
-    get_personas_dir,
-    load_required_binary,
-)
+from abx_plugins.plugins.base.utils import build_binproviders, load_required_binary
 
 # Plugin directory locations
 CHROME_PLUGIN_DIR = Path(__file__).parent.parent
@@ -104,6 +100,8 @@ logger = logging.getLogger(__name__)
 _CHROME_PROVIDER_ENV_CACHE: dict[tuple[str, ...], dict[str, str]] = {}
 _CHROME_PROVIDER_ENV_KEYS = (
     "PATH",
+    "NODE_BINARY",
+    "CHROME_BINARY",
     "NODE_PATH",
     "NODE_MODULES_DIR",
     "NODE_MODULE_DIR",
@@ -120,21 +118,22 @@ def require_chrome_runtime_impl() -> None:
     """Require chrome runtime prerequisites for integration tests."""
     try:
         env = get_test_env(install_required_binaries=True)
-        node_name = env.get("NODE_BINARY") or "node"
-        node_record = _required_binary_record(CHROME_PLUGIN_DIR, node_name, env)
-        load_required_binary(node_record, config=env, environ=env)
         chrome_binary = install_chromium_with_abxpkg(
             env,
             timeout=int(env.get("ABXPKG_INSTALL_TIMEOUT") or "300"),
         )
-        existing_chrome_binary = os.environ.get("CHROME_BINARY")
-        if not existing_chrome_binary or not Path(existing_chrome_binary).exists():
-            os.environ["CHROME_BINARY"] = chrome_binary
+        os.environ["CHROME_BINARY"] = chrome_binary
         for key in (
             "ABXPKG_LIB_DIR",
+            "NODE_BINARY",
             "NODE_MODULES_DIR",
             "NODE_MODULE_DIR",
             "NODE_PATH",
+            "PNPM_HOME",
+            "PNPM_BIN_DIR",
+            "NPM_BIN_DIR",
+            "PLAYWRIGHT_BROWSERS_PATH",
+            "PUPPETEER_CACHE_DIR",
             "PATH",
         ):
             if env.get(key):
@@ -470,10 +469,19 @@ def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
     if not chrome_binary:
         raise RuntimeError("Chrome not found after install")
 
-    existing_chrome_binary = os.environ.get("CHROME_BINARY")
-    if not existing_chrome_binary or not Path(existing_chrome_binary).exists():
-        os.environ["CHROME_BINARY"] = chrome_binary
-    for key in ("NODE_MODULES_DIR", "NODE_PATH", "PATH"):
+    os.environ["CHROME_BINARY"] = chrome_binary
+    for key in (
+        "NODE_BINARY",
+        "NODE_MODULES_DIR",
+        "NODE_MODULE_DIR",
+        "NODE_PATH",
+        "PNPM_HOME",
+        "PNPM_BIN_DIR",
+        "NPM_BIN_DIR",
+        "PLAYWRIGHT_BROWSERS_PATH",
+        "PUPPETEER_CACHE_DIR",
+        "PATH",
+    ):
         if env.get(key):
             os.environ[key] = env[key]
     return chrome_binary
@@ -529,7 +537,7 @@ def chrome_test_https_url(chrome_test_urls):
 
 
 # =============================================================================
-# Path Helpers - delegates to chrome_utils.js with Python fallback
+# Path helpers delegate to the runtime JavaScript utilities.
 # Function names match JS: getMachineType -> get_machine_type, etc.
 # =============================================================================
 
@@ -568,7 +576,10 @@ def _call_chrome_utils(
             return returncode, "", error
         payload.update(provider_env)
 
-    cmd = ["node", str(CHROME_UTILS), command, *list(args)]
+    node_binary = payload.get("NODE_BINARY")
+    if not node_binary:
+        return 1, "", "NODE_BINARY was not resolved by abxpkg"
+    cmd = [node_binary, str(CHROME_UTILS), command, *list(args)]
     result = subprocess.run(
         cmd,
         cwd=str(CHROME_PLUGIN_DIR),
@@ -691,13 +702,26 @@ def _call_base_utils(
     env: dict | None = None,
 ) -> tuple[int, str, str]:
     """Call shared JS base utilities from Python test code."""
-    cmd = ["node", str(BASE_UTILS), command] + list(args)
+    payload = os.environ.copy() if env is None else env.copy()
+    node_binary = payload.get("NODE_BINARY")
+    if not node_binary:
+        returncode, provider_env, error = _resolve_chrome_required_binary_env(
+            payload,
+            install=True,
+        )
+        if returncode != 0:
+            return returncode, "", error
+        payload.update(provider_env)
+        node_binary = payload.get("NODE_BINARY")
+    if not node_binary:
+        return 1, "", "NODE_BINARY was not resolved by abxpkg"
+    cmd = [node_binary, str(BASE_UTILS), command, *args]
     result = subprocess.run(
         cmd,
         capture_output=True,
         text=True,
         timeout=30,
-        env=env or os.environ.copy(),
+        env=payload,
     )
     return result.returncode, result.stdout, result.stderr
 
@@ -846,23 +870,12 @@ def get_machine_type() -> str:
 
     Matches JS base/utils.js: getMachineType()
 
-    Tries base/utils.js first, falls back to Python computation.
+    Uses the same base/utils.js implementation as production hooks.
     """
     returncode, stdout, stderr = _call_base_utils("getMachineType")
-    if returncode == 0 and stdout.strip():
-        return stdout.strip()
-
-    # Fallback to Python computation
-    if os.environ.get("MACHINE_TYPE"):
-        return os.environ["MACHINE_TYPE"]
-
-    machine = platform.machine().lower()
-    system = platform.system().lower()
-    if machine in ("arm64", "aarch64"):
-        machine = "arm64"
-    elif machine in ("x86_64", "amd64"):
-        machine = "x86_64"
-    return f"{machine}-{system}"
+    if returncode != 0 or not stdout.strip():
+        raise RuntimeError(stderr or stdout or "base utils did not return MACHINE_TYPE")
+    return stdout.strip()
 
 
 def get_lib_dir() -> Path:
@@ -870,28 +883,14 @@ def get_lib_dir() -> Path:
 
     Matches JS base/utils.js: getLibDir()
 
-    Tries base/utils.js first, falls back to Python computation.
+    Uses the same base/utils.js implementation as production hooks.
     """
     returncode, stdout, stderr = _call_base_utils("getLibDir")
-    if returncode == 0 and stdout.strip():
-        return Path(stdout.strip())
-
-    # Fallback to Python
-    if os.environ.get("ABXPKG_LIB_DIR"):
-        return Path(os.environ["ABXPKG_LIB_DIR"])
-    if platform.system().lower() == "darwin":
-        return Path.home() / "Library" / "Application Support" / "abx" / "lib"
-    if platform.system().lower() == "windows":
-        return (
-            Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming")
-            / "abx"
-            / "lib"
+    if returncode != 0 or not stdout.strip():
+        raise RuntimeError(
+            stderr or stdout or "base utils did not return ABXPKG_LIB_DIR",
         )
-    return (
-        Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
-        / "abx"
-        / "lib"
-    )
+    return Path(stdout.strip())
 
 
 def get_node_modules_dir() -> Path:
@@ -899,44 +898,25 @@ def get_node_modules_dir() -> Path:
 
     Matches JS chrome_utils.js: getNodeModulesDir()
 
-    Tries chrome_utils.js first, falls back to Python computation.
+    Uses the same chrome_utils.js implementation as production hooks.
     """
     returncode, stdout, stderr = _call_chrome_utils("getNodeModulesDir")
-    if returncode == 0 and stdout.strip():
-        return Path(stdout.strip())
-
-    # Fallback to Python
-    if os.environ.get("NODE_MODULES_DIR"):
-        return Path(os.environ["NODE_MODULES_DIR"])
-    lib_dir = get_lib_dir()
-    return lib_dir / "pnpm" / "packages" / "chrome" / "node_modules"
+    if returncode != 0 or not stdout.strip():
+        raise RuntimeError(
+            stderr or stdout or "chrome utils did not return NODE_MODULES_DIR",
+        )
+    return Path(stdout.strip())
 
 
 def get_extensions_dir(env: dict | None = None) -> str:
-    """Get the Chrome extensions directory path.
-
-    Matches JS chrome_utils.js: getExtensionsDir()
-    """
-    # A supplied subprocess environment is already complete and authoritative.
-    # Merging the parent environment back into it can restore keys the caller
-    # deliberately removed to isolate an extension installation.
+    """Get the provider-managed Chrome extension cache path."""
     payload = os.environ.copy() if env is None else env.copy()
-    if not payload.get("NODE_MODULES_DIR"):
-        lib_dir = Path(payload.get("ABXPKG_LIB_DIR") or get_lib_dir())
-        node_modules_dir = lib_dir / "pnpm" / "packages" / "chrome" / "node_modules"
-        payload["NODE_MODULES_DIR"] = str(node_modules_dir)
-        payload["NODE_MODULE_DIR"] = str(node_modules_dir)
-        payload["NODE_PATH"] = str(node_modules_dir)
-    returncode, stdout, stderr = _call_chrome_utils(
-        "getExtensionsDir",
-        env=payload,
-        resolve_required_binary_env=False,
-    )
-    if returncode != 0 or not stdout.strip():
-        raise RuntimeError(
-            f"chrome utils failed to resolve Chrome extensions dir: {stderr or stdout}",
-        )
-    return stdout.strip()
+    provider = build_binproviders(
+        "chromewebstore",
+        config=payload,
+        environ=payload,
+    )[0]
+    return str(provider.ENV["CHROMEWEBSTORE_EXTENSIONS_DIR"])
 
 
 def chrome_extension_install_env(tmpdir: str | Path) -> tuple[dict[str, str], Path]:
@@ -973,6 +953,7 @@ def chrome_extension_install_env(tmpdir: str | Path) -> tuple[dict[str, str], Pa
             "PNPM_HOME": str(node_modules_dir / ".bin"),
         },
     )
+    resolve_node_with_abxpkg(env)
     extensions_dir = Path(get_extensions_dir(env=env))
 
     snap_dir.mkdir(parents=True, exist_ok=True)
@@ -983,19 +964,12 @@ def chrome_extension_install_env(tmpdir: str | Path) -> tuple[dict[str, str], Pa
 
 
 def find_chromium() -> str | None:
-    """Find the Chromium binary path.
-
-    Matches JS: findChromium()
-
-    Uses chrome_utils.js which checks:
-    - CHROME_BINARY env var
-    - host Chromium locations
-    - abxpkg-managed Puppeteer/Playwright provider shims under ABXPKG_LIB_DIR
+    """Return the CHROME_BINARY path resolved by the abxpkg test fixture.
 
     Returns:
         Path to Chromium binary or None if not found
     """
-    env = os.environ.copy()
+    env = {**os.environ, **get_test_env()}
     returncode, stdout, stderr = _call_chrome_utils("findChromium", env=env)
     if returncode == 0 and stdout.strip():
         return stdout.strip()
@@ -1050,8 +1024,8 @@ def get_test_env(*, install_required_binaries: bool = False) -> dict:
 
     Matches JS: getTestEnv()
 
-    Tries ``base/utils.js`` first for path values, then builds an env dict on
-    top of the current process environment. Use this for subprocess calls in
+    Requires abxpkg's provider-built environment, then asks base/utils.js for
+    runtime-derived values. Use this for subprocess calls in
     plugin tests so ``ABXPKG_LIB_DIR``, ``NODE_MODULES_DIR``, ``NODE_PATH``,
     and related settings match the JS runtime contract.
     """
@@ -1060,73 +1034,32 @@ def get_test_env(*, install_required_binaries: bool = False) -> dict:
         env,
         install=install_required_binaries,
     )
-    if returncode == 0:
-        env.update(provider_env)
-    elif install_required_binaries:
+    if returncode != 0:
         raise RuntimeError(error)
-    else:
-        lib_dir = get_lib_dir()
-        node_modules_dir = lib_dir / "pnpm" / "packages" / "chrome" / "node_modules"
-        env.update(
-            {
-                "ABXPKG_LIB_DIR": str(lib_dir),
-                "NODE_MODULES_DIR": str(node_modules_dir),
-                "NODE_MODULE_DIR": str(node_modules_dir),
-                "NODE_PATH": str(node_modules_dir),
-                "PNPM_HOME": str(node_modules_dir / ".bin"),
-                "PNPM_BIN_DIR": str(node_modules_dir / ".bin"),
-                "NPM_BIN_DIR": str(node_modules_dir / ".bin"),
-            },
-        )
+    env.update(provider_env)
     provider_node_path = env.get("NODE_PATH")
 
     returncode, stdout, stderr = _call_base_utils("getTestEnv", env=env)
-    if returncode == 0 and stdout.strip():
-        try:
-            js_env = json.loads(stdout)
-            env.update(js_env)
-            returncode, node_modules_stdout, _ = _call_chrome_utils(
-                "getNodeModulesDir",
-                env=env,
-                resolve_required_binary_env=False,
-            )
-            node_modules_dir = (
-                Path(node_modules_stdout.strip())
-                if returncode == 0 and node_modules_stdout.strip()
-                else Path(env["NODE_MODULES_DIR"])
-            )
-            env["NODE_MODULES_DIR"] = str(node_modules_dir)
-            env["NODE_PATH"] = provider_node_path or str(node_modules_dir)
-            env["PNPM_BIN_DIR"] = str(node_modules_dir / ".bin")
-            env["NPM_BIN_DIR"] = str(node_modules_dir / ".bin")
-            returncode, extensions_stdout, extensions_stderr = _call_chrome_utils(
-                "getExtensionsDir",
-                env=env,
-                resolve_required_binary_env=False,
-            )
-            if returncode != 0 or not extensions_stdout.strip():
-                raise RuntimeError(
-                    "chrome utils failed to resolve Chrome extensions dir: "
-                    f"{extensions_stderr or extensions_stdout}",
-                )
-            env["CHROMEWEBSTORE_EXTENSIONS_DIR"] = extensions_stdout.strip()
-            return env
-        except json.JSONDecodeError:
-            pass
-
-    # Fallback to Python computation
-    lib_dir = get_lib_dir()
-    env["ABXPKG_LIB_DIR"] = str(lib_dir)
-    node_modules_dir = get_node_modules_dir()
-    env["NODE_MODULES_DIR"] = str(node_modules_dir)
-    env["NODE_PATH"] = str(node_modules_dir)
-    env["PNPM_BIN_DIR"] = str(node_modules_dir / ".bin")
-    env["NPM_BIN_DIR"] = str(node_modules_dir / ".bin")
-    env["MACHINE_TYPE"] = get_machine_type()
-    env.setdefault("SNAP_DIR", str(Path.cwd()))
-    env.setdefault("CRAWL_DIR", str(Path.cwd()))
-    env.setdefault("PERSONAS_DIR", str(get_personas_dir()))
-    env["CHROMEWEBSTORE_EXTENSIONS_DIR"] = get_extensions_dir(env=env)
+    if returncode != 0 or not stdout.strip():
+        raise RuntimeError(stderr or stdout or "base utils did not return test env")
+    env.update(json.loads(stdout))
+    returncode, node_modules_stdout, node_modules_stderr = _call_chrome_utils(
+        "getNodeModulesDir",
+        env=env,
+        resolve_required_binary_env=False,
+    )
+    if returncode != 0 or not node_modules_stdout.strip():
+        raise RuntimeError(node_modules_stderr or node_modules_stdout)
+    env["NODE_MODULES_DIR"] = node_modules_stdout.strip()
+    env["NODE_PATH"] = provider_node_path or env["NODE_MODULES_DIR"]
+    returncode, extensions_stdout, extensions_stderr = _call_chrome_utils(
+        "getExtensionsDir",
+        env=env,
+        resolve_required_binary_env=False,
+    )
+    if returncode != 0 or not extensions_stdout.strip():
+        raise RuntimeError(extensions_stderr or extensions_stdout)
+    env["CHROMEWEBSTORE_EXTENSIONS_DIR"] = extensions_stdout.strip()
     return env
 
 
@@ -1173,28 +1106,6 @@ def _chromium_install_lock(env: dict):
             yield
         finally:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
-
-
-def _resolve_existing_chromium(env: dict) -> str | None:
-    """Return an existing Chromium path if already installed and valid."""
-    from_env = env.get("CHROME_BINARY")
-    if from_env and Path(from_env).exists() and _is_supported_chromium(from_env, env):
-        return from_env
-    returncode, stdout, _stderr = _call_chrome_utils("findChromium", env=env)
-    if returncode == 0 and stdout.strip():
-        candidate = stdout.strip()
-        if Path(candidate).exists() and _is_supported_chromium(candidate, env):
-            return candidate
-    return None
-
-
-def _is_supported_chromium(binary_path: str, env: dict) -> bool:
-    returncode, stdout, _stderr = _call_chrome_utils(
-        "isSupportedChromiumBinary",
-        binary_path,
-        env=env,
-    )
-    return returncode == 0 and stdout.strip().lower() == "true"
 
 
 def _has_node_module(env: dict, module_name: str) -> bool:
@@ -1267,25 +1178,28 @@ def _ensure_puppeteer_with_abxpkg(env: dict, timeout: int) -> None:
     env.setdefault("NPM_BIN_DIR", str(pnpm_bin_dir))
 
 
+def resolve_node_with_abxpkg(env: dict) -> str:
+    """Resolve Node through the Chrome plugin's declared abxpkg providers."""
+    node_name = env.get("NODE_BINARY") or "node"
+    node_record = _required_binary_record(CHROME_PLUGIN_DIR, node_name, env)
+    loaded_node = load_required_binary(
+        node_record,
+        config=env,
+        environ=env,
+        install=True,
+    )
+    node_path = str(loaded_node.loaded_abspath or "")
+    if not node_path or not Path(node_path).exists():
+        raise RuntimeError(f"Node binary not found after install: {node_path}")
+    env["NODE_BINARY"] = node_path
+    return node_path
+
+
 def install_chromium_with_abxpkg(env: dict, timeout: int = 300) -> str:
-    """Install Chrome via abxpkg providers.
-
-    The order matters:
-    1. ensure the ``puppeteer`` JS package exists
-    2. reuse an existing Chrome if one is already valid for this env
-    3. otherwise install Chrome with the Puppeteer provider
-
-    Returns absolute path to Chrome binary.
-    """
+    """Resolve/install Chrome and its runtime dependencies through abxpkg."""
     with _chromium_install_lock(env):
-        # Always ensure JS dependency exists, even if Chrome already exists
-        # on the host. chrome_launch resolves Puppeteer at runtime.
+        resolve_node_with_abxpkg(env)
         _ensure_puppeteer_with_abxpkg(env, timeout=timeout)
-
-        existing = _resolve_existing_chromium(env)
-        if existing:
-            env["CHROME_BINARY"] = existing
-            return existing
 
         chrome_name = env.get("CHROME_BINARY") or "chromium"
         chrome_record = _required_binary_record(CHROME_PLUGIN_DIR, chrome_name, env)
@@ -1303,11 +1217,6 @@ def install_chromium_with_abxpkg(env: dict, timeout: int = 300) -> str:
             )
 
         env["CHROME_BINARY"] = chrome_path
-
-        resolved = _resolve_existing_chromium(env)
-        if resolved:
-            env["CHROME_BINARY"] = resolved
-            return resolved
         return chrome_path
 
 
@@ -1669,9 +1578,8 @@ def chrome_session(
     4. create a snapshot tab with its own session markers
     5. optionally run the navigate hook and wait for its outputs
 
-    Runtime overrides such as an already-exported ``CHROME_BINARY`` or
-    ``NODE_MODULES_DIR`` remain authoritative so test harnesses can inject
-    preinstalled browsers without fighting the helper.
+    Runtime paths such as ``CHROME_BINARY`` and ``NODE_MODULES_DIR`` are
+    consumed from the environment exported by the shared abxpkg fixture.
 
     Usage:
         with chrome_session(tmpdir, test_url='https://example.com') as (process, pid, chrome_dir, env):
@@ -1710,19 +1618,11 @@ def chrome_session(
         xdg_data_home = home_dir / ".local" / "share"
         env = os.environ.copy()
 
-        # Prefer an already-provisioned NODE_MODULES_DIR (set by session-level chrome fixture)
-        # so we don't force per-test reinstall under tmp ABXPKG_LIB_DIR paths.
-        existing_node_modules = env.get("NODE_MODULES_DIR")
-        if existing_node_modules and Path(existing_node_modules).exists():
-            node_modules_dir = Path(existing_node_modules).resolve()
-            pnpm_dir = node_modules_dir.parent.parent
-            lib_dir = pnpm_dir.parent.parent
-        else:
-            lib_dir = get_lib_dir()
-            pnpm_dir = lib_dir / "pnpm" / "packages" / "chrome"
-            node_modules_dir = pnpm_dir / "node_modules"
-        # Create lib structure for puppeteer installation
-        node_modules_dir.mkdir(parents=True, exist_ok=True)
+        # Consume the complete runtime paths exported by the shared abxpkg fixture.
+        lib_dir = Path(env["ABXPKG_LIB_DIR"])
+        node_modules_dir = Path(env["NODE_MODULES_DIR"])
+        node_path = env["NODE_PATH"]
+        pnpm_home = env["PNPM_HOME"]
 
         # Create crawl and snapshot directories
         crawl_dir.mkdir(parents=True, exist_ok=True)
@@ -1746,9 +1646,10 @@ def chrome_session(
                 "ABXPKG_LIB_DIR": str(lib_dir),
                 "MACHINE_TYPE": get_machine_type(),
                 "NODE_MODULES_DIR": str(node_modules_dir),
-                "NODE_PATH": str(node_modules_dir),
-                "PNPM_BIN_DIR": str(node_modules_dir / ".bin"),
-                "NPM_BIN_DIR": str(node_modules_dir / ".bin"),
+                "NODE_PATH": node_path,
+                "PNPM_HOME": pnpm_home,
+                "PNPM_BIN_DIR": pnpm_home,
+                "NPM_BIN_DIR": pnpm_home,
                 "HOME": str(home_dir),
                 "XDG_CONFIG_HOME": str(xdg_config_home),
                 "XDG_CACHE_HOME": str(xdg_cache_home),
@@ -1768,13 +1669,6 @@ def chrome_session(
         chrome_timeout = int(env.get("CHROME_TIMEOUT") or "60")
         startup_timeout = max(int(timeout), chrome_timeout + 15)
         env.setdefault("CHROME_DEBUG_PORT_TIMEOUT_MS", str(startup_timeout * 1000))
-
-        # Reuse already-provisioned Chromium when available (session fixture sets CHROME_BINARY).
-        # Falling back to install on each test is slow and can hang on flaky networks.
-        chrome_binary = env.get("CHROME_BINARY")
-        if not chrome_binary or not Path(chrome_binary).exists():
-            chrome_binary = install_chromium_with_abxpkg(env)
-            env["CHROME_BINARY"] = chrome_binary
 
         chrome_launch_process, _cdp_url = launch_chromium_session(
             env=env,

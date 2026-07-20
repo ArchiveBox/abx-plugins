@@ -26,18 +26,6 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
-def chrome_available() -> bool:
-    """Check if Chrome is available."""
-    if Path(
-        "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
-    ).exists():
-        return True
-    for name in ["chromium", "chromium-browser"]:
-        if shutil.which(name):
-            return True
-    return False
-
-
 # Get the path to the accessibility hook
 PLUGIN_DIR = get_plugin_dir(__file__)
 ACCESSIBILITY_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_accessibility.*")

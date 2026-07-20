@@ -1,6 +1,5 @@
 import json
 import os
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -176,10 +175,6 @@ def test_load_config_hydrates_chrome_node_binary_from_real_env_provider(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    node_binary = shutil.which("node")
-    if not node_binary:
-        raise AssertionError("Node.js is required to hydrate Chrome NODE_BINARY")
-
     lib_dir = tmp_path / "lib"
     personas_dir = tmp_path / "personas"
     monkeypatch.setenv("NODE_BINARY", "node")

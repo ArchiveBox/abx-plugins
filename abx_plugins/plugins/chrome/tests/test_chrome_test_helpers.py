@@ -212,40 +212,21 @@ def test_get_test_env_paths_are_absolute():
     assert Path(env["NODE_PATH"]).is_absolute()
 
 
-def test_find_chromium_uses_real_runtime_browser(real_chromium_binary: Path):
-    """findChromium() should resolve a real browser from runtime-supported locations."""
-    env = {**os.environ, **get_test_env(), "CHROME_BINARY": ""}
+def test_find_chromium_uses_abxpkg_resolved_browser(real_chromium_binary: Path):
+    """findChromium() should return the exact path prepared by abxpkg."""
+    env = {
+        **os.environ,
+        **get_test_env(),
+        "CHROME_BINARY": str(real_chromium_binary),
+    }
 
     returncode, stdout, stderr = _call_chrome_utils("findChromium", env=env)
 
     assert returncode == 0, stderr
+    assert stdout.strip() == str(real_chromium_binary)
     resolved = Path(stdout.strip())
-    assert resolved.exists()
+    assert resolved.samefile(real_chromium_binary)
     assert _is_supported_browser_path(resolved)
-
-
-def test_find_chromium_accepts_command_name_chrome_binary(
-    tmp_path: Path,
-    real_chromium_binary: Path,
-):
-    """CHROME_BINARY should accept command names, not only filesystem paths."""
-    browser_name = "chrome-runtime"
-    binary_path = tmp_path / "bin" / browser_name
-    binary_path.parent.mkdir(parents=True, exist_ok=True)
-    binary_path.symlink_to(real_chromium_binary)
-
-    env = {**os.environ, **get_test_env()}
-    env.update(
-        {
-            "CHROME_BINARY": browser_name,
-            "PATH": f"{binary_path.parent}{os.pathsep}{env.get('PATH', '')}",
-        },
-    )
-
-    returncode, stdout, stderr = _call_chrome_utils("findChromium", env=env)
-
-    assert returncode == 0, stderr
-    assert Path(stdout.strip()).samefile(real_chromium_binary)
 
 
 def test_set_browser_download_behavior_downloads_file_with_live_page(
@@ -626,11 +607,11 @@ def test_get_lib_dir_uses_platform_user_config_dir_by_default(
     assert get_lib_dir() == expected.resolve()
 
 
-def test_install_chromium_with_abxpkg_reuses_existing_chrome_via_env(
+def test_install_chromium_with_abxpkg_links_existing_chrome_into_managed_env(
     tmp_path: Path,
     real_chromium_binary: Path,
 ):
-    """Use public env inputs only: existing CHROME_BINARY should be reused."""
+    """abxpkg exposes a discovered host browser through its managed env bin."""
     env = get_test_env()
     env.update(
         {
@@ -640,8 +621,11 @@ def test_install_chromium_with_abxpkg_reuses_existing_chrome_via_env(
     )
     resolved = install_chromium_with_abxpkg(env, timeout=120)
 
-    assert resolved == str(real_chromium_binary)
-    assert env["CHROME_BINARY"] == str(real_chromium_binary)
+    managed_browser = Path(resolved)
+    assert env["CHROME_BINARY"] == resolved
+    assert managed_browser.parent == tmp_path / "lib" / "env" / "bin"
+    assert managed_browser.is_symlink()
+    assert managed_browser.samefile(real_chromium_binary)
 
 
 def test_setup_test_env_uses_derived_runtime_dirs(tmp_path: Path):
@@ -680,12 +664,12 @@ def test_setup_test_env_uses_derived_runtime_dirs(tmp_path: Path):
     assert Path(resolved["CHROMEWEBSTORE_EXTENSIONS_DIR"]) == extensions_dir
 
 
-def test_session_fixture_preserves_runtime_chrome_binary_override(
+def test_session_fixture_exports_abxpkg_resolved_chrome_binary(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     real_chromium_binary: Path,
 ):
-    """Session fixture should default CHROME_BINARY, not overwrite explicit overrides."""
+    """Session fixture should export exactly the path returned by abxpkg."""
     import abx_plugins.plugins.chrome.tests.chrome_test_helpers as helpers
 
     class DummyTmpPathFactory:
@@ -702,37 +686,8 @@ def test_session_fixture_preserves_runtime_chrome_binary_override(
         DummyTmpPathFactory(),
     )
 
-    assert resolved == str(real_chromium_binary)
-    assert os.environ["CHROME_BINARY"] == str(real_chromium_binary)
-
-
-def test_session_fixture_replaces_stale_runtime_chrome_binary_override(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-):
-    """Session fixture should replace an invalid stale CHROME_BINARY."""
-    import abx_plugins.plugins.chrome.tests.chrome_test_helpers as helpers
-
-    stale_binary = tmp_path / "missing-chrome"
-
-    class DummyTmpPathFactory:
-        def mktemp(self, name: str) -> Path:
-            path = tmp_path / name
-            path.mkdir(parents=True, exist_ok=True)
-            return path
-
-    monkeypatch.setenv("CHROME_BINARY", str(stale_binary))
-    monkeypatch.delenv("SNAP_DIR", raising=False)
-    monkeypatch.delenv("PERSONAS_DIR", raising=False)
-
-    resolved = helpers.ensure_chromium_and_puppeteer_installed_impl(
-        DummyTmpPathFactory(),
-    )
-
-    assert Path(resolved).exists()
-    assert _is_supported_browser_path(Path(resolved))
     assert os.environ["CHROME_BINARY"] == resolved
-    assert resolved != str(stale_binary)
+    assert Path(resolved).samefile(real_chromium_binary)
 
 
 if __name__ == "__main__":

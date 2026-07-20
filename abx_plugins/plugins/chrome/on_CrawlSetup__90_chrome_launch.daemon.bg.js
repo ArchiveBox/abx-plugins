@@ -18,7 +18,7 @@
  *
  * Environment variables:
  *     NODE_MODULES_DIR: Path to node_modules directory for module resolution
- *     CHROME_BINARY: Path to Chromium binary (falls back to auto-detection)
+ *     CHROME_BINARY: Chromium binary path resolved by abxpkg
  *     CHROME_RESOLUTION: Page resolution (default: 1440,2000)
  *     CHROME_HEADLESS: Run in headless mode (default: true)
  *     CHROME_CHECK_SSL_VALIDITY: Whether to check SSL certificates (default: true)
@@ -57,8 +57,8 @@ const {
   ensureChromeSession,
   closeBrowserInChromeSession,
   getChromeSessionOptionsFromConfig,
+  getChromeLaunchPrerequisites,
   killZombieChrome,
-  waitForChromeLaunchPrerequisites,
 } = require("./chrome_utils.js");
 
 // Extractor metadata
@@ -68,9 +68,6 @@ const hookConfig = loadConfig();
 const CRAWL_DIR = path.resolve((hookConfig.CRAWL_DIR || ".").trim());
 const chromeSessionOptions = getChromeSessionOptionsFromConfig(hookConfig);
 const CHROME_USER_DATA_DIR = chromeSessionOptions.CHROME_USER_DATA_DIR;
-const CHROME_TIMEOUT_MS = chromeSessionOptions.timeoutMs;
-const CHROME_INSTALL_TIMEOUT_MS =
-  (Number(hookConfig.CHROME_INSTALL_TIMEOUT) || 300) * 1000;
 const CHROME_CDP_URL = chromeSessionOptions.CHROME_CDP_URL;
 const CHROME_IS_LOCAL = chromeSessionOptions.CHROME_IS_LOCAL;
 const CHROME_KEEPALIVE = hookConfig.CHROME_KEEPALIVE === true;
@@ -179,10 +176,6 @@ async function main() {
     const keepAlive = CHROME_KEEPALIVE;
     const cdpUrlOverride = CHROME_CDP_URL;
     chromeProcessIsLocal = CHROME_IS_LOCAL;
-    const prerequisiteTimeoutMs = Math.max(
-      CHROME_TIMEOUT_MS,
-      CHROME_INSTALL_TIMEOUT_MS
-    );
 
     if (isolation === "snapshot") {
       console.error(
@@ -193,10 +186,8 @@ async function main() {
       process.exit(0);
     }
 
-    console.error(`waiting for ${CHROME_BINARY} to be installed...`);
-    const prerequisites = await waitForChromeLaunchPrerequisites({
+    const prerequisites = getChromeLaunchPrerequisites({
       requireLocalBinary: !cdpUrlOverride && chromeProcessIsLocal,
-      timeoutMs: prerequisiteTimeoutMs,
     });
     puppeteer = prerequisites.puppeteer;
 

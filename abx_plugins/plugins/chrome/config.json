@@ -114,12 +114,6 @@
       "x-fallback": "TIMEOUT",
       "description": "Timeout for Chrome operations in seconds"
     },
-    "CHROME_LAUNCH_ATTEMPTS": {
-      "type": "integer",
-      "default": 3,
-      "minimum": 1,
-      "description": "Maximum Chrome launch attempts before failing on transient startup errors"
-    },
     "CHROME_HEADLESS": {
       "type": "boolean",
       "default": true,

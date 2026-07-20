@@ -35,33 +35,6 @@ def _machine_type() -> str:
     return f"{machine}-{system}"
 
 
-def _browserless_path(tmp_path: Path, browser_name: str) -> str:
-    tool_dir = tmp_path / "tools"
-    tool_dir.mkdir(parents=True, exist_ok=True)
-    for blocked_name in (browser_name,):
-        shim_path = tool_dir / blocked_name
-        shim_path.write_text("#!/bin/sh\nexit 127\n")
-        shim_path.chmod(0o755)
-
-    return os.pathsep.join([str(tool_dir), os.environ.get("PATH", "")])
-
-
-def _existing_chromium_binary() -> Path | None:
-    candidates = [
-        os.environ.get("CHROME_BINARY", ""),
-        "/usr/bin/chromium",
-        "/Applications/Chromium.app/Contents/MacOS/Chromium",
-        "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
-    ]
-    for candidate in candidates:
-        if not candidate:
-            continue
-        path = Path(candidate)
-        if path.exists():
-            return path
-    return None
-
-
 def _run_hook(
     hook: Path,
     env: dict[str, str],
@@ -105,8 +78,6 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     chrome_test_url: str,
 ):
     browser_name = "chromium"
-    existing_browser = _existing_chromium_binary()
-    chrome_binary = str(existing_browser) if existing_browser else browser_name
     machine_type = _machine_type()
     crawl_id = f"browser-install-{browser_name}"
     snapshot_id = f"browser-install-{browser_name}"
@@ -134,27 +105,19 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
             "PERSONAS_DIR": str(personas_dir),
             "ABXPKG_LIB_DIR": str(lib_dir),
             "MACHINE_TYPE": machine_type,
-            "PATH": _browserless_path(tmp_path, browser_name),
         },
     )
-    extensions_dir = Path(get_extensions_dir(env=env))
-    extensions_dir.mkdir(parents=True, exist_ok=True)
-    env["CHROMEWEBSTORE_EXTENSIONS_DIR"] = str(extensions_dir)
     if os.name == "posix" and os.geteuid() == 0:
         env["CHROME_SANDBOX"] = "false"
 
-    if existing_browser:
-        env["CHROME_BINARY"] = chrome_binary
-    install_chromium_with_abxpkg(env, timeout=600)
+    resolved_browser = install_chromium_with_abxpkg(env, timeout=600)
+    extensions_dir = Path(get_extensions_dir(env=env))
+    extensions_dir.mkdir(parents=True, exist_ok=True)
+    env["CHROMEWEBSTORE_EXTENSIONS_DIR"] = str(extensions_dir)
     env["CHROME_KEEPALIVE"] = "false"
     installed_browser = Path(env["CHROME_BINARY"]).resolve()
     assert installed_browser.exists(), env["CHROME_BINARY"]
-    if existing_browser:
-        assert installed_browser == existing_browser.resolve()
-    else:
-        assert str(installed_browser).startswith(str(lib_dir.resolve())), (
-            installed_browser
-        )
+    assert installed_browser.samefile(resolved_browser)
     chrome_launch_process = subprocess.Popen(
         [str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
         cwd=str(chrome_dir),

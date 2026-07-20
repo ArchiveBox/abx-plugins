@@ -239,12 +239,21 @@ def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
     if not chromium_binary:
         raise RuntimeError("Chromium not found after abxpkg install")
 
-    # Default tests to the hook-installed Puppeteer Chrome, but keep any
-    # explicit runtime CHROME_BINARY override authoritative.
-    # Do NOT propagate NODE_MODULES_DIR / NODE_PATH / PATH — chrome_session()
-    # calls get_test_env() itself and must not depend on session fixture
-    # execution order.
-    os.environ.setdefault("CHROME_BINARY", chromium_binary)
+    os.environ["CHROME_BINARY"] = chromium_binary
+    for key in (
+        "NODE_BINARY",
+        "NODE_MODULES_DIR",
+        "NODE_MODULE_DIR",
+        "NODE_PATH",
+        "PNPM_HOME",
+        "PNPM_BIN_DIR",
+        "NPM_BIN_DIR",
+        "PLAYWRIGHT_BROWSERS_PATH",
+        "PUPPETEER_CACHE_DIR",
+        "PATH",
+    ):
+        if env.get(key):
+            os.environ[key] = env[key]
 
     return chromium_binary
 

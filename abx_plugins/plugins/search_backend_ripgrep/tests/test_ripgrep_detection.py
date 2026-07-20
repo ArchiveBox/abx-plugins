@@ -2,9 +2,8 @@
 """
 Tests for ripgrep binary detection and archivebox install functionality.
 
-Guards against regressions in:
-1. Ripgrep hook not resolving binary names via shutil.which()
-2. Ripgrep required binary hydration staying local to the ripgrep plugin
+Verifies ripgrep required-binary hydration stays local to the plugin and
+preserves explicit binary values for abxpkg.
 """
 
 from pathlib import Path
