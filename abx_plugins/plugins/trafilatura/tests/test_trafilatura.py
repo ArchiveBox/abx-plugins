@@ -16,10 +16,9 @@ import pytest
 import requests
 
 from abx_plugins.plugins.base.test_utils import (
-    get_hydrated_required_binaries,
     get_hook_script,
     get_plugin_dir,
-    install_binary_with_abxpkg,
+    install_required_binary_from_config,
     parse_jsonl_output,
 )
 
@@ -39,13 +38,7 @@ def get_trafilatura_binary_path() -> str | None:
     if _trafilatura_binary_path and Path(_trafilatura_binary_path).is_file():
         return _trafilatura_binary_path
 
-    binproviders = "pip,env"
-    for record in get_hydrated_required_binaries(PLUGIN_DIR):
-        if record.get("name") == "trafilatura":
-            binproviders = record.get("binproviders", binproviders)
-            break
-
-    loaded = install_binary_with_abxpkg("trafilatura", binproviders=binproviders)
+    loaded = install_required_binary_from_config(PLUGIN_DIR, "trafilatura")
     _trafilatura_binary_path = str(loaded.loaded_abspath or "")
     return _trafilatura_binary_path or None
 

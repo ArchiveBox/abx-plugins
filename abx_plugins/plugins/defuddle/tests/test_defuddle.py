@@ -8,7 +8,7 @@ from urllib.request import urlopen
 import pytest
 
 from abx_plugins.plugins.base.test_utils import (
-    get_hydrated_required_binaries,
+    get_hydrated_required_binary,
     get_hook_script,
     get_plugin_dir,
     install_required_binary_from_config,
@@ -68,11 +68,7 @@ def test_hook_script_exists():
 
 
 def test_crawl_hook_emits_defuddle_binary_request_record():
-    binary = next(
-        record
-        for record in get_hydrated_required_binaries(PLUGIN_DIR)
-        if record.get("name") == "defuddle"
-    )
+    binary = get_hydrated_required_binary(PLUGIN_DIR, "defuddle")
     assert binary.get("binproviders") == "env,pnpm"
     assert binary.get("overrides", {}).get("pnpm", {}).get("install_args") == [
         "defuddle",
