@@ -9,18 +9,6 @@
   ],
   "required_binaries": [
     {
-      "name": "{NODE_BINARY}",
-      "binproviders": "env,apt,brew",
-      "min_version": null,
-      "overrides": {
-        "apt": {
-          "install_args": [
-            "nodejs"
-          ]
-        }
-      }
-    },
-    {
       "name": "claudechrome",
       "binproviders": "chromewebstore",
       "min_version": null,
@@ -39,11 +27,6 @@
     "image/png"
   ],
   "properties": {
-    "NODE_BINARY": {
-      "type": "string",
-      "default": "node",
-      "description": "Path to Node.js binary"
-    },
     "CLAUDECHROME_ENABLED": {
       "type": "boolean",
       "default": false,
