@@ -19,6 +19,7 @@ import json
 import os
 import signal
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -751,8 +752,8 @@ def test_verify_chrome_available():
     )
 
 
-def test_chrome_launch_respects_sandbox_env():
-    """CHROME_SANDBOX=false should add no-sandbox flags to the spawned browser cmd."""
+def test_chrome_launch_autodetects_sandbox_from_display():
+    """A Linux host without a display should launch with the sandbox disabled."""
     with tempfile.TemporaryDirectory() as tmpdir:
         crawl_dir = Path(tmpdir) / "crawl"
         chrome_dir = crawl_dir / "chrome"
@@ -761,10 +762,20 @@ def test_chrome_launch_respects_sandbox_env():
         env = _isolated_test_env(
             tmpdir,
             CHROME_HEADLESS="true",
-            CHROME_SANDBOX="false",
+            CHROME_SANDBOX="true",
+            DISPLAY="",
         )
 
         chrome_launch_process = None
+
+        def assert_sandbox_args() -> None:
+            cmd_contents = (chrome_dir / "cmd.sh").read_text()
+            if sys.platform.startswith("linux"):
+                assert "--no-sandbox" in cmd_contents, cmd_contents
+                assert "--disable-setuid-sandbox" in cmd_contents, cmd_contents
+            else:
+                assert "--headless=new" in cmd_contents, cmd_contents
+
         try:
             chrome_launch_process, _cdp_url = launch_chromium_session(
                 env,
@@ -772,13 +783,9 @@ def test_chrome_launch_respects_sandbox_env():
                 "test-sandbox-disabled",
             )
         except RuntimeError:
-            cmd_contents = (chrome_dir / "cmd.sh").read_text()
-            assert "--no-sandbox" in cmd_contents, cmd_contents
-            assert "--disable-setuid-sandbox" in cmd_contents, cmd_contents
+            assert_sandbox_args()
         else:
-            cmd_contents = (chrome_dir / "cmd.sh").read_text()
-            assert "--no-sandbox" in cmd_contents, cmd_contents
-            assert "--disable-setuid-sandbox" in cmd_contents, cmd_contents
+            assert_sandbox_args()
         finally:
             if chrome_launch_process is not None:
                 kill_chromium_session(chrome_launch_process, chrome_dir)

@@ -69,6 +69,8 @@ function getOption(options, key, fallback) {
 function resolveChromeLaunchOptions(options = {}) {
   const activePersona = getEnv("ACTIVE_PERSONA", "Default") || "Default";
   const personaDir = path.join(getPersonasDir(), activePersona);
+  const linuxWithoutDisplay =
+    process.platform === "linux" && !String(process.env.DISPLAY || "").trim();
   return {
     CHROME_USER_DATA_DIR: path.join(personaDir, "chrome_profile"),
     CHROME_DOWNLOADS_DIR: path.join(personaDir, "chrome_downloads"),
@@ -88,11 +90,13 @@ function resolveChromeLaunchOptions(options = {}) {
       "CHROME_HEADLESS",
       getEnvBool("CHROME_HEADLESS", getEnvBool("IN_DOCKER", false))
     ),
-    CHROME_SANDBOX: getOption(
-      options,
-      "CHROME_SANDBOX",
-      getEnvBool("CHROME_SANDBOX", !getEnvBool("IN_DOCKER", false))
-    ),
+    CHROME_SANDBOX:
+      !linuxWithoutDisplay &&
+      getOption(
+        options,
+        "CHROME_SANDBOX",
+        getEnvBool("CHROME_SANDBOX", !getEnvBool("IN_DOCKER", false))
+      ),
     CHROME_CHECK_SSL_VALIDITY: getOption(
       options,
       "CHROME_CHECK_SSL_VALIDITY",
@@ -135,7 +139,7 @@ function getChromeSessionOptionsFromConfig(hookConfig = {}) {
       hookConfig.CHROME_USER_AGENT || hookConfig.USER_AGENT || ""
     ),
     CHROME_HEADLESS: hookConfig.CHROME_HEADLESS !== false,
-    CHROME_SANDBOX: hookConfig.CHROME_SANDBOX !== false,
+    CHROME_SANDBOX: chromeLaunchOptions.CHROME_SANDBOX,
     CHROME_CHECK_SSL_VALIDITY:
       hookConfig.CHROME_CHECK_SSL_VALIDITY !== false &&
       hookConfig.CHECK_SSL_VALIDITY !== false,
