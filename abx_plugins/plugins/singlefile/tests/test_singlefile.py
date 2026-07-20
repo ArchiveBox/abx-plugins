@@ -289,7 +289,13 @@ def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
     cli_records = [
         record
         for record in get_hydrated_required_binaries(PLUGIN_DIR, env=env_install)
-        if "pnpm" in str(record.get("binproviders", "")).split(",")
+        if any(
+            isinstance(arg, str)
+            and (arg == "single-file-cli" or arg.startswith("single-file-cli@"))
+            for arg in record.get("overrides", {})
+            .get("pnpm", {})
+            .get("install_args", [])
+        )
     ]
     assert len(cli_records) == 1, cli_records
     singlefile_cli = install_required_binary_from_config(
