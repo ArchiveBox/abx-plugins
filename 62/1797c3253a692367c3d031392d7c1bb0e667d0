@@ -1,0 +1,21 @@
+abx_plugins/plugins/defuddle/tests/test_defuddle.py
+  s_f8414d52051f83::t_8fb6831b96c1eb 11,71
+abx_plugins/plugins/trafilatura/tests/test_trafilatura.py
+  s_f8414d52051f83::t_8fb6831b96c1eb 21,41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "621797c3253a692367c3d031392d7c1bb0e667d0",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
