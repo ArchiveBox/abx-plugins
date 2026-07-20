@@ -1,7 +1,7 @@
 """
 Integration tests for twocaptcha plugin
 
-Run with: TWOCAPTCHA_API_KEY=your_key pytest archivebox/plugins/twocaptcha/tests/ -xvs
+Run with: TWOCAPTCHA_API_KEY=your_key pytest archivebox/plugins/twocaptcha/tests/ -vs
 
 NOTE: These tests require Chromium-family builds with CDP Extensions.loadUnpacked support.
 """
@@ -520,4 +520,4 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, "-xvs"])
+    pytest.main([__file__, "-vs"])
