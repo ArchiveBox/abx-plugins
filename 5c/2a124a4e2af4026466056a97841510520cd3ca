@@ -1,0 +1,62 @@
+abx_plugins/plugins/headers/tests/test_headers.py
+  s_f8414d52051f83::t_71c0f9a8098901 128-132,135,139
+conftest.py
+  s_f8414d52051f83::t_ae790b736f6291 274-275,289-293,304-310,314-317
+abx_plugins/plugins/mercury/on_Snapshot__57_mercury.py
+  s_f8414d52051f83::t_f58f24660d4bea 90,209-211
+  s_f8414d52051f83::t_9d03394572b282 212
+abx_plugins/plugins/readability/tests/test_readability.py
+  s_f8414d52051f83::t_f58f24660d4bea 7
+abx_plugins/plugins/opendataloader/on_Snapshot__60_opendataloader.py
+  s_f8414d52051f83::t_8d442cb8352e10 70,74
+abx_plugins/plugins/screenshot/tests/test_screenshot.py
+  s_f8414d52051f83::t_60f2e0eb807451 259
+abx_plugins/plugins/search_backend_sonic/daemon.py
+  s_f8414d52051f83::t_f58f24660d4bea 275-277
+tests/test_staticfile_skip_helpers.py
+  s_f8414d52051f83::t_60f2e0eb807451 8,73,76,110,113
+abx_plugins/plugins/modalcloser/tests/test_modalcloser.py
+  s_f8414d52051f83::t_60f2e0eb807451 169
+abx_plugins/plugins/dns/tests/test_dns.py
+  s_f8414d52051f83::t_60f2e0eb807451 35,38,45
+  s_f8414d52051f83::t_fd347be7587103 21
+abx_plugins/plugins/claudecodeextract/tests/test_claudecodeextract.py
+  s_f8414d52051f83::t_f58f24660d4bea 9
+abx_plugins/plugins/opendataloader/tests/test_opendataloader.py
+  s_f8414d52051f83::t_cc94addc24f0d2 130,135-138,140-141,144-147
+abx_plugins/plugins/singlefile/tests/test_singlefile.py
+  s_f8414d52051f83::t_60f2e0eb807451 492
+  s_f8414d52051f83::t_71c0f9a8098901 132,134,139
+abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py
+  s_f8414d52051f83::t_71c0f9a8098901 474-480,658
+abx_plugins/plugins/claudecodecleanup/tests/test_claudecodecleanup.py
+  s_f8414d52051f83::t_f58f24660d4bea 10
+tests/test_chrome_runtime_fixture.py
+  s_f8414d52051f83::t_60f2e0eb807451 25
+abx_plugins/plugins/ublock/tests/test_ublock.py
+  s_f8414d52051f83::t_71c0f9a8098901 454
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_f8414d52051f83::t_71c0f9a8098901 75,77,81,114,215,217,221,247,249,253,744,746,750,3222
+  s_f8414d52051f83::t_60f2e0eb807451 153,283,371,439,508
+tests/test_extra_context_helpers.py
+  s_f8414d52051f83::t_60f2e0eb807451 12,85,89
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  s_f8414d52051f83::t_60f2e0eb807451 790
+  s_f8414d52051f83::t_1d65b359d95e87 1114-1116,1121
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "5c2a124a4e2af4026466056a97841510520cd3ca",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
