@@ -28,10 +28,14 @@ runs:
         fi
         CHROME_VERIFY_PATH="$chrome_path" node - <<'NODE'
         const { spawn } = require("node:child_process");
+        const { mkdtempSync } = require("node:fs");
+        const { tmpdir } = require("node:os");
+        const { join } = require("node:path");
 
         const chrome = process.env.CHROME_VERIFY_PATH || process.env.CHROME_BINARY || "/usr/bin/chromium";
         const timeoutMs = Number("${{ inputs.timeout-ms }}");
         const minMajorVersion = Number("${{ inputs.min-major-version }}");
+        const userDataDir = mkdtempSync(join(tmpdir(), "abx-chromium-verify-"));
         const wsPrefix = "DevTools listening on ";
         const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -222,6 +226,7 @@ runs:
               "--noerrdialogs",
               "--password-store=basic",
               "--remote-debugging-port=0",
+              `--user-data-dir=${userDataDir}`,
               "--safebrowsing-disable-auto-update",
               "--silent-debugger-extension-api",
               '--simulate-outdated-no-au="Tue, 31 Dec 2099 23:59:59 GMT"',
