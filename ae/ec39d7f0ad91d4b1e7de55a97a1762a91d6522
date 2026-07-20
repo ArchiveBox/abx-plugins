@@ -1,0 +1,26 @@
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_f8414d52051f83::t_41badc3f09ff46 72-73,93-99,142
+.github/actions/verify-chromium-launch/action.yml
+  s_f8414d52051f83::t_41badc3f09ff46 212,224
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_f8414d52051f83::t_60c968b3a66958 777
+  s_f8414d52051f83::t_8efdcfb92753b3 22
+  s_f8414d52051f83::t_915c82a0d7300c 755-756,770-776,778,786,788
+  s_f8414d52051f83::t_41badc3f09ff46 765-766
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "aeec39d7f0ad91d4b1e7de55a97a1762a91d6522",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
