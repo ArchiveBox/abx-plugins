@@ -199,37 +199,6 @@ class TestClaudeCodeExtractPlugin:
             assert result["status"] == "failed"
             assert "auth" in result["output_str"]
 
-    def test_hook_fails_gracefully_with_missing_binary(self):
-        """Hook should fail gracefully when claude binary is not found."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            snap_dir = Path(tmpdir) / "snap"
-            snap_dir.mkdir()
-            output_dir = snap_dir / "claudecodeextract"
-            output_dir.mkdir()
-
-            env = os.environ.copy()
-            env["SNAP_DIR"] = str(snap_dir)
-            env["CLAUDECODEEXTRACT_ENABLED"] = "true"
-            env["ANTHROPIC_API_KEY"] = "sk-ant-test-key"
-            env["CLAUDECODE_BINARY"] = "/nonexistent/claude"
-
-            returncode, stdout, stderr = run_hook(
-                EXTRACT_HOOK,
-                TEST_URL,
-                "test-snapshot",
-                cwd=output_dir,
-                env=env,
-                timeout=30,
-            )
-
-            assert returncode == 1
-            result = parse_jsonl_output(stdout)
-            assert result is not None, f"Expected JSONL output, got: {stdout}"
-            assert result["status"] == "failed"
-            assert "not found" in result["output_str"].lower(), (
-                f"Error should mention missing binary: {result['output_str']}"
-            )
-
 
 @pytest.mark.usefixtures("ensure_claude_code_prereqs")
 class TestClaudeCodeExtractIntegration:

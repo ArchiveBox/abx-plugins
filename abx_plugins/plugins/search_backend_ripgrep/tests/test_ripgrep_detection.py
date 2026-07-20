@@ -19,7 +19,7 @@ PLUGIN_DIR = Path(__file__).parent.parent
 def test_ripgrep_required_binaries_emit_rg_default():
     binary = next(
         record
-        for record in get_hydrated_required_binaries(PLUGIN_DIR)
+        for record in get_hydrated_required_binaries(PLUGIN_DIR, env={})
         if record.get("name") == "rg"
     )
     assert binary.get("type", "BinaryRequest") == "BinaryRequest"
