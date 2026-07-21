@@ -6,6 +6,7 @@ Tests invoke the plugin hook as an external process and verify outputs/side effe
 
 import json
 import os
+import selectors
 import signal
 import subprocess
 import tempfile
@@ -593,9 +594,26 @@ def test_snapshot_hook_reports_hidden_cookie_popups(httpserver):
                 )
                 assert navigate.returncode == 0, navigate.stderr
 
-                time.sleep(5)
+                observed_stdout: list[str] = []
+                selector = selectors.DefaultSelector()
+                assert hook_process.stdout is not None
+                selector.register(hook_process.stdout, selectors.EVENT_READ)
+                deadline = time.monotonic() + CHROME_STARTUP_TIMEOUT_SECONDS
+                while time.monotonic() < deadline:
+                    events = selector.select(deadline - time.monotonic())
+                    assert events, "Hook did not observe a hidden cookie popup"
+                    line = hook_process.stdout.readline()
+                    assert line, "Hook exited before observing a hidden cookie popup"
+                    observed_stdout.append(line)
+                    count = line.partition(" ")[0]
+                    if count.isdigit() and int(count) > 0:
+                        break
+                else:
+                    raise AssertionError("Hook did not observe a hidden cookie popup")
+
                 os.killpg(hook_process.pid, signal.SIGTERM)
-                stdout, stderr = hook_process.communicate(timeout=15)
+                remaining_stdout, stderr = hook_process.communicate(timeout=15)
+                stdout = "".join(observed_stdout) + remaining_stdout
 
                 assert hook_process.returncode in (0, -signal.SIGTERM), stderr
                 records = parse_jsonl_records(stdout)
