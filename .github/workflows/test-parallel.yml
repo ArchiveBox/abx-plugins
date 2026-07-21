@@ -150,7 +150,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-15]
-        python: ["3.12.11", "3.13.13", "3.14.5"]
+        python: ["3.12.10", "3.13.13", "3.14.5"]
         artifact: [wheel, sdist]
 
     steps:

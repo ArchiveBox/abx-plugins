@@ -24,7 +24,7 @@ description: Use this when working on ArchiveBox plugin hooks, config schemas, h
 ```bash
 set -euo pipefail
 uv sync --inexact
-uv run python - <<'PY'
+uv run --no-sync --no-sources python - <<'PY'
 from pathlib import Path
 
 import abx_plugins
@@ -55,7 +55,7 @@ grep -q 'title' "$inspection"
 ```bash
 set -euo pipefail
 test -d abx_plugins/plugins/title
-uv run python -m json.tool abx_plugins/plugins/chrome/config.json >/dev/null
+uv run --no-sync --no-sources python -m json.tool abx_plugins/plugins/chrome/config.json >/dev/null
 test -x abx_plugins/plugins/title/on_Snapshot__54_title.js
 node -c abx_plugins/plugins/chrome/chrome_utils.js
 ```
@@ -64,7 +64,7 @@ node -c abx_plugins/plugins/chrome/chrome_utils.js
 
 ```bash
 set -euo pipefail
-uv run python - <<'PY'
+uv run --no-sync --no-sources python - <<'PY'
 from pathlib import Path
 
 from abx_plugins.plugins.base.testing import get_hook_script, get_plugin_dir

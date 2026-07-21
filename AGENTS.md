@@ -20,7 +20,7 @@
 ```bash
 set -euo pipefail
 uv sync --inexact
-uv run python - <<'PY'
+uv run --no-sync --no-sources python - <<'PY'
 from pathlib import Path
 
 import abx_plugins
@@ -60,7 +60,7 @@ Inspect plugin config and hooks:
 ```bash
 set -euo pipefail
 test -d abx_plugins/plugins/title
-uv run python -m json.tool abx_plugins/plugins/chrome/config.json >/dev/null
+uv run --no-sync --no-sources python -m json.tool abx_plugins/plugins/chrome/config.json >/dev/null
 test -x abx_plugins/plugins/title/on_Snapshot__54_title.js
 ```
 
@@ -68,7 +68,7 @@ Run targeted plugin tests:
 
 ```bash
 set -euo pipefail
-uv run python - <<'PY'
+uv run --no-sync --no-sources python - <<'PY'
 import tempfile
 from pathlib import Path
 
@@ -78,6 +78,7 @@ lib_dir = Path(tempfile.mkdtemp()) / "lib"
 config = load_config(
     BASE_CONFIG_PATH,
     global_config={"ABXPKG_LIB_DIR": str(lib_dir)},
+    environ={},
     hydrate_binaries=False,
 )
 assert config.ABXPKG_LIB_DIR == str(lib_dir)
