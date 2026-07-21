@@ -172,6 +172,22 @@ def test_required_binary_configs_use_uv_and_pnpm_not_pip_or_npm() -> None:
     )
 
 
+def test_chrome_playwright_install_has_one_owner() -> None:
+    config = json.loads((PLUGINS_ROOT / "chrome" / "config.json").read_text())
+    required_binaries = config["required_binaries"]
+
+    names = [binary["name"] for binary in required_binaries]
+    assert "playwright" not in names
+
+    chrome_binary = next(
+        binary for binary in required_binaries if binary["name"] == "{CHROME_BINARY}"
+    )
+    providers = {
+        provider.strip() for provider in chrome_binary["binproviders"].split(",")
+    }
+    assert "playwright" in providers
+
+
 def _hydrated_binary_name(name: str, config: dict[str, Any]) -> str:
     if not (name.startswith("{") and name.endswith("}")):
         return name
