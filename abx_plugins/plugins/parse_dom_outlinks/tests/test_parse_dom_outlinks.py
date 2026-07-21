@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.test_utils import get_hook_script, get_plugin_dir
+from abx_plugins.plugins.base.testing import get_hook_script, get_plugin_dir
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
 
 pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")

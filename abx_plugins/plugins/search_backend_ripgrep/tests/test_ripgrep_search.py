@@ -21,7 +21,7 @@ from abx_plugins.plugins.search_backend_ripgrep.search import (
     _get_search_roots,
     DEFAULT_CONTENT_EXCLUDES,
 )
-from abx_plugins.plugins.base.test_utils import (
+from abx_plugins.plugins.base.testing import (
     get_hydrated_required_binaries,
     get_plugin_dir,
     install_required_binary_from_config,

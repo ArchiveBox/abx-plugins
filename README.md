@@ -155,7 +155,7 @@ const { loadConfig, getEnv, getEnvBool, getEnvInt, getEnvArray, emitArchiveResul
 
 **Test helpers** (`base/test_utils.py`):
 ```python
-from abx_plugins.plugins.base.test_utils import (
+from abx_plugins.plugins.base.testing import (
     get_hook_script,
     parse_jsonl_output,
     run_hook,

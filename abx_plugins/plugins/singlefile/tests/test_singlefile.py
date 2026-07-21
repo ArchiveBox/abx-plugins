@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.test_utils import (
+from abx_plugins.plugins.base.testing import (
     get_hydrated_required_binaries,
     get_hook_script,
     get_plugin_dir,

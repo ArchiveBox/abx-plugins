@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import has_staticfile_output
-from abx_plugins.plugins.base.test_utils import install_binary_with_abxpkg
+from abx_plugins.plugins.base.testing import install_binary_with_abxpkg
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]

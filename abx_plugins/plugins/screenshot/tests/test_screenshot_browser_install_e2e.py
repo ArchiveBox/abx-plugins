@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 
 
-from abx_plugins.plugins.base.test_utils import (
+from abx_plugins.plugins.base.testing import (
     parse_jsonl_output,
 )
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (

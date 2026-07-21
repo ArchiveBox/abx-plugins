@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.test_utils import get_hook_script, get_plugin_dir
+from abx_plugins.plugins.base.testing import get_hook_script, get_plugin_dir
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
     chrome_session,

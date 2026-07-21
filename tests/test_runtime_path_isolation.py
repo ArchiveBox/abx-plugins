@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.test_utils import assert_isolated_snapshot_env
+from abx_plugins.plugins.base.testing import assert_isolated_snapshot_env
 from abx_plugins.plugins.base.utils import (
     BASE_CONFIG_PATH,
     build_binproviders,

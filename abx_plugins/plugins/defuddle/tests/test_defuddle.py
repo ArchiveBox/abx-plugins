@@ -7,7 +7,7 @@ from urllib.request import urlopen
 
 import pytest
 
-from abx_plugins.plugins.base.test_utils import (
+from abx_plugins.plugins.base.testing import (
     get_hydrated_required_binary,
     get_hook_script,
     get_plugin_dir,

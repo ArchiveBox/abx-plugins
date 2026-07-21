@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 import pytest
 
-from abx_plugins.plugins.base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.testing import parse_jsonl_output
 
 PLUGIN_DIR = Path(__file__).parent.parent
 _ARCHIVEDOTORG_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_archivedotorg.*"), None)

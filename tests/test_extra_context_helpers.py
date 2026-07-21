@@ -9,7 +9,7 @@ from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_installed_binary_record,
 )
-from abx_plugins.plugins.base.test_utils import install_binary_with_abxpkg
+from abx_plugins.plugins.base.testing import install_binary_with_abxpkg
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 

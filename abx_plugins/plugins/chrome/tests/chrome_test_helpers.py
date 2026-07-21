@@ -65,7 +65,7 @@ from _pytest.fixtures import FixtureLookupError
 from pytest_httpserver import HTTPServer
 from werkzeug.wrappers import Response
 
-from abx_plugins.plugins.base.test_utils import (
+from abx_plugins.plugins.base.testing import (
     assert_isolated_snapshot_env,
     get_hydrated_required_binaries,
     run_hook as _base_run_hook,

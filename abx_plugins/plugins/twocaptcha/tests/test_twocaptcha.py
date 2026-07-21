@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 import requests
 
-from abx_plugins.plugins.base.test_utils import (
+from abx_plugins.plugins.base.testing import (
     install_required_binary_from_config,
     parse_jsonl_records,
 )

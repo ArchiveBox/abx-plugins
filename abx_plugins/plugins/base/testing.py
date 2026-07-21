@@ -8,7 +8,7 @@ Provides common helpers used across plugin test files:
 
 Usage::
 
-    from abx_plugins.plugins.base.test_utils import (
+    from abx_plugins.plugins.base.testing import (
         get_plugin_dir, get_hook_script,
         parse_jsonl_output, parse_jsonl_records,
         run_hook, run_hook_and_parse,

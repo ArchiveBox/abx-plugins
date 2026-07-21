@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 import pytest
 
-from abx_plugins.plugins.base.test_utils import (
+from abx_plugins.plugins.base.testing import (
     install_required_binary_from_config,
     parse_jsonl_output,
 )

@@ -19,9 +19,9 @@ from pathlib import Path
 import pytest
 import requests
 
-from abx_plugins.plugins.base.test_utils import get_hydrated_required_binary
-from abx_plugins.plugins.base.test_utils import install_required_binary_from_config
-from abx_plugins.plugins.base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.testing import get_hydrated_required_binary
+from abx_plugins.plugins.base.testing import install_required_binary_from_config
+from abx_plugins.plugins.base.testing import parse_jsonl_output
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent

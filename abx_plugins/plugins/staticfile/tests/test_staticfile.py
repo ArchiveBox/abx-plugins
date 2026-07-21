@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 
 import pytest
 
-from abx_plugins.plugins.base.test_utils import (
+from abx_plugins.plugins.base.testing import (
     get_hook_script,
     get_plugin_dir,
     parse_jsonl_output,

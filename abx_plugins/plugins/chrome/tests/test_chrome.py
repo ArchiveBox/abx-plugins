@@ -52,7 +52,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     wait_for_pid_exit,
     write_browser_metadata,
 )
-from abx_plugins.plugins.base.test_utils import assert_isolated_snapshot_env
+from abx_plugins.plugins.base.testing import assert_isolated_snapshot_env
 
 pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 

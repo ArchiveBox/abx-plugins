@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.test_utils import get_hydrated_required_binaries
+from abx_plugins.plugins.base.testing import get_hydrated_required_binaries
 
 
 PLUGIN_DIR = Path(__file__).parent.parent

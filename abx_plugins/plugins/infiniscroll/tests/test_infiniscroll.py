@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.test_utils import install_binary_with_abxpkg
+from abx_plugins.plugins.base.testing import install_binary_with_abxpkg
 
 # Import shared Chrome test helpers
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (

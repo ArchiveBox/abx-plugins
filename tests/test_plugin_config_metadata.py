@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
-from abx_plugins.plugins.base.test_utils import install_required_binary_from_config
+from abx_plugins.plugins.base.testing import install_required_binary_from_config
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]

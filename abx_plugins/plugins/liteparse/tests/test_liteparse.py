@@ -29,7 +29,7 @@ from pathlib import Path
 import pytest
 import requests
 
-from abx_plugins.plugins.base.test_utils import (
+from abx_plugins.plugins.base.testing import (
     get_hydrated_required_binary,
     install_required_binary_from_config,
     parse_jsonl_output,

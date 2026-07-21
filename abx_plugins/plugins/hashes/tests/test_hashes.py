@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.test_utils import parse_jsonl_output
+from abx_plugins.plugins.base.testing import parse_jsonl_output
 
 
 # Get the path to the hashes hook

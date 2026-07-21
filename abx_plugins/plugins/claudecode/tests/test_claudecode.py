@@ -20,7 +20,7 @@ import pytest
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
 )
-from abx_plugins.plugins.base.test_utils import (
+from abx_plugins.plugins.base.testing import (
     get_plugin_dir,
 )
 from abx_plugins.plugins.claudecode.claudecode_utils import (
