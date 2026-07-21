@@ -156,9 +156,9 @@ publish_to_pypi() {
     local version="$1"
     local build_dir
     build_dir="$(mktemp -d)"
-    trap 'rm -rf "${build_dir}"' RETURN
     uv build --out-dir "${build_dir}"
     uv publish --trusted-publishing always "${build_dir}"/*
+    rm -rf "${build_dir}"
 }
 
 create_release() {

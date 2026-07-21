@@ -3,17 +3,17 @@ revision = 3
 requires-python = ">=3.12"
 
 [options]
-exclude-newer = "2026-07-16T06:15:57.436649Z"
+exclude-newer = "2026-07-16T06:33:29.962118Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
 abx-plugins = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
-abxbus = { timestamp = "2026-07-21T06:15:56.436663Z", span = "PT1S" }
+abxbus = { timestamp = "2026-07-21T06:33:28.962132Z", span = "PT1S" }
 
 [[package]]
 name = "abx-plugins"
-version = "1.11.291"
+version = "1.11.292"
 source = { editable = "." }
 dependencies = [
     { name = "abxbus" },
