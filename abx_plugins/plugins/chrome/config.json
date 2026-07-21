@@ -53,6 +53,7 @@
       "name": "{CHROME_BINARY}",
       "binproviders": "env,playwright,puppeteer",
       "min_version": "149.0.0",
+      "min_release_age": 0,
       "postinstall_scripts": true,
       "overrides": {
         "playwright": {

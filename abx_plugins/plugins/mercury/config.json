@@ -8,7 +8,7 @@
   "required_binaries": [
     {
       "name": "{MERCURY_BINARY}",
-      "binproviders": "pnpm,env",
+      "binproviders": "env,pnpm",
       "min_version": null,
       "overrides": {
         "pnpm": {

@@ -8,8 +8,8 @@ on:
     branches: [main]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.event_name == 'workflow_dispatch' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 env:
   PYTHONIOENCODING: utf-8
@@ -27,12 +27,6 @@ jobs:
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 1
-
-      - name: Configure managed library
-        run: |
-          mkdir -p "$RUNNER_TEMP/abx-lib/env/bin"
-          echo "LIB_DIR=$RUNNER_TEMP/abx-lib" >> "$GITHUB_ENV"
-          echo "ABXPKG_LIB_DIR=$RUNNER_TEMP/abx-lib" >> "$GITHUB_ENV"
 
       - name: Clone abx-dl release for documentation examples
         run: |
@@ -55,23 +49,6 @@ jobs:
         with:
           version: "0.11.3"
 
-      - name: Set up Node JS
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
-        with:
-          node-version: "22.23.1"
-
-      - name: Enable pnpm
-        run: |
-          corepack enable
-          PNPM_HOME="$HOME/.local/share/pnpm"
-          mkdir -p "$PNPM_HOME"
-          pnpm config set global-bin-dir "$PNPM_HOME"
-          echo "PNPM_HOME=$PNPM_HOME" >> "$GITHUB_ENV"
-          echo "$PNPM_HOME" >> "$GITHUB_PATH"
-
-      - name: Install JS tooling
-        run: pnpm add -g prettier@3.9.5
-
       - name: Cache uv
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -80,18 +57,36 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-3.13.13-uv-
 
-      - name: Install system packages
-        run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            git wget ripgrep build-essential python3-dev python3-setuptools \
-            libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 \
-            python3-minimal gnupg2 curl python3-ldap python3-msgpack \
-            python3-mutagen python3-regex python3-pycryptodome procps
-
       - name: Install dependencies with uv
+        run: uv sync --locked --dev --no-sources
+
+      - name: Resolve CI tooling through abxpkg
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
         run: |
-          uv sync --locked --dev --no-sources
+          set -Eeuo pipefail
+          mkdir -p "$ABXPKG_LIB_DIR/env/bin"
+          export PATH="$ABXPKG_LIB_DIR/env/bin:$PATH"
+          echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
+          echo "$ABXPKG_LIB_DIR/env/bin" >> "$GITHUB_PATH"
+
+          tooling_env="$(
+            uv run --no-sync --no-sources abxpkg env \
+              --install \
+              --json \
+              --lib="$ABXPKG_LIB_DIR" \
+              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:prek_binaries"
+          )"
+          jq -r 'to_entries[] | select(.key != "PATH") | "\(.key)=\(.value)"' \
+            <<< "$tooling_env" >> "$GITHUB_ENV"
+
+          test -x "$ABXPKG_LIB_DIR/env/bin/node"
+          test -x "$ABXPKG_LIB_DIR/env/bin/prettier"
+          "$ABXPKG_LIB_DIR/env/bin/node" --version
+          "$ABXPKG_LIB_DIR/env/bin/prettier" --version
+
+      - name: Install abx-dl documentation dependency
+        run: |
           uv pip install --no-deps -e "${{ runner.temp }}/abx-dl"
 
       - name: Run prek
@@ -242,7 +237,7 @@ jobs:
     name: Discover test files
     runs-on: ubuntu-24.04
     outputs:
-      test-files: ${{ steps.set-matrix.outputs.test-files }}
+      test-shards: ${{ steps.set-matrix.outputs.test-shards }}
 
     steps:
       - name: Checkout repository
@@ -250,52 +245,19 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: "0.11.3"
+          enable-cache: false
+
       - name: Discover test files
         id: set-matrix
-        run: |
-          set -Eeuo pipefail
-          mapfile -t all_tests < <(
-            {
-              find abx_plugins/plugins -path "*/tests/test_*.py" -type f
-              find abx_plugins/plugins -mindepth 2 -maxdepth 2 -name "test_*.py" -type f
-              if [[ -d tests ]]; then
-                find tests -path "*/test_*.py" -type f
-              fi
-            } | sort -u
-          )
-          [[ "${#all_tests[@]}" -gt 0 ]]
-
-          objects=()
-          for test_file in "${all_tests[@]}"; do
-            test_name="$(basename "$test_file" .py | sed 's/^test_//')"
-            name="$test_name"
-            needs_chromium=false
-            if [[ "$test_file" == abx_plugins/plugins/*/tests/* ]]; then
-              plugin_dir="${test_file%/tests/*}"
-              plugin_name="$(basename "$plugin_dir")"
-              if [[ "$plugin_name" == "chrome" ]] || \
-                 jq -e '(.required_plugins // []) | index("chrome") != null' "$plugin_dir/config.json" >/dev/null; then
-                needs_chromium=true
-              fi
-            elif grep -iq "chrom" "$test_file"; then
-              needs_chromium=true
-            fi
-
-            objects+=("$(jq -cn \
-              --arg path "$test_file" \
-              --arg name "$name" \
-              --argjson needs_chromium "$needs_chromium" \
-              '{path: $path, name: $name, needs_chromium: $needs_chromium}')")
-          done
-          json_array="$(printf '%s\n' "${objects[@]}" | jq -sc '.')"
-
-          echo "test-files=$json_array" >> "$GITHUB_OUTPUT"
-          echo "Found ${#all_tests[@]} test files"
-          echo "$json_array" | jq '.'
+        run: uv run --no-project python .github/ci_test_shards.py >> "$GITHUB_OUTPUT"
 
   run-tests:
-    name: ${{ matrix.test.name }}
-    runs-on: ubuntu-24.04
+    name: ${{ matrix.shard.name }} / Python ${{ matrix.python }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     needs: [discover-tests]
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -306,8 +268,9 @@ jobs:
       fail-fast: false
       max-parallel: 20
       matrix:
-        test: ${{ fromJson(needs.discover-tests.outputs.test-files) }}
-        python: ["3.13.13"]
+        shard: ${{ fromJson(needs.discover-tests.outputs.test-shards) }}
+        os: [ubuntu-24.04, macos-15]
+        python: ["3.12.10", "3.13.13", "3.14.5"]
 
     steps:
       - name: Checkout repository
@@ -319,17 +282,11 @@ jobs:
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ matrix.python }}
-          architecture: x64
 
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           version: "0.11.3"
-
-      - name: Set up Node JS
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
-        with:
-          node-version: "22.23.1"
 
       - name: Cache uv
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
@@ -339,44 +296,67 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.python }}-uv-
 
-      - name: Install system packages
-        run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            git wget ripgrep build-essential python3-dev python3-setuptools \
-            libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 \
-            python3-minimal gnupg2 curl python3-ldap python3-msgpack \
-            python3-mutagen python3-regex python3-pycryptodome procps
-
       - name: Install dependencies with uv
         run: uv sync --locked --dev --no-sources
 
-      - name: Select Chromium for extension-capable CDP
-        if: ${{ matrix.test.needs_chromium }}
+      - name: Resolve CI tooling through abxpkg
         env:
-          LIB_DIR: ${{ runner.temp }}/abx-lib
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$ABXPKG_LIB_DIR/env/bin"
+          export PATH="$ABXPKG_LIB_DIR/env/bin:$PATH"
+          echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
+          echo "$ABXPKG_LIB_DIR/env/bin" >> "$GITHUB_PATH"
+
+          tooling_env="$(
+            uv run --no-sync --no-sources abxpkg env \
+              --install \
+              --json \
+              --lib="$ABXPKG_LIB_DIR" \
+              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:node_binaries"
+          )"
+          jq -r 'to_entries[] | select(.key != "PATH") | "\(.key)=\(.value)"' \
+            <<< "$tooling_env" >> "$GITHUB_ENV"
+
+          test -x "$ABXPKG_LIB_DIR/env/bin/node"
+          "$ABXPKG_LIB_DIR/env/bin/node" --version
+
+      - name: Select Chromium for extension-capable CDP
+        if: ${{ matrix.shard.needs_chromium }}
+        env:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
         run: |
           set -euo pipefail
-          mkdir -p "$LIB_DIR"
-          {
-            echo "LIB_DIR=$LIB_DIR"
-            echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR"
-          } >> "$GITHUB_ENV"
+          chromium_env="$(
+            uv run --no-sync --no-sources abxpkg env \
+              --install \
+              --json \
+              --lib="$ABXPKG_LIB_DIR" \
+              --deps-from="$PWD/abx_plugins/plugins/chrome/config.json:required_binaries"
+          )"
+          jq -r 'to_entries[] | select(.key != "PATH") | "\(.key)=\(.value)"' \
+            <<< "$chromium_env" >> "$GITHUB_ENV"
 
-          uv run --no-sync --no-sources abxpkg env \
-            --install \
-            --lib="$LIB_DIR" \
-            --deps-from="$PWD/abx_plugins/plugins/chrome/config.json:required_binaries" \
-            >> "$GITHUB_ENV"
+          chrome_binary="$ABXPKG_LIB_DIR/env/bin/chromium"
+          echo "CHROME_BINARY=$chrome_binary" >> "$GITHUB_ENV"
+          test -L "$chrome_binary"
+          test -x "$chrome_binary"
 
       - name: Verify Chromium launch
-        if: ${{ matrix.test.needs_chromium }}
+        if: ${{ matrix.shard.needs_chromium }}
         uses: ./.github/actions/verify-chromium-launch
 
-      - name: Run test - ${{ matrix.test.name }}
+      - name: Run test shard - ${{ matrix.shard.name }}
         env:
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           CHROME_HEADLESS: "True"
+          TEST_PATHS_JSON: ${{ toJson(matrix.shard.paths) }}
         run: |
-          uv run --no-sync --no-sources pytest -vs -rA "${{ matrix.test.path }}" --basetemp="$RUNNER_TEMP/pytest-out"
+          set -Eeuo pipefail
+          test_paths=()
+          while IFS= read -r test_path; do
+            test_paths+=("$test_path")
+          done < <(jq -r '.[]' <<< "$TEST_PATHS_JSON")
+          [[ "${#test_paths[@]}" -gt 0 ]]
+          uv run --no-sync --no-sources pytest -vs -rA "${test_paths[@]}" --basetemp="$RUNNER_TEMP/pytest-out"

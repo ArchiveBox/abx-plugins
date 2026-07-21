@@ -59,10 +59,10 @@ Lifecycle:
 [
   {
     "name": "{YTDLP_BINARY}",
-    "binproviders": "pip,brew,apt,env",
+    "binproviders": "env,uv,brew,apt",
     "min_version": null,
     "overrides": {
-      "pip": {
+      "uv": {
         "install_args": ["yt-dlp[default]"]
       }
     }

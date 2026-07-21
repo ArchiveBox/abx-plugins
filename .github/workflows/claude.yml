@@ -39,9 +39,9 @@ jobs:
       - name: Clone abxbus, abxpkg, abx-dl, archivebox
         run: |
           set -Eeuo pipefail
-          git clone --depth=1 --branch v1.11.279 https://github.com/ArchiveBox/abxpkg.git "${{ runner.temp }}/abxpkg"
-          [[ "$(git -C "${{ runner.temp }}/abxpkg" rev-parse HEAD)" == "5267299cc0efb3a3cb2c11005d181d22b4d66485" ]]
-          [[ "$(git -C "${{ runner.temp }}/abxpkg" rev-parse 'refs/tags/v1.11.279^{commit}')" == "5267299cc0efb3a3cb2c11005d181d22b4d66485" ]]
+          git clone --depth=1 --branch v1.11.280 https://github.com/ArchiveBox/abxpkg.git "${{ runner.temp }}/abxpkg"
+          [[ "$(git -C "${{ runner.temp }}/abxpkg" rev-parse HEAD)" == "f9eb434d21217a6ef7cbb757e8f7281c2b511fb9" ]]
+          [[ "$(git -C "${{ runner.temp }}/abxpkg" rev-parse 'refs/tags/v1.11.280^{commit}')" == "f9eb434d21217a6ef7cbb757e8f7281c2b511fb9" ]]
 
           git clone --depth=1 --branch 2.5.38 https://github.com/ArchiveBox/abxbus.git "${{ runner.temp }}/abxbus"
           [[ "$(git -C "${{ runner.temp }}/abxbus" rev-parse HEAD)" == "8d29682941dca4b5feec8549bac71adf2740dd00" ]]
@@ -66,40 +66,36 @@ jobs:
           version: "0.11.3"
           activate-environment: "true"
 
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
-        with:
-          version: 10.33
+      - name: Bootstrap locked Python dependencies
+        run: uv sync --locked --dev --no-sources
 
-      - name: Configure pnpm global bin
+      - name: Resolve CI tooling through abxpkg
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
         run: |
-          PNPM_HOME="$HOME/.local/share/pnpm"
-          mkdir -p "$PNPM_HOME"
-          pnpm config set global-bin-dir "$PNPM_HOME"
-          echo "PNPM_HOME=$PNPM_HOME" >> "$GITHUB_ENV"
-          echo "$PNPM_HOME" >> "$GITHUB_PATH"
+          set -Eeuo pipefail
+          mkdir -p "$ABXPKG_LIB_DIR/env/bin"
+          export PATH="$ABXPKG_LIB_DIR/env/bin:$PATH"
+          echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
+          echo "$ABXPKG_LIB_DIR/env/bin" >> "$GITHUB_PATH"
 
-      - name: Set up Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: "25.9.0"
-          cache: 'pnpm'
-          cache-dependency-path: pyproject.toml
+          tooling_env="$(
+            uv run --no-sync --no-sources abxpkg env \
+              --install \
+              --json \
+              --lib="$ABXPKG_LIB_DIR" \
+              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:prek_binaries"
+          )"
+          jq -r 'to_entries[] | select(.key != "PATH") | "\(.key)=\(.value)"' \
+            <<< "$tooling_env" >> "$GITHUB_ENV"
 
-      - uses: awalsh128/cache-apt-pkgs-action@553a35bb8ebd9fcabcb1c9451aa4c98e1b4ca8a9 # v1.6.3
-        with:
-          packages: |
-            git wget ripgrep build-essential python3-dev python3-setuptools \
-            libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 \
-            python3-minimal gnupg2 curl python3-ldap python3-msgpack \
-            python3-mutagen python3-regex python3-pycryptodome procps
-          version: 1.0
-
-      - name: Install JS tooling
-        run: pnpm add -g prettier@3.9.5
+          test -x "$ABXPKG_LIB_DIR/env/bin/node"
+          test -x "$ABXPKG_LIB_DIR/env/bin/prettier"
+          "$ABXPKG_LIB_DIR/env/bin/node" --version
+          "$ABXPKG_LIB_DIR/env/bin/prettier" --version
 
       - name: Install dependencies with uv
         run: |
-          uv sync --dev --all-extras --no-sources
           uv pip install -e '${{ runner.temp }}/abxbus'
           uv pip install -e '${{ runner.temp }}/abx-dl'
           uv pip install -e '${{ runner.temp }}/abxpkg'

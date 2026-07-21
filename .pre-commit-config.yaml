@@ -43,10 +43,14 @@ repos:
         pass_filenames: false
       - id: ts-prettier
         name: ts-prettier
-        entry: prettier
-        language: node
-        additional_dependencies:
-          - prettier@3.9.5
+        entry: >-
+          uv run --no-sync --no-sources abxpkg
+          --install
+          --binproviders=env,npm
+          --min-version=3.9.5
+          --overrides='{"npm":{"install_args":["prettier@3.9.5"],"postinstall_scripts":true}}'
+          run prettier
+        language: system
         files: ^abx_plugins/plugins/.*\.js$
         exclude: \.(sh|py|html|json)$
       # see pyproject.toml for more details on ruff config

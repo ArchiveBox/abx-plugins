@@ -8,7 +8,7 @@
   "required_binaries": [
     {
       "name": "{FORUMDL_BINARY}",
-      "binproviders": "uv,env",
+      "binproviders": "env,uv",
       "min_version": null,
       "overrides": {
         "uv": {

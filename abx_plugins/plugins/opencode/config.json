@@ -22,6 +22,7 @@
       "name": "{OPENCODE_BINARY}",
       "binproviders": "env,pnpm",
       "min_version": null,
+      "min_release_age": 0,
       "postinstall_scripts": true,
       "overrides": {
         "pnpm": {

@@ -8,7 +8,7 @@
   "required_binaries": [
     {
       "name": "feedparser",
-      "binproviders": "uv",
+      "binproviders": "env,uv",
       "min_version": null,
       "postinstall_scripts": true,
       "overrides": {

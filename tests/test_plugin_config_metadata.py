@@ -172,6 +172,41 @@ def test_required_binary_configs_use_uv_and_pnpm_not_pip_or_npm() -> None:
     )
 
 
+def test_required_binary_configs_prefer_compatible_host_binaries() -> None:
+    failures: list[str] = []
+
+    for plugin_dir in _iter_plugin_dirs():
+        config_path = plugin_dir / "config.json"
+        if not config_path.exists():
+            continue
+        config = cast(
+            dict[str, Any],
+            json.loads(config_path.read_text(encoding="utf-8")),
+        )
+        required_binaries = config.get("required_binaries")
+        if not isinstance(required_binaries, list):
+            continue
+        for index, item in enumerate(required_binaries):
+            if not isinstance(item, dict):
+                continue
+            providers = [
+                provider.strip()
+                for provider in str(item.get("binproviders") or "").split(",")
+                if provider.strip()
+            ]
+            if "env" in providers and providers[0] != "env":
+                failures.append(
+                    f"{plugin_dir.name}: required_binaries[{index}] must try env before managed providers",
+                )
+
+    assert not failures, (
+        "Plugin host binary preference validation failed:\n"
+        + "\n".join(
+            failures,
+        )
+    )
+
+
 def _hydrated_binary_name(name: str, config: dict[str, Any]) -> str:
     if not (name.startswith("{") and name.endswith("}")):
         return name

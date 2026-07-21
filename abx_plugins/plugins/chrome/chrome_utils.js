@@ -1869,7 +1869,9 @@ async function loadExtensionFromTarget(extensions, target, options = {}) {
     return null;
   }
 
-  if (!manifest) {
+  const resolvedManifest =
+    manifest || loadExtensionManifest(extension.unpacked_path);
+  if (!resolvedManifest) {
     console.error(`[❌] Failed to read manifest for extension ${extension_id}`);
     return null;
   }
@@ -1880,8 +1882,9 @@ async function loadExtensionFromTarget(extensions, target, options = {}) {
     target,
     target_type,
     target_url,
-    manifest,
-    manifest_version,
+    manifest: resolvedManifest,
+    manifest_version:
+      manifest_version || resolvedManifest.manifest_version || null,
 
     // Trigger extension toolbar button click
     dispatchAction: async (tab) => {
