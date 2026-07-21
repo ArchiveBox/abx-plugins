@@ -1,0 +1,60 @@
+skills/abx-plugins/SKILL.md
+  s_f8414d52051f83::t_be2a8baf20c8ba 44-47,49-50,74
+  s_f8414d52051f83::t_dafebca2e25bbd 25,27-35,43,56-59,66-73,75-76
+  s_f8414d52051f83::t_5e8eb6ed7da188 48
+bin/release.sh
+  s_f8414d52051f83::t_6baa94f0d8deff 198-201
+  s_f8414d52051f83::t_0f1c74af328dc8 155,159,162,196-197,202
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_7f434b42efb6ae 190-191,197,210,222,225,228-238
+  s_f8414d52051f83::t_5744102b25c16a 12
+  s_f8414d52051f83::t_af5439a55da6dd 102,104,256-257,261-263,266,268-270,284-287,290,292-293,362-365
+  s_f8414d52051f83::t_1069b633dbfb5b 27,48,54,56,59,76,249,314,319,325,327,330,335
+  s_f8414d52051f83::t_5fd696986b89bf 47,50,61,113,116,153,310,332
+  s_f8414d52051f83::t_b8398332192537 223-224,226-227,239
+  s_f8414d52051f83::t_07238506675a92 288
+  s_f8414d52051f83::t_74eb93d902a886 199,218,221
+  s_f8414d52051f83::t_2f46e2753c82f9 11
+  s_f8414d52051f83::t_8584f006148fc6 220
+  s_f8414d52051f83::t_3bb5d7b4d6fe79 39-45
+  s_f8414d52051f83::t_34f8dbe01282e1 79,81
+  s_f8414d52051f83::t_7de70aa8439967 106-112,114-115,117-152,154-189,192-196,198,200-209,211-217,219
+  s_f8414d52051f83::t_4ff4e58e6741b5 46,105
+pyproject.toml
+  s_f8414d52051f83::t_8daaf5d0342bfc 23
+  s_f8414d52051f83::t_431b17897bcb50 3
+AGENTS.md
+  s_f8414d52051f83::t_5e8eb6ed7da188 49-50,53
+  s_f8414d52051f83::t_dafebca2e25bbd 21,23-33,41,44-48,51-52,61-64,70-71,73-76,84-85,91
+  s_f8414d52051f83::t_be2a8baf20c8ba 72,77-83
+.github/workflows/release.yml
+  s_f8414d52051f83::t_5fd696986b89bf 38
+  s_f8414d52051f83::t_8b49e608c8faa0 25,31,36,40,42
+.github/workflows/pages.yml
+  s_f8414d52051f83::t_8b49e608c8faa0 23,26,31,33,36,44,57
+  s_f8414d52051f83::t_5fd696986b89bf 28
+.github/workflows/claude.yml
+  s_f8414d52051f83::t_4dd97c5f002570 27,35,41,49,53,59,64,66,69,82,88,111
+  s_f8414d52051f83::t_5fd696986b89bf 58,61,84
+  s_f8414d52051f83::t_43cbd2a1dff57b 46-48,50-52,54-56,103-106
+  s_f8414d52051f83::t_8daaf5d0342bfc 42-44
+  s_f8414d52051f83::t_78acda114f6614 57
+uv.lock
+  s_f8414d52051f83::t_e8c97e17856c81 6,12,16,51,95,104,106
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "67a44846bc87bf373e75010acfa59c77a848c210",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
