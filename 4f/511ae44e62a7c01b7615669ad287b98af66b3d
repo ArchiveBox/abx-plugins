@@ -1,0 +1,125 @@
+abx_plugins/plugins/base/testing.py
+  s_f8414d52051f83::t_5d6a37a113e79d 11
+README.md
+  s_f8414d52051f83::t_85d5f57dfb4aa7 158
+abx_plugins/plugins/accessibility/tests/test_accessibility.py
+  s_f8414d52051f83::t_eefe04d2681ee2 16
+abx_plugins/plugins/archivedotorg/tests/test_archivedotorg.py
+  s_f8414d52051f83::t_2359508cce71ad 13
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  s_f8414d52051f83::t_953d9a3cff2507 68
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_f8414d52051f83::t_8a88cef373c261 55
+abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py
+  s_f8414d52051f83::t_f9a327f0bdf0ab 15
+abx_plugins/plugins/chrome_mhtml/tests/test_chrome_mhtml.py
+  s_f8414d52051f83::t_18a4cf62784828 11
+abx_plugins/plugins/claudechrome/tests/test_claudechrome.py
+  s_f8414d52051f83::t_3ebcbc37c0dc3b 21
+abx_plugins/plugins/claudecode/tests/test_claudecode.py
+  s_f8414d52051f83::t_d733b43c23a625 23
+abx_plugins/plugins/claudecodecleanup/tests/test_claudecodecleanup.py
+  s_f8414d52051f83::t_232e7f780d017f 20
+abx_plugins/plugins/claudecodeextract/tests/test_claudecodeextract.py
+  s_f8414d52051f83::t_56be1a4a501208 19
+abx_plugins/plugins/consolelog/tests/test_consolelog.py
+  s_f8414d52051f83::t_594654360c56db 17-18
+abx_plugins/plugins/defuddle/tests/test_defuddle.py
+  s_f8414d52051f83::t_57663f754f8362 10
+abx_plugins/plugins/dns/tests/test_dns.py
+  s_f8414d52051f83::t_7423e7349fc4c5 17
+abx_plugins/plugins/dom/tests/test_dom.py
+  s_f8414d52051f83::t_c9eba7fb534728 21
+abx_plugins/plugins/favicon/tests/test_favicon.py
+  s_f8414d52051f83::t_b0db2cd11cb795 23
+abx_plugins/plugins/forumdl/tests/test_forumdl.py
+  s_f8414d52051f83::t_dc36b0ce668680 21
+abx_plugins/plugins/gallerydl/tests/test_gallerydl.py
+  s_f8414d52051f83::t_5b3380316d200d 22
+abx_plugins/plugins/git/tests/test_git.py
+  s_f8414d52051f83::t_84b22d82ba3260 17
+abx_plugins/plugins/hashes/tests/test_hashes.py
+  s_f8414d52051f83::t_8bc2f3149f6c2b 15
+abx_plugins/plugins/htmltotext/tests/test_htmltotext.py
+  s_f8414d52051f83::t_f8befd8badb02b 13
+abx_plugins/plugins/infiniscroll/tests/test_infiniscroll.py
+  s_f8414d52051f83::t_0ad85391f6d302 23
+abx_plugins/plugins/istilldontcareaboutcookies/tests/test_istilldontcareaboutcookies.py
+  s_f8414d52051f83::t_c7b8f932c948e1 18
+abx_plugins/plugins/liteparse/tests/test_liteparse.py
+  s_f8414d52051f83::t_b4c18117c8c5de 32
+abx_plugins/plugins/mercury/tests/test_mercury.py
+  s_f8414d52051f83::t_be81a336ca0727 21
+abx_plugins/plugins/modalcloser/tests/test_modalcloser.py
+  s_f8414d52051f83::t_ee0f2e1a7dccaa 26
+abx_plugins/plugins/opendataloader/tests/test_opendataloader.py
+  s_f8414d52051f83::t_75b87b4483d524 22-24
+abx_plugins/plugins/papersdl/tests/test_papersdl.py
+  s_f8414d52051f83::t_baf2081351244e 20
+abx_plugins/plugins/parse_dom_outlinks/tests/test_parse_dom_outlinks.py
+  s_f8414d52051f83::t_351bbe299a4f21 16
+abx_plugins/plugins/parse_rss_urls/parse_rss_test_helpers.py
+  s_f8414d52051f83::t_8a3d4ac1bc1a4b 8
+abx_plugins/plugins/pdf/tests/test_pdf.py
+  s_f8414d52051f83::t_8d01ce0ec5dfaf 21
+abx_plugins/plugins/readability/tests/test_readability.py
+  s_f8414d52051f83::t_d10c8efba5062e 18
+abx_plugins/plugins/redirects/tests/test_redirects.py
+  s_f8414d52051f83::t_3fc33995c1f120 17
+abx_plugins/plugins/responses/tests/test_responses.py
+  s_f8414d52051f83::t_68b8b42dbb8416 20
+abx_plugins/plugins/screenshot/tests/test_screenshot.py
+  s_f8414d52051f83::t_89508f63d2f9c0 21
+abx_plugins/plugins/screenshot/tests/test_screenshot_browser_install_e2e.py
+  s_f8414d52051f83::t_61757b454dd870 11
+abx_plugins/plugins/search_backend_ripgrep/tests/test_ripgrep_detection.py
+  s_f8414d52051f83::t_81d58a3c930590 13
+abx_plugins/plugins/search_backend_ripgrep/tests/test_ripgrep_search.py
+  s_f8414d52051f83::t_e5fb6fb6977935 24
+abx_plugins/plugins/seo/tests/test_seo.py
+  s_f8414d52051f83::t_3b907575c9a8ad 15
+abx_plugins/plugins/singlefile/tests/test_singlefile.py
+  s_f8414d52051f83::t_d2f812cd5f2bc6 19
+abx_plugins/plugins/sslcerts/tests/test_sslcerts.py
+  s_f8414d52051f83::t_c58cfd714c92cc 18
+abx_plugins/plugins/staticfile/tests/test_staticfile.py
+  s_f8414d52051f83::t_c89576f88bb779 17
+abx_plugins/plugins/title/tests/test_title.py
+  s_f8414d52051f83::t_9631575ca6a6c9 19
+abx_plugins/plugins/trafilatura/tests/test_trafilatura.py
+  s_f8414d52051f83::t_9fae24a2a2aaa2 18
+abx_plugins/plugins/twocaptcha/tests/test_twocaptcha.py
+  s_f8414d52051f83::t_759abcbbfd0073 20
+abx_plugins/plugins/ublock/tests/test_ublock.py
+  s_f8414d52051f83::t_b9aaf35b6119f7 18
+abx_plugins/plugins/wget/tests/test_wget.py
+  s_f8414d52051f83::t_e1747fce52cfba 23
+abx_plugins/plugins/ytdlp/tests/test_ytdlp.py
+  s_f8414d52051f83::t_5224cf4a1a6380 22
+conftest.py
+  s_f8414d52051f83::t_184e7ee0123a2f 14
+tests/test_extra_context_helpers.py
+  s_f8414d52051f83::t_261ce32dda3448 12
+tests/test_plugin_config_metadata.py
+  s_f8414d52051f83::t_71716f680b9f39 7
+tests/test_runtime_path_isolation.py
+  s_f8414d52051f83::t_d370869b70976d 8
+tests/test_staticfile_skip_helpers.py
+  s_f8414d52051f83::t_075a60dc6dcac2 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "4f511ae44e62a7c01b7615669ad287b98af66b3d",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
