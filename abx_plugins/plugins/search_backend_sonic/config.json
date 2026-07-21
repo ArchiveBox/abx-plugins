@@ -8,14 +8,9 @@
   "required_binaries": [
     {
       "name": "{SONIC_BINARY}",
-      "binproviders": "env,apt,brew,cargo",
+      "binproviders": "env,brew,cargo",
       "min_version": null,
       "overrides": {
-        "apt": {
-          "install_args": [
-            "sonic"
-          ]
-        },
         "brew": {
           "install_args": [
             "sonic"

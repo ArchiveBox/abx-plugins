@@ -29,9 +29,9 @@ Most users run these plugins through ArchiveBox or `abx-dl`:
 ```bash
 output_dir="$(mktemp -d)"
 trap 'rm -rf -- "$output_dir"' EXIT
-abx-dl plugins
-abx-dl install chrome singlefile ublock
-abx-dl dl --dir "$output_dir" --plugins=title,screenshot,pdf 'https://example.com'
+uv run --no-sync --no-sources abx-dl plugins
+uv run --no-sync --no-sources abx-dl install chrome singlefile ublock
+uv run --no-sync --no-sources abx-dl dl --dir "$output_dir" --plugins=title,screenshot,pdf 'https://example.com'
 ```
 
 ## Basic Usage

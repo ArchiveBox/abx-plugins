@@ -31,9 +31,9 @@ uv run pytest --collect-only -q
 Inspect the installed plugin runtime through `abx-dl`:
 
 ```bash
-abx-dl version
-abx-dl config --get TITLE_ENABLED
-abx-dl plugins title
+uv run --no-sync --no-sources abx-dl version
+uv run --no-sync --no-sources abx-dl config --get TITLE_ENABLED
+uv run --no-sync --no-sources abx-dl plugins title
 ```
 
 ## Basic Usage

@@ -34,14 +34,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          depth: 0
+          fetch-depth: 0
 
       - name: Clone abxbus, abxpkg, abx-dl, archivebox
         run: |
-          git clone --depth=1 https://github.com/ArchiveBox/abxpkg.git "${{ runner.workspace }}/abxpkg"
-          git clone --depth=1 https://github.com/ArchiveBox/abxbus.git "${{ runner.workspace }}/abxbus"
-          git clone --depth=1 https://github.com/ArchiveBox/abx-dl.git "${{ runner.workspace }}/abx-dl"
-          git clone --depth=1 https://github.com/ArchiveBox/ArchiveBox.git "${{ runner.workspace }}/archivebox"
+          git clone --depth=1 --branch v1.11.278 https://github.com/ArchiveBox/abxpkg.git "${{ runner.workspace }}/abxpkg"
+          git clone --depth=1 --branch 2.5.38 https://github.com/ArchiveBox/abxbus.git "${{ runner.workspace }}/abxbus"
+          git clone --depth=1 --branch v1.11.262 https://github.com/ArchiveBox/abx-dl.git "${{ runner.workspace }}/abx-dl"
+          git clone --depth=1 --branch v0.9.31-rc https://github.com/ArchiveBox/ArchiveBox.git "${{ runner.workspace }}/archivebox"
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v5

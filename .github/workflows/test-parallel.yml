@@ -3,13 +3,13 @@ name: Parallel Tests
 on:
   workflow_dispatch:
   pull_request:
-    branches: [dev, main, master]
+    branches: [main]
   push:
-    branches: [dev, main, master]
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   PYTHONIOENCODING: utf-8
@@ -34,10 +34,9 @@ jobs:
           echo "LIB_DIR=$RUNNER_TEMP/abx-lib" >> "$GITHUB_ENV"
           echo "ABXPKG_LIB_DIR=$RUNNER_TEMP/abx-lib" >> "$GITHUB_ENV"
 
-      - name: Clone runtime repositories
+      - name: Clone abx-dl release for documentation examples
         run: |
-          git clone --depth=1 https://github.com/ArchiveBox/abxpkg.git "${{ runner.temp }}/abxpkg"
-          git clone --depth=1 https://github.com/ArchiveBox/abx-dl.git "${{ runner.temp }}/abx-dl"
+          git clone --depth=1 --branch v1.11.262 https://github.com/ArchiveBox/abx-dl.git "${{ runner.temp }}/abx-dl"
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
@@ -71,7 +70,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/uv
-          key: ${{ runner.os }}-3.13-uv-${{ hashFiles('pyproject.toml') }}
+          key: ${{ runner.os }}-3.13-uv-${{ hashFiles('pyproject.toml', 'uv.lock') }}
           restore-keys: |
             ${{ runner.os }}-3.13-uv-
 
@@ -86,20 +85,13 @@ jobs:
 
       - name: Install dependencies with uv
         run: |
-          uv venv
-          uv pip install --group dev \
-            -e "${{ runner.temp }}/abxpkg" \
-            -e "${{ runner.temp }}/abx-dl" \
-            -e .
+          uv sync --locked --dev --no-sources
+          uv pip install --no-deps -e "${{ runner.temp }}/abx-dl"
 
       - name: Run prek
-        env:
-          PYTHONPATH: ${{ runner.temp }}/abxpkg
         run: uv run --no-sync --no-sources prek run --all-files
 
       - name: Run documentation code blocks
-        env:
-          PYTHONPATH: ${{ runner.temp }}/abxpkg
         run: |
           plugin_readmes=$(find abx_plugins/plugins -name README.md -type f | sort)
           uv run --no-sync --no-sources pytest -vv --tb=long \
@@ -120,12 +112,18 @@ jobs:
       - name: Discover test files
         id: set-matrix
         run: |
-          plugin_tests=$(find abx_plugins/plugins -path "*/tests/test_*.py" -type f | sort)
+          plugin_tests=$(
+            {
+              find abx_plugins/plugins -path "*/tests/test_*.py" -type f
+              find abx_plugins/plugins -mindepth 2 -maxdepth 2 -name "test_*.py" -type f
+            } | sort -u
+          )
           root_tests=""
           if [ -d tests ]; then
             root_tests=$(find tests -path "*/test_*.py" -type f | sort)
           fi
           all_tests=$(printf "%s\n%s\n" "$plugin_tests" "$root_tests" | sed '/^$/d')
+          test -n "$all_tests"
 
           json_array="["
           first=true
@@ -166,7 +164,7 @@ jobs:
   run-tests:
     name: ${{ matrix.test.name }}
     runs-on: ubuntu-24.04
-    needs: [prek, discover-tests]
+    needs: [discover-tests]
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -184,9 +182,6 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 1
-
-      - name: Clone abxpkg
-        run: git clone --depth=1 https://github.com/ArchiveBox/abxpkg.git "${{ runner.temp }}/abxpkg"
 
       - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v5
@@ -208,7 +203,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/uv
-          key: ${{ runner.os }}-${{ matrix.python }}-uv-${{ hashFiles('pyproject.toml') }}
+          key: ${{ runner.os }}-${{ matrix.python }}-uv-${{ hashFiles('pyproject.toml', 'uv.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.python }}-uv-
 
@@ -240,9 +235,7 @@ jobs:
           brew --version
 
       - name: Install dependencies with uv
-        run: |
-          uv venv
-          uv pip install --group dev -e "${{ runner.temp }}/abxpkg" -e .
+        run: uv sync --locked --dev --no-sources
 
       - name: Select Chromium for extension-capable CDP
         if: ${{ matrix.test.needs_chromium }}
@@ -267,8 +260,7 @@ jobs:
 
       - name: Run test - ${{ matrix.test.name }}
         env:
-          PYTHONPATH: ${{ runner.temp }}/abxpkg
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           CHROME_HEADLESS: "True"
         run: |
-          uv run --no-sync --no-sources pytest -xvs -rA "${{ matrix.test.path }}" --basetemp="$RUNNER_TEMP/pytest-out"
+          uv run --no-sync --no-sources pytest -vs -rA "${{ matrix.test.path }}" --basetemp="$RUNNER_TEMP/pytest-out"
