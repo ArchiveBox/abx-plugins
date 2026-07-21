@@ -80,6 +80,7 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 }
 process.chdir(OUTPUT_DIR);
 const CHROME_SESSION_DIR = ".";
+const TARGET_LOCK_FILE = path.join(OUTPUT_DIR, ".target.lock");
 
 let finalStatus = "failed";
 let finalOutput = "";
@@ -92,6 +93,7 @@ let currentCdpUrl = null;
 let monitorBrowser = null;
 let monitorPage = null;
 let shuttingDown = false;
+let cleanupPromise = null;
 const SNAPSHOT_PAGE_MARKER_FILES = ["target_id.txt", "url.txt"];
 // The tab hook only owns page-level markers. Browser markers (`cdp_url.txt`,
 // `chrome.pid`, `browser.json`) can live in the same chrome dir in crawl and
@@ -154,6 +156,30 @@ function cleanupSnapshotArtifacts(reason) {
   cleanupFiles(SNAPSHOT_ARTIFACT_FILES, reason);
 }
 
+function getPublishedTargetId() {
+  try {
+    return fs
+      .readFileSync(path.join(OUTPUT_DIR, "target_id.txt"), "utf-8")
+      .trim();
+  } catch (error) {
+    return null;
+  }
+}
+
+async function cleanupOwnedSnapshotPageMarkers(expectedTargetId, reason) {
+  if (!expectedTargetId) return false;
+  const releaseLock = await acquireSessionLock(TARGET_LOCK_FILE);
+  try {
+    if (getPublishedTargetId() !== expectedTargetId) {
+      return false;
+    }
+    cleanupSnapshotPageMarkers(reason);
+    return true;
+  } finally {
+    releaseLock();
+  }
+}
+
 async function stopTargetMonitor() {
   if (monitorPage) {
     try {
@@ -196,9 +222,22 @@ async function startTargetMonitor() {
     console.error(
       `[*] Snapshot target ${expectedTargetId} closed unexpectedly, clearing snapshot page markers`
     );
-    targetId = null;
-    cleanupSnapshotPageMarkers(`target ${expectedTargetId} disappeared`);
-    await stopTargetMonitor();
+    let markersCleaned = false;
+    try {
+      markersCleaned = await cleanupOwnedSnapshotPageMarkers(
+        expectedTargetId,
+        `target ${expectedTargetId} disappeared`
+      );
+    } catch (error) {
+      console.error(
+        `[*] Could not clean markers for closed target ${expectedTargetId}: ${error.message}`
+      );
+    } finally {
+      if (markersCleaned && targetId === expectedTargetId) {
+        targetId = null;
+      }
+      await stopTargetMonitor();
+    }
   });
 }
 
@@ -213,34 +252,50 @@ async function startTargetMonitorBestEffort() {
 }
 
 // Cleanup handler for SIGTERM - close this snapshot's tab
-async function cleanup(signal) {
+async function cleanupOnce(signal) {
   if (signal) {
     console.error(`\nReceived ${signal}, closing chrome tab...`);
   }
   shuttingDown = true;
-  try {
-    if (keepAliveTimer) {
-      clearInterval(keepAliveTimer);
-      keepAliveTimer = null;
-    }
-    await stopTargetMonitor();
-    const currentSession = await waitForChromeSessionState(OUTPUT_DIR, {
-      timeoutMs: 250,
-    });
-    const cdpUrl = currentCdpUrl || currentSession?.cdpUrl;
-    const currentTargetId = targetId || currentSession?.targetId;
-    await closeTabInChromeSession({
-      cdpUrl,
-      targetId: currentTargetId,
-      puppeteer,
-    });
-  } catch (e) {
-    // Best effort
-  }
-  cleanupSnapshotArtifacts("snapshot teardown");
+  const ownedTargetId = targetId;
   targetId = null;
+  if (keepAliveTimer) {
+    clearInterval(keepAliveTimer);
+    keepAliveTimer = null;
+  }
+  await stopTargetMonitor();
+  if (ownedTargetId) {
+    try {
+      await closeTabInChromeSession({
+        cdpUrl: currentCdpUrl,
+        targetId: ownedTargetId,
+        puppeteer,
+      });
+    } catch (error) {
+      console.error(
+        `[*] Could not close snapshot target ${ownedTargetId}: ${error.message}`
+      );
+    }
+    try {
+      await cleanupOwnedSnapshotPageMarkers(
+        ownedTargetId,
+        "snapshot teardown"
+      );
+    } catch (error) {
+      console.error(
+        `[*] Could not clean snapshot target markers ${ownedTargetId}: ${error.message}`
+      );
+    }
+  }
   emitResult(finalStatus);
   process.exit(finalStatus === "succeeded" ? 0 : 1);
+}
+
+function cleanup(signal) {
+  if (!cleanupPromise) {
+    cleanupPromise = cleanupOnce(signal);
+  }
+  return cleanupPromise;
 }
 
 // Register signal handlers
@@ -262,9 +317,7 @@ async function main() {
   let version = "";
 
   try {
-    releaseLock = await acquireSessionLock(
-      path.join(OUTPUT_DIR, ".target.lock")
-    );
+    releaseLock = await acquireSessionLock(TARGET_LOCK_FILE);
     const isolation =
       getEnv("CHROME_ISOLATION", "crawl").toLowerCase() === "snapshot"
         ? "snapshot"

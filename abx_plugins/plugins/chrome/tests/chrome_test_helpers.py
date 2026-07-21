@@ -825,15 +825,58 @@ def fetch_devtools_targets(cdp_url: str) -> list[dict[str, Any]]:
     return payload
 
 
-def close_target_via_cdp(cdp_url: str, target_id: str) -> None:
-    """Close a real DevTools target through Chrome's HTTP endpoint."""
-    port = port_from_cdp_url(cdp_url)
-    request = urllib.request.Request(
-        f"http://127.0.0.1:{port}/json/close/{target_id}",
-        method="PUT",
+def close_target_and_wait_destroyed(
+    cdp_url: str,
+    target_id: str,
+    env: dict[str, str],
+) -> None:
+    """Close a target and wait for Chrome's matching targetdestroyed event."""
+    script = r"""
+const chromeUtils = require(process.argv[1]);
+const cdpUrl = process.argv[2];
+const expectedTargetId = process.argv[3];
+
+(async () => {
+  const puppeteer = chromeUtils.resolvePuppeteerModule();
+  const browser = await chromeUtils.connectToBrowserEndpoint(puppeteer, cdpUrl, {
+    defaultViewport: null,
+  });
+  try {
+    const destroyed = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error(`Timed out waiting for targetdestroyed: ${expectedTargetId}`));
+      }, 10000);
+      browser.on("targetdestroyed", (target) => {
+        if (chromeUtils.getTargetIdFromTarget(target) !== expectedTargetId) return;
+        clearTimeout(timeout);
+        resolve();
+      });
+    });
+    const session = await browser.target().createCDPSession();
+    const result = await session.send("Target.closeTarget", {
+      targetId: expectedTargetId,
+    });
+    if (!result.success) {
+      throw new Error(`Target.closeTarget rejected ${expectedTargetId}`);
+    }
+    await destroyed;
+    await session.detach();
+  } finally {
+    await browser.disconnect().catch(() => {});
+  }
+})().catch((error) => {
+  console.error(error && (error.stack || error.message || String(error)));
+  process.exit(1);
+});
+"""
+    result = subprocess.run(
+        [env["NODE_BINARY"], "-e", script, str(CHROME_UTILS), cdp_url, target_id],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        env=env,
     )
-    with urllib.request.urlopen(request, timeout=10):
-        return
+    assert result.returncode == 0, result.stderr
 
 
 def create_target_via_cdp(cdp_url: str, url: str) -> dict[str, Any]:

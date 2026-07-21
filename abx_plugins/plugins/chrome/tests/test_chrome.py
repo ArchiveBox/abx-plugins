@@ -38,7 +38,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_UTILS,
     LoggedPopen,
     _call_chrome_utils,
-    close_target_via_cdp,
+    close_target_and_wait_destroyed,
     create_target_via_cdp,
     fetch_devtools_targets,
     get_extensions_dir,
@@ -3037,6 +3037,58 @@ def test_concurrent_same_dir_reuses_one_browser_and_one_target(chrome_test_url):
                     pass
 
 
+def test_tab_teardown_preserves_completed_navigation_result(chrome_test_url):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        shared_dir = Path(tmpdir) / "shared"
+        chrome_dir = shared_dir / "chrome"
+        chrome_dir.mkdir(parents=True)
+        env = _isolated_test_env(
+            tmpdir,
+            CRAWL_DIR=str(shared_dir),
+            SNAP_DIR=str(shared_dir),
+            CHROME_HEADLESS="true",
+        )
+        chrome_launch_process = None
+        tab_process = None
+        navigation_state = {
+            "url": chrome_test_url,
+            "finalUrl": chrome_test_url,
+            "status": 200,
+        }
+        navigation_file = chrome_dir / "navigation.json"
+        try:
+            chrome_launch_process, _cdp_url = launch_chromium_session(
+                env=env,
+                chrome_dir=chrome_dir,
+                crawl_id="test-navigation-ownership",
+            )
+            tab_process = launch_snapshot_tab(
+                snapshot_chrome_dir=chrome_dir,
+                tab_env=env,
+                test_url=chrome_test_url,
+                snapshot_id="snap-navigation-ownership",
+                crawl_id="test-navigation-ownership",
+            )
+            navigation_file.write_text(json.dumps(navigation_state))
+
+            tab_process.send_signal(signal.SIGTERM)
+            tab_process.wait(timeout=10)
+            tab_process = None
+
+            assert json.loads(navigation_file.read_text()) == navigation_state
+            assert not (chrome_dir / "target_id.txt").exists()
+            assert not (chrome_dir / "url.txt").exists()
+        finally:
+            for proc in (tab_process, chrome_launch_process):
+                if proc is None:
+                    continue
+                try:
+                    proc.send_signal(signal.SIGTERM)
+                    proc.wait(timeout=10)
+                except Exception:
+                    pass
+
+
 def test_target_crash_mid_navigation_recovers_with_fresh_tab(
     chrome_test_urls,
     httpserver,
@@ -3104,7 +3156,7 @@ def test_target_crash_mid_navigation_recovers_with_fresh_tab(
                 "navigation hook did not request the blocking test page"
             )
             try:
-                close_target_via_cdp(cdp_url, target_before)
+                close_target_and_wait_destroyed(cdp_url, target_before, env)
             finally:
                 navigation_release.set()
             remaining_targets = {
@@ -3134,6 +3186,21 @@ def test_target_crash_mid_navigation_recovers_with_fresh_tab(
                 snapshot_id="snap-target-crash",
                 crawl_id="test-target-crash",
             )
+            replacement_target = (chrome_dir / "target_id.txt").read_text().strip()
+            assert replacement_target != target_before
+
+            tab_process.send_signal(signal.SIGTERM)
+            tab_process.wait(timeout=10)
+            tab_process = None
+            assert (
+                chrome_dir / "target_id.txt"
+            ).read_text().strip() == replacement_target
+            assert replacement_target in {
+                target["id"]
+                for target in fetch_devtools_targets(cdp_url)
+                if target.get("type") == "page" and target.get("id")
+            }
+
             wait_result = subprocess.run(
                 [
                     str(CHROME_WAIT_HOOK),
@@ -3152,7 +3219,12 @@ def test_target_crash_mid_navigation_recovers_with_fresh_tab(
             )
         finally:
             navigation_release.set()
-            for proc in (replacement_tab_process, tab_process, chrome_launch_process):
+            for proc in (
+                navigate_process,
+                replacement_tab_process,
+                tab_process,
+                chrome_launch_process,
+            ):
                 if proc is None:
                     continue
                 try:
