@@ -1,0 +1,80 @@
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_2a5546947422e5 69,308
+  s_f8414d52051f83::t_bb1f975967a5dc 78,80-81,317,319-320,338-340,343-344
+  s_f8414d52051f83::t_a897b0dff38cd1 61-68,70-77,79,82-88,302-307,309-316,318,321-323
+  s_f8414d52051f83::t_f5496561e35373 240,256,259-260,271-273,326,347,350,354,356-362
+  s_f8414d52051f83::t_11c06b2bae1e3f 248-253
+  s_f8414d52051f83::t_128333346da07e 11-12
+  s_f8414d52051f83::t_0c59f22a777dd9 341-342
+  s_f8414d52051f83::t_92d5af38777f15 331-337
+  s_f8414d52051f83::t_15e051db2564e9 324
+.github/workflows/pages.yml
+  s_f8414d52051f83::t_128333346da07e 16
+abx_plugins/plugins/opendataloader/config.json
+  s_f8414d52051f83::t_128333346da07e 11
+tests/test_plugin_config_metadata.py
+  s_f8414d52051f83::t_f5496561e35373 175-206
+  s_f8414d52051f83::t_eb0c04c7eeb3ae 207-209
+.github/ci_test_shards.py
+  s_f8414d52051f83::t_f5496561e35373 1-5,7-12,19-51,53-104
+  s_f8414d52051f83::t_004653120f5ff5 6,13-18,52
+  s_f8414d52051f83::t_dab3d0d4983937 105-107
+abx_plugins/plugins/chrome/config.json
+  s_f8414d52051f83::t_33812d54e3893c 56
+bin/setup_monorepo.sh
+  s_f8414d52051f83::t_3e69dff1c04fb9 36-121,123-136,138-139,148-156,158-160,274-275
+  s_f8414d52051f83::t_57e9a55634e726 157
+  s_f8414d52051f83::t_0e1628ad0f64ee 122,137,140-147
+pyproject.toml
+  s_f8414d52051f83::t_f462f75db143de 3,23
+.github/configs/ci-tooling.json
+  s_f8414d52051f83::t_bb1f975967a5dc 10-25
+  s_f8414d52051f83::t_a897b0dff38cd1 1-9,26-53
+abx_plugins/plugins/parse_rss_urls/config.json
+  s_f8414d52051f83::t_128333346da07e 11
+.github/workflows/claude.yml
+  s_f8414d52051f83::t_f462f75db143de 42-44
+  s_f8414d52051f83::t_a897b0dff38cd1 69-70,72-74,76-77,79-86,88,92-95
+  s_f8414d52051f83::t_2a5546947422e5 78
+  s_f8414d52051f83::t_bb1f975967a5dc 87,89-90
+  s_f8414d52051f83::t_190bcef099f4c4 91
+abx_plugins/plugins/papersdl/config.json
+  s_f8414d52051f83::t_128333346da07e 11
+README.md
+  s_f8414d52051f83::t_2fd5b44e58561f 65
+  s_f8414d52051f83::t_128333346da07e 62
+abx_plugins/plugins/opencode/config.json
+  s_f8414d52051f83::t_2ffcc21635698e 25
+.github/workflows/release.yml
+  s_f8414d52051f83::t_d755dcd63dc22b 20
+abx_plugins/plugins/mercury/config.json
+  s_f8414d52051f83::t_128333346da07e 11
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_f8414d52051f83::t_b364a67e598eb2 1872-1874,1885-1887
+abx_plugins/plugins/trafilatura/config.json
+  s_f8414d52051f83::t_128333346da07e 11
+.pre-commit-config.yaml
+  s_f8414d52051f83::t_a897b0dff38cd1 53
+  s_f8414d52051f83::t_ef424c62955c57 51
+  s_f8414d52051f83::t_780bdb7439a213 46-50,52
+abx_plugins/plugins/forumdl/config.json
+  s_f8414d52051f83::t_128333346da07e 11
+uv.lock
+  s_f8414d52051f83::t_bfb2de3b7e822b 6,12,16,51,95,104,106
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "42015820f89e59c21ebd6a7c79d5ff8e7e3261cb",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
