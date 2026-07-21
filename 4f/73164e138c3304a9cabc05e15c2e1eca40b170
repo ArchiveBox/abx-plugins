@@ -1,0 +1,19 @@
+abx_plugins/plugins/istilldontcareaboutcookies/on_Snapshot__13_istilldontcareaboutcookies.daemon.bg.js
+  s_f8414d52051f83::t_38eadf9f665a3d 151,164,169-176,189,199
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "4f73164e138c3304a9cabc05e15c2e1eca40b170",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
