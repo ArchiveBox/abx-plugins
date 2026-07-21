@@ -52,15 +52,12 @@ OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 # get_snapshot_metadata() doesn't list our own empty dir as an extractor output
 
 DEFAULT_PROMPT = (
-    "Analyze all the extractor output directories in this snapshot. "
-    "Look for duplicate or redundant outputs across plugins "
-    "(e.g. multiple HTML extractions, multiple text extractions, "
-    "multiple URL extraction outputs, etc.). "
-    "For each group of similar outputs, inspect the content and determine "
-    "which version is the best quality. Delete the inferior/redundant versions, "
-    "keeping only the best one. Also remove any unnecessary temporary files, "
-    "empty directories, or incomplete outputs. "
-    "Write a summary of what you cleaned up to cleanup_report.txt in your output directory."
+    "Make one pass over the extractor outputs listed in the snapshot context. "
+    "Inspect each potentially redundant group once, keep its best-quality output, "
+    "and delete only clearly inferior duplicates, incomplete temporary files, and "
+    "empty directories. Then write cleanup_report.txt describing every deletion "
+    "and every group retained. Do not repeat an inspection or revisit a completed "
+    "decision."
 )
 
 
@@ -125,25 +122,18 @@ def main(url: str, snapshot_id: str):
                 f"the snapshot directory: {SNAP_DIR}\n"
                 "You may run any bash commands you need (rm, mv, cp, find, etc.) as long as "
                 "ALL paths are within the snapshot directory above.\n\n"
-                f"You may write your report to {OUTPUT_DIR}/cleanup_report.txt and you may "
-                "modify or delete redundant extractor outputs inside the snapshot directory.\n"
+                "You may modify or delete redundant extractor outputs inside the snapshot "
+                "directory.\n"
                 "CRITICAL RESTRICTION: You MUST NOT read, write, modify, or delete anything "
                 f"outside of {SNAP_DIR}. Do not use absolute paths to other directories. "
                 "Do not use .. to escape the snapshot directory. Every file operation must "
                 "target a path within the snapshot directory.\n\n"
-                "## Procedure\n"
-                "1. First, list and inspect all extractor output directories\n"
-                "2. Identify groups of similar/redundant outputs\n"
-                "3. Compare quality within each group\n"
-                "4. Delete only the clearly inferior/redundant versions\n"
-                "5. Never delete the hashes/ directory or any .json metadata files\n"
-                "6. REQUIRED: You MUST write a detailed report of what was cleaned up "
-                f"and why to exactly this path: {OUTPUT_DIR}/cleanup_report.txt\n"
-                "   This file MUST exist when you are done. Always create it, even if "
-                "   no cleanup was needed (in that case, explain why nothing was removed).\n"
-                "7. The task is not complete until cleanup_report.txt exists on disk.\n"
-                "   Do not merely describe the cleanup in your response. You must use Write/Edit "
-                "   to create the file itself, then verify it exists and is non-empty."
+                "## Invariants\n"
+                "- Never delete hashes/ or any .json metadata file.\n"
+                "- Inspect a file or directory at most once and do not revisit completed decisions.\n"
+                "- Make one cleanup pass; do not repeatedly inventory or verify the snapshot.\n"
+                f"- Finish by writing a non-empty report to {OUTPUT_DIR}/cleanup_report.txt, "
+                "even when nothing was removed. Stop immediately after writing the report."
             ),
         )
 
@@ -153,15 +143,8 @@ def main(url: str, snapshot_id: str):
         # Compose the full prompt
         full_prompt = (
             f"URL being archived: {url}\n\n"
-            f"Snapshot directory: {SNAP_DIR}\n"
-            f"Your output directory: {OUTPUT_DIR}\n\n"
             f"Task:\n{user_prompt}\n\n"
-            f"IMPORTANT: When finished, you MUST write your report to "
-            f"{OUTPUT_DIR}/cleanup_report.txt\n"
-            "Completion requirements:\n"
-            "1. cleanup_report.txt must exist on disk before you finish\n"
-            "2. Do not rely on your chat response as the report\n"
-            "3. Verify the file exists and is non-empty before finishing"
+            f"Write the final report to {OUTPUT_DIR}/cleanup_report.txt and then stop."
         )
 
         # Run Claude Code with full permissions within SNAP_DIR.
@@ -208,6 +191,7 @@ def main(url: str, snapshot_id: str):
             emit_archive_result_record("succeeded", f"{PLUGIN_DIR}/cleanup_report.txt")
         else:
             emit_archive_result_record("failed", "cleanup_report.txt was not created")
+            sys.exit(1)
 
         sys.exit(0)
 
