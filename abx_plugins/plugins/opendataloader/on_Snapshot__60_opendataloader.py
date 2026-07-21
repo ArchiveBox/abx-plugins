@@ -29,6 +29,7 @@ Note: opendataloader-pdf handles PDF files only. Standalone images (JPG, PNG)
 
 import json
 import os
+import signal
 import subprocess
 import sys
 import tempfile
@@ -71,8 +72,14 @@ def _opendataloader_env(java_binary: str) -> dict[str, str] | None:
         return None
 
     env = os.environ.copy()
+    binary_dir = str(java_path.parent)
+    current_path = env.get("PATH", "")
+    env["PATH"] = os.pathsep.join(path for path in (binary_dir, current_path) if path)
     java_home = java_path.resolve().parent.parent
-    if (java_home / "bin" / "java").is_file():
+    # macOS /usr/bin/java is a launcher, not a JDK home.  Treat a candidate as
+    # JAVA_HOME only when it has the JDK/JRE release marker; otherwise preserve
+    # the runner's JAVA_HOME so the launcher can select that runtime normally.
+    if (java_home / "bin" / "java").is_file() and (java_home / "release").is_file():
         env["JAVA_HOME"] = str(java_home)
     return env
 
@@ -119,13 +126,27 @@ def _run_opendataloader(
 ) -> Path | None:
     """Run opendataloader-pdf on a single file with a given format, return output path or None."""
     cmd = [binary, "-f", fmt, "-o", str(out_dir), "-q", *extra_args, str(source_file)]
-    result = subprocess.run(
+    process = subprocess.Popen(
         cmd,
-        capture_output=True,
-        timeout=timeout,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
         env=env,
+        start_new_session=True,
     )
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        # opendataloader-pdf is a Python wrapper around a Java subprocess. Kill
+        # the owned process group so a timed-out extraction cannot leave the
+        # JVM alive holding inherited pipes or consuming the runner CPU.
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        process.communicate()
+        raise
+    result = subprocess.CompletedProcess(cmd, process.returncode, stdout, stderr)
     if result.stderr:
         print(result.stderr, file=sys.stderr, end="")
     if result.returncode != 0:

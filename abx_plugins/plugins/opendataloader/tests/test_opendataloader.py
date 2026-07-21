@@ -12,6 +12,7 @@ Tests verify:
 
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -43,8 +44,8 @@ def get_opendataloader_binary_path() -> str | None:
         return _opendataloader_binary_path
 
     binary = install_required_binary_from_config(PLUGIN_DIR, "opendataloader-pdf")
-    if binary and binary.abspath:
-        _opendataloader_binary_path = str(binary.abspath)
+    if binary and binary.loaded_abspath:
+        _opendataloader_binary_path = str(binary.loaded_abspath)
         return _opendataloader_binary_path
 
     return None
@@ -69,8 +70,8 @@ def get_java_binary_path() -> str | None:
         return _java_binary_path
 
     binary = install_required_binary_from_config(PLUGIN_DIR, "java")
-    if binary and binary.abspath:
-        _java_binary_path = str(binary.abspath)
+    if binary and binary.loaded_abspath:
+        _java_binary_path = str(binary.loaded_abspath)
         return _java_binary_path
 
     return None
@@ -126,7 +127,7 @@ def test_install_hook_requests_java_dependency():
     assert java_record["binproviders"] == "env,apt,brew"
 
 
-def test_opendataloader_env_uses_abxpkg_resolved_java_without_changing_path():
+def test_opendataloader_env_executes_exact_abxpkg_selected_java():
     from abx_plugins.plugins.opendataloader.on_Snapshot__60_opendataloader import (
         _opendataloader_env,
     )
@@ -136,14 +137,28 @@ def test_opendataloader_env_uses_abxpkg_resolved_java_without_changing_path():
     assert java_path.is_absolute()
     assert java_path.is_file()
 
-    original_path = os.environ.get("PATH")
     env = _opendataloader_env(str(java_path))
 
     assert env is not None
-    assert env.get("PATH") == original_path
+    selected_java = shutil.which("java", path=env["PATH"])
+    assert selected_java is not None
+    assert Path(selected_java).samefile(java_path)
     resolved_java = java_path.resolve()
-    assert env["JAVA_HOME"] == str(resolved_java.parent.parent)
-    assert (Path(env["JAVA_HOME"]) / "bin" / "java").samefile(resolved_java)
+    java_home = resolved_java.parent.parent
+    if (java_home / "release").is_file():
+        assert env["JAVA_HOME"] == str(java_home)
+        assert (Path(env["JAVA_HOME"]) / "bin" / "java").samefile(resolved_java)
+    else:
+        assert env.get("JAVA_HOME") == os.environ.get("JAVA_HOME")
+
+    version = subprocess.run(
+        ["java", "--version"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    assert version.returncode == 0, version.stderr
 
 
 def test_config_disabled_skips():
