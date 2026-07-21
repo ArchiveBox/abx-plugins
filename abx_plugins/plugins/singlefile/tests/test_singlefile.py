@@ -432,7 +432,6 @@ function collectTargets(browser, extensionId) {
             `chrome-extension://${extensionId}${OFFSCREEN_PATH}`,
             { waitUntil: 'load', timeout: 10000 }
         );
-        await new Promise(resolve => setTimeout(resolve, 1000));
 
         const session = await offscreenPage.target().createCDPSession();
         const beforeClose = collectTargets(browser, extensionId);
@@ -441,31 +440,27 @@ function collectTargets(browser, extensionId) {
             throw new Error(`Expected SingleFile service worker target, got: ${JSON.stringify(beforeClose)}`);
         }
 
+        const serviceWorkerDestroyed = new Promise(resolve => {
+            const onDestroyed = target => {
+                const id = target._targetId || target._targetInfo?.targetId || null;
+                if (id === serviceWorker.id) {
+                    browser.off('targetdestroyed', onDestroyed);
+                    resolve();
+                }
+            };
+            browser.on('targetdestroyed', onDestroyed);
+        });
         const closeResult = await session.send('Target.closeTarget', { targetId: serviceWorker.id });
-        const deadline = Date.now() + 5000;
-        let afterClose = beforeClose;
-        while (Date.now() < deadline) {
-            afterClose = collectTargets(browser, extensionId);
-            const hasServiceWorker = afterClose.some(target => target.type === 'service_worker');
-            const hasOffscreenPage = afterClose.some(
-                target => target.type === 'page' && target.url.endsWith(OFFSCREEN_PATH)
-            );
-            if (!hasServiceWorker && hasOffscreenPage) break;
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
+        await serviceWorkerDestroyed;
+        const afterClose = collectTargets(browser, extensionId);
 
+        const serviceWorkerCreated = browser.waitForTarget(
+            target => target.type() === 'service_worker' && target.url() === preferredTargetUrl,
+            { timeout: 5000 }
+        );
         await offscreenPage.evaluate(() => chrome.runtime.sendMessage({ method: 'ping' }));
-
-        let afterWake = afterClose;
-        while (Date.now() < deadline) {
-            afterWake = collectTargets(browser, extensionId);
-            const hasServiceWorker = afterWake.some(target => target.type === 'service_worker');
-            const hasOffscreenPage = afterWake.some(
-                target => target.type === 'page' && target.url.endsWith(OFFSCREEN_PATH)
-            );
-            if (hasServiceWorker && hasOffscreenPage) break;
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
+        await serviceWorkerCreated;
+        const afterWake = collectTargets(browser, extensionId);
 
         const extension = {
             id: extensionId,

@@ -20,7 +20,6 @@ from abx_plugins.plugins.base.testing import (
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     _call_chrome_utils,
     CHROME_UTILS,
-    chrome_extension_install_env,
     chrome_session,
     get_test_env,
     get_machine_type,
@@ -66,22 +65,25 @@ def test_get_machine_type():
     )
 
 
-def test_get_lib_dir_with_env_var():
+def test_get_lib_dir_with_env_var(tmp_path: Path):
     """Test get_lib_dir() respects ABXPKG_LIB_DIR env var."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        custom_lib = Path(tmpdir) / "custom_lib"
-        custom_lib.mkdir()
-
-        old_lib_dir = os.environ.get("ABXPKG_LIB_DIR")
-        try:
-            os.environ["ABXPKG_LIB_DIR"] = str(custom_lib)
-            lib_dir = get_lib_dir()
-            assert lib_dir == custom_lib
-        finally:
-            if old_lib_dir:
-                os.environ["ABXPKG_LIB_DIR"] = old_lib_dir
-            else:
-                os.environ.pop("ABXPKG_LIB_DIR", None)
+    custom_lib = tmp_path / "custom_lib"
+    custom_lib.mkdir()
+    env = os.environ.copy()
+    env["ABXPKG_LIB_DIR"] = str(custom_lib)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_lib_dir; print(get_lib_dir())",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    assert Path(result.stdout.strip()) == custom_lib
 
 
 def test_get_node_modules_dir_resolves_runtime_env(ensure_chrome_test_prereqs):
@@ -108,27 +110,33 @@ def test_get_extensions_dir_default():
     assert ext_path.parent.name == "chromewebstore"
 
 
-def test_get_extensions_dir_ignores_persona_by_default():
+def test_get_extensions_dir_ignores_persona_by_default(tmp_path: Path):
     """Test get_extensions_dir() uses the provider-managed ABXPKG_LIB_DIR path by default."""
-    old_persona = os.environ.get("ACTIVE_PERSONA")
-    old_personas_dir = os.environ.get("PERSONAS_DIR")
-    try:
-        os.environ["ACTIVE_PERSONA"] = "TestPersona"
-        os.environ["PERSONAS_DIR"] = "/tmp/test-personas"
-        ext_dir = get_extensions_dir()
-        assert "TestPersona" not in ext_dir
-        assert "/tmp/test-personas" not in ext_dir
-        assert Path(ext_dir).name == "extensions"
-        assert Path(ext_dir).parent.name == "chromewebstore"
-    finally:
-        if old_persona:
-            os.environ["ACTIVE_PERSONA"] = old_persona
-        else:
-            os.environ.pop("ACTIVE_PERSONA", None)
-        if old_personas_dir:
-            os.environ["PERSONAS_DIR"] = old_personas_dir
-        else:
-            os.environ.pop("PERSONAS_DIR", None)
+    personas_dir = tmp_path / "test-personas"
+    env = os.environ.copy()
+    env.update(
+        {
+            "ACTIVE_PERSONA": "TestPersona",
+            "PERSONAS_DIR": str(personas_dir),
+        },
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_extensions_dir; print(get_extensions_dir())",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    ext_dir = result.stdout.strip()
+    assert "TestPersona" not in ext_dir
+    assert str(personas_dir) not in ext_dir
+    assert Path(ext_dir).name == "extensions"
+    assert Path(ext_dir).parent.name == "chromewebstore"
 
 
 def test_chrome_extension_install_env_isolates_inherited_extensions_dir(
@@ -136,15 +144,26 @@ def test_chrome_extension_install_env_isolates_inherited_extensions_dir(
 ):
     """An explicit install root must not reuse the process-wide extension cache."""
     inherited_extensions_dir = tmp_path / "global-lib" / "chromewebstore" / "extensions"
-    old_extensions_dir = os.environ.get("CHROMEWEBSTORE_EXTENSIONS_DIR")
-    try:
-        os.environ["CHROMEWEBSTORE_EXTENSIONS_DIR"] = str(inherited_extensions_dir)
-        env, extensions_dir = chrome_extension_install_env(tmp_path / "isolated")
-    finally:
-        if old_extensions_dir is None:
-            os.environ.pop("CHROMEWEBSTORE_EXTENSIONS_DIR", None)
-        else:
-            os.environ["CHROMEWEBSTORE_EXTENSIONS_DIR"] = old_extensions_dir
+    child_env = os.environ.copy()
+    child_env["CHROMEWEBSTORE_EXTENSIONS_DIR"] = str(inherited_extensions_dir)
+    script = """
+import json
+import sys
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_extension_install_env
+env, extensions_dir = chrome_extension_install_env(sys.argv[1])
+print(json.dumps({'env': env, 'extensions_dir': str(extensions_dir)}))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(tmp_path / "isolated")],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=child_env,
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    env = payload["env"]
+    extensions_dir = Path(payload["extensions_dir"])
 
     expected = tmp_path / "isolated" / "lib" / "chromewebstore" / "extensions"
     assert extensions_dir == expected.resolve()
@@ -252,7 +271,22 @@ const chromeSessionDir = process.argv[2];
 const downloadDir = process.argv[3];
 const filename = 'abx-download.txt';
 const expectedPath = path.join(downloadDir, filename);
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function waitForDownload(filename) {
+  return new Promise((resolve, reject) => {
+    const watcher = fs.watch(downloadDir, (_eventType, changedName) => {
+      if (changedName && changedName.toString() === filename) {
+        clearTimeout(timeout);
+        watcher.close();
+        resolve();
+      }
+    });
+    const timeout = setTimeout(() => {
+      watcher.close();
+      reject(new Error(`Timed out waiting for download event for ${filename}`));
+    }, 15000);
+  });
+}
 
 (async () => {
   const { browser, page } = await chromeUtils.connectToPage({
@@ -264,6 +298,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
       page,
       downloadPath: downloadDir,
     });
+    const downloadCompleted = waitForDownload(filename);
     await page.bringToFront();
     await page.evaluate((name) => {
       const blob = new Blob(['archivebox-download-ok'], { type: 'text/plain' });
@@ -276,21 +311,13 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
       link.remove();
       setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     }, filename);
-
-    const deadline = Date.now() + 15000;
-    while (Date.now() < deadline) {
-      if (fs.existsSync(expectedPath) && fs.statSync(expectedPath).size > 0) {
-        process.stdout.write(JSON.stringify({
-          ok,
-          expectedPath,
-          pageUrl: page.url(),
-          content: fs.readFileSync(expectedPath, 'utf8'),
-        }));
-        return;
-      }
-      await sleep(200);
-    }
-    throw new Error(`Timed out waiting for download at ${expectedPath}`);
+    await downloadCompleted;
+    process.stdout.write(JSON.stringify({
+      ok,
+      expectedPath,
+      pageUrl: page.url(),
+      content: fs.readFileSync(expectedPath, 'utf8'),
+    }));
   } finally {
     await browser.disconnect();
   }
@@ -343,7 +370,6 @@ const path = require('path');
 const chromeUtils = require(process.argv[1]);
 const chromeSessionDir = process.argv[2];
 const downloadDir = process.argv[3];
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function triggerDownload(page, filename, content) {
   await page.bringToFront();
@@ -360,15 +386,23 @@ async function triggerDownload(page, filename, content) {
   }, filename, content);
 }
 
-async function waitForFile(filepath) {
-  const deadline = Date.now() + 15000;
-  while (Date.now() < deadline) {
-    if (fs.existsSync(filepath) && fs.statSync(filepath).size > 0) {
-      return fs.readFileSync(filepath, 'utf8');
-    }
-    await sleep(200);
-  }
-  throw new Error(`Timed out waiting for download at ${filepath}`);
+function waitForDownloads(filenames) {
+  return new Promise((resolve, reject) => {
+    const remaining = new Set(filenames);
+    const watcher = fs.watch(downloadDir, (_eventType, changedName) => {
+      if (!changedName) return;
+      remaining.delete(changedName.toString());
+      if (remaining.size === 0) {
+        clearTimeout(timeout);
+        watcher.close();
+        resolve();
+      }
+    });
+    const timeout = setTimeout(() => {
+      watcher.close();
+      reject(new Error(`Timed out waiting for download events: ${[...remaining]}`));
+    }, 15000);
+  });
 }
 
 (async () => {
@@ -388,8 +422,10 @@ async function waitForFile(filepath) {
       downloadPath: downloadDir,
     });
 
+    const downloadsCompleted = waitForDownloads(['one.txt', 'two.txt']);
     await triggerDownload(pageOne, 'one.txt', 'page-one-ok');
     await triggerDownload(pageTwo, 'two.txt', 'page-two-ok');
+    await downloadsCompleted;
 
     const onePath = path.join(downloadDir, 'one.txt');
     const twoPath = path.join(downloadDir, 'two.txt');
@@ -397,8 +433,8 @@ async function waitForFile(filepath) {
     process.stdout.write(JSON.stringify({
       onePath,
       twoPath,
-      oneContent: await waitForFile(onePath),
-      twoContent: await waitForFile(twoPath),
+      oneContent: fs.readFileSync(onePath, 'utf8'),
+      twoContent: fs.readFileSync(twoPath, 'utf8'),
     }));
   } finally {
     await browser.disconnect();
@@ -590,7 +626,6 @@ def test_parse_jsonl_output_filters_custom_type():
 
 def test_get_lib_dir_uses_platform_user_config_dir_by_default(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ):
     """Default ABXPKG_LIB_DIR should follow the platform user config root."""
     home_dir = tmp_path / "home"
@@ -598,10 +633,23 @@ def test_get_lib_dir_uses_platform_user_config_dir_by_default(
     home_dir.mkdir()
     xdg_config_home.mkdir()
 
-    monkeypatch.delenv("ABXPKG_LIB_DIR", raising=False)
-    monkeypatch.delenv("NODE_MODULES_DIR", raising=False)
-    monkeypatch.setenv("HOME", str(home_dir))
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg_config_home))
+    env = os.environ.copy()
+    env.pop("ABXPKG_LIB_DIR", None)
+    env.pop("NODE_MODULES_DIR", None)
+    env["HOME"] = str(home_dir)
+    env["XDG_CONFIG_HOME"] = str(xdg_config_home)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_lib_dir; print(get_lib_dir())",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
 
     if sys.platform == "darwin":
         expected = home_dir / "Library" / "Application Support" / "abx" / "lib"
@@ -609,8 +657,7 @@ def test_get_lib_dir_uses_platform_user_config_dir_by_default(
         expected = home_dir / "AppData" / "Roaming" / "abx" / "lib"
     else:
         expected = xdg_config_home / "abx" / "lib"
-
-    assert get_lib_dir() == expected.resolve()
+    assert Path(result.stdout.strip()) == expected.resolve()
 
 
 def test_install_chromium_with_abxpkg_links_existing_chrome_into_managed_env(
@@ -672,28 +719,39 @@ def test_setup_test_env_uses_derived_runtime_dirs(tmp_path: Path):
 
 def test_session_fixture_exports_abxpkg_resolved_chrome_binary(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
     real_chromium_binary: Path,
 ):
-    """Session fixture should export exactly the path returned by abxpkg."""
-    import abx_plugins.plugins.chrome.tests.chrome_test_helpers as helpers
-
-    class DummyTmpPathFactory:
-        def mktemp(self, name: str) -> Path:
-            path = tmp_path / name
-            path.mkdir(parents=True, exist_ok=True)
-            return path
-
-    monkeypatch.setenv("CHROME_BINARY", str(real_chromium_binary))
-    monkeypatch.delenv("SNAP_DIR", raising=False)
-    monkeypatch.delenv("PERSONAS_DIR", raising=False)
-
-    resolved = helpers.ensure_chromium_and_puppeteer_installed_impl(
-        DummyTmpPathFactory(),
+    """Session setup should export exactly the path returned by abxpkg."""
+    env = os.environ.copy()
+    env.update(
+        {
+            "CHROME_BINARY": str(real_chromium_binary),
+            "ABXPKG_LIB_DIR": str(get_lib_dir()),
+            "SNAP_DIR": str(tmp_path / "snap"),
+            "PERSONAS_DIR": str(tmp_path / "personas"),
+            "HOME": str(tmp_path / "home"),
+        },
     )
-
-    assert os.environ["CHROME_BINARY"] == resolved
-    assert Path(resolved).samefile(real_chromium_binary)
+    script = """
+import json
+import os
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_test_env, install_chromium_with_abxpkg
+runtime = get_test_env()
+resolved = install_chromium_with_abxpkg(runtime)
+os.environ['CHROME_BINARY'] = resolved
+print(json.dumps({'resolved': resolved, 'exported': os.environ['CHROME_BINARY']}))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=180,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout.strip().splitlines()[-1])
+    assert payload["exported"] == payload["resolved"]
+    assert Path(payload["resolved"]).samefile(real_chromium_binary)
 
 
 if __name__ == "__main__":

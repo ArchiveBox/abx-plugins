@@ -6,11 +6,9 @@ Tests invoke the plugin hook as an external process and verify outputs/side effe
 
 import json
 import os
-import selectors
 import signal
 import subprocess
 import tempfile
-import time
 from pathlib import Path
 
 import pytest
@@ -40,6 +38,16 @@ CHROME_UTILS_JS = PLUGIN_DIR.parent / "chrome" / "chrome_utils.js"
 CHROME_STARTUP_TIMEOUT_SECONDS = 45
 EXTENSION_NAME = "istilldontcareaboutcookies"
 EXTENSION_WEBSTORE_ID = "edibdbjcniadpccecjdfdjjppcpchdlm"
+
+
+def read_hidden_count(process: subprocess.Popen[str]) -> int:
+    """Read one production progress event from the snapshot hook."""
+    assert process.stdout is not None
+    line = process.stdout.readline()
+    assert line, "Cookie hook exited without publishing a progress event"
+    token = line.partition(" ")[0]
+    assert token.isdigit(), f"Invalid cookie-hook progress event: {line!r}"
+    return int(token)
 
 
 def install_cookie_extension(
@@ -183,6 +191,7 @@ def test_snapshot_hook_reports_noresults_on_blank_page(httpserver):
             )
 
             try:
+                assert read_hidden_count(hook_process) == 0
                 navigate = subprocess.run(
                     [
                         str(NAVIGATE_HOOK),
@@ -197,11 +206,12 @@ def test_snapshot_hook_reports_noresults_on_blank_page(httpserver):
                 )
                 assert navigate.returncode == 0, navigate.stderr
 
-                time.sleep(2)
                 os.killpg(hook_process.pid, signal.SIGTERM)
                 stdout, stderr = hook_process.communicate(timeout=15)
+                returncode = hook_process.returncode
+                hook_process = None
 
-                assert hook_process.returncode in (0, -signal.SIGTERM), stderr
+                assert returncode in (0, -signal.SIGTERM), stderr
                 records = parse_jsonl_records(stdout)
                 archive_result = next(
                     record
@@ -213,8 +223,9 @@ def test_snapshot_hook_reports_noresults_on_blank_page(httpserver):
                     archive_result["output_str"] == "0 cookie consent popups hidden"
                 ), archive_result
             finally:
-                if hook_process.poll() is None:
-                    os.killpg(hook_process.pid, signal.SIGKILL)
+                if hook_process is not None:
+                    os.killpg(hook_process.pid, signal.SIGTERM)
+                    hook_process.communicate(timeout=15)
 
 
 COOKIE_TEST_PATH = "/cookie-consent-test"
@@ -318,8 +329,6 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
     const result = await chromeUtils.withConnectedBrowser(
         {{ puppeteer, browserWSEndpoint: '{cdp_url}' }},
         async (browser) => {{
-            // Wait for extension to initialize
-            await new Promise(r => setTimeout(r, 2000));
             const extId = '{ext_id}';
             console.error('Extension ID from browser.json:', extId);
 
@@ -360,15 +369,8 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
     console.log(JSON.stringify(result));
 }})();
 """
-            script_path = tmpdir / "test_extension.js"
-            script_path.write_text(
-                f"#!/usr/bin/env node\n{test_script}",
-                encoding="utf-8",
-            )
-            script_path.chmod(0o755)
-
             result = subprocess.run(
-                [str(script_path)],
+                [env["NODE_BINARY"], "-e", test_script],
                 cwd=str(tmpdir),
                 capture_output=True,
                 text=True,
@@ -404,6 +406,8 @@ def check_cookie_consent_visibility(
     test_url: str,
     env: dict,
     script_dir: Path,
+    *,
+    expect_hidden: bool = False,
 ) -> dict:
     """Check if cookie consent elements are visible on a page.
 
@@ -427,7 +431,18 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
 
             console.error('Navigating to {test_url}...');
             await page.goto('{test_url}', {{ waitUntil: 'networkidle2', timeout: 30000 }});
-            await new Promise(r => setTimeout(r, 3000));
+            if ({json.dumps(expect_hidden)}) {{
+                await page.waitForFunction(() => {{
+                    const el = document.querySelector('#onetrust-consent-sdk');
+                    if (!el) return false;
+                    const style = window.getComputedStyle(el);
+                    const rect = el.getBoundingClientRect();
+                    return style.display === 'none' ||
+                           style.visibility === 'hidden' ||
+                           style.opacity === '0' ||
+                           rect.width === 0 || rect.height === 0;
+                }}, {{ timeout: 30000 }});
+            }}
 
             const evaluation = await page.evaluate(() => {{
                 const selectors = [
@@ -512,12 +527,8 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
     process.exit(1);
 }});
 """
-    script_path = script_dir / "check_cookies.js"
-    script_path.write_text(f"#!/usr/bin/env node\n{test_script}", encoding="utf-8")
-    script_path.chmod(0o755)
-
     result = subprocess.run(
-        [str(script_path)],
+        [env["NODE_BINARY"], "-e", test_script],
         cwd=str(script_dir),
         capture_output=True,
         text=True,
@@ -580,6 +591,7 @@ def test_snapshot_hook_reports_hidden_cookie_popups(httpserver):
             )
 
             try:
+                assert read_hidden_count(hook_process) == 0
                 navigate = subprocess.run(
                     [
                         str(NAVIGATE_HOOK),
@@ -594,28 +606,15 @@ def test_snapshot_hook_reports_hidden_cookie_popups(httpserver):
                 )
                 assert navigate.returncode == 0, navigate.stderr
 
-                observed_stdout: list[str] = []
-                selector = selectors.DefaultSelector()
-                assert hook_process.stdout is not None
-                selector.register(hook_process.stdout, selectors.EVENT_READ)
-                deadline = time.monotonic() + CHROME_STARTUP_TIMEOUT_SECONDS
-                while time.monotonic() < deadline:
-                    events = selector.select(deadline - time.monotonic())
-                    assert events, "Hook did not observe a hidden cookie popup"
-                    line = hook_process.stdout.readline()
-                    assert line, "Hook exited before observing a hidden cookie popup"
-                    observed_stdout.append(line)
-                    count = line.partition(" ")[0]
-                    if count.isdigit() and int(count) > 0:
-                        break
-                else:
-                    raise AssertionError("Hook did not observe a hidden cookie popup")
+                assert read_hidden_count(hook_process) > 0
 
                 os.killpg(hook_process.pid, signal.SIGTERM)
                 remaining_stdout, stderr = hook_process.communicate(timeout=15)
-                stdout = "".join(observed_stdout) + remaining_stdout
+                returncode = hook_process.returncode
+                hook_process = None
+                stdout = remaining_stdout
 
-                assert hook_process.returncode in (0, -signal.SIGTERM), stderr
+                assert returncode in (0, -signal.SIGTERM), stderr
                 records = parse_jsonl_records(stdout)
                 archive_result = next(
                     record
@@ -626,8 +625,9 @@ def test_snapshot_hook_reports_hidden_cookie_popups(httpserver):
                 hidden_count = int(archive_result["output_str"].split()[0])
                 assert hidden_count > 0, archive_result
             finally:
-                if hook_process.poll() is None:
-                    os.killpg(hook_process.pid, signal.SIGKILL)
+                if hook_process is not None:
+                    os.killpg(hook_process.pid, signal.SIGTERM)
+                    hook_process.communicate(timeout=15)
 
 
 def test_hides_cookie_consent_on_static_page(httpserver):
@@ -686,9 +686,6 @@ def test_hides_cookie_consent_on_static_page(httpserver):
                 timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
             )
             print(f"Baseline Chromium launched: {baseline_cdp_url}")
-
-            # Wait a moment for browser to be ready
-            time.sleep(2)
 
             baseline_result = check_cookie_consent_visibility(
                 baseline_cdp_url,
@@ -780,14 +777,12 @@ def test_hides_cookie_consent_on_static_page(httpserver):
             )
             print(f"Extensions loaded: {[e.get('name') for e in loaded_exts]}")
 
-            # Wait for extension to initialize
-            time.sleep(3)
-
             ext_result = check_cookie_consent_visibility(
                 ext_cdp_url,
                 test_url,
                 env_with_ext,
                 tmpdir,
+                expect_hidden=True,
             )
 
             print(

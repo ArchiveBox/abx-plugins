@@ -5,10 +5,10 @@ Tests the real staticfile hook using deterministic local fixtures.
 """
 
 import posixpath
+import json
 import subprocess
 import shutil
 import tempfile
-import time
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -18,6 +18,7 @@ from abx_plugins.plugins.base.testing import (
     get_hook_script,
     get_plugin_dir,
     parse_jsonl_output,
+    start_process_and_wait_for_file,
 )
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
@@ -83,13 +84,17 @@ def expected_responses_output(url: str) -> str:
 
 
 def terminate_process(proc: subprocess.Popen[str]) -> tuple[str, str]:
-    if proc.poll() is None:
-        proc.terminate()
-        try:
-            return proc.communicate(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-    return proc.communicate()
+    proc.terminate()
+    return proc.communicate(timeout=30)
+
+
+def prenav_is_ready(path: Path) -> bool:
+    if not path.is_file():
+        return False
+    try:
+        return json.loads(path.read_text()).get("status") == "ready"
+    except json.JSONDecodeError:
+        return False
 
 
 def run_staticfile_capture(
@@ -109,34 +114,28 @@ def run_staticfile_capture(
 
     if start_responses:
         responses_dir.mkdir(exist_ok=True)
-        responses_proc = subprocess.Popen(
+        responses_proc = start_process_and_wait_for_file(
             [
                 str(RESPONSES_HOOK),
                 f"--url={url}",
                 f"--snapshot-id={snapshot_id}",
             ],
-            cwd=str(responses_dir),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
+            responses_dir / "index.jsonl",
+            cwd=responses_dir,
             env=env,
         )
 
-    hook_proc = subprocess.Popen(
+    hook_proc = start_process_and_wait_for_file(
         [
             str(STATICFILE_HOOK),
             f"--url={url}",
             f"--snapshot-id={snapshot_id}",
         ],
-        cwd=str(staticfile_dir),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
+        staticfile_dir / "prenav.json",
+        cwd=staticfile_dir,
         env=env,
+        ready=prenav_is_ready,
     )
-
-    # Ensure listeners attach before navigation starts.
-    time.sleep(1)
 
     nav_result = subprocess.run(
         [

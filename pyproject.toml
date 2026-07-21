@@ -1,6 +1,6 @@
 [project]
 name = "abx-plugins"
-version = "1.11.294"
+version = "1.11.295"
 description = "ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)"
 authors = [{name = "Nick Sweeting"}, {name = "ArchiveBox"}]
 requires-python = ">=3.12"
@@ -36,6 +36,7 @@ dev = [
     "pytest-httpserver>=1.1.0",
     "pytest-sugar>=1.0.0",
     "pytest-timeout>=2.3.1",
+    "watchfiles>=1.1.1",
     "feedparser>=6.0.0",
     "django>=6.0",
     "requests>=2.28.0",

@@ -20,7 +20,7 @@ import threading
 import uuid
 import re
 from pathlib import Path
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 
 from abx_plugins.plugins.base.utils import load_config
 
@@ -30,15 +30,16 @@ DEFAULT_CONTENT_EXCLUDES = ("*.json", "*.jsonl", "*.log", "*.pid", "*.css", "*.j
 DEEP_EXCLUDES = ("*.pid", "*.css", "*.js")
 
 
-def _get_archive_dir() -> Path:
-    snap_dir = os.environ["SNAP_DIR"].strip() if "SNAP_DIR" in os.environ else ""
+def _get_archive_dir(environ: Mapping[str, str] | None = None) -> Path:
+    runtime_env = os.environ if environ is None else environ
+    snap_dir = runtime_env["SNAP_DIR"].strip() if "SNAP_DIR" in runtime_env else ""
     if snap_dir:
         return Path(snap_dir)
     return Path.cwd()
 
 
-def _get_search_roots() -> list[Path]:
-    base_dir = _get_archive_dir()
+def _get_search_roots(environ: Mapping[str, str] | None = None) -> list[Path]:
+    base_dir = _get_archive_dir(environ)
     roots: list[Path] = []
 
     if base_dir.name == "snapshots" and base_dir.exists():
@@ -106,8 +107,9 @@ def _extract_snapshot_id(match_path: Path, search_roots: list[Path]) -> str | No
 def _build_cmd(
     query: str,
     search_mode: str = "contents",
+    environ: Mapping[str, str] | None = None,
 ) -> tuple[list[str], list[Path], int]:
-    config = load_config(Path(__file__).with_name("config.json"))
+    config = load_config(Path(__file__).with_name("config.json"), environ=environ)
 
     resolved_rg = str(config.RIPGREP_BINARY or "").strip()
     if not resolved_rg:
@@ -121,7 +123,7 @@ def _build_cmd(
         arg for arg in config.RIPGREP_ARGS_EXTRA if arg not in {"--follow", "-L"}
     ]
 
-    search_roots = _get_search_roots()
+    search_roots = _get_search_roots(environ)
     if not search_roots:
         return [], [], timeout
 
@@ -150,9 +152,14 @@ def _build_cmd(
     )
 
 
-def iter_search(query: str, search_mode: str = "contents"):
+def iter_search(
+    query: str,
+    search_mode: str = "contents",
+    *,
+    environ: Mapping[str, str] | None = None,
+):
     """Yield matching snapshot IDs as ripgrep prints matched files."""
-    flattened_cmd, search_roots, timeout = _build_cmd(query, search_mode)
+    flattened_cmd, search_roots, timeout = _build_cmd(query, search_mode, environ)
     if not flattened_cmd:
         return
     proc = subprocess.Popen(
@@ -179,10 +186,15 @@ def iter_search(query: str, search_mode: str = "contents"):
         proc.wait()
 
 
-def search(query: str, search_mode: str = "contents") -> list[str]:
+def search(
+    query: str,
+    search_mode: str = "contents",
+    *,
+    environ: Mapping[str, str] | None = None,
+) -> list[str]:
     """Search for snapshots using ripgrep."""
     try:
-        return list(iter_search(query, search_mode=search_mode))
+        return list(iter_search(query, search_mode=search_mode, environ=environ))
     except Exception:
         return []
 

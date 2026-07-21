@@ -9,12 +9,15 @@ import json
 import shutil
 import subprocess
 import tempfile
-import time
 from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.testing import get_hook_script, get_plugin_dir
+from abx_plugins.plugins.base.testing import (
+    get_hook_script,
+    get_plugin_dir,
+    start_process_and_wait_for_file,
+)
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
     chrome_session,
@@ -83,16 +86,15 @@ class TestDNSWithChrome:
             dns_dir = snapshot_chrome_dir.parent / "dns"
             dns_dir.mkdir(exist_ok=True)
 
-            result = subprocess.Popen(
+            dns_output = dns_dir / "dns.jsonl"
+            result = start_process_and_wait_for_file(
                 [
                     str(DNS_HOOK),
                     f"--url={test_url}",
                     f"--snapshot-id={snapshot_id}",
                 ],
-                cwd=str(dns_dir),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
+                dns_output,
+                cwd=dns_dir,
                 env=env,
             )
 
@@ -110,21 +112,8 @@ class TestDNSWithChrome:
             )
             assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
-            dns_output = dns_dir / "dns.jsonl"
-            for _ in range(30):
-                if dns_output.exists() and dns_output.stat().st_size > 0:
-                    break
-                time.sleep(1)
-
-            if result.poll() is None:
-                result.terminate()
-                try:
-                    stdout, stderr = result.communicate(timeout=5)
-                except subprocess.TimeoutExpired:
-                    result.kill()
-                    stdout, stderr = result.communicate()
-            else:
-                stdout, stderr = result.communicate()
+            result.terminate()
+            stdout, stderr = result.communicate(timeout=30)
 
             assert "Traceback" not in stderr
 

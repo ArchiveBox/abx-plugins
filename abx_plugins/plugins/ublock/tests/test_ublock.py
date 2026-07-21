@@ -9,7 +9,6 @@ import os
 import signal
 import subprocess
 import tempfile
-import time
 from pathlib import Path
 
 import pytest
@@ -44,6 +43,15 @@ AD_SERVICE_URLS = (
     "https://googleads.g.doubleclick.net/pagead/ads?client=ca-pub-1234567890&format=auto",
     "https://googleads.g.doubleclick.net/pagead/imgad?id=CICAgKDLwJm9AhABGAEoATIIA1AB",
 )
+
+
+def read_blocking_progress(process: subprocess.Popen[str]) -> tuple[int, int]:
+    """Read one production progress event from the uBlock snapshot hook."""
+    assert process.stdout is not None
+    line = process.stdout.readline()
+    assert line, "uBlock hook exited without publishing a progress event"
+    blocked_str, hidden_str = line.strip().split(" | ")
+    return int(blocked_str.split()[0]), int(hidden_str.split()[0])
 
 
 def serve_ad_fixture(httpserver, path: str = "/ublock-ad-fixture") -> str:
@@ -263,6 +271,7 @@ def test_snapshot_hook_reports_live_blocking_counts(httpserver):
             )
 
             try:
+                assert read_blocking_progress(hook_process) == (0, 0)
                 navigate = subprocess.run(
                     [
                         str(NAVIGATE_HOOK),
@@ -277,11 +286,14 @@ def test_snapshot_hook_reports_live_blocking_counts(httpserver):
                 )
                 assert navigate.returncode == 0, navigate.stderr
 
-                time.sleep(8)
+                blocked, hidden = read_blocking_progress(hook_process)
+                assert blocked + hidden > 0
                 os.killpg(hook_process.pid, signal.SIGTERM)
                 stdout, stderr = hook_process.communicate(timeout=20)
+                returncode = hook_process.returncode
+                hook_process = None
 
-                assert hook_process.returncode in (0, -signal.SIGTERM), stderr
+                assert returncode in (0, -signal.SIGTERM), stderr
                 records = parse_jsonl_records(stdout)
                 archive_result = next(
                     record
@@ -299,8 +311,9 @@ def test_snapshot_hook_reports_live_blocking_counts(httpserver):
                 assert blocked + hidden > 0, archive_result
                 assert blocked > 0 or hidden >= 3, archive_result
             finally:
-                if hook_process.poll() is None:
-                    os.killpg(hook_process.pid, signal.SIGKILL)
+                if hook_process is not None:
+                    os.killpg(hook_process.pid, signal.SIGTERM)
+                    hook_process.communicate(timeout=20)
 
 
 def check_ad_blocking(cdp_url: str, test_url: str, env: dict, script_dir: Path) -> dict:
@@ -367,9 +380,7 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
 
             console.error('Navigating to {test_url}...');
             await page.goto('{test_url}', {{ waitUntil: 'domcontentloaded', timeout: 60000 }});
-
-            // Wait for page to fully render and ads to load
-            await new Promise(r => setTimeout(r, 5000));
+            await page.waitForNetworkIdle({{ idleTime: 500, timeout: 60000 }});
 
             // Check for ad elements in the DOM
             const result = await page.evaluate(() => {{
@@ -446,12 +457,8 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
     process.exit(1);
 }});
 """
-    script_path = script_dir / "check_ads.js"
-    script_path.write_text(f"#!/usr/bin/env node\n{test_script}", encoding="utf-8")
-    script_path.chmod(0o755)
-
     result = subprocess.run(
-        [env["NODE_BINARY"], str(script_path)],
+        [env["NODE_BINARY"], "-e", test_script],
         cwd=str(script_dir),
         capture_output=True,
         text=True,
@@ -560,9 +567,6 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
     const result = await chromeUtils.withConnectedBrowser(
         {{ puppeteer, browserWSEndpoint: '{cdp_url}' }},
         async (browser) => {{
-            // Wait for extension to initialize
-            await new Promise(r => setTimeout(r, 500));
-
             const extId = '{ext_id}';
             console.error('Using extension ID from extensions metadata:', extId);
 
@@ -588,15 +592,8 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
     console.log(JSON.stringify(result));
 }})();
 """
-            script_path = tmpdir / "test_ublock.js"
-            script_path.write_text(
-                f"#!/usr/bin/env node\n{test_script}",
-                encoding="utf-8",
-            )
-            script_path.chmod(0o755)
-
             result = subprocess.run(
-                [str(script_path)],
+                [env["NODE_BINARY"], "-e", test_script],
                 cwd=str(tmpdir),
                 capture_output=True,
                 text=True,
@@ -643,8 +640,6 @@ def test_blocks_ads_on_httpserver_page_with_real_ad_service_urls(httpserver):
     baseline distinguishes ordinary network failures from uBlock's
     ERR_BLOCKED_BY_CLIENT failures.
     """
-    import time
-
     test_url = serve_ad_fixture(httpserver)
     expected_ad_urls = {url.lower() for url in AD_SERVICE_URLS}
 
@@ -752,14 +747,8 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
     );
 }})();
 """
-            dash_script_path = tmpdir / "check_dashboard.js"
-            dash_script_path.write_text(
-                f"#!/usr/bin/env node\n{dashboard_script}",
-                encoding="utf-8",
-            )
-            dash_script_path.chmod(0o755)
             dashboard_result = subprocess.run(
-                [str(dash_script_path)],
+                [ext_env["NODE_BINARY"], "-e", dashboard_script],
                 capture_output=True,
                 text=True,
                 timeout=15,
@@ -767,8 +756,6 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
             )
             assert dashboard_result.returncode == 0, dashboard_result.stderr
 
-            print("Waiting for uBlock filter lists to download and initialize...")
-            time.sleep(30)
             kill_chromium_session(ext_process, ext_chrome_dir)
             ext_process = None
 
@@ -792,7 +779,6 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                     timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
                 )
                 print(f"Baseline Chromium launched: {baseline_cdp_url}")
-                time.sleep(2)
                 baseline_result = check_ad_blocking(
                     baseline_cdp_url,
                     test_url,

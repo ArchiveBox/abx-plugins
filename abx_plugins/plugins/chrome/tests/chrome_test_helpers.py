@@ -53,7 +53,7 @@ import fcntl
 import re
 import ssl
 import subprocess
-import time
+import threading
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -202,8 +202,10 @@ def _configure_chrome_httpserver(httpserver) -> dict[str, str]:
         "<html><head><title>Linked Page</title></head><body><h1>Linked Page</h1></body></html>",
     )
 
+    slow_response_release = threading.Event()
+
     def slow_page(_request):
-        time.sleep(5)
+        slow_response_release.wait(timeout=5)
         return Response(
             """<!doctype html>
 <html>
@@ -737,39 +739,69 @@ def wait_for_extensions_metadata(
     ``chrome.pid`` or ``cdp_url.txt`` because the browser may still be in the
     startup window before extensions finish loading.
     """
-    deadline = time.time() + timeout_seconds
-    last_parsed: Any = None
-
-    while time.time() < deadline:
-        timeout_ms = max(1, int((deadline - time.time()) * 1000))
-        returncode, stdout, stderr = _call_chrome_utils(
-            "readBrowserMetadata",
-            str(chrome_dir),
-            str(timeout_ms),
-        )
-        if returncode != 0:
-            raise AssertionError(
-                f"readBrowserMetadata failed for {chrome_dir}: {stderr or stdout}",
-            )
-        try:
-            parsed = json.loads(stdout)
-        except json.JSONDecodeError as exc:
-            raise AssertionError(
-                f"Invalid JSON from readBrowserMetadata: {stdout}",
-            ) from exc
-        last_parsed = parsed
-        if not isinstance(parsed, dict) or parsed.get("ready") is not True:
-            raise AssertionError(
-                f"Expected ready browser metadata for {chrome_dir}, got: {parsed}",
-            )
-        extensions = parsed.get("extensions")
-        if isinstance(extensions, list) and extensions:
-            return extensions
-        time.sleep(0.1)
-
-    raise AssertionError(
-        f"Expected non-empty extension metadata list for {chrome_dir}, got: {last_parsed}",
+    state = wait_for_chrome_session_state(
+        chrome_dir,
+        env=get_test_env(),
+        timeout_seconds=timeout_seconds,
+        require_browser_ready=True,
+        require_connectable=True,
     )
+    extensions = state.get("extensions")
+    assert isinstance(extensions, list) and extensions, state
+    return extensions
+
+
+def wait_for_chrome_session_state(
+    chrome_dir: Path,
+    *,
+    env: dict[str, str],
+    timeout_seconds: int = 60,
+    require_target_id: bool = False,
+    require_browser_ready: bool = False,
+    require_connectable: bool = True,
+) -> dict[str, Any]:
+    """Use Chrome's production file/CDP readiness gate exactly once."""
+    script = r"""
+const chromeUtils = require(process.argv[1]);
+const chromeDir = process.argv[2];
+const options = JSON.parse(process.argv[3]);
+(async () => {
+  if (options.requireTargetId || options.requireConnectable) {
+    options.puppeteer = chromeUtils.resolvePuppeteerModule();
+  }
+  const state = await chromeUtils.waitForChromeSessionState(chromeDir, options);
+  if (!state) throw new Error(`Chrome session did not become ready: ${chromeDir}`);
+  process.stdout.write(JSON.stringify(state));
+})().catch((error) => {
+  console.error(error.stack || error.message);
+  process.exit(1);
+});
+"""
+    options = {
+        "timeoutMs": timeout_seconds * 1000,
+        "requireTargetId": require_target_id,
+        "requireBrowserReady": require_browser_ready,
+        "requireConnectable": require_connectable,
+        "probeTimeoutMs": 1000,
+    }
+    result = subprocess.run(
+        [
+            env["NODE_BINARY"],
+            "-e",
+            script,
+            str(CHROME_UTILS),
+            str(chrome_dir),
+            json.dumps(options),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=timeout_seconds + 10,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    state = json.loads(result.stdout)
+    assert isinstance(state, dict), state
+    return state
 
 
 def write_browser_metadata(
@@ -1050,16 +1082,6 @@ def is_pid_alive(pid: int) -> bool:
     except (ProcessLookupError, OSError):
         return False
     return True
-
-
-def wait_for_pid_exit(pid: int, timeout_seconds: float = 15.0) -> bool:
-    """Wait for a process to exit and return True if it did."""
-    deadline = time.monotonic() + timeout_seconds
-    while time.monotonic() < deadline:
-        if not is_pid_alive(pid):
-            return True
-        time.sleep(0.25)
-    return not is_pid_alive(pid)
 
 
 def get_test_env(*, install_required_binaries: bool = False) -> dict:
@@ -1409,69 +1431,30 @@ def launch_chromium_session(
     chrome_launch_process._stdout_log = stdout_log
     chrome_launch_process._stderr_log = stderr_log
 
-    cdp_url = None
-    launch_exit_code = None
-    launch_stdout = ""
-    launch_stderr = ""
-
-    for _ in range(timeout):
-        cdp_file = chrome_dir / "cdp_url.txt"
-        browser_file = chrome_dir / "browser.json"
-        browser_ready = False
-        if browser_file.exists():
-            try:
-                browser_ready = bool(json.loads(browser_file.read_text()).get("ready"))
-            except (json.JSONDecodeError, OSError):
-                browser_ready = False
-        if cdp_file.exists() and browser_ready:
-            cdp_url = cdp_file.read_text().strip()
-            if cdp_url:
-                break
-        process_status = chrome_launch_process.poll()
-        if process_status is not None:
-            stdout_handle.flush()
-            stderr_handle.flush()
-            if cdp_file.exists() and browser_ready:
-                cdp_url = cdp_file.read_text().strip()
-                if cdp_url:
-                    break
-            launch_exit_code = process_status
-        time.sleep(1)
-
-    if cdp_url:
-        chrome_pid_file = chrome_dir / "chrome.pid"
-        if chrome_pid_file.exists():
-            try:
-                chrome_launch_process._chrome_pid = int(
-                    chrome_pid_file.read_text().strip(),
-                )
-            except (ValueError, FileNotFoundError):
-                chrome_launch_process._chrome_pid = None
-        else:
-            chrome_launch_process._chrome_pid = None
-        return chrome_launch_process, cdp_url
-
-    if launch_exit_code is None:
-        chrome_launch_process.kill()
+    try:
+        state = wait_for_chrome_session_state(
+            chrome_dir,
+            env=launch_env,
+            timeout_seconds=timeout,
+            require_browser_ready=True,
+            require_connectable=True,
+        )
+    except (AssertionError, subprocess.TimeoutExpired) as exc:
+        chrome_launch_process.send_signal(signal.SIGTERM)
+        chrome_launch_process.wait(timeout=10)
         stdout_handle.flush()
         stderr_handle.flush()
         launch_stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
         launch_stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
-    else:
-        launch_stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
-        launch_stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
-
-    stdout_handle.close()
-    stderr_handle.close()
-
-    if launch_exit_code is not None:
+        stdout_handle.close()
+        stderr_handle.close()
         raise RuntimeError(
             f"Chromium launch failed:\nStdout: {launch_stdout}\nStderr: {launch_stderr}",
-        )
+        ) from exc
 
-    raise RuntimeError(
-        f"Chromium CDP URL not found after {timeout}s\nStdout: {launch_stdout}\nStderr: {launch_stderr}",
-    )
+    chrome_launch_process._chrome_pid = state.get("pid")
+    cdp_url = str(state["cdpUrl"])
+    return chrome_launch_process, cdp_url
 
 
 def kill_chromium_session(
@@ -1495,19 +1478,13 @@ def kill_chromium_session(
             except (ValueError, FileNotFoundError):
                 chrome_pid = None
 
-    # First try to terminate the launch process gracefully
-    try:
-        chrome_launch_process.send_signal(signal.SIGTERM)
-        chrome_launch_process.wait(timeout=5)
-    except Exception:
-        pass
+    chrome_launch_process.send_signal(signal.SIGTERM)
+    chrome_launch_process.wait(timeout=15)
 
-    if (
-        chrome_pid is not None
-        and is_pid_alive(chrome_pid)
-        and not wait_for_pid_exit(chrome_pid)
-    ):
-        kill_chrome(chrome_pid, str(chrome_dir))
+    if chrome_pid is not None and is_pid_alive(chrome_pid):
+        assert kill_chrome(chrome_pid, str(chrome_dir))
+    if chrome_pid is not None:
+        assert not is_pid_alive(chrome_pid)
 
     for attr in ("_stdout_handle", "_stderr_handle"):
         handle = getattr(chrome_launch_process, attr, None)
@@ -1563,39 +1540,30 @@ def launch_snapshot_tab(
         }
         require_pid = is_local and not cdp_url_override
 
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        if tab_process.poll() is not None:
-            stdout_handle.flush()
-            stderr_handle.flush()
-            stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
-            stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
-            stdout_handle.close()
-            stderr_handle.close()
-            raise RuntimeError(
-                f"Tab creation exited early:\nStdout: {stdout}\nStderr: {stderr}",
-            )
-        cdp_ready = (snapshot_chrome_dir / "cdp_url.txt").exists()
-        target_ready = (snapshot_chrome_dir / "target_id.txt").exists()
-        pid_ready = (snapshot_chrome_dir / "chrome.pid").exists()
-        if cdp_ready and target_ready and (pid_ready or not require_pid):
-            return tab_process
-        time.sleep(0.2)
-
     try:
+        wait_for_chrome_session_state(
+            snapshot_chrome_dir,
+            env=tab_env,
+            timeout_seconds=timeout,
+            require_target_id=True,
+            require_connectable=True,
+        )
+        if require_pid:
+            assert (snapshot_chrome_dir / "chrome.pid").is_file()
+        assert tab_process.poll() is None
+        return tab_process
+    except (AssertionError, subprocess.TimeoutExpired) as exc:
         tab_process.send_signal(signal.SIGTERM)
         tab_process.wait(timeout=10)
-    except Exception:
-        pass
-    stdout_handle.flush()
-    stderr_handle.flush()
-    stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
-    stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
-    stdout_handle.close()
-    stderr_handle.close()
-    raise RuntimeError(
-        f"Tab creation timed out after {timeout}s\nStdout: {stdout}\nStderr: {stderr}",
-    )
+        stdout_handle.flush()
+        stderr_handle.flush()
+        stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
+        stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
+        stdout_handle.close()
+        stderr_handle.close()
+        raise RuntimeError(
+            f"Tab creation failed:\nStdout: {stdout}\nStderr: {stderr}",
+        ) from exc
 
 
 @contextmanager
@@ -1764,12 +1732,9 @@ def chrome_session(
 
         yield chrome_launch_process, chrome_pid, snapshot_chrome_dir, env
     finally:
-        if tab_process and tab_process.poll() is None:
-            try:
-                tab_process.send_signal(signal.SIGTERM)
-                tab_process.wait(timeout=10)
-            except Exception:
-                pass
+        if tab_process:
+            tab_process.send_signal(signal.SIGTERM)
+            tab_process.wait(timeout=10)
         for attr in ("_stdout_handle", "_stderr_handle"):
             handle = getattr(tab_process, attr, None) if tab_process else None
             if handle:

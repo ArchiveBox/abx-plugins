@@ -14,6 +14,7 @@ Tests verify:
 import os
 import subprocess
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -32,7 +33,10 @@ _FAVICON_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_favicon.*")
 if _FAVICON_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 FAVICON_HOOK = _FAVICON_HOOK
-TEST_ICO_BYTES = b"\x00\x00\x01\x00mock-ico"
+TEST_ICON_BYTES = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
+    "0000000d49444154789c6360f8cfc0000004010100f7ff650000000049454e44ae426082",
+)
 
 
 def test_hook_script_exists():
@@ -62,8 +66,8 @@ def test_extracts_linked_favicon_from_httpserver_page(httpserver):
         content_type="text/html; charset=utf-8",
     )
     httpserver.expect_request("/assets/favicon.ico").respond_with_data(
-        TEST_ICO_BYTES,
-        content_type="image/x-icon",
+        TEST_ICON_BYTES,
+        content_type="image/png",
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -83,7 +87,7 @@ def test_extracts_linked_favicon_from_httpserver_page(httpserver):
 
         favicon_file = snap_dir / "favicon" / "favicon.ico"
         assert favicon_file.exists(), "favicon.ico not created"
-        assert favicon_file.read_bytes() == TEST_ICO_BYTES
+        assert favicon_file.read_bytes() == TEST_ICON_BYTES
 
 
 def test_config_timeout_honored(httpserver):
@@ -93,11 +97,10 @@ def test_config_timeout_honored(httpserver):
         content_type="text/html; charset=utf-8",
     )
 
+    release_slow_response = threading.Event()
+
     def slow_favicon(_request):
-        # Stay beyond the configured five-second deadline without blocking the
-        # single-threaded fixture server long enough to make later candidates
-        # consume a second full timeout window.
-        time.sleep(6)
+        release_slow_response.wait()
         return Response("too late", status=200, content_type="text/plain")
 
     httpserver.expect_request("/favicon.ico").respond_with_handler(slow_favicon)
@@ -111,9 +114,12 @@ def test_config_timeout_honored(httpserver):
         env["SNAP_DIR"] = str(tmpdir)
         env["FAVICON_PROVIDER"] = ""
 
-        start = time.time()
-        result = _run_favicon_hook(tmpdir, httpserver.url_for("/"), env)
-        elapsed = time.time() - start
+        start = time.monotonic()
+        try:
+            result = _run_favicon_hook(tmpdir, httpserver.url_for("/"), env)
+        finally:
+            release_slow_response.set()
+        elapsed = time.monotonic() - start
 
         assert result.returncode == 0, result.stderr
         assert elapsed < 8, f"Should honor FAVICON_TIMEOUT, took {elapsed:.1f}s"
@@ -162,8 +168,8 @@ def test_falls_back_to_configured_provider_and_emits_relative_output_path(httpse
         "/provider",
         query_string={"domain": "127.0.0.1"},
     ).respond_with_data(
-        TEST_ICO_BYTES,
-        content_type="image/x-icon",
+        TEST_ICON_BYTES,
+        content_type="image/png",
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -190,7 +196,7 @@ def test_falls_back_to_configured_provider_and_emits_relative_output_path(httpse
 
         favicon_file = snap_dir / "favicon" / "favicon.ico"
         assert favicon_file.exists(), "favicon.ico not created"
-        assert favicon_file.read_bytes() == TEST_ICO_BYTES
+        assert favicon_file.read_bytes() == TEST_ICON_BYTES
         assert any(
             request.path == "/provider"
             and request.query_string.decode() == "domain=127.0.0.1"

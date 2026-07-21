@@ -173,12 +173,14 @@ def test_load_config_resolves_aliases_to_canonical_fields() -> None:
 
 def test_load_config_hydrates_chrome_node_binary_from_real_env_provider(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     lib_dir = tmp_path / "lib"
     personas_dir = tmp_path / "personas"
-    monkeypatch.setenv("NODE_BINARY", "node")
-    monkeypatch.setenv("PATH", os.environ.get("PATH", ""))
+    environ = {
+        **os.environ,
+        "NODE_BINARY": "node",
+        "PATH": os.environ.get("PATH", ""),
+    }
 
     config = load_config(
         CHROME_CONFIG,
@@ -186,7 +188,7 @@ def test_load_config_hydrates_chrome_node_binary_from_real_env_provider(
             "ABXPKG_LIB_DIR": str(lib_dir),
             "PERSONAS_DIR": str(personas_dir),
         },
-        environ=os.environ.copy(),
+        environ=environ,
         user_config={"NODE_BINARY": "node"},
     )
 

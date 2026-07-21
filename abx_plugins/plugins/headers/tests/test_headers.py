@@ -12,10 +12,11 @@ Tests verify:
 import json
 import subprocess
 import tempfile
-import time
 from pathlib import Path
 
 import pytest
+
+from abx_plugins.plugins.base.testing import start_process_and_wait_for_file
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
@@ -77,20 +78,12 @@ def normalize_root_url(url: str) -> str:
 
 def run_headers_capture(headers_dir, snapshot_chrome_dir, env, url, snapshot_id):
     headers_file = headers_dir / "headers.json"
-    hook_proc = subprocess.Popen(
+    hook_proc = start_process_and_wait_for_file(
         [str(HEADERS_HOOK), f"--url={url}", f"--snapshot-id={snapshot_id}"],
+        headers_file,
         cwd=headers_dir,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
         env=env,
     )
-
-    for _ in range(20):
-        if headers_file.exists():
-            break
-        time.sleep(0.25)
-    assert headers_file.exists(), "Headers hook did not become ready before navigation"
 
     nav_result = subprocess.run(
         [
@@ -105,17 +98,7 @@ def run_headers_capture(headers_dir, snapshot_chrome_dir, env, url, snapshot_id)
         env=env,
     )
 
-    wait_seconds = 60 if nav_result.returncode == 0 else 5
-    for _ in range(wait_seconds):
-        if headers_file.exists() and headers_file.stat().st_size > 0:
-            break
-        time.sleep(1)
-
-    try:
-        stdout, stderr = hook_proc.communicate(timeout=10)
-    except subprocess.TimeoutExpired:
-        hook_proc.kill()
-        stdout, stderr = hook_proc.communicate()
+    stdout, stderr = hook_proc.communicate(timeout=60)
 
     return hook_proc.returncode, stdout, stderr, nav_result, headers_file
 

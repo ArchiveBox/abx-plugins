@@ -11,13 +11,17 @@ import posixpath
 import shutil
 import subprocess
 import tempfile
-import time
 from urllib.parse import urlparse
 from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.testing import get_hook_script, get_plugin_dir
+from abx_plugins.plugins.base.testing import (
+    get_hook_script,
+    get_plugin_dir,
+    start_process_and_wait_for_file,
+    wait_for_file,
+)
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
     chrome_session,
@@ -117,24 +121,16 @@ class TestResponsesWithChrome:
             index_output = responses_dir / "index.jsonl"
 
             # Run responses hook with the active Chrome session (background hook)
-            result = subprocess.Popen(
+            result = start_process_and_wait_for_file(
                 [
                     str(RESPONSES_HOOK),
                     f"--url={test_url}",
                     f"--snapshot-id={snapshot_id}",
                 ],
-                cwd=str(responses_dir),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
+                index_output,
+                cwd=responses_dir,
                 env=env,
             )
-
-            for _ in range(30):
-                if index_output.exists():
-                    break
-                time.sleep(1)
-            assert index_output.exists(), "Responses hook did not signal readiness"
 
             nav_result = subprocess.run(
                 [
@@ -150,22 +146,9 @@ class TestResponsesWithChrome:
             )
             assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
-            # Wait briefly for background hook to write output
-            for _ in range(30):
-                if index_output.exists() and index_output.stat().st_size > 0:
-                    break
-                time.sleep(1)
-
-            # Verify hook ran (may keep running waiting for cleanup signal)
-            if result.poll() is None:
-                result.terminate()
-                try:
-                    stdout, stderr = result.communicate(timeout=5)
-                except subprocess.TimeoutExpired:
-                    result.kill()
-                    stdout, stderr = result.communicate()
-            else:
-                stdout, stderr = result.communicate()
+            wait_for_file(index_output, ready=lambda path: path.stat().st_size > 0)
+            result.terminate()
+            stdout, stderr = result.communicate(timeout=30)
             assert "Traceback" not in stderr
 
             archive_result_records = []
@@ -183,7 +166,8 @@ class TestResponsesWithChrome:
                 if record.get("type") == "ArchiveResult":
                     archive_result_records.append(record)
 
-            # If index file exists, verify it's valid JSONL
+            # Verify the readiness file contains real captured response records.
+            assert index_output.exists()
             if index_output.exists():
                 records = []
                 with open(index_output) as f:

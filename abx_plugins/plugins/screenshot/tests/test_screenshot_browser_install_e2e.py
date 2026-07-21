@@ -4,7 +4,6 @@ import os
 import platform
 import signal
 import subprocess
-import time
 from pathlib import Path
 
 
@@ -14,6 +13,7 @@ from abx_plugins.plugins.base.testing import (
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_extensions_dir,
     install_chromium_with_abxpkg,
+    wait_for_chrome_session_state,
 )
 
 
@@ -51,26 +51,6 @@ def _run_hook(
         env=env,
     )
     return result.returncode, result.stdout, result.stderr
-
-
-def _wait_for_file(path: Path, process: subprocess.Popen[str], timeout: int) -> None:
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        if path.exists():
-            return
-        if process.poll() is not None:
-            stdout, stderr = process.communicate(timeout=5)
-            raise AssertionError(
-                f"{path.name} was not created.\nstdout:\n{stdout}\nstderr:\n{stderr}",
-            )
-        time.sleep(0.25)
-    try:
-        stdout, stderr = process.communicate(timeout=5)
-    except subprocess.TimeoutExpired:
-        stdout = stderr = "(process still running)"
-    raise AssertionError(
-        f"Timed out waiting for {path}.\nstdout:\n{stdout}\nstderr:\n{stderr}",
-    )
 
 
 def test_live_install_and_screenshot_extraction_respects_chrome_binary(
@@ -128,7 +108,13 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     )
     tab_process = None
     try:
-        _wait_for_file(chrome_dir / "cdp_url.txt", chrome_launch_process, timeout=90)
+        wait_for_chrome_session_state(
+            chrome_dir,
+            env=env,
+            timeout_seconds=90,
+            require_browser_ready=True,
+            require_connectable=True,
+        )
 
         tab_process = subprocess.Popen(
             [
@@ -143,7 +129,13 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
             text=True,
             env=env,
         )
-        _wait_for_file(snapshot_chrome_dir / "target_id.txt", tab_process, timeout=90)
+        wait_for_chrome_session_state(
+            snapshot_chrome_dir,
+            env=env,
+            timeout_seconds=90,
+            require_target_id=True,
+            require_connectable=True,
+        )
 
         navigate_result = subprocess.run(
             [
@@ -186,13 +178,7 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
         assert screenshot_file.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
     finally:
         if tab_process is not None:
-            try:
-                tab_process.send_signal(signal.SIGTERM)
-                tab_process.communicate(timeout=10)
-            except Exception:
-                pass
-        try:
-            chrome_launch_process.send_signal(signal.SIGTERM)
-            chrome_launch_process.communicate(timeout=10)
-        except Exception:
-            pass
+            tab_process.send_signal(signal.SIGTERM)
+            tab_process.communicate(timeout=10)
+        chrome_launch_process.send_signal(signal.SIGTERM)
+        chrome_launch_process.communicate(timeout=10)

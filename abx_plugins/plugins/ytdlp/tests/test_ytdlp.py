@@ -125,10 +125,8 @@ def installed_ytdlp_runtime_env(tmp_path_factory) -> dict[str, str]:
 
 
 @pytest.fixture
-def ytdlp_runtime_env(installed_ytdlp_runtime_env, monkeypatch) -> dict[str, str]:
-    """Project the resolved runtime only for the dependent yt-dlp test."""
-    for key, value in installed_ytdlp_runtime_env.items():
-        monkeypatch.setenv(key, value)
+def ytdlp_runtime_env(installed_ytdlp_runtime_env) -> dict[str, str]:
+    """Return the resolved runtime for process-scoped hook environments."""
     return installed_ytdlp_runtime_env.copy()
 
 

@@ -9,12 +9,15 @@ import json
 import shutil
 import subprocess
 import tempfile
-import time
 from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.testing import get_hook_script, get_plugin_dir
+from abx_plugins.plugins.base.testing import (
+    get_hook_script,
+    get_plugin_dir,
+    start_process_and_wait_for_file,
+)
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
     chrome_session,
@@ -26,6 +29,15 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 # Get the path to the redirects hook
 PLUGIN_DIR = get_plugin_dir(__file__)
 REDIRECTS_HOOK = get_hook_script(PLUGIN_DIR, "on_Snapshot__*_redirects.*")
+
+
+def prenav_is_ready(path: Path) -> bool:
+    if not path.is_file():
+        return False
+    try:
+        return json.loads(path.read_text()).get("status") == "ready"
+    except json.JSONDecodeError:
+        return False
 
 
 class TestRedirectsPlugin:
@@ -67,31 +79,18 @@ class TestRedirectsWithChrome:
                 # Use the environment from chrome_session (already has CHROME_HEADLESS=true)
 
                 # Run redirects hook with the active Chrome session (background hook)
-                result = subprocess.Popen(
+                marker_path = Path(env["SNAP_DIR"]) / "redirects" / "prenav.json"
+                result = start_process_and_wait_for_file(
                     [
                         str(REDIRECTS_HOOK),
                         f"--url={test_url}",
                         f"--snapshot-id={snapshot_id}",
                     ],
-                    cwd=str(snapshot_chrome_dir),
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
+                    marker_path,
+                    cwd=snapshot_chrome_dir,
                     env=env,
+                    ready=prenav_is_ready,
                 )
-
-                marker_path = Path(env["SNAP_DIR"]) / "redirects" / "prenav.json"
-                for _ in range(50):
-                    if marker_path.exists():
-                        marker = json.loads(marker_path.read_text())
-                        if marker.get("status") == "ready":
-                            break
-                    time.sleep(0.1)
-                else:
-                    stdout, stderr = result.communicate(timeout=20)
-                    raise AssertionError(
-                        f"redirects hook never became ready\nstdout:\n{stdout}\nstderr:\n{stderr}",
-                    )
 
                 nav_result = subprocess.run(
                     [
@@ -113,21 +112,8 @@ class TestRedirectsWithChrome:
                 snap_dir = Path(env["SNAP_DIR"])
                 redirects_output = snap_dir / "redirects" / "redirects.jsonl"
 
-                # Wait briefly for background hook to write output
-                for _ in range(30):
-                    if (
-                        redirects_output.exists()
-                        and redirects_output.stat().st_size > 0
-                    ):
-                        break
-                    time.sleep(1)
-
                 # Finite bg hook should exit on its own after the settle window.
-                try:
-                    stdout, stderr = result.communicate(timeout=20)
-                except subprocess.TimeoutExpired:
-                    result.kill()
-                    stdout, stderr = result.communicate()
+                stdout, stderr = result.communicate(timeout=20)
                 assert "Traceback" not in stderr
                 assert "Error:" not in stderr
 
@@ -192,29 +178,23 @@ class TestRedirectsWithChrome:
             navigate=False,
             timeout=30,
         ) as (_chrome_process, _chrome_pid, snapshot_chrome_dir, env):
-            result = subprocess.Popen(
+            marker_path = Path(env["SNAP_DIR"]) / "redirects" / "prenav.json"
+            result = start_process_and_wait_for_file(
                 [
                     str(REDIRECTS_HOOK),
                     f"--url={test_url}",
                     f"--snapshot-id={snapshot_id}",
                 ],
-                cwd=str(snapshot_chrome_dir),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
+                marker_path,
+                cwd=snapshot_chrome_dir,
                 env=env,
+                ready=prenav_is_ready,
             )
-
-            marker_path = Path(env["SNAP_DIR"]) / "redirects" / "prenav.json"
-            for _ in range(50):
-                if marker_path.exists():
-                    break
-                time.sleep(0.1)
 
             assert marker_path.exists(), f"Missing prenav marker: {marker_path}"
             marker = json.loads(marker_path.read_text())
             assert marker["phase"] == "pre_navigation"
-            assert marker["status"] in {"starting", "ready"}
+            assert marker["status"] == "ready"
             assert marker["plugin"] == "redirects"
             assert marker["url"] == test_url
 
@@ -234,11 +214,7 @@ class TestRedirectsWithChrome:
                 f"Navigation failed: {nav_result.stderr}\nStdout: {nav_result.stdout}"
             )
 
-            try:
-                _stdout, stderr = result.communicate(timeout=20)
-            except subprocess.TimeoutExpired:
-                result.kill()
-                _stdout, stderr = result.communicate()
+            _stdout, stderr = result.communicate(timeout=20)
             assert result.returncode == 0, stderr
 
 

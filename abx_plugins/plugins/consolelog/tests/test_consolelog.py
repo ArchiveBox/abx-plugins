@@ -9,12 +9,15 @@ import json
 import shutil
 import subprocess
 import tempfile
-import time
 from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.testing import get_hook_script, get_plugin_dir
+from abx_plugins.plugins.base.testing import (
+    get_hook_script,
+    get_plugin_dir,
+    start_process_and_wait_for_file,
+)
 from abx_plugins.plugins.base.testing import parse_jsonl_output
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
@@ -72,26 +75,16 @@ class TestConsolelogWithChrome:
             console_dir.mkdir(exist_ok=True)
 
             # Run consolelog hook with the active Chrome session (background hook)
-            result = subprocess.Popen(
+            console_output = console_dir / "console.jsonl"
+            result = start_process_and_wait_for_file(
                 [
                     str(CONSOLELOG_HOOK),
                     f"--url={test_url}",
                     f"--snapshot-id={snapshot_id}",
                 ],
-                cwd=str(console_dir),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
+                console_output,
+                cwd=console_dir,
                 env=env,
-            )
-
-            console_output = console_dir / "console.jsonl"
-            for _ in range(20):
-                if console_output.exists():
-                    break
-                time.sleep(0.25)
-            assert console_output.exists(), (
-                "Consolelog hook did not become ready before navigation"
             )
 
             nav_result = subprocess.run(
@@ -108,20 +101,8 @@ class TestConsolelogWithChrome:
             )
             assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
-            # Allow it to run briefly, then terminate (background hook)
-            for _ in range(10):
-                if console_output.exists() and console_output.stat().st_size > 0:
-                    break
-                time.sleep(1)
-            if result.poll() is None:
-                result.terminate()
-                try:
-                    stdout, stderr = result.communicate(timeout=5)
-                except subprocess.TimeoutExpired:
-                    result.kill()
-                    stdout, stderr = result.communicate()
-            else:
-                stdout, stderr = result.communicate()
+            result.terminate()
+            stdout, stderr = result.communicate(timeout=30)
 
             assert result.returncode == 0, (
                 f"Consolelog hook did not shut down cleanly.\n"

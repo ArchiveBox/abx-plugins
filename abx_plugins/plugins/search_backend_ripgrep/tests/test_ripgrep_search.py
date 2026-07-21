@@ -58,7 +58,7 @@ class TestRipgrepSearch:
     """Test the ripgrep search function."""
 
     @pytest.fixture(autouse=True)
-    def archive(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rg_path: str):
+    def archive(self, tmp_path: Path, rg_path: str):
         """Create temporary archive directory with test files."""
         self.archive_dir = tmp_path / "archive"
         self.archive_dir.mkdir()
@@ -86,11 +86,12 @@ class TestRipgrepSearch:
             },
         )
 
-        monkeypatch.setenv("SNAP_DIR", str(self.archive_dir))
-        monkeypatch.setenv("RIPGREP_BINARY", rg_path)
-        monkeypatch.delenv("RIPGREP_TIMEOUT", raising=False)
-        monkeypatch.delenv("RIPGREP_ARGS", raising=False)
-        monkeypatch.delenv("RIPGREP_ARGS_EXTRA", raising=False)
+        self.env = {
+            key: value
+            for key, value in os.environ.items()
+            if key not in {"RIPGREP_TIMEOUT", "RIPGREP_ARGS", "RIPGREP_ARGS_EXTRA"}
+        }
+        self.env.update({"SNAP_DIR": str(self.archive_dir), "RIPGREP_BINARY": rg_path})
 
     def _create_snapshot(self, snapshot_id: str, files: dict):
         """Create a snapshot directory with files."""
@@ -102,13 +103,12 @@ class TestRipgrepSearch:
 
     def test_search_no_archive_dir(self):
         """search should return empty list when archive dir doesn't exist."""
-        os.environ["SNAP_DIR"] = "/nonexistent/path"
-        results = search("test")
+        results = search("test", environ={**self.env, "SNAP_DIR": "/nonexistent/path"})
         assert results == []
 
     def test_search_single_match(self):
         """search should find matching snapshot."""
-        results = search("Python programming")
+        results = search("Python programming", environ=self.env)
 
         assert "snap-001" in results
         assert "snap-002" not in results
@@ -117,7 +117,7 @@ class TestRipgrepSearch:
     def test_search_multiple_matches(self):
         """search should find all matching snapshots."""
         # 'guide' appears in snap-002 (JavaScript guide) and snap-003 (Archiving Guide)
-        results = search("guide")
+        results = search("guide", environ=self.env)
 
         assert "snap-002" in results
         assert "snap-003" in results
@@ -126,8 +126,8 @@ class TestRipgrepSearch:
     def test_search_case_insensitive_by_default(self):
         """search should be case-sensitive (ripgrep default)."""
         # By default rg is case-sensitive
-        results_upper = search("PYTHON")
-        results_lower = search("python")
+        results_upper = search("PYTHON", environ=self.env)
+        results_lower = search("python", environ=self.env)
 
         # Depending on ripgrep config, results may differ
         assert isinstance(results_upper, list)
@@ -135,12 +135,12 @@ class TestRipgrepSearch:
 
     def test_search_no_results(self):
         """search should return empty list for no matches."""
-        results = search("xyznonexistent123")
+        results = search("xyznonexistent123", environ=self.env)
         assert results == []
 
     def test_search_regex(self):
         """search should support regex patterns."""
-        results = search("(Python|JavaScript)")
+        results = search("(Python|JavaScript)", environ=self.env)
 
         assert "snap-001" in results
         assert "snap-002" in results
@@ -148,29 +148,26 @@ class TestRipgrepSearch:
     def test_search_distinct_snapshots(self):
         """search should return distinct snapshot IDs."""
         # Query matches both files in snap-001
-        results = search("Python")
+        results = search("Python", environ=self.env)
 
         # Should only appear once
         assert results.count("snap-001") == 1
 
-    def test_search_with_custom_args(self, monkeypatch: pytest.MonkeyPatch):
+    def test_search_with_custom_args(self):
         """search should use custom RIPGREP_ARGS."""
-        monkeypatch.setenv("RIPGREP_ARGS", '["-i"]')  # Case insensitive
-        results = search("PYTHON")
+        results = search("PYTHON", environ={**self.env, "RIPGREP_ARGS": '["-i"]'})
         # With -i flag, should find regardless of case
         assert "snap-001" in results
 
-    def test_search_timeout(self, monkeypatch: pytest.MonkeyPatch):
+    def test_search_timeout(self):
         """search should handle timeout gracefully."""
-        monkeypatch.setenv("RIPGREP_TIMEOUT", "5")
         # Short timeout, should still complete for small archive
-        results = search("Python")
+        results = search("Python", environ={**self.env, "RIPGREP_TIMEOUT": "5"})
         assert isinstance(results, list)
 
     def test_search_contents_excludes_noncontent_files_and_strips_follow_flags(
         self,
         tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
     ):
         """contents mode should ignore noncontent globs and never follow symlinks."""
         for index, glob in enumerate(DEFAULT_CONTENT_EXCLUDES):
@@ -184,11 +181,18 @@ class TestRipgrepSearch:
         symlink_path = self.archive_dir / "snap-001" / "singlefile" / "linked.html"
         symlink_path.symlink_to(symlink_target)
 
-        monkeypatch.setenv("RIPGREP_ARGS", '["--follow"]')
-        monkeypatch.setenv("RIPGREP_ARGS_EXTRA", '["-L", "-i"]')
+        env = {
+            **self.env,
+            "RIPGREP_ARGS": '["--follow"]',
+            "RIPGREP_ARGS_EXTRA": '["-L", "-i"]',
+        }
 
-        assert search("EXCLUDEDCONTENT", search_mode="contents") == []
-        assert "snap-001" not in search("SYMLINKONLY", search_mode="contents")
+        assert search("EXCLUDEDCONTENT", search_mode="contents", environ=env) == []
+        assert "snap-001" not in search(
+            "SYMLINKONLY",
+            search_mode="contents",
+            environ=env,
+        )
 
     def test_search_deep_reincludes_json_and_logs(self):
         self._create_snapshot("json-match", {"metadata/page.json": "deepjsonneedle"})
@@ -198,19 +202,31 @@ class TestRipgrepSearch:
         self._create_snapshot("css-match", {"assets/style.css": "deepcssneedle"})
         self._create_snapshot("js-match", {"assets/script.js": "deepjsneedle"})
 
-        assert "json-match" in search("deepjsonneedle", search_mode="deep")
-        assert "jsonl-match" in search("deepjsonlneedle", search_mode="deep")
-        assert "log-match" in search("deeplogneedle", search_mode="deep")
-        assert search("deeppidneedle", search_mode="deep") == []
-        assert search("deepcssneedle", search_mode="deep") == []
-        assert search("deepjsneedle", search_mode="deep") == []
+        assert "json-match" in search(
+            "deepjsonneedle",
+            search_mode="deep",
+            environ=self.env,
+        )
+        assert "jsonl-match" in search(
+            "deepjsonlneedle",
+            search_mode="deep",
+            environ=self.env,
+        )
+        assert "log-match" in search(
+            "deeplogneedle",
+            search_mode="deep",
+            environ=self.env,
+        )
+        assert search("deeppidneedle", search_mode="deep", environ=self.env) == []
+        assert search("deepcssneedle", search_mode="deep", environ=self.env) == []
+        assert search("deepjsneedle", search_mode="deep", environ=self.env) == []
 
 
 class TestRipgrepSearchIntegration:
     """Integration tests with realistic archive structure."""
 
     @pytest.fixture(autouse=True)
-    def archive(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rg_path: str):
+    def archive(self, tmp_path: Path, rg_path: str):
         """Create archive with realistic structure."""
         self.archive_dir = tmp_path / "archive"
         self.archive_dir.mkdir()
@@ -246,8 +262,11 @@ class TestRipgrepSearchIntegration:
             },
         )
 
-        monkeypatch.setenv("SNAP_DIR", str(self.archive_dir))
-        monkeypatch.setenv("RIPGREP_BINARY", rg_path)
+        self.env = {
+            **os.environ,
+            "SNAP_DIR": str(self.archive_dir),
+            "RIPGREP_BINARY": rg_path,
+        }
 
     def _create_snapshot(self, timestamp: str, files: dict):
         """Create snapshot with timestamp-based ID."""
@@ -262,23 +281,23 @@ class TestRipgrepSearchIntegration:
 
     def test_search_archivebox(self):
         """Search for archivebox should find documentation snapshot."""
-        results = search("archivebox")
+        results = search("archivebox", environ=self.env)
         assert "1704067200.123456" in results
 
     def test_search_python(self):
         """Search for python should find Python news snapshot."""
-        results = search("Python")
+        results = search("Python", environ=self.env)
         assert "1704153600.654321" in results
 
     def test_search_pip_install(self):
         """Search for installation command."""
-        results = search("pip install")
+        results = search("pip install", environ=self.env)
         assert "1704067200.123456" in results
 
 
 class TestRipgrepSearchCurrentArchiveBoxLayout:
     @pytest.fixture(autouse=True)
-    def archive(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rg_path: str):
+    def archive(self, tmp_path: Path, rg_path: str):
         self.data_dir = tmp_path
         self.snapshot_id = "019cf48c-aa86-72f0-9f8f-e4ea80226fc6"
         self.snapshot_root = (
@@ -300,15 +319,18 @@ class TestRipgrepSearchCurrentArchiveBoxLayout:
         lib_dir.mkdir(parents=True, exist_ok=True)
         (lib_dir / "big.txt").write_text("google " * 1000)
 
-        monkeypatch.setenv("SNAP_DIR", str(self.data_dir))
-        monkeypatch.setenv("RIPGREP_BINARY", rg_path)
+        self.env = {
+            **os.environ,
+            "SNAP_DIR": str(self.data_dir),
+            "RIPGREP_BINARY": rg_path,
+        }
 
     def test_search_roots_prefer_snapshot_content_dirs(self):
-        roots = _get_search_roots()
+        roots = _get_search_roots(self.env)
         assert roots == [self.data_dir / "archive" / "users" / "system" / "snapshots"]
 
     def test_search_finds_snapshot_in_current_layout(self):
-        results = search("google")
+        results = search("google", environ=self.env)
         assert results == [self.snapshot_id]
 
     def test_search_roots_support_configured_users_dir_name(self):
@@ -322,9 +344,7 @@ class TestRipgrepSearchCurrentArchiveBoxLayout:
             / self.snapshot_id
         )
         (custom_snapshot_root / "wget").mkdir(parents=True, exist_ok=True)
-        os.environ["SNAP_DIR"] = str(custom_users_dir)
-
-        roots = _get_search_roots()
+        roots = _get_search_roots({**self.env, "SNAP_DIR": str(custom_users_dir)})
 
         assert roots == [custom_users_dir / "system" / "snapshots"]
 

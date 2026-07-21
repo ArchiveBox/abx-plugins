@@ -51,15 +51,18 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     launch_snapshot_tab,
     port_from_cdp_url,
     wait_for_extensions_metadata,
-    wait_for_pid_exit,
+    wait_for_chrome_session_state,
     write_browser_metadata,
 )
-from abx_plugins.plugins.base.testing import assert_isolated_snapshot_env
+from abx_plugins.plugins.base.testing import (
+    assert_isolated_snapshot_env,
+    install_required_binary_from_config,
+)
 
 pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
-TEST_EXTENSION_NAME = "chrome_test_extension"
-TEST_EXTENSION_VERSION = "1.0.0"
+TEST_EXTENSION_NAME = "ublock"
+TEST_EXTENSION_WEBSTORE_ID = "ddkjiahejlhfcafbddmgiahcphecmpfh"
 
 
 def test_acquire_session_lock_creates_missing_parent_dir(tmp_path):
@@ -299,31 +302,21 @@ process.stdout.write(options.CHROME_USER_DATA_DIR);
     assert result.stdout == str(personas_dir / "Default" / "chrome_profile")
 
 
-def _write_test_extension_cache(extensions_dir: Path) -> dict:
-    unpacked_dir = extensions_dir / f"{TEST_EXTENSION_NAME}_unpacked"
-    unpacked_dir.mkdir(parents=True, exist_ok=True)
-
-    manifest = {
-        "manifest_version": 3,
-        "name": TEST_EXTENSION_NAME,
-        "version": TEST_EXTENSION_VERSION,
-        "background": {
-            "service_worker": "service_worker.js",
-        },
-    }
-    (unpacked_dir / "manifest.json").write_text(json.dumps(manifest))
-    (unpacked_dir / "service_worker.js").write_text(
-        "chrome.runtime.onInstalled.addListener(() => {});\n",
+def _install_test_extension(extensions_dir: Path, env: dict[str, str]) -> dict:
+    """Install the shipped uBlock plugin through its real abxpkg provider."""
+    plugin_dir = CHROME_UTILS.parent.parent / TEST_EXTENSION_NAME
+    loaded = install_required_binary_from_config(
+        plugin_dir,
+        TEST_EXTENSION_NAME,
+        env=env,
     )
-
-    cache_data = {
-        "name": TEST_EXTENSION_NAME,
-        "webstore_id": TEST_EXTENSION_NAME,
-        "unpacked_path": str(unpacked_dir),
-        "version": TEST_EXTENSION_VERSION,
-    }
+    assert loaded.loaded_abspath is not None
+    manifest_path = Path(loaded.loaded_abspath)
+    assert manifest_path.is_file(), manifest_path
     cache_file = extensions_dir / f"{TEST_EXTENSION_NAME}.extension.json"
-    cache_file.write_text(json.dumps(cache_data))
+    assert cache_file.is_file(), cache_file
+    cache_data = json.loads(cache_file.read_text())
+    assert cache_data["webstore_id"] == TEST_EXTENSION_WEBSTORE_ID
     return cache_data
 
 
@@ -395,7 +388,7 @@ def test_load_cached_extension_uses_runtime_browser_target():
             tmpdir,
         )
         extensions_dir = Path(get_extensions_dir(env=env))
-        cached_ext = _write_test_extension_cache(extensions_dir)
+        cached_ext = _install_test_extension(extensions_dir, env)
         output_dir = tmpdir_path / "chrome"
         script = r"""
 const chromeUtils = require(process.argv[1]);
@@ -454,13 +447,11 @@ const extensionJson = process.argv[3];
         assert result.returncode == 0, result.stderr
         payload = json.loads(result.stdout.strip().splitlines()[-1])
         assert payload["extension"]["id"], payload
-        assert (
-            payload["extension"]
-            .get("target_url", "")
-            .endswith(
-                "/service_worker.js",
-            )
+        target_url = payload["extension"].get("target_url", "")
+        assert target_url.startswith(
+            f"chrome-extension://{payload['extension']['id']}/",
         ), payload
+        assert any(target.get("url") == target_url for target in payload["targets"])
         assert "load_error" not in payload["extension"], payload
         assert any(target["type"] == "service_worker" for target in payload["targets"])
 
@@ -534,20 +525,6 @@ def _cleanup_launch_process(
         kill_chromium_session(chrome_launch_process, chrome_dir)
 
 
-def _wait_for_process_to_remain_running(
-    process: subprocess.Popen,
-    *,
-    stable_seconds: float = 1.0,
-    poll_interval: float = 0.1,
-) -> None:
-    deadline = time.monotonic() + stable_seconds
-    while time.monotonic() < deadline:
-        assert process.poll() is None, (
-            "process exited before reaching the required stable running window"
-        )
-        time.sleep(poll_interval)
-
-
 def _launch_keepalive_local_provider_browser(
     tmpdir: str | Path,
     *,
@@ -593,58 +570,14 @@ def _launch_snapshot_tab_allowing_optional_pid(
     require_pid: bool,
     timeout: int = 60,
 ) -> LoggedPopen:
-    stdout_log = snapshot_chrome_dir / "chrome_tab.stdout.log"
-    stderr_log = snapshot_chrome_dir / "chrome_tab.stderr.log"
-    stdout_handle = open(stdout_log, "w+", encoding="utf-8")
-    stderr_handle = open(stderr_log, "w+", encoding="utf-8")
-    tab_process = LoggedPopen(
-        [
-            str(CHROME_TAB_HOOK),
-            f"--url={test_url}",
-            f"--snapshot-id={snapshot_id}",
-            f"--crawl-id={crawl_id}",
-        ],
-        cwd=str(snapshot_chrome_dir),
-        stdout=stdout_handle,
-        stderr=stderr_handle,
-        text=True,
-        env=tab_env,
-    )
-    tab_process._stdout_handle = stdout_handle
-    tab_process._stderr_handle = stderr_handle
-
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        if tab_process.poll() is not None:
-            stdout_handle.flush()
-            stderr_handle.flush()
-            stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
-            stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
-            stdout_handle.close()
-            stderr_handle.close()
-            raise RuntimeError(
-                f"Tab creation exited early:\nStdout: {stdout}\nStderr: {stderr}",
-            )
-        cdp_ready = (snapshot_chrome_dir / "cdp_url.txt").exists()
-        target_ready = (snapshot_chrome_dir / "target_id.txt").exists()
-        pid_ready = (snapshot_chrome_dir / "chrome.pid").exists()
-        if cdp_ready and target_ready and (pid_ready or not require_pid):
-            return tab_process
-        time.sleep(0.2)
-
-    try:
-        tab_process.send_signal(signal.SIGTERM)
-        tab_process.wait(timeout=10)
-    except Exception:
-        pass
-    stdout_handle.flush()
-    stderr_handle.flush()
-    stdout = stdout_log.read_text(encoding="utf-8", errors="replace")
-    stderr = stderr_log.read_text(encoding="utf-8", errors="replace")
-    stdout_handle.close()
-    stderr_handle.close()
-    raise RuntimeError(
-        f"Tab creation timed out after {timeout}s\nStdout: {stdout}\nStderr: {stderr}",
+    return launch_snapshot_tab(
+        snapshot_chrome_dir=snapshot_chrome_dir,
+        tab_env=tab_env,
+        test_url=test_url,
+        snapshot_id=snapshot_id,
+        crawl_id=crawl_id,
+        timeout=timeout,
+        require_pid=require_pid,
     )
 
 
@@ -908,11 +841,8 @@ def test_chrome_launch_and_tab_creation(chrome_test_url):
         assert len(target_id) > 0, "Target ID should not be empty"
 
         # Cleanup: Kill Chrome and launch process
-        try:
-            tab_process.send_signal(signal.SIGTERM)
-            tab_process.wait(timeout=10)
-        except Exception:
-            pass
+        tab_process.send_signal(signal.SIGTERM)
+        tab_process.wait(timeout=10)
         _cleanup_launch_process(chrome_launch_process, chrome_dir)
 
 
@@ -955,52 +885,25 @@ def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):
             )
 
             stdout_log = snapshot_chrome_dir / "chrome_tab.stdout.log"
-            deadline = time.monotonic() + 10
+            assert tab_process.poll() is None
+            stdout_lines = [
+                line.strip()
+                for line in stdout_log.read_text(
+                    encoding="utf-8",
+                    errors="replace",
+                ).splitlines()
+                if line.strip()
+            ]
             archive_results = []
-            while time.monotonic() < deadline:
-                assert tab_process.poll() is None, (
-                    "chrome_tab should stay alive after publishing its startup result"
-                )
-                stdout_lines = [
-                    line.strip()
-                    for line in stdout_log.read_text(
-                        encoding="utf-8",
-                        errors="replace",
-                    ).splitlines()
-                    if line.strip()
-                ]
-                archive_results = []
-                for line in stdout_lines:
-                    if not line.startswith("{"):
-                        continue
-                    try:
-                        record = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-                    if record.get("type") == "ArchiveResult":
-                        archive_results.append(record)
-                if len(archive_results) == 1:
-                    _wait_for_process_to_remain_running(tab_process, stable_seconds=1.0)
-                    stdout_lines = [
-                        line.strip()
-                        for line in stdout_log.read_text(
-                            encoding="utf-8",
-                            errors="replace",
-                        ).splitlines()
-                        if line.strip()
-                    ]
-                    archive_results = []
-                    for line in stdout_lines:
-                        if not line.startswith("{"):
-                            continue
-                        try:
-                            record = json.loads(line)
-                        except json.JSONDecodeError:
-                            continue
-                        if record.get("type") == "ArchiveResult":
-                            archive_results.append(record)
-                    break
-                time.sleep(0.1)
+            for line in stdout_lines:
+                if not line.startswith("{"):
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if record.get("type") == "ArchiveResult":
+                    archive_results.append(record)
 
             assert len(archive_results) == 1, (
                 f"chrome_tab should emit exactly one ArchiveResult on successful startup, got {archive_results}\n"
@@ -1009,11 +912,8 @@ def test_tab_hook_emits_single_success_result_and_stays_alive(chrome_test_url):
             assert archive_results[0]["status"] == "succeeded", archive_results[0]
         finally:
             if tab_process is not None:
-                try:
-                    tab_process.send_signal(signal.SIGTERM)
-                    tab_process.wait(timeout=10)
-                except Exception:
-                    pass
+                tab_process.send_signal(signal.SIGTERM)
+                tab_process.wait(timeout=10)
             _cleanup_launch_process(chrome_launch_process, chrome_dir)
 
 
@@ -1040,22 +940,15 @@ def test_chrome_can_adopt_existing_cdp_url_without_local_pid(chrome_test_url):
         )
 
         try:
-            for _ in range(45):
-                if provider_process.poll() is not None:
-                    stdout, stderr = provider_process.communicate()
-                    raise AssertionError(
-                        f"provider chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
-                    )
-                if (provider_chrome_dir / "cdp_url.txt").exists() and (
-                    provider_chrome_dir / "chrome.pid"
-                ).exists():
-                    break
-                time.sleep(1)
-
-            assert (provider_chrome_dir / "cdp_url.txt").exists()
-            assert (provider_chrome_dir / "chrome.pid").exists()
-            provider_cdp_url = (provider_chrome_dir / "cdp_url.txt").read_text().strip()
-            provider_pid = int((provider_chrome_dir / "chrome.pid").read_text().strip())
+            provider_state = wait_for_chrome_session_state(
+                provider_chrome_dir,
+                env=provider_env,
+                timeout_seconds=45,
+                require_browser_ready=True,
+            )
+            assert provider_process.poll() is None
+            provider_cdp_url = str(provider_state["cdpUrl"])
+            provider_pid = int(provider_state["pid"])
             os.kill(provider_pid, 0)
 
             crawl_dir = Path(tmpdir) / "adopted-crawl"
@@ -1115,32 +1008,15 @@ def test_chrome_can_adopt_existing_cdp_url_without_local_pid(chrome_test_url):
             tab_env = adopt_env | {
                 "SNAP_DIR": str(snapshot_dir),
             }
-            tab_process = subprocess.Popen(
-                [
-                    str(CHROME_TAB_HOOK),
-                    f"--url={chrome_test_url}",
-                    "--snapshot-id=snap-adopted-123",
-                    "--crawl-id=test-adopted-crawl",
-                ],
-                cwd=str(snapshot_chrome_dir),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                env=tab_env,
+            tab_process = launch_snapshot_tab(
+                snapshot_chrome_dir=snapshot_chrome_dir,
+                tab_env=tab_env,
+                test_url=chrome_test_url,
+                snapshot_id="snap-adopted-123",
+                crawl_id="test-adopted-crawl",
+                require_pid=False,
             )
             try:
-                for _ in range(60):
-                    if tab_process.poll() is not None:
-                        stdout, stderr = tab_process.communicate()
-                        raise AssertionError(
-                            f"adopted snapshot tab exited early:\nStdout: {stdout}\nStderr: {stderr}",
-                        )
-                    if (snapshot_chrome_dir / "cdp_url.txt").exists() and (
-                        snapshot_chrome_dir / "target_id.txt"
-                    ).exists():
-                        break
-                    time.sleep(1)
-
                 assert (snapshot_chrome_dir / "cdp_url.txt").exists()
                 assert (snapshot_chrome_dir / "target_id.txt").exists()
                 assert not (snapshot_chrome_dir / "chrome.pid").exists(), (
@@ -1167,11 +1043,8 @@ def test_chrome_can_adopt_existing_cdp_url_without_local_pid(chrome_test_url):
                 tab_process.send_signal(signal.SIGTERM)
                 tab_process.wait(timeout=20)
         finally:
-            try:
-                provider_process.send_signal(signal.SIGTERM)
-                provider_process.wait(timeout=20)
-            except Exception:
-                pass
+            provider_process.send_signal(signal.SIGTERM)
+            provider_process.wait(timeout=20)
 
 
 def test_crawl_isolation_external_cdp_keepalive_true_reinvocation_reuses_same_browser_without_closing_it(
@@ -1260,8 +1133,8 @@ def test_crawl_isolation_external_cdp_keepalive_true_reinvocation_reuses_same_br
             )
         finally:
             if is_pid_alive(provider_pid):
-                kill_chrome(provider_pid, str(provider_chrome_dir))
-                assert wait_for_pid_exit(provider_pid), (
+                assert kill_chrome(provider_pid, str(provider_chrome_dir))
+                assert not is_pid_alive(provider_pid), (
                     "manual cleanup should terminate adopted provider browser"
                 )
 
@@ -1283,7 +1156,7 @@ def test_snapshot_isolation_launches_and_cleans_up_local_browser(chrome_test_url
             "CHROME_ISOLATION": "snapshot",
         }
         extensions_dir = Path(get_extensions_dir(env=tab_env))
-        cached_ext = _write_test_extension_cache(extensions_dir)
+        cached_ext = _install_test_extension(extensions_dir, tab_env)
 
         launch_process = subprocess.Popen(
             [
@@ -1299,21 +1172,15 @@ def test_snapshot_isolation_launches_and_cleans_up_local_browser(chrome_test_url
             env=tab_env,
         )
 
-        browser_file = snapshot_chrome_dir / "browser.json"
-        for _ in range(60):
-            if launch_process.poll() is not None:
-                stdout, stderr = launch_process.communicate()
-                raise AssertionError(
-                    f"snapshot-isolated launch hook exited early:\nStdout: {stdout}\nStderr: {stderr}",
-                )
-            if (
-                (snapshot_chrome_dir / "cdp_url.txt").exists()
-                and (snapshot_chrome_dir / "chrome.pid").exists()
-                and browser_file.exists()
-            ):
-                break
-            time.sleep(1)
+        wait_for_chrome_session_state(
+            snapshot_chrome_dir,
+            env=tab_env,
+            timeout_seconds=60,
+            require_browser_ready=True,
+        )
+        assert launch_process.poll() is None
 
+        browser_file = snapshot_chrome_dir / "browser.json"
         assert browser_file.exists(), (
             "snapshot launch should publish browser metadata before tab setup"
         )
@@ -1330,35 +1197,16 @@ def test_snapshot_isolation_launches_and_cleans_up_local_browser(chrome_test_url
         assert "load_path" not in extension_entry, extension_entry
         assert extension_entry.get("unpacked_path") == cached_ext["unpacked_path"]
         assert Path(extension_entry["unpacked_path"]).is_dir(), extension_entry
-        assert not (Path(extension_entry["unpacked_path"]) / "_metadata").exists()
+        assert (Path(extension_entry["unpacked_path"]) / "manifest.json").is_file()
 
-        tab_process = subprocess.Popen(
-            [
-                str(CHROME_TAB_HOOK),
-                f"--url={chrome_test_url}",
-                "--snapshot-id=snap-isolated-123",
-                "--crawl-id=test-snapshot-isolation",
-            ],
-            cwd=str(snapshot_chrome_dir),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=tab_env,
+        tab_process = launch_snapshot_tab(
+            snapshot_chrome_dir=snapshot_chrome_dir,
+            tab_env=tab_env,
+            test_url=chrome_test_url,
+            snapshot_id="snap-isolated-123",
+            crawl_id="test-snapshot-isolation",
+            require_pid=True,
         )
-
-        for _ in range(60):
-            if tab_process.poll() is not None:
-                stdout, stderr = tab_process.communicate()
-                raise AssertionError(
-                    f"snapshot-isolated tab hook exited early:\nStdout: {stdout}\nStderr: {stderr}",
-                )
-            if (
-                (snapshot_chrome_dir / "cdp_url.txt").exists()
-                and (snapshot_chrome_dir / "target_id.txt").exists()
-                and (snapshot_chrome_dir / "chrome.pid").exists()
-            ):
-                break
-            time.sleep(1)
 
         wait_result = subprocess.run(
             [
@@ -1496,7 +1344,7 @@ def test_crawl_isolation_local_keepalive_true_keeps_browser_running_after_hook_e
             "Chrome should remain alive after snapshot tab cleanup when crawl keepalive=true"
         )
         assert kill_chrome(chrome_pid, str(chrome_dir))
-        assert wait_for_pid_exit(chrome_pid), (
+        assert not is_pid_alive(chrome_pid), (
             "manual cleanup should terminate keepalive browser"
         )
 
@@ -1574,7 +1422,7 @@ def test_snapshot_isolation_local_keepalive_true_keeps_browser_running_after_hoo
             "Chrome should remain alive after snapshot tab cleanup when snapshot keepalive=true"
         )
         assert kill_chrome(chrome_pid, str(snapshot_chrome_dir))
-        assert wait_for_pid_exit(chrome_pid), (
+        assert not is_pid_alive(chrome_pid), (
             "manual cleanup should terminate keepalive browser"
         )
 
@@ -1618,15 +1466,12 @@ def test_crawl_isolation_external_cdp_keepalive_false_closes_adopted_browser_on_
             env=adopt_env,
         )
         try:
-            for _ in range(60):
-                if adopt_process.poll() is not None:
-                    stdout, stderr = adopt_process.communicate()
-                    raise AssertionError(
-                        f"adopted crawl launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
-                    )
-                if (adopted_chrome_dir / "cdp_url.txt").exists():
-                    break
-                time.sleep(1)
+            wait_for_chrome_session_state(
+                adopted_chrome_dir,
+                env=adopt_env,
+                require_browser_ready=True,
+            )
+            assert adopt_process.poll() is None, "adopted crawl launch exited early"
 
             assert (
                 adopted_chrome_dir / "cdp_url.txt"
@@ -1654,7 +1499,7 @@ def test_crawl_isolation_external_cdp_keepalive_false_closes_adopted_browser_on_
 
             adopt_process.send_signal(signal.SIGTERM)
             adopt_process.wait(timeout=20)
-            assert wait_for_pid_exit(provider_pid), (
+            assert not is_pid_alive(provider_pid), (
                 "adopted external browser should be closed when crawl keepalive=false hook shuts down"
             )
             assert not (adopted_chrome_dir / "cdp_url.txt").exists(), (
@@ -1664,9 +1509,8 @@ def test_crawl_isolation_external_cdp_keepalive_false_closes_adopted_browser_on_
                 "browser.json should be removed from crawl-owned chrome dir on teardown"
             )
         finally:
-            if adopt_process.poll() is None:
-                adopt_process.send_signal(signal.SIGTERM)
-                adopt_process.wait(timeout=20)
+            adopt_process.send_signal(signal.SIGTERM)
+            adopt_process.wait(timeout=20)
             if is_pid_alive(provider_pid):
                 kill_chrome(provider_pid, str(provider_chrome_dir))
 
@@ -1763,7 +1607,7 @@ def test_snapshot_isolation_external_cdp_keepalive_true_ignores_is_local_true_an
             "external provider browser should remain alive after snapshot tab cleanup when keepalive=true"
         )
         assert kill_chrome(provider_pid, str(provider_chrome_dir))
-        assert wait_for_pid_exit(provider_pid), (
+        assert not is_pid_alive(provider_pid), (
             "manual cleanup should terminate adopted provider browser"
         )
 
@@ -1817,15 +1661,12 @@ def test_snapshot_isolation_external_cdp_keepalive_false_closes_adopted_browser_
         )
         tab_process = None
         try:
-            for _ in range(60):
-                if launch_process.poll() is not None:
-                    stdout, stderr = launch_process.communicate()
-                    raise AssertionError(
-                        f"snapshot launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
-                    )
-                if (snapshot_chrome_dir / "cdp_url.txt").exists():
-                    break
-                time.sleep(1)
+            wait_for_chrome_session_state(
+                snapshot_chrome_dir,
+                env=env,
+                require_browser_ready=True,
+            )
+            assert launch_process.poll() is None, "snapshot launch exited early"
 
             assert (
                 snapshot_chrome_dir / "cdp_url.txt"
@@ -1879,17 +1720,16 @@ def test_snapshot_isolation_external_cdp_keepalive_false_closes_adopted_browser_
 
             launch_process.send_signal(signal.SIGTERM)
             launch_process.wait(timeout=20)
-            assert wait_for_pid_exit(provider_pid), (
+            assert not is_pid_alive(provider_pid), (
                 "adopted external browser should be closed when snapshot keepalive=false hook shuts down"
             )
             _assert_snapshot_chrome_state_cleared(snapshot_chrome_dir)
         finally:
-            if tab_process is not None and tab_process.poll() is None:
+            if tab_process is not None:
                 tab_process.send_signal(signal.SIGTERM)
                 tab_process.wait(timeout=20)
-            if launch_process.poll() is None:
-                launch_process.send_signal(signal.SIGTERM)
-                launch_process.wait(timeout=20)
+            launch_process.send_signal(signal.SIGTERM)
+            launch_process.wait(timeout=20)
             if is_pid_alive(provider_pid):
                 kill_chrome(provider_pid, str(provider_chrome_dir))
 
@@ -1931,7 +1771,7 @@ def test_cdp_url_is_published_before_extensions_metadata():
 
         install_env = _isolated_test_env(tmpdir)
         extensions_dir = Path(get_extensions_dir(env=install_env))
-        _write_test_extension_cache(extensions_dir)
+        _install_test_extension(extensions_dir, install_env)
 
         env = install_env | {
             "CRAWL_DIR": str(shared_dir),
@@ -1951,34 +1791,13 @@ def test_cdp_url_is_published_before_extensions_metadata():
         )
 
         try:
-            deadline = time.time() + 120
-            saw_browser = False
-            saw_cdp = False
-            saw_cdp_before_browser = False
-
-            while time.time() < deadline:
-                saw_browser = browser_file.exists()
-                saw_cdp = cdp_file.exists()
-
-                if saw_cdp and not saw_browser:
-                    saw_cdp_before_browser = True
-                    break
-
-                if saw_cdp and saw_browser:
-                    saw_cdp_before_browser = (
-                        cdp_file.stat().st_mtime_ns <= browser_file.stat().st_mtime_ns
-                    )
-                    break
-
-                if chrome_launch_process.poll() is not None:
-                    stdout, stderr = chrome_launch_process.communicate()
-                    raise AssertionError(
-                        f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
-                    )
-                time.sleep(0.1)
-
-            assert saw_cdp, "chrome launch should create cdp_url.txt"
-            assert saw_cdp_before_browser, (
+            wait_for_chrome_session_state(
+                chrome_dir,
+                env=env,
+                require_browser_ready=True,
+            )
+            assert chrome_launch_process.poll() is None, "Chrome launch exited early"
+            assert cdp_file.stat().st_mtime_ns <= browser_file.stat().st_mtime_ns, (
                 "chrome launch should publish cdp_url.txt before browser.json"
             )
             metadata = wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
@@ -2012,17 +1831,12 @@ def test_crawl_wait_accepts_http_cdp_url_for_external_browser(chrome_test_url):
         )
 
         try:
-            for _ in range(30):
-                if (provider_chrome_dir / "cdp_url.txt").exists() and (
-                    provider_chrome_dir / "chrome.pid"
-                ).exists():
-                    break
-                if provider_process.poll() is not None:
-                    stdout, stderr = provider_process.communicate()
-                    raise AssertionError(
-                        f"provider launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
-                    )
-                time.sleep(1)
+            wait_for_chrome_session_state(
+                provider_chrome_dir,
+                env=provider_env,
+                require_browser_ready=True,
+            )
+            assert provider_process.poll() is None, "provider launch exited early"
 
             provider_cdp_url = (provider_chrome_dir / "cdp_url.txt").read_text().strip()
             provider_http_url = (
@@ -2122,25 +1936,22 @@ def test_cookies_imported_on_launch():
             env=env,
         )
 
-        for _ in range(15):
-            if (chrome_dir / "cdp_url.txt").exists():
-                break
-            time.sleep(1)
+        wait_for_chrome_session_state(
+            chrome_dir,
+            env=env,
+            require_browser_ready=True,
+        )
+        assert chrome_launch_process.poll() is None, "Chrome launch exited early"
 
         assert (chrome_dir / "cdp_url.txt").exists(), "cdp_url.txt should exist"
         int((chrome_dir / "chrome.pid").read_text().strip())
         port = port_from_cdp_url((chrome_dir / "cdp_url.txt").read_text().strip())
 
-        cookie_found = False
-        for _ in range(15):
-            cookies = get_cookies_via_cdp(port, env)
-            cookie_found = any(
-                c.get("name") == "abx_test_cookie" and c.get("value") == "hello"
-                for c in cookies
-            )
-            if cookie_found:
-                break
-            time.sleep(1)
+        cookies = get_cookies_via_cdp(port, env)
+        cookie_found = any(
+            c.get("name") == "abx_test_cookie" and c.get("value") == "hello"
+            for c in cookies
+        )
 
         assert cookie_found, "Imported cookie should be present in Chrome session"
 
@@ -2223,11 +2034,8 @@ def test_chrome_navigation(chrome_test_url):
         assert nav_data.get("finalUrl"), "Should have final URL"
 
         # Cleanup
-        try:
-            tab_process.send_signal(signal.SIGTERM)
-            tab_process.wait(timeout=10)
-        except Exception:
-            pass
+        tab_process.send_signal(signal.SIGTERM)
+        tab_process.wait(timeout=10)
         _cleanup_launch_process(chrome_launch_process, chrome_dir)
 
 
@@ -2268,15 +2076,12 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
                 env=env,
             )
 
-            for _ in range(30):
-                if all(path.exists() for path in shared_files.values()):
-                    break
-                if chrome_launch_process.poll() is not None:
-                    stdout, stderr = chrome_launch_process.communicate()
-                    raise AssertionError(
-                        f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
-                    )
-                time.sleep(1)
+            wait_for_chrome_session_state(
+                chrome_dir,
+                env=env,
+                require_browser_ready=True,
+            )
+            assert chrome_launch_process.poll() is None, "Chrome launch exited early"
 
             assert all(path.exists() for path in shared_files.values()), (
                 f"Crawl-scoped files should exist after launch: {shared_files}"
@@ -2350,7 +2155,9 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
                 text=True,
                 env=env | {"CHROME_TAB_TIMEOUT": "5", "CHROME_TIMEOUT": "5"},
             )
-            time.sleep(1)
+            assert delayed_snapshot_wait.poll() is None, (
+                "snapshot wait must remain blocked before tab readiness is published"
+            )
 
             tab_process = launch_snapshot_tab(
                 snapshot_chrome_dir=chrome_dir,
@@ -2462,20 +2269,14 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
             ) == chrome_test_url.rstrip("/")
         finally:
             if tab_process is not None:
-                try:
-                    tab_process.send_signal(signal.SIGTERM)
-                    tab_process.wait(timeout=10)
-                except Exception:
-                    pass
+                tab_process.send_signal(signal.SIGTERM)
+                tab_process.wait(timeout=10)
             assert not snapshot_files["target"].exists(), (
                 "target_id.txt should be removed after snapshot tab teardown"
             )
             if chrome_launch_process is not None:
-                try:
-                    chrome_launch_process.send_signal(signal.SIGTERM)
-                    chrome_launch_process.wait(timeout=10)
-                except Exception:
-                    pass
+                chrome_launch_process.send_signal(signal.SIGTERM)
+                chrome_launch_process.wait(timeout=10)
             assert not shared_files["chrome_pid"].exists(), (
                 "chrome.pid should be removed after crawl teardown"
             )
@@ -2493,7 +2294,7 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
 
         install_env = _isolated_test_env(tmpdir)
         extensions_dir = Path(get_extensions_dir(env=install_env))
-        cached_ext = _write_test_extension_cache(extensions_dir)
+        cached_ext = _install_test_extension(extensions_dir, install_env)
         extension_cache = extensions_dir / f"{TEST_EXTENSION_NAME}.extension.json"
         assert extension_cache.exists(), "test extension cache should exist"
 
@@ -2514,15 +2315,12 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
                 text=True,
                 env=env,
             )
-            for _ in range(30):
-                if browser_file.exists() and (chrome_dir / "cdp_url.txt").exists():
-                    break
-                if chrome_launch_process.poll() is not None:
-                    stdout, stderr = chrome_launch_process.communicate()
-                    raise AssertionError(
-                        f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
-                    )
-                time.sleep(1)
+            wait_for_chrome_session_state(
+                chrome_dir,
+                env=env,
+                require_browser_ready=True,
+            )
+            assert chrome_launch_process.poll() is None, "Chrome launch exited early"
 
             assert browser_file.exists(), (
                 "chrome launch should create browser.json when extensions are enabled"
@@ -2544,11 +2342,11 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
             assert extension_entry.get("webstore_id") == cached_ext["webstore_id"]
             assert extension_entry.get("unpacked_path") == cached_ext["unpacked_path"]
             assert extension_entry.get("id"), extension_entry
-            assert extension_entry.get("id") != cached_ext.get("id"), extension_entry
+            assert extension_entry.get("id") == cached_ext.get("id"), extension_entry
             assert "load_error" not in extension_entry, extension_entry
             assert "load_path" not in extension_entry, extension_entry
             assert Path(extension_entry["unpacked_path"]).is_dir(), extension_entry
-            assert not (Path(extension_entry["unpacked_path"]) / "_metadata").exists()
+            assert (Path(extension_entry["unpacked_path"]) / "manifest.json").is_file()
             assert (
                 wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
                 == crawl_extensions
@@ -2584,17 +2382,11 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
             assert browser_file.read_text() == crawl_browser_text
         finally:
             if tab_process is not None:
-                try:
-                    tab_process.send_signal(signal.SIGTERM)
-                    tab_process.wait(timeout=10)
-                except Exception:
-                    pass
+                tab_process.send_signal(signal.SIGTERM)
+                tab_process.wait(timeout=10)
             if chrome_launch_process is not None:
-                try:
-                    chrome_launch_process.send_signal(signal.SIGTERM)
-                    chrome_launch_process.wait(timeout=10)
-                except Exception:
-                    pass
+                chrome_launch_process.send_signal(signal.SIGTERM)
+                chrome_launch_process.wait(timeout=10)
 
 
 def test_chrome_wait_rejects_stale_cdp_markers(chrome_test_url):
@@ -2686,8 +2478,12 @@ def test_crawl_wait_retries_until_published_cdp_endpoint_becomes_connectable(
                 text=True,
                 env=adopted_env,
             )
-
-            _wait_for_process_to_remain_running(wait_process, stable_seconds=1.0)
+            assert wait_process.stdout is not None
+            startup_line = wait_process.stdout.readline()
+            assert startup_line.startswith("waiting for "), startup_line
+            assert wait_process.poll() is None, (
+                "crawl wait should still be blocked on the unreachable endpoint"
+            )
 
             adopted_chrome_dir.joinpath("cdp_url.txt").write_text(provider_cdp_url)
 
@@ -2698,12 +2494,11 @@ def test_crawl_wait_retries_until_published_cdp_endpoint_becomes_connectable(
             )
             assert "ready pid=external" in stdout.lower(), stdout
         finally:
-            if wait_process is not None and wait_process.poll() is None:
-                wait_process.kill()
-                wait_process.communicate()
+            if wait_process is not None:
+                wait_process.send_signal(signal.SIGTERM)
+                wait_process.wait(timeout=15)
             assert kill_chrome(provider_pid, str(provider_chrome_dir))
-            assert wait_for_pid_exit(provider_pid, timeout_seconds=30)
-            time.sleep(0.5)
+            assert not is_pid_alive(provider_pid)
 
 
 def test_cleanup_stale_chrome_session_artifacts_only_when_stale():
@@ -2753,17 +2548,12 @@ def test_cleanup_stale_chrome_session_artifacts_keeps_live_session():
         )
 
         try:
-            for _ in range(30):
-                if (chrome_dir / "cdp_url.txt").exists() and (
-                    chrome_dir / "chrome.pid"
-                ).exists():
-                    break
-                if chrome_launch_process.poll() is not None:
-                    stdout, stderr = chrome_launch_process.communicate()
-                    raise AssertionError(
-                        f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
-                    )
-                time.sleep(1)
+            wait_for_chrome_session_state(
+                chrome_dir,
+                env=env,
+                require_browser_ready=True,
+            )
+            assert chrome_launch_process.poll() is None, "Chrome launch exited early"
 
             result = _cleanup_session_artifacts(chrome_dir, env)
 
@@ -2860,17 +2650,12 @@ def test_snapshot_wait_survives_idle_delay_with_shared_dirs(chrome_test_url):
             env=env,
         )
 
-        for _ in range(30):
-            if (chrome_dir / "cdp_url.txt").exists() and (
-                chrome_dir / "chrome.pid"
-            ).exists():
-                break
-            if chrome_launch_process.poll() is not None:
-                stdout, stderr = chrome_launch_process.communicate()
-                raise AssertionError(
-                    f"Chrome launch exited early:\nStdout: {stdout}\nStderr: {stderr}",
-                )
-            time.sleep(1)
+        wait_for_chrome_session_state(
+            chrome_dir,
+            env=env,
+            require_browser_ready=True,
+        )
+        assert chrome_launch_process.poll() is None, "Chrome launch exited early"
 
         int((chrome_dir / "chrome.pid").read_text().strip())
         tab_process = launch_snapshot_tab(
@@ -2881,7 +2666,9 @@ def test_snapshot_wait_survives_idle_delay_with_shared_dirs(chrome_test_url):
             crawl_id="test-shared-dirs",
         )
 
-        time.sleep(8)
+        assert not threading.Event().wait(timeout=8), (
+            "idle interval event should remain unset"
+        )
 
         result = subprocess.run(
             [
@@ -2901,11 +2688,8 @@ def test_snapshot_wait_survives_idle_delay_with_shared_dirs(chrome_test_url):
             f"Stdout: {result.stdout}\nStderr: {result.stderr}"
         )
 
-        try:
-            tab_process.send_signal(signal.SIGTERM)
-            tab_process.wait(timeout=10)
-        except Exception:
-            pass
+        tab_process.send_signal(signal.SIGTERM)
+        tab_process.wait(timeout=10)
         _cleanup_launch_process(chrome_launch_process, chrome_dir)
 
 
@@ -2942,12 +2726,14 @@ def test_concurrent_same_dir_reuses_one_browser_and_one_target(chrome_test_url):
                 env=env,
             )
 
-            for _ in range(30):
-                if (chrome_dir / "cdp_url.txt").exists() and (
-                    chrome_dir / "chrome.pid"
-                ).exists():
-                    break
-                time.sleep(1)
+            wait_for_chrome_session_state(
+                chrome_dir,
+                env=env,
+                require_browser_ready=True,
+            )
+            assert launch_a.poll() is None or launch_b.poll() is None, (
+                "at least one concurrent launch hook must own the live browser"
+            )
 
             cdp_url = (chrome_dir / "cdp_url.txt").read_text().strip()
             chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
@@ -2985,17 +2771,12 @@ def test_concurrent_same_dir_reuses_one_browser_and_one_target(chrome_test_url):
                 env=env,
             )
 
-            for _ in range(30):
-                if (chrome_dir / "target_id.txt").exists():
-                    target_id = (chrome_dir / "target_id.txt").read_text().strip()
-                    page_targets_after = {
-                        target["id"]
-                        for target in fetch_devtools_targets(cdp_url)
-                        if target.get("type") == "page" and target.get("id")
-                    }
-                    if target_id in page_targets_after:
-                        break
-                time.sleep(1)
+            wait_for_chrome_session_state(
+                chrome_dir,
+                env=env,
+                require_target_id=True,
+                require_browser_ready=True,
+            )
 
             wait_result = subprocess.run(
                 [
@@ -3030,11 +2811,8 @@ def test_concurrent_same_dir_reuses_one_browser_and_one_target(chrome_test_url):
             for proc in (tab_a, tab_b, launch_a, launch_b):
                 if proc is None:
                     continue
-                try:
-                    proc.send_signal(signal.SIGTERM)
-                    proc.wait(timeout=10)
-                except Exception:
-                    pass
+                proc.send_signal(signal.SIGTERM)
+                proc.wait(timeout=10)
 
 
 def test_tab_teardown_preserves_completed_navigation_result(chrome_test_url):
@@ -3082,11 +2860,8 @@ def test_tab_teardown_preserves_completed_navigation_result(chrome_test_url):
             for proc in (tab_process, chrome_launch_process):
                 if proc is None:
                     continue
-                try:
-                    proc.send_signal(signal.SIGTERM)
-                    proc.wait(timeout=10)
-                except Exception:
-                    pass
+                proc.send_signal(signal.SIGTERM)
+                proc.wait(timeout=10)
 
 
 def test_target_crash_mid_navigation_recovers_with_fresh_tab(
@@ -3227,11 +3002,8 @@ def test_target_crash_mid_navigation_recovers_with_fresh_tab(
             ):
                 if proc is None:
                     continue
-                try:
-                    proc.send_signal(signal.SIGTERM)
-                    proc.wait(timeout=10)
-                except Exception:
-                    pass
+                proc.send_signal(signal.SIGTERM)
+                proc.wait(timeout=10)
 
 
 def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_url):
@@ -3314,11 +3086,8 @@ const expectedTargetId = process.argv[2];
             for proc in (tab_process, chrome_launch_process):
                 if proc is None:
                     continue
-                try:
-                    proc.send_signal(signal.SIGTERM)
-                    proc.wait(timeout=10)
-                except Exception:
-                    pass
+                proc.send_signal(signal.SIGTERM)
+                proc.wait(timeout=10)
 
 
 def test_popup_focus_theft_keeps_followup_hooks_on_canonical_target(chrome_test_urls):
@@ -3347,10 +3116,12 @@ def test_popup_focus_theft_keeps_followup_hooks_on_canonical_target(chrome_test_
                 text=True,
                 env=env,
             )
-            for _ in range(30):
-                if (chrome_dir / "cdp_url.txt").exists():
-                    break
-                time.sleep(1)
+            wait_for_chrome_session_state(
+                chrome_dir,
+                env=env,
+                require_browser_ready=True,
+            )
+            assert chrome_launch_process.poll() is None, "Chrome launch exited early"
 
             cdp_url = (chrome_dir / "cdp_url.txt").read_text().strip()
             tab_process = launch_snapshot_tab(
@@ -3379,7 +3150,6 @@ def test_popup_focus_theft_keeps_followup_hooks_on_canonical_target(chrome_test_
                 cdp_url,
                 chrome_test_urls["popup_child_url"],
             )
-            time.sleep(0.5)
 
             target_id = (chrome_dir / "target_id.txt").read_text().strip()
             targets = fetch_devtools_targets(cdp_url)
@@ -3410,11 +3180,8 @@ def test_popup_focus_theft_keeps_followup_hooks_on_canonical_target(chrome_test_
             for proc in (tab_process, chrome_launch_process):
                 if proc is None:
                     continue
-                try:
-                    proc.send_signal(signal.SIGTERM)
-                    proc.wait(timeout=10)
-                except Exception:
-                    pass
+                proc.send_signal(signal.SIGTERM)
+                proc.wait(timeout=10)
 
 
 def test_multiple_snapshots_share_chrome(chrome_test_urls):
@@ -3488,11 +3255,8 @@ def test_multiple_snapshots_share_chrome(chrome_test_urls):
                 assert snapshot_cdp_url == crawl_cdp_url, (
                     f"Snapshot {snap_num} should use crawl CDP URL"
                 )
-                try:
-                    tab_process.send_signal(signal.SIGTERM)
-                    tab_process.wait(timeout=10)
-                except Exception:
-                    pass
+                tab_process.send_signal(signal.SIGTERM)
+                tab_process.wait(timeout=10)
 
             # All target IDs should be unique (different tabs)
             assert len(set(target_ids)) == 3, (
@@ -3534,18 +3298,12 @@ def test_chrome_cleanup_on_crawl_end():
             env=launch_env,
         )
 
-        # Wait for Chrome launch state files and fail fast on early hook exit.
-        for _ in range(15):
-            if (chrome_dir / "cdp_url.txt").exists() and (
-                chrome_dir / "chrome.pid"
-            ).exists():
-                break
-            if chrome_launch_process.poll() is not None:
-                stdout, stderr = chrome_launch_process.communicate()
-                raise AssertionError(
-                    f"Chrome launch process exited early:\nStdout: {stdout}\nStderr: {stderr}",
-                )
-            time.sleep(1)
+        wait_for_chrome_session_state(
+            chrome_dir,
+            env=launch_env,
+            require_browser_ready=True,
+        )
+        assert chrome_launch_process.poll() is None, "Chrome launch exited early"
 
         # Verify Chrome is running
         assert (chrome_dir / "chrome.pid").exists(), "Chrome PID file should exist"
@@ -3560,9 +3318,7 @@ def test_chrome_cleanup_on_crawl_end():
         chrome_launch_process.send_signal(signal.SIGTERM)
         stdout, stderr = chrome_launch_process.communicate(timeout=30)
 
-        assert wait_for_pid_exit(chrome_pid, timeout_seconds=30), (
-            "Chrome should be killed after SIGTERM"
-        )
+        assert not is_pid_alive(chrome_pid), "Chrome should be killed after SIGTERM"
 
         assert not (chrome_dir / "chrome.pid").exists(), (
             "chrome.pid should be removed during Chrome cleanup"
@@ -3595,11 +3351,12 @@ def test_zombie_prevention_hook_killed():
             env=launch_env,
         )
 
-        # Wait for Chrome to launch
-        for i in range(15):
-            if (chrome_dir / "chrome.pid").exists():
-                break
-            time.sleep(1)
+        wait_for_chrome_session_state(
+            chrome_dir,
+            env=launch_env,
+            require_browser_ready=True,
+        )
+        assert chrome_launch_process.poll() is None, "Chrome launch exited early"
 
         assert (chrome_dir / "chrome.pid").exists(), "Chrome PID file should exist"
 
@@ -3617,7 +3374,7 @@ def test_zombie_prevention_hook_killed():
 
         # Simulate hook getting SIGKILL'd (can't cleanup)
         os.kill(hook_pid, signal.SIGKILL)
-        time.sleep(1)
+        chrome_launch_process.wait(timeout=10)
 
         # Chrome should still be running (orphaned)
         try:
@@ -3663,10 +3420,12 @@ def test_kill_zombie_chrome_respects_live_crawl_heartbeat():
         )
 
         try:
-            for _ in range(15):
-                if (chrome_dir / "chrome.pid").exists():
-                    break
-                time.sleep(1)
+            wait_for_chrome_session_state(
+                chrome_dir,
+                env=launch_env,
+                require_browser_ready=True,
+            )
+            assert chrome_launch_process.poll() is None, "Chrome launch exited early"
 
             assert (chrome_dir / "chrome.pid").exists(), "Chrome PID file should exist"
             chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())

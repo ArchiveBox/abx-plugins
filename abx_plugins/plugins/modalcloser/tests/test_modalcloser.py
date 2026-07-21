@@ -14,10 +14,8 @@ Tests verify:
 
 import json
 import os
-import select
 import signal
 import subprocess
-import time
 import tempfile
 from pathlib import Path
 
@@ -45,9 +43,14 @@ def terminate_hook_process(process: subprocess.Popen, timeout: int = 5):
     return process.communicate(timeout=timeout)
 
 
-def kill_hook_process(process: subprocess.Popen):
-    if process.poll() is None:
-        os.killpg(process.pid, signal.SIGKILL)
+def read_closed_count(process: subprocess.Popen[str]) -> int:
+    """Read one production progress event from the hook's stdout stream."""
+    assert process.stdout is not None
+    line = process.stdout.readline()
+    assert line, "Modalcloser exited without publishing a progress event"
+    token = line.strip().split(maxsplit=1)[0]
+    assert token.isdigit(), f"Invalid modalcloser progress event: {line!r}"
+    return int(token)
 
 
 def _modal_page_url(httpserver) -> str:
@@ -285,8 +288,6 @@ def test_background_script_handles_sigterm(httpserver):
                 modalcloser_dir.mkdir()
 
                 # Run modalcloser as background process (use env from setup_chrome_session)
-                env["MODALCLOSER_POLL_INTERVAL"] = "200"  # Faster polling for test
-
                 modalcloser_process = subprocess.Popen(
                     [
                         str(MODALCLOSER_HOOK),
@@ -301,47 +302,15 @@ def test_background_script_handles_sigterm(httpserver):
                     start_new_session=True,
                 )
 
-                progress_stdout = []
-                deadline = time.monotonic() + 15
-                closed_modal = False
-                assert modalcloser_process.stdout is not None
-                while time.monotonic() < deadline:
-                    if modalcloser_process.poll() is not None:
-                        stdout, stderr = modalcloser_process.communicate(timeout=5)
-                        raise AssertionError(
-                            "Modalcloser exited early.\n"
-                            f"Stdout: {''.join(progress_stdout)}{stdout}\n"
-                            f"Stderr: {stderr}",
-                        )
-                    readable, _, _ = select.select(
-                        [modalcloser_process.stdout],
-                        [],
-                        [],
-                        0.2,
-                    )
-                    if not readable:
-                        continue
-                    line = modalcloser_process.stdout.readline()
-                    progress_stdout.append(line)
-                    first_token = line.strip().split(maxsplit=1)[0:1]
-                    if (
-                        first_token
-                        and first_token[0].isdigit()
-                        and int(first_token[0]) > 0
-                    ):
-                        closed_modal = True
-                        break
-
-                assert closed_modal, (
-                    "Modalcloser should close the visible modal before SIGTERM. "
-                    f"Stdout: {''.join(progress_stdout)}"
-                )
+                assert read_closed_count(modalcloser_process) == 0
+                assert read_closed_count(modalcloser_process) > 0
 
                 # Send SIGTERM
                 stdout, stderr = terminate_hook_process(modalcloser_process)
-                stdout = "".join(progress_stdout) + stdout
+                returncode = modalcloser_process.returncode
+                modalcloser_process = None
 
-                assert modalcloser_process.returncode in (0, -signal.SIGTERM), (
+                assert returncode in (0, -signal.SIGTERM), (
                     f"Should exit 0 on SIGTERM: {stderr}"
                 )
 
@@ -381,8 +350,8 @@ def test_background_script_handles_sigterm(httpserver):
                 )
 
         finally:
-            if modalcloser_process and modalcloser_process.poll() is None:
-                kill_hook_process(modalcloser_process)
+            if modalcloser_process is not None:
+                terminate_hook_process(modalcloser_process)
 
 
 def test_background_script_reports_noresults_when_nothing_closed(httpserver):
@@ -400,8 +369,6 @@ def test_background_script_reports_noresults_when_nothing_closed(httpserver):
             ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
                 modalcloser_dir = snapshot_chrome_dir.parent / "modalcloser"
                 modalcloser_dir.mkdir()
-                env["MODALCLOSER_POLL_INTERVAL"] = "200"
-
                 modalcloser_process = subprocess.Popen(
                     [
                         str(MODALCLOSER_HOOK),
@@ -416,22 +383,13 @@ def test_background_script_reports_noresults_when_nothing_closed(httpserver):
                     start_new_session=True,
                 )
 
-                time.sleep(1.5)
-
-                if modalcloser_process.poll() is not None:
-                    stdout, stderr = modalcloser_process.communicate(timeout=5)
-                    raise AssertionError(
-                        "Modalcloser exited early.\n"
-                        f"Stdout: {stdout}\n"
-                        f"Stderr: {stderr}",
-                    )
-                assert modalcloser_process.poll() is None, (
-                    "Modalcloser should still be running as background process"
-                )
+                assert read_closed_count(modalcloser_process) == 0
 
                 stdout, stderr = terminate_hook_process(modalcloser_process)
+                returncode = modalcloser_process.returncode
+                modalcloser_process = None
 
-                assert modalcloser_process.returncode in (0, -signal.SIGTERM), (
+                assert returncode in (0, -signal.SIGTERM), (
                     f"Should exit 0 on SIGTERM: {stderr}"
                 )
 
@@ -456,8 +414,8 @@ def test_background_script_reports_noresults_when_nothing_closed(httpserver):
                 assert result_json["output_str"] == "0 modals closed", result_json
 
         finally:
-            if modalcloser_process and modalcloser_process.poll() is None:
-                kill_hook_process(modalcloser_process)
+            if modalcloser_process is not None:
+                terminate_hook_process(modalcloser_process)
 
 
 def test_dialog_handler_logs_dialogs(httpserver):
@@ -476,10 +434,6 @@ def test_dialog_handler_logs_dialogs(httpserver):
                 modalcloser_dir = snapshot_chrome_dir.parent / "modalcloser"
                 modalcloser_dir.mkdir()
 
-                # Use env from setup_chrome_session
-                env["MODALCLOSER_TIMEOUT"] = "100"  # Fast timeout for test
-                env["MODALCLOSER_POLL_INTERVAL"] = "200"
-
                 modalcloser_process = subprocess.Popen(
                     [
                         str(MODALCLOSER_HOOK),
@@ -494,31 +448,29 @@ def test_dialog_handler_logs_dialogs(httpserver):
                     start_new_session=True,
                 )
 
-                # Let it run briefly
-                time.sleep(1.5)
-
-                # Verify it's running
-                assert modalcloser_process.poll() is None, "Should be running"
+                assert read_closed_count(modalcloser_process) == 0
 
                 # Check stderr for "listening" message
                 # Note: Can't read stderr while process is running without blocking,
                 # so we just verify it exits cleanly
                 stdout, stderr = terminate_hook_process(modalcloser_process)
+                returncode = modalcloser_process.returncode
+                modalcloser_process = None
 
                 assert (
                     "listening" in stderr.lower() or "modalcloser" in stderr.lower()
                 ), f"Should log startup message: {stderr}"
-                assert modalcloser_process.returncode in (0, -signal.SIGTERM), (
+                assert returncode in (0, -signal.SIGTERM), (
                     f"Should exit cleanly: {stderr}"
                 )
 
         finally:
-            if modalcloser_process and modalcloser_process.poll() is None:
-                kill_hook_process(modalcloser_process)
+            if modalcloser_process is not None:
+                terminate_hook_process(modalcloser_process)
 
 
-def test_config_poll_interval(httpserver):
-    """Test that MODALCLOSER_POLL_INTERVAL config is respected."""
+def test_default_poll_cycle_closes_modal(httpserver):
+    """Test that the production polling cycle closes a visible modal."""
     with tempfile.TemporaryDirectory() as tmpdir:
         chrome_launch_process = None
         chrome_pid = None
@@ -535,9 +487,6 @@ def test_config_poll_interval(httpserver):
                 modalcloser_dir = snapshot_chrome_dir.parent / "modalcloser"
                 modalcloser_dir.mkdir()
 
-                # Set very short poll interval (use env from setup_chrome_session)
-                env["MODALCLOSER_POLL_INTERVAL"] = "100"  # 100ms
-
                 modalcloser_process = subprocess.Popen(
                     [
                         str(MODALCLOSER_HOOK),
@@ -552,18 +501,15 @@ def test_config_poll_interval(httpserver):
                     start_new_session=True,
                 )
 
-                # Run for short time
-                time.sleep(1)
-
-                # Should still be running
-                assert modalcloser_process.poll() is None, "Should still be running"
+                assert read_closed_count(modalcloser_process) == 0
+                assert read_closed_count(modalcloser_process) > 0
 
                 # Clean exit
                 stdout, stderr = terminate_hook_process(modalcloser_process)
+                returncode = modalcloser_process.returncode
+                modalcloser_process = None
 
-                assert modalcloser_process.returncode in (0, -signal.SIGTERM), (
-                    f"Should exit 0: {stderr}"
-                )
+                assert returncode in (0, -signal.SIGTERM), f"Should exit 0: {stderr}"
 
                 # Verify JSONL output exists
                 result_json = None
@@ -588,8 +534,8 @@ def test_config_poll_interval(httpserver):
                 ), f"Should report closing modals/dialogs: {result_json}"
 
         finally:
-            if modalcloser_process and modalcloser_process.poll() is None:
-                kill_hook_process(modalcloser_process)
+            if modalcloser_process is not None:
+                terminate_hook_process(modalcloser_process)
 
 
 def test_hides_cookieyes_consent_with_real_hook(httpserver):
@@ -612,8 +558,6 @@ def test_hides_cookieyes_consent_with_real_hook(httpserver):
 
                 modalcloser_dir = snapshot_chrome_dir.parent / "modalcloser"
                 modalcloser_dir.mkdir()
-                env["MODALCLOSER_POLL_INTERVAL"] = "200"
-
                 modalcloser_process = subprocess.Popen(
                     [
                         str(MODALCLOSER_HOOK),
@@ -628,8 +572,8 @@ def test_hides_cookieyes_consent_with_real_hook(httpserver):
                     start_new_session=True,
                 )
 
-                time.sleep(1.5)
-                assert modalcloser_process.poll() is None, "Should still be running"
+                assert read_closed_count(modalcloser_process) == 0
+                assert read_closed_count(modalcloser_process) >= 2
 
                 after = _inspect_cookieyes_state(snapshot_chrome_dir, env)
                 assert after["container"]["found"] is True, after
@@ -638,8 +582,10 @@ def test_hides_cookieyes_consent_with_real_hook(httpserver):
                 assert after["bodyHasModalClass"] is False, after
 
                 stdout, stderr = terminate_hook_process(modalcloser_process)
+                returncode = modalcloser_process.returncode
+                modalcloser_process = None
 
-                assert modalcloser_process.returncode in (0, -signal.SIGTERM), (
+                assert returncode in (0, -signal.SIGTERM), (
                     f"Should exit 0 on SIGTERM: {stderr}"
                 )
 
@@ -660,8 +606,8 @@ def test_hides_cookieyes_consent_with_real_hook(httpserver):
                 assert int(output_str.split()[0]) >= 2, result_json
 
         finally:
-            if modalcloser_process and modalcloser_process.poll() is None:
-                kill_hook_process(modalcloser_process)
+            if modalcloser_process is not None:
+                terminate_hook_process(modalcloser_process)
 
 
 if __name__ == "__main__":

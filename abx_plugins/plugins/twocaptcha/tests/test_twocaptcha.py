@@ -49,6 +49,14 @@ LIVE_API_KEY = os.environ.get("TWOCAPTCHA_API_KEY") or os.environ.get(
 )
 
 
+def read_captcha_progress(process: subprocess.Popen[str]) -> str:
+    """Read one production progress event from the 2Captcha snapshot hook."""
+    assert process.stdout is not None
+    line = process.stdout.readline()
+    assert line, "2Captcha hook exited without publishing a progress event"
+    return line.strip()
+
+
 # Alias for backward compatibility with existing test names
 launch_chrome = launch_chromium_session
 kill_chrome = kill_chromium_session
@@ -199,8 +207,6 @@ class TestTwoCaptcha:
 
             try:
                 wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
-                chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
-
                 result = subprocess.run(
                     [
                         str(CONFIG_SCRIPT),
@@ -244,8 +250,6 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                 console.error('[*] Navigation threw error (may still work):', e.message);
             }}
 
-            // Wait for page to settle
-            await new Promise(r => setTimeout(r, 2000));
             console.error('[*] Current URL:', page.url());
 
             // Wait for Config object to be available
@@ -262,14 +266,8 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
     console.log(JSON.stringify(cfg));
 }})();
 """
-                script_path = tmpdir / "v.js"
-                script_path.write_text(
-                    f"#!/usr/bin/env node\n{script}",
-                    encoding="utf-8",
-                )
-                script_path.chmod(0o755)
                 r = subprocess.run(
-                    [str(script_path)],
+                    [env["NODE_BINARY"], "-e", script],
                     env=env,
                     timeout=30,
                     capture_output=True,
@@ -304,12 +302,6 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
 
                 print("[+] Config verified via Config.getAll()!")
 
-                # Immediate extension configuration used to crash Chromium 147 on
-                # macOS when cdp_url.txt was published before crawl-level launch
-                # setup had fully settled. Keep the browser alive briefly after
-                # config to ensure downstream hooks can safely attach right away.
-                time.sleep(5)
-                os.kill(chrome_pid, 0)
             finally:
                 kill_chrome(process, chrome_dir)
 
@@ -367,6 +359,7 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                 )
 
                 try:
+                    assert read_captcha_progress(hook_process) == "0 captchas detected"
                     navigate = subprocess.run(
                         [
                             str(NAVIGATE_HOOK),
@@ -381,11 +374,12 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                     )
                     assert navigate.returncode == 0, navigate.stderr
 
-                    time.sleep(5)
                     os.killpg(hook_process.pid, signal.SIGTERM)
                     stdout, stderr = hook_process.communicate(timeout=20)
+                    returncode = hook_process.returncode
+                    hook_process = None
 
-                    assert hook_process.returncode in (0, -signal.SIGTERM), stderr
+                    assert returncode in (0, -signal.SIGTERM), stderr
                     records = parse_jsonl_records(stdout)
                     archive_result = next(
                         record
@@ -397,8 +391,9 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                         archive_result
                     )
                 finally:
-                    if hook_process.poll() is None:
-                        os.killpg(hook_process.pid, signal.SIGKILL)
+                    if hook_process is not None:
+                        os.killpg(hook_process.pid, signal.SIGTERM)
+                        hook_process.communicate(timeout=20)
 
     def test_solves_recaptcha(self):
         """Extension attempts to solve CAPTCHA on demo page.
