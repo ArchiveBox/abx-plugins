@@ -148,6 +148,7 @@ async function main() {
   const pollIntervalMs = 1000;
 
   let browser = null;
+  let page = null;
   let running = true;
   let exiting = false;
   let hiddenPopups = 0;
@@ -160,11 +161,19 @@ async function main() {
     }
   }
 
-  const emitAndExit = () => {
+  const emitAndExit = async () => {
     if (exiting) {
       return;
     }
     exiting = true;
+    if (page) {
+      try {
+        hiddenPopups = Math.max(
+          hiddenPopups,
+          await countHiddenCookiePopups(page)
+        );
+      } catch (error) {}
+    }
     const status = hiddenPopups > 0 ? "succeeded" : "noresults";
     emitArchiveResultRecord(status, formatPopupCount(hiddenPopups));
     if (browser) {
@@ -177,7 +186,7 @@ async function main() {
 
   __abxInstallShutdownHandler(() => {
     running = false;
-    emitAndExit();
+    void emitAndExit();
   });
 
   try {
@@ -187,7 +196,7 @@ async function main() {
       requireTargetId: true,
     });
     browser = connection.browser;
-    const page = connection.page;
+    page = connection.page;
 
     // Snapshot background hooks must emit stdout once their page observer is
     // attached so the scheduler can advance to the navigation/extraction hooks
