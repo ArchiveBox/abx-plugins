@@ -1,0 +1,48 @@
+.github/workflows/pages.yml
+  s_f8414d52051f83::t_15331f33e72f12 16
+  s_f8414d52051f83::t_6950264f5fbf50 31-33,41
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_bd19c26f3b6b3a 12,37,39,89
+  s_f8414d52051f83::t_6950264f5fbf50 167
+  s_f8414d52051f83::t_6bc8462493e6ff 266
+  s_f8414d52051f83::t_6a62423983bf77 73,88,206,238
+  s_f8414d52051f83::t_15331f33e72f12 6,8,115-120,126
+pyproject.toml
+  s_f8414d52051f83::t_f7e1ea511338dd 22
+  s_f8414d52051f83::t_bd19c26f3b6b3a 3,23
+  s_f8414d52051f83::t_3924df1f1ac43d 42-43
+skills/abx-plugins/SKILL.md
+  s_f8414d52051f83::t_67556833742e40 34-36
+bin/bump_version.sh
+  s_f8414d52051f83::t_5fdc80fe442c41 1-35
+.github/workflows/claude.yml
+  s_f8414d52051f83::t_bd19c26f3b6b3a 37,41-44
+abx_plugins/plugins/search_backend_sonic/config.json
+  s_f8414d52051f83::t_bac10e15330271 11
+.github/workflows/release.yml
+  s_f8414d52051f83::t_5fdc80fe442c41 8-12,15,27-29,34
+AGENTS.md
+  s_f8414d52051f83::t_67556833742e40 32-34
+bin/release.sh
+  s_f8414d52051f83::t_7d1c6881844423 129,140-141,144,148,150-151
+  s_f8414d52051f83::t_15331f33e72f12 11
+  s_f8414d52051f83::t_5fdc80fe442c41 23,27,31,39,43-44,48,50-51,55,57-61,65-66,68,70,72-73,77-79,83-84,86,91-96,98-99,101-103,105-111,116-122,125-128,131-139,142-143,145-147,149,153,155-162,164-168,170-172,176,180,182,184-189,193-201,205-213
+uv.lock
+  s_f8414d52051f83::t_3877228d002fb0 1-1104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "8e2951d5262c2e04d14ba693909058e3d94c48ea",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
