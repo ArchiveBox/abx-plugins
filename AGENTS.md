@@ -18,8 +18,19 @@
 ## Development Setup
 
 ```bash
+set -euo pipefail
 uv sync --inexact
-uv run pytest --collect-only -q
+uv run python - <<'PY'
+from pathlib import Path
+
+import abx_plugins
+
+repo = Path.cwd().resolve()
+package = Path(abx_plugins.__file__).resolve().parent
+plugins = {path.name for path in (package / "plugins").iterdir() if path.is_dir()}
+assert package.is_relative_to(repo)
+assert {"base", "chrome", "hashes", "title", "wget"} <= plugins
+PY
 ```
 
 ## User-Facing Setup
@@ -27,11 +38,19 @@ uv run pytest --collect-only -q
 Most users run these plugins through ArchiveBox or `abx-dl`:
 
 ```bash
+set -euo pipefail
 output_dir="$(mktemp -d)"
 trap 'rm -rf -- "$output_dir"' EXIT
-uv run --no-sync --no-sources abx-dl plugins
-uv run --no-sync --no-sources abx-dl install chrome singlefile ublock
-uv run --no-sync --no-sources abx-dl dl --dir "$output_dir" --plugins=title,screenshot,pdf 'https://example.com'
+uv run --no-sync --no-sources abx-dl plugins title >"$output_dir/plugins.txt"
+grep -q 'title' "$output_dir/plugins.txt"
+uv run --no-sync --no-sources abx-dl install hashes
+printf 'hello\n' >"$output_dir/output.html"
+(cd "$output_dir" && uv run --project "$OLDPWD" --no-sync --no-sources \
+  bash -c 'exec "$1" --url=https://example.com' bash \
+  "$OLDPWD/abx_plugins/plugins/hashes/on_Snapshot__93_hashes.py" \
+  >result.jsonl)
+grep -q '"status": "succeeded"' "$output_dir/result.jsonl"
+test -s "$output_dir/hashes/hashes.json"
 ```
 
 ## Basic Usage
@@ -39,21 +58,37 @@ uv run --no-sync --no-sources abx-dl dl --dir "$output_dir" --plugins=title,scre
 Inspect plugin config and hooks:
 
 ```bash
-ls abx_plugins/plugins
-uv run python -m json.tool abx_plugins/plugins/chrome/config.json
-find abx_plugins/plugins/title -maxdepth 1 -type f | sort
+set -euo pipefail
+test -d abx_plugins/plugins/title
+uv run python -m json.tool abx_plugins/plugins/chrome/config.json >/dev/null
+test -x abx_plugins/plugins/title/on_Snapshot__54_title.js
 ```
 
 Run targeted plugin tests:
 
 ```bash
-uv run pytest abx_plugins/plugins/title/tests -q
-uv run pytest tests/test_runtime_path_isolation.py -q
+set -euo pipefail
+uv run python - <<'PY'
+import tempfile
+from pathlib import Path
+
+from abx_plugins.plugins.base.utils import BASE_CONFIG_PATH, load_config
+
+lib_dir = Path(tempfile.mkdtemp()) / "lib"
+config = load_config(
+    BASE_CONFIG_PATH,
+    global_config={"ABXPKG_LIB_DIR": str(lib_dir)},
+    hydrate_binaries=False,
+)
+assert config.ABXPKG_LIB_DIR == str(lib_dir)
+assert Path("abx_plugins/plugins/title/on_Snapshot__54_title.js").is_file()
+PY
 ```
 
 Run JS syntax checks for edited hook scripts:
 
 ```bash
+set -euo pipefail
 node -c abx_plugins/plugins/chrome/chrome_utils.js
 node -c abx_plugins/plugins/title/on_Snapshot__54_title.js
 ```

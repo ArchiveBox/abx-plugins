@@ -152,14 +152,14 @@ wait_for_required_workflows() {
     done
 }
 
-publish_to_pypi() {
+publish_to_pypi() (
     local version="$1"
     local build_dir
     build_dir="$(mktemp -d)"
+    trap 'rm -rf "${build_dir}"' EXIT
     uv build --out-dir "${build_dir}"
     uv publish --trusted-publishing always "${build_dir}"/*
-    rm -rf "${build_dir}"
-}
+)
 
 create_release() {
     local slug="$1" version="$2" sha="$3"
@@ -193,8 +193,13 @@ main() {
     target="$(tag_target "${TAG_PREFIX}${version}")"
     pypi_has_version "${version}" && pypi_exists=true
     github_release_has_version "${version}" "${slug}" && github_exists=true
-    if [[ "${pypi_exists}" == true && "${github_exists}" == true && "${target}" == "${release_sha}" ]]; then
-        echo "${PYPI_PACKAGE} ${version} is already fully released from ${release_sha}"
+    if [[ "${pypi_exists}" == true && "${github_exists}" == true ]]; then
+        [[ -n "${target}" ]] || { echo "Fully published ${version} is missing tag ${TAG_PREFIX}${version}" >&2; return 1; }
+        git merge-base --is-ancestor "${target}" "refs/remotes/origin/${RELEASE_BRANCH:-main}" || {
+            echo "Fully published tag ${TAG_PREFIX}${version} is not on ${RELEASE_BRANCH:-main}" >&2
+            return 1
+        }
+        echo "${PYPI_PACKAGE} ${version} is already fully released from ${target}"
         return 0
     fi
     if [[ ( "${pypi_exists}" == true || "${github_exists}" == true ) && "${target}" != "${release_sha}" ]]; then
