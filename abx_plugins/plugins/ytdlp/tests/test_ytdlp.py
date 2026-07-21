@@ -111,9 +111,14 @@ def installed_ytdlp_runtime_env(tmp_path_factory) -> dict[str, str]:
         assert binary_path.is_file(), (
             f"{config_name} binary path invalid: {binary_path}"
         )
-        assert binary_path.parent == expected_bin_dir, (
-            f"{config_name} must be projected through {expected_bin_dir}: {binary_path}"
+        assert binary.loaded_binprovider is not None, (
+            f"{config_name} must identify the abxpkg provider that resolved it"
         )
+        if binary.loaded_binprovider.name == "env":
+            assert binary_path.parent == expected_bin_dir, (
+                f"host {config_name} must be projected through {expected_bin_dir}: "
+                f"{binary_path}"
+            )
         resolved[env_name] = str(binary_path)
 
     return resolved
