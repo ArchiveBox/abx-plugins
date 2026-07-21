@@ -21,10 +21,12 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
 import pytest
+from werkzeug.wrappers import Response
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_LAUNCH_HOOK,
@@ -3035,8 +3037,25 @@ def test_concurrent_same_dir_reuses_one_browser_and_one_target(chrome_test_url):
                     pass
 
 
-def test_target_crash_mid_navigation_recovers_with_fresh_tab(chrome_test_urls):
+def test_target_crash_mid_navigation_recovers_with_fresh_tab(
+    chrome_test_urls,
+    httpserver,
+):
     """If the canonical target disappears mid-run, navigation should fail clearly and the next tab setup should recreate it."""
+    navigation_started = threading.Event()
+    navigation_release = threading.Event()
+
+    def blocked_navigation(_request):
+        navigation_started.set()
+        if not navigation_release.wait(timeout=30):
+            return Response("navigation release was not signaled", status=500)
+        return Response("<html><body>target crash</body></html>")
+
+    httpserver.expect_oneshot_request("/target-crash").respond_with_handler(
+        blocked_navigation,
+    )
+    crash_url = httpserver.url_for("/target-crash")
+
     with tempfile.TemporaryDirectory() as tmpdir:
         shared_dir = Path(tmpdir) / "shared"
         shared_dir.mkdir()
@@ -3055,26 +3074,15 @@ def test_target_crash_mid_navigation_recovers_with_fresh_tab(chrome_test_urls):
         replacement_tab_process = None
         navigate_process = None
         try:
-            chrome_launch_process = subprocess.Popen(
-                [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-target-crash"],
-                cwd=str(chrome_dir),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
+            chrome_launch_process, cdp_url = launch_chromium_session(
                 env=env,
+                chrome_dir=chrome_dir,
+                crawl_id="test-target-crash",
             )
-            for _ in range(30):
-                if (chrome_dir / "cdp_url.txt").exists() and (
-                    chrome_dir / "chrome.pid"
-                ).exists():
-                    break
-                time.sleep(1)
-
-            cdp_url = (chrome_dir / "cdp_url.txt").read_text().strip()
             tab_process = launch_snapshot_tab(
                 snapshot_chrome_dir=chrome_dir,
                 tab_env=env,
-                test_url=chrome_test_urls["slow_url"],
+                test_url=crash_url,
                 snapshot_id="snap-target-crash",
                 crawl_id="test-target-crash",
             )
@@ -3083,7 +3091,7 @@ def test_target_crash_mid_navigation_recovers_with_fresh_tab(chrome_test_urls):
             navigate_process = subprocess.Popen(
                 [
                     str(CHROME_NAVIGATE_HOOK),
-                    f"--url={chrome_test_urls['slow_url']}",
+                    f"--url={crash_url}",
                     "--snapshot-id=snap-target-crash",
                 ],
                 cwd=str(chrome_dir),
@@ -3092,18 +3100,18 @@ def test_target_crash_mid_navigation_recovers_with_fresh_tab(chrome_test_urls):
                 text=True,
                 env=env | {"CHROME_PAGELOAD_TIMEOUT": "15"},
             )
-            time.sleep(1.0)
-            close_target_via_cdp(cdp_url, target_before)
-            remaining_targets: set[str] = set()
-            for _ in range(30):
-                remaining_targets = {
-                    target["id"]
-                    for target in fetch_devtools_targets(cdp_url)
-                    if target.get("type") == "page" and target.get("id")
-                }
-                if target_before not in remaining_targets:
-                    break
-                time.sleep(0.1)
+            assert navigation_started.wait(timeout=30), (
+                "navigation hook did not request the blocking test page"
+            )
+            try:
+                close_target_via_cdp(cdp_url, target_before)
+            finally:
+                navigation_release.set()
+            remaining_targets = {
+                target["id"]
+                for target in fetch_devtools_targets(cdp_url)
+                if target.get("type") == "page" and target.get("id")
+            }
             assert target_before not in remaining_targets
             stdout, stderr = navigate_process.communicate(timeout=30)
             assert navigate_process.returncode != 0, (
@@ -3143,6 +3151,7 @@ def test_target_crash_mid_navigation_recovers_with_fresh_tab(chrome_test_urls):
                 f"Stdout: {wait_result.stdout}\nStderr: {wait_result.stderr}"
             )
         finally:
+            navigation_release.set()
             for proc in (replacement_tab_process, tab_process, chrome_launch_process):
                 if proc is None:
                     continue

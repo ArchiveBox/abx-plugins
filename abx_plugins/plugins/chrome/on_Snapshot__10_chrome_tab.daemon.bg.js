@@ -92,11 +92,7 @@ let currentCdpUrl = null;
 let monitorBrowser = null;
 let monitorPage = null;
 let shuttingDown = false;
-const SNAPSHOT_PAGE_MARKER_FILES = [
-  "target_id.txt",
-  "url.txt",
-  "navigation.json",
-];
+const SNAPSHOT_PAGE_MARKER_FILES = ["target_id.txt", "url.txt"];
 // The tab hook only owns page-level markers. Browser markers (`cdp_url.txt`,
 // `chrome.pid`, `browser.json`) can live in the same chrome dir in crawl and
 // snapshot isolation, and are still needed by the browser-owning launch hook to
@@ -290,7 +286,7 @@ async function main() {
     );
     const existingTargetId = existingSnapshotSession.state?.targetId;
     if (!existingTargetId) {
-      cleanupSnapshotPageMarkers("missing target_id.txt");
+      cleanupSnapshotArtifacts("missing target_id.txt");
     }
     if (
       existingSnapshotSession.hasArtifacts &&
@@ -361,7 +357,7 @@ async function main() {
         keepAliveTimer = setInterval(() => {}, 1000);
         await new Promise(() => {});
       }
-      cleanupSnapshotPageMarkers(
+      cleanupSnapshotArtifacts(
         `discarded dead target ${existingSnapshotSession.state.targetId}`
       );
     }
@@ -443,11 +439,11 @@ async function main() {
             targetId: existingTargetId,
             puppeteer,
           });
-          cleanupSnapshotPageMarkers(
+          cleanupSnapshotArtifacts(
             `replaced stale target ${existingTargetId}`
           );
         } catch (error) {
-          cleanupSnapshotPageMarkers(
+          cleanupSnapshotArtifacts(
             `failed to reuse target ${existingTargetId}`
           );
         }
