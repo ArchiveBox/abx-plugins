@@ -263,26 +263,21 @@ ensure_chromium_and_puppeteer_installed = pytest.fixture(scope="session")(
 
 
 @pytest.fixture(scope="session")
-def ensure_claude_code_prereqs(tmp_path_factory):
-    """Ensure Claude Code CLI is installed and auth is configured.
+def installed_claude_code_prereqs(tmp_path_factory):
+    """Install Claude Code once without changing the pytest process environment."""
+    from abxpkg import BinProvider
+    from abx_plugins.plugins.base.utils import load_required_binary_from_config
 
-    Used by Claude Code integration tests. Fails the dependent tests when live
-    Claude Code credentials are unavailable.
-    """
+    env = os.environ.copy()
+    env["ABXPKG_LIB_DIR"] = str(tmp_path_factory.mktemp("claudecode_test_lib"))
+    env["CRAWL_DIR"] = str(tmp_path_factory.mktemp("claudecode_test_data"))
+    env["CLAUDECODE_ENABLED"] = "true"
 
-    def install_claude_code_with_abxpkg() -> str:
-        from abxpkg import BinProvider
-        from abx_plugins.plugins.base.utils import load_required_binary_from_config
+    lib_dir = Path(env["ABXPKG_LIB_DIR"])
+    lib_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = lib_dir / ".claudecode_install.lock"
 
-        env = os.environ.copy()
-        env["ABXPKG_LIB_DIR"] = str(tmp_path_factory.mktemp("claudecode_test_lib"))
-        env["CRAWL_DIR"] = str(tmp_path_factory.mktemp("claudecode_test_data"))
-        env["CLAUDECODE_ENABLED"] = "true"
-
-        lib_dir = Path(env["ABXPKG_LIB_DIR"])
-        lib_dir.mkdir(parents=True, exist_ok=True)
-        lock_path = lib_dir / ".claudecode_install.lock"
-
+    try:
         with lock_path.open("w") as lock_file:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
 
@@ -294,49 +289,55 @@ def ensure_claude_code_prereqs(tmp_path_factory):
                 environ=env,
                 install=True,
             )
-
-            claude_bin = str(loaded.loaded_abspath or "")
-            if not claude_bin or not Path(claude_bin).exists():
-                raise RuntimeError(
-                    f"Claude Code binary not found after install: {claude_bin}",
-                )
-
-            provider = loaded.loaded_binprovider
-            exec_env = (
-                BinProvider.build_exec_env(providers=[provider], base_env=env)
-                if provider is not None
-                else env
-            )
-            os.environ.update(exec_env)
-            os.environ["CLAUDECODE_BINARY"] = claude_bin
-            return claude_bin
-
-    try:
-        claude_bin = install_claude_code_with_abxpkg()
     except Exception as exc:
         raise AssertionError(f"Claude Code CLI install via abxpkg failed: {exc}")
 
+    claude_bin = str(loaded.loaded_abspath or "")
+    if not claude_bin or not Path(claude_bin).exists():
+        raise AssertionError(
+            f"Claude Code binary not found after abxpkg install: {claude_bin}",
+        )
+
+    provider = loaded.loaded_binprovider
+    exec_env = (
+        BinProvider.build_exec_env(providers=[provider], base_env=env)
+        if provider is not None
+        else env
+    )
+    exec_env["CLAUDECODE_BINARY"] = claude_bin
+
     # Check auth. Claude Code accepts both API-key auth and the OAuth token used
     # by the official action; plugin tests should exercise either real path.
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    oauth_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN", "")
+    api_key = exec_env.get("ANTHROPIC_API_KEY", "")
+    oauth_token = exec_env.get("CLAUDE_CODE_OAUTH_TOKEN", "")
     if not api_key and not oauth_token:
         raise AssertionError(
             "ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN not set. Claude Code "
             "integration tests require real Claude Code auth.",
         )
 
-    # Quick smoke test: claude --version
+    # Smoke-test the exact environment that dependent tests will receive.
     result = subprocess.run(
         [claude_bin, "--version"],
         capture_output=True,
         text=True,
+        env=exec_env,
         timeout=10,
     )
     if result.returncode != 0:
         raise AssertionError(
             f"'claude --version' failed (rc={result.returncode}): {result.stderr}",
         )
+
+    return claude_bin, exec_env
+
+
+@pytest.fixture
+def ensure_claude_code_prereqs(installed_claude_code_prereqs, monkeypatch):
+    """Project Claude's execution environment only into each dependent test."""
+    claude_bin, exec_env = installed_claude_code_prereqs
+    for key, value in exec_env.items():
+        monkeypatch.setenv(key, value)
 
     return claude_bin
 

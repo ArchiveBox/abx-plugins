@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import atexit
 import base64
 import importlib
 import os
@@ -77,6 +78,25 @@ You are running inside an ArchiveBox collection directory.
 - Do not bypass ArchiveBox auth, expose API keys, or modify config unless the admin explicitly asks.
 - After creating crawls or snapshots, report the crawl/snapshot IDs and the exact command or API request used.
 """
+
+
+def _stop_owned_process(process: subprocess.Popen | None = None) -> None:
+    global _PROCESS
+    owned_process = process or _PROCESS
+    if owned_process is None:
+        return
+    if owned_process.poll() is None:
+        owned_process.terminate()
+        try:
+            owned_process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            owned_process.kill()
+            owned_process.wait()
+    if _PROCESS is owned_process:
+        _PROCESS = None
+
+
+atexit.register(_stop_owned_process)
 
 
 def _machine_config() -> dict[str, Any]:
@@ -213,28 +233,40 @@ def _resolve_binary(binary: str, config: dict) -> tuple[str, dict[str, str]]:
         lib_dir = config.get("ABXPKG_LIB_DIR")
         if lib_dir:
             binary_environ["ABXPKG_LIB_DIR"] = str(lib_dir)
-        loaded = load_required_binary_from_config(
-            binary,
-            _CONFIG_PATH,
-            global_config=config,
-            environ=binary_environ,
-            install=False,
-        )
+        loaded_dependencies = [
+            load_required_binary_from_config(
+                required_binary,
+                _CONFIG_PATH,
+                global_config=config,
+                environ=binary_environ,
+                install=False,
+            )
+            for required_binary in (
+                str(config.get("NODE_BINARY") or "node"),
+                str(config.get("GIT_BINARY") or "git"),
+                binary,
+            )
+        ]
     except Exception as err:
         raise RuntimeError(
-            f"OpenCode binary is not installed from required_binaries: {err}",
+            f"OpenCode dependency is not installed from required_binaries: {err}",
         ) from err
 
-    if not loaded or not loaded.loaded_abspath:
-        raise RuntimeError("OpenCode binary is not installed from required_binaries.")
+    if any(not loaded.loaded_abspath for loaded in loaded_dependencies):
+        raise RuntimeError(
+            "OpenCode dependency is not installed from required_binaries.",
+        )
 
-    provider = loaded.loaded_binprovider
-    binary_env = (
-        BinProvider.build_exec_env(providers=[provider], base_env=binary_environ)
-        if provider is not None
-        else {}
+    providers = [
+        loaded.loaded_binprovider
+        for loaded in loaded_dependencies
+        if loaded.loaded_binprovider is not None
+    ]
+    binary_env = BinProvider.build_exec_env(
+        providers=providers,
+        base_env=binary_environ,
     )
-    return str(loaded.loaded_abspath), binary_env
+    return str(loaded_dependencies[-1].loaded_abspath), binary_env
 
 
 def _project_route(workdir: Path, session_id: str = "") -> str:
@@ -276,41 +308,62 @@ def _ensure_project_files(settings: dict) -> None:
         opencode_skill_path.symlink_to(editable_skill_path)
 
 
-def _ensure_default_session(settings: dict) -> None:
-    workdir = str(settings["workdir"].resolve())
-    params = {"directory": workdir}
+def _ensure_default_session(settings: dict) -> str:
+    workdir = settings["workdir"].resolve()
+    params = {"directory": str(workdir)}
     timeout = settings["timeout"]
-    try:
-        project = requests.get(
-            f"{settings['origin']}/project/current",
-            params=params,
-            timeout=timeout,
+    project = requests.post(
+        f"{settings['origin']}/project/git/init",
+        params=params,
+        timeout=timeout,
+    )
+    project.raise_for_status()
+    project_data = project.json()
+    if Path(str(project_data.get("worktree") or "/")).resolve() != workdir:
+        raise RuntimeError(
+            f"OpenCode initialized the wrong project worktree: {project_data.get('worktree')!r}",
         )
-        project.raise_for_status()
+
+    sessions = requests.get(
+        f"{settings['origin']}/session",
+        params={**params, "roots": "true", "limit": 55},
+        timeout=timeout,
+    )
+    sessions.raise_for_status()
+    session_data = sessions.json()
+    if not isinstance(session_data, list):
+        raise RuntimeError("OpenCode returned an invalid project session list.")
+    for session_data_item in session_data:
+        if not isinstance(session_data_item, dict):
+            continue
+        session_id = str(session_data_item.get("id") or "")
+        session_directory = session_data_item.get("directory")
         if (
-            Path(str(project.json().get("worktree") or "/")).resolve()
-            != Path(workdir).resolve()
+            session_id
+            and session_directory
+            and Path(str(session_directory)).resolve() == workdir
         ):
-            requests.post(
-                f"{settings['origin']}/project/git/init",
-                params=params,
-                timeout=timeout,
-            ).raise_for_status()
-        sessions = requests.get(
-            f"{settings['origin']}/session",
-            params={**params, "roots": "true", "limit": 55},
-            timeout=timeout,
+            return session_id
+
+    session = requests.post(
+        f"{settings['origin']}/session",
+        params=params,
+        json={},
+        timeout=timeout,
+    )
+    session.raise_for_status()
+    session_data = session.json()
+    session_id = str(session_data.get("id") or "")
+    session_directory = session_data.get("directory")
+    if (
+        not session_id
+        or not session_directory
+        or Path(str(session_directory)).resolve() != workdir
+    ):
+        raise RuntimeError(
+            "OpenCode did not create a session for the requested worktree.",
         )
-        sessions.raise_for_status()
-        if not sessions.json():
-            requests.post(
-                f"{settings['origin']}/session",
-                params=params,
-                json={},
-                timeout=timeout,
-            ).raise_for_status()
-    except requests.RequestException:
-        pass
+    return session_id
 
 
 def _recent_session_id(settings: dict) -> str:
@@ -343,6 +396,7 @@ def _health(settings: dict) -> bool:
 
 def _ensure_opencode(settings: dict) -> tuple[bool, str]:
     global _PROCESS
+    started_process: subprocess.Popen | None = None
     settings["workdir"].mkdir(parents=True, exist_ok=True)
     settings["config_home"].mkdir(parents=True, exist_ok=True)
     settings["data_home"].mkdir(parents=True, exist_ok=True)
@@ -351,11 +405,18 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
     settings["home"].mkdir(parents=True, exist_ok=True)
     _ensure_project_files(settings)
     if _health(settings):
-        _ensure_default_session(settings)
+        try:
+            _ensure_default_session(settings)
+        except (requests.RequestException, RuntimeError, ValueError) as err:
+            return False, f"OpenCode project initialization failed: {err}"
         return True, ""
 
     with _PROCESS_LOCK:
         if _health(settings):
+            try:
+                _ensure_default_session(settings)
+            except (requests.RequestException, RuntimeError, ValueError) as err:
+                return False, f"OpenCode project initialization failed: {err}"
             return True, ""
 
         workdir = settings["workdir"].resolve()
@@ -397,18 +458,26 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
             )
+            started_process = _PROCESS
         except FileNotFoundError:
             return False, f"OpenCode binary not found: {settings['binary']}"
 
     deadline = time.monotonic() + settings["timeout"]
     while time.monotonic() < deadline:
         if _health(settings):
-            _ensure_default_session(settings)
+            try:
+                _ensure_default_session(settings)
+            except (requests.RequestException, RuntimeError, ValueError) as err:
+                _stop_owned_process(started_process)
+                return False, f"OpenCode project initialization failed: {err}"
             return True, ""
-        if _PROCESS and _PROCESS.poll() is not None:
+        if started_process and started_process.poll() is not None:
+            if _PROCESS is started_process:
+                _PROCESS = None
             return False, "OpenCode exited before the web server became ready."
         time.sleep(0.25)
 
+    _stop_owned_process(started_process)
     return False, "Timed out waiting for OpenCode to start."
 
 

@@ -19,6 +19,11 @@
       }
     },
     {
+      "name": "{GIT_BINARY}",
+      "binproviders": "env,apt,brew",
+      "min_version": null
+    },
+    {
       "name": "{OPENCODE_BINARY}",
       "binproviders": "env,pnpm",
       "min_version": null,
@@ -41,6 +46,11 @@
       "type": "string",
       "default": "node",
       "description": "Path to Node.js binary"
+    },
+    "GIT_BINARY": {
+      "type": "string",
+      "default": "git",
+      "description": "Path to Git binary used by OpenCode project initialization"
     },
     "OPENCODE_ENABLED": {
       "type": "boolean",

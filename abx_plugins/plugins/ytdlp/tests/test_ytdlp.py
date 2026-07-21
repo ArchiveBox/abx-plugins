@@ -32,9 +32,6 @@ if _YTDLP_HOOK is None:
 YTDLP_HOOK = _YTDLP_HOOK
 TEST_URL = "https://www.youtube.com/watch?v=jNQXAC9IVRw"
 
-# Module-level cache for binary path
-_ytdlp_binary_path = None
-
 
 def _build_test_wav_bytes() -> bytes:
     """Build a short deterministic WAV payload for local-media extractor tests."""
@@ -78,40 +75,56 @@ def media_test_url(httpserver):
     return httpserver.url_for("/sample.wav")
 
 
-def require_ytdlp_binary() -> str:
-    """Return yt-dlp binary path or fail with actionable context."""
-    binary_path = get_ytdlp_binary_path()
-    assert binary_path, (
-        "yt-dlp dependency resolution failed. required_binaries should resolve yt-dlp "
-        "automatically in this test environment."
+@pytest.fixture(scope="session")
+def installed_ytdlp_runtime_env(tmp_path_factory) -> dict[str, str]:
+    """Install every declared yt-dlp dependency once through abxpkg."""
+    lib_dir = Path(
+        os.environ.get(
+            "ABXPKG_LIB_DIR",
+            str(tmp_path_factory.mktemp("ytdlp_test_lib")),
+        ),
     )
-    assert Path(binary_path).is_file(), f"yt-dlp binary path invalid: {binary_path}"
-    return binary_path
+    expected_bin_dir = lib_dir / "env" / "bin"
+    install_env = os.environ.copy()
+    install_env["ABXPKG_LIB_DIR"] = str(lib_dir)
+
+    resolved = {
+        "ABXPKG_LIB_DIR": str(lib_dir),
+        "PATH": os.pathsep.join(
+            (str(expected_bin_dir), install_env.get("PATH", "")),
+        ).rstrip(os.pathsep),
+    }
+    for config_name, env_name in (
+        ("yt-dlp", "YTDLP_BINARY"),
+        ("node", "NODE_BINARY"),
+        ("ffmpeg", "FFMPEG_BINARY"),
+    ):
+        binary = install_required_binary_from_config(
+            PLUGIN_DIR,
+            config_name,
+            env=install_env,
+        )
+        assert binary and binary.loaded_abspath, (
+            f"{config_name} dependency resolution failed via abxpkg"
+        )
+        binary_path = Path(binary.loaded_abspath)
+        assert binary_path.is_file(), (
+            f"{config_name} binary path invalid: {binary_path}"
+        )
+        assert binary_path.parent == expected_bin_dir, (
+            f"{config_name} must be projected through {expected_bin_dir}: {binary_path}"
+        )
+        resolved[env_name] = str(binary_path)
+
+    return resolved
 
 
-def get_ytdlp_binary_path() -> str | None:
-    """Get yt-dlp binary path, installing via abxpkg if needed."""
-    global _ytdlp_binary_path
-    if _ytdlp_binary_path and Path(_ytdlp_binary_path).is_file():
-        return _ytdlp_binary_path
-
-    binary = install_required_binary_from_config(PLUGIN_DIR, "yt-dlp")
-    if binary and binary.abspath:
-        _ytdlp_binary_path = str(binary.abspath)
-        return _ytdlp_binary_path
-
-    return None
-
-
-def require_ffmpeg_binary() -> str:
-    """Return ffmpeg binary path or fail with actionable context."""
-    binary = install_required_binary_from_config(PLUGIN_DIR, "ffmpeg")
-    assert binary and binary.abspath, (
-        "ffmpeg installation failed. ytdlp tests require a real ffmpeg binary."
-    )
-    ffmpeg_path = str(binary.abspath)
-    assert Path(ffmpeg_path).is_file(), f"ffmpeg binary path invalid: {ffmpeg_path}"
-    return ffmpeg_path
+@pytest.fixture
+def ytdlp_runtime_env(installed_ytdlp_runtime_env, monkeypatch) -> dict[str, str]:
+    """Project the resolved runtime only for the dependent yt-dlp test."""
+    for key, value in installed_ytdlp_runtime_env.items():
+        monkeypatch.setenv(key, value)
+    return installed_ytdlp_runtime_env.copy()
 
 
 def test_hook_script_exists():
@@ -140,22 +153,21 @@ def test_card_template_links_non_browser_media_without_player():
     assert 'href="{{ file.url|default:file.path|urlencode }}"' in template
 
 
-def test_verify_deps_with_abxpkg():
-    """Verify yt-dlp resolves through the real dependency preflight."""
-    binary_path = require_ytdlp_binary()
-    assert Path(binary_path).is_file(), (
-        f"Binary path must be a valid file: {binary_path}"
-    )
+def test_verify_deps_with_abxpkg(ytdlp_runtime_env):
+    """Verify the complete yt-dlp runtime resolves through the real preflight."""
+    assert {
+        "YTDLP_BINARY",
+        "NODE_BINARY",
+        "FFMPEG_BINARY",
+    } < ytdlp_runtime_env.keys()
 
 
-def test_handles_non_video_url(non_video_test_url):
+def test_handles_non_video_url(non_video_test_url, ytdlp_runtime_env):
     """Test that ytdlp extractor handles non-video URLs gracefully via hook."""
-    binary_path = require_ytdlp_binary()
-
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         env = os.environ.copy()
-        env["YTDLP_BINARY"] = binary_path
+        env.update(ytdlp_runtime_env)
         env["SNAP_DIR"] = str(tmpdir)
 
         # Run ytdlp extraction hook on non-video URL
@@ -187,12 +199,11 @@ def test_handles_non_video_url(non_video_test_url):
         assert result_json["output_str"] == "No media found", result_json
 
 
-def test_config_ytdlp_enabled_false_skips():
+def test_config_ytdlp_enabled_false_skips(ytdlp_runtime_env):
     """Test that YTDLP_ENABLED=False exits without emitting JSONL."""
-    import os
-
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
+        env.update(ytdlp_runtime_env)
         env["YTDLP_ENABLED"] = "False"
 
         result = subprocess.run(
@@ -223,14 +234,12 @@ def test_config_ytdlp_enabled_false_skips():
         assert result_json["output_str"] == "YTDLP_ENABLED=False", result_json
 
 
-def test_config_timeout(non_video_test_url):
+def test_config_timeout(non_video_test_url, ytdlp_runtime_env):
     """Test that YTDLP_TIMEOUT config is respected (also via MEDIA_TIMEOUT alias)."""
-    binary_path = require_ytdlp_binary()
-
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
+        env.update(ytdlp_runtime_env)
         env["MEDIA_TIMEOUT"] = "30"
-        env["YTDLP_BINARY"] = binary_path
         env["SNAP_DIR"] = str(tmpdir)
 
         start_time = time.time()
@@ -262,16 +271,14 @@ def test_config_timeout(non_video_test_url):
         }, result_json
 
 
-def test_extracts_local_media_url(media_test_url):
+def test_extracts_local_media_url(media_test_url, ytdlp_runtime_env):
     """Test yt-dlp extraction against deterministic local media served by httpserver."""
-    binary_path = require_ytdlp_binary()
-
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
         env = os.environ.copy()
+        env.update(ytdlp_runtime_env)
         env["YTDLP_TIMEOUT"] = "60"
-        env["YTDLP_BINARY"] = binary_path
         env["SNAP_DIR"] = str(tmpdir)
 
         start_time = time.time()
@@ -339,18 +346,19 @@ def test_extracts_local_media_url(media_test_url):
         )
 
 
-def test_uses_real_ffmpeg_binary_from_env_when_not_on_path(media_test_url):
+def test_uses_real_ffmpeg_binary_from_env_when_not_on_path(
+    media_test_url,
+    ytdlp_runtime_env,
+):
     """Hook should use FFMPEG_BINARY explicitly instead of relying on PATH probing."""
-    ytdlp_binary = require_ytdlp_binary()
-    ffmpeg_binary = require_ffmpeg_binary()
+    ffmpeg_binary = ytdlp_runtime_env["FFMPEG_BINARY"]
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
 
         env = os.environ.copy()
+        env.update(ytdlp_runtime_env)
         env["SNAP_DIR"] = str(tmpdir_path)
-        env["YTDLP_BINARY"] = ytdlp_binary
-        env["FFMPEG_BINARY"] = ffmpeg_binary
         env["YTDLP_ARGS_EXTRA"] = '["--downloader","ffmpeg"]'
         uv_dir = next(
             (
@@ -360,11 +368,14 @@ def test_uses_real_ffmpeg_binary_from_env_when_not_on_path(media_test_url):
             ),
             "",
         )
-        ffmpeg_dir = str(Path(ffmpeg_binary).parent.resolve())
+        ffmpeg_dirs = {
+            str(Path(ffmpeg_binary).parent.resolve()),
+            str(Path(ffmpeg_binary).resolve().parent),
+        }
         filtered_paths = [
             path
             for path in env.get("PATH", "").split(os.pathsep)
-            if path and str(Path(path).resolve()) != ffmpeg_dir
+            if path and str(Path(path).resolve()) not in ffmpeg_dirs
         ]
         if uv_dir and uv_dir not in filtered_paths:
             filtered_paths.insert(0, uv_dir)
