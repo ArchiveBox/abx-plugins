@@ -105,9 +105,9 @@ PY
 }
 
 pypi_artifact_status() {
-    local version="$1" build_dir="$2" pypi_json
-    pypi_json="$("${CURL_BINARY}" -fsSL "https://pypi.org/pypi/${PYPI_PACKAGE}/json")" || return 1
-    PYPI_JSON="${pypi_json}" BUILD_DIR="${build_dir}" EXPECTED_VERSION="${version}" "${UV_BINARY}" run --no-project python - <<'PY'
+    local version="$1" build_dir="$2" pypi_urls
+    pypi_urls="$("${CURL_BINARY}" -fsSL "https://pypi.org/pypi/${PYPI_PACKAGE}/json" | "${JQ_BINARY}" -c --arg version "${version}" ".releases[\$version] // []")" || return 1
+    PYPI_URLS="${pypi_urls}" BUILD_DIR="${build_dir}" EXPECTED_VERSION="${version}" "${UV_BINARY}" run --no-project python - <<'PY'
 import hashlib
 import json
 import os
@@ -134,7 +134,7 @@ for filename, digest in manifest.items():
     if hashlib.sha256((build_dir / filename).read_bytes()).hexdigest() != digest:
         raise SystemExit(f"Tested artifact digest mismatch for {filename}")
 
-urls = json.loads(os.environ["PYPI_JSON"])["releases"].get(version, [])
+urls = json.loads(os.environ["PYPI_URLS"])
 if not urls:
     print("absent")
     for filename in sorted(expected_names):
