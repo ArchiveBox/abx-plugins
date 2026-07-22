@@ -128,7 +128,7 @@ jobs:
           [[ "${#artifacts[@]}" -eq 2 ]]
           [[ "${#wheels[@]}" -eq 1 ]]
           [[ "${#sdists[@]}" -eq 1 ]]
-          (cd dist && sha256sum ./* > SHA256SUMS && sha256sum --check SHA256SUMS)
+          (cd dist && sha256sum abx_plugins-*.whl abx_plugins-*.tar.gz > SHA256SUMS && sha256sum --check SHA256SUMS)
 
       - name: Upload package artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

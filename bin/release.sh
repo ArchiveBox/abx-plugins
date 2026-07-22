@@ -150,10 +150,12 @@ published = {asset["name"]: asset.get("digest", "") for asset in assets}
 lines = (Path(os.environ["VERIFY_DIR"]) / "SHA256SUMS").read_text().splitlines()
 manifest = {}
 for line in lines:
-    digest, filename = line.split(maxsplit=1)
-    if not re.fullmatch(r"[0-9a-f]{64}", digest) or Path(filename).name != filename:
-        raise SystemExit(f"Invalid checksum entry: {line}")
-    manifest[filename] = digest
+        digest, filename = line.split(maxsplit=1)
+        if not re.fullmatch(r"[0-9a-f]{64}", digest) or Path(filename).name != filename:
+            raise SystemExit(f"Invalid checksum entry: {line}")
+        if filename in manifest:
+            raise SystemExit(f"Duplicate checksum entry: {filename}")
+        manifest[filename] = digest
 artifact_names = expected_names - {"SHA256SUMS"}
 if set(manifest) != artifact_names:
     raise SystemExit("Published checksum manifest does not name exactly the wheel and sdist")
