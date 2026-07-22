@@ -136,7 +136,7 @@ function getTwoCaptchaConfig() {
     autoSolveMTCaptcha: true,
 
     // Other settings with sensible defaults
-    recaptchaV2Type: "click",
+    recaptchaV2Type: "token",
     recaptchaV3MinScore: 0.3,
     buttonPosition: "inner",
     useProxy: false,

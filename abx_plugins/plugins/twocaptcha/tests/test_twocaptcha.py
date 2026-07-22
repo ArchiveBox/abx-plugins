@@ -302,6 +302,9 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                 assert cfg.get("enabledForRecaptchaV2"), (
                     f"enabledForRecaptchaV2 not enabled: {cfg}"
                 )
+                assert cfg.get("recaptchaV2Type") == "token", (
+                    f"reCAPTCHA v2 must use token solving: {cfg}"
+                )
 
                 print("[+] Config verified via Config.getAll()!")
 
