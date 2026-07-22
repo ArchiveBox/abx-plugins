@@ -1,0 +1,49 @@
+tests/test_runtime_path_isolation.py
+  s_f8414d52051f83::t_f0ae042d416037 181
+  s_f8414d52051f83::t_fc811ce53acec0 197-198
+.github/configs/ci-tooling.json
+  s_f8414d52051f83::t_4828905d4c6ae5 8-22,67-87
+  s_f8414d52051f83::t_1aaae8007117d7 88
+bin/ci_project_tools.py
+  s_f8414d52051f83::t_4828905d4c6ae5 1-3,6-11,15-65,67-74,76
+  s_f8414d52051f83::t_2ea73146f4d435 79-80
+pyproject.toml
+  s_f8414d52051f83::t_baf85f82bc2b01 22
+  s_f8414d52051f83::t_aa2a9036f37df6 23
+.github/workflows/release.yml
+  s_f8414d52051f83::t_9d8151fb984111 14-17,40,68
+  s_f8414d52051f83::t_b012530def2d19 7
+  s_f8414d52051f83::t_4828905d4c6ae5 56-60,67,70,78-80,82-84,91-92,99-102
+  s_f8414d52051f83::t_bbdc41dff7c2e6 69
+  s_f8414d52051f83::t_cd032ec1d7cdb6 81,85-90,93-98
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_f8414d52051f83::t_ab4f66f3a258d3 542
+bin/release.sh
+  s_f8414d52051f83::t_cd032ec1d7cdb6 12,14-26,126,129-163,229
+  s_f8414d52051f83::t_df7be34f3d6466 13,27-31,33-38,49,83-85,97-102,109-110,114-116,118-119,125,182-185,200,213,223-224,234,237,250,276
+  s_f8414d52051f83::t_a44ec151fc10ff 32,53,65,86
+  s_f8414d52051f83::t_d51396b9fcc299 164-165
+  s_f8414d52051f83::t_3a038b57c7b48e 6-7,108
+  s_f8414d52051f83::t_d30b9d0dd500cf 128,232,245-248,257-263
+  s_f8414d52051f83::t_fc811ce53acec0 217-222,225-228,254-255,265-266,270-271
+  s_f8414d52051f83::t_fa9df0c58b03aa 127
+  s_f8414d52051f83::t_79b52be1586678 230
+uv.lock
+  s_f8414d52051f83::t_082aebcf79417b 6,12,51-52,83,90,92,97,106,108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "64d8a3d0963b74d1ad6fe80f6c514dd165c52c5d",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
