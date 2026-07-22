@@ -55,16 +55,20 @@ def test_require_chrome_runtime_loads_provider_managed_chrome_runtime():
 def test_require_chrome_runtime_resolves_in_subprocess(
     tmp_path: Path,
 ):
-    """The subprocess path should use the same provider-aware runtime resolution."""
+    """The subprocess should enter the locked project through provider-resolved uv."""
 
     env = os.environ.copy()
     env["ABXPKG_LIB_DIR"] = str(tmp_path / "lib")
     env["ABXPKG_ENV_ROOT"] = str(tmp_path / "env")
-    python = install_binary_with_abxpkg("python3", binproviders="env,apt,brew")
-    assert python.loaded_abspath is not None
+    uv = install_binary_with_abxpkg("uv", binproviders="env,brew")
+    assert uv.loaded_abspath is not None
     result = subprocess.run(
         [
-            str(python.loaded_abspath),
+            str(uv.loaded_abspath),
+            "run",
+            "--no-sync",
+            "--no-sources",
+            "python",
             "-c",
             (
                 "from abx_plugins.plugins.chrome.tests.chrome_test_helpers "
