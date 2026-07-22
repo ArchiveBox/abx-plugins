@@ -49,7 +49,14 @@ def read_captcha_progress(process: subprocess.Popen[str]) -> str:
     """Read one production progress event from the 2Captcha snapshot hook."""
     assert process.stdout is not None
     line = process.stdout.readline()
-    assert line, "2Captcha hook exited without publishing a progress event"
+    if not line:
+        returncode = process.wait(timeout=5)
+        assert process.stderr is not None
+        stderr = process.stderr.read()
+        raise AssertionError(
+            "2Captcha hook exited without publishing a progress event "
+            f"(exit {returncode}):\n{stderr}",
+        )
     return line.strip()
 
 
