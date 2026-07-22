@@ -1,0 +1,23 @@
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_beda10f426a58b 131
+bin/release.sh
+  s_f8414d52051f83::t_beda10f426a58b 153-158
+.github/workflows/release.yml
+  s_f8414d52051f83::t_beda10f426a58b 95-96
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "dc8a0434c4254f1ed1ef0ec058c679fbfd2787b7",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
