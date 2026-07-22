@@ -1,0 +1,23 @@
+abx_plugins/plugins/archivedotorg/on_Snapshot__08_archivedotorg.finite.bg.py
+  s_f8414d52051f83::t_30fcc6cdf9cf75 158,165-166
+  s_f8414d52051f83::t_cc46d82505796f 159
+  s_f8414d52051f83::t_ffc8cb77fba2d1 160-164
+pyproject.toml
+  s_f8414d52051f83::t_f52a41130ef004 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8242bcc88f9abc4e0be972ed5403496a89a8b32b",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
