@@ -16,13 +16,29 @@ SCRIPT_PATH = next(PLUGIN_DIR.glob("on_Snapshot__*_parse_rss_urls.*"), None)
 class TestParseRssUrls:
     """Test the parse_rss_urls extractor CLI."""
 
-    def test_parses_real_rss_feed(self, tmp_path):
-        """Test parsing a real RSS feed from the web."""
+    def test_parses_http_rss_feed(self, tmp_path, httpserver):
+        """Test fetching and parsing an RSS feed over HTTP."""
+        httpserver.expect_request("/rss").respond_with_data(
+            """<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Served Feed</title>
+    <link>https://example.com</link>
+    <item>
+      <title>Served Post</title>
+      <link>https://example.com/served-post</link>
+      <pubDate>Mon, 01 Jan 2024 12:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>
+            """,
+            content_type="application/rss+xml",
+        )
         result = run_parse_rss_urls(
             [
                 str(SCRIPT_PATH),
                 "--url",
-                "https://news.ycombinator.com/rss",
+                httpserver.url_for("/rss"),
             ],
             cwd=tmp_path,
             capture_output=True,
@@ -36,12 +52,11 @@ class TestParseRssUrls:
             for line in result.stdout.strip().split("\n")
             if line.strip() and '"type": "Snapshot"' in line
         ]
-        assert lines, f"No URLs extracted from real RSS feed: {result.stdout!r}"
+        assert len(lines) == 1, result.stdout
         entries = [json.loads(line) for line in lines]
-        assert all(entry["type"] == "Snapshot" for entry in entries)
-        assert all(
-            entry["url"].startswith(("http://", "https://")) for entry in entries
-        )
+        assert entries[0]["type"] == "Snapshot"
+        assert entries[0]["url"] == "https://example.com/served-post"
+        assert entries[0]["title"] == "Served Post"
         assert "URLs parsed" in result.stderr or "URLs parsed" in result.stdout
 
     def test_extracts_urls_from_rss_feed(self, tmp_path):
