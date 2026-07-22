@@ -1,0 +1,31 @@
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  s_f8414d52051f83::t_70690b7f248aac 1482-1513
+abx_plugins/plugins/claudecodecleanup/config.json
+  s_f8414d52051f83::t_5b388a0fd6e9fe 35
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_f8414d52051f83::t_70690b7f248aac 1442,1451,1484-1486,1494-1496,1507-1510,1525,1555,1565,1591,3782-3788,3793-3801,3809-3813,3822,3824-3827,3829-3832,3834-3838
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_f8414d52051f83::t_70690b7f248aac 3337,3339-3342
+pyproject.toml
+  s_f8414d52051f83::t_84fd1568a93db5 3,23
+abx_plugins/plugins/claudecodecleanup/on_Snapshot__92_claudecodecleanup.py
+  s_f8414d52051f83::t_5b388a0fd6e9fe 64-65,141-143
+uv.lock
+  s_f8414d52051f83::t_803abb7802987e 6,12,16,52,97,106,108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2ef4faeb5f823441bcdbe18bc7a3cf6b7b2175e4",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
