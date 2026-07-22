@@ -3334,8 +3334,12 @@ def test_chrome_cleanup_on_crawl_end():
 
         # Send SIGTERM to chrome launch process
         chrome_launch_process.send_signal(signal.SIGTERM)
-        stdout, stderr = chrome_launch_process.communicate(timeout=30)
+        stdout, stderr = chrome_launch_process.communicate(timeout=15)
 
+        assert chrome_launch_process.returncode == 0, stderr
+        assert {"succeeded": True, "skipped": False} in [
+            json.loads(line) for line in stdout.splitlines() if line.startswith("{")
+        ]
         assert not is_pid_alive(chrome_pid), "Chrome should be killed after SIGTERM"
 
         assert not (chrome_dir / "chrome.pid").exists(), (

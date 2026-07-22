@@ -1479,18 +1479,38 @@ def kill_chromium_session(
             except (ValueError, FileNotFoundError):
                 chrome_pid = None
 
-    chrome_launch_process.send_signal(signal.SIGTERM)
-    chrome_launch_process.wait(timeout=15)
+    cleanup_error: BaseException | None = None
+    try:
+        if chrome_launch_process.poll() is None:
+            chrome_launch_process.send_signal(signal.SIGTERM)
+        chrome_launch_process.wait(timeout=15)
+    except BaseException as error:
+        cleanup_error = error
+    finally:
+        try:
+            if chrome_pid is not None and is_pid_alive(chrome_pid):
+                assert kill_chrome(chrome_pid, str(chrome_dir))
+            if chrome_pid is not None:
+                assert not is_pid_alive(chrome_pid)
+        except BaseException as error:
+            if cleanup_error is None:
+                cleanup_error = error
 
-    if chrome_pid is not None and is_pid_alive(chrome_pid):
-        assert kill_chrome(chrome_pid, str(chrome_dir))
-    if chrome_pid is not None:
-        assert not is_pid_alive(chrome_pid)
+        try:
+            if chrome_launch_process.poll() is None:
+                chrome_launch_process.kill()
+            chrome_launch_process.wait(timeout=5)
+        except BaseException as error:
+            if cleanup_error is None:
+                cleanup_error = error
+        finally:
+            for attr in ("_stdout_handle", "_stderr_handle"):
+                handle = getattr(chrome_launch_process, attr, None)
+                if handle:
+                    handle.close()
 
-    for attr in ("_stdout_handle", "_stderr_handle"):
-        handle = getattr(chrome_launch_process, attr, None)
-        if handle:
-            handle.close()
+    if cleanup_error is not None:
+        raise cleanup_error
 
 
 def launch_snapshot_tab(

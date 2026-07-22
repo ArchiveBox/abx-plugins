@@ -1439,7 +1439,7 @@ async function acquireSessionLock(
  * @param {number} port - Debug port number
  * @returns {Array<number>} - Array of PIDs
  */
-function findChromeProcessesByPort(port) {
+function findChromeProcessesByPort(port, timeoutMs = 5000) {
   const debugPort = parseInt(port, 10);
   if (!Number.isInteger(debugPort) || debugPort <= 0) return [];
 
@@ -1448,7 +1448,7 @@ function findChromeProcessesByPort(port) {
   try {
     const output = execFileSync("ps", ["-axo", "pid=,command="], {
       encoding: "utf8",
-      timeout: 5000,
+      timeout: Math.max(1, Math.min(5000, timeoutMs)),
     });
 
     for (const line of output.split("\n")) {
@@ -1481,7 +1481,9 @@ async function waitForChromeProcessTreeExit(
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const mainAlive = pid ? isProcessAlive(pid) : false;
-    const relatedPids = debugPort ? findChromeProcessesByPort(debugPort) : [];
+    const relatedPids = debugPort
+      ? findChromeProcessesByPort(debugPort, deadline - Date.now())
+      : [];
     if (!mainAlive && relatedPids.length === 0) {
       return true;
     }
@@ -1489,7 +1491,9 @@ async function waitForChromeProcessTreeExit(
   }
 
   const mainAlive = pid ? isProcessAlive(pid) : false;
-  const relatedPids = debugPort ? findChromeProcessesByPort(debugPort) : [];
+  const relatedPids = debugPort
+    ? findChromeProcessesByPort(debugPort, 1)
+    : [];
   return !mainAlive && relatedPids.length === 0;
 }
 
@@ -1500,7 +1504,10 @@ async function waitForChromeProcessTreeExit(
  * @param {number} pid - Process ID to kill
  * @param {string} [outputDir] - Directory containing PID files to clean up
  */
-async function killChrome(pid, outputDir = null) {
+async function killChrome(pid, outputDir = null, timeoutMs = 10000) {
+  const deadline = Date.now() + Math.max(0, timeoutMs);
+  const remainingMs = () => Math.max(0, deadline - Date.now());
+
   // Get debug port for finding child processes
   let debugPort = null;
   if (outputDir) {
@@ -1515,7 +1522,7 @@ async function killChrome(pid, outputDir = null) {
   }
 
   const initialRelatedPids = debugPort
-    ? findChromeProcessesByPort(debugPort)
+    ? findChromeProcessesByPort(debugPort, remainingMs())
     : [];
   const hasLiveParent = Boolean(pid && isProcessAlive(pid));
   if (!hasLiveParent && initialRelatedPids.length === 0) {
@@ -1545,7 +1552,7 @@ async function killChrome(pid, outputDir = null) {
   let processTreeExited = await waitForChromeProcessTreeExit(
     pid,
     debugPort,
-    5000
+    Math.floor(remainingMs() / 2)
   );
   if (processTreeExited) {
     console.error("[+] Chrome process tree terminated gracefully");
@@ -1555,7 +1562,7 @@ async function killChrome(pid, outputDir = null) {
       remainingPids.add(pid);
     }
     for (const relatedPid of debugPort
-      ? findChromeProcessesByPort(debugPort)
+      ? findChromeProcessesByPort(debugPort, remainingMs())
       : initialRelatedPids) {
       remainingPids.add(relatedPid);
     }
@@ -1581,7 +1588,7 @@ async function killChrome(pid, outputDir = null) {
     processTreeExited = await waitForChromeProcessTreeExit(
       pid,
       debugPort,
-      5000
+      remainingMs()
     );
     if (!processTreeExited) {
       console.error(
@@ -3735,18 +3742,6 @@ async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
   console.error(`[+] Imported ${imported}/${cookies.length} cookies`);
 }
 
-async function waitForProcessExit(pid, timeoutMs = 5000, intervalMs = 100) {
-  if (!pid) return true;
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (!isProcessAlive(pid)) {
-      return true;
-    }
-    await sleep(intervalMs);
-  }
-  return !isProcessAlive(pid);
-}
-
 async function waitForBrowserEndpointGone(
   cdpUrl,
   timeoutMs = 5000,
@@ -3784,16 +3779,26 @@ async function closeBrowserInChromeSession(options = {}) {
     return false;
   }
 
+  const cleanupDeadline = Date.now() + Math.max(1, forceKillTimeoutMs);
+  const remainingCleanupMs = () =>
+    Math.max(0, cleanupDeadline - Date.now());
+  const cdpDeadline =
+    Date.now() + Math.max(1, Math.floor(forceKillTimeoutMs / 2));
+  const remainingCdpMs = () => Math.max(0, cdpDeadline - Date.now());
+
   if (cdpUrl) {
     let browser = null;
     try {
-      browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, {
-        defaultViewport: null,
-      });
-      const session = await browser.target().createCDPSession();
       await withTimeout(
-        () => session.send("Browser.close"),
-        forceKillTimeoutMs,
+        async () => {
+          browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, {
+            defaultViewport: null,
+            protocolTimeout: Math.max(1, remainingCdpMs()),
+          });
+          const session = await browser.target().createCDPSession();
+          await session.send("Browser.close");
+        },
+        Math.max(1, remainingCdpMs()),
         `Timed out closing browser at ${cdpUrl}`
       );
     } catch (error) {
@@ -3801,7 +3806,11 @@ async function closeBrowserInChromeSession(options = {}) {
     } finally {
       if (browser) {
         try {
-          await browser.disconnect();
+          await withTimeout(
+            () => browser.disconnect(),
+            Math.max(1, remainingCdpMs()),
+            `Timed out disconnecting from browser at ${cdpUrl}`
+          );
         } catch (disconnectError) {}
       }
     }
@@ -3810,16 +3819,23 @@ async function closeBrowserInChromeSession(options = {}) {
   const debugPort = cdpUrl ? getChromeDebugPortFromCdpUrl(cdpUrl) : null;
   let closed = false;
   if (processIsLocal && pid) {
-    closed = await waitForProcessExit(pid, forceKillTimeoutMs);
-    if (!closed) {
-      closed = await killChrome(pid, outputDir);
-    }
+    closed = await killChrome(pid, outputDir, remainingCleanupMs());
   } else if (cdpUrl) {
-    closed = await waitForBrowserEndpointGone(cdpUrl, forceKillTimeoutMs);
+    closed = await waitForBrowserEndpointGone(
+      cdpUrl,
+      remainingCleanupMs()
+    );
     if (closed && debugPort) {
-      const relatedPids = findChromeProcessesByPort(debugPort);
+      const relatedPids = findChromeProcessesByPort(
+        debugPort,
+        remainingCleanupMs()
+      );
       if (relatedPids.length > 0) {
-        closed = await killChrome(relatedPids[0], outputDir);
+        closed = await killChrome(
+          relatedPids[0],
+          outputDir,
+          remainingCleanupMs()
+        );
       }
     }
   }

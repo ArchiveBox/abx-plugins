@@ -58,7 +58,6 @@ const {
   closeBrowserInChromeSession,
   getChromeSessionOptionsFromConfig,
   getChromeLaunchPrerequisites,
-  killZombieChrome,
 } = require("./chrome_utils.js");
 
 // Extractor metadata
@@ -134,11 +133,6 @@ async function cleanup() {
         );
         process.exit(1);
       }
-      await killZombieChrome(CRAWL_DIR, {
-        quiet: true,
-        excludeCurrentRuntimeDirs: false,
-        CHROME_USER_DATA_DIR,
-      });
       console.log(`${CHROME_BINARY} exited successfully`);
       console.log(JSON.stringify({ succeeded: true, skipped: false })); // we launched and we killed it (nothing was skipped)
     } else {
