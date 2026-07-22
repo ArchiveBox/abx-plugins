@@ -116,9 +116,9 @@ publish_to_pypi() (
     local build_dir="$2"
     shopt -s nullglob
     local artifacts=("${build_dir}"/*)
-    local wheels=("${build_dir}"/abx_plugins-${version}-*.whl)
-    local sdists=("${build_dir}"/abx_plugins-${version}.tar.gz)
-    [[ "${#wheels[@]}" -eq 1 && "${#sdists[@]}" -eq 1 ]] || {
+    local wheels=("${build_dir}"/abx_plugins-"${version}"-*.whl)
+    local sdists=("${build_dir}"/abx_plugins-"${version}".tar.gz)
+    [[ "${#wheels[@]}" -eq 1 && "${#sdists[@]}" -eq 1 && -f "${sdists[0]}" ]] || {
         echo "Expected one tested wheel and sdist for ${version} in ${build_dir}" >&2
         return 1
     }
@@ -128,13 +128,17 @@ publish_to_pypi() (
 
 create_release() {
     local slug="$1" version="$2" sha="$3"
+    local release_args=()
     if github_release_has_version "${version}" "${slug}"; then
         verify_existing_tag "${version}" "${sha}"
         return 0
     fi
     verify_existing_tag "${version}" "${sha}"
+    if [[ "${version}" =~ rc[0-9]+$ ]]; then
+        release_args+=(--prerelease)
+    fi
     gh release create "${TAG_PREFIX}${version}" --repo "${slug}" --target "${sha}" \
-        --title "${TAG_PREFIX}${version}" --generate-notes
+        --title "${TAG_PREFIX}${version}" --generate-notes "${release_args[@]}"
 }
 
 main() {
@@ -167,22 +171,22 @@ main() {
             echo "Fully published tag ${TAG_PREFIX}${version} is not on ${RELEASE_BRANCH:-main}" >&2
             return 1
         }
-        echo "${PYPI_PACKAGE} ${version} is already fully released from ${target}"
-        return 0
     fi
-    if [[ ( "${pypi_exists}" == true || "${github_exists}" == true ) && "${target}" != "${release_sha}" ]]; then
+    if [[ "${github_exists}" == true && "${target}" != "${release_sha}" ]]; then
         echo "Cannot recover partial release ${version}: no tag anchors it to ${release_sha}" >&2
         return 1
     fi
+    if [[ "${pypi_exists}" == true && -n "${target}" && "${target}" != "${release_sha}" ]]; then
+        echo "Cannot recover partial release ${version}: tag does not point to ${release_sha}" >&2
+        return 1
+    fi
 
-    create_release "${slug}" "${version}" "${release_sha}"
     if [[ "${pypi_exists}" != true ]]; then
         publish_to_pypi "${version}" "${artifact_dir}"
     fi
+    create_release "${slug}" "${version}" "${release_sha}"
     gh release upload "${TAG_PREFIX}${version}" --repo "${slug}" \
         "${artifact_dir}"/abx_plugins-*.whl "${artifact_dir}"/abx_plugins-*.tar.gz "${artifact_dir}"/SHA256SUMS --clobber
-    github_release_has_version "${version}" "${slug}"
-    verify_existing_tag "${version}" "${release_sha}"
     echo "Released ${PYPI_PACKAGE} ${version} from ${release_sha}"
 }
 
