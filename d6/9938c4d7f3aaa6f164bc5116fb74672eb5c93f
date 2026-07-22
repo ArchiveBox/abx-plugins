@@ -1,0 +1,19 @@
+abx_plugins/plugins/twocaptcha/tests/test_twocaptcha.py
+  s_f8414d52051f83::t_abbf98f25b6db8 52-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d69938c4d7f3aaa6f164bc5116fb74672eb5c93f",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
