@@ -117,7 +117,7 @@ async function getCaptchaState(page) {
           detected = true;
           const value = typeof el.value === "string" ? el.value.trim() : "";
           if (value.length > 20) {
-            solved.add(`${selector}:${value.slice(0, 128)}`);
+            solved.add(value.slice(0, 128));
           }
         }
       } catch (error) {}
@@ -140,7 +140,7 @@ async function getCaptchaState(page) {
         detected = true;
         const response = grecaptcha.getResponse();
         if (typeof response === "string" && response.trim().length > 20) {
-          solved.add(`grecaptcha:${response.trim().slice(0, 128)}`);
+          solved.add(response.trim().slice(0, 128));
         }
       }
     } catch (error) {}
