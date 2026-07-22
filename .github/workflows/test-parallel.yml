@@ -28,16 +28,6 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Clone abx-dl release for documentation examples
-        run: |
-          set -Eeuo pipefail
-          tag="v1.11.262"
-          sha="cc08a64d002bc47ac50e064c526b462f6bc9c9d2"
-          checkout="${{ runner.temp }}/abx-dl"
-          git clone --depth=1 --branch "$tag" https://github.com/ArchiveBox/abx-dl.git "$checkout"
-          [[ "$(git -C "$checkout" rev-parse HEAD)" == "$sha" ]]
-          [[ "$(git -C "$checkout" rev-parse "refs/tags/${tag}^{commit}")" == "$sha" ]]
-
       - name: Set up Python 3.13.13
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
@@ -57,33 +47,24 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-3.13.13-uv-
 
-      - name: Install dependencies with uv
-        run: uv sync --locked --dev --no-sources
-
-      - name: Resolve CI tooling through abxpkg
+      - name: Project CI tooling through abxpkg
         env:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
+        run: uv run --no-project python bin/ci_project_tools.py prek_binaries --lib "$ABXPKG_LIB_DIR"
+
+      - name: Clone abx-dl release for documentation examples
         run: |
           set -Eeuo pipefail
-          mkdir -p "$ABXPKG_LIB_DIR/env/bin"
-          export PATH="$ABXPKG_LIB_DIR/env/bin:$PATH"
-          echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
-          echo "$ABXPKG_LIB_DIR/env/bin" >> "$GITHUB_PATH"
+          tag="v1.11.262"
+          sha="cc08a64d002bc47ac50e064c526b462f6bc9c9d2"
+          checkout="${{ runner.temp }}/abx-dl"
+          "${GIT_BINARY}" clone --depth=1 --branch "$tag" https://github.com/ArchiveBox/abx-dl.git "$checkout"
+          [[ "$("${GIT_BINARY}" -C "$checkout" rev-parse HEAD)" == "$sha" ]]
+          [[ "$("${GIT_BINARY}" -C "$checkout" rev-parse "refs/tags/${tag}^{commit}")" == "$sha" ]]
 
-          tooling_env="$(
-            uv run --no-sync --no-sources abxpkg env \
-              --install \
-              --json \
-              --lib="$ABXPKG_LIB_DIR" \
-              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:prek_binaries"
-          )"
-          "$ABXPKG_LIB_DIR/env/bin/jq" -r 'to_entries[] | "\(.key)=\(.value)"' \
-            <<< "$tooling_env" >> "$GITHUB_ENV"
-
-          test -x "$ABXPKG_LIB_DIR/env/bin/node"
-          test -x "$ABXPKG_LIB_DIR/env/bin/prettier"
-          "$ABXPKG_LIB_DIR/env/bin/node" --version
-          "$ABXPKG_LIB_DIR/env/bin/prettier" --version
+      - name: Install locked dependencies through projected uv
+        run: |
+          "${UV_BINARY}" sync --locked --dev --no-sources
 
       - name: Install abx-dl documentation dependency
         run: |
@@ -95,7 +76,13 @@ jobs:
 
       - name: Run documentation code blocks
         run: |
-          mapfile -t plugin_readmes < <(find abx_plugins/plugins -name README.md -type f | sort)
+          mapfile -t plugin_readmes < <("${UV_BINARY}" run --no-project python - <<'PY'
+          from pathlib import Path
+
+          for readme in sorted(Path("abx_plugins/plugins").glob("*/README.md")):
+              print(readme)
+          PY
+          )
           "${UV_BINARY}" run --no-sync --no-sources pytest -vv --tb=long \
             README.md AGENTS.md skills docs "${plugin_readmes[@]}"
 
@@ -117,10 +104,15 @@ jobs:
           version: "0.11.3"
           enable-cache: false
 
+      - name: Project build tooling through abxpkg
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
+        run: uv run --no-project python bin/ci_project_tools.py release_binaries --lib "$ABXPKG_LIB_DIR"
+
       - name: Build wheel and source distribution
         run: |
           set -Eeuo pipefail
-          uv build --no-sources --out-dir dist --clear
+          "${UV_BINARY}" build --no-sources --out-dir dist --clear
           shopt -s nullglob
           artifacts=(dist/*)
           wheels=(dist/abx_plugins-*.whl)
@@ -128,7 +120,19 @@ jobs:
           [[ "${#artifacts[@]}" -eq 2 ]]
           [[ "${#wheels[@]}" -eq 1 ]]
           [[ "${#sdists[@]}" -eq 1 ]]
-          (cd dist && sha256sum abx_plugins-*.whl abx_plugins-*.tar.gz > SHA256SUMS && sha256sum --check SHA256SUMS)
+          version="$("${UV_BINARY}" run --no-project python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          [[ "${wheels[0]}" == "dist/abx_plugins-${version}-py3-none-any.whl" ]]
+          [[ "${sdists[0]}" == "dist/abx_plugins-${version}.tar.gz" ]]
+          DIST_DIR=dist "${UV_BINARY}" run --no-project python - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+
+          dist_dir = Path(os.environ["DIST_DIR"])
+          artifacts = sorted((*dist_dir.glob("abx_plugins-*.whl"), *dist_dir.glob("abx_plugins-*.tar.gz")))
+          lines = [f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}" for path in artifacts]
+          (dist_dir / "SHA256SUMS").write_text("\n".join(lines) + "\n")
+          PY
 
       - name: Upload package artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -150,6 +154,9 @@ jobs:
         artifact: [wheel, sdist]
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
       - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
@@ -160,6 +167,11 @@ jobs:
         with:
           version: "0.11.3"
           enable-cache: false
+
+      - name: Project compatibility tooling through abxpkg
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
+        run: uv run --no-project python bin/ci_project_tools.py release_binaries --lib "$ABXPKG_LIB_DIR"
 
       - name: Download package artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -186,13 +198,13 @@ jobs:
           mkdir -p "$data_dir/staticfile"
           printf 'hello' > "$data_dir/staticfile/output.html"
 
-          uv venv --python "${{ matrix.python }}" "$smoke_env"
-          uv pip install --python "$smoke_env" --no-cache "${candidates[0]}"
+          "${UV_BINARY}" venv --python "${{ matrix.python }}" "$smoke_env"
+          "${UV_BINARY}" pip install --python "$smoke_env" --no-cache "${candidates[0]}"
 
           unset PYTHONPATH
           cd "$smoke_root"
           hook="$({
-            VIRTUAL_ENV="$smoke_env" uv run --active --no-project python - <<'PY'
+            VIRTUAL_ENV="$smoke_env" "${UV_BINARY}" run --active --no-project python - <<'PY'
           import os
           from pathlib import Path
 
@@ -211,10 +223,10 @@ jobs:
 
           hook_output="$({
             SNAP_DIR="$data_dir" VIRTUAL_ENV="$smoke_env" \
-              uv run --active --no-project python "$hook" --url "https://example.com"
+              "${UV_BINARY}" run --active --no-project python "$hook" --url "https://example.com"
           })"
           HOOK_OUTPUT="$hook_output" SNAP_DIR="$data_dir" VIRTUAL_ENV="$smoke_env" \
-            uv run --active --no-project python - <<'PY'
+            "${UV_BINARY}" run --active --no-project python - <<'PY'
           import hashlib
           import json
           import os
@@ -252,9 +264,15 @@ jobs:
           version: "0.11.3"
           enable-cache: false
 
+      - name: Project discovery tooling through abxpkg
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
+        run: uv run --no-project python bin/ci_project_tools.py release_binaries --lib "$ABXPKG_LIB_DIR"
+
       - name: Discover test files
         id: set-matrix
-        run: uv run --no-project python .github/ci_test_shards.py >> "$GITHUB_OUTPUT"
+        run: |
+          "${UV_BINARY}" run --no-project python .github/ci_test_shards.py >> "$GITHUB_OUTPUT"
 
   run-tests:
     name: ${{ matrix.shard.name }} / Python ${{ matrix.python }} / ${{ matrix.os }}
@@ -296,31 +314,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.python }}-uv-
 
-      - name: Install dependencies with uv
-        run: uv sync --locked --dev --no-sources
-
-      - name: Resolve CI tooling through abxpkg
+      - name: Project test tooling through abxpkg
         env:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
+        run: uv run --no-project python bin/ci_project_tools.py node_binaries --lib "$ABXPKG_LIB_DIR"
+
+      - name: Install locked dependencies through projected uv
         run: |
-          set -Eeuo pipefail
-          mkdir -p "$ABXPKG_LIB_DIR/env/bin"
-          export PATH="$ABXPKG_LIB_DIR/env/bin:$PATH"
-          echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
-          echo "$ABXPKG_LIB_DIR/env/bin" >> "$GITHUB_PATH"
-
-          tooling_env="$(
-            uv run --no-sync --no-sources abxpkg env \
-              --install \
-              --json \
-              --lib="$ABXPKG_LIB_DIR" \
-              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:node_binaries"
-          )"
-          "$ABXPKG_LIB_DIR/env/bin/jq" -r 'to_entries[] | "\(.key)=\(.value)"' \
-            <<< "$tooling_env" >> "$GITHUB_ENV"
-
-          test -x "$ABXPKG_LIB_DIR/env/bin/node"
-          "$ABXPKG_LIB_DIR/env/bin/node" --version
+          "${UV_BINARY}" sync --locked --dev --no-sources
 
       - name: Select Chromium for extension-capable CDP
         if: ${{ matrix.shard.needs_chromium }}
@@ -329,7 +330,7 @@ jobs:
         run: |
           set -euo pipefail
           chromium_env="$(
-            uv run --no-sync --no-sources abxpkg env \
+            "${UV_BINARY}" run --no-sync --no-sources abxpkg env \
               --install \
               --json \
               --lib="$ABXPKG_LIB_DIR" \

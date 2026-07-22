@@ -75,18 +75,25 @@ jobs:
           [[ "${#wheels[@]}" -eq 1 ]]
           [[ "${#sdists[@]}" -eq 1 ]]
           [[ "${#manifests[@]}" -eq 1 ]]
-          DIST_DIR=dist "${UV_BINARY}" run --no-project python - <<'PY'
+          version="$("${UV_BINARY}" run --no-project python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          DIST_DIR=dist EXPECTED_VERSION="$version" "${UV_BINARY}" run --no-project python - <<'PY'
           import hashlib
           import os
           import re
           from pathlib import Path
 
           dist_dir = Path(os.environ["DIST_DIR"])
+          version = os.environ["EXPECTED_VERSION"]
           wheels = list(dist_dir.glob("abx_plugins-*.whl"))
           sdists = list(dist_dir.glob("abx_plugins-*.tar.gz"))
           if len(wheels) != 1 or len(sdists) != 1:
               raise SystemExit("Expected exactly one wheel and one sdist")
-          expected_names = {wheels[0].name, sdists[0].name}
+          expected_names = {
+              f"abx_plugins-{version}-py3-none-any.whl",
+              f"abx_plugins-{version}.tar.gz",
+          }
+          if {wheels[0].name, sdists[0].name} != expected_names:
+              raise SystemExit("Tested artifact names do not match the checked-out version")
           manifest = {}
           for line in (dist_dir / "SHA256SUMS").read_text().splitlines():
               digest, filename = line.split(maxsplit=1)

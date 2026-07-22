@@ -40,14 +40,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Clone companion repositories for source inspection
-        run: |
-          set -Eeuo pipefail
-          git clone --depth=1 --branch main https://github.com/ArchiveBox/abxpkg.git "${{ runner.temp }}/abxpkg"
-          git clone --depth=1 --branch main https://github.com/ArchiveBox/abxbus.git "${{ runner.temp }}/abxbus"
-          git clone --depth=1 --branch main https://github.com/ArchiveBox/abx-dl.git "${{ runner.temp }}/abx-dl"
-          git clone --depth=1 --branch dev https://github.com/ArchiveBox/ArchiveBox.git "${{ runner.temp }}/archivebox"
-
       - name: Set up Python 3.13.13
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
@@ -59,35 +51,23 @@ jobs:
           version: "0.11.3"
           activate-environment: "true"
 
-      - name: Bootstrap locked Python dependencies
-        run: |
-          uv sync --locked --dev --no-sources
-          uv sync --project "${{ runner.temp }}/abx-dl" --locked --no-sources
-
-      - name: Resolve CI tooling through abxpkg
+      - name: Project CI tooling through abxpkg
         env:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
+        run: uv run --no-project python bin/ci_project_tools.py prek_binaries --lib "$ABXPKG_LIB_DIR"
+
+      - name: Clone companion repositories for source inspection
         run: |
           set -Eeuo pipefail
-          mkdir -p "$ABXPKG_LIB_DIR/env/bin"
-          export PATH="$ABXPKG_LIB_DIR/env/bin:$PATH"
-          echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
-          echo "$ABXPKG_LIB_DIR/env/bin" >> "$GITHUB_PATH"
+          "${GIT_BINARY}" clone --depth=1 --branch main https://github.com/ArchiveBox/abxpkg.git "${{ runner.temp }}/abxpkg"
+          "${GIT_BINARY}" clone --depth=1 --branch main https://github.com/ArchiveBox/abxbus.git "${{ runner.temp }}/abxbus"
+          "${GIT_BINARY}" clone --depth=1 --branch main https://github.com/ArchiveBox/abx-dl.git "${{ runner.temp }}/abx-dl"
+          "${GIT_BINARY}" clone --depth=1 --branch dev https://github.com/ArchiveBox/ArchiveBox.git "${{ runner.temp }}/archivebox"
 
-          tooling_env="$(
-            uv run --no-sync --no-sources abxpkg env \
-              --install \
-              --json \
-              --lib="$ABXPKG_LIB_DIR" \
-              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:prek_binaries"
-          )"
-          jq -r 'to_entries[] | "\(.key)=\(.value)"' \
-            <<< "$tooling_env" >> "$GITHUB_ENV"
-
-          test -x "$ABXPKG_LIB_DIR/env/bin/node"
-          test -x "$ABXPKG_LIB_DIR/env/bin/prettier"
-          "$ABXPKG_LIB_DIR/env/bin/node" --version
-          "$ABXPKG_LIB_DIR/env/bin/prettier" --version
+      - name: Install locked Python dependencies through projected uv
+        run: |
+          "${UV_BINARY}" sync --locked --dev --no-sources
+          "${UV_BINARY}" sync --project "${{ runner.temp }}/abx-dl" --locked --no-sources
 
       - name: Run Claude Code
         id: claude
@@ -105,9 +85,9 @@ jobs:
 
           # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
           prompt: |
-            Always use `uv run` e.g. `uv run pytest ...` and never python directly. Always use `uv run ruff check`, `uv run pyright`, `uv run ty check` and never `py_compile` to check syntax.
+            Always use the projected `$UV_BINARY`, e.g. `"$UV_BINARY" run pytest ...`, and never python directly. Always use `"$UV_BINARY" run ruff check`, `"$UV_BINARY" run pyright`, `"$UV_BINARY" run ty check` and never `py_compile` to check syntax.
             The companion repositories under ${{ runner.temp }} are available for source inspection, but their changes will not be persisted.
-            Use `ABX_PLUGINS_DIR="$GITHUB_WORKSPACE/abx_plugins/plugins" uv run --project "${{ runner.temp }}/abx-dl" --no-sync abx-dl --plugins=pluginname --dir=/some/tmp/dir 'https://example.com'` to test and dont rely on pytest alone.
+            Use `ABX_PLUGINS_DIR="$GITHUB_WORKSPACE/abx_plugins/plugins" "$UV_BINARY" run --project "${{ runner.temp }}/abx-dl" --no-sync abx-dl --plugins=pluginname --dir=/some/tmp/dir 'https://example.com'` to test and dont rely on pytest alone.
 
             Plugin required_binaries installation must succeed through the same locked abx-dl runtime and abxpkg provider path.
             Auto-install in macos/linux at runtime is a core part of the user-facing surface provided by plugins and must succeed in *all environments* including CI/sandboxes.

@@ -104,10 +104,54 @@ print(max(versions, key=parse) if versions else '')
 PY
 }
 
-pypi_has_version() {
-    # shellcheck disable=SC2016
-    "${CURL_BINARY}" -fsSL "https://pypi.org/pypi/${PYPI_PACKAGE}/json" \
-        | "${JQ_BINARY}" -e --arg version "$1" '.releases[$version] | length > 0' >/dev/null
+pypi_artifact_status() {
+    local version="$1" build_dir="$2" pypi_json
+    pypi_json="$("${CURL_BINARY}" -fsSL "https://pypi.org/pypi/${PYPI_PACKAGE}/json")" || return 1
+    PYPI_JSON="${pypi_json}" BUILD_DIR="${build_dir}" EXPECTED_VERSION="${version}" "${UV_BINARY}" run --no-project python - <<'PY'
+import hashlib
+import json
+import os
+import re
+from pathlib import Path
+
+version = os.environ["EXPECTED_VERSION"]
+build_dir = Path(os.environ["BUILD_DIR"])
+expected_names = {
+    f"abx_plugins-{version}-py3-none-any.whl",
+    f"abx_plugins-{version}.tar.gz",
+}
+manifest = {}
+for line in (build_dir / "SHA256SUMS").read_text().splitlines():
+    digest, filename = line.split(maxsplit=1)
+    if not re.fullmatch(r"[0-9a-f]{64}", digest) or Path(filename).name != filename:
+        raise SystemExit(f"Invalid checksum entry: {line}")
+    if filename in manifest:
+        raise SystemExit(f"Duplicate checksum entry: {filename}")
+    manifest[filename] = digest
+if set(manifest) != expected_names:
+    raise SystemExit("Checksum manifest must name the exact wheel and sdist")
+for filename, digest in manifest.items():
+    if hashlib.sha256((build_dir / filename).read_bytes()).hexdigest() != digest:
+        raise SystemExit(f"Tested artifact digest mismatch for {filename}")
+
+urls = json.loads(os.environ["PYPI_JSON"])["releases"].get(version, [])
+if not urls:
+    print("absent")
+    for filename in sorted(expected_names):
+        print(filename)
+    raise SystemExit(0)
+published = {item["filename"]: item["digests"]["sha256"] for item in urls}
+if len(published) != len(urls) or not set(published).issubset(expected_names):
+    raise SystemExit("PyPI release contains duplicate or unexpected distributions")
+for filename, digest in published.items():
+    if manifest[filename] != digest:
+        raise SystemExit(f"PyPI digest mismatch for {filename}")
+
+missing = sorted(expected_names - set(published))
+print("partial" if missing else "complete")
+for filename in missing:
+    print(filename)
+PY
 }
 
 tag_target() {
@@ -125,13 +169,32 @@ github_release_has_version() {
     "${GH_BINARY}" release view "${TAG_PREFIX}$1" --repo "$2" >/dev/null 2>&1
 }
 
+github_release_metadata_is_valid() {
+    local version="$1" slug="$2" release_json
+    release_json="$("${GH_BINARY}" release view "${TAG_PREFIX}${version}" --repo "${slug}" --json isDraft,isPrerelease,tagName)" || return 1
+    RELEASE_JSON="${release_json}" EXPECTED_VERSION="${version}" TAG_PREFIX="${TAG_PREFIX}" "${UV_BINARY}" run --no-project python - <<'PY'
+import json
+import os
+import re
+
+version = os.environ["EXPECTED_VERSION"]
+release = json.loads(os.environ["RELEASE_JSON"])
+expected_prerelease = re.search(r"rc[0-9]+$", version) is not None
+if release["tagName"] != f'{os.environ["TAG_PREFIX"]}{version}':
+    raise SystemExit("GitHub release tag does not match the source version")
+if release["isDraft"] or release["isPrerelease"] != expected_prerelease:
+    raise SystemExit("GitHub release draft/prerelease metadata is incorrect")
+PY
+}
+
 github_release_has_assets() {
-    local version="$1" slug="$2" assets_json verify_dir
-    assets_json="$("${GH_BINARY}" release view "${TAG_PREFIX}${version}" --repo "${slug}" --json assets)"
-    verify_dir="$("${UV_BINARY}" run --no-project python -c 'import tempfile; print(tempfile.mkdtemp())')"
+    local version="$1" slug="$2" assets_json verify_dir validation_status=0
+    assets_json="$("${GH_BINARY}" release view "${TAG_PREFIX}${version}" --repo "${slug}" --json assets)" || return 1
+    verify_dir="$("${UV_BINARY}" run --no-project python -c 'import tempfile; print(tempfile.mkdtemp())')" || return 1
     VERIFY_DIR_TO_CLEAN="${verify_dir}"
-    "${GH_BINARY}" release download "${TAG_PREFIX}${version}" --repo "${slug}" --pattern SHA256SUMS --dir "${verify_dir}"
-    ASSETS_JSON="${assets_json}" VERIFY_DIR="${verify_dir}" EXPECTED_VERSION="${version}" "${UV_BINARY}" run --no-project python - <<'PY'
+    "${GH_BINARY}" release download "${TAG_PREFIX}${version}" --repo "${slug}" --pattern SHA256SUMS --dir "${verify_dir}" || validation_status=$?
+    if [[ "${validation_status}" -eq 0 ]]; then
+        ASSETS_JSON="${assets_json}" VERIFY_DIR="${verify_dir}" EXPECTED_VERSION="${version}" "${UV_BINARY}" run --no-project python - <<'PY' || validation_status=$?
 import json
 import os
 import re
@@ -163,8 +226,12 @@ for filename, digest in manifest.items():
     if published[filename] != f"sha256:{digest}":
         raise SystemExit(f"Published digest mismatch for {filename}")
 PY
-    cleanup_verify_dir
+    fi
+    if ! cleanup_verify_dir; then
+        [[ "${validation_status}" -ne 0 ]] || validation_status=1
+    fi
     VERIFY_DIR_TO_CLEAN=""
+    return "${validation_status}"
 }
 
 verify_existing_tag() {
@@ -188,17 +255,20 @@ require_clean_exact_checkout() {
 }
 
 publish_to_pypi() (
-    local version="$1"
-    local build_dir="$2"
-    shopt -s nullglob
-    local artifacts=("${build_dir}"/*)
-    local wheels=("${build_dir}"/abx_plugins-"${version}"-*.whl)
-    local sdists=("${build_dir}"/abx_plugins-"${version}".tar.gz)
-    [[ "${#wheels[@]}" -eq 1 && "${#sdists[@]}" -eq 1 && -f "${sdists[0]}" ]] || {
-        echo "Expected one tested wheel and sdist for ${version} in ${build_dir}" >&2
+    local build_dir="$1"
+    shift
+    local filenames=("$@") artifacts=() filename
+    [[ "${#filenames[@]}" -gt 0 ]] || {
+        echo "No missing PyPI artifacts were selected for publication" >&2
         return 1
     }
-    artifacts=("${wheels[@]}" "${sdists[@]}")
+    for filename in "${filenames[@]}"; do
+        [[ "${filename}" == "${filename##*/}" && -f "${build_dir}/${filename}" ]] || {
+            echo "Missing tested PyPI artifact: ${filename}" >&2
+            return 1
+        }
+        artifacts+=("${build_dir}/${filename}")
+    done
     "${UV_BINARY}" publish --trusted-publishing always "${artifacts[@]}"
 )
 
@@ -231,7 +301,8 @@ create_release_tag() {
 }
 
 main() {
-    local slug version latest relation release_sha target artifact_dir pypi_exists=false github_exists=false github_complete=false
+    local slug version latest relation release_sha target artifact_dir pypi_output pypi_state github_exists=false github_complete=false
+    local pypi_lines=() pypi_missing=()
     source_optional_env
     require_release_binaries
     slug="$(repo_slug)"
@@ -240,21 +311,23 @@ main() {
     artifact_dir="${1:-}"
 
     require_clean_exact_checkout "${release_sha}"
+    [[ -n "${artifact_dir}" && -d "${artifact_dir}" ]] || { echo "Usage: $0 TESTED_ARTIFACT_DIR" >&2; return 1; }
 
     target="$(tag_target "${TAG_PREFIX}${version}")"
-    pypi_has_version "${version}" && pypi_exists=true
-    github_release_has_version "${version}" "${slug}" && github_exists=true
+    pypi_output="$(pypi_artifact_status "${version}" "${artifact_dir}")"
+    mapfile -t pypi_lines <<< "${pypi_output}"
+    pypi_state="${pypi_lines[0]}"
+    pypi_missing=("${pypi_lines[@]:1}")
+    [[ "${pypi_state}" == "absent" || "${pypi_state}" == "partial" || "${pypi_state}" == "complete" ]] || {
+        echo "Invalid PyPI artifact state: ${pypi_state}" >&2
+        return 1
+    }
+    if github_release_has_version "${version}" "${slug}"; then
+        github_release_metadata_is_valid "${version}" "${slug}"
+        github_exists=true
+    fi
     if [[ "${github_exists}" == true ]] && github_release_has_assets "${version}" "${slug}"; then
         github_complete=true
-    fi
-    if [[ "${pypi_exists}" == true && "${github_complete}" == true ]]; then
-        [[ -n "${target}" ]] || { echo "Fully published ${version} is missing tag ${TAG_PREFIX}${version}" >&2; return 1; }
-        "${GIT_BINARY}" merge-base --is-ancestor "${target}" "refs/remotes/origin/${RELEASE_BRANCH:-main}" || {
-            echo "Fully published tag ${TAG_PREFIX}${version} is not on ${RELEASE_BRANCH:-main}" >&2
-            return 1
-        }
-        echo "${PYPI_PACKAGE} ${version} is already fully released from ${target}"
-        return 0
     fi
     latest="$(latest_published_version "${slug}")"
     if [[ -n "${latest}" ]]; then
@@ -264,15 +337,23 @@ main() {
             return 1
         fi
     fi
-    if [[ ( "${pypi_exists}" == true || "${github_exists}" == true ) && "${target}" != "${release_sha}" ]]; then
+    if [[ "${pypi_state}" == "complete" && "${github_complete}" == true ]]; then
+        [[ -n "${target}" ]] || { echo "Fully published ${version} is missing tag ${TAG_PREFIX}${version}" >&2; return 1; }
+        "${GIT_BINARY}" merge-base --is-ancestor "${target}" "refs/remotes/origin/${RELEASE_BRANCH:-main}" || {
+            echo "Fully published tag ${TAG_PREFIX}${version} is not on ${RELEASE_BRANCH:-main}" >&2
+            return 1
+        }
+        echo "${PYPI_PACKAGE} ${version} is already fully released from ${target}"
+        return 0
+    fi
+    if [[ ( "${pypi_state}" != "absent" || "${github_exists}" == true ) && "${target}" != "${release_sha}" ]]; then
         echo "Cannot recover partial release ${version}: no tag anchors it to ${release_sha}" >&2
         return 1
     fi
 
-    [[ -n "${artifact_dir}" && -d "${artifact_dir}" ]] || { echo "Usage: $0 TESTED_ARTIFACT_DIR" >&2; return 1; }
     create_release_tag "${version}" "${release_sha}"
-    if [[ "${pypi_exists}" != true ]]; then
-        publish_to_pypi "${version}" "${artifact_dir}"
+    if [[ "${pypi_state}" != "complete" ]]; then
+        publish_to_pypi "${artifact_dir}" "${pypi_missing[@]}"
     fi
     create_release "${slug}" "${version}" "${release_sha}"
     "${GH_BINARY}" release upload "${TAG_PREFIX}${version}" --repo "${slug}" \

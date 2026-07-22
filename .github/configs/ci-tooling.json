@@ -47,6 +47,10 @@
   ],
   "prek_binaries": [
     {
+      "name": "{GIT_BINARY}",
+      "binproviders": "env,brew,apt"
+    },
+    {
       "name": "{UV_BINARY}",
       "binproviders": "env,brew"
     },

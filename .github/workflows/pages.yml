@@ -32,13 +32,19 @@ jobs:
         with:
           version: "0.11.3"
 
+      - name: Project build tooling through abxpkg
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
+        run: uv run --no-project python bin/ci_project_tools.py release_binaries --lib "$ABXPKG_LIB_DIR"
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
 
       - name: Build marketplace
         env:
           ABX_MARKETPLACE_GITHUB_REF: ${{ github.ref_name }}
-        run: uv run --no-project --with jinja2 python docs/generate.py
+        run: |
+          "${UV_BINARY}" run --no-project --with jinja2 python docs/generate.py
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
