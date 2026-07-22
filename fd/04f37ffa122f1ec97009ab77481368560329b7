@@ -1,0 +1,128 @@
+.github/workflows/pages.yml
+  s_f8414d52051f83::t_d2a6a2045a411c 15-16
+abx_plugins/plugins/wget/tests/test_wget.py
+  s_f8414d52051f83::t_81f262688faf64 82
+  s_f8414d52051f83::t_d2cb961e8e0e91 275,279-280,282-283,290,292
+tests/test_chrome_runtime_fixture.py
+  s_f8414d52051f83::t_81f262688faf64 7-8,63-64,67
+abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py
+  s_f8414d52051f83::t_276ae1082048c8 18,37-42,83,132,164,650,752
+abx_plugins/plugins/search_backend_ripgrep/tests/test_ripgrep_search.py
+  s_f8414d52051f83::t_8bfff30f284014 13,234,239-242,244-247,271,295,297-298
+  s_f8414d52051f83::t_f9d1f3638009dd 232-233,235-238,249-250,252-253,255,281-286,293,296,300-301,303-306,308
+  s_f8414d52051f83::t_0b17f7f66e69e3 229-231,276-280
+abx_plugins/plugins/claudecodecleanup/tests/test_claudecodecleanup.py
+  s_f8414d52051f83::t_a7b6559433779f 258,261-265,308,311-312
+  s_f8414d52051f83::t_51905991ba2010 36-69,71-78,80-82,86-88,90-99
+  s_f8414d52051f83::t_f9acb0cc3b8539 100-102,313-315,328,347-348
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_f8414d52051f83::t_e351f423d24fad 2622,2632,2635-2641,2644-2647,2650-2651,2653-2678,2681-2690,2692-2696,2698-2704,2707-2709,2711-2712
+  s_f8414d52051f83::t_b62ddf11b129bd 2642-2643,2648-2649,2679-2680,2697,2705-2706,2710
+  s_f8414d52051f83::t_71cd9684aefc9c 1690,1698,1717,1724,1728-1738,1978-1982,1986-1988
+pyproject.toml
+  s_f8414d52051f83::t_e65dcde830da6f 3,23
+  s_f8414d52051f83::t_dda604f0106952 22
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_d2e49cd2ccfa6b 130,135,166
+  s_f8414d52051f83::t_25e52b9b737c4a 148
+  s_f8414d52051f83::t_d2a6a2045a411c 138
+  s_f8414d52051f83::t_da86409275b85f 80,318,337
+bin/release.sh
+  s_f8414d52051f83::t_d2a6a2045a411c 116-120,122-124,126,141,146-148,180
+  s_f8414d52051f83::t_d2e49cd2ccfa6b 121,125,182-183
+conftest.py
+  s_f8414d52051f83::t_11325d8c80150c 71-109,161-162
+  s_f8414d52051f83::t_422d8ce1d9e77f 33,35-39,41-64,66
+  s_f8414d52051f83::t_6f2e610801d4bc 377-379,382-391
+  s_f8414d52051f83::t_63aa32de448073 6,110-111,114-122,124-157,159-160
+  s_f8414d52051f83::t_f9d1f3638009dd 69
+  s_f8414d52051f83::t_0ff29d1ee473fe 168-169,198-203,205-207,220-234
+  s_f8414d52051f83::t_d05c6d3b186ea0 196,204
+  s_f8414d52051f83::t_ede661322d0f98 34,70
+  s_f8414d52051f83::t_881c9fadec9e0d 197
+abx_plugins/plugins/base/testing.py
+  s_f8414d52051f83::t_690de87edd2c88 43-61,63-65,67-73,77
+  s_f8414d52051f83::t_3c40cdea4f87b3 78,82,84
+  s_f8414d52051f83::t_9e6a1bfc18d6b1 80-81,83,85
+abx_plugins/plugins/search_backend_sqlite/on_Snapshot__90_index_sqlite.py
+  s_f8414d52051f83::t_0eebeed4aa9c1c 46-51
+abx_plugins/plugins/hashes/tests/test_hashes.py
+  s_f8414d52051f83::t_4aea920d6f86c9 30-65
+abx_plugins/plugins/dom/tests/test_dom.py
+  s_f8414d52051f83::t_72695de7e6b6a4 151,154-155,157,161
+abx_plugins/plugins/responses/tests/test_responses.py
+  s_f8414d52051f83::t_690de87edd2c88 149-153
+abx_plugins/plugins/defuddle/tests/test_defuddle.py
+  s_f8414d52051f83::t_5bf39ebaf483bf 145-148,150-166,169-171
+  s_f8414d52051f83::t_d83c2c3a8bbd92 167-168
+abx_plugins/plugins/claudecode/tests/test_claudecode.py
+  s_f8414d52051f83::t_5ac7614e996c08 88-93,102-107
+abx_plugins/plugins/twocaptcha/tests/test_twocaptcha.py
+  s_f8414d52051f83::t_0fa59a02f33999 395
+  s_f8414d52051f83::t_a0901ee250c961 433-446,448-460,462-464,466-479
+abx_plugins/plugins/opendataloader/on_Snapshot__60_opendataloader.py
+  s_f8414d52051f83::t_363ec74396d769 275-281
+tests/test_staticfile_skip_helpers.py
+  s_f8414d52051f83::t_422d8ce1d9e77f 43,45,50,58,60,65
+  s_f8414d52051f83::t_15ffcb66bca0e8 47,62
+  s_f8414d52051f83::t_1dfb2462fac828 7-8,10,16,19,21,38,41-42,44,46,48,52-57,59,61,63,67-68
+.github/workflows/claude.yml
+  s_f8414d52051f83::t_98c4a34f8f0050 109
+  s_f8414d52051f83::t_852874a72a0626 110
+  s_f8414d52051f83::t_47778bad5e59bc 63-65,112
+  s_f8414d52051f83::t_8a1951ba5246f5 19-22,43,46-49
+  s_f8414d52051f83::t_da86409275b85f 84
+abx_plugins/plugins/claudecodeextract/tests/test_claudecodeextract.py
+  s_f8414d52051f83::t_6e6c618ea4843c 14,26,35-64,187,195,198-202,244,247-251,263
+abx_plugins/plugins/readability/tests/test_readability.py
+  s_f8414d52051f83::t_5bf39ebaf483bf 236-239,241-261
+  s_f8414d52051f83::t_7bbd2e82867d8b 262
+abx_plugins/plugins/trafilatura/tests/test_trafilatura.py
+  s_f8414d52051f83::t_5bf39ebaf483bf 297-300,302-317
+.github/workflows/release.yml
+  s_f8414d52051f83::t_d2e49cd2ccfa6b 60,64,67-68
+  s_f8414d52051f83::t_d2a6a2045a411c 4-6,25-29,33,35,51-59,61-63,65-66,69,73
+abx_plugins/plugins/pdf/tests/test_pdf.py
+  s_f8414d52051f83::t_6ab91c6d7406fe 86
+abx_plugins/plugins/sslcerts/tests/test_sslcerts.py
+  s_f8414d52051f83::t_71cd9684aefc9c 20,99-100,102-103
+  s_f8414d52051f83::t_690de87edd2c88 101
+abx_plugins/plugins/search_backend_sqlite/tests/test_sqlite_hook.py
+  s_f8414d52051f83::t_6fc609d37fcb4a 38-43,46,48-49,54,57-58,60,68-70,83-86,88-89
+  s_f8414d52051f83::t_9dcc3fdda7cc56 90-93,99-100,105,107-108,119,126-127
+abx_plugins/plugins/opendataloader/tests/test_opendataloader.py
+  s_f8414d52051f83::t_81f262688faf64 128-129,139
+  s_f8414d52051f83::t_363ec74396d769 89-94,327,360,365
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_f8414d52051f83::t_7655a0dac1020c 2396-2404,2407-2418,2439-2445,2454,2456-2457,2465,2467,2516-2519,2521-2522,2525
+  s_f8414d52051f83::t_e351f423d24fad 2431,2434,2500
+  s_f8414d52051f83::t_df44202a0f17f2 2437-2438,2447,2515
+  s_f8414d52051f83::t_1b55d507325258 2460,2481
+  s_f8414d52051f83::t_ca27e67f42bb1a 42
+  s_f8414d52051f83::t_7954ba2b611e14 2405-2406
+  s_f8414d52051f83::t_4fd3ca124d6ce4 2446
+abx_plugins/plugins/screenshot/tests/test_screenshot.py
+  s_f8414d52051f83::t_8f83ece4529fcb 20,470-473
+  s_f8414d52051f83::t_d2474e593e8eb8 283-305,321-343
+  s_f8414d52051f83::t_62bde4b8f0f2d8 173,176-177,185
+  s_f8414d52051f83::t_af2a0ee9e23b55 31,139,142-147,415-419,445-449,461-462,477-481,507-511
+  s_f8414d52051f83::t_4b3a818f3c7487 404-414,420-425,434-444,450-455,464-469,474-476,482-487,495-506,512-517
+uv.lock
+  s_f8414d52051f83::t_0a4c6634722748 6,12,16,52,97,106,108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "fd04f37ffa122f1ec97009ab77481368560329b7",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
