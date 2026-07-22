@@ -126,7 +126,10 @@ class TestClaudeCodeIntegration:
                 model="haiku",
             )
 
-            assert returncode == 0, f"Claude Code failed (rc={returncode}): {stderr}"
+            assert returncode == 0, (
+                f"Claude Code failed (rc={returncode}): "
+                f"stdout={stdout[:1000]!r} stderr={stderr[:1000]!r}"
+            )
             assert len(stdout.strip()) > 0, "Claude Code returned empty response"
             assert "ARCHIVEBOX_TEST_OK" in stdout, (
                 f"Expected 'ARCHIVEBOX_TEST_OK' in response, got: {stdout[:200]}"
@@ -156,7 +159,10 @@ class TestClaudeCodeIntegration:
                 model="haiku",
             )
 
-            assert returncode == 0, f"Claude Code failed (rc={returncode}): {stderr}"
+            assert returncode == 0, (
+                f"Claude Code failed (rc={returncode}): "
+                f"stdout={stdout[:1000]!r} stderr={stderr[:1000]!r}"
+            )
             assert "readability" in stdout.lower(), (
                 f"Claude should see readability dir, got: {stdout[:200]}"
             )
@@ -169,17 +175,21 @@ class TestClaudeCodeIntegration:
 
             stdout, stderr, returncode = run_claude_code(
                 prompt=(
-                    f"Write the text 'hello from claude' to the file "
-                    f"{output_dir}/test_output.txt"
+                    f"Use exactly one Write tool call to write the text 'hello from claude' "
+                    f"to {output_dir}/test_output.txt. Do not inspect, read, or verify the "
+                    "file. Stop immediately after the Write tool call succeeds."
                 ),
                 work_dir=tmpdir,
                 timeout=60,
                 max_turns=3,
                 model="haiku",
-                allowed_tools=["Read", "Write", "Bash(cat:*)"],
+                allowed_tools=["Write"],
             )
 
-            assert returncode == 0, f"Claude Code failed (rc={returncode}): {stderr}"
+            assert returncode == 0, (
+                f"Claude Code failed (rc={returncode}): "
+                f"stdout={stdout[:1000]!r} stderr={stderr[:1000]!r}"
+            )
 
             output_file = output_dir / "test_output.txt"
             assert output_file.exists(), (
