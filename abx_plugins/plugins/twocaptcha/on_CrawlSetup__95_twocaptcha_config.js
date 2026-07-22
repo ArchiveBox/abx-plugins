@@ -187,10 +187,6 @@ async function configure2Captcha() {
   }
 
   console.error("Configuring 2captcha...");
-  // console.error(`[*]   Retry Count: ${config.repeatOnErrorTimes}`);
-  // console.error(`[*]   Retry Delay: ${config.repeatOnErrorDelay}s`);
-  // console.error(`[*]   Auto Submit: ${config.autoSubmitForms}`);
-  // console.error(`[*]   Auto Solve: all CAPTCHA types enabled`);
 
   try {
     const chromeSession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
@@ -330,9 +326,6 @@ async function configure2Captcha() {
           }
 
           console.error("Ready.");
-          // console.error(`[+]   API Key: ${actualApiKey.slice(0, 8)}...${actualApiKey.slice(-4)}`);
-          // console.error(`[+]   Plugin Enabled: ${verifyConfig.isPluginEnabled}`);
-          // console.error(`[+]   Auto Solve Turnstile: ${verifyConfig.autoSolveTurnstile}`);
 
           fs.writeFileSync(
             CONFIG_MARKER,
