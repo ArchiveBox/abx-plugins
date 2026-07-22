@@ -133,6 +133,12 @@ def real_competing_html_snapshot(real_html_snapshot):
             timeout=30,
             env_overrides={
                 "ABXPKG_LIB_DIR": str(install_state["abxpkg_lib_dir"]),
+                "ABXPKG_CHROMEWEBSTORE_ROOT": str(
+                    install_state["extensions_dir"].parent,
+                ),
+                "CHROMEWEBSTORE_EXTENSIONS_DIR": str(
+                    install_state["extensions_dir"],
+                ),
             },
         ) as (_process, _pid, chrome_dir, env):
             snapshot_dir = chrome_dir.parent
