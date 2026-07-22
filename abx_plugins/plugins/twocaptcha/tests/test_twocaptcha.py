@@ -402,31 +402,30 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
         """Solve the public reCAPTCHA demo through the real extension lifecycle."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
-            env = setup_test_env(tmpdir)
-            env["TWOCAPTCHA_API_KEY"] = self.api_key
+            install_env = setup_test_env(tmpdir)
+            install_env["TWOCAPTCHA_API_KEY"] = self.api_key
 
-            install_twocaptcha_extension(env)
+            install_twocaptcha_extension(install_env)
 
-            # Launch Chromium in crawls directory
             crawl_id = "solve"
-            crawl_dir = Path(env["CRAWL_DIR"]) / crawl_id
-            chrome_dir = crawl_dir / "chrome"
-            env["CRAWL_DIR"] = str(crawl_dir)
-            process, cdp_url = launch_chrome(
-                env,
-                chrome_dir,
-                crawl_id,
+            snapshot_id = "solve"
+            with chrome_session(
+                tmpdir,
+                crawl_id=crawl_id,
+                snapshot_id=snapshot_id,
+                test_url=TEST_URL,
+                navigate=False,
                 timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
-            )
-
-            try:
+                env_overrides={"TWOCAPTCHA_API_KEY": str(self.api_key)},
+            ) as (_chrome_launch_process, _chrome_pid, snapshot_chrome_dir, env):
+                chrome_dir = Path(env["CRAWL_DIR"]) / "chrome"
                 wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
 
                 config_result = subprocess.run(
                     [
                         str(CONFIG_SCRIPT),
                         f"--url={TEST_URL}",
-                        "--snapshot-id=solve",
+                        f"--snapshot-id={snapshot_id}",
                     ],
                     env=env,
                     timeout=30,
@@ -437,13 +436,13 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                     f"Config hook failed: {config_result.stderr}"
                 )
 
-                hook_dir = chrome_dir.parent / "twocaptcha"
+                hook_dir = snapshot_chrome_dir.parent / "twocaptcha"
                 hook_dir.mkdir(parents=True, exist_ok=True)
                 hook_process = subprocess.Popen(
                     [
                         str(SNAPSHOT_HOOK),
                         f"--url={TEST_URL}",
-                        "--snapshot-id=solve",
+                        f"--snapshot-id={snapshot_id}",
                     ],
                     cwd=hook_dir,
                     stdout=subprocess.PIPE,
@@ -458,9 +457,9 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                         [
                             str(NAVIGATE_HOOK),
                             f"--url={TEST_URL}",
-                            "--snapshot-id=solve",
+                            f"--snapshot-id={snapshot_id}",
                         ],
-                        cwd=chrome_dir,
+                        cwd=snapshot_chrome_dir,
                         env=env,
                         capture_output=True,
                         text=True,
@@ -482,10 +481,9 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                     assert archive_result["output_str"] == "1 captcha solved"
                 finally:
                     if hook_process is not None:
-                        os.killpg(hook_process.pid, signal.SIGTERM)
+                        if hook_process.poll() is None:
+                            os.killpg(hook_process.pid, signal.SIGTERM)
                         hook_process.communicate(timeout=20)
-            finally:
-                kill_chrome(process, chrome_dir)
 
 
 if __name__ == "__main__":

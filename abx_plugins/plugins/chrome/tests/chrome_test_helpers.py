@@ -1320,6 +1320,7 @@ def setup_test_env(tmpdir: Path) -> dict:
     node_modules_dir = pnpm_dir / "node_modules"
 
     personas_dir = tmpdir / "personas"
+    extensions_dir = tmpdir / "chromewebstore" / "extensions"
     home_dir = tmpdir / "home"
     xdg_config_home = home_dir / ".config"
     xdg_cache_home = home_dir / ".cache"
@@ -1334,6 +1335,8 @@ def setup_test_env(tmpdir: Path) -> dict:
             "CRAWL_DIR": str(crawl_dir),
             "PERSONAS_DIR": str(personas_dir),
             "ACTIVE_PERSONA": "Default",
+            "ABXPKG_CHROMEWEBSTORE_ROOT": str(extensions_dir.parent),
+            "CHROMEWEBSTORE_EXTENSIONS_DIR": str(extensions_dir),
             "ABXPKG_LIB_DIR": str(lib_dir),
             "MACHINE_TYPE": get_machine_type(),
             "PNPM_BIN_DIR": str(pnpm_bin_dir),
@@ -1347,13 +1350,11 @@ def setup_test_env(tmpdir: Path) -> dict:
     )
     for inherited_key in (
         "CHROME_DOWNLOADS_DIR",
-        "CHROMEWEBSTORE_EXTENSIONS_DIR",
         "CHROME_USER_DATA_DIR",
         "COOKIES_FILE",
     ):
         env.pop(inherited_key, None)
-    extensions_dir = Path(get_extensions_dir(env=env))
-    env["CHROMEWEBSTORE_EXTENSIONS_DIR"] = str(extensions_dir)
+    assert Path(get_extensions_dir(env=env)).resolve() == extensions_dir
 
     # Create all directories
     node_modules_dir.mkdir(parents=True, exist_ok=True)
@@ -1619,6 +1620,7 @@ def chrome_session(
         crawl_dir = tmpdir / "crawl" / crawl_id
         snap_dir = tmpdir / "snap" / snapshot_id
         personas_dir = tmpdir / "personas"
+        extensions_dir = tmpdir / "chromewebstore" / "extensions"
         home_dir = tmpdir / "home"
         xdg_config_home = home_dir / ".config"
         xdg_cache_home = home_dir / ".cache"
@@ -1639,6 +1641,7 @@ def chrome_session(
         # Build env with tmpdir-specific paths
         snap_dir.mkdir(parents=True, exist_ok=True)
         personas_dir.mkdir(parents=True, exist_ok=True)
+        extensions_dir.mkdir(parents=True, exist_ok=True)
         home_dir.mkdir(parents=True, exist_ok=True)
         xdg_config_home.mkdir(parents=True, exist_ok=True)
         xdg_cache_home.mkdir(parents=True, exist_ok=True)
@@ -1650,6 +1653,8 @@ def chrome_session(
                 "CRAWL_DIR": str(crawl_dir),
                 "PERSONAS_DIR": str(personas_dir),
                 "ACTIVE_PERSONA": "Default",
+                "ABXPKG_CHROMEWEBSTORE_ROOT": str(extensions_dir.parent),
+                "CHROMEWEBSTORE_EXTENSIONS_DIR": str(extensions_dir),
                 "ABXPKG_LIB_DIR": str(lib_dir),
                 "MACHINE_TYPE": get_machine_type(),
                 "NODE_MODULES_DIR": str(node_modules_dir),
@@ -1666,7 +1671,6 @@ def chrome_session(
         )
         for inherited_key in (
             "CHROME_DOWNLOADS_DIR",
-            "CHROMEWEBSTORE_EXTENSIONS_DIR",
             "CHROME_USER_DATA_DIR",
             "COOKIES_FILE",
         ):

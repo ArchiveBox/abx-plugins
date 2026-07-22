@@ -104,6 +104,28 @@ def test_chromewebstore_provider_derives_extensions_dir_from_lib_dir(
     )
 
 
+def test_chromewebstore_provider_honors_specific_install_root(
+    tmp_path: Path,
+) -> None:
+    lib_dir = tmp_path / "lib"
+    extensions_root = tmp_path / "isolated-chromewebstore"
+    config = {
+        "ABXPKG_LIB_DIR": str(lib_dir),
+        "ABXPKG_CHROMEWEBSTORE_ROOT": str(extensions_root),
+    }
+
+    provider = build_binproviders(
+        "chromewebstore",
+        config=config,
+        environ=config,
+    )[0]
+
+    assert provider.install_root == extensions_root
+    assert provider.ENV["CHROMEWEBSTORE_EXTENSIONS_DIR"] == str(
+        extensions_root / "extensions",
+    )
+
+
 def test_build_binproviders_scopes_env_provider_to_lib_dir(
     tmp_path: Path,
 ) -> None:

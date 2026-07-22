@@ -590,6 +590,7 @@ def _isolated_test_env(tmpdir: str | Path, **updates: str) -> dict:
     snap_dir = tmpdir / "snap"
     crawl_dir = tmpdir / "crawl"
     personas_dir = tmpdir / "personas"
+    chromewebstore_extensions_dir = tmpdir / "chromewebstore" / "extensions"
     home_dir = tmpdir / "home"
     xdg_config_home = home_dir / ".config"
     xdg_cache_home = home_dir / ".cache"
@@ -600,6 +601,7 @@ def _isolated_test_env(tmpdir: str | Path, **updates: str) -> dict:
         snap_dir,
         crawl_dir,
         personas_dir,
+        chromewebstore_extensions_dir,
         home_dir,
         xdg_config_home,
         xdg_cache_home,
@@ -614,6 +616,10 @@ def _isolated_test_env(tmpdir: str | Path, **updates: str) -> dict:
             "ABXPKG_LIB_DIR": str(lib_dir),
             "PERSONAS_DIR": str(personas_dir),
             "ACTIVE_PERSONA": "Default",
+            "ABXPKG_CHROMEWEBSTORE_ROOT": str(
+                chromewebstore_extensions_dir.parent,
+            ),
+            "CHROMEWEBSTORE_EXTENSIONS_DIR": str(chromewebstore_extensions_dir),
             "HOME": str(home_dir),
             "XDG_CONFIG_HOME": str(xdg_config_home),
             "XDG_CACHE_HOME": str(xdg_cache_home),
@@ -622,7 +628,6 @@ def _isolated_test_env(tmpdir: str | Path, **updates: str) -> dict:
     )
     for inherited_key in (
         "CHROME_DOWNLOADS_DIR",
-        "CHROMEWEBSTORE_EXTENSIONS_DIR",
         "CHROME_USER_DATA_DIR",
         "COOKIES_FILE",
     ):
@@ -638,8 +643,7 @@ def _isolated_test_env(tmpdir: str | Path, **updates: str) -> dict:
             "chrome utils failed to resolve Chrome extensions dir: "
             f"{extensions_stderr or extensions_stdout}",
         )
-    chromewebstore_extensions_dir = Path(extensions_stdout.strip())
-    chromewebstore_extensions_dir.mkdir(parents=True, exist_ok=True)
+    assert Path(extensions_stdout.strip()).resolve() == chromewebstore_extensions_dir
     assert_isolated_snapshot_env(env)
     return env
 

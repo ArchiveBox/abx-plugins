@@ -473,15 +473,25 @@ def _abxpkg_provider_kwargs(
     provider_name: str,
     payload: Mapping[str, Any],
 ) -> dict[str, Any]:
+    provider_root_value = str(
+        payload.get(f"ABXPKG_{provider_name.upper()}_ROOT") or "",
+    ).strip()
+    provider_root = (
+        Path(provider_root_value).expanduser() if provider_root_value else None
+    )
     lib_dir_value = str(payload.get("ABXPKG_LIB_DIR") or "").strip()
     lib_dir = Path(lib_dir_value).expanduser() if lib_dir_value else None
     if provider_name == "env":
         kwargs: dict[str, Any] = {
             "PATH": str(payload.get("PATH") or os.environ.get("PATH", "")),
         }
-        if lib_dir is not None:
+        if provider_root is not None:
+            kwargs["install_root"] = provider_root
+        elif lib_dir is not None:
             kwargs["install_root"] = lib_dir / "env"
         return kwargs
+    if provider_root is not None:
+        return {"install_root": provider_root}
     if lib_dir is not None and provider_name != "env":
         return {"install_root": lib_dir / provider_name}
     return {}
