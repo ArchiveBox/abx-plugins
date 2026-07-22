@@ -161,10 +161,10 @@ def test_screenshot_with_chrome_session(chrome_test_url):
                 )
 
                 assert result.returncode != 0
-                assert (
-                    "target" in result.stderr.lower()
-                    and "not found" in result.stderr.lower()
-                )
+                result_json = parse_jsonl_output(result.stdout)
+                assert result_json is not None
+                assert result_json["status"] == "failed"
+                assert result_json["output_str"] == "No target_id.txt found"
 
         except RuntimeError:
             raise
@@ -471,6 +471,7 @@ def test_exited_chrome_endpoint_fails(chrome_test_url):
             chrome_process = psutil.Process(pid)
             chrome_process.terminate()
             chrome_process.wait()
+            env["SCREENSHOT_TIMEOUT"] = "2"
             screenshot_dir = chrome_dir.parent / "screenshot"
             screenshot_dir.mkdir()
             result = subprocess.run(

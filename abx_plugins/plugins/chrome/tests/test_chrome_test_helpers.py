@@ -34,10 +34,16 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
 TEST_URL = "https://example.com"
 
 
-def _python_binary() -> str:
-    loaded = install_binary_with_abxpkg("python3", binproviders="env,apt,brew")
+def _project_python_command() -> list[str]:
+    loaded = install_binary_with_abxpkg("uv", binproviders="env,brew")
     assert loaded.loaded_abspath is not None
-    return str(loaded.loaded_abspath)
+    return [
+        str(loaded.loaded_abspath),
+        "run",
+        "--no-sync",
+        "--no-sources",
+        "python",
+    ]
 
 
 @pytest.fixture(scope="module")
@@ -80,7 +86,7 @@ def test_get_lib_dir_with_env_var(tmp_path: Path):
     env["ABXPKG_LIB_DIR"] = str(custom_lib)
     result = subprocess.run(
         [
-            _python_binary(),
+            *_project_python_command(),
             "-c",
             "from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_lib_dir; print(get_lib_dir())",
         ],
@@ -129,7 +135,7 @@ def test_get_extensions_dir_ignores_persona_by_default(tmp_path: Path):
     )
     result = subprocess.run(
         [
-            _python_binary(),
+            *_project_python_command(),
             "-c",
             "from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_extensions_dir; print(get_extensions_dir())",
         ],
@@ -161,7 +167,7 @@ env, extensions_dir = chrome_extension_install_env(sys.argv[1])
 print(json.dumps({'env': env, 'extensions_dir': str(extensions_dir)}))
 """
     result = subprocess.run(
-        [_python_binary(), "-c", script, str(tmp_path / "isolated")],
+        [*_project_python_command(), "-c", script, str(tmp_path / "isolated")],
         capture_output=True,
         text=True,
         timeout=30,
@@ -647,7 +653,7 @@ def test_get_lib_dir_uses_platform_user_config_dir_by_default(
     env["XDG_CONFIG_HOME"] = str(xdg_config_home)
     result = subprocess.run(
         [
-            _python_binary(),
+            *_project_python_command(),
             "-c",
             "from abx_plugins.plugins.chrome.tests.chrome_test_helpers import get_lib_dir; print(get_lib_dir())",
         ],
@@ -749,7 +755,7 @@ os.environ['CHROME_BINARY'] = resolved
 print(json.dumps({'resolved': resolved, 'exported': os.environ['CHROME_BINARY']}))
 """
     result = subprocess.run(
-        [_python_binary(), "-c", script],
+        [*_project_python_command(), "-c", script],
         capture_output=True,
         text=True,
         timeout=180,
