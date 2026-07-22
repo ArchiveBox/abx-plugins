@@ -148,10 +148,10 @@ def test_config_save_dom_false_skips():
         assert result_json["output_str"] == "DOM_ENABLED=False", result_json
 
 
-def test_staticfile_present_skips(real_staticfile_output):
+def test_staticfile_present_skips(real_staticfile_output, local_staticfile_urls):
     """Test that dom returns noresults when staticfile already downloaded."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        test_url = "https://httpbin.org/json"
+        test_url = local_staticfile_urls["json"]
         snap_dir = real_staticfile_output(Path(tmpdir), test_url, "teststatic")
         env = get_test_env() | {"SNAP_DIR": str(snap_dir)}
         dom_dir = snap_dir / "dom"

@@ -285,14 +285,20 @@ const downloadDir = process.argv[3];
 const filename = 'abx-download.txt';
 const expectedPath = path.join(downloadDir, filename);
 
-function waitForDownload(filename) {
+function waitForDownload(filename, expectedContent) {
   return new Promise((resolve, reject) => {
     const watcher = fs.watch(downloadDir, (_eventType, changedName) => {
-      if (changedName && changedName.toString() === filename) {
-        clearTimeout(timeout);
-        watcher.close();
-        resolve();
+      if (!changedName || changedName.toString() !== filename) return;
+      let actualContent;
+      try {
+        actualContent = fs.readFileSync(expectedPath, 'utf8');
+      } catch (error) {
+        return;
       }
+      if (actualContent !== expectedContent) return;
+      clearTimeout(timeout);
+      watcher.close();
+      resolve();
     });
     const timeout = setTimeout(() => {
       watcher.close();
@@ -311,7 +317,7 @@ function waitForDownload(filename) {
       page,
       downloadPath: downloadDir,
     });
-    const downloadCompleted = waitForDownload(filename);
+    const downloadCompleted = waitForDownload(filename, 'archivebox-download-ok');
     await page.bringToFront();
     await page.evaluate((name) => {
       const blob = new Blob(['archivebox-download-ok'], { type: 'text/plain' });
@@ -399,12 +405,23 @@ async function triggerDownload(page, filename, content) {
   }, filename, content);
 }
 
-function waitForDownloads(filenames) {
+function waitForDownloads(expectedContents) {
   return new Promise((resolve, reject) => {
-    const remaining = new Set(filenames);
+    const remaining = new Map(Object.entries(expectedContents));
     const watcher = fs.watch(downloadDir, (_eventType, changedName) => {
       if (!changedName) return;
-      remaining.delete(changedName.toString());
+      const filename = changedName.toString();
+      const expectedContent = remaining.get(filename);
+      if (expectedContent === undefined) return;
+      const filePath = path.join(downloadDir, filename);
+      let actualContent;
+      try {
+        actualContent = fs.readFileSync(filePath, 'utf8');
+      } catch (error) {
+        return;
+      }
+      if (actualContent !== expectedContent) return;
+      remaining.delete(filename);
       if (remaining.size === 0) {
         clearTimeout(timeout);
         watcher.close();
@@ -413,7 +430,7 @@ function waitForDownloads(filenames) {
     });
     const timeout = setTimeout(() => {
       watcher.close();
-      reject(new Error(`Timed out waiting for download events: ${[...remaining]}`));
+      reject(new Error(`Timed out waiting for completed downloads: ${[...remaining.keys()]}`));
     }, 15000);
   });
 }
@@ -435,7 +452,10 @@ function waitForDownloads(filenames) {
       downloadPath: downloadDir,
     });
 
-    const downloadsCompleted = waitForDownloads(['one.txt', 'two.txt']);
+    const downloadsCompleted = waitForDownloads({
+      'one.txt': 'page-one-ok',
+      'two.txt': 'page-two-ok',
+    });
     await triggerDownload(pageOne, 'one.txt', 'page-one-ok');
     await triggerDownload(pageTwo, 'two.txt', 'page-two-ok');
     await downloadsCompleted;

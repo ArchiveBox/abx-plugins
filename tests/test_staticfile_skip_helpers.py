@@ -41,10 +41,11 @@ def _js_has_staticfile_output(staticfile_dir: Path) -> bool:
 def test_staticfile_output_helpers_accept_real_static_artifact(
     tmp_path: Path,
     real_staticfile_output,
+    local_staticfile_urls,
 ) -> None:
     snapshot_dir = real_staticfile_output(
         tmp_path,
-        "https://httpbin.org/json",
+        local_staticfile_urls["json"],
         "static-artifact",
     )
     staticfile_dir = snapshot_dir / "staticfile"
@@ -56,10 +57,11 @@ def test_staticfile_output_helpers_accept_real_static_artifact(
 def test_staticfile_output_helpers_reject_real_html_noresults(
     tmp_path: Path,
     real_staticfile_output,
+    local_staticfile_urls,
 ) -> None:
     snapshot_dir = real_staticfile_output(
         tmp_path,
-        "https://example.com",
+        local_staticfile_urls["html"],
         "html-noresults",
     )
     staticfile_dir = snapshot_dir / "staticfile"

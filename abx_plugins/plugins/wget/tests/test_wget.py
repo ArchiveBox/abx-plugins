@@ -273,11 +273,11 @@ def test_config_save_warc(local_example_url):
         )
 
 
-def test_staticfile_present_skips(real_staticfile_output):
+def test_staticfile_present_skips(real_staticfile_output, local_staticfile_urls):
     """Test that wget skips when staticfile already downloaded."""
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        test_url = "https://httpbin.org/json"
+        test_url = local_staticfile_urls["json"]
         snapshot_dir = real_staticfile_output(Path(tmpdir), test_url, "wget-static")
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snapshot_dir)

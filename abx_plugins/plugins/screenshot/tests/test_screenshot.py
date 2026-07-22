@@ -170,10 +170,10 @@ def test_screenshot_with_chrome_session(chrome_test_url):
             raise
 
 
-def test_skips_when_staticfile_exists(real_staticfile_output):
+def test_skips_when_staticfile_exists(real_staticfile_output, local_staticfile_urls):
     """Test that screenshot skips when staticfile extractor already handled the URL."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        test_url = "https://httpbin.org/json"
+        test_url = local_staticfile_urls["json"]
         snapshot_dir = real_staticfile_output(Path(tmpdir), test_url, "snap-skip")
         screenshot_dir = snapshot_dir / "screenshot"
         screenshot_dir.mkdir(parents=True)

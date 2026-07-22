@@ -240,6 +240,23 @@ def local_http_base_url(httpserver) -> str:
     return httpserver.url_for("/")
 
 
+@pytest.fixture
+def local_staticfile_urls(httpserver) -> dict[str, str]:
+    """Serve deterministic static and HTML responses through a real HTTP server."""
+    httpserver.expect_request("/staticfile.json").respond_with_data(
+        b'{"fixture":"staticfile","ok":true}\n',
+        content_type="application/json",
+    )
+    httpserver.expect_request("/staticfile.html").respond_with_data(
+        "<!doctype html><html><body>ArchiveBox</body></html>",
+        content_type="text/html; charset=utf-8",
+    )
+    return {
+        "json": httpserver.url_for("/staticfile.json"),
+        "html": httpserver.url_for("/staticfile.html"),
+    }
+
+
 @pytest.fixture(scope="session")
 def ensure_chrome_test_prereqs(ensure_chromium_and_puppeteer_installed):
     """Install shared Chromium/Puppeteer deps when explicitly requested by tests."""
