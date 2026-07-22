@@ -155,9 +155,15 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
     except RemoteDisconnected as e:
         return save_submit_url_for_manual_retry(f"RemoteDisconnected: {e}")
     except URLError as e:
-        if "timed out" in str(e.reason).lower():
-            return save_submit_url_for_manual_retry(f"URLError: {e.reason}")
-        return False, None, f"URLError: {e.reason}"
+        reason = e.reason
+        reason_text = str(reason)
+        retryable = (
+            isinstance(reason, ConnectionResetError)
+            or "timed out" in reason_text.lower()
+        )
+        if retryable:
+            return save_submit_url_for_manual_retry(f"URLError: {reason}")
+        return False, None, f"URLError: {reason}"
     except Exception as e:
         return False, None, f"{type(e).__name__}: {e}"
 
