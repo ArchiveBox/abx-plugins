@@ -1,0 +1,43 @@
+.github/configs/ci-tooling.json
+  s_f8414d52051f83::t_2d4fb49549542e 50-52
+  s_f8414d52051f83::t_9c7ab55b13bfc8 49
+.github/workflows/release.yml
+  s_f8414d52051f83::t_cbf888e24f4870 78-79,86,91-96
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_2e009c45a7e23b 107-111,115,126-135
+  s_f8414d52051f83::t_c4df2fe7adf372 50,53-55,58-63,65,79-85
+  s_f8414d52051f83::t_da75c7886fbdd3 267-271
+  s_f8414d52051f83::t_739aa606476642 157-159
+  s_f8414d52051f83::t_c3687bcd8b4c2e 171-175,201-202,207,226,229
+  s_f8414d52051f83::t_edf86190ab4d47 317,320,322,333
+  s_f8414d52051f83::t_98291a96af8121 66-67,274-275,323-324
+  s_f8414d52051f83::t_5b3f48eeef89f7 123-125
+.github/workflows/pages.yml
+  s_f8414d52051f83::t_98291a96af8121 46-47
+  s_f8414d52051f83::t_64c569e9ac1117 35-39
+bin/release.sh
+  s_f8414d52051f83::t_8333baf45ff7ea 191-193,195-197,229-232,234
+  s_f8414d52051f83::t_1b5f3923c661f9 109,137-142
+  s_f8414d52051f83::t_8852c2207c7f9a 107-108,110,113-132,136,143-154,258-262,265-271,304-305,314,317-324,340-349,355-356
+  s_f8414d52051f83::t_4ee3c552de4ce2 111,133-135
+  s_f8414d52051f83::t_1377549be18aaf 172-189,325-328
+  s_f8414d52051f83::t_17f72f863a86b9 112
+.github/workflows/claude.yml
+  s_f8414d52051f83::t_5298ae71bb7786 54,57-59,62-65,67-70,88,90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "035f676b04d8d6717896d28c10a167849c85458e",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
