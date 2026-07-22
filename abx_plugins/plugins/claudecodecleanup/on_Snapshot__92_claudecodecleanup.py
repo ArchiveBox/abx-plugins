@@ -1,4 +1,4 @@
-#!/usr/bin/env -S abxpkg run --script --deps-from=../claudecode/config.json:required_binaries,./config.json:required_binaries python3
+#!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries python3
 # /// script
 # requires-python = ">=3.12"
 # ///
@@ -9,7 +9,7 @@ Runs near the end of the snapshot pipeline (priority 92, before hashes at 93)
 to analyze all extractor outputs, identify duplicates and redundant files,
 and keep only the best version of each.
 
-Requires the claudecode plugin to have installed Claude Code CLI.
+Resolves the Claude Code CLI through the claudecode plugin's required binaries.
 
 Usage: on_Snapshot__92_claudecodecleanup.py --url=<url>
 Output: Creates claudecodecleanup/ directory with cleanup_report.txt

@@ -1,11 +1,11 @@
-#!/usr/bin/env -S abxpkg run --script --deps-from=../claudecode/config.json:required_binaries,./config.json:required_binaries python3
+#!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries python3
 # /// script
 # requires-python = ">=3.12"
 # ///
 """
 Extract or transform snapshot content using Claude Code AI agent.
 
-Requires the claudecode plugin to have installed Claude Code CLI.
+Resolves the Claude Code CLI through the claudecode plugin's required binaries.
 Runs a user-configurable prompt against the snapshot directory,
 allowing Claude to read existing extractor outputs and generate
 new derived content.
