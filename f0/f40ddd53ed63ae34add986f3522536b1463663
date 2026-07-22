@@ -1,0 +1,24 @@
+abx_plugins/plugins/base/utils.py
+  s_f8414d52051f83::t_5779ec530e1c1d 735-739
+  s_f8414d52051f83::t_1f1ab001b23fca 745,814
+tests/test_runtime_path_isolation.py
+  s_f8414d52051f83::t_a2128fce436256 109-114,117
+pyproject.toml
+  s_f8414d52051f83::t_1f1ab001b23fca 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f0f40ddd53ed63ae34add986f3522536b1463663",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
