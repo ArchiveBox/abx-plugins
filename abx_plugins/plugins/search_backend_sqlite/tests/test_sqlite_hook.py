@@ -113,8 +113,14 @@ def test_hook_cold_start_avoids_typed_schema_imports(
     )
 
     assert result.returncode == 0, result.stderr
-    assert "pydantic" not in result.stderr
-    assert "jambo" not in result.stderr
+    interpreter_profile_header = (
+        "import time: self [us] | cumulative | imported package"
+    )
+    import_profiles = result.stderr.split(interpreter_profile_header)
+    assert len(import_profiles) >= 2, result.stderr
+    hook_import_profile = import_profiles[-1]
+    assert "pydantic" not in hook_import_profile
+    assert "jambo" not in hook_import_profile
 
     conn = sqlite3.connect(str(snapshot_dir / "search.sqlite3"))
     try:

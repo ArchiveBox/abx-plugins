@@ -66,7 +66,7 @@ def ensure_singlefile_extension_installed(tmp_path: Path) -> dict[str, Path]:
                 pass
 
     install_root = tmp_path / "singlefile-ext"
-    env_install, _extensions_dir = chrome_extension_install_env(install_root)
+    env_install, extensions_dir = chrome_extension_install_env(install_root)
 
     loaded = install_required_binary_from_config(
         PLUGIN_DIR,
@@ -76,8 +76,8 @@ def ensure_singlefile_extension_installed(tmp_path: Path) -> dict[str, Path]:
     assert loaded.loaded_abspath is not None, (
         "abxpkg did not resolve SingleFile extension"
     )
+    assert loaded.loaded_abspath.parent == extensions_dir
 
-    extensions_dir = loaded.loaded_abspath.parent
     cache_candidates = (
         extensions_dir.parent / "singlefile.extension.json",
         extensions_dir / "singlefile.extension.json",
@@ -162,7 +162,7 @@ def test_singlefile_cli_archives_example_com(tmp_path):
     tmpdir = tmp_path / "singlefile-cli"
     tmpdir.mkdir()
 
-    env_install, _extensions_dir = chrome_extension_install_env(tmpdir / "install")
+    env_install, extensions_dir = chrome_extension_install_env(tmpdir / "install")
 
     loaded = install_required_binary_from_config(
         PLUGIN_DIR,
@@ -172,8 +172,6 @@ def test_singlefile_cli_archives_example_com(tmp_path):
     assert loaded.loaded_abspath is not None, (
         "abxpkg did not resolve SingleFile extension"
     )
-    extensions_dir = loaded.loaded_abspath.parent
-
     with chrome_session(
         tmpdir=tmpdir,
         crawl_id="singlefile-cli-crawl",
@@ -183,6 +181,8 @@ def test_singlefile_cli_archives_example_com(tmp_path):
         timeout=30,
         env_overrides={
             "ABXPKG_LIB_DIR": env_install["ABXPKG_LIB_DIR"],
+            "ABXPKG_CHROMEWEBSTORE_ROOT": str(extensions_dir.parent),
+            "CHROMEWEBSTORE_EXTENSIONS_DIR": str(extensions_dir),
         },
     ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
         env["SINGLEFILE_ENABLED"] = "true"
@@ -238,6 +238,8 @@ def test_singlefile_with_chrome_session(tmp_path):
         timeout=20,
         env_overrides={
             "ABXPKG_LIB_DIR": str(install_state["abxpkg_lib_dir"]),
+            "ABXPKG_CHROMEWEBSTORE_ROOT": str(install_state["extensions_dir"].parent),
+            "CHROMEWEBSTORE_EXTENSIONS_DIR": str(install_state["extensions_dir"]),
         },
     ) as (chrome_launch_process, chrome_pid, snapshot_chrome_dir, env):
         snap_dir = Path(env["SNAP_DIR"])
@@ -279,7 +281,7 @@ def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
     tmpdir = tmp_path / "singlefile-extension"
     tmpdir.mkdir()
 
-    env_install, _extensions_dir = chrome_extension_install_env(tmpdir / "install")
+    env_install, extensions_dir = chrome_extension_install_env(tmpdir / "install")
 
     loaded = install_required_binary_from_config(
         PLUGIN_DIR,
@@ -307,8 +309,6 @@ def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
         "abxpkg did not resolve SingleFile extension"
     )
     assert singlefile_cli.loaded_abspath is not None
-    extensions_dir = loaded.loaded_abspath.parent
-
     with chrome_session(
         tmpdir=tmpdir,
         crawl_id="singlefile-ext-crawl",
@@ -318,6 +318,8 @@ def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
         timeout=30,
         env_overrides={
             "ABXPKG_LIB_DIR": env_install["ABXPKG_LIB_DIR"],
+            "ABXPKG_CHROMEWEBSTORE_ROOT": str(extensions_dir.parent),
+            "CHROMEWEBSTORE_EXTENSIONS_DIR": str(extensions_dir),
         },
     ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
         singlefile_output_dir = snapshot_chrome_dir.parent / "singlefile"
@@ -390,6 +392,8 @@ def test_singlefile_extension_loader_prefers_cached_background_target(tmp_path):
         timeout=30,
         env_overrides={
             "ABXPKG_LIB_DIR": str(install_state["abxpkg_lib_dir"]),
+            "ABXPKG_CHROMEWEBSTORE_ROOT": str(install_state["extensions_dir"].parent),
+            "CHROMEWEBSTORE_EXTENSIONS_DIR": str(install_state["extensions_dir"]),
         },
     ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
         metadata = wait_for_extensions_metadata(

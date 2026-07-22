@@ -12,8 +12,13 @@ Tests verify:
 
 import json
 import os
+import queue
+import re
+import signal
 import subprocess
 import tempfile
+import threading
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -22,6 +27,7 @@ import requests
 from abx_plugins.plugins.base.testing import get_hydrated_required_binary
 from abx_plugins.plugins.base.testing import install_required_binary_from_config
 from abx_plugins.plugins.base.testing import parse_jsonl_output
+from abx_plugins.plugins.base.utils import load_required_binary
 
 PLUGIN_DIR = Path(__file__).parent.parent
 PLUGINS_ROOT = PLUGIN_DIR.parent
@@ -30,9 +36,22 @@ if _OPENDATALOADER_HOOK is None:
     raise FileNotFoundError(f"Hook not found in {PLUGIN_DIR}")
 OPENDATALOADER_HOOK = _OPENDATALOADER_HOOK
 TEST_URL = "https://example.com"
+HYBRID_BINARY_RECORD = {
+    "name": "opendataloader-pdf-hybrid",
+    "binproviders": "env,uv",
+    "min_version": "2.0.0",
+    "overrides": {
+        "uv": {
+            "install_root": "{ABXPKG_LIB_DIR}/uv/packages/opendataloader-hybrid",
+            "install_args": ["opendataloader-pdf[hybrid]"],
+            "postinstall_scripts": True,
+        },
+    },
+}
 
 # Module-level cache for binary path
 _opendataloader_binary_path = None
+_opendataloader_hybrid_binary_path = None
 _java_binary_path = None
 
 
@@ -60,6 +79,103 @@ def require_opendataloader_binary() -> str:
         f"opendataloader-pdf binary path invalid: {binary_path}"
     )
     return binary_path
+
+
+def require_opendataloader_hybrid_binary() -> str:
+    """Resolve the real hybrid server through the plugin's abxpkg contract."""
+    global _opendataloader_hybrid_binary_path
+    if (
+        _opendataloader_hybrid_binary_path
+        and Path(
+            _opendataloader_hybrid_binary_path,
+        ).is_file()
+    ):
+        return _opendataloader_hybrid_binary_path
+
+    binary = load_required_binary(
+        HYBRID_BINARY_RECORD,
+        config=os.environ,
+        environ=os.environ,
+        install=True,
+    )
+    assert binary.loaded_abspath is not None, (
+        "opendataloader-pdf-hybrid dependency resolution failed"
+    )
+    _opendataloader_hybrid_binary_path = str(binary.loaded_abspath)
+    assert Path(_opendataloader_hybrid_binary_path).is_file()
+    return _opendataloader_hybrid_binary_path
+
+
+@contextmanager
+def running_hybrid_server(binary: str):
+    """Run the real OCR backend and gate on Uvicorn's startup event."""
+    process = subprocess.Popen(
+        [
+            binary,
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "0",
+            "--force-ocr",
+            "--device",
+            "cpu",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        start_new_session=True,
+    )
+    output_stream = process.stdout
+    assert output_stream is not None
+    startup_result: queue.Queue[str | None] = queue.Queue(maxsize=1)
+    output_lines: list[str] = []
+
+    def consume_output() -> None:
+        startup_complete = False
+        server_url = None
+        published = False
+        for line in output_stream:
+            output_lines.append(line)
+            startup_complete = (
+                startup_complete or "Application startup complete" in line
+            )
+            match = re.search(r"Uvicorn running on (http://127\.0\.0\.1:\d+)", line)
+            if match:
+                server_url = match.group(1)
+            if startup_complete and server_url and not published:
+                startup_result.put(server_url)
+                published = True
+        if not published:
+            startup_result.put(None)
+
+    output_thread = threading.Thread(target=consume_output, daemon=True)
+    output_thread.start()
+
+    try:
+        try:
+            server_url = startup_result.get(timeout=120)
+        except queue.Empty as error:
+            raise AssertionError(
+                "Hybrid server did not publish its startup event:\n"
+                + "".join(output_lines),
+            ) from error
+        assert server_url, (
+            f"Hybrid server exited with {process.poll()} before startup:\n"
+            + "".join(output_lines)
+        )
+        health = requests.get(f"{server_url}/health", timeout=10)
+        assert health.status_code == 200, health.text
+        assert health.json() == {"status": "ok"}, health.text
+        yield server_url
+    finally:
+        if process.poll() is None:
+            os.killpg(process.pid, signal.SIGTERM)
+        try:
+            process.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGKILL)
+            process.wait()
+        output_thread.join(timeout=5)
 
 
 def get_java_binary_path() -> str | None:
@@ -103,6 +219,8 @@ def test_verify_deps_with_install_hooks():
     assert Path(binary_path).is_file(), (
         f"Binary path must be a valid file: {binary_path}"
     )
+    hybrid_binary_path = require_opendataloader_hybrid_binary()
+    assert Path(hybrid_binary_path).is_file()
 
 
 def test_install_hook_requests_java_dependency():
@@ -326,6 +444,7 @@ def test_extract_multiple_pdfs():
 def test_force_ocr_adds_hybrid_flag():
     """Test FORCE_OCR through the real hybrid extraction lifecycle."""
     binary_path = require_opendataloader_binary()
+    hybrid_binary = require_opendataloader_hybrid_binary()
     java_binary = require_java_binary()
     pdf_content = _download_test_pdf()
 
@@ -344,18 +463,20 @@ def test_force_ocr_adds_hybrid_flag():
         env["OPENDATALOADER_ENABLED"] = "True"
         env["OPENDATALOADER_FORCE_OCR"] = "true"
 
-        result = subprocess.run(
-            [
-                str(OPENDATALOADER_HOOK),
-                "--url",
-                "https://example.com/scanned.pdf",
-            ],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            timeout=120,
-            env=env,
-        )
+        with running_hybrid_server(hybrid_binary) as hybrid_url:
+            env["OPENDATALOADER_HYBRID_URL"] = hybrid_url
+            result = subprocess.run(
+                [
+                    str(OPENDATALOADER_HOOK),
+                    "--url",
+                    "https://example.com/scanned.pdf",
+                ],
+                cwd=tmpdir,
+                capture_output=True,
+                text=True,
+                timeout=120,
+                env=env,
+            )
 
         assert result.returncode == 0, result.stderr
 

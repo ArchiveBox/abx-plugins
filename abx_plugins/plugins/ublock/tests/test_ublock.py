@@ -653,6 +653,7 @@ def test_blocks_ads_on_httpserver_page_with_real_ad_service_urls(httpserver):
             tmpdir / "ublock-install",
         )
         env_base["ABXPKG_LIB_DIR"] = ext_install_env["ABXPKG_LIB_DIR"]
+        env_base["ABXPKG_CHROMEWEBSTORE_ROOT"] = str(ext_extensions_dir.parent)
         env_base["CHROMEWEBSTORE_EXTENSIONS_DIR"] = str(ext_extensions_dir)
         ext_personas_dir = tmpdir / "personas-ext"
         baseline_personas_dir = tmpdir / "personas-baseline"
@@ -685,6 +686,9 @@ def test_blocks_ads_on_httpserver_page_with_real_ad_service_urls(httpserver):
         )
         env_no_ext["PERSONAS_DIR"] = str(baseline_personas_dir)
         env_no_ext["ABXPKG_LIB_DIR"] = baseline_install_env["ABXPKG_LIB_DIR"]
+        env_no_ext["ABXPKG_CHROMEWEBSTORE_ROOT"] = str(
+            _baseline_extensions_dir.parent,
+        )
         env_no_ext["CHROMEWEBSTORE_EXTENSIONS_DIR"] = str(_baseline_extensions_dir)
         env_no_ext["CHROME_DOWNLOADS_DIR"] = str(
             baseline_default_dir / "chrome_downloads",

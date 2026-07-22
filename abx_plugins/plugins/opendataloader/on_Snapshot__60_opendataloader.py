@@ -150,11 +150,12 @@ def _run_opendataloader(
     if result.stderr:
         print(result.stderr, file=sys.stderr, end="")
     if result.returncode != 0:
-        error = (
-            result.stderr.strip()
-            or result.stdout.strip()
-            or f"exit code {result.returncode}"
-        )
+        output_parts = []
+        if result.stdout.strip():
+            output_parts.append(f"stdout:\n{result.stdout.strip()}")
+        if result.stderr.strip():
+            output_parts.append(f"stderr:\n{result.stderr.strip()}")
+        error = "\n".join(output_parts) or f"exit code {result.returncode}"
         raise OpendataloaderRunError(
             f"opendataloader-pdf failed for {source_file.name} ({fmt}): {error}",
         )

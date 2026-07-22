@@ -2338,28 +2338,7 @@ async function connectToBrowserEndpoint(
     ...getPuppeteerConnectOptionsForCdpUrl(cdpUrl),
     ...connectOptions,
   };
-  const deadline =
-    Date.now() + getEnvInt("CHROME_CONNECT_RETRY_TIMEOUT_MS", 5000);
-  let lastError = null;
-
-  while (Date.now() <= deadline) {
-    try {
-      return await puppeteer.connect(options);
-    } catch (error) {
-      lastError = error;
-      const message = String(error?.message || error || "");
-      const isTargetChurn =
-        message.includes("No target with given id found") ||
-        message.includes("Target closed") ||
-        message.includes("Session closed");
-      if (!isTargetChurn || Date.now() >= deadline) {
-        throw error;
-      }
-      await sleep(100);
-    }
-  }
-
-  throw lastError;
+  return puppeteer.connect(options);
 }
 
 async function withTimeout(promiseFactory, timeoutMs, timeoutMessage) {
@@ -4032,9 +4011,25 @@ async function ensureChromeSession(options = {}) {
   if (needsPostLaunchBrowser) {
     let browser = null;
     try {
+      if (downloadsDir) {
+        await fs.promises.mkdir(downloadsDir, { recursive: true });
+      }
       browser = await connectToBrowserEndpoint(puppeteer, resolvedCdpUrl, {
         defaultViewport: null,
+        ...(downloadsDir
+          ? {
+              downloadBehavior: {
+                policy: "allow",
+                downloadPath: downloadsDir,
+              },
+            }
+          : {}),
       });
+      if (downloadsDir) {
+        console.error(
+          `[+] Configured Chrome download directory via CDP: ${downloadsDir}`
+        );
+      }
 
       if (installedExtensions.length > 0) {
         // Keep this existing browser connection after Extensions.loadUnpacked.
@@ -4046,13 +4041,6 @@ async function ensureChromeSession(options = {}) {
           installedExtensions,
           timeoutMs
         );
-      }
-
-      if (downloadsDir) {
-        await setBrowserDownloadBehavior({
-          browser,
-          downloadPath: downloadsDir,
-        });
       }
 
       if (cookiesFile) {
