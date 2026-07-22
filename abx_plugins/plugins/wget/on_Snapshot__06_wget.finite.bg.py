@@ -60,6 +60,17 @@ SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
+EXECUTOR_PROCESS_ARTIFACT_RE = re.compile(
+    rf"^{re.escape(Path(__file__).stem)}\.[0-9a-f]{{32}}\."
+    r"(?:stdout\.log|stderr\.log|pid|sh)$",
+)
+
+
+def is_executor_process_artifact(path: Path) -> bool:
+    """Match only abx-dl's top-level per-process files for this exact hook."""
+    return path.parent == Path(".") and bool(
+        EXECUTOR_PROCESS_ARTIFACT_RE.fullmatch(path.name),
+    )
 
 
 def rel_output(path_str: str | None) -> str | None:
@@ -134,7 +145,10 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
         downloaded_files = [
             f
             for f in Path(".").rglob("*")
-            if f.is_file() and f.name != ".gitkeep" and not str(f).startswith("warc/")
+            if f.is_file()
+            and f.name != ".gitkeep"
+            and not str(f).startswith("warc/")
+            and not is_executor_process_artifact(f)
         ]
 
         if not downloaded_files:

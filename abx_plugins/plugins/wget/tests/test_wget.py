@@ -13,6 +13,8 @@ Tests verify:
 
 import json
 import os
+import shlex
+import socket
 import subprocess
 import tempfile
 from pathlib import Path
@@ -347,6 +349,102 @@ def test_handles_404_gracefully(httpserver):
             "output_str": "wget failed (exit=8)",
         }, result_json
         assert "ERROR: wget failed (exit=8)" in result.stderr
+
+
+def test_connection_refused_ignores_executor_process_artifacts(tmp_path):
+    """A failed download must not report abx-dl's process files as output."""
+    loaded = install_required_binary_from_config(PLUGIN_DIR, "wget")
+    assert loaded.loaded_abspath is not None, "wget should resolve through abxpkg"
+
+    output_dir = tmp_path / "wget"
+    output_dir.mkdir()
+    process_id = "0123456789abcdef0123456789abcdef"
+    artifact_stem = f"{WGET_HOOK.stem}.{process_id}"
+    stdout_path = output_dir / f"{artifact_stem}.stdout.log"
+    stderr_path = output_dir / f"{artifact_stem}.stderr.log"
+    pid_path = output_dir / f"{artifact_stem}.pid"
+    cmd_path = output_dir / f"{artifact_stem}.sh"
+
+    with socket.socket() as refused_socket:
+        refused_socket.bind(("127.0.0.1", 0))
+        refused_url = f"http://127.0.0.1:{refused_socket.getsockname()[1]}/"
+        env = os.environ.copy()
+        env.update(
+            {
+                "SNAP_DIR": str(tmp_path),
+                "WGET_BINARY": str(loaded.loaded_abspath),
+                "WGET_WARC_ENABLED": "False",
+            },
+        )
+        cmd = [str(WGET_HOOK), "--url", refused_url]
+        cmd_path.write_text(
+            f"#!/bin/bash\n{shlex.join(cmd)}\n",
+            encoding="utf-8",
+        )
+        with (
+            stdout_path.open("w", encoding="utf-8") as stdout_file,
+            stderr_path.open(
+                "w",
+                encoding="utf-8",
+            ) as stderr_file,
+        ):
+            process = subprocess.Popen(
+                cmd,
+                cwd=tmp_path,
+                stdout=stdout_file,
+                stderr=stderr_file,
+                text=True,
+                env=env,
+            )
+            pid_path.write_text(str(process.pid), encoding="utf-8")
+            returncode = process.wait(timeout=30)
+
+    stdout = stdout_path.read_text(encoding="utf-8")
+    stderr = stderr_path.read_text(encoding="utf-8")
+    assert returncode == 1, stderr
+    result_json = parse_jsonl_output(stdout)
+    assert result_json == {
+        "type": "ArchiveResult",
+        "status": "failed",
+        "output_str": "wget failed (exit=4)",
+    }, result_json
+
+
+def test_archives_legitimate_downloaded_shell_script(httpserver, tmp_path):
+    """The process-artifact filter must preserve downloaded shell content."""
+    loaded = install_required_binary_from_config(PLUGIN_DIR, "wget")
+    assert loaded.loaded_abspath is not None, "wget should resolve through abxpkg"
+    shell_content = "#!/bin/sh\nprintf 'archived shell content\\n'\n"
+    httpserver.expect_request("/release.sh").respond_with_data(
+        shell_content,
+        status=200,
+        content_type="text/x-shellscript",
+    )
+    env = os.environ.copy()
+    env.update(
+        {
+            "SNAP_DIR": str(tmp_path),
+            "WGET_BINARY": str(loaded.loaded_abspath),
+            "WGET_WARC_ENABLED": "False",
+        },
+    )
+
+    result = subprocess.run(
+        [str(WGET_HOOK), "--url", httpserver.url_for("/release.sh")],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr
+    result_json = parse_jsonl_output(result.stdout)
+    assert result_json is not None, result.stdout
+    assert result_json["status"] == "succeeded", result_json
+    assert result_json["output_str"].endswith("/release.sh"), result_json
+    downloaded_shell = tmp_path / result_json["output_str"]
+    assert downloaded_shell.read_text(encoding="utf-8") == shell_content
 
 
 def test_config_timeout_honored(local_example_url):
