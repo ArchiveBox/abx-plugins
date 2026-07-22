@@ -24,7 +24,7 @@ Each variable falls back to the corresponding `CLAUDECODE_*` default if unset.
 | `CLAUDECODECLEANUP_MAX_TURNS` | int | `50` | `CLAUDECODE_MAX_TURNS` | Max agentic turns per invocation. |
 
 **Default prompt:**
-> Analyze all the extractor output directories in this snapshot. Look for duplicate or redundant outputs across plugins (e.g. multiple HTML extractions, multiple text extractions, multiple URL extraction outputs, etc.). For each group of similar outputs, inspect the content and determine which version is the best quality. Delete the inferior/redundant versions, keeping only the best one. Also remove any unnecessary temporary files, empty directories, or incomplete outputs. Write a summary of what you cleaned up to cleanup_report.txt in your output directory.
+> Complete one cleanup pass in at most four tool calls. First, use one Bash call to inspect every listed extractor output as a single batch: recursively collect each file's path, size, type, hash, and a bounded content sample for every text-like file. Do not call Read, Glob, Grep, or Bash once per file. If that batch leaves a genuine ambiguity, use at most one additional batched Bash call covering all ambiguous files together; otherwise skip it. From that evidence, keep the best output in each redundant group and, in one Bash call, delete only clearly inferior duplicates, incomplete or failed outputs, and empty directories; when uncertain, keep the output. Never delete hashes/ or any JSON metadata. Finally, use one Write call to create cleanup_report.txt describing every output inspected, every deletion, and every retained group, then stop immediately without re-listing, re-reading, verifying, narrating further, or revisiting any decision.
 
 ## Hooks
 

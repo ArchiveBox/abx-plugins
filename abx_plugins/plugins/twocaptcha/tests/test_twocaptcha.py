@@ -96,6 +96,11 @@ def twocaptcha_install_state(loaded) -> dict:
     }
 
 
+def test_config_uses_one_vendor_attempt_by_default():
+    config = json.loads((PLUGIN_DIR / "config.json").read_text())
+    assert config["properties"]["TWOCAPTCHA_RETRY_COUNT"]["default"] == 0
+
+
 def test_snapshot_hook_reports_skipped_when_disabled():
     env = os.environ.copy()
     env["TWOCAPTCHA_ENABLED"] = "false"
@@ -229,6 +234,8 @@ class TestTwoCaptcha:
                 config_marker = json.loads(
                     (chrome_dir / ".twocaptcha_configured").read_text(),
                 )
+                assert config_marker["method"] == "popup_login", config_marker
+                assert config_marker["verified"] is True, config_marker
                 ext_id = config_marker["extensionId"]
                 script = f"""
 const chromeUtils = require('{CHROME_UTILS_JS}');

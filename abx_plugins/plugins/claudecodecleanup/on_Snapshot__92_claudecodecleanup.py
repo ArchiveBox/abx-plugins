@@ -52,12 +52,18 @@ OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 # get_snapshot_metadata() doesn't list our own empty dir as an extractor output
 
 DEFAULT_PROMPT = (
-    "Make one pass over the extractor outputs listed in the snapshot context. "
-    "Inspect each potentially redundant group once, keep its best-quality output, "
-    "and delete only clearly inferior duplicates, incomplete temporary files, and "
-    "empty directories. Then write cleanup_report.txt describing every deletion "
-    "and every group retained. Do not repeat an inspection or revisit a completed "
-    "decision."
+    "Complete one cleanup pass in at most four tool calls. First, use one Bash call "
+    "to inspect every listed extractor output as a single batch: recursively collect "
+    "each file's path, size, type, hash, and a bounded content sample for every "
+    "text-like file. Do not call Read, Glob, Grep, or Bash once per file. If that "
+    "batch leaves a genuine ambiguity, use at most one additional batched Bash call "
+    "covering all ambiguous files together; otherwise skip it. From that evidence, "
+    "keep the best output in each redundant group and, in one Bash call, delete only "
+    "clearly inferior duplicates, incomplete or failed outputs, and empty directories; "
+    "when uncertain, keep the output. Never delete hashes/ or any JSON metadata. "
+    "Finally, use one Write call to create cleanup_report.txt describing every output "
+    "inspected, every deletion, and every retained group, then stop immediately without "
+    "re-listing, re-reading, verifying, narrating further, or revisiting any decision."
 )
 
 

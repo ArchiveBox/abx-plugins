@@ -5,7 +5,7 @@
  * 2Captcha Extension Configuration
  *
  * Configures the 2captcha extension with API key and settings after Crawl-level Chrome session starts.
- * Runs once per crawl to inject configuration into extension storage.
+ * Runs once per crawl through the extension's login and configuration APIs.
  *
  * Priority: 95 (after chrome_launch at 90, before snapshots start)
  * Hook: on_Crawl (runs once per crawl, not per snapshot)
@@ -169,7 +169,6 @@ async function configure2Captcha() {
     findExtensionMetadataByName,
     connectToBrowserEndpoint,
     resolvePuppeteerModule,
-    waitForExtensionTargetHandle,
   } = require("../chrome/chrome_utils.js");
   const puppeteer = resolvePuppeteerModule();
 
@@ -188,9 +187,6 @@ async function configure2Captcha() {
   }
 
   console.error("Configuring 2captcha...");
-  console.error(
-    `API Key: ${config.apiKey.slice(0, 6)}...${config.apiKey.slice(-4)}`
-  );
   // console.error(`[*]   Retry Count: ${config.repeatOnErrorTimes}`);
   // console.error(`[*]   Retry Delay: ${config.repeatOnErrorDelay}s`);
   // console.error(`[*]   Auto Submit: ${config.autoSubmitForms}`);
@@ -231,58 +227,10 @@ async function configure2Captcha() {
       const extensionId = captchaExt.id;
       console.error(`Extension ID: ${extensionId}`);
 
-      // Fast verification path: ask the extension's service worker for the
-      // current ``chrome.storage.local.config`` via CDP — if the apiKey already
-      // matches what we'd write, skip the full options-page configure entirely.
-      // We only READ here; the actual write still goes through options.html
-      // below, because chrome.storage.local.set called from the service worker
-      // doesn't always survive the next page load reliably (extension code on
-      // the options page sometimes re-applies stale defaults during init). A
-      // single CDP Runtime.evaluate round-trip is ~50-200ms vs the ~9s slow
-      // path, so the win is in skipping the configure when nothing changed.
-      try {
-        const swTarget = await waitForExtensionTargetHandle(
-          browser,
-          extensionId,
-          { timeoutMs: 5000 },
-        );
-        const swSession = await swTarget.createCDPSession();
-        try {
-          const verify = await swSession.send("Runtime.evaluate", {
-            expression: `(async () => {
-              const stored = await new Promise((resolve, reject) => {
-                chrome.storage.local.get('config', (data) => {
-                  if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-                  else resolve(data && data.config);
-                });
-              });
-              if (!stored) return {present: false};
-              return {present: true, apiKey: stored.apiKey || stored.api_key || ''};
-            })()`,
-            awaitPromise: true,
-            returnByValue: true,
-          });
-          const verifyValue = verify && verify.result && verify.result.value;
-          if (verifyValue && verifyValue.present && verifyValue.apiKey === config.apiKey) {
-            console.error("Already configured (verified via service worker).");
-            return { success: true, skipped: true, verified: true };
-          }
-        } finally {
-          try {
-            await swSession.detach();
-          } catch (_) {}
-        }
-      } catch (swErr) {
-        console.error(
-          `[*] Service-worker verify unavailable (${swErr.message}); proceeding with options-page configure.`,
-        );
-      }
-
-      // Authoritative configure path — options.html is the most reliable way
-      // to seed the extension's defaults (the extension's own init code merges
-      // its bundled defaults onto chrome.storage.local when the options page
-      // loads, and the page's listeners propagate changes through the runtime
-      // solver code paths the same way a user click would).
+      // Configure through the extension's real popup login path. That path
+      // initializes the service worker's in-memory API client, validates the
+      // account with 2Captcha, and persists the key. Writing storage directly
+      // leaves the already-running service worker unable to solve anything.
       const optionsUrl = `chrome-extension://${extensionId}/options/options.html`;
 
       let configPage = await browser.newPage();
@@ -329,52 +277,29 @@ async function configure2Captcha() {
           timeout: 10000,
         });
 
-        // Merge onto extension defaults instead of replacing the whole object.
-        // New extension versions may add nested config fields (e.g. recaptcha.*)
-        // that runtime solver code expects to exist.
         const result = await configPage.evaluate((cfg) => {
-          return new Promise(async (resolve) => {
-            if (typeof chrome === "undefined" || !chrome.storage) {
-              resolve({
-                success: false,
-                error: "chrome.storage not available",
-              });
-              return;
-            }
-
-            let currentConfig = {};
-            try {
-              if (
-                typeof Config !== "undefined" &&
-                typeof Config.getAll === "function"
-              ) {
-                currentConfig = await Config.getAll();
+          return new Promise((resolve) => {
+            const popup = chrome.runtime.connect({ name: "popup" });
+            popup.onMessage.addListener(async (message) => {
+              if (message.action !== "login") return;
+              if (message.error) {
+                popup.disconnect();
+                resolve({ success: false, error: message.error });
+                return;
               }
-            } catch (e) {}
-
-            const mergedConfig = { ...currentConfig, ...cfg };
-            chrome.storage.local.set({ config: mergedConfig }, () => {
-              if (chrome.runtime.lastError) {
-                resolve({
-                  success: false,
-                  error: chrome.runtime.lastError.message,
-                });
-              } else {
-                resolve({ success: true, method: "options_page" });
-              }
+              await Config.set(cfg);
+              popup.disconnect();
+              resolve({ success: true, method: "popup_login" });
             });
+            popup.postMessage({ action: "login", apiKey: cfg.apiKey });
           });
         }, config);
 
         if (result.success) {
           console.error(`Configured via ${result.method}`);
 
-          // Verify by reading chrome.storage.local directly on the same page
-          // (no reload, no extra sleep). ``chrome.storage.local.set``'s
-          // success callback already guarantees the write was persisted; the
-          // readback is just to confirm the apiKey is what we wrote, and runs
-          // in the same options-page context that did the write, so there's
-          // no race with extension init code re-applying defaults.
+          // Verify the extension's persisted configuration after its login and
+          // Config.set APIs have both completed.
           const verifyConfig = await configPage.evaluate(() => {
             return new Promise((resolve) => {
               if (typeof chrome === "undefined" || !chrome.storage) {
@@ -398,19 +323,6 @@ async function configure2Captcha() {
           const actualApiKey = verifyConfig.apiKey || verifyConfig.api_key;
           if (!actualApiKey || actualApiKey !== config.apiKey) {
             console.error(`[!] Config verification FAILED - API key mismatch`);
-            console.error(
-              `[!]   Expected: ${config.apiKey.slice(
-                0,
-                8
-              )}...${config.apiKey.slice(-4)}`
-            );
-            console.error(
-              `[!]   Got: ${
-                actualApiKey
-                  ? actualApiKey.slice(0, 8) + "..." + actualApiKey.slice(-4)
-                  : "null"
-              }`
-            );
             return {
               success: false,
               error: "Config verification failed - API key not set correctly",

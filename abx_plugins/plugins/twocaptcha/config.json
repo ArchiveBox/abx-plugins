@@ -46,7 +46,7 @@
     },
     "TWOCAPTCHA_RETRY_COUNT": {
       "type": "integer",
-      "default": 3,
+      "default": 0,
       "minimum": 0,
       "maximum": 10,
       "x-aliases": [
