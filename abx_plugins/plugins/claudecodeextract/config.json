@@ -7,6 +7,9 @@
   "required_plugins": [
     "claudecode"
   ],
+  "x-deferred-required-plugins": [
+    "claudecode"
+  ],
   "required_binaries": [],
   "output_mimetypes": [
     "text/markdown"

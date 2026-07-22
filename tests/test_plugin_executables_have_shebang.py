@@ -33,9 +33,11 @@ def _requires_shebang(script_path: Path) -> bool:
 def _expected_deps_from(script_path: Path) -> str:
     config_path = script_path.parent / "config.json"
     config = json.loads(config_path.read_text(encoding="utf-8"))
+    deferred_plugins = set(config.get("x-deferred-required-plugins", []))
     config_specs = [
         f"../{plugin_name}/config.json:required_binaries"
         for plugin_name in config.get("required_plugins", [])
+        if plugin_name not in deferred_plugins
     ]
     config_specs.append("./config.json:required_binaries")
     return ",".join(config_specs)

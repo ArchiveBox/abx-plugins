@@ -290,7 +290,7 @@ def test_waits_for_navigation_timeout(chrome_test_url):
             screenshot_dir = snapshot_chrome_dir.parent / "screenshot"
             screenshot_dir.mkdir()
             env["SCREENSHOT_TIMEOUT"] = "2"
-            start_time = time.time()
+            start_time = time.monotonic()
             result = subprocess.run(
                 [
                     str(SCREENSHOT_HOOK),
@@ -303,7 +303,7 @@ def test_waits_for_navigation_timeout(chrome_test_url):
                 timeout=5,
                 env=env,
             )
-        elapsed = time.time() - start_time
+            elapsed = time.monotonic() - start_time
 
         # Should fail when navigation.json doesn't appear
         assert result.returncode != 0, "Should fail when navigation.json missing"
