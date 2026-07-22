@@ -95,10 +95,7 @@ class TestAccessibilityWithChrome:
                 # Try parsing from file first
                 if accessibility_output.exists():
                     with open(accessibility_output) as f:
-                        try:
-                            accessibility_data = json.load(f)
-                        except json.JSONDecodeError:
-                            pass
+                        accessibility_data = json.load(f)
 
                 # Verify hook ran successfully
                 assert result.returncode == 0, f"Hook failed: {result.stderr}"

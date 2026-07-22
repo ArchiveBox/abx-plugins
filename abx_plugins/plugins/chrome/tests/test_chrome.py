@@ -3394,12 +3394,8 @@ def test_zombie_prevention_hook_killed():
         )
 
         # Chrome should now be dead
-        try:
+        with pytest.raises(ProcessLookupError):
             os.kill(chrome_pid, 0)
-            raise AssertionError("Chrome should be killed after cleanup")
-        except OSError:
-            # Expected - Chrome is dead
-            pass
 
 
 def test_kill_zombie_chrome_respects_live_crawl_heartbeat():

@@ -325,7 +325,7 @@ def test_background_script_handles_sigterm(httpserver):
                                 result_json = record
                                 break
                         except json.JSONDecodeError:
-                            pass
+                            continue
 
                 assert result_json is not None, (
                     f"Should have ArchiveResult JSONL output. Stdout: {stdout}"
@@ -403,7 +403,7 @@ def test_background_script_reports_noresults_when_nothing_closed(httpserver):
                                 result_json = record
                                 break
                         except json.JSONDecodeError:
-                            pass
+                            continue
 
                 assert result_json is not None, (
                     f"Should have ArchiveResult JSONL output. Stdout: {stdout}"
@@ -521,7 +521,7 @@ def test_default_poll_cycle_closes_modal(httpserver):
                                 result_json = record
                                 break
                         except json.JSONDecodeError:
-                            pass
+                            continue
 
                 assert result_json is not None, "Should have JSONL output"
                 assert result_json["status"] == "succeeded", (

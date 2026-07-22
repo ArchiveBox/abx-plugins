@@ -111,10 +111,7 @@ class TestSSLWithChrome:
                 with open(ssl_output) as f:
                     content = f.read().strip()
                     if content.startswith("{"):
-                        try:
-                            ssl_data = json.loads(content)
-                        except json.JSONDecodeError:
-                            pass
+                        ssl_data = json.loads(content)
 
             # Try parsing from stdout if not in file
             if not ssl_data:

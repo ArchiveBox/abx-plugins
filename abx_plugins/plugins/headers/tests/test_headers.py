@@ -16,7 +16,10 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.testing import start_process_and_wait_for_file
+from abx_plugins.plugins.base.testing import (
+    parse_jsonl_output,
+    start_process_and_wait_for_file,
+)
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
@@ -65,10 +68,18 @@ def headers_test_urls(httpserver):
         status=302,
         headers={"Location": "/"},
     )
+    httpserver.expect_request(
+        "/user-agent",
+        headers={"User-Agent": "TestBot/1.0"},
+    ).respond_with_data(
+        "user agent accepted",
+        content_type="text/plain; charset=utf-8",
+    )
     return {
         "base": httpserver.url_for("/"),
         "not_found": httpserver.url_for("/404"),
         "redirect": httpserver.url_for("/redirect"),
+        "user_agent": httpserver.url_for("/user-agent"),
     }
 
 
@@ -165,14 +176,13 @@ def test_extracts_headers_from_example_com(require_chrome_runtime, headers_test_
         for line in stdout.strip().split("\n"):
             line = line.strip()
             if line.startswith("{"):
-                pass
                 try:
                     record = json.loads(line)
                     if record.get("type") == "ArchiveResult":
                         result_json = record
                         break
                 except json.JSONDecodeError:
-                    pass
+                    continue
 
         assert result_json, "Should have ArchiveResult JSONL output"
         assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
@@ -261,14 +271,13 @@ def test_headers_output_structure(require_chrome_runtime, headers_test_urls):
         for line in stdout.strip().split("\n"):
             line = line.strip()
             if line.startswith("{"):
-                pass
                 try:
                     record = json.loads(line)
                     if record.get("type") == "ArchiveResult":
                         result_json = record
                         break
                 except json.JSONDecodeError:
-                    pass
+                    continue
 
         assert result_json, "Should have ArchiveResult JSONL output"
         assert result_json["status"] == "succeeded", f"Should succeed: {result_json}"
@@ -359,15 +368,21 @@ def test_config_timeout_honored(require_chrome_runtime, headers_test_urls):
                 "testtimeout",
             )
 
-        # Should complete (success or fail, but not hang)
-        hook_code, _stdout, _stderr, nav_result, _headers_file = result
+        hook_code, stdout, stderr, nav_result, headers_file = result
         assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
-        assert hook_code in (0, 1), "Should complete without hanging"
+        assert hook_code == 0, f"Extraction failed with TIMEOUT=5: {stderr}"
+        result_json = parse_jsonl_output(stdout)
+        assert result_json is not None, stdout
+        assert result_json["status"] == "succeeded", result_json
+        assert headers_file.exists(), "headers.json not created with TIMEOUT=5"
+        output_data = json.loads(headers_file.read_text())
+        assert normalize_root_url(output_data["url"]) == normalize_root_url(test_url)
+        assert output_data["status"] == 200
 
 
 def test_config_user_agent(require_chrome_runtime, headers_test_urls):
     """Test that USER_AGENT config is used."""
-    test_url = headers_test_urls["base"]
+    test_url = headers_test_urls["user_agent"]
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -377,6 +392,7 @@ def test_config_user_agent(require_chrome_runtime, headers_test_urls):
             test_url=test_url,
             navigate=False,
             timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+            env_overrides={"USER_AGENT": "TestBot/1.0"},
         ) as (
             _process,
             _pid,
@@ -385,8 +401,6 @@ def test_config_user_agent(require_chrome_runtime, headers_test_urls):
         ):
             headers_dir = snapshot_chrome_dir.parent / "headers"
             headers_dir.mkdir(exist_ok=True)
-            env["USER_AGENT"] = "TestBot/1.0"
-
             result = run_headers_capture(
                 headers_dir,
                 snapshot_chrome_dir,
@@ -396,31 +410,20 @@ def test_config_user_agent(require_chrome_runtime, headers_test_urls):
             )
 
         # Should succeed on fixture page
-        hook_code, stdout, _stderr, nav_result, _headers_file = result
+        hook_code, stdout, stderr, nav_result, headers_file = result
         assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
-        if hook_code == 0:
-            # Parse clean JSONL output
-            result_json = None
-            for line in stdout.strip().split("\n"):
-                line = line.strip()
-                if line.startswith("{"):
-                    pass
-                    try:
-                        record = json.loads(line)
-                        if record.get("type") == "ArchiveResult":
-                            result_json = record
-                            break
-                    except json.JSONDecodeError:
-                        pass
-
-            assert result_json, "Should have ArchiveResult JSONL output"
-            assert result_json["status"] == "succeeded", (
-                f"Should succeed: {result_json}"
-            )
+        assert hook_code == 0, f"Extraction failed with USER_AGENT override: {stderr}"
+        result_json = parse_jsonl_output(stdout)
+        assert result_json is not None, stdout
+        assert result_json["status"] == "succeeded", result_json
+        assert headers_file.exists(), "headers.json not created"
+        output_data = json.loads(headers_file.read_text())
+        assert output_data["request_headers"]["User-Agent"] == "TestBot/1.0"
+        assert output_data["status"] == 200
 
 
 def test_handles_https_urls(require_chrome_runtime, chrome_test_https_url):
-    """Test HTTPS behavior deterministically (success or explicit cert failure)."""
+    """Test successful HTTPS extraction against the controlled TLS fixture."""
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -430,6 +433,7 @@ def test_handles_https_urls(require_chrome_runtime, chrome_test_https_url):
             test_url=chrome_test_https_url,
             navigate=False,
             timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+            env_overrides={"CHROME_CHECK_SSL_VALIDITY": "False"},
         ) as (
             _process,
             _pid,
@@ -446,25 +450,20 @@ def test_handles_https_urls(require_chrome_runtime, chrome_test_https_url):
                 "testhttps",
             )
 
-        hook_code, _stdout, _stderr, nav_result, headers_file = result
-        if nav_result.returncode == 0:
-            assert hook_code == 0, (
-                "Headers hook should succeed after successful HTTPS navigation"
-            )
-            assert headers_file.exists(), "headers.json not created for HTTPS page"
-            output_data = json.loads(headers_file.read_text())
-            assert normalize_root_url(output_data["url"]) == normalize_root_url(
-                chrome_test_https_url,
-            )
-            assert output_data["status"] == 200
-        else:
-            nav_output = (nav_result.stdout + nav_result.stderr).lower()
-            assert "err_cert" in nav_output or "certificate" in nav_output, (
-                f"Expected TLS/certificate navigation error, got: {nav_result.stderr}"
-            )
-            assert hook_code in (0, 1), (
-                "Hook must terminate cleanly when HTTPS navigation fails"
-            )
+        hook_code, stdout, stderr, nav_result, headers_file = result
+        assert nav_result.returncode == 0, (
+            f"HTTPS navigation failed: {nav_result.stderr}"
+        )
+        assert hook_code == 0, f"Headers hook failed for HTTPS fixture: {stderr}"
+        result_json = parse_jsonl_output(stdout)
+        assert result_json is not None, stdout
+        assert result_json["status"] == "succeeded", result_json
+        assert headers_file.exists(), "headers.json not created for HTTPS page"
+        output_data = json.loads(headers_file.read_text())
+        assert normalize_root_url(output_data["url"]) == normalize_root_url(
+            chrome_test_https_url,
+        )
+        assert output_data["status"] == 200
 
 
 def test_handles_404_gracefully(require_chrome_runtime, headers_test_urls):

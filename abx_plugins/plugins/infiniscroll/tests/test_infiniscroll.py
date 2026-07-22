@@ -249,7 +249,7 @@ def test_scrolls_page_and_outputs_stats(infiniscroll_test_url):
                             result_json = record
                             break
                     except json.JSONDecodeError:
-                        pass
+                        continue
 
             assert result_json is not None, (
                 f"Should have ArchiveResult JSONL output. Stdout: {result.stdout}"
@@ -322,7 +322,7 @@ def test_config_scroll_limit_honored(infiniscroll_test_url):
                             result_json = record
                             break
                     except json.JSONDecodeError:
-                        pass
+                        continue
 
             assert result_json is not None, "Should have JSONL output"
             output_str = result_json.get("output_str", "")

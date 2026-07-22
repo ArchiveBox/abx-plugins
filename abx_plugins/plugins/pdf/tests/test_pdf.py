@@ -164,7 +164,7 @@ def test_reports_missing_chrome():
 
 
 def test_runs_with_shared_chrome_session(chrome_test_url):
-    """Test that PDF hook completes when shared Chrome session is available."""
+    """Test that a shared Chrome session produces a valid PDF result."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
@@ -190,8 +190,15 @@ def test_runs_with_shared_chrome_session(chrome_test_url):
                 timeout=30,
             )
 
-        # Should complete (success or fail, but not hang)
-        assert result.returncode in (0, 1), "Should complete without hanging"
+        assert result.returncode == 0, result.stderr
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json is not None, result.stdout
+        assert result_json["status"] == "succeeded", result_json
+        pdf_file = pdf_dir / "output.pdf"
+        assert pdf_file.exists(), "output.pdf not created"
+        pdf_data = pdf_file.read_bytes()
+        assert pdf_data.startswith(b"%PDF"), "output.pdf is not a PDF"
+        assert len(pdf_data) > 500, "output.pdf is unexpectedly small"
 
 
 if __name__ == "__main__":
