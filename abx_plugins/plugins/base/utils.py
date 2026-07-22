@@ -732,12 +732,17 @@ def resolve_plugin_configs(
     user_config: Mapping[str, str] | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> dict[str, dict[str, Any]]:
+    """Resolve schemas from effective global state plus explicit user inputs.
+
+    ``global_config`` seeds already-resolved shared values. Only values supplied
+    through ``user_config`` or ``environ`` propagate through ``x-fallback``.
+    """
     resolved_sections: dict[str, dict[str, Any]] = {}
     resolved_values = {
         key: normalize_config_value(value)
         for key, value in (global_config or {}).items()
     }
-    explicit_config_keys = set(resolved_values)
+    explicit_config_keys: set[str] = set()
     resolved_payloads: dict[str, dict[str, Any]] = {}
 
     for _ in range(max(len(plugin_schemas), 1) + 1):
@@ -806,7 +811,7 @@ def _resolve_config_payload(
     payload = _resolve_schema_payload(
         properties,
         resolved_config=dict(global_config or {}),
-        explicit_config_keys=set(global_config or {}),
+        explicit_config_keys=set(),
         user_config=user_config,
         environ=environ,
     )

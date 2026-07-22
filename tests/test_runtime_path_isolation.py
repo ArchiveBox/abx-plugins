@@ -106,9 +106,15 @@ def test_plugin_config_fallbacks_only_propagate_explicit_values() -> None:
         },
     }
 
-    defaults = resolve_plugin_configs(schemas, user_config={}, environ={})
+    defaults = resolve_plugin_configs(
+        schemas,
+        global_config={"TIMEOUT": 60},
+        user_config={},
+        environ={},
+    )
     global_override = resolve_plugin_configs(
         schemas,
+        global_config={"TIMEOUT": 90},
         user_config={"TIMEOUT": "90"},
         environ={},
     )
