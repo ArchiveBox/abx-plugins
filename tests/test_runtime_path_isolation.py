@@ -178,6 +178,7 @@ def test_load_config_hydrates_chrome_node_binary_from_real_env_provider(
     personas_dir = tmp_path / "personas"
     environ = {
         **os.environ,
+        "ABXPKG_LIB_DIR": str(lib_dir),
         "NODE_BINARY": "node",
         "PATH": os.environ.get("PATH", ""),
     }
@@ -193,7 +194,8 @@ def test_load_config_hydrates_chrome_node_binary_from_real_env_provider(
     )
 
     resolved = Path(config.NODE_BINARY)
-    assert resolved.name == "node"
+    assert resolved == lib_dir / "env" / "bin" / "node"
+    assert resolved.is_symlink()
     assert resolved.exists()
 
     version = subprocess.run(

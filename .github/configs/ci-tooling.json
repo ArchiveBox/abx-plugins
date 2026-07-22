@@ -5,6 +5,21 @@
     },
     "PRETTIER_BINARY": {
       "default": "prettier"
+    },
+    "GH_BINARY": {
+      "default": "gh"
+    },
+    "GIT_BINARY": {
+      "default": "git"
+    },
+    "CURL_BINARY": {
+      "default": "curl"
+    },
+    "JQ_BINARY": {
+      "default": "jq"
+    },
+    "UV_BINARY": {
+      "default": "uv"
     }
   },
   "node_binaries": [
@@ -48,6 +63,28 @@
           "postinstall_scripts": true
         }
       }
+    }
+  ],
+  "release_binaries": [
+    {
+      "name": "{GH_BINARY}",
+      "binproviders": "env,brew,apt"
+    },
+    {
+      "name": "{GIT_BINARY}",
+      "binproviders": "env,brew,apt"
+    },
+    {
+      "name": "{CURL_BINARY}",
+      "binproviders": "env,brew,apt"
+    },
+    {
+      "name": "{JQ_BINARY}",
+      "binproviders": "env,brew,apt"
+    },
+    {
+      "name": "{UV_BINARY}",
+      "binproviders": "env,brew"
     }
   ]
 }

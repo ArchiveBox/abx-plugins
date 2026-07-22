@@ -539,6 +539,7 @@ def _launch_keepalive_local_provider_browser(
     provider_env = _isolated_test_env(
         tmpdir,
         CRAWL_DIR=str(provider_dir),
+        PERSONAS_DIR=str(provider_dir / "personas"),
         CHROME_HEADLESS="true",
         CHROME_KEEPALIVE="true",
     )

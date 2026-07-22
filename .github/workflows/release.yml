@@ -4,10 +4,15 @@ on:
   workflow_run:
     workflows: [Parallel Tests]
     types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       release_sha:
         description: Full commit SHA on main to release
+        required: true
+        type: string
+      test_run_id:
+        description: Successful Parallel Tests run for the exact release SHA
         required: true
         type: string
 
@@ -32,7 +37,7 @@ jobs:
     env:
       RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.release_sha }}
       RELEASE_BRANCH: main
-      TEST_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || '' }}
+      TEST_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.test_run_id }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -48,16 +53,21 @@ jobs:
           version: "0.11.3"
           enable-cache: true
 
+      - name: Project host release tools through abxpkg
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
+        run: uv run --no-project python bin/ci_project_tools.py release_binaries --lib "$ABXPKG_LIB_DIR"
+
       - name: Download tested package artifacts
         env:
           GH_TOKEN: ${{ secrets.RELEASE_GH_TOKEN || github.token }}
         run: |
           set -Eeuo pipefail
           run_id="$TEST_RUN_ID"
-          if [[ -z "$run_id" ]]; then
-            run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow test-parallel.yml --event push --commit "$RELEASE_SHA" --status success --limit 2 --json databaseId --jq 'if length == 1 then .[0].databaseId else error("expected exactly one successful test run") end')"
-          fi
-          gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "python-distributions-$RELEASE_SHA" --dir dist
+          "${GH_BINARY}" run view "$run_id" --repo "$GITHUB_REPOSITORY" \
+            --json workflowName,conclusion,headSha,event \
+            --jq 'if .workflowName == "Parallel Tests" and .conclusion == "success" and .headSha == env.RELEASE_SHA and (.event == "push" or .event == "workflow_dispatch") then true else error("test run does not prove the requested release SHA") end'
+          "${GH_BINARY}" run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "python-distributions-$RELEASE_SHA" --dir dist
           shopt -s nullglob
           wheels=(dist/abx_plugins-*.whl)
           sdists=(dist/abx_plugins-*.tar.gz)
@@ -65,7 +75,31 @@ jobs:
           [[ "${#wheels[@]}" -eq 1 ]]
           [[ "${#sdists[@]}" -eq 1 ]]
           [[ "${#manifests[@]}" -eq 1 ]]
-          (cd dist && sha256sum --check SHA256SUMS)
+          DIST_DIR=dist "${UV_BINARY}" run --no-project python - <<'PY'
+          import hashlib
+          import os
+          import re
+          from pathlib import Path
+
+          dist_dir = Path(os.environ["DIST_DIR"])
+          wheels = list(dist_dir.glob("abx_plugins-*.whl"))
+          sdists = list(dist_dir.glob("abx_plugins-*.tar.gz"))
+          if len(wheels) != 1 or len(sdists) != 1:
+              raise SystemExit("Expected exactly one wheel and one sdist")
+          expected_names = {wheels[0].name, sdists[0].name}
+          manifest = {}
+          for line in (dist_dir / "SHA256SUMS").read_text().splitlines():
+              digest, filename = line.split(maxsplit=1)
+              if not re.fullmatch(r"[0-9a-f]{64}", digest) or Path(filename).name != filename:
+                  raise SystemExit(f"Invalid checksum entry: {line}")
+              manifest[filename] = digest
+          if set(manifest) != expected_names:
+              raise SystemExit("Checksum manifest must name exactly the wheel and sdist")
+          for filename, digest in manifest.items():
+              actual = hashlib.sha256((dist_dir / filename).read_bytes()).hexdigest()
+              if actual != digest:
+                  raise SystemExit(f"Checksum mismatch for {filename}")
+          PY
 
       - name: Run release script
         env:
