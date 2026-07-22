@@ -1,0 +1,37 @@
+abx_plugins/plugins/singlefile/tests/test_singlefile.py
+  s_f8414d52051f83::t_79b3ee5c28254f 69,165,184-185,241-242,284,321-322,395-396
+  s_f8414d52051f83::t_0b35f53f94f72c 79
+abx_plugins/plugins/search_backend_sqlite/tests/test_sqlite_hook.py
+  s_f8414d52051f83::t_79b3ee5c28254f 116-123
+abx_plugins/plugins/opendataloader/on_Snapshot__60_opendataloader.py
+  s_f8414d52051f83::t_ebed87b077840f 153-158
+abx_plugins/plugins/istilldontcareaboutcookies/tests/test_istilldontcareaboutcookies.py
+  s_f8414d52051f83::t_1ec1d9bc85f1aa 668-670
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_f8414d52051f83::t_fad1e51e9814e8 4014-4016
+  s_f8414d52051f83::t_7c6a63cf114e8e 2341,4028-4032
+  s_f8414d52051f83::t_c0c5d39cdf1dba 4019-4026
+abx_plugins/plugins/ublock/tests/test_ublock.py
+  s_f8414d52051f83::t_1ec1d9bc85f1aa 656,689-691
+abx_plugins/plugins/opendataloader/tests/test_opendataloader.py
+  s_f8414d52051f83::t_ebed87b077840f 15-17,20-21,54,84-86,93-94,100-123,125-127,130,132,134-136,142-150,153-159,161-163,165-177,179-180,222-223,447,466-479
+  s_f8414d52051f83::t_ea65b2615e739f 30,39-50,95-99
+  s_f8414d52051f83::t_a164508ec29389 87-92,128-129,137,139-141
+  s_f8414d52051f83::t_c0c5d39cdf1dba 124,131,133,138,151-152,160,164,178
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2046dd55106b06f9d2ba00804e013f3fec9f7da7",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
