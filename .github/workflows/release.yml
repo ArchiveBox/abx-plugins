@@ -64,19 +64,20 @@ jobs:
         run: |
           set -Eeuo pipefail
           run_id="$TEST_RUN_ID"
+          artifact_dir="$RUNNER_TEMP/release-dist"
           "${GH_BINARY}" run view "$run_id" --repo "$GITHUB_REPOSITORY" \
             --json workflowName,conclusion,headSha,event \
             --jq 'if .workflowName == "Parallel Tests" and .conclusion == "success" and .headSha == env.RELEASE_SHA and (.event == "push" or .event == "workflow_dispatch") then true else error("test run does not prove the requested release SHA") end'
-          "${GH_BINARY}" run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "python-distributions-$RELEASE_SHA" --dir dist
+          "${GH_BINARY}" run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "python-distributions-$RELEASE_SHA" --dir "$artifact_dir"
           shopt -s nullglob
-          wheels=(dist/abx_plugins-*.whl)
-          sdists=(dist/abx_plugins-*.tar.gz)
-          manifests=(dist/SHA256SUMS)
+          wheels=("$artifact_dir"/abx_plugins-*.whl)
+          sdists=("$artifact_dir"/abx_plugins-*.tar.gz)
+          manifests=("$artifact_dir"/SHA256SUMS)
           [[ "${#wheels[@]}" -eq 1 ]]
           [[ "${#sdists[@]}" -eq 1 ]]
           [[ "${#manifests[@]}" -eq 1 ]]
           version="$("${UV_BINARY}" run --no-project python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
-          DIST_DIR=dist EXPECTED_VERSION="$version" "${UV_BINARY}" run --no-project python - <<'PY'
+          DIST_DIR="$artifact_dir" EXPECTED_VERSION="$version" "${UV_BINARY}" run --no-project python - <<'PY'
           import hashlib
           import os
           import re
@@ -113,4 +114,4 @@ jobs:
       - name: Run release script
         env:
           GH_TOKEN: ${{ secrets.RELEASE_GH_TOKEN || github.token }}
-        run: ./bin/release.sh dist
+        run: ./bin/release.sh "$RUNNER_TEMP/release-dist"
