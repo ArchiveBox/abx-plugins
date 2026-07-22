@@ -79,6 +79,54 @@ def test_load_config_preserves_resolved_runtime_dirs_over_schema_defaults(
     assert config.SNAP_DIR == str(snap_dir)
 
 
+def test_plugin_config_fallbacks_only_propagate_explicit_values() -> None:
+    schemas = {
+        "base": {
+            "properties": {
+                "TIMEOUT": {"type": "integer", "default": 60},
+            },
+        },
+        "claudecode": {
+            "properties": {
+                "CLAUDECODE_TIMEOUT": {
+                    "type": "integer",
+                    "default": 120,
+                    "x-fallback": "TIMEOUT",
+                },
+            },
+        },
+        "claudecodecleanup": {
+            "properties": {
+                "CLAUDECODECLEANUP_TIMEOUT": {
+                    "type": "integer",
+                    "default": 180,
+                    "x-fallback": "CLAUDECODE_TIMEOUT",
+                },
+            },
+        },
+    }
+
+    defaults = resolve_plugin_configs(schemas, user_config={}, environ={})
+    global_override = resolve_plugin_configs(
+        schemas,
+        user_config={"TIMEOUT": "90"},
+        environ={},
+    )
+    plugin_override = resolve_plugin_configs(
+        schemas,
+        user_config={"CLAUDECODE_TIMEOUT": "150"},
+        environ={},
+    )
+
+    assert defaults["base"]["TIMEOUT"] == 60
+    assert defaults["claudecode"]["CLAUDECODE_TIMEOUT"] == 120
+    assert defaults["claudecodecleanup"]["CLAUDECODECLEANUP_TIMEOUT"] == 180
+    assert global_override["claudecode"]["CLAUDECODE_TIMEOUT"] == 90
+    assert global_override["claudecodecleanup"]["CLAUDECODECLEANUP_TIMEOUT"] == 90
+    assert plugin_override["claudecode"]["CLAUDECODE_TIMEOUT"] == 150
+    assert plugin_override["claudecodecleanup"]["CLAUDECODECLEANUP_TIMEOUT"] == 150
+
+
 def test_chromewebstore_provider_derives_extensions_dir_from_lib_dir(
     tmp_path: Path,
 ) -> None:

@@ -307,7 +307,8 @@ def _resolve_schema_payload(
 ) -> dict[str, Any]:
     environ = os.environ if environ is None else environ
     resolved = dict(resolved_config or {})
-    explicit_config_keys = explicit_config_keys or set()
+    if explicit_config_keys is None:
+        explicit_config_keys = set()
     payload: dict[str, Any] = {}
 
     for _ in range(max(len(properties), 1) + 1):
@@ -324,6 +325,7 @@ def _resolve_schema_payload(
                 resolved_value = _coerce_raw_value(raw_value, prop, persisted=persisted)
                 if isinstance(resolved_value, str) and "{" in resolved_value:
                     resolved_value = _hydrate_value(resolved_value, resolved)
+                explicit_config_keys.add(key)
                 if payload.get(key) != resolved_value:
                     payload[key] = resolved_value
                     resolved[key] = resolved_value
@@ -347,13 +349,15 @@ def _resolve_schema_payload(
                     )
                     if isinstance(fallback_value, str) and "{" in fallback_value:
                         fallback_value = _hydrate_value(fallback_value, resolved)
+                    explicit_config_keys.add(key)
                     if payload.get(key) != fallback_value:
                         payload[key] = fallback_value
                         resolved[key] = fallback_value
                         changed = True
                     continue
-                if fallback_key in resolved:
+                if fallback_key in resolved and fallback_key in explicit_config_keys:
                     fallback_value = resolved[fallback_key]
+                    explicit_config_keys.add(key)
                     if payload.get(key) != fallback_value:
                         payload[key] = fallback_value
                         resolved[key] = fallback_value
@@ -936,7 +940,7 @@ def load_config(
 
     1. process environment
     2. explicit `user_config`
-    3. `x-fallback`
+    3. an explicitly configured `x-fallback`
     4. schema defaults
     """
     resolved_path, title, properties, payload = _resolve_config_payload(
