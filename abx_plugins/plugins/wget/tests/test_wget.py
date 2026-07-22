@@ -73,7 +73,6 @@ def test_resolves_wget_with_provider_managed_binary_path(local_example_url):
         env = os.environ.copy()
         env.update(
             {
-                "PATH": "/nonexistent",
                 "HOME": str(tmpdir),
                 "SNAP_DIR": str(tmpdir),
                 "WGET_BINARY": str(loaded.loaded_abspath),
