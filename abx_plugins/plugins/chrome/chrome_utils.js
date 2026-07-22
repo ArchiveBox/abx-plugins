@@ -3296,7 +3296,7 @@ async function getBrowserCdpUrl(chromeSessionDir = "../chrome", options = {}) {
  * @returns {Promise<{targetId: string}>}
  */
 async function openTabInChromeSession(options = {}) {
-  const { cdpUrl, puppeteer, timeoutMs = 10000, intervalMs = 250 } = options;
+  const { cdpUrl, puppeteer, timeoutMs = 10000 } = options;
   if (!cdpUrl) {
     throw new Error(CHROME_SESSION_REQUIRED_ERROR);
   }
@@ -3307,6 +3307,7 @@ async function openTabInChromeSession(options = {}) {
   const { retry } = require("abxbus");
 
   return retry({
+    max_attempts: 1,
     semaphore_limit: 1,
     semaphore_name: "chrome.openTabInChromeSession",
     semaphore_scope: "multiprocess",
@@ -3314,26 +3315,24 @@ async function openTabInChromeSession(options = {}) {
     semaphore_lax: false,
   })(async function openSharedChromeTab() {
     const deadline = Date.now() + Math.max(timeoutMs, 0);
-    let lastError = null;
-
-    while (Date.now() <= deadline) {
-      try {
-        return await withConnectedBrowser(
-          {
-            puppeteer: puppeteerModule,
-            cdpUrl,
-            connectOptions: { defaultViewport: null },
-          },
-          async (browser) => {
-            const remainingMs = Math.max(
-              1000,
-              Math.min(5000, deadline - Date.now())
-            );
-            const page = await withTimeout(
-              () => browser.newPage(),
-              remainingMs,
-              `Timed out creating new page after ${remainingMs}ms`
-            );
+    return await withConnectedBrowser(
+      {
+        puppeteer: puppeteerModule,
+        cdpUrl,
+        connectOptions: { defaultViewport: null },
+      },
+      async (browser) => {
+        const remainingMs = Math.max(
+          1000,
+          Math.min(5000, deadline - Date.now())
+        );
+        let page = null;
+        try {
+          page = await withTimeout(
+            () => browser.newPage(),
+            remainingMs,
+            `Timed out creating new page after ${remainingMs}ms`
+          );
             await withTimeout(
               () => page.title(),
               remainingMs,
@@ -3362,19 +3361,17 @@ async function openTabInChromeSession(options = {}) {
                 }
               }
             );
-            return { targetId };
+          return { targetId };
+        } catch (error) {
+          if (page) {
+            try {
+              await page.close();
+            } catch (closeError) {}
           }
-        );
-      } catch (error) {
-        lastError = error;
-        if (Date.now() >= deadline) {
-          break;
+          throw error;
         }
-        await sleep(intervalMs);
       }
-    }
-
-    throw lastError || new Error("Failed to open a new Chrome tab");
+    );
   })();
 }
 

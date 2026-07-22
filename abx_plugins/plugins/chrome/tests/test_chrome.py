@@ -1468,11 +1468,18 @@ def test_crawl_isolation_external_cdp_keepalive_false_closes_adopted_browser_on_
             env=adopt_env,
         )
         try:
-            wait_for_chrome_session_state(
-                adopted_chrome_dir,
-                env=adopt_env,
-                require_browser_ready=True,
-            )
+            try:
+                wait_for_chrome_session_state(
+                    adopted_chrome_dir,
+                    env=adopt_env,
+                    require_browser_ready=True,
+                )
+            except AssertionError as error:
+                adopt_process.send_signal(signal.SIGTERM)
+                stdout, stderr = adopt_process.communicate(timeout=20)
+                raise AssertionError(
+                    f"{error}\nAdopt hook stdout:\n{stdout}\nAdopt hook stderr:\n{stderr}",
+                ) from error
             assert adopt_process.poll() is None, "adopted crawl launch exited early"
 
             assert (
