@@ -68,7 +68,6 @@ async function main() {
 
   const readySession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
     timeoutMs,
-    intervalMs: 100,
     requireTargetId: true,
     requireConnectable: true,
     probeTimeoutMs: 1000,

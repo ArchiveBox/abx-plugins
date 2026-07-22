@@ -11,6 +11,7 @@ Tests verify:
 
 import json
 import os
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from abx_plugins.plugins.base.testing import (
     parse_jsonl_output,
     run_hook,
 )
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
@@ -30,53 +32,36 @@ if _EXTRACT_HOOK is None:
     raise FileNotFoundError(f"Extract hook not found in {PLUGIN_DIR}")
 EXTRACT_HOOK = _EXTRACT_HOOK
 TEST_URL = "https://example.com"
+DOM_PLUGIN_DIR = PLUGIN_DIR.parent / "dom"
+_DOM_HOOK = get_hook_script(DOM_PLUGIN_DIR, "on_Snapshot__*_dom.*")
+if _DOM_HOOK is None:
+    raise FileNotFoundError(f"DOM hook not found in {DOM_PLUGIN_DIR}")
+DOM_HOOK = _DOM_HOOK
 
 
-def create_fake_snapshot(snap_dir: Path) -> None:
-    """Create a realistic snapshot directory with multiple extractor outputs."""
-    # readability output
-    readability_dir = snap_dir / "readability"
-    readability_dir.mkdir(parents=True)
-    (readability_dir / "content.html").write_text("""
-<div>
-    <h1>Example Domain</h1>
-    <p>This domain is for use in illustrative examples in documents.</p>
-    <p>You may use this domain in literature without prior coordination.</p>
-</div>
-    """)
-    (readability_dir / "content.txt").write_text(
-        "Example Domain\n\n"
-        "This domain is for use in illustrative examples in documents.\n"
-        "You may use this domain in literature without prior coordination.\n",
-    )
-    (readability_dir / "article.json").write_text(
-        json.dumps(
-            {
-                "title": "Example Domain",
-                "byline": None,
-                "siteName": "example.com",
-            },
-        ),
-    )
-
-    # htmltotext output
-    htmltotext_dir = snap_dir / "htmltotext"
-    htmltotext_dir.mkdir()
-    (htmltotext_dir / "content.txt").write_text(
-        "Example Domain\n"
-        "This domain is for use in illustrative examples in documents.\n",
-    )
-
-    # dom output
-    dom_dir = snap_dir / "dom"
-    dom_dir.mkdir()
-    (dom_dir / "output.html").write_text("""
-<!DOCTYPE html>
-<html><head><title>Example Domain</title></head>
-<body><h1>Example Domain</h1>
-<p>This domain is for use in illustrative examples in documents.</p>
-</body></html>
-    """)
+def create_real_snapshot(root: Path, test_url: str, snapshot_id: str) -> Path:
+    """Create extractor output by running the shipped DOM hook against real Chrome."""
+    with chrome_session(
+        root,
+        snapshot_id=snapshot_id,
+        test_url=test_url,
+        navigate=True,
+        timeout=45,
+    ) as (_process, _pid, snapshot_chrome_dir, env):
+        snap_dir = snapshot_chrome_dir.parent
+        dom_dir = snap_dir / "dom"
+        dom_dir.mkdir()
+        result = subprocess.run(
+            [str(DOM_HOOK), f"--url={test_url}", f"--snapshot-id={snapshot_id}"],
+            cwd=dom_dir,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=env,
+        )
+        assert result.returncode == 0, result.stderr
+        assert (dom_dir / "output.html").stat().st_size > 200
+        return snap_dir
 
 
 class TestClaudeCodeExtractPlugin:
@@ -199,7 +184,7 @@ class TestClaudeCodeExtractPlugin:
             assert "auth" in result["output_str"]
 
 
-@pytest.mark.usefixtures("ensure_claude_code_prereqs")
+@pytest.mark.usefixtures("ensure_claude_code_prereqs", "ensure_chrome_test_prereqs")
 class TestClaudeCodeExtractIntegration:
     """Integration tests that run the full extract pipeline with real Claude Code.
 
@@ -207,12 +192,14 @@ class TestClaudeCodeExtractIntegration:
     CLAUDE_CODE_OAUTH_TOKEN set.
     """
 
-    def test_extract_generates_markdown_from_snapshot(self):
+    def test_extract_generates_markdown_from_snapshot(self, chrome_test_url):
         """Full extract hook should read snapshot outputs and generate markdown."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            snap_dir = Path(tmpdir) / "snap"
-            snap_dir.mkdir()
-            create_fake_snapshot(snap_dir)
+            snap_dir = create_real_snapshot(
+                Path(tmpdir),
+                chrome_test_url,
+                "test-extract-integration",
+            )
 
             output_dir = snap_dir / "claudecodeextract"
             output_dir.mkdir()
@@ -254,12 +241,14 @@ class TestClaudeCodeExtractIntegration:
                 f"content.md should contain content from the snapshot: {md_text[:300]}"
             )
 
-    def test_extract_with_custom_prompt(self):
+    def test_extract_with_custom_prompt(self, chrome_test_url):
         """Extract hook should respect custom CLAUDECODEEXTRACT_PROMPT."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            snap_dir = Path(tmpdir) / "snap"
-            snap_dir.mkdir()
-            create_fake_snapshot(snap_dir)
+            snap_dir = create_real_snapshot(
+                Path(tmpdir),
+                chrome_test_url,
+                "test-custom-prompt",
+            )
 
             output_dir = snap_dir / "claudecodeextract"
             output_dir.mkdir()
@@ -271,7 +260,7 @@ class TestClaudeCodeExtractIntegration:
             env["CLAUDECODEEXTRACT_MODEL"] = "haiku"
             env["CLAUDECODEEXTRACT_TIMEOUT"] = "90"
             env["CLAUDECODEEXTRACT_PROMPT"] = (
-                "Read the readability/article.json file and extract the title. "
+                "Read the dom/output.html file and extract the title. "
                 "Write a JSON file named extracted.json in your output directory "
                 'containing {"title": "<the title you found>"}.'
             )

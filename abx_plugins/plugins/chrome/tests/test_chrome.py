@@ -39,6 +39,7 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     LoggedPopen,
     _call_chrome_utils,
     close_target_and_wait_destroyed,
+    chrome_session,
     create_target_via_cdp,
     fetch_devtools_targets,
     get_extensions_dir,
@@ -2392,34 +2393,29 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
 def test_chrome_wait_rejects_stale_cdp_markers(chrome_test_url):
     """chrome_wait should not treat stale marker files as a live CDP session."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        snapshot_dir = Path(tmpdir) / "snapshot1"
-        snapshot_dir.mkdir()
-        snapshot_chrome_dir = snapshot_dir / "chrome"
-        snapshot_chrome_dir.mkdir()
-
-        snapshot_chrome_dir.joinpath("cdp_url.txt").write_text(
-            "ws://127.0.0.1:9/devtools/browser/stale-session",
-        )
-        snapshot_chrome_dir.joinpath("target_id.txt").write_text("stale-target-id")
-
-        wait_env = _isolated_test_env(
-            tmpdir,
-            SNAP_DIR=str(snapshot_dir),
-            CHROME_TAB_TIMEOUT="1",
-            CHROME_TIMEOUT="1",
-        )
-        result = subprocess.run(
-            [
-                str(CHROME_WAIT_HOOK),
-                f"--url={chrome_test_url}",
-                "--snapshot-id=snap-wait-stale",
-            ],
-            cwd=str(snapshot_chrome_dir),
-            capture_output=True,
-            text=True,
-            timeout=10,
-            env=wait_env,
-        )
+        with chrome_session(
+            Path(tmpdir),
+            snapshot_id="snap-wait-stale",
+            test_url=chrome_test_url,
+            navigate=True,
+            timeout=45,
+        ) as (_process, chrome_pid, snapshot_chrome_dir, wait_env):
+            assert kill_chrome(chrome_pid)
+            assert not is_pid_alive(chrome_pid)
+            wait_env["CHROME_TAB_TIMEOUT"] = "1"
+            wait_env["CHROME_TIMEOUT"] = "1"
+            result = subprocess.run(
+                [
+                    str(CHROME_WAIT_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=snap-wait-stale",
+                ],
+                cwd=str(snapshot_chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=10,
+                env=wait_env,
+            )
 
         assert result.returncode == 1, (
             f"chrome_wait should fail for stale CDP markers: {result.stderr}\nStdout: {result.stdout}"
@@ -2432,31 +2428,43 @@ def test_chrome_wait_rejects_stale_cdp_markers(chrome_test_url):
         )
 
 
-def test_crawl_wait_retries_until_published_cdp_endpoint_becomes_connectable(
+def test_crawl_wait_reacts_when_published_cdp_endpoint_changes(
     chrome_test_url,
 ):
-    """crawl wait should keep polling a published cdp_url until the browser is actually connectable."""
+    """crawl wait should revalidate the session when its published CDP URL changes."""
     with tempfile.TemporaryDirectory() as tmpdir:
         (
-            provider_dir,
+            _stale_provider_dir,
+            _stale_provider_chrome_dir,
+            stale_provider_env,
+            stale_provider_cdp_url,
+            stale_provider_pid,
+        ) = _launch_keepalive_local_provider_browser(
+            tmpdir,
+            crawl_dir_name="stale-provider-crawl-wait-file-change",
+        )
+        (
+            _provider_dir,
             provider_chrome_dir,
             provider_env,
             provider_cdp_url,
             provider_pid,
         ) = _launch_keepalive_local_provider_browser(
             tmpdir,
-            crawl_dir_name="provider-crawl-wait-retry",
+            crawl_dir_name="live-provider-crawl-wait-file-change",
         )
+        assert kill_chrome(stale_provider_pid)
+        assert not is_pid_alive(stale_provider_pid)
         wait_process = None
         try:
-            adopted_dir = Path(tmpdir) / "adopted-crawl-wait-retry"
+            adopted_dir = Path(tmpdir) / "adopted-crawl-wait-file-change"
             adopted_dir.mkdir()
             adopted_chrome_dir = adopted_dir / "chrome"
             adopted_chrome_dir.mkdir()
             adopted_chrome_dir.joinpath("cdp_url.txt").write_text(
-                "ws://127.0.0.1:9/devtools/browser/not-ready-yet",
+                stale_provider_cdp_url,
             )
-            write_browser_metadata(adopted_chrome_dir, env=provider_env)
+            write_browser_metadata(adopted_chrome_dir, env=stale_provider_env)
 
             adopted_env = _isolated_test_env(
                 tmpdir,
@@ -2470,7 +2478,7 @@ def test_crawl_wait_retries_until_published_cdp_endpoint_becomes_connectable(
                 [
                     str(CHROME_CRAWL_WAIT_HOOK),
                     f"--url={chrome_test_url}",
-                    "--snapshot-id=snap-crawl-wait-retry",
+                    "--snapshot-id=snap-crawl-wait-file-change",
                 ],
                 cwd=str(adopted_chrome_dir),
                 stdout=subprocess.PIPE,
@@ -2489,7 +2497,7 @@ def test_crawl_wait_retries_until_published_cdp_endpoint_becomes_connectable(
 
             stdout, stderr = wait_process.communicate(timeout=15)
             assert wait_process.returncode == 0, (
-                "crawl wait should retry until the published endpoint becomes connectable:\n"
+                "crawl wait should accept the newly published connectable endpoint:\n"
                 f"Stdout: {stdout}\nStderr: {stderr}"
             )
             assert "ready pid=external" in stdout.lower(), stdout
@@ -2504,25 +2512,23 @@ def test_crawl_wait_retries_until_published_cdp_endpoint_becomes_connectable(
 def test_cleanup_stale_chrome_session_artifacts_only_when_stale():
     """Stale chrome markers should be removed, but only when they are actually stale."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        session_dir = Path(tmpdir) / "chrome"
-        session_dir.mkdir()
-        session_dir.joinpath("cdp_url.txt").write_text(
-            "ws://127.0.0.1:9/devtools/browser/stale-session",
+        _provider_dir, session_dir, env, _cdp_url, pid = (
+            _launch_keepalive_local_provider_browser(
+                tmpdir,
+                crawl_dir_name="provider-stale-cleanup",
+            )
         )
-        session_dir.joinpath("target_id.txt").write_text("stale-target-id")
-        session_dir.joinpath("chrome.pid").write_text("999999")
+        assert kill_chrome(pid)
+        assert not is_pid_alive(pid)
         result = _cleanup_session_artifacts(
             session_dir,
-            _isolated_test_env(tmpdir),
-            require_target_id=True,
+            env,
         )
 
         assert result["hasArtifacts"] is True
         assert result["stale"] is True
         assert "cdp_url.txt" in result["cleanedFiles"]
-        assert "target_id.txt" in result["cleanedFiles"]
         assert not (session_dir / "cdp_url.txt").exists()
-        assert not (session_dir / "target_id.txt").exists()
 
 
 def test_cleanup_stale_chrome_session_artifacts_keeps_live_session():

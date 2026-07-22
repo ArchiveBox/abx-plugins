@@ -2,7 +2,6 @@
 Integration tests for gallerydl plugin
 
 Tests verify:
-    pass
 1. Hook script exists
 2. Dependencies installed via validation hooks
 3. Verify deps with abxpkg

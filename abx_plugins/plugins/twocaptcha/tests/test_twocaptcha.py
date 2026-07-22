@@ -11,11 +11,9 @@ import os
 import signal
 import subprocess
 import tempfile
-import time
 from pathlib import Path
 
 import pytest
-import requests
 
 from abx_plugins.plugins.base.testing import (
     install_required_binary_from_config,
@@ -42,8 +40,6 @@ EXTENSION_WEBSTORE_ID = "ifibfemgeogfhoebkmokieepdoobkbpo"
 
 TEST_URL = "https://www.google.com/recaptcha/api2/demo"
 CHROME_STARTUP_TIMEOUT_SECONDS = 120
-LIVE_SOLVE_TIMEOUT_SECONDS = 180
-LIVE_SOLVE_POLL_INTERVAL_SECONDS = 5
 LIVE_API_KEY = os.environ.get("TWOCAPTCHA_API_KEY") or os.environ.get(
     "API_KEY_2CAPTCHA",
 )
@@ -396,34 +392,7 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                         hook_process.communicate(timeout=20)
 
     def test_solves_recaptcha(self):
-        """Extension attempts to solve CAPTCHA on demo page.
-
-        CRITICAL: DO NOT SKIP OR DISABLE THIS TEST EVEN IF IT'S FLAKY!
-
-        This test is INTENTIONALLY left enabled to expose the REAL, ACTUAL flakiness
-        of the 2captcha service and demo page. The test failures you see here are NOT
-        test bugs - they are ACCURATE representations of the real-world reliability
-        of this CAPTCHA solving service.
-
-        If this test is flaky, that's because 2captcha IS FLAKY in production.
-        If this test fails intermittently, that's because 2captcha FAILS INTERMITTENTLY in production.
-
-        NEVER EVER hide real flakiness by disabling tests or adding @pytest.mark.skip.
-        Users NEED to see this failure rate to understand what they're getting into.
-
-        When this test DOES pass, it confirms:
-        - Extension loads and configures correctly
-        - 2captcha API key is accepted
-        - Extension can successfully auto-solve CAPTCHAs
-        - The entire flow works end-to-end
-
-        When it fails (as it often does):
-        - Demo page has JavaScript errors (representing real-world broken sites)
-        - Turnstile tokens expire before solving (representing real-world timing issues)
-        - 2captcha service may be slow/down (representing real-world service issues)
-
-        This is VALUABLE INFORMATION about the service. DO NOT HIDE IT.
-        """
+        """Solve the public reCAPTCHA demo through the real extension lifecycle."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
             env = setup_test_env(tmpdir)
@@ -461,55 +430,53 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                     f"Config hook failed: {config_result.stderr}"
                 )
 
-                # Service-level live solve check (no mocks): submit recaptcha to 2captcha API and poll for token.
-                # Keep extension install/config assertions above to validate plugin setup path as well.
-                site_key = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"  # Google's public testing sitekey
-                token = None
-                submit = requests.get(
-                    "https://2captcha.com/in.php",
-                    params={
-                        "key": self.api_key,
-                        "method": "userrecaptcha",
-                        "googlekey": site_key,
-                        "pageurl": TEST_URL,
-                        "json": 1,
-                    },
-                    timeout=30,
+                hook_dir = chrome_dir.parent / "twocaptcha"
+                hook_dir.mkdir(parents=True, exist_ok=True)
+                hook_process = subprocess.Popen(
+                    [
+                        str(SNAPSHOT_HOOK),
+                        f"--url={TEST_URL}",
+                        "--snapshot-id=solve",
+                    ],
+                    cwd=hook_dir,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    env=env,
+                    start_new_session=True,
                 )
-                submit.raise_for_status()
-                submit_data = submit.json()
-                assert submit_data.get("status") == 1, (
-                    f"2captcha submit failed: {submit_data}"
-                )
-                captcha_id = submit_data["request"]
-
-                deadline = time.time() + LIVE_SOLVE_TIMEOUT_SECONDS
-                while time.time() < deadline:
-                    time.sleep(LIVE_SOLVE_POLL_INTERVAL_SECONDS)
-                    poll = requests.get(
-                        "https://2captcha.com/res.php",
-                        params={
-                            "key": self.api_key,
-                            "action": "get",
-                            "id": captcha_id,
-                            "json": 1,
-                        },
-                        timeout=30,
+                try:
+                    assert read_captcha_progress(hook_process) == "0 captchas detected"
+                    navigate = subprocess.run(
+                        [
+                            str(NAVIGATE_HOOK),
+                            f"--url={TEST_URL}",
+                            "--snapshot-id=solve",
+                        ],
+                        cwd=chrome_dir,
+                        env=env,
+                        capture_output=True,
+                        text=True,
+                        timeout=60,
                     )
-                    poll.raise_for_status()
-                    poll_data = poll.json()
-                    if poll_data.get("status") == 1:
-                        token = poll_data.get("request")
-                        break
-                    assert poll_data.get("request") == "CAPCHA_NOT_READY", (
-                        f"2captcha poll failed: {poll_data}"
-                    )
+                    assert navigate.returncode == 0, navigate.stderr
+                    assert read_captcha_progress(hook_process) == "1 captcha detected"
+                    assert read_captcha_progress(hook_process) == "1 captcha solved"
 
-                assert token, "Timed out waiting for 2captcha solve token"
-                assert isinstance(token, str) and len(token) > 20, (
-                    f"Invalid solve token: {token}"
-                )
-                print(f"[+] SUCCESS! Received 2captcha token prefix: {token[:24]}...")
+                    os.killpg(hook_process.pid, signal.SIGTERM)
+                    stdout, stderr = hook_process.communicate(timeout=20)
+                    hook_process = None
+                    archive_result = next(
+                        record
+                        for record in parse_jsonl_records(stdout)
+                        if record.get("type") == "ArchiveResult"
+                    )
+                    assert archive_result["status"] == "succeeded", archive_result
+                    assert archive_result["output_str"] == "1 captcha solved"
+                finally:
+                    if hook_process is not None:
+                        os.killpg(hook_process.pid, signal.SIGTERM)
+                        hook_process.communicate(timeout=20)
             finally:
                 kill_chrome(process, chrome_dir)
 

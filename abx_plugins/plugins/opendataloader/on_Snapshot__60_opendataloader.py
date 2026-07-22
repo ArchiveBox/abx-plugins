@@ -269,70 +269,16 @@ def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
     execution_error: str | None = None
     runtime_env = _opendataloader_env(java_binary)
 
-    # Build base args (without hybrid flags) for fallback when hybrid fails
-    base_args = [a for a in extra_args if not a.startswith("--hybrid")]
-    # Also remove the value arg following --hybrid (e.g. "docling-fast")
-    if force_ocr:
-        _filtered: list[str] = []
-        skip_next = False
-        for a in extra_args:
-            if skip_next:
-                skip_next = False
-                continue
-            if a.startswith("--hybrid"):
-                # Skip --hybrid and --hybrid-url along with their values
-                if "=" not in a:
-                    skip_next = True
-                continue
-            _filtered.append(a)
-        base_args = _filtered
-
     for source_file in sources:
         print(f"processing {source_file.name}...")
         try:
-            try:
-                md_content, text_content = _extract_single_pdf(
-                    binary,
-                    source_file,
-                    timeout,
-                    extra_args,
-                    runtime_env,
-                )
-            except OpendataloaderRunError:
-                if not force_ocr or base_args == extra_args:
-                    raise
-                print(
-                    f"[opendataloader] Hybrid CLI failed for {source_file.name}, "
-                    "retrying without hybrid flags",
-                    file=sys.stderr,
-                )
-                md_content, text_content = _extract_single_pdf(
-                    binary,
-                    source_file,
-                    timeout,
-                    base_args,
-                    runtime_env,
-                )
-
-            # If hybrid extraction produced nothing, retry without hybrid flags
-            if (
-                force_ocr
-                and not md_content
-                and not text_content
-                and base_args != extra_args
-            ):
-                print(
-                    f"[opendataloader] Hybrid extraction produced no content for {source_file.name}, "
-                    "retrying without hybrid flags",
-                    file=sys.stderr,
-                )
-                md_content, text_content = _extract_single_pdf(
-                    binary,
-                    source_file,
-                    timeout,
-                    base_args,
-                    runtime_env,
-                )
+            md_content, text_content = _extract_single_pdf(
+                binary,
+                source_file,
+                timeout,
+                extra_args,
+                runtime_env,
+            )
 
             if not md_content and not text_content:
                 print(

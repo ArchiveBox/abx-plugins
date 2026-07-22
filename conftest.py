@@ -3,9 +3,8 @@ from __future__ import annotations
 import fcntl
 import logging
 import os
-import shlex
+import shutil
 import subprocess
-import sys
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -31,109 +30,143 @@ if existing_pythonpath:
 os.environ["PYTHONPATH"] = os.pathsep.join(pythonpath_entries)
 
 
-def _tee_subprocess_output_enabled() -> bool:
-    return os.environ.get("ABX_PYTEST_TEE_SUBPROCESS_OUTPUT", "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
+@pytest.fixture
+def real_staticfile_output(ensure_chrome_test_prereqs):
+    """Run the shipped staticfile lifecycle and preserve its real hook log."""
+    from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
+    from abx_plugins.plugins.staticfile.tests.test_staticfile import (
+        run_staticfile_capture,
+    )
+
+    def run(root: Path, url: str, snapshot_id: str) -> Path:
+        with chrome_session(
+            root,
+            crawl_id=f"crawl-{snapshot_id}",
+            snapshot_id=snapshot_id,
+            test_url=url,
+            navigate=False,
+            timeout=45,
+        ) as (_process, _pid, chrome_dir, env):
+            staticfile_dir = chrome_dir.parent / "staticfile"
+            staticfile_dir.mkdir()
+            result = run_staticfile_capture(
+                staticfile_dir,
+                chrome_dir,
+                env,
+                url,
+                snapshot_id,
+            )
+            hook_code, stdout, stderr, navigate, archive_result = result[:5]
+            assert hook_code == 0, stderr
+            assert navigate.returncode == 0, navigate.stderr
+            assert archive_result is not None, stdout
+            (staticfile_dir / "stdout.log").write_text(stdout, encoding="utf-8")
+            return chrome_dir.parent
+
+    return run
 
 
-def _format_subprocess_args(args: object) -> str:
-    if isinstance(args, (list, tuple)):
-        return shlex.join(str(arg) for arg in args)
-    return str(args)
+@pytest.fixture(scope="session")
+def real_html_snapshot(ensure_chrome_test_prereqs):
+    """Capture title and DOM through their shipped hooks against a live page."""
+    from abx_plugins.plugins.base.testing import get_hook_script, parse_jsonl_output
+    from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
+
+    def run(root: Path, url: str, snapshot_id: str) -> Path:
+        with chrome_session(
+            root,
+            crawl_id=f"crawl-{snapshot_id}",
+            snapshot_id=snapshot_id,
+            test_url=url,
+            navigate=True,
+            timeout=45,
+        ) as (_process, _pid, chrome_dir, env):
+            snapshot_dir = chrome_dir.parent
+            for plugin_name, pattern in (
+                ("title", "on_Snapshot__*_title.*"),
+                ("dom", "on_Snapshot__*_dom.*"),
+            ):
+                plugin_dir = PLUGINS_ROOT / plugin_name
+                hook = get_hook_script(plugin_dir, pattern)
+                assert hook is not None
+                output_dir = snapshot_dir / plugin_name
+                output_dir.mkdir()
+                result = subprocess.run(
+                    [str(hook), f"--url={url}", f"--snapshot-id={snapshot_id}"],
+                    cwd=output_dir,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                assert result.returncode == 0, result.stderr
+                record = parse_jsonl_output(result.stdout)
+                assert record is not None and record["status"] == "succeeded", (
+                    result.stdout,
+                    result.stderr,
+                )
+                (output_dir / "stdout.log").write_text(result.stdout, encoding="utf-8")
+            return snapshot_dir
+
+    return run
 
 
-def _normalize_subprocess_stream(stream: object) -> str:
-    if stream is None:
-        return ""
-    if isinstance(stream, bytes):
-        return stream.decode("utf-8", errors="replace")
-    return str(stream)
+@pytest.fixture
+def real_competing_html_snapshot(real_html_snapshot):
+    """Produce real SingleFile and DOM outputs from distinct live pages."""
+    from abx_plugins.plugins.base.testing import parse_jsonl_output
+    from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
+    from abx_plugins.plugins.singlefile.tests.test_singlefile import (
+        SNAPSHOT_HOOK,
+        ensure_singlefile_extension_installed,
+    )
 
+    def run(root: Path, snapshot_id: str) -> Path:
+        singlefile_root = root / "singlefile-capture"
+        install_state = ensure_singlefile_extension_installed(root)
+        with chrome_session(
+            tmpdir=singlefile_root,
+            crawl_id=f"singlefile-{snapshot_id}",
+            snapshot_id=snapshot_id,
+            test_url="https://archivebox.io",
+            navigate=False,
+            timeout=30,
+            env_overrides={
+                "ABXPKG_LIB_DIR": str(install_state["abxpkg_lib_dir"]),
+            },
+        ) as (_process, _pid, chrome_dir, env):
+            snapshot_dir = chrome_dir.parent
+            output_dir = snapshot_dir / "singlefile"
+            output_dir.mkdir()
+            env["SINGLEFILE_ENABLED"] = "true"
+            result = subprocess.run(
+                [str(SNAPSHOT_HOOK), "--url=https://archivebox.io"],
+                cwd=output_dir,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            record = parse_jsonl_output(result.stdout)
+            assert result.returncode == 0, result.stderr
+            assert record is not None and record["status"] == "succeeded", record
 
-def _format_subprocess_output(args: object, stdout: object, stderr: object) -> str:
-    cmd_display = _format_subprocess_args(args)
-    stdout_text = _normalize_subprocess_stream(stdout)
-    stderr_text = _normalize_subprocess_stream(stderr)
-    chunks: list[str] = []
-
-    if stdout_text:
-        chunk = f"\n[subprocess stdout] {cmd_display}\n{stdout_text}"
-        if not stdout_text.endswith("\n"):
-            chunk += "\n"
-        chunks.append(chunk)
-
-    if stderr_text:
-        chunk = f"\n[subprocess stderr] {cmd_display}\n{stderr_text}"
-        if not stderr_text.endswith("\n"):
-            chunk += "\n"
-        chunks.append(chunk)
-
-    return "".join(chunks)
-
-
-@pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]):
-    outcome = yield
-    report = outcome.get_result()
-    setattr(item, f"rep_{report.when}", report)
-
-
-@pytest.fixture(autouse=True)
-def tee_captured_subprocess_output_on_failure(
-    request: pytest.FixtureRequest,
-) -> Iterator[None]:
-    # Pytest only auto-shows output it captured itself. Many tests in this repo
-    # call subprocess.run(..., capture_output=True), which hides child-process
-    # stdout/stderr from pytest entirely unless the test manually includes it in
-    # an assertion message. In CI, buffer that captured subprocess output and
-    # dump it only when the owning test fails.
-    if not _tee_subprocess_output_enabled():
-        yield
-        return
-
-    monkeypatch = pytest.MonkeyPatch()
-    real_run = subprocess.run
-    subprocess_output_log: list[str] = []
-
-    def wrapped_run(*args, **kwargs):
-        result = real_run(*args, **kwargs)
-        cmd_args = kwargs.get("args")
-        if cmd_args is None and args:
-            cmd_args = args[0]
-        formatted = _format_subprocess_output(cmd_args, result.stdout, result.stderr)
-        if formatted:
-            subprocess_output_log.append(formatted)
-        return result
-
-    monkeypatch.setattr(subprocess, "run", wrapped_run)
-    try:
-        yield
-    finally:
-        monkeypatch.undo()
-        rep_setup = getattr(request.node, "rep_setup", None)
-        rep_call = getattr(request.node, "rep_call", None)
-        rep_teardown = getattr(request.node, "rep_teardown", None)
-        # Match pytest's default ergonomics: keep passing tests quiet, but emit
-        # the buffered child-process output for failures in setup/call/teardown.
-        failed = any(
-            report is not None and report.failed
-            for report in (rep_setup, rep_call, rep_teardown)
+        dom_snapshot = real_html_snapshot(
+            root / "dom-capture",
+            "https://example.com",
+            f"dom-{snapshot_id}",
         )
-        if failed and subprocess_output_log:
-            sys.stdout.write("".join(subprocess_output_log))
-            sys.stdout.flush()
+        shutil.move(dom_snapshot / "dom", snapshot_dir / "dom")
+        return snapshot_dir
+
+    return run
 
 
 @pytest.fixture(autouse=True)
 def isolated_test_env(
     tmp_path_factory: pytest.TempPathFactory,
-    monkeypatch: pytest.MonkeyPatch,
-) -> dict[str, Path]:
-    """Apply per-test env overrides and let monkeypatch restore global state after each test."""
+) -> Iterator[dict[str, Path]]:
+    """Apply and restore per-test environment overrides."""
     # Keep runtime HOME/cache state outside any test-owned snapshot tmp_path so
     # hook subprocesses cannot pollute SNAP_DIR with uv/pnpm/browser artifacts.
     test_root = tmp_path_factory.mktemp("abx_plugins_env")
@@ -160,17 +193,18 @@ def isolated_test_env(
         ),
     )
     resolved_uv_cache.mkdir(parents=True, exist_ok=True)
+    resolved_personas = Path(os.environ.get("PERSONAS_DIR", str(personas_dir)))
 
-    monkeypatch.setenv("HOME", str(home_dir))
-    # Isolated plugin tests use one run directory for crawl and snapshot state.
-    monkeypatch.setenv("CRAWL_DIR", str(run_dir))
-    monkeypatch.setenv("SNAP_DIR", str(run_dir))
-    monkeypatch.setenv("UV_CACHE_DIR", str(resolved_uv_cache))
-
-    if "ABXPKG_LIB_DIR" not in os.environ:
-        monkeypatch.setenv("ABXPKG_LIB_DIR", str(resolved_lib))
-    if "PERSONAS_DIR" not in os.environ:
-        monkeypatch.setenv("PERSONAS_DIR", str(personas_dir))
+    overrides = {
+        "HOME": str(home_dir),
+        "CRAWL_DIR": str(run_dir),
+        "SNAP_DIR": str(run_dir),
+        "UV_CACHE_DIR": str(resolved_uv_cache),
+        "ABXPKG_LIB_DIR": str(resolved_lib),
+        "PERSONAS_DIR": str(resolved_personas),
+    }
+    original = {key: os.environ.get(key) for key in overrides}
+    os.environ.update(overrides)
     if "TWOCAPTCHA_API_KEY" not in os.environ and "API_KEY_2CAPTCHA" not in os.environ:
         print("WARNING: TWOCAPTCHA_API_KEY not found in env, 2captcha tests will fail")
 
@@ -183,14 +217,21 @@ def isolated_test_env(
         },
     )
 
-    return {
-        "root": test_root,
-        "home": home_dir,
-        "crawl": run_dir,
-        "snap": run_dir,
-        "lib": Path(os.environ["ABXPKG_LIB_DIR"]),
-        "personas": Path(os.environ["PERSONAS_DIR"]),
-    }
+    try:
+        yield {
+            "root": test_root,
+            "home": home_dir,
+            "crawl": run_dir,
+            "snap": run_dir,
+            "lib": Path(os.environ["ABXPKG_LIB_DIR"]),
+            "personas": Path(os.environ["PERSONAS_DIR"]),
+        }
+    finally:
+        for key, value in original.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
 @pytest.fixture
@@ -333,13 +374,21 @@ def installed_claude_code_prereqs(tmp_path_factory):
 
 
 @pytest.fixture
-def ensure_claude_code_prereqs(installed_claude_code_prereqs, monkeypatch):
+def ensure_claude_code_prereqs(
+    installed_claude_code_prereqs,
+) -> Iterator[str]:
     """Project Claude's execution environment only into each dependent test."""
     claude_bin, exec_env = installed_claude_code_prereqs
-    for key, value in exec_env.items():
-        monkeypatch.setenv(key, value)
-
-    return claude_bin
+    original = {key: os.environ.get(key) for key in exec_env}
+    os.environ.update(exec_env)
+    try:
+        yield claude_bin
+    finally:
+        for key, value in original.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
 @pytest.fixture(scope="session")

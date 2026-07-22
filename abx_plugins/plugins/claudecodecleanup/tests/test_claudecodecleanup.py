@@ -33,110 +33,73 @@ CLEANUP_HOOK = _CLEANUP_HOOK
 TEST_URL = "https://example.com"
 
 
-def create_snapshot_with_duplicates(snap_dir: Path) -> dict:
-    """Create a snapshot directory with intentionally redundant/duplicate outputs.
+def create_snapshot_with_real_outputs(
+    root: Path,
+    snapshot_id: str,
+    real_html_snapshot,
+) -> Path:
+    """Run real extractors, one real failed extractor, and hashes."""
+    snap_dir = real_html_snapshot(root, TEST_URL, snapshot_id)
+    env = os.environ.copy()
+    env["SNAP_DIR"] = str(snap_dir)
 
-    Returns a dict describing what was created for verification.
-    """
-    created = {"dirs": [], "files": []}
+    for plugin_name in ("readability", "htmltotext", "mercury"):
+        plugin_dir = PLUGIN_DIR.parent / plugin_name
+        hook = get_hook_script(plugin_dir, f"on_Snapshot__*_{plugin_name}.*")
+        assert hook is not None
+        output_dir = snap_dir / plugin_name
+        output_dir.mkdir()
+        returncode, stdout, stderr = run_hook(
+            hook,
+            TEST_URL,
+            snapshot_id,
+            cwd=output_dir,
+            env=env,
+            timeout=120,
+        )
+        record = parse_jsonl_output(stdout)
+        assert returncode == 0, stderr
+        assert record is not None and record["status"] == "succeeded", record
+        (output_dir / "stdout.log").write_text(stdout)
 
-    # readability - good quality article extraction
-    readability_dir = snap_dir / "readability"
-    readability_dir.mkdir(parents=True)
-    (readability_dir / "content.html").write_text("""
-<div id="readability-page-1">
-    <h1>Example Domain</h1>
-    <p>This domain is for use in illustrative examples in documents.
-    You may use this domain in literature without prior coordination
-    or asking for permission.</p>
-    <p>More information about example domains can be found at the
-    IANA website.</p>
-</div>
-    """)
-    (readability_dir / "content.txt").write_text(
-        "Example Domain\n\n"
-        "This domain is for use in illustrative examples in documents. "
-        "You may use this domain in literature without prior coordination "
-        "or asking for permission.\n\n"
-        "More information about example domains can be found at the IANA website.\n",
+    failed_dir = snap_dir / "screenshot"
+    failed_dir.mkdir()
+    screenshot_hook = get_hook_script(
+        PLUGIN_DIR.parent / "screenshot",
+        "on_Snapshot__*_screenshot.*",
     )
-    (readability_dir / "article.json").write_text(
-        json.dumps(
-            {
-                "title": "Example Domain",
-                "byline": None,
-                "siteName": "example.com",
-            },
-            indent=2,
-        ),
+    assert screenshot_hook is not None
+    returncode, stdout, stderr = run_hook(
+        screenshot_hook,
+        TEST_URL,
+        snapshot_id,
+        cwd=failed_dir,
+        env=env,
+        timeout=30,
     )
-    created["dirs"].append("readability")
+    assert returncode != 0, (stdout, stderr)
+    (failed_dir / "stdout.log").write_text(stdout)
+    (failed_dir / "stderr.log").write_text(stderr)
 
-    # htmltotext - lower quality text extraction (subset of readability)
-    htmltotext_dir = snap_dir / "htmltotext"
-    htmltotext_dir.mkdir()
-    (htmltotext_dir / "content.txt").write_text(
-        "Example Domain\nThis domain is for use in illustrative examples.\n",
-    )
-    created["dirs"].append("htmltotext")
-
-    # mercury - another article extraction (redundant with readability)
-    mercury_dir = snap_dir / "mercury"
-    mercury_dir.mkdir()
-    (mercury_dir / "content.html").write_text(
-        "<div><h1>Example Domain</h1>"
-        "<p>This domain is for use in illustrative examples.</p></div>",
-    )
-    (mercury_dir / "content.txt").write_text(
-        "Example Domain\nThis domain is for use in illustrative examples.\n",
-    )
-    (mercury_dir / "article.json").write_text(
-        json.dumps(
-            {
-                "title": "Example Domain",
-                "content": "<p>This domain is for use in illustrative examples.</p>",
-            },
-            indent=2,
-        ),
-    )
-    created["dirs"].append("mercury")
-
-    # dom - raw DOM dump (large, mostly noise)
-    dom_dir = snap_dir / "dom"
-    dom_dir.mkdir()
-    (dom_dir / "output.html").write_text("""
-<!DOCTYPE html>
-<html><head>
-<meta charset="utf-8"><title>Example Domain</title>
-<style>body{background:#f0f0f2;margin:0}</style>
-</head><body>
-<div><h1>Example Domain</h1>
-<p>This domain is for use in illustrative examples in documents.</p>
-</div></body></html>
-    """)
-    created["dirs"].append("dom")
-
-    # An empty/broken extractor output
-    broken_dir = snap_dir / "broken_extractor"
-    broken_dir.mkdir()
-    (broken_dir / ".tmp.partial").write_text("")  # incomplete temp file
-    created["dirs"].append("broken_extractor")
-
-    # hashes - should NOT be deleted
     hashes_dir = snap_dir / "hashes"
     hashes_dir.mkdir()
-    (hashes_dir / "hashes.json").write_text(
-        json.dumps(
-            {
-                "root_hash": "abc123",
-                "files": [],
-                "metadata": {"file_count": 0},
-            },
-        ),
+    hashes_hook = get_hook_script(
+        PLUGIN_DIR.parent / "hashes",
+        "on_Snapshot__*_hashes.*",
     )
-    created["dirs"].append("hashes")
-
-    return created
+    assert hashes_hook is not None
+    returncode, stdout, stderr = run_hook(
+        hashes_hook,
+        TEST_URL,
+        snapshot_id,
+        cwd=hashes_dir,
+        env=env,
+        timeout=30,
+    )
+    record = parse_jsonl_output(stdout)
+    assert returncode == 0, stderr
+    assert record is not None and record["status"] == "succeeded", record
+    return snap_dir
 
 
 class TestClaudeCodeCleanupPlugin:
@@ -292,12 +255,14 @@ class TestClaudeCodeCleanupIntegration:
     CLAUDE_CODE_OAUTH_TOKEN set.
     """
 
-    def test_cleanup_produces_report(self):
+    def test_cleanup_produces_report(self, real_html_snapshot):
         """Cleanup hook should analyze snapshot and produce a cleanup report."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            snap_dir = Path(tmpdir) / "snap"
-            snap_dir.mkdir()
-            create_snapshot_with_duplicates(snap_dir)
+            snap_dir = create_snapshot_with_real_outputs(
+                Path(tmpdir),
+                "test-cleanup-integration",
+                real_html_snapshot,
+            )
 
             output_dir = snap_dir / "claudecodecleanup"
             output_dir.mkdir()
@@ -340,12 +305,14 @@ class TestClaudeCodeCleanupIntegration:
                 "hashes.json should be preserved"
             )
 
-    def test_cleanup_preserves_hashes(self):
+    def test_cleanup_preserves_hashes(self, real_html_snapshot):
         """Cleanup should delete redundant outputs but never delete hashes/."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            snap_dir = Path(tmpdir) / "snap"
-            snap_dir.mkdir()
-            create_snapshot_with_duplicates(snap_dir)
+            snap_dir = create_snapshot_with_real_outputs(
+                Path(tmpdir),
+                "test-preserve-hashes",
+                real_html_snapshot,
+            )
 
             output_dir = snap_dir / "claudecodecleanup"
             output_dir.mkdir()
@@ -358,7 +325,7 @@ class TestClaudeCodeCleanupIntegration:
             env["CLAUDECODECLEANUP_MAX_TURNS"] = "25"
             env["CLAUDECODECLEANUP_TIMEOUT"] = "90"
             env["CLAUDECODECLEANUP_PROMPT"] = (
-                "Delete the broken_extractor/ directory (it contains only incomplete temp files). "
+                "Delete the screenshot/ directory because its real extractor run failed. "
                 "Do NOT delete hashes/ or any other directories. "
                 "Write a summary of what you deleted to "
                 f"{output_dir}/cleanup_report.txt"
@@ -377,9 +344,8 @@ class TestClaudeCodeCleanupIntegration:
             assert result is not None, f"No ArchiveResult. stderr: {stderr[:500]}"
             assert result["status"] == "succeeded", f"Should succeed: {stderr[:500]}"
 
-            # Verify broken_extractor/ was actually deleted
-            assert not (snap_dir / "broken_extractor").exists(), (
-                "broken_extractor/ should have been deleted by cleanup"
+            assert not (snap_dir / "screenshot").exists(), (
+                "failed screenshot output should have been deleted by cleanup"
             )
 
             # Verify hashes preserved (must survive even when deletion is enabled)

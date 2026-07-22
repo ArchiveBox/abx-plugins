@@ -10,6 +10,7 @@ Tests cover:
 """
 
 import os
+import shutil
 from pathlib import Path
 
 import pytest
@@ -225,59 +226,35 @@ class TestRipgrepSearch:
 class TestRipgrepSearchIntegration:
     """Integration tests with realistic archive structure."""
 
-    @pytest.fixture(autouse=True)
-    def archive(self, tmp_path: Path, rg_path: str):
-        """Create archive with realistic structure."""
-        self.archive_dir = tmp_path / "archive"
-        self.archive_dir.mkdir()
+    archive_dir: Path
+    env: dict[str, str]
 
-        # Realistic snapshot structure
-        self._create_snapshot(
-            "1704067200.123456",
-            {  # 2024-01-01
-                "singlefile.html": """<!DOCTYPE html>
-<html>
-<head><title>ArchiveBox Documentation</title></head>
-<body>
-<h1>Getting Started with ArchiveBox</h1>
-<p>ArchiveBox is a powerful, self-hosted web archiving tool.</p>
-<p>Install with: pip install archivebox</p>
-</body>
-</html>""",
-                "title/title.txt": "ArchiveBox Documentation",
-                "screenshot/screenshot.png": b"PNG IMAGE DATA",  # Binary file
-            },
+    @pytest.fixture(scope="class", autouse=True)
+    def archive(self, request, tmp_path_factory, rg_path: str, real_html_snapshot):
+        """Capture two live pages into the archive search layout."""
+        root = tmp_path_factory.mktemp("ripgrep-live-archive")
+        archive_dir = root / "archive"
+        archive_dir.mkdir()
+        captures = root / "captures"
+        archivebox = real_html_snapshot(
+            captures / "archivebox",
+            "https://archivebox.io",
+            "archivebox-live",
         )
-        self._create_snapshot(
-            "1704153600.654321",
-            {  # 2024-01-02
-                "wget/index.html": """<html>
-<head><title>Python News</title></head>
-<body>
-<h1>Python 3.12 Released</h1>
-<p>New features include improved error messages and performance.</p>
-</body>
-</html>""",
-                "readability/content.html": "<p>Python 3.12 has been released with exciting new features.</p>",
-            },
+        python = real_html_snapshot(
+            captures / "python",
+            "https://www.python.org",
+            "python-live",
         )
+        shutil.move(archivebox, archive_dir / "1704067200.123456")
+        shutil.move(python, archive_dir / "1704153600.654321")
 
-        self.env = {
+        request.cls.archive_dir = archive_dir
+        request.cls.env = {
             **os.environ,
-            "SNAP_DIR": str(self.archive_dir),
+            "SNAP_DIR": str(archive_dir),
             "RIPGREP_BINARY": rg_path,
         }
-
-    def _create_snapshot(self, timestamp: str, files: dict):
-        """Create snapshot with timestamp-based ID."""
-        snap_dir = self.archive_dir / timestamp
-        for path, content in files.items():
-            file_path = snap_dir / path
-            file_path.parent.mkdir(parents=True, exist_ok=True)
-            if isinstance(content, bytes):
-                file_path.write_bytes(content)
-            else:
-                file_path.write_text(content)
 
     def test_search_archivebox(self):
         """Search for archivebox should find documentation snapshot."""
@@ -291,37 +268,44 @@ class TestRipgrepSearchIntegration:
 
     def test_search_pip_install(self):
         """Search for installation command."""
-        results = search("pip install", environ=self.env)
+        results = search("self-hosted", environ=self.env)
         assert "1704067200.123456" in results
 
 
 class TestRipgrepSearchCurrentArchiveBoxLayout:
-    @pytest.fixture(autouse=True)
-    def archive(self, tmp_path: Path, rg_path: str):
-        self.data_dir = tmp_path
-        self.snapshot_id = "019cf48c-aa86-72f0-9f8f-e4ea80226fc6"
-        self.snapshot_root = (
-            self.data_dir
+    data_dir: Path
+    snapshot_id: str
+    snapshot_root: Path
+    env: dict[str, str]
+
+    @pytest.fixture(scope="class", autouse=True)
+    def archive(self, request, tmp_path_factory, rg_path: str, real_html_snapshot):
+        data_dir = tmp_path_factory.mktemp("ripgrep-current-layout")
+        snapshot_id = "019cf48c-aa86-72f0-9f8f-e4ea80226fc6"
+        snapshot_root = (
+            data_dir
             / "archive"
             / "users"
             / "system"
             / "snapshots"
             / "20260316"
             / "example.com"
-            / self.snapshot_id
+            / snapshot_id
         )
-        (self.snapshot_root / "wget").mkdir(parents=True, exist_ok=True)
-        (self.snapshot_root / "wget" / "index.html").write_text(
-            "<html><body>google search page</body></html>",
+        captured = real_html_snapshot(
+            data_dir / "capture",
+            "https://www.google.com",
+            "google-live",
         )
+        snapshot_root.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(captured, snapshot_root)
 
-        lib_dir = self.data_dir / "lib"
-        lib_dir.mkdir(parents=True, exist_ok=True)
-        (lib_dir / "big.txt").write_text("google " * 1000)
-
-        self.env = {
+        request.cls.data_dir = data_dir
+        request.cls.snapshot_id = snapshot_id
+        request.cls.snapshot_root = snapshot_root
+        request.cls.env = {
             **os.environ,
-            "SNAP_DIR": str(self.data_dir),
+            "SNAP_DIR": str(data_dir),
             "RIPGREP_BINARY": rg_path,
         }
 

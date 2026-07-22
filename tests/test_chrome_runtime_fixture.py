@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import os
 import subprocess
-import sys
 from pathlib import Path
+
+from abx_plugins.plugins.base.testing import install_binary_with_abxpkg
 
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_test_env,
@@ -59,9 +60,11 @@ def test_require_chrome_runtime_resolves_in_subprocess(
     env = os.environ.copy()
     env["ABXPKG_LIB_DIR"] = str(tmp_path / "lib")
     env["ABXPKG_ENV_ROOT"] = str(tmp_path / "env")
+    python = install_binary_with_abxpkg("python3", binproviders="env,apt,brew")
+    assert python.loaded_abspath is not None
     result = subprocess.run(
         [
-            sys.executable,
+            str(python.loaded_abspath),
             "-c",
             (
                 "from abx_plugins.plugins.chrome.tests.chrome_test_helpers "

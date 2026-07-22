@@ -14,7 +14,6 @@ Tests verify:
 import json
 import os
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
@@ -80,12 +79,7 @@ def test_resolves_wget_with_provider_managed_binary_path(local_example_url):
         )
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(WGET_HOOK),
-                "--url",
-                local_example_url,
-            ],
+            [str(WGET_HOOK), "--url", local_example_url],
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -278,46 +272,34 @@ def test_config_save_warc(local_example_url):
         )
 
 
-def test_staticfile_present_skips():
+def test_staticfile_present_skips(real_staticfile_output):
     """Test that wget skips when staticfile already downloaded."""
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
+        test_url = "https://httpbin.org/json"
+        snapshot_dir = real_staticfile_output(Path(tmpdir), test_url, "wget-static")
         env = os.environ.copy()
-        env["SNAP_DIR"] = str(tmpdir)
-
-        # Create directory structure like real ArchiveBox:
-        # tmpdir/
-        #   staticfile/  <- staticfile extractor output
-        #   wget/         <- wget extractor runs here, looks for ../staticfile
-        staticfile_dir = tmpdir / "staticfile"
-        staticfile_dir.mkdir()
-        (staticfile_dir / "stdout.log").write_text(
-            '{"type":"ArchiveResult","status":"succeeded","output_str":"responses/example.com/test.json","content_type":"application/json"}\n',
-        )
-
-        wget_dir = tmpdir / "wget"
+        env["SNAP_DIR"] = str(snapshot_dir)
+        wget_dir = snapshot_dir / "wget"
         wget_dir.mkdir()
 
         result = subprocess.run(
             [
                 str(WGET_HOOK),
                 "--url",
-                TEST_URL,
+                test_url,
             ],
-            cwd=wget_dir,  # Run from wget subdirectory
+            cwd=wget_dir,
             capture_output=True,
             text=True,
             timeout=30,
             env=env,
         )
 
-        # Should exit 0 with a noresults JSONL because another plugin already handled it.
         assert result.returncode == 0, (
             "Should exit 0 when staticfile already handled the URL"
         )
 
-        # Parse clean JSONL output
         result_json = parse_jsonl_output(result.stdout)
 
         assert result_json, (

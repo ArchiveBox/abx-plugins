@@ -77,7 +77,7 @@ jobs:
               --lib="$ABXPKG_LIB_DIR" \
               --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:prek_binaries"
           )"
-          jq -r 'to_entries[] | select(.key != "PATH") | "\(.key)=\(.value)"' \
+          jq -r 'to_entries[] | "\(.key)=\(.value)"' \
             <<< "$tooling_env" >> "$GITHUB_ENV"
 
           test -x "$ABXPKG_LIB_DIR/env/bin/node"
@@ -127,15 +127,15 @@ jobs:
           [[ "${#artifacts[@]}" -eq 2 ]]
           [[ "${#wheels[@]}" -eq 1 ]]
           [[ "${#sdists[@]}" -eq 1 ]]
-          sha256sum "${artifacts[@]}"
+          (cd dist && sha256sum ./* > SHA256SUMS && sha256sum --check SHA256SUMS)
 
       - name: Upload package artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: python-distributions
+          name: python-distributions-${{ github.sha }}
           path: dist/*
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 90
 
   compatibility:
     name: ${{ matrix.artifact }} / Python ${{ matrix.python }} / ${{ matrix.os }}
@@ -145,7 +145,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-15]
-        python: ["3.12.10", "3.13.13", "3.14.5"]
+        python: ["3.12", "3.13", "3.14"]
         artifact: [wheel, sdist]
 
     steps:
@@ -163,7 +163,7 @@ jobs:
       - name: Download package artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: python-distributions
+          name: python-distributions-${{ github.sha }}
           path: ${{ runner.temp }}/python-distributions
 
       - name: Install package and run an installed hook
@@ -262,7 +262,6 @@ jobs:
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-      ABX_PYTEST_TEE_SUBPROCESS_OUTPUT: "1"
 
     strategy:
       fail-fast: false
@@ -316,7 +315,7 @@ jobs:
               --lib="$ABXPKG_LIB_DIR" \
               --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:node_binaries"
           )"
-          jq -r 'to_entries[] | select(.key != "PATH") | "\(.key)=\(.value)"' \
+          jq -r 'to_entries[] | "\(.key)=\(.value)"' \
             <<< "$tooling_env" >> "$GITHUB_ENV"
 
           test -x "$ABXPKG_LIB_DIR/env/bin/node"
@@ -335,7 +334,7 @@ jobs:
               --lib="$ABXPKG_LIB_DIR" \
               --deps-from="$PWD/abx_plugins/plugins/chrome/config.json:required_binaries"
           )"
-          jq -r 'to_entries[] | select(.key != "PATH") | "\(.key)=\(.value)"' \
+          jq -r 'to_entries[] | "\(.key)=\(.value)"' \
             <<< "$chromium_env" >> "$GITHUB_ENV"
 
           chrome_binary="$ABXPKG_LIB_DIR/env/bin/chromium"

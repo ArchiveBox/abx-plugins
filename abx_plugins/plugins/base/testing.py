@@ -40,55 +40,53 @@ def start_process_and_wait_for_file(
 ) -> subprocess.Popen[str]:
     """Start a real hook after arming an OS watcher for its readiness file."""
     path.parent.mkdir(parents=True, exist_ok=True)
+    process = subprocess.Popen(
+        command,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=dict(env),
+    )
+    wait_for_file(path, process=process, ready=ready)
+    return process
+
+
+def wait_for_file(
+    path: Path,
+    *,
+    process: subprocess.Popen[str],
+    ready: Callable[[Path], bool] | None = None,
+) -> None:
+    """Wait for a real hook's filesystem output or its process exit."""
     ready = ready or (lambda candidate: candidate.exists())
+    process_exited = path.parent / f".{path.name}.{process.pid}.process-exited"
+    exit_marker_lock = threading.Lock()
+    waiting_for_readiness = True
+
+    def publish_process_exit() -> None:
+        process.wait()
+        with exit_marker_lock:
+            if waiting_for_readiness:
+                process_exited.touch()
+
     with RustNotify([str(path.parent)], False, False, 300, False, False) as watcher:
-        process = subprocess.Popen(
-            command,
-            cwd=cwd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=dict(env),
-        )
-        process_exited = path.parent / f".{path.name}.{process.pid}.process-exited"
-        exit_marker_lock = threading.Lock()
-        waiting_for_readiness = True
-
-        def publish_process_exit() -> None:
-            process.wait()
-            with exit_marker_lock:
-                if waiting_for_readiness:
-                    process_exited.touch()
-
         threading.Thread(target=publish_process_exit, daemon=True).start()
         try:
             if ready(path):
-                return process
-            while True:
+                return
+            while not ready(path) and not process_exited.exists():
                 watcher.watch(1_600, 50, 0, None)
-                if ready(path):
-                    return process
-                if process_exited.exists():
-                    stdout, stderr = process.communicate()
-                    raise AssertionError(
-                        f"Hook exited before publishing {path}\nstdout:\n{stdout}\nstderr:\n{stderr}",
-                    )
+            if ready(path):
+                return
+            stdout, stderr = process.communicate()
+            raise AssertionError(
+                f"Hook exited before publishing {path}\nstdout:\n{stdout}\nstderr:\n{stderr}",
+            )
         finally:
             with exit_marker_lock:
                 waiting_for_readiness = False
                 process_exited.unlink(missing_ok=True)
-
-
-def wait_for_file(path: Path, *, ready: Callable[[Path], bool] | None = None) -> None:
-    """Wait on OS filesystem events until an already-running hook publishes output."""
-    ready = ready or (lambda candidate: candidate.exists())
-    with RustNotify([str(path.parent)], False, False, 300, False, False) as watcher:
-        if ready(path):
-            return
-        while True:
-            watcher.watch(1_600, 50, 0, None)
-            if ready(path):
-                return
 
 
 def get_plugin_dir(test_file: str) -> Path:

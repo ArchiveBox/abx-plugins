@@ -2,7 +2,6 @@ import json
 import os
 import sqlite3
 import subprocess
-import sys
 from pathlib import Path
 
 
@@ -36,30 +35,29 @@ def run_hook(
     )
 
 
-def test_hook_indexes_sibling_outputs_and_symlinks_sources(tmp_path: Path) -> None:
-    (tmp_path / "readability").mkdir(parents=True)
-    (tmp_path / "title").mkdir(parents=True)
-    (tmp_path / "readability" / "content.txt").write_text("Body text to index")
-    (tmp_path / "title" / "title.txt").write_text("Example Title")
-
-    result = run_hook(tmp_path)
+def test_hook_indexes_sibling_outputs_and_symlinks_sources(
+    tmp_path: Path,
+    real_html_snapshot,
+) -> None:
+    snapshot_dir = real_html_snapshot(tmp_path, "https://example.com", "snap-001")
+    result = run_hook(snapshot_dir)
 
     assert result.returncode == 0, result.stderr
-    assert '"output_str": "1kb text indexed"' in result.stdout
+    assert '"status": "succeeded"' in result.stdout
 
-    output_dir = tmp_path / "search_backend_sqlite"
-    body_link = output_dir / "readability__content.txt"
+    output_dir = snapshot_dir / "search_backend_sqlite"
+    body_link = output_dir / "dom__output.html"
     title_link = output_dir / "title__title.txt"
     assert body_link.is_symlink()
     assert title_link.is_symlink()
     assert {path.name for path in output_dir.iterdir() if path.is_symlink()} == {
-        "readability__content.txt",
+        "dom__output.html",
         "title__title.txt",
     }
-    assert body_link.resolve() == (tmp_path / "readability" / "content.txt").resolve()
-    assert title_link.resolve() == (tmp_path / "title" / "title.txt").resolve()
+    assert body_link.resolve() == (snapshot_dir / "dom" / "output.html").resolve()
+    assert title_link.resolve() == (snapshot_dir / "title" / "title.txt").resolve()
 
-    conn = sqlite3.connect(str(tmp_path / "search.sqlite3"))
+    conn = sqlite3.connect(str(snapshot_dir / "search.sqlite3"))
     try:
         row = conn.execute(
             "SELECT snapshot_id, url, title, content FROM search_index",
@@ -67,12 +65,9 @@ def test_hook_indexes_sibling_outputs_and_symlinks_sources(tmp_path: Path) -> No
     finally:
         conn.close()
 
-    assert row == (
-        "snap-001",
-        "https://example.com",
-        "Example Title",
-        "Body text to index",
-    )
+    assert row is not None
+    assert row[:3] == ("snap-001", "https://example.com", "Example Domain")
+    assert "Example Domain" in row[3]
 
 
 def test_hook_without_content_skips_cleanly(tmp_path: Path) -> None:
@@ -85,25 +80,32 @@ def test_hook_without_content_skips_cleanly(tmp_path: Path) -> None:
     assert not (tmp_path / "search.sqlite3").exists()
 
 
-def test_hook_cold_start_avoids_typed_schema_imports(tmp_path: Path) -> None:
+def test_hook_cold_start_avoids_typed_schema_imports(
+    tmp_path: Path,
+    real_html_snapshot,
+) -> None:
     """The per-snapshot hot path must not rebuild Jambo/Pydantic models."""
-    (tmp_path / "readability").mkdir(parents=True)
-    (tmp_path / "search_backend_sqlite").mkdir(parents=True)
-    (tmp_path / "readability" / "content.txt").write_text("Cold start content")
+    snapshot_dir = real_html_snapshot(
+        tmp_path,
+        "https://example.com",
+        "snap-cold-start",
+    )
+    (snapshot_dir / "search_backend_sqlite").mkdir(parents=True)
 
     env = os.environ.copy()
     env.update(
         {
             "ABX_RUNTIME": "archivebox",
-            "DATA_DIR": str(tmp_path),
-            "SNAP_DIR": str(tmp_path),
+            "DATA_DIR": str(snapshot_dir),
+            "SNAP_DIR": str(snapshot_dir),
             "SEARCH_BACKEND_SQLITE_ENABLED": "true",
             "EXTRA_CONTEXT": json.dumps({"snapshot_id": "snap-cold-start"}),
         },
     )
+    env["PYTHONPROFILEIMPORTTIME"] = "1"
     result = subprocess.run(
-        [sys.executable, "-X", "importtime", str(HOOK), "--url=https://example.com"],
-        cwd=str(tmp_path / "search_backend_sqlite"),
+        [str(HOOK), "--url=https://example.com"],
+        cwd=str(snapshot_dir / "search_backend_sqlite"),
         env=env,
         capture_output=True,
         text=True,
@@ -114,11 +116,12 @@ def test_hook_cold_start_avoids_typed_schema_imports(tmp_path: Path) -> None:
     assert "pydantic" not in result.stderr
     assert "jambo" not in result.stderr
 
-    conn = sqlite3.connect(str(tmp_path / "search.sqlite3"))
+    conn = sqlite3.connect(str(snapshot_dir / "search.sqlite3"))
     try:
         row = conn.execute(
             "SELECT snapshot_id, content FROM search_index",
         ).fetchone()
     finally:
         conn.close()
-    assert row == ("snap-cold-start", "Cold start content")
+    assert row is not None and row[0] == "snap-cold-start"
+    assert "Example Domain" in row[1]

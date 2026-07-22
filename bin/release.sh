@@ -8,8 +8,6 @@ cd "${REPO_DIR}"
 
 TAG_PREFIX="v"
 PYPI_PACKAGE="abx-plugins"
-REQUIRED_WORKFLOWS=("test-parallel.yml|Parallel Tests")
-
 source_optional_env() {
     if [[ -f "${REPO_DIR}/.env" ]]; then
         set -a
@@ -79,15 +77,6 @@ pypi_has_version() {
         | jq -e --arg version "$1" '.releases[$version] | length > 0' >/dev/null
 }
 
-wait_for_pypi() {
-    local version="$1" attempts=0
-    until pypi_has_version "${version}"; do
-        attempts=$((attempts + 1))
-        [[ "${attempts}" -lt 30 ]] || { echo "Timed out waiting for ${PYPI_PACKAGE}==${version} on PyPI" >&2; return 1; }
-        sleep 10
-    done
-}
-
 tag_target() {
     local tag="$1"
     local target
@@ -122,43 +111,19 @@ require_clean_exact_checkout() {
     git merge-base --is-ancestor "${sha}" "refs/remotes/origin/${branch}" || { echo "${sha} is not on ${branch}" >&2; return 1; }
 }
 
-wait_for_required_workflows() {
-    local slug="$1"
-    local sha="$2"
-    shift 2
-    local spec workflow workflow_name runs attempts state run_id
-
-    for spec in "$@"; do
-        workflow="${spec%%|*}"
-        workflow_name="${spec#*|}"
-        attempts=0
-        while :; do
-            runs="$(env -u GH_FORCE_TTY GH_PROMPT_DISABLED=1 GH_PAGER=cat NO_COLOR=1 gh run list --repo "${slug}" --workflow "${workflow}" --event push --commit "${sha}" --limit 10 --json databaseId,workflowName,headSha,status,conclusion,event)"
-            state="$(jq -r --arg name "${workflow_name}" --arg sha "${sha}" '[.[] | select(.workflowName == $name and .headSha == $sha and .event == "push")] | if length == 1 then (.[0] | [.databaseId,.status,(.conclusion // "")] | @tsv) elif length == 0 then "missing" else "ambiguous" end' <<<"${runs}")"
-            [[ "${state}" != ambiguous ]] || { echo "Multiple ${workflow_name} runs found for ${sha}" >&2; return 1; }
-            if [[ "${state}" != missing ]]; then
-                IFS=$'\t' read -r run_id _ _ <<<"${state}"
-                break
-            fi
-            attempts=$((attempts + 1))
-            if [[ "${attempts}" -ge 12 ]]; then
-                echo "Required workflow ${workflow} did not start for ${sha}" >&2
-                return 1
-            fi
-            sleep 5
-        done
-        env -u GH_FORCE_TTY GH_PROMPT_DISABLED=1 GH_PAGER=cat NO_COLOR=1 \
-            gh run watch "${run_id}" --repo "${slug}" --exit-status
-    done
-}
-
 publish_to_pypi() (
     local version="$1"
-    local build_dir
-    build_dir="$(mktemp -d)"
-    trap 'rm -rf "${build_dir}"' EXIT
-    uv build --out-dir "${build_dir}"
-    uv publish --trusted-publishing always "${build_dir}"/*
+    local build_dir="$2"
+    shopt -s nullglob
+    local artifacts=("${build_dir}"/*)
+    local wheels=("${build_dir}"/abx_plugins-${version}-*.whl)
+    local sdists=("${build_dir}"/abx_plugins-${version}.tar.gz)
+    [[ "${#wheels[@]}" -eq 1 && "${#sdists[@]}" -eq 1 ]] || {
+        echo "Expected one tested wheel and sdist for ${version} in ${build_dir}" >&2
+        return 1
+    }
+    artifacts=("${wheels[@]}" "${sdists[@]}")
+    uv publish --trusted-publishing always "${artifacts[@]}"
 )
 
 create_release() {
@@ -173,11 +138,14 @@ create_release() {
 }
 
 main() {
-    local slug version latest relation release_sha target pypi_exists=false github_exists=false
+    local slug version latest relation release_sha target artifact_dir pypi_exists=false github_exists=false
     source_optional_env
     slug="$(repo_slug)"
     version="$(current_version)"
     release_sha="${RELEASE_SHA:-$(git rev-parse HEAD)}"
+    artifact_dir="${1:-}"
+
+    [[ -n "${artifact_dir}" && -d "${artifact_dir}" ]] || { echo "Usage: $0 TESTED_ARTIFACT_DIR" >&2; return 1; }
 
     require_clean_exact_checkout "${release_sha}"
 
@@ -207,12 +175,12 @@ main() {
         return 1
     fi
 
-    wait_for_required_workflows "${slug}" "${release_sha}" "${REQUIRED_WORKFLOWS[@]}"
     create_release "${slug}" "${version}" "${release_sha}"
     if [[ "${pypi_exists}" != true ]]; then
-        publish_to_pypi "${version}"
+        publish_to_pypi "${version}" "${artifact_dir}"
     fi
-    wait_for_pypi "${version}"
+    gh release upload "${TAG_PREFIX}${version}" --repo "${slug}" \
+        "${artifact_dir}"/abx_plugins-*.whl "${artifact_dir}"/abx_plugins-*.tar.gz "${artifact_dir}"/SHA256SUMS --clobber
     github_release_has_version "${version}" "${slug}"
     verify_existing_tag "${version}" "${release_sha}"
     echo "Released ${PYPI_PACKAGE} ${version} from ${release_sha}"

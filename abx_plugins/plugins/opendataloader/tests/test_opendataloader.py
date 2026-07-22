@@ -12,7 +12,6 @@ Tests verify:
 
 import json
 import os
-import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -87,26 +86,12 @@ def require_java_binary() -> str:
 
 
 def _download_test_pdf() -> bytes:
-    """Download a small public PDF for testing. Tries multiple sources."""
-    pdf_urls = [
-        "https://pdfobject.com/pdf/sample.pdf",
-        "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-        "https://www.orimi.com/pdf-test.pdf",
-    ]
-    failures = []
-    for url in pdf_urls:
-        try:
-            resp = requests.get(url, timeout=30)
-            if resp.status_code == 200 and resp.content.startswith(b"%PDF-"):
-                return resp.content
-            failures.append(
-                f"{url}: HTTP {resp.status_code}, prefix={resp.content[:8]!r}",
-            )
-        except requests.RequestException as exc:
-            failures.append(f"{url}: {exc!r}")
-    raise AssertionError(
-        "Could not download any test PDF from the web: " + "; ".join(failures),
-    )
+    """Download the canonical public PDF fixture."""
+    url = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+    response = requests.get(url, timeout=30)
+    response.raise_for_status()
+    assert response.content.startswith(b"%PDF-"), response.content[:8]
+    return response.content
 
 
 def test_hook_script_exists():
@@ -140,9 +125,8 @@ def test_opendataloader_env_executes_exact_abxpkg_selected_java():
     env = _opendataloader_env(str(java_path))
 
     assert env is not None
-    selected_java = shutil.which("java", path=env["PATH"])
-    assert selected_java is not None
-    assert Path(selected_java).samefile(java_path)
+    selected_java = Path(env["PATH"].split(os.pathsep)[0]) / "java"
+    assert selected_java.samefile(java_path)
     resolved_java = java_path.resolve()
     java_home = resolved_java.parent.parent
     if (java_home / "release").is_file():
@@ -152,7 +136,7 @@ def test_opendataloader_env_executes_exact_abxpkg_selected_java():
         assert env.get("JAVA_HOME") == os.environ.get("JAVA_HOME")
 
     version = subprocess.run(
-        ["java", "--version"],
+        [str(java_path), "--version"],
         capture_output=True,
         text=True,
         timeout=10,
@@ -340,11 +324,7 @@ def test_extract_multiple_pdfs():
 
 
 def test_force_ocr_adds_hybrid_flag():
-    """Test that OPENDATALOADER_FORCE_OCR=true adds --hybrid docling-fast to command.
-
-    Since no hybrid server is running, the extraction will fail/fallback,
-    but we verify the flag is passed by checking stderr output.
-    """
+    """Test FORCE_OCR through the real hybrid extraction lifecycle."""
     binary_path = require_opendataloader_binary()
     java_binary = require_java_binary()
     pdf_content = _download_test_pdf()
@@ -377,15 +357,12 @@ def test_force_ocr_adds_hybrid_flag():
             env=env,
         )
 
-        # With FORCE_OCR, it will attempt --hybrid docling-fast.
-        # If the hybrid server is unavailable, the hook must fall back to
-        # standard extraction and still succeed with real content.
-        assert result.returncode == 0, f"Should not crash: {result.stderr}"
+        assert result.returncode == 0, result.stderr
 
         record = parse_jsonl_output(result.stdout)
         assert record, "Should have ArchiveResult JSONL output"
         assert record["status"] == "succeeded", (
-            f"FORCE_OCR must succeed (with hybrid or via fallback), got: {record}. "
+            f"FORCE_OCR must succeed through the hybrid backend, got: {record}. "
             f"stderr: {result.stderr}"
         )
 

@@ -142,61 +142,33 @@ def test_extracts_article_with_real_binary(httpserver):
         assert metadata.get("title") == "Defuddle Test Article", metadata
 
 
-def test_prefers_dom_output_over_singlefile_when_both_exist():
+def test_prefers_dom_output_over_singlefile_when_both_exist(
+    tmp_path: Path,
+    real_competing_html_snapshot,
+):
     binary_path = require_defuddle_binary()
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-        snap_dir = tmpdir / "snap"
-        snap_dir.mkdir(parents=True, exist_ok=True)
-
-        dom_dir = snap_dir / "dom"
-        dom_dir.mkdir(parents=True, exist_ok=True)
-        (dom_dir / "output.html").write_text(
-            "<html><head><title>DOM Version</title></head><body>"
-            "<article><h1>DOM Version</h1><p>Prefer this dom content.</p></article>"
-            "</body></html>",
-            encoding="utf-8",
-        )
-
-        singlefile_dir = snap_dir / "singlefile"
-        singlefile_dir.mkdir(parents=True, exist_ok=True)
-        (singlefile_dir / "singlefile.html").write_text(
-            "<html><head><title>SingleFile Version</title></head><body>"
-            "<article><h1>SingleFile Version</h1><p>Do not prefer this content.</p></article>"
-            "</body></html>",
-            encoding="utf-8",
-        )
-
-        env = os.environ.copy()
-        env["SNAP_DIR"] = str(snap_dir)
-        env["DEFUDDLE_BINARY"] = binary_path
-
-        result = subprocess.run(
-            [
-                str(DEFUDDLE_HOOK),
-                "--url",
-                TEST_URL,
-            ],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True,
-            timeout=30,
-            env=env,
-        )
-
-        assert result.returncode == 0, result.stderr
-
-        output_dir = snap_dir / "defuddle"
-        html_output = (output_dir / "content.html").read_text(encoding="utf-8").lower()
-        text_output = (output_dir / "content.txt").read_text(encoding="utf-8").lower()
-        metadata = json.loads((output_dir / "article.json").read_text(encoding="utf-8"))
-
-        assert "prefer this dom content" in html_output
-        assert "prefer this dom content" in text_output
-        assert "do not prefer this content" not in html_output
-        assert "do not prefer this content" not in text_output
-        assert metadata.get("title") == "DOM Version"
+    snap_dir = real_competing_html_snapshot(tmp_path, "defuddle-precedence")
+    env = os.environ.copy()
+    env["SNAP_DIR"] = str(snap_dir)
+    env["DEFUDDLE_BINARY"] = binary_path
+    result = subprocess.run(
+        [str(DEFUDDLE_HOOK), "--url", TEST_URL],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    output_dir = snap_dir / "defuddle"
+    html_output = (output_dir / "content.html").read_text().lower()
+    text_output = (output_dir / "content.txt").read_text().lower()
+    metadata = json.loads((output_dir / "article.json").read_text())
+    assert "documentation examples without needing permission" in html_output
+    assert "documentation examples without needing permission" in text_output
+    assert "archivebox" not in html_output
+    assert "archivebox" not in text_output
+    assert metadata.get("title") == "Example Domain"
 
 
 if __name__ == "__main__":

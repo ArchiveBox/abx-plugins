@@ -146,7 +146,11 @@ class TestResponsesWithChrome:
             )
             assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
-            wait_for_file(index_output, ready=lambda path: path.stat().st_size > 0)
+            wait_for_file(
+                index_output,
+                process=result,
+                ready=lambda path: path.stat().st_size > 0,
+            )
             result.terminate()
             stdout, stderr = result.communicate(timeout=30)
             assert "Traceback" not in stderr

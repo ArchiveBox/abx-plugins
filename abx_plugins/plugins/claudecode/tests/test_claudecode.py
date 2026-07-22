@@ -85,22 +85,12 @@ class TestClaudeCodeUtils:
         assert "SNAP_DIR" in prompt
 
     def test_build_system_prompt_with_snap_dir(self):
-        """System prompt should include snapshot metadata when snap_dir provided."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            snap_dir = Path(tmpdir) / "snap"
-            snap_dir.mkdir()
-
-            # Create some fake extractor dirs
-            (snap_dir / "readability").mkdir()
-            (snap_dir / "readability" / "content.html").write_text("<p>test</p>")
-            (snap_dir / "readability" / "content.txt").write_text("test")
-            (snap_dir / "screenshot").mkdir()
-            (snap_dir / "screenshot" / "screenshot.png").write_bytes(b"PNG")
-
-            prompt = build_system_prompt(snap_dir=snap_dir)
-            assert "readability" in prompt
-            assert "screenshot" in prompt
-            assert "content.html" in prompt
+        """System prompt should inventory existing checked-in plugin assets."""
+        plugins_dir = PLUGIN_DIR.parent
+        prompt = build_system_prompt(snap_dir=plugins_dir)
+        assert "readability" in prompt
+        assert "screenshot" in prompt
+        assert "config.json" in prompt
 
     def test_build_system_prompt_with_extra_context(self):
         """System prompt should include extra context when provided."""
@@ -109,19 +99,12 @@ class TestClaudeCodeUtils:
         assert "Additional Instructions" in prompt
 
     def test_get_snapshot_metadata(self):
-        """Should collect snapshot directory metadata."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            snap_dir = Path(tmpdir)
-            (snap_dir / "dom").mkdir()
-            (snap_dir / "dom" / "output.html").write_text("<html>test</html>")
-            (snap_dir / "mercury").mkdir()
-            (snap_dir / "mercury" / "content.txt").write_text("text")
-
-            meta = get_snapshot_metadata(snap_dir)
-            assert "extractor_outputs" in meta
-            names = [e["name"] for e in meta["extractor_outputs"]]
-            assert "dom" in names
-            assert "mercury" in names
+        """Should collect metadata from existing checked-in plugin assets."""
+        meta = get_snapshot_metadata(PLUGIN_DIR.parent)
+        assert "extractor_outputs" in meta
+        names = [e["name"] for e in meta["extractor_outputs"]]
+        assert "dom" in names
+        assert "mercury" in names
 
 
 @pytest.mark.usefixtures("ensure_claude_code_prereqs")

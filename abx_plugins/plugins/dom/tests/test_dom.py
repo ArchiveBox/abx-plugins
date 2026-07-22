@@ -148,28 +148,17 @@ def test_config_save_dom_false_skips():
         assert result_json["output_str"] == "DOM_ENABLED=False", result_json
 
 
-def test_staticfile_present_skips():
+def test_staticfile_present_skips(real_staticfile_output):
     """Test that dom returns noresults when staticfile already downloaded."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-        snap_dir = tmpdir
+        test_url = "https://httpbin.org/json"
+        snap_dir = real_staticfile_output(Path(tmpdir), test_url, "teststatic")
         env = get_test_env() | {"SNAP_DIR": str(snap_dir)}
-
-        # Create directory structure like real ArchiveBox:
-        # tmpdir/
-        #   staticfile/  <- staticfile extractor output
-        #   dom/         <- dom extractor runs here, looks for ../staticfile
-        staticfile_dir = tmpdir / "staticfile"
-        staticfile_dir.mkdir()
-        (staticfile_dir / "stdout.log").write_text(
-            '{"type":"ArchiveResult","status":"succeeded","output_str":"responses/example.com/test.json","content_type":"application/json"}\n',
-        )
-
-        dom_dir = tmpdir / "dom"
+        dom_dir = snap_dir / "dom"
         dom_dir.mkdir()
 
         result = subprocess.run(
-            [str(DOM_HOOK), f"--url={TEST_URL}", "--snapshot-id=teststatic"],
+            [str(DOM_HOOK), f"--url={test_url}", "--snapshot-id=teststatic"],
             cwd=dom_dir,  # Run from dom subdirectory
             capture_output=True,
             text=True,

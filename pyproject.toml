@@ -1,6 +1,6 @@
 [project]
 name = "abx-plugins"
-version = "1.11.295"
+version = "1.11.296"
 description = "ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)"
 authors = [{name = "Nick Sweeting"}, {name = "ArchiveBox"}]
 requires-python = ">=3.12"
@@ -19,8 +19,8 @@ classifiers = [
     "Environment :: Console",
 ]
 dependencies = [
-    "abxbus==2.5.38",
-    "abxpkg==1.11.280",
+    "abxbus==2.5.39",
+    "abxpkg==1.11.284",
     "httpx>=0.28.1",
     "imagesize>=2.0.0",
     "jambo>=0.1.7",

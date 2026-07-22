@@ -16,6 +16,10 @@ on:
         description: Claude Code prompt to use
         type: string
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   claude:
     if: |
@@ -36,24 +40,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Clone abxbus, abxpkg, abx-dl, archivebox
+      - name: Clone companion repositories for source inspection
         run: |
           set -Eeuo pipefail
-          git clone --depth=1 --branch v1.11.280 https://github.com/ArchiveBox/abxpkg.git "${{ runner.temp }}/abxpkg"
-          [[ "$(git -C "${{ runner.temp }}/abxpkg" rev-parse HEAD)" == "f9eb434d21217a6ef7cbb757e8f7281c2b511fb9" ]]
-          [[ "$(git -C "${{ runner.temp }}/abxpkg" rev-parse 'refs/tags/v1.11.280^{commit}')" == "f9eb434d21217a6ef7cbb757e8f7281c2b511fb9" ]]
-
-          git clone --depth=1 --branch 2.5.38 https://github.com/ArchiveBox/abxbus.git "${{ runner.temp }}/abxbus"
-          [[ "$(git -C "${{ runner.temp }}/abxbus" rev-parse HEAD)" == "8d29682941dca4b5feec8549bac71adf2740dd00" ]]
-          [[ "$(git -C "${{ runner.temp }}/abxbus" rev-parse 'refs/tags/2.5.38^{commit}')" == "8d29682941dca4b5feec8549bac71adf2740dd00" ]]
-
-          git clone --depth=1 --branch v1.11.262 https://github.com/ArchiveBox/abx-dl.git "${{ runner.temp }}/abx-dl"
-          [[ "$(git -C "${{ runner.temp }}/abx-dl" rev-parse HEAD)" == "cc08a64d002bc47ac50e064c526b462f6bc9c9d2" ]]
-          [[ "$(git -C "${{ runner.temp }}/abx-dl" rev-parse 'refs/tags/v1.11.262^{commit}')" == "cc08a64d002bc47ac50e064c526b462f6bc9c9d2" ]]
-
-          git clone --depth=1 --branch v0.9.31-rc https://github.com/ArchiveBox/ArchiveBox.git "${{ runner.temp }}/archivebox"
-          [[ "$(git -C "${{ runner.temp }}/archivebox" rev-parse HEAD)" == "c5d11c3224138d8ab84aa963429e9414a743bd6d" ]]
-          [[ "$(git -C "${{ runner.temp }}/archivebox" rev-parse 'refs/tags/v0.9.31-rc^{commit}')" == "c5d11c3224138d8ab84aa963429e9414a743bd6d" ]]
+          git clone --depth=1 --branch main https://github.com/ArchiveBox/abxpkg.git "${{ runner.temp }}/abxpkg"
+          git clone --depth=1 --branch main https://github.com/ArchiveBox/abxbus.git "${{ runner.temp }}/abxbus"
+          git clone --depth=1 --branch main https://github.com/ArchiveBox/abx-dl.git "${{ runner.temp }}/abx-dl"
+          git clone --depth=1 --branch dev https://github.com/ArchiveBox/ArchiveBox.git "${{ runner.temp }}/archivebox"
 
       - name: Set up Python 3.13.13
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -67,7 +60,9 @@ jobs:
           activate-environment: "true"
 
       - name: Bootstrap locked Python dependencies
-        run: uv sync --locked --dev --no-sources
+        run: |
+          uv sync --locked --dev --no-sources
+          uv sync --project "${{ runner.temp }}/abx-dl" --locked --no-sources
 
       - name: Resolve CI tooling through abxpkg
         env:
@@ -86,7 +81,7 @@ jobs:
               --lib="$ABXPKG_LIB_DIR" \
               --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:prek_binaries"
           )"
-          jq -r 'to_entries[] | select(.key != "PATH") | "\(.key)=\(.value)"' \
+          jq -r 'to_entries[] | "\(.key)=\(.value)"' \
             <<< "$tooling_env" >> "$GITHUB_ENV"
 
           test -x "$ABXPKG_LIB_DIR/env/bin/node"
@@ -94,14 +89,6 @@ jobs:
           "$ABXPKG_LIB_DIR/env/bin/node" --version
           "$ABXPKG_LIB_DIR/env/bin/prettier" --version
 
-      - name: Install dependencies with uv
-        run: |
-          uv pip install -e '${{ runner.temp }}/abxbus'
-          uv pip install -e '${{ runner.temp }}/abx-dl'
-          uv pip install -e '${{ runner.temp }}/abxpkg'
-          uv pip install -e '${{ runner.temp }}/archivebox'
-          uv pip install --no-deps -e ".[dev]"
-          
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@b76a0776ae74036e77cd11018083743453d7ad35 # v1
@@ -119,10 +106,10 @@ jobs:
           # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
           prompt: |
             Always use `uv run` e.g. `uv run pytest ...` and never python directly. Always use `uv run ruff check`, `uv run pyright`, `uv run ty check` and never `py_compile` to check syntax.
-            You can `uv pip install -e ../{abxpkg,abxbus,archivebox}` or explore the source of those related packages if needed to understand the orchestrator or abxbus interfaces,
-            but any changes to those repos will not be persisted. Use `abx-dl --plugins=pluginname --output=/some/tmp/dir 'https://example.com'` to test and dont rely on pytest alone.
+            The companion repositories under ${{ runner.temp }} are available for source inspection, but their changes will not be persisted.
+            Use `ABX_PLUGINS_DIR="$GITHUB_WORKSPACE/abx_plugins/plugins" uv run --project "${{ runner.temp }}/abx-dl" --no-sync abx-dl --plugins=pluginname --dir=/some/tmp/dir 'https://example.com'` to test and dont rely on pytest alone.
 
-            Plugin required_binaries install must succeed locally / in the test environment when running `abx-dl install pluginname` (uv pip install -e ../abx-dl.
+            Plugin required_binaries installation must succeed through the same locked abx-dl runtime and abxpkg provider path.
             Auto-install in macos/linux at runtime is a core part of the user-facing surface provided by plugins and must succeed in *all environments* including CI/sandboxes.
             
             Make sure any plugin changes are covered by a live integration test under the plugin's test dir that hits a real url like https://example.com.

@@ -2,7 +2,6 @@
 Integration tests for pdf plugin
 
 Tests verify:
-    pass
 1. Hook script exists
 2. Dependencies installed via chrome validation hooks
 3. Verify deps with abxpkg
@@ -81,21 +80,10 @@ def test_extracts_pdf_from_example_com(chrome_test_url):
                 env=env,
             )
 
-        # Parse clean JSONL output (hook might fail due to network issues)
         result_json = parse_jsonl_output(result.stdout)
 
         assert result_json, "Should have ArchiveResult JSONL output"
-
-        # Skip verification if network failed
-        if result_json["status"] != "succeeded":
-            pass
-            if (
-                "TIMED_OUT" in result_json.get("output_str", "")
-                or "timeout" in result_json.get("output_str", "").lower()
-            ):
-                pass
-            raise AssertionError(f"Extraction failed: {result_json}")
-
+        assert result_json["status"] == "succeeded", result_json
         assert result.returncode == 0, f"Should exit 0 on success: {result.stderr}"
 
         # Verify filesystem output (hook writes to current directory)

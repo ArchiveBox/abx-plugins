@@ -12,8 +12,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: ${{ github.event_name == 'workflow_dispatch' && format('github-pages-marketplace-manual-{0}', github.run_id) || 'github-pages-marketplace' }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 jobs:
   build:

@@ -17,6 +17,7 @@ from abx_plugins.plugins.base.testing import (
     get_hook_script,
     get_plugin_dir,
     start_process_and_wait_for_file,
+    wait_for_file,
 )
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_NAVIGATE_HOOK,
@@ -95,6 +96,11 @@ class TestSSLWithChrome:
             )
             assert nav_result.returncode == 0, f"Navigation failed: {nav_result.stderr}"
 
+            wait_for_file(
+                ssl_output,
+                process=result,
+                ready=lambda path: path.exists() and path.stat().st_size > 0,
+            )
             result.terminate()
             stdout, stderr = result.communicate(timeout=30)
 

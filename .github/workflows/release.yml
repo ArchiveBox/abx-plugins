@@ -1,9 +1,9 @@
 name: Release State
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: [Parallel Tests]
+    types: [completed]
   workflow_dispatch:
     inputs:
       release_sha:
@@ -22,11 +22,17 @@ concurrency:
 
 jobs:
   release-state:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-24.04
     environment: pypi
     env:
-      RELEASE_SHA: ${{ github.event_name == 'push' && github.sha || inputs.release_sha }}
+      RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.release_sha }}
       RELEASE_BRANCH: main
+      TEST_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || '' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -42,7 +48,26 @@ jobs:
           version: "0.11.3"
           enable-cache: true
 
+      - name: Download tested package artifacts
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_GH_TOKEN || github.token }}
+        run: |
+          set -Eeuo pipefail
+          run_id="$TEST_RUN_ID"
+          if [[ -z "$run_id" ]]; then
+            run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow test-parallel.yml --event push --commit "$RELEASE_SHA" --status success --limit 2 --json databaseId --jq 'if length == 1 then .[0].databaseId else error("expected exactly one successful test run") end')"
+          fi
+          gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "python-distributions-$RELEASE_SHA" --dir dist
+          shopt -s nullglob
+          wheels=(dist/abx_plugins-*.whl)
+          sdists=(dist/abx_plugins-*.tar.gz)
+          manifests=(dist/SHA256SUMS)
+          [[ "${#wheels[@]}" -eq 1 ]]
+          [[ "${#sdists[@]}" -eq 1 ]]
+          [[ "${#manifests[@]}" -eq 1 ]]
+          (cd dist && sha256sum --check SHA256SUMS)
+
       - name: Run release script
         env:
           GH_TOKEN: ${{ secrets.RELEASE_GH_TOKEN || github.token }}
-        run: ./bin/release.sh
+        run: ./bin/release.sh dist

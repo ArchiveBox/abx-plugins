@@ -213,8 +213,6 @@ def test_real_forum_url():
         env["FORUMDL_OUTPUT_FORMAT"] = "jsonl"  # Use jsonl format
         env["SNAP_DIR"] = str(tmpdir)
         env.pop("ABXPKG_LIB_DIR", None)
-        # HTML output could be added via: env['FORUMDL_ARGS_EXTRA'] = json.dumps(['--files-output', './files'])
-
         start_time = time.time()
         result = subprocess.run(
             [

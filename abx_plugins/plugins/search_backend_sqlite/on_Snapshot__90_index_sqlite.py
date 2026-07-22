@@ -43,7 +43,12 @@ os.chdir(OUTPUT_DIR)
 # File extensions eligible for full-text indexing
 INDEXABLE_EXTENSIONS = {".txt", ".md", ".html", ".htm"}
 # Directories to skip (search backends themselves, executor artifacts, non-text plugins)
-SKIP_DIRS = {"search_backend_sqlite", "search_backend_sonic", "search_backend_ripgrep"}
+SKIP_DIRS = {
+    "chrome",
+    "search_backend_sqlite",
+    "search_backend_sonic",
+    "search_backend_ripgrep",
+}
 # Nested runtime/build/cache directories that are never snapshot content
 SKIP_NESTED_DIRS = {".cache", ".venv", "__pycache__", "site-packages", "node_modules"}
 SKIP_NESTED_SUFFIXES = (".dist-info", ".egg-info")

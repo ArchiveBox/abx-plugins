@@ -1684,14 +1684,10 @@ async function waitForExtensionTargetHandle(
   preferredTargetUrl = null,
   options = {}
 ) {
-  const deadline = Date.now() + Math.max(timeout, 0);
-  let lastCandidates = [];
-  let wakeAttempted = false;
   const wakePath = options.wakePath || null;
 
   async function wakeExtension() {
-    if (!wakePath || wakeAttempted) return;
-    wakeAttempted = true;
+    if (!wakePath) return null;
     let wakePage = null;
     try {
       wakePage = await browser.newPage();
@@ -1699,7 +1695,7 @@ async function waitForExtensionTargetHandle(
         `${CHROME_EXTENSION_URL_PREFIX}${extensionId}${wakePath}`,
         {
           waitUntil: "load",
-          timeout: Math.min(Math.max(deadline - Date.now(), 1000), 10000),
+          timeout: Math.min(Math.max(timeout, 1000), 10000),
         }
       );
       await wakePage.evaluate(() => {
@@ -1718,59 +1714,30 @@ async function waitForExtensionTargetHandle(
           }
         });
       });
+      return wakePage;
     } catch (error) {
       if (wakePage) {
         try {
           await wakePage.close();
         } catch (closeError) {}
       }
+      return null;
     }
   }
 
-  while (Date.now() < deadline) {
-    const candidates = browser
-      .targets()
-      .filter(
-        (target) =>
-          getExtensionIdFromUrl(target.url()) === extensionId &&
-          target.type() === "service_worker"
-      );
-
-    if (preferredTargetUrl) {
-      const exactMatch = candidates.find(
-        (target) => target.url() === preferredTargetUrl
-      );
-      if (exactMatch) {
-        return exactMatch;
-      }
-    } else {
-      const backgroundTarget = candidates.find((target) =>
-        EXTENSION_BACKGROUND_TARGET_TYPES.has(target.type())
-      );
-      if (backgroundTarget) {
-        return backgroundTarget;
-      }
-      if (candidates.length > 0) {
-        return candidates[0];
-      }
+  const matchesExtensionTarget = (target) =>
+    target.type() === "service_worker" &&
+    getExtensionIdFromUrl(target.url()) === extensionId &&
+    (!preferredTargetUrl || target.url() === preferredTargetUrl);
+  const targetPromise = browser.waitForTarget(matchesExtensionTarget, { timeout });
+  const wakePage = await wakeExtension();
+  try {
+    return await targetPromise;
+  } finally {
+    if (wakePage) {
+      await wakePage.close().catch(() => {});
     }
-
-    lastCandidates = candidates.map(
-      (target) => `${target.type()}:${target.url()}`
-    );
-    if (candidates.length === 0) {
-      await wakeExtension();
-    }
-    await sleep(100);
   }
-
-  const error = new Error(
-    `Timed out waiting for extension target ${extensionId}` +
-      (preferredTargetUrl ? ` (${preferredTargetUrl})` : "") +
-      (lastCandidates.length ? `; last seen: ${lastCandidates.join(", ")}` : "")
-  );
-  error.name = "TimeoutError";
-  throw error;
 }
 
 async function isTargetExtension(target, options = {}) {
@@ -2008,10 +1975,17 @@ async function loadUnpackedExtensionsIntoBrowser(
       }
 
       try {
+        const manifest =
+          extension.manifest || loadExtensionManifest(extension.unpacked_path);
+        const wakePath = manifest?.action?.default_popup
+          ? `/${String(manifest.action.default_popup).replace(/^\/+/, "")}`
+          : null;
         const target = await waitForExtensionTargetHandle(
           browser,
           extension.id,
-          perExtensionTimeout
+          perExtensionTimeout,
+          null,
+          { wakePath }
         );
         const loaded = await withTimeout(
           () =>
@@ -2642,46 +2616,100 @@ async function cleanupStaleChromeSessionArtifacts(
  * @param {string} chromeSessionDir - Path to chrome session directory
  * @param {Object} [options={}] - Wait/validation options
  * @param {number} [options.timeoutMs=60000] - Timeout in milliseconds
- * @param {number} [options.intervalMs=100] - Poll interval in milliseconds
  * @param {boolean} [options.requireTargetId=false] - Require target ID marker
  * @param {boolean} [options.requireBrowserReady=false] - Require browser.json to be ready
  * @param {boolean} [options.requireConnectable=false] - Require the browser endpoint to be CDP-connectable
- * @param {number} [options.probeTimeoutMs=min(intervalMs, 1000)] - Timeout for each CDP connectability probe
+ * @param {number} [options.probeTimeoutMs=1000] - Timeout for the CDP connectability probe
  * @param {Object} [options.puppeteer] - Puppeteer module for target-level connectability checks
  * @returns {Promise<{sessionDir: string, cdpUrl: string|null, targetId: string|null, pid: number|null, browser: Object|null, extensions: Array<Object>|null}|null>}
  */
 async function waitForChromeSessionState(chromeSessionDir, options = {}) {
   const {
     timeoutMs = 60000,
-    intervalMs = 100,
     requireTargetId = false,
     requireBrowserReady = false,
     requireConnectable = false,
-    probeTimeoutMs = Math.min(Math.max(intervalMs, 100), 1000),
+    probeTimeoutMs = 1000,
     puppeteer = null,
   } = options;
-  const startTime = Date.now();
+  const sessionDir = path.resolve(chromeSessionDir);
+  fs.mkdirSync(sessionDir, { recursive: true });
 
-  while (Date.now() - startTime < timeoutMs) {
-    const inspection = await inspectChromeSessionArtifacts(chromeSessionDir, {
-      requireTargetId,
-      validateLiveness: requireConnectable,
-      probeTimeoutMs,
-      puppeteer,
+  return await new Promise((resolve, reject) => {
+    let settled = false;
+    let inspectionRunning = false;
+    let inspectionPending = false;
+    let watcher = null;
+    let timeout = null;
+
+    const finish = (state) => {
+      if (settled) return;
+      settled = true;
+      if (timeout) clearTimeout(timeout);
+      if (watcher) watcher.close();
+      resolve(state);
+    };
+
+    const inspect = async () => {
+      if (settled) return;
+      if (inspectionRunning) {
+        inspectionPending = true;
+        return;
+      }
+      inspectionRunning = true;
+      try {
+        const inspection = await inspectChromeSessionArtifacts(sessionDir, {
+          requireTargetId,
+          validateLiveness: requireConnectable,
+          probeTimeoutMs,
+          puppeteer,
+        });
+        const state = inspection.state;
+        if (
+          state?.cdpUrl &&
+          (!requireTargetId || state.targetId) &&
+          (!requireBrowserReady || state.ready) &&
+          (!requireConnectable || !inspection.stale)
+        ) {
+          finish(state);
+        }
+      } catch (error) {
+        if (!settled) {
+          settled = true;
+          if (timeout) clearTimeout(timeout);
+          if (watcher) watcher.close();
+          reject(error);
+        }
+      } finally {
+        inspectionRunning = false;
+        if (inspectionPending && !settled) {
+          inspectionPending = false;
+          void inspect();
+        }
+      }
+    };
+
+    const markerNames = new Set(
+      getChromeSessionArtifactPaths(sessionDir).map((filePath) =>
+        path.basename(filePath)
+      )
+    );
+    watcher = fs.watch(sessionDir, (_eventType, filename) => {
+      if (!filename || markerNames.has(String(filename))) {
+        void inspect();
+      }
     });
-    const state = inspection.state;
-    if (
-      state?.cdpUrl &&
-      (!requireTargetId || state.targetId) &&
-      (!requireBrowserReady || state.ready) &&
-      (!requireConnectable || !inspection.stale)
-    ) {
-      return state;
-    }
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
-  }
-
-  return null;
+    watcher.on("error", (error) => {
+      if (!settled) {
+        settled = true;
+        if (timeout) clearTimeout(timeout);
+        watcher.close();
+        reject(error);
+      }
+    });
+    timeout = setTimeout(() => finish(null), Math.max(timeoutMs, 0));
+    void inspect();
+  });
 }
 
 /**
@@ -3467,7 +3495,6 @@ async function connectToPage(options = {}) {
     const remainingMs = Math.max(deadline - Date.now(), 0);
     const state = await waitForChromeSessionState(chromeSessionDir, {
       timeoutMs: Math.min(remainingMs, 500),
-      intervalMs: 100,
       requireTargetId,
       requireBrowserReady,
     });

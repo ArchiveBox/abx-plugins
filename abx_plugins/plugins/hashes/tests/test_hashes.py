@@ -27,77 +27,42 @@ class TestHashesPlugin:
         """Hashes hook script should exist."""
         assert HASHES_HOOK.exists(), f"Hook not found: {HASHES_HOOK}"
 
-    def test_hashes_generates_tree_for_files(self):
-        """Hashes hook should generate merkle tree for files in snapshot directory."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Create a mock snapshot directory structure
-            snap_dir = Path(temp_dir) / "snap"
-            snap_dir.mkdir(parents=True, exist_ok=True)
+    def test_hashes_generates_tree_for_files(
+        self,
+        tmp_path: Path,
+        real_html_snapshot,
+    ):
+        """Hashes hook should index outputs produced by real capture hooks."""
+        snap_dir = real_html_snapshot(tmp_path, "https://example.com", "hashes")
+        output_dir = snap_dir / "hashes"
+        output_dir.mkdir()
+        env = os.environ.copy()
+        env["HASHES_ENABLED"] = "true"
+        env["SNAP_DIR"] = str(snap_dir)
 
-            # Create output directory for hashes
-            output_dir = snap_dir / "hashes"
-            output_dir.mkdir()
+        result = subprocess.run(
+            [str(HASHES_HOOK), "--url=https://example.com"],
+            capture_output=True,
+            text=True,
+            cwd=output_dir,
+            env=env,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
 
-            # Create some test files
-            (snap_dir / "index.html").write_text("<html><body>Test</body></html>")
-            (snap_dir / "screenshot.png").write_bytes(
-                b"\x89PNG\r\n\x1a\n" + b"\x00" * 100,
-            )
-
-            subdir = snap_dir / "media"
-            subdir.mkdir()
-            (subdir / "video.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42")
-
-            # Run the hook from the output directory
-            env = os.environ.copy()
-            env["HASHES_ENABLED"] = "true"
-            env["SNAP_DIR"] = str(snap_dir)
-
-            result = subprocess.run(
-                [
-                    str(HASHES_HOOK),
-                    "--url=https://example.com",
-                ],
-                capture_output=True,
-                text=True,
-                cwd=str(output_dir),  # Hook expects to run from output dir
-                env=env,
-                timeout=30,
-            )
-
-            # Should succeed
-            assert result.returncode == 0, f"Hook failed: {result.stderr}"
-
-            # Check output file exists
-            output_file = output_dir / "hashes.json"
-            assert output_file.exists(), "hashes.json not created"
-
-            # Parse and verify output
-            with open(output_file) as f:
-                data = json.load(f)
-
-            assert "root_hash" in data
-            assert "files" in data
-            assert "metadata" in data
-
-            result_json = parse_jsonl_output(result.stdout)
-            assert result_json is not None
-            assert result_json["type"] == "ArchiveResult"
-            assert result_json["status"] == "succeeded"
-
-            # Should have indexed our test files
-            file_paths = [f["path"] for f in data["files"]]
-            assert "index.html" in file_paths
-            assert "screenshot.png" in file_paths
-
-            # Verify metadata
-            assert data["metadata"]["file_count"] > 0
-            assert data["metadata"]["total_size"] > 0
-            total_size_mb = data["metadata"]["total_size"] / 1_000_000
-            assert (
-                result_json["output_str"]
-                == f"{total_size_mb:.1f}MB {data['root_hash'][:12]}"
-            )
+        output_file = output_dir / "hashes.json"
+        data = json.loads(output_file.read_text())
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json is not None and result_json["status"] == "succeeded"
+        file_paths = [file["path"] for file in data["files"]]
+        assert "dom/output.html" in file_paths
+        assert "title/title.txt" in file_paths
+        assert data["metadata"]["file_count"] >= 2
+        assert data["metadata"]["total_size"] > 0
+        total_size_mb = data["metadata"]["total_size"] / 1_000_000
+        assert result_json["output_str"] == (
+            f"{total_size_mb:.1f}MB {data['root_hash'][:12]}"
+        )
 
     def test_hashes_skips_when_disabled(self):
         """Hashes hook should skip when HASHES_ENABLED=false."""
