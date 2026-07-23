@@ -47,44 +47,32 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-3.13.13-uv-
 
-      - name: Project CI tooling through abxpkg
-        env:
-          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
-        run: uv run --no-project python bin/ci_project_tools.py prek_binaries --lib "$ABXPKG_LIB_DIR"
-
-      - name: Clone abx-dl release for documentation examples
+      - name: Install locked dependencies
         run: |
-          set -Eeuo pipefail
-          tag="v1.11.262"
-          sha="cc08a64d002bc47ac50e064c526b462f6bc9c9d2"
-          checkout="${{ runner.temp }}/abx-dl"
-          "${GIT_BINARY}" clone --depth=1 --branch "$tag" https://github.com/ArchiveBox/abx-dl.git "$checkout"
-          [[ "$("${GIT_BINARY}" -C "$checkout" rev-parse HEAD)" == "$sha" ]]
-          [[ "$("${GIT_BINARY}" -C "$checkout" rev-parse "refs/tags/${tag}^{commit}")" == "$sha" ]]
-
-      - name: Install locked dependencies through projected uv
-        run: |
-          "${UV_BINARY}" sync --locked --dev --no-sources
-
-      - name: Install abx-dl documentation dependency
-        run: |
-          "${UV_BINARY}" pip install --no-deps -e "${{ runner.temp }}/abx-dl"
-
-      - name: Run prek
-        run: |
-          "${UV_BINARY}" run --no-sync --no-sources prek run --all-files
+          uv sync --locked --dev --no-sources
 
       - name: Run documentation code blocks
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/docs-abx-lib
         run: |
-          mapfile -t plugin_readmes < <("${UV_BINARY}" run --no-project python - <<'PY'
+          mapfile -t plugin_readmes < <(uv run --no-project python - <<'PY'
           from pathlib import Path
 
           for readme in sorted(Path("abx_plugins/plugins").glob("*/README.md")):
               print(readme)
           PY
           )
-          "${UV_BINARY}" run --no-sync --no-sources pytest -vv --tb=long \
+          uv run --no-sync --no-sources pytest -vv --tb=long \
             README.md AGENTS.md skills docs "${plugin_readmes[@]}"
+
+      - name: Project lint tooling through abxpkg
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/lint-abx-lib
+        run: uv run --no-project python bin/ci_project_tools.py prek_binaries --lib "$ABXPKG_LIB_DIR"
+
+      - name: Run prek
+        run: |
+          "${UV_BINARY}" run --no-sync --no-sources prek run --all-files
 
   build-package:
     name: Build package artifacts
@@ -314,50 +302,21 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.python }}-uv-
 
-      - name: Project test tooling through abxpkg
-        env:
-          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
-        run: uv run --no-project python bin/ci_project_tools.py node_binaries --lib "$ABXPKG_LIB_DIR"
-
-      - name: Install locked dependencies through projected uv
+      - name: Install locked dependencies
         run: |
-          "${UV_BINARY}" sync --locked --dev --no-sources
-
-      - name: Select Chromium for extension-capable CDP
-        if: ${{ matrix.shard.needs_chromium }}
-        env:
-          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
-        run: |
-          set -euo pipefail
-          chromium_env="$(
-            "${UV_BINARY}" run --no-sync --no-sources abxpkg env \
-              --install \
-              --json \
-              --lib="$ABXPKG_LIB_DIR" \
-              --deps-from="$PWD/abx_plugins/plugins/chrome/config.json:required_binaries"
-          )"
-          "${JQ_BINARY}" -r 'to_entries[] | "\(.key)=\(.value)"' \
-            <<< "$chromium_env" >> "$GITHUB_ENV"
-
-          chrome_binary="$ABXPKG_LIB_DIR/env/bin/chromium"
-          echo "CHROME_BINARY=$chrome_binary" >> "$GITHUB_ENV"
-          test -L "$chrome_binary"
-          test -x "$chrome_binary"
-
-      - name: Verify Chromium launch
-        if: ${{ matrix.shard.needs_chromium }}
-        uses: ./.github/actions/verify-chromium-launch
+          uv sync --locked --dev --no-sources
 
       - name: Run test shard - ${{ matrix.shard.name }}
         env:
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           CHROME_HEADLESS: "True"
           TEST_PATHS_JSON: ${{ toJson(matrix.shard.paths) }}
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/runtime-abx-lib
         run: |
           set -Eeuo pipefail
           test_paths=()
           while IFS= read -r test_path; do
             test_paths+=("$test_path")
-          done < <("${JQ_BINARY}" -r '.[]' <<< "$TEST_PATHS_JSON")
+          done < <(uv run --no-project python -c 'import json, os; print(*json.loads(os.environ["TEST_PATHS_JSON"]), sep="\n")')
           [[ "${#test_paths[@]}" -gt 0 ]]
-          "${UV_BINARY}" run --no-sync --no-sources pytest -vs -rA "${test_paths[@]}" --basetemp="$RUNNER_TEMP/pytest-out"
+          uv run --no-sync --no-sources pytest -vs -rA "${test_paths[@]}" --basetemp="$RUNNER_TEMP/pytest-out"

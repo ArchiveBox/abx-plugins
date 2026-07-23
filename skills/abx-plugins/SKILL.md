@@ -37,17 +37,20 @@ PY
 
 ## User-Facing Inspection
 
-Inspect the installed plugin runtime through `abx-dl`:
+Inspect the installed plugin package directly:
 
 ```bash
 set -euo pipefail
-inspection="$(mktemp)"
-trap 'rm -f -- "$inspection"' EXIT
-uv run --no-sync --no-sources abx-dl version >"$inspection"
-grep -q '^abx-dl v' "$inspection"
-test "$(uv run --no-sync --no-sources abx-dl config --get TITLE_ENABLED)" = "TITLE_ENABLED=true"
-uv run --no-sync --no-sources abx-dl plugins title >"$inspection"
-grep -q 'title' "$inspection"
+uv run --no-sync --no-sources python - <<'PY'
+from pathlib import Path
+
+import abx_plugins
+
+package = Path(abx_plugins.__file__).resolve().parent
+title = package / "plugins" / "title"
+assert (title / "config.json").is_file()
+assert (title / "on_Snapshot__54_title.js").is_file()
+PY
 ```
 
 ## Basic Usage

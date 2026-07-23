@@ -289,7 +289,6 @@ def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
     """
     from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
         get_test_env,
-        install_chromium_with_abxpkg,
     )
 
     if not os.environ.get("SNAP_DIR"):
@@ -310,9 +309,11 @@ def ensure_chromium_and_puppeteer_installed_impl(tmp_path_factory) -> str:
         os.environ.setdefault("CHROME_SANDBOX", "false")
         env.setdefault("CHROME_SANDBOX", "false")
 
-    chromium_binary = install_chromium_with_abxpkg(env)
-    if not chromium_binary:
-        raise RuntimeError("Chromium not found after abxpkg install")
+    chromium_binary = str(env.get("CHROME_BINARY") or "")
+    if not chromium_binary or not Path(chromium_binary).exists():
+        raise RuntimeError(
+            f"Chromium not found after abxpkg install: {chromium_binary}",
+        )
 
     os.environ["CHROME_BINARY"] = chromium_binary
     for key in (

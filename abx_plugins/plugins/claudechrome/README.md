@@ -85,26 +85,22 @@ Files are written to `SNAP_DIR/claudechrome/`:
 ## Usage
 
 ```bash
-# Enable Claude for Chrome
-export CLAUDECHROME_ENABLED=true
-export ANTHROPIC_API_KEY=sk-ant-...
+set -euo pipefail
+repo_root="$PWD"
+snap_dir="$(mktemp -d)"
+trap 'rm -rf -- "$snap_dir"' EXIT
 
-# Default: click all expand/show-more buttons
-archivebox add "https://example.com"
+(
+  cd "$snap_dir"
+  CLAUDECHROME_ENABLED=false SNAP_DIR="$snap_dir" \
+    "$repo_root/abx_plugins/plugins/claudechrome/on_Snapshot__47_claudechrome.js" \
+    --url=https://example.com
+) >"$snap_dir/result.jsonl"
 
-# Custom: download all linked PDFs
-export CLAUDECHROME_PROMPT="Find all links to PDF files on this page and click each one to download it."
-
-# Custom: fill in a search form
-export CLAUDECHROME_PROMPT="Find the search input field, type 'archivebox', and press Enter."
-
-# Custom: click through a cookie consent dialog
-export CLAUDECHROME_PROMPT="If there is a cookie consent banner, click 'Accept All' or 'OK' to dismiss it."
-
-# Use a faster model
-export CLAUDECHROME_MODEL=claude-haiku-4-5-20251001
-
-# Allow more complex interactions
-export CLAUDECHROME_MAX_ACTIONS=30
-export CLAUDECHROME_TIMEOUT=300
+grep -q '"status":"skipped"' "$snap_dir/result.jsonl"
 ```
+
+For a live run, set `CLAUDECHROME_ENABLED=true`, provide
+`ANTHROPIC_API_KEY`, and invoke the same hook inside the Chrome plugin's active
+snapshot session. `CLAUDECHROME_PROMPT`, `CLAUDECHROME_MODEL`,
+`CLAUDECHROME_MAX_ACTIONS`, and `CLAUDECHROME_TIMEOUT` customize the interaction.

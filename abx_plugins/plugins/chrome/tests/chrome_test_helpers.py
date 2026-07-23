@@ -118,10 +118,11 @@ def require_chrome_runtime_impl() -> None:
     """Require chrome runtime prerequisites for integration tests."""
     try:
         env = get_test_env(install_required_binaries=True)
-        chrome_binary = install_chromium_with_abxpkg(
-            env,
-            timeout=int(env.get("ABXPKG_INSTALL_TIMEOUT") or "300"),
-        )
+        chrome_binary = str(env.get("CHROME_BINARY") or "")
+        if not chrome_binary or not Path(chrome_binary).exists():
+            raise RuntimeError(
+                f"Chrome binary not found after abxpkg install: {chrome_binary}",
+            )
         os.environ["CHROME_BINARY"] = chrome_binary
         for key in (
             "ABXPKG_LIB_DIR",
@@ -1214,7 +1215,7 @@ def _ensure_puppeteer_with_abxpkg(env: dict, timeout: int) -> None:
     """Install Chrome JS dependencies through plugin required_binaries.
 
     The Chrome JS hooks resolve their module paths from the provider-built env
-    emitted by abxpkg/abx-dl/archivebox. Test setup has to use that same env
+    emitted by abxpkg. Test setup has to use that same env
     because Chrome's required_binaries now span separate pnpm package roots
     such as playwright, abxbus, and @puppeteer/browsers.
     """
@@ -1259,25 +1260,18 @@ def resolve_node_with_abxpkg(env: dict) -> str:
 def install_chromium_with_abxpkg(env: dict, timeout: int = 300) -> str:
     """Resolve/install Chrome and its runtime dependencies through abxpkg."""
     with _chromium_install_lock(env):
-        resolve_node_with_abxpkg(env)
         _ensure_puppeteer_with_abxpkg(env, timeout=timeout)
 
-        chrome_name = env.get("CHROME_BINARY") or "chromium"
-        chrome_record = _required_binary_record(CHROME_PLUGIN_DIR, chrome_name, env)
-        loaded_chrome = load_required_binary(
-            chrome_record,
-            config=env,
-            environ=env,
-            install=True,
-        )
-
-        chrome_path = str(loaded_chrome.loaded_abspath or "")
-        if not chrome_path or not Path(chrome_path).exists():
+        chrome_path = str(env.get("CHROME_BINARY") or "")
+        if (
+            not chrome_path
+            or not Path(chrome_path).is_absolute()
+            or not Path(chrome_path).exists()
+        ):
             raise RuntimeError(
                 f"Chrome binary not found after install: {chrome_path}",
             )
 
-        env["CHROME_BINARY"] = chrome_path
         return chrome_path
 
 

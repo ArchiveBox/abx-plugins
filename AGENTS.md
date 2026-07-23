@@ -35,15 +35,12 @@ PY
 
 ## User-Facing Setup
 
-Most users run these plugins through ArchiveBox or `abx-dl`:
+Run a plugin hook directly:
 
 ```bash
 set -euo pipefail
 output_dir="$(mktemp -d)"
 trap 'rm -rf -- "$output_dir"' EXIT
-uv run --no-sync --no-sources abx-dl plugins title >"$output_dir/plugins.txt"
-grep -q 'title' "$output_dir/plugins.txt"
-uv run --no-sync --no-sources abx-dl install hashes
 printf 'hello\n' >"$output_dir/output.html"
 (cd "$output_dir" && uv run --project "$OLDPWD" --no-sync --no-sources \
   bash -c 'exec "$1" --url=https://example.com' bash \
