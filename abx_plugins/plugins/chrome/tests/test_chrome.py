@@ -23,6 +23,7 @@ import sys
 import tempfile
 import threading
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -64,6 +65,16 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 TEST_EXTENSION_NAME = "ublock"
 TEST_EXTENSION_WEBSTORE_ID = "ddkjiahejlhfcafbddmgiahcphecmpfh"
+
+
+@dataclass
+class _ConcurrentChromeSession:
+    snapshot_id: str
+    chrome_dir: Path
+    env: dict[str, str]
+    launch_process: subprocess.Popen[str]
+    tab_process: subprocess.Popen[str] | None = None
+    chrome_pid: int | None = None
 
 
 def test_acquire_session_lock_creates_missing_parent_dir(tmp_path):
@@ -1263,6 +1274,125 @@ def test_snapshot_isolation_launches_and_cleans_up_local_browser(chrome_test_url
         with pytest.raises(OSError):
             os.kill(chrome_pid, 0)
         _assert_snapshot_chrome_state_cleared(snapshot_chrome_dir)
+
+
+def test_concurrent_snapshot_isolation_loads_shared_extension_cache(chrome_test_url):
+    """Concurrent snapshot browsers must load one shared abxpkg extension cache."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        crawl_dir = Path(tmpdir) / "crawl"
+        crawl_dir.mkdir()
+        base_env = _isolated_test_env(tmpdir) | {
+            "CRAWL_DIR": str(crawl_dir),
+            "CHROME_HEADLESS": "true",
+            "CHROME_ISOLATION": "snapshot",
+        }
+        extensions_dir = Path(get_extensions_dir(env=base_env))
+        cached_ext = _install_test_extension(extensions_dir, base_env)
+
+        sessions: list[_ConcurrentChromeSession] = []
+        for index in range(3):
+            snapshot_dir = Path(tmpdir) / f"snapshot-{index}"
+            chrome_dir = snapshot_dir / "chrome"
+            chrome_dir.mkdir(parents=True)
+            snapshot_id = f"snap-concurrent-isolated-{index}"
+            env = base_env | {
+                "SNAP_DIR": str(snapshot_dir),
+                "PERSONAS_DIR": str(snapshot_dir / ".persona"),
+            }
+            launch_process = subprocess.Popen(
+                [
+                    str(CHROME_SNAPSHOT_LAUNCH_HOOK),
+                    f"--url={chrome_test_url}",
+                    f"--snapshot-id={snapshot_id}",
+                    "--crawl-id=test-concurrent-snapshot-isolation",
+                ],
+                cwd=str(chrome_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env,
+            )
+            sessions.append(
+                _ConcurrentChromeSession(
+                    snapshot_id=snapshot_id,
+                    chrome_dir=chrome_dir,
+                    env=env,
+                    launch_process=launch_process,
+                ),
+            )
+
+        try:
+            for session in sessions:
+                wait_for_chrome_session_state(
+                    session.chrome_dir,
+                    env=session.env,
+                    timeout_seconds=60,
+                    require_browser_ready=True,
+                )
+                assert session.launch_process.poll() is None
+                browser_metadata = json.loads(
+                    (session.chrome_dir / "browser.json").read_text(),
+                )
+                extension_entry = next(
+                    (
+                        entry
+                        for entry in browser_metadata.get("extensions", [])
+                        if entry.get("name") == TEST_EXTENSION_NAME
+                    ),
+                    None,
+                )
+                assert extension_entry is not None, browser_metadata
+                assert (
+                    extension_entry.get("unpacked_path") == cached_ext["unpacked_path"]
+                )
+                assert extension_entry.get("id") == cached_ext["id"]
+                assert "load_error" not in extension_entry, extension_entry
+                session.chrome_pid = int(
+                    (session.chrome_dir / "chrome.pid").read_text().strip(),
+                )
+
+            for session in sessions:
+                session.tab_process = launch_snapshot_tab(
+                    snapshot_chrome_dir=session.chrome_dir,
+                    tab_env=session.env,
+                    test_url=chrome_test_url,
+                    snapshot_id=session.snapshot_id,
+                    crawl_id="test-concurrent-snapshot-isolation",
+                    require_pid=True,
+                )
+                wait_result = subprocess.run(
+                    [
+                        str(CHROME_WAIT_HOOK),
+                        f"--url={chrome_test_url}",
+                        f"--snapshot-id={session.snapshot_id}",
+                    ],
+                    cwd=str(session.chrome_dir),
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    env=session.env,
+                )
+                assert wait_result.returncode == 0, (
+                    f"snapshot wait failed for {session.snapshot_id}:\n"
+                    f"Stdout: {wait_result.stdout}\nStderr: {wait_result.stderr}"
+                )
+        finally:
+            for session in sessions:
+                tab_process = session.tab_process
+                if tab_process is not None and tab_process.poll() is None:
+                    tab_process.send_signal(signal.SIGTERM)
+                    tab_process.wait(timeout=20)
+            for session in sessions:
+                launch_process = session.launch_process
+                if launch_process.poll() is None:
+                    launch_process.send_signal(signal.SIGTERM)
+                    launch_process.wait(timeout=20)
+
+        for session in sessions:
+            chrome_pid = session.chrome_pid
+            assert chrome_pid is not None
+            assert not is_pid_alive(chrome_pid)
+            _assert_snapshot_chrome_state_cleared(session.chrome_dir)
 
 
 def test_crawl_isolation_local_keepalive_true_keeps_browser_running_after_hook_exit(
