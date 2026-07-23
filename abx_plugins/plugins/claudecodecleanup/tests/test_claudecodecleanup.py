@@ -668,8 +668,8 @@ class TestClaudeCodeCleanupIntegration:
             env["CLAUDECODECLEANUP_MAX_TURNS"] = "25"
             env["CLAUDECODECLEANUP_TIMEOUT"] = "90"
             env["CLAUDECODECLEANUP_PROMPT"] = (
-                "Select every deletable file id under screenshot/ because its real extractor run failed. "
-                "Do NOT select ids from hashes/ or any other extractor directory. "
+                "Select every deletable file id under htmltotext/ because that real extractor output is redundant. "
+                "Do NOT select ids from any other extractor directory. "
                 "Return a summary of what you deleted in your final response."
             )
 
@@ -686,8 +686,11 @@ class TestClaudeCodeCleanupIntegration:
             assert result is not None, f"No ArchiveResult. stderr: {stderr[:500]}"
             assert result["status"] == "succeeded", f"Should succeed: {stderr[:500]}"
 
-            assert not (snap_dir / "screenshot" / "stdout.log").exists(), (
-                "failed screenshot output file should have been deleted by cleanup"
+            assert not (snap_dir / "htmltotext" / "htmltotext.txt").exists(), (
+                "the selected real extractor output should have been deleted"
+            )
+            assert (snap_dir / "screenshot" / "stdout.log").exists(), (
+                "failed extractor process logs must remain protected"
             )
 
             # Verify hashes preserved (must survive even when deletion is enabled)
