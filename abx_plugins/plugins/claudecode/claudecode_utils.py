@@ -310,7 +310,9 @@ def run_claude_code(
         # Save session log if requested
         if session_log_path and result.stdout:
             try:
-                Path(session_log_path).write_text(result.stdout, encoding="utf-8")
+                session_log = Path(session_log_path)
+                session_log.parent.mkdir(parents=True, exist_ok=True)
+                session_log.write_text(result.stdout, encoding="utf-8")
                 print(f"[+] Session log saved to {session_log_path}", file=sys.stderr)
                 print(result.stdout, file=sys.stderr)
             except OSError as e:

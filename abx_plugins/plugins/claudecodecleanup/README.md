@@ -36,7 +36,7 @@ Each variable falls back to the corresponding `CLAUDECODE_*` default if unset.
 
 - **Full access** (read, write, rename, move, delete) within the snapshot directory (`SNAP_DIR`)
 - The agent **cannot** access files outside the snapshot directory
-- Protected items: `hashes/` directory and `.json` metadata files are never deleted
+- Protected items: `hashes/`, `.json` metadata, process-control files, and the hook-owned `claudecodecleanup/` output directory
 
 ## Output
 

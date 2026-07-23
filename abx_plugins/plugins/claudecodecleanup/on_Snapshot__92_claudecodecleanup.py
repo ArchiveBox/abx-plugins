@@ -63,7 +63,8 @@ DEFAULT_PROMPT = (
     "duplicates, incomplete or failed outputs, and empty directories; when uncertain, "
     "keep the output. Never delete hashes/ or any JSON metadata. Never read, modify, "
     "rename, or delete ArchiveBox process-control files ending in .stdout.log, "
-    ".stderr.log, .pid, or .sh; they may belong to processes still running. Then stop "
+    ".stderr.log, .pid, or .sh; they may belong to processes still running. Never inspect, "
+    "modify, rename, or delete the claudecodecleanup/ output directory. Then stop "
     "using tools and return a concise final report. Name every extractor directory "
     "inspected, list every deletion, summarize every retained duplicate group, and keep "
     "the report under 500 words. Do not re-list, re-read, verify, narrate further, or "
@@ -143,6 +144,7 @@ def main(url: str, snapshot_id: str):
                 "- Never read, write, modify, rename, or delete ArchiveBox process-control "
                 "files ending in .stdout.log, .stderr.log, .pid, or .sh; they may belong "
                 "to processes that are still running.\n"
+                f"- Never inspect, modify, rename, or delete the hook-owned output directory: {OUTPUT_DIR}\n"
                 "- Inspect a file or directory at most once and do not revisit completed decisions.\n"
                 "- Make one cleanup pass; do not repeatedly inventory or verify the snapshot.\n"
                 "- Finish with a concise, non-empty final response that reports the cleanup, "
@@ -179,6 +181,7 @@ def main(url: str, snapshot_id: str):
 
         # Claude performs inspection and cleanup; the hook persists its final report.
         if stdout:
+            OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
             response_path = OUTPUT_DIR / "response.txt"
             response_path.write_text(stdout, encoding="utf-8")
 
