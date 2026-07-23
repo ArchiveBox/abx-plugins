@@ -3407,12 +3407,13 @@ async function closeTabInChromeSession(options = {}) {
       connectOptions: { defaultViewport: null },
     },
     async (browser) => {
-      const page = await resolvePageByTargetId(browser, targetId, 1000);
-      if (!page) {
+      const session = await browser.target().createCDPSession();
+      const { targetInfos } = await session.send("Target.getTargets");
+      if (!targetInfos.some((target) => target.targetId === targetId)) {
         return false;
       }
-      await page.close();
-      return true;
+      const result = await session.send("Target.closeTarget", { targetId });
+      return result.success;
     }
   );
 }

@@ -2798,6 +2798,101 @@ def test_tab_cleanup_on_sigterm(chrome_test_url):
         _cleanup_launch_process(chrome_launch_process, chrome_dir)
 
 
+def test_tab_cleanup_on_sigterm_interrupts_inflight_navigation(httpserver):
+    """Tab cleanup must not wait for a separate navigation client's lifecycle."""
+    navigation_started = threading.Event()
+    navigation_release = threading.Event()
+
+    def blocked_navigation(_request):
+        navigation_started.set()
+        if not navigation_release.wait(timeout=30):
+            return Response("navigation release was not signaled", status=500)
+        return Response("<html><body>navigation released</body></html>")
+
+    httpserver.expect_oneshot_request("/tab-cleanup").respond_with_handler(
+        blocked_navigation,
+    )
+    navigation_url = httpserver.url_for("/tab-cleanup")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        crawl_dir = Path(tmpdir) / "crawl"
+        crawl_dir.mkdir()
+        crawl_chrome_dir = crawl_dir / "chrome"
+        crawl_chrome_dir.mkdir()
+        snapshot_dir = Path(tmpdir) / "snapshot"
+        snapshot_dir.mkdir()
+        snapshot_chrome_dir = snapshot_dir / "chrome"
+        snapshot_chrome_dir.mkdir()
+
+        env = _isolated_test_env(
+            tmpdir,
+            CRAWL_DIR=str(crawl_dir),
+            SNAP_DIR=str(snapshot_dir),
+            CHROME_HEADLESS="true",
+            CHROME_WAIT_FOR="load",
+        )
+        chrome_launch_process, _cdp_url = launch_chromium_session(
+            env,
+            crawl_chrome_dir,
+            "test-tab-cleanup-navigation",
+        )
+        chrome_pid = int((crawl_chrome_dir / "chrome.pid").read_text().strip())
+        tab_process = launch_snapshot_tab(
+            snapshot_chrome_dir=snapshot_chrome_dir,
+            tab_env=env,
+            test_url=navigation_url,
+            snapshot_id="snap-tab-cleanup-navigation",
+            crawl_id="test-tab-cleanup-navigation",
+        )
+        navigate_process = subprocess.Popen(
+            [
+                str(CHROME_NAVIGATE_HOOK),
+                f"--url={navigation_url}",
+                "--snapshot-id=snap-tab-cleanup-navigation",
+            ],
+            cwd=str(snapshot_chrome_dir),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env | {"CHROME_PAGELOAD_TIMEOUT": "30"},
+        )
+
+        try:
+            assert navigation_started.wait(timeout=30), (
+                "navigation hook did not request the blocking test page"
+            )
+            tab_process.send_signal(signal.SIGTERM)
+            _tab_stdout, tab_stderr = tab_process.communicate(timeout=10)
+            assert tab_process.returncode == 0, tab_stderr
+            navigate_stdout, navigate_stderr = navigate_process.communicate(timeout=10)
+            assert navigate_process.returncode != 0, (
+                f"closing the tab should interrupt its active navigation:\n"
+                f"Stdout: {navigate_stdout}\nStderr: {navigate_stderr}"
+            )
+            assert not (snapshot_chrome_dir / "target_id.txt").exists()
+            assert not (snapshot_chrome_dir / "url.txt").exists()
+            navigation_state = json.loads(
+                (snapshot_chrome_dir / "navigation.json").read_text(),
+            )
+            assert (
+                "Target" in navigation_state["error"]
+                or "closed" in navigation_state["error"]
+                or "detached" in navigation_state["error"]
+            ), navigation_state
+            assert is_pid_alive(chrome_pid), (
+                "closing the snapshot tab must not close its crawl browser"
+            )
+        finally:
+            navigation_release.set()
+            if navigate_process.poll() is None:
+                navigate_process.send_signal(signal.SIGTERM)
+            navigate_process.communicate(timeout=10)
+            if tab_process.poll() is None:
+                tab_process.send_signal(signal.SIGTERM)
+                tab_process.communicate(timeout=10)
+            _cleanup_launch_process(chrome_launch_process, crawl_chrome_dir)
+
+
 def test_snapshot_wait_survives_idle_delay_with_shared_dirs(chrome_test_url):
     """Snapshot tab should remain connectable even when SNAP_DIR and CRAWL_DIR are shared."""
     with tempfile.TemporaryDirectory() as tmpdir:
