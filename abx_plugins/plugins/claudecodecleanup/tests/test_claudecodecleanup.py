@@ -55,6 +55,14 @@ def append_snapshot_ledger_record(snap_dir: Path, record: dict[str, object]) -> 
         ledger.write(json.dumps(record) + "\n")
 
 
+def hook_extra_context(snapshot_id: str, plugin_name: str) -> list[str]:
+    """Pass the same ArchiveResult identity fields supplied by the real bus."""
+    return [
+        "--extra-context="
+        + json.dumps({"snapshot_id": snapshot_id, "plugin": plugin_name}),
+    ]
+
+
 def create_snapshot_with_real_outputs(
     root: Path,
     snapshot_id: str,
@@ -66,6 +74,8 @@ def create_snapshot_with_real_outputs(
     for plugin_name in ("title", "dom"):
         record = parse_jsonl_output((snap_dir / plugin_name / "stdout.log").read_text())
         assert record is not None
+        assert record["snapshot_id"] == snapshot_id
+        assert record["plugin"] == plugin_name
         append_snapshot_ledger_record(snap_dir, record)
     env = os.environ.copy()
     env["SNAP_DIR"] = str(snap_dir)
@@ -83,10 +93,13 @@ def create_snapshot_with_real_outputs(
             cwd=output_dir,
             env=env,
             timeout=120,
+            extra_args=hook_extra_context(snapshot_id, plugin_name),
         )
         record = parse_jsonl_output(stdout)
         assert returncode == 0, stderr
         assert record is not None and record["status"] == "succeeded", record
+        assert record["snapshot_id"] == snapshot_id
+        assert record["plugin"] == plugin_name
         append_snapshot_ledger_record(snap_dir, record)
         (output_dir / "stdout.log").write_text(stdout)
 
@@ -104,10 +117,13 @@ def create_snapshot_with_real_outputs(
         cwd=failed_dir,
         env=env,
         timeout=30,
+        extra_args=hook_extra_context(snapshot_id, "screenshot"),
     )
     assert returncode != 0, (stdout, stderr)
     failed_record = parse_jsonl_output(stdout)
     assert failed_record is not None and failed_record["status"] == "failed"
+    assert failed_record["snapshot_id"] == snapshot_id
+    assert failed_record["plugin"] == "screenshot"
     append_snapshot_ledger_record(snap_dir, failed_record)
     (failed_dir / "stdout.log").write_text(stdout)
     (failed_dir / "stderr.log").write_text(stderr)
@@ -126,6 +142,7 @@ def create_snapshot_with_real_outputs(
         cwd=hashes_dir,
         env=env,
         timeout=30,
+        extra_args=hook_extra_context(snapshot_id, "hashes"),
     )
     record = parse_jsonl_output(stdout)
     assert returncode == 0, stderr

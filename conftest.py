@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import fcntl
+import json
 import logging
 import os
 import shutil
@@ -92,7 +93,18 @@ def real_html_snapshot(ensure_chrome_test_prereqs):
                 output_dir = snapshot_dir / plugin_name
                 output_dir.mkdir()
                 result = subprocess.run(
-                    [str(hook), f"--url={url}", f"--snapshot-id={snapshot_id}"],
+                    [
+                        str(hook),
+                        f"--url={url}",
+                        f"--snapshot-id={snapshot_id}",
+                        "--extra-context="
+                        + json.dumps(
+                            {
+                                "snapshot_id": snapshot_id,
+                                "plugin": plugin_name,
+                            },
+                        ),
+                    ],
                     cwd=output_dir,
                     env=env,
                     capture_output=True,
