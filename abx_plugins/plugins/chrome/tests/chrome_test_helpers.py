@@ -117,7 +117,7 @@ _CHROME_PROVIDER_ENV_KEYS = (
 def require_chrome_runtime_impl() -> None:
     """Require chrome runtime prerequisites for integration tests."""
     try:
-        env = get_test_env(install_required_binaries=True)
+        env = get_test_env()
         chrome_binary = str(env.get("CHROME_BINARY") or "")
         if not chrome_binary or not Path(chrome_binary).exists():
             raise RuntimeError(
@@ -598,9 +598,8 @@ def _run_chrome_required_binary_env(
     env: dict,
     *,
     timeout: int = 300,
-    install: bool = False,
 ) -> subprocess.CompletedProcess[str]:
-    """Resolve the provider-built env, installing only during explicit preflight."""
+    """Resolve the provider-built env, installing missing dependencies through abxpkg."""
     payload = env.copy()
     for key in (
         "NODE_MODULES_DIR",
@@ -617,16 +616,14 @@ def _run_chrome_required_binary_env(
     # from their shebang/deps path. abxpkg env emits deltas relative to its
     # input env, so stale derived module paths from an earlier probe must not
     # make the complete provider-built NODE_PATH disappear from JSON output.
-    command = ["abxpkg", "env"]
-    if install:
-        command.append("--install")
-    command.extend(
-        [
-            "--json",
-            "--deps-from=./config.json:required_binaries",
-            "node",
-        ],
-    )
+    command = [
+        "abxpkg",
+        "env",
+        "--install",
+        "--json",
+        "--deps-from=./config.json:required_binaries",
+        "node",
+    ]
     return subprocess.run(
         command,
         cwd=str(CHROME_PLUGIN_DIR),
@@ -654,17 +651,15 @@ def _resolve_chrome_required_binary_env(
     env: dict,
     *,
     timeout: int = 300,
-    install: bool = False,
 ) -> tuple[int, dict[str, str], str]:
     """Return the real provider env, reusing it for one unchanged test runtime."""
     cache_key = _chrome_provider_env_cache_key(env)
-    if not install and cache_key in _CHROME_PROVIDER_ENV_CACHE:
+    if cache_key in _CHROME_PROVIDER_ENV_CACHE:
         return 0, dict(_CHROME_PROVIDER_ENV_CACHE[cache_key]), ""
 
     env_result = _run_chrome_required_binary_env(
         env,
         timeout=timeout,
-        install=install,
     )
     if env_result.returncode != 0:
         return env_result.returncode, {}, env_result.stderr or env_result.stdout
@@ -710,7 +705,6 @@ def _call_base_utils(
     if not node_binary:
         returncode, provider_env, error = _resolve_chrome_required_binary_env(
             payload,
-            install=True,
         )
         if returncode != 0:
             return returncode, "", error
@@ -1085,7 +1079,7 @@ def is_pid_alive(pid: int) -> bool:
     return True
 
 
-def get_test_env(*, install_required_binaries: bool = False) -> dict:
+def get_test_env() -> dict:
     """Get the shared runtime-like environment dict for Chrome plugin tests.
 
     Matches JS: getTestEnv()
@@ -1098,7 +1092,6 @@ def get_test_env(*, install_required_binaries: bool = False) -> dict:
     env = os.environ.copy()
     returncode, provider_env, error = _resolve_chrome_required_binary_env(
         env,
-        install=install_required_binaries,
     )
     if returncode != 0:
         raise RuntimeError(error)
@@ -1222,7 +1215,6 @@ def _ensure_puppeteer_with_abxpkg(env: dict, timeout: int) -> None:
     env_result = _run_chrome_required_binary_env(
         env,
         timeout=timeout,
-        install=True,
     )
     if env_result.returncode != 0:
         raise RuntimeError(
