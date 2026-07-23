@@ -28,13 +28,14 @@ def test_replay_preview_bootstrap_gates_ui_on_worker_and_exposes_readiness(
         fallback_url="https://fallback.example/",
     )
 
-    assert 'source="/archivewebpage/archivewebpage.wacz"' in html
-    assert 'url="https://example.com/"' in html
+    assert 'data-source="/archivewebpage/archivewebpage.wacz"' in html
+    assert 'data-url="https://example.com/"' in html
     assert "navigator.serviceWorker.register(" in html
-    assert "activateReplayWorker().then(appendReplayUi)" in html
+    assert "customElements.whenDefined('replay-web-page')" in html
+    assert ".then(mountReplay)" in html
     assert "rwp-page-loading" in html
     assert "archivebox-replay-ready" in html
-    assert "s.src = '/replay/ui.js'" in html
+    assert '<script src="/replay/ui.js"></script>' in html
 
     onedomain_html = replay_preview.render_preview_html(
         "archivewebpage.wacz",
@@ -43,13 +44,13 @@ def test_replay_preview_bootstrap_gates_ui_on_worker_and_exposes_readiness(
     )
 
     assert (
-        "s.src = '/snapshot/06a219240eb5778d8000f850baa5d427/replay/ui.js'"
+        '<script src="/snapshot/06a219240eb5778d8000f850baa5d427/replay/ui.js"></script>'
         in onedomain_html
     )
     assert (
         "scope: '/snapshot/06a219240eb5778d8000f850baa5d427/replay/'" in onedomain_html
     )
     assert (
-        'replaybase="/snapshot/06a219240eb5778d8000f850baa5d427/replay/"'
+        'data-replaybase="/snapshot/06a219240eb5778d8000f850baa5d427/replay/"'
         in onedomain_html
     )

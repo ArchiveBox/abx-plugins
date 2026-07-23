@@ -8,15 +8,6 @@
         replay-web-page { display: block; width: 100%; height: 100%; }
     </style>
     <script>
-    // Activate the replay service worker before loading ui.js so the first
-    // replay iframe navigation is controlled by the worker.
-    function appendReplayUi() {
-        if (document.querySelector('script[src="{{ replay_base }}ui.js"]')) return;
-        const s = document.createElement('script');
-        s.src = '{{ replay_base }}ui.js';
-        document.head.appendChild(s);
-    }
-
     async function activateReplayWorker() {
         if (!('serviceWorker' in navigator)) {
             throw new Error('Service workers are required for WACZ replay');
@@ -44,25 +35,38 @@
         });
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
-        const replayElement = document.querySelector('replay-web-page');
+    function mountReplay() {
+        const root = document.getElementById('replay-root');
+        const replayElement = document.createElement('replay-web-page');
+        replayElement.setAttribute('source', root.dataset.source);
+        if (root.dataset.url) replayElement.setAttribute('url', root.dataset.url);
+        replayElement.setAttribute('embed', 'replayonly');
+        replayElement.setAttribute('replaybase', root.dataset.replaybase);
         replayElement.addEventListener('rwp-page-loading', (event) => {
             if (event.detail && event.detail.loading === false) {
                 window.archiveboxReplayReady = event.detail;
                 window.dispatchEvent(new CustomEvent('archivebox-replay-ready', {detail: event.detail}));
             }
         });
-        activateReplayWorker().then(appendReplayUi).catch((error) => {
-            window.archiveboxReplayError = String(error);
-            window.dispatchEvent(new CustomEvent('archivebox-replay-error', {detail: String(error)}));
-        });
+        root.replaceChildren(replayElement);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        activateReplayWorker()
+            .then(() => customElements.whenDefined('replay-web-page'))
+            .then(mountReplay)
+            .catch((error) => {
+                window.archiveboxReplayError = String(error);
+                window.dispatchEvent(new CustomEvent('archivebox-replay-error', {detail: String(error)}));
+            });
     }, {once: true});
     </script>
+    <script src="{{ replay_base }}ui.js"></script>
 </head>
 <body>
-    <replay-web-page source="{{ output_path }}"
-                     {% if archived_url %}url="{{ archived_url }}"{% endif %}
-                     embed="replayonly"
-                     replaybase="{{ replay_base }}"></replay-web-page>
+    <div id="replay-root"
+         data-source="{{ output_path }}"
+         data-url="{{ archived_url }}"
+         data-replaybase="{{ replay_base }}"></div>
 </body>
 </html>
