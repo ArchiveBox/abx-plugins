@@ -24,7 +24,7 @@ Each variable falls back to the corresponding `CLAUDECODE_*` default if unset.
 | `CLAUDECODECLEANUP_MAX_TURNS` | int | `50` | `CLAUDECODE_MAX_TURNS` | Max agentic turns per invocation. |
 
 **Default prompt:**
-> Complete one cleanup pass in at most four tool calls. First, use one Bash call to inspect every listed extractor output as a single batch: recursively collect each file's path, size, type, hash, and a bounded content sample for every text-like file. Do not call Read, Glob, Grep, or Bash once per file. If that batch leaves a genuine ambiguity, use at most one additional batched Bash call covering all ambiguous files together; otherwise skip it. From that evidence, keep the best output in each redundant group and, in one Bash call, delete only clearly inferior duplicates, incomplete or failed outputs, and empty directories; when uncertain, keep the output. Never delete hashes/ or any JSON metadata. Finally, use one Write call to create cleanup_report.txt describing every output inspected, every deletion, and every retained group, then stop immediately without re-listing, re-reading, verifying, narrating further, or revisiting any decision.
+> Complete one cleanup pass in at most three Bash calls. Inspect all listed extractor outputs in one batch, use at most one additional batch for genuine ambiguities, and delete clearly inferior outputs in one batch. Then return a concise final report naming every extractor directory inspected, every deletion, and every retained duplicate group.
 
 ## Hooks
 
@@ -44,7 +44,7 @@ Files are written to `SNAP_DIR/claudecodecleanup/`:
 
 | File | Description |
 |---|---|
-| `cleanup_report.txt` | **Required** — detailed report of what was cleaned up and why (always created, even if nothing was removed) |
+| `cleanup_report.txt` | **Required** — Claude's final cleanup report, persisted by the hook even when nothing was removed |
 | `response.txt` | Raw text response from Claude |
 | `session.json` | Full conversation log (JSON) |
 
@@ -60,5 +60,5 @@ export ANTHROPIC_API_KEY=sk-ant-...
 export CLAUDECODECLEANUP_MODEL=claude-opus-4-6
 
 # Custom prompt example: aggressive cleanup
-export CLAUDECODECLEANUP_PROMPT="Delete all extractor outputs except singlefile/ and readability/. Remove any files larger than 10MB. Write a report of what was removed."
+export CLAUDECODECLEANUP_PROMPT="Delete all extractor outputs except singlefile/ and readability/. Remove any files larger than 10MB. Report what was removed in your final response."
 ```

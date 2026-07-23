@@ -52,20 +52,22 @@ OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 # get_snapshot_metadata() doesn't list our own empty dir as an extractor output
 
 DEFAULT_PROMPT = (
-    "Complete one cleanup pass in at most four tool calls. First, use one Bash call "
+    "Complete one cleanup pass in at most three Bash calls. First, use one Bash call "
     "to inspect every listed extractor output as a single batch: recursively collect "
-    "each file's path, size, type, hash, and a bounded content sample for every "
-    "text-like file. Do not call Read, Glob, Grep, or Bash once per file. If that "
-    "batch leaves a genuine ambiguity, use at most one additional batched Bash call "
-    "covering all ambiguous files together; otherwise skip it. From that evidence, "
-    "keep the best output in each redundant group and, in one Bash call, delete only "
-    "clearly inferior duplicates, incomplete or failed outputs, and empty directories; "
-    "when uncertain, keep the output. Never delete hashes/ or any JSON metadata. "
-    "Never read, modify, rename, or delete ArchiveBox process-control files ending in "
-    ".stdout.log, .stderr.log, .pid, or .sh; they may belong to processes still running. "
-    "Finally, use one Write call to create cleanup_report.txt describing every output "
-    "inspected, every deletion, and every retained group, then stop immediately without "
-    "re-listing, re-reading, verifying, narrating further, or revisiting any decision."
+    "each file's path, size, and type; hash same-size duplicate candidates; and collect "
+    "at most 200 bytes per text-like file with at most 64 KiB of inspection output total. "
+    "Do not run a separate command per file. If that batch leaves a "
+    "genuine ambiguity, use at most one additional batched Bash call covering all "
+    "ambiguous files together; otherwise skip it. From that evidence, keep the best "
+    "output in each redundant group and, in one Bash call, delete only clearly inferior "
+    "duplicates, incomplete or failed outputs, and empty directories; when uncertain, "
+    "keep the output. Never delete hashes/ or any JSON metadata. Never read, modify, "
+    "rename, or delete ArchiveBox process-control files ending in .stdout.log, "
+    ".stderr.log, .pid, or .sh; they may belong to processes still running. Then stop "
+    "using tools and return a concise final report. Name every extractor directory "
+    "inspected, list every deletion, summarize every retained duplicate group, and keep "
+    "the report under 500 words. Do not re-list, re-read, verify, narrate further, or "
+    "revisit any decision."
 )
 
 
@@ -143,8 +145,8 @@ def main(url: str, snapshot_id: str):
                 "to processes that are still running.\n"
                 "- Inspect a file or directory at most once and do not revisit completed decisions.\n"
                 "- Make one cleanup pass; do not repeatedly inventory or verify the snapshot.\n"
-                f"- Finish by writing a non-empty report to {OUTPUT_DIR}/cleanup_report.txt, "
-                "even when nothing was removed. Stop immediately after writing the report."
+                "- Finish with a concise, non-empty final response that reports the cleanup, "
+                "even when nothing was removed. The hook will save that response."
             ),
         )
 
@@ -155,7 +157,7 @@ def main(url: str, snapshot_id: str):
         full_prompt = (
             f"URL being archived: {url}\n\n"
             f"Task:\n{user_prompt}\n\n"
-            f"Write the final report to {OUTPUT_DIR}/cleanup_report.txt and then stop."
+            "Return the cleanup report as your final response and then stop."
         )
 
         # Run Claude Code with full permissions within SNAP_DIR.
@@ -168,21 +170,14 @@ def main(url: str, snapshot_id: str):
             timeout=timeout,
             max_turns=max_turns,
             model=model,
-            allowed_tools=[
-                "Read",
-                "Write",
-                "Edit",
-                "Bash",
-                "Glob",
-                "Grep",
-            ],
+            allowed_tools=["Bash"],
             session_log_path=OUTPUT_DIR / "session.json",
         )
 
         if stderr:
             print(stderr, file=sys.stderr)
 
-        # Save Claude's response
+        # Claude performs inspection and cleanup; the hook persists its final report.
         if stdout:
             response_path = OUTPUT_DIR / "response.txt"
             response_path.write_text(stdout, encoding="utf-8")
@@ -193,6 +188,9 @@ def main(url: str, snapshot_id: str):
             )
             emit_archive_result_record("failed", f"Claude Code failed: {error_detail}")
             sys.exit(1)
+
+        if stdout.strip():
+            (OUTPUT_DIR / "cleanup_report.txt").write_text(stdout, encoding="utf-8")
 
         # Check for cleanup report
         report_path = OUTPUT_DIR / "cleanup_report.txt"

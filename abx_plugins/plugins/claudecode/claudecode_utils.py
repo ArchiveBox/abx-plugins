@@ -226,10 +226,13 @@ def run_claude_code(
 
     # Add allowed tools (restrict to safe tools by default)
     if allowed_tools:
+        available_tools = sorted({tool.split("(", 1)[0] for tool in allowed_tools})
+        cmd.extend(["--tools", ",".join(available_tools)])
         for tool in allowed_tools:
             cmd.extend(["--allowedTools", tool])
     else:
         # Default: allow read, write, and bash (no destructive tools)
+        cmd.extend(["--tools", "Bash,Read,Write"])
         cmd.extend(["--allowedTools", "Read"])
         cmd.extend(["--allowedTools", "Write"])
         cmd.extend(["--allowedTools", "Bash(cat:*)"])

@@ -298,6 +298,9 @@ class TestClaudeCodeCleanupIntegration:
             )
             report_text = report_file.read_text()
             assert len(report_text) > 20, "Cleanup report should contain analysis"
+            assert report_text == (output_dir / "response.txt").read_text(), (
+                "The hook must persist Claude's final cleanup report exactly"
+            )
 
             # hashes/ directory should NOT be deleted
             assert (snap_dir / "hashes").exists(), "hashes/ should be preserved"
@@ -327,8 +330,7 @@ class TestClaudeCodeCleanupIntegration:
             env["CLAUDECODECLEANUP_PROMPT"] = (
                 "Delete the screenshot/ directory because its real extractor run failed. "
                 "Do NOT delete hashes/ or any other directories. "
-                "Write a summary of what you deleted to "
-                f"{output_dir}/cleanup_report.txt"
+                "Return a summary of what you deleted in your final response."
             )
 
             returncode, stdout, stderr = run_hook(
@@ -361,6 +363,9 @@ class TestClaudeCodeCleanupIntegration:
             )
             report_text = report_file.read_text()
             assert len(report_text) > 20, "Report should contain analysis"
+            assert report_text == (output_dir / "response.txt").read_text(), (
+                "The hook must persist Claude's final cleanup report exactly"
+            )
 
 
 if __name__ == "__main__":
