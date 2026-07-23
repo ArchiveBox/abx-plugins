@@ -224,7 +224,7 @@ def _settings(config: dict) -> dict:
     }
 
 
-def _resolve_binary(binary: str, config: dict) -> tuple[str, str, dict[str, str]]:
+def _resolve_binary(binary: str, config: dict) -> tuple[Any, Any, dict[str, str]]:
     try:
         from abxpkg import BinProvider
         from abx_plugins.plugins.base.utils import load_required_binary_from_config
@@ -267,8 +267,8 @@ def _resolve_binary(binary: str, config: dict) -> tuple[str, str, dict[str, str]
         base_env=binary_environ,
     )
     return (
-        str(loaded_dependencies[-1].loaded_abspath),
-        str(loaded_dependencies[1].loaded_abspath),
+        loaded_dependencies[-1],
+        loaded_dependencies[1],
         binary_env,
     )
 
@@ -400,14 +400,6 @@ def _health(settings: dict) -> bool:
 def _ensure_opencode(settings: dict) -> tuple[bool, str]:
     global _PROCESS
     started_process: subprocess.Popen | None = None
-    settings["workdir"].mkdir(parents=True, exist_ok=True)
-    settings["config_home"].mkdir(parents=True, exist_ok=True)
-    settings["data_home"].mkdir(parents=True, exist_ok=True)
-    settings["state_home"].mkdir(parents=True, exist_ok=True)
-    settings["cache_home"].mkdir(parents=True, exist_ok=True)
-    settings["home"].mkdir(parents=True, exist_ok=True)
-    _ensure_project_files(settings)
-
     workdir = settings["workdir"].resolve()
     try:
         binary, git_binary, binary_env = _resolve_binary(
@@ -434,19 +426,30 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
     }
 
     with _PROCESS_LOCK:
+        settings["workdir"].mkdir(parents=True, exist_ok=True)
+        settings["config_home"].mkdir(parents=True, exist_ok=True)
+        settings["data_home"].mkdir(parents=True, exist_ok=True)
+        settings["state_home"].mkdir(parents=True, exist_ok=True)
+        settings["cache_home"].mkdir(parents=True, exist_ok=True)
+        settings["home"].mkdir(parents=True, exist_ok=True)
+        _ensure_project_files(settings)
+
         if not (workdir / ".git").exists():
             try:
-                subprocess.run(
-                    [git_binary, "init", "--quiet"],
+                git_init = git_binary.exec(
+                    cmd=("init", "--quiet"),
                     cwd=workdir,
                     env=env,
-                    text=True,
-                    capture_output=True,
-                    check=True,
                     timeout=settings["timeout"],
                 )
-            except (OSError, subprocess.SubprocessError) as err:
+            except (AssertionError, OSError, subprocess.SubprocessError) as err:
                 return False, f"OpenCode project initialization failed: {err}"
+            if git_init.returncode != 0:
+                output = (git_init.stderr or git_init.stdout or "").strip()
+                return (
+                    False,
+                    f"OpenCode project initialization failed: {output or f'git exited with {git_init.returncode}'}",
+                )
 
         if _health(settings):
             try:
@@ -455,8 +458,13 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
                 return False, f"OpenCode project initialization failed: {err}"
             return True, ""
 
+        binary_abspath = binary.loaded_abspath
+        if binary.loaded_binprovider is not None:
+            binary_abspath = binary.loaded_binprovider._exec_bin_abspath(
+                Path(binary.loaded_abspath),
+            )
         cmd = [
-            binary,
+            str(binary_abspath),
             "serve",
             "--hostname",
             settings["host"],
@@ -477,23 +485,23 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
         except FileNotFoundError:
             return False, f"OpenCode binary not found: {settings['binary']}"
 
-    deadline = time.monotonic() + settings["timeout"]
-    while time.monotonic() < deadline:
-        if _health(settings):
-            try:
-                _ensure_default_session(settings)
-            except (requests.RequestException, RuntimeError, ValueError) as err:
-                _stop_owned_process(started_process)
-                return False, f"OpenCode project initialization failed: {err}"
-            return True, ""
-        if started_process and started_process.poll() is not None:
-            if _PROCESS is started_process:
-                _PROCESS = None
-            return False, "OpenCode exited before the web server became ready."
-        time.sleep(0.25)
+        deadline = time.monotonic() + settings["timeout"]
+        while time.monotonic() < deadline:
+            if _health(settings):
+                try:
+                    _ensure_default_session(settings)
+                except (requests.RequestException, RuntimeError, ValueError) as err:
+                    _stop_owned_process(started_process)
+                    return False, f"OpenCode project initialization failed: {err}"
+                return True, ""
+            if started_process and started_process.poll() is not None:
+                if _PROCESS is started_process:
+                    _PROCESS = None
+                return False, "OpenCode exited before the web server became ready."
+            time.sleep(0.25)
 
-    _stop_owned_process(started_process)
-    return False, "Timed out waiting for OpenCode to start."
+        _stop_owned_process(started_process)
+        return False, "Timed out waiting for OpenCode to start."
 
 
 def agent_view(request: HttpRequest):
