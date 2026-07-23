@@ -1299,7 +1299,15 @@ def test_concurrent_snapshot_isolation_loads_shared_extension_cache(chrome_test_
                 "SNAP_DIR": str(snapshot_dir),
                 "PERSONAS_DIR": str(snapshot_dir / ".persona"),
             }
-            launch_process = subprocess.Popen(
+            stdout_handle = (chrome_dir / "snapshot_launch.stdout.log").open(
+                "w+",
+                encoding="utf-8",
+            )
+            stderr_handle = (chrome_dir / "snapshot_launch.stderr.log").open(
+                "w+",
+                encoding="utf-8",
+            )
+            launch_process = LoggedPopen(
                 [
                     str(CHROME_SNAPSHOT_LAUNCH_HOOK),
                     f"--url={chrome_test_url}",
@@ -1307,11 +1315,13 @@ def test_concurrent_snapshot_isolation_loads_shared_extension_cache(chrome_test_
                     "--crawl-id=test-concurrent-snapshot-isolation",
                 ],
                 cwd=str(chrome_dir),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=stdout_handle,
+                stderr=stderr_handle,
                 text=True,
                 env=env,
             )
+            launch_process._stdout_handle = stdout_handle
+            launch_process._stderr_handle = stderr_handle
             sessions.append(
                 _ConcurrentChromeSession(
                     snapshot_id=snapshot_id,
@@ -1379,14 +1389,28 @@ def test_concurrent_snapshot_isolation_loads_shared_extension_cache(chrome_test_
         finally:
             for session in sessions:
                 tab_process = session.tab_process
-                if tab_process is not None and tab_process.poll() is None:
-                    tab_process.send_signal(signal.SIGTERM)
-                    tab_process.wait(timeout=20)
+                if tab_process is None:
+                    continue
+                try:
+                    if tab_process.poll() is None:
+                        tab_process.send_signal(signal.SIGTERM)
+                        tab_process.wait(timeout=20)
+                finally:
+                    for attr in ("_stdout_handle", "_stderr_handle"):
+                        handle = getattr(tab_process, attr, None)
+                        if handle:
+                            handle.close()
             for session in sessions:
                 launch_process = session.launch_process
-                if launch_process.poll() is None:
-                    launch_process.send_signal(signal.SIGTERM)
-                    launch_process.wait(timeout=20)
+                try:
+                    if launch_process.poll() is None:
+                        launch_process.send_signal(signal.SIGTERM)
+                        launch_process.wait(timeout=20)
+                finally:
+                    for attr in ("_stdout_handle", "_stderr_handle"):
+                        handle = getattr(launch_process, attr, None)
+                        if handle:
+                            handle.close()
 
         for session in sessions:
             chrome_pid = session.chrome_pid
@@ -3478,6 +3502,109 @@ def test_chrome_cleanup_on_crawl_end():
         assert not (chrome_dir / "cdp_url.txt").exists(), (
             "cdp_url.txt should be removed during Chrome cleanup"
         )
+
+
+@pytest.mark.parametrize(
+    ("isolation", "launch_hook"),
+    [
+        pytest.param("crawl", CHROME_LAUNCH_HOOK, id="crawl"),
+        pytest.param("snapshot", CHROME_SNAPSHOT_LAUNCH_HOOK, id="snapshot"),
+    ],
+)
+def test_chrome_cleanup_during_launch_uses_persisted_session_state(
+    chrome_test_url,
+    isolation,
+    launch_hook,
+):
+    """SIGTERM after chrome.pid publication must stop the in-progress browser."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        crawl_dir = Path(tmpdir) / "crawl"
+        snapshot_dir = Path(tmpdir) / "snapshot"
+        chrome_dir = (
+            crawl_dir / "chrome" if isolation == "crawl" else snapshot_dir / "chrome"
+        )
+        chrome_dir.mkdir(parents=True)
+        launch_env = _isolated_test_env(
+            tmpdir,
+            CRAWL_DIR=str(crawl_dir),
+            SNAP_DIR=str(snapshot_dir),
+            CHROME_HEADLESS="true",
+            CHROME_ISOLATION=isolation,
+        )
+        extensions_dir = Path(get_extensions_dir(env=launch_env))
+        _install_test_extension(extensions_dir, launch_env)
+        launch_env["CHROMEWEBSTORE_EXTENSIONS_DIR"] = str(extensions_dir)
+
+        stdout_handle = (chrome_dir / "early_cleanup.stdout.log").open(
+            "w+",
+            encoding="utf-8",
+        )
+        launch_process = subprocess.Popen(
+            [
+                str(launch_hook),
+                f"--url={chrome_test_url}",
+                "--snapshot-id=snap-early-cleanup",
+                "--crawl-id=test-early-cleanup",
+            ],
+            cwd=str(chrome_dir),
+            stdout=stdout_handle,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=launch_env,
+        )
+        stderr_stream = launch_process.stderr
+        assert stderr_stream is not None
+        launch_boundary = threading.Event()
+        stderr_lines: list[str] = []
+
+        def collect_stderr() -> None:
+            try:
+                for line in stderr_stream:
+                    stderr_lines.append(line)
+                    if "[*] Waiting for debug port " in line:
+                        launch_boundary.set()
+            finally:
+                launch_boundary.set()
+
+        stderr_thread = threading.Thread(target=collect_stderr, daemon=True)
+        stderr_thread.start()
+        chrome_pid = None
+        try:
+            assert launch_boundary.wait(timeout=30), (
+                "Chrome launch did not reach its post-spawn debug-port boundary"
+            )
+            stderr = "".join(stderr_lines)
+            assert "[*] Waiting for debug port " in stderr, stderr
+            chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
+            assert is_pid_alive(chrome_pid)
+
+            launch_process.send_signal(signal.SIGTERM)
+            launch_process.wait(timeout=15)
+            stderr_thread.join(timeout=5)
+            assert not stderr_thread.is_alive()
+            stdout_handle.flush()
+            stdout = (chrome_dir / "early_cleanup.stdout.log").read_text()
+            stderr = "".join(stderr_lines)
+
+            assert launch_process.returncode == 0, (
+                f"early cleanup failed:\nstdout:\n{stdout}\nstderr:\n{stderr}"
+            )
+            assert "Cleaning up in-progress local Chrome from persisted state" in stderr
+            if isolation == "crawl":
+                assert "[+] chromium session started" not in stderr
+            else:
+                assert '"status":"succeeded"' not in stdout
+            assert not is_pid_alive(chrome_pid)
+            _assert_snapshot_browser_state_cleared(chrome_dir)
+        finally:
+            if launch_process.poll() is None:
+                launch_process.send_signal(signal.SIGTERM)
+                launch_process.wait(timeout=15)
+            if chrome_pid is not None and is_pid_alive(chrome_pid):
+                assert kill_chrome(chrome_pid, str(chrome_dir))
+            stderr_stream.close()
+            stderr_thread.join(timeout=5)
+            stdout_handle.close()
 
 
 def test_zombie_prevention_hook_killed():

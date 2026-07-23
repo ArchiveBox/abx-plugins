@@ -85,6 +85,7 @@ let shouldCloseOnCleanup = false;
 let cleanupPromise = null;
 let launchInProgress = false;
 let cleanupRequestedDuringLaunch = false;
+let activeChromeDir = OUTPUT_DIR;
 
 async function cleanup() {
   if (cleanupPromise) {
@@ -92,17 +93,34 @@ async function cleanup() {
   }
   if (launchInProgress && !chromeCdpUrl) {
     cleanupRequestedDuringLaunch = true;
-    console.error(
-      "[*] Deferring chrome cleanup until launch publishes a CDP session"
+    if (!chromeProcessIsLocal) {
+      console.error(
+        "[*] Deferring external Chrome cleanup until launch publishes its CDP session"
+      );
+      return;
+    }
+    const launchStatePublished = ["chrome.pid", "cdp_url.txt"].some(
+      (fileName) => fs.existsSync(path.join(activeChromeDir, fileName))
     );
-    return;
+    if (launchStatePublished) {
+      console.error(
+        "[*] Cleaning up in-progress local Chrome from persisted state"
+      );
+    } else {
+      console.error(
+        "[*] Deferring chrome cleanup until launch publishes local session state"
+      );
+      return;
+    }
   }
+  const cleanupDuringLocalLaunch =
+    cleanupRequestedDuringLaunch && chromeProcessIsLocal;
   cleanupPromise = (async () => {
-    if (shouldCloseOnCleanup) {
+    if (shouldCloseOnCleanup || cleanupDuringLocalLaunch) {
       const closed = await closeBrowserInChromeSession({
         cdpUrl: chromeCdpUrl,
         pid: chromePid,
-        outputDir: OUTPUT_DIR,
+        outputDir: activeChromeDir,
         puppeteer,
         processIsLocal: chromeProcessIsLocal,
       });
@@ -153,6 +171,7 @@ async function main() {
       console.error(
         `[!] crawl-scoped ${CHROME_BINARY} session is gone, relaunching in ${crawlChromeDir}...`
       );
+      activeChromeDir = crawlChromeDir;
       launchInProgress = true;
       const relaunched = await ensureChromeSession({
         outputDir: crawlChromeDir,
@@ -183,6 +202,7 @@ async function main() {
     }
 
     console.error("chrome is launching...");
+    activeChromeDir = OUTPUT_DIR;
     launchInProgress = true;
     const session = await ensureChromeSession({
       outputDir: OUTPUT_DIR,
@@ -206,7 +226,6 @@ async function main() {
     releaseLock = null;
 
     if (cleanupRequestedDuringLaunch) {
-      cleanupRequestedDuringLaunch = false;
       console.error("[*] Running deferred chrome cleanup requested during launch");
       await cleanup();
       return;
@@ -218,12 +237,16 @@ async function main() {
 
     setInterval(() => {}, 1000000);
   } catch (error) {
+    if (cleanupRequestedDuringLaunch && cleanupPromise) {
+      await cleanupPromise;
+      return;
+    }
     if (chromeCdpUrl || chromePid) {
       try {
         await closeBrowserInChromeSession({
           cdpUrl: chromeCdpUrl,
           pid: chromePid,
-          outputDir: OUTPUT_DIR,
+          outputDir: activeChromeDir,
           puppeteer,
           processIsLocal: chromeProcessIsLocal,
         });

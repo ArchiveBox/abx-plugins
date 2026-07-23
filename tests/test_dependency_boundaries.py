@@ -6,7 +6,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PLUGINS_ROOT = REPO_ROOT / "abx_plugins" / "plugins"
-FORBIDDEN_IMPORT_ROOTS = ("archivebox", "django")
+FORBIDDEN_IMPORT_ROOTS = ("archivebox", "abx_dl", "django")
 
 
 def _is_forbidden_import(module_name: str) -> bool:
@@ -14,14 +14,6 @@ def _is_forbidden_import(module_name: str) -> bool:
         module_name == forbidden or module_name.startswith(f"{forbidden}.")
         for forbidden in FORBIDDEN_IMPORT_ROOTS
     )
-
-
-def _is_allowlisted_path(path: Path) -> bool:
-    rel_parts = path.relative_to(PLUGINS_ROOT).parts
-    top_level_dir = rel_parts[0] if rel_parts else ""
-    if top_level_dir == "opencode" or top_level_dir.startswith("search_backend_"):
-        return True
-    return any("ldap" in part.lower() for part in rel_parts)
 
 
 def _iter_non_test_plugin_python_files() -> list[Path]:
@@ -74,18 +66,15 @@ def _collect_forbidden_imports(path: Path) -> list[tuple[int, str]]:
 
 
 def test_plugin_dependency_boundaries() -> None:
-    """Guard plugin boundaries by banning archivebox/django imports outside explicit allowlist paths."""
+    """Standalone plugins must not import ArchiveBox, abx-dl, or Django."""
     failures: list[str] = []
 
     for path in _iter_non_test_plugin_python_files():
-        if _is_allowlisted_path(path):
-            continue
         for lineno, module_name in _collect_forbidden_imports(path):
             rel = path.relative_to(PLUGINS_ROOT)
             failures.append(f"{rel}:{lineno} imports {module_name!r}")
 
     assert not failures, (
-        "Forbidden dependency imports detected. "
-        "Only search backends, opencode, and ldap-related paths may import archivebox/django:\n"
+        "Standalone plugins import forbidden ArchiveBox, abx-dl, or Django dependencies:\n"
         + "\n".join(failures)
     )

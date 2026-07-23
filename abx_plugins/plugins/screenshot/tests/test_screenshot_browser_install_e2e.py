@@ -13,15 +13,15 @@ from abx_plugins.plugins.base.testing import (
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     get_extensions_dir,
     install_chromium_with_abxpkg,
-    wait_for_chrome_session_state,
+    kill_chromium_session,
+    launch_chromium_session,
+    launch_snapshot_tab,
 )
 
 
 SCREENSHOT_PLUGIN_DIR = Path(__file__).resolve().parent.parent
 CHROME_PLUGIN_DIR = SCREENSHOT_PLUGIN_DIR.parent / "chrome"
 SCREENSHOT_HOOK = next(SCREENSHOT_PLUGIN_DIR.glob("on_Snapshot__*_screenshot.*"))
-CHROME_LAUNCH_HOOK = CHROME_PLUGIN_DIR / "on_CrawlSetup__90_chrome_launch.daemon.bg.js"
-CHROME_TAB_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__10_chrome_tab.daemon.bg.js"
 CHROME_NAVIGATE_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__30_chrome_navigate.js"
 
 
@@ -98,43 +98,23 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
     installed_browser = Path(env["CHROME_BINARY"]).resolve()
     assert installed_browser.exists(), env["CHROME_BINARY"]
     assert installed_browser.samefile(resolved_browser)
-    chrome_launch_process = subprocess.Popen(
-        [str(CHROME_LAUNCH_HOOK), f"--crawl-id={crawl_id}"],
-        cwd=str(chrome_dir),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        env=env,
-    )
+    chrome_launch_process = None
     tab_process = None
     try:
-        wait_for_chrome_session_state(
+        chrome_launch_process, _ = launch_chromium_session(
+            env,
             chrome_dir,
-            env=env,
-            timeout_seconds=90,
-            require_browser_ready=True,
-            require_connectable=True,
+            crawl_id,
+            timeout=90,
         )
 
-        tab_process = subprocess.Popen(
-            [
-                str(CHROME_TAB_HOOK),
-                f"--url={chrome_test_url}",
-                f"--snapshot-id={snapshot_id}",
-                f"--crawl-id={crawl_id}",
-            ],
-            cwd=str(snapshot_chrome_dir),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=env,
-        )
-        wait_for_chrome_session_state(
-            snapshot_chrome_dir,
-            env=env,
-            timeout_seconds=90,
-            require_target_id=True,
-            require_connectable=True,
+        tab_process = launch_snapshot_tab(
+            snapshot_chrome_dir=snapshot_chrome_dir,
+            tab_env=env,
+            test_url=chrome_test_url,
+            snapshot_id=snapshot_id,
+            crawl_id=crawl_id,
+            timeout=90,
         )
 
         navigate_result = subprocess.run(
@@ -178,7 +158,14 @@ def test_live_install_and_screenshot_extraction_respects_chrome_binary(
         assert screenshot_file.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
     finally:
         if tab_process is not None:
-            tab_process.send_signal(signal.SIGTERM)
-            tab_process.communicate(timeout=10)
-        chrome_launch_process.send_signal(signal.SIGTERM)
-        chrome_launch_process.communicate(timeout=10)
+            try:
+                if tab_process.poll() is None:
+                    tab_process.send_signal(signal.SIGTERM)
+                    tab_process.wait(timeout=10)
+            finally:
+                for attr in ("_stdout_handle", "_stderr_handle"):
+                    handle = getattr(tab_process, attr, None)
+                    if handle:
+                        handle.close()
+        if chrome_launch_process is not None:
+            kill_chromium_session(chrome_launch_process, chrome_dir)

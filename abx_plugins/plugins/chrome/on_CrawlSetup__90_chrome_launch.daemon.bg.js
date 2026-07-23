@@ -99,12 +99,6 @@ let cleanupPromise = null;
 let launchInProgress = false;
 let cleanupRequestedDuringLaunch = false;
 
-function getPortFromCdpUrl(cdpUrl) {
-  if (!cdpUrl) return null;
-  const match = cdpUrl.match(/:(\d+)\/devtools\//);
-  return match ? match[1] : null;
-}
-
 // Cleanup handler for SIGTERM
 async function cleanup() {
   if (cleanupPromise) {
@@ -112,13 +106,30 @@ async function cleanup() {
   }
   if (launchInProgress && !chromeCdpUrl) {
     cleanupRequestedDuringLaunch = true;
-    console.error(
-      "[*] Deferring chrome cleanup until launch publishes a CDP session"
+    if (!chromeProcessIsLocal) {
+      console.error(
+        "[*] Deferring external Chrome cleanup until launch publishes its CDP session"
+      );
+      return;
+    }
+    const launchStatePublished = ["chrome.pid", "cdp_url.txt"].some(
+      (fileName) => fs.existsSync(path.join(OUTPUT_DIR, fileName))
     );
-    return;
+    if (launchStatePublished) {
+      console.error(
+        "[*] Cleaning up in-progress local Chrome from persisted state"
+      );
+    } else {
+      console.error(
+        "[*] Deferring chrome cleanup until launch publishes local session state"
+      );
+      return;
+    }
   }
+  const cleanupDuringLocalLaunch =
+    cleanupRequestedDuringLaunch && chromeProcessIsLocal;
   cleanupPromise = (async () => {
-    if (shouldCloseOnCleanup) {
+    if (shouldCloseOnCleanup || cleanupDuringLocalLaunch) {
       console.log(`shutting down ${CHROME_BINARY} cleanly...`);
       const closed = await closeBrowserInChromeSession({
         cdpUrl: chromeCdpUrl,
@@ -222,7 +233,6 @@ async function main() {
     releaseLock = null;
 
     if (cleanupRequestedDuringLaunch) {
-      cleanupRequestedDuringLaunch = false;
       console.error(
         `[*] Running deferred ${CHROME_BINARY} cleanup requested during launch`
       );
@@ -241,6 +251,10 @@ async function main() {
     );
     setInterval(() => {}, 1000000);
   } catch (e) {
+    if (cleanupRequestedDuringLaunch && cleanupPromise) {
+      await cleanupPromise;
+      return;
+    }
     if (chromeCdpUrl || chromePid) {
       try {
         await closeBrowserInChromeSession({

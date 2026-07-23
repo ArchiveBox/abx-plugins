@@ -3784,7 +3784,7 @@ async function waitForBrowserEndpointGone(
 }
 
 async function closeBrowserInChromeSession(options = {}) {
-  const {
+  let {
     cdpUrl = null,
     pid = null,
     outputDir = null,
@@ -3794,6 +3794,17 @@ async function closeBrowserInChromeSession(options = {}) {
       : getEnvBool("CHROME_IS_LOCAL", true),
     forceKillTimeoutMs = getEnvInt("CHROME_CLOSE_TIMEOUT_MS", 5000),
   } = options;
+
+  if (outputDir && (!cdpUrl || (processIsLocal && !pid))) {
+    const persistedSession = await inspectChromeSessionArtifacts(outputDir, {
+      validateLiveness: false,
+      processIsLocal,
+    });
+    cdpUrl = cdpUrl || persistedSession.state.cdpUrl;
+    if (processIsLocal) {
+      pid = pid || persistedSession.state.pid;
+    }
+  }
 
   if (!cdpUrl && !(processIsLocal && pid)) {
     return false;
