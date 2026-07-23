@@ -34,7 +34,7 @@ Each variable falls back to the corresponding `CLAUDECODE_*` default if unset.
 
 ## Permissions / Scope
 
-- Claude runs in bare mode with no filesystem, shell, project-hook, plugin, memory, browser, or session-persistence access; it returns a structured plan containing only opaque inventory ids.
+- Claude runs from an empty temporary directory outside the snapshot tree, with that directory as its home, no settings sources, MCP servers, filesystem or shell tools, browser, slash commands, or session persistence; it returns a structured plan containing only opaque inventory ids.
 - ArchiveBox validates the active Snapshot ledger record, revalidates every inventoried inode, and unlinks only exact selected files or already-empty directories through directory file descriptors without following symlinks.
 - Protected items: `hashes/`, JSON metadata, process-control files, and the hook-owned `claudecodecleanup/` output directory.
 

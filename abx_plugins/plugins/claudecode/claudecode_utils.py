@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import NotRequired, TypedDict
 
@@ -228,13 +229,15 @@ def run_claude_code(
     model: str = "claude-sonnet-4-6",
     allowed_tools: list[str] | None = None,
     json_schema: dict[str, object] | None = None,
-    bare: bool = False,
+    isolated: bool = False,
     session_log_path: str | Path | None = None,
 ) -> tuple[str, str, int]:
     """
     Run Claude Code CLI with the given prompt and configuration.
 
     Args:
+        isolated: Run with no settings sources or MCP configuration and with
+            temporary HOME/XDG directories while retaining environment auth.
         session_log_path: If set, save the full session conversation log
             as JSON to this path.
 
@@ -251,13 +254,15 @@ def run_claude_code(
     # Add print flag for non-interactive output
     cmd.extend(["--print"])
 
-    if bare:
+    if isolated:
         cmd.extend(
             [
-                "--bare",
                 "--no-session-persistence",
                 "--disable-slash-commands",
                 "--no-chrome",
+                "--setting-sources",
+                "",
+                "--strict-mcp-config",
             ],
         )
 
@@ -340,21 +345,28 @@ def run_claude_code(
         if api_key:
             env["ANTHROPIC_API_KEY"] = api_key
 
-    print(f"[*] Running Claude Code in {work_dir}...", file=sys.stderr)
     print(
         f"[*] Model: {model}, Max turns: {max_turns}, Timeout: {timeout}s",
         file=sys.stderr,
     )
 
     try:
-        result = subprocess.run(
-            cmd,
-            cwd=str(work_dir),
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=env,
-        )
+        with tempfile.TemporaryDirectory(prefix="archivebox-claude-home-") as home:
+            if isolated:
+                env["HOME"] = home
+                env["XDG_CONFIG_HOME"] = str(Path(home) / "config")
+                env["XDG_CACHE_HOME"] = str(Path(home) / "cache")
+                env["XDG_DATA_HOME"] = str(Path(home) / "data")
+            subprocess_cwd = home if isolated else str(work_dir)
+            print(f"[*] Running Claude Code in {subprocess_cwd}...", file=sys.stderr)
+            result = subprocess.run(
+                cmd,
+                cwd=subprocess_cwd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env=env,
+            )
 
         # Save session log if requested
         if (session_log_path or json_schema) and result.stdout:

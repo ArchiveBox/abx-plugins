@@ -179,14 +179,14 @@ def main(url: str, snapshot_id: str):
 
         stdout, stderr, returncode = run_claude_code(
             prompt=full_prompt,
-            work_dir=SNAP_DIR,
+            work_dir=OUTPUT_DIR,
             system_prompt=system_prompt,
             timeout=timeout,
             max_turns=max_turns,
             model=model,
             allowed_tools=[],
             json_schema=DELETION_PLAN_SCHEMA,
-            bare=True,
+            isolated=True,
             session_log_path=OUTPUT_DIR / "session.json",
         )
 
