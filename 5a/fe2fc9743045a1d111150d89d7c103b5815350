@@ -1,0 +1,54 @@
+.github/ci_test_matrix.py
+  s_f8414d52051f83::t_314794584d748c 38,40,43-44,58-59
+  s_f8414d52051f83::t_4474a3377be117 5,10-17,20-23,39,41-42,45-51,53,56,60-65,67
+  s_f8414d52051f83::t_f643c376564834 28-29
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_f8414d52051f83::t_1a7d1d2c90b755 3507-3518,3522-3523,3525,3530,3532,3543-3548
+  s_f8414d52051f83::t_b30491c48cde06 3519-3521,3526-3529,3531,3533-3542,3549-3550,3552-3554,3571-3572,3575,3580-3582,3585-3586,3588-3592,3597-3604,3607-3609
+  s_f8414d52051f83::t_862ef45d748323 1392-1402,1405-1413
+  s_f8414d52051f83::t_1a4248fadd40c3 3524,3555-3556,3562,3605
+  s_f8414d52051f83::t_3eba6c03532609 1302-1310,1318-1319,1323-1324
+  s_f8414d52051f83::t_a86acfa4422881 3551,3557-3561,3563-3570,3573-3574,3576-3579,3583-3584,3587,3593-3596,3606
+pyproject.toml
+  s_f8414d52051f83::t_b0ff7864561db6 23
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_4474a3377be117 241,263,266-267,277,285,288,299,301,307
+  s_f8414d52051f83::t_1a83ad9ff1e73b 312
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_f8414d52051f83::t_7d1b946206d1c4 3787,3798-3807
+  s_f8414d52051f83::t_3ed7f76837c07d 3808
+abx_plugins/plugins/chrome/config.json
+  s_f8414d52051f83::t_f402cbe526ba74 11,14
+  s_f8414d52051f83::t_75134ccd6dd4d0 15
+abx_plugins/plugins/screenshot/tests/test_screenshot_browser_install_e2e.py
+  s_f8414d52051f83::t_3eba6c03532609 16-18,101,104-105,107-108,111-117,170-171
+  s_f8414d52051f83::t_dc048d43f1ef70 161,165-169
+  s_f8414d52051f83::t_0468f55c1f4f7d 162-164
+abx_plugins/plugins/chrome/on_CrawlSetup__90_chrome_launch.daemon.bg.js
+  s_f8414d52051f83::t_d21d938e18d638 109-114
+  s_f8414d52051f83::t_7d1b946206d1c4 115-116,118-127,129,132,254-257
+  s_f8414d52051f83::t_ab56ce08580b55 130
+tests/test_dependency_boundaries.py
+  s_f8414d52051f83::t_b32bc53be3b4d0 9,69,78
+abx_plugins/plugins/chrome/on_Snapshot__09_chrome_launch.daemon.bg.js
+  s_f8414d52051f83::t_ab56ce08580b55 117
+  s_f8414d52051f83::t_b109c1e1167768 88,96-103,105-114,116,119,123,174,205,240-243,249
+uv.lock
+  s_f8414d52051f83::t_03c50c3151968d 6,12,50,93,102,104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "5afe2fc9743045a1d111150d89d7c103b5815350",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
