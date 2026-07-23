@@ -24,7 +24,7 @@ Each variable falls back to the corresponding `CLAUDECODE_*` default if unset.
 | `CLAUDECODECLEANUP_MAX_TURNS` | int | `50` | `CLAUDECODE_MAX_TURNS` | Max agentic turns per invocation. |
 
 **Default prompt:**
-> Complete one cleanup pass in at most three Bash calls. Inspect all listed extractor outputs in one batch, use at most one additional batch for genuine ambiguities, and delete clearly inferior outputs in one batch. Then return a concise final report naming every extractor directory inspected, every deletion, and every retained duplicate group.
+> Use the supplied deterministic inventory, inspect ambiguous files in at most one additional batch when needed, and delete clearly inferior outputs in one batch. Then return a concise final report naming every extractor directory inspected, every deletion, and every retained duplicate group.
 
 ## Hooks
 

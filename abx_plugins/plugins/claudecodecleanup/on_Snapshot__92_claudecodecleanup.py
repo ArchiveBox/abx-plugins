@@ -39,6 +39,11 @@ from abx_plugins.plugins.claudecode.claudecode_utils import (
     build_system_prompt,
     run_claude_code,
 )
+from abx_plugins.plugins.claudecodecleanup.cleanup_utils import (
+    build_cleanup_inventory,
+    ensure_owned_output_dir,
+    write_owned_output_file,
+)
 
 
 # Extractor metadata
@@ -52,14 +57,11 @@ OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 # get_snapshot_metadata() doesn't list our own empty dir as an extractor output
 
 DEFAULT_PROMPT = (
-    "Complete one cleanup pass in at most three Bash calls. First, use one Bash call "
-    "to inspect every listed extractor output as a single batch: recursively collect "
-    "each file's path, size, and type; hash same-size duplicate candidates; and collect "
-    "at most 200 bytes per text-like file with at most 64 KiB of inspection output total. "
-    "Do not run a separate command per file. If that batch leaves a "
-    "genuine ambiguity, use at most one additional batched Bash call covering all "
-    "ambiguous files together; otherwise skip it. From that evidence, keep the best "
-    "output in each redundant group and, in one Bash call, delete only clearly inferior "
+    "Use the deterministic inventory supplied below; do not inventory the "
+    "snapshot again. If the inventory marks evidence as truncated and leaves a genuine "
+    "ambiguity, use at most one batched Bash call covering all ambiguous files together; "
+    "otherwise skip further inspection. From that evidence, keep the best output in each "
+    "redundant group and, in one Bash call, delete only clearly inferior "
     "duplicates, incomplete or failed outputs, and empty directories; when uncertain, "
     "keep the output. Never delete hashes/ or any JSON metadata. Never read, modify, "
     "rename, or delete ArchiveBox process-control files ending in .stdout.log, "
@@ -153,12 +155,15 @@ def main(url: str, snapshot_id: str):
         )
 
         # Create output dir after system prompt is built (so it's not listed as an extractor)
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        ensure_owned_output_dir(SNAP_DIR, OUTPUT_DIR)
+
+        inventory = build_cleanup_inventory(SNAP_DIR, OUTPUT_DIR)
 
         # Compose the full prompt
         full_prompt = (
             f"URL being archived: {url}\n\n"
             f"Task:\n{user_prompt}\n\n"
+            f"Deterministic snapshot inventory:\n{inventory}\n\n"
             "Return the cleanup report as your final response and then stop."
         )
 
@@ -181,9 +186,7 @@ def main(url: str, snapshot_id: str):
 
         # Claude performs inspection and cleanup; the hook persists its final report.
         if stdout:
-            OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-            response_path = OUTPUT_DIR / "response.txt"
-            response_path.write_text(stdout, encoding="utf-8")
+            write_owned_output_file(SNAP_DIR, OUTPUT_DIR, "response.txt", stdout)
 
         if returncode != 0:
             error_detail = (
@@ -193,7 +196,12 @@ def main(url: str, snapshot_id: str):
             sys.exit(1)
 
         if stdout.strip():
-            (OUTPUT_DIR / "cleanup_report.txt").write_text(stdout, encoding="utf-8")
+            write_owned_output_file(
+                SNAP_DIR,
+                OUTPUT_DIR,
+                "cleanup_report.txt",
+                stdout,
+            )
 
         # Check for cleanup report
         report_path = OUTPUT_DIR / "cleanup_report.txt"

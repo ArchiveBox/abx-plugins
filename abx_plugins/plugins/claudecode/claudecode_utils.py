@@ -18,6 +18,41 @@ from abx_plugins.plugins.base.utils import load_config
 CLAUDECODE_CONFIG_PATH = Path(__file__).with_name("config.json")
 
 
+def _write_text_within_directory(root: Path, path: Path, content: str) -> None:
+    """Write beneath root without following symlinks in the destination path."""
+    root = root.resolve(strict=True)
+    target = path if path.is_absolute() else root / path
+    relative_target = target.absolute().relative_to(root)
+    if not relative_target.parts or relative_target.name in {"", ".", ".."}:
+        raise ValueError(f"Invalid output file path: {path}")
+
+    directory_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        for component in relative_target.parts[:-1]:
+            try:
+                os.mkdir(component, mode=0o700, dir_fd=directory_fd)
+            except FileExistsError:
+                pass
+            child_fd = os.open(
+                component,
+                os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0),
+                dir_fd=directory_fd,
+            )
+            os.close(directory_fd)
+            directory_fd = child_fd
+
+        file_fd = os.open(
+            relative_target.name,
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+            dir_fd=directory_fd,
+        )
+        with os.fdopen(file_fd, "w", encoding="utf-8") as file:
+            file.write(content)
+    finally:
+        os.close(directory_fd)
+
+
 def _resolve_claude_code_binary(config) -> tuple[str, dict[str, str]]:
     """Resolve Node and Claude Code through the plugin's abxpkg declarations."""
     from abxpkg import BinProvider
@@ -310,12 +345,14 @@ def run_claude_code(
         # Save session log if requested
         if session_log_path and result.stdout:
             try:
-                session_log = Path(session_log_path)
-                session_log.parent.mkdir(parents=True, exist_ok=True)
-                session_log.write_text(result.stdout, encoding="utf-8")
+                _write_text_within_directory(
+                    Path(work_dir),
+                    Path(session_log_path),
+                    result.stdout,
+                )
                 print(f"[+] Session log saved to {session_log_path}", file=sys.stderr)
                 print(result.stdout, file=sys.stderr)
-            except OSError as e:
+            except (OSError, ValueError) as e:
                 print(f"[!] Failed to save session log: {e}", file=sys.stderr)
 
             # When using JSON output format, the text response is embedded in the JSON

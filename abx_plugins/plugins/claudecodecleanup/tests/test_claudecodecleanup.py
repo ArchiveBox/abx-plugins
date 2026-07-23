@@ -23,6 +23,11 @@ from abx_plugins.plugins.base.testing import (
     parse_jsonl_output,
     run_hook,
 )
+from abx_plugins.plugins.claudecodecleanup.cleanup_utils import (
+    build_cleanup_inventory,
+    ensure_owned_output_dir,
+    write_owned_output_file,
+)
 
 
 PLUGIN_DIR = get_plugin_dir(__file__)
@@ -162,6 +167,147 @@ class TestClaudeCodeCleanupPlugin:
         assert (templates_dir / "icon.html").exists()
         assert (templates_dir / "card.html").exists()
         assert (templates_dir / "full.html").exists()
+
+    def test_cleanup_inventory_is_complete_bounded_and_excludes_owned_files(
+        self,
+        tmp_path,
+    ):
+        """Inventory should inspect real files once without exposing owned files."""
+        snap_dir = tmp_path / "snap"
+        output_dir = snap_dir / "claudecodecleanup"
+        (snap_dir / "readability").mkdir(parents=True)
+        (snap_dir / "mercury").mkdir()
+        (snap_dir / "pdf").mkdir()
+        (snap_dir / "empty-extractor").mkdir()
+        output_dir.mkdir()
+
+        duplicate = b"same extracted text"
+        (snap_dir / "readability" / "content.txt").write_bytes(duplicate)
+        (snap_dir / "mercury" / "content.txt").write_bytes(duplicate)
+        (snap_dir / "readability" / "metadata.json").write_text('{"ok": true}')
+        (snap_dir / "pdf" / "output.pdf").write_bytes(b"%PDF-1.7 unique output")
+        (snap_dir / "screenshot").mkdir()
+        (snap_dir / "screenshot" / "screenshot.png").write_text(
+            "<!doctype html><title>503 Service Unavailable</title>",
+        )
+        (snap_dir / "readability" / "hook.stderr.log").write_text("private log")
+        (output_dir / "session.json").write_text('{"owned": true}')
+
+        inventory = build_cleanup_inventory(
+            snap_dir,
+            output_dir,
+            max_bytes=4096,
+        )
+
+        assert len(inventory.encode("utf-8")) <= 4096
+        assert '"files_inspected": 5' in inventory
+        assert (
+            '"paths": ["mercury/content.txt", "readability/content.txt"]' in inventory
+        )
+        assert "metadata.json" in inventory
+        assert "pdf/output.pdf" in inventory
+        assert '"content_kind": "application/pdf"' in inventory
+        assert "screenshot/screenshot.png" in inventory
+        assert '"content_kind": "text/html"' in inventory
+        assert "503 Service Unavailable" in inventory
+        assert '"empty-extractor"' in inventory
+        assert "hook.stderr.log" not in inventory
+        assert "claudecodecleanup/session.json" not in inventory
+
+    def test_cleanup_inventory_records_directory_symlinks(self, tmp_path):
+        """Directory symlinks are evidence, but their targets are never traversed."""
+        snap_dir = tmp_path / "snap"
+        snap_dir.mkdir()
+        outside_dir = tmp_path / "outside"
+        outside_dir.mkdir()
+        (outside_dir / "secret.txt").write_text("outside snapshot")
+        (snap_dir / "linked-extractor").symlink_to(
+            outside_dir,
+            target_is_directory=True,
+        )
+
+        inventory = build_cleanup_inventory(
+            snap_dir,
+            snap_dir / "claudecodecleanup",
+        )
+
+        assert '"path": "linked-extractor"' in inventory
+        assert '"content_kind": "inode/symlink"' in inventory
+        assert "secret.txt" not in inventory
+
+    def test_cleanup_inventory_processes_bounded_batch_at_traversal_limit(
+        self,
+        tmp_path,
+    ):
+        """Reaching a traversal cap must retain the bounded evidence already read."""
+        snap_dir = tmp_path / "snap"
+        snap_dir.mkdir()
+        for number in range(5):
+            (snap_dir / f"output-{number}.txt").write_text(f"output {number}")
+
+        inventory = build_cleanup_inventory(
+            snap_dir,
+            snap_dir / "claudecodecleanup",
+            max_files=3,
+            max_directories=2,
+            max_filesystem_entries=4,
+        )
+
+        assert '"files_inspected": 3' in inventory
+        assert '"traversal_limit_reached": true' in inventory
+        assert '"inventory_truncated": true' in inventory
+
+    def test_cleanup_inventory_rejects_unbounded_sample_size(self, tmp_path):
+        """Invalid sample sizes cannot turn a bounded prefix read into read-all."""
+        snap_dir = tmp_path / "snap"
+        snap_dir.mkdir()
+
+        with pytest.raises(ValueError, match="sample_bytes must be positive"):
+            build_cleanup_inventory(
+                snap_dir,
+                snap_dir / "claudecodecleanup",
+                sample_bytes=-1,
+            )
+
+    def test_cleanup_output_is_owned_and_rejects_symlinks(self, tmp_path):
+        """Hook-owned files must stay inside a real snapshot child directory."""
+        snap_dir = tmp_path / "snap"
+        snap_dir.mkdir()
+        output_dir = snap_dir / "claudecodecleanup"
+        outside_dir = tmp_path / "outside"
+        outside_dir.mkdir()
+        output_dir.symlink_to(outside_dir, target_is_directory=True)
+
+        with pytest.raises(ValueError, match="must not be a symlink"):
+            ensure_owned_output_dir(snap_dir, output_dir)
+
+        output_dir.unlink()
+        report_path = write_owned_output_file(
+            snap_dir,
+            output_dir,
+            "cleanup_report.txt",
+            "kept all unique outputs",
+        )
+        assert report_path.read_text() == "kept all unique outputs"
+        assert not (outside_dir / "cleanup_report.txt").exists()
+
+    def test_cleanup_inventory_excludes_output_through_snapshot_alias(self, tmp_path):
+        """Canonical path comparison must exclude owned output through an alias."""
+        snap_dir = tmp_path / "real-snap"
+        snap_dir.mkdir()
+        snap_alias = tmp_path / "snap-alias"
+        snap_alias.symlink_to(snap_dir, target_is_directory=True)
+        output_dir = snap_alias / "claudecodecleanup"
+        output_dir.mkdir()
+        (output_dir / "session.json").write_text('{"owned": true}')
+        (snap_dir / "title").mkdir()
+        (snap_dir / "title" / "title.txt").write_text("Example Domain")
+
+        inventory = build_cleanup_inventory(snap_alias, output_dir)
+
+        assert '"files_inspected": 1' in inventory
+        assert "title/title.txt" in inventory
+        assert "claudecodecleanup/session.json" not in inventory
 
     def test_hook_skips_when_disabled(self):
         """Hook should skip when CLAUDECODECLEANUP_ENABLED=false."""
