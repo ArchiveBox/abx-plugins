@@ -224,7 +224,7 @@ def _settings(config: dict) -> dict:
     }
 
 
-def _resolve_binary(binary: str, config: dict) -> tuple[str, dict[str, str]]:
+def _resolve_binary(binary: str, config: dict) -> tuple[str, str, dict[str, str]]:
     try:
         from abxpkg import BinProvider
         from abx_plugins.plugins.base.utils import load_required_binary_from_config
@@ -266,7 +266,11 @@ def _resolve_binary(binary: str, config: dict) -> tuple[str, dict[str, str]]:
         providers=providers,
         base_env=binary_environ,
     )
-    return str(loaded_dependencies[-1].loaded_abspath), binary_env
+    return (
+        str(loaded_dependencies[-1].loaded_abspath),
+        str(loaded_dependencies[1].loaded_abspath),
+        binary_env,
+    )
 
 
 def _project_route(workdir: Path, session_id: str = "") -> str:
@@ -281,9 +285,8 @@ def _ensure_project_files(settings: dict) -> None:
     workdir.mkdir(parents=True, exist_ok=True)
     git_marker = workdir / ".git" / "not-a-git"
     if git_marker.exists():
-        # Older ArchiveBox builds used a fake .git marker. Current OpenCode
-        # hangs on that shape, so remove only that exact marker directory and
-        # let OpenCode's public project init endpoint create the real metadata.
+        # Current OpenCode hangs on the legacy fake marker, so remove only
+        # that invalid shape before initializing the real worktree.
         shutil.rmtree(git_marker.parent)
 
     editable_skill_path = settings["opencode_dir"] / "SKILL.md"
@@ -404,14 +407,47 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
     settings["cache_home"].mkdir(parents=True, exist_ok=True)
     settings["home"].mkdir(parents=True, exist_ok=True)
     _ensure_project_files(settings)
-    if _health(settings):
-        try:
-            _ensure_default_session(settings)
-        except (requests.RequestException, RuntimeError, ValueError) as err:
-            return False, f"OpenCode project initialization failed: {err}"
-        return True, ""
+
+    workdir = settings["workdir"].resolve()
+    try:
+        binary, git_binary, binary_env = _resolve_binary(
+            settings["binary"],
+            settings["config"],
+        )
+    except RuntimeError as err:
+        return False, str(err)
+
+    env = {
+        **os.environ,
+        **binary_env,
+        "ARCHIVEBOX_BASE_URL": str(settings.get("archivebox_base_url", "")),
+        "ARCHIVEBOX_ADMIN_URL": str(settings.get("archivebox_admin_url", "")),
+        "ARCHIVEBOX_API_URL": str(settings.get("archivebox_api_url", "")),
+        "BROWSER": "false",
+        "GIT_CEILING_DIRECTORIES": str(workdir),
+        "HOME": str(settings["home"]),
+        "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
+        "XDG_CONFIG_HOME": str(settings["config_home"]),
+        "XDG_DATA_HOME": str(settings["data_home"]),
+        "XDG_STATE_HOME": str(settings["state_home"]),
+        "XDG_CACHE_HOME": str(settings["cache_home"]),
+    }
 
     with _PROCESS_LOCK:
+        if not (workdir / ".git").exists():
+            try:
+                subprocess.run(
+                    [git_binary, "init", "--quiet"],
+                    cwd=workdir,
+                    env=env,
+                    text=True,
+                    capture_output=True,
+                    check=True,
+                    timeout=settings["timeout"],
+                )
+            except (OSError, subprocess.SubprocessError) as err:
+                return False, f"OpenCode project initialization failed: {err}"
+
         if _health(settings):
             try:
                 _ensure_default_session(settings)
@@ -419,27 +455,6 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
                 return False, f"OpenCode project initialization failed: {err}"
             return True, ""
 
-        workdir = settings["workdir"].resolve()
-        try:
-            binary, binary_env = _resolve_binary(settings["binary"], settings["config"])
-        except RuntimeError as err:
-            return False, str(err)
-
-        env = {
-            **os.environ,
-            **binary_env,
-            "ARCHIVEBOX_BASE_URL": str(settings.get("archivebox_base_url", "")),
-            "ARCHIVEBOX_ADMIN_URL": str(settings.get("archivebox_admin_url", "")),
-            "ARCHIVEBOX_API_URL": str(settings.get("archivebox_api_url", "")),
-            "BROWSER": "false",
-            "GIT_CEILING_DIRECTORIES": str(workdir),
-            "HOME": str(settings["home"]),
-            "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
-            "XDG_CONFIG_HOME": str(settings["config_home"]),
-            "XDG_DATA_HOME": str(settings["data_home"]),
-            "XDG_STATE_HOME": str(settings["state_home"]),
-            "XDG_CACHE_HOME": str(settings["cache_home"]),
-        }
         cmd = [
             binary,
             "serve",
