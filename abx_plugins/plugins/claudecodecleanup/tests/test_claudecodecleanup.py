@@ -24,7 +24,9 @@ from abx_plugins.plugins.base.testing import (
     run_hook,
 )
 from abx_plugins.plugins.claudecodecleanup.cleanup_utils import (
+    apply_cleanup_deletions,
     build_cleanup_inventory,
+    build_cleanup_inventory_with_capabilities,
     ensure_owned_output_dir,
     write_owned_output_file,
 )
@@ -38,6 +40,21 @@ CLEANUP_HOOK = _CLEANUP_HOOK
 TEST_URL = "https://example.com"
 
 
+def write_snapshot_ledger(
+    snap_dir: Path,
+    snapshot_id: str,
+    url: str = TEST_URL,
+) -> None:
+    (snap_dir / "index.jsonl").write_text(
+        json.dumps({"type": "Snapshot", "id": snapshot_id, "url": url}) + "\n",
+    )
+
+
+def append_snapshot_ledger_record(snap_dir: Path, record: dict[str, object]) -> None:
+    with (snap_dir / "index.jsonl").open("a") as ledger:
+        ledger.write(json.dumps(record) + "\n")
+
+
 def create_snapshot_with_real_outputs(
     root: Path,
     snapshot_id: str,
@@ -45,6 +62,11 @@ def create_snapshot_with_real_outputs(
 ) -> Path:
     """Run real extractors, one real failed extractor, and hashes."""
     snap_dir = real_html_snapshot(root, TEST_URL, snapshot_id)
+    write_snapshot_ledger(snap_dir, snapshot_id)
+    for plugin_name in ("title", "dom"):
+        record = parse_jsonl_output((snap_dir / plugin_name / "stdout.log").read_text())
+        assert record is not None
+        append_snapshot_ledger_record(snap_dir, record)
     env = os.environ.copy()
     env["SNAP_DIR"] = str(snap_dir)
 
@@ -65,6 +87,7 @@ def create_snapshot_with_real_outputs(
         record = parse_jsonl_output(stdout)
         assert returncode == 0, stderr
         assert record is not None and record["status"] == "succeeded", record
+        append_snapshot_ledger_record(snap_dir, record)
         (output_dir / "stdout.log").write_text(stdout)
 
     failed_dir = snap_dir / "screenshot"
@@ -83,6 +106,9 @@ def create_snapshot_with_real_outputs(
         timeout=30,
     )
     assert returncode != 0, (stdout, stderr)
+    failed_record = parse_jsonl_output(stdout)
+    assert failed_record is not None and failed_record["status"] == "failed"
+    append_snapshot_ledger_record(snap_dir, failed_record)
     (failed_dir / "stdout.log").write_text(stdout)
     (failed_dir / "stderr.log").write_text(stderr)
 
@@ -193,7 +219,7 @@ class TestClaudeCodeCleanupPlugin:
         (snap_dir / "readability" / "hook.stderr.log").write_text("private log")
         (output_dir / "session.json").write_text('{"owned": true}')
 
-        inventory = build_cleanup_inventory(
+        inventory, capabilities = build_cleanup_inventory_with_capabilities(
             snap_dir,
             output_dir,
             max_bytes=4096,
@@ -213,6 +239,9 @@ class TestClaudeCodeCleanupPlugin:
         assert '"empty-extractor"' in inventory
         assert "hook.stderr.log" not in inventory
         assert "claudecodecleanup/session.json" not in inventory
+        assert all(
+            f'"id": "{capability_id}"' in inventory for capability_id in capabilities
+        )
 
     def test_cleanup_inventory_records_directory_symlinks(self, tmp_path):
         """Directory symlinks are evidence, but their targets are never traversed."""
@@ -308,6 +337,154 @@ class TestClaudeCodeCleanupPlugin:
         assert '"files_inspected": 1' in inventory
         assert "title/title.txt" in inventory
         assert "claudecodecleanup/session.json" not in inventory
+
+    def test_cleanup_deletion_plan_is_bound_to_snapshot_identity(self, tmp_path):
+        snap_dir = tmp_path / "expected-snapshot"
+        target = snap_dir / "screenshot" / "output.png"
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b"failed screenshot")
+        write_snapshot_ledger(snap_dir, "expected-snapshot")
+        append_snapshot_ledger_record(
+            snap_dir,
+            {
+                "type": "ArchiveResult",
+                "snapshot_id": "expected-snapshot",
+                "plugin": "screenshot",
+            },
+        )
+        _inventory, capabilities = build_cleanup_inventory_with_capabilities(
+            snap_dir,
+            snap_dir / "claudecodecleanup",
+        )
+
+        with pytest.raises(ValueError, match="is absent from"):
+            apply_cleanup_deletions(
+                snap_dir,
+                snap_dir / "claudecodecleanup",
+                "different-snapshot",
+                TEST_URL,
+                capabilities,
+                ["file-00001"],
+            )
+
+        assert target.read_bytes() == b"failed screenshot"
+
+    def test_cleanup_deletion_plan_applies_only_safe_relative_paths(self, tmp_path):
+        snap_dir = tmp_path / "test-output"
+        screenshot_dir = snap_dir / "screenshot"
+        screenshot_dir.mkdir(parents=True)
+        (screenshot_dir / "output.png").write_bytes(b"failed screenshot")
+        (screenshot_dir / "metadata.json").write_text('{"status": "failed"}')
+        outside = tmp_path / "outside.txt"
+        outside.write_text("must remain")
+        (screenshot_dir / "outside-link").symlink_to(outside)
+        (snap_dir / ".git" / "objects").mkdir(parents=True)
+        (snap_dir / ".git" / "objects" / "canary").write_text("repository data")
+        (snap_dir / "abx_dl").mkdir()
+        (snap_dir / "abx_dl" / "source.py").write_text("source code")
+        write_snapshot_ledger(snap_dir, "snapshot-id")
+        append_snapshot_ledger_record(
+            snap_dir,
+            {
+                "type": "ArchiveResult",
+                "snapshot_id": "snapshot-id",
+                "plugin": "screenshot",
+            },
+        )
+        inventory, capabilities = build_cleanup_inventory_with_capabilities(
+            snap_dir,
+            snap_dir / "claudecodecleanup",
+            allowed_directories={"screenshot"},
+        )
+        selected_ids = [
+            capability_id
+            for capability_id, capability in capabilities.items()
+            if capability["path"]
+            in {"screenshot/output.png", "screenshot/outside-link"}
+        ]
+        assert len(selected_ids) == 2
+        assert ".git" not in inventory
+        assert "abx_dl/source.py" not in inventory
+        assert all(
+            capability["path"] != "screenshot" for capability in capabilities.values()
+        )
+
+        deleted = apply_cleanup_deletions(
+            snap_dir,
+            snap_dir / "claudecodecleanup",
+            "snapshot-id",
+            TEST_URL,
+            capabilities,
+            selected_ids,
+        )
+
+        assert "screenshot/output.png" in deleted
+        assert "screenshot/outside-link" in deleted
+        assert not (screenshot_dir / "output.png").exists()
+        assert (screenshot_dir / "metadata.json").is_file()
+        assert outside.read_text() == "must remain"
+        assert (
+            snap_dir / ".git" / "objects" / "canary"
+        ).read_text() == "repository data"
+        assert (snap_dir / "abx_dl" / "source.py").read_text() == "source code"
+
+        with pytest.raises(ValueError, match="Unknown cleanup capability ids"):
+            apply_cleanup_deletions(
+                snap_dir,
+                snap_dir / "claudecodecleanup",
+                "snapshot-id",
+                TEST_URL,
+                capabilities,
+                ["not-an-inventory-id"],
+            )
+
+        assert outside.read_text() == "must remain"
+
+    def test_cleanup_deletion_plan_revalidates_every_inode_before_unlink(
+        self,
+        tmp_path,
+    ):
+        snap_dir = tmp_path / "test-output"
+        extractor_dir = snap_dir / "readability"
+        extractor_dir.mkdir(parents=True)
+        first = extractor_dir / "first.txt"
+        changed = extractor_dir / "changed.txt"
+        first.write_text("duplicate")
+        changed.write_text("duplicate")
+        write_snapshot_ledger(snap_dir, "snapshot-id")
+        append_snapshot_ledger_record(
+            snap_dir,
+            {
+                "type": "ArchiveResult",
+                "snapshot_id": "snapshot-id",
+                "plugin": "readability",
+            },
+        )
+        _inventory, capabilities = build_cleanup_inventory_with_capabilities(
+            snap_dir,
+            snap_dir / "claudecodecleanup",
+        )
+        selected_ids = [
+            capability_id
+            for capability_id, capability in capabilities.items()
+            if capability["path"]
+            in {"readability/first.txt", "readability/changed.txt"}
+        ]
+        changed.unlink()
+        changed.write_text("replacement")
+
+        with pytest.raises(ValueError, match="changed since inventory"):
+            apply_cleanup_deletions(
+                snap_dir,
+                snap_dir / "claudecodecleanup",
+                "snapshot-id",
+                TEST_URL,
+                capabilities,
+                selected_ids,
+            )
+
+        assert first.read_text() == "duplicate"
+        assert changed.read_text() == "replacement"
 
     def test_hook_skips_when_disabled(self):
         """Hook should skip when CLAUDECODECLEANUP_ENABLED=false."""
@@ -474,8 +651,8 @@ class TestClaudeCodeCleanupIntegration:
             env["CLAUDECODECLEANUP_MAX_TURNS"] = "25"
             env["CLAUDECODECLEANUP_TIMEOUT"] = "90"
             env["CLAUDECODECLEANUP_PROMPT"] = (
-                "Delete the screenshot/ directory because its real extractor run failed. "
-                "Do NOT delete hashes/ or any other directories. "
+                "Select every deletable file id under screenshot/ because its real extractor run failed. "
+                "Do NOT select ids from hashes/ or any other extractor directory. "
                 "Return a summary of what you deleted in your final response."
             )
 
@@ -492,8 +669,8 @@ class TestClaudeCodeCleanupIntegration:
             assert result is not None, f"No ArchiveResult. stderr: {stderr[:500]}"
             assert result["status"] == "succeeded", f"Should succeed: {stderr[:500]}"
 
-            assert not (snap_dir / "screenshot").exists(), (
-                "failed screenshot output should have been deleted by cleanup"
+            assert not (snap_dir / "screenshot" / "stdout.log").exists(), (
+                "failed screenshot output file should have been deleted by cleanup"
             )
 
             # Verify hashes preserved (must survive even when deletion is enabled)

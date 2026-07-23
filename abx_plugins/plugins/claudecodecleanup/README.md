@@ -24,7 +24,7 @@ Each variable falls back to the corresponding `CLAUDECODE_*` default if unset.
 | `CLAUDECODECLEANUP_MAX_TURNS` | int | `50` | `CLAUDECODE_MAX_TURNS` | Max agentic turns per invocation. |
 
 **Default prompt:**
-> Use the supplied deterministic inventory, inspect ambiguous files in at most one additional batch when needed, and delete clearly inferior outputs in one batch. Then return a concise final report naming every extractor directory inspected, every deletion, and every retained duplicate group.
+> Use the supplied deterministic inventory to select opaque deletion ids for clearly inferior outputs, then return a concise report naming every extractor directory considered, every requested deletion, and every retained duplicate group.
 
 ## Hooks
 
@@ -34,9 +34,9 @@ Each variable falls back to the corresponding `CLAUDECODE_*` default if unset.
 
 ## Permissions / Scope
 
-- **Full access** (read, write, rename, move, delete) within the snapshot directory (`SNAP_DIR`)
-- The agent **cannot** access files outside the snapshot directory
-- Protected items: `hashes/`, `.json` metadata, process-control files, and the hook-owned `claudecodecleanup/` output directory
+- Claude runs in bare mode with no filesystem, shell, project-hook, plugin, memory, browser, or session-persistence access; it returns a structured plan containing only opaque inventory ids.
+- ArchiveBox validates the active Snapshot ledger record, revalidates every inventoried inode, and unlinks only exact selected files or already-empty directories through directory file descriptors without following symlinks.
+- Protected items: `hashes/`, JSON metadata, process-control files, and the hook-owned `claudecodecleanup/` output directory.
 
 ## Output
 
@@ -45,7 +45,7 @@ Files are written to `SNAP_DIR/claudecodecleanup/`:
 | File | Description |
 |---|---|
 | `cleanup_report.txt` | **Required** — Claude's final cleanup report, persisted by the hook even when nothing was removed |
-| `response.txt` | Raw text response from Claude |
+| `response.txt` | Validated cleanup report and paths actually deleted |
 | `session.json` | Full conversation log (JSON) |
 
 ## Usage

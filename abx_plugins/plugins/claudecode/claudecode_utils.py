@@ -227,6 +227,8 @@ def run_claude_code(
     max_turns: int = 50,
     model: str = "claude-sonnet-4-6",
     allowed_tools: list[str] | None = None,
+    json_schema: dict[str, object] | None = None,
+    bare: bool = False,
     session_log_path: str | Path | None = None,
 ) -> tuple[str, str, int]:
     """
@@ -249,6 +251,16 @@ def run_claude_code(
     # Add print flag for non-interactive output
     cmd.extend(["--print"])
 
+    if bare:
+        cmd.extend(
+            [
+                "--bare",
+                "--no-session-persistence",
+                "--disable-slash-commands",
+                "--no-chrome",
+            ],
+        )
+
     # Add model
     cmd.extend(["--model", model])
 
@@ -260,7 +272,7 @@ def run_claude_code(
         cmd.extend(["--system-prompt", system_prompt])
 
     # Add allowed tools (restrict to safe tools by default)
-    if allowed_tools:
+    if allowed_tools is not None:
         available_tools = sorted({tool.split("(", 1)[0] for tool in allowed_tools})
         cmd.extend(["--tools", ",".join(available_tools)])
         for tool in allowed_tools:
@@ -279,8 +291,10 @@ def run_claude_code(
 
     # Use JSON output to capture the conversation messages (prompt + responses).
     # Note: this captures the message-level log, not a full tool-use transcript.
-    if session_log_path:
+    if session_log_path or json_schema:
         cmd.extend(["--output-format", "json"])
+    if json_schema:
+        cmd.extend(["--json-schema", json.dumps(json_schema, separators=(",", ":"))])
 
     # Add the prompt
     cmd.extend(["--", prompt])
@@ -343,17 +357,21 @@ def run_claude_code(
         )
 
         # Save session log if requested
-        if session_log_path and result.stdout:
-            try:
-                _write_text_within_directory(
-                    Path(work_dir),
-                    Path(session_log_path),
-                    result.stdout,
-                )
-                print(f"[+] Session log saved to {session_log_path}", file=sys.stderr)
-                print(result.stdout, file=sys.stderr)
-            except (OSError, ValueError) as e:
-                print(f"[!] Failed to save session log: {e}", file=sys.stderr)
+        if (session_log_path or json_schema) and result.stdout:
+            if session_log_path:
+                try:
+                    _write_text_within_directory(
+                        Path(work_dir),
+                        Path(session_log_path),
+                        result.stdout,
+                    )
+                    print(
+                        f"[+] Session log saved to {session_log_path}",
+                        file=sys.stderr,
+                    )
+                    print(result.stdout, file=sys.stderr)
+                except (OSError, ValueError) as e:
+                    print(f"[!] Failed to save session log: {e}", file=sys.stderr)
 
             # When using JSON output format, the text response is embedded in the JSON
             # Extract it for the caller
@@ -380,11 +398,17 @@ def run_claude_code(
                             elif isinstance(content, str):
                                 text_response += content
                 elif isinstance(session_data, dict):
-                    text_response = (
-                        str(session_data["result"])
-                        if "result" in session_data
-                        else result.stdout
-                    )
+                    if json_schema and isinstance(
+                        session_data.get("structured_output"),
+                        dict,
+                    ):
+                        text_response = json.dumps(session_data["structured_output"])
+                    else:
+                        text_response = (
+                            str(session_data["result"])
+                            if "result" in session_data
+                            else result.stdout
+                        )
             except (json.JSONDecodeError, KeyError):
                 text_response = result.stdout
 

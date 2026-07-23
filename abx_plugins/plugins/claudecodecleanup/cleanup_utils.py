@@ -9,11 +9,13 @@ import os
 import stat
 from collections import defaultdict
 from pathlib import Path
-from typing import BinaryIO, TypedDict
-from collections.abc import Sequence
+from typing import AbstractSet, BinaryIO, TypedDict
+from collections.abc import Mapping, Sequence
 
 
 PROCESS_CONTROL_SUFFIXES = (".stdout.log", ".stderr.log", ".pid", ".sh")
+PROTECTED_METADATA_SUFFIXES = (".json", ".jsonl")
+PROTECTED_DIRECTORIES = frozenset({"hashes", "claudecodecleanup"})
 TEXT_SUFFIXES = {
     ".css",
     ".csv",
@@ -39,13 +41,194 @@ MAX_SAMPLE_BYTES = 64 * 1024
 
 
 class InventoryEntry(TypedDict):
+    id: str | None
     path: str
     abspath: Path
+    dev: int
+    ino: int
+    mode: int
     size: int
     mimetype: str
     content_kind: str
     sample: str
     regular: bool
+
+
+class CleanupCapability(TypedDict):
+    path: str
+    dev: int
+    ino: int
+    mode: int
+    size: int
+    kind: str
+
+
+def validate_snapshot_ledger(
+    snap_dir: Path,
+    snapshot_id: str,
+    url: str,
+) -> tuple[Path, frozenset[str]]:
+    """Bind cleanup authority to a real Snapshot record in the output ledger."""
+    snap_dir = snap_dir.resolve(strict=True)
+    ledger_path = snap_dir / "index.jsonl"
+    matched = False
+    output_directories: set[str] = set()
+    bytes_read = 0
+    with _open_regular_file(ledger_path) as ledger:
+        while raw_line := ledger.readline(1024 * 1024 + 1):
+            if len(raw_line) > 1024 * 1024:
+                raise ValueError(
+                    f"Snapshot ledger line exceeds cleanup limit: {ledger_path}",
+                )
+            bytes_read += len(raw_line)
+            if bytes_read > 32 * 1024 * 1024:
+                raise ValueError(
+                    f"Snapshot ledger exceeds cleanup limit: {ledger_path}",
+                )
+            try:
+                record = json.loads(raw_line)
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                continue
+            if (
+                isinstance(record, dict)
+                and record.get("type") == "Snapshot"
+                and str(record.get("id") or "").replace("-", "")
+                == snapshot_id.replace("-", "")
+                and record.get("url") == url
+            ):
+                matched = True
+            if (
+                isinstance(record, dict)
+                and record.get("type") == "ArchiveResult"
+                and str(record.get("snapshot_id") or "").replace("-", "")
+                == snapshot_id.replace("-", "")
+                and isinstance(record.get("plugin"), str)
+            ):
+                plugin = str(record["plugin"])
+                if Path(plugin).name == plugin and not plugin.startswith("."):
+                    output_directories.add(plugin)
+    if not matched:
+        raise ValueError(
+            f"Cleanup snapshot {snapshot_id!r} for {url!r} is absent from {ledger_path}",
+        )
+    if not output_directories:
+        raise ValueError(
+            f"Cleanup snapshot {snapshot_id!r} has no recorded extractor outputs in {ledger_path}",
+        )
+    return snap_dir, frozenset(output_directories)
+
+
+def _validated_capability_path(value: str) -> Path:
+    relative = Path(value)
+    if (
+        not value
+        or relative.is_absolute()
+        or not relative.parts
+        or any(part in {"", ".", ".."} for part in relative.parts)
+        or any(part in PROTECTED_DIRECTORIES for part in relative.parts)
+        or relative.name.endswith(
+            PROCESS_CONTROL_SUFFIXES + PROTECTED_METADATA_SUFFIXES,
+        )
+        or any(part.startswith(".") for part in relative.parts)
+    ):
+        raise ValueError(f"Unsafe cleanup capability path: {value!r}")
+    return relative
+
+
+def _open_capability_parent(root_fd: int, relative: Path) -> int:
+    parent_fd = os.dup(root_fd)
+    try:
+        for component in relative.parts[:-1]:
+            child_fd = os.open(
+                component,
+                os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0),
+                dir_fd=parent_fd,
+            )
+            os.close(parent_fd)
+            parent_fd = child_fd
+    except Exception:
+        os.close(parent_fd)
+        raise
+    return parent_fd
+
+
+def _revalidate_capability(
+    parent_fd: int,
+    name: str,
+    capability: CleanupCapability,
+) -> None:
+    current = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    expected = (
+        capability["dev"],
+        capability["ino"],
+        capability["mode"],
+        capability["size"],
+    )
+    actual = (current.st_dev, current.st_ino, current.st_mode, current.st_size)
+    if actual != expected:
+        raise ValueError(
+            f"Cleanup capability changed since inventory: {capability['path']}",
+        )
+
+
+def apply_cleanup_deletions(
+    snap_dir: Path,
+    output_dir: Path,
+    snapshot_id: str,
+    url: str,
+    capabilities: Mapping[str, CleanupCapability],
+    requested_ids: Sequence[str],
+) -> list[str]:
+    """Unlink exact inventoried entries through symlink-safe capabilities."""
+    snap_dir, allowed_directories = validate_snapshot_ledger(snap_dir, snapshot_id, url)
+    output_dir = ensure_owned_output_dir(snap_dir, output_dir)
+    if output_dir != snap_dir / "claudecodecleanup":
+        raise ValueError(f"Unexpected cleanup output directory: {output_dir}")
+    selected_ids = sorted(set(requested_ids))
+    unknown_ids = [
+        capability_id
+        for capability_id in selected_ids
+        if capability_id not in capabilities
+    ]
+    if unknown_ids:
+        raise ValueError(f"Unknown cleanup capability ids: {unknown_ids}")
+    selected = [capabilities[capability_id] for capability_id in selected_ids]
+    if any(
+        Path(capability["path"]).parts[0] not in allowed_directories
+        for capability in selected
+    ):
+        raise ValueError("Cleanup capability is outside recorded extractor outputs")
+
+    deleted: list[str] = []
+    root_fd = os.open(
+        snap_dir,
+        os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0),
+    )
+    try:
+        for capability in selected:
+            relative = _validated_capability_path(capability["path"])
+            parent_fd = _open_capability_parent(root_fd, relative)
+            try:
+                _revalidate_capability(parent_fd, relative.name, capability)
+            finally:
+                os.close(parent_fd)
+
+        for capability in selected:
+            relative = _validated_capability_path(capability["path"])
+            parent_fd = _open_capability_parent(root_fd, relative)
+            try:
+                _revalidate_capability(parent_fd, relative.name, capability)
+                if capability["kind"] == "empty-directory":
+                    os.rmdir(relative.name, dir_fd=parent_fd)
+                else:
+                    os.unlink(relative.name, dir_fd=parent_fd)
+                deleted.append(str(relative))
+            finally:
+                os.close(parent_fd)
+    finally:
+        os.close(root_fd)
+
+    return deleted
 
 
 def ensure_owned_output_dir(snap_dir: Path, output_dir: Path) -> Path:
@@ -164,12 +347,29 @@ def build_cleanup_inventory(
     snap_dir: Path,
     output_dir: Path,
     *,
+    allowed_directories: AbstractSet[str] | None = None,
+    **limits: int,
+) -> str:
+    inventory, _capabilities = build_cleanup_inventory_with_capabilities(
+        snap_dir,
+        output_dir,
+        allowed_directories=allowed_directories,
+        **limits,
+    )
+    return inventory
+
+
+def build_cleanup_inventory_with_capabilities(
+    snap_dir: Path,
+    output_dir: Path,
+    *,
     max_bytes: int = 64 * 1024,
     sample_bytes: int = 200,
     max_files: int = MAX_FILES,
     max_directories: int = MAX_DIRECTORIES,
     max_filesystem_entries: int = MAX_FILESYSTEM_ENTRIES,
-) -> str:
+    allowed_directories: AbstractSet[str] | None = None,
+) -> tuple[str, dict[str, CleanupCapability]]:
     """Inspect the snapshot once and return a hard-bounded cleanup inventory."""
     if max_bytes < 1024:
         raise ValueError("Cleanup inventory max_bytes must be at least 1024")
@@ -181,7 +381,8 @@ def build_cleanup_inventory(
     output_dir = ensure_owned_output_dir(snap_dir, output_dir)
     entries: list[InventoryEntry] = []
     directory_totals: dict[str, list[int]] = defaultdict(lambda: [0, 0])
-    empty_directories: list[str] = []
+    empty_directories: list[dict[str, str]] = []
+    capabilities: dict[str, CleanupCapability] = {}
     excluded_control_files = 0
     files_inspected = 0
     directories_inspected = 0
@@ -211,20 +412,43 @@ def build_cleanup_inventory(
         if current_dir != snap_dir and not children:
             relative_dir = current_dir.relative_to(snap_dir)
             if len(empty_directories) < max_directories:
-                empty_directories.append(str(relative_dir))
+                directory_stat = current_dir.lstat()
+                capability_id = f"dir-{len(empty_directories) + 1:05d}"
+                empty_directories.append(
+                    {"id": capability_id, "path": str(relative_dir)},
+                )
+                capabilities[capability_id] = {
+                    "path": str(relative_dir),
+                    "dev": directory_stat.st_dev,
+                    "ino": directory_stat.st_ino,
+                    "mode": directory_stat.st_mode,
+                    "size": directory_stat.st_size,
+                    "kind": "empty-directory",
+                }
             else:
                 omitted_directory_entries += 1
 
         child_directories: list[Path] = []
         for path in children:
             file_stat = path.lstat()
+            relative_path = path.relative_to(snap_dir)
+            if (
+                allowed_directories is not None
+                and relative_path.parts[0] not in allowed_directories
+            ):
+                continue
+            if any(
+                part.startswith(".") or part in PROTECTED_DIRECTORIES
+                for part in relative_path.parts
+            ):
+                continue
             if stat.S_ISDIR(file_stat.st_mode):
                 if directories_inspected >= max_directories:
                     traversal_limit_reached = True
                     omitted_directory_entries += 1
                     break
                 directories_inspected += 1
-                relative_dir = path.relative_to(snap_dir)
+                relative_dir = relative_path
                 directory_totals[relative_dir.parts[0]]
                 child_directories.append(path)
                 continue
@@ -235,7 +459,6 @@ def build_cleanup_inventory(
                 traversal_limit_reached = True
                 omitted_file_entries += 1
                 break
-            relative_path = path.relative_to(snap_dir)
             regular_file = stat.S_ISREG(file_stat.st_mode)
             size = file_stat.st_size
             mimetype = (
@@ -263,10 +486,20 @@ def build_cleanup_inventory(
             directory_totals[top_level][0] += 1
             directory_totals[top_level][1] += size
             files_inspected += 1
+            capability_id = (
+                None
+                if len(relative_path.parts) == 1
+                or path.name.endswith(PROTECTED_METADATA_SUFFIXES)
+                else f"file-{files_inspected:05d}"
+            )
             entries.append(
                 {
+                    "id": capability_id,
                     "path": str(relative_path),
                     "abspath": path,
+                    "dev": file_stat.st_dev,
+                    "ino": file_stat.st_ino,
+                    "mode": file_stat.st_mode,
                     "size": size,
                     "mimetype": mimetype,
                     "content_kind": content_kind,
@@ -274,6 +507,15 @@ def build_cleanup_inventory(
                     "regular": regular_file,
                 },
             )
+            if capability_id:
+                capabilities[capability_id] = {
+                    "path": str(relative_path),
+                    "dev": file_stat.st_dev,
+                    "ino": file_stat.st_ino,
+                    "mode": file_stat.st_mode,
+                    "size": size,
+                    "kind": "file",
+                }
         if traversal_limit_reached:
             break
         pending_directories.extend(reversed(child_directories))
@@ -332,6 +574,7 @@ def build_cleanup_inventory(
 
     file_metadata = [
         {
+            "id": entry["id"],
             "path": entry["path"],
             "size": entry["size"],
             "mimetype": entry["mimetype"],
@@ -372,6 +615,7 @@ def build_cleanup_inventory(
         return True
 
     omitted_serialized_entries: dict[str, int] = defaultdict(int)
+    serialized_capability_ids: set[str] = set()
 
     def append_section(name: str, values: Sequence[object]) -> None:
         if not append_bounded(name):
@@ -381,6 +625,10 @@ def build_cleanup_inventory(
             serialized = json.dumps(value, sort_keys=True)
             if not append_bounded(serialized):
                 omitted_serialized_entries[name] += 1
+            elif isinstance(value, dict):
+                capability_id = value.get("id")
+                if isinstance(capability_id, str):
+                    serialized_capability_ids.add(capability_id)
 
     append_section(
         "DIRECTORY_SUMMARY",
@@ -389,7 +637,7 @@ def build_cleanup_inventory(
             for name, values in sorted(directory_totals.items())
         ],
     )
-    append_section("EMPTY_DIRECTORIES", sorted(empty_directories))
+    append_section("EMPTY_DIRECTORIES", empty_directories)
     append_section("DUPLICATE_GROUPS", duplicate_groups)
     append_section("UNVERIFIED_SAME_SIZE_GROUPS", unverified_same_size_groups)
     append_section("FILE_METADATA", file_metadata)
@@ -419,4 +667,8 @@ def build_cleanup_inventory(
     inventory = "\n".join(lines)
     if len(inventory.encode("utf-8")) > max_bytes:
         raise ValueError("Cleanup inventory exceeded its hard byte limit")
-    return inventory
+    return inventory, {
+        capability_id: capability
+        for capability_id, capability in capabilities.items()
+        if capability_id in serialized_capability_ids
+    }
