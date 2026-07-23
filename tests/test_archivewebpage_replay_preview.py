@@ -7,7 +7,7 @@ from pathlib import Path
 from abx_plugins.plugins.archivewebpage import replay_preview
 
 
-def test_replay_preview_bootstrap_always_appends_ui_after_service_worker_wait(
+def test_replay_preview_bootstrap_gates_ui_on_worker_and_exposes_readiness(
     tmp_path: Path,
 ) -> None:
     wacz_path = tmp_path / "capture.wacz"
@@ -30,10 +30,10 @@ def test_replay_preview_bootstrap_always_appends_ui_after_service_worker_wait(
 
     assert 'source="/archivewebpage/archivewebpage.wacz"' in html
     assert 'url="https://example.com/"' in html
-    assert "withTimeout(" in html
     assert "navigator.serviceWorker.register(" in html
-    assert "setTimeout(resolve, 3000)" in html
-    assert "appendReplayUi();\n        if ('serviceWorker' in navigator)" in html
+    assert "activateReplayWorker().then(appendReplayUi)" in html
+    assert "rwp-page-loading" in html
+    assert "archivebox-replay-ready" in html
     assert "s.src = '/replay/ui.js'" in html
 
     onedomain_html = replay_preview.render_preview_html(

@@ -8,14 +8,8 @@
         replay-web-page { display: block; width: 100%; height: 100%; }
     </style>
     <script>
-    // Pre-activate the replay SW before loading ui.js. Otherwise
-    // <replay-web-page>'s Embed class resolves doRegister() on the
-    // 'registered' event (not 'activated'), then sets inited=true and
-    // navigates the iframe to /replay/replay.html before the SW is
-    // controlling its scope — that races into a 404 + visible error-page
-    // flash and forces ui.js to silently reload the iframe up to twice
-    // (~200ms each) while it waits for the SW to claim. Awaiting
-    // 'activated' here moves the wait out of the iframe's load cycle.
+    // Activate the replay service worker before loading ui.js so the first
+    // replay iframe navigation is controlled by the worker.
     function appendReplayUi() {
         if (document.querySelector('script[src="{{ replay_base }}ui.js"]')) return;
         const s = document.createElement('script');
@@ -23,44 +17,46 @@
         document.head.appendChild(s);
     }
 
-    function withTimeout(promise, timeoutMs) {
-        return Promise.race([
-            promise,
-            new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('timed out')), timeoutMs);
-            }),
-        ]);
-    }
-
-    async function waitForActivation(reg) {
-        if (reg.active && reg.active.state === 'activated') return;
-        const worker = reg.installing || reg.waiting || reg.active;
-        if (!worker || worker.state === 'activated') return;
-        await Promise.race([
-            new Promise((resolve) => {
-                worker.addEventListener('statechange', () => {
-                    if (worker.state === 'activated') resolve();
-                });
-            }),
-            new Promise((resolve) => setTimeout(resolve, 3000)),
-        ]);
-    }
-
-    (async () => {
-        appendReplayUi();
-        if ('serviceWorker' in navigator) {
-            try {
-                const reg = await withTimeout(
-                    navigator.serviceWorker.register(
-                        '{{ replay_base }}sw.js?serveIndex=1',
-                        { scope: '{{ replay_base }}' },
-                    ),
-                    3000,
-                );
-                await waitForActivation(reg);
-            } catch (_) { /* fall through: ui.js will register + retry itself */ }
+    async function activateReplayWorker() {
+        if (!('serviceWorker' in navigator)) {
+            throw new Error('Service workers are required for WACZ replay');
         }
-    })().catch(() => {});
+        const registration = await navigator.serviceWorker.register(
+            '{{ replay_base }}sw.js?serveIndex=1',
+            { scope: '{{ replay_base }}' },
+        );
+        if (registration.active && registration.active.state === 'activated') return;
+
+        const worker = registration.installing || registration.waiting || registration.active;
+        if (!worker) throw new Error('Replay service worker was not created');
+        await new Promise((resolve, reject) => {
+            function onStateChange() {
+                if (worker.state === 'activated') {
+                    worker.removeEventListener('statechange', onStateChange);
+                    resolve();
+                } else if (worker.state === 'redundant') {
+                    worker.removeEventListener('statechange', onStateChange);
+                    reject(new Error('Replay service worker became redundant'));
+                }
+            }
+            worker.addEventListener('statechange', onStateChange);
+            onStateChange();
+        });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const replayElement = document.querySelector('replay-web-page');
+        replayElement.addEventListener('rwp-page-loading', (event) => {
+            if (event.detail && event.detail.loading === false) {
+                window.archiveboxReplayReady = event.detail;
+                window.dispatchEvent(new CustomEvent('archivebox-replay-ready', {detail: event.detail}));
+            }
+        });
+        activateReplayWorker().then(appendReplayUi).catch((error) => {
+            window.archiveboxReplayError = String(error);
+            window.dispatchEvent(new CustomEvent('archivebox-replay-error', {detail: String(error)}));
+        });
+    }, {once: true});
     </script>
 </head>
 <body>
