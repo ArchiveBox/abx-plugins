@@ -31,6 +31,13 @@
       "min_version": "2.5.9",
       "min_release_age": 0,
       "overrides": {
+        "env": {
+          "version": [
+            "node",
+            "-p",
+            "require('abxbus/package.json').version"
+          ]
+        },
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/abxbus",
           "install_args": [
@@ -48,6 +55,13 @@
       "min_version": null,
       "postinstall_scripts": false,
       "overrides": {
+        "env": {
+          "version": [
+            "node",
+            "-p",
+            "require('puppeteer/package.json').version"
+          ]
+        },
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/chrome",
           "install_args": [

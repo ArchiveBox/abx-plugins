@@ -114,6 +114,22 @@ def test_chrome_config_keeps_min_release_age_zero_packages_in_separate_pnpm_root
     assert not mixed_roots
 
 
+def test_chrome_host_binaries_require_their_javascript_modules() -> None:
+    config = json.loads(CHROME_CONFIG.read_text(encoding="utf-8"))
+    records = {item["name"]: item for item in config["required_binaries"]}
+
+    assert records["abxbus"]["overrides"]["env"]["version"] == [
+        "node",
+        "-p",
+        "require('abxbus/package.json').version",
+    ]
+    assert records["browsers"]["overrides"]["env"]["version"] == [
+        "node",
+        "-p",
+        "require('puppeteer/package.json').version",
+    ]
+
+
 def test_chrome_config_installs_puppeteer_js_module(tmp_path: Path) -> None:
     _assert_config_installs_puppeteer(CHROME_CONFIG, tmp_path)
 
