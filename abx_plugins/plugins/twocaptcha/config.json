@@ -10,7 +10,7 @@
   "required_binaries": [
     {
       "name": "twocaptcha",
-      "binproviders": "chromewebstore",
+      "binproviders": "env,chromewebstore",
       "min_version": null,
       "overrides": {
         "chromewebstore": {

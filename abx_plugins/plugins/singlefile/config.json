@@ -24,7 +24,7 @@
     },
     {
       "name": "singlefile",
-      "binproviders": "chromewebstore",
+      "binproviders": "env,chromewebstore",
       "min_version": null,
       "overrides": {
         "chromewebstore": {

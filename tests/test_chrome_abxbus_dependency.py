@@ -44,6 +44,13 @@ def test_chrome_config_installs_abxbus_js_module(tmp_path: Path) -> None:
     env = os.environ.copy()
     env["ABXPKG_LIB_DIR"] = str(lib_dir)
     env["ABXPKG_MIN_RELEASE_AGE"] = "0"
+    clean_path = []
+    for entry in env.get("PATH", "").split(os.pathsep):
+        abxbus_binary = Path(entry) / "abxbus"
+        if abxbus_binary.is_file() and os.access(abxbus_binary, os.X_OK):
+            continue
+        clean_path.append(entry)
+    env["PATH"] = os.pathsep.join(clean_path)
     node_binary = _resolve_node_binary(config, lib_dir, env)
 
     loaded = load_required_binary(
@@ -55,6 +62,8 @@ def test_chrome_config_installs_abxbus_js_module(tmp_path: Path) -> None:
 
     assert loaded.loaded_abspath
     assert Path(loaded.loaded_abspath).exists()
+    assert loaded.loaded_binprovider
+    assert loaded.loaded_binprovider.name == "pnpm"
 
     install_root = Path(
         record["overrides"]["pnpm"]["install_root"].replace(
@@ -125,6 +134,13 @@ def _assert_config_installs_puppeteer(config_path: Path, tmp_path: Path) -> None
     env = os.environ.copy()
     env["ABXPKG_LIB_DIR"] = str(lib_dir)
     env["ABXPKG_MIN_RELEASE_AGE"] = "3"
+    clean_path = []
+    for entry in env.get("PATH", "").split(os.pathsep):
+        browsers_binary = Path(entry) / "browsers"
+        if browsers_binary.is_file() and os.access(browsers_binary, os.X_OK):
+            continue
+        clean_path.append(entry)
+    env["PATH"] = os.pathsep.join(clean_path)
     node_binary = _resolve_node_binary(config, lib_dir, env)
 
     loaded = load_required_binary(
@@ -136,6 +152,8 @@ def _assert_config_installs_puppeteer(config_path: Path, tmp_path: Path) -> None
 
     assert loaded.loaded_abspath
     assert Path(loaded.loaded_abspath).exists()
+    assert loaded.loaded_binprovider
+    assert loaded.loaded_binprovider.name == "pnpm"
 
     install_root = Path(
         record["overrides"]["pnpm"]["install_root"].replace(

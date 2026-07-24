@@ -116,7 +116,7 @@ class TestClaudeChromePlugin:
             for binary in required_binaries
             if binary.get("name") == "claudechrome"
         )
-        assert claudechrome_binary["binproviders"] == "chromewebstore"
+        assert claudechrome_binary["binproviders"] == "env,chromewebstore"
 
     def test_config_hook_reports_skipped_when_disabled(self):
         """Config hook should report skipped when CLAUDECHROME_ENABLED=false."""

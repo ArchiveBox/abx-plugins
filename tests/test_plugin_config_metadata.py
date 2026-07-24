@@ -194,7 +194,7 @@ def test_required_binary_configs_prefer_compatible_host_binaries() -> None:
                 for provider in str(item.get("binproviders") or "").split(",")
                 if provider.strip()
             ]
-            if "env" in providers and providers[0] != "env":
+            if not providers or providers[0] != "env":
                 failures.append(
                     f"{plugin_dir.name}: required_binaries[{index}] must try env before managed providers",
                 )
