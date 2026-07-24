@@ -1,0 +1,42 @@
+abx_plugins/plugins/twocaptcha/config.json
+  s_f8414d52051f83::t_7c3df2c38d9aea 13
+tests/test_chrome_abxbus_dependency.py
+  s_f8414d52051f83::t_755d925eb469dc 137-143,155-156
+  s_f8414d52051f83::t_31e1ea224af8a3 47-53,65-66
+abx_plugins/plugins/claudechrome/config.json
+  s_f8414d52051f83::t_7c3df2c38d9aea 13
+abx_plugins/plugins/ublock/config.json
+  s_f8414d52051f83::t_7c3df2c38d9aea 13
+abx_plugins/plugins/singlefile/config.json
+  s_f8414d52051f83::t_7c3df2c38d9aea 27
+abx_plugins/plugins/archivewebpage/config.json
+  s_f8414d52051f83::t_7c3df2c38d9aea 13
+abx_plugins/plugins/chrome/config.json
+  s_f8414d52051f83::t_7c3df2c38d9aea 30,47
+abx_plugins/plugins/istilldontcareaboutcookies/config.json
+  s_f8414d52051f83::t_7c3df2c38d9aea 13
+tests/test_plugin_config_metadata.py
+  s_f8414d52051f83::t_7c3df2c38d9aea 197
+pyproject.toml
+  s_f8414d52051f83::t_7c3df2c38d9aea 3
+abx_plugins/plugins/claudechrome/tests/test_claudechrome.py
+  s_f8414d52051f83::t_71a60059fe2fc1 119
+uv.lock
+  s_f8414d52051f83::t_aa4e32bb9e4191 6,12,16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "b2a5b30132ad1973d550f0b800f8c40a30ebc022",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
