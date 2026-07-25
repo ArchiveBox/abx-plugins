@@ -13,7 +13,7 @@ abxbus = { timestamp = "0001-01-01T00:00:00Z", span = "PT1S" }
 
 [[package]]
 name = "abx-plugins"
-version = "1.11.317"
+version = "1.12.0"
 source = { editable = "." }
 dependencies = [
     { name = "abxbus" },
@@ -46,7 +46,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "abxbus", specifier = "==2.5.40" },
-    { name = "abxpkg", specifier = "==1.11.294" },
+    { name = "abxpkg", specifier = "==1.12.0" },
     { name = "imagesize", specifier = ">=2.0.0" },
     { name = "jambo", specifier = ">=0.1.7" },
     { name = "rich-click", specifier = ">=1.9.7" },
@@ -88,7 +88,7 @@ wheels = [
 
 [[package]]
 name = "abxpkg"
-version = "1.11.294"
+version = "1.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pip" },
@@ -97,9 +97,9 @@ dependencies = [
     { name = "rich-click" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2c/41/3aca55f18d47802d7fff7d648234ca7cb4c4b20cf35780ccead60cec95dc/abxpkg-1.11.294.tar.gz", hash = "sha256:6568bdeac9291ced36c908acec2386a5ecbb17f9d71fd8578bda00d665175493", size = 217757, upload-time = "2026-07-25T19:10:31.116Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/94/d3/39eca79d2179ff2d040a0fb749698f337e66ac402548935e6a917a046e24/abxpkg-1.12.0.tar.gz", hash = "sha256:148da93b888dd383b4326aff6e166b18fd7f6ac6a5a9a8f886a19a822114172c", size = 217726, upload-time = "2026-07-25T21:37:26.338Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/61/0a/f4631ac91b4deb43ef78a63aa1d1dbc0756f4cddf70fd19a61eef750873d/abxpkg-1.11.294-py3-none-any.whl", hash = "sha256:fd2dee2b0e418849da595d9a5fd6166cc5cb53346d1c99f48f337e2d4bc59544", size = 231816, upload-time = "2026-07-25T19:10:29.778Z" },
+    { url = "https://files.pythonhosted.org/packages/ad/19/5ac4dc6efec8cf28b4e79f313c1a0f73b2011a9f0269a49a489ce05e5c44/abxpkg-1.12.0-py3-none-any.whl", hash = "sha256:b407b9dc571995c1d15063ed061aa837084a15b59d3737514371bbfc023a8c5b", size = 231790, upload-time = "2026-07-25T21:37:24.781Z" },
 ]
 
 [[package]]
