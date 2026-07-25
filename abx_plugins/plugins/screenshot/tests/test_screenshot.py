@@ -11,6 +11,8 @@ Tests verify:
 7. Config options work
 """
 
+import json
+import struct
 import subprocess
 import tempfile
 import time
@@ -96,6 +98,7 @@ def test_screenshot_with_chrome_session(chrome_test_url):
                 # Scenario 1: Basic screenshot extraction
                 screenshot_dir = snapshot_chrome_dir.parent / "screenshot"
                 screenshot_dir.mkdir()
+                env = env | {"SCREENSHOT_RESOLUTION": "800,600"}
 
                 try:
                     result = subprocess.run(
@@ -135,6 +138,20 @@ def test_screenshot_with_chrome_session(chrome_test_url):
                     screenshot_file.exists() and screenshot_file.stat().st_size > 1000
                 )
                 assert screenshot_file.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+                assert struct.unpack(">II", screenshot_file.read_bytes()[16:24]) == (
+                    800,
+                    600,
+                )
+                screenshot_metadata = json.loads(
+                    (screenshot_dir / "screenshot.json").read_text(),
+                )
+                assert screenshot_metadata == {
+                    "requestedUrl": test_url,
+                    "finalUrl": test_url,
+                    "status": 200,
+                    "width": 800,
+                    "height": 600,
+                }
 
                 # Scenario 2: the real snapshot target exited before extraction.
                 screenshot_dir3 = snapshot_chrome_dir.parent / "screenshot3"
@@ -168,6 +185,43 @@ def test_screenshot_with_chrome_session(chrome_test_url):
 
         except RuntimeError:
             raise
+
+
+def test_waits_for_text_in_delayed_child_frame(chrome_test_urls):
+    test_url = chrome_test_urls["delayed_frame_url"]
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with chrome_session(
+            Path(tmpdir),
+            crawl_id="test-screenshot-delayed-frame-crawl",
+            snapshot_id="test-screenshot-delayed-frame-snap",
+            test_url=test_url,
+            navigate=True,
+            timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+        ) as (_chrome_process, _chrome_pid, snapshot_chrome_dir, env):
+            screenshot_dir = snapshot_chrome_dir.parent / "screenshot"
+            screenshot_dir.mkdir()
+            started_at = time.monotonic()
+            result = subprocess.run(
+                [
+                    str(SCREENSHOT_HOOK),
+                    f"--url={test_url}",
+                    "--snapshot-id=test-screenshot-delayed-frame-snap",
+                ],
+                cwd=str(screenshot_dir),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=env
+                | {
+                    "SCREENSHOT_WAIT_FOR_TEXT": "Nested replay content is ready",
+                    "SCREENSHOT_WAIT_FOR_FRAME_URL": "/delayed-content",
+                    "SCREENSHOT_TIMEOUT": "10",
+                },
+            )
+
+            assert result.returncode == 0, result.stderr
+            assert time.monotonic() - started_at >= 0.6
+            assert (screenshot_dir / "screenshot.png").is_file()
 
 
 def test_skips_when_staticfile_exists(real_staticfile_output, local_staticfile_urls):

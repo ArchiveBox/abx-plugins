@@ -20,12 +20,10 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import threading
+import time
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
-
-from watchfiles._rust_notify import RustNotify
 
 SNAPSHOT_ISOLATION_ENV_KEYS = ("HOME", "SNAP_DIR", "ABXPKG_LIB_DIR", "PERSONAS_DIR")
 
@@ -60,33 +58,14 @@ def wait_for_file(
 ) -> None:
     """Wait for a real hook's filesystem output or its process exit."""
     ready = ready or (lambda candidate: candidate.exists())
-    process_exited = path.parent / f".{path.name}.{process.pid}.process-exited"
-    exit_marker_lock = threading.Lock()
-    waiting_for_readiness = True
-
-    def publish_process_exit() -> None:
-        process.wait()
-        with exit_marker_lock:
-            if waiting_for_readiness:
-                process_exited.touch()
-
-    with RustNotify([str(path.parent)], False, False, 300, False, False) as watcher:
-        threading.Thread(target=publish_process_exit, daemon=True).start()
-        try:
-            if ready(path):
-                return
-            while not ready(path) and not process_exited.exists():
-                watcher.watch(1_600, 50, 0, None)
-            if ready(path):
-                return
-            stdout, stderr = process.communicate()
-            raise AssertionError(
-                f"Hook exited before publishing {path}\nstdout:\n{stdout}\nstderr:\n{stderr}",
-            )
-        finally:
-            with exit_marker_lock:
-                waiting_for_readiness = False
-                process_exited.unlink(missing_ok=True)
+    while not ready(path) and process.poll() is None:
+        time.sleep(0.05)
+    if ready(path):
+        return
+    stdout, stderr = process.communicate()
+    raise AssertionError(
+        f"Hook exited before publishing {path}\nstdout:\n{stdout}\nstderr:\n{stderr}",
+    )
 
 
 def get_plugin_dir(test_file: str) -> Path:

@@ -222,6 +222,27 @@ def _configure_chrome_httpserver(httpserver) -> dict[str, str]:
         )
 
     httpserver.expect_request("/slow").respond_with_handler(slow_page)
+    httpserver.expect_request("/delayed-frame").respond_with_data(
+        f"""<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Delayed Frame</title></head>
+<body>
+  <h1>Delayed Frame Host</h1>
+  <script>
+    setTimeout(() => {{
+      const frame = document.createElement("iframe");
+      frame.src = "{origin}/delayed-content";
+      document.body.appendChild(frame);
+    }}, 750);
+  </script>
+</body>
+</html>""",
+        content_type="text/html; charset=utf-8",
+    )
+    httpserver.expect_request("/delayed-content").respond_with_data(
+        "<html><body><h1>Nested replay content is ready</h1></body></html>",
+        content_type="text/html; charset=utf-8",
+    )
     httpserver.expect_request("/popup-child").respond_with_data(
         """<!doctype html>
 <html>
@@ -399,6 +420,7 @@ def _build_test_urls(
         "not_found_url": f"{base}/nonexistent-page-404",
         "linked_url": f"{base}/linked",
         "slow_url": f"{base}/slow?delay=5000",
+        "delayed_frame_url": f"{base}/delayed-frame",
         "popup_parent_url": f"{base}/popup-parent",
         "popup_child_url": f"{base}/popup-child",
         "static_file_url": f"{base}/static/test.txt",

@@ -28,6 +28,16 @@
       "x-fallback": "TIMEOUT",
       "description": "Timeout for screenshot capture in seconds"
     },
+    "SCREENSHOT_WAIT_FOR_TEXT": {
+      "type": "string",
+      "default": "",
+      "description": "Wait for text to appear in the page or one of its child frames before capture"
+    },
+    "SCREENSHOT_WAIT_FOR_FRAME_URL": {
+      "type": "string",
+      "default": "",
+      "description": "When waiting for text, only inspect frames whose URL contains this value"
+    },
     "SCREENSHOT_RESOLUTION": {
       "type": "string",
       "default": "1440,2000",

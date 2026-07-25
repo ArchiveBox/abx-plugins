@@ -23,6 +23,7 @@ const {
   parseArgs,
   emitArchiveResultRecord,
   hasStaticFileOutput,
+  writeFileAtomic,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 const {
@@ -51,6 +52,51 @@ function tempPathFor(filePath) {
   return path.join(dir, `.${base}.${process.pid}.tmp`);
 }
 
+function getScreenshotViewport() {
+  const resolutionSource = Object.prototype.hasOwnProperty.call(
+    process.env,
+    "SCREENSHOT_RESOLUTION"
+  )
+    ? process.env.SCREENSHOT_RESOLUTION
+    : hookConfig.SCREENSHOT_RESOLUTION;
+  const match = String(resolutionSource ?? "1440,2000").match(
+    /^\s*(\d+)\s*,\s*(\d+)\s*$/
+  );
+  if (!match) {
+    throw new Error(`Invalid SCREENSHOT_RESOLUTION=${resolutionSource}`);
+  }
+
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  if (width <= 0 || height <= 0) {
+    throw new Error(`Invalid SCREENSHOT_RESOLUTION=${resolutionSource}`);
+  }
+  return { width, height, deviceScaleFactor: 1 };
+}
+
+async function waitForTextInPageFrames(page, expectedText, frameUrlPart, timeoutMs) {
+  if (!expectedText) return;
+
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    for (const frame of page.frames()) {
+      if (frameUrlPart && !frame.url().includes(frameUrlPart)) continue;
+      try {
+        const matched = await frame.evaluate(
+          (text) => (document.body?.innerText || document.documentElement?.innerText || "").includes(text),
+          expectedText
+        );
+        if (matched) return;
+      } catch (_error) {
+        // Frames may navigate or detach while an async replay viewer starts.
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  throw new Error(`Screenshot wait text not found before timeout: ${expectedText}`);
+}
+
 // Check if screenshot is enabled BEFORE requiring puppeteer
 if (!getEnvBool("SCREENSHOT_ENABLED", true)) {
   console.error("Skipping screenshot (SCREENSHOT_ENABLED=False)");
@@ -68,6 +114,7 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 }
 process.chdir(OUTPUT_DIR);
 const OUTPUT_FILE = "screenshot.png";
+const METADATA_FILE = "screenshot.json";
 const CHROME_SESSION_DIR = "../chrome";
 
 async function takeScreenshot(url) {
@@ -104,6 +151,8 @@ async function takeScreenshot(url) {
 
   try {
     const captureTimeoutMs = Math.max(timeoutMs, 10000);
+    const viewport = getScreenshotViewport();
+    await page.setViewport(viewport);
     await Promise.race([
       page.bringToFront(),
       new Promise((_, reject) => {
@@ -113,6 +162,24 @@ async function takeScreenshot(url) {
         );
       }),
     ]);
+    const waitForText = Object.prototype.hasOwnProperty.call(
+      process.env,
+      "SCREENSHOT_WAIT_FOR_TEXT"
+    )
+      ? process.env.SCREENSHOT_WAIT_FOR_TEXT
+      : hookConfig.SCREENSHOT_WAIT_FOR_TEXT;
+    const waitForFrameUrl = Object.prototype.hasOwnProperty.call(
+      process.env,
+      "SCREENSHOT_WAIT_FOR_FRAME_URL"
+    )
+      ? process.env.SCREENSHOT_WAIT_FOR_FRAME_URL
+      : hookConfig.SCREENSHOT_WAIT_FOR_FRAME_URL;
+    await waitForTextInPageFrames(
+      page,
+      String(waitForText || ""),
+      String(waitForFrameUrl || ""),
+      captureTimeoutMs
+    );
     await Promise.race([
       page.screenshot({ path: tempOutputPath, fullPage: false }),
       new Promise((_, reject) => {
@@ -124,6 +191,24 @@ async function takeScreenshot(url) {
     ]);
 
     fs.renameSync(tempOutputPath, outputPath);
+    const navigationPath = path.resolve(CHROME_SESSION_DIR, "navigation.json");
+    const navigation = fs.existsSync(navigationPath)
+      ? JSON.parse(fs.readFileSync(navigationPath, "utf8"))
+      : {};
+    writeFileAtomic(
+      path.join(OUTPUT_DIR, METADATA_FILE),
+      JSON.stringify(
+        {
+          requestedUrl: url,
+          finalUrl: page.url(),
+          status: navigation.status ?? null,
+          width: viewport.width,
+          height: viewport.height,
+        },
+        null,
+        2
+      )
+    );
 
     return OUTPUT_FILE;
   } finally {
