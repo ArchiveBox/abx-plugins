@@ -17,11 +17,11 @@ from pathlib import Path
 
 import pytest
 
-from abx_plugins.plugins.base.utils import (
-    emit_archive_result_record,
-)
 from abx_plugins.plugins.base.testing import (
     get_plugin_dir,
+)
+from abx_plugins.plugins.base.utils import (
+    emit_archive_result_record,
 )
 from abx_plugins.plugins.claudecode.claudecode_utils import (
     build_system_prompt,
@@ -29,7 +29,6 @@ from abx_plugins.plugins.claudecode.claudecode_utils import (
     get_snapshot_metadata,
     run_claude_code,
 )
-
 
 PLUGIN_DIR = get_plugin_dir(__file__)
 
@@ -148,15 +147,16 @@ class TestClaudeCodeIntegration:
 
             stdout, stderr, returncode = run_claude_code(
                 prompt=(
-                    "List the extractor output directories you can see in "
-                    "the snapshot. Respond with just the directory names, "
-                    "one per line."
+                    "Read readability/content.txt from the current snapshot "
+                    "directory. Respond with exactly two lines: first the word "
+                    "readability, then the file text."
                 ),
                 work_dir=tmpdir,
                 system_prompt=system_prompt,
                 timeout=60,
-                max_turns=5,
+                max_turns=3,
                 model="haiku",
+                allowed_tools=["Read"],
             )
 
             assert returncode == 0, (

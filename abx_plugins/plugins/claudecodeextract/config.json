@@ -32,7 +32,7 @@
     },
     "CLAUDECODEEXTRACT_PROMPT": {
       "type": "string",
-      "default": "Read all the previously extracted outputs in this snapshot directory (readability/, mercury/, defuddle/, htmltotext/, dom/, singlefile/, etc.). Using the best available source, generate a clean, well-formatted Markdown representation of the page content. Save the output as content.md in your output directory.",
+      "default": "Create content.md in your output directory. Prefer readability/content.txt when it exists; otherwise read dom/output.html. Write clean Markdown for the archived page content. Stop after content.md has been written.",
       "description": "Custom prompt for Claude Code extraction. Use this to define what Claude should extract or generate from the snapshot."
     },
     "CLAUDECODEEXTRACT_MODEL": {
