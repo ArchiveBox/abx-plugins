@@ -402,12 +402,51 @@ function getPersonasDir() {
 
 function getNodeModulesDir() {
   const configured = getEnv("NODE_MODULES_DIR") || getEnv("NODE_MODULE_DIR");
-  if (!configured) {
-    throw new Error(
-      "NODE_MODULES_DIR is required; run hooks through abxpkg/abx-dl/archivebox so provider env is resolved once and passed to the hook"
-    );
+  if (configured) return path.resolve(configured);
+
+  const providerNodeModules = getProviderNodeModulePaths();
+  if (providerNodeModules.length > 0) {
+    return providerNodeModules[0];
   }
-  return path.resolve(configured);
+  throw new Error(
+    "NODE_MODULES_DIR is required; run hooks through abxpkg/abx-dl/archivebox so provider env is resolved once and passed to the hook"
+  );
+}
+
+function getProviderNodeModulePaths() {
+  const paths = [];
+  const addNodeModulesPath = (candidate) => {
+    if (!candidate) return;
+    const resolved = path.resolve(candidate);
+    if (!paths.includes(resolved)) paths.push(resolved);
+  };
+
+  for (const entry of (process.env.NODE_PATH || "").split(path.delimiter)) {
+    if (entry) addNodeModulesPath(entry);
+  }
+  for (const entry of [
+    process.env.NODE_MODULES_DIR,
+    process.env.NODE_MODULE_DIR,
+  ]) {
+    if (entry) addNodeModulesPath(entry);
+  }
+
+  const pnpmHome = process.env.PNPM_HOME;
+  if (pnpmHome && path.basename(pnpmHome) === ".bin") {
+    const nodeModulesDir = path.dirname(pnpmHome);
+    if (path.basename(nodeModulesDir) === "node_modules") {
+      addNodeModulesPath(nodeModulesDir);
+    }
+  }
+
+  for (const entry of (process.env.PATH || "").split(path.delimiter)) {
+    if (!entry || path.basename(entry) !== ".bin") continue;
+    const nodeModulesDir = path.dirname(entry);
+    if (path.basename(nodeModulesDir) === "node_modules") {
+      addNodeModulesPath(nodeModulesDir);
+    }
+  }
+  return paths;
 }
 
 function getMachineType() {
@@ -433,6 +472,7 @@ function getTestEnv() {
   const config = loadConfig(BASE_CONFIG_PATH);
   const libDir = getLibDir();
   const nodeModulesDir = getNodeModulesDir();
+  const nodePath = getEnv("NODE_PATH") || nodeModulesDir;
   const pnpmBinDir = getEnv("PNPM_HOME");
   if (!pnpmBinDir) {
     throw new Error(
@@ -448,14 +488,19 @@ function getTestEnv() {
     MACHINE_TYPE: getMachineType(),
     ABXPKG_LIB_DIR: libDir,
     NODE_MODULES_DIR: nodeModulesDir,
-    NODE_PATH: nodeModulesDir,
+    NODE_PATH: nodePath,
     PNPM_BIN_DIR: pnpmBinDir,
     NPM_BIN_DIR: pnpmBinDir,
   };
 }
 
 function ensureNodeModuleResolution(moduleRef = module) {
+  const Module = require("module");
   const nodeModulesDir = getNodeModulesDir();
+  const nodePaths = getProviderNodeModulePaths();
+  if (!nodePaths.includes(nodeModulesDir)) {
+    nodePaths.unshift(nodeModulesDir);
+  }
 
   if (!process.env.NODE_MODULES_DIR && process.env.NODE_MODULE_DIR) {
     process.env.NODE_MODULES_DIR = process.env.NODE_MODULE_DIR;
@@ -463,12 +508,15 @@ function ensureNodeModuleResolution(moduleRef = module) {
   if (!process.env.NODE_MODULE_DIR && process.env.NODE_MODULES_DIR) {
     process.env.NODE_MODULE_DIR = process.env.NODE_MODULES_DIR;
   }
-  if (!process.env.NODE_PATH) {
-    process.env.NODE_PATH = nodeModulesDir;
-  }
+  process.env.NODE_MODULES_DIR = process.env.NODE_MODULES_DIR || nodeModulesDir;
+  process.env.NODE_MODULE_DIR = process.env.NODE_MODULE_DIR || nodeModulesDir;
+  process.env.NODE_PATH = nodePaths.join(path.delimiter);
+  Module._initPaths();
 
-  if (!moduleRef.paths.includes(nodeModulesDir)) {
-    moduleRef.paths.unshift(nodeModulesDir);
+  for (const nodePath of nodePaths.reverse()) {
+    if (!moduleRef.paths.includes(nodePath)) {
+      moduleRef.paths.unshift(nodePath);
+    }
   }
 
   return nodeModulesDir;

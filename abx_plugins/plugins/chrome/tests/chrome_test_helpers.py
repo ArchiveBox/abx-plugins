@@ -571,7 +571,15 @@ def _call_chrome_utils(
     # from the pytest process environment.
     payload = os.environ.copy() if env is None else env.copy()
 
-    if resolve_required_binary_env:
+    if resolve_required_binary_env and not all(
+        payload.get(key)
+        for key in (
+            "NODE_BINARY",
+            "NODE_MODULES_DIR",
+            "NODE_PATH",
+            "PNPM_HOME",
+        )
+    ):
         returncode, provider_env, error = _resolve_chrome_required_binary_env(
             payload,
         )
@@ -642,6 +650,10 @@ def _chrome_provider_env_cache_key(env: dict) -> tuple[str, ...]:
             "PATH",
             "NODE_BINARY",
             "CHROME_BINARY",
+            "NODE_MODULES_DIR",
+            "NODE_MODULE_DIR",
+            "NODE_PATH",
+            "PNPM_HOME",
             "ABXPKG_BINPROVIDERS",
         )
     )

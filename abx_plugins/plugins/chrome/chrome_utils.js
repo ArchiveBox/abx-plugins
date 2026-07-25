@@ -2740,7 +2740,19 @@ function requirePuppeteerModule(puppeteer, callerName) {
  * @throws {Error} - If no puppeteer package is installed
  */
 function resolvePuppeteerModule() {
-  const searchPaths = [getNodeModulesDir(), process.cwd(), __dirname];
+  const Module = require("module");
+  const providerNodePaths = (process.env.NODE_PATH || getNodeModulesDir())
+    .split(path.delimiter)
+    .filter(Boolean)
+    .map((entry) => path.resolve(entry));
+  const searchPaths = [
+    getNodeModulesDir(),
+    ...providerNodePaths,
+    ...Module.globalPaths,
+    ...module.paths,
+    process.cwd(),
+    __dirname,
+  ];
   for (const moduleName of ["puppeteer-core", "puppeteer"]) {
     try {
       return require(require.resolve(moduleName, { paths: searchPaths }));
