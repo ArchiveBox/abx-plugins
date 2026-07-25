@@ -1313,9 +1313,6 @@ def setup_test_env(tmpdir: Path) -> dict:
     # Keep crawl/snap state rooted in the caller's tmpdir so every test is isolated.
     snap_dir = tmpdir / "snap"
     lib_dir = get_lib_dir()
-    pnpm_dir = lib_dir / "pnpm" / "packages" / "chrome"
-    pnpm_bin_dir = pnpm_dir / "node_modules" / ".bin"
-    node_modules_dir = pnpm_dir / "node_modules"
 
     personas_dir = tmpdir / "personas"
     extensions_dir = tmpdir / "chromewebstore" / "extensions"
@@ -1337,9 +1334,6 @@ def setup_test_env(tmpdir: Path) -> dict:
             "CHROMEWEBSTORE_EXTENSIONS_DIR": str(extensions_dir),
             "ABXPKG_LIB_DIR": str(lib_dir),
             "MACHINE_TYPE": get_machine_type(),
-            "PNPM_BIN_DIR": str(pnpm_bin_dir),
-            "NPM_BIN_DIR": str(pnpm_bin_dir),
-            "NODE_MODULES_DIR": str(node_modules_dir),
             "HOME": str(home_dir),
             "XDG_CONFIG_HOME": str(xdg_config_home),
             "XDG_CACHE_HOME": str(xdg_cache_home),
@@ -1350,13 +1344,17 @@ def setup_test_env(tmpdir: Path) -> dict:
         "CHROME_DOWNLOADS_DIR",
         "CHROME_USER_DATA_DIR",
         "COOKIES_FILE",
+        "NODE_MODULES_DIR",
+        "NODE_MODULE_DIR",
+        "NODE_PATH",
+        "PNPM_HOME",
+        "PNPM_BIN_DIR",
+        "NPM_BIN_DIR",
     ):
         env.pop(inherited_key, None)
     assert Path(get_extensions_dir(env=env)).resolve() == extensions_dir
 
     # Create all directories
-    node_modules_dir.mkdir(parents=True, exist_ok=True)
-    pnpm_bin_dir.mkdir(parents=True, exist_ok=True)
     extensions_dir.mkdir(parents=True, exist_ok=True)
     personas_dir.mkdir(parents=True, exist_ok=True)
     home_dir.mkdir(parents=True, exist_ok=True)
