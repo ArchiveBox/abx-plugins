@@ -630,7 +630,7 @@ def _run_chrome_required_binary_env(
         "--install",
         "--json",
         "--deps-from=./config.json:required_binaries",
-        "node",
+        "browsers",
     ]
     return subprocess.run(
         command,
@@ -1233,6 +1233,10 @@ def _ensure_puppeteer_with_abxpkg(env: dict, timeout: int) -> None:
             f"Chrome dependency env preflight failed: {env_result.stderr or env_result.stdout}",
         )
     env.update(_parse_abxpkg_env_delta(env_result.stdout, base_env=env))
+    returncode, stdout, stderr = _call_base_utils("getTestEnv", env=env)
+    if returncode != 0 or not stdout.strip():
+        raise RuntimeError(stderr or stdout or "base utils did not return test env")
+    env.update(json.loads(stdout))
 
     if not _has_puppeteer_module(env):
         raise RuntimeError(
