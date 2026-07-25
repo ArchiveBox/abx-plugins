@@ -1,0 +1,43 @@
+abx_plugins/plugins/screenshot/on_Snapshot__51_screenshot.js
+  s_b74dd57520e450::t_40c66636139dfc 78-82,84-99,165-170
+  s_b74dd57520e450::t_b7eea0b2113e06 26,117,154-155,194-211
+  s_b74dd57520e450::t_12f0b23927e9b4 55-76
+  s_b74dd57520e450::t_040847e48f7f84 77,83,171-182
+abx_plugins/plugins/screenshot/tests/test_screenshot.py
+  s_b74dd57520e450::t_b7eea0b2113e06 14,143-152
+  s_b74dd57520e450::t_12f0b23927e9b4 99,139-142
+  s_b74dd57520e450::t_040847e48f7f84 211
+  s_b74dd57520e450::t_4ce6361ada8a52 184-210,212-220
+  s_b74dd57520e450::t_e2a21daa9deba0 15
+abx_plugins/plugins/screenshot/config.json
+  s_b74dd57520e450::t_040847e48f7f84 36-40
+  s_b74dd57520e450::t_40c66636139dfc 31-35
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  s_b74dd57520e450::t_40c66636139dfc 222-242,420
+bin/setup_monorepo.sh
+  s_f8414d52051f83::t_1698003cf722e4 36-160,164,274-275
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "0a222c39760f61371687a430be5467f4cfe3b048",
+  "prompts": {},
+  "sessions": {
+    "s_b74dd57520e450": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f8189-7eb5-7382-94e6-83f4f43cd7c3",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
