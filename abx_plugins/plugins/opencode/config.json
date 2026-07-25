@@ -40,7 +40,6 @@
     }
   ],
   "output_mimetypes": [],
-  "x-install-when-disabled": true,
   "properties": {
     "NODE_BINARY": {
       "type": "string",
@@ -54,7 +53,7 @@
     },
     "OPENCODE_ENABLED": {
       "type": "boolean",
-      "default": true,
+      "default": false,
       "description": "Enable the admin-only /admin/agent OpenCode web UI route"
     },
     "OPENCODE_BINARY": {
