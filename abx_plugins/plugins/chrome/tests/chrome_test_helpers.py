@@ -609,6 +609,22 @@ def _run_chrome_required_binary_env(
 ) -> subprocess.CompletedProcess[str]:
     """Resolve the provider-built env, installing missing dependencies through abxpkg."""
     payload = env.copy()
+    lib_dir = payload.get("ABXPKG_LIB_DIR")
+    if lib_dir and payload.get("PATH"):
+        managed_root = Path(lib_dir).resolve()
+        path_entries = []
+        for entry in str(payload["PATH"]).split(os.pathsep):
+            if not entry:
+                continue
+            try:
+                entry_path = Path(entry).resolve()
+            except OSError:
+                path_entries.append(entry)
+                continue
+            if entry_path == managed_root or entry_path.is_relative_to(managed_root):
+                continue
+            path_entries.append(entry)
+        payload["PATH"] = os.pathsep.join(path_entries)
     for key in (
         "NODE_MODULES_DIR",
         "NODE_MODULE_DIR",
