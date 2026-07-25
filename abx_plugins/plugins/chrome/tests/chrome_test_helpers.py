@@ -1233,10 +1233,13 @@ def _ensure_puppeteer_with_abxpkg(env: dict, timeout: int) -> None:
             f"Chrome dependency env preflight failed: {env_result.stderr or env_result.stdout}",
         )
     env.update(_parse_abxpkg_env_delta(env_result.stdout, base_env=env))
+    provider_node_path = env.get("NODE_PATH")
     returncode, stdout, stderr = _call_base_utils("getTestEnv", env=env)
     if returncode != 0 or not stdout.strip():
         raise RuntimeError(stderr or stdout or "base utils did not return test env")
     env.update(json.loads(stdout))
+    if provider_node_path:
+        env["NODE_PATH"] = provider_node_path
 
     if not _has_puppeteer_module(env):
         raise RuntimeError(
