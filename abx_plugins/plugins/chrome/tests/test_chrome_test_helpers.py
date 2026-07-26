@@ -90,6 +90,7 @@ def test_get_lib_dir_with_env_var(tmp_path: Path):
     )
     assert result.returncode == 0, result.stderr
     assert Path(result.stdout.strip()) == custom_lib
+    assert (custom_lib / "env" / "bin" / "node").is_symlink()
 
 
 def test_get_node_modules_dir_resolves_runtime_env(ensure_chrome_test_prereqs):

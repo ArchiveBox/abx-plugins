@@ -1,4 +1,4 @@
-#!/usr/bin/env -S uv run --no-project python
+#!/usr/bin/env -S uv run --no-cache --no-project python
 """Project host-first CI tools into ABXPKG_LIB_DIR/env/bin."""
 
 from __future__ import annotations
@@ -49,6 +49,7 @@ def main() -> None:
             [
                 "uv",
                 "run",
+                "--no-cache",
                 "--no-project",
                 "--with",
                 f"abxpkg=={abxpkg_version(args.project)}",
