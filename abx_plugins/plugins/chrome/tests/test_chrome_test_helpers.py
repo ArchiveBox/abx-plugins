@@ -8,25 +8,25 @@ import json
 import os
 import subprocess
 import sys
-import pytest
 import tempfile
 from pathlib import Path
+
+import pytest
 
 from abx_plugins.plugins.base.testing import (
     get_hook_script,
     get_plugin_dir,
-    install_binary_with_abxpkg,
     parse_jsonl_output,
 )
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
-    _call_chrome_utils,
     CHROME_UTILS,
+    _call_chrome_utils,
     chrome_session,
-    get_test_env,
-    get_machine_type,
-    get_lib_dir,
-    get_node_modules_dir,
     get_extensions_dir,
+    get_lib_dir,
+    get_machine_type,
+    get_node_modules_dir,
+    get_test_env,
     install_chromium_with_abxpkg,
     setup_test_env,
 )
@@ -35,15 +35,7 @@ TEST_URL = "https://example.com"
 
 
 def _project_python_command() -> list[str]:
-    loaded = install_binary_with_abxpkg("uv", binproviders="env,brew")
-    assert loaded.loaded_abspath is not None
-    return [
-        str(loaded.loaded_abspath),
-        "run",
-        "--no-sync",
-        "--no-sources",
-        "python",
-    ]
+    return [sys.executable]
 
 
 @pytest.fixture(scope="module")
@@ -94,6 +86,7 @@ def test_get_lib_dir_with_env_var(tmp_path: Path):
         text=True,
         timeout=30,
         env=env,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
     assert Path(result.stdout.strip()) == custom_lib
@@ -143,6 +136,7 @@ def test_get_extensions_dir_ignores_persona_by_default(tmp_path: Path):
         text=True,
         timeout=30,
         env=env,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
     ext_dir = result.stdout.strip()
@@ -172,6 +166,7 @@ print(json.dumps({'env': env, 'extensions_dir': str(extensions_dir)}))
         text=True,
         timeout=30,
         env=child_env,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
@@ -265,18 +260,20 @@ def test_set_browser_download_behavior_downloads_file_with_live_page(
     ensure_chrome_test_prereqs,
 ):
     """setBrowserDownloadBehavior() should drive a real download on a live browser page."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        with chrome_session(
+    with (
+        tempfile.TemporaryDirectory() as tmpdir,
+        chrome_session(
             Path(tmpdir),
             crawl_id="test-download-config",
             snapshot_id="snap-download-config",
             test_url=TEST_URL,
             navigate=True,
             timeout=45,
-        ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
-            download_dir = snapshot_chrome_dir.parent / "download-test"
-            download_dir.mkdir(parents=True, exist_ok=True)
-            script = """
+        ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env),
+    ):
+        download_dir = snapshot_chrome_dir.parent / "download-test"
+        download_dir.mkdir(parents=True, exist_ok=True)
+        script = """
 const fs = require('fs');
 const path = require('path');
 const chromeUtils = require(process.argv[1]);
@@ -345,45 +342,48 @@ function waitForDownload(filename, expectedContent) {
   process.exit(1);
 });
 """
-            result = subprocess.run(
-                [
-                    "node",
-                    "-e",
-                    script,
-                    str(CHROME_UTILS),
-                    str(snapshot_chrome_dir),
-                    str(download_dir),
-                ],
-                capture_output=True,
-                text=True,
-                timeout=60,
-                env=env,
-            )
+        result = subprocess.run(
+            [
+                "node",
+                "-e",
+                script,
+                str(CHROME_UTILS),
+                str(snapshot_chrome_dir),
+                str(download_dir),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+            check=False,
+        )
 
-            assert result.returncode == 0, result.stderr
-            payload = json.loads(result.stdout)
-            assert payload["ok"] is True
-            assert payload["pageUrl"].startswith(TEST_URL)
-            assert payload["content"] == "archivebox-download-ok"
-            assert Path(payload["expectedPath"]).exists()
+        assert result.returncode == 0, result.stderr
+        payload = json.loads(result.stdout)
+        assert payload["ok"] is True
+        assert payload["pageUrl"].startswith(TEST_URL)
+        assert payload["content"] == "archivebox-download-ok"
+        assert Path(payload["expectedPath"]).exists()
 
 
 def test_set_browser_download_behavior_keeps_shared_dir_stable_for_live_pages(
     ensure_chrome_test_prereqs,
 ):
     """Two pages in one browser should download into one stable shared dir."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        with chrome_session(
+    with (
+        tempfile.TemporaryDirectory() as tmpdir,
+        chrome_session(
             Path(tmpdir),
             crawl_id="test-download-pages",
             snapshot_id="snap-download-pages",
             test_url=TEST_URL,
             navigate=True,
             timeout=45,
-        ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
-            download_dir = snapshot_chrome_dir.parent / "downloads"
-            download_dir.mkdir(parents=True, exist_ok=True)
-            script = """
+        ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env),
+    ):
+        download_dir = snapshot_chrome_dir.parent / "downloads"
+        download_dir.mkdir(parents=True, exist_ok=True)
+        script = """
 const fs = require('fs');
 const path = require('path');
 const chromeUtils = require(process.argv[1]);
@@ -477,43 +477,46 @@ function waitForDownloads(expectedContents) {
   process.exit(1);
 });
 """
-            result = subprocess.run(
-                [
-                    "node",
-                    "-e",
-                    script,
-                    str(CHROME_UTILS),
-                    str(snapshot_chrome_dir),
-                    str(download_dir),
-                ],
-                capture_output=True,
-                text=True,
-                timeout=60,
-                env=env,
-            )
+        result = subprocess.run(
+            [
+                "node",
+                "-e",
+                script,
+                str(CHROME_UTILS),
+                str(snapshot_chrome_dir),
+                str(download_dir),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+            check=False,
+        )
 
-            assert result.returncode == 0, result.stderr
-            payload = json.loads(result.stdout)
-            assert payload["oneContent"] == "page-one-ok"
-            assert payload["twoContent"] == "page-two-ok"
-            assert Path(payload["onePath"]).exists()
-            assert Path(payload["twoPath"]).exists()
+        assert result.returncode == 0, result.stderr
+        payload = json.loads(result.stdout)
+        assert payload["oneContent"] == "page-one-ok"
+        assert payload["twoContent"] == "page-two-ok"
+        assert Path(payload["onePath"]).exists()
+        assert Path(payload["twoPath"]).exists()
 
 
 def test_set_browser_download_behavior_requires_download_path_with_live_page(
     ensure_chrome_test_prereqs,
 ):
     """Download setup failures must hard-fail for snapshot-level download extractors."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        with chrome_session(
+    with (
+        tempfile.TemporaryDirectory() as tmpdir,
+        chrome_session(
             Path(tmpdir),
             crawl_id="test-download-config-missing",
             snapshot_id="snap-download-config-missing",
             test_url=TEST_URL,
             navigate=True,
             timeout=45,
-        ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
-            script = """
+        ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env),
+    ):
+        script = """
 const chromeUtils = require(process.argv[1]);
 const chromeSessionDir = process.argv[2];
 
@@ -539,27 +542,26 @@ const chromeSessionDir = process.argv[2];
   process.exit(1);
 });
 """
-            result = subprocess.run(
-                [
-                    env["NODE_BINARY"],
-                    "-e",
-                    script,
-                    str(CHROME_UTILS),
-                    str(snapshot_chrome_dir),
-                ],
-                capture_output=True,
-                text=True,
-                timeout=60,
-                env=env,
-            )
+        result = subprocess.run(
+            [
+                env["NODE_BINARY"],
+                "-e",
+                script,
+                str(CHROME_UTILS),
+                str(snapshot_chrome_dir),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+            check=False,
+        )
 
-            assert result.returncode == 0, result.stderr
-            payload = json.loads(result.stdout)
-            assert payload["ok"] is False
-            assert (
-                payload["error"] == "setBrowserDownloadBehavior requires downloadPath"
-            )
-            assert payload["pageUrl"].startswith(TEST_URL)
+        assert result.returncode == 0, result.stderr
+        payload = json.loads(result.stdout)
+        assert payload["ok"] is False
+        assert payload["error"] == "setBrowserDownloadBehavior requires downloadPath"
+        assert payload["pageUrl"].startswith(TEST_URL)
 
 
 def test_get_plugin_dir():
@@ -681,6 +683,7 @@ def test_get_lib_dir_uses_platform_user_config_dir_by_default(
         text=True,
         timeout=30,
         env=env,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
 
@@ -740,6 +743,7 @@ def test_setup_test_env_uses_derived_runtime_dirs(tmp_path: Path):
         text=True,
         timeout=10,
         env=env,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
     resolved = json.loads(result.stdout)
@@ -780,6 +784,7 @@ print(json.dumps({'resolved': resolved, 'exported': os.environ['CHROME_BINARY']}
         text=True,
         timeout=180,
         env=env,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout.strip().splitlines()[-1])
