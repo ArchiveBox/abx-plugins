@@ -1,4 +1,4 @@
-#!/usr/bin/env -S abxpkg run --script --deps-from=../chrome/config.json:required_binaries,./config.json:required_binaries node
+#!/usr/bin/env -S abxpkg run --script --binproviders=env,pnpm,apt,brew node
 // /// script
 // ///
 /**
@@ -42,12 +42,6 @@ const {
   parseArgs,
   emitArchiveResultRecord,
 } = require("../base/utils.js");
-ensureNodeModuleResolution(module);
-
-const {
-  connectToPage,
-  waitForNavigationComplete,
-} = require("../chrome/chrome_utils.js");
 
 const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
@@ -204,6 +198,12 @@ async function main() {
   });
 
   try {
+    ensureNodeModuleResolution(module);
+    const {
+      connectToPage,
+      waitForNavigationComplete,
+    } = require("../chrome/chrome_utils.js");
+
     const connection = await connectToPage({
       chromeSessionDir: CHROME_SESSION_DIR,
       timeoutMs,

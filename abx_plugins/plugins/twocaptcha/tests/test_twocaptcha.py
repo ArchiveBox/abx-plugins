@@ -27,8 +27,6 @@ from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     wait_for_extensions_metadata,
 )
 
-pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
-
 PLUGIN_DIR = Path(__file__).parent.parent
 CONFIG_SCRIPT = PLUGIN_DIR / "on_CrawlSetup__95_twocaptcha_config.js"
 SNAPSHOT_HOOK = PLUGIN_DIR / "on_Snapshot__14_twocaptcha.daemon.bg.js"
@@ -147,6 +145,8 @@ def test_snapshot_hook_reports_skipped_when_api_key_missing():
 
 class TestTwoCaptcha:
     """Integration tests for twocaptcha plugin."""
+
+    pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
     @pytest.fixture(autouse=True)
     def setup(self):
