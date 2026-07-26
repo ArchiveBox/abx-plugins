@@ -1499,29 +1499,111 @@ function findChromeProcessesByPort(port, timeoutMs = 5000) {
   return pids;
 }
 
+function listProcessTable(timeoutMs = 5000) {
+  try {
+    const output = execFileSync("ps", ["-axo", "pid=,ppid=,command="], {
+      encoding: "utf8",
+      timeout: Math.max(1, Math.min(5000, timeoutMs)),
+    });
+
+    const processes = [];
+    for (const line of output.split("\n")) {
+      const match = line.trim().match(/^(\d+)\s+(\d+)\s+(.*)$/);
+      if (!match) continue;
+      const pid = parseInt(match[1], 10);
+      const ppid = parseInt(match[2], 10);
+      if (Number.isNaN(pid) || Number.isNaN(ppid) || pid <= 0) continue;
+      processes.push({ pid, ppid, command: match[3] });
+    }
+    return processes;
+  } catch (e) {
+    return [];
+  }
+}
+
+function findDescendantPids(rootPids, timeoutMs = 5000) {
+  const roots = new Set(
+    (Array.isArray(rootPids) ? rootPids : [rootPids])
+      .map((rootPid) => parseInt(rootPid, 10))
+      .filter((rootPid) => Number.isInteger(rootPid) && rootPid > 0)
+  );
+  if (roots.size === 0) return [];
+
+  const processes = listProcessTable(timeoutMs);
+  const childrenByParent = new Map();
+  for (const proc of processes) {
+    if (!childrenByParent.has(proc.ppid)) childrenByParent.set(proc.ppid, []);
+    childrenByParent.get(proc.ppid).push(proc.pid);
+  }
+
+  const descendants = new Set();
+  const queue = [...roots];
+  while (queue.length > 0) {
+    const parentPid = queue.shift();
+    for (const childPid of childrenByParent.get(parentPid) || []) {
+      if (descendants.has(childPid)) continue;
+      descendants.add(childPid);
+      queue.push(childPid);
+    }
+  }
+  return [...descendants];
+}
+
+function collectChromeProcessTreePids(pid, debugPort = null, timeoutMs = 5000, trackedPids = []) {
+  const pids = new Set();
+
+  const addPid = (candidate) => {
+    const processPid = parseInt(candidate, 10);
+    if (
+      Number.isInteger(processPid) &&
+      processPid > 0 &&
+      processPid !== process.pid
+    ) {
+      pids.add(processPid);
+    }
+  };
+
+  addPid(pid);
+  for (const trackedPid of trackedPids || []) addPid(trackedPid);
+  for (const relatedPid of debugPort
+    ? findChromeProcessesByPort(debugPort, timeoutMs)
+    : []) {
+    addPid(relatedPid);
+  }
+
+  for (const descendantPid of findDescendantPids([...pids], timeoutMs)) {
+    addPid(descendantPid);
+  }
+
+  return [...pids];
+}
+
 async function waitForChromeProcessTreeExit(
   pid,
   debugPort = null,
   timeoutMs = 5000,
-  intervalMs = 200
+  intervalMs = 200,
+  trackedPids = []
 ) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const mainAlive = pid ? isProcessAlive(pid) : false;
-    const relatedPids = debugPort
-      ? findChromeProcessesByPort(debugPort, deadline - Date.now())
-      : [];
-    if (!mainAlive && relatedPids.length === 0) {
+    const relatedPids = collectChromeProcessTreePids(
+      pid,
+      debugPort,
+      deadline - Date.now(),
+      trackedPids
+    ).filter(isProcessAlive);
+    if (relatedPids.length === 0) {
       return true;
     }
     await sleep(intervalMs);
   }
 
-  const mainAlive = pid ? isProcessAlive(pid) : false;
-  const relatedPids = debugPort
-    ? findChromeProcessesByPort(debugPort, 1)
-    : [];
-  return !mainAlive && relatedPids.length === 0;
+  return (
+    collectChromeProcessTreePids(pid, debugPort, 1, trackedPids).filter(
+      isProcessAlive
+    ).length === 0
+  );
 }
 
 /**
@@ -1548,9 +1630,11 @@ async function killChrome(pid, outputDir = null, timeoutMs = 10000) {
     } catch (e) {}
   }
 
-  const initialRelatedPids = debugPort
-    ? findChromeProcessesByPort(debugPort, remainingMs())
-    : [];
+  const initialRelatedPids = collectChromeProcessTreePids(
+    pid,
+    debugPort,
+    remainingMs()
+  );
   const hasLiveParent = Boolean(pid && isProcessAlive(pid));
   if (!hasLiveParent && initialRelatedPids.length === 0) {
     return true;
@@ -1574,20 +1658,21 @@ async function killChrome(pid, outputDir = null, timeoutMs = 10000) {
   let processTreeExited = await waitForChromeProcessTreeExit(
     pid,
     debugPort,
-    Math.floor(remainingMs() / 2)
+    Math.floor(remainingMs() / 2),
+    200,
+    initialRelatedPids
   );
   if (processTreeExited) {
     console.error("[+] Chrome process tree terminated gracefully");
   } else {
-    const remainingPids = new Set();
-    if (pid) {
-      remainingPids.add(pid);
-    }
-    for (const relatedPid of debugPort
-      ? findChromeProcessesByPort(debugPort, remainingMs())
-      : initialRelatedPids) {
-      remainingPids.add(relatedPid);
-    }
+    const remainingPids = new Set(
+      collectChromeProcessTreePids(
+        pid,
+        debugPort,
+        remainingMs(),
+        initialRelatedPids
+      )
+    );
 
     console.error(
       `[*] Chrome did not exit cleanly in time, sending SIGKILL to process group and ${remainingPids.size} remaining process(es)...`
@@ -1605,7 +1690,9 @@ async function killChrome(pid, outputDir = null, timeoutMs = 10000) {
     processTreeExited = await waitForChromeProcessTreeExit(
       pid,
       debugPort,
-      remainingMs()
+      remainingMs(),
+      200,
+      [...remainingPids]
     );
     if (!processTreeExited) {
       console.error(
