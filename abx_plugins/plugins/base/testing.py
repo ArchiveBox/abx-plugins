@@ -35,6 +35,7 @@ def start_process_and_wait_for_file(
     cwd: Path | str,
     env: Mapping[str, str],
     ready: Callable[[Path], bool] | None = None,
+    timeout: float = 30.0,
 ) -> subprocess.Popen[str]:
     """Start a real hook after arming an OS watcher for its readiness file."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -46,7 +47,7 @@ def start_process_and_wait_for_file(
         text=True,
         env=dict(env),
     )
-    wait_for_file(path, process=process, ready=ready)
+    wait_for_file(path, process=process, ready=ready, timeout=timeout)
     return process
 
 
@@ -55,16 +56,20 @@ def wait_for_file(
     *,
     process: subprocess.Popen[str],
     ready: Callable[[Path], bool] | None = None,
+    timeout: float = 30.0,
 ) -> None:
     """Wait for a real hook's filesystem output or its process exit."""
     ready = ready or (lambda candidate: candidate.exists())
-    while not ready(path) and process.poll() is None:
+    deadline = time.monotonic() + timeout
+    while not ready(path) and process.poll() is None and time.monotonic() < deadline:
         time.sleep(0.05)
     if ready(path):
         return
-    stdout, stderr = process.communicate()
+    if process.poll() is None:
+        process.kill()
+    stdout, stderr = process.communicate(timeout=5)
     raise AssertionError(
-        f"Hook exited before publishing {path}\nstdout:\n{stdout}\nstderr:\n{stderr}",
+        f"Hook did not publish {path} within {timeout}s; rc={process.returncode}\nstdout:\n{stdout}\nstderr:\n{stderr}",
     )
 
 
