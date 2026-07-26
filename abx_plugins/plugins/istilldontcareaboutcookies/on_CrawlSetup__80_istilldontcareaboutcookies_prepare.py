@@ -4,9 +4,17 @@
 # ///
 
 import os
+import json
 from pathlib import Path
 
 
+EXTENSION_NAME = "istilldontcareaboutcookies"
+
 extensions_dir = Path(os.environ["CHROMEWEBSTORE_EXTENSIONS_DIR"])
-if not extensions_dir.is_dir():
-    raise RuntimeError(f"Chrome extension directory was not prepared: {extensions_dir}")
+metadata_path = extensions_dir / f"{EXTENSION_NAME}.extension.json"
+if not metadata_path.is_file():
+    raise RuntimeError(f"Chrome extension metadata was not prepared: {metadata_path}")
+metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+manifest_path = Path(metadata["unpacked_path"]) / "manifest.json"
+if not manifest_path.is_file():
+    raise RuntimeError(f"Chrome extension manifest was not prepared: {manifest_path}")
