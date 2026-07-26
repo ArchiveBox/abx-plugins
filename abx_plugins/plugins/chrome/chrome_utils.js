@@ -2049,17 +2049,21 @@ async function loadUnpackedExtensionsIntoBrowser(
     250,
     getEnvInt("CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS", Math.min(timeout, 2000))
   );
+
+  const browserConnection =
+    typeof browser.connection === "function"
+      ? browser.connection()
+      : browser._connection || null;
   let cdpSession = null;
-  try {
-    cdpSession = await browser.target().createCDPSession();
-  } catch (error) {
-    const loadError = `${error.name}: ${error.message}`;
-    for (const extension of validExtensions) {
-      extension.load_error = loadError;
+
+  async function sendBrowserCommand(method, params) {
+    if (browserConnection && typeof browserConnection.send === "function") {
+      return await browserConnection.send(method, params);
     }
-    throw new Error(
-      `Extensions.loadUnpacked requires Chromium >=149.0.0 and a browser CDP session; failed to create CDP session: ${loadError}`
-    );
+    if (!cdpSession) {
+      cdpSession = await browser.target().createCDPSession();
+    }
+    return await cdpSession.send(method, params);
   }
 
   try {
@@ -2081,7 +2085,7 @@ async function loadUnpackedExtensionsIntoBrowser(
           path.join(extension.unpacked_path, "_metadata"),
           { recursive: true, force: true }
         );
-        const { id } = await cdpSession.send("Extensions.loadUnpacked", {
+        const { id } = await sendBrowserCommand("Extensions.loadUnpacked", {
           path: extension.unpacked_path,
         });
         if (!id) {
@@ -2152,9 +2156,11 @@ async function loadUnpackedExtensionsIntoBrowser(
       }
     }
   } finally {
-    try {
-      await cdpSession.detach();
-    } catch (error) {}
+    if (cdpSession) {
+      try {
+        await cdpSession.detach();
+      } catch (error) {}
+    }
   }
 
   return extensions;
