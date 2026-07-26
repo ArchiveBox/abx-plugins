@@ -1,0 +1,33 @@
+abx_plugins/plugins/ublock/on_CrawlSetup__80_ublock_prepare.py
+  s_f8414d52051f83::t_6889247d887108 1-12
+abx_plugins/plugins/twocaptcha/on_CrawlSetup__80_twocaptcha_prepare.py
+  s_f8414d52051f83::t_6889247d887108 1-12
+abx_plugins/plugins/archivewebpage/on_CrawlSetup__80_archivewebpage_prepare.py
+  s_f8414d52051f83::t_6889247d887108 1-12
+pyproject.toml
+  s_f8414d52051f83::t_ab4e9a8607e211 3,23
+abx_plugins/plugins/istilldontcareaboutcookies/on_CrawlSetup__80_istilldontcareaboutcookies_prepare.py
+  s_f8414d52051f83::t_6889247d887108 1-12
+abx_plugins/plugins/claudechrome/on_CrawlSetup__80_claudechrome_prepare.py
+  s_f8414d52051f83::t_6889247d887108 1-12
+abx_plugins/plugins/singlefile/on_CrawlSetup__80_singlefile_prepare.py
+  s_f8414d52051f83::t_6889247d887108 1-12
+uv.lock
+  s_f8414d52051f83::t_7b3ea648216e5a 16,49,91,100,102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "57ec43e347c2bd8e210951258cc09eadfaf13dd0",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
