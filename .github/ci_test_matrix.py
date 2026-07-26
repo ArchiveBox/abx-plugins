@@ -6,14 +6,13 @@ from itertools import cycle
 from pathlib import Path
 from typing import TypedDict
 
-
 SUPPORTED_CELLS = (
-    ("ubuntu-24.04", "3.12.10"),
-    ("ubuntu-24.04", "3.13.13"),
-    ("ubuntu-24.04", "3.14.5"),
-    ("macos-15", "3.12.10"),
-    ("macos-15", "3.13.13"),
-    ("macos-15", "3.14.5"),
+    ("ubuntu-24.04", "3.12"),
+    ("ubuntu-24.04", "3.13"),
+    ("ubuntu-24.04", "3.14"),
+    ("macos-15", "3.12"),
+    ("macos-15", "3.13"),
+    ("macos-15", "3.14"),
 )
 
 
