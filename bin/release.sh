@@ -61,13 +61,6 @@ print(match.group(1))
 PY
 }
 
-version_at_ref() {
-    local ref="$1"
-    "${GIT_BINARY}" show "${ref}:pyproject.toml" \
-        | sed -nE 's/^version = "([^"]+)".*/\1/p' \
-        | head -n 1
-}
-
 compare_versions() {
     "${UV_BINARY}" run --no-project python - "$1" "$2" <<'PY'
 import re
@@ -308,7 +301,7 @@ create_release_tag() {
 }
 
 main() {
-    local slug version previous_version latest relation release_sha target artifact_dir pypi_output pypi_state github_exists=false github_complete=false
+    local slug version latest relation release_sha target artifact_dir pypi_output pypi_state github_exists=false github_complete=false
     local pypi_lines=() pypi_missing=()
     source_optional_env
     require_release_binaries
@@ -318,12 +311,6 @@ main() {
     artifact_dir="${1:-}"
 
     require_clean_exact_checkout "${release_sha}"
-    previous_version="$(version_at_ref "${release_sha}^" || true)"
-    if [[ -n "${previous_version}" && "${previous_version}" == "${version}" ]]; then
-        echo "Package version ${version} did not change in ${release_sha}; nothing to publish"
-        return
-    fi
-
     [[ -n "${artifact_dir}" && -d "${artifact_dir}" ]] || { echo "Usage: $0 TESTED_ARTIFACT_DIR" >&2; return 1; }
 
     target="$(tag_target "${TAG_PREFIX}${version}")"
