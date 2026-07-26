@@ -32,6 +32,7 @@
       "overrides": {
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/opencode",
+          "postinstall_scripts": true,
           "install_args": [
             "opencode-ai"
           ]
