@@ -1,0 +1,25 @@
+abx_plugins/plugins/twocaptcha/on_Snapshot__14_twocaptcha.daemon.bg.js
+  s_f8414d52051f83::t_fb1aa2ad71ced7 1
+  s_f8414d52051f83::t_0c2e6d61828926 201-206
+abx_plugins/plugins/twocaptcha/tests/test_twocaptcha.py
+  s_f8414d52051f83::t_452898814dc575 149
+  s_f8414d52051f83::t_e7f7d0dfe02aaa 150
+abx_plugins/plugins/twocaptcha/on_CrawlSetup__95_twocaptcha_config.js
+  s_f8414d52051f83::t_436a6151195ffb 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "4897376de6c27b4d5b99db1aca128cd5c21bb437",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
