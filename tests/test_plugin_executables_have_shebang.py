@@ -50,34 +50,6 @@ def _expected_abxpkg_header(script_path: Path, binary_name: str) -> str:
     )
 
 
-def _validate_explicit_deps_from_header(
-    script_path: Path,
-    header: str,
-    binary_name: str,
-) -> str | None:
-    prefix = "#!/usr/bin/env -S abxpkg run --script --deps-from="
-    suffix = f" {binary_name}"
-    if not header.startswith(prefix) or not header.endswith(suffix):
-        return f"expected abxpkg {binary_name} script shebang, got {header!r}"
-
-    raw_specs = header[len(prefix) : -len(suffix)]
-    if not raw_specs:
-        return "missing --deps-from config specs"
-
-    for raw_spec in raw_specs.split(","):
-        raw_path, _, selector = raw_spec.partition(":")
-        config_path = script_path.parent / raw_path
-        if not config_path.is_file():
-            return f"missing --deps-from config path {raw_path!r}"
-        selected = json.loads(config_path.read_text(encoding="utf-8"))
-        for part in (selector or "dependencies").split("."):
-            if not isinstance(selected, dict) or part not in selected:
-                return f"missing --deps-from selector {raw_spec!r}"
-            selected = selected[part]
-
-    return None
-
-
 def test_all_plugin_scripts_are_executable_and_have_shebang() -> None:
     failures: list[str] = []
 
@@ -147,13 +119,9 @@ def test_javascript_plugin_hooks_use_abxpkg_node_script_runner() -> None:
             continue
         expected_header = _expected_abxpkg_header(script_path, "node")
         if lines[0] != expected_header:
-            header_error = _validate_explicit_deps_from_header(
-                script_path,
-                lines[0],
-                "node",
+            failures.append(
+                f"{rel_path}: expected abxpkg node script shebang, got {lines[0]!r}",
             )
-            if header_error:
-                failures.append(f"{rel_path}: {header_error}")
         if not (script_path.parent / "config.json").is_file():
             failures.append(f"{rel_path}: missing local config.json for --deps-from")
         if not any(line.strip() == "// /// script" for line in lines[:5]):

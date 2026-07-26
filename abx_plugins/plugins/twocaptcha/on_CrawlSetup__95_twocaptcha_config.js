@@ -1,4 +1,4 @@
-#!/usr/bin/env -S abxpkg run --script --deps-from=./node.config.json:required_binaries node
+#!/usr/bin/env -S abxpkg run --script --deps-from=../chrome/config.json:required_binaries,./config.json:required_binaries node
 // /// script
 // ///
 /**

@@ -207,6 +207,52 @@ def test_required_binary_configs_prefer_compatible_host_binaries() -> None:
     )
 
 
+def _required_binary_names(config: dict[str, Any]) -> set[str]:
+    required_binaries = config.get("required_binaries")
+    if not isinstance(required_binaries, list):
+        return set()
+    return {
+        str(item.get("name"))
+        for item in required_binaries
+        if isinstance(item, dict) and _is_non_empty_string(item.get("name"))
+    }
+
+
+def test_plugins_do_not_duplicate_required_plugin_binaries() -> None:
+    configs: dict[str, dict[str, Any]] = {}
+    failures: list[str] = []
+
+    for plugin_dir in _iter_plugin_dirs():
+        config_path = plugin_dir / "config.json"
+        if not config_path.exists():
+            continue
+        configs[plugin_dir.name] = cast(
+            dict[str, Any],
+            json.loads(config_path.read_text(encoding="utf-8")),
+        )
+
+    for plugin_name, config in configs.items():
+        required_plugins = config.get("required_plugins")
+        if not isinstance(required_plugins, list):
+            continue
+
+        own_binary_names = _required_binary_names(config)
+        for dependency_name in required_plugins:
+            dependency_config = configs.get(str(dependency_name))
+            if not dependency_config:
+                continue
+            duplicated = own_binary_names & _required_binary_names(dependency_config)
+            for binary_name in sorted(duplicated):
+                failures.append(
+                    f"{plugin_name}: required_binaries duplicates {binary_name!r} from required plugin {dependency_name!r}",
+                )
+
+    assert not failures, (
+        "Plugin configs must inherit upstream plugin binaries through required_plugins:\n"
+        + "\n".join(failures)
+    )
+
+
 def _hydrated_binary_name(name: str, config: dict[str, Any]) -> str:
     if not (name.startswith("{") and name.endswith("}")):
         return name
