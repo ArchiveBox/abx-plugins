@@ -1377,6 +1377,33 @@ function isProcessAlive(pid) {
   }
 }
 
+function signalChromeProcessGroup(pid, signalName) {
+  if (!pid || !isProcessAlive(pid)) {
+    return;
+  }
+
+  try {
+    process.kill(-pid, signalName);
+    return;
+  } catch (groupError) {
+    if (groupError.code !== "ESRCH" && groupError.code !== "EINVAL") {
+      console.error(
+        `[!] ${signalName} failed for Chrome process group ${pid}: ${groupError.message}`
+      );
+    }
+  }
+
+  try {
+    process.kill(pid, signalName);
+  } catch (parentError) {
+    if (parentError.code !== "ESRCH") {
+      console.error(
+        `[!] ${signalName} failed for Chrome parent process ${pid}: ${parentError.message}`
+      );
+    }
+  }
+}
+
 async function acquireSessionLock(
   lockFile,
   timeoutMs = 10000,
@@ -1535,18 +1562,13 @@ async function killChrome(pid, outputDir = null, timeoutMs = 10000) {
     })...`
   );
 
-  // Step 1: Ask the main browser process to exit cleanly. Chromium itself is
-  // responsible for shutting down its renderer/helper children without
-  // corrupting the profile dir, so we only send SIGTERM to the parent.
+  // Step 1: Ask the launched browser process group to exit cleanly. Chromium
+  // helpers on macOS do not all keep the remote-debugging-port flag in their
+  // command line, so parent-only signaling plus port scanning can leave helper
+  // descendants alive after cleanup.
   if (hasLiveParent) {
-    console.error(`[*] Sending SIGTERM to Chrome parent process ${pid}...`);
-    try {
-      process.kill(pid, "SIGTERM");
-    } catch (error) {
-      if (error.code !== "ESRCH") {
-        console.error(`[!] SIGTERM failed: ${error.message}`);
-      }
-    }
+    console.error(`[*] Sending SIGTERM to Chrome process group ${pid}...`);
+    signalChromeProcessGroup(pid, "SIGTERM");
   }
 
   let processTreeExited = await waitForChromeProcessTreeExit(
@@ -1568,21 +1590,16 @@ async function killChrome(pid, outputDir = null, timeoutMs = 10000) {
     }
 
     console.error(
-      `[*] Chrome did not exit cleanly in time, sending SIGKILL to ${remainingPids.size} remaining processes...`
+      `[*] Chrome did not exit cleanly in time, sending SIGKILL to process group and ${remainingPids.size} remaining process(es)...`
     );
+    if (pid) {
+      signalChromeProcessGroup(pid, "SIGKILL");
+    }
     for (const remainingPid of remainingPids) {
       if (!remainingPid || !isProcessAlive(remainingPid)) {
         continue;
       }
-      try {
-        process.kill(remainingPid, "SIGKILL");
-      } catch (error) {
-        if (error.code !== "ESRCH") {
-          console.error(
-            `[!] SIGKILL failed for ${remainingPid}: ${error.message}`
-          );
-        }
-      }
+      signalChromeProcessGroup(remainingPid, "SIGKILL");
     }
 
     processTreeExited = await waitForChromeProcessTreeExit(
