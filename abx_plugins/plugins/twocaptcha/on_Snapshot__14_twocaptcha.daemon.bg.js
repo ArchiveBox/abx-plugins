@@ -1,4 +1,4 @@
-#!/usr/bin/env -S abxpkg run --script --binproviders=env,pnpm,apt,brew node
+#!/usr/bin/env -S abxpkg run --script --deps-from=./node.config.json:required_binaries node
 // /// script
 // ///
 /**
