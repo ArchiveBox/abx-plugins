@@ -17,16 +17,7 @@
             "--config.blockExoticSubdeps=false",
             "@postlight/parser"
           ],
-          "postinstall_scripts": true,
-          "version": [
-            "pnpm",
-            "--dir",
-            "{ABXPKG_LIB_DIR}/pnpm/packages/mercury",
-            "exec",
-            "node",
-            "-p",
-            "require('@postlight/parser/package.json').version"
-          ]
+          "postinstall_scripts": true
         }
       }
     }
