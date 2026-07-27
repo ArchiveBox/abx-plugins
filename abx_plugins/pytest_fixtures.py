@@ -20,7 +20,7 @@ pytest_plugins = ["abx_plugins.plugins.chrome.tests.chrome_test_helpers"]
 logger = logging.getLogger(__name__)
 
 
-REPO_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = Path(__file__).resolve().parent.parent
 PLUGINS_ROOT = REPO_ROOT / "abx_plugins" / "plugins"
 CLAUDECODE_CONFIG = PLUGINS_ROOT / "claudecode" / "config.json"
 
