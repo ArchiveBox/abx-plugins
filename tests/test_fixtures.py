@@ -31,6 +31,12 @@ if existing_pythonpath:
 os.environ["PYTHONPATH"] = os.pathsep.join(pythonpath_entries)
 
 
+def test_shared_pytest_fixtures_import_from_tests_package():
+    assert REPO_ROOT.is_dir()
+    assert PLUGINS_ROOT.is_dir()
+    assert CLAUDECODE_CONFIG.is_file()
+
+
 @pytest.fixture
 def real_staticfile_output(ensure_chrome_test_prereqs):
     """Run the shipped staticfile lifecycle and preserve its real hook log."""
