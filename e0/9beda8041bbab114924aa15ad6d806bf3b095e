@@ -1,0 +1,24 @@
+abx_plugins/plugins/liteparse/on_Snapshot__61_liteparse.py
+  s_f8414d52051f83::t_a9d24b645bc47e 557-558,605
+  s_f8414d52051f83::t_e8508555f9b304 618
+pyproject.toml
+  s_f8414d52051f83::t_c25570d5324e32 3
+uv.lock
+  s_f8414d52051f83::t_8ba7dabf81ce42 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "e09beda8041bbab114924aa15ad6d806bf3b095e",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
