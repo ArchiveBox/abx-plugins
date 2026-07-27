@@ -264,7 +264,6 @@ jobs:
 
     strategy:
       fail-fast: false
-      max-parallel: 20
       matrix:
         test: ${{ fromJson(needs.discover-tests.outputs.test-matrix) }}
 
