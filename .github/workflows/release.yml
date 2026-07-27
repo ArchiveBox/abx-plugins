@@ -63,6 +63,7 @@ jobs:
           uv run --no-cache --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env --install \
             --lib="$ABXPKG_LIB_DIR" \
             --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:release_binaries" >> "$GITHUB_ENV"
+          echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
           echo "$ABXPKG_LIB_DIR/env/bin" >> "$GITHUB_PATH"
 
       - name: Download tested package artifacts
