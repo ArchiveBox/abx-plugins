@@ -1,0 +1,38 @@
+abx_plugins/plugins/forumdl/config.json
+  s_f8414d52051f83::t_402ee4519ed34c 15
+abx_plugins/plugins/opendataloader/config.json
+  s_f8414d52051f83::t_334ea790968bc7 15
+abx_plugins/plugins/papersdl/config.json
+  s_f8414d52051f83::t_334ea790968bc7 16
+abx_plugins/plugins/parse_rss_urls/config.json
+  s_f8414d52051f83::t_334ea790968bc7 16
+tests/test_plugin_config_metadata.py
+  s_f8414d52051f83::t_402ee4519ed34c 175-217,219
+  s_f8414d52051f83::t_9c18fb75cd5cda 218,220
+abx_plugins/plugins/trafilatura/config.json
+  s_f8414d52051f83::t_334ea790968bc7 15
+pyproject.toml
+  s_f8414d52051f83::t_e4a17e06430b01 3
+abx_plugins/plugins/ytdlp/config.json
+  s_f8414d52051f83::t_334ea790968bc7 15
+abx_plugins/plugins/gallerydl/config.json
+  s_f8414d52051f83::t_334ea790968bc7 12-17
+uv.lock
+  s_f8414d52051f83::t_68dce3b2fdd765 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "4c1d7056f7f4491238d5957c1ba991ce97012edb",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
