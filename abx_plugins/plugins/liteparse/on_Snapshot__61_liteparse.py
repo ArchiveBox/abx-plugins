@@ -554,6 +554,8 @@ def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
     binary_failed = False
 
     workers = max(1, int(config.LITEPARSE_PARALLEL_WORKERS or 2))
+    batch_waves = max(1, (len(batches) + workers - 1) // workers)
+    batch_timeout = max(1, int(timeout / batch_waves))
 
     def _absorb_batch_results(results: list[tuple[int, Path, str, str]]) -> None:
         """Write per-source ``<name>.txt`` / ``<name>.json`` for one batch.
@@ -600,7 +602,7 @@ def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
                 binary,
                 batch,
                 formats,
-                timeout,
+                batch_timeout,
                 base_args,
                 env,
             ): batch
@@ -613,7 +615,7 @@ def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
                 results = future.result()
             except subprocess.TimeoutExpired:
                 print(
-                    f"[liteparse] Batch starting at {first_name} timed out after {timeout}s",
+                    f"[liteparse] Batch starting at {first_name} timed out after {batch_timeout}s",
                     file=sys.stderr,
                 )
                 continue
