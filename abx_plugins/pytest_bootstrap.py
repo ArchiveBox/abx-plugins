@@ -5,6 +5,6 @@ from __future__ import annotations
 import sys
 
 
-# Pytest loads `-p` plugins before importing the repo root conftest.py, so
+# Pytest loads `-p` plugins before importing shared fixture plugins, so
 # this disables bytecode writes before `conftest.pyc` can land in `./__pycache__`.
 sys.dont_write_bytecode = True

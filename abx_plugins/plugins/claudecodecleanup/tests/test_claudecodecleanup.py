@@ -80,7 +80,7 @@ def create_snapshot_with_real_outputs(
     env = os.environ.copy()
     env["SNAP_DIR"] = str(snap_dir)
 
-    for plugin_name in ("readability", "htmltotext", "mercury"):
+    for plugin_name in ("readability", "htmltotext"):
         plugin_dir = PLUGIN_DIR.parent / plugin_name
         hook = get_hook_script(plugin_dir, f"on_Snapshot__*_{plugin_name}.*")
         assert hook is not None
@@ -219,14 +219,14 @@ class TestClaudeCodeCleanupPlugin:
         snap_dir = tmp_path / "snap"
         output_dir = snap_dir / "claudecodecleanup"
         (snap_dir / "readability").mkdir(parents=True)
-        (snap_dir / "mercury").mkdir()
+        (snap_dir / "htmltotext").mkdir()
         (snap_dir / "pdf").mkdir()
         (snap_dir / "empty-extractor").mkdir()
         output_dir.mkdir()
 
         duplicate = b"same extracted text"
         (snap_dir / "readability" / "content.txt").write_bytes(duplicate)
-        (snap_dir / "mercury" / "content.txt").write_bytes(duplicate)
+        (snap_dir / "htmltotext" / "content.txt").write_bytes(duplicate)
         (snap_dir / "readability" / "metadata.json").write_text('{"ok": true}')
         (snap_dir / "pdf" / "output.pdf").write_bytes(b"%PDF-1.7 unique output")
         (snap_dir / "screenshot").mkdir()
@@ -245,7 +245,8 @@ class TestClaudeCodeCleanupPlugin:
         assert len(inventory.encode("utf-8")) <= 4096
         assert '"files_inspected": 5' in inventory
         assert (
-            '"paths": ["mercury/content.txt", "readability/content.txt"]' in inventory
+            '"paths": ["htmltotext/content.txt", "readability/content.txt"]'
+            in inventory
         )
         assert "metadata.json" in inventory
         assert "pdf/output.pdf" in inventory
