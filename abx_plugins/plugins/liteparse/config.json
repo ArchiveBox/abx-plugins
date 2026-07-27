@@ -10,7 +10,6 @@
       "name": "{LITEPARSE_BINARY}",
       "binproviders": "env,pnpm",
       "min_version": "2.0.0",
-      "min_release_age": 3,
       "overrides": {
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/liteparse",

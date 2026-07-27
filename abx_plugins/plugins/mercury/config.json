@@ -16,7 +16,8 @@
           "install_args": [
             "--config.blockExoticSubdeps=false",
             "@postlight/parser"
-          ]
+          ],
+          "postinstall_scripts": true
         }
       }
     }
