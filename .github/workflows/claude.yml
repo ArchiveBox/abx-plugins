@@ -54,7 +54,15 @@ jobs:
       - name: Project CI tooling through abxpkg
         env:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
-        run: uv run --no-project python bin/ci_project_tools.py prek_binaries --lib "$ABXPKG_LIB_DIR"
+        run: |
+          set -Eeuo pipefail
+          ABXPKG_VERSION="$(sed -n 's/^[[:space:]]*"abxpkg==\([^"]*\)",[[:space:]]*$/\1/p' pyproject.toml | head -n1)"
+          test -n "$ABXPKG_VERSION"
+          sleep 60
+          uv run --no-cache --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env --install \
+            --lib="$ABXPKG_LIB_DIR" \
+            --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:prek_binaries" >> "$GITHUB_ENV"
+          echo "$ABXPKG_LIB_DIR/env/bin" >> "$GITHUB_PATH"
 
       - name: Install locked Python dependencies through projected uv
         run: |
