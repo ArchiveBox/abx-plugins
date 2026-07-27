@@ -9,7 +9,12 @@
     {
       "name": "{GALLERYDL_BINARY}",
       "binproviders": "env,uv,brew,apt",
-      "min_version": null
+      "min_version": null,
+      "overrides": {
+        "uv": {
+          "postinstall_scripts": true
+        }
+      }
     }
   ],
   "output_mimetypes": [

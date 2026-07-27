@@ -12,6 +12,7 @@
       "min_version": null,
       "overrides": {
         "uv": {
+          "postinstall_scripts": true,
           "install_args": [
             "yt-dlp[default]"
           ]

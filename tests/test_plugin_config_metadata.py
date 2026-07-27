@@ -172,6 +172,52 @@ def test_required_binary_configs_use_uv_and_pnpm_not_pip_or_npm() -> None:
     )
 
 
+def test_uv_required_cli_binaries_enable_postinstall_scripts() -> None:
+    failures: list[str] = []
+
+    for plugin_dir in _iter_plugin_dirs():
+        config_path = plugin_dir / "config.json"
+        if not config_path.exists():
+            continue
+        config = cast(
+            dict[str, Any],
+            json.loads(config_path.read_text(encoding="utf-8")),
+        )
+        required_binaries = config.get("required_binaries")
+        if not isinstance(required_binaries, list):
+            continue
+        for index, item in enumerate(required_binaries):
+            if not isinstance(item, dict):
+                continue
+            item = cast(dict[str, Any], item)
+            binproviders = {
+                provider.strip()
+                for provider in str(item.get("binproviders") or "").split(",")
+                if provider.strip()
+            }
+            if "uv" not in binproviders:
+                continue
+            binary_name = _hydrated_binary_name(str(item["name"]), config)
+            overrides = item.get("overrides")
+            uv_overrides = (
+                cast(dict[str, Any], overrides).get("uv")
+                if isinstance(overrides, dict)
+                else None
+            )
+            if (
+                not isinstance(uv_overrides, dict)
+                or uv_overrides.get("postinstall_scripts") is not True
+            ):
+                failures.append(
+                    f"{plugin_dir.name}: required_binaries[{index}] {binary_name!r} uses uv and must set overrides.uv.postinstall_scripts=true",
+                )
+
+    assert not failures, (
+        "uv-managed CLI required_binaries must install console entrypoint scripts:\n"
+        + "\n".join(failures)
+    )
+
+
 def test_required_binary_configs_prefer_compatible_host_binaries() -> None:
     failures: list[str] = []
 

@@ -13,6 +13,7 @@
       "postinstall_scripts": true,
       "overrides": {
         "uv": {
+          "postinstall_scripts": true,
           "install_root": "{ABXPKG_LIB_DIR}/uv/packages/papers-dl",
           "install_args": [
             "--no-deps",
