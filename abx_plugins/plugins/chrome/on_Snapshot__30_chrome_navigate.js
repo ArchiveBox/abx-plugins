@@ -58,6 +58,15 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function staticfilePrenavReady(filePath) {
+  try {
+    const marker = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    return marker?.status === "ready";
+  } catch (error) {
+    return false;
+  }
+}
+
 async function waitForPreloadHooks(timeoutMs) {
   const preloadHooks = [
     {
@@ -65,6 +74,7 @@ async function waitForPreloadHooks(timeoutMs) {
       dir: path.join(SNAP_DIR, "headers"),
       readyFile: path.join(SNAP_DIR, "headers", "headers.json"),
       timeoutMs: getEnvInt("HEADERS_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000,
+      ready: (filePath) => fs.existsSync(filePath),
     },
     {
       name: "staticfile",
@@ -72,13 +82,14 @@ async function waitForPreloadHooks(timeoutMs) {
       readyFile: path.join(SNAP_DIR, "staticfile", "prenav.json"),
       timeoutMs:
         getEnvInt("STATICFILE_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000,
+      ready: staticfilePrenavReady,
     },
   ];
 
   for (const preloadHook of preloadHooks) {
     if (
       !fs.existsSync(preloadHook.dir) ||
-      fs.existsSync(preloadHook.readyFile)
+      preloadHook.ready(preloadHook.readyFile)
     ) {
       continue;
     }
@@ -86,13 +97,13 @@ async function waitForPreloadHooks(timeoutMs) {
     const startedAt = Date.now();
     const waitMs = Math.min(timeoutMs, Math.max(5000, preloadHook.timeoutMs));
     while (Date.now() - startedAt < waitMs) {
-      if (fs.existsSync(preloadHook.readyFile)) {
+      if (preloadHook.ready(preloadHook.readyFile)) {
         break;
       }
       await sleep(100);
     }
 
-    if (!fs.existsSync(preloadHook.readyFile)) {
+    if (!preloadHook.ready(preloadHook.readyFile)) {
       throw new Error(
         `Timed out waiting for ${preloadHook.name} listener readiness`
       );
@@ -236,7 +247,13 @@ async function main() {
   process.exit(status === "succeeded" ? 0 : 1);
 }
 
-main().catch((e) => {
-  console.error(`Fatal error: ${e.message}`);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((e) => {
+    console.error(`Fatal error: ${e.message}`);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  staticfilePrenavReady,
+};

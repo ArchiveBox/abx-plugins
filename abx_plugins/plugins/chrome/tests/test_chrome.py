@@ -102,6 +102,47 @@ def test_acquire_session_lock_creates_missing_parent_dir(tmp_path):
     assert not lock_file.exists()
 
 
+def test_chrome_navigate_requires_staticfile_prenav_ready_status(tmp_path):
+    starting_marker = tmp_path / "staticfile-starting.json"
+    ready_marker = tmp_path / "staticfile-ready.json"
+    malformed_marker = tmp_path / "staticfile-malformed.json"
+    missing_marker = tmp_path / "staticfile-missing.json"
+    starting_marker.write_text('{"status":"starting"}', encoding="utf-8")
+    ready_marker.write_text('{"status":"ready"}', encoding="utf-8")
+    malformed_marker.write_text("{", encoding="utf-8")
+
+    script = (
+        f"const navigate = require({json.dumps(str(CHROME_NAVIGATE_HOOK))});\n"
+        "const paths = process.argv.slice(1);\n"
+        "for (const filePath of paths) {\n"
+        "  console.log(navigate.staticfilePrenavReady(filePath) ? 'ready' : 'not-ready');\n"
+        "}\n"
+    )
+    env = {**os.environ, **get_test_env(), "SNAP_DIR": str(tmp_path)}
+    result = subprocess.run(
+        [
+            env["NODE_BINARY"],
+            "-e",
+            script,
+            str(starting_marker),
+            str(ready_marker),
+            str(malformed_marker),
+            str(missing_marker),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [
+        "not-ready",
+        "ready",
+        "not-ready",
+        "not-ready",
+    ]
+
+
 def _probe_browser_page_via_cdp(cdp_url: str, env: dict) -> dict:
     script = (
         f"const chromeUtils = require({json.dumps(str(CHROME_UTILS))});\n"
