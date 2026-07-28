@@ -1,4 +1,4 @@
-#!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries python3
+#!/usr/bin/env -S abxpkg run --script python3
 # /// script
 # requires-python = ">=3.12"
 # ///
@@ -46,6 +46,7 @@ import rich_click as click
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     load_config,
+    load_required_binary_from_config,
     write_text_atomic,
 )
 
@@ -54,7 +55,8 @@ PLUGIN_NAME = "liteparse"
 BIN_NAME = "lit"
 BIN_PROVIDERS = "env,pnpm"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-CONFIG = load_config()
+CONFIG_PATH = Path(__file__).resolve().with_name("config.json")
+CONFIG = load_config(CONFIG_PATH, hydrate_binaries=False)
 SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -447,12 +449,25 @@ def _process_batch(
     return results
 
 
-def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
+def _resolved_binary_path(name: str, *, config_path: Path = CONFIG_PATH) -> str:
+    """Resolve/install one required binary through abxpkg and return its path."""
+    binary = load_required_binary_from_config(name, config_path, install=True)
+    abspath = getattr(binary, "loaded_abspath", None) or getattr(
+        binary,
+        "abspath",
+        None,
+    )
+    if not abspath:
+        raise RuntimeError(f"abxpkg could not resolve required binary {name!r}")
+    return str(abspath)
+
+
+def extract_liteparse(url: str) -> tuple[str, str]:
     """Run lit on every document found in the snapshot dir.
 
     Returns: (status, output_str)
     """
-    config = load_config()
+    config = load_config(CONFIG_PATH, hydrate_binaries=False)
     timeout = config.LITEPARSE_TIMEOUT
     formats = [
         f.lower() for f in config.LITEPARSE_FORMATS if f.lower() in ("text", "json")
@@ -460,15 +475,29 @@ def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
     if not formats:
         return "failed", "LITEPARSE_FORMATS must contain at least one of: text, json"
 
+    min_image_dim = int(config.LITEPARSE_MIN_IMAGE_DIMENSION or 0)
+    sources = find_document_sources(
+        min_image_dim=min_image_dim,
+        include_images=config.LITEPARSE_OCR_ENABLED,
+    )
+    if not sources:
+        return "noresults", "No document sources found"
+
+    binary = _resolved_binary_path(str(config.LITEPARSE_BINARY))
     base_args = build_lit_args(config)
 
     env = os.environ.copy()
     language = config.LITEPARSE_OCR_LANGUAGE or "eng"
-    tessdata = resolve_tessdata_dir(
-        config.LITEPARSE_TESSDATA_DIR,
-        config.LITEPARSE_TESSERACT_BINARY,
-        language,
-    )
+    if config.LITEPARSE_OCR_ENABLED:
+        tesseract_binary = _resolved_binary_path(str(config.LITEPARSE_TESSERACT_BINARY))
+        _resolved_binary_path(str(config.LITEPARSE_IMAGEMAGICK_BINARY))
+        tessdata = resolve_tessdata_dir(
+            config.LITEPARSE_TESSDATA_DIR,
+            tesseract_binary,
+            language,
+        )
+    else:
+        tessdata = None
     if tessdata:
         env["TESSDATA_PREFIX"] = tessdata
     elif config.LITEPARSE_OCR_ENABLED and not config.LITEPARSE_OCR_SERVER_URL:
@@ -483,14 +512,6 @@ def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
             f"will still run.",
             file=sys.stderr,
         )
-
-    min_image_dim = int(config.LITEPARSE_MIN_IMAGE_DIMENSION or 0)
-    sources = find_document_sources(
-        min_image_dim=min_image_dim,
-        include_images=bool(config.LITEPARSE_OCR_ENABLED),
-    )
-    if not sources:
-        return "noresults", "No document sources found"
 
     # Largest-first ordering: most content-rich files get OCR'd before any
     # wall-clock pressure kicks in, and the cumulative content.txt always
@@ -667,16 +688,14 @@ def main(url: str):
     """Extract text from documents using LiteParse."""
 
     try:
-        config = load_config()
+        config = load_config(CONFIG_PATH, hydrate_binaries=False)
 
         if not config.LITEPARSE_ENABLED:
             print("Skipping liteparse (LITEPARSE_ENABLED=False)", file=sys.stderr)
             emit_archive_result_record("skipped", "LITEPARSE_ENABLED=False")
             sys.exit(0)
 
-        binary = config.LITEPARSE_BINARY
-
-        status, output = extract_liteparse(url, binary)
+        status, output = extract_liteparse(url)
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)
         emit_archive_result_record(status, output)
