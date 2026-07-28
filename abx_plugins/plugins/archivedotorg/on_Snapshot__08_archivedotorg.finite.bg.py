@@ -103,7 +103,7 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
         return True, OUTPUT_FILE, ""
 
     try:
-        print("submitting to archive.org...")
+        print("submitting to archive.org...", file=sys.stderr)
         req = Request(submit_url, headers={"User-Agent": user_agent})
         response = urlopen(req, timeout=timeout)
         final_url = response.url

@@ -133,7 +133,7 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
 
     # Run wget
     try:
-        print("saving page with wget...")
+        print("saving page with wget...", file=sys.stderr)
         result = subprocess.run(
             cmd,
             capture_output=True,

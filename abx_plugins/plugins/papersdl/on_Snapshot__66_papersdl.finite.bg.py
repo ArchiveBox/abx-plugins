@@ -140,7 +140,7 @@ def save_paper(url: str, binary: str) -> tuple[bool, int, str]:
         cmd.extend(["--providers", "arxiv"])
 
     try:
-        print("searching for DOI numbers & papers...")
+        print("searching for DOI numbers & papers...", file=sys.stderr)
         output_lines: list[str] = []
         process = subprocess.Popen(
             cmd,

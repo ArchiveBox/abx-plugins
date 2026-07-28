@@ -192,7 +192,6 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
     ytdlp_args = config.YTDLP_ARGS
     ytdlp_args_extra = config.YTDLP_ARGS_EXTRA
 
-    print("starting yt-dlp...", flush=True)
     binary = _resolved_binary_path(str(config.YTDLP_BINARY))
     node_binary = _resolved_binary_path(str(config.NODE_BINARY))
     ffmpeg_binary = _resolved_binary_path(str(config.FFMPEG_BINARY))
