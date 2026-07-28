@@ -1,0 +1,23 @@
+tests/test_plugin_executables_have_shebang.py
+  s_f8414d52051f83::t_d7fc478874aa8f 53-56,96-105
+pyproject.toml
+  s_f8414d52051f83::t_889309afb04f0b 3
+uv.lock
+  s_f8414d52051f83::t_9cf62595374761 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "1f97daeb7b8e9b45c7d56f52f2c16e54094b1520",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
