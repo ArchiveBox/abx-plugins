@@ -86,11 +86,14 @@
       "items": {
         "type": "string"
       },
-      "default": [],
+      "default": [
+        "--timeout=5",
+        "--retries=0"
+      ],
       "x-aliases": [
         "FORUMDL_DEFAULT_ARGS"
       ],
-      "description": "Default forum-dl arguments"
+      "description": "Default forum-dl arguments. Keep autodetection deterministic by disabling forum-dl's retry loop unless explicitly overridden."
     },
     "FORUMDL_ARGS_EXTRA": {
       "type": "array",
