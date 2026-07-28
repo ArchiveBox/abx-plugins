@@ -376,7 +376,7 @@ def test_extract_single_pdf():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         snap_dir = Path(tmpdir) / "snap"
-        pdf_dir = snap_dir / "pdf"
+        pdf_dir = snap_dir / "responses" / "application" / "pdfobject.com"
         pdf_dir.mkdir(parents=True, exist_ok=True)
         (pdf_dir / "output.pdf").write_bytes(pdf_content)
 
@@ -426,7 +426,7 @@ def test_extract_single_pdf():
 
 
 def test_extract_multiple_pdfs():
-    """All PDFs across pdf/ + responses/ produce their own per-source files.
+    """All downloaded PDFs across responses/ + wget/ produce their own per-source files.
 
     The two PDFs land at different paths; each must produce its own
     ``output.txt`` / ``document.txt`` and they must contain the source-
@@ -438,11 +438,11 @@ def test_extract_multiple_pdfs():
     with tempfile.TemporaryDirectory() as tmpdir:
         snap_dir = Path(tmpdir) / "snap"
 
-        pdf_dir = snap_dir / "pdf"
+        pdf_dir = snap_dir / "responses" / "application" / "w3.org"
         pdf_dir.mkdir(parents=True, exist_ok=True)
         (pdf_dir / "output.pdf").write_bytes(pdf_a)
 
-        responses_dir = snap_dir / "responses" / "application" / "example.com"
+        responses_dir = snap_dir / "wget" / "pdfobject.com" / "pdf"
         responses_dir.mkdir(parents=True, exist_ok=True)
         (responses_dir / "document.pdf").write_bytes(pdf_b)
 
@@ -482,7 +482,7 @@ def test_extract_scanned_pdf_via_ocr():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         snap_dir = Path(tmpdir) / "snap"
-        pdf_dir = snap_dir / "pdf"
+        pdf_dir = snap_dir / "responses" / "application" / "raw.githubusercontent.com"
         pdf_dir.mkdir(parents=True, exist_ok=True)
         (pdf_dir / "scanned.pdf").write_bytes(pdf_content)
 
@@ -791,7 +791,7 @@ def test_warns_but_succeeds_when_ocr_misconfigured_with_native_text_available():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         snap_dir = Path(tmpdir) / "snap"
-        pdf_dir = snap_dir / "pdf"
+        pdf_dir = snap_dir / "responses" / "application" / "pdfobject.com"
         pdf_dir.mkdir(parents=True, exist_ok=True)
         (pdf_dir / "output.pdf").write_bytes(pdf_content)
 
