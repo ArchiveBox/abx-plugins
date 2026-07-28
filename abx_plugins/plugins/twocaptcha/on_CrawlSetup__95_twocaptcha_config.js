@@ -67,6 +67,10 @@ function chromeExtensionReadyTimeoutMs() {
   );
 }
 
+function twoCaptchaLoginTimeoutMs() {
+  return getEnvInt("TWOCAPTCHA_LOGIN_TIMEOUT", 20) * 1000;
+}
+
 function hasConfiguredApiKey() {
   const apiKey = (hookConfig.TWOCAPTCHA_API_KEY || "").trim();
   return !!apiKey && apiKey !== "YOUR_API_KEY_HERE";
@@ -273,11 +277,19 @@ async function configure2Captcha() {
           timeout: 10000,
         });
 
-        const result = await configPage.evaluate((cfg) => {
+        const result = await configPage.evaluate((cfg, loginTimeoutMs) => {
           return new Promise((resolve) => {
             const popup = chrome.runtime.connect({ name: "popup" });
+            const timeout = setTimeout(() => {
+              popup.disconnect();
+              resolve({
+                success: false,
+                error: `2captcha login did not respond within ${loginTimeoutMs}ms`,
+              });
+            }, loginTimeoutMs);
             popup.onMessage.addListener(async (message) => {
               if (message.action !== "login") return;
+              clearTimeout(timeout);
               if (message.error) {
                 popup.disconnect();
                 resolve({ success: false, error: message.error });
@@ -289,7 +301,7 @@ async function configure2Captcha() {
             });
             popup.postMessage({ action: "login", apiKey: cfg.apiKey });
           });
-        }, config);
+        }, config, twoCaptchaLoginTimeoutMs());
 
         if (result.success) {
           console.error(`Configured via ${result.method}`);
