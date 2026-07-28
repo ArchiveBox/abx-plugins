@@ -1,4 +1,4 @@
-#!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries python3
+#!/usr/bin/env -S abxpkg run --script python3
 # /// script
 # requires-python = ">=3.12"
 # ///
@@ -45,13 +45,15 @@ from abx_plugins.plugins.base.utils import (
     has_netscape_cookie_entries,
     has_staticfile_output,
     load_config,
+    load_required_binary_from_config,
 )
 
 import rich_click as click
 
 
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-CONFIG = load_config()
+CONFIG_PATH = Path(__file__).resolve().with_name("config.json")
+CONFIG = load_config(CONFIG_PATH, hydrate_binaries=False)
 SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -162,22 +164,38 @@ def flush_result_and_exit(signum: int, frame) -> None:
     sys.exit(0 if output else 1)
 
 
-def save_ytdlp(url: str, binary: str) -> tuple[bool, str | None, str]:
+def _resolved_binary_path(name: str, *, config_path: Path = CONFIG_PATH) -> str:
+    """Resolve/install one required binary through abxpkg and return its path."""
+    binary = load_required_binary_from_config(name, config_path, install=True)
+    abspath = getattr(binary, "loaded_abspath", None) or getattr(
+        binary,
+        "abspath",
+        None,
+    )
+    if not abspath:
+        raise RuntimeError(f"abxpkg could not resolve required binary {name!r}")
+    return str(abspath)
+
+
+def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
     """
     Download video/audio using yt-dlp.
 
     Returns: (success, output_path, error_message)
     """
     # Load config from config.json (auto-resolves x-aliases and x-fallback from env)
-    config = load_config()
+    config = load_config(CONFIG_PATH, hydrate_binaries=False)
     timeout = config.YTDLP_TIMEOUT
     check_ssl = config.YTDLP_CHECK_SSL_VALIDITY
     cookies_file = config.YTDLP_COOKIES_FILE
     max_size = config.YTDLP_MAX_SIZE
-    node_binary = config.NODE_BINARY
-    ffmpeg_binary = str(config.FFMPEG_BINARY or "").strip()
     ytdlp_args = config.YTDLP_ARGS
     ytdlp_args_extra = config.YTDLP_ARGS_EXTRA
+
+    print("starting yt-dlp...", flush=True)
+    binary = _resolved_binary_path(str(config.YTDLP_BINARY))
+    node_binary = _resolved_binary_path(str(config.NODE_BINARY))
+    ffmpeg_binary = _resolved_binary_path(str(config.FFMPEG_BINARY))
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(".")
@@ -290,7 +308,7 @@ def main(url: str):
     """Download video/audio from a URL using yt-dlp."""
 
     try:
-        config = load_config()
+        config = load_config(CONFIG_PATH, hydrate_binaries=False)
 
         # Check if yt-dlp downloading is enabled
         if not config.YTDLP_ENABLED:
@@ -307,11 +325,8 @@ def main(url: str):
             emit_archive_result_record("succeeded", "staticfile already handled")
             sys.exit(0)
 
-        # Get binary from environment
-        binary = config.YTDLP_BINARY
-
         # Run extraction
-        success, output, error = save_ytdlp(url, binary)
+        success, output, error = save_ytdlp(url)
 
         if success:
             status = "noresults" if output == "No media found" else "succeeded"
