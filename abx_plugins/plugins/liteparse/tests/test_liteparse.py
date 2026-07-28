@@ -542,13 +542,12 @@ def test_extract_image_via_ocr():
         ), f"Expected 'quick brown fox' OCR output. Got: {text_content[:500]!r}"
 
 
-def test_ocr_disabled_flag_passed():
-    """LITEPARSE_OCR_ENABLED=False passes --no-ocr through to lit.
+def test_ocr_disabled_skips_image_sources():
+    """LITEPARSE_OCR_ENABLED=False skips image-only sources.
 
-    Verifies the flag wiring by parsing the eurotext.png image — which has
-    NO native text layer, so the only way to recover any English text is via
-    OCR. With OCR disabled the recovered text must not contain the image's
-    distinctive English phrase 'quick brown fox'.
+    Images have no native text layer, so when OCR is disabled they cannot
+    produce useful text output. The hook should avoid sending them to lit at
+    all instead of burning runtime to produce empty files.
     """
     img_content = _download_png(IMAGE_URL_OCR)
     # Ensure tesseract is installed so the hook reaches the --no-ocr path
@@ -573,18 +572,11 @@ def test_ocr_disabled_flag_passed():
         assert result.returncode == 0, result.stderr
         record = parse_jsonl_output(result.stdout)
         assert record, result.stdout
-        assert record["status"] in ("succeeded", "noresults"), record
+        assert record["status"] == "noresults", record
 
-        # With --no-ocr the image cannot be read, so any per-source text
-        # output must not contain the image's distinctive English phrase.
-        # Empty/missing per-source files are also acceptable.
         text_content = _read_all_liteparse_text(snap_dir)
-        assert "quick" not in text_content, (
-            f"OCR should be disabled but image was OCR'd: {text_content[:300]!r}"
-        )
-        assert "brown" not in text_content, (
-            f"OCR should be disabled but image was OCR'd: {text_content[:300]!r}"
-        )
+        assert text_content == ""
+        assert not (snap_dir / "liteparse" / "eurotext.png.txt").exists()
 
 
 def test_min_image_dimension_skips_thumbnails():

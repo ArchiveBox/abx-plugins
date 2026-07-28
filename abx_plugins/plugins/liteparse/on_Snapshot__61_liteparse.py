@@ -135,6 +135,7 @@ def _content_digest(path: Path) -> str:
 
 def find_document_sources(
     min_image_dim: int = 0,
+    include_images: bool = True,
 ) -> list[tuple[Path, str]]:
     """Find documents produced by upstream plugins that LiteParse can parse.
 
@@ -144,6 +145,10 @@ def find_document_sources(
       - resolved-path dedup (drops symlink duplicates)
       - content-hash dedup (drops same-bytes-different-paths duplicates)
       - image dimension filter (drops favicons/sprites/tracking pixels)
+
+    Images are only useful when OCR is enabled; when OCR is disabled we skip
+    them during source discovery instead of handing image-only inputs to
+    LiteParse just to produce empty output slowly.
 
     Returns ``(path, content_digest)`` so callers can re-use the digest for
     batch symlink naming without paying a second hash cost.
@@ -170,6 +175,8 @@ def find_document_sources(
         if resolved in seen_paths:
             return
         suffix = match.suffix.lower()
+        if suffix in IMAGE_EXTENSIONS and not include_images:
+            return
         if suffix in IMAGE_EXTENSIONS and _image_is_too_small(match, min_image_dim):
             return
         try:
@@ -478,7 +485,10 @@ def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
         )
 
     min_image_dim = int(config.LITEPARSE_MIN_IMAGE_DIMENSION or 0)
-    sources = find_document_sources(min_image_dim=min_image_dim)
+    sources = find_document_sources(
+        min_image_dim=min_image_dim,
+        include_images=bool(config.LITEPARSE_OCR_ENABLED),
+    )
     if not sources:
         return "noresults", "No document sources found"
 
@@ -555,7 +565,8 @@ def extract_liteparse(url: str, binary: str) -> tuple[str, str]:
 
     workers = max(1, int(config.LITEPARSE_PARALLEL_WORKERS or 2))
     batch_waves = max(1, (len(batches) + workers - 1) // workers)
-    batch_timeout = max(1, int(timeout / batch_waves))
+    hook_cleanup_budget = max(1, int(timeout * 0.1))
+    batch_timeout = max(1, int((timeout - hook_cleanup_budget) / batch_waves))
 
     def _absorb_batch_results(results: list[tuple[int, Path, str, str]]) -> None:
         """Write per-source ``<name>.txt`` / ``<name>.json`` for one batch.
