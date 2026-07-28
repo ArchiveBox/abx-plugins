@@ -81,7 +81,7 @@
     },
     "YTDLP_TIMEOUT": {
       "type": "integer",
-      "default": 3600,
+      "default": 120,
       "minimum": 10,
       "x-fallback": "TIMEOUT",
       "x-aliases": [
@@ -116,6 +116,11 @@
         "type": "string"
       },
       "default": [
+        "--socket-timeout=5",
+        "--retries=0",
+        "--fragment-retries=0",
+        "--extractor-retries=0",
+        "--file-access-retries=0",
         "--restrict-filenames",
         "--trim-filenames=128",
         "--write-description",

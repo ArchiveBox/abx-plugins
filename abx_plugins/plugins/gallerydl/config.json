@@ -41,7 +41,7 @@
     },
     "GALLERYDL_TIMEOUT": {
       "type": "integer",
-      "default": 3600,
+      "default": 120,
       "minimum": 10,
       "x-fallback": "TIMEOUT",
       "description": "Timeout for gallery downloads in seconds"
@@ -64,6 +64,8 @@
         "type": "string"
       },
       "default": [
+        "--http-timeout=5",
+        "--retries=0",
         "--write-metadata",
         "--write-info-json"
       ],
