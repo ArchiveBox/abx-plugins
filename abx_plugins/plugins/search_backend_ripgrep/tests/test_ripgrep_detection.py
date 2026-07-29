@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Tests for ripgrep binary detection and archivebox install functionality.
 
@@ -12,7 +11,6 @@ import pytest
 
 from abx_plugins.plugins.base.testing import get_hydrated_required_binaries
 
-
 PLUGIN_DIR = Path(__file__).parent.parent
 
 
@@ -24,7 +22,7 @@ def test_ripgrep_required_binaries_emit_rg_default():
     )
     assert binary.get("type", "BinaryRequest") == "BinaryRequest"
     assert binary["name"] == "rg"
-    assert binary["binproviders"] == "env,apt,brew"
+    assert binary["binproviders"] == "env,brew,apt"
 
 
 def test_ripgrep_required_binaries_allow_absolute_path():
@@ -37,7 +35,7 @@ def test_ripgrep_required_binaries_allow_absolute_path():
         if record.get("name") == "/custom/bin/rg"
     )
     assert binary["name"] == "/custom/bin/rg"
-    assert binary["binproviders"] == "env,apt,brew"
+    assert binary["binproviders"] == "env,brew,apt"
 
 
 if __name__ == "__main__":

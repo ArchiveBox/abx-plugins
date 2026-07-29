@@ -26,7 +26,6 @@ from abx_plugins.plugins.base.testing import (
     parse_jsonl_output,
 )
 
-
 PLUGIN_DIR = Path(__file__).parent.parent
 WGET_HOOK = next(PLUGIN_DIR.glob("on_Snapshot__*_wget.*"))
 TEST_URL = "https://example.com"
@@ -39,7 +38,7 @@ def test_hook_script_exists():
 
 
 def test_wget_declares_only_env_apt_brew_providers():
-    """required_binaries should declare wget via env,apt,brew only."""
+    """required_binaries should prefer non-root Homebrew before apt."""
     required_binaries = PLUGIN_CONFIG["required_binaries"]
     binary_record = next(
         (
@@ -52,7 +51,7 @@ def test_wget_declares_only_env_apt_brew_providers():
     assert binary_record is not None, (
         f"Expected wget required_binaries entry: {required_binaries}"
     )
-    assert binary_record["binproviders"] == "env,apt,brew"
+    assert binary_record["binproviders"] == "env,brew,apt"
 
 
 def test_verify_deps_with_abxpkg():
@@ -85,6 +84,7 @@ def test_resolves_wget_with_provider_managed_binary_path(local_example_url):
             capture_output=True,
             text=True,
             env=env,
+            check=False,
         )
 
         assert result.returncode == 0, result.stderr
@@ -137,6 +137,7 @@ def test_archives_example_com(local_example_url):
             text=True,
             env=env,
             timeout=120,
+            check=False,
         )
 
         assert result.returncode == 0, f"Extraction failed: {result.stderr}"
@@ -209,6 +210,7 @@ def test_config_save_wget_false_skips():
             text=True,
             env=env,
             timeout=30,
+            check=False,
         )
 
         # Should exit 0 when feature disabled
@@ -251,6 +253,7 @@ def test_config_save_warc(local_example_url):
             text=True,
             env=env,
             timeout=120,
+            check=False,
         )
 
         assert result.returncode == 0, result.stderr
@@ -295,6 +298,7 @@ def test_staticfile_present_skips(real_staticfile_output, local_staticfile_urls)
             text=True,
             timeout=30,
             env=env,
+            check=False,
         )
 
         assert result.returncode == 0, (
@@ -337,6 +341,7 @@ def test_handles_404_gracefully(httpserver):
             capture_output=True,
             text=True,
             timeout=60,
+            check=False,
         )
 
         # Should fail
@@ -435,6 +440,7 @@ def test_archives_legitimate_downloaded_shell_script(httpserver, tmp_path):
         text=True,
         env=env,
         timeout=30,
+        check=False,
     )
 
     assert result.returncode == 0, result.stderr
@@ -470,6 +476,7 @@ def test_config_timeout_honored(local_example_url):
             text=True,
             env=env,
             timeout=30,
+            check=False,
         )
 
         assert result.returncode == 0, result.stderr
@@ -512,6 +519,7 @@ def test_config_user_agent(httpserver):
             text=True,
             env=env,
             timeout=120,
+            check=False,
         )
 
         assert result.returncode == 0, result.stderr
