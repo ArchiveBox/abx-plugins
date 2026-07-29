@@ -1,0 +1,73 @@
+abx_plugins/plugins/modalcloser/tests/test_modalcloser.py
+  s_f8414d52051f83::t_9bbeda55c2fce3 197-200
+abx_plugins/plugins/dom/tests/test_dom.py
+  s_f8414d52051f83::t_9bbeda55c2fce3 51-54
+abx_plugins/plugins/search_backend_ripgrep/config.json
+  s_f8414d52051f83::t_9bbeda55c2fce3 11
+abx_plugins/plugins/pdf/tests/test_pdf.py
+  s_f8414d52051f83::t_9bbeda55c2fce3 49-52
+abx_plugins/plugins/wget/config.json
+  s_f8414d52051f83::t_9bbeda55c2fce3 11
+abx_plugins/plugins/search_backend_sonic/config.json
+  s_69ddf154c10e6f::t_353511b9505890 42
+  s_69ddf154c10e6f::t_145f62746ab8f9 21-41
+  s_f8414d52051f83::t_943f3f198e01ec 11,14-20,50-52
+abx_plugins/plugins/ytdlp/config.json
+  s_f8414d52051f83::t_9bbeda55c2fce3 24,36
+.github/configs/ci-tooling.json
+  s_f8414d52051f83::t_9bbeda55c2fce3 40-41
+abx_plugins/plugins/base/utils.py
+  s_69ddf154c10e6f::t_c93576db5a36a6 444-447
+tests/test_staticfile_skip_helpers.py
+  s_f8414d52051f83::t_9bbeda55c2fce3 20
+abx_plugins/plugins/opencode/config.json
+  s_f8414d52051f83::t_9bbeda55c2fce3 11,23,40
+abx_plugins/plugins/infiniscroll/tests/test_infiniscroll.py
+  s_f8414d52051f83::t_9bbeda55c2fce3 128-131
+abx_plugins/plugins/search_backend_sonic/tests/test_sonic_start.py
+  s_f8414d52051f83::t_da212774dfc985 78
+  s_69ddf154c10e6f::t_145f62746ab8f9 1,6-7,76-77,79-82,84-86,89,95-111
+  s_f8414d52051f83::t_943f3f198e01ec 83,87-88,90,112-116
+tests/test_extra_context_helpers.py
+  s_f8414d52051f83::t_9bbeda55c2fce3 104
+abx_plugins/plugins/singlefile/tests/test_singlefile.py
+  s_f8414d52051f83::t_9bbeda55c2fce3 152-155
+abx_plugins/plugins/screenshot/tests/test_screenshot.py
+  s_f8414d52051f83::t_9bbeda55c2fce3 79-82
+tests/test_plugin_config_metadata.py
+  s_f8414d52051f83::t_d2ae45057733de 144,154,247-264
+abx_plugins/plugins/chrome/config.json
+  s_f8414d52051f83::t_9bbeda55c2fce3 11,69
+tests/test_chrome_abxbus_dependency.py
+  s_f8414d52051f83::t_d2ae45057733de 34-35,51-55,160-164
+abx_plugins/plugins/git/config.json
+  s_f8414d52051f83::t_9bbeda55c2fce3 11
+abx_plugins/plugins/claudecode/config.json
+  s_f8414d52051f83::t_9bbeda55c2fce3 11
+abx_plugins/plugins/opendataloader/config.json
+  s_f8414d52051f83::t_9bbeda55c2fce3 24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.17",
+  "base_commit_sha": "6dd13615434bc27cd4e96485624ac15bf1465de4",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
