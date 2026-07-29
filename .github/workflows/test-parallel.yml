@@ -64,11 +64,33 @@ jobs:
         run: |
           uv run --no-cache --no-sync --no-sources prek --no-progress --log-file "$RUNNER_TEMP/prek-prepare.log" prepare-hooks
 
-      - name: Run prek
+      - name: Run prek Python hooks
         env:
           PREK_HOME: ${{ runner.temp }}/prek-home
         run: |
-          uv run --no-cache --no-sync --no-sources prek --no-progress --log-file "$RUNNER_TEMP/prek-run.log" run --all-files
+          uv run --no-cache --no-sync --no-sources prek --no-progress --log-file "$RUNNER_TEMP/prek-python.log" run --all-files \
+            yesqa pyupgrade ruff-format ruff-check ty-check pyright add-trailing-comma check-ast debug-statements name-tests-test
+
+      - name: Run prek text and data hooks
+        env:
+          PREK_HOME: ${{ runner.temp }}/prek-home
+        run: |
+          uv run --no-cache --no-sync --no-sources prek --no-progress --log-file "$RUNNER_TEMP/prek-text-data.log" run --all-files \
+            codespell check-toml check-yaml check-json check-merge-conflict mixed-line-ending fix-byte-order-marker end-of-file-fixer detect-private-key check-added-large-files
+
+      - name: Run prek filesystem hooks
+        env:
+          PREK_HOME: ${{ runner.temp }}/prek-home
+        run: |
+          uv run --no-cache --no-sync --no-sources prek --no-progress --log-file "$RUNNER_TEMP/prek-filesystem.log" run --all-files \
+            check-symlinks destroyed-symlinks check-case-conflict check-illegal-windows-names check-shebang-scripts-are-executable forbid-submodules
+
+      - name: Run prek JavaScript hooks
+        env:
+          PREK_HOME: ${{ runner.temp }}/prek-home
+        run: |
+          uv run --no-cache --no-sync --no-sources prek --no-progress --log-file "$RUNNER_TEMP/prek-javascript.log" run --all-files \
+            ts-prettier
 
   build-package:
     name: Build package artifacts
