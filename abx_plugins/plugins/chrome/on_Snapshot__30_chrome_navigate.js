@@ -70,6 +70,14 @@ function staticfilePrenavReady(filePath) {
 async function waitForPreloadHooks(timeoutMs) {
   const preloadHooks = [
     {
+      name: "responses",
+      dir: path.join(SNAP_DIR, "responses"),
+      readyFile: path.join(SNAP_DIR, "responses", "index.jsonl"),
+      timeoutMs:
+        getEnvInt("RESPONSES_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000,
+      ready: (filePath) => fs.existsSync(filePath),
+    },
+    {
       name: "headers",
       dir: path.join(SNAP_DIR, "headers"),
       readyFile: path.join(SNAP_DIR, "headers", "headers.json"),
