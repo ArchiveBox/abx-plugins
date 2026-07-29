@@ -35,6 +35,9 @@ jobs:
       actions: read
       contents: write
       id-token: write
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      release_sha: ${{ steps.release.outputs.release_sha }}
     env:
       RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.release_sha }}
       RELEASE_BRANCH: main
@@ -120,7 +123,29 @@ jobs:
                   raise SystemExit(f"Checksum mismatch for {filename}")
           PY
 
+      - name: Record verified release
+        id: release
+        run: |
+          set -Eeuo pipefail
+          VERSION="$(sed -nE 's/^version = "([^"]+)".*/\1/p' pyproject.toml | head -n 1)"
+          test -n "$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+
       - name: Run release script
         env:
           GH_TOKEN: ${{ secrets.RELEASE_GH_TOKEN || github.token }}
         run: ./bin/release.sh "$RUNNER_TEMP/release-dist"
+
+  cascade:
+    name: Cascade verified release
+    needs: release-state
+    permissions:
+      contents: read
+    uses: ArchiveBox/monorepo/.github/workflows/cascade-release.yml@main
+    with:
+      upstream_package: abx-plugins
+      upstream_version: ${{ needs.release-state.outputs.version }}
+      upstream_sha: ${{ needs.release-state.outputs.release_sha }}
+    secrets:
+      release_token: ${{ secrets.RELEASE_GH_TOKEN }}
