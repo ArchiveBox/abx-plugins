@@ -1,0 +1,29 @@
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_2c2fdfd5d96cc8 41,45,51,58,63,86,94,97,167,173,192,195,236,266,270,277
+.github/workflows/claude.yml
+  s_f8414d52051f83::t_537272d6cce413 53,69
+pyproject.toml
+  s_f8414d52051f83::t_537272d6cce413 3
+.github/workflows/release.yml
+  s_f8414d52051f83::t_537272d6cce413 54,87-88
+.github/workflows/pages.yml
+  s_f8414d52051f83::t_537272d6cce413 34,55
+uv.lock
+  s_f8414d52051f83::t_27a907dfb273ed 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "311bb579f6051161fb5b94dce7101385a2c8e328",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
