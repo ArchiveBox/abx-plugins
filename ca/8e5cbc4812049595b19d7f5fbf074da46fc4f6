@@ -1,0 +1,26 @@
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_fe3e281ff91467 61
+  s_f8414d52051f83::t_1be940c4f9b9cd 65
+.pre-commit-config.yaml
+  s_f8414d52051f83::t_1be940c4f9b9cd 56
+pyproject.toml
+  s_f8414d52051f83::t_1be940c4f9b9cd 3
+uv.lock
+  s_f8414d52051f83::t_12cde9be1a4fe0 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "ca8e5cbc4812049595b19d7f5fbf074da46fc4f6",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
