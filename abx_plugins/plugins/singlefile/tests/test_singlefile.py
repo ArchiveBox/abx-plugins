@@ -149,7 +149,10 @@ process.stdout.write(JSON.stringify({{ freshBudget, elapsedBudget, minimumBudget
 
 def test_verify_deps_with_abxpkg(tmp_path):
     """Verify dependencies are available via abxpkg."""
-    node_loaded = install_binary_with_abxpkg("node", binproviders="env,apt,brew")
+    node_loaded = install_binary_with_abxpkg(
+        "node",
+        binproviders="env,node,brew,apt",
+    )
     assert node_loaded and node_loaded.abspath, "Node.js required for singlefile plugin"
     state = ensure_singlefile_extension_installed(tmp_path)
     assert state["cache_file"].exists(), (

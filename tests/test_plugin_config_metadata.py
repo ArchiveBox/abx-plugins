@@ -139,11 +139,9 @@ def test_required_binary_configs_use_uv_and_pnpm_not_pip_or_npm() -> None:
                 for provider in str(item.get("binproviders") or "").split(",")
                 if provider.strip()
             }
-            binary_name = str(item.get("name") or "")
-            is_node_runtime = binary_name in {"node", "{NODE_BINARY}"}
             if "pip" in binproviders:
                 failures.append(f"{label}.binproviders must use uv instead of pip")
-            if "npm" in binproviders and not is_node_runtime:
+            if "npm" in binproviders:
                 failures.append(f"{label}.binproviders must use pnpm instead of npm")
             raw_overrides = item.get("overrides")
             overrides = (
@@ -153,7 +151,7 @@ def test_required_binary_configs_use_uv_and_pnpm_not_pip_or_npm() -> None:
             )
             if "pip" in overrides:
                 failures.append(f"{label}.overrides must use uv instead of pip")
-            if "npm" in overrides and not is_node_runtime:
+            if "npm" in overrides:
                 failures.append(f"{label}.overrides must use pnpm instead of npm")
             if any(
                 isinstance(value, dict) and "module_name" in value
@@ -246,6 +244,24 @@ def test_required_binary_configs_prefer_compatible_host_binaries() -> None:
                 failures.append(
                     f"{plugin_dir.name}: required_binaries[{index}] must try env before managed providers",
                 )
+            if "apt" in providers:
+                apt_index = providers.index("apt")
+                for preferred_provider in (
+                    "node",
+                    "bash",
+                    "brew",
+                    "nix",
+                    "uv",
+                    "pnpm",
+                    "puppeteer",
+                ):
+                    if (
+                        preferred_provider in providers
+                        and providers.index(preferred_provider) > apt_index
+                    ):
+                        failures.append(
+                            f"{plugin_dir.name}: required_binaries[{index}] must try {preferred_provider} before apt",
+                        )
 
     assert not failures, (
         "Plugin host binary preference validation failed:\n"

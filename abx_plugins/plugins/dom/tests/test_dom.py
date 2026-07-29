@@ -48,7 +48,10 @@ def test_hook_script_exists():
 
 def test_verify_deps_with_abxpkg():
     """Verify dependencies are available via abxpkg after hook installation."""
-    node_loaded = install_binary_with_abxpkg("node", binproviders="env,apt,brew")
+    node_loaded = install_binary_with_abxpkg(
+        "node",
+        binproviders="env,node,brew,apt",
+    )
     assert node_loaded and node_loaded.abspath, "Node.js required for dom plugin"
 
 

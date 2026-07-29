@@ -101,7 +101,7 @@ def test_abxpkg_native_overrides_omits_plugin_metadata():
 def test_js_emit_snapshot_record_merges_extra_context_from_env():
     env = os.environ.copy()
     env["EXTRA_CONTEXT"] = json.dumps({"id": "snap-999"})
-    node = install_binary_with_abxpkg("node", binproviders="env,apt,brew")
+    node = install_binary_with_abxpkg("node", binproviders="env,node,brew,apt")
 
     result = subprocess.run(
         [

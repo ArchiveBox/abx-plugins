@@ -1,6 +1,9 @@
+import json
 import socket
 import shlex
 from pathlib import Path
+
+PLUGIN_DIR = Path(__file__).resolve().parents[1]
 
 
 def _free_port() -> int:
@@ -70,3 +73,44 @@ def test_sonic_daemon_config_normalizes_localhost_bind_host(tmp_path: Path) -> N
             daemon_event.config_path,
         ).read_text()
     )
+
+
+def test_sonic_required_binary_avoids_build_chain_on_linux_x86_64() -> None:
+    config = json.loads((PLUGIN_DIR / "config.json").read_text(encoding="utf-8"))
+
+    [sonic_binary] = config["required_binaries"]
+    provider_names = sonic_binary["binproviders"].split(",")
+    bash_override = sonic_binary["overrides"]["bash"]
+    apt_override = sonic_binary["overrides"]["apt"]
+
+    assert config["properties"]["SEARCH_BACKEND_SONIC_ENABLED"]["default"] is True
+    assert provider_names == ["env", "bash", "brew", "apt", "cargo"]
+    assert provider_names.index("bash") < provider_names.index("apt")
+    assert provider_names.index("apt") < provider_names.index("cargo")
+    assert bash_override["install_args"] == ["sonic@1.7.4"]
+    assert (
+        "81b1d017992ffc9957dc27f7f6c78fd2cf1a4e09c89295dc8b15d15ded01b8ae"
+        in bash_override["install"]
+    )
+    assert apt_override["install_args"] == ["sonic"]
+    assert apt_override["apt_gpg_keys"] == {
+        "https://packagecloud.io/valeriansaliou/sonic/gpgkey": "valeriansaliou_sonic.asc",
+    }
+    assert apt_override["apt_sources"] == {
+        "valeriansaliou_sonic.list": "deb [signed-by=/etc/apt/keyrings/valeriansaliou_sonic.asc] https://packagecloud.io/valeriansaliou/sonic/debian/ bookworm main",
+    }
+    assert apt_override["apt_system_groups"] == {"sonic": {}}
+    assert apt_override["apt_system_users"] == {
+        "sonic": {
+            "gid": "sonic",
+            "home": "/var/lib/sonic",
+            "shell": "/usr/sbin/nologin",
+            "create_home": False,
+        },
+    }
+    assert sonic_binary["overrides"]["brew"]["install_args"] == ["sonic"]
+    assert sonic_binary["overrides"]["cargo"]["install_args"] == [
+        "sonic-server",
+        "--version",
+        "1.7.4",
+    ]

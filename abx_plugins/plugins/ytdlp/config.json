@@ -21,7 +21,7 @@
     },
     {
       "name": "{NODE_BINARY}",
-      "binproviders": "env,apt,brew",
+      "binproviders": "env,node,brew,apt",
       "min_version": null,
       "overrides": {
         "apt": {
@@ -33,7 +33,7 @@
     },
     {
       "name": "{FFMPEG_BINARY}",
-      "binproviders": "env,apt,brew",
+      "binproviders": "env,brew,apt",
       "min_version": null
     }
   ],

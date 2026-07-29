@@ -8,9 +8,38 @@
   "required_binaries": [
     {
       "name": "{SONIC_BINARY}",
-      "binproviders": "env,brew,cargo",
+      "binproviders": "env,bash,brew,apt,cargo",
       "min_version": null,
       "overrides": {
+        "bash": {
+          "install_args": [
+            "sonic@1.7.4"
+          ],
+          "install": "\"$ABXPKG_PYTHON\" - <<'PY'\nimport hashlib\nimport os\nimport platform\nimport shutil\nimport sys\nimport tarfile\nimport urllib.request\nfrom pathlib import Path\n\nif not sys.platform.startswith('linux') or platform.machine().lower() not in {'x86_64', 'amd64'}:\n    raise SystemExit('The prebuilt Sonic provider supports Linux x86_64 only')\nurl = 'https://github.com/valeriansaliou/sonic/releases/download/v1.7.4/v1.7.4-x86_64-gnu.tar.gz'\nexpected = '81b1d017992ffc9957dc27f7f6c78fd2cf1a4e09c89295dc8b15d15ded01b8ae'\ninstall_root = Path(os.environ['INSTALL_ROOT'])\nbin_dir = Path(os.environ['BIN_DIR'])\ninstall_root.mkdir(parents=True, exist_ok=True)\nbin_dir.mkdir(parents=True, exist_ok=True)\narchive_path = install_root / '.sonic.tar.gz.tmp'\nstaging_path = bin_dir / '.sonic.tmp'\ntry:\n    digest = hashlib.sha256()\n    request = urllib.request.Request(url, headers={'User-Agent': 'abxpkg sonic bootstrap/1.7.4'})\n    with urllib.request.urlopen(request, timeout=120) as response, archive_path.open('wb') as target:\n        for chunk in iter(lambda: response.read(1024 * 1024), b''):\n            digest.update(chunk)\n            target.write(chunk)\n    if digest.hexdigest() != expected:\n        raise RuntimeError(f'Refusing {url}: expected SHA256 {expected}, got {digest.hexdigest()}')\n    with tarfile.open(archive_path, mode='r:gz') as archive:\n        member = next((item for item in archive.getmembers() if item.name in {'sonic/sonic', './sonic/sonic'}), None)\n        if member is None:\n            raise RuntimeError('Sonic archive did not contain sonic/sonic')\n        source = archive.extractfile(member)\n        if source is None:\n            raise RuntimeError('Sonic archive member sonic/sonic was not a file')\n        with source, staging_path.open('wb') as target:\n            shutil.copyfileobj(source, target)\n    staging_path.chmod(0o755)\n    os.replace(staging_path, bin_dir / 'sonic')\nfinally:\n    archive_path.unlink(missing_ok=True)\n    staging_path.unlink(missing_ok=True)\nPY",
+          "docs_url": "https://github.com/valeriansaliou/sonic/releases/tag/v1.7.4"
+        },
+        "apt": {
+          "install_args": [
+            "sonic"
+          ],
+          "apt_gpg_keys": {
+            "https://packagecloud.io/valeriansaliou/sonic/gpgkey": "valeriansaliou_sonic.asc"
+          },
+          "apt_sources": {
+            "valeriansaliou_sonic.list": "deb [signed-by=/etc/apt/keyrings/valeriansaliou_sonic.asc] https://packagecloud.io/valeriansaliou/sonic/debian/ bookworm main"
+          },
+          "apt_system_groups": {
+            "sonic": {}
+          },
+          "apt_system_users": {
+            "sonic": {
+              "gid": "sonic",
+              "home": "/var/lib/sonic",
+              "shell": "/usr/sbin/nologin",
+              "create_home": false
+            }
+          }
+        },
         "brew": {
           "install_args": [
             "sonic"
@@ -18,7 +47,9 @@
         },
         "cargo": {
           "install_args": [
-            "sonic-server"
+            "sonic-server",
+            "--version",
+            "1.7.4"
           ]
         }
       }

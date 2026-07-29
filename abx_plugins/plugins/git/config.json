@@ -8,7 +8,7 @@
   "required_binaries": [
     {
       "name": "{GIT_BINARY}",
-      "binproviders": "env,apt,brew",
+      "binproviders": "env,brew,apt",
       "min_version": null
     }
   ],

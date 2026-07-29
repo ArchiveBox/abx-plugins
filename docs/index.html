@@ -1132,7 +1132,7 @@ abx-dl 'https://example.com'</code></pre>
             <details
               id="ytdlp"
               class="plugin-card plugin-card--snapshot"
-              data-search="ytdlp snapshot yt-dlp download video and audio media with metadata, subtitles, thumbnails, and description sidecars. python snapshot embed fullscreen {ytdlp_binary} {node_binary} {ffmpeg_binary} env,uv,brew,apt env,apt,brew env,apt,brew    {&#34;uv&#34;: {&#34;install_args&#34;: [&#34;yt-dlp[default]&#34;], &#34;postinstall_scripts&#34;: true}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} audio video image application/x-subrip text/vtt application/json text/plain on_snapshot__02_ytdlp.finite.bg.py ytdlp_enabled enable video/audio downloading with yt-dlp ytdlp_binary path to yt-dlp binary node_binary path to node.js binary for yt-dlp js runtime ffmpeg_binary path to ffmpeg binary for yt-dlp media remuxing and downloads ytdlp_timeout timeout for yt-dlp downloads in seconds ytdlp_cookies_file path to cookies file ytdlp_max_size maximum file size for yt-dlp downloads ytdlp_check_ssl_validity whether to verify ssl certificates ytdlp_args default yt-dlp arguments ytdlp_args_extra extra arguments to append to yt-dlp command"
+              data-search="ytdlp snapshot yt-dlp download video and audio media with metadata, subtitles, thumbnails, and description sidecars. python snapshot embed fullscreen {ytdlp_binary} {node_binary} {ffmpeg_binary} env,uv,brew,apt env,node,brew,apt env,brew,apt    {&#34;uv&#34;: {&#34;install_args&#34;: [&#34;yt-dlp[default]&#34;], &#34;postinstall_scripts&#34;: true}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} audio video image application/x-subrip text/vtt application/json text/plain on_snapshot__02_ytdlp.finite.bg.py ytdlp_enabled enable video/audio downloading with yt-dlp ytdlp_binary path to yt-dlp binary node_binary path to node.js binary for yt-dlp js runtime ffmpeg_binary path to ffmpeg binary for yt-dlp media remuxing and downloads ytdlp_timeout timeout for yt-dlp downloads in seconds ytdlp_cookies_file path to cookies file ytdlp_max_size maximum file size for yt-dlp downloads ytdlp_check_ssl_validity whether to verify ssl certificates ytdlp_args default yt-dlp arguments ytdlp_args_extra extra arguments to append to yt-dlp command"
               data-hero-plugin="ytdlp"
               data-hero-abx-command="uvx abx-dl --plugins ytdlp 'https://example.com'"
               data-hero-archivebox-command="YTDLP_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -1163,7 +1163,7 @@ abx-dl 'https://example.com'</code></pre>
                     <div class="plugin-summary-facts">
                       <div>
                         <span class="chip chip--binary-summary">yt-dlp <small>(env,uv,brew,apt)</small></span>
-                        <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span>
+                        <span class="chip chip--binary-summary">node <small>(env,node,brew,apt)</small></span>
 <span class="chip">+1 more</span>                      </div>
                       <div>
                         <span class="chip chip--mime chip--mime-media">audio</span>
@@ -1194,14 +1194,14 @@ providers: env,uv,brew,apt">
                         <small>providers=env,uv,brew,apt</small>
                       </span>
                       <span class="chip chip--binary" title="node
-providers: env,apt,brew">
+providers: env,node,brew,apt">
                         <code>node</code>
-                        <small>providers=env,apt,brew</small>
+                        <small>providers=env,node,brew,apt</small>
                       </span>
                       <span class="chip chip--binary" title="ffmpeg
-providers: env,apt,brew">
+providers: env,brew,apt">
                         <code>ffmpeg</code>
-                        <small>providers=env,apt,brew</small>
+                        <small>providers=env,brew,apt</small>
                       </span>
                     </div>
                   </article>
@@ -1742,7 +1742,7 @@ providers: env,uv">
             <details
               id="git"
               class="plugin-card plugin-card--snapshot"
-              data-search="git snapshot git clone git repositories from supported repository urls into the snapshot output directory. python snapshot embed {git_binary} env,apt,brew  text application image audio video font on_snapshot__05_git.finite.bg.py git_enabled enable git repository cloning git_binary path to git binary git_timeout timeout for git operations in seconds git_domains comma-separated list of domains to treat as git repositories git_args default git arguments git_args_extra extra arguments to append to git command"
+              data-search="git snapshot git clone git repositories from supported repository urls into the snapshot output directory. python snapshot embed {git_binary} env,brew,apt  text application image audio video font on_snapshot__05_git.finite.bg.py git_enabled enable git repository cloning git_binary path to git binary git_timeout timeout for git operations in seconds git_domains comma-separated list of domains to treat as git repositories git_args default git arguments git_args_extra extra arguments to append to git command"
               data-hero-plugin="git"
               data-hero-abx-command="uvx abx-dl --plugins git 'https://example.com'"
               data-hero-archivebox-command="GIT_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -1771,7 +1771,7 @@ providers: env,uv">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">git <small>(env,apt,brew)</small></span>
+                        <span class="chip chip--binary-summary">git <small>(env,brew,apt)</small></span>
                       </div>
                       <div>
                         <span class="chip chip--mime chip--mime-text">text</span>
@@ -1797,9 +1797,9 @@ providers: env,uv">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="git
-providers: env,apt,brew">
+providers: env,brew,apt">
                         <code>git</code>
-                        <small>providers=env,apt,brew</small>
+                        <small>providers=env,brew,apt</small>
                       </span>
                     </div>
                   </article>
@@ -1927,7 +1927,7 @@ providers: env,apt,brew">
             <details
               id="wget"
               class="plugin-card plugin-card--snapshot"
-              data-search="wget snapshot wget archive pages and their requisites with wget, optionally writing warc captures. python snapshot embed {wget_binary} env,apt,brew  text/html application/warc application/gzip image text/css application/javascript font audio video on_snapshot__06_wget.finite.bg.py wget_enabled enable wget archiving wget_warc_enabled save warc archive file wget_binary path to wget binary wget_timeout timeout for wget in seconds wget_user_agent user agent string for wget wget_cookies_file path to cookies file wget_check_ssl_validity whether to verify ssl certificates wget_args default wget arguments wget_args_extra extra arguments to append to wget command"
+              data-search="wget snapshot wget archive pages and their requisites with wget, optionally writing warc captures. python snapshot embed {wget_binary} env,brew,apt  text/html application/warc application/gzip image text/css application/javascript font audio video on_snapshot__06_wget.finite.bg.py wget_enabled enable wget archiving wget_warc_enabled save warc archive file wget_binary path to wget binary wget_timeout timeout for wget in seconds wget_user_agent user agent string for wget wget_cookies_file path to cookies file wget_check_ssl_validity whether to verify ssl certificates wget_args default wget arguments wget_args_extra extra arguments to append to wget command"
               data-hero-plugin="wget"
               data-hero-abx-command="uvx abx-dl --plugins wget 'https://example.com'"
               data-hero-archivebox-command="WGET_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -1956,7 +1956,7 @@ providers: env,apt,brew">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">wget <small>(env,apt,brew)</small></span>
+                        <span class="chip chip--binary-summary">wget <small>(env,brew,apt)</small></span>
                       </div>
                       <div>
                         <span class="chip chip--mime chip--mime-html">text/html</span>
@@ -1982,9 +1982,9 @@ providers: env,apt,brew">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="wget
-providers: env,apt,brew">
+providers: env,brew,apt">
                         <code>wget</code>
-                        <small>providers=env,apt,brew</small>
+                        <small>providers=env,brew,apt</small>
                       </span>
                     </div>
                   </article>
@@ -4086,7 +4086,7 @@ providers: env,chromewebstore">
             <details
               id="chrome"
               class="plugin-card plugin-card--snapshot"
-              data-search="chrome snapshot chrome needed by many other plugins to save high-fidelity archives within a real browser (does not save anything itself). javascript snapshot {node_binary} abxbus browsers {chrome_binary} env,npm,apt,brew env,pnpm env,pnpm env,playwright,puppeteer 22.12.0 2.5.9  149.0.0 {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}, &#34;npm&#34;: {&#34;install_args&#34;: [&#34;node@22.23.1&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/npm/packages/node&#34;, &#34;postinstall_scripts&#34;: true}} {&#34;env&#34;: {&#34;version&#34;: [&#34;node&#34;, &#34;-p&#34;, &#34;require(&#39;abxbus/package.json&#39;).version&#34;]}, &#34;pnpm&#34;: {&#34;abspath&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/abxbus/node_modules/abxbus/dist/cjs/index.js&#34;, &#34;install_args&#34;: [&#34;abxbus@2.5.9&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/abxbus&#34;, &#34;postinstall_scripts&#34;: true, &#34;version&#34;: &#34;2.5.9&#34;}} {&#34;env&#34;: {&#34;version&#34;: [&#34;node&#34;, &#34;-p&#34;, &#34;require(&#39;puppeteer/package.json&#39;).version&#34;]}, &#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;@puppeteer/browsers&#34;, &#34;puppeteer&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/chrome&#34;}} {&#34;playwright&#34;: {&#34;install_args&#34;: [&#34;--with-deps&#34;, &#34;chromium&#34;, &#34;--no-shell&#34;]}} text/plain application/json on_crawlsetup__89_chrome_kill_zombies.js on_crawlsetup__90_chrome_launch.daemon.bg.js on_crawlsetup__91_chrome_wait.js on_snapshot__09_chrome_launch.daemon.bg.js on_snapshot__10_chrome_tab.daemon.bg.js on_snapshot__11_chrome_wait.js on_snapshot__30_chrome_navigate.js chrome_enabled enable chrome browser integration for archiving chrome_binary path to a chromium-family browser binary chromewebstore_extensions_dir abxpkg-managed chrome web store extension download/cache directory. this is intentionally not derived from personas_dir/active_persona like runtime chrome profile paths; chrome reads unpacked extension artifacts from here while running with persona-derived user data dirs. node_binary path to node.js binary chrome_timeout timeout for chrome operations in seconds chrome_headless run chrome in headless mode personas_dir shared chrome/browser personas root active_persona active browser persona name chrome_sandbox enable chrome sandbox (disable in docker with --no-sandbox) chrome_resolution browser viewport resolution (width,height) chrome_user_agent user agent string for chrome chrome_cdp_url connect to an already-running browser over cdp instead of launching a new local chrome process chrome_is_local whether the managed browser process is local and should have a live chrome.pid marker chrome_keepalive keep the browser alive after the owning crawl/snapshot hook exits instead of closing it during cleanup chrome_isolation whether chrome runs as one shared browser per crawl or a separate browser per snapshot chrome_args default chrome command-line arguments (static flags only, dynamic args like --user-data-dir are added at runtime) chrome_args_extra extra arguments to append to chrome command (for user customization) chrome_pageload_timeout timeout for page navigation/load in seconds chrome_wait_for page load completion condition (domcontentloaded, load, networkidle0, networkidle2) chrome_delay_after_load extra delay in seconds after page load completes before archiving (useful for js-heavy spas) chrome_check_ssl_validity whether to verify ssl certificates (disable for self-signed certs)"
+              data-search="chrome snapshot chrome needed by many other plugins to save high-fidelity archives within a real browser (does not save anything itself). javascript snapshot {node_binary} abxbus browsers {chrome_binary} env,node,brew,apt env,pnpm env,pnpm env,puppeteer,playwright 22.12.0 2.5.9  149.0.0 {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;env&#34;: {&#34;version&#34;: [&#34;node&#34;, &#34;-p&#34;, &#34;require(&#39;abxbus/package.json&#39;).version&#34;]}, &#34;pnpm&#34;: {&#34;abspath&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/abxbus/node_modules/abxbus/dist/cjs/index.js&#34;, &#34;install_args&#34;: [&#34;abxbus@2.5.9&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/abxbus&#34;, &#34;postinstall_scripts&#34;: true, &#34;version&#34;: &#34;2.5.9&#34;}} {&#34;env&#34;: {&#34;version&#34;: [&#34;node&#34;, &#34;-p&#34;, &#34;require(&#39;puppeteer/package.json&#39;).version&#34;]}, &#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;@puppeteer/browsers&#34;, &#34;puppeteer&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/chrome&#34;}} {&#34;playwright&#34;: {&#34;install_args&#34;: [&#34;--with-deps&#34;, &#34;chromium&#34;, &#34;--no-shell&#34;]}} text/plain application/json on_crawlsetup__89_chrome_kill_zombies.js on_crawlsetup__90_chrome_launch.daemon.bg.js on_crawlsetup__91_chrome_wait.js on_snapshot__09_chrome_launch.daemon.bg.js on_snapshot__10_chrome_tab.daemon.bg.js on_snapshot__11_chrome_wait.js on_snapshot__30_chrome_navigate.js chrome_enabled enable chrome browser integration for archiving chrome_binary path to a chromium-family browser binary chromewebstore_extensions_dir abxpkg-managed chrome web store extension download/cache directory. this is intentionally not derived from personas_dir/active_persona like runtime chrome profile paths; chrome reads unpacked extension artifacts from here while running with persona-derived user data dirs. node_binary path to node.js binary chrome_timeout timeout for chrome operations in seconds chrome_headless run chrome in headless mode personas_dir shared chrome/browser personas root active_persona active browser persona name chrome_sandbox enable chrome sandbox (disable in docker with --no-sandbox) chrome_resolution browser viewport resolution (width,height) chrome_user_agent user agent string for chrome chrome_cdp_url connect to an already-running browser over cdp instead of launching a new local chrome process chrome_is_local whether the managed browser process is local and should have a live chrome.pid marker chrome_keepalive keep the browser alive after the owning crawl/snapshot hook exits instead of closing it during cleanup chrome_isolation whether chrome runs as one shared browser per crawl or a separate browser per snapshot chrome_args default chrome command-line arguments (static flags only, dynamic args like --user-data-dir are added at runtime) chrome_args_extra extra arguments to append to chrome command (for user customization) chrome_pageload_timeout timeout for page navigation/load in seconds chrome_wait_for page load completion condition (domcontentloaded, load, networkidle0, networkidle2) chrome_delay_after_load extra delay in seconds after page load completes before archiving (useful for js-heavy spas) chrome_check_ssl_validity whether to verify ssl certificates (disable for self-signed certs)"
               data-hero-plugin="chrome"
               data-hero-abx-command="uvx abx-dl --plugins chrome 'https://example.com'"
               data-hero-archivebox-command="CHROME_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -4112,7 +4112,7 @@ providers: env,chromewebstore">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">node&gt;=22.12.0 <small>(env,npm,apt,brew)</small></span>
+                        <span class="chip chip--binary-summary">node&gt;=22.12.0 <small>(env,node,brew,apt)</small></span>
                         <span class="chip chip--binary-summary">abxbus&gt;=2.5.9 <small>(env,pnpm)</small></span>
 <span class="chip">+2 more</span>                      </div>
                       <div>
@@ -4137,10 +4137,10 @@ providers: env,chromewebstore">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="node
-providers: env,npm,apt,brew
+providers: env,node,brew,apt
 min_version: 22.12.0">
                         <code>node</code>
-                        <small>providers=env,npm,apt,brew</small>
+                        <small>providers=env,node,brew,apt</small>
                         <small>min_version=22.12.0</small>
                       </span>
                       <span class="chip chip--binary" title="abxbus
@@ -4156,10 +4156,10 @@ providers: env,pnpm">
                         <small>providers=env,pnpm</small>
                       </span>
                       <span class="chip chip--binary" title="chromium
-providers: env,playwright,puppeteer
+providers: env,puppeteer,playwright
 min_version: 149.0.0">
                         <code>chromium</code>
-                        <small>providers=env,playwright,puppeteer</small>
+                        <small>providers=env,puppeteer,playwright</small>
                         <small>min_version=149.0.0</small>
                       </span>
                     </div>
@@ -7028,7 +7028,7 @@ providers: env,uv">
             <details
               id="opendataloader"
               class="plugin-card plugin-card--snapshot"
-              data-search="opendataloader snapshot opendataloader extract structured text, tables, and metadata from pdfs using opendataloader-pdf. supports ocr for scanned pdfs via hybrid backend. python snapshot {opendataloader_binary} {opendataloader_java_binary} env,uv env,apt,brew  11.0.0 {&#34;uv&#34;: {&#34;install_args&#34;: [&#34;opendataloader-pdf&#34;], &#34;postinstall_scripts&#34;: true}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;default-jre-headless&#34;]}, &#34;brew&#34;: {&#34;install_args&#34;: [&#34;openjdk&#34;]}} text/plain text/markdown application/json on_snapshot__60_opendataloader.py opendataloader_enabled enable pdf text extraction with opendataloader-pdf opendataloader_binary path to opendataloader-pdf binary opendataloader_java_binary path to the java runtime used by opendataloader-pdf opendataloader_timeout timeout for pdf extraction in seconds opendataloader_force_ocr use hybrid ocr backend (--hybrid docling-fast) for scanned/image-based pdfs. requires opendataloader-pdf-hybrid server running. opendataloader_hybrid_url url of the opendataloader-pdf-hybrid server (e.g. http://localhost:5002). if empty, uses the default built-in url. opendataloader_args default opendataloader-pdf arguments opendataloader_args_extra extra arguments to append to opendataloader-pdf command"
+              data-search="opendataloader snapshot opendataloader extract structured text, tables, and metadata from pdfs using opendataloader-pdf. supports ocr for scanned pdfs via hybrid backend. python snapshot {opendataloader_binary} {opendataloader_java_binary} env,uv env,brew,apt  11.0.0 {&#34;uv&#34;: {&#34;install_args&#34;: [&#34;opendataloader-pdf&#34;], &#34;postinstall_scripts&#34;: true}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;default-jre-headless&#34;]}, &#34;brew&#34;: {&#34;install_args&#34;: [&#34;openjdk&#34;]}} text/plain text/markdown application/json on_snapshot__60_opendataloader.py opendataloader_enabled enable pdf text extraction with opendataloader-pdf opendataloader_binary path to opendataloader-pdf binary opendataloader_java_binary path to the java runtime used by opendataloader-pdf opendataloader_timeout timeout for pdf extraction in seconds opendataloader_force_ocr use hybrid ocr backend (--hybrid docling-fast) for scanned/image-based pdfs. requires opendataloader-pdf-hybrid server running. opendataloader_hybrid_url url of the opendataloader-pdf-hybrid server (e.g. http://localhost:5002). if empty, uses the default built-in url. opendataloader_args default opendataloader-pdf arguments opendataloader_args_extra extra arguments to append to opendataloader-pdf command"
               data-hero-plugin="opendataloader"
               data-hero-abx-command="uvx abx-dl --plugins opendataloader 'https://example.com'"
               data-hero-archivebox-command="OPENDATALOADER_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -7057,7 +7057,7 @@ providers: env,uv">
                     <div class="plugin-summary-facts">
                       <div>
                         <span class="chip chip--binary-summary">opendataloader-pdf <small>(env,uv)</small></span>
-                        <span class="chip chip--binary-summary">java&gt;=11.0.0 <small>(env,apt,brew)</small></span>
+                        <span class="chip chip--binary-summary">java&gt;=11.0.0 <small>(env,brew,apt)</small></span>
                       </div>
                       <div>
                         <span class="chip chip--mime chip--mime-text">text/plain</span>
@@ -7087,10 +7087,10 @@ providers: env,uv">
                         <small>providers=env,uv</small>
                       </span>
                       <span class="chip chip--binary" title="java
-providers: env,apt,brew
+providers: env,brew,apt
 min_version: 11.0.0">
                         <code>java</code>
-                        <small>providers=env,apt,brew</small>
+                        <small>providers=env,brew,apt</small>
                         <small>min_version=11.0.0</small>
                       </span>
                     </div>
@@ -8804,7 +8804,7 @@ providers: env,uv">
             <details
               id="search_backend_sonic"
               class="plugin-card plugin-card--snapshot"
-              data-search="search_backend_sonic snapshot sonic search index archived snapshot content into a sonic search backend. python snapshot {sonic_binary} env,brew,cargo  {&#34;brew&#34;: {&#34;install_args&#34;: [&#34;sonic&#34;]}, &#34;cargo&#34;: {&#34;install_args&#34;: [&#34;sonic-server&#34;]}} on_snapshot__91_index_sonic.py search_backend_sonic_enabled index archived snapshots into the sonic search backend. sonic_binary path to sonic server binary sonic_dir directory used to store the sonic config, logs, and index data search_backend_sonic_host_name sonic server hostname search_backend_sonic_port sonic server port search_backend_sonic_password sonic server password search_backend_sonic_collection sonic collection name search_backend_sonic_bucket sonic bucket name"
+              data-search="search_backend_sonic snapshot sonic search index archived snapshot content into a sonic search backend. python snapshot {sonic_binary} env,bash,brew,apt,cargo  {&#34;apt&#34;: {&#34;apt_gpg_keys&#34;: {&#34;https://packagecloud.io/valeriansaliou/sonic/gpgkey&#34;: &#34;valeriansaliou_sonic.asc&#34;}, &#34;apt_sources&#34;: {&#34;valeriansaliou_sonic.list&#34;: &#34;deb [signed-by=/etc/apt/keyrings/valeriansaliou_sonic.asc] https://packagecloud.io/valeriansaliou/sonic/debian/ bookworm main&#34;}, &#34;apt_system_groups&#34;: {&#34;sonic&#34;: {}}, &#34;apt_system_users&#34;: {&#34;sonic&#34;: {&#34;create_home&#34;: false, &#34;gid&#34;: &#34;sonic&#34;, &#34;home&#34;: &#34;/var/lib/sonic&#34;, &#34;shell&#34;: &#34;/usr/sbin/nologin&#34;}}, &#34;install_args&#34;: [&#34;sonic&#34;]}, &#34;bash&#34;: {&#34;docs_url&#34;: &#34;https://github.com/valeriansaliou/sonic/releases/tag/v1.7.4&#34;, &#34;install&#34;: &#34;\&#34;$abxpkg_python\&#34; - &lt;&lt;&#39;py&#39;\nimport hashlib\nimport os\nimport platform\nimport shutil\nimport sys\nimport tarfile\nimport urllib.request\nfrom pathlib import path\n\nif not sys.platform.startswith(&#39;linux&#39;) or platform.machine().lower() not in {&#39;x86_64&#39;, &#39;amd64&#39;}:\n    raise systemexit(&#39;the prebuilt sonic provider supports linux x86_64 only&#39;)\nurl = &#39;https://github.com/valeriansaliou/sonic/releases/download/v1.7.4/v1.7.4-x86_64-gnu.tar.gz&#39;\nexpected = &#39;81b1d017992ffc9957dc27f7f6c78fd2cf1a4e09c89295dc8b15d15ded01b8ae&#39;\ninstall_root = path(os.environ[&#39;install_root&#39;])\nbin_dir = path(os.environ[&#39;bin_dir&#39;])\ninstall_root.mkdir(parents=true, exist_ok=true)\nbin_dir.mkdir(parents=true, exist_ok=true)\narchive_path = install_root / &#39;.sonic.tar.gz.tmp&#39;\nstaging_path = bin_dir / &#39;.sonic.tmp&#39;\ntry:\n    digest = hashlib.sha256()\n    request = urllib.request.request(url, headers={&#39;user-agent&#39;: &#39;abxpkg sonic bootstrap/1.7.4&#39;})\n    with urllib.request.urlopen(request, timeout=120) as response, archive_path.open(&#39;wb&#39;) as target:\n        for chunk in iter(lambda: response.read(1024 * 1024), b&#39;&#39;):\n            digest.update(chunk)\n            target.write(chunk)\n    if digest.hexdigest() != expected:\n        raise runtimeerror(f&#39;refusing {url}: expected sha256 {expected}, got {digest.hexdigest()}&#39;)\n    with tarfile.open(archive_path, mode=&#39;r:gz&#39;) as archive:\n        member = next((item for item in archive.getmembers() if item.name in {&#39;sonic/sonic&#39;, &#39;./sonic/sonic&#39;}), none)\n        if member is none:\n            raise runtimeerror(&#39;sonic archive did not contain sonic/sonic&#39;)\n        source = archive.extractfile(member)\n        if source is none:\n            raise runtimeerror(&#39;sonic archive member sonic/sonic was not a file&#39;)\n        with source, staging_path.open(&#39;wb&#39;) as target:\n            shutil.copyfileobj(source, target)\n    staging_path.chmod(0o755)\n    os.replace(staging_path, bin_dir / &#39;sonic&#39;)\nfinally:\n    archive_path.unlink(missing_ok=true)\n    staging_path.unlink(missing_ok=true)\npy&#34;, &#34;install_args&#34;: [&#34;sonic@1.7.4&#34;]}, &#34;brew&#34;: {&#34;install_args&#34;: [&#34;sonic&#34;]}, &#34;cargo&#34;: {&#34;install_args&#34;: [&#34;sonic-server&#34;, &#34;--version&#34;, &#34;1.7.4&#34;]}} on_snapshot__91_index_sonic.py search_backend_sonic_enabled index archived snapshots into the sonic search backend. sonic_binary path to sonic server binary sonic_dir directory used to store the sonic config, logs, and index data search_backend_sonic_host_name sonic server hostname search_backend_sonic_port sonic server port search_backend_sonic_password sonic server password search_backend_sonic_collection sonic collection name search_backend_sonic_bucket sonic bucket name"
               data-hero-plugin="search_backend_sonic"
               data-hero-abx-command="uvx abx-dl --plugins search_backend_sonic 'https://example.com'"
               data-hero-archivebox-command="SEARCH_BACKEND_SONIC_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -8832,7 +8832,7 @@ providers: env,uv">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">sonic <small>(env,brew,cargo)</small></span>
+                        <span class="chip chip--binary-summary">sonic <small>(env,bash,brew,apt,cargo)</small></span>
                       </div>
                     </div>
                   </div>
@@ -8852,9 +8852,9 @@ providers: env,uv">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="sonic
-providers: env,brew,cargo">
+providers: env,bash,brew,apt,cargo">
                         <code>sonic</code>
-                        <small>providers=env,brew,cargo</small>
+                        <small>providers=env,bash,brew,apt,cargo</small>
                       </span>
                     </div>
                   </article>
@@ -9490,7 +9490,7 @@ providers: env,brew,cargo">
             <details
               id="claudecode"
               class="plugin-card"
-              data-search="claudecode claude code run claude code ai agent on snapshots to extract, analyze, or transform archived content. embed fullscreen {node_binary} {claudecode_binary} env,apt,brew env,pnpm   {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-code&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/claudecode&#34;}} application/json node_binary path to node.js binary claudecode_enabled enable claude code ai agent integration. controls whether the claude cli dependency is resolved for this plugin; child plugins still need the claudecode plugin enabled and a working claude binary. claudecode_binary path to claude code cli binary claudecode_timeout timeout for claude code operations in seconds anthropic_api_key anthropic api key for claude code authentication claude_code_oauth_token claude code oauth token for claude code authentication claudecode_model claude model to use (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001) claudecode_max_turns maximum number of agentic turns per invocation"
+              data-search="claudecode claude code run claude code ai agent on snapshots to extract, analyze, or transform archived content. embed fullscreen {node_binary} {claudecode_binary} env,node,brew,apt env,pnpm   {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;@anthropic-ai/claude-code&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/claudecode&#34;}} application/json node_binary path to node.js binary claudecode_enabled enable claude code ai agent integration. controls whether the claude cli dependency is resolved for this plugin; child plugins still need the claudecode plugin enabled and a working claude binary. claudecode_binary path to claude code cli binary claudecode_timeout timeout for claude code operations in seconds anthropic_api_key anthropic api key for claude code authentication claude_code_oauth_token claude code oauth token for claude code authentication claudecode_model claude model to use (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001) claudecode_max_turns maximum number of agentic turns per invocation"
               data-hero-plugin="claudecode"
               data-hero-abx-command="uvx abx-dl plugins claudecode"
               data-hero-archivebox-command="archivebox add &#39;https://example.com&#39;"
@@ -9510,7 +9510,7 @@ providers: env,brew,cargo">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span>
+                        <span class="chip chip--binary-summary">node <small>(env,node,brew,apt)</small></span>
                         <span class="chip chip--binary-summary">claude <small>(env,pnpm)</small></span>
                       </div>
                       <div>
@@ -9534,9 +9534,9 @@ providers: env,brew,cargo">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="node
-providers: env,apt,brew">
+providers: env,node,brew,apt">
                         <code>node</code>
-                        <small>providers=env,apt,brew</small>
+                        <small>providers=env,node,brew,apt</small>
                       </span>
                       <span class="chip chip--binary" title="claude
 providers: env,pnpm">
@@ -9714,7 +9714,7 @@ providers: env,pnpm">
             <details
               id="opencode"
               class="plugin-card"
-              data-search="opencode opencode agent expose an admin-only embedded opencode web agent ui for archivebox. {node_binary} {npm_binary} {git_binary} {opencode_binary} env,apt,brew env,apt,brew env,apt,brew env,pnpm     {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;npm&#34;]}, &#34;brew&#34;: {&#34;install_args&#34;: [&#34;node&#34;]}} {&#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;opencode-ai@1.17.15&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/opencode&#34;, &#34;postinstall_scripts&#34;: true}} node_binary path to node.js binary npm_binary path to npm binary used by opencode postinstall to fetch the platform cli package git_binary path to git binary used by opencode project initialization opencode_enabled enable the admin-only /admin/agent opencode web ui route opencode_binary path to opencode cli binary opencode_host host for the local opencode web server opencode_port port for the local opencode web server opencode_workdir working directory for opencode. defaults to the archivebox data directory opencode_state_dir directory for opencode config, state, cache, sessions, and editable archivebox skill at skill.md. defaults to data_dir/opencode opencode_timeout seconds to wait for opencode startup and proxied requests"
+              data-search="opencode opencode agent expose an admin-only embedded opencode web agent ui for archivebox. {node_binary} {npm_binary} {git_binary} {opencode_binary} env,node,brew,apt env,node,brew,apt env,brew,apt env,pnpm     {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;npm&#34;]}, &#34;brew&#34;: {&#34;install_args&#34;: [&#34;node&#34;]}} {&#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;opencode-ai@1.17.15&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/opencode&#34;, &#34;postinstall_scripts&#34;: true}} node_binary path to node.js binary npm_binary path to npm binary used by opencode postinstall to fetch the platform cli package git_binary path to git binary used by opencode project initialization opencode_enabled enable the admin-only /admin/agent opencode web ui route opencode_binary path to opencode cli binary opencode_host host for the local opencode web server opencode_port port for the local opencode web server opencode_workdir working directory for opencode. defaults to the archivebox data directory opencode_state_dir directory for opencode config, state, cache, sessions, and editable archivebox skill at skill.md. defaults to data_dir/opencode opencode_timeout seconds to wait for opencode startup and proxied requests"
               data-hero-plugin="opencode"
               data-hero-abx-command="uvx abx-dl plugins opencode"
               data-hero-archivebox-command="archivebox add &#39;https://example.com&#39;"
@@ -9732,8 +9732,8 @@ providers: env,pnpm">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span>
-                        <span class="chip chip--binary-summary">npm <small>(env,apt,brew)</small></span>
+                        <span class="chip chip--binary-summary">node <small>(env,node,brew,apt)</small></span>
+                        <span class="chip chip--binary-summary">npm <small>(env,node,brew,apt)</small></span>
 <span class="chip">+2 more</span>                      </div>
                     </div>
                   </div>
@@ -9753,19 +9753,19 @@ providers: env,pnpm">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="node
-providers: env,apt,brew">
+providers: env,node,brew,apt">
                         <code>node</code>
-                        <small>providers=env,apt,brew</small>
+                        <small>providers=env,node,brew,apt</small>
                       </span>
                       <span class="chip chip--binary" title="npm
-providers: env,apt,brew">
+providers: env,node,brew,apt">
                         <code>npm</code>
-                        <small>providers=env,apt,brew</small>
+                        <small>providers=env,node,brew,apt</small>
                       </span>
                       <span class="chip chip--binary" title="git
-providers: env,apt,brew">
+providers: env,brew,apt">
                         <code>git</code>
-                        <small>providers=env,apt,brew</small>
+                        <small>providers=env,brew,apt</small>
                       </span>
                       <span class="chip chip--binary" title="opencode
 providers: env,pnpm">
@@ -9906,7 +9906,7 @@ providers: env,pnpm">
             <details
               id="search_backend_ripgrep"
               class="plugin-card"
-              data-search="search_backend_ripgrep ripgrep search search archived snapshot files directly with ripgrep instead of maintaining an index. {ripgrep_binary} env,apt,brew  {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;ripgrep&#34;]}} search_backend_ripgrep_enabled search archived snapshot files directly with ripgrep. ripgrep_binary path to ripgrep binary ripgrep_timeout search timeout in seconds ripgrep_args default ripgrep arguments ripgrep_args_extra extra arguments to append to ripgrep command"
+              data-search="search_backend_ripgrep ripgrep search search archived snapshot files directly with ripgrep instead of maintaining an index. {ripgrep_binary} env,brew,apt  {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;ripgrep&#34;]}} search_backend_ripgrep_enabled search archived snapshot files directly with ripgrep. ripgrep_binary path to ripgrep binary ripgrep_timeout search timeout in seconds ripgrep_args default ripgrep arguments ripgrep_args_extra extra arguments to append to ripgrep command"
               data-hero-plugin="search_backend_ripgrep"
               data-hero-abx-command="uvx abx-dl plugins search_backend_ripgrep"
               data-hero-archivebox-command="archivebox add &#39;https://example.com&#39;"
@@ -9924,7 +9924,7 @@ providers: env,pnpm">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">rg <small>(env,apt,brew)</small></span>
+                        <span class="chip chip--binary-summary">rg <small>(env,brew,apt)</small></span>
                       </div>
                     </div>
                   </div>
@@ -9944,9 +9944,9 @@ providers: env,pnpm">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="rg
-providers: env,apt,brew">
+providers: env,brew,apt">
                         <code>rg</code>
-                        <small>providers=env,apt,brew</small>
+                        <small>providers=env,brew,apt</small>
                       </span>
                     </div>
                   </article>
@@ -10285,7 +10285,7 @@ providers: env,apt,brew">
 
           <div class="footer-meta">
             <span>Generated from <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">ArchiveBox/abx-plugins</a> at ref <code>main</code>.</span>
-            <span>Updated 2026-07-29 11:27 UTC</span>
+            <span>Updated 2026-07-29 21:35 UTC</span>
           </div>
         </div>
       </footer>

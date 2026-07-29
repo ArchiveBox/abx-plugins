@@ -31,6 +31,8 @@ def _resolve_node_binary(config: dict, lib_dir: Path, env: dict[str, str]) -> st
     )
     assert loaded.loaded_abspath
     assert Path(loaded.loaded_abspath).is_file()
+    assert loaded.loaded_binprovider
+    assert loaded.loaded_binprovider.name == "node"
     return str(loaded.loaded_abspath)
 
 
@@ -46,8 +48,11 @@ def test_chrome_config_installs_abxbus_js_module(tmp_path: Path) -> None:
     env["ABXPKG_MIN_RELEASE_AGE"] = "0"
     clean_path = []
     for entry in env.get("PATH", "").split(os.pathsep):
-        abxbus_binary = Path(entry) / "abxbus"
-        if abxbus_binary.is_file() and os.access(abxbus_binary, os.X_OK):
+        if any(
+            (Path(entry) / binary_name).is_file()
+            and os.access(Path(entry) / binary_name, os.X_OK)
+            for binary_name in ("abxbus", "node", "npm")
+        ):
             continue
         clean_path.append(entry)
     env["PATH"] = os.pathsep.join(clean_path)
@@ -152,8 +157,11 @@ def _assert_config_installs_puppeteer(config_path: Path, tmp_path: Path) -> None
     env["ABXPKG_MIN_RELEASE_AGE"] = "3"
     clean_path = []
     for entry in env.get("PATH", "").split(os.pathsep):
-        browsers_binary = Path(entry) / "browsers"
-        if browsers_binary.is_file() and os.access(browsers_binary, os.X_OK):
+        if any(
+            (Path(entry) / binary_name).is_file()
+            and os.access(Path(entry) / binary_name, os.X_OK)
+            for binary_name in ("browsers", "node", "npm")
+        ):
             continue
         clean_path.append(entry)
     env["PATH"] = os.pathsep.join(clean_path)
