@@ -139,9 +139,11 @@ def test_required_binary_configs_use_uv_and_pnpm_not_pip_or_npm() -> None:
                 for provider in str(item.get("binproviders") or "").split(",")
                 if provider.strip()
             }
+            binary_name = str(item.get("name") or "")
+            is_node_runtime = binary_name in {"node", "{NODE_BINARY}"}
             if "pip" in binproviders:
                 failures.append(f"{label}.binproviders must use uv instead of pip")
-            if "npm" in binproviders:
+            if "npm" in binproviders and not is_node_runtime:
                 failures.append(f"{label}.binproviders must use pnpm instead of npm")
             raw_overrides = item.get("overrides")
             overrides = (
@@ -151,7 +153,7 @@ def test_required_binary_configs_use_uv_and_pnpm_not_pip_or_npm() -> None:
             )
             if "pip" in overrides:
                 failures.append(f"{label}.overrides must use uv instead of pip")
-            if "npm" in overrides:
+            if "npm" in overrides and not is_node_runtime:
                 failures.append(f"{label}.overrides must use pnpm instead of npm")
             if any(
                 isinstance(value, dict) and "module_name" in value
