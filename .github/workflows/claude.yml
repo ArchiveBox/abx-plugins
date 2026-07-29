@@ -50,6 +50,7 @@ jobs:
         with:
           version: "0.11.3"
           activate-environment: "true"
+          enable-cache: false
 
       - name: Project CI tooling through abxpkg
         env:
@@ -65,7 +66,7 @@ jobs:
 
       - name: Install locked Python dependencies through projected uv
         run: |
-          "${UV_BINARY}" sync --locked --dev --no-sources
+          "${UV_BINARY}" sync --locked --dev --no-sources --no-cache
 
       - name: Run Claude Code
         id: claude

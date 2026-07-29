@@ -38,28 +38,29 @@ jobs:
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           version: "0.11.3"
+          enable-cache: false
 
       - name: Install locked dependencies
         run: |
-          uv sync --locked --dev --no-sources
+          uv sync --locked --dev --no-sources --no-cache
 
       - name: Run documentation code blocks
         env:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/docs-abx-lib
         run: |
-          mapfile -t plugin_readmes < <(uv run --no-project python - <<'PY'
+          mapfile -t plugin_readmes < <(uv run --no-cache --no-project python - <<'PY'
           from pathlib import Path
 
           for readme in sorted(Path("abx_plugins/plugins").glob("*/README.md")):
               print(readme)
           PY
           )
-          uv run --no-sync --no-sources pytest -vv --tb=long \
+          uv run --no-cache --no-sync --no-sources pytest -vv --tb=long \
             README.md AGENTS.md skills docs "${plugin_readmes[@]}"
 
       - name: Run prek
         run: |
-          uv run --no-sync --no-sources prek run --all-files
+          uv run --no-cache --no-sync --no-sources prek run --all-files
 
   build-package:
     name: Build package artifacts
@@ -82,7 +83,7 @@ jobs:
       - name: Build wheel and source distribution
         run: |
           set -Eeuo pipefail
-          uv build --no-sources --out-dir dist --clear
+          uv build --no-cache --no-sources --out-dir dist --clear
           shopt -s nullglob
           artifacts=(dist/*)
           wheels=(dist/abx_plugins-*.whl)
@@ -90,10 +91,10 @@ jobs:
           [[ "${#artifacts[@]}" -eq 2 ]]
           [[ "${#wheels[@]}" -eq 1 ]]
           [[ "${#sdists[@]}" -eq 1 ]]
-          version="$(uv run --no-project python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          version="$(uv run --no-cache --no-project python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
           [[ "${wheels[0]}" == "dist/abx_plugins-${version}-py3-none-any.whl" ]]
           [[ "${sdists[0]}" == "dist/abx_plugins-${version}.tar.gz" ]]
-          DIST_DIR=dist uv run --no-project python - <<'PY'
+          DIST_DIR=dist uv run --no-cache --no-project python - <<'PY'
           import hashlib
           import os
           from pathlib import Path
@@ -163,13 +164,13 @@ jobs:
           mkdir -p "$data_dir/staticfile"
           printf 'hello' > "$data_dir/staticfile/output.html"
 
-          uv venv --python "${{ matrix.python }}" "$smoke_env"
+          uv venv --no-cache --python "${{ matrix.python }}" "$smoke_env"
           uv pip install --python "$smoke_env" --no-cache "${candidates[0]}"
 
           unset PYTHONPATH
           cd "$smoke_root"
           hook="$({
-            VIRTUAL_ENV="$smoke_env" uv run --active --no-project python - <<'PY'
+            VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project python - <<'PY'
           import os
           from pathlib import Path
 
@@ -188,10 +189,10 @@ jobs:
 
           hook_output="$({
             SNAP_DIR="$data_dir" VIRTUAL_ENV="$smoke_env" \
-              uv run --active --no-project python "$hook" --url "https://example.com"
+              uv run --no-cache --active --no-project python "$hook" --url "https://example.com"
           })"
           HOOK_OUTPUT="$hook_output" SNAP_DIR="$data_dir" VIRTUAL_ENV="$smoke_env" \
-            uv run --active --no-project python - <<'PY'
+            uv run --no-cache --active --no-project python - <<'PY'
           import hashlib
           import json
           import os
@@ -232,7 +233,7 @@ jobs:
       - name: Discover test files
         id: set-matrix
         run: |
-          uv run --no-project python .github/ci_test_matrix.py >> "$GITHUB_OUTPUT"
+          uv run --no-cache --no-project python .github/ci_test_matrix.py >> "$GITHUB_OUTPUT"
 
   run-tests:
     name: ${{ matrix.test.path }} / Python ${{ matrix.test.python }} / ${{ matrix.test.os }}
@@ -262,14 +263,15 @@ jobs:
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           version: "0.11.3"
+          enable-cache: false
 
       - name: Install locked dependencies
         run: |
-          uv sync --locked --dev --no-sources
+          uv sync --locked --dev --no-sources --no-cache
 
       - name: Run ${{ matrix.test.path }}
         env:
           TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           CHROME_HEADLESS: "True"
           ABXPKG_LIB_DIR: ${{ runner.temp }}/runtime-abx-lib
-        run: uv run --no-sync --no-sources pytest -vs -rA "${{ matrix.test.path }}" --basetemp="$RUNNER_TEMP/pytest-out"
+        run: uv run --no-cache --no-sync --no-sources pytest -vs -rA "${{ matrix.test.path }}" --basetemp="$RUNNER_TEMP/pytest-out"

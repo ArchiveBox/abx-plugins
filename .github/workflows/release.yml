@@ -51,7 +51,7 @@ jobs:
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: "0.11.3"
-          enable-cache: true
+          enable-cache: false
 
       - name: Project host release tools through abxpkg
         env:
@@ -84,8 +84,8 @@ jobs:
           [[ "${#wheels[@]}" -eq 1 ]]
           [[ "${#sdists[@]}" -eq 1 ]]
           [[ "${#manifests[@]}" -eq 1 ]]
-          version="$("${UV_BINARY}" run --no-project python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
-          DIST_DIR="$artifact_dir" EXPECTED_VERSION="$version" "${UV_BINARY}" run --no-project python - <<'PY'
+          version="$("${UV_BINARY}" run --no-cache --no-project python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          DIST_DIR="$artifact_dir" EXPECTED_VERSION="$version" "${UV_BINARY}" run --no-cache --no-project python - <<'PY'
           import hashlib
           import os
           import re
