@@ -751,34 +751,10 @@ def _call_base_utils(
 ) -> tuple[int, str, str]:
     """Call shared JS base utilities from Python test code."""
     payload = os.environ.copy() if env is None else env.copy()
-    node_binary = payload.get("NODE_BINARY")
-    if not node_binary or not Path(node_binary).is_file():
-        node_record = next(
-            (
-                record
-                for record in get_hydrated_required_binaries(
-                    CHROME_PLUGIN_DIR,
-                    payload,
-                )
-                if record.get("name") == str(node_binary or "node")
-            ),
-            None,
-        )
-        if node_record is None:
-            return 1, "", "Chrome config has no NODE_BINARY record"
-        try:
-            loaded_node = load_required_binary(
-                node_record,
-                config=payload,
-                environ=payload,
-                install=True,
-            )
-        except Exception as err:
-            return 1, "", f"NODE_BINARY was not resolved by abxpkg: {err}"
-        if not loaded_node.loaded_abspath:
-            return 1, "", "NODE_BINARY was not resolved by abxpkg"
-        node_binary = str(loaded_node.loaded_abspath)
-        payload["NODE_BINARY"] = node_binary
+    try:
+        node_binary = resolve_node_with_abxpkg(payload)
+    except Exception as err:
+        return 1, "", f"NODE_BINARY was not resolved by abxpkg: {err}"
     cmd = [node_binary, str(BASE_UTILS), command, *args]
     result = subprocess.run(
         cmd,
