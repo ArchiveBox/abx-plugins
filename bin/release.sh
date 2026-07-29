@@ -251,7 +251,9 @@ require_clean_exact_checkout() {
     [[ "$("${GIT_BINARY}" rev-parse HEAD)" == "${sha}" ]] || { echo "HEAD does not match RELEASE_SHA ${sha}" >&2; return 1; }
     [[ -z "$("${GIT_BINARY}" status --short)" ]] || { echo "Refusing to release from a dirty worktree" >&2; return 1; }
     "${GIT_BINARY}" fetch --quiet --no-tags origin "+refs/heads/${branch}:refs/remotes/origin/${branch}"
-    "${GIT_BINARY}" merge-base --is-ancestor "${sha}" "refs/remotes/origin/${branch}" || { echo "${sha} is not on ${branch}" >&2; return 1; }
+    local branch_head
+    branch_head="$("${GIT_BINARY}" rev-parse "refs/remotes/origin/${branch}")"
+    [[ "${sha}" == "${branch_head}" ]] || { echo "${sha} is not the current origin/${branch} HEAD (${branch_head})" >&2; return 1; }
 }
 
 publish_to_pypi() (
