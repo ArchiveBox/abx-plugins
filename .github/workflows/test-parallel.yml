@@ -59,8 +59,10 @@ jobs:
             README.md AGENTS.md skills docs "${plugin_readmes[@]}"
 
       - name: Run prek
+        env:
+          PREK_HOME: ${{ runner.temp }}/prek-home
         run: |
-          uv run --no-cache --no-sync --no-sources prek run --all-files
+          uv run --no-cache --no-sync --no-sources prek --no-progress --log-file "$RUNNER_TEMP/prek.log" run --all-files
 
   build-package:
     name: Build package artifacts
