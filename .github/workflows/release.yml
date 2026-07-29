@@ -5,16 +5,6 @@ on:
     workflows: [Parallel Tests]
     types: [completed]
     branches: [main]
-  workflow_dispatch:
-    inputs:
-      release_sha:
-        description: Full commit SHA on main to release
-        required: true
-        type: string
-      test_run_id:
-        description: Successful Parallel Tests run for the exact release SHA
-        required: true
-        type: string
 
 permissions: {}
 
@@ -25,10 +15,9 @@ concurrency:
 jobs:
   release-state:
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_branch == 'main' &&
-       github.event.workflow_run.conclusion == 'success')
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
     environment: pypi
     permissions:
@@ -39,9 +28,9 @@ jobs:
       version: ${{ steps.release.outputs.version }}
       release_sha: ${{ steps.release.outputs.release_sha }}
     env:
-      RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.release_sha }}
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
       RELEASE_BRANCH: main
-      TEST_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.test_run_id }}
+      TEST_RUN_ID: ${{ github.event.workflow_run.id }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
