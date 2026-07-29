@@ -24,9 +24,11 @@ from pathlib import Path
 import pytest
 import requests
 
-from abx_plugins.plugins.base.testing import get_hydrated_required_binary
-from abx_plugins.plugins.base.testing import install_required_binary_from_config
-from abx_plugins.plugins.base.testing import parse_jsonl_output
+from abx_plugins.plugins.base.testing import (
+    get_hydrated_required_binary,
+    install_required_binary_from_config,
+    parse_jsonl_output,
+)
 from abx_plugins.plugins.base.utils import load_required_binary
 
 PLUGIN_DIR = Path(__file__).parent.parent
@@ -227,7 +229,7 @@ def test_install_hook_requests_java_dependency():
     java_record = get_hydrated_required_binary(PLUGIN_DIR, "java")
     assert java_record["min_version"] == "11.0.0"
     assert java_record["overrides"]["brew"]["install_args"] == ["openjdk"]
-    assert java_record["binproviders"] == "env,apt,brew"
+    assert java_record["binproviders"] == "env,brew,apt"
 
 
 def test_opendataloader_env_executes_exact_abxpkg_selected_java():
@@ -255,6 +257,7 @@ def test_opendataloader_env_executes_exact_abxpkg_selected_java():
 
     version = subprocess.run(
         [str(java_path), "--version"],
+        check=False,
         capture_output=True,
         text=True,
         timeout=10,
@@ -275,6 +278,7 @@ def test_config_disabled_skips():
                 "--url",
                 TEST_URL,
             ],
+            check=False,
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -309,6 +313,7 @@ def test_noresults_without_sources():
                 "--url",
                 TEST_URL,
             ],
+            check=False,
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -348,6 +353,7 @@ def test_extract_single_pdf():
                 "--url",
                 "https://example.com/test.pdf",
             ],
+            check=False,
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -413,6 +419,7 @@ def test_extract_multiple_pdfs():
                 "--url",
                 "https://example.com/docs",
             ],
+            check=False,
             cwd=tmpdir,
             capture_output=True,
             text=True,
@@ -471,6 +478,7 @@ def test_force_ocr_adds_hybrid_flag():
                     "--url",
                     "https://example.com/scanned.pdf",
                 ],
+                check=False,
                 cwd=tmpdir,
                 capture_output=True,
                 text=True,
