@@ -1132,7 +1132,7 @@ abx-dl 'https://example.com'</code></pre>
             <details
               id="ytdlp"
               class="plugin-card plugin-card--snapshot"
-              data-search="ytdlp snapshot yt-dlp download video and audio media with metadata, subtitles, thumbnails, and description sidecars. python snapshot embed fullscreen {ytdlp_binary} {node_binary} {ffmpeg_binary} env,uv,brew,apt env,apt,brew env,apt,brew    {&#34;uv&#34;: {&#34;install_args&#34;: [&#34;yt-dlp[default]&#34;]}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} audio video image application/x-subrip text/vtt application/json text/plain on_snapshot__02_ytdlp.finite.bg.py ytdlp_enabled enable video/audio downloading with yt-dlp ytdlp_binary path to yt-dlp binary node_binary path to node.js binary for yt-dlp js runtime ffmpeg_binary path to ffmpeg binary for yt-dlp media remuxing and downloads ytdlp_timeout timeout for yt-dlp downloads in seconds ytdlp_cookies_file path to cookies file ytdlp_max_size maximum file size for yt-dlp downloads ytdlp_check_ssl_validity whether to verify ssl certificates ytdlp_args default yt-dlp arguments ytdlp_args_extra extra arguments to append to yt-dlp command"
+              data-search="ytdlp snapshot yt-dlp download video and audio media with metadata, subtitles, thumbnails, and description sidecars. python snapshot embed fullscreen {ytdlp_binary} {node_binary} {ffmpeg_binary} env,uv,brew,apt env,apt,brew env,apt,brew    {&#34;uv&#34;: {&#34;install_args&#34;: [&#34;yt-dlp[default]&#34;], &#34;postinstall_scripts&#34;: true}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} audio video image application/x-subrip text/vtt application/json text/plain on_snapshot__02_ytdlp.finite.bg.py ytdlp_enabled enable video/audio downloading with yt-dlp ytdlp_binary path to yt-dlp binary node_binary path to node.js binary for yt-dlp js runtime ffmpeg_binary path to ffmpeg binary for yt-dlp media remuxing and downloads ytdlp_timeout timeout for yt-dlp downloads in seconds ytdlp_cookies_file path to cookies file ytdlp_max_size maximum file size for yt-dlp downloads ytdlp_check_ssl_validity whether to verify ssl certificates ytdlp_args default yt-dlp arguments ytdlp_args_extra extra arguments to append to yt-dlp command"
               data-hero-plugin="ytdlp"
               data-hero-abx-command="uvx abx-dl --plugins ytdlp 'https://example.com'"
               data-hero-archivebox-command="YTDLP_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -1306,7 +1306,7 @@ providers: env,apt,brew">
                       </tr>
                       <tr>
                         <td><code>YTDLP_TIMEOUT</code><span class="config-key-desc">Timeout for yt-dlp downloads in seconds</span></td>
-                        <td class="cfg-default"><span class="cfg-number">3600</span></td>
+                        <td class="cfg-default"><span class="cfg-number">120</span></td>
                         <td>
                           <code>integer</code>
 <br><small>min 10</small>                        </td>
@@ -1342,7 +1342,7 @@ providers: env,apt,brew">
                       </tr>
                       <tr>
                         <td><code>YTDLP_ARGS</code><span class="config-key-desc">Default yt-dlp arguments</span></td>
-                        <td class="cfg-default"><span class="cfg-bracket">[</span><div class="cfg-array"><div class="cfg-array-item"><span class="cfg-string">&quot;--restrict-filenames&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--trim-filenames=128&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-description&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-info-json&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-thumbnail&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-sub&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-auto-subs&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--convert-subs=srt&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--yes-playlist&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--continue&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--no-abort-on-error&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--ignore-errors&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--geo-bypass&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--add-metadata&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--no-progress&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--remote-components=ejs:github&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;-o&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;%(title)s.%(ext)s&quot;</span></div></div><span class="cfg-bracket">]</span></td>
+                        <td class="cfg-default"><span class="cfg-bracket">[</span><div class="cfg-array"><div class="cfg-array-item"><span class="cfg-string">&quot;--socket-timeout=5&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--retries=0&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--fragment-retries=0&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--extractor-retries=0&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--file-access-retries=0&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--restrict-filenames&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--trim-filenames=128&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-description&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-info-json&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-thumbnail&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-sub&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-auto-subs&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--convert-subs=srt&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--yes-playlist&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--continue&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--no-abort-on-error&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--ignore-errors&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--geo-bypass&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--add-metadata&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--no-progress&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--remote-components=ejs:github&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;-o&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;%(title)s.%(ext)s&quot;</span></div></div><span class="cfg-bracket">]</span></td>
                         <td>
                           <code>array</code>
                         </td>
@@ -1366,7 +1366,7 @@ providers: env,apt,brew">
             <details
               id="gallerydl"
               class="plugin-card plugin-card--snapshot"
-              data-search="gallerydl snapshot gallery-dl download image and media galleries along with metadata sidecars from supported sites. python snapshot embed fullscreen {gallerydl_binary} env,uv,brew,apt  image video application/json text/plain application/zip on_snapshot__03_gallerydl.finite.bg.py gallerydl_enabled enable gallery downloading with gallery-dl gallerydl_binary path to gallery-dl binary gallerydl_timeout timeout for gallery downloads in seconds gallerydl_cookies_file path to cookies file gallerydl_check_ssl_validity whether to verify ssl certificates gallerydl_args default gallery-dl arguments gallerydl_args_extra extra arguments to append to gallery-dl command"
+              data-search="gallerydl snapshot gallery-dl download image and media galleries along with metadata sidecars from supported sites. python snapshot embed fullscreen {gallerydl_binary} env,uv,brew,apt  {&#34;uv&#34;: {&#34;postinstall_scripts&#34;: true}} image video application/json text/plain application/zip on_snapshot__03_gallerydl.finite.bg.py gallerydl_enabled enable gallery downloading with gallery-dl gallerydl_binary path to gallery-dl binary gallerydl_timeout timeout for gallery downloads in seconds gallerydl_cookies_file path to cookies file gallerydl_check_ssl_validity whether to verify ssl certificates gallerydl_args default gallery-dl arguments gallerydl_args_extra extra arguments to append to gallery-dl command"
               data-hero-plugin="gallerydl"
               data-hero-abx-command="uvx abx-dl --plugins gallerydl 'https://example.com'"
               data-hero-archivebox-command="GALLERYDL_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -1509,7 +1509,7 @@ providers: env,uv,brew,apt">
                       </tr>
                       <tr>
                         <td><code>GALLERYDL_TIMEOUT</code><span class="config-key-desc">Timeout for gallery downloads in seconds</span></td>
-                        <td class="cfg-default"><span class="cfg-number">3600</span></td>
+                        <td class="cfg-default"><span class="cfg-number">120</span></td>
                         <td>
                           <code>integer</code>
 <br><small>min 10</small>                        </td>
@@ -1536,7 +1536,7 @@ providers: env,uv,brew,apt">
                       </tr>
                       <tr>
                         <td><code>GALLERYDL_ARGS</code><span class="config-key-desc">Default gallery-dl arguments</span></td>
-                        <td class="cfg-default"><span class="cfg-bracket">[</span><div class="cfg-array"><div class="cfg-array-item"><span class="cfg-string">&quot;--write-metadata&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-info-json&quot;</span></div></div><span class="cfg-bracket">]</span></td>
+                        <td class="cfg-default"><span class="cfg-bracket">[</span><div class="cfg-array"><div class="cfg-array-item"><span class="cfg-string">&quot;--http-timeout=5&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--retries=0&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-metadata&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-info-json&quot;</span></div></div><span class="cfg-bracket">]</span></td>
                         <td>
                           <code>array</code>
                         </td>
@@ -1560,7 +1560,7 @@ providers: env,uv,brew,apt">
             <details
               id="forumdl"
               class="plugin-card plugin-card--snapshot"
-              data-search="forumdl snapshot forum-dl download forum threads and exports in jsonl, warc, and mailbox-style archive formats. python snapshot embed fullscreen {forumdl_binary} uv,env  {&#34;uv&#34;: {&#34;install_args&#34;: [&#34;--no-deps&#34;, &#34;forum-dl&#34;, &#34;chardet==5.2.0&#34;, &#34;pydantic==2.12.3&#34;, &#34;pydantic-core==2.41.4&#34;, &#34;typing-extensions&gt;=4.14.1&#34;, &#34;annotated-types&gt;=0.6.0&#34;, &#34;typing-inspection&gt;=0.4.2&#34;, &#34;beautifulsoup4&#34;, &#34;soupsieve&#34;, &#34;lxml&#34;, &#34;requests&#34;, &#34;urllib3&#34;, &#34;certifi&#34;, &#34;idna&#34;, &#34;charset-normalizer&#34;, &#34;tenacity&#34;, &#34;python-dateutil&#34;, &#34;six&#34;, &#34;html2text&#34;, &#34;warcio&#34;]}} application/x-ndjson application/warc message/rfc822 on_snapshot__04_forumdl.finite.bg.py forumdl_enabled enable forum downloading with forum-dl forumdl_binary path to forum-dl binary forumdl_timeout timeout for forum downloads in seconds forumdl_output_format output format for forum downloads forumdl_args default forum-dl arguments forumdl_args_extra extra arguments to append to forum-dl command"
+              data-search="forumdl snapshot forum-dl download forum threads and exports in jsonl, warc, and mailbox-style archive formats. python snapshot embed fullscreen {forumdl_binary} env,uv  {&#34;uv&#34;: {&#34;install_args&#34;: [&#34;--no-deps&#34;, &#34;forum-dl&#34;, &#34;chardet==5.2.0&#34;, &#34;pydantic==2.12.3&#34;, &#34;pydantic-core==2.41.4&#34;, &#34;typing-extensions&gt;=4.14.1&#34;, &#34;annotated-types&gt;=0.6.0&#34;, &#34;typing-inspection&gt;=0.4.2&#34;, &#34;beautifulsoup4&#34;, &#34;soupsieve&#34;, &#34;lxml&#34;, &#34;requests&#34;, &#34;urllib3&#34;, &#34;certifi&#34;, &#34;idna&#34;, &#34;charset-normalizer&#34;, &#34;tenacity&#34;, &#34;python-dateutil&#34;, &#34;six&#34;, &#34;html2text&#34;, &#34;warcio&#34;], &#34;postinstall_scripts&#34;: true}} application/x-ndjson application/warc message/rfc822 on_snapshot__04_forumdl.finite.bg.py forumdl_enabled enable forum downloading with forum-dl forumdl_binary path to forum-dl binary forumdl_timeout timeout for forum downloads in seconds forumdl_output_format output format for forum downloads forumdl_args default forum-dl arguments. keep autodetection deterministic by disabling forum-dl&#39;s retry loop unless explicitly overridden. forumdl_args_extra extra arguments to append to forum-dl command"
               data-hero-plugin="forumdl"
               data-hero-abx-command="uvx abx-dl --plugins forumdl 'https://example.com'"
               data-hero-archivebox-command="FORUMDL_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -1590,7 +1590,7 @@ providers: env,uv,brew,apt">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">forum-dl <small>(uv,env)</small></span>
+                        <span class="chip chip--binary-summary">forum-dl <small>(env,uv)</small></span>
                       </div>
                       <div>
                         <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
@@ -1615,9 +1615,9 @@ providers: env,uv,brew,apt">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="forum-dl
-providers: uv,env">
+providers: env,uv">
                         <code>forum-dl</code>
-                        <small>providers=uv,env</small>
+                        <small>providers=env,uv</small>
                       </span>
                     </div>
                   </article>
@@ -1717,8 +1717,8 @@ providers: uv,env">
 <span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
-                        <td><code>FORUMDL_ARGS</code><span class="config-key-desc">Default forum-dl arguments</span></td>
-                        <td class="cfg-default"><span class="cfg-bracket">[]</span></td>
+                        <td><code>FORUMDL_ARGS</code><span class="config-key-desc">Default forum-dl arguments. Keep autodetection deterministic by disabling forum-dl&#39;s retry loop unless explicitly overridden.</span></td>
+                        <td class="cfg-default"><span class="cfg-bracket">[</span><div class="cfg-array"><div class="cfg-array-item"><span class="cfg-string">&quot;--timeout=5&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--retries=0&quot;</span></div></div><span class="cfg-bracket">]</span></td>
                         <td>
                           <code>array</code>
                         </td>
@@ -2565,7 +2565,7 @@ providers: env,apt,brew">
             <details
               id="ublock"
               class="plugin-card plugin-card--snapshot"
-              data-search="ublock snapshot ublock origin lite install the ublock origin lite extension to block ads, trackers, and other page clutter during archiving. javascript snapshot chrome ublock chromewebstore  {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;ddkjiahejlhfcafbddmgiahcphecmpfh&#34;, &#34;--name=ublock&#34;]}} on_snapshot__12_ublock.daemon.bg.js ublock_enabled enable ublock origin lite browser extension for ad blocking"
+              data-search="ublock snapshot ublock origin lite install the ublock origin lite extension to block ads, trackers, and other page clutter during archiving. snapshot chrome ublock env,chromewebstore  {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;ddkjiahejlhfcafbddmgiahcphecmpfh&#34;, &#34;--name=ublock&#34;]}} on_crawlsetup__80_ublock_prepare.py on_snapshot__12_ublock.daemon.bg.js ublock_enabled enable ublock origin lite browser extension for ad blocking"
               data-hero-plugin="ublock"
               data-hero-abx-command="uvx abx-dl --plugins ublock 'https://example.com'"
               data-hero-archivebox-command="UBLOCK_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -2580,18 +2580,12 @@ providers: env,apt,brew">
                     <p class="plugin-summary-description">Install the uBlock Origin Lite extension to block ads, trackers, and other page clutter during archiving.</p>
                     <div class="plugin-subline">
                       <span class="plugin-order">#12</span>
-                      <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
-                        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                          <rect x="4.5" y="4.5" width="15" height="15" rx="2.5" fill="currentColor" opacity="0.2"></rect>
-                          <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
-                        </svg>
-                      </span>
 
                       <span class="chip">Snapshot</span>
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">ublock <small>(chromewebstore)</small></span>
+                        <span class="chip chip--binary-summary">ublock <small>(env,chromewebstore)</small></span>
                       </div>
                     </div>
                   </div>
@@ -2617,9 +2611,9 @@ providers: env,apt,brew">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="ublock
-providers: chromewebstore">
+providers: env,chromewebstore">
                         <code>ublock</code>
-                        <small>providers=chromewebstore</small>
+                        <small>providers=env,chromewebstore</small>
                       </span>
                     </div>
                   </article>
@@ -2638,6 +2632,22 @@ providers: chromewebstore">
 
                 <h3 class="section-title">Hook Scripts</h3>
                 <div class="hook-list">
+                  <article class="hook-card">
+                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/ublock/on_CrawlSetup__80_ublock_prepare.py" target="_blank" rel="noreferrer">on_CrawlSetup__80_ublock_prepare.py</a></span>
+                    <div class="hook-card-chips">
+                      <span class="plugin-language plugin-language--python" title="Python">
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                        </svg>
+                      </span>
+                      <span class="chip">order 80</span>
+                      <span class="chip chip--fg">foreground</span>
+                      <span class="hook-card-phase">CrawlSetup</span>
+                    </div>
+                  </article>
                   <article class="hook-card">
                     <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/ublock/on_Snapshot__12_ublock.daemon.bg.js" target="_blank" rel="noreferrer">on_Snapshot__12_ublock.daemon.bg.js</a></span>
                     <div class="hook-card-chips">
@@ -2689,7 +2699,7 @@ providers: chromewebstore">
             <details
               id="istilldontcareaboutcookies"
               class="plugin-card plugin-card--snapshot"
-              data-search="istilldontcareaboutcookies snapshot i still don&#39;t care about cookies install the i still don&#39;t care about cookies extension to dismiss cookie banners during archiving. javascript snapshot chrome istilldontcareaboutcookies chromewebstore  {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;edibdbjcniadpccecjdfdjjppcpchdlm&#34;, &#34;--name=istilldontcareaboutcookies&#34;]}} on_snapshot__13_istilldontcareaboutcookies.daemon.bg.js istilldontcareaboutcookies_enabled enable i still don&#39;t care about cookies browser extension"
+              data-search="istilldontcareaboutcookies snapshot i still don&#39;t care about cookies install the i still don&#39;t care about cookies extension to dismiss cookie banners during archiving. snapshot chrome istilldontcareaboutcookies env,chromewebstore  {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;edibdbjcniadpccecjdfdjjppcpchdlm&#34;, &#34;--name=istilldontcareaboutcookies&#34;]}} on_crawlsetup__80_istilldontcareaboutcookies_prepare.py on_snapshot__13_istilldontcareaboutcookies.daemon.bg.js istilldontcareaboutcookies_enabled enable i still don&#39;t care about cookies browser extension"
               data-hero-plugin="istilldontcareaboutcookies"
               data-hero-abx-command="uvx abx-dl --plugins istilldontcareaboutcookies 'https://example.com'"
               data-hero-archivebox-command="ISTILLDONTCAREABOUTCOOKIES_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -2704,18 +2714,12 @@ providers: chromewebstore">
                     <p class="plugin-summary-description">Install the I Still Don&#39;t Care About Cookies extension to dismiss cookie banners during archiving.</p>
                     <div class="plugin-subline">
                       <span class="plugin-order">#13</span>
-                      <span class="plugin-language plugin-language--javascript" title="Predominantly JavaScript hooks" aria-label="Predominantly JavaScript hooks">
-                        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                          <rect x="4.5" y="4.5" width="15" height="15" rx="2.5" fill="currentColor" opacity="0.2"></rect>
-                          <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
-                        </svg>
-                      </span>
 
                       <span class="chip">Snapshot</span>
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">istilldontcareaboutcookies <small>(chromewebstore)</small></span>
+                        <span class="chip chip--binary-summary">istilldontcareaboutcookies <small>(env,chromewebstore)</small></span>
                       </div>
                     </div>
                   </div>
@@ -2741,9 +2745,9 @@ providers: chromewebstore">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="istilldontcareaboutcookies
-providers: chromewebstore">
+providers: env,chromewebstore">
                         <code>istilldontcareaboutcookies</code>
-                        <small>providers=chromewebstore</small>
+                        <small>providers=env,chromewebstore</small>
                       </span>
                     </div>
                   </article>
@@ -2762,6 +2766,22 @@ providers: chromewebstore">
 
                 <h3 class="section-title">Hook Scripts</h3>
                 <div class="hook-list">
+                  <article class="hook-card">
+                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/istilldontcareaboutcookies/on_CrawlSetup__80_istilldontcareaboutcookies_prepare.py" target="_blank" rel="noreferrer">on_CrawlSetup__80_istilldontcareaboutcookies_prepare.py</a></span>
+                    <div class="hook-card-chips">
+                      <span class="plugin-language plugin-language--python" title="Python">
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                        </svg>
+                      </span>
+                      <span class="chip">order 80</span>
+                      <span class="chip chip--fg">foreground</span>
+                      <span class="hook-card-phase">CrawlSetup</span>
+                    </div>
+                  </article>
                   <article class="hook-card">
                     <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/istilldontcareaboutcookies/on_Snapshot__13_istilldontcareaboutcookies.daemon.bg.js" target="_blank" rel="noreferrer">on_Snapshot__13_istilldontcareaboutcookies.daemon.bg.js</a></span>
                     <div class="hook-card-chips">
@@ -2813,7 +2833,7 @@ providers: chromewebstore">
             <details
               id="twocaptcha"
               class="plugin-card plugin-card--snapshot"
-              data-search="twocaptcha snapshot 2captcha install and configure the 2captcha extension to solve captchas during browser-based archiving. javascript snapshot chrome twocaptcha chromewebstore  {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;ifibfemgeogfhoebkmokieepdoobkbpo&#34;, &#34;--name=twocaptcha&#34;]}} on_crawlsetup__95_twocaptcha_config.js on_snapshot__14_twocaptcha.daemon.bg.js twocaptcha_enabled enable 2captcha browser extension for automatic captcha solving twocaptcha_api_key 2captcha api key for captcha solving service (get from https://2captcha.com) twocaptcha_retry_count number of times to retry captcha solving on error twocaptcha_retry_delay delay in seconds between captcha solving retries twocaptcha_timeout timeout for captcha solving in seconds twocaptcha_auto_submit automatically submit forms after captcha is solved"
+              data-search="twocaptcha snapshot 2captcha install and configure the 2captcha extension to solve captchas during browser-based archiving. javascript snapshot chrome twocaptcha env,chromewebstore  {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;ifibfemgeogfhoebkmokieepdoobkbpo&#34;, &#34;--name=twocaptcha&#34;]}} on_crawlsetup__80_twocaptcha_prepare.py on_crawlsetup__95_twocaptcha_config.js on_snapshot__14_twocaptcha.daemon.bg.js twocaptcha_enabled enable 2captcha browser extension for automatic captcha solving twocaptcha_api_key 2captcha api key for captcha solving service (get from https://2captcha.com) twocaptcha_retry_count number of times to retry captcha solving on error twocaptcha_retry_delay delay in seconds between captcha solving retries twocaptcha_timeout timeout for captcha solving in seconds twocaptcha_auto_submit automatically submit forms after captcha is solved"
               data-hero-plugin="twocaptcha"
               data-hero-abx-command="uvx abx-dl --plugins twocaptcha 'https://example.com'"
               data-hero-archivebox-command="TWOCAPTCHA_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -2839,7 +2859,7 @@ providers: chromewebstore">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">twocaptcha <small>(chromewebstore)</small></span>
+                        <span class="chip chip--binary-summary">twocaptcha <small>(env,chromewebstore)</small></span>
                       </div>
                     </div>
                   </div>
@@ -2865,9 +2885,9 @@ providers: chromewebstore">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="twocaptcha
-providers: chromewebstore">
+providers: env,chromewebstore">
                         <code>twocaptcha</code>
-                        <small>providers=chromewebstore</small>
+                        <small>providers=env,chromewebstore</small>
                       </span>
                     </div>
                   </article>
@@ -2886,6 +2906,22 @@ providers: chromewebstore">
 
                 <h3 class="section-title">Hook Scripts</h3>
                 <div class="hook-list">
+                  <article class="hook-card">
+                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/twocaptcha/on_CrawlSetup__80_twocaptcha_prepare.py" target="_blank" rel="noreferrer">on_CrawlSetup__80_twocaptcha_prepare.py</a></span>
+                    <div class="hook-card-chips">
+                      <span class="plugin-language plugin-language--python" title="Python">
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                        </svg>
+                      </span>
+                      <span class="chip">order 80</span>
+                      <span class="chip chip--fg">foreground</span>
+                      <span class="hook-card-phase">CrawlSetup</span>
+                    </div>
+                  </article>
                   <article class="hook-card">
                     <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/twocaptcha/on_CrawlSetup__95_twocaptcha_config.js" target="_blank" rel="noreferrer">on_CrawlSetup__95_twocaptcha_config.js</a></span>
                     <div class="hook-card-chips">
@@ -2954,7 +2990,7 @@ providers: chromewebstore">
                       </tr>
                       <tr>
                         <td><code>TWOCAPTCHA_RETRY_COUNT</code><span class="config-key-desc">Number of times to retry CAPTCHA solving on error</span></td>
-                        <td class="cfg-default"><span class="cfg-number">3</span></td>
+                        <td class="cfg-default"><span class="cfg-number">0</span></td>
                         <td>
                           <code>integer</code>
 <br><small>min 0</small>                        </td>
@@ -4050,7 +4086,7 @@ providers: chromewebstore">
             <details
               id="chrome"
               class="plugin-card plugin-card--snapshot"
-              data-search="chrome snapshot chrome needed by many other plugins to save high-fidelity archives within a real browser (does not save anything itself). javascript snapshot {node_binary} playwright abxbus browsers {chrome_binary} env,apt,brew pnpm pnpm pnpm env,playwright,puppeteer 22.12.0  2.5.9  149.0.0 {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;playwright@next&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/playwright&#34;}} {&#34;pnpm&#34;: {&#34;abspath&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/abxbus/node_modules/abxbus/dist/cjs/index.js&#34;, &#34;install_args&#34;: [&#34;abxbus@2.5.9&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/abxbus&#34;, &#34;version&#34;: &#34;2.5.9&#34;}} {&#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;@puppeteer/browsers&#34;, &#34;puppeteer&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/chrome&#34;}} {&#34;playwright&#34;: {&#34;install_args&#34;: [&#34;--with-deps&#34;, &#34;chromium&#34;, &#34;--no-shell&#34;]}} text/plain application/json on_crawlsetup__89_chrome_kill_zombies.js on_crawlsetup__90_chrome_launch.daemon.bg.js on_crawlsetup__91_chrome_wait.js on_snapshot__09_chrome_launch.daemon.bg.js on_snapshot__10_chrome_tab.daemon.bg.js on_snapshot__11_chrome_wait.js on_snapshot__30_chrome_navigate.js chrome_enabled enable chrome browser integration for archiving chrome_binary path to a chromium-family browser binary chromewebstore_extensions_dir abxpkg-managed chrome web store extension download/cache directory. this is intentionally not derived from personas_dir/active_persona like runtime chrome profile paths; chrome reads unpacked extension artifacts from here while running with persona-derived user data dirs. node_binary path to node.js binary chrome_timeout timeout for chrome operations in seconds chrome_headless run chrome in headless mode personas_dir shared chrome/browser personas root active_persona active browser persona name chrome_sandbox enable chrome sandbox (disable in docker with --no-sandbox) chrome_resolution browser viewport resolution (width,height) chrome_user_agent user agent string for chrome chrome_cdp_url connect to an already-running browser over cdp instead of launching a new local chrome process chrome_is_local whether the managed browser process is local and should have a live chrome.pid marker chrome_keepalive keep the browser alive after the owning crawl/snapshot hook exits instead of closing it during cleanup chrome_isolation whether chrome runs as one shared browser per crawl or a separate browser per snapshot chrome_args default chrome command-line arguments (static flags only, dynamic args like --user-data-dir are added at runtime) chrome_args_extra extra arguments to append to chrome command (for user customization) chrome_pageload_timeout timeout for page navigation/load in seconds chrome_wait_for page load completion condition (domcontentloaded, load, networkidle0, networkidle2) chrome_delay_after_load extra delay in seconds after page load completes before archiving (useful for js-heavy spas) chrome_check_ssl_validity whether to verify ssl certificates (disable for self-signed certs)"
+              data-search="chrome snapshot chrome needed by many other plugins to save high-fidelity archives within a real browser (does not save anything itself). javascript snapshot {node_binary} abxbus browsers {chrome_binary} env,npm,apt,brew env,pnpm env,pnpm env,playwright,puppeteer 22.12.0 2.5.9  149.0.0 {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}, &#34;npm&#34;: {&#34;install_args&#34;: [&#34;node@22.23.1&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/npm/packages/node&#34;, &#34;postinstall_scripts&#34;: true}} {&#34;env&#34;: {&#34;version&#34;: [&#34;node&#34;, &#34;-p&#34;, &#34;require(&#39;abxbus/package.json&#39;).version&#34;]}, &#34;pnpm&#34;: {&#34;abspath&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/abxbus/node_modules/abxbus/dist/cjs/index.js&#34;, &#34;install_args&#34;: [&#34;abxbus@2.5.9&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/abxbus&#34;, &#34;postinstall_scripts&#34;: true, &#34;version&#34;: &#34;2.5.9&#34;}} {&#34;env&#34;: {&#34;version&#34;: [&#34;node&#34;, &#34;-p&#34;, &#34;require(&#39;puppeteer/package.json&#39;).version&#34;]}, &#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;@puppeteer/browsers&#34;, &#34;puppeteer&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/chrome&#34;}} {&#34;playwright&#34;: {&#34;install_args&#34;: [&#34;--with-deps&#34;, &#34;chromium&#34;, &#34;--no-shell&#34;]}} text/plain application/json on_crawlsetup__89_chrome_kill_zombies.js on_crawlsetup__90_chrome_launch.daemon.bg.js on_crawlsetup__91_chrome_wait.js on_snapshot__09_chrome_launch.daemon.bg.js on_snapshot__10_chrome_tab.daemon.bg.js on_snapshot__11_chrome_wait.js on_snapshot__30_chrome_navigate.js chrome_enabled enable chrome browser integration for archiving chrome_binary path to a chromium-family browser binary chromewebstore_extensions_dir abxpkg-managed chrome web store extension download/cache directory. this is intentionally not derived from personas_dir/active_persona like runtime chrome profile paths; chrome reads unpacked extension artifacts from here while running with persona-derived user data dirs. node_binary path to node.js binary chrome_timeout timeout for chrome operations in seconds chrome_headless run chrome in headless mode personas_dir shared chrome/browser personas root active_persona active browser persona name chrome_sandbox enable chrome sandbox (disable in docker with --no-sandbox) chrome_resolution browser viewport resolution (width,height) chrome_user_agent user agent string for chrome chrome_cdp_url connect to an already-running browser over cdp instead of launching a new local chrome process chrome_is_local whether the managed browser process is local and should have a live chrome.pid marker chrome_keepalive keep the browser alive after the owning crawl/snapshot hook exits instead of closing it during cleanup chrome_isolation whether chrome runs as one shared browser per crawl or a separate browser per snapshot chrome_args default chrome command-line arguments (static flags only, dynamic args like --user-data-dir are added at runtime) chrome_args_extra extra arguments to append to chrome command (for user customization) chrome_pageload_timeout timeout for page navigation/load in seconds chrome_wait_for page load completion condition (domcontentloaded, load, networkidle0, networkidle2) chrome_delay_after_load extra delay in seconds after page load completes before archiving (useful for js-heavy spas) chrome_check_ssl_validity whether to verify ssl certificates (disable for self-signed certs)"
               data-hero-plugin="chrome"
               data-hero-abx-command="uvx abx-dl --plugins chrome 'https://example.com'"
               data-hero-archivebox-command="CHROME_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -4076,9 +4112,9 @@ providers: chromewebstore">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">node&gt;=22.12.0 <small>(env,apt,brew)</small></span>
-                        <span class="chip chip--binary-summary">playwright <small>(pnpm)</small></span>
-<span class="chip">+3 more</span>                      </div>
+                        <span class="chip chip--binary-summary">node&gt;=22.12.0 <small>(env,npm,apt,brew)</small></span>
+                        <span class="chip chip--binary-summary">abxbus&gt;=2.5.9 <small>(env,pnpm)</small></span>
+<span class="chip">+2 more</span>                      </div>
                       <div>
                         <span class="chip chip--mime chip--mime-text">text/plain</span>
                         <span class="chip chip--mime chip--mime-data">application/json</span>
@@ -4101,28 +4137,23 @@ providers: chromewebstore">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="node
-providers: env,apt,brew
+providers: env,npm,apt,brew
 min_version: 22.12.0">
                         <code>node</code>
-                        <small>providers=env,apt,brew</small>
+                        <small>providers=env,npm,apt,brew</small>
                         <small>min_version=22.12.0</small>
                       </span>
-                      <span class="chip chip--binary" title="playwright
-providers: pnpm">
-                        <code>playwright</code>
-                        <small>providers=pnpm</small>
-                      </span>
                       <span class="chip chip--binary" title="abxbus
-providers: pnpm
+providers: env,pnpm
 min_version: 2.5.9">
                         <code>abxbus</code>
-                        <small>providers=pnpm</small>
+                        <small>providers=env,pnpm</small>
                         <small>min_version=2.5.9</small>
                       </span>
                       <span class="chip chip--binary" title="browsers
-providers: pnpm">
+providers: env,pnpm">
                         <code>browsers</code>
-                        <small>providers=pnpm</small>
+                        <small>providers=env,pnpm</small>
                       </span>
                       <span class="chip chip--binary" title="chromium
 providers: env,playwright,puppeteer
@@ -4891,7 +4922,7 @@ min_version: 149.0.0">
             <details
               id="claudechrome"
               class="plugin-card plugin-card--snapshot"
-              data-search="claudechrome snapshot claude chrome use claude computer-use to interact with pages in chrome via cdp screenshots and the anthropic api. javascript snapshot embed fullscreen chrome {node_binary} claudechrome env,apt,brew chromewebstore   {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;fcoeoabgfenejglbffodgkkbkcdhcgfn&#34;, &#34;--name=claudechrome&#34;]}} application/json image/png on_crawlsetup__96_claudechrome_config.js on_snapshot__47_claudechrome.js claudechrome_enabled enable claude for chrome browser extension for ai-driven page interaction claudechrome_prompt prompt for claude to execute on the page. claude can click buttons, fill forms, download files, and interact with any page element. claudechrome_timeout timeout for claude for chrome operations in seconds claudechrome_model claude model to use (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001). availability depends on your plan. claudechrome_max_actions maximum number of agentic loop iterations (screenshots + actions) per page anthropic_api_key anthropic api key for claude for chrome authentication"
+              data-search="claudechrome snapshot claude chrome use claude computer-use to interact with pages in chrome via cdp screenshots and the anthropic api. javascript snapshot embed fullscreen chrome claudechrome env,chromewebstore  {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;fcoeoabgfenejglbffodgkkbkcdhcgfn&#34;, &#34;--name=claudechrome&#34;]}} application/json image/png on_crawlsetup__80_claudechrome_prepare.py on_crawlsetup__96_claudechrome_config.js on_snapshot__47_claudechrome.js claudechrome_enabled enable claude for chrome browser extension for ai-driven page interaction claudechrome_prompt prompt for claude to execute on the page. claude can click buttons, fill forms, download files, and interact with any page element. claudechrome_timeout timeout for claude for chrome operations in seconds claudechrome_model claude model to use (e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5-20251001). availability depends on your plan. claudechrome_max_actions maximum number of agentic loop iterations (screenshots + actions) per page anthropic_api_key anthropic api key for claude for chrome authentication"
               data-hero-plugin="claudechrome"
               data-hero-abx-command="uvx abx-dl --plugins claudechrome 'https://example.com'"
               data-hero-archivebox-command="CLAUDECHROME_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -4919,8 +4950,7 @@ min_version: 149.0.0">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">{NODE_BINARY} <small>(env,apt,brew)</small></span>
-                        <span class="chip chip--binary-summary">claudechrome <small>(chromewebstore)</small></span>
+                        <span class="chip chip--binary-summary">claudechrome <small>(env,chromewebstore)</small></span>
                       </div>
                       <div>
                         <span class="chip chip--mime chip--mime-data">application/json</span>
@@ -4949,15 +4979,10 @@ min_version: 149.0.0">
                   <article class="plugin-info-card">
                     <span>Required Binaries</span>
                     <div class="pill-list">
-                      <span class="chip chip--binary" title="{NODE_BINARY}
-providers: env,apt,brew">
-                        <code>{NODE_BINARY}</code>
-                        <small>providers=env,apt,brew</small>
-                      </span>
                       <span class="chip chip--binary" title="claudechrome
-providers: chromewebstore">
+providers: env,chromewebstore">
                         <code>claudechrome</code>
-                        <small>providers=chromewebstore</small>
+                        <small>providers=env,chromewebstore</small>
                       </span>
                     </div>
                   </article>
@@ -4983,6 +5008,22 @@ providers: chromewebstore">
 
                 <h3 class="section-title">Hook Scripts</h3>
                 <div class="hook-list">
+                  <article class="hook-card">
+                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/claudechrome/on_CrawlSetup__80_claudechrome_prepare.py" target="_blank" rel="noreferrer">on_CrawlSetup__80_claudechrome_prepare.py</a></span>
+                    <div class="hook-card-chips">
+                      <span class="plugin-language plugin-language--python" title="Python">
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                        </svg>
+                      </span>
+                      <span class="chip">order 80</span>
+                      <span class="chip chip--fg">foreground</span>
+                      <span class="hook-card-phase">CrawlSetup</span>
+                    </div>
+                  </article>
                   <article class="hook-card">
                     <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/claudechrome/on_CrawlSetup__96_claudechrome_config.js" target="_blank" rel="noreferrer">on_CrawlSetup__96_claudechrome_config.js</a></span>
                     <div class="hook-card-chips">
@@ -5093,7 +5134,7 @@ providers: chromewebstore">
             <details
               id="singlefile"
               class="plugin-card plugin-card--snapshot"
-              data-search="singlefile snapshot singlefile save a complete page as a single self-contained html file using the singlefile extension or cli. python snapshot embed chrome {singlefile_binary} singlefile env,pnpm chromewebstore   {&#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;single-file-cli@^1.1.54&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/singlefile&#34;}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;mpiodijhokgodhhofbcjdecpffjipkle&#34;, &#34;--name=singlefile&#34;]}} text/html on_snapshot__50_singlefile.py singlefile_enabled enable singlefile archiving singlefile_binary path to single-file binary singlefile_timeout timeout for singlefile in seconds singlefile_user_agent user agent string singlefile_cookies_file path to cookies file singlefile_check_ssl_validity whether to verify ssl certificates singlefile_chrome_args chrome command-line arguments for singlefile singlefile_args default single-file arguments singlefile_args_extra extra arguments to append to single-file command"
+              data-search="singlefile snapshot singlefile save a complete page as a single self-contained html file using the singlefile extension or cli. python snapshot embed chrome {singlefile_binary} singlefile env,pnpm env,chromewebstore   {&#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;single-file-cli@^1.1.54&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/singlefile&#34;}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;mpiodijhokgodhhofbcjdecpffjipkle&#34;, &#34;--name=singlefile&#34;]}} text/html on_crawlsetup__80_singlefile_prepare.py on_snapshot__50_singlefile.py singlefile_enabled enable singlefile archiving singlefile_binary path to single-file binary singlefile_timeout timeout for singlefile in seconds singlefile_user_agent user agent string singlefile_cookies_file path to cookies file singlefile_check_ssl_validity whether to verify ssl certificates singlefile_chrome_args chrome command-line arguments for singlefile singlefile_args default single-file arguments singlefile_args_extra extra arguments to append to single-file command"
               data-hero-plugin="singlefile"
               data-hero-abx-command="uvx abx-dl --plugins singlefile 'https://example.com'"
               data-hero-archivebox-command="SINGLEFILE_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -5123,7 +5164,7 @@ providers: chromewebstore">
                     <div class="plugin-summary-facts">
                       <div>
                         <span class="chip chip--binary-summary">single-file <small>(env,pnpm)</small></span>
-                        <span class="chip chip--binary-summary">singlefile <small>(chromewebstore)</small></span>
+                        <span class="chip chip--binary-summary">singlefile <small>(env,chromewebstore)</small></span>
                       </div>
                       <div>
                         <span class="chip chip--mime chip--mime-html">text/html</span>
@@ -5157,9 +5198,9 @@ providers: env,pnpm">
                         <small>providers=env,pnpm</small>
                       </span>
                       <span class="chip chip--binary" title="singlefile
-providers: chromewebstore">
+providers: env,chromewebstore">
                         <code>singlefile</code>
-                        <small>providers=chromewebstore</small>
+                        <small>providers=env,chromewebstore</small>
                       </span>
                     </div>
                   </article>
@@ -5184,6 +5225,22 @@ providers: chromewebstore">
 
                 <h3 class="section-title">Hook Scripts</h3>
                 <div class="hook-list">
+                  <article class="hook-card">
+                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/singlefile/on_CrawlSetup__80_singlefile_prepare.py" target="_blank" rel="noreferrer">on_CrawlSetup__80_singlefile_prepare.py</a></span>
+                    <div class="hook-card-chips">
+                      <span class="plugin-language plugin-language--python" title="Python">
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                        </svg>
+                      </span>
+                      <span class="chip">order 80</span>
+                      <span class="chip chip--fg">foreground</span>
+                      <span class="hook-card-phase">CrawlSetup</span>
+                    </div>
+                  </article>
                   <article class="hook-card">
                     <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/singlefile/on_Snapshot__50_singlefile.py" target="_blank" rel="noreferrer">on_Snapshot__50_singlefile.py</a></span>
                     <div class="hook-card-chips">
@@ -5309,7 +5366,7 @@ providers: chromewebstore">
             <details
               id="screenshot"
               class="plugin-card plugin-card--snapshot"
-              data-search="screenshot snapshot screenshot capture a png screenshot of the rendered page. javascript snapshot embed fullscreen chrome image/png on_snapshot__51_screenshot.js screenshot_enabled enable screenshot capture screenshot_timeout timeout for screenshot capture in seconds screenshot_resolution screenshot resolution (width,height)"
+              data-search="screenshot snapshot screenshot capture a png screenshot of the rendered page. javascript snapshot embed fullscreen chrome image/png on_snapshot__51_screenshot.js screenshot_enabled enable screenshot capture screenshot_timeout timeout for screenshot capture in seconds screenshot_wait_for_text wait for text to appear in the page or one of its child frames before capture screenshot_wait_for_frame_url when waiting for text, only inspect frames whose url contains this value screenshot_resolution screenshot resolution (width,height)"
               data-hero-plugin="screenshot"
               data-hero-abx-command="uvx abx-dl --plugins screenshot 'https://example.com'"
               data-hero-archivebox-command="SCREENSHOT_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -5431,6 +5488,24 @@ providers: chromewebstore">
 <br><small>min 5</small>                        </td>
                         <td>
 <small>fallback: <code>TIMEOUT</code></small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>SCREENSHOT_WAIT_FOR_TEXT</code><span class="config-key-desc">Wait for text to appear in the page or one of its child frames before capture</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>SCREENSHOT_WAIT_FOR_FRAME_URL</code><span class="config-key-desc">When waiting for text, only inspect frames whose URL contains this value</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
                         <td><code>SCREENSHOT_RESOLUTION</code><span class="config-key-desc">Screenshot resolution (width,height)</span></td>
@@ -6325,7 +6400,7 @@ providers: env,pnpm">
             <details
               id="mercury"
               class="plugin-card plugin-card--snapshot"
-              data-search="mercury snapshot mercury extract article html, text, and metadata using the postlight mercury parser. python snapshot embed {mercury_binary} pnpm,env  {&#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;--config.blockexoticsubdeps=false&#34;, &#34;@postlight/parser&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/mercury&#34;}} text/html text/plain application/json on_snapshot__57_mercury.py mercury_enabled enable mercury text extraction mercury_binary path to mercury/postlight parser binary mercury_timeout timeout for mercury in seconds mercury_args default mercury parser arguments mercury_args_extra extra arguments to append to mercury parser command"
+              data-search="mercury snapshot mercury extract article html, text, and metadata using the postlight mercury parser. python snapshot embed {mercury_binary} env,pnpm  {&#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;--config.blockexoticsubdeps=false&#34;, &#34;@postlight/parser&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/mercury&#34;, &#34;postinstall_scripts&#34;: true}} text/html text/plain application/json on_snapshot__57_mercury.py mercury_enabled enable mercury text extraction mercury_binary path to mercury/postlight parser binary mercury_timeout timeout for mercury in seconds mercury_args default mercury parser arguments mercury_args_extra extra arguments to append to mercury parser command"
               data-hero-plugin="mercury"
               data-hero-abx-command="uvx abx-dl --plugins mercury 'https://example.com'"
               data-hero-archivebox-command="MERCURY_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -6354,7 +6429,7 @@ providers: env,pnpm">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">postlight-parser <small>(pnpm,env)</small></span>
+                        <span class="chip chip--binary-summary">postlight-parser <small>(env,pnpm)</small></span>
                       </div>
                       <div>
                         <span class="chip chip--mime chip--mime-html">text/html</span>
@@ -6379,9 +6454,9 @@ providers: env,pnpm">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="postlight-parser
-providers: pnpm,env">
+providers: env,pnpm">
                         <code>postlight-parser</code>
-                        <small>providers=pnpm,env</small>
+                        <small>providers=env,pnpm</small>
                       </span>
                     </div>
                   </article>
@@ -6626,7 +6701,7 @@ providers: pnpm,env">
                       </tr>
                       <tr>
                         <td><code>CLAUDECODEEXTRACT_PROMPT</code><span class="config-key-desc">Custom prompt for Claude Code extraction. Use this to define what Claude should extract or generate from the snapshot.</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;Read all the previously extracted outputs in this snapshot directory (readability/, mercury/, defuddle/, htmltotext/, dom/, singlefile/, etc.). Using the best available source, generate a clean, well-formatted Markdown representation of the page content. Save the output as content.md in your output directory.&quot;</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;Create content.md in your output directory. Prefer readability/content.txt when it exists; otherwise read dom/output.html. Write clean Markdown for the archived page content. Stop after content.md has been written.&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
@@ -6786,7 +6861,7 @@ providers: pnpm,env">
             <details
               id="trafilatura"
               class="plugin-card plugin-card--snapshot"
-              data-search="trafilatura snapshot trafilatura extract article content from archived html into text, markdown, html, csv, json, and xml formats. python snapshot {trafilatura_binary} uv,env  {&#34;uv&#34;: {&#34;install_args&#34;: [&#34;trafilatura&#34;]}} text/plain text/markdown text/html text/csv application/json application/xml application/tei+xml on_snapshot__59_trafilatura.py trafilatura_enabled enable trafilatura extraction trafilatura_binary path to trafilatura binary trafilatura_timeout timeout for trafilatura in seconds trafilatura_output_formats comma-separated trafilatura output formats to write (txt, markdown, html, csv, json, xml, xmltei)"
+              data-search="trafilatura snapshot trafilatura extract article content from archived html into text, markdown, html, csv, json, and xml formats. python snapshot {trafilatura_binary} env,uv  {&#34;uv&#34;: {&#34;install_args&#34;: [&#34;trafilatura&#34;], &#34;postinstall_scripts&#34;: true}} text/plain text/markdown text/html text/csv application/json application/xml application/tei+xml on_snapshot__59_trafilatura.py trafilatura_enabled enable trafilatura extraction trafilatura_binary path to trafilatura binary trafilatura_timeout timeout for trafilatura in seconds trafilatura_output_formats comma-separated trafilatura output formats to write (txt, markdown, html, csv, json, xml, xmltei)"
               data-hero-plugin="trafilatura"
               data-hero-abx-command="uvx abx-dl --plugins trafilatura 'https://example.com'"
               data-hero-archivebox-command="TRAFILATURA_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -6814,7 +6889,7 @@ providers: pnpm,env">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">trafilatura <small>(uv,env)</small></span>
+                        <span class="chip chip--binary-summary">trafilatura <small>(env,uv)</small></span>
                       </div>
                       <div>
                         <span class="chip chip--mime chip--mime-text">text/plain</span>
@@ -6840,9 +6915,9 @@ providers: pnpm,env">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="trafilatura
-providers: uv,env">
+providers: env,uv">
                         <code>trafilatura</code>
-                        <small>providers=uv,env</small>
+                        <small>providers=env,uv</small>
                       </span>
                     </div>
                   </article>
@@ -6953,7 +7028,7 @@ providers: uv,env">
             <details
               id="opendataloader"
               class="plugin-card plugin-card--snapshot"
-              data-search="opendataloader snapshot opendataloader extract structured text, tables, and metadata from pdfs using opendataloader-pdf. supports ocr for scanned pdfs via hybrid backend. python snapshot {opendataloader_binary} {opendataloader_java_binary} uv,env env,apt,brew  11.0.0 {&#34;uv&#34;: {&#34;install_args&#34;: [&#34;opendataloader-pdf&#34;]}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;default-jre-headless&#34;]}, &#34;brew&#34;: {&#34;install_args&#34;: [&#34;openjdk&#34;]}} text/plain text/markdown application/json on_snapshot__60_opendataloader.py opendataloader_enabled enable pdf text extraction with opendataloader-pdf opendataloader_binary path to opendataloader-pdf binary opendataloader_java_binary path to the java runtime used by opendataloader-pdf opendataloader_timeout timeout for pdf extraction in seconds opendataloader_force_ocr use hybrid ocr backend (--hybrid docling-fast) for scanned/image-based pdfs. requires opendataloader-pdf-hybrid server running. opendataloader_hybrid_url url of the opendataloader-pdf-hybrid server (e.g. http://localhost:5002). if empty, uses the default built-in url. opendataloader_args default opendataloader-pdf arguments opendataloader_args_extra extra arguments to append to opendataloader-pdf command"
+              data-search="opendataloader snapshot opendataloader extract structured text, tables, and metadata from pdfs using opendataloader-pdf. supports ocr for scanned pdfs via hybrid backend. python snapshot {opendataloader_binary} {opendataloader_java_binary} env,uv env,apt,brew  11.0.0 {&#34;uv&#34;: {&#34;install_args&#34;: [&#34;opendataloader-pdf&#34;], &#34;postinstall_scripts&#34;: true}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;default-jre-headless&#34;]}, &#34;brew&#34;: {&#34;install_args&#34;: [&#34;openjdk&#34;]}} text/plain text/markdown application/json on_snapshot__60_opendataloader.py opendataloader_enabled enable pdf text extraction with opendataloader-pdf opendataloader_binary path to opendataloader-pdf binary opendataloader_java_binary path to the java runtime used by opendataloader-pdf opendataloader_timeout timeout for pdf extraction in seconds opendataloader_force_ocr use hybrid ocr backend (--hybrid docling-fast) for scanned/image-based pdfs. requires opendataloader-pdf-hybrid server running. opendataloader_hybrid_url url of the opendataloader-pdf-hybrid server (e.g. http://localhost:5002). if empty, uses the default built-in url. opendataloader_args default opendataloader-pdf arguments opendataloader_args_extra extra arguments to append to opendataloader-pdf command"
               data-hero-plugin="opendataloader"
               data-hero-abx-command="uvx abx-dl --plugins opendataloader 'https://example.com'"
               data-hero-archivebox-command="OPENDATALOADER_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -6981,7 +7056,7 @@ providers: uv,env">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">opendataloader-pdf <small>(uv,env)</small></span>
+                        <span class="chip chip--binary-summary">opendataloader-pdf <small>(env,uv)</small></span>
                         <span class="chip chip--binary-summary">java&gt;=11.0.0 <small>(env,apt,brew)</small></span>
                       </div>
                       <div>
@@ -7007,9 +7082,9 @@ providers: uv,env">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="opendataloader-pdf
-providers: uv,env">
+providers: env,uv">
                         <code>opendataloader-pdf</code>
-                        <small>providers=uv,env</small>
+                        <small>providers=env,uv</small>
                       </span>
                       <span class="chip chip--binary" title="java
 providers: env,apt,brew
@@ -7480,7 +7555,7 @@ min_version: 6.0.0">
             <details
               id="archivewebpage"
               class="plugin-card plugin-card--snapshot"
-              data-search="archivewebpage snapshot archiveweb.page record a high-fidelity wacz web archive of the page using the webrecorder archiveweb.page chrome extension. javascript snapshot embed fullscreen chrome archivewebpage chromewebstore  {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;fpeoodllldobpkbkabpblcfaogecpndd&#34;, &#34;--name=archivewebpage&#34;]}} application/wacz+zip application/wacz on_snapshot__16_archivewebpage_start.js on_snapshot__65_archivewebpage_stop.js archivewebpage_enabled enable archiveweb.page wacz recording during archiving archivewebpage_timeout maximum seconds to wait for the wacz download after stopping recording archivewebpage_hook_budget_ms soft per-hook latency budget in ms (start/stop hooks try to finish within this; not a hard cutoff for large captures) archivewebpage_autorun_behaviors run awp behaviors (autopilot) during recording. off by default since infiniscroll/other plugins drive page actions. archivewebpage_collection_title collection title to use when awp has no default collection yet"
+              data-search="archivewebpage snapshot archiveweb.page record a high-fidelity wacz web archive of the page using the webrecorder archiveweb.page chrome extension. javascript snapshot embed fullscreen chrome archivewebpage env,chromewebstore  {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;fpeoodllldobpkbkabpblcfaogecpndd&#34;, &#34;--name=archivewebpage&#34;]}} application/wacz+zip application/wacz on_crawlsetup__80_archivewebpage_prepare.py on_snapshot__16_archivewebpage_start.js on_snapshot__65_archivewebpage_stop.js archivewebpage_enabled enable archiveweb.page wacz recording during archiving archivewebpage_timeout maximum seconds to wait for the wacz download after stopping recording archivewebpage_hook_budget_ms soft per-hook latency budget in ms (start/stop hooks try to finish within this; not a hard cutoff for large captures) archivewebpage_autorun_behaviors run awp behaviors (autopilot) during recording. off by default since infiniscroll/other plugins drive page actions. archivewebpage_collection_title collection title to use when awp has no default collection yet"
               data-hero-plugin="archivewebpage"
               data-hero-abx-command="uvx abx-dl --plugins archivewebpage 'https://example.com'"
               data-hero-archivebox-command="ARCHIVEWEBPAGE_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -7508,7 +7583,7 @@ min_version: 6.0.0">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">archivewebpage <small>(chromewebstore)</small></span>
+                        <span class="chip chip--binary-summary">archivewebpage <small>(env,chromewebstore)</small></span>
                       </div>
                       <div>
                         <span class="chip chip--mime chip--mime-binary">application/wacz+zip</span>
@@ -7538,9 +7613,9 @@ min_version: 6.0.0">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="archivewebpage
-providers: chromewebstore">
+providers: env,chromewebstore">
                         <code>archivewebpage</code>
-                        <small>providers=chromewebstore</small>
+                        <small>providers=env,chromewebstore</small>
                       </span>
                     </div>
                   </article>
@@ -7566,6 +7641,22 @@ providers: chromewebstore">
 
                 <h3 class="section-title">Hook Scripts</h3>
                 <div class="hook-list">
+                  <article class="hook-card">
+                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/archivewebpage/on_CrawlSetup__80_archivewebpage_prepare.py" target="_blank" rel="noreferrer">on_CrawlSetup__80_archivewebpage_prepare.py</a></span>
+                    <div class="hook-card-chips">
+                      <span class="plugin-language plugin-language--python" title="Python">
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                        </svg>
+                      </span>
+                      <span class="chip">order 80</span>
+                      <span class="chip chip--fg">foreground</span>
+                      <span class="hook-card-phase">CrawlSetup</span>
+                    </div>
+                  </article>
                   <article class="hook-card">
                     <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/archivewebpage/on_Snapshot__16_archivewebpage_start.js" target="_blank" rel="noreferrer">on_Snapshot__16_archivewebpage_start.js</a></span>
                     <div class="hook-card-chips">
@@ -7667,7 +7758,7 @@ providers: chromewebstore">
             <details
               id="papersdl"
               class="plugin-card plugin-card--snapshot"
-              data-search="papersdl snapshot papers-dl fetch downloadable academic papers from paper urls and doi targets. python snapshot embed fullscreen {papersdl_binary} uv,env  {&#34;uv&#34;: {&#34;install_args&#34;: [&#34;--no-deps&#34;, &#34;--only-binary=pymupdf&#34;, &#34;papers-dl==0.0.25&#34;, &#34;aiohttp&gt;=3.13.2&#34;, &#34;aiohappyeyeballs&gt;=2.5.0&#34;, &#34;aiosignal&gt;=1.4.0&#34;, &#34;attrs&gt;=17.3.0&#34;, &#34;frozenlist&gt;=1.1.1&#34;, &#34;multidict&gt;=4.5,&lt;7.0&#34;, &#34;propcache&gt;=0.2.0&#34;, &#34;typing-extensions&gt;=4.12.2&#34;, &#34;yarl&gt;=1.17.0,&lt;2.0&#34;, &#34;beautifulsoup4==4.12.3&#34;, &#34;bs4==0.0.2&#34;, &#34;certifi==2024.2.2&#34;, &#34;cffi&gt;=1.16.0&#34;, &#34;charset-normalizer==3.3.2&#34;, &#34;cryptography==42.0.5&#34;, &#34;easygui==0.98.3&#34;, &#34;feedparser==6.0.11&#34;, &#34;google==3.0.0&#34;, &#34;idna==3.6&#34;, &#34;loguru==0.7.2&#34;, &#34;pdf2doi==1.5.1&#34;, &#34;pdfminer.six==20221105&#34;, &#34;pdftitle==0.11&#34;, &#34;pycparser==2.21&#34;, &#34;pymupdf&gt;=1.23.26&#34;, &#34;pypdf2==2.0.0&#34;, &#34;pyperclip==1.8.2&#34;, &#34;requests==2.31.0&#34;, &#34;retrying==1.3.4&#34;, &#34;sgmllib3k==1.0.0&#34;, &#34;six==1.16.0&#34;, &#34;soupsieve==2.5&#34;, &#34;urllib3==2.2.1&#34;, &#34;w3lib==2.1.2&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/uv/packages/papers-dl&#34;}} application/pdf on_snapshot__66_papersdl.finite.bg.py papersdl_enabled enable paper downloading with papers-dl papersdl_binary path to papers-dl binary papersdl_timeout timeout for paper downloads in seconds papersdl_args default papers-dl arguments papersdl_args_extra extra arguments to append to papers-dl command"
+              data-search="papersdl snapshot papers-dl fetch downloadable academic papers from paper urls and doi targets. python snapshot embed fullscreen {papersdl_binary} env,uv  {&#34;uv&#34;: {&#34;install_args&#34;: [&#34;--no-deps&#34;, &#34;--only-binary=pymupdf&#34;, &#34;papers-dl==0.0.25&#34;, &#34;aiohttp&gt;=3.13.2&#34;, &#34;aiohappyeyeballs&gt;=2.5.0&#34;, &#34;aiosignal&gt;=1.4.0&#34;, &#34;attrs&gt;=17.3.0&#34;, &#34;frozenlist&gt;=1.1.1&#34;, &#34;multidict&gt;=4.5,&lt;7.0&#34;, &#34;propcache&gt;=0.2.0&#34;, &#34;typing-extensions&gt;=4.12.2&#34;, &#34;yarl&gt;=1.17.0,&lt;2.0&#34;, &#34;beautifulsoup4==4.12.3&#34;, &#34;bs4==0.0.2&#34;, &#34;certifi==2024.2.2&#34;, &#34;cffi&gt;=1.16.0&#34;, &#34;charset-normalizer==3.3.2&#34;, &#34;cryptography==42.0.5&#34;, &#34;easygui==0.98.3&#34;, &#34;feedparser==6.0.11&#34;, &#34;google==3.0.0&#34;, &#34;idna==3.6&#34;, &#34;loguru==0.7.2&#34;, &#34;pdf2doi==1.5.1&#34;, &#34;pdfminer.six==20221105&#34;, &#34;pdftitle==0.11&#34;, &#34;pycparser==2.21&#34;, &#34;pymupdf&gt;=1.23.26&#34;, &#34;pypdf2==2.0.0&#34;, &#34;pyperclip==1.8.2&#34;, &#34;requests==2.31.0&#34;, &#34;retrying==1.3.4&#34;, &#34;sgmllib3k==1.0.0&#34;, &#34;six==1.16.0&#34;, &#34;soupsieve==2.5&#34;, &#34;urllib3==2.2.1&#34;, &#34;w3lib==2.1.2&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/uv/packages/papers-dl&#34;, &#34;postinstall_scripts&#34;: true}} application/pdf on_snapshot__66_papersdl.finite.bg.py papersdl_enabled enable paper downloading with papers-dl papersdl_binary path to papers-dl binary papersdl_timeout timeout for paper downloads in seconds papersdl_args default papers-dl arguments papersdl_args_extra extra arguments to append to papers-dl command"
               data-hero-plugin="papersdl"
               data-hero-abx-command="uvx abx-dl --plugins papersdl 'https://example.com'"
               data-hero-archivebox-command="PAPERSDL_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -7697,7 +7788,7 @@ providers: chromewebstore">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">papers-dl <small>(uv,env)</small></span>
+                        <span class="chip chip--binary-summary">papers-dl <small>(env,uv)</small></span>
                       </div>
                       <div>
                         <span class="chip chip--mime chip--mime-doc">application/pdf</span>
@@ -7720,9 +7811,9 @@ providers: chromewebstore">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="papers-dl
-providers: uv,env">
+providers: env,uv">
                         <code>papers-dl</code>
-                        <small>providers=uv,env</small>
+                        <small>providers=env,uv</small>
                       </span>
                     </div>
                   </article>
@@ -8072,7 +8163,7 @@ providers: uv,env">
             <details
               id="parse_rss_urls"
               class="plugin-card plugin-card--snapshot"
-              data-search="parse_rss_urls snapshot parse rss urls parse rss and atom feeds and emit discovered entry urls as jsonl snapshot records. python snapshot feedparser uv  {&#34;uv&#34;: {&#34;install_args&#34;: [&#34;feedparser&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/uv/packages/parse_rss_urls&#34;}} application/x-ndjson on_snapshot__72_parse_rss_urls.py parse_rss_urls_enabled enable rss/atom feed url parsing"
+              data-search="parse_rss_urls snapshot parse rss urls parse rss and atom feeds and emit discovered entry urls as jsonl snapshot records. python snapshot feedparser env,uv  {&#34;uv&#34;: {&#34;install_args&#34;: [&#34;feedparser&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/uv/packages/parse_rss_urls&#34;, &#34;postinstall_scripts&#34;: true}} application/x-ndjson on_snapshot__72_parse_rss_urls.py parse_rss_urls_enabled enable rss/atom feed url parsing"
               data-hero-plugin="parse_rss_urls"
               data-hero-abx-command="uvx abx-dl --plugins parse_rss_urls 'https://example.com'"
               data-hero-archivebox-command="PARSE_RSS_URLS_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -8100,7 +8191,7 @@ providers: uv,env">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">feedparser <small>(uv)</small></span>
+                        <span class="chip chip--binary-summary">feedparser <small>(env,uv)</small></span>
                       </div>
                       <div>
                         <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
@@ -8123,9 +8214,9 @@ providers: uv,env">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="feedparser
-providers: uv">
+providers: env,uv">
                         <code>feedparser</code>
-                        <small>providers=uv</small>
+                        <small>providers=env,uv</small>
                       </span>
                     </div>
                   </article>
@@ -8713,7 +8804,7 @@ providers: uv">
             <details
               id="search_backend_sonic"
               class="plugin-card plugin-card--snapshot"
-              data-search="search_backend_sonic snapshot sonic search index archived snapshot content into a sonic search backend. python snapshot {sonic_binary} env,apt,brew,cargo  {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;sonic&#34;]}, &#34;brew&#34;: {&#34;install_args&#34;: [&#34;sonic&#34;]}, &#34;cargo&#34;: {&#34;install_args&#34;: [&#34;sonic-server&#34;]}} on_snapshot__91_index_sonic.py search_backend_sonic_enabled index archived snapshots into the sonic search backend. sonic_binary path to sonic server binary sonic_dir directory used to store the sonic config, logs, and index data search_backend_sonic_host_name sonic server hostname search_backend_sonic_port sonic server port search_backend_sonic_password sonic server password search_backend_sonic_collection sonic collection name search_backend_sonic_bucket sonic bucket name"
+              data-search="search_backend_sonic snapshot sonic search index archived snapshot content into a sonic search backend. python snapshot {sonic_binary} env,brew,cargo  {&#34;brew&#34;: {&#34;install_args&#34;: [&#34;sonic&#34;]}, &#34;cargo&#34;: {&#34;install_args&#34;: [&#34;sonic-server&#34;]}} on_snapshot__91_index_sonic.py search_backend_sonic_enabled index archived snapshots into the sonic search backend. sonic_binary path to sonic server binary sonic_dir directory used to store the sonic config, logs, and index data search_backend_sonic_host_name sonic server hostname search_backend_sonic_port sonic server port search_backend_sonic_password sonic server password search_backend_sonic_collection sonic collection name search_backend_sonic_bucket sonic bucket name"
               data-hero-plugin="search_backend_sonic"
               data-hero-abx-command="uvx abx-dl --plugins search_backend_sonic 'https://example.com'"
               data-hero-archivebox-command="SEARCH_BACKEND_SONIC_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -8741,7 +8832,7 @@ providers: uv">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">sonic <small>(env,apt,brew,cargo)</small></span>
+                        <span class="chip chip--binary-summary">sonic <small>(env,brew,cargo)</small></span>
                       </div>
                     </div>
                   </div>
@@ -8761,9 +8852,9 @@ providers: uv">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       <span class="chip chip--binary" title="sonic
-providers: env,apt,brew,cargo">
+providers: env,brew,cargo">
                         <code>sonic</code>
-                        <small>providers=env,apt,brew,cargo</small>
+                        <small>providers=env,brew,cargo</small>
                       </span>
                     </div>
                   </article>
@@ -9027,7 +9118,7 @@ providers: env,apt,brew,cargo">
                       </tr>
                       <tr>
                         <td><code>CLAUDECODECLEANUP_PROMPT</code><span class="config-key-desc">Custom prompt for Claude Code cleanup. Defines what Claude should clean up and how to determine which duplicates to keep.</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;Analyze all the extractor output directories in this snapshot. Look for duplicate or redundant outputs across plugins (e.g. multiple HTML extractions, multiple text extractions, multiple URL extraction outputs, etc.). For each group of similar outputs, inspect the content and determine which version is the best quality. Delete the inferior/redundant versions, keeping only the best one. Also remove any unnecessary temporary files, empty directories, or incomplete outputs. Write a summary of what you cleaned up to cleanup_report.txt in your output directory.&quot;</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;Use the deterministic inventory supplied below; do not inventory the snapshot again. From that evidence, keep the best output in each redundant group and select deletion ids only for clearly inferior duplicates, incomplete or failed outputs, and empty directories; when uncertain, keep the output. Never request deletion of hashes/, claudecodecleanup/, JSON metadata, or ArchiveBox process-control files. Return a concise report naming every extractor directory considered, every requested deletion, and every retained duplicate group.&quot;</span></td>
                         <td>
                           <code>string</code>
                         </td>
@@ -9623,7 +9714,7 @@ providers: env,pnpm">
             <details
               id="opencode"
               class="plugin-card"
-              data-search="opencode opencode agent expose an admin-only embedded opencode web agent ui for archivebox. {node_binary} {opencode_binary} env,apt,brew env,pnpm   {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;opencode-ai&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/opencode&#34;}} node_binary path to node.js binary opencode_enabled enable the admin-only /admin/agent opencode web ui route opencode_binary path to opencode cli binary opencode_host host for the local opencode web server opencode_port port for the local opencode web server opencode_workdir working directory for opencode. defaults to the archivebox data directory opencode_state_dir directory for opencode config, state, cache, sessions, and editable archivebox skill at skill.md. defaults to data_dir/opencode opencode_timeout seconds to wait for opencode startup and proxied requests"
+              data-search="opencode opencode agent expose an admin-only embedded opencode web agent ui for archivebox. {node_binary} {npm_binary} {git_binary} {opencode_binary} env,apt,brew env,apt,brew env,apt,brew env,pnpm     {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;npm&#34;]}, &#34;brew&#34;: {&#34;install_args&#34;: [&#34;node&#34;]}} {&#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;opencode-ai@1.17.15&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/opencode&#34;, &#34;postinstall_scripts&#34;: true}} node_binary path to node.js binary npm_binary path to npm binary used by opencode postinstall to fetch the platform cli package git_binary path to git binary used by opencode project initialization opencode_enabled enable the admin-only /admin/agent opencode web ui route opencode_binary path to opencode cli binary opencode_host host for the local opencode web server opencode_port port for the local opencode web server opencode_workdir working directory for opencode. defaults to the archivebox data directory opencode_state_dir directory for opencode config, state, cache, sessions, and editable archivebox skill at skill.md. defaults to data_dir/opencode opencode_timeout seconds to wait for opencode startup and proxied requests"
               data-hero-plugin="opencode"
               data-hero-abx-command="uvx abx-dl plugins opencode"
               data-hero-archivebox-command="archivebox add &#39;https://example.com&#39;"
@@ -9642,8 +9733,8 @@ providers: env,pnpm">
                     <div class="plugin-summary-facts">
                       <div>
                         <span class="chip chip--binary-summary">node <small>(env,apt,brew)</small></span>
-                        <span class="chip chip--binary-summary">opencode <small>(env,pnpm)</small></span>
-                      </div>
+                        <span class="chip chip--binary-summary">npm <small>(env,apt,brew)</small></span>
+<span class="chip">+2 more</span>                      </div>
                     </div>
                   </div>
                 </div>
@@ -9664,6 +9755,16 @@ providers: env,pnpm">
                       <span class="chip chip--binary" title="node
 providers: env,apt,brew">
                         <code>node</code>
+                        <small>providers=env,apt,brew</small>
+                      </span>
+                      <span class="chip chip--binary" title="npm
+providers: env,apt,brew">
+                        <code>npm</code>
+                        <small>providers=env,apt,brew</small>
+                      </span>
+                      <span class="chip chip--binary" title="git
+providers: env,apt,brew">
+                        <code>git</code>
                         <small>providers=env,apt,brew</small>
                       </span>
                       <span class="chip chip--binary" title="opencode
@@ -9717,8 +9818,26 @@ providers: env,pnpm">
 <span class="config-table-muted">—</span>                        </td>
                       </tr>
                       <tr>
+                        <td><code>NPM_BINARY</code><span class="config-key-desc">Path to npm binary used by OpenCode postinstall to fetch the platform CLI package</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;npm&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>GIT_BINARY</code><span class="config-key-desc">Path to Git binary used by OpenCode project initialization</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;git&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
                         <td><code>OPENCODE_ENABLED</code><span class="config-key-desc">Enable the admin-only /admin/agent OpenCode web UI route</span></td>
-                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
+                        <td class="cfg-default"><span class="cfg-bool-false">false</span></td>
                         <td>
                           <code>boolean</code>
                         </td>
@@ -10166,7 +10285,7 @@ providers: env,apt,brew">
 
           <div class="footer-meta">
             <span>Generated from <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">ArchiveBox/abx-plugins</a> at ref <code>main</code>.</span>
-            <span>Updated 2026-07-20 17:24 UTC</span>
+            <span>Updated 2026-07-29 11:27 UTC</span>
           </div>
         </div>
       </footer>

@@ -274,6 +274,28 @@ publish_to_pypi() (
     "${UV_BINARY}" publish --trusted-publishing always "${artifacts[@]}"
 )
 
+verify_published_wheel_installs() {
+    local version="$1" wheel_url
+    wheel_url="$("${UV_BINARY}" run --no-cache --no-project python - "${version}" <<'PY'
+import json
+import sys
+import urllib.request
+
+version = sys.argv[1]
+with urllib.request.urlopen(f"https://pypi.org/pypi/abx-plugins/{version}/json", timeout=20) as response:
+    data = json.load(response)
+print(next(url["url"] for url in data["urls"] if url["filename"].endswith(".whl")))
+PY
+)"
+    "${UV_BINARY}" run --no-cache --isolated --no-project --with "${wheel_url}" python - <<'PY'
+from abx_plugins import get_plugins_dir
+
+plugins_dir = get_plugins_dir()
+if not plugins_dir.is_dir():
+    raise SystemExit(f"Missing bundled plugins dir: {plugins_dir}")
+PY
+}
+
 create_release() {
     local slug="$1" version="$2" sha="$3"
     local release_args=()
@@ -360,6 +382,7 @@ main() {
     create_release "${slug}" "${version}" "${release_sha}"
     "${GH_BINARY}" release upload "${TAG_PREFIX}${version}" --repo "${slug}" \
         "${artifact_dir}"/abx_plugins-*.whl "${artifact_dir}"/abx_plugins-*.tar.gz "${artifact_dir}"/SHA256SUMS --clobber
+    verify_published_wheel_installs "${version}"
     echo "Released ${PYPI_PACKAGE} ${version} from ${release_sha}"
 }
 
