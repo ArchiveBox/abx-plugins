@@ -45,7 +45,7 @@
   "properties": {
     "OPENDATALOADER_ENABLED": {
       "type": "boolean",
-      "default": false,
+      "default": true,
       "x-aliases": [
         "SAVE_OPENDATALOADER",
         "USE_OPENDATALOADER"

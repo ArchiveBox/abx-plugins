@@ -17,7 +17,7 @@
   "properties": {
     "CLAUDECODECLEANUP_ENABLED": {
       "type": "boolean",
-      "default": false,
+      "default": true,
       "x-aliases": [
         "USE_CLAUDECODECLEANUP"
       ],
