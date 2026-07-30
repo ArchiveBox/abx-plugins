@@ -70,6 +70,37 @@ function staticfilePrenavReady(filePath) {
 async function waitForPreloadHooks(timeoutMs) {
   const preloadHooks = [
     {
+      name: "consolelog",
+      dir: path.join(SNAP_DIR, "consolelog"),
+      readyFile: path.join(SNAP_DIR, "consolelog", "console.jsonl"),
+      timeoutMs:
+        getEnvInt("CONSOLELOG_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000,
+      ready: (filePath) => fs.existsSync(filePath),
+    },
+    {
+      name: "dns",
+      dir: path.join(SNAP_DIR, "dns"),
+      readyFile: path.join(SNAP_DIR, "dns", "dns.jsonl"),
+      timeoutMs: getEnvInt("DNS_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000,
+      ready: (filePath) => fs.existsSync(filePath),
+    },
+    {
+      name: "sslcerts",
+      dir: path.join(SNAP_DIR, "sslcerts"),
+      readyFile: path.join(SNAP_DIR, "sslcerts", "sslcerts.jsonl"),
+      timeoutMs:
+        getEnvInt("SSLCERTS_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000,
+      ready: (filePath) => fs.existsSync(filePath),
+    },
+    {
+      name: "redirects",
+      dir: path.join(SNAP_DIR, "redirects"),
+      readyFile: path.join(SNAP_DIR, "redirects", "prenav.json"),
+      timeoutMs:
+        getEnvInt("REDIRECTS_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000,
+      ready: staticfilePrenavReady,
+    },
+    {
       name: "responses",
       dir: path.join(SNAP_DIR, "responses"),
       readyFile: path.join(SNAP_DIR, "responses", "index.jsonl"),

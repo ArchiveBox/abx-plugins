@@ -553,12 +553,14 @@ async function main() {
   }
 
   if (!getEnvBool("SSLCERTS_ENABLED", true)) {
+    fs.writeFileSync(path.join(OUTPUT_DIR, OUTPUT_FILE), "");
     console.error("Skipping (SSLCERTS_ENABLED=False)");
     emitArchiveResultRecord("skipped", "SSLCERTS_ENABLED=False");
     process.exit(0);
   }
 
   if (!url.startsWith("https://")) {
+    fs.writeFileSync(path.join(OUTPUT_DIR, OUTPUT_FILE), "");
     emitArchiveResultRecord("noresults", "URL is not HTTPS");
     process.exit(0);
   }

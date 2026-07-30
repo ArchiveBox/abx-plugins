@@ -179,9 +179,6 @@ async function setupListener(targetUrl) {
   primaryHostname = extractHostname(targetUrl) || "";
   configuredNameservers = getConfiguredNameservers();
 
-  // Initialize output file
-  fs.writeFileSync(outputPath, "");
-
   // Track seen hostname -> IP mappings to avoid duplicates per request
   const seenResolutions = new Map();
   // Track request IDs to their URLs for correlation
@@ -193,9 +190,6 @@ async function setupListener(targetUrl) {
     timeoutMs: timeout,
     puppeteer,
   });
-
-  // Enable network domain to receive events
-  await client.send("Network.enable");
 
   // Listen for request events to track URLs
   client.on("Network.requestWillBeSent", (params) => {
@@ -291,6 +285,11 @@ async function setupListener(targetUrl) {
       // Ignore errors
     }
   });
+
+  // Enable events only after every listener is attached, then publish the
+  // output file as the pre-navigation readiness marker.
+  await client.send("Network.enable");
+  fs.writeFileSync(outputPath, "");
 
   return { browser, page, client, seenResolutions };
 }
