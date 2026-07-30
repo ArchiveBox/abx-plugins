@@ -1,0 +1,35 @@
+abx_plugins/plugins/forumdl/on_Snapshot__04_forumdl.finite.bg.py
+  s_f8414d52051f83::t_c9d6f92c373ceb 192-193
+abx_plugins/plugins/favicon/on_Snapshot__11_favicon.finite.bg.py
+  s_f8414d52051f83::t_c9d6f92c373ceb 210-211
+abx_plugins/plugins/wget/on_Snapshot__06_wget.finite.bg.py
+  s_f8414d52051f83::t_c9d6f92c373ceb 184-185
+abx_plugins/plugins/ytdlp/on_Snapshot__02_ytdlp.finite.bg.py
+  s_f8414d52051f83::t_c9d6f92c373ceb 309-310
+abx_plugins/plugins/gallerydl/on_Snapshot__03_gallerydl.finite.bg.py
+  s_f8414d52051f83::t_c9d6f92c373ceb 226-227
+abx_plugins/plugins/papersdl/on_Snapshot__66_papersdl.finite.bg.py
+  s_f8414d52051f83::t_c9d6f92c373ceb 221-222
+pyproject.toml
+  s_f8414d52051f83::t_23508616e0e003 3
+abx_plugins/plugins/archivedotorg/on_Snapshot__08_archivedotorg.finite.bg.py
+  s_f8414d52051f83::t_c9d6f92c373ceb 178-179
+abx_plugins/plugins/git/on_Snapshot__05_git.finite.bg.py
+  s_f8414d52051f83::t_c9d6f92c373ceb 210-211
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.17",
+  "base_commit_sha": "2f050771eb2ae804cb160b0f86588420969ec4bb",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
