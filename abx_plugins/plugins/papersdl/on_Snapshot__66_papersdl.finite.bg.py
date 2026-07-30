@@ -230,6 +230,7 @@ def main(url: str):
         binary = config.PAPERSDL_BINARY
 
         # Run extraction
+        print("papers-dl search started")
         success, downloaded_count, error = save_paper(url, binary)
 
         if success:

@@ -130,7 +130,7 @@ async function cleanup() {
     cleanupRequestedDuringLaunch && chromeProcessIsLocal;
   cleanupPromise = (async () => {
     if (shouldCloseOnCleanup || cleanupDuringLocalLaunch) {
-      console.log(`shutting down ${CHROME_BINARY} cleanly...`);
+      console.error(`shutting down ${CHROME_BINARY} cleanly...`);
       const closed = await closeBrowserInChromeSession({
         cdpUrl: chromeCdpUrl,
         pid: chromePid,
@@ -144,8 +144,8 @@ async function cleanup() {
         );
         process.exit(1);
       }
-      console.log(`${CHROME_BINARY} exited successfully`);
-      console.log(JSON.stringify({ succeeded: true, skipped: false })); // we launched and we killed it (nothing was skipped)
+      console.error(`${CHROME_BINARY} exited successfully`);
+      console.error(JSON.stringify({ succeeded: true, skipped: false })); // we launched and we killed it (nothing was skipped)
     } else {
       if (!chromeCdpUrl) {
         console.error(
@@ -153,8 +153,8 @@ async function cleanup() {
         );
         process.exit(1);
       }
-      console.log(`leaving ${CHROME_BINARY} running (CHROME_KEEPALIVE=True)`);
-      console.log(
+      console.error(`leaving ${CHROME_BINARY} running (CHROME_KEEPALIVE=True)`);
+      console.error(
         JSON.stringify({
           succeeded: true,
           skipped: chromeCdpUrl ? true : false,
@@ -227,7 +227,7 @@ async function main() {
       console.error(`reusing live ${CHROME_BINARY} session in ${OUTPUT_DIR}`);
     }
 
-    console.error(`[+] ${CHROME_BINARY} session started`);
+    console.log(`[+] ${CHROME_BINARY} session started`);
     console.error(`[+] CDP URL: ${chromeCdpUrl}`);
     releaseLock();
     releaseLock = null;

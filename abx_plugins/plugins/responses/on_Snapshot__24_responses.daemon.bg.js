@@ -112,7 +112,7 @@ function emitProgress(line) {
     pendingProgressTimer = null;
     lastProgressAt = Date.now();
     lastProgressLine = line;
-    console.log(line);
+    console.error(line);
   };
   if (lastProgressAt === 0 || now - lastProgressAt >= PROGRESS_DEBOUNCE_MS) {
     if (pendingProgressTimer) {
@@ -144,7 +144,7 @@ function emitResponseProgress(force = false) {
     }
     lastProgressAt = Date.now();
     lastProgressLine = line;
-    console.log(line);
+    console.error(line);
     return;
   }
   emitProgress(line);
@@ -380,6 +380,7 @@ async function main() {
     const connection = await setupListener();
     browser = connection.browser;
     page = connection.page;
+    console.log("responses listener attached");
     emitResponseProgress(true);
 
     // Register signal handlers for graceful shutdown

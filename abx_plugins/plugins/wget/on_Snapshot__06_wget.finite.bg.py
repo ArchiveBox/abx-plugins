@@ -203,6 +203,7 @@ def main(url: str):
         binary = config.WGET_BINARY
 
         # Run extraction
+        print("wget download started")
         success, output, error = save_wget(url, binary)
 
         if success:

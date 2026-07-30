@@ -91,7 +91,7 @@ function emitProgress(force = false) {
     pendingProgressTimer = null;
     lastProgressAt = Date.now();
     lastProgressLine = line;
-    console.log(line);
+    console.error(line);
   };
   if (
     force ||
@@ -252,6 +252,7 @@ async function main() {
     const connection = await setupListeners();
     browser = connection.browser;
     page = connection.page;
+    console.log("consolelog listener attached");
     emitProgress();
 
     // Register signal handlers for graceful shutdown

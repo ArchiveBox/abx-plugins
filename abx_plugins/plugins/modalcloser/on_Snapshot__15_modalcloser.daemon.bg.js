@@ -107,7 +107,7 @@ let lastProgressLine = "";
 function emitProgress(line) {
   if (line && line !== lastProgressLine) {
     lastProgressLine = line;
-    console.log(line);
+    console.error(line);
   }
 }
 
@@ -423,7 +423,6 @@ async function main() {
         page = matchingPage;
       }
     }
-    emitProgress(formatClosedCount(0));
 
     // console.error(`Modalcloser listening on ${url}`);
 
@@ -443,6 +442,8 @@ async function main() {
         // Dialog may have been dismissed by page
       }
     });
+    console.log("modalcloser observer attached");
+    emitProgress(formatClosedCount(0));
 
     // Poll for CSS modals
     while (running) {

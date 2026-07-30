@@ -85,7 +85,7 @@ let lastProgressLine = "";
 function emitProgress(line) {
   if (line && line !== lastProgressLine) {
     lastProgressLine = line;
-    console.log(line);
+    console.error(line);
   }
 }
 
@@ -356,6 +356,7 @@ async function main() {
     const connection = await setupListener(url);
     browser = connection.browser;
     page = connection.page;
+    console.log("dns listener attached");
     emitProgress("0 DNS records");
 
     // Register signal handlers for graceful shutdown

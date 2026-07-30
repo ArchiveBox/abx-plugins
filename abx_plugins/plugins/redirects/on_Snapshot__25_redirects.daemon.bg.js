@@ -109,7 +109,7 @@ function appendRedirectEntry(outputPath, entry) {
           entry.to_url || finalUrl || originalUrl
         }`;
   if (progressLine !== lastProgressLine) {
-    console.log(progressLine);
+    console.error(progressLine);
     lastProgressLine = progressLine;
   }
   return true;
@@ -346,8 +346,6 @@ async function main() {
   }
 
   originalUrl = url;
-  console.log("0 redirects");
-  lastProgressLine = "0 redirects";
 
   if (!getEnvBool("REDIRECTS_ENABLED", true)) {
     console.error("Skipping (REDIRECTS_ENABLED=False)");
@@ -362,6 +360,9 @@ async function main() {
     // Set up redirect listener BEFORE navigation
     await setupRedirectListener();
     writePrenavMarker("ready");
+    console.log("redirects listener attached");
+    console.error("0 redirects");
+    lastProgressLine = "0 redirects";
 
     // Wait for navigation to settle, then leave extra time for late JS redirects.
     try {

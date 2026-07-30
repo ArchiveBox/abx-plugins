@@ -96,7 +96,8 @@ node -c abx_plugins/plugins/title/on_Snapshot__54_title.js
 - `config.json` owns user-facing plugin config and `required_binaries`.
 - Plugins inherit config from `required_plugins`; do not duplicate config already provided by dependencies.
 - Hook ordering is lexicographic by hook filename.
-- Foreground hooks block later foreground work.
-- Background hooks must wait for the specific state they need.
-- Snapshot hooks emit JSONL records on stdout and diagnostics on stderr.
+- Foreground hooks block later work.
+- Background hooks are programmatically distinct only by `bg`, never by `daemon` or `finite` filename text.
+- Background hooks must emit their first stdout line only after they are ready for the next hook to launch; non-ready diagnostics go to stderr.
+- Snapshot hooks emit JSONL records on stdout after any background readiness line, and diagnostics on stderr.
 - Chrome-specific logic belongs in the Chrome plugin helpers.

@@ -58,98 +58,6 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function staticfilePrenavReady(filePath) {
-  try {
-    const marker = JSON.parse(fs.readFileSync(filePath, "utf8"));
-    return marker?.status === "ready";
-  } catch (error) {
-    return false;
-  }
-}
-
-async function waitForPreloadHooks(timeoutMs) {
-  const preloadHooks = [
-    {
-      name: "consolelog",
-      dir: path.join(SNAP_DIR, "consolelog"),
-      readyFile: path.join(SNAP_DIR, "consolelog", "console.jsonl"),
-      timeoutMs:
-        getEnvInt("CONSOLELOG_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000,
-      ready: (filePath) => fs.existsSync(filePath),
-    },
-    {
-      name: "dns",
-      dir: path.join(SNAP_DIR, "dns"),
-      readyFile: path.join(SNAP_DIR, "dns", "dns.jsonl"),
-      timeoutMs: getEnvInt("DNS_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000,
-      ready: (filePath) => fs.existsSync(filePath),
-    },
-    {
-      name: "sslcerts",
-      dir: path.join(SNAP_DIR, "sslcerts"),
-      readyFile: path.join(SNAP_DIR, "sslcerts", "sslcerts.jsonl"),
-      timeoutMs:
-        getEnvInt("SSLCERTS_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000,
-      ready: (filePath) => fs.existsSync(filePath),
-    },
-    {
-      name: "redirects",
-      dir: path.join(SNAP_DIR, "redirects"),
-      readyFile: path.join(SNAP_DIR, "redirects", "prenav.json"),
-      timeoutMs:
-        getEnvInt("REDIRECTS_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000,
-      ready: staticfilePrenavReady,
-    },
-    {
-      name: "responses",
-      dir: path.join(SNAP_DIR, "responses"),
-      readyFile: path.join(SNAP_DIR, "responses", "index.jsonl"),
-      timeoutMs:
-        getEnvInt("RESPONSES_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000,
-      ready: (filePath) => fs.existsSync(filePath),
-    },
-    {
-      name: "headers",
-      dir: path.join(SNAP_DIR, "headers"),
-      readyFile: path.join(SNAP_DIR, "headers", "headers.json"),
-      timeoutMs: getEnvInt("HEADERS_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000,
-      ready: (filePath) => fs.existsSync(filePath),
-    },
-    {
-      name: "staticfile",
-      dir: path.join(SNAP_DIR, "staticfile"),
-      readyFile: path.join(SNAP_DIR, "staticfile", "prenav.json"),
-      timeoutMs:
-        getEnvInt("STATICFILE_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000,
-      ready: staticfilePrenavReady,
-    },
-  ];
-
-  for (const preloadHook of preloadHooks) {
-    if (
-      !fs.existsSync(preloadHook.dir) ||
-      preloadHook.ready(preloadHook.readyFile)
-    ) {
-      continue;
-    }
-
-    const startedAt = Date.now();
-    const waitMs = Math.min(timeoutMs, Math.max(5000, preloadHook.timeoutMs));
-    while (Date.now() - startedAt < waitMs) {
-      if (preloadHook.ready(preloadHook.readyFile)) {
-        break;
-      }
-      await sleep(100);
-    }
-
-    if (!preloadHook.ready(preloadHook.readyFile)) {
-      throw new Error(
-        `Timed out waiting for ${preloadHook.name} listener readiness`
-      );
-    }
-  }
-}
-
 async function navigate(url) {
   const hookTimeoutSeconds =
     getEnvInt("CHROME_TIMEOUT") || getEnvInt("TIMEOUT", 60);
@@ -179,8 +87,6 @@ async function navigate(url) {
     });
     browser = conn.browser;
     const page = conn.page;
-
-    await waitForPreloadHooks(hookBudget);
 
     const remainingBudget = hookBudget - (Date.now() - navStartTime);
     if (remainingBudget <= 0) {
@@ -292,7 +198,3 @@ if (require.main === module) {
     process.exit(1);
   });
 }
-
-module.exports = {
-  staticfilePrenavReady,
-};

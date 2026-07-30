@@ -202,6 +202,7 @@ def main(url: str):
         binary = config.FORUMDL_BINARY
 
         # Run extraction
+        print("forum-dl download started")
         success, output, error = save_forum(url, binary)
 
         if success:

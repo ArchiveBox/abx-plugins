@@ -67,7 +67,7 @@ let lastProgressLine = "";
 function emitProgress(line) {
   if (line && line !== lastProgressLine) {
     lastProgressLine = line;
-    console.log(line);
+    console.error(line);
   }
 }
 
@@ -211,6 +211,7 @@ async function main() {
     });
     browser = connection.browser;
     const page = connection.page;
+    console.log("twocaptcha observer attached");
     emitProgress("0 captchas detected");
 
     try {

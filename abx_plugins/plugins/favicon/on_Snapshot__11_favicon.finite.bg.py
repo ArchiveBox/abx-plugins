@@ -209,6 +209,7 @@ def main(url: str):
 
     try:
         # Run extraction
+        print("favicon extraction started")
         success, output, error = get_favicon(url)
         if success and output_path.exists() and output_path.stat().st_size > 0:
             status = "succeeded"

@@ -264,7 +264,8 @@ async function startScreencast() {
 
   await captureFrame();
   captureTimer = setInterval(captureFrame, minFrameMs);
-  console.log(`screencast frames: ${LIVE_DIR}`);
+  console.log("chrome screencast attached");
+  console.error(`screencast frames: ${LIVE_DIR}`);
 }
 
 async function stopScreencast(status = "succeeded", output = "") {

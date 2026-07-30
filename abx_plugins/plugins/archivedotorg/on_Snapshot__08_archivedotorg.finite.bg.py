@@ -193,6 +193,7 @@ def main(url: str):
             sys.exit(0)
 
         # Run extraction
+        print("archive.org submission started")
         success, output, error = submit_to_archivedotorg(url)
 
         if success:

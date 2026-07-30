@@ -93,8 +93,8 @@ State/OS:
 Lifecycle:
 
 - optional binary preflight can run before crawl setup, but hook scripts also resolve declared binaries through shared config helpers when run directly
-- `on_CrawlSetup__*` runs before snapshot extraction and emits no stdout JSONL records
-- `on_Snapshot__*` runs once per snapshot and may emit `ArchiveResult`, `Snapshot`, and `Tag` records only
+- `on_CrawlSetup__*` runs before snapshot extraction; background setup hooks use their first stdout line as readiness and emit no stdout JSONL records
+- `on_Snapshot__*` runs once per snapshot; background hooks use their first stdout line as readiness and then may emit `ArchiveResult`, `Snapshot`, and `Tag` records only
 
 State:
 
@@ -113,14 +113,14 @@ Output records:
 
 Semantics:
 
-- `stdout`: JSONL records
+- `stdout`: for background hooks, the first line is the readiness boundary; hook JSONL records may follow
 - `stderr`: diagnostics/logging
 - exit `0`: succeeded, noresults, or skipped
 - exit non-zero: failed
 
 Rules:
 
-- `on_CrawlSetup__*` hooks should communicate only through side effects such as files, sockets, or long-lived processes, not stdout JSONL records
+- `on_CrawlSetup__*` hooks should communicate only through side effects such as files, sockets, long-lived processes, or the background readiness stdout line, not stdout JSONL records
 - `on_Snapshot__*` hooks should not emit `Machine`, `Process`, or `Binary` records
 
 ### Base plugin utilities
@@ -179,7 +179,9 @@ from abx_plugins.plugins.base.testing import (
   - status `failed` if any hard dependencies are missing/invalid (e.g. chrome) or if the process exited non-0 / raised an exception
   - return a short, meaningful `output_str` e.g. the page title, mimetype, return status code, or the relative path of the primary output file produced like `output.pdf` or `0 modals closed` or `The Page Title Verbatim` or `favicon.io` or `Not a git URL`
   - define execution order solely using lexicographic sort order of hook filenames
-  - use bg hooks for either short-lived tasks that can run in parallel, or long-lived daemons that run for the whole duration of the snapshot and get killed for cleanup/final output at the end
+  - use bg hooks for either short-lived tasks that can run in parallel, or long-lived tasks that run for the whole duration of the snapshot and get killed for cleanup/final output at the end
+  - treat `bg` vs `fg` as the only programmatic hook distinction; words like `daemon` and `finite` in hook filenames are human hints only
+  - bg hooks must emit their first stdout line only after they are ready for the next hook to launch; move non-ready startup diagnostics to stderr
   - bg hooks that depend on other bg hook outputs must implement their own waiters internally + check that inputs are truly ready and not just that the files are present, because they may be spawned in parallel/before the earlier one's outputs are actually ready and race. e.g. html/artifact generation should usually be fg so that later bg parsing hooks can safely depend on it being finished and not just part of the file being present
   - use rich_click for cli arg parsing with a uv file header when hooks are written in python. do not depend on archivebox or django, try to only depend on chrome or the output files of other plugins instead of importing code from them. the one exception is to always use chrome_utils.js as the interface for anything involving chrome.
 
@@ -188,7 +190,7 @@ from abx_plugins.plugins.base.testing import (
 
 Hooks emit plain JSONL records to stdout. The current hook families and records are:
 
-- `on_CrawlSetup__*` → no stdout JSONL records
-- `on_Snapshot__*` → `ArchiveResult`, `Snapshot`, `Tag`
+- `on_CrawlSetup__*` → background readiness line only, no stdout JSONL records
+- `on_Snapshot__*` → background readiness line when applicable, then `ArchiveResult`, `Snapshot`, `Tag`
 
 `abx-dl` and ArchiveBox map those records into their own internal event systems. Binary request events are produced from plugin config and handled by `abxpkg`, not by plugin hook scripts. Plugins do not need to know or emit any bus envelope format.

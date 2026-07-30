@@ -106,7 +106,7 @@ const headersReadyFailure = new Promise((_, reject) => {
 
 function emitProgress(line) {
   if (!line || line === lastProgressLine) return;
-  console.log(line);
+  console.error(line);
   lastProgressLine = line;
 }
 
@@ -300,7 +300,6 @@ async function main() {
   }
 
   originalUrl = url;
-  emitProgress("waiting for initial response...");
 
   if (!getEnvBool("HEADERS_ENABLED", true)) {
     console.error("Skipping (HEADERS_ENABLED=False)");
@@ -314,6 +313,8 @@ async function main() {
     browser = connection.browser;
     page = connection.page;
     cdpSession = connection.cdpSession;
+    console.log("headers listener attached");
+    emitProgress("waiting for initial response...");
 
     // The hook only needs the top-level request/response pair. Waiting for
     // full navigation as a hard requirement keeps the daemon alive longer

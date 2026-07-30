@@ -372,7 +372,10 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                 )
 
                 try:
-                    assert read_captcha_progress(hook_process) == "0 captchas detected"
+                    assert (
+                        read_captcha_progress(hook_process)
+                        == "twocaptcha observer attached"
+                    )
                     navigate = subprocess.run(
                         [
                             str(NAVIGATE_HOOK),
@@ -462,7 +465,10 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                     start_new_session=True,
                 )
                 try:
-                    assert read_captcha_progress(hook_process) == "0 captchas detected"
+                    assert (
+                        read_captcha_progress(hook_process)
+                        == "twocaptcha observer attached"
+                    )
                     navigate = subprocess.run(
                         [
                             str(NAVIGATE_HOOK),

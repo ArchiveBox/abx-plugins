@@ -144,7 +144,7 @@ function cleanupFiles(fileNames, reason) {
     } catch (error) {}
   }
   if (removed > 0 && reason) {
-    console.log(`[*] Removed stale Chrome snapshot markers (${reason})`);
+    console.error(`[*] Removed stale Chrome snapshot markers (${reason})`);
   }
 }
 
@@ -218,7 +218,7 @@ async function startTargetMonitor() {
     if (targetId !== expectedTargetId) {
       return;
     }
-    console.log("tab closed unexpectedly!");
+    console.error("tab closed unexpectedly!");
     console.error(
       `[*] Snapshot target ${expectedTargetId} closed unexpectedly, clearing snapshot page markers`
     );
@@ -462,8 +462,8 @@ async function main() {
       output = `target=${targetId} port=${getPortFromCdpUrl(currentCdpUrl)}`;
 
       console.log(`[+] Chrome tab ready`);
-      console.log(`[+] CDP URL: ${currentCdpUrl}`);
-      console.log(`[+] Page target ID: ${targetId}`);
+      console.error(`[+] CDP URL: ${currentCdpUrl}`);
+      console.error(`[+] Page target ID: ${targetId}`);
       releaseLock();
       releaseLock = null;
       publishSuccess(output, version || "");
@@ -482,7 +482,7 @@ async function main() {
           "No Chrome session found (chrome plugin must run first)"
         );
       }
-      console.log("[*] Found existing Chrome session");
+      console.error("[*] Found existing Chrome session");
       currentCdpUrl = crawlSession.cdpUrl;
 
       if (existingTargetId) {
@@ -539,8 +539,8 @@ async function main() {
       )}`;
 
       console.log(`[+] Chrome tab ready`);
-      console.log(`[+] CDP URL: ${crawlSession.cdpUrl}`);
-      console.log(`[+] Page target ID: ${targetId}`);
+      console.error(`[+] CDP URL: ${crawlSession.cdpUrl}`);
+      console.error(`[+] Page target ID: ${targetId}`);
       releaseLock();
       releaseLock = null;
       publishSuccess(output, version || "");

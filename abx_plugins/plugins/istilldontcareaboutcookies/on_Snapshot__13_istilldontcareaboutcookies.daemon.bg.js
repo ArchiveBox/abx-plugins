@@ -157,7 +157,7 @@ async function main() {
   function emitProgress(line) {
     if (line && line !== lastProgressLine) {
       lastProgressLine = line;
-      console.log(line);
+      console.error(line);
     }
   }
 
@@ -203,6 +203,7 @@ async function main() {
     // they are meant to observe. Waiting for navigation before this line
     // deadlocks the hook order: navigation cannot happen until readiness is
     // published, but readiness was waiting for navigation to happen first.
+    console.log("cookie-consent observer attached");
     emitProgress(formatPopupCount(0));
 
     try {

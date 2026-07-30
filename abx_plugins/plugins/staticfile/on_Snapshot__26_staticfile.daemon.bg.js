@@ -542,7 +542,6 @@ async function main() {
   }
 
   originalUrl = url;
-  console.log("waiting for initial response...");
   writePrenavMarker("starting");
 
   if (!getEnvBool("STATICFILE_ENABLED", true)) {
@@ -561,6 +560,8 @@ async function main() {
     // Set up static file listener BEFORE navigation and finish on the
     // first successful main-document response.
     const connection = await setupStaticFileListener();
+    console.log("staticfile listener attached");
+    console.error("waiting for initial response...");
     const result = await connection.mainResponseHandled;
     finalized = true;
     removePrenavMarker();
