@@ -125,7 +125,7 @@ function emitProgress(blockedRequests, hiddenElements) {
   const line = formatProgress(blockedRequests, hiddenElements);
   if (line !== lastProgressLine) {
     lastProgressLine = line;
-    console.error(line);
+    console.log(line);
   }
 }
 
@@ -225,9 +225,7 @@ async function main() {
         emitProgress(blockedRequests, hiddenElements);
       }
     });
-    const initialProgress = formatProgress(blockedRequests, hiddenElements);
-    console.log(initialProgress);
-    lastProgressLine = initialProgress;
+    emitProgress(blockedRequests, hiddenElements);
 
     try {
       // Pre-navigation observer hooks start before foreground extractors such

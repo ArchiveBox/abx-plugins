@@ -157,7 +157,7 @@ async function main() {
   function emitProgress(line) {
     if (line && line !== lastProgressLine) {
       lastProgressLine = line;
-      console.error(line);
+      console.log(line);
     }
   }
 
@@ -203,9 +203,7 @@ async function main() {
     // they are meant to observe. Waiting for navigation before this line
     // deadlocks the hook order: navigation cannot happen until readiness is
     // published, but readiness was waiting for navigation to happen first.
-    const initialProgress = formatPopupCount(0);
-    console.log(initialProgress);
-    lastProgressLine = initialProgress;
+    emitProgress(formatPopupCount(0));
 
     try {
       // This hook observes the page across the whole snapshot phase, but it is

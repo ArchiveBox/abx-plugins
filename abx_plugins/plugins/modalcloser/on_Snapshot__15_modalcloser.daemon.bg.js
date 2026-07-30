@@ -107,7 +107,7 @@ let lastProgressLine = "";
 function emitProgress(line) {
   if (line && line !== lastProgressLine) {
     lastProgressLine = line;
-    console.error(line);
+    console.log(line);
   }
 }
 
@@ -442,9 +442,7 @@ async function main() {
         // Dialog may have been dismissed by page
       }
     });
-    const initialProgress = formatClosedCount(0);
-    console.log(initialProgress);
-    lastProgressLine = initialProgress;
+    emitProgress(formatClosedCount(0));
 
     // Poll for CSS modals
     while (running) {
