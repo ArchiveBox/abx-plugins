@@ -165,16 +165,7 @@ def test_singlefile_cli_archives_example_com(tmp_path):
     tmpdir = tmp_path / "singlefile-cli"
     tmpdir.mkdir()
 
-    env_install, extensions_dir = chrome_extension_install_env(tmpdir / "install")
-
-    loaded = install_required_binary_from_config(
-        PLUGIN_DIR,
-        "singlefile",
-        env=env_install,
-    )
-    assert loaded.loaded_abspath is not None, (
-        "abxpkg did not resolve SingleFile extension"
-    )
+    install_state = ensure_singlefile_extension_installed(tmp_path)
     with chrome_session(
         tmpdir=tmpdir,
         crawl_id="singlefile-cli-crawl",
@@ -183,13 +174,13 @@ def test_singlefile_cli_archives_example_com(tmp_path):
         navigate=True,
         timeout=30,
         env_overrides={
-            "ABXPKG_LIB_DIR": env_install["ABXPKG_LIB_DIR"],
-            "ABXPKG_CHROMEWEBSTORE_ROOT": str(extensions_dir.parent),
-            "CHROMEWEBSTORE_EXTENSIONS_DIR": str(extensions_dir),
+            "ABXPKG_LIB_DIR": str(install_state["abxpkg_lib_dir"]),
+            "ABXPKG_CHROMEWEBSTORE_ROOT": str(install_state["extensions_dir"].parent),
+            "CHROMEWEBSTORE_EXTENSIONS_DIR": str(install_state["extensions_dir"]),
         },
     ) as (_chrome_proc, _chrome_pid, snapshot_chrome_dir, env):
         env["SINGLEFILE_ENABLED"] = "true"
-        assert extensions_dir == loaded.loaded_abspath.parent
+        assert install_state["cache_file"].exists()
 
         singlefile_output_dir = snapshot_chrome_dir.parent / "singlefile"
         singlefile_output_dir.mkdir(parents=True, exist_ok=True)
