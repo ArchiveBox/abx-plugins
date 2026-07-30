@@ -67,7 +67,7 @@ let lastProgressLine = "";
 function emitProgress(line) {
   if (line && line !== lastProgressLine) {
     lastProgressLine = line;
-    console.error(line);
+    console.log(line);
   }
 }
 
@@ -212,7 +212,7 @@ async function main() {
     browser = connection.browser;
     const page = connection.page;
     console.log("twocaptcha observer attached");
-    emitProgress("0 captchas detected");
+    lastProgressLine = "0 captchas detected";
 
     try {
       // CAPTCHA observation is useful only after navigation, but the observer
@@ -240,8 +240,6 @@ async function main() {
           emitProgress(formatCaptchaCount(solvedCaptchas));
         } else if (state.detected) {
           emitProgress("1 captcha detected");
-        } else {
-          emitProgress("0 captchas detected");
         }
       }
       await sleep(pollIntervalMs);
