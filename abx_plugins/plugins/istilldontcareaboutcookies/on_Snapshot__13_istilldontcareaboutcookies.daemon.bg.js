@@ -203,8 +203,9 @@ async function main() {
     // they are meant to observe. Waiting for navigation before this line
     // deadlocks the hook order: navigation cannot happen until readiness is
     // published, but readiness was waiting for navigation to happen first.
-    console.log("cookie-consent observer attached");
-    emitProgress(formatPopupCount(0));
+    const initialProgress = formatPopupCount(0);
+    console.log(initialProgress);
+    lastProgressLine = initialProgress;
 
     try {
       // This hook observes the page across the whole snapshot phase, but it is

@@ -442,8 +442,9 @@ async function main() {
         // Dialog may have been dismissed by page
       }
     });
-    console.log("modalcloser observer attached");
-    emitProgress(formatClosedCount(0));
+    const initialProgress = formatClosedCount(0);
+    console.log(initialProgress);
+    lastProgressLine = initialProgress;
 
     // Poll for CSS modals
     while (running) {

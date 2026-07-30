@@ -225,8 +225,9 @@ async function main() {
         emitProgress(blockedRequests, hiddenElements);
       }
     });
-    console.log("ublock observer attached");
-    emitProgress(blockedRequests, hiddenElements);
+    const initialProgress = formatProgress(blockedRequests, hiddenElements);
+    console.log(initialProgress);
+    lastProgressLine = initialProgress;
 
     try {
       // Pre-navigation observer hooks start before foreground extractors such
