@@ -1,0 +1,29 @@
+abx_plugins/plugins/claudecodecleanup/config.json
+  s_f8414d52051f83::t_1660223e639de0 20
+abx_plugins/plugins/claudecodeextract/config.json
+  s_f8414d52051f83::t_1660223e639de0 20
+abx_plugins/plugins/claudechrome/config.json
+  s_f8414d52051f83::t_1660223e639de0 32
+abx_plugins/plugins/opendataloader/config.json
+  s_f8414d52051f83::t_1660223e639de0 48
+pyproject.toml
+  s_f8414d52051f83::t_2c7bca9757868c 3
+uv.lock
+  s_f8414d52051f83::t_6768e74eb0161a 6,12,16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.17",
+  "base_commit_sha": "9cb5200c7dea136a6ed06b4e95e3bca972310dca",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
