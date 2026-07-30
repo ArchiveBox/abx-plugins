@@ -325,7 +325,7 @@ def main(url: str):
             sys.exit(0)
 
         # Run extraction
-        print("yt-dlp download started")
+        print("yt-dlp download started", flush=True)
         success, output, error = save_ytdlp(url)
 
         if success:

@@ -221,7 +221,7 @@ def main(url: str):
         binary = config.GIT_BINARY
 
         # Run extraction
-        print("git clone started")
+        print("git clone started", flush=True)
         success, output, error = clone_git(git_url, binary)
         status = (
             "noresults"
