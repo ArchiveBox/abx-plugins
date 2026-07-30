@@ -3305,7 +3305,12 @@ async function resolvePageByTargetId(browser, targetId, timeoutMs = 0) {
         return targetPage;
       }
 
-      const pages = await browser.pages();
+      const remainingPageLookupMs = Math.max(deadline - Date.now(), 0);
+      const pages = await withTimeout(
+        () => browser.pages(),
+        Math.min(Math.max(remainingPageLookupMs, 250), 1000),
+        `Timed out listing pages while resolving target ${targetId}`
+      );
       const pageMatch = pages.find(
         (page) => getTargetIdFromPage(page) === targetId
       );
@@ -3635,10 +3640,15 @@ async function connectToPage(options = {}) {
     }
 
     const targetId = state.targetId;
-    const browser = await connectToBrowserEndpoint(
-      resolvedPuppeteer,
-      state.cdpUrl,
-      { defaultViewport: null }
+    const operationTimeoutMs = Math.min(Math.max(remainingMs, 250), 2000);
+    const browser = await withTimeout(
+      () =>
+        connectToBrowserEndpoint(resolvedPuppeteer, state.cdpUrl, {
+          defaultViewport: null,
+          protocolTimeout: operationTimeoutMs,
+        }),
+      operationTimeoutMs,
+      `Timed out connecting to page browser at ${state.cdpUrl}`
     ).catch((error) => {
       lastError = error instanceof Error ? error : new Error(String(error));
       return null;
@@ -3678,7 +3688,11 @@ async function connectToPage(options = {}) {
         missingTargetSince = 0;
       }
 
-      const pages = await browser.pages();
+      const pages = await withTimeout(
+        () => browser.pages(),
+        operationTimeoutMs,
+        `Timed out listing pages for ${state.cdpUrl}`
+      );
       if (!page && !requireTargetId) {
         page = pages[pages.length - 1];
       }
@@ -3691,21 +3705,38 @@ async function connectToPage(options = {}) {
       }
       if (requireTargetId && targetId) {
         try {
-          const targetSession = await browser.target().createCDPSession();
-          await targetSession.send("Target.activateTarget", { targetId });
-          await targetSession.detach();
+          await withTimeout(
+            async () => {
+              const targetSession = await browser.target().createCDPSession();
+              await targetSession.send("Target.activateTarget", { targetId });
+              await targetSession.detach();
+            },
+            operationTimeoutMs,
+            `Timed out activating target ${targetId}`
+          );
         } catch (error) {}
       }
       if (requireTargetId && targetId && typeof page.bringToFront === "function") {
-        await page.bringToFront();
+        await withTimeout(
+          () => page.bringToFront(),
+          operationTimeoutMs,
+          `Timed out bringing target ${targetId} to front`
+        );
       }
 
-      const cdpSession = await page.target().createCDPSession();
-      await cdpSession.send("Target.setAutoAttach", {
-        autoAttach: true,
-        waitForDebuggerOnStart: false,
-        flatten: true,
-      });
+      const cdpSession = await withTimeout(
+        async () => {
+          const session = await page.target().createCDPSession();
+          await session.send("Target.setAutoAttach", {
+            autoAttach: true,
+            waitForDebuggerOnStart: false,
+            flatten: true,
+          });
+          return session;
+        },
+        operationTimeoutMs,
+        `Timed out attaching to target ${targetId || "page"}`
+      );
 
       return {
         ...state,
