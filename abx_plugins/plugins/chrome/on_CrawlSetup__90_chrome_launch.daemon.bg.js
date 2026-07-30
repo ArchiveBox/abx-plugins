@@ -145,7 +145,7 @@ async function cleanup() {
         process.exit(1);
       }
       console.error(`${CHROME_BINARY} exited successfully`);
-      console.error(JSON.stringify({ succeeded: true, skipped: false })); // we launched and we killed it (nothing was skipped)
+      console.log(JSON.stringify({ succeeded: true, skipped: false })); // we launched and we killed it (nothing was skipped)
     } else {
       if (!chromeCdpUrl) {
         console.error(
@@ -154,7 +154,7 @@ async function cleanup() {
         process.exit(1);
       }
       console.error(`leaving ${CHROME_BINARY} running (CHROME_KEEPALIVE=True)`);
-      console.error(
+      console.log(
         JSON.stringify({
           succeeded: true,
           skipped: chromeCdpUrl ? true : false,
