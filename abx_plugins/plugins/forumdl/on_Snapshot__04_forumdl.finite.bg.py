@@ -189,6 +189,8 @@ def main(url: str):
     output = None
     error = ""
 
+    print("forum-dl download started", flush=True)
+
     try:
         config = load_config()
 
@@ -202,7 +204,6 @@ def main(url: str):
         binary = config.FORUMDL_BINARY
 
         # Run extraction
-        print("forum-dl download started", flush=True)
         success, output, error = save_forum(url, binary)
 
         if success:

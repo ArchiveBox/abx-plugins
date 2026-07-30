@@ -223,6 +223,8 @@ def main(url: str):
     output = None
     error = ""
 
+    print("gallery-dl download started", flush=True)
+
     try:
         config = load_config(hydrate_binaries=False)
 
@@ -246,7 +248,6 @@ def main(url: str):
         binary = hydrated_config.GALLERYDL_BINARY
 
         # Run extraction
-        print("gallery-dl download started", flush=True)
         success, output, error = save_gallery(url, binary)
 
         if success:

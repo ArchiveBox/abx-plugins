@@ -218,6 +218,8 @@ def main(url: str):
     downloaded_count = 0
     error = ""
 
+    print("papers-dl search started", flush=True)
+
     try:
         # Check if papers-dl is enabled
         config = load_config()
@@ -230,7 +232,6 @@ def main(url: str):
         binary = config.PAPERSDL_BINARY
 
         # Run extraction
-        print("papers-dl search started", flush=True)
         success, downloaded_count, error = save_paper(url, binary)
 
         if success:

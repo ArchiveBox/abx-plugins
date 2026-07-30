@@ -207,9 +207,10 @@ def main(url: str):
     error = ""
     output_path = OUTPUT_DIR / OUTPUT_FILE
 
+    print("favicon extraction started", flush=True)
+
     try:
         # Run extraction
-        print("favicon extraction started", flush=True)
         success, output, error = get_favicon(url)
         if success and output_path.exists() and output_path.stat().st_size > 0:
             status = "succeeded"

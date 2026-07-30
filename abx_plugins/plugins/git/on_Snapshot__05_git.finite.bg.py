@@ -207,6 +207,8 @@ def main(url: str):
     status = "failed"
     error = ""
 
+    print("git clone started", flush=True)
+
     try:
         git_url = normalize_git_url(url)
         if git_url is None:
@@ -221,7 +223,6 @@ def main(url: str):
         binary = config.GIT_BINARY
 
         # Run extraction
-        print("git clone started", flush=True)
         success, output, error = clone_git(git_url, binary)
         status = (
             "noresults"

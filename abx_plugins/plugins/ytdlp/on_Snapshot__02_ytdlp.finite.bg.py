@@ -306,6 +306,8 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
 def main(url: str):
     """Download video/audio from a URL using yt-dlp."""
 
+    print("yt-dlp download started", flush=True)
+
     try:
         config = load_config(CONFIG_PATH, hydrate_binaries=False)
 
@@ -325,7 +327,6 @@ def main(url: str):
             sys.exit(0)
 
         # Run extraction
-        print("yt-dlp download started", flush=True)
         success, output, error = save_ytdlp(url)
 
         if success:
