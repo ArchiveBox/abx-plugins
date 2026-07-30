@@ -3645,7 +3645,7 @@ async function connectToPage(options = {}) {
       () =>
         connectToBrowserEndpoint(resolvedPuppeteer, state.cdpUrl, {
           defaultViewport: null,
-          protocolTimeout: operationTimeoutMs,
+          protocolTimeout: remainingMs,
         }),
       operationTimeoutMs,
       `Timed out connecting to page browser at ${state.cdpUrl}`
