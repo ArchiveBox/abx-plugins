@@ -3703,27 +3703,6 @@ async function connectToPage(options = {}) {
       if (requireTargetId && targetId && getTargetIdFromPage(page) !== targetId) {
         throw new Error(`Resolved page does not match target ${targetId}`);
       }
-      if (requireTargetId && targetId) {
-        try {
-          await withTimeout(
-            async () => {
-              const targetSession = await browser.target().createCDPSession();
-              await targetSession.send("Target.activateTarget", { targetId });
-              await targetSession.detach();
-            },
-            operationTimeoutMs,
-            `Timed out activating target ${targetId}`
-          );
-        } catch (error) {}
-      }
-      if (requireTargetId && targetId && typeof page.bringToFront === "function") {
-        await withTimeout(
-          () => page.bringToFront(),
-          operationTimeoutMs,
-          `Timed out bringing target ${targetId} to front`
-        );
-      }
-
       const cdpSession = await withTimeout(
         async () => {
           const session = await page.target().createCDPSession();

@@ -1,27 +1,13 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "SingleFile",
-  "description": "Save a complete page as a single self-contained HTML file using the SingleFile extension or CLI.",
+  "description": "Save a complete page as a single self-contained HTML file using the SingleFile Chrome extension.",
   "type": "object",
   "additionalProperties": false,
   "required_plugins": [
     "chrome"
   ],
   "required_binaries": [
-    {
-      "name": "{SINGLEFILE_BINARY}",
-      "binproviders": "env,pnpm",
-      "min_version": null,
-      "min_release_age": 0,
-      "overrides": {
-        "pnpm": {
-          "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/singlefile",
-          "install_args": [
-            "single-file-cli@^1.1.54"
-          ]
-        }
-      }
-    },
     {
       "name": "singlefile",
       "binproviders": "env,chromewebstore",
@@ -49,72 +35,12 @@
       ],
       "description": "Enable SingleFile archiving"
     },
-    "SINGLEFILE_BINARY": {
-      "type": "string",
-      "default": "single-file",
-      "x-aliases": [
-        "SINGLE_FILE_BINARY"
-      ],
-      "description": "Path to single-file binary"
-    },
     "SINGLEFILE_TIMEOUT": {
       "type": "integer",
       "default": 60,
       "minimum": 10,
       "x-fallback": "TIMEOUT",
       "description": "Timeout for SingleFile in seconds"
-    },
-    "SINGLEFILE_USER_AGENT": {
-      "type": "string",
-      "default": "",
-      "x-fallback": "USER_AGENT",
-      "description": "User agent string"
-    },
-    "SINGLEFILE_COOKIES_FILE": {
-      "type": "string",
-      "default": "",
-      "x-fallback": "COOKIES_FILE",
-      "description": "Path to cookies file"
-    },
-    "SINGLEFILE_CHECK_SSL_VALIDITY": {
-      "type": "boolean",
-      "default": true,
-      "x-fallback": "CHECK_SSL_VALIDITY",
-      "description": "Whether to verify SSL certificates"
-    },
-    "SINGLEFILE_CHROME_ARGS": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "default": [],
-      "x-fallback": "CHROME_ARGS",
-      "description": "Chrome command-line arguments for SingleFile"
-    },
-    "SINGLEFILE_ARGS": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "default": [
-        "--browser-headless",
-        "--load-deferred-images-dispatch-scroll-event"
-      ],
-      "x-aliases": [
-        "SINGLEFILE_DEFAULT_ARGS"
-      ],
-      "description": "Default single-file arguments"
-    },
-    "SINGLEFILE_ARGS_EXTRA": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "default": [],
-      "x-aliases": [
-        "SINGLEFILE_EXTRA_ARGS"
-      ],
-      "description": "Extra arguments to append to single-file command"
     }
   }
 }

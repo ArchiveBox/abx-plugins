@@ -4,7 +4,7 @@
 /**
  * Start an ArchiveWeb.page WACZ recording before the page navigates.
  *
- * Foreground hook that runs after the chrome tab is ready (priority 11) and
+ * Foreground hook that runs after the chrome tab is ready (priority 16) and
  * after pre-load extension setup hooks (12-15) but BEFORE chrome_navigate
  * (30). The page is still on about:blank, so the recorder gets every request
  * including the very first navigation.
@@ -21,6 +21,7 @@
  * recorder hand-off itself is small.
  */
 
+const fs = require("fs");
 const path = require("path");
 
 const {
@@ -31,24 +32,27 @@ const {
   getEnvBool,
   getEnvInt,
   emitArchiveResultRecord,
+  writeFileAtomic,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 
 const chromeUtils = require("../chrome/chrome_utils.js");
 const puppeteer = chromeUtils.resolvePuppeteerModule();
 const {
-  waitForAwpExtension,
+  resolveAwpExtension,
   getChromeTabIdForPage,
   openAwpHelperTab,
   resolveChromeDirs,
-  waitForChromeSessionDir,
+  pickChromeSessionDir,
 } = require("./awp_internal.js");
 
 const hookConfig = loadConfig();
-const { candidates: chromeDirCandidates, crawlChromeDir } = resolveChromeDirs(
-  process.cwd(),
-  hookConfig.CRAWL_DIR
-);
+const {
+  outputDir,
+  candidates: chromeDirCandidates,
+  crawlChromeDir,
+} = resolveChromeDirs(process.cwd(), hookConfig.CRAWL_DIR);
+const RECORDING_STATE_PATH = path.join(outputDir, "recording.json");
 process.chdir(path.resolve(process.cwd()));
 
 async function runStartHandshake(
@@ -59,12 +63,9 @@ async function runStartHandshake(
   options
 ) {
   const { autorun, collectionTitle, timeoutMs } = options;
-  let helperPage = await openAwpHelperTab(browser, extensionId);
-  let result = null;
-  let lastError = null;
-
-  const handshake = async () =>
-    helperPage.evaluate(
+  const helperPage = await openAwpHelperTab(browser, extensionId, timeoutMs);
+  try {
+    const result = await helperPage.evaluate(
       async ({ tabId, url, autorun, collectionTitle, timeoutMs }) => {
         function withTimeout(promise, ms, message) {
           return Promise.race([
@@ -127,25 +128,13 @@ async function runStartHandshake(
               autorun: !!autorun,
             });
 
-            // Wait for a status message confirming recording=true or surfacing
-            // failureMsg from chrome.debugger.attach.
-            let status = null;
-            const deadline = Date.now() + 4000;
-            while (Date.now() < deadline) {
-              try {
-                const remaining = Math.max(250, deadline - Date.now());
-                status = await waitFor(
-                  (m) => m && m.type === "status",
-                  "recorder status",
-                  remaining
-                );
-              } catch (error) {
-                break;
-              }
-              if (status && (status.recording === true || status.failureMsg)) {
-                break;
-              }
-            }
+            const status = await waitFor(
+              (message) =>
+                message?.type === "status" &&
+                (message.recording === true || Boolean(message.failureMsg)),
+              "recording status",
+              timeoutMs
+            );
 
             try {
               port.disconnect();
@@ -159,48 +148,12 @@ async function runStartHandshake(
       },
       { tabId: targetTabId, url, autorun, collectionTitle, timeoutMs }
     );
-
-  try {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        result = await handshake();
-        result.targetTabId = targetTabId;
-        break;
-      } catch (err) {
-        const msg = err?.message || String(err);
-        if (
-          attempt < 2 &&
-          (msg.includes("Execution context was destroyed") ||
-            msg.includes("Target closed") ||
-            msg.includes("Session closed") ||
-            msg.includes("AWP popup-port handshake") ||
-            msg.includes("timed out waiting for"))
-        ) {
-          console.error(
-            `[archivewebpage] start handshake failed (${msg}), reopening helper popup and retrying`
-          );
-          try {
-            await helperPage.close({ runBeforeUnload: false });
-          } catch (closeError) {}
-          helperPage = await openAwpHelperTab(browser, extensionId);
-          continue;
-        }
-        lastError = err;
-        break;
-      }
-    }
+    return { ...result, targetTabId };
   } finally {
     try {
       await helperPage.close({ runBeforeUnload: false });
     } catch (error) {}
   }
-
-  if (!result) {
-    throw new Error(
-      lastError ? lastError.message || String(lastError) : "AWP start failed"
-    );
-  }
-  return result;
 }
 
 async function main() {
@@ -225,11 +178,9 @@ async function main() {
   );
 
   console.log("starting archiveweb.page recording...");
+  fs.rmSync(RECORDING_STATE_PATH, { force: true });
 
-  const chromeSessionDir = await waitForChromeSessionDir(
-    chromeDirCandidates,
-    Math.max(2000, budgetMs * 2)
-  );
+  const chromeSessionDir = pickChromeSessionDir(chromeDirCandidates);
   if (!chromeSessionDir) {
     const error =
       "No chrome session dir candidate found (chrome plugin must run first)";
@@ -238,10 +189,9 @@ async function main() {
     process.exit(1);
   }
 
-  const { id: extensionId } = await waitForAwpExtension(
+  const { id: extensionId } = resolveAwpExtension(
     chromeSessionDir,
-    crawlChromeDir,
-    Math.max(5000, budgetMs * 5)
+    crawlChromeDir
   );
   if (!extensionId) {
     const error =
@@ -261,6 +211,10 @@ async function main() {
     });
     browser = connection.browser;
     const page = connection.page;
+    const snapshotTargetId = chromeUtils.getTargetIdFromPage(page);
+    if (!snapshotTargetId) {
+      throw new Error("Chrome target_id.txt did not resolve to a page");
+    }
 
     const tabResolutionTimeoutMs = Math.min(
       overallTimeoutMs,
@@ -295,13 +249,20 @@ async function main() {
         `AWP recorder attach failed: ${handshake.status.failureMsg}`
       );
     }
-    if (handshake.status && handshake.status.recording !== true) {
-      console.error(
-        `[archivewebpage] WARN: recorder status did not confirm recording=true (status=${JSON.stringify(
-          handshake.status
-        )})`
-      );
+    if (handshake.status?.recording !== true) {
+      throw new Error("AWP recorder did not confirm recording=true");
     }
+
+    writeFileAtomic(
+      RECORDING_STATE_PATH,
+      `${JSON.stringify({
+        version: 1,
+        extensionId,
+        snapshotTargetId,
+        chromeTabId,
+        collId: handshake.collId,
+      })}\n`
+    );
 
     const elapsed = Date.now() - startedAt;
     if (elapsed > budgetMs) {

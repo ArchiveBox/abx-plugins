@@ -1,12 +1,13 @@
 #!/usr/bin/env -S abxpkg run --script --deps-from=../chrome/config.json:required_binaries,./config.json:required_binaries node
 // /// script
 // ///
-
 /**
- * Save a page using the SingleFile Chrome extension via an existing Chrome session.
+ * Save the exact Chrome snapshot tab with the SingleFile extension.
  *
- * Usage: singlefile_extension_save.js --url=<url>
- * Output: prints saved file path on success
+ * Chrome publishes the snapshot CDP target in target_id.txt. This helper maps
+ * that exact target to one chrome.tabs id inside SingleFile's service worker,
+ * dispatches the extension action to that tab, and waits for that tab's
+ * download in this snapshot's private output directory.
  */
 
 const fs = require("fs");
@@ -16,12 +17,6 @@ const {
   loadConfig,
   parseArgs,
 } = require("../base/utils.js");
-
-// Match the rest of the JS hook lifecycle: ArchiveBox resolves provider-owned
-// node_modules once and passes NODE_MODULES_DIR to hook subprocesses. Helper
-// scripts launched from Python must honor the same lookup path or they will
-// fail to resolve shared dependencies like puppeteer-core even when the parent
-// hook already has them available.
 ensureNodeModuleResolution(module);
 
 const chromeUtils = require("../chrome/chrome_utils.js");
@@ -30,38 +25,11 @@ const EXTENSION = {
   webstore_id: "mpiodijhokgodhhofbcjdecpffjipkle",
   name: "singlefile",
 };
-
 const SNAPSHOT_OUTPUT_DIR = process.cwd();
 const CHROME_SESSION_DIR = path.resolve(SNAPSHOT_OUTPUT_DIR, "..", "chrome");
 const hookConfig = loadConfig();
-const chromeLaunchOptions = chromeUtils.resolveChromeLaunchOptions(hookConfig);
-const CRAWL_DIR = hookConfig.CRAWL_DIR
-  ? path.resolve(String(hookConfig.CRAWL_DIR).trim())
-  : null;
-const DOWNLOADS_DIR = chromeLaunchOptions.CHROME_DOWNLOADS_DIR;
-const CHROMEWEBSTORE_EXTENSIONS_DIR =
-  chromeLaunchOptions.CHROMEWEBSTORE_EXTENSIONS_DIR;
-
-const DOWNLOAD_POLL_INTERVAL_MS = 3000;
 const DOWNLOAD_WAIT_RESERVE_MS = 10000;
 const SERVICE_WORKER_WAKE_PATH = "/src/ui/pages/offscreen-document.html";
-
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function moveAcrossMounts(src, dest) {
-  try {
-    await fs.promises.rename(src, dest);
-  } catch (err) {
-    if (err && err.code === "EXDEV") {
-      await fs.promises.copyFile(src, dest);
-      await fs.promises.unlink(src);
-      return;
-    }
-    throw err;
-  }
-}
 
 function getSinglefileDownloadWaitTimeoutMs(
   config = hookConfig,
@@ -74,191 +42,190 @@ function getSinglefileDownloadWaitTimeoutMs(
     Number.isFinite(configuredTimeoutSeconds) && configuredTimeoutSeconds > 0
       ? configuredTimeoutSeconds * 1000
       : 60000;
-  return Math.max(
-    DOWNLOAD_POLL_INTERVAL_MS,
-    totalTimeoutMs - DOWNLOAD_WAIT_RESERVE_MS - Math.max(0, elapsedMs)
-  );
+  return Math.max(3000, totalTimeoutMs - DOWNLOAD_WAIT_RESERVE_MS - elapsedMs);
+}
+
+async function moveAcrossMounts(src, dest) {
+  try {
+    await fs.promises.rename(src, dest);
+  } catch (error) {
+    if (error?.code !== "EXDEV") throw error;
+    await fs.promises.copyFile(src, dest);
+    await fs.promises.unlink(src);
+  }
+}
+
+async function getExactChromeTab(extension, page) {
+  const targetId = chromeUtils.getTargetIdFromPage(page);
+  if (!targetId) {
+    throw new Error("Chrome target_id.txt did not resolve to a page");
+  }
+  const worker = await extension.target.worker();
+  if (!worker) {
+    throw new Error("SingleFile service worker target is unavailable");
+  }
+  const expectedUrl = await page.url();
+  await page.evaluate((marker) => {
+    Object.defineProperty(globalThis, "__ABX_SINGLEFILE_TARGET_ID__", {
+      value: marker,
+      configurable: true,
+    });
+  }, targetId);
+  let tab;
+  try {
+    tab = await worker.evaluate(
+      async ({ expectedTargetId, expectedUrl }) => {
+        const tabs = (await chrome.tabs.query({})).filter(
+          (candidate) => candidate.url === expectedUrl
+        );
+        const matches = (
+          await Promise.all(
+            tabs.map(async (candidate) => {
+              try {
+                const results = await chrome.scripting.executeScript({
+                  target: { tabId: candidate.id },
+                  world: "MAIN",
+                  func: (marker) =>
+                    globalThis.__ABX_SINGLEFILE_TARGET_ID__ === marker,
+                  args: [expectedTargetId],
+                });
+                return results[0]?.result === true ? candidate : null;
+              } catch (error) {
+                return null;
+              }
+            })
+          )
+        ).filter(Boolean);
+        if (matches.length !== 1) {
+          throw new Error(
+            `expected one Chrome tab for target ${expectedTargetId}, found ${matches.length}`
+          );
+        }
+        return matches[0];
+      },
+      { expectedTargetId: targetId, expectedUrl }
+    );
+  } finally {
+    await page.evaluate(() => {
+      delete globalThis.__ABX_SINGLEFILE_TARGET_ID__;
+    });
+  }
+  if (!Number.isInteger(tab?.id)) {
+    throw new Error(`No chrome.tabs id maps to target ${targetId}`);
+  }
+  if (tab.status !== "complete") {
+    throw new Error(`Chrome navigation has not settled for target ${targetId}`);
+  }
+  return { targetId, tab, worker };
 }
 
 async function saveSinglefileWithExtension(page, extension, options = {}) {
-  if (!extension || !extension.version) {
+  if (!extension?.version) {
     throw new Error("SingleFile extension not found or not loaded");
   }
 
-  const url = await page.url();
-  console.error(`[singlefile] Triggering extension for: ${url}`);
-
-  const URL_SCHEMES_IGNORED = [
+  const { targetId, tab, worker } = await getExactChromeTab(extension, page);
+  const currentUrl = await page.url();
+  if (tab.url !== currentUrl) {
+    throw new Error(
+      `Chrome target URL mismatch for ${targetId}: page=${currentUrl}, tab=${tab.url}`
+    );
+  }
+  const ignoredSchemes = new Set([
     "about",
     "chrome",
     "chrome-extension",
     "data",
     "javascript",
     "blob",
-  ];
-  const scheme = url.split(":")[0];
-  if (URL_SCHEMES_IGNORED.includes(scheme)) {
-    console.log(`[⚠️] Skipping SingleFile for URL scheme: ${scheme}`);
+  ]);
+  if (ignoredSchemes.has(new URL(currentUrl).protocol.replace(":", ""))) {
     return null;
   }
 
-  const downloadsDir = options.downloadsDir || DOWNLOADS_DIR;
-  console.error(`[singlefile] Watching downloads dir: ${downloadsDir}`);
-
-  await fs.promises.mkdir(downloadsDir, { recursive: true });
-
-  const files_before = new Set(
-    (await fs.promises.readdir(downloadsDir)).filter(
-      (fn) =>
-        fn.toLowerCase().endsWith(".html") || fn.toLowerCase().endsWith(".htm")
-    )
-  );
-
-  const out_path =
+  const outputPath =
     options.outputPath || path.join(SNAPSHOT_OUTPUT_DIR, "singlefile.html");
+  const downloadDir = path.dirname(outputPath);
+  await fs.promises.mkdir(downloadDir, { recursive: true });
+  await chromeUtils.setBrowserDownloadBehavior({
+    page,
+    downloadPath: downloadDir,
+  });
 
-  console.error(`[singlefile] Saving via extension (${extension.id})...`);
-  await page.bringToFront();
-
-  console.error("[singlefile] Dispatching extension action...");
-  try {
-    const actionTimeoutMs = options.actionTimeoutMs || 5000;
-    const actionPromise = extension.dispatchAction();
-    const actionResult = await Promise.race([
-      actionPromise,
-      wait(actionTimeoutMs).then(() => "timeout"),
-    ]);
-    if (actionResult === "timeout") {
-      console.error(
-        `[singlefile] Extension action did not resolve within ${actionTimeoutMs}ms, continuing...`
-      );
-    }
-  } catch (err) {
-    console.error(`[singlefile] Extension action error: ${err.message || err}`);
-  }
-
-  const waitTimeoutMs = getSinglefileDownloadWaitTimeoutMs();
-  const deadline = Date.now() + waitTimeoutMs;
-  let files_new = [];
-
+  const timeoutMs = options.timeoutMs || getSinglefileDownloadWaitTimeoutMs();
   console.error(
-    `[singlefile] Waiting up to ${Math.ceil(
-      waitTimeoutMs / 1000
-    )}s for download...`
+    `[singlefile] saving exact target=${targetId} tab=${tab.id} url=${tab.url}`
   );
-  for (let attempt = 1; Date.now() < deadline; attempt++) {
-    const remainingBeforeSleepMs = Math.max(1, deadline - Date.now());
-    await wait(Math.min(DOWNLOAD_POLL_INTERVAL_MS, remainingBeforeSleepMs));
-
-    const files_after = (await fs.promises.readdir(downloadsDir)).filter(
-      (fn) =>
-        fn.toLowerCase().endsWith(".html") || fn.toLowerCase().endsWith(".htm")
-    );
-
-    files_new = files_after.filter((file) => !files_before.has(file));
-
-    if (files_new.length === 0) {
-      const remainingAfterPollSeconds = Math.max(
-        0,
-        Math.ceil((deadline - Date.now()) / 1000)
+  const downloadedPath = await worker.evaluate(
+    async ({ exactTab, expectedDownloadDir, timeoutMs }) => {
+      const normalize = (value) => String(value || "").replace(/\\/g, "/");
+      const expectedPrefix = `${normalize(expectedDownloadDir).replace(
+        /\/+$/,
+        ""
+      )}/`;
+      const previousIds = new Set(
+        (await chrome.downloads.search({})).map((download) => download.id)
       );
-      console.error(
-        `[singlefile] No new downloads yet (${attempt}, ${remainingAfterPollSeconds}s remaining)`
-      );
-      continue;
-    }
 
-    console.error(
-      `[singlefile] New download(s) detected: ${files_new.join(", ")}`
-    );
-
-    const url_variants = new Set([url]);
-    if (url.endsWith("/")) {
-      url_variants.add(url.slice(0, -1));
-    } else {
-      url_variants.add(`${url}/`);
-    }
-
-    const scored = [];
-    for (const file of files_new) {
-      const dl_path = path.join(downloadsDir, file);
-      let header = "";
-      try {
-        const stat = await fs.promises.stat(dl_path);
-        const partialPath = `${dl_path}.crdownload`;
-        if (stat.size <= 0 || fs.existsSync(partialPath)) {
-          console.error(
-            `[singlefile] Download ${file} still in progress size=${stat.size}`
+      return await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          cleanup();
+          reject(
+            new Error(
+              `SingleFile download for tab ${exactTab.id} did not complete within ${timeoutMs}ms`
+            )
           );
-          continue;
-        }
-        const dl_text = await fs.promises.readFile(dl_path, "utf-8");
-        header = dl_text.slice(0, 200000);
-        console.error(`[singlefile] Download ${file} size=${stat.size} bytes`);
-      } catch (err) {
-        continue;
-      }
+        }, timeoutMs);
+        const cleanup = () => {
+          clearTimeout(timer);
+          chrome.downloads.onChanged.removeListener(onChanged);
+        };
+        const onChanged = async (change) => {
+          if (previousIds.has(change.id) || !change.state) {
+            return;
+          }
+          const matches = await chrome.downloads.search({ id: change.id });
+          const filename = normalize(matches[0]?.filename);
+          if (
+            !filename.startsWith(expectedPrefix) ||
+            !/\.html?$/i.test(filename)
+          ) {
+            return;
+          }
+          if (change.state.current === "interrupted") {
+            cleanup();
+            reject(new Error(`SingleFile download ${change.id} was interrupted`));
+            return;
+          }
+          if (change.state.current !== "complete") return;
+          cleanup();
+          if (!matches[0]?.filename) {
+            reject(new Error(`SingleFile download ${change.id} has no filename`));
+            return;
+          }
+          resolve(matches[0].filename);
+        };
 
-      const header_lower = header.toLowerCase();
-      const has_url = Array.from(url_variants).some((v) => header.includes(v));
-      const has_singlefile_marker =
-        header_lower.includes("singlefile") ||
-        header_lower.includes("single-file");
-      const score = (has_url ? 2 : 0) + (has_singlefile_marker ? 1 : 0);
-      scored.push({ file, dl_path, score });
-    }
-
-    scored.sort((a, b) => b.score - a.score);
-
-    if (scored.length > 0) {
-      const best = scored[0];
-      if (best.score > 0 || files_new.length === 1) {
-        console.error(
-          `[singlefile] Moving download from ${best.file} -> ${out_path}`
-        );
-        await moveAcrossMounts(best.dl_path, out_path);
-        const out_stat = await fs.promises.stat(out_path);
-        console.error(`[singlefile] Moved file size=${out_stat.size} bytes`);
-        return out_path;
-      }
-    }
-
-    if (files_new.length > 0) {
-      let newest = null;
-      let newest_mtime = -1;
-      for (const file of files_new) {
-        const dl_path = path.join(downloadsDir, file);
+        chrome.downloads.onChanged.addListener(onChanged);
         try {
-          const stat = await fs.promises.stat(dl_path);
-          const partialPath = `${dl_path}.crdownload`;
-          if (stat.size <= 0 || fs.existsSync(partialPath)) {
-            continue;
-          }
-          if (stat.mtimeMs > newest_mtime) {
-            newest_mtime = stat.mtimeMs;
-            newest = { file, dl_path };
-          }
-        } catch (err) {}
-      }
-      if (newest) {
-        console.error(
-          `[singlefile] Moving newest download from ${newest.file} -> ${out_path}`
-        );
-        await moveAcrossMounts(newest.dl_path, out_path);
-        const out_stat = await fs.promises.stat(out_path);
-        console.error(`[singlefile] Moved file size=${out_stat.size} bytes`);
-        return out_path;
-      }
-    }
-  }
-
-  console.error(
-    `[singlefile] Failed to find SingleFile HTML in ${downloadsDir} after ${Math.ceil(
-      waitTimeoutMs / 1000
-    )}s`
+          chrome.action.onClicked.dispatch(exactTab);
+        } catch (error) {
+          cleanup();
+          reject(error);
+        }
+      });
+    },
+    { exactTab: tab, expectedDownloadDir: downloadDir, timeoutMs }
   );
-  console.error(`[singlefile] New files seen: ${files_new.join(", ")}`);
-  return null;
+
+  const stat = await fs.promises.stat(downloadedPath);
+  if (stat.size <= 0) {
+    throw new Error(`SingleFile download is empty: ${downloadedPath}`);
+  }
+  if (path.resolve(downloadedPath) !== path.resolve(outputPath)) {
+    await moveAcrossMounts(downloadedPath, outputPath);
+  }
+  return outputPath;
 }
 
 async function main() {
@@ -266,167 +233,65 @@ async function main() {
   const url = args.url;
   const outputPath =
     args.output_path || path.join(SNAPSHOT_OUTPUT_DIR, "singlefile.html");
-  const startedAt = Date.now();
-  const configuredTimeoutSeconds = Number(
-    hookConfig.SINGLEFILE_TIMEOUT || hookConfig.TIMEOUT || 60
-  );
-  const totalTimeoutMs =
-    Number.isFinite(configuredTimeoutSeconds) && configuredTimeoutSeconds > 0
-      ? configuredTimeoutSeconds * 1000
-      : 60000;
-  const remainingTimeoutMs = (reserveMs = 5000, minMs = 1000) =>
-    Math.max(minMs, totalTimeoutMs - (Date.now() - startedAt) - reserveMs);
-
   if (!url) {
     console.error("Usage: singlefile_extension_save.js --url=<url>");
     process.exit(1);
   }
 
-  console.error(`[singlefile] helper start url=${url}`);
-  console.error(`[singlefile] downloads_dir=${DOWNLOADS_DIR}`);
-  if (CHROMEWEBSTORE_EXTENSIONS_DIR) {
-    console.error(
-      `[singlefile] extensions_dir=${CHROMEWEBSTORE_EXTENSIONS_DIR}`
-    );
-  }
-
+  let browser = null;
   try {
-    console.error("[singlefile] loading dependencies...");
-    if (process.cwd() !== SNAPSHOT_OUTPUT_DIR) {
-      process.chdir(SNAPSHOT_OUTPUT_DIR);
-    }
-    console.error("[singlefile] dependencies loaded");
-
-    // Connect to existing Chrome session
-    console.error("[singlefile] connecting to chrome session...");
-    const {
-      browser,
-      page,
-      cdpSession,
-      extensions,
-    } = await chromeUtils.connectToPage({
+    const connection = await chromeUtils.connectToPage({
       chromeSessionDir: CHROME_SESSION_DIR,
-      timeoutMs: remainingTimeoutMs(10000, 5000),
+      timeoutMs: getSinglefileDownloadWaitTimeoutMs(hookConfig, 0),
       requireTargetId: true,
       requireBrowserReady: true,
+      waitForNavigationComplete: true,
     });
-    console.error("[singlefile] connected to chrome");
+    browser = connection.browser;
 
-    try {
-      const currentUrl = await page.url();
-      const norm = (value) => (value || "").replace(/\/+$/, "");
-      if (
-        !currentUrl ||
-        currentUrl.startsWith("about:") ||
-        norm(currentUrl) !== norm(url)
-      ) {
-        console.error(
-          `[singlefile] navigating page from ${
-            currentUrl || "<empty>"
-          } to ${url}`
-        );
-        await page.goto(url, {
-          waitUntil: "networkidle2",
-          timeout: remainingTimeoutMs(10000, 5000),
-        });
-      }
-
-      // Ensure CDP target discovery is enabled so service_worker targets appear
-      try {
-        await cdpSession.send("Target.setDiscoverTargets", { discover: true });
-      } catch (err) {
-        console.error(
-          `[singlefile] failed to enable target discovery: ${
-            err.message || err
-          }`
-        );
-      }
-
-      // Resolve extension id from snapshot chrome session metadata and connect to target by id.
-      console.error("[singlefile] waiting for extensions metadata...");
-      const crawlChromeDir = CRAWL_DIR ? path.join(CRAWL_DIR, "chrome") : null;
-      const sessionExtensions =
-        extensions ||
-        chromeUtils.readBrowserMetadata(CHROME_SESSION_DIR)?.extensions ||
-        (crawlChromeDir
-          ? chromeUtils.readBrowserMetadata(crawlChromeDir)?.extensions
-          : null) ||
-        [];
-      const sessionEntry = chromeUtils.findExtensionMetadataByName(
-        sessionExtensions,
-        EXTENSION.name
-      );
-      if (!sessionEntry?.id) {
-        console.error(
-          `[singlefile] extension metadata missing id for name=${EXTENSION.name}`
-        );
-        await browser.disconnect();
-        process.exit(5);
-      }
-      const extension = { ...sessionEntry };
-      console.error(
-        `[singlefile] resolved extension id from session metadata: ${extension.id}`
-      );
-
-      const manifest =
-        chromeUtils.loadExtensionManifest(extension.unpacked_path) || {};
-      const backgroundServiceWorker =
-        manifest.background?.service_worker || null;
-      const preferredTargetUrl =
-        sessionEntry.target_url ||
-        (backgroundServiceWorker
-          ? `chrome-extension://${extension.id}/${backgroundServiceWorker}`
-          : null);
-      const extensionTarget = await chromeUtils.waitForExtensionTargetHandle(
-        browser,
-        extension.id,
-        remainingTimeoutMs(5000, 5000),
-        preferredTargetUrl,
-        { wakePath: SERVICE_WORKER_WAKE_PATH }
-      );
-      console.error("[singlefile] loading extension from target...");
-      await chromeUtils.loadExtensionFromTarget([extension], extensionTarget);
-      if (typeof extension.dispatchAction !== "function") {
-        console.error(
-          `[singlefile] extension dispatchAction missing for id=${extension.id}`
-        );
-        await browser.disconnect();
-        process.exit(6);
-      }
-      console.error("[singlefile] setting download dir...");
-      await chromeUtils.setBrowserDownloadBehavior({
-        page,
-        downloadPath: DOWNLOADS_DIR,
-      });
-
-      console.error("[singlefile] triggering save via extension...");
-      const output = await saveSinglefileWithExtension(page, extension, {
-        downloadsDir: DOWNLOADS_DIR,
-        outputPath,
-      });
-      if (output && fs.existsSync(output)) {
-        console.error(`[singlefile] saved: ${output}`);
-        console.log(output);
-        await browser.disconnect();
-        process.exit(0);
-      }
-
-      console.error("[❌] SingleFile extension did not produce output");
-      await browser.disconnect();
-      process.exit(3);
-    } catch (err) {
-      await browser.disconnect();
-      throw err;
+    const sessionEntry = chromeUtils.findExtensionMetadataByName(
+      connection.extensions || [],
+      EXTENSION.name
+    );
+    if (!sessionEntry?.id) {
+      throw new Error("SingleFile extension metadata is missing from browser.json");
     }
-  } catch (err) {
-    console.error(`[❌] ${err.message || err}`);
+    const extension = { ...sessionEntry };
+    const manifest =
+      chromeUtils.loadExtensionManifest(extension.unpacked_path) || {};
+    const preferredTargetUrl = sessionEntry.target_url ||
+      (manifest.background?.service_worker
+        ? `chrome-extension://${extension.id}/${manifest.background.service_worker}`
+        : null);
+    const extensionTarget = await chromeUtils.waitForExtensionTargetHandle(
+      browser,
+      extension.id,
+      getSinglefileDownloadWaitTimeoutMs(),
+      preferredTargetUrl,
+      { wakePath: SERVICE_WORKER_WAKE_PATH }
+    );
+    await chromeUtils.loadExtensionFromTarget([extension], extensionTarget);
+
+    const savedPath = await saveSinglefileWithExtension(
+      connection.page,
+      extension,
+      { outputPath, timeoutMs: getSinglefileDownloadWaitTimeoutMs() }
+    );
+    if (!savedPath) {
+      console.error(`[singlefile] unsupported URL scheme: ${url}`);
+      process.exit(3);
+    }
+    console.log(savedPath);
+    process.exit(0);
+  } catch (error) {
+    console.error(`[❌] ${error.message || error}`);
     process.exit(4);
+  } finally {
+    if (browser) await browser.disconnect().catch(() => {});
   }
 }
 
-if (require.main === module) {
-  main();
-}
+if (require.main === module) main();
 
 module.exports = {
   EXTENSION,

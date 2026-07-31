@@ -17,7 +17,6 @@ from pathlib import Path
 import pytest
 
 from abx_plugins.plugins.base.testing import (
-    get_hydrated_required_binaries,
     get_hook_script,
     get_plugin_dir,
     install_required_binary_from_config,
@@ -271,7 +270,7 @@ def test_singlefile_with_chrome_session(tmp_path):
 
 
 def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
-    """Test SingleFile uses the Chrome extension via existing session (CLI fallback disabled)."""
+    """Test SingleFile uses the Chrome extension via the exact existing tab."""
     tmpdir = tmp_path / "singlefile-extension"
     tmpdir.mkdir()
 
@@ -282,27 +281,9 @@ def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
         "singlefile",
         env=env_install,
     )
-    cli_records = [
-        record
-        for record in get_hydrated_required_binaries(PLUGIN_DIR, env=env_install)
-        if any(
-            isinstance(arg, str)
-            and (arg == "single-file-cli" or arg.startswith("single-file-cli@"))
-            for arg in record.get("overrides", {})
-            .get("pnpm", {})
-            .get("install_args", [])
-        )
-    ]
-    assert len(cli_records) == 1, cli_records
-    singlefile_cli = install_required_binary_from_config(
-        PLUGIN_DIR,
-        str(cli_records[0]["name"]),
-        env=env_install,
-    )
     assert loaded.loaded_abspath is not None, (
         "abxpkg did not resolve SingleFile extension"
     )
-    assert singlefile_cli.loaded_abspath is not None
     with chrome_session(
         tmpdir=tmpdir,
         crawl_id="singlefile-ext-crawl",
@@ -319,21 +300,13 @@ def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
         singlefile_output_dir = snapshot_chrome_dir.parent / "singlefile"
         singlefile_output_dir.mkdir(parents=True, exist_ok=True)
         assert extensions_dir == loaded.loaded_abspath.parent
-        downloads_dir = (
-            Path(env["PERSONAS_DIR"]) / env["ACTIVE_PERSONA"] / "chrome_downloads"
-        )
-
         chrome_dir = singlefile_output_dir.parent / "chrome"
         if not chrome_dir.exists():
             chrome_dir.symlink_to(snapshot_chrome_dir)
 
         env["SINGLEFILE_ENABLED"] = "true"
-        env["SINGLEFILE_BINARY"] = str(singlefile_cli.loaded_abspath)
         env["CHROME_HEADLESS"] = "false"
         env.pop("CRAWL_DIR", None)
-
-        downloads_before = set(downloads_dir.glob("*.html"))
-        downloads_mtime_before = downloads_dir.stat().st_mtime_ns
 
         result = subprocess.run(
             [
@@ -360,15 +333,7 @@ def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
             "Output should contain example.com content"
         )
 
-        downloads_after = set(downloads_dir.glob("*.html"))
-        new_downloads = downloads_after - downloads_before
-        downloads_mtime_after = downloads_dir.stat().st_mtime_ns
-        assert downloads_mtime_after != downloads_mtime_before, (
-            "Downloads dir should be modified during extension save"
-        )
-        assert not new_downloads, (
-            f"SingleFile download should be moved out of downloads dir, found: {new_downloads}"
-        )
+        assert list(singlefile_output_dir.glob("*.html")) == [output_file]
 
 
 def test_singlefile_extension_loader_prefers_cached_background_target(tmp_path):
