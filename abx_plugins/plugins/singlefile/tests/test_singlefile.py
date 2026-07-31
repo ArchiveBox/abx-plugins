@@ -227,7 +227,6 @@ def test_singlefile_with_chrome_session(tmp_path):
         crawl_id="singlefile-test-crawl",
         snapshot_id="singlefile-test-snap",
         test_url=TEST_URL,
-        navigate=False,
         timeout=20,
         env_overrides={
             "ABXPKG_LIB_DIR": str(install_state["abxpkg_lib_dir"]),
