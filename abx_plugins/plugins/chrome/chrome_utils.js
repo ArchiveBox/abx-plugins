@@ -1969,14 +1969,8 @@ async function loadExtensionFromTarget(extensions, target, options = {}) {
       return await target_ctx.evaluate(async (tab) => {
         const browserApi = (typeof browser !== "undefined" && browser) || null;
         const chromeApi = (typeof chrome !== "undefined" && chrome) || null;
-        const tabsApi = browserApi?.tabs || chromeApi?.tabs || null;
-
-        if (!tab && tabsApi?.query) {
-          const tabs = await tabsApi.query({
-            currentWindow: true,
-            active: true,
-          });
-          tab = tabs?.[0] || null;
+        if (!Number.isInteger(tab?.id)) {
+          throw new Error("Extension action requires an exact chrome.tabs tab");
         }
 
         if (browserApi?.action?.onClicked?.dispatch) {

@@ -153,15 +153,6 @@ async function takeScreenshot(url) {
     const captureTimeoutMs = Math.max(timeoutMs, 10000);
     const viewport = getScreenshotViewport();
     await page.setViewport(viewport);
-    await Promise.race([
-      page.bringToFront(),
-      new Promise((_, reject) => {
-        setTimeout(
-          () => reject(new Error("Screenshot capture timed out")),
-          captureTimeoutMs
-        );
-      }),
-    ]);
     const waitForText = Object.prototype.hasOwnProperty.call(
       process.env,
       "SCREENSHOT_WAIT_FOR_TEXT"

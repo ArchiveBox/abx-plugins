@@ -146,17 +146,6 @@ async function takeScreenshot(page, viewport, options = {}) {
     try {
       try {
         await Promise.race([
-          page.bringToFront(),
-          new Promise((_, reject) => {
-            setTimeout(
-              () => reject(new Error("Page.bringToFront timed out")),
-              5000
-            );
-          }),
-        ]);
-      } catch (error) {}
-      try {
-        await Promise.race([
           page.screenshot({ path: tempOutputPath, fullPage: false }),
           new Promise((_, reject) => {
             setTimeout(

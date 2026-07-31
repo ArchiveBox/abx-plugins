@@ -84,7 +84,7 @@ async function captureVisibleViewportJpeg(
   browser,
   quality,
   screenshotScale,
-  targetId = null
+  targetId
 ) {
   const pageTargets = browser.targets().filter((target) => {
     const url = target.url() || "";
@@ -93,20 +93,16 @@ async function captureVisibleViewportJpeg(
       (url.startsWith("http://") || url.startsWith("https://"))
     );
   });
-  const target =
-    (targetId &&
-      pageTargets.find(
-        (candidate) => getTargetIdFromTarget(candidate) === targetId
-      )) ||
-    pageTargets[pageTargets.length - 1];
+  const target = pageTargets.find(
+    (candidate) => getTargetIdFromTarget(candidate) === targetId
+  );
   if (!target) {
-    throw new Error("No HTTP(S) Chrome page target found");
+    throw new Error(`Chrome page target ${targetId} not found`);
   }
   const page = await target.page();
   if (!page) {
-    throw new Error("Last Chrome page target has no page handle");
+    throw new Error(`Chrome target ${targetId} has no page handle`);
   }
-  await page.bringToFront();
   const cdpSession = await page.target().createCDPSession();
   let result;
   try {
@@ -203,7 +199,7 @@ async function startScreencast() {
     getEnvInt("CHROME_TIMEOUT", getEnvInt("TIMEOUT", 60)) * 1000;
   const chromeSession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
     timeoutMs,
-    requireTargetId: false,
+    requireTargetId: true,
   });
   if (!chromeSession?.cdpUrl) {
     throw new Error("No Chrome session found (chrome plugin must run first)");
@@ -212,7 +208,7 @@ async function startScreencast() {
     // Keep the real Chrome viewport created by the chrome plugin.
     defaultViewport: null,
   });
-  const targetId = chromeSession.targetId || null;
+  const targetId = chromeSession.targetId;
 
   const quality = Math.max(
     1,
