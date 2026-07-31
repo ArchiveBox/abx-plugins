@@ -1,0 +1,21 @@
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_f8414d52051f83::t_34e8a7b69c8605 1972-1973
+abx_plugins/plugins/chrome_screencast/on_Snapshot__12_chrome_screencast.daemon.bg.js
+  s_f8414d52051f83::t_34e8a7b69c8605 87,96-98,100,104,202,211
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.18",
+  "base_commit_sha": "1dc8e32309c802023b39268293e21609a323e51c",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
