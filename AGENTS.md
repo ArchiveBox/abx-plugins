@@ -101,3 +101,4 @@ node -c abx_plugins/plugins/title/on_Snapshot__54_title.js
 - Background hooks must emit their first stdout line only after they are ready for the next hook to launch; non-ready diagnostics go to stderr.
 - Snapshot hooks emit JSONL records on stdout after any background readiness line, and diagnostics on stderr.
 - Chrome-specific logic belongs in the Chrome plugin helpers.
+- Chrome snapshot hooks must select the page from the persisted `target_id.txt`; never infer it from the active tab, last tab, or URL. Hooks that read the settled page must also require the completed `navigation.json` marker.
