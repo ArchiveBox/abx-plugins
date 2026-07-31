@@ -147,7 +147,6 @@ def real_competing_html_snapshot(real_html_snapshot):
             crawl_id=f"singlefile-{snapshot_id}",
             snapshot_id=snapshot_id,
             test_url="https://archivebox.io",
-            navigate=False,
             timeout=30,
             env_overrides={
                 "ABXPKG_LIB_DIR": str(install_state["abxpkg_lib_dir"]),
