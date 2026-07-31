@@ -1,0 +1,44 @@
+abx_plugins/plugins/singlefile/tests/test_singlefile.py
+  s_f8414d52051f83::t_bd5611a5302a02 273,336
+abx_plugins/plugins/singlefile/on_Snapshot__50_singlefile.py
+  s_f8414d52051f83::t_6d45d5c9de5651 5,14-15,34,38,45,47-56,58-61,63-70,77-81,85-87,89-96,102
+abx_plugins/plugins/defuddle/on_Snapshot__57_defuddle.py
+  s_f8414d52051f83::t_9b994bb4a009e7 64,112
+abx_plugins/plugins/singlefile/singlefile_extension_save.js
+  s_f8414d52051f83::t_18d1d116a6c40e 210-212,215
+  s_f8414d52051f83::t_3ef56ee151182d 68-73
+  s_f8414d52051f83::t_ce3b84cca6820c 183-185,187-188,197,203
+  s_f8414d52051f83::t_f7e4e29488d76f 5,7-10,46-66,113-119,123,127-134,141-142,146,148-155,157,159-167,170-176,178-182,189-193,195-196,198-202,204-207,209,213-214,216-218,220-228,241,243,245,248,250,252-273,275-281,284-287,289-290,294
+  s_f8414d52051f83::t_5b576285ff1013 45
+  s_f8414d52051f83::t_bd5611a5302a02 67,74-112
+abx_plugins/plugins/archivewebpage/awp_internal.js
+  s_f8414d52051f83::t_f7e68ba15f019b 51,53-59,61-68,85,102-112,114-123
+  s_f8414d52051f83::t_38a4199fc53158 164-166,172
+abx_plugins/plugins/archivewebpage/on_Snapshot__16_archivewebpage_start.js
+  s_f8414d52051f83::t_34992106c9030b 183,192,194,214-217,252-253,256-265
+  s_f8414d52051f83::t_5b576285ff1013 24,181
+  s_f8414d52051f83::t_38a4199fc53158 7
+  s_f8414d52051f83::t_ee4851dfbb8b11 66-68,131-137,151
+  s_f8414d52051f83::t_b1a199e12d8805 35,42,46,50-55
+  s_f8414d52051f83::t_0cbb8b18a31c4e 266
+abx_plugins/plugins/archivewebpage/on_Snapshot__65_archivewebpage_stop.js
+  s_f8414d52051f83::t_c3649c9889e7ea 5-8,29,35,46-63,65,68-70,72-74,76,78-81,83-87,89-90,92-93,98-102,104-106,108-111,113-115,119-127,129,131-135,139,142,146-170,172-182,184-185,187-200,202-203,205,207-210,217,227-229,235-239,242,247-252,254,256-257,259-262,266,268-269,271,276,283,286,295
+abx_plugins/plugins/singlefile/config.json
+  s_f8414d52051f83::t_6d45d5c9de5651 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.18",
+  "base_commit_sha": "e0248461c3b00418dd03a1228694c487f863bcaa",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
