@@ -14,7 +14,7 @@
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/liteparse",
           "install_args": [
-            "@llamaindex/liteparse"
+            "@llamaindex/liteparse@2.9.0"
           ]
         }
       }
