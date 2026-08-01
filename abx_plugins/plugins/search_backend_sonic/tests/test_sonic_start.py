@@ -84,8 +84,8 @@ def test_sonic_required_binary_avoids_build_chain_on_linux_x86_64() -> None:
     apt_override = sonic_binary["overrides"]["apt"]
 
     assert config["properties"]["SEARCH_BACKEND_SONIC_ENABLED"]["default"] is True
-    assert provider_names == ["env", "bash", "brew", "apt", "cargo"]
-    assert provider_names.index("bash") < provider_names.index("apt")
+    assert provider_names == ["env", "brew", "apt", "bash", "cargo"]
+    assert provider_names.index("apt") < provider_names.index("bash")
     assert provider_names.index("apt") < provider_names.index("cargo")
     assert bash_override["install_args"] == ["sonic@1.7.4"]
     assert (

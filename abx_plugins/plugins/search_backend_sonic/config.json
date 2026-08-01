@@ -8,7 +8,7 @@
   "required_binaries": [
     {
       "name": "{SONIC_BINARY}",
-      "binproviders": "env,bash,brew,apt,cargo",
+      "binproviders": "env,brew,apt,bash,cargo",
       "min_version": null,
       "overrides": {
         "bash": {

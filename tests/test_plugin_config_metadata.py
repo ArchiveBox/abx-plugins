@@ -248,7 +248,6 @@ def test_required_binary_configs_prefer_compatible_host_binaries() -> None:
                 apt_index = providers.index("apt")
                 for preferred_provider in (
                     "node",
-                    "bash",
                     "brew",
                     "nix",
                     "uv",
