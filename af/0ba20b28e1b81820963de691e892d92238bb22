@@ -1,0 +1,21 @@
+abx_plugins/plugins/liteparse/tests/test_liteparse.py
+  s_69ddf154c10e6f::t_87efbebee03bff 298,419-420,425-426
+abx_plugins/plugins/liteparse/config.json
+  s_69ddf154c10e6f::t_87efbebee03bff 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "af0ba20b28e1b81820963de691e892d92238bb22",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
