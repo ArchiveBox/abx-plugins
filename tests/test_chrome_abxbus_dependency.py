@@ -128,11 +128,7 @@ def test_chrome_host_binaries_require_their_javascript_modules() -> None:
         "-p",
         "require('abxbus/package.json').version",
     ]
-    assert records["browsers"]["overrides"]["env"]["version"] == [
-        "node",
-        "-p",
-        "require('puppeteer/package.json').version",
-    ]
+    assert records["browsers"]["overrides"]["env"]["version"] == "3.0.4"
 
 
 def test_chrome_config_pins_puppeteer_dependencies() -> None:

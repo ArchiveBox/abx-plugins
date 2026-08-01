@@ -49,11 +49,7 @@
       "postinstall_scripts": false,
       "overrides": {
         "env": {
-          "version": [
-            "node",
-            "-p",
-            "require('puppeteer/package.json').version"
-          ]
+          "version": "3.0.4"
         },
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/chrome",
