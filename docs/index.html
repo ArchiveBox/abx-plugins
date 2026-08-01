@@ -4086,7 +4086,7 @@ providers: env,chromewebstore">
             <details
               id="chrome"
               class="plugin-card plugin-card--snapshot"
-              data-search="chrome snapshot chrome needed by many other plugins to save high-fidelity archives within a real browser (does not save anything itself). javascript snapshot {node_binary} abxbus browsers {chrome_binary} env,node,brew,apt env,pnpm env,pnpm env,puppeteer,playwright 22.12.0 2.5.9  149.0.0 {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;env&#34;: {&#34;version&#34;: [&#34;node&#34;, &#34;-p&#34;, &#34;require(&#39;abxbus/package.json&#39;).version&#34;]}, &#34;pnpm&#34;: {&#34;abspath&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/abxbus/node_modules/abxbus/dist/cjs/index.js&#34;, &#34;install_args&#34;: [&#34;abxbus@2.5.9&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/abxbus&#34;, &#34;postinstall_scripts&#34;: true, &#34;version&#34;: &#34;2.5.9&#34;}} {&#34;env&#34;: {&#34;version&#34;: [&#34;node&#34;, &#34;-p&#34;, &#34;require(&#39;puppeteer/package.json&#39;).version&#34;]}, &#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;@puppeteer/browsers&#34;, &#34;puppeteer&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/chrome&#34;}} {&#34;playwright&#34;: {&#34;install_args&#34;: [&#34;--with-deps&#34;, &#34;chromium&#34;, &#34;--no-shell&#34;]}} text/plain application/json on_crawlsetup__89_chrome_kill_zombies.js on_crawlsetup__90_chrome_launch.daemon.bg.js on_crawlsetup__91_chrome_wait.js on_snapshot__09_chrome_launch.daemon.bg.js on_snapshot__10_chrome_tab.daemon.bg.js on_snapshot__11_chrome_wait.js on_snapshot__30_chrome_navigate.js chrome_enabled enable chrome browser integration for archiving chrome_binary path to a chromium-family browser binary chromewebstore_extensions_dir abxpkg-managed chrome web store extension download/cache directory. this is intentionally not derived from personas_dir/active_persona like runtime chrome profile paths; chrome reads unpacked extension artifacts from here while running with persona-derived user data dirs. node_binary path to node.js binary chrome_timeout timeout for chrome operations in seconds chrome_headless run chrome in headless mode personas_dir shared chrome/browser personas root active_persona active browser persona name chrome_sandbox enable chrome sandbox (disable in docker with --no-sandbox) chrome_resolution browser viewport resolution (width,height) chrome_user_agent user agent string for chrome chrome_cdp_url connect to an already-running browser over cdp instead of launching a new local chrome process chrome_is_local whether the managed browser process is local and should have a live chrome.pid marker chrome_keepalive keep the browser alive after the owning crawl/snapshot hook exits instead of closing it during cleanup chrome_isolation whether chrome runs as one shared browser per crawl or a separate browser per snapshot chrome_args default chrome command-line arguments (static flags only, dynamic args like --user-data-dir are added at runtime) chrome_args_extra extra arguments to append to chrome command (for user customization) chrome_pageload_timeout timeout for page navigation/load in seconds chrome_wait_for page load completion condition (domcontentloaded, load, networkidle0, networkidle2) chrome_delay_after_load extra delay in seconds after page load completes before archiving (useful for js-heavy spas) chrome_check_ssl_validity whether to verify ssl certificates (disable for self-signed certs)"
+              data-search="chrome snapshot chrome needed by many other plugins to save high-fidelity archives within a real browser (does not save anything itself). javascript snapshot {node_binary} abxbus browsers {chrome_binary} env,node,brew,apt env,pnpm env,pnpm env,puppeteer,playwright 22.12.0 2.5.9  149.0.0 {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;env&#34;: {&#34;version&#34;: [&#34;node&#34;, &#34;-p&#34;, &#34;require(&#39;abxbus/package.json&#39;).version&#34;]}, &#34;pnpm&#34;: {&#34;abspath&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/abxbus/node_modules/abxbus/dist/cjs/index.js&#34;, &#34;install_args&#34;: [&#34;abxbus@2.5.9&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/abxbus&#34;, &#34;postinstall_scripts&#34;: true, &#34;version&#34;: &#34;2.5.9&#34;}} {&#34;env&#34;: {&#34;version&#34;: [&#34;node&#34;, &#34;-p&#34;, &#34;require(&#39;puppeteer/package.json&#39;).version&#34;]}, &#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;@puppeteer/browsers@3.0.4&#34;, &#34;puppeteer@25.1.0&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/chrome&#34;}} {&#34;playwright&#34;: {&#34;install_args&#34;: [&#34;--with-deps&#34;, &#34;chromium&#34;, &#34;--no-shell&#34;]}} text/plain application/json on_crawlsetup__89_chrome_kill_zombies.js on_crawlsetup__90_chrome_launch.daemon.bg.js on_crawlsetup__91_chrome_wait.js on_snapshot__09_chrome_launch.daemon.bg.js on_snapshot__10_chrome_tab.daemon.bg.js on_snapshot__11_chrome_wait.js on_snapshot__30_chrome_navigate.js chrome_enabled enable chrome browser integration for archiving chrome_binary path to a chromium-family browser binary chromewebstore_extensions_dir abxpkg-managed chrome web store extension download/cache directory. this is intentionally not derived from personas_dir/active_persona like runtime chrome profile paths; chrome reads unpacked extension artifacts from here while running with persona-derived user data dirs. node_binary path to node.js binary chrome_timeout timeout for chrome operations in seconds chrome_headless run chrome in headless mode personas_dir shared chrome/browser personas root active_persona active browser persona name chrome_sandbox enable chrome sandbox (disable in docker with --no-sandbox) chrome_resolution browser viewport resolution (width,height) chrome_user_agent user agent string for chrome chrome_cdp_url connect to an already-running browser over cdp instead of launching a new local chrome process chrome_is_local whether the managed browser process is local and should have a live chrome.pid marker chrome_keepalive keep the browser alive after the owning crawl/snapshot hook exits instead of closing it during cleanup chrome_isolation whether chrome runs as one shared browser per crawl or a separate browser per snapshot chrome_args default chrome command-line arguments (static flags only, dynamic args like --user-data-dir are added at runtime) chrome_args_extra extra arguments to append to chrome command (for user customization) chrome_pageload_timeout timeout for page navigation/load in seconds chrome_wait_for page load completion condition (domcontentloaded, load, networkidle0, networkidle2) chrome_delay_after_load extra delay in seconds after page load completes before archiving (useful for js-heavy spas) chrome_check_ssl_validity whether to verify ssl certificates (disable for self-signed certs)"
               data-hero-plugin="chrome"
               data-hero-abx-command="uvx abx-dl --plugins chrome 'https://example.com'"
               data-hero-archivebox-command="CHROME_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -5134,7 +5134,7 @@ providers: env,chromewebstore">
             <details
               id="singlefile"
               class="plugin-card plugin-card--snapshot"
-              data-search="singlefile snapshot singlefile save a complete page as a single self-contained html file using the singlefile extension or cli. python snapshot embed chrome {singlefile_binary} singlefile env,pnpm env,chromewebstore   {&#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;single-file-cli@^1.1.54&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/singlefile&#34;}} {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;mpiodijhokgodhhofbcjdecpffjipkle&#34;, &#34;--name=singlefile&#34;]}} text/html on_crawlsetup__80_singlefile_prepare.py on_snapshot__50_singlefile.py singlefile_enabled enable singlefile archiving singlefile_binary path to single-file binary singlefile_timeout timeout for singlefile in seconds singlefile_user_agent user agent string singlefile_cookies_file path to cookies file singlefile_check_ssl_validity whether to verify ssl certificates singlefile_chrome_args chrome command-line arguments for singlefile singlefile_args default single-file arguments singlefile_args_extra extra arguments to append to single-file command"
+              data-search="singlefile snapshot singlefile save a complete page as a single self-contained html file using the singlefile chrome extension. python snapshot embed chrome singlefile env,chromewebstore  {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;mpiodijhokgodhhofbcjdecpffjipkle&#34;, &#34;--name=singlefile&#34;]}} text/html on_crawlsetup__80_singlefile_prepare.py on_snapshot__50_singlefile.py singlefile_enabled enable singlefile archiving singlefile_timeout timeout for singlefile in seconds"
               data-hero-plugin="singlefile"
               data-hero-abx-command="uvx abx-dl --plugins singlefile 'https://example.com'"
               data-hero-archivebox-command="SINGLEFILE_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -5146,7 +5146,7 @@ providers: env,chromewebstore">
                       <h2>SingleFile</h2>
                     </div>
                     <div class="plugin-slug"><code>singlefile</code></div>
-                    <p class="plugin-summary-description">Save a complete page as a single self-contained HTML file using the SingleFile extension or CLI.</p>
+                    <p class="plugin-summary-description">Save a complete page as a single self-contained HTML file using the SingleFile Chrome extension.</p>
                     <div class="plugin-subline">
                       <span class="plugin-order">#50</span>
                       <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
@@ -5163,7 +5163,6 @@ providers: env,chromewebstore">
                     </div>
                     <div class="plugin-summary-facts">
                       <div>
-                        <span class="chip chip--binary-summary">single-file <small>(env,pnpm)</small></span>
                         <span class="chip chip--binary-summary">singlefile <small>(env,chromewebstore)</small></span>
                       </div>
                       <div>
@@ -5175,7 +5174,7 @@ providers: env,chromewebstore">
               </summary>
 
               <div class="plugin-body">
-                <p class="plugin-modal-description">Save a complete page as a single self-contained HTML file using the SingleFile extension or CLI.</p>
+                <p class="plugin-modal-description">Save a complete page as a single self-contained HTML file using the SingleFile Chrome extension.</p>
 
                 <div class="actions">
                   <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/singlefile" target="_blank" rel="noreferrer">Source on GitHub</a>
@@ -5192,11 +5191,6 @@ providers: env,chromewebstore">
                   <article class="plugin-info-card">
                     <span>Required Binaries</span>
                     <div class="pill-list">
-                      <span class="chip chip--binary" title="single-file
-providers: env,pnpm">
-                        <code>single-file</code>
-                        <small>providers=env,pnpm</small>
-                      </span>
                       <span class="chip chip--binary" title="singlefile
 providers: env,chromewebstore">
                         <code>singlefile</code>
@@ -5287,15 +5281,6 @@ providers: env,chromewebstore">
 <small>SAVE_SINGLEFILE, USE_SINGLEFILE</small>                        </td>
                       </tr>
                       <tr>
-                        <td><code>SINGLEFILE_BINARY</code><span class="config-key-desc">Path to single-file binary</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;single-file&quot;</span></td>
-                        <td>
-                          <code>string</code>
-                        </td>
-                        <td>
-<small>SINGLE_FILE_BINARY</small>                        </td>
-                      </tr>
-                      <tr>
                         <td><code>SINGLEFILE_TIMEOUT</code><span class="config-key-desc">Timeout for SingleFile in seconds</span></td>
                         <td class="cfg-default"><span class="cfg-number">60</span></td>
                         <td>
@@ -5303,60 +5288,6 @@ providers: env,chromewebstore">
 <br><small>min 10</small>                        </td>
                         <td>
 <small>fallback: <code>TIMEOUT</code></small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>SINGLEFILE_USER_AGENT</code><span class="config-key-desc">User agent string</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
-                        <td>
-                          <code>string</code>
-                        </td>
-                        <td>
-<small>fallback: <code>USER_AGENT</code></small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>SINGLEFILE_COOKIES_FILE</code><span class="config-key-desc">Path to cookies file</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
-                        <td>
-                          <code>string</code>
-                        </td>
-                        <td>
-<small>fallback: <code>COOKIES_FILE</code></small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>SINGLEFILE_CHECK_SSL_VALIDITY</code><span class="config-key-desc">Whether to verify SSL certificates</span></td>
-                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
-                        <td>
-                          <code>boolean</code>
-                        </td>
-                        <td>
-<small>fallback: <code>CHECK_SSL_VALIDITY</code></small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>SINGLEFILE_CHROME_ARGS</code><span class="config-key-desc">Chrome command-line arguments for SingleFile</span></td>
-                        <td class="cfg-default"><span class="cfg-bracket">[]</span></td>
-                        <td>
-                          <code>array</code>
-                        </td>
-                        <td>
-<small>fallback: <code>CHROME_ARGS</code></small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>SINGLEFILE_ARGS</code><span class="config-key-desc">Default single-file arguments</span></td>
-                        <td class="cfg-default"><span class="cfg-bracket">[</span><div class="cfg-array"><div class="cfg-array-item"><span class="cfg-string">&quot;--browser-headless&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--load-deferred-images-dispatch-scroll-event&quot;</span></div></div><span class="cfg-bracket">]</span></td>
-                        <td>
-                          <code>array</code>
-                        </td>
-                        <td>
-<small>SINGLEFILE_DEFAULT_ARGS</small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>SINGLEFILE_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to single-file command</span></td>
-                        <td class="cfg-default"><span class="cfg-bracket">[]</span></td>
-                        <td>
-                          <code>array</code>
-                        </td>
-                        <td>
-<small>SINGLEFILE_EXTRA_ARGS</small>                        </td>
                       </tr>
                     </tbody>
                   </table>
@@ -7234,7 +7165,7 @@ min_version: 11.0.0">
             <details
               id="liteparse"
               class="plugin-card plugin-card--snapshot"
-              data-search="liteparse snapshot liteparse extract text and metadata from pdfs, office documents, and images using liteparse (by llamaindex). performs spatial pdf parsing via pdfium and optional ocr via tesseract. python snapshot {liteparse_binary} {liteparse_tesseract_binary} {liteparse_imagemagick_binary} env,pnpm env,brew,apt env,brew,apt 2.0.0 5.0.0 6.0.0 {&#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;@llamaindex/liteparse&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/liteparse&#34;}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;tesseract-ocr&#34;, &#34;tesseract-ocr-eng&#34;]}, &#34;brew&#34;: {&#34;install_args&#34;: [&#34;tesseract&#34;]}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;imagemagick&#34;]}, &#34;brew&#34;: {&#34;install_args&#34;: [&#34;imagemagick&#34;]}} text/plain application/json on_snapshot__61_liteparse.py liteparse_enabled enable liteparse document extraction liteparse_binary path to lit binary liteparse_tesseract_binary path to the tesseract binary used to discover the system tessdata directory. auto-installed by the plugin via brew/apt; not invoked at runtime — lit&#39;s bundled tesseract-rs does the actual ocr. liteparse_imagemagick_binary path to an imagemagick binary used by liteparse for image conversion. auto-installed by the plugin via brew/apt; not invoked directly by this hook. liteparse_timeout timeout for liteparse extraction in seconds liteparse_formats output formats to produce, one file per source. `text` writes `&lt;input&gt;.txt` (lit&#39;s plain layout-preserving text — what search backends index). `json` is also supported and writes `&lt;input&gt;.json` with lit v2&#39;s structured per-page output (text, bounding boxes, font metadata, ocr confidence); not indexed by search backends. any subset of [text, json] is valid. liteparse_ocr_enabled run tesseract ocr on pages/images without embedded text (passes --no-ocr when disabled) liteparse_ocr_language tesseract ocr language code (e.g. eng, fra, deu, chi_sim) liteparse_ocr_server_url optional http ocr server url (e.g. easyocr/paddleocr wrapper) to use instead of bundled tesseract liteparse_tessdata_dir path to a tesseract tessdata directory containing &lt;lang&gt;.traineddata files. auto-detected from common system locations when empty. liteparse_max_pages maximum pages to parse per document liteparse_target_pages page range to parse, e.g. &#39;1-5,10,15-20&#39;. empty means all pages. liteparse_dpi rendering dpi used when rasterising pages for ocr / images liteparse_password password for encrypted pdfs liteparse_min_image_dimension skip image files (png/jpg/etc.) smaller than this many pixels in both width and height. avoids wasting ocr time on favicons, sprite thumbnails, and tracking pixels. set to 0 to disable filtering. liteparse_batch_size number of source documents processed per `lit batch-parse` invocation. sources are sorted largest-first so the most content-rich files come back first. smaller batches give finer-grained progressive output but slightly more lit-startup overhead. liteparse_max_sources hard cap on number of documents to process per snapshot, applied after size-desc sort so the largest files always make it. set to 0 for no cap. liteparse_parallel_workers number of concurrent `lit batch-parse` processes. each process is pinned to --num-workers=1 internally (its own multi-worker mode hurts on apple silicon); outer parallelism via this knob gives near-linear speedup up to a few procs. empirically 2 is enough to fit a typical content-heavy article under the 60s hook timeout. liteparse_args default liteparse arguments liteparse_args_extra extra arguments to append to liteparse command"
+              data-search="liteparse snapshot liteparse extract text and metadata from pdfs, office documents, and images using liteparse (by llamaindex). performs spatial pdf parsing via pdfium and optional ocr via tesseract. python snapshot {liteparse_binary} {liteparse_tesseract_binary} {liteparse_imagemagick_binary} env,pnpm env,brew,apt env,brew,apt 2.0.0 5.0.0 6.0.0 {&#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;@llamaindex/liteparse@2.9.0&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/liteparse&#34;}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;tesseract-ocr&#34;, &#34;tesseract-ocr-eng&#34;]}, &#34;brew&#34;: {&#34;install_args&#34;: [&#34;tesseract&#34;]}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;imagemagick&#34;]}, &#34;brew&#34;: {&#34;install_args&#34;: [&#34;imagemagick&#34;]}} text/plain application/json on_snapshot__61_liteparse.py liteparse_enabled enable liteparse document extraction liteparse_binary path to lit binary liteparse_tesseract_binary path to the tesseract binary used to discover the system tessdata directory. auto-installed by the plugin via brew/apt; not invoked at runtime — lit&#39;s bundled tesseract-rs does the actual ocr. liteparse_imagemagick_binary path to an imagemagick binary used by liteparse for image conversion. auto-installed by the plugin via brew/apt; not invoked directly by this hook. liteparse_timeout timeout for liteparse extraction in seconds liteparse_formats output formats to produce, one file per source. `text` writes `&lt;input&gt;.txt` (lit&#39;s plain layout-preserving text — what search backends index). `json` is also supported and writes `&lt;input&gt;.json` with lit v2&#39;s structured per-page output (text, bounding boxes, font metadata, ocr confidence); not indexed by search backends. any subset of [text, json] is valid. liteparse_ocr_enabled run tesseract ocr on pages/images without embedded text (passes --no-ocr when disabled) liteparse_ocr_language tesseract ocr language code (e.g. eng, fra, deu, chi_sim) liteparse_ocr_server_url optional http ocr server url (e.g. easyocr/paddleocr wrapper) to use instead of bundled tesseract liteparse_tessdata_dir path to a tesseract tessdata directory containing &lt;lang&gt;.traineddata files. auto-detected from common system locations when empty. liteparse_max_pages maximum pages to parse per document liteparse_target_pages page range to parse, e.g. &#39;1-5,10,15-20&#39;. empty means all pages. liteparse_dpi rendering dpi used when rasterising pages for ocr / images liteparse_password password for encrypted pdfs liteparse_min_image_dimension skip image files (png/jpg/etc.) smaller than this many pixels in both width and height. avoids wasting ocr time on favicons, sprite thumbnails, and tracking pixels. set to 0 to disable filtering. liteparse_batch_size number of source documents processed per `lit batch-parse` invocation. sources are sorted largest-first so the most content-rich files come back first. smaller batches give finer-grained progressive output but slightly more lit-startup overhead. liteparse_max_sources hard cap on number of documents to process per snapshot, applied after size-desc sort so the largest files always make it. set to 0 for no cap. liteparse_parallel_workers number of concurrent `lit batch-parse` processes. each process is pinned to --num-workers=1 internally (its own multi-worker mode hurts on apple silicon); outer parallelism via this knob gives near-linear speedup up to a few procs. empirically 2 is enough to fit a typical content-heavy article under the 60s hook timeout. liteparse_args default liteparse arguments liteparse_args_extra extra arguments to append to liteparse command"
               data-hero-plugin="liteparse"
               data-hero-abx-command="uvx abx-dl --plugins liteparse 'https://example.com'"
               data-hero-archivebox-command="LITEPARSE_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -10285,7 +10216,7 @@ providers: env,brew,apt">
 
           <div class="footer-meta">
             <span>Generated from <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">ArchiveBox/abx-plugins</a> at ref <code>main</code>.</span>
-            <span>Updated 2026-07-29 21:35 UTC</span>
+            <span>Updated 2026-08-01 07:31 UTC</span>
           </div>
         </div>
       </footer>

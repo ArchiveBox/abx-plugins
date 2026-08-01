@@ -135,6 +135,18 @@ def test_chrome_host_binaries_require_their_javascript_modules() -> None:
     ]
 
 
+def test_chrome_config_pins_puppeteer_dependencies() -> None:
+    config = json.loads(CHROME_CONFIG.read_text(encoding="utf-8"))
+    record = next(
+        item for item in config["required_binaries"] if item["name"] == "browsers"
+    )
+
+    assert record["overrides"]["pnpm"]["install_args"] == [
+        "@puppeteer/browsers@3.0.4",
+        "puppeteer@25.1.0",
+    ]
+
+
 def test_chrome_config_installs_puppeteer_js_module(tmp_path: Path) -> None:
     _assert_config_installs_puppeteer(CHROME_CONFIG, tmp_path)
 
