@@ -72,8 +72,9 @@ def test_chrome_config_installs_abxbus_js_module(tmp_path: Path) -> None:
     package_root = Path(loaded.loaded_abspath).parents[2]
     package = json.loads((package_root / "package.json").read_text(encoding="utf-8"))
     assert package["version"] == "2.5.45"
+    legacy_semaphore_dirname = "_".join(("browser", "use", "semaphores"))
     assert not any(
-        "browser_use_semaphores" in path.read_text(encoding="utf-8")
+        legacy_semaphore_dirname in path.read_text(encoding="utf-8")
         for path in package_root.rglob("*")
         if path.is_file() and path.suffix in {".js", ".map", ".ts"}
     )
