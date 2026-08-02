@@ -27,6 +27,7 @@
       "overrides": {
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/claudecode",
+          "min_release_age": 0,
           "install_args": [
             "@anthropic-ai/claude-code"
           ]

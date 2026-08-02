@@ -33,6 +33,7 @@
         },
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/abxbus",
+          "min_release_age": 0,
           "install_args": [
             "abxbus@2.5.45"
           ],

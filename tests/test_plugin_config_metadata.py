@@ -351,6 +351,18 @@ def test_pnpm_required_binaries_resolve_through_plugin_config() -> None:
             if "pnpm" not in binproviders:
                 continue
             binary_name = _hydrated_binary_name(str(item["name"]), config)
+            overrides = item.get("overrides")
+            pnpm_overrides = (
+                overrides.get("pnpm") if isinstance(overrides, dict) else None
+            )
+            if "min_release_age" in item and (
+                not isinstance(pnpm_overrides, dict)
+                or pnpm_overrides.get("min_release_age") != item["min_release_age"]
+            ):
+                failures.append(
+                    f"{plugin_dir.name}: required_binaries[{index}] {binary_name!r} must preserve min_release_age in overrides.pnpm",
+                )
+                continue
             try:
                 loaded = install_required_binary_from_config(plugin_dir, binary_name)
             except Exception as err:
