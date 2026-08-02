@@ -3,17 +3,17 @@ revision = 3
 requires-python = ">=3.12, <3.15"
 
 [options]
-exclude-newer = "2026-07-28T04:08:02.331768281Z"
+exclude-newer = "2026-07-28T05:59:58.421112Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
 abx-plugins = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
-abxbus = { timestamp = "2026-08-02T04:08:01.33178344Z", span = "PT1S" }
+abxbus = { timestamp = "2026-08-02T05:59:57.421876Z", span = "PT1S" }
 
 [[package]]
 name = "abx-plugins"
-version = "1.12.67"
+version = "1.12.68"
 source = { editable = "." }
 dependencies = [
     { name = "abxbus" },
@@ -45,7 +45,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abxbus" },
+    { name = "abxbus", specifier = "==2.5.45" },
     { name = "abxpkg", specifier = "==1.12.45" },
     { name = "imagesize", specifier = ">=2.0.0" },
     { name = "jambo", specifier = ">=0.1.7" },
@@ -97,9 +97,9 @@ dependencies = [
     { name = "rich-click" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/bc/e4/50ead7d8a044ef461b40c889a4687426f98c6892bc7054173fa43203b118/abxpkg-1.12.45.tar.gz", hash = "sha256:c0594703d2b775ab6046d9e4fcfd4e2b99d344b5515c1210b1500638393f1327", size = 227307, upload-time = "2026-08-01T20:28:57.144684Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bc/e4/50ead7d8a044ef461b40c889a4687426f98c6892bc7054173fa43203b118/abxpkg-1.12.45.tar.gz", hash = "sha256:c0594703d2b775ab6046d9e4fcfd4e2b99d344b5515c1210b1500638393f1327", size = 227307, upload-time = "2026-08-01T20:28:57.144Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/26/16/c7ef0e1da78f7027644905200c9a08590fe4a0f4c9fc2ad660bcfc43cc58/abxpkg-1.12.45-py3-none-any.whl", hash = "sha256:459c66e3b605a73ea381b225c9e514d398ba9e81c00d7c1d85bea42bb8d6670c", size = 242181, upload-time = "2026-08-01T20:28:55.850314Z" },
+    { url = "https://files.pythonhosted.org/packages/26/16/c7ef0e1da78f7027644905200c9a08590fe4a0f4c9fc2ad660bcfc43cc58/abxpkg-1.12.45-py3-none-any.whl", hash = "sha256:459c66e3b605a73ea381b225c9e514d398ba9e81c00d7c1d85bea42bb8d6670c", size = 242181, upload-time = "2026-08-01T20:28:55.85Z" },
 ]
 
 [[package]]
