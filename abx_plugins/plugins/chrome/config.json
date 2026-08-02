@@ -21,7 +21,7 @@
     {
       "name": "abxbus",
       "binproviders": "env,pnpm",
-      "min_version": "2.5.9",
+      "min_version": "2.5.45",
       "min_release_age": 0,
       "overrides": {
         "env": {
@@ -34,11 +34,11 @@
         "pnpm": {
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/abxbus",
           "install_args": [
-            "abxbus@2.5.9"
+            "abxbus@2.5.45"
           ],
           "postinstall_scripts": true,
           "abspath": "{ABXPKG_LIB_DIR}/pnpm/packages/abxbus/node_modules/abxbus/dist/cjs/index.js",
-          "version": "2.5.9"
+          "version": "2.5.45"
         }
       }
     },

@@ -69,6 +69,14 @@ def test_chrome_config_installs_abxbus_js_module(tmp_path: Path) -> None:
     assert Path(loaded.loaded_abspath).exists()
     assert loaded.loaded_binprovider
     assert loaded.loaded_binprovider.name == "pnpm"
+    package_root = Path(loaded.loaded_abspath).parents[2]
+    package = json.loads((package_root / "package.json").read_text(encoding="utf-8"))
+    assert package["version"] == "2.5.45"
+    assert not any(
+        "browser_use_semaphores" in path.read_text(encoding="utf-8")
+        for path in package_root.rglob("*")
+        if path.is_file() and path.suffix in {".js", ".map", ".ts"}
+    )
 
     install_root = Path(
         record["overrides"]["pnpm"]["install_root"].replace(
@@ -128,6 +136,9 @@ def test_chrome_host_modules_are_validated_before_reuse() -> None:
         "-p",
         "require('abxbus/package.json').version",
     ]
+    assert records["abxbus"]["min_version"] == "2.5.45"
+    assert records["abxbus"]["overrides"]["pnpm"]["install_args"] == ["abxbus@2.5.45"]
+    assert records["abxbus"]["overrides"]["pnpm"]["version"] == "2.5.45"
     assert records["browsers"]["overrides"]["env"]["version"] == [
         "{NODE_BINARY}",
         "-p",
