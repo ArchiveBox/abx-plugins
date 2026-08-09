@@ -1841,10 +1841,11 @@ async function waitForExtensionTargetHandle(
     getExtensionIdFromUrl(target.url()) === extensionId &&
     (!preferredTargetUrl || target.url() === preferredTargetUrl);
   const targetPromise = browser.waitForTarget(matchesExtensionTarget, { timeout });
-  const wakePage = await wakeExtension();
+  const wakePagePromise = wakeExtension();
   try {
     return await targetPromise;
   } finally {
+    const wakePage = await wakePagePromise;
     if (wakePage) {
       await wakePage.close().catch(() => {});
     }

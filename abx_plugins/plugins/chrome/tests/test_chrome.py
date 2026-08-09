@@ -428,10 +428,28 @@ const extensionJson = process.argv[3];
     const targets = browser.targets()
       .filter(target => target.url().includes(extensions[0].id))
       .map(target => ({ type: target.type(), url: target.url() }));
+    const wakePath = `/${extensions[0].manifest.action.default_popup}`;
+    const wakeUrl = `chrome-extension://${extensions[0].id}${wakePath}`;
+    let targetError = null;
+    try {
+      await chromeUtils.waitForExtensionTargetHandle(
+        browser,
+        extensions[0].id,
+        1,
+        `${wakeUrl}-never-matches`,
+        { wakePath },
+      );
+    } catch (error) {
+      targetError = `${error.name}: ${error.message}`;
+    }
+    const wakePageStillOpen = (await browser.pages())
+      .some(page => page.url() === wakeUrl);
     process.stdout.write(JSON.stringify({
       cdpUrl: result.cdpUrl,
       extension: extensions[0],
       targets,
+      targetError,
+      wakePageStillOpen,
     }));
   } finally {
     await browser.close().catch(() => {});
@@ -466,6 +484,8 @@ const extensionJson = process.argv[3];
         assert any(target.get("url") == target_url for target in payload["targets"])
         assert "load_error" not in payload["extension"], payload
         assert any(target["type"] == "service_worker" for target in payload["targets"])
+        assert payload["targetError"].startswith("TimeoutError:"), payload
+        assert payload["wakePageStillOpen"] is False, payload
 
 
 def test_launch_chromium_replaces_static_user_agent_version_with_real_browser_version(
