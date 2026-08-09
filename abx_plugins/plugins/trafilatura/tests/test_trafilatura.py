@@ -7,6 +7,7 @@ Tests verify:
 3. Extraction runs with real trafilatura binary on local HTML sourced from pytest-httpserver
 """
 
+import json
 import os
 import subprocess
 import tempfile
@@ -60,10 +61,34 @@ def test_hook_script_exists():
 
 
 def test_verify_deps_with_install_hooks():
+    config = json.loads((PLUGIN_DIR / "config.json").read_text())
+    assert config["required_binaries"][0]["binproviders"] == "uv,env"
+    uv_override = config["required_binaries"][0]["overrides"]["uv"]
+    assert uv_override["install_args"] == [
+        "trafilatura==2.1.0",
+        "lxml==6.1.1",
+    ]
+    assert uv_override["install_root"].endswith(
+        "/uv/packages/trafilatura-2.1.0",
+    )
+
     binary_path = require_trafilatura_binary()
     assert Path(binary_path).is_file(), (
         f"Binary path must be a valid file: {binary_path}"
     )
+    managed_python = Path(binary_path).resolve().with_name("python")
+    result = subprocess.run(
+        [
+            str(managed_python),
+            "-c",
+            "import lxml.etree, trafilatura; print(trafilatura.__version__)",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "2.1.0"
 
 
 def test_extracts_local_html_outputs_with_real_binary(httpserver):

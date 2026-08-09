@@ -8,15 +8,15 @@
   "required_binaries": [
     {
       "name": "feedparser",
-      "binproviders": "env,uv",
+      "binproviders": "uv,env",
       "min_version": null,
       "postinstall_scripts": true,
       "overrides": {
         "uv": {
           "postinstall_scripts": true,
-          "install_root": "{ABXPKG_LIB_DIR}/uv/packages/parse_rss_urls",
+          "install_root": "{ABXPKG_LIB_DIR}/uv/packages/parse_rss_urls-6.0.12",
           "install_args": [
-            "feedparser"
+            "feedparser==6.0.12"
           ]
         }
       }

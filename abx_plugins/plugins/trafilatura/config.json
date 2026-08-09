@@ -8,13 +8,15 @@
   "required_binaries": [
     {
       "name": "{TRAFILATURA_BINARY}",
-      "binproviders": "env,uv",
+      "binproviders": "uv,env",
       "min_version": null,
       "overrides": {
         "uv": {
           "postinstall_scripts": true,
+          "install_root": "{ABXPKG_LIB_DIR}/uv/packages/trafilatura-2.1.0",
           "install_args": [
-            "trafilatura"
+            "trafilatura==2.1.0",
+            "lxml==6.1.1"
           ]
         }
       }
