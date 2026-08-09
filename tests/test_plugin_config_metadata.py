@@ -240,9 +240,24 @@ def test_required_binary_configs_prefer_compatible_host_binaries() -> None:
                 for provider in str(item.get("binproviders") or "").split(",")
                 if provider.strip()
             ]
-            if not providers or providers[0] != "env":
+            overrides = item.get("overrides")
+            uv_overrides = overrides.get("uv") if isinstance(overrides, dict) else None
+            uv_install_args = (
+                uv_overrides.get("install_args")
+                if isinstance(uv_overrides, dict)
+                else None
+            )
+            managed_uv = (
+                providers[:1] == ["uv"]
+                and isinstance(uv_overrides, dict)
+                and bool(uv_overrides.get("install_root"))
+                and isinstance(uv_install_args, list)
+                and bool(uv_install_args)
+                and all("==" in str(package) for package in uv_install_args)
+            )
+            if (not providers or providers[0] != "env") and not managed_uv:
                 failures.append(
-                    f"{plugin_dir.name}: required_binaries[{index}] must try env before managed providers",
+                    f"{plugin_dir.name}: required_binaries[{index}] must try env first or use an isolated uv root with exact pins",
                 )
             if "apt" in providers:
                 apt_index = providers.index("apt")
