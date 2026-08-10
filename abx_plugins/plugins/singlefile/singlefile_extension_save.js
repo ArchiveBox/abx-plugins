@@ -6,8 +6,8 @@
  *
  * Chrome publishes the snapshot CDP target in target_id.txt. This helper maps
  * that exact target to one chrome.tabs id inside SingleFile's service worker,
- * dispatches the extension action to that tab, and waits for that tab's
- * download in this snapshot's private output directory.
+ * dispatches the extension action to that tab, and moves its uniquely named
+ * download from the browser-owned download directory into this snapshot.
  */
 
 const fs = require("fs");
@@ -28,6 +28,8 @@ const EXTENSION = {
 const SNAPSHOT_OUTPUT_DIR = process.cwd();
 const CHROME_SESSION_DIR = path.resolve(SNAPSHOT_OUTPUT_DIR, "..", "chrome");
 const hookConfig = loadConfig();
+const CHROME_DOWNLOADS_DIR =
+  chromeUtils.resolveChromeLaunchOptions(hookConfig).CHROME_DOWNLOADS_DIR;
 const DOWNLOAD_WAIT_RESERVE_MS = 10000;
 const SERVICE_WORKER_WAKE_PATH = "/src/ui/pages/offscreen-document.html";
 
@@ -116,7 +118,7 @@ async function getExactChromeTab(extension, page) {
   if (tab.status !== "complete") {
     throw new Error(`Chrome navigation has not settled for target ${targetId}`);
   }
-  return { targetId, tab, worker };
+  return { targetId, tab };
 }
 
 async function saveSinglefileWithExtension(page, extension, options = {}) {
@@ -124,7 +126,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     throw new Error("SingleFile extension not found or not loaded");
   }
 
-  const { targetId, tab, worker } = await getExactChromeTab(extension, page);
+  const { targetId, tab } = await getExactChromeTab(extension, page);
   const currentUrl = await page.url();
   if (tab.url !== currentUrl) {
     throw new Error(
@@ -145,78 +147,84 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
 
   const outputPath =
     options.outputPath || path.join(SNAPSHOT_OUTPUT_DIR, "singlefile.html");
-  const downloadDir = path.dirname(outputPath);
-  await fs.promises.mkdir(downloadDir, { recursive: true });
-  await chromeUtils.setBrowserDownloadBehavior({
-    page,
-    downloadPath: downloadDir,
-  });
+  const requestedFilename = `archivebox-singlefile-${process.pid}-${Date.now()}.html`;
+  await fs.promises.mkdir(CHROME_DOWNLOADS_DIR, { recursive: true });
 
   const timeoutMs = options.timeoutMs || getSinglefileDownloadWaitTimeoutMs();
   console.error(
     `[singlefile] saving exact target=${targetId} tab=${tab.id} url=${tab.url}`
   );
-  const downloadedPath = await worker.evaluate(
-    async ({ exactTab, expectedDownloadDir, timeoutMs }) => {
-      const normalize = (value) => String(value || "").replace(/\\/g, "/");
-      const expectedPrefix = `${normalize(expectedDownloadDir).replace(
-        /\/+$/,
-        ""
-      )}/`;
-      const previousIds = new Set(
-        (await chrome.downloads.search({})).map((download) => download.id)
-      );
+  const helperPage = await page.browser().newPage();
+  let downloadedPath;
+  try {
+    await helperPage.goto(
+      `chrome-extension://${extension.id}${SERVICE_WORKER_WAKE_PATH}`
+    );
+    downloadedPath = await helperPage.evaluate(
+      async ({ exactTab, expectedFilename, timeoutMs }) => {
+        const normalize = (value) => String(value || "").replace(/\\/g, "/");
+        const previousIds = new Set(
+          (await chrome.downloads.search({})).map((download) => download.id)
+        );
 
-      return await new Promise((resolve, reject) => {
-        const timer = setTimeout(() => {
-          cleanup();
-          reject(
-            new Error(
-              `SingleFile download for tab ${exactTab.id} did not complete within ${timeoutMs}ms`
-            )
-          );
-        }, timeoutMs);
-        const cleanup = () => {
-          clearTimeout(timer);
-          chrome.downloads.onChanged.removeListener(onChanged);
-        };
-        const onChanged = async (change) => {
-          if (previousIds.has(change.id) || !change.state) {
-            return;
-          }
-          const matches = await chrome.downloads.search({ id: change.id });
-          const filename = normalize(matches[0]?.filename);
-          if (
-            !filename.startsWith(expectedPrefix) ||
-            !/\.html?$/i.test(filename)
-          ) {
-            return;
-          }
-          if (change.state.current === "interrupted") {
+        return await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => {
             cleanup();
-            reject(new Error(`SingleFile download ${change.id} was interrupted`));
-            return;
-          }
-          if (change.state.current !== "complete") return;
-          cleanup();
-          if (!matches[0]?.filename) {
-            reject(new Error(`SingleFile download ${change.id} has no filename`));
-            return;
-          }
-          resolve(matches[0].filename);
-        };
+            reject(
+              new Error(
+                `SingleFile download for tab ${exactTab.id} did not complete within ${timeoutMs}ms`
+              )
+            );
+          }, timeoutMs);
+          const cleanup = () => {
+            clearTimeout(timer);
+            chrome.downloads.onChanged.removeListener(onChanged);
+          };
+          const onChanged = async (change) => {
+            if (previousIds.has(change.id) || !change.state) {
+              return;
+            }
+            const matches = await chrome.downloads.search({ id: change.id });
+            const filename = normalize(matches[0]?.filename);
+            if (filename.split("/").pop() !== expectedFilename) {
+              return;
+            }
+            if (change.state.current === "interrupted") {
+              cleanup();
+              reject(
+                new Error(`SingleFile download ${change.id} was interrupted`)
+              );
+              return;
+            }
+            if (change.state.current !== "complete") return;
+            cleanup();
+            if (!matches[0]?.filename) {
+              reject(
+                new Error(`SingleFile download ${change.id} has no filename`)
+              );
+              return;
+            }
+            resolve(matches[0].filename);
+          };
 
-        chrome.downloads.onChanged.addListener(onChanged);
-        try {
-          chrome.action.onClicked.dispatch(exactTab);
-        } catch (error) {
-          cleanup();
-          reject(error);
-        }
-      });
-    },
-    { exactTab: tab, expectedDownloadDir: downloadDir, timeoutMs }
-  );
+          chrome.downloads.onChanged.addListener(onChanged);
+          import(chrome.runtime.getURL("src/core/bg/business.js"))
+            .then((business) =>
+              business.saveTabs([exactTab], {
+                filenameTemplate: expectedFilename,
+              })
+            )
+            .catch((error) => {
+              cleanup();
+              reject(error);
+            });
+        });
+      },
+      { exactTab: tab, expectedFilename: requestedFilename, timeoutMs }
+    );
+  } finally {
+    await helperPage.close({ runBeforeUnload: false }).catch(() => {});
+  }
 
   const stat = await fs.promises.stat(downloadedPath);
   if (stat.size <= 0) {

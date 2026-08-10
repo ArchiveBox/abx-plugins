@@ -42,7 +42,6 @@ const {
   connectToPage,
   resolvePuppeteerModule,
   resolveChromeLaunchOptions,
-  setBrowserDownloadBehavior,
 } = require("../chrome/chrome_utils.js");
 
 // Check if enabled BEFORE requiring puppeteer
@@ -479,9 +478,6 @@ async function runComputerUseLoop(page, cdpClient, prompt, options) {
     path.join(OUTPUT_DIR, "screenshot_initial.png"),
     Buffer.from(initialScreenshot, "base64")
   );
-
-  // Configure download behavior only after the initial screenshot step finishes.
-  await setBrowserDownloadBehavior({ page, downloadPath: downloadsDir });
 
   if (!screenshotAvailable) {
     const visibleText = await page

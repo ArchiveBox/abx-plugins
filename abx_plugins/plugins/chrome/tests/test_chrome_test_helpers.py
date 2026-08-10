@@ -367,10 +367,10 @@ function waitForDownload(filename, expectedContent) {
         assert Path(payload["expectedPath"]).exists()
 
 
-def test_set_browser_download_behavior_keeps_shared_dir_stable_for_live_pages(
+def test_set_browser_download_behavior_configures_once_for_live_pages(
     ensure_chrome_test_prereqs,
 ):
-    """Two pages in one browser should download into one stable shared dir."""
+    """One browser-owned download dir must serve concurrent live pages."""
     with (
         tempfile.TemporaryDirectory() as tmpdir,
         chrome_session(
@@ -445,11 +445,7 @@ function waitForDownloads(expectedContents) {
   try {
     await pageTwo.goto('data:text/html,<html><body>two</body></html>');
     await chromeUtils.setBrowserDownloadBehavior({
-      page: pageOne,
-      downloadPath: downloadDir,
-    });
-    await chromeUtils.setBrowserDownloadBehavior({
-      page: pageTwo,
+      browser,
       downloadPath: downloadDir,
     });
 
@@ -457,8 +453,10 @@ function waitForDownloads(expectedContents) {
       'one.txt': 'page-one-ok',
       'two.txt': 'page-two-ok',
     });
-    await triggerDownload(pageOne, 'one.txt', 'page-one-ok');
-    await triggerDownload(pageTwo, 'two.txt', 'page-two-ok');
+    await Promise.all([
+      triggerDownload(pageOne, 'one.txt', 'page-one-ok'),
+      triggerDownload(pageTwo, 'two.txt', 'page-two-ok'),
+    ]);
     await downloadsCompleted;
 
     const onePath = path.join(downloadDir, 'one.txt');
@@ -500,6 +498,19 @@ function waitForDownloads(expectedContents) {
         assert payload["twoContent"] == "page-two-ok"
         assert Path(payload["onePath"]).exists()
         assert Path(payload["twoPath"]).exists()
+
+
+def test_only_archivewebpage_export_enables_its_dedicated_download_target():
+    """Plugins must not redirect the shared browser download directory."""
+    plugins_dir = CHROME_UTILS.parent.parent
+    callers = [
+        script.relative_to(plugins_dir)
+        for script in plugins_dir.glob("*/*.js")
+        if script != CHROME_UTILS
+        and "setBrowserDownloadBehavior(" in script.read_text()
+    ]
+
+    assert callers == [Path("archivewebpage/on_Snapshot__65_archivewebpage_stop.js")]
 
 
 def test_set_browser_download_behavior_requires_download_path_with_live_page(

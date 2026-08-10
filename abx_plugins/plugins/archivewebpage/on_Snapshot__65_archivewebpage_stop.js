@@ -65,6 +65,23 @@ function readRecordingState() {
   return state;
 }
 
+async function waitForRecordingState(timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  let lastError = null;
+  while (Date.now() < deadline) {
+    try {
+      return readRecordingState();
+    } catch (error) {
+      lastError = error;
+      if (error?.code !== "ENOENT" && !(error instanceof SyntaxError)) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+  throw lastError || new Error("ArchiveWeb.page recording state was not created");
+}
+
 async function stopExactRecording(helperPage, state, timeoutMs) {
   return await helperPage.evaluate(
     async ({ tabId, expectedCollId, timeoutMs }) => {
@@ -155,55 +172,54 @@ async function downloadExactWacz(
   )}/dl?format=wacz&pages=all&filename=${encodeURIComponent(
     requestedFilename.replace(/\.wacz$/i, "")
   )}`;
+  const downloadedPath = path.join(downloadDir, requestedFilename);
   const session = await browser.target().createCDPSession();
   let targetId = null;
-  let downloadGuid = null;
-  let suggestedFilename = null;
-
-  const completion = new Promise((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error(`WACZ download did not complete within ${timeoutMs}ms`)),
-      timeoutMs
-    );
-    session.on("Browser.downloadWillBegin", (event) => {
-      if (path.basename(event.suggestedFilename || "") !== requestedFilename) {
-        return;
-      }
-      downloadGuid = event.guid;
-      suggestedFilename = event.suggestedFilename;
-    });
-    session.on("Browser.downloadProgress", (event) => {
-      if (!downloadGuid || event.guid !== downloadGuid) return;
-      if (event.state === "completed") {
-        clearTimeout(timer);
-        resolve();
-      } else if (event.state === "canceled") {
-        clearTimeout(timer);
-        reject(new Error(`WACZ download ${downloadGuid} was canceled`));
-      }
-    });
-  });
+  let downloadSession = null;
 
   try {
-    await session.send("Browser.setDownloadBehavior", {
-      behavior: "allow",
-      downloadPath: downloadDir,
-      eventsEnabled: true,
+    const created = await session.send("Target.createTarget", {
+      url: "about:blank",
     });
-    const created = await session.send("Target.createTarget", { url: dlUrl });
     targetId = created.targetId;
-    await completion;
-
-    const downloadedPath = path.join(downloadDir, suggestedFilename);
-    const stat = await fs.promises.stat(downloadedPath);
+    const matchesTarget = (target) =>
+      chromeUtils.getTargetIdFromTarget(target) === targetId;
+    const target =
+      browser.targets().find(matchesTarget) ||
+      (await browser.waitForTarget(matchesTarget, { timeout: timeoutMs }));
+    const downloadPage = await target.page();
+    if (!downloadPage) {
+      throw new Error(`WACZ download target ${targetId} has no page`);
+    }
+    await chromeUtils.setBrowserDownloadBehavior({
+      page: downloadPage,
+      downloadPath: downloadDir,
+    });
+    downloadSession = await target.createCDPSession();
+    await downloadSession.send("Page.navigate", { url: dlUrl });
+    const deadline = Date.now() + timeoutMs;
+    let stat = null;
+    while (Date.now() < deadline) {
+      try {
+        stat = await fs.promises.stat(downloadedPath);
+        break;
+      } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    }
+    if (!stat) {
+      throw new Error(`WACZ download did not complete within ${timeoutMs}ms`);
+    }
     if (stat.size <= 0) {
-      throw new Error(`WACZ download ${downloadGuid} is empty`);
+      throw new Error("WACZ download is empty");
     }
     if (path.resolve(downloadedPath) !== path.resolve(destPath)) {
       await moveAcrossMounts(downloadedPath, destPath);
     }
     return (await fs.promises.stat(destPath)).size;
   } finally {
+    await downloadSession?.detach().catch(() => {});
     if (targetId) {
       await session.send("Target.closeTarget", { targetId }).catch(() => {});
     }
@@ -232,7 +248,7 @@ async function main() {
 
   let browser = null;
   try {
-    const state = readRecordingState();
+    const state = await waitForRecordingState(timeoutMs);
     const chromeSessionDir = pickChromeSessionDir(chromeDirCandidates);
     if (!chromeSessionDir) {
       throw new Error("Chrome target_id.txt is missing for this snapshot");
