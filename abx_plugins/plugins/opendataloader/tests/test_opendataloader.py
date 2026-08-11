@@ -45,7 +45,7 @@ HYBRID_BINARY_RECORD = {
     "overrides": {
         "uv": {
             "install_root": "{ABXPKG_LIB_DIR}/uv/packages/opendataloader-hybrid",
-            "install_args": ["opendataloader-pdf[hybrid]"],
+            "install_args": ["--torch-backend=cpu", "opendataloader-pdf[hybrid]"],
             "postinstall_scripts": True,
         },
     },
