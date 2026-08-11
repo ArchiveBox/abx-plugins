@@ -8,6 +8,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 const http = require("http");
 const net = require("net");
 const { spawn, execFileSync } = require("child_process");
@@ -2063,7 +2064,14 @@ async function loadUnpackedExtensionsIntoBrowser(
 
   try {
     for (const extension of validExtensions) {
-      const extensionLoadLock = `${extension.unpacked_path}.load.lock`;
+      const runtimeUser =
+        typeof process.getuid === "function" ? process.getuid() : "user";
+      const extensionLoadLock = path.join(
+        os.tmpdir(),
+        `abx-chrome-${runtimeUser}`,
+        "extension-load-locks",
+        `${path.basename(extension.unpacked_path)}.lock`
+      );
       let releaseExtensionLoadLock = null;
       try {
         releaseExtensionLoadLock = await acquireSessionLock(

@@ -459,20 +459,24 @@ const extensionJson = process.argv[3];
   process.exit(1);
 });
 """
-        result = subprocess.run(
-            [
-                env["NODE_BINARY"],
-                "-e",
-                script,
-                str(CHROME_UTILS),
-                str(output_dir),
-                json.dumps(cached_ext),
-            ],
-            capture_output=True,
-            text=True,
-            timeout=120,
-            env=env,
-        )
+        extensions_dir.chmod(0o555)
+        try:
+            result = subprocess.run(
+                [
+                    env["NODE_BINARY"],
+                    "-e",
+                    script,
+                    str(CHROME_UTILS),
+                    str(output_dir),
+                    json.dumps(cached_ext),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                env=env,
+            )
+        finally:
+            extensions_dir.chmod(0o755)
 
         assert result.returncode == 0, result.stderr
         payload = json.loads(result.stdout.strip().splitlines()[-1])
