@@ -385,7 +385,7 @@ def test_config_timeout_honored(chrome_test_url):
             screenshot_dir = snapshot_chrome_dir.parent / "screenshot"
             screenshot_dir.mkdir()
             env["SCREENSHOT_TIMEOUT"] = "1"
-            start = time.time()
+            start = time.monotonic()
             result = subprocess.run(
                 [
                     str(SCREENSHOT_HOOK),
@@ -398,7 +398,7 @@ def test_config_timeout_honored(chrome_test_url):
                 env=env,
                 timeout=5,
             )
-        elapsed = time.time() - start
+            elapsed = time.monotonic() - start
 
         assert result.returncode != 0, "Should fail when navigation never completes"
         assert elapsed < 2.5, f"Should honor 1s timeout, took {elapsed:.1f}s"
