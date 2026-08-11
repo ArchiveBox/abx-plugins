@@ -9,6 +9,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const crypto = require("crypto");
 const http = require("http");
 const net = require("net");
 const { spawn, execFileSync } = require("child_process");
@@ -2062,15 +2063,35 @@ async function loadUnpackedExtensionsIntoBrowser(
     return await cdpSession.send(method, params);
   }
 
+  const runtimeUser =
+    typeof process.getuid === "function" ? process.getuid() : "user";
+  const lockRoot = path.join(os.tmpdir(), `abx-chrome-${runtimeUser}`);
+  try {
+    fs.mkdirSync(lockRoot, { mode: 0o700 });
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
+  }
+  const lockRootStat = fs.lstatSync(lockRoot);
+  if (
+    !lockRootStat.isDirectory() ||
+    lockRootStat.isSymbolicLink() ||
+    (typeof process.getuid === "function" &&
+      lockRootStat.uid !== process.getuid())
+  ) {
+    throw new Error(`Unsafe Chrome extension lock directory: ${lockRoot}`);
+  }
+  fs.chmodSync(lockRoot, 0o700);
+
   try {
     for (const extension of validExtensions) {
-      const runtimeUser =
-        typeof process.getuid === "function" ? process.getuid() : "user";
+      const extensionLockKey = crypto
+        .createHash("sha256")
+        .update(fs.realpathSync(extension.unpacked_path))
+        .digest("hex");
       const extensionLoadLock = path.join(
-        os.tmpdir(),
-        `abx-chrome-${runtimeUser}`,
+        lockRoot,
         "extension-load-locks",
-        `${path.basename(extension.unpacked_path)}.lock`
+        `${extensionLockKey}.lock`
       );
       let releaseExtensionLoadLock = null;
       try {
