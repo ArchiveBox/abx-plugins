@@ -1,0 +1,21 @@
+abx_plugins/plugins/chrome/config.json
+  s_69ddf154c10e6f::t_415c242db30125 71
+pyproject.toml
+  s_69ddf154c10e6f::t_c035ee61a285e2 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "63afd51d2b95c0d178fd9a6e96f012676f2c037a",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
