@@ -918,7 +918,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
       try {
         const pid = parseInt(fs.readFileSync(pidFile, "utf8").trim(), 10);
         if (isNaN(pid) || pid <= 0) continue;
-        if (pid === currentPid) continue;
+        if (pid === currentPid || processHasAncestorPid(currentPid, pid)) continue;
         if (!isProcessAlive(pid)) {
           try {
             fs.unlinkSync(pidFile);

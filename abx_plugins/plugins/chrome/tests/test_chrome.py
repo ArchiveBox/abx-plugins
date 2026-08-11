@@ -3851,5 +3851,37 @@ def test_kill_zombie_chrome_respects_live_crawl_heartbeat():
             _cleanup_launch_process(chrome_launch_process, chrome_dir)
 
 
+def test_kill_zombie_chrome_does_not_kill_its_launcher(tmp_path):
+    """The executable hook must preserve the abxpkg launcher in its own PID file."""
+    crawl_dir = tmp_path / "crawl"
+    chrome_dir = crawl_dir / "chrome"
+    chrome_dir.mkdir(parents=True)
+    hook_path = CHROME_UTILS.parent / "on_CrawlSetup__89_chrome_kill_zombies.js"
+    env = _isolated_test_env(
+        tmp_path,
+        CRAWL_DIR=str(crawl_dir),
+        SNAP_DIR=str(crawl_dir / "snapshot"),
+        CHROME_USER_DATA_DIR=str(chrome_dir / "profile"),
+    )
+    process = subprocess.Popen(
+        [str(hook_path)],
+        cwd=str(chrome_dir),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+        start_new_session=True,
+    )
+    pid_file = chrome_dir / (
+        "on_CrawlSetup__89_chrome_kill_zombies.js.0123456789abcdef0123456789abcdef.pid"
+    )
+    pid_file.write_text(str(process.pid))
+
+    stdout, stderr = process.communicate(timeout=30)
+
+    assert process.returncode == 0, stderr
+    assert "chrome zombies. cpu usage:" in stdout
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
