@@ -36,6 +36,7 @@ def test_replay_preview_bootstrap_gates_ui_on_worker_and_exposes_readiness(
     assert "rwp-page-loading" in html
     assert "archivebox-replay-ready" in html
     assert '<script src="/replay/ui.js"></script>' in html
+    assert "#replay-root, replay-web-page" in html
 
     onedomain_html = replay_preview.render_preview_html(
         "archivewebpage.wacz",
