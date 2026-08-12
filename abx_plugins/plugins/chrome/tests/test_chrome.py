@@ -3298,7 +3298,7 @@ def test_target_crash_mid_navigation_recovers_with_fresh_tab(
 
 
 def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_url):
-    """Fresh CDP clients must resolve the exact target_id.txt target before navigation."""
+    """Fresh CDP clients must resolve and capture the published target before navigation."""
     with tempfile.TemporaryDirectory() as tmpdir:
         shared_dir = Path(tmpdir) / "shared"
         shared_dir.mkdir()
@@ -3313,6 +3313,7 @@ def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_u
 
         chrome_launch_process = None
         tab_process = None
+        screencast_process = None
         try:
             chrome_launch_process, cdp_url = launch_chromium_session(
                 env=env,
@@ -3330,6 +3331,33 @@ def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_u
             target_id = (chrome_dir / "target_id.txt").read_text().strip()
             raw_targets = fetch_devtools_targets(cdp_url)
             assert any(target.get("id") == target_id for target in raw_targets)
+
+            screencast_hook = (
+                CHROME_UTILS.parent.parent
+                / "chrome_screencast"
+                / "on_Snapshot__12_chrome_screencast.daemon.bg.js"
+            )
+            screencast_process = subprocess.Popen(
+                [str(screencast_hook), f"--url={chrome_test_url}"],
+                cwd=str(shared_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env | {"CHROME_SCREENCAST_KEEP": "1"},
+            )
+            assert screencast_process.stderr is not None
+            latest_frame = shared_dir / "chrome_screencast" / "latest.jpg"
+            frame_deadline = time.monotonic() + 10
+            while time.monotonic() < frame_deadline and not latest_frame.is_file():
+                assert screencast_process.poll() is None, (
+                    "screencast exited before capturing the published target: "
+                    f"{screencast_process.stderr.read()}"
+                )
+                time.sleep(0.1)
+            assert latest_frame.is_file(), (
+                "screencast did not capture the published about:blank target"
+            )
+            assert latest_frame.read_bytes().startswith(b"\xff\xd8\xff")
 
             script = f"""
 const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
@@ -3374,7 +3402,7 @@ const expectedTargetId = process.argv[2];
                 f"Stdout: {result.stdout}\nStderr: {result.stderr}"
             )
         finally:
-            for proc in (tab_process, chrome_launch_process):
+            for proc in (screencast_process, tab_process, chrome_launch_process):
                 if proc is None:
                     continue
                 proc.send_signal(signal.SIGTERM)

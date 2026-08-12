@@ -86,15 +86,10 @@ async function captureVisibleViewportJpeg(
   screenshotScale,
   targetId
 ) {
-  const pageTargets = browser.targets().filter((target) => {
-    const url = target.url() || "";
-    return (
-      target.type() === "page" &&
-      (url.startsWith("http://") || url.startsWith("https://"))
-    );
-  });
-  const target = pageTargets.find(
-    (candidate) => getTargetIdFromTarget(candidate) === targetId
+  const target = browser.targets().find(
+    (candidate) =>
+      candidate.type() === "page" &&
+      getTargetIdFromTarget(candidate) === targetId
   );
   if (!target) {
     throw new Error(`Chrome page target ${targetId} not found`);
