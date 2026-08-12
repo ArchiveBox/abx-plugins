@@ -809,7 +809,7 @@ const options = JSON.parse(process.argv[3]);
   }
   const state = await chromeUtils.waitForChromeSessionState(chromeDir, options);
   if (!state) throw new Error(`Chrome session did not become ready: ${chromeDir}`);
-  process.stdout.write(JSON.stringify(state));
+  process.stdout.write(JSON.stringify(state), () => process.exit(0));
 })().catch((error) => {
   console.error(error.stack || error.message);
   process.exit(1);
