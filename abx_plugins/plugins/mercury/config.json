@@ -15,7 +15,7 @@
           "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/mercury",
           "install_args": [
             "--config.blockExoticSubdeps=false",
-            "--config.overrides.difflib=https://github.com/postlight/difflib.js.git",
+            "--config.overrides.difflib=https://codeload.github.com/postlight/difflib.js/tar.gz/32e8e38c7fcd935241b9baab71bb432fd9b166ed",
             "@postlight/parser@2.2.3"
           ],
           "postinstall_scripts": true
