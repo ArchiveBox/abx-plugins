@@ -3358,6 +3358,34 @@ def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_u
                 "screencast did not capture the published about:blank target"
             )
             assert latest_frame.read_bytes().startswith(b"\xff\xd8\xff")
+            initial_frame_mtime = latest_frame.stat().st_mtime_ns
+
+            navigate_result = subprocess.run(
+                [
+                    str(CHROME_NAVIGATE_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=snap-fresh-target-resolve",
+                ],
+                cwd=str(chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=env,
+            )
+            assert navigate_result.returncode == 0, (
+                "published target navigation failed:\n"
+                f"Stdout: {navigate_result.stdout}\nStderr: {navigate_result.stderr}"
+            )
+
+            next_frame_deadline = time.monotonic() + 10
+            while (
+                time.monotonic() < next_frame_deadline
+                and latest_frame.stat().st_mtime_ns <= initial_frame_mtime
+            ):
+                time.sleep(0.1)
+            assert latest_frame.stat().st_mtime_ns > initial_frame_mtime, (
+                "screencast stopped updating after target navigation"
+            )
 
             script = f"""
 const chromeUtils = require({json.dumps(str(CHROME_UTILS))});

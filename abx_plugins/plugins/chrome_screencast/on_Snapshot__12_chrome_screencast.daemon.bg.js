@@ -81,23 +81,10 @@ function emitResult(status, output) {
 }
 
 async function captureVisibleViewportJpeg(
-  browser,
+  page,
   quality,
-  screenshotScale,
-  targetId
+  screenshotScale
 ) {
-  const target = browser.targets().find(
-    (candidate) =>
-      candidate.type() === "page" &&
-      getTargetIdFromTarget(candidate) === targetId
-  );
-  if (!target) {
-    throw new Error(`Chrome page target ${targetId} not found`);
-  }
-  const page = await target.page();
-  if (!page) {
-    throw new Error(`Chrome target ${targetId} has no page handle`);
-  }
   const cdpSession = await page.target().createCDPSession();
   let result;
   try {
@@ -204,6 +191,18 @@ async function startScreencast() {
     defaultViewport: null,
   });
   const targetId = chromeSession.targetId;
+  const target = browser.targets().find(
+    (candidate) =>
+      candidate.type() === "page" &&
+      getTargetIdFromTarget(candidate) === targetId
+  );
+  if (!target) {
+    throw new Error(`Chrome page target ${targetId} not found`);
+  }
+  const page = await target.page();
+  if (!page) {
+    throw new Error(`Chrome target ${targetId} has no page handle`);
+  }
 
   const quality = Math.max(
     1,
@@ -241,10 +240,9 @@ async function startScreencast() {
     lastWriteAt = now;
     try {
       const jpeg = await captureVisibleViewportJpeg(
-        browser,
+        page,
         quality,
-        screenshotScale,
-        targetId
+        screenshotScale
       );
       writeFrame(jpeg);
     } catch (error) {
