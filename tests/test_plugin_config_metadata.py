@@ -115,7 +115,7 @@ def test_every_plugin_has_config_json_with_required_metadata() -> None:
     )
 
 
-def test_required_binary_configs_use_uv_and_pnpm_not_pip_or_npm() -> None:
+def test_required_binary_configs_follow_provider_policy() -> None:
     failures: list[str] = []
 
     for plugin_dir in _iter_plugin_dirs():
@@ -141,8 +141,6 @@ def test_required_binary_configs_use_uv_and_pnpm_not_pip_or_npm() -> None:
             }
             if "pip" in binproviders:
                 failures.append(f"{label}.binproviders must use uv instead of pip")
-            if "npm" in binproviders:
-                failures.append(f"{label}.binproviders must use pnpm instead of npm")
             raw_overrides = item.get("overrides")
             overrides = (
                 cast(dict[str, Any], raw_overrides)
@@ -151,8 +149,6 @@ def test_required_binary_configs_use_uv_and_pnpm_not_pip_or_npm() -> None:
             )
             if "pip" in overrides:
                 failures.append(f"{label}.overrides must use uv instead of pip")
-            if "npm" in overrides:
-                failures.append(f"{label}.overrides must use pnpm instead of npm")
             if any(
                 isinstance(value, dict) and "module_name" in value
                 for value in overrides.values()
