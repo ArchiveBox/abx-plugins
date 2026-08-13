@@ -1,0 +1,18 @@
+abx_plugins/plugins/archivewebpage/on_Snapshot__65_archivewebpage_stop.js
+  h_923c208e183a7b 181-185,200-204,206-207
+abx_plugins/plugins/chrome/chrome_utils.js
+  h_923c208e183a7b 3005-3045,4546
+abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py
+  h_923c208e183a7b 291,293-294,296,298-302,322
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "d0b37bc9df8cbe5b1bfea483c26a58d3e15666cb",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
