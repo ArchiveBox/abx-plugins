@@ -11,12 +11,16 @@
       "binproviders": "env,npm",
       "min_version": null,
       "overrides": {
+        "env": {
+          "version": "2.2.3"
+        },
         "npm": {
           "install_root": "{ABXPKG_LIB_DIR}/npm/packages/mercury",
           "install_args": [
             "@postlight/parser@2.2.3"
           ],
-          "postinstall_scripts": true
+          "postinstall_scripts": true,
+          "version": "2.2.3"
         }
       }
     }
