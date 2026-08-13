@@ -1,0 +1,22 @@
+abx_plugins/plugins/mercury/config.json
+  h_923c208e183a7b 11,14-15
+docs/index.html
+  h_923c208e183a7b 4089,4116,4148,4151,4159,4162,6334,6363,6388,6390,6795,6823,6849,6851,8097,8125,8148,8150,8738,8766,8786,8788,9424,9648,10219
+pyproject.toml
+  h_923c208e183a7b 3
+tests/test_plugin_config_metadata.py
+  h_923c208e183a7b 118
+uv.lock
+  h_923c208e183a7b 6,12,16,99,101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "221a3f502d25672f7280d1738d1e465a18376742",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
