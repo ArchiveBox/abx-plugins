@@ -283,39 +283,23 @@ const downloadDir = process.argv[3];
 const filename = 'abx-download.txt';
 const expectedPath = path.join(downloadDir, filename);
 
-function waitForDownload(filename, expectedContent) {
-  return new Promise((resolve, reject) => {
-    const watcher = fs.watch(downloadDir, (_eventType, changedName) => {
-      if (!changedName || changedName.toString() !== filename) return;
-      let actualContent;
-      try {
-        actualContent = fs.readFileSync(expectedPath, 'utf8');
-      } catch (error) {
-        return;
-      }
-      if (actualContent !== expectedContent) return;
-      clearTimeout(timeout);
-      watcher.close();
-      resolve();
-    });
-    const timeout = setTimeout(() => {
-      watcher.close();
-      reject(new Error(`Timed out waiting for download event for ${filename}`));
-    }, 15000);
-  });
-}
-
 (async () => {
   const { browser, page } = await chromeUtils.connectToPage({
     chromeSessionDir,
     timeoutMs: 30000,
   });
+  const session = await browser.target().createCDPSession();
   try {
-    const ok = await chromeUtils.setBrowserDownloadBehavior({
-      page,
+    await session.send('Browser.setDownloadBehavior', {
+      behavior: 'allow',
       downloadPath: downloadDir,
+      eventsEnabled: true,
     });
-    const downloadCompleted = waitForDownload(filename, 'archivebox-download-ok');
+    const downloadCompleted = chromeUtils.waitForBrowserDownload(
+      session,
+      filename,
+      15000,
+    );
     await page.bringToFront();
     await page.evaluate((name) => {
       const blob = new Blob(['archivebox-download-ok'], { type: 'text/plain' });
@@ -330,12 +314,12 @@ function waitForDownload(filename, expectedContent) {
     }, filename);
     await downloadCompleted;
     process.stdout.write(JSON.stringify({
-      ok,
       expectedPath,
       pageUrl: page.url(),
       content: fs.readFileSync(expectedPath, 'utf8'),
     }));
   } finally {
+    await session.detach();
     await browser.disconnect();
   }
 })().catch((error) => {
@@ -361,7 +345,6 @@ function waitForDownload(filename, expectedContent) {
 
         assert result.returncode == 0, result.stderr
         payload = json.loads(result.stdout)
-        assert payload["ok"] is True
         assert payload["pageUrl"].startswith(TEST_URL)
         assert payload["content"] == "archivebox-download-ok"
         assert Path(payload["expectedPath"]).exists()

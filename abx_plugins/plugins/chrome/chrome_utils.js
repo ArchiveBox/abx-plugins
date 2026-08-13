@@ -3002,6 +3002,47 @@ async function setBrowserDownloadBehavior(options = {}) {
   }
 }
 
+/**
+ * Wait for Chrome to finish the download with the exact requested filename.
+ * Browser.downloadProgress is the completion boundary; the destination file
+ * may exist at zero bytes while Chrome is still writing it.
+ */
+function waitForBrowserDownload(session, expectedFilename, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    let downloadGuid = null;
+    const cleanup = () => {
+      clearTimeout(timer);
+      session.off("Browser.downloadWillBegin", onDownloadWillBegin);
+      session.off("Browser.downloadProgress", onDownloadProgress);
+    };
+    const fail = (error) => {
+      cleanup();
+      reject(error);
+    };
+    const onDownloadWillBegin = (event) => {
+      if (event.suggestedFilename === expectedFilename) {
+        downloadGuid = event.guid;
+      }
+    };
+    const onDownloadProgress = (event) => {
+      if (!downloadGuid || event.guid !== downloadGuid) return;
+      if (event.state === "interrupted") {
+        fail(new Error(`Download ${expectedFilename} was interrupted`));
+      } else if (event.state === "completed") {
+        cleanup();
+        resolve(event);
+      }
+    };
+    const timer = setTimeout(
+      () => fail(new Error(`Download ${expectedFilename} did not complete within ${timeoutMs}ms`)),
+      timeoutMs
+    );
+
+    session.on("Browser.downloadWillBegin", onDownloadWillBegin);
+    session.on("Browser.downloadProgress", onDownloadProgress);
+  });
+}
+
 function getTargetIdFromTarget(target) {
   if (!target) return null;
   return target._targetId || target._targetInfo?.targetId || null;
@@ -4502,6 +4543,7 @@ module.exports = {
   connectToPage,
   waitForNavigationComplete,
   setBrowserDownloadBehavior,
+  waitForBrowserDownload,
   getCookiesViaCdp,
 };
 
