@@ -22,7 +22,6 @@ dependencies = [
     "abxbus==2.5.45",
     "abxpkg==1.12.62",
     "imagesize>=2.0.0",
-    "jambo>=0.1.7",
     "rich-click>=1.9.7",
     "uv>=0.8.22",
 ]

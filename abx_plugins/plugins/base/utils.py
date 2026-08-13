@@ -1,7 +1,7 @@
 """Shared utilities for abx plugins.
 
 Provides common helpers used across multiple plugins:
-- Config loading from `config.json` using `jambo` with `x-aliases` and `x-fallback`
+- Typed config loading from `config.json` with `x-aliases` and `x-fallback`
 - JSONL record emission (archive results, binary requests, installed binaries)
 - Atomic file writing (`write_text_atomic`, `write_file_atomic`)
 - HTML source discovery (`find_html_source`)
@@ -633,82 +633,74 @@ def _hydrate_config_payload(
 
 @lru_cache(maxsize=None)
 def _schema_model(schema_json: str):
-    from jambo import SchemaConverter
-    from pydantic import ConfigDict
+    from enum import Enum
+
+    from pydantic import ConfigDict, Field, create_model
 
     schema = json.loads(schema_json)
-    model = SchemaConverter.build(schema)
-    model.model_config = ConfigDict(
-        validate_assignment=True,
-        use_enum_values=True,
-        validate_default=True,
-    )
-    model.model_rebuild(force=True)
-    return _patch_open_object_fields(model, _schema_properties(schema))
+    properties = _schema_properties(schema)
 
+    def annotation_for(prop: Mapping[str, Any]) -> Any:
+        enum = prop.get("enum")
+        if isinstance(enum, list) and enum:
+            return Enum("ConfigValue", {str(value): value for value in enum})
 
-def _open_object_annotation(prop: Mapping[str, Any]) -> type[Any] | None:
-    if prop.get("type") != "object":
-        return None
-    if prop.get("properties"):
-        return None
-    additional_properties = prop.get("additionalProperties")
-    if not isinstance(additional_properties, Mapping):
-        return None
-    item_model = build_config_model("OpenObjectValue", {"value": additional_properties})
-    item_annotation = item_model.model_fields["value"].annotation
-    if item_annotation is None:
-        return dict[str, Any]
-    return dict[str, item_annotation]
+        type_name = prop.get("type")
+        if type_name == "string":
+            return str
+        if type_name == "boolean":
+            return bool
+        if type_name == "integer":
+            return int
+        if type_name == "number":
+            return float
+        if type_name == "array":
+            items = prop.get("items")
+            item_annotation = (
+                annotation_for(items) if isinstance(items, Mapping) else Any
+            )
+            return list[item_annotation]
+        if type_name == "object":
+            additional = prop.get("additionalProperties")
+            value_annotation = (
+                annotation_for(additional) if isinstance(additional, Mapping) else Any
+            )
+            return dict[str, value_annotation]
+        raise ValueError(f"Unsupported config schema type: {type_name!r}")
 
+    fields: dict[str, tuple[Any, Any]] = {}
+    for name, raw_prop in properties.items():
+        if not isinstance(raw_prop, Mapping):
+            raise ValueError(f"Invalid config schema for {name}: expected an object")
+        annotation = annotation_for(raw_prop)
+        field_kwargs = {
+            key: raw_prop[key]
+            for key in ("description", "minimum", "maximum", "pattern")
+            if key in raw_prop
+        }
+        if "minimum" in field_kwargs:
+            field_kwargs["ge"] = field_kwargs.pop("minimum")
+        if "maximum" in field_kwargs:
+            field_kwargs["le"] = field_kwargs.pop("maximum")
+        if "default" in raw_prop:
+            field = Field(default=raw_prop["default"], **field_kwargs)
+        elif raw_prop.get("type") in {"array", "object"}:
+            field = Field(
+                default_factory=list if raw_prop["type"] == "array" else dict,
+                **field_kwargs,
+            )
+        else:
+            field = Field(default=None, **field_kwargs)
+        fields[str(name)] = (annotation, field)
 
-def _open_object_default(default_value: Any) -> Any:
-    from pydantic_core import PydanticUndefined
-
-    if default_value is None or default_value is PydanticUndefined:
-        return {}
-    return default_value
-
-
-def _patch_open_object_fields(
-    model,
-    properties: Mapping[str, Any],
-):
-    from pydantic import Field, create_model
-    from pydantic.fields import FieldInfo
-
-    fields: dict[str, tuple[Any, FieldInfo]] = {}
-    changed = False
-    for key, field in model.model_fields.items():
-        prop = properties.get(key)
-        annotation = (
-            _open_object_annotation(prop) if isinstance(prop, Mapping) else None
-        )
-        if annotation is None:
-            fields[key] = (field.annotation, field)
-            continue
-        patched_field = cast(
-            FieldInfo,
-            Field(
-                default_factory=lambda default=_open_object_default(field.default): (
-                    dict(default)
-                ),
-                description=field.description,
-                title=field.title,
-            ),
-        )
-        fields[key] = (annotation, patched_field)
-        changed = True
-    if not changed:
-        return model
-    return cast(
-        Any,
-        create_model(
-            model.__name__,
-            __config__=model.model_config,
-            __module__=model.__module__,
-            **cast(dict[str, Any], fields),
+    return create_model(
+        str(schema.get("title") or "PluginConfig"),
+        __config__=ConfigDict(
+            validate_assignment=True,
+            use_enum_values=True,
+            validate_default=True,
         ),
+        **cast(dict[str, Any], fields),
     )
 
 
@@ -942,7 +934,7 @@ def load_config(
     environ: Mapping[str, str] | None = None,
     hydrate_binaries: bool = True,
 ) -> Any:
-    """Load typed plugin config using `jambo` plus `x-aliases` and `x-fallback`.
+    """Load typed plugin config with `x-aliases` and `x-fallback`.
 
     The resolved config always includes shared `base/config.json` properties plus any
     `required_plugins` config it depends on. Values are resolved in this order:

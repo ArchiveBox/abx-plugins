@@ -219,6 +219,24 @@ def test_build_config_model_infers_typed_fields_from_schema() -> None:
                 "default": {},
                 "additionalProperties": {"type": "string"},
             },
+            "TIMEOUT": {
+                "type": "integer",
+                "default": 30,
+                "minimum": 1,
+                "maximum": 60,
+            },
+            "SCALE": {"type": "number", "default": 0.5, "minimum": 0.1},
+            "RESOLUTION": {
+                "type": "string",
+                "default": "1440,2000",
+                "pattern": r"^\d+,\d+$",
+            },
+            "MODE": {
+                "type": "string",
+                "default": "snapshot",
+                "enum": ["crawl", "snapshot"],
+            },
+            "ENABLED": {"type": "boolean", "default": True},
         },
     )
 
@@ -226,6 +244,7 @@ def test_build_config_model_infers_typed_fields_from_schema() -> None:
         {
             "CHROME_ARGS": ["--no-first-run"],
             "ABX_INSTALL_CACHE": {"wget": "2026-03-24T00:00:00+00:00"},
+            "TIMEOUT": 45,
         },
     )
 
@@ -234,6 +253,18 @@ def test_build_config_model_infers_typed_fields_from_schema() -> None:
     assert payload["ABX_INSTALL_CACHE"] == {
         "wget": "2026-03-24T00:00:00+00:00",
     }
+    assert payload["TIMEOUT"] == 45
+    assert payload["SCALE"] == 0.5
+    assert payload["RESOLUTION"] == "1440,2000"
+    assert payload["MODE"] == "snapshot"
+    assert payload["ENABLED"] is True
+
+    with pytest.raises(ValueError):
+        config_model.model_validate({"TIMEOUT": 0})
+    with pytest.raises(ValueError):
+        config_model.model_validate({"RESOLUTION": "invalid"})
+    with pytest.raises(ValueError):
+        config_model.model_validate({"MODE": "invalid"})
 
 
 def test_load_config_resolves_aliases_to_canonical_fields() -> None:
