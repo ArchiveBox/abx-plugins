@@ -252,7 +252,7 @@
     },
     "CHROME_WAIT_FOR": {
       "type": "string",
-      "default": "load",
+      "default": "domcontentloaded",
       "enum": [
         "domcontentloaded",
         "load",

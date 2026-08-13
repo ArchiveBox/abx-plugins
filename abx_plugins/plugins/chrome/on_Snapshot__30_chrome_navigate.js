@@ -14,7 +14,7 @@
  * Environment variables:
  *     CHROME_PAGELOAD_TIMEOUT: Timeout in seconds (default: 60)
  *     CHROME_DELAY_AFTER_LOAD: Extra delay after load in seconds (default: 0)
- *     CHROME_WAIT_FOR: Wait condition (default: load)
+ *     CHROME_WAIT_FOR: Wait condition (default: domcontentloaded)
  */
 
 const fs = require("fs");
@@ -49,9 +49,9 @@ function getEnvFloat(name, defaultValue = 0) {
 }
 
 function getWaitCondition() {
-  const waitFor = getEnv("CHROME_WAIT_FOR", "load").toLowerCase();
+  const waitFor = getEnv("CHROME_WAIT_FOR", "domcontentloaded").toLowerCase();
   const valid = ["domcontentloaded", "load", "networkidle0", "networkidle2"];
-  return valid.includes(waitFor) ? waitFor : "load";
+  return valid.includes(waitFor) ? waitFor : "domcontentloaded";
 }
 
 function sleep(ms) {
