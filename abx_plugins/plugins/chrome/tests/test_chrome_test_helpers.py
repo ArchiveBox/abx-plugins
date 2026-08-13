@@ -483,14 +483,14 @@ function waitForDownloads(expectedContents) {
         assert Path(payload["twoPath"]).exists()
 
 
-def test_only_archivewebpage_export_enables_its_dedicated_download_target():
-    """Plugins must not redirect the shared browser download directory."""
+def test_only_archivewebpage_export_enables_browser_download_events():
+    """Plugins must not redirect or observe the shared browser download directory."""
     plugins_dir = CHROME_UTILS.parent.parent
     callers = [
         script.relative_to(plugins_dir)
         for script in plugins_dir.glob("*/*.js")
         if script != CHROME_UTILS
-        and "setBrowserDownloadBehavior(" in script.read_text()
+        and 'session.send("Browser.setDownloadBehavior"' in script.read_text()
     ]
 
     assert callers == [Path("archivewebpage/on_Snapshot__65_archivewebpage_stop.js")]
