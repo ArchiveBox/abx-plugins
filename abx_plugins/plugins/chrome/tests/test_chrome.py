@@ -393,7 +393,7 @@ const puppeteer = resolvePuppeteer();
     return json.loads(result.stdout)
 
 
-def test_load_cached_extension_uses_runtime_browser_target():
+def test_load_cached_extension_publishes_runtime_id_without_stale_target_state():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
         env = _isolated_test_env(
@@ -425,6 +425,20 @@ const extensionJson = process.argv[3];
   try {
     const extensions = [extension];
     await chromeUtils.loadUnpackedExtensionsIntoBrowser(browser, extensions, 30000);
+    const launchMetadata = {...extensions[0]};
+    const manifest = chromeUtils.loadExtensionManifest(extensions[0].unpacked_path);
+    const preferredTargetUrl = `chrome-extension://${extensions[0].id}/${manifest.background.service_worker.replace(/^\/+/, '')}`;
+    const extensionTarget = await chromeUtils.waitForExtensionTargetHandle(
+      browser,
+      extensions[0].id,
+      5000,
+      preferredTargetUrl,
+      { wakePath: `/${manifest.action.default_popup}` },
+    );
+    const attachedExtension = await chromeUtils.loadExtensionFromTarget(
+      extensions,
+      extensionTarget,
+    );
     const targets = browser.targets()
       .filter(target => target.url().includes(extensions[0].id))
       .map(target => ({ type: target.type(), url: target.url() }));
@@ -447,6 +461,8 @@ const extensionJson = process.argv[3];
     process.stdout.write(JSON.stringify({
       cdpUrl: result.cdpUrl,
       extension: extensions[0],
+      launchMetadata,
+      attachedExtension,
       targets,
       targetError,
       wakePageStillOpen,
@@ -481,7 +497,14 @@ const extensionJson = process.argv[3];
         assert result.returncode == 0, result.stderr
         payload = json.loads(result.stdout.strip().splitlines()[-1])
         assert payload["extension"]["id"], payload
-        target_url = payload["extension"].get("target_url", "")
+        launch_metadata = payload["launchMetadata"]
+        assert launch_metadata["id"] == payload["extension"]["id"], payload
+        assert launch_metadata["manifest_version"] == 3, payload
+        assert "target" not in launch_metadata, payload
+        assert "target_type" not in launch_metadata, payload
+        assert "target_url" not in launch_metadata, payload
+        assert "target_error" not in launch_metadata, payload
+        target_url = payload["attachedExtension"].get("target_url", "")
         assert target_url.startswith(
             f"chrome-extension://{payload['extension']['id']}/",
         ), payload
@@ -1235,7 +1258,14 @@ def test_snapshot_isolation_launches_and_cleans_up_local_browser(chrome_test_url
             None,
         )
         assert extension_entry is not None, browser_metadata
+        assert extension_entry.get("id") == cached_ext["id"], extension_entry
+        assert extension_entry.get("manifest_version") == 3, extension_entry
         assert "load_path" not in extension_entry, extension_entry
+        assert "load_error" not in extension_entry, extension_entry
+        assert "target" not in extension_entry, extension_entry
+        assert "target_type" not in extension_entry, extension_entry
+        assert "target_url" not in extension_entry, extension_entry
+        assert "target_error" not in extension_entry, extension_entry
         assert extension_entry.get("unpacked_path") == cached_ext["unpacked_path"]
         assert Path(extension_entry["unpacked_path"]).is_dir(), extension_entry
         assert (Path(extension_entry["unpacked_path"]) / "manifest.json").is_file()
@@ -1968,7 +1998,6 @@ def test_cdp_url_is_published_before_extensions_metadata():
             "CRAWL_DIR": str(shared_dir),
             "SNAP_DIR": str(shared_dir),
             "CHROME_HEADLESS": "true",
-            "CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS": "5000",
         }
         browser_file = chrome_dir / "browser.json"
         cdp_file = chrome_dir / "cdp_url.txt"
@@ -2534,8 +2563,13 @@ def test_shared_dir_extensions_metadata_created_and_preserved_when_enabled(
             assert extension_entry.get("unpacked_path") == cached_ext["unpacked_path"]
             assert extension_entry.get("id"), extension_entry
             assert extension_entry.get("id") == cached_ext.get("id"), extension_entry
+            assert extension_entry.get("manifest_version") == 3, extension_entry
             assert "load_error" not in extension_entry, extension_entry
             assert "load_path" not in extension_entry, extension_entry
+            assert "target" not in extension_entry, extension_entry
+            assert "target_type" not in extension_entry, extension_entry
+            assert "target_url" not in extension_entry, extension_entry
+            assert "target_error" not in extension_entry, extension_entry
             assert Path(extension_entry["unpacked_path"]).is_dir(), extension_entry
             assert (Path(extension_entry["unpacked_path"]) / "manifest.json").is_file()
             assert (

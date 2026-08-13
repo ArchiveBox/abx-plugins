@@ -335,7 +335,7 @@ def test_singlefile_with_extension_uses_existing_chrome(tmp_path):
         assert list(singlefile_output_dir.glob("*.html")) == [output_file]
 
 
-def test_singlefile_extension_loader_prefers_cached_background_target(tmp_path):
+def test_singlefile_extension_loader_resolves_current_background_target(tmp_path):
     """SingleFile loader should prefer the cached background target over the offscreen page."""
     install_state = ensure_singlefile_extension_installed(tmp_path)
     tmpdir = tmp_path / "singlefile-offscreen"
@@ -359,6 +359,13 @@ def test_singlefile_extension_loader_prefers_cached_background_target(tmp_path):
             timeout_seconds=20,
         )
         entry = next(ext for ext in metadata if ext.get("name") == "singlefile")
+        manifest = json.loads(
+            (Path(entry["unpacked_path"]) / "manifest.json").read_text(),
+        )
+        preferred_target_url = (
+            f"chrome-extension://{entry['id']}/"
+            f"{manifest['background']['service_worker'].lstrip('/')}"
+        )
         cdp_url = (snapshot_chrome_dir / "cdp_url.txt").read_text().strip()
         script = r"""
 const chromeUtils = require(process.argv[1]);
@@ -467,7 +474,7 @@ function collectTargets(browser, extensionId) {
                 entry["id"],
                 entry["unpacked_path"],
                 entry["version"],
-                entry["target_url"],
+                preferred_target_url,
             ],
             capture_output=True,
             text=True,
@@ -492,13 +499,13 @@ function collectTargets(browser, extensionId) {
             for target in payload["afterClose"]
         ), payload
         assert any(
-            target["type"] == "service_worker" and target["url"] == entry["target_url"]
+            target["type"] == "service_worker" and target["url"] == preferred_target_url
             for target in payload["afterWake"]
         ), payload
         assert payload["loaded"] is True, payload
         assert payload["hasDispatchAction"] is True, payload
         assert payload["selectedTargetType"] == "service_worker", payload
-        assert payload["selectedTargetUrl"] == entry["target_url"], payload
+        assert payload["selectedTargetUrl"] == preferred_target_url, payload
 
 
 def test_singlefile_disabled_skips(tmp_path):

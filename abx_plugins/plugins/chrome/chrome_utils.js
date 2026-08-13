@@ -2042,11 +2042,6 @@ async function loadUnpackedExtensionsIntoBrowser(
   console.error(
     `[⚙️] Loading ${validExtensions.length} unpacked chrome extensions into browser...`
   );
-  const perExtensionTimeout = Math.max(
-    250,
-    getEnvInt("CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS", Math.min(timeout, 2000))
-  );
-
   const browserConnection =
     typeof browser.connection === "function"
       ? browser.connection()
@@ -2118,6 +2113,8 @@ async function loadUnpackedExtensionsIntoBrowser(
           );
         }
         extension.id = id;
+        const manifest = loadExtensionManifest(extension.unpacked_path);
+        extension.manifest_version = manifest?.manifest_version || null;
         delete extension.load_error;
       } catch (error) {
         const detail = `${error.name}: ${error.message}`;
@@ -2133,51 +2130,8 @@ async function loadUnpackedExtensionsIntoBrowser(
         }
       }
 
-      try {
-        const manifest =
-          extension.manifest || loadExtensionManifest(extension.unpacked_path);
-        const wakePath = manifest?.action?.default_popup
-          ? `/${String(manifest.action.default_popup).replace(/^\/+/, "")}`
-          : null;
-        const target = await waitForExtensionTargetHandle(
-          browser,
-          extension.id,
-          perExtensionTimeout,
-          null,
-          { wakePath }
-        );
-        const loaded = await withTimeout(
-          () =>
-            loadExtensionFromTarget(extensions, target, {
-              manifestTimeoutMs: Math.min(perExtensionTimeout, 1000),
-            }),
-          perExtensionTimeout,
-          `Timed out attaching extension target for ${extension.id}`
-        );
-        if (!loaded) {
-          throw new Error(
-            `Unable to attach extension target for ${extension.id}`
-          );
-        }
-        delete extension.target_error;
-      } catch (error) {
-        const detail = `${error.name}: ${error.message}`;
-        extension.target_error = detail;
-        if (!extension.manifest) {
-          const manifest = loadExtensionManifest(extension.unpacked_path);
-          if (manifest) {
-            extension.manifest = manifest;
-            extension.manifest_version = manifest.manifest_version || null;
-          }
-        }
-        console.warn(
-          `[⚠️] Could not attach Chrome extension ${
-            extension.name || extension.unpacked_path
-          } target after Extensions.loadUnpacked returned ${
-            extension.id
-          }: ${detail}`
-        );
-      }
+      // Extensions.loadUnpacked returning an id is the durable launch contract.
+      // Hooks resolve their own short-lived MV3 worker target when they use it.
     }
   } finally {
     if (cdpSession) {
