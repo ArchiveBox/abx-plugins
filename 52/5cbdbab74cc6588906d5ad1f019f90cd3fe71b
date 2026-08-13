@@ -1,0 +1,14 @@
+abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py
+  h_923c208e183a7b 486-487,493
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "525cbdbab74cc6588906d5ad1f019f90cd3fe71b",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
