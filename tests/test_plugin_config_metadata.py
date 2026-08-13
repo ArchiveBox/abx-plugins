@@ -237,23 +237,34 @@ def test_required_binary_configs_prefer_compatible_host_binaries() -> None:
                 if provider.strip()
             ]
             overrides = item.get("overrides")
-            uv_overrides = overrides.get("uv") if isinstance(overrides, dict) else None
-            uv_install_args = (
-                uv_overrides.get("install_args")
-                if isinstance(uv_overrides, dict)
-                else None
-            )
-            managed_uv = (
-                providers[:1] == ["uv"]
-                and isinstance(uv_overrides, dict)
-                and bool(uv_overrides.get("install_root"))
-                and isinstance(uv_install_args, list)
-                and bool(uv_install_args)
-                and all("==" in str(package) for package in uv_install_args)
-            )
-            if (not providers or providers[0] != "env") and not managed_uv:
+            managed_package = False
+            for provider in ("uv", "pnpm"):
+                provider_overrides = (
+                    overrides.get(provider) if isinstance(overrides, dict) else None
+                )
+                install_args = (
+                    provider_overrides.get("install_args")
+                    if isinstance(provider_overrides, dict)
+                    else None
+                )
+                if (
+                    providers[:1] == [provider]
+                    and isinstance(provider_overrides, dict)
+                    and bool(provider_overrides.get("install_root"))
+                    and isinstance(install_args, list)
+                    and bool(install_args)
+                    and all(
+                        "==" in str(package)
+                        if provider == "uv"
+                        else bool(str(package).rpartition("@")[0])
+                        for package in install_args
+                    )
+                ):
+                    managed_package = True
+                    break
+            if (not providers or providers[0] != "env") and not managed_package:
                 failures.append(
-                    f"{plugin_dir.name}: required_binaries[{index}] must try env first or use an isolated uv root with exact pins",
+                    f"{plugin_dir.name}: required_binaries[{index}] must try env first or use an isolated package root with exact pins",
                 )
             if "apt" in providers:
                 apt_index = providers.index("apt")

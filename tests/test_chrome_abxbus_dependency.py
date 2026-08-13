@@ -128,23 +128,17 @@ def test_chrome_config_keeps_min_release_age_zero_packages_in_separate_pnpm_root
     assert not mixed_roots
 
 
-def test_chrome_host_modules_are_validated_before_reuse() -> None:
+def test_chrome_js_modules_stay_package_scoped() -> None:
     config = json.loads(CHROME_CONFIG.read_text(encoding="utf-8"))
     records = {item["name"]: item for item in config["required_binaries"]}
 
-    assert records["abxbus"]["overrides"]["env"]["version"] == [
-        "node",
-        "-p",
-        "require('abxbus/package.json').version",
-    ]
+    assert records["abxbus"]["binproviders"] == "pnpm"
+    assert "env" not in records["abxbus"]["overrides"]
     assert records["abxbus"]["min_version"] == "2.5.45"
     assert records["abxbus"]["overrides"]["pnpm"]["install_args"] == ["abxbus@2.5.45"]
     assert records["abxbus"]["overrides"]["pnpm"]["version"] == "2.5.45"
-    assert records["browsers"]["overrides"]["env"]["version"] == [
-        "{NODE_BINARY}",
-        "-p",
-        "require('puppeteer/package.json').version",
-    ]
+    assert records["browsers"]["binproviders"] == "pnpm"
+    assert "env" not in records["browsers"]["overrides"]
     assert records["browsers"]["overrides"]["pnpm"]["version"] == "3.0.4"
 
 
