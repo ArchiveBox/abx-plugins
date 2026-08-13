@@ -1,0 +1,16 @@
+tests/test_chrome_abxbus_dependency.py
+  h_923c208e183a7b 131,135-136,140-141
+tests/test_plugin_config_metadata.py
+  h_923c208e183a7b 240-265,267
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "0293a442d887166eb8447ddaaf7bc4ff72a12773",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
