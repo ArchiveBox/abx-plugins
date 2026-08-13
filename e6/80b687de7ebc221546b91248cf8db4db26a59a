@@ -1,0 +1,16 @@
+abx_plugins/plugins/base/utils.py
+  h_923c208e183a7b 4,636,638,640-701,703,937
+tests/test_runtime_path_isolation.py
+  h_923c208e183a7b 222-239,247,256-267
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "e680b687de7ebc221546b91248cf8db4db26a59a",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
