@@ -1,0 +1,20 @@
+README.md
+  h_923c208e183a7b 139
+abx_plugins/plugins/chrome/chrome_utils.js
+  h_923c208e183a7b 2116-2117,2133-2134
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  h_923c208e183a7b 396,428-441,464-465,500-507,1261-1262,1264-1268,2566,2569-2572
+abx_plugins/plugins/singlefile/tests/test_singlefile.py
+  h_923c208e183a7b 338,362-368,477,502,508
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "aa6b359af8e9619681aacb163eb81ef2f0c6116e",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
