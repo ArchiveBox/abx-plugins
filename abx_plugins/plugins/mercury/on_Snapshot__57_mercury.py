@@ -30,7 +30,7 @@ from abx_plugins.plugins.base.utils import (
 # Extractor metadata
 PLUGIN_NAME = "mercury"
 BIN_NAME = "postlight-parser"
-BIN_PROVIDERS = "env,pnpm"
+BIN_PROVIDERS = "env,npm"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 HTML_FILE = "content.html"
 TEXT_FILE = "content.txt"
