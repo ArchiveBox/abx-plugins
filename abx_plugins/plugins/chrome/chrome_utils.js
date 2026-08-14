@@ -4240,6 +4240,13 @@ async function ensureChromeSession(options = {}) {
         );
       }
 
+      await waitForBrowserPageReady({
+        browser,
+        timeoutMs: getEnvInt("CHROME_PAGE_READY_TIMEOUT_MS", 10000),
+        requireAboutBlank: true,
+        createPageIfMissing: true,
+      });
+
       if (installedExtensions.length > 0) {
         // Keep this existing browser connection after Extensions.loadUnpacked.
         // A fresh Puppeteer connect enumerates extension targets and can lose a
@@ -4255,13 +4262,6 @@ async function ensureChromeSession(options = {}) {
       if (cookiesFile) {
         await importCookiesFromFile(browser, cookiesFile, resolvedUserDataDir);
       }
-
-      await waitForBrowserPageReady({
-        browser,
-        timeoutMs: getEnvInt("CHROME_PAGE_READY_TIMEOUT_MS", 10000),
-        requireAboutBlank: true,
-        createPageIfMissing: true,
-      });
 
       if (launchedNewBrowser) {
         await closeExistingTabs(browser);
