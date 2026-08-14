@@ -1,0 +1,22 @@
+abx_plugins/plugins/liteparse/on_Snapshot__61_liteparse.py
+  h_923c208e183a7b 1,472,478
+abx_plugins/plugins/ytdlp/on_Snapshot__02_ytdlp.finite.bg.py
+  h_923c208e183a7b 1,181-183
+pyproject.toml
+  h_923c208e183a7b 3
+tests/test_plugin_executables_have_shebang.py
+  h_923c208e183a7b 93
+uv.lock
+  h_923c208e183a7b 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "2899ad65b31d733d44c5d3bcd7ebdc5333029967",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
