@@ -1,0 +1,14 @@
+abx_plugins/plugins/chrome/chrome_utils.js
+  h_923c208e183a7b 4243-4249
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "6c23e7a58d39a1572fa72cad388a2f0608a10a1b",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
