@@ -200,7 +200,11 @@ jobs:
           import os
           from pathlib import Path
 
-          records = [json.loads(line) for line in os.environ["HOOK_OUTPUT"].splitlines() if line]
+          records = [
+              json.loads(line)
+              for line in os.environ["HOOK_OUTPUT"].splitlines()
+              if line.lstrip().startswith("{")
+          ]
           assert len(records) == 1, records
           assert records[0]["type"] == "ArchiveResult", records
           assert records[0]["status"] == "succeeded", records
