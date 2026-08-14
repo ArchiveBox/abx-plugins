@@ -14,6 +14,10 @@
  *     SCREENSHOT_ENABLED: Enable screenshot capture (default: true)
  */
 
+if (process.argv.some((arg) => arg === "--url" || arg.startsWith("--url="))) {
+  console.log("Screenshot capture started");
+}
+
 const fs = require("fs");
 const path = require("path");
 const {

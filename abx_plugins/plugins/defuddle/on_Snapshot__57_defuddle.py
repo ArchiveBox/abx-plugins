@@ -5,13 +5,18 @@
 #
 # Extract article content using Defuddle.
 
+# ruff: noqa: E402
+import sys
+
+if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
+    print("Defuddle extraction started", flush=True)
+
 import argparse
 import html
 import json
 import os
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (

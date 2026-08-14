@@ -14,6 +14,10 @@
  *     TITLE_TIMEOUT: Timeout in seconds (default: 30)
  */
 
+if (process.argv.some((arg) => arg === "--url" || arg.startsWith("--url="))) {
+  console.log("Title extraction started");
+}
+
 const fs = require("fs");
 const path = require("path");
 const {

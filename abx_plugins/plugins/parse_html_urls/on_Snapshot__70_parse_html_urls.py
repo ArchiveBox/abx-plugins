@@ -14,10 +14,15 @@
 # Examples:
 #     ./on_Snapshot__70_parse_html_urls.py --url=https://example.com/page.html
 
+# ruff: noqa: E402
+import sys
+
+if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
+    print("HTML URL parsing started", flush=True)
+
 import json
 import os
 import re
-import sys
 from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path

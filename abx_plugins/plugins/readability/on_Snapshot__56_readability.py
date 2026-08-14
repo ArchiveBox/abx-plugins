@@ -19,10 +19,15 @@ Note: Requires readability-extractor from https://github.com/ArchiveBox/readabil
       This extractor looks for HTML source from other extractors (wget, singlefile, dom)
 """
 
+# ruff: noqa: E402
+import sys
+
+if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
+    print("Readability extraction started", flush=True)
+
 import json
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (

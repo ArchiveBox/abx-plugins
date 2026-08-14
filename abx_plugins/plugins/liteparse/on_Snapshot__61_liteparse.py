@@ -28,6 +28,12 @@ Usage: on_Snapshot__61_liteparse.py --url=<url> > events.jsonl
 Environment variables: see config.json (LITEPARSE_* settings).
 """
 
+# ruff: noqa: E402
+import sys
+
+if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
+    print("LiteParse extraction started", flush=True)
+
 import atexit
 import concurrent.futures
 import hashlib
@@ -36,7 +42,6 @@ import re
 import shutil
 import signal
 import subprocess
-import sys
 import tempfile
 import threading
 from pathlib import Path

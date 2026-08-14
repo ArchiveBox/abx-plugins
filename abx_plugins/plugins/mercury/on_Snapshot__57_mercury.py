@@ -9,6 +9,12 @@
 # Usage:
 #     ./on_Snapshot__57_mercury.py [...] > events.jsonl
 
+# ruff: noqa: E402
+import sys
+
+if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
+    print("Mercury extraction started", flush=True)
+
 import html
 import json
 import os
@@ -16,7 +22,6 @@ import argparse
 import re
 import shlex
 import subprocess
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse

@@ -9,9 +9,14 @@
 # Usage:
 #     ./on_Snapshot__58_htmltotext.py --url=<url> > events.jsonl
 
+# ruff: noqa: E402
+import sys
+
+if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
+    print("HTML-to-text extraction started", flush=True)
+
 import os
 import re
-import sys
 from html.parser import HTMLParser
 from pathlib import Path
 

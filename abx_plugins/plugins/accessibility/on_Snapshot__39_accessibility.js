@@ -17,6 +17,10 @@
  *     SAVE_ACCESSIBILITY: Enable accessibility extraction (default: true)
  */
 
+if (process.argv.some((arg) => arg === "--url" || arg.startsWith("--url="))) {
+  console.log("Accessibility extraction started");
+}
+
 const fs = require("fs");
 const path = require("path");
 const {

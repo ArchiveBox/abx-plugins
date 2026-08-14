@@ -13,6 +13,10 @@
  *     PDF_ENABLED: Enable PDF generation (default: true)
  */
 
+if (process.argv.some((arg) => arg === "--url" || arg.startsWith("--url="))) {
+  console.log("PDF capture started");
+}
+
 const fs = require("fs");
 const path = require("path");
 const {

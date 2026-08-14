@@ -17,6 +17,10 @@
  *     SAVE_SEO: Enable SEO extraction (default: true)
  */
 
+if (process.argv.some((arg) => arg === "--url" || arg.startsWith("--url="))) {
+  console.log("SEO extraction started");
+}
+
 const fs = require("fs");
 const path = require("path");
 

@@ -13,6 +13,10 @@
  *     DOM_ENABLED: Enable DOM extraction (default: true)
  */
 
+if (process.argv.some((arg) => arg === "--url" || arg.startsWith("--url="))) {
+  console.log("DOM extraction started");
+}
+
 const fs = require("fs");
 const path = require("path");
 const {

@@ -13,6 +13,10 @@
  *     CHROME_MHTML_ENABLED: Enable MHTML extraction (default: true)
  */
 
+if (process.argv.some((arg) => arg === "--url" || arg.startsWith("--url="))) {
+  console.log("Chrome MHTML capture started");
+}
+
 const fs = require("fs");
 const path = require("path");
 const {

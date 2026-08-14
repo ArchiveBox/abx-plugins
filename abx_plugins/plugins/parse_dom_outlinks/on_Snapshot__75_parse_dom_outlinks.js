@@ -20,6 +20,10 @@
  *     PARSE_DOM_OUTLINKS_ENABLED: Enable DOM outlinks extraction (default: true)
  */
 
+if (process.argv.some((arg) => arg === "--url" || arg.startsWith("--url="))) {
+  console.log("DOM outlink parsing started");
+}
+
 const fs = require("fs");
 const path = require("path");
 const {

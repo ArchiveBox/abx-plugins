@@ -12,10 +12,15 @@
 #     ./on_Snapshot__73_parse_netscape_urls.py --url=<url>
 # Output: Appends discovered URLs to SNAP_DIR/parse_netscape_urls/urls.jsonl
 #
+# ruff: noqa: E402
+import sys
+
+if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
+    print("Netscape URL parsing started", flush=True)
+
 import json
 import os
 import re
-import sys
 from pathlib import Path
 from datetime import datetime, timezone
 from html import unescape

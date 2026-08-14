@@ -4,10 +4,15 @@
 # ///
 """Extract article content using trafilatura from local HTML snapshots."""
 
+# ruff: noqa: E402
+import sys
+
+if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
+    print("Trafilatura extraction started", flush=True)
+
 import argparse
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (

@@ -4,9 +4,14 @@
 # ///
 """Save the exact navigated Chrome snapshot tab with SingleFile."""
 
+# ruff: noqa: E402
+import sys
+
+if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
+    print("SingleFile extraction started", flush=True)
+
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 import rich_click as click
