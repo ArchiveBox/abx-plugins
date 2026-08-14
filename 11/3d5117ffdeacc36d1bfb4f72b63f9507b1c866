@@ -1,0 +1,36 @@
+abx_plugins/plugins/claudechrome/on_CrawlSetup__80_claudechrome_prepare.py
+  h_923c208e183a7b 6-10
+abx_plugins/plugins/claudechrome/on_CrawlSetup__96_claudechrome_config.js
+  h_923c208e183a7b 44-47
+abx_plugins/plugins/claudechrome/on_Snapshot__47_claudechrome.js
+  h_923c208e183a7b 29-32
+abx_plugins/plugins/claudecodecleanup/on_Snapshot__92_claudecodecleanup.py
+  h_923c208e183a7b 26,28-33
+abx_plugins/plugins/claudecodeextract/on_Snapshot__58_claudecodeextract.py
+  h_923c208e183a7b 25,27-31
+abx_plugins/plugins/hashes/on_Snapshot__93_hashes.py
+  h_923c208e183a7b 12,14-18
+abx_plugins/plugins/opendataloader/on_Snapshot__60_opendataloader.py
+  h_923c208e183a7b 30-35
+abx_plugins/plugins/search_backend_sonic/on_Snapshot__91_index_sonic.py
+  h_923c208e183a7b 21-26
+abx_plugins/plugins/search_backend_sqlite/on_Snapshot__90_index_sqlite.py
+  h_923c208e183a7b 20-25
+abx_plugins/plugins/twocaptcha/on_CrawlSetup__95_twocaptcha_config.js
+  h_923c208e183a7b 25-28
+pyproject.toml
+  h_923c208e183a7b 3
+uv.lock
+  h_923c208e183a7b 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "113d5117ffdeacc36d1bfb4f72b63f9507b1c866",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
