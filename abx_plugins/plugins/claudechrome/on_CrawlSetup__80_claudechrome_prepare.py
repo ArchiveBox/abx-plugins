@@ -3,6 +3,11 @@
 # requires-python = ">=3.12"
 # ///
 
+import sys
+
+if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
+    print("Claude for Chrome preparation started", flush=True)
+
 import os
 import json
 from pathlib import Path

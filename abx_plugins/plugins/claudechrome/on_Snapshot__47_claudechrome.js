@@ -26,6 +26,10 @@
  *     ANTHROPIC_API_KEY: API key for Anthropic
  */
 
+if (process.argv.some((arg) => arg === "--url" || arg.startsWith("--url="))) {
+  console.log("Claude for Chrome extraction started");
+}
+
 const fs = require("fs");
 const path = require("path");
 const {

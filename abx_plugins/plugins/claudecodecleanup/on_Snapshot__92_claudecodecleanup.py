@@ -23,9 +23,14 @@ Environment variables:
     ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN: Claude Code auth
 """
 
-import os
-import json
+# ruff: noqa: E402
 import sys
+
+if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
+    print("Claude Code cleanup started", flush=True)
+
+import json
+import os
 from pathlib import Path
 
 import rich_click as click

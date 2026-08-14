@@ -9,8 +9,13 @@
 # Usage:
 #     ./on_Snapshot__93_hashes.py [...] > events.jsonl
 
-import os
+# ruff: noqa: E402
 import sys
+
+if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
+    print("Hash generation started", flush=True)
+
+import os
 import json
 import hashlib
 from pathlib import Path

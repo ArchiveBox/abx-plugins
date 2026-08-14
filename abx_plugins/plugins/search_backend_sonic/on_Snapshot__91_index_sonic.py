@@ -18,10 +18,15 @@ Environment variables:
     SONIC_BUCKET: Bucket name (default: snapshots)
 """
 
+# ruff: noqa: E402
+import sys
+
+if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
+    print("Sonic indexing started", flush=True)
+
 import argparse
 import os
 import re
-import sys
 from importlib import import_module
 from pathlib import Path
 from typing import Any

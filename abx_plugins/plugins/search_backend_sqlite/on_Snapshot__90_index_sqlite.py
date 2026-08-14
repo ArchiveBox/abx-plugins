@@ -17,11 +17,16 @@ Environment variables:
     SNAP_DIR: Snapshot directory (default: cwd)
 """
 
+# ruff: noqa: E402
+import sys
+
+if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
+    print("SQLite indexing started", flush=True)
+
 import argparse
 import os
 import re
 import sqlite3
-import sys
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
