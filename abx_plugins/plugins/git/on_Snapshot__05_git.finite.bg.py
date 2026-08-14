@@ -23,6 +23,9 @@ import sys
 # its work and exits normally or is stopped by the later SIGKILL deadline.
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
+if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
+    print("git clone started", flush=True)
+
 import os
 import subprocess
 from pathlib import Path
@@ -202,8 +205,6 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
 @click.option("--url", required=True, help="Git repository URL")
 def main(url: str):
     """Clone a git repository from a URL."""
-
-    print("git clone started", flush=True)
 
     output = None
     status = "failed"

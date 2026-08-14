@@ -23,6 +23,9 @@ import sys
 # its work and exits normally or is stopped by the later SIGKILL deadline.
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
+if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
+    print("forum-dl download started", flush=True)
+
 import os
 import subprocess
 import tempfile
@@ -185,8 +188,6 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
 @click.option("--url", required=True, help="URL to download forum from")
 def main(url: str):
     """Download forum content from a URL using forum-dl."""
-
-    print("forum-dl download started", flush=True)
 
     output = None
     error = ""

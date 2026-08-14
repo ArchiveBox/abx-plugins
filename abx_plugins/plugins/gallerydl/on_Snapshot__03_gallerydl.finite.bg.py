@@ -23,6 +23,9 @@ import sys
 # its work and exits normally or is stopped by the later SIGKILL deadline.
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
+if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
+    print("gallery-dl download started", flush=True)
+
 import os
 import subprocess
 import threading
@@ -219,8 +222,6 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
 @click.option("--url", required=True, help="URL to download gallery from")
 def main(url: str):
     """Download image gallery from a URL using gallery-dl."""
-
-    print("gallery-dl download started", flush=True)
 
     output = None
     error = ""
