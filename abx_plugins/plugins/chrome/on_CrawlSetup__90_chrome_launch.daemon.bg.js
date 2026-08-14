@@ -96,7 +96,7 @@ let chromeProcessIsLocal = CHROME_IS_LOCAL;
 let shouldCloseOnCleanup = false;
 let puppeteer = null;
 let cleanupPromise = null;
-let launchInProgress = false;
+let launchInProgress = true;
 let cleanupRequestedDuringLaunch = false;
 let readinessPublished = false;
 
