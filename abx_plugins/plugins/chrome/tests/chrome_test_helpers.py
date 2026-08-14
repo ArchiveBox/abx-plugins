@@ -58,6 +58,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any, TextIO
+from collections.abc import Callable
 from contextlib import contextmanager
 
 import pytest
@@ -1630,6 +1631,7 @@ def chrome_session(
     navigate: bool = True,
     timeout: int = 15,
     env_overrides: dict[str, str] | None = None,
+    crawl_setup: Callable[[dict[str, str], Path], None] | None = None,
 ):
     """Context manager for the full crawl -> snapshot -> optional navigate flow.
 
@@ -1637,8 +1639,9 @@ def chrome_session(
     1. provision crawl/snapshot dirs and runtime env
     2. launch the crawl-level shared browser
     3. wait for crawl readiness markers (including ``chrome.pid`` / ``cdp_url``)
-    4. create a snapshot tab with its own session markers
-    5. optionally run the navigate hook and wait for its outputs
+    4. optionally run crawl-setup work against the ready browser
+    5. create a snapshot tab with its own session markers
+    6. optionally run the navigate hook and wait for its outputs
 
     Runtime paths such as ``CHROME_BINARY`` and ``NODE_MODULES_DIR`` are
     consumed from the environment exported by the shared abxpkg fixture.
@@ -1742,6 +1745,9 @@ def chrome_session(
             timeout=startup_timeout,
         )
         chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
+
+        if crawl_setup is not None:
+            crawl_setup(env, chrome_dir)
 
         # Create snapshot directory structure
         snap_dir.mkdir(parents=True, exist_ok=True)

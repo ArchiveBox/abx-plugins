@@ -94,6 +94,29 @@ def twocaptcha_install_state(loaded) -> dict:
     }
 
 
+def configure_twocaptcha(
+    env: dict[str, str],
+    chrome_dir: Path,
+    *,
+    url: str,
+    snapshot_id: str,
+) -> None:
+    wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
+    result = subprocess.run(
+        [
+            str(CONFIG_SCRIPT),
+            f"--url={url}",
+            f"--snapshot-id={snapshot_id}",
+        ],
+        env=env,
+        timeout=30,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"Config hook failed: {result.stderr}"
+    assert (chrome_dir / ".twocaptcha_configured").exists()
+
+
 def test_config_uses_one_vendor_attempt_by_default():
     config = json.loads((PLUGIN_DIR / "config.json").read_text())
     assert config["properties"]["TWOCAPTCHA_RETRY_COUNT"]["default"] == 0
@@ -332,28 +355,14 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                 test_url="https://example.com",
                 navigate=False,
                 timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
+                env_overrides={"TWOCAPTCHA_API_KEY": str(self.api_key)},
+                crawl_setup=lambda env, chrome_dir: configure_twocaptcha(
+                    env,
+                    chrome_dir,
+                    url="https://example.com",
+                    snapshot_id="twocaptcha-noresults-snap",
+                ),
             ) as (_chrome_launch_process, _chrome_pid, snapshot_chrome_dir, env):
-                env["TWOCAPTCHA_API_KEY"] = str(self.api_key)
-                wait_for_extensions_metadata(
-                    Path(env["CRAWL_DIR"]) / "chrome",
-                    timeout_seconds=10,
-                )
-                config = subprocess.run(
-                    [
-                        str(CONFIG_SCRIPT),
-                        "--url=https://example.com",
-                        "--snapshot-id=twocaptcha-noresults-snap",
-                    ],
-                    env=env,
-                    timeout=30,
-                    capture_output=True,
-                    text=True,
-                )
-                assert config.returncode == 0, config.stderr
-                assert (
-                    Path(env["CRAWL_DIR"]) / "chrome" / ".twocaptcha_configured"
-                ).exists()
-
                 hook_dir = snapshot_chrome_dir.parent / "twocaptcha"
                 hook_dir.mkdir(parents=True, exist_ok=True)
 
@@ -430,25 +439,13 @@ const chromeUtils = require('{CHROME_UTILS_JS}');
                 navigate=False,
                 timeout=CHROME_STARTUP_TIMEOUT_SECONDS,
                 env_overrides={"TWOCAPTCHA_API_KEY": str(self.api_key)},
+                crawl_setup=lambda env, chrome_dir: configure_twocaptcha(
+                    env,
+                    chrome_dir,
+                    url=TEST_URL,
+                    snapshot_id=snapshot_id,
+                ),
             ) as (_chrome_launch_process, _chrome_pid, snapshot_chrome_dir, env):
-                chrome_dir = Path(env["CRAWL_DIR"]) / "chrome"
-                wait_for_extensions_metadata(chrome_dir, timeout_seconds=10)
-
-                config_result = subprocess.run(
-                    [
-                        str(CONFIG_SCRIPT),
-                        f"--url={TEST_URL}",
-                        f"--snapshot-id={snapshot_id}",
-                    ],
-                    env=env,
-                    timeout=30,
-                    capture_output=True,
-                    text=True,
-                )
-                assert config_result.returncode == 0, (
-                    f"Config hook failed: {config_result.stderr}"
-                )
-
                 hook_dir = snapshot_chrome_dir.parent / "twocaptcha"
                 hook_dir.mkdir(parents=True, exist_ok=True)
                 hook_process = subprocess.Popen(
