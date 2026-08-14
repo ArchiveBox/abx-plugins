@@ -1,0 +1,16 @@
+abx_plugins/plugins/infiniscroll/on_Snapshot__45_infiniscroll.js
+  h_923c208e183a7b 122-148
+abx_plugins/plugins/infiniscroll/tests/test_infiniscroll.py
+  h_923c208e183a7b 69,227,245
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "174b6aae50945c8530f28c66c15ec84f321f211b",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
