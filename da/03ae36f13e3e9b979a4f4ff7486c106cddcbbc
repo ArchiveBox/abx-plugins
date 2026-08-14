@@ -1,0 +1,68 @@
+abx_plugins/plugins/accessibility/on_Snapshot__39_accessibility.js
+  h_923c208e183a7b 63
+abx_plugins/plugins/chrome/chrome_utils.js
+  h_923c208e183a7b 3644-3645
+abx_plugins/plugins/chrome_mhtml/on_Snapshot__54_chrome_mhtml.js
+  h_923c208e183a7b 28,82
+abx_plugins/plugins/claudechrome/on_CrawlSetup__80_claudechrome_prepare.py
+  h_923c208e183a7b 21-22
+abx_plugins/plugins/claudechrome/on_CrawlSetup__96_claudechrome_config.js
+  h_923c208e183a7b 257
+abx_plugins/plugins/claudechrome/on_Snapshot__47_claudechrome.js
+  h_923c208e183a7b 768
+abx_plugins/plugins/claudecodecleanup/on_Snapshot__92_claudecodecleanup.py
+  h_923c208e183a7b 131
+abx_plugins/plugins/claudecodeextract/on_Snapshot__58_claudecodeextract.py
+  h_923c208e183a7b 103
+abx_plugins/plugins/defuddle/on_Snapshot__57_defuddle.py
+  h_923c208e183a7b 131
+abx_plugins/plugins/dom/on_Snapshot__53_dom.js
+  h_923c208e183a7b 29,66
+abx_plugins/plugins/hashes/on_Snapshot__93_hashes.py
+  h_923c208e183a7b 160
+abx_plugins/plugins/htmltotext/on_Snapshot__58_htmltotext.py
+  h_923c208e183a7b 153
+abx_plugins/plugins/liteparse/on_Snapshot__61_liteparse.py
+  h_923c208e183a7b 683
+abx_plugins/plugins/mercury/on_Snapshot__57_mercury.py
+  h_923c208e183a7b 214
+abx_plugins/plugins/opendataloader/on_Snapshot__60_opendataloader.py
+  h_923c208e183a7b 401
+abx_plugins/plugins/parse_dom_outlinks/on_Snapshot__75_parse_dom_outlinks.js
+  h_923c208e183a7b 36,72
+abx_plugins/plugins/pdf/on_Snapshot__52_pdf.js
+  h_923c208e183a7b 28,72
+abx_plugins/plugins/readability/on_Snapshot__56_readability.py
+  h_923c208e183a7b 162
+abx_plugins/plugins/screenshot/on_Snapshot__51_screenshot.js
+  h_923c208e183a7b 151
+abx_plugins/plugins/search_backend_sonic/on_Snapshot__91_index_sonic.py
+  h_923c208e183a7b 258
+abx_plugins/plugins/search_backend_sqlite/on_Snapshot__90_index_sqlite.py
+  h_923c208e183a7b 253
+abx_plugins/plugins/seo/on_Snapshot__38_seo.js
+  h_923c208e183a7b 35,68
+abx_plugins/plugins/singlefile/on_Snapshot__50_singlefile.py
+  h_923c208e183a7b 84
+abx_plugins/plugins/title/on_Snapshot__54_title.js
+  h_923c208e183a7b 58
+abx_plugins/plugins/trafilatura/on_Snapshot__59_trafilatura.py
+  h_923c208e183a7b 116
+abx_plugins/plugins/twocaptcha/on_CrawlSetup__95_twocaptcha_config.js
+  h_923c208e183a7b 403
+pyproject.toml
+  h_923c208e183a7b 3
+uv.lock
+  h_923c208e183a7b 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "da03ae36f13e3e9b979a4f4ff7486c106cddcbbc",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
