@@ -1,0 +1,42 @@
+abx_plugins/plugins/archivedotorg/on_Snapshot__08_archivedotorg.finite.bg.py
+  h_923c208e183a7b 178-179
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  h_923c208e183a7b 2347-2372,3415-3432,3459-3462,3468-3469
+abx_plugins/plugins/chrome_screencast/on_CrawlSetup__92_chrome_screencast.daemon.bg.js
+  h_923c208e183a7b 1-5
+abx_plugins/plugins/chrome_screencast/on_Snapshot__12_chrome_screencast.daemon.bg.js
+  h_923c208e183a7b 57-59,63-70,257-263,265,270-343,348,381-384
+abx_plugins/plugins/favicon/on_Snapshot__11_favicon.finite.bg.py
+  h_923c208e183a7b 205-206
+abx_plugins/plugins/forumdl/on_Snapshot__04_forumdl.finite.bg.py
+  h_923c208e183a7b 189-190
+abx_plugins/plugins/gallerydl/on_Snapshot__03_gallerydl.finite.bg.py
+  h_923c208e183a7b 223-224
+abx_plugins/plugins/git/on_Snapshot__05_git.finite.bg.py
+  h_923c208e183a7b 206-207
+abx_plugins/plugins/papersdl/on_Snapshot__66_papersdl.finite.bg.py
+  h_923c208e183a7b 218-219
+abx_plugins/plugins/responses/on_Snapshot__24_responses.daemon.bg.js
+  h_923c208e183a7b 89-90,191-194,335,337-342,362-365
+abx_plugins/plugins/responses/tests/test_responses.py
+  h_923c208e183a7b 190-193
+abx_plugins/plugins/wget/on_Snapshot__06_wget.finite.bg.py
+  h_923c208e183a7b 181-182
+abx_plugins/plugins/ytdlp/on_Snapshot__02_ytdlp.finite.bg.py
+  h_923c208e183a7b 309-310
+pyproject.toml
+  h_923c208e183a7b 3
+uv.lock
+  h_923c208e183a7b 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "07e1935f5da9067642b182e652f79798b0167022",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
