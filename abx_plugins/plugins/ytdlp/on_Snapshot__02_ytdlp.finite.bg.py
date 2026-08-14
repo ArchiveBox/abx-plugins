@@ -1,4 +1,4 @@
-#!/usr/bin/env -S abxpkg run --script python3
+#!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries python3
 # /// script
 # requires-python = ">=3.12"
 # ///
@@ -45,7 +45,6 @@ from abx_plugins.plugins.base.utils import (
     has_netscape_cookie_entries,
     has_staticfile_output,
     load_config,
-    load_required_binary_from_config,
 )
 
 import rich_click as click
@@ -164,19 +163,6 @@ def flush_result_and_exit(signum: int, frame) -> None:
     sys.exit(0 if output else 1)
 
 
-def _resolved_binary_path(name: str, *, config_path: Path = CONFIG_PATH) -> str:
-    """Resolve/install one required binary through abxpkg and return its path."""
-    binary = load_required_binary_from_config(name, config_path, install=True)
-    abspath = getattr(binary, "loaded_abspath", None) or getattr(
-        binary,
-        "abspath",
-        None,
-    )
-    if not abspath:
-        raise RuntimeError(f"abxpkg could not resolve required binary {name!r}")
-    return str(abspath)
-
-
 def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
     """
     Download video/audio using yt-dlp.
@@ -192,9 +178,9 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
     ytdlp_args = config.YTDLP_ARGS
     ytdlp_args_extra = config.YTDLP_ARGS_EXTRA
 
-    binary = _resolved_binary_path(str(config.YTDLP_BINARY))
-    node_binary = _resolved_binary_path(str(config.NODE_BINARY))
-    ffmpeg_binary = _resolved_binary_path(str(config.FFMPEG_BINARY))
+    binary = str(config.YTDLP_BINARY)
+    node_binary = str(config.NODE_BINARY)
+    ffmpeg_binary = str(config.FFMPEG_BINARY)
 
     # Output directory is current directory (hook already runs in output dir)
     output_dir = Path(".")

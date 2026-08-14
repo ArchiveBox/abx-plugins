@@ -1,4 +1,4 @@
-#!/usr/bin/env -S abxpkg run --script python3
+#!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries python3
 # /// script
 # requires-python = ">=3.12"
 # ///
@@ -46,7 +46,6 @@ import rich_click as click
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     load_config,
-    load_required_binary_from_config,
     write_text_atomic,
 )
 
@@ -449,19 +448,6 @@ def _process_batch(
     return results
 
 
-def _resolved_binary_path(name: str, *, config_path: Path = CONFIG_PATH) -> str:
-    """Resolve/install one required binary through abxpkg and return its path."""
-    binary = load_required_binary_from_config(name, config_path, install=True)
-    abspath = getattr(binary, "loaded_abspath", None) or getattr(
-        binary,
-        "abspath",
-        None,
-    )
-    if not abspath:
-        raise RuntimeError(f"abxpkg could not resolve required binary {name!r}")
-    return str(abspath)
-
-
 def extract_liteparse(url: str) -> tuple[str, str]:
     """Run lit on every document found in the snapshot dir.
 
@@ -483,14 +469,13 @@ def extract_liteparse(url: str) -> tuple[str, str]:
     if not sources:
         return "noresults", "No document sources found"
 
-    binary = _resolved_binary_path(str(config.LITEPARSE_BINARY))
+    binary = str(config.LITEPARSE_BINARY)
     base_args = build_lit_args(config)
 
     env = os.environ.copy()
     language = config.LITEPARSE_OCR_LANGUAGE or "eng"
     if config.LITEPARSE_OCR_ENABLED:
-        tesseract_binary = _resolved_binary_path(str(config.LITEPARSE_TESSERACT_BINARY))
-        _resolved_binary_path(str(config.LITEPARSE_IMAGEMAGICK_BINARY))
+        tesseract_binary = str(config.LITEPARSE_TESSERACT_BINARY)
         tessdata = resolve_tessdata_dir(
             config.LITEPARSE_TESSDATA_DIR,
             tesseract_binary,

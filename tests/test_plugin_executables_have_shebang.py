@@ -50,10 +50,6 @@ def _expected_abxpkg_header(script_path: Path, binary_name: str) -> str:
     )
 
 
-def _expected_deferred_abxpkg_header(binary_name: str) -> str:
-    return f"#!/usr/bin/env -S abxpkg run --script {binary_name}"
-
-
 def test_all_plugin_scripts_are_executable_and_have_shebang() -> None:
     failures: list[str] = []
 
@@ -94,15 +90,7 @@ def test_python_plugin_scripts_use_abxpkg_script_runner_without_inline_dependenc
             continue
         if lines[0].startswith("#!"):
             expected_header = _expected_abxpkg_header(script_path, "python3")
-            expected_deferred_header = _expected_deferred_abxpkg_header("python3")
-            if lines[0] == expected_deferred_header:
-                if not any(
-                    "load_required_binary_from_config" in line for line in lines
-                ):
-                    failures.append(
-                        f"{rel_path}: deferred abxpkg shebang must resolve required binaries explicitly",
-                    )
-            elif lines[0] != expected_header:
+            if lines[0] != expected_header:
                 failures.append(
                     f"{rel_path}: expected abxpkg script shebang, got {lines[0]!r}",
                 )
