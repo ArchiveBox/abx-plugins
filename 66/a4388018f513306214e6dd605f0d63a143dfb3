@@ -1,0 +1,28 @@
+abx_plugins/plugins/archivedotorg/on_Snapshot__08_archivedotorg.finite.bg.py
+  h_923c208e183a7b 13,24-26
+abx_plugins/plugins/favicon/on_Snapshot__11_favicon.finite.bg.py
+  h_923c208e183a7b 14,24-26
+abx_plugins/plugins/forumdl/on_Snapshot__04_forumdl.finite.bg.py
+  h_923c208e183a7b 14,26-28
+abx_plugins/plugins/gallerydl/on_Snapshot__03_gallerydl.finite.bg.py
+  h_923c208e183a7b 14,26-28
+abx_plugins/plugins/git/on_Snapshot__05_git.finite.bg.py
+  h_923c208e183a7b 14,26-28
+abx_plugins/plugins/papersdl/on_Snapshot__66_papersdl.finite.bg.py
+  h_923c208e183a7b 26,38-40
+abx_plugins/plugins/wget/on_Snapshot__06_wget.finite.bg.py
+  h_923c208e183a7b 25,37-39
+abx_plugins/plugins/ytdlp/on_Snapshot__02_ytdlp.finite.bg.py
+  h_923c208e183a7b 26,38-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "66a4388018f513306214e6dd605f0d63a143dfb3",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
