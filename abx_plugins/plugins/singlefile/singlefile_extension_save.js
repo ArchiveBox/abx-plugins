@@ -115,9 +115,6 @@ async function getExactChromeTab(extension, page) {
   if (!Number.isInteger(tab?.id)) {
     throw new Error(`No chrome.tabs id maps to target ${targetId}`);
   }
-  if (tab.status !== "complete") {
-    throw new Error(`Chrome navigation has not settled for target ${targetId}`);
-  }
   return { targetId, tab };
 }
 
@@ -162,12 +159,52 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     );
     downloadedPath = await helperPage.evaluate(
       async ({ exactTab, expectedFilename, timeoutMs }) => {
-        const normalize = (value) => String(value || "").replace(/\\/g, "/");
-        const previousIds = new Set(
-          (await chrome.downloads.search({})).map((download) => download.id)
+        const business = await import(
+          chrome.runtime.getURL("src/core/bg/business.js")
         );
-
         return await new Promise((resolve, reject) => {
+          let downloadUrl = null;
+          const cleanup = () => {
+            clearTimeout(timer);
+            chrome.downloads.onChanged.removeListener(onChanged);
+            chrome.runtime.onMessage.removeListener(onMessage);
+          };
+          const acceptCompleted = (item) => {
+            if (!downloadUrl || item?.url !== downloadUrl || item.state !== "complete") {
+              return false;
+            }
+            cleanup();
+            if (!item.filename) {
+              reject(new Error(`SingleFile download ${item.id} has no filename`));
+            } else {
+              resolve(item.filename);
+            }
+            return true;
+          };
+          const onChanged = async (change) => {
+            if (!change.state) return;
+            const [item] = await chrome.downloads.search({ id: change.id });
+            if (!downloadUrl || item?.url !== downloadUrl) return;
+            if (change.state.current === "interrupted") {
+              cleanup();
+              reject(new Error(`SingleFile download ${change.id} was interrupted`));
+            } else if (change.state.current === "complete") {
+              acceptCompleted(item);
+            }
+          };
+          const onMessage = (message, sender) => {
+            if (
+              sender.tab?.id !== exactTab.id ||
+              !message.method?.endsWith(".download") ||
+              !message.blobURL
+            ) {
+              return;
+            }
+            downloadUrl = message.blobURL;
+            chrome.downloads.search({}).then((items) => {
+              items.some(acceptCompleted);
+            });
+          };
           const timer = setTimeout(() => {
             cleanup();
             reject(
@@ -176,48 +213,14 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
               )
             );
           }, timeoutMs);
-          const cleanup = () => {
-            clearTimeout(timer);
-            chrome.downloads.onChanged.removeListener(onChanged);
-          };
-          const onChanged = async (change) => {
-            if (previousIds.has(change.id) || !change.state) {
-              return;
-            }
-            const matches = await chrome.downloads.search({ id: change.id });
-            const filename = normalize(matches[0]?.filename);
-            if (filename.split("/").pop() !== expectedFilename) {
-              return;
-            }
-            if (change.state.current === "interrupted") {
-              cleanup();
-              reject(
-                new Error(`SingleFile download ${change.id} was interrupted`)
-              );
-              return;
-            }
-            if (change.state.current !== "complete") return;
-            cleanup();
-            if (!matches[0]?.filename) {
-              reject(
-                new Error(`SingleFile download ${change.id} has no filename`)
-              );
-              return;
-            }
-            resolve(matches[0].filename);
-          };
-
           chrome.downloads.onChanged.addListener(onChanged);
-          import(chrome.runtime.getURL("src/core/bg/business.js"))
-            .then((business) =>
-              business.saveTabs([exactTab], {
-                filenameTemplate: expectedFilename,
-              })
-            )
-            .catch((error) => {
-              cleanup();
-              reject(error);
-            });
+          chrome.runtime.onMessage.addListener(onMessage);
+          business.saveTabs([exactTab], {
+            filenameTemplate: expectedFilename,
+          }).catch((error) => {
+            cleanup();
+            reject(error);
+          });
         });
       },
       { exactTab: tab, expectedFilename: requestedFilename, timeoutMs }
