@@ -2344,6 +2344,32 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
                 "crawl wait should not create snapshot-scoped files"
             )
 
+            crawl_screencast_hook = (
+                CHROME_UTILS.parent.parent
+                / "chrome_screencast"
+                / "on_CrawlSetup__92_chrome_screencast.daemon.bg.js"
+            )
+            crawl_screencast = subprocess.run(
+                [str(crawl_screencast_hook), f"--url={chrome_test_url}"],
+                cwd=str(shared_dir),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=env,
+            )
+            assert crawl_screencast.returncode == 0, (
+                "crawl screencast should capture a bootstrap frame and exit:\n"
+                f"Stdout: {crawl_screencast.stdout}\n"
+                f"Stderr: {crawl_screencast.stderr}"
+            )
+            bootstrap_frame = shared_dir / "chrome_screencast" / "latest.jpg"
+            assert bootstrap_frame.read_bytes().startswith(b"\xff\xd8\xff")
+            assert "chrome screencast ready" in crawl_screencast.stdout
+            assert '"type"' not in crawl_screencast.stdout
+            assert not any(path.exists() for path in snapshot_files.values()), (
+                "crawl screencast must not synthesize snapshot-scoped files"
+            )
+
             snapshot_wait_before_tab = subprocess.run(
                 [
                     str(CHROME_WAIT_HOOK),
@@ -3386,6 +3412,24 @@ def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_u
                 crawl_id="test-fresh-target-resolve",
                 timeout=60,
             )
+            crawl_screencast_hook = (
+                CHROME_UTILS.parent.parent
+                / "chrome_screencast"
+                / "on_CrawlSetup__92_chrome_screencast.daemon.bg.js"
+            )
+            bootstrap_result = subprocess.run(
+                [str(crawl_screencast_hook), f"--url={chrome_test_url}"],
+                cwd=str(shared_dir),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=env,
+            )
+            assert bootstrap_result.returncode == 0, bootstrap_result.stderr
+            latest_frame = shared_dir / "chrome_screencast" / "latest.jpg"
+            assert latest_frame.read_bytes().startswith(b"\xff\xd8\xff")
+            bootstrap_frame_mtime = latest_frame.stat().st_mtime_ns
+
             tab_process = launch_snapshot_tab(
                 snapshot_chrome_dir=chrome_dir,
                 tab_env=env,
@@ -3411,16 +3455,18 @@ def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_u
                 env=env | {"CHROME_SCREENCAST_KEEP": "1"},
             )
             assert screencast_process.stderr is not None
-            latest_frame = shared_dir / "chrome_screencast" / "latest.jpg"
             frame_deadline = time.monotonic() + 10
-            while time.monotonic() < frame_deadline and not latest_frame.is_file():
+            while (
+                time.monotonic() < frame_deadline
+                and latest_frame.stat().st_mtime_ns <= bootstrap_frame_mtime
+            ):
                 assert screencast_process.poll() is None, (
                     "screencast exited before capturing the published target: "
                     f"{screencast_process.stderr.read()}"
                 )
                 time.sleep(0.1)
-            assert latest_frame.is_file(), (
-                "screencast did not capture the published about:blank target"
+            assert latest_frame.stat().st_mtime_ns > bootstrap_frame_mtime, (
+                "snapshot screencast did not replace the crawl bootstrap frame"
             )
             assert latest_frame.read_bytes().startswith(b"\xff\xd8\xff")
             initial_frame_mtime = latest_frame.stat().st_mtime_ns

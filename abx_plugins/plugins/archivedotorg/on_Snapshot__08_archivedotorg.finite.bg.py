@@ -21,9 +21,6 @@ import sys
 # can"; the later SIGKILL deadline still enforces the hard stop.
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
-if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
-    print("archive.org submission started", flush=True)
-
 import os
 from http.client import RemoteDisconnected
 from ipaddress import ip_address
@@ -177,6 +174,8 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
 @click.option("--url", required=True, help="URL to submit to archive.org")
 def main(url: str):
     """Submit a URL to archive.org for archiving."""
+
+    print("archive.org submission started", flush=True)
 
     config = load_config()
 

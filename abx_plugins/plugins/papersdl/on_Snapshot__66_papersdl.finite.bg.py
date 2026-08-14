@@ -35,9 +35,6 @@ import sys
 # its work and exits normally or is stopped by the later SIGKILL deadline.
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
-if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
-    print("papers-dl search started", flush=True)
-
 import os
 import re
 import subprocess
@@ -217,6 +214,8 @@ def save_paper(url: str, binary: str) -> tuple[bool, int, str]:
 @click.option("--url", required=True, help="URL to download paper from")
 def main(url: str):
     """Download scientific paper from a URL using papers-dl."""
+
+    print("papers-dl search started", flush=True)
 
     downloaded_count = 0
     error = ""

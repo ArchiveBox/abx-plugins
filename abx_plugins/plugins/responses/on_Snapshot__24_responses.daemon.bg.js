@@ -86,6 +86,8 @@ let preferredOutputSize = -1;
 let lastProgressLine = "";
 let lastProgressAt = 0;
 let pendingProgressTimer = null;
+let pendingResponseWork = Promise.resolve();
+let responseListener = null;
 const PROGRESS_DEBOUNCE_MS = 3000;
 
 // Resource types to capture (by default, capture everything)
@@ -186,8 +188,10 @@ async function setupListener() {
     puppeteer,
   });
 
-  // Set up response listener
-  page.on("response", async (response) => {
+  const indexPath = path.join(OUTPUT_DIR, "index.jsonl");
+  writeFileAtomic(indexPath, "");
+
+  async function captureResponse(response) {
     try {
       const request = response.request();
       const url = response.url();
@@ -328,10 +332,14 @@ async function setupListener() {
     } catch (e) {
       // Ignore errors
     }
-  });
+  }
 
-  const indexPath = path.join(OUTPUT_DIR, "index.jsonl");
-  writeFileAtomic(indexPath, "");
+  // Puppeteer emits responses concurrently. Materialize one body at a time so
+  // large pages cannot retain many complete response buffers simultaneously.
+  responseListener = (response) => {
+    pendingResponseWork = pendingResponseWork.then(() => captureResponse(response));
+  };
+  page.on("response", responseListener);
 
   return { browser, page };
 }
@@ -351,6 +359,10 @@ function emitResult(
 
 async function handleShutdown(signal) {
   console.error(`\nReceived ${signal}, emitting final results...`);
+  if (page && responseListener) {
+    page.off("response", responseListener);
+  }
+  await pendingResponseWork;
   await emitResult("succeeded");
   if (browser) {
     try {

@@ -21,9 +21,6 @@ import sys
 # timeout if the hook does not finish.
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
-if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
-    print("favicon extraction started", flush=True)
-
 import os
 import re
 import tempfile
@@ -205,6 +202,8 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
 @click.option("--url", required=True, help="URL to extract favicon from")
 def main(url: str):
     """Extract favicon from a URL."""
+    print("favicon extraction started", flush=True)
+
     output = None
     status = "failed"
     error = ""

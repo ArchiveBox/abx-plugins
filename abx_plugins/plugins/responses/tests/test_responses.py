@@ -187,6 +187,10 @@ class TestResponsesWithChrome:
                 assert records, (
                     "Responses output should include at least one valid record"
                 )
+                captured_files = list((responses_dir / "all").iterdir())
+                assert len(captured_files) == len(records), (
+                    "Shutdown must drain every accepted response before emitting results"
+                )
 
                 symlink_record = next(
                     (record for record in records if urlparse(record["url"]).hostname),

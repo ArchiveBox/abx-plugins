@@ -34,9 +34,6 @@ import sys
 # its work and exits normally or is stopped by the later SIGKILL deadline.
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
-if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
-    print("wget download started", flush=True)
-
 import os
 import re
 import subprocess
@@ -180,6 +177,8 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
 @click.option("--url", required=True, help="URL to archive")
 def main(url: str):
     """Archive a URL using wget."""
+
+    print("wget download started", flush=True)
 
     output = None
     error = ""
