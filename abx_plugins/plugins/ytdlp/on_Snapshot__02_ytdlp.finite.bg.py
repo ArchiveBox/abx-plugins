@@ -23,6 +23,7 @@ Environment variables:
 """
 
 import signal
+import sys
 
 # Snapshot cleanup sends SIGTERM to the whole hook process group as the polite
 # shutdown signal before the hard SIGKILL deadline. This hook is a finite
@@ -34,9 +35,11 @@ import signal
 # its work and exits normally or is stopped by the later SIGKILL deadline.
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
+if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
+    print("yt-dlp download started", flush=True)
+
 import os
 import subprocess
-import sys
 import threading
 from pathlib import Path
 
@@ -305,8 +308,6 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
 @click.option("--url", required=True, help="URL to download video/audio from")
 def main(url: str):
     """Download video/audio from a URL using yt-dlp."""
-
-    print("yt-dlp download started", flush=True)
 
     try:
         config = load_config(CONFIG_PATH, hydrate_binaries=False)

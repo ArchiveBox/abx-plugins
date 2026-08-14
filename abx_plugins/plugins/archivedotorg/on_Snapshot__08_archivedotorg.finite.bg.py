@@ -10,6 +10,7 @@
 #     ./on_Snapshot__08_archivedotorg.finite.bg.py --url=<url> > events.jsonl
 
 import signal
+import sys
 
 # Snapshot cleanup sends SIGTERM to the whole hook process group as the polite
 # shutdown signal before the hard SIGKILL deadline. This hook is a finite
@@ -20,8 +21,10 @@ import signal
 # can"; the later SIGKILL deadline still enforces the hard stop.
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
+if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
+    print("archive.org submission started", flush=True)
+
 import os
-import sys
 from http.client import RemoteDisconnected
 from ipaddress import ip_address
 from pathlib import Path
@@ -174,8 +177,6 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
 @click.option("--url", required=True, help="URL to submit to archive.org")
 def main(url: str):
     """Submit a URL to archive.org for archiving."""
-
-    print("archive.org submission started", flush=True)
 
     config = load_config()
 
