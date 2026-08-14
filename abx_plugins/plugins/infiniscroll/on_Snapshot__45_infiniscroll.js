@@ -116,42 +116,36 @@ async function expandDetails(page, options = {}) {
   // Then click "load more" buttons for comments
   const numExpanded = await page.evaluate(
     async ({ timeout, limit, delay }) => {
-      // Helper to find elements by XPath
-      function getElementsByXPath(xpath) {
-        const results = [];
-        const xpathResult = document.evaluate(
-          xpath,
-          document,
-          null,
-          XPathResult.ORDERED_NODE_ITERATOR_TYPE,
-          null
-        );
-        let node;
-        while ((node = xpathResult.iterateNext()) != null) {
-          results.push(node);
-        }
-        return results;
-      }
-
       const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 
       // Find all "load more" type buttons/links
-      const getLoadMoreLinks = () => [
-        // Reddit (new)
-        ...document.querySelectorAll("faceplate-partial[loading=action]"),
-        // Reddit (old) - show more replies
-        ...document.querySelectorAll('a[onclick^="return morechildren"]'),
-        // Reddit (old) - show hidden replies
-        ...document.querySelectorAll('a[onclick^="return togglecomment"]'),
-        // Twitter/X - show more replies
-        ...getElementsByXPath("//*[text()='Show more replies']"),
-        ...getElementsByXPath("//*[text()='Show replies']"),
-        // Generic "load more" / "show more" buttons
-        ...getElementsByXPath("//*[contains(text(),'Load more')]"),
-        ...getElementsByXPath("//*[contains(text(),'Show more')]"),
-        // Hacker News
-        ...document.querySelectorAll("a.morelink"),
-      ];
+      const getLoadMoreLinks = () => {
+        const textControls = [
+          ...document.querySelectorAll('a, button, [role="button"]'),
+        ].filter((element) => {
+          const label = (element.textContent || "")
+            .trim()
+            .replace(/\s+/g, " ")
+            .toLowerCase();
+          return (
+            label === "show replies" ||
+            label.includes("show more") ||
+            label.includes("load more")
+          );
+        });
+        return [
+          ...new Set([
+            ...document.querySelectorAll(
+              "faceplate-partial[loading=action]"
+            ),
+            ...document.querySelectorAll(
+              'a[onclick^="return morechildren"], a[onclick^="return togglecomment"]'
+            ),
+            ...document.querySelectorAll("a.morelink"),
+            ...textControls,
+          ]),
+        ];
+      };
 
       let expanded = 0;
       let loadMoreLinks = getLoadMoreLinks();

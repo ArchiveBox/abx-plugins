@@ -66,6 +66,7 @@ INFINISCROLL_TEST_PAGE_HTML = """
 </head>
 <body>
   <div id="status">loads: 0</div>
+  <p>Show more context is static text, not a control.</p>
   <main id="feed"></main>
   <script>
     const feed = document.getElementById('feed');
@@ -223,6 +224,7 @@ def test_scrolls_page_and_outputs_stats(infiniscroll_test_url):
             env["INFINISCROLL_SCROLL_LIMIT"] = "3"  # Limit scrolls for faster test
             env["INFINISCROLL_SCROLL_DELAY"] = "500"  # Faster scrolling
             env["INFINISCROLL_MIN_HEIGHT"] = "1000"  # Lower threshold for test
+            env["INFINISCROLL_TIMEOUT"] = "8"
 
             result = subprocess.run(
                 [
@@ -240,6 +242,7 @@ def test_scrolls_page_and_outputs_stats(infiniscroll_test_url):
             assert result.returncode == 0, (
                 f"Infiniscroll failed: {result.stderr}\nStdout: {result.stdout}"
             )
+            assert "Clicked" not in result.stderr, result.stderr
 
             # Parse JSONL output
             result_json = None
