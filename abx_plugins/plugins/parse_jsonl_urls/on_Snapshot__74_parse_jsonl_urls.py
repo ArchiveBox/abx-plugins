@@ -18,12 +18,7 @@ Expected JSONL format (one object per line):
 Supports various field names for URL, title, timestamp, and tags.
 """
 
-# ruff: noqa: E402
 import sys
-
-if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
-    print("JSONL URL parsing started", flush=True)
-
 import json
 import os
 from pathlib import Path

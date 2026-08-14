@@ -4,12 +4,7 @@
 # ///
 """Save the exact navigated Chrome snapshot tab with SingleFile."""
 
-# ruff: noqa: E402
 import sys
-
-if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
-    print("SingleFile extraction started", flush=True)
-
 import os
 import subprocess
 from pathlib import Path
@@ -86,6 +81,7 @@ def main(url: str) -> None:
         raise SystemExit(0)
 
     try:
+        print("SingleFile extraction started", flush=True)
         print("generating singlefile.html...")
         success, output, error = save_singlefile_with_extension(
             url,

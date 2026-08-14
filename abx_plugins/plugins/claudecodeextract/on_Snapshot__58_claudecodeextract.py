@@ -22,12 +22,7 @@ Environment variables:
     ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN: Claude Code auth
 """
 
-# ruff: noqa: E402
 import sys
-
-if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
-    print("Claude Code extraction started", flush=True)
-
 import os
 from pathlib import Path
 
@@ -105,6 +100,7 @@ def main(url: str, snapshot_id: str):
             emit_archive_result_record("failed", "Claude Code auth not set")
             sys.exit(1)
 
+        print("Claude Code extraction started", flush=True)
         # Get configuration
         user_prompt = str(CONFIG.CLAUDECODEEXTRACT_PROMPT or DEFAULT_PROMPT)
         timeout = int(CONFIG.CLAUDECODEEXTRACT_TIMEOUT)

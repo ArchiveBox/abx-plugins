@@ -17,10 +17,6 @@
  *     SAVE_ACCESSIBILITY: Enable accessibility extraction (default: true)
  */
 
-if (process.argv.some((arg) => arg === "--url" || arg.startsWith("--url="))) {
-  console.log("Accessibility extraction started");
-}
-
 const fs = require("fs");
 const path = require("path");
 const {
@@ -33,19 +29,6 @@ const {
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 const { connectToPage } = require("../chrome/chrome_utils.js");
-
-function resolvePuppeteer() {
-  for (const moduleName of ["puppeteer-core", "puppeteer"]) {
-    try {
-      return require(moduleName);
-    } catch (error) {}
-  }
-  throw new Error(
-    "Missing puppeteer dependency (need puppeteer-core or puppeteer)"
-  );
-}
-
-const puppeteer = resolvePuppeteer();
 
 // Extractor metadata
 const PLUGIN_NAME = "accessibility";
@@ -74,10 +57,10 @@ async function extractAccessibility(url, timeoutMs) {
       timeoutMs,
       waitForNavigationComplete: true,
       postLoadDelayMs: 200,
-      puppeteer,
     });
     browser = connection.browser;
     const page = connection.page;
+    console.log("Accessibility extraction started");
 
     // Get accessibility snapshot
     const accessibilityTree = await page.accessibility.snapshot({

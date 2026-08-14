@@ -41,10 +41,6 @@ if (!getEnvBool("CLAUDECHROME_ENABLED", false)) {
   process.exit(PROCESS_EXIT_SKIPPED);
 }
 
-if (process.argv.some((arg) => arg === "--url" || arg.startsWith("--url="))) {
-  console.log("Claude for Chrome configuration started");
-}
-
 const puppeteer = resolvePuppeteerModule();
 
 const PLUGIN_DIR = path.basename(__dirname);
@@ -258,6 +254,7 @@ async function configureClaudeChrome() {
 }
 
 async function main() {
+  console.log("Claude for Chrome configuration started");
   const result = await configureClaudeChrome();
 
   if (result.skipped) {

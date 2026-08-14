@@ -1059,19 +1059,6 @@ def has_netscape_cookie_entries(path: Path | str | None) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _fsync_if_regular_file(fd: int) -> None:
-    try:
-        mode = os.fstat(fd).st_mode
-    except OSError:
-        return
-    if not stat.S_ISREG(mode):
-        return
-    try:
-        os.fsync(fd)
-    except OSError:
-        return
-
-
 def print_and_flush(stream: TextIO, text: str) -> None:
     line = text if text.endswith("\n") else f"{text}\n"
     try:
@@ -1096,8 +1083,6 @@ def print_and_flush(stream: TextIO, text: str) -> None:
         stream.flush()
     except Exception:
         pass
-
-    _fsync_if_regular_file(fd)
 
 
 def _parse_extra_context(raw: str, source: str) -> dict[str, Any]:

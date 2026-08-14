@@ -27,12 +27,7 @@ Note: opendataloader-pdf handles PDF files only. Standalone images (JPG, PNG)
       are not supported as input by this tool.
 """
 
-# ruff: noqa: E402
 import sys
-
-if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
-    print("OpenDataLoader extraction started", flush=True)
-
 import json
 import os
 import signal
@@ -403,6 +398,7 @@ def main(url: str):
         binary = config.OPENDATALOADER_BINARY
 
         # Run extraction
+        print("OpenDataLoader extraction started", flush=True)
         status, output = asyncio.run(extract_opendataloader_serialized(url, binary))
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)

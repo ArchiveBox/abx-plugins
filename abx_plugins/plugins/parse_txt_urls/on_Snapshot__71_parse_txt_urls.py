@@ -15,12 +15,7 @@ Examples:
     ./on_Snapshot__71_parse_txt_urls.py --url=https://example.com/urls.txt
 """
 
-# ruff: noqa: E402
 import sys
-
-if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
-    print("Text URL parsing started", flush=True)
-
 import json
 import re
 import io

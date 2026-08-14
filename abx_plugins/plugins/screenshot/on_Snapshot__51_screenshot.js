@@ -14,10 +14,6 @@
  *     SCREENSHOT_ENABLED: Enable screenshot capture (default: true)
  */
 
-if (process.argv.some((arg) => arg === "--url" || arg.startsWith("--url="))) {
-  console.log("Screenshot capture started");
-}
-
 const fs = require("fs");
 const path = require("path");
 const {
@@ -152,6 +148,7 @@ async function takeScreenshot(url) {
     timeoutMs,
     puppeteer,
   });
+  console.log("Screenshot capture started");
 
   try {
     const captureTimeoutMs = Math.max(timeoutMs, 10000);

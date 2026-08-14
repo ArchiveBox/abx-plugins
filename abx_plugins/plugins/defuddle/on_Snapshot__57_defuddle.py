@@ -5,12 +5,7 @@
 #
 # Extract article content using Defuddle.
 
-# ruff: noqa: E402
 import sys
-
-if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
-    print("Defuddle extraction started", flush=True)
-
 import argparse
 import html
 import json
@@ -133,6 +128,7 @@ def main():
             sys.exit(0)
 
         binary = config.DEFUDDLE_BINARY
+        print("Defuddle extraction started", flush=True)
         status, output = extract_defuddle(args.url, binary)
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)

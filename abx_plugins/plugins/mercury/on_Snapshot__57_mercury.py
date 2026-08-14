@@ -9,12 +9,7 @@
 # Usage:
 #     ./on_Snapshot__57_mercury.py [...] > events.jsonl
 
-# ruff: noqa: E402
 import sys
-
-if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
-    print("Mercury extraction started", flush=True)
-
 import html
 import json
 import os
@@ -216,6 +211,7 @@ def main():
             raise RuntimeError("MERCURY_BINARY was not resolved by abxpkg")
 
         # Run extraction
+        print("Mercury extraction started", flush=True)
         status, output = extract_mercury(args.url, config, output_dir)
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)

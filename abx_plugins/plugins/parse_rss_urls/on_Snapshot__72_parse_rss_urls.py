@@ -15,12 +15,7 @@ Examples:
     ./on_Snapshot__72_parse_rss_urls.py --url=https://example.com/feed.rss
 """
 
-# ruff: noqa: E402
 import sys
-
-if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
-    print("RSS URL parsing started", flush=True)
-
 import json
 import os
 from importlib import import_module

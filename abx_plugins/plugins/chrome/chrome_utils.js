@@ -3608,7 +3608,6 @@ async function connectToPage(options = {}) {
     puppeteer,
   } = options;
 
-  const resolvedPuppeteer = puppeteer || resolvePuppeteerModule();
   const initialInspection = await inspectChromeSessionArtifacts(
     chromeSessionDir,
     {
@@ -3641,6 +3640,8 @@ async function connectToPage(options = {}) {
       postLoadDelayMs
     );
   }
+
+  const resolvedPuppeteer = puppeteer || resolvePuppeteerModule();
 
   const deadline = Date.now() + timeoutMs;
   let lastError = new Error(CHROME_SESSION_REQUIRED_ERROR);

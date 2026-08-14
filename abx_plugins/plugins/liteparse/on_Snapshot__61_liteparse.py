@@ -28,12 +28,7 @@ Usage: on_Snapshot__61_liteparse.py --url=<url> > events.jsonl
 Environment variables: see config.json (LITEPARSE_* settings).
 """
 
-# ruff: noqa: E402
 import sys
-
-if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
-    print("LiteParse extraction started", flush=True)
-
 import atexit
 import concurrent.futures
 import hashlib
@@ -685,6 +680,7 @@ def main(url: str):
             emit_archive_result_record("skipped", "LITEPARSE_ENABLED=False")
             sys.exit(0)
 
+        print("LiteParse extraction started", flush=True)
         status, output = extract_liteparse(url)
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)

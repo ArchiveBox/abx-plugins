@@ -14,10 +14,6 @@
  *     TITLE_TIMEOUT: Timeout in seconds (default: 30)
  */
 
-if (process.argv.some((arg) => arg === "--url" || arg.startsWith("--url="))) {
-  console.log("Title extraction started");
-}
-
 const fs = require("fs");
 const path = require("path");
 const {
@@ -59,6 +55,7 @@ async function extractTitle(url) {
     });
     browser = connection.browser;
     const page = connection.page;
+    console.log("Title extraction started");
 
     // Get title from page
     let title = await page.title();

@@ -9,12 +9,7 @@
 # Usage:
 #     ./on_Snapshot__58_htmltotext.py --url=<url> > events.jsonl
 
-# ruff: noqa: E402
 import sys
-
-if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
-    print("HTML-to-text extraction started", flush=True)
-
 import os
 import re
 from html.parser import HTMLParser
@@ -155,6 +150,7 @@ def main(url: str):
 
     try:
         # Run extraction
+        print("HTML-to-text extraction started", flush=True)
         status, output = extract_htmltotext(url)
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)

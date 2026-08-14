@@ -4,12 +4,7 @@
 # ///
 """Extract article content using trafilatura from local HTML snapshots."""
 
-# ruff: noqa: E402
 import sys
-
-if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
-    print("Trafilatura extraction started", flush=True)
-
 import argparse
 import os
 import subprocess
@@ -118,6 +113,7 @@ def main() -> None:
             emit_archive_result_record("skipped", "TRAFILATURA_ENABLED=False")
             sys.exit(0)
 
+        print("Trafilatura extraction started", flush=True)
         status, output = extract_trafilatura(args.url, config.TRAFILATURA_BINARY)
 
         if status == "failed":

@@ -3,11 +3,6 @@
 # requires-python = ">=3.12"
 # ///
 
-import sys
-
-if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
-    print("Claude for Chrome preparation started", flush=True)
-
 import os
 import json
 from pathlib import Path
@@ -23,3 +18,5 @@ metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
 manifest_path = Path(metadata["unpacked_path"]) / "manifest.json"
 if not manifest_path.is_file():
     raise RuntimeError(f"Chrome extension manifest was not prepared: {manifest_path}")
+
+print("Claude for Chrome preparation started", flush=True)

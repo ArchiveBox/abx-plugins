@@ -22,10 +22,6 @@
  * - chrome plugin must have loaded browser metadata (browser.json must exist)
  */
 
-if (process.argv.some((arg) => arg === "--url" || arg.startsWith("--url="))) {
-  console.log("2Captcha configuration started");
-}
-
 const path = require("path");
 const fs = require("fs");
 const {
@@ -404,6 +400,7 @@ async function main() {
   let error = "";
 
   try {
+    console.log("2Captcha configuration started");
     const result = await configure2Captcha();
 
     if (result.skipped) {

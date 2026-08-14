@@ -18,24 +18,12 @@ const PROCESS_EXIT_SKIPPED = 10;
 const INTERNAL_INPUT_URL = "archivebox://internal";
 const configCache = new Map();
 
-function fsyncIfRegularFile(fd) {
-  try {
-    const stats = fs.fstatSync(fd);
-    if (stats.isFile()) {
-      fs.fsyncSync(fd);
-    }
-  } catch (error) {
-    return;
-  }
-}
-
 function writeFdFully(fd, text) {
   const buffer = Buffer.from(text, "utf8");
   let offset = 0;
   while (offset < buffer.length) {
     offset += fs.writeSync(fd, buffer, offset, buffer.length - offset);
   }
-  fsyncIfRegularFile(fd);
 }
 
 // ---------------------------------------------------------------------------

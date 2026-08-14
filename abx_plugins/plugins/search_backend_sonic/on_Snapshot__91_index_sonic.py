@@ -18,12 +18,7 @@ Environment variables:
     SONIC_BUCKET: Bucket name (default: snapshots)
 """
 
-# ruff: noqa: E402
 import sys
-
-if any(arg == "--url" or arg.startswith("--url=") for arg in sys.argv[1:]):
-    print("Sonic indexing started", flush=True)
-
 import argparse
 import os
 import re
@@ -260,6 +255,7 @@ def main() -> None:
             status = "skipped"
             output_str = "SEARCH_BACKEND_SONIC_ENABLED=False"
         else:
+            print("Sonic indexing started", flush=True)
             snapshot_id = get_snapshot_id_from_context()
             if not snapshot_id:
                 raise RuntimeError("missing snapshot_id in extra context")
