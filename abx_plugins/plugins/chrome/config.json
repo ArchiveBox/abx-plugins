@@ -176,6 +176,7 @@
         "--disable-component-update",
         "--disable-domain-reliability",
         "--disable-breakpad",
+        "--disable-crashpad-for-testing",
         "--disable-client-side-phishing-detection",
         "--disable-hang-monitor",
         "--disable-speech-synthesis-api",
