@@ -286,7 +286,6 @@ async function captureBootstrapFrame() {
     getEnvInt("CHROME_TIMEOUT", getEnvInt("TIMEOUT", 60)) * 1000;
   const chromeSession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
     timeoutMs,
-    requireBrowserReady: true,
     requireConnectable: true,
     puppeteer,
   });

@@ -4051,6 +4051,7 @@ async function ensureChromeSession(options = {}) {
     timeoutMs = getEnvInt("CHROME_TIMEOUT", 60) * 1000,
     reuseExisting = !CHROME_CDP_URL,
     binary = null,
+    onCdpReady = null,
   } = options;
   const cdpUrl = CHROME_CDP_URL;
   const processIsLocal = CHROME_CDP_URL ? false : CHROME_IS_LOCAL;
@@ -4198,6 +4199,13 @@ async function ensureChromeSession(options = {}) {
       } catch (error) {}
     }
     fs.writeFileSync(path.join(outputDir, "cdp_url.txt"), resolvedCdpUrl);
+    if (typeof onCdpReady === "function") {
+      await onCdpReady({
+        cdpUrl: resolvedCdpUrl,
+        pid: resolvedPid,
+        port: getChromeDebugPortFromCdpUrl(resolvedCdpUrl),
+      });
+    }
 
   // Open a single browser connection for all post-launch CDP work: extension
   // load, cookie import, download dir config, page-ready probe, and tab

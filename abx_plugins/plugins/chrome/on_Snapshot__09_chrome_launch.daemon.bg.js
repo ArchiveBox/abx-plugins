@@ -86,6 +86,17 @@ let cleanupPromise = null;
 let launchInProgress = false;
 let cleanupRequestedDuringLaunch = false;
 let activeChromeDir = OUTPUT_DIR;
+let readinessPublished = false;
+
+function publishReadiness(session, shouldClose) {
+  chromePid = session.pid;
+  chromeCdpUrl = session.cdpUrl;
+  shouldCloseOnCleanup = shouldClose;
+  if (!readinessPublished) {
+    readinessPublished = true;
+    console.log("chrome session started");
+  }
+}
 
 async function cleanup() {
   if (cleanupPromise) {
@@ -180,11 +191,10 @@ async function main() {
         ...chromeSessionOptions,
         CHROME_IS_LOCAL: chromeProcessIsLocal,
         CHROME_CDP_URL: cdpUrlOverride,
+        onCdpReady: (readySession) => publishReadiness(readySession, false),
       });
       launchInProgress = false;
-      chromePid = relaunched.pid;
-      chromeCdpUrl = relaunched.cdpUrl;
-      shouldCloseOnCleanup = false;
+      publishReadiness(relaunched, false);
       console.error(
         `[+] relaunched crawl-scoped ${CHROME_BINARY} pid=${
           relaunched.pid || "remote"
@@ -211,12 +221,12 @@ async function main() {
       ...chromeSessionOptions,
       CHROME_IS_LOCAL: chromeProcessIsLocal,
       CHROME_CDP_URL: cdpUrlOverride,
+      onCdpReady: (readySession) =>
+        publishReadiness(readySession, !keepAlive),
     });
     launchInProgress = false;
 
-    chromePid = session.pid;
-    chromeCdpUrl = session.cdpUrl;
-    shouldCloseOnCleanup = !keepAlive;
+    publishReadiness(session, !keepAlive);
 
     emitArchiveResultRecord(
       "succeeded",

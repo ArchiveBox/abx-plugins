@@ -98,6 +98,17 @@ let puppeteer = null;
 let cleanupPromise = null;
 let launchInProgress = false;
 let cleanupRequestedDuringLaunch = false;
+let readinessPublished = false;
+
+function publishReadiness(session, shouldClose) {
+  chromePid = session.pid;
+  chromeCdpUrl = session.cdpUrl;
+  shouldCloseOnCleanup = shouldClose;
+  if (!readinessPublished) {
+    readinessPublished = true;
+    console.log(`[+] ${CHROME_BINARY} session started`);
+  }
+}
 
 // Cleanup handler for SIGTERM
 async function cleanup() {
@@ -209,12 +220,12 @@ async function main() {
       ...chromeSessionOptions,
       CHROME_IS_LOCAL: chromeProcessIsLocal,
       CHROME_CDP_URL: cdpUrlOverride,
+      onCdpReady: (readySession) =>
+        publishReadiness(readySession, !keepAlive),
     });
     launchInProgress = false;
 
-    chromePid = session.pid;
-    chromeCdpUrl = session.cdpUrl;
-    shouldCloseOnCleanup = !keepAlive;
+    publishReadiness(session, !keepAlive);
 
     for (const extension of session.installedExtensions) {
       console.error(
@@ -227,7 +238,6 @@ async function main() {
       console.error(`reusing live ${CHROME_BINARY} session in ${OUTPUT_DIR}`);
     }
 
-    console.log(`[+] ${CHROME_BINARY} session started`);
     console.error(`[+] CDP URL: ${chromeCdpUrl}`);
     releaseLock();
     releaseLock = null;
