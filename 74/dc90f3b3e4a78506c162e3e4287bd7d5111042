@@ -1,0 +1,18 @@
+abx_plugins/plugins/singlefile/singlefile_extension_save.js
+  h_923c208e183a7b 162-163,166,170,172-174,176-180,182-187,190-192,194-200,203-206,208-215,217-223
+pyproject.toml
+  h_923c208e183a7b 3
+uv.lock
+  h_923c208e183a7b 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "74dc90f3b3e4a78506c162e3e4287bd7d5111042",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
