@@ -2652,10 +2652,10 @@ def test_chrome_wait_rejects_stale_cdp_markers(chrome_test_url):
         )
 
 
-def test_crawl_wait_reacts_when_published_cdp_endpoint_changes(
+def test_crawl_wait_rechecks_connectability_with_and_without_file_changes(
     chrome_test_url,
 ):
-    """crawl wait should revalidate the session when its published CDP URL changes."""
+    """crawl wait should revalidate changed and transiently busy endpoints."""
     with tempfile.TemporaryDirectory() as tmpdir:
         (
             _stale_provider_dir,
@@ -2725,8 +2725,39 @@ def test_crawl_wait_reacts_when_published_cdp_endpoint_changes(
                 f"Stdout: {stdout}\nStderr: {stderr}"
             )
             assert "ready pid=external" in stdout.lower(), stdout
+
+            os.kill(provider_pid, signal.SIGSTOP)
+            wait_process = subprocess.Popen(
+                [
+                    str(CHROME_CRAWL_WAIT_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=snap-crawl-wait-connectability",
+                ],
+                cwd=str(adopted_chrome_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=adopted_env,
+            )
+            assert wait_process.stdout is not None
+            startup_line = wait_process.stdout.readline()
+            assert startup_line.startswith("waiting for "), startup_line
+            time.sleep(1.5)
+            assert wait_process.poll() is None
+            os.kill(provider_pid, signal.SIGCONT)
+
+            stdout, stderr = wait_process.communicate(timeout=15)
+            assert wait_process.returncode == 0, (
+                "crawl wait should accept the same endpoint after it resumes:\n"
+                f"Stdout: {stdout}\nStderr: {stderr}"
+            )
+            assert "ready pid=external" in stdout.lower(), stdout
         finally:
-            if wait_process is not None:
+            try:
+                os.kill(provider_pid, signal.SIGCONT)
+            except OSError:
+                pass
+            if wait_process is not None and wait_process.poll() is None:
                 wait_process.send_signal(signal.SIGTERM)
                 wait_process.wait(timeout=15)
             assert kill_chrome(provider_pid, str(provider_chrome_dir))

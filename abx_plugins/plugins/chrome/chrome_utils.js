@@ -2735,17 +2735,23 @@ async function waitForChromeSessionState(chromeSessionDir, options = {}) {
     let inspectionPending = false;
     let watcher = null;
     let timeout = null;
+    let recheck = null;
 
     const finish = (state) => {
       if (settled) return;
       settled = true;
       if (timeout) clearTimeout(timeout);
+      if (recheck) clearTimeout(recheck);
       if (watcher) watcher.close();
       resolve(state);
     };
 
     const inspect = async () => {
       if (settled) return;
+      if (recheck) {
+        clearTimeout(recheck);
+        recheck = null;
+      }
       if (inspectionRunning) {
         inspectionPending = true;
         return;
@@ -2779,6 +2785,11 @@ async function waitForChromeSessionState(chromeSessionDir, options = {}) {
         if (inspectionPending && !settled) {
           inspectionPending = false;
           void inspect();
+        } else if (!settled && requireConnectable) {
+          recheck = setTimeout(() => {
+            recheck = null;
+            void inspect();
+          }, Math.min(Math.max(probeTimeoutMs, 100), 1000));
         }
       }
     };
@@ -2797,6 +2808,7 @@ async function waitForChromeSessionState(chromeSessionDir, options = {}) {
       if (!settled) {
         settled = true;
         if (timeout) clearTimeout(timeout);
+        if (recheck) clearTimeout(recheck);
         watcher.close();
         reject(error);
       }
