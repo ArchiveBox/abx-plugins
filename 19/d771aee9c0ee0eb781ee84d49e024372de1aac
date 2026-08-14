@@ -1,0 +1,54 @@
+abx_plugins/plugins/accessibility/on_Snapshot__39_accessibility.js
+  h_923c208e183a7b 20-23
+abx_plugins/plugins/chrome_mhtml/on_Snapshot__54_chrome_mhtml.js
+  h_923c208e183a7b 16-19
+abx_plugins/plugins/defuddle/on_Snapshot__57_defuddle.py
+  h_923c208e183a7b 8-13
+abx_plugins/plugins/dom/on_Snapshot__53_dom.js
+  h_923c208e183a7b 16-19
+abx_plugins/plugins/htmltotext/on_Snapshot__58_htmltotext.py
+  h_923c208e183a7b 12-17
+abx_plugins/plugins/liteparse/on_Snapshot__61_liteparse.py
+  h_923c208e183a7b 31-36
+abx_plugins/plugins/mercury/on_Snapshot__57_mercury.py
+  h_923c208e183a7b 12-17
+abx_plugins/plugins/parse_dom_outlinks/on_Snapshot__75_parse_dom_outlinks.js
+  h_923c208e183a7b 23-26
+abx_plugins/plugins/parse_html_urls/on_Snapshot__70_parse_html_urls.py
+  h_923c208e183a7b 17-22
+abx_plugins/plugins/parse_jsonl_urls/on_Snapshot__74_parse_jsonl_urls.py
+  h_923c208e183a7b 21-26
+abx_plugins/plugins/parse_netscape_urls/on_Snapshot__73_parse_netscape_urls.py
+  h_923c208e183a7b 15-20
+abx_plugins/plugins/parse_rss_urls/on_Snapshot__72_parse_rss_urls.py
+  h_923c208e183a7b 18-23
+abx_plugins/plugins/parse_txt_urls/on_Snapshot__71_parse_txt_urls.py
+  h_923c208e183a7b 18-23
+abx_plugins/plugins/pdf/on_Snapshot__52_pdf.js
+  h_923c208e183a7b 16-19
+abx_plugins/plugins/readability/on_Snapshot__56_readability.py
+  h_923c208e183a7b 22-27
+abx_plugins/plugins/screenshot/on_Snapshot__51_screenshot.js
+  h_923c208e183a7b 17-20
+abx_plugins/plugins/seo/on_Snapshot__38_seo.js
+  h_923c208e183a7b 20-23
+abx_plugins/plugins/singlefile/on_Snapshot__50_singlefile.py
+  h_923c208e183a7b 7-12
+abx_plugins/plugins/title/on_Snapshot__54_title.js
+  h_923c208e183a7b 17-20
+abx_plugins/plugins/trafilatura/on_Snapshot__59_trafilatura.py
+  h_923c208e183a7b 7-12
+pyproject.toml
+  h_923c208e183a7b 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "19d771aee9c0ee0eb781ee84d49e024372de1aac",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
