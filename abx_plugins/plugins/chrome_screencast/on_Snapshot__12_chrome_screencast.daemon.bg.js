@@ -282,10 +282,12 @@ async function captureBootstrapFrame() {
   }
 
   fs.mkdirSync(LIVE_DIR, { recursive: true });
+  console.log("chrome screencast starting");
   const timeoutMs =
     getEnvInt("CHROME_TIMEOUT", getEnvInt("TIMEOUT", 60)) * 1000;
   const chromeSession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
     timeoutMs,
+    requireBrowserReady: true,
     requireConnectable: true,
     puppeteer,
   });

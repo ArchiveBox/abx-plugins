@@ -2285,6 +2285,7 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
             "navigation": chrome_dir / "navigation.json",
         }
         chrome_launch_process = None
+        crawl_screencast_process = None
         tab_process = None
         try:
             chrome_launch_process = subprocess.Popen(
@@ -2295,6 +2296,23 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
                 text=True,
                 env=env,
             )
+
+            crawl_screencast_hook = (
+                CHROME_UTILS.parent.parent
+                / "chrome_screencast"
+                / "on_CrawlSetup__90_chrome_screencast.daemon.bg.js"
+            )
+            crawl_screencast_process = subprocess.Popen(
+                [str(crawl_screencast_hook), f"--url={chrome_test_url}"],
+                cwd=str(shared_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env,
+            )
+            assert crawl_screencast_process.stdout is not None
+            screencast_start = crawl_screencast_process.stdout.readline()
+            assert screencast_start.strip() == "chrome screencast starting"
 
             wait_for_chrome_session_state(
                 chrome_dir,
@@ -2322,28 +2340,18 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
                 "crawl launch should expose a live DevTools target list"
             )
 
-            crawl_screencast_hook = (
-                CHROME_UTILS.parent.parent
-                / "chrome_screencast"
-                / "on_CrawlSetup__90_chrome_screencast.daemon.bg.js"
-            )
-            crawl_screencast = subprocess.run(
-                [str(crawl_screencast_hook), f"--url={chrome_test_url}"],
-                cwd=str(shared_dir),
-                capture_output=True,
-                text=True,
+            screencast_stdout, screencast_stderr = crawl_screencast_process.communicate(
                 timeout=30,
-                env=env,
             )
-            assert crawl_screencast.returncode == 0, (
+            assert crawl_screencast_process.returncode == 0, (
                 "crawl screencast should capture a bootstrap frame and exit:\n"
-                f"Stdout: {crawl_screencast.stdout}\n"
-                f"Stderr: {crawl_screencast.stderr}"
+                f"Stdout: {screencast_start}{screencast_stdout}\n"
+                f"Stderr: {screencast_stderr}"
             )
             bootstrap_frame = shared_dir / "chrome_screencast" / "latest.jpg"
             assert bootstrap_frame.read_bytes().startswith(b"\xff\xd8\xff")
-            assert "chrome screencast ready" in crawl_screencast.stdout
-            assert '"type"' not in crawl_screencast.stdout
+            assert "chrome screencast ready" in screencast_stdout
+            assert '"type"' not in screencast_start + screencast_stdout
             assert not any(path.exists() for path in snapshot_files.values()), (
                 "crawl screencast must not synthesize snapshot-scoped files"
             )
@@ -2514,6 +2522,12 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
                 "/",
             ) == chrome_test_url.rstrip("/")
         finally:
+            if (
+                crawl_screencast_process is not None
+                and crawl_screencast_process.poll() is None
+            ):
+                crawl_screencast_process.send_signal(signal.SIGTERM)
+                crawl_screencast_process.wait(timeout=10)
             if tab_process is not None:
                 tab_process.send_signal(signal.SIGTERM)
                 tab_process.wait(timeout=10)
