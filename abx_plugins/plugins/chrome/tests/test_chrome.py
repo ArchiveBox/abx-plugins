@@ -2322,32 +2322,10 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
                 "crawl launch should expose a live DevTools target list"
             )
 
-            crawl_wait = subprocess.run(
-                [
-                    str(CHROME_CRAWL_WAIT_HOOK),
-                    f"--url={chrome_test_url}",
-                    "--snapshot-id=snap-shared-order",
-                ],
-                cwd=str(chrome_dir),
-                capture_output=True,
-                text=True,
-                timeout=30,
-                env=env,
-            )
-            assert crawl_wait.returncode == 0, (
-                f"crawl wait should succeed before snapshot setup:\n"
-                f"Stdout: {crawl_wait.stdout}\nStderr: {crawl_wait.stderr}"
-            )
-            assert f"pid={chrome_pid_before}" in crawl_wait.stdout
-            assert f":{port_before}" in crawl_wait.stdout
-            assert not any(path.exists() for path in snapshot_files.values()), (
-                "crawl wait should not create snapshot-scoped files"
-            )
-
             crawl_screencast_hook = (
                 CHROME_UTILS.parent.parent
                 / "chrome_screencast"
-                / "on_CrawlSetup__92_chrome_screencast.daemon.bg.js"
+                / "on_CrawlSetup__90_chrome_screencast.daemon.bg.js"
             )
             crawl_screencast = subprocess.run(
                 [str(crawl_screencast_hook), f"--url={chrome_test_url}"],
@@ -2368,6 +2346,28 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
             assert '"type"' not in crawl_screencast.stdout
             assert not any(path.exists() for path in snapshot_files.values()), (
                 "crawl screencast must not synthesize snapshot-scoped files"
+            )
+
+            crawl_wait = subprocess.run(
+                [
+                    str(CHROME_CRAWL_WAIT_HOOK),
+                    f"--url={chrome_test_url}",
+                    "--snapshot-id=snap-shared-order",
+                ],
+                cwd=str(chrome_dir),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=env,
+            )
+            assert crawl_wait.returncode == 0, (
+                f"crawl wait should succeed before snapshot setup:\n"
+                f"Stdout: {crawl_wait.stdout}\nStderr: {crawl_wait.stderr}"
+            )
+            assert f"pid={chrome_pid_before}" in crawl_wait.stdout
+            assert f":{port_before}" in crawl_wait.stdout
+            assert not any(path.exists() for path in snapshot_files.values()), (
+                "crawl wait should not create snapshot-scoped files"
             )
 
             snapshot_wait_before_tab = subprocess.run(
@@ -3415,7 +3415,7 @@ def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_u
             crawl_screencast_hook = (
                 CHROME_UTILS.parent.parent
                 / "chrome_screencast"
-                / "on_CrawlSetup__92_chrome_screencast.daemon.bg.js"
+                / "on_CrawlSetup__90_chrome_screencast.daemon.bg.js"
             )
             bootstrap_result = subprocess.run(
                 [str(crawl_screencast_hook), f"--url={chrome_test_url}"],
