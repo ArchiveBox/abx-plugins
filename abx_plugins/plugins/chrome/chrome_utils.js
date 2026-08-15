@@ -2087,61 +2087,71 @@ async function loadUnpackedExtensionsIntoBrowser(
   }
   fs.chmodSync(lockRoot, 0o700);
 
-  try {
-    for (const extension of validExtensions) {
-      const extensionLockKey = crypto
-        .createHash("sha256")
-        .update(fs.realpathSync(extension.unpacked_path))
-        .digest("hex");
-      const extensionLoadLock = path.join(
-        lockRoot,
-        "extension-load-locks",
-        `${extensionLockKey}.lock`
+  async function loadExtension(extension) {
+    const extensionLockKey = crypto
+      .createHash("sha256")
+      .update(fs.realpathSync(extension.unpacked_path))
+      .digest("hex");
+    const extensionLoadLock = path.join(
+      lockRoot,
+      "extension-load-locks",
+      `${extensionLockKey}.lock`
+    );
+    let releaseExtensionLoadLock = null;
+    try {
+      releaseExtensionLoadLock = await acquireSessionLock(
+        extensionLoadLock,
+        timeout
       );
-      let releaseExtensionLoadLock = null;
-      try {
-        releaseExtensionLoadLock = await acquireSessionLock(
-          extensionLoadLock,
-          timeout
-        );
-        // Chromium generates this directory while loading some unpacked
-        // extensions, but Extensions.loadUnpacked rejects it on the next
-        // browser launch. The abxpkg Chrome Web Store provider establishes
-        // the same sanitization contract when resolving its stable shared
-        // cache. Keep sanitization and CDP loading under one cross-process
-        // lock because snapshot-isolated browsers use that cache concurrently.
-        await fs.promises.rm(
-          path.join(extension.unpacked_path, "_metadata"),
-          { recursive: true, force: true }
-        );
-        const { id } = await sendBrowserCommand("Extensions.loadUnpacked", {
-          path: extension.unpacked_path,
-        });
-        if (!id) {
-          throw new Error(
-            `Extensions.loadUnpacked did not return an id for ${extension.unpacked_path}`
-          );
-        }
-        extension.id = id;
-        const manifest = loadExtensionManifest(extension.unpacked_path);
-        extension.manifest_version = manifest?.manifest_version || null;
-        delete extension.load_error;
-      } catch (error) {
-        const detail = `${error.name}: ${error.message}`;
-        extension.load_error = detail;
+      // Chromium generates this directory while loading some unpacked
+      // extensions, but Extensions.loadUnpacked rejects it on the next
+      // browser launch. The abxpkg Chrome Web Store provider establishes
+      // the same sanitization contract when resolving its stable shared
+      // cache. Keep sanitization and CDP loading under one cross-process
+      // lock because snapshot-isolated browsers use that cache concurrently.
+      await fs.promises.rm(path.join(extension.unpacked_path, "_metadata"), {
+        recursive: true,
+        force: true,
+      });
+      const { id } = await sendBrowserCommand("Extensions.loadUnpacked", {
+        path: extension.unpacked_path,
+      });
+      if (!id) {
         throw new Error(
-          `Failed to load Chrome extension ${
-            extension.name || extension.unpacked_path
-          } from ${extension.unpacked_path} via Extensions.loadUnpacked: ${detail}`
+          `Extensions.loadUnpacked did not return an id for ${extension.unpacked_path}`
         );
-      } finally {
-        if (releaseExtensionLoadLock) {
-          releaseExtensionLoadLock();
-        }
       }
+      extension.id = id;
+      const manifest = loadExtensionManifest(extension.unpacked_path);
+      extension.manifest_version = manifest?.manifest_version || null;
+      delete extension.load_error;
+    } catch (error) {
+      const detail = `${error.name}: ${error.message}`;
+      extension.load_error = detail;
+      throw new Error(
+        `Failed to load Chrome extension ${
+          extension.name || extension.unpacked_path
+        } from ${extension.unpacked_path} via Extensions.loadUnpacked: ${detail}`
+      );
+    } finally {
+      if (releaseExtensionLoadLock) {
+        releaseExtensionLoadLock();
+      }
+    }
 
-      // Extensions.loadUnpacked returning an id is the durable launch contract.
-      // Hooks resolve their own short-lived MV3 worker target when they use it.
+    // Extensions.loadUnpacked returning an id is the durable launch contract.
+    // Hooks resolve their own short-lived MV3 worker target when they use it.
+  }
+
+  try {
+    const extensionLoadResults = await Promise.allSettled(
+      validExtensions.map(loadExtension)
+    );
+    const failedExtensionLoad = extensionLoadResults.find(
+      (result) => result.status === "rejected"
+    );
+    if (failedExtensionLoad) {
+      throw failedExtensionLoad.reason;
     }
   } finally {
     if (cdpSession) {
