@@ -168,6 +168,7 @@ async function main() {
 
     if (isolation === "crawl") {
       const crawlChromeDir = path.join(CRAWL_DIR, "chrome");
+      console.log("checking crawl-scoped chrome session...");
       // Probe with requireConnectable so a dead crawl-scoped Chrome
       // returns null fast (a stale session file alone isn't enough).
       const crawlSession = await waitForChromeSessionState(crawlChromeDir, {
