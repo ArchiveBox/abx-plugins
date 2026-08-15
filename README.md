@@ -80,7 +80,7 @@ Notes:
 
 - Install resolution is optional runtime preflight work driven directly from `config.json > required_binaries`.
 - Binary provider plugins are no longer part of this package; binary provider behavior lives in `abxpkg`.
-- Standalone `abx-dl` stores derived binary cache entries in `derived.env`; ArchiveBox stores the equivalent cache in DB `machine_binary` rows. Plugins should stay unaware of both storage layers.
+- `abxpkg` owns the provider cache under `ABXPKG_LIB_DIR`; ArchiveBox may additionally project resolved binary events into DB `machine_binary` rows. Plugins and `abx-dl` stay unaware of both persistence layers.
 
 State/OS:
 
