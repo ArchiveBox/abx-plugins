@@ -50,7 +50,6 @@ const {
   resolvePuppeteerModule,
   waitForChromeSessionState,
 } = require("../chrome/chrome_utils.js");
-const puppeteer = resolvePuppeteerModule();
 
 const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
@@ -181,6 +180,7 @@ async function startScreencast() {
     process.exit(0);
   }
 
+  console.log("chrome screencast starting");
   fs.mkdirSync(LIVE_DIR, { recursive: true });
 
   const timeoutMs =
@@ -192,6 +192,7 @@ async function startScreencast() {
   if (!chromeSession?.cdpUrl) {
     throw new Error("No Chrome session found (chrome plugin must run first)");
   }
+  const puppeteer = resolvePuppeteerModule();
   browser = await connectToBrowserEndpoint(puppeteer, chromeSession.cdpUrl, {
     // Keep the real Chrome viewport created by the chrome plugin.
     defaultViewport: null,
@@ -267,7 +268,7 @@ async function startScreencast() {
   console.error(`screencast frames: ${LIVE_DIR}`);
 }
 
-async function captureBootstrapFrame() {
+async function publishCrawlScreencastReady() {
   if (!getEnvBool("CHROME_SCREENCAST_ENABLED", true)) {
     console.error("Skipping crawl screencast (CHROME_SCREENCAST_ENABLED=False)");
     return;
@@ -283,63 +284,7 @@ async function captureBootstrapFrame() {
 
   fs.mkdirSync(LIVE_DIR, { recursive: true });
   console.log("chrome screencast starting");
-  const timeoutMs =
-    getEnvInt("CHROME_TIMEOUT", getEnvInt("TIMEOUT", 60)) * 1000;
-  const chromeSession = await waitForChromeSessionState(CHROME_SESSION_DIR, {
-    timeoutMs,
-    requireBrowserReady: true,
-    requireConnectable: true,
-    puppeteer,
-  });
-  if (!chromeSession?.cdpUrl) {
-    throw new Error("No crawl Chrome session found");
-  }
-
-  let bootstrapBrowser = null;
-  let ownedPage = null;
-  try {
-    bootstrapBrowser = await connectToBrowserEndpoint(
-      puppeteer,
-      chromeSession.cdpUrl,
-      { defaultViewport: null }
-    );
-    const pages = await bootstrapBrowser.pages();
-    let page = pages.find((candidate) => candidate.url() === "about:blank");
-    if (!page) {
-      ownedPage = await bootstrapBrowser.newPage();
-      page = ownedPage;
-    }
-    const quality = Math.max(
-      1,
-      Math.min(100, getEnvInt("CHROME_SCREENCAST_QUALITY", 65))
-    );
-    const rawScale = Number.parseFloat(
-      getEnv("CHROME_SCREENCAST_SCALE", "0.5")
-    );
-    const screenshotScale = Number.isFinite(rawScale)
-      ? Math.max(0.1, Math.min(1, rawScale))
-      : 0.5;
-    const jpeg = await captureVisibleViewportJpeg(
-      page,
-      quality,
-      screenshotScale
-    );
-    writeFrameAtomic(LATEST_FRAME, jpeg);
-  } finally {
-    if (ownedPage) {
-      try {
-        await ownedPage.close();
-      } catch (error) {}
-    }
-    if (bootstrapBrowser) {
-      try {
-        bootstrapBrowser.disconnect();
-      } catch (error) {}
-    }
-  }
-
   console.log("chrome screencast ready");
-  console.error(`bootstrap screencast frame: ${LATEST_FRAME}`);
 }
 
 async function stopScreencast(status = "succeeded", output = "") {
@@ -380,7 +325,7 @@ async function main() {
 
   try {
     if (IS_CRAWL_SETUP) {
-      await captureBootstrapFrame();
+      await publishCrawlScreencastReady();
       process.exit(0);
     }
     await startScreencast();

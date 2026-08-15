@@ -1205,9 +1205,10 @@ async function launchChromium(options = {}) {
         });
       }
 
-      // The DevTools port coming up is only a coarse readiness signal.
-      // Chromium can still crash immediately afterwards, so we follow this
-      // with verifyStableChromiumSession() before declaring success.
+      // The foreground crawl wait and the first real tab connection provide
+      // the stronger liveness checks. Publish the browser endpoint as soon as
+      // Chromium exposes it so those stages can proceed without a duplicate
+      // Puppeteer attachment here.
       console.error(`[*] Waiting for debug port ${debugPort}...`);
       const debugProbeTimeoutMs = getEnvInt(
         "CHROME_DEBUG_PORT_TIMEOUT_MS",
@@ -1229,15 +1230,6 @@ async function launchChromium(options = {}) {
         process: chromiumProcess,
         userDataDir,
       };
-
-      await verifyStableChromiumSession({
-        chromePid,
-        cdpUrl: wsUrl,
-        outputDir,
-        headless: CHROME_HEADLESS,
-        enableExtensionDebugging,
-        timeoutMs,
-      });
 
       return result;
     } catch (e) {
@@ -2950,102 +2942,6 @@ async function cleanupLaunchArtifacts(outputDir, chromePid = null) {
       probeTimeoutMs: 250,
     });
   } catch (error) {}
-}
-
-/**
- * Verify that a freshly launched browser survives long enough to be considered
- * stable for downstream hooks.
- *
- * This is stronger than "debug port opened once". It waits through the fragile
- * startup window and proves the websocket is attachable with Puppeteer.
- *
- * It must stay strictly earlier than crawl-level extension loading. The caller
- * is responsible for inspecting extension targets and later writing
- * `browser.json`; waiting for that file here would deadlock the launch flow.
- *
- * @param {Object} options - Verification options
- * @param {number} options.chromePid - Spawned Chrome PID
- * @param {string} options.cdpUrl - Browser websocket endpoint
- * @param {boolean} [options.headless=true] - Whether browser is headless
- * @param {boolean} [options.enableExtensionDebugging=false] - Whether extension debugging is enabled
- * @param {number} [options.timeoutMs] - Hydrated Chrome operation timeout in milliseconds
- * @returns {Promise<void>}
- */
-async function verifyStableChromiumSession(options = {}) {
-  const {
-    chromePid,
-    cdpUrl,
-    headless = true,
-    enableExtensionDebugging = false,
-    timeoutMs = getEnvInt("CHROME_TIMEOUT", 60) * 1000,
-  } = options;
-
-  const hasExtensions = enableExtensionDebugging;
-  // Deterministic readiness signal: actively poll for "connect via CDP".
-  // Extension startup cannot synthesize a probe page here because extensions
-  // need to finish their pre-page-load setup before the first snapshot tab.
-  const overallTimeoutMs = getEnvInt(
-    "CHROME_LAUNCH_STABILITY_MS",
-    Math.max(timeoutMs, hasExtensions ? 15000 : 10000)
-  );
-
-  if (!chromePid || !isProcessAlive(chromePid)) {
-    throw new Error(
-      hasExtensions && headless
-        ? "Chromium exited during headless extension startup"
-        : "Chromium exited during startup"
-    );
-  }
-
-  const deadline = Date.now() + overallTimeoutMs;
-  let lastError = null;
-  while (Date.now() < deadline) {
-    if (!isProcessAlive(chromePid)) {
-      throw new Error(
-        hasExtensions && headless
-          ? "Chromium exited during headless extension startup"
-          : "Chromium exited during startup"
-      );
-    }
-    let browser = null;
-    try {
-      const puppeteer = resolvePuppeteerModule();
-      browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, {
-        defaultViewport: null,
-      });
-      if (hasExtensions) {
-        const remainingMs = Math.max(1000, deadline - Date.now());
-        await withTimeout(
-          () => browser.version(),
-          remainingMs,
-          `Timed out probing browser version after ${remainingMs}ms`
-        );
-      } else {
-        await waitForBrowserPageReady({
-          browser,
-          timeoutMs: Math.max(1000, deadline - Date.now()),
-          requireAboutBlank: true,
-          createPageIfMissing: true,
-        });
-      }
-      return;
-    } catch (error) {
-      lastError = error;
-    } finally {
-      if (browser) {
-        try {
-          await browser.disconnect();
-        } catch (disconnectError) {}
-      }
-    }
-    await sleep(50);
-  }
-
-  throw new Error(
-    `Chromium CDP session not stable after startup: ${
-      lastError?.message || "timeout"
-    }`
-  );
 }
 
 async function waitForBrowserPageReady(options = {}) {
