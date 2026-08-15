@@ -3877,8 +3877,9 @@ def test_chrome_cleanup_during_launch_uses_persisted_session_state(
             )
             assert "Cleaning up in-progress local Chrome from persisted state" in stderr
             if isolation == "crawl":
-                assert "[+] chromium session started" not in stderr
+                assert "[+] chromium session started" in stdout
             else:
+                assert "chrome session started" in stdout
                 assert '"status":"succeeded"' not in stdout
             assert not is_pid_alive(chrome_pid)
             _assert_snapshot_browser_state_cleared(chrome_dir)

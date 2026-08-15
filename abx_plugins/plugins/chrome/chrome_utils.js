@@ -1070,6 +1070,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
  * @param {Array<string>} [options.CHROME_ARGS=[]] - Hydrated base Chrome args from plugin config
  * @param {Array<string>} [options.CHROME_ARGS_EXTRA=[]] - Hydrated extra Chrome args from plugin config
  * @param {number} [options.timeoutMs] - Hydrated Chrome operation timeout in milliseconds
+ * @param {Function} [options.onSpawn] - Called after the Chromium PID is persisted and process listeners are attached
  * @returns {Promise<Object>} - {success, cdpUrl, pid, port, process, error}
  */
 async function launchChromium(options = {}) {
@@ -1079,6 +1080,7 @@ async function launchChromium(options = {}) {
     enableExtensionDebugging = false,
     extensionPaths = [],
     timeoutMs = getEnvInt("CHROME_TIMEOUT", 60) * 1000,
+    onSpawn = null,
   } = options;
   const {
     CHROME_USER_DATA_DIR,
@@ -1293,6 +1295,14 @@ async function launchChromium(options = {}) {
         });
       });
       chromiumExit.catch(() => {});
+
+      if (typeof onSpawn === "function") {
+        await onSpawn({
+          pid: chromePid,
+          port: debugPort,
+          process: chromiumProcess,
+        });
+      }
 
       // The DevTools port coming up is only a coarse readiness signal.
       // Chromium can still crash immediately afterwards, so we follow this
@@ -4052,6 +4062,7 @@ async function ensureChromeSession(options = {}) {
     timeoutMs = getEnvInt("CHROME_TIMEOUT", 60) * 1000,
     reuseExisting = !CHROME_CDP_URL,
     binary = null,
+    onSpawn = null,
     onCdpReady = null,
   } = options;
   const cdpUrl = CHROME_CDP_URL;
@@ -4180,6 +4191,7 @@ async function ensureChromeSession(options = {}) {
       enableExtensionDebugging: installedExtensions.length > 0,
       extensionPaths: getExtensionPaths(installedExtensions),
       timeoutMs,
+      onSpawn,
     });
     if (!result.success) {
       throw new Error(result.error || "Failed to launch Chromium");

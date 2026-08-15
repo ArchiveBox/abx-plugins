@@ -86,16 +86,21 @@ let cleanupPromise = null;
 let launchInProgress = true;
 let cleanupRequestedDuringLaunch = false;
 let activeChromeDir = OUTPUT_DIR;
-let readinessPublished = false;
+let launchPublished = false;
+
+function publishLaunch(pid) {
+  chromePid = pid;
+  if (!launchPublished) {
+    launchPublished = true;
+    console.log("chrome session started");
+  }
+}
 
 function publishReadiness(session, shouldClose) {
   chromePid = session.pid;
   chromeCdpUrl = session.cdpUrl;
   shouldCloseOnCleanup = shouldClose;
-  if (!readinessPublished) {
-    readinessPublished = true;
-    console.log("chrome session started");
-  }
+  publishLaunch(session.pid);
 }
 
 async function cleanup() {
@@ -191,6 +196,7 @@ async function main() {
         ...chromeSessionOptions,
         CHROME_IS_LOCAL: chromeProcessIsLocal,
         CHROME_CDP_URL: cdpUrlOverride,
+        onSpawn: (spawnedSession) => publishLaunch(spawnedSession.pid),
         onCdpReady: (readySession) => publishReadiness(readySession, false),
       });
       launchInProgress = false;
@@ -221,6 +227,7 @@ async function main() {
       ...chromeSessionOptions,
       CHROME_IS_LOCAL: chromeProcessIsLocal,
       CHROME_CDP_URL: cdpUrlOverride,
+      onSpawn: (spawnedSession) => publishLaunch(spawnedSession.pid),
       onCdpReady: (readySession) =>
         publishReadiness(readySession, !keepAlive),
     });

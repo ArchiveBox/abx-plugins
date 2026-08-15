@@ -98,16 +98,21 @@ let puppeteer = null;
 let cleanupPromise = null;
 let launchInProgress = true;
 let cleanupRequestedDuringLaunch = false;
-let readinessPublished = false;
+let launchPublished = false;
+
+function publishLaunch(pid) {
+  chromePid = pid;
+  if (!launchPublished) {
+    launchPublished = true;
+    console.log(`[+] ${CHROME_BINARY} session started`);
+  }
+}
 
 function publishReadiness(session, shouldClose) {
   chromePid = session.pid;
   chromeCdpUrl = session.cdpUrl;
   shouldCloseOnCleanup = shouldClose;
-  if (!readinessPublished) {
-    readinessPublished = true;
-    console.log(`[+] ${CHROME_BINARY} session started`);
-  }
+  publishLaunch(session.pid);
 }
 
 // Cleanup handler for SIGTERM
@@ -220,6 +225,7 @@ async function main() {
       ...chromeSessionOptions,
       CHROME_IS_LOCAL: chromeProcessIsLocal,
       CHROME_CDP_URL: cdpUrlOverride,
+      onSpawn: (spawnedSession) => publishLaunch(spawnedSession.pid),
       onCdpReady: (readySession) =>
         publishReadiness(readySession, !keepAlive),
     });
