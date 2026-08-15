@@ -377,110 +377,6 @@ function waitForDebugPort(port, timeout = 30000) {
   });
 }
 
-function fetchDebugJson(port, pathName, timeout = 5000) {
-  const hosts = ["127.0.0.1", "::1", "localhost"];
-
-  const probeHost = (host) =>
-    new Promise((resolve, reject) => {
-      const req = http.request(
-        {
-          host,
-          port,
-          path: pathName,
-          method: "GET",
-          headers: {
-            Host: `${host}:${port}`,
-            Connection: "close",
-          },
-          timeout,
-        },
-        (res) => {
-          let data = "";
-          res.on("data", (chunk) => (data += chunk));
-          res.on("end", () => {
-            if ((res.statusCode || 0) >= 400) {
-              reject(new Error(`HTTP ${res.statusCode}`));
-              return;
-            }
-            try {
-              resolve(JSON.parse(data));
-            } catch (error) {
-              reject(
-                new Error(`invalid ${pathName} payload: ${error.message}`)
-              );
-            }
-          });
-        }
-      );
-      req.on("error", reject);
-      req.on("timeout", () => {
-        req.destroy(new Error("request timeout"));
-      });
-      req.end();
-    });
-
-  return new Promise((resolve, reject) => {
-    let remaining = hosts.length;
-    let lastFailure = "no response yet";
-    for (const host of hosts) {
-      probeHost(host)
-        .then(resolve)
-        .catch((error) => {
-          lastFailure = `${host}: ${error.message}`;
-          remaining -= 1;
-          if (remaining === 0) {
-            reject(new Error(lastFailure));
-          }
-        });
-    }
-  });
-}
-
-async function waitForDebugTargetsStable(port, timeout = 30000, stableMs = 500) {
-  if (stableMs <= 0) return;
-
-  const startedAt = Date.now();
-  let lastSignature = null;
-  let stableSince = 0;
-  let lastFailure = "target list not stable yet";
-
-  while (Date.now() - startedAt <= timeout) {
-    try {
-      const targets = await fetchDebugJson(port, "/json/list", 5000);
-      const signature = JSON.stringify(
-        (Array.isArray(targets) ? targets : [])
-          .map((target) => ({
-            id: target.id,
-            type: target.type,
-            url: target.url,
-            attached: target.attached,
-          }))
-          .sort((left, right) =>
-            String(left.id).localeCompare(String(right.id))
-          )
-      );
-      if (signature === lastSignature) {
-        if (!stableSince) stableSince = Date.now();
-        if (Date.now() - stableSince >= stableMs) {
-          return;
-        }
-      } else {
-        lastSignature = signature;
-        stableSince = Date.now();
-      }
-    } catch (error) {
-      lastFailure = error?.message || String(error);
-      lastSignature = null;
-      stableSince = 0;
-    }
-    await sleep(100);
-  }
-
-  throw new Error(
-    `Timeout waiting for Chrome DevTools targets to stabilize (${lastFailure})`
-  );
-}
-
 // ============================================================================
 // Zombie process cleanup
 // ============================================================================
@@ -1323,16 +1219,6 @@ async function launchChromium(options = {}) {
       ]);
       const wsUrl = versionInfo.webSocketDebuggerUrl;
 
-      // /json/version only proves the debugging socket is bound. The target
-      // list can still churn while Chrome finishes startup pages or extension
-      // background targets. Puppeteer attaches during connect, and CDP
-      // correctly reports "No target with given id found" if one of those
-      // early targets disappears between discovery and attach.
-      await waitForDebugTargetsStable(
-        debugPort,
-        Math.min(timeoutMs, debugProbeTimeoutMs),
-        getEnvInt("CHROME_DEBUG_TARGET_STABLE_MS", 500)
-      );
       console.error(`[+] Chromium ready: ${wsUrl}`);
 
       const result = {
@@ -2657,20 +2543,20 @@ async function inspectChromeSessionArtifacts(chromeSessionDir, options = {}) {
         reason: `invalid cdp url: ${state.cdpUrl}`,
       };
     }
-    if (
-      await canConnectToChromeBrowser(state.cdpUrl, {
-        timeoutMs: probeTimeoutMs,
-        puppeteer: puppeteer || resolvePuppeteerModule(),
-      })
-    ) {
+    try {
+      await waitForDebugPort(
+        getChromeDebugPortFromCdpUrl(state.cdpUrl),
+        probeTimeoutMs
+      );
       return { hasArtifacts: true, stale: false, state, reason: null };
+    } catch (error) {
+      return {
+        hasArtifacts: true,
+        stale: true,
+        state,
+        reason: `cdp unreachable at ${state.cdpUrl}`,
+      };
     }
-    return {
-      hasArtifacts: true,
-      stale: true,
-      state,
-      reason: `cdp unreachable at ${state.cdpUrl}`,
-    };
   }
 
   if (
@@ -4312,55 +4198,6 @@ async function ensureChromeSession(options = {}) {
       requireAboutBlank: true,
       createPageIfMissing: true,
     });
-  }
-
-  if (processIsLocal && resolvedPid) {
-    // Final readiness gate: chrome can be "process alive + port bound" but
-    // still not fully ready to serve fresh CDP connections, especially on
-    // slow machines under load where extension initialization happens in
-    // the background after our setup work returns. Poll for a fresh CDP
-    // probe to succeed — that's the deterministic signal that downstream
-    // snapshot hooks will be able to connect. Process-alive is checked
-    // inside the loop so a crash fails fast.
-    const stabilityDeadline =
-      Date.now() +
-      getEnvInt(
-        "CHROME_LAUNCH_STABILITY_MS",
-        Math.max(timeoutMs, installedExtensions.length > 0 ? 15000 : 10000)
-      );
-    let probedOk = false;
-    let lastProbeFailure = null;
-    while (Date.now() < stabilityDeadline) {
-      if (!isProcessAlive(resolvedPid)) {
-        throw new Error(
-          `Chrome process ${resolvedPid} exited during launch setup`
-        );
-      }
-      try {
-        const reachable = await canConnectToChromeBrowser(resolvedCdpUrl, {
-          timeoutMs: Math.max(
-            500,
-            Math.min(stabilityDeadline - Date.now(), 1500)
-          ),
-          puppeteer,
-        });
-        if (reachable) {
-          probedOk = true;
-          break;
-        }
-        lastProbeFailure = "CDP probe returned unreachable";
-      } catch (error) {
-        lastProbeFailure = error?.message || String(error);
-      }
-      await sleep(50);
-    }
-    if (!probedOk) {
-      throw new Error(
-        `Chrome session not CDP-responsive after launch setup: ${
-          lastProbeFailure || "timeout"
-        }`
-      );
-    }
   }
 
   writeBrowserMetadata(outputDir, installedExtensions);
