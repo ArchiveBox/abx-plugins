@@ -1,0 +1,20 @@
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  h_923c208e183a7b 2288,2300-2316,2343,2346,2348-2349,2353-2354,2525-2530
+abx_plugins/plugins/chrome_screencast/on_Snapshot__12_chrome_screencast.daemon.bg.js
+  h_923c208e183a7b 285,290
+pyproject.toml
+  h_923c208e183a7b 3
+uv.lock
+  h_923c208e183a7b 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "ca70ea27649ef5eabb0cb9e03a29ec22a82c68f0",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
