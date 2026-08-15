@@ -130,7 +130,7 @@ def test_extracts_local_html_outputs_with_real_binary(httpserver):
             cwd=tmpdir,
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=30,
             env=env,
         )
 
@@ -208,7 +208,7 @@ def test_output_format_toggles_map_to_expected_files(httpserver):
             cwd=tmpdir,
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=30,
             env=env,
         )
 
@@ -275,7 +275,7 @@ def test_outputs_all_supported_formats_together(httpserver):
             cwd=tmpdir,
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=30,
             env=env,
         )
 
@@ -288,6 +288,24 @@ def test_outputs_all_supported_formats_together(httpserver):
         assert (output_dir / "content.json").exists(), "content.json not created"
         assert (output_dir / "content.xml").exists(), "content.xml not created"
         assert (output_dir / "content.xmltei").exists(), "content.xmltei not created"
+
+        result_json = parse_jsonl_output(result.stdout)
+        assert result_json and result_json["status"] == "succeeded"
+        metadata = json.loads((output_dir / "content.json").read_text())
+        assert metadata["source"] == test_url
+        for output_file in (
+            "content.txt",
+            "content.md",
+            "content.html",
+            "content.csv",
+            "content.json",
+            "content.xml",
+            "content.xmltei",
+        ):
+            assert (
+                "all format coverage"
+                in (output_dir / output_file).read_text(errors="ignore").lower()
+            )
 
 
 def test_fails_without_html_source():
