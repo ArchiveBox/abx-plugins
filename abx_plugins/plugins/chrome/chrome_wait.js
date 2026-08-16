@@ -108,4 +108,3 @@ main().catch((e) => {
   console.error(`Fatal error: ${e.message}`);
   process.exit(1);
 });
-
