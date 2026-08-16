@@ -2760,9 +2760,17 @@ function resolvePuppeteerModule() {
     try {
       const packageEntry = require.resolve(moduleName, { paths: searchPaths });
       const packageRequire = Module.createRequire(packageEntry);
-      return packageRequire(
+      const puppeteer = packageRequire(
         "puppeteer-core/lib/puppeteer/puppeteer-core-browser.js"
       );
+      const { environment } = packageRequire(
+        "puppeteer-core/internal/environment.js"
+      );
+      const { ScreenRecorder } = packageRequire(
+        "puppeteer-core/internal/node/ScreenRecorder.js"
+      );
+      environment.value = { fs, path, ScreenRecorder };
+      return puppeteer;
     } catch (e) {}
   }
   throw new Error(
