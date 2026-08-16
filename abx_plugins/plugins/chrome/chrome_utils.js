@@ -2760,9 +2760,10 @@ function resolvePuppeteerModule() {
     try {
       const packageEntry = require.resolve(moduleName, { paths: searchPaths });
       const packageRequire = Module.createRequire(packageEntry);
-      const puppeteer = packageRequire(
-        "puppeteer-core/lib/puppeteer/puppeteer-core-browser.js"
+      const { Puppeteer } = packageRequire(
+        "puppeteer-core/internal/common/Puppeteer.js"
       );
+      const puppeteer = new Puppeteer({ isPuppeteerCore: true });
       const { environment } = packageRequire(
         "puppeteer-core/internal/environment.js"
       );
@@ -3287,7 +3288,7 @@ async function openTabInChromeSession(options = {}) {
     puppeteer,
     "openTabInChromeSession"
   );
-  const { retry } = require("abxbus");
+  const { retry } = require("abxbus/retry");
 
   return retry({
     max_attempts: 1,
