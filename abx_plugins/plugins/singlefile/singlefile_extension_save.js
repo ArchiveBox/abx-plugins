@@ -207,6 +207,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
           };
           const timer = setTimeout(() => {
             cleanup();
+            business.cancel(exactTab.id);
             reject(
               new Error(
                 `SingleFile download for tab ${exactTab.id} did not complete within ${timeoutMs}ms`
