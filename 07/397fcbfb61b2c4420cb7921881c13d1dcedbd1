@@ -1,0 +1,16 @@
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  h_923c208e183a7b 3491-3492,3521-3523
+abx_plugins/plugins/chrome_screencast/on_Snapshot__02_chrome_screencast.daemon.bg.js
+  h_923c208e183a7b 81,197,211-219,221-225,228-233,235-257,285-293
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "07397fcbfb61b2c4420cb7921881c13d1dcedbd1",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
