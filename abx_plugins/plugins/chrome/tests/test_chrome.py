@@ -2312,7 +2312,7 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
             )
             assert crawl_screencast_process.stdout is not None
             screencast_start = crawl_screencast_process.stdout.readline()
-            assert screencast_start.strip() == "chrome screencast starting"
+            assert screencast_start.strip() == "chrome screencast ready"
 
             wait_for_chrome_session_state(
                 chrome_dir,
@@ -2348,7 +2348,7 @@ def test_shared_dir_crawl_snapshot_file_order_and_gating(chrome_test_url):
                 f"Stdout: {screencast_start}{screencast_stdout}\n"
                 f"Stderr: {screencast_stderr}"
             )
-            assert "chrome screencast ready" in screencast_stdout
+            assert "chrome screencast starting" in screencast_stderr
             assert '"type"' not in screencast_start + screencast_stdout
             assert not (shared_dir / "chrome_screencast" / "latest.jpg").exists(), (
                 "crawl setup should not publish a blank bootstrap frame"
@@ -3473,7 +3473,7 @@ def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_u
             assert screencast_process.stdout is not None
             assert (
                 screencast_process.stdout.readline().strip()
-                == "chrome screencast starting"
+                == "chrome screencast attached"
             )
             assert screencast_process.stderr is not None
             frame_deadline = time.monotonic() + 10

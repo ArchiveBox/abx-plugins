@@ -3300,38 +3300,59 @@ async function openTabInChromeSession(options = {}) {
         let page = null;
         try {
           page = await withTimeout(
-            () => browser.newPage(),
+            async () => {
+              const browserSession = await browser.target().createCDPSession();
+              let targetId = null;
+              try {
+                const created = await browserSession.send("Target.createTarget", {
+                  url: "about:blank",
+                  background: true,
+                });
+                targetId = created.targetId;
+              } finally {
+                await browserSession.detach().catch(() => {});
+              }
+              const snapshotPage = await resolvePageByTargetId(
+                browser,
+                targetId,
+                remainingMs
+              );
+              if (!snapshotPage) {
+                throw new Error(`Failed to resolve new tab target ${targetId}`);
+              }
+              return snapshotPage;
+            },
             remainingMs,
             `Timed out creating new page after ${remainingMs}ms`
           );
-            await withTimeout(
-              () => page.title(),
-              remainingMs,
-              `Timed out probing new page after ${remainingMs}ms`
-            );
-            const targetId = getTargetIdFromPage(page);
-            if (!targetId) {
-              throw new Error("Failed to resolve target ID for new tab");
-            }
-            await withConnectedBrowser(
-              {
-                puppeteer: puppeteerModule,
-                cdpUrl,
-                connectOptions: { defaultViewport: null },
-              },
-              async (verificationBrowser) => {
-                const verificationPage = await resolvePageByTargetId(
-                  verificationBrowser,
-                  targetId,
-                  Math.max(1000, deadline - Date.now())
+          await withTimeout(
+            () => page.title(),
+            remainingMs,
+            `Timed out probing new page after ${remainingMs}ms`
+          );
+          const targetId = getTargetIdFromPage(page);
+          if (!targetId) {
+            throw new Error("Failed to resolve target ID for new tab");
+          }
+          await withConnectedBrowser(
+            {
+              puppeteer: puppeteerModule,
+              cdpUrl,
+              connectOptions: { defaultViewport: null },
+            },
+            async (verificationBrowser) => {
+              const verificationPage = await resolvePageByTargetId(
+                verificationBrowser,
+                targetId,
+                Math.max(1000, deadline - Date.now())
+              );
+              if (!verificationPage) {
+                throw new Error(
+                  `New tab target ${targetId} was not visible from a fresh Chrome session`
                 );
-                if (!verificationPage) {
-                  throw new Error(
-                    `New tab target ${targetId} was not visible from a fresh Chrome session`
-                  );
-                }
               }
-            );
+            }
+          );
           return { targetId };
         } catch (error) {
           if (page) {
@@ -3532,15 +3553,7 @@ async function connectToPage(options = {}) {
         throw new Error(`Resolved page does not match target ${targetId}`);
       }
       const cdpSession = await withTimeout(
-        async () => {
-          const session = await page.target().createCDPSession();
-          await session.send("Target.setAutoAttach", {
-            autoAttach: true,
-            waitForDebuggerOnStart: false,
-            flatten: true,
-          });
-          return session;
-        },
+        () => page.target().createCDPSession(),
         operationTimeoutMs,
         `Timed out attaching to target ${targetId || "page"}`
       );

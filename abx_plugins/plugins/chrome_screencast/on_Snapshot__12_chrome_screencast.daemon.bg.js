@@ -180,7 +180,7 @@ async function startScreencast() {
     process.exit(0);
   }
 
-  console.log("chrome screencast starting");
+  console.error("chrome screencast starting");
   fs.mkdirSync(LIVE_DIR, { recursive: true });
 
   const timeoutMs =
@@ -283,7 +283,7 @@ async function publishCrawlScreencastReady() {
   }
 
   fs.mkdirSync(LIVE_DIR, { recursive: true });
-  console.log("chrome screencast starting");
+  console.error("chrome screencast starting");
   console.log("chrome screencast ready");
 }
 
