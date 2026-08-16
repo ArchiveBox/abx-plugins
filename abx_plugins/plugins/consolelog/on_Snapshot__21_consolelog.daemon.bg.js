@@ -74,6 +74,7 @@ let page = null;
 let errorCount = 0;
 let warningCount = 0;
 let shuttingDown = false;
+const pendingConsoleWrites = new Set();
 let lastProgressLine = "";
 let lastProgressAt = 0;
 let pendingProgressTimer = null;
@@ -146,27 +147,31 @@ async function setupListeners() {
   });
 
   // Set up listeners that write directly to file
-  page.on("console", async (msg) => {
-    try {
-      const msgType = msg.type();
-      const logEntry = {
-        timestamp: new Date().toISOString(),
-        type: msgType,
-        text: msg.text(),
-        args: await serializeArgs(msg.args()),
-        location: msg.location(),
-      };
-      fs.appendFileSync(outputPath, JSON.stringify(logEntry) + "\n");
-      if (msgType === "warning" || msgType === "warn") {
-        warningCount += 1;
-        emitProgress();
-      } else if (msgType === "error" || msgType === "assert") {
-        errorCount += 1;
-        emitProgress();
+  page.on("console", (msg) => {
+    const write = (async () => {
+      try {
+        const msgType = msg.type();
+        const logEntry = {
+          timestamp: new Date().toISOString(),
+          type: msgType,
+          text: msg.text(),
+          args: await serializeArgs(msg.args()),
+          location: msg.location(),
+        };
+        fs.appendFileSync(outputPath, JSON.stringify(logEntry) + "\n");
+        if (msgType === "warning" || msgType === "warn") {
+          warningCount += 1;
+          emitProgress();
+        } else if (msgType === "error" || msgType === "assert") {
+          errorCount += 1;
+          emitProgress();
+        }
+      } catch (e) {
+        // Ignore errors
       }
-    } catch (e) {
-      // Ignore errors
-    }
+    })();
+    pendingConsoleWrites.add(write);
+    void write.finally(() => pendingConsoleWrites.delete(write));
   });
 
   page.on("pageerror", (error) => {
@@ -223,12 +228,13 @@ function emitResult(
 
 async function handleShutdown(signal) {
   console.error(`\nReceived ${signal}, emitting final results...`);
-  await emitResult("succeeded");
   if (browser) {
     try {
       browser.disconnect();
     } catch (e) {}
   }
+  await Promise.allSettled([...pendingConsoleWrites]);
+  await emitResult("succeeded");
   process.exit(0);
 }
 
