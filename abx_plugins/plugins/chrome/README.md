@@ -86,7 +86,7 @@ Ownership:
 
 - [on_CrawlSetup\_\_90_chrome_launch.daemon.bg.js](./on_CrawlSetup__90_chrome_launch.daemon.bg.js) owns the browser session
 - [on_CrawlSetup\_\_91_chrome_wait.js](./on_CrawlSetup__91_chrome_wait.js) verifies the crawl-scoped session is connectable
-- [on_Snapshot\_\_10_chrome_tab.daemon.bg.js](./on_Snapshot__10_chrome_tab.daemon.bg.js) creates one page/tab per snapshot
+- [on_Snapshot\_\_01_chrome_tab.daemon.bg.js](./on_Snapshot__01_chrome_tab.daemon.bg.js) creates one page/tab per snapshot
 
 Contract:
 
@@ -97,8 +97,8 @@ Contract:
 
 Ownership:
 
-- [on_Snapshot\_\_09_chrome_launch.daemon.bg.js](./on_Snapshot__09_chrome_launch.daemon.bg.js) owns the browser session for that snapshot
-- [on_Snapshot\_\_10_chrome_tab.daemon.bg.js](./on_Snapshot__10_chrome_tab.daemon.bg.js) adopts or verifies the already-published snapshot session
+- [on_Snapshot\_\_00_chrome_launch.daemon.bg.js](./on_Snapshot__00_chrome_launch.daemon.bg.js) owns the browser session for that snapshot
+- [on_Snapshot\_\_01_chrome_tab.daemon.bg.js](./on_Snapshot__01_chrome_tab.daemon.bg.js) adopts or verifies the already-published snapshot session
 
 Contract:
 
@@ -169,10 +169,13 @@ Chromium and extension dependencies are resolved before crawl setup from
 
 | Hook                                         | Priority | Purpose                                                                                                    |
 | -------------------------------------------- | -------: | ---------------------------------------------------------------------------------------------------------- |
-| `on_Snapshot__09_chrome_launch.daemon.bg.js` |        9 | Launch/adopt snapshot-scoped browser when `CHROME_ISOLATION=snapshot`. No-op readiness check when `crawl`. |
-| `on_Snapshot__10_chrome_tab.daemon.bg.js`    |       10 | Create or adopt the snapshot page target.                                                                  |
-| `on_Snapshot__11_chrome_wait.js`             |       11 | Verify snapshot `cdp_url.txt` + `target_id.txt` point at a live target.                                    |
+| `on_Snapshot__00_chrome_launch.daemon.bg.js` |        0 | Launch/adopt snapshot-scoped browser when `CHROME_ISOLATION=snapshot`. No-op readiness check when `crawl`. |
+| `on_Snapshot__01_chrome_tab.daemon.bg.js`    |        1 | Create or adopt the snapshot page target.                                                                  |
+| `on_Snapshot__01_chrome_wait.js`             |        1 | Verify snapshot `cdp_url.txt` + `target_id.txt` point at a live target.                                    |
 | `on_Snapshot__30_chrome_navigate.js`         |       30 | Navigate the snapshot page and publish navigation markers.                                                 |
+
+Chrome target setup runs before background extractors so live screencast frames
+are available as soon as snapshot work begins.
 
 ## Directory Layout
 

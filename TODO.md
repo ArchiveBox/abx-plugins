@@ -446,7 +446,7 @@ The first snapshot-scoped Chrome event guaranteed in both modes is:
 Delete entirely:
 
 - `abx_plugins/plugins/chrome/on_CrawlSetup__91_chrome_wait.js`
-- `abx_plugins/plugins/chrome/on_Snapshot__11_chrome_wait.js`
+- `abx_plugins/plugins/chrome/on_Snapshot__01_chrome_wait.js`
 
 ### 2. Chrome provider hooks
 
@@ -456,7 +456,7 @@ Delete entirely:
 - emit `CrawlChromeExtensionsReady`
 - patch `env` with browser-level state
 
-#### `abx_plugins/plugins/chrome/on_Snapshot__09_chrome_launch.daemon.bg.js`
+#### `abx_plugins/plugins/chrome/on_Snapshot__00_chrome_launch.daemon.bg.js`
 
 - only run in snapshot isolation
 - emit `SnapshotChromeBrowserReady`
@@ -464,7 +464,7 @@ Delete entirely:
 - patch `env` with browser-level state
 - remove current crawl-isolation no-op behavior
 
-#### `abx_plugins/plugins/chrome/on_Snapshot__10_chrome_tab.daemon.bg.js`
+#### `abx_plugins/plugins/chrome/on_Snapshot__01_chrome_tab.daemon.bg.js`
 
 - in crawl isolation, subscribe to `Snapshot`
 - in snapshot isolation, subscribe to the relevant snapshot browser-ready event

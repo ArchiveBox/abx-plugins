@@ -317,7 +317,7 @@ async function main() {
   const args = parseArgs();
   if (!args.url) {
     console.error(
-      "Usage: on_Snapshot__12_chrome_screencast.daemon.bg.js --url=<url>"
+      "Usage: on_Snapshot__02_chrome_screencast.daemon.bg.js --url=<url>"
     );
     process.exit(1);
   }

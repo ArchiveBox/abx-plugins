@@ -5,7 +5,7 @@
  * Launch a shared Chromium browser session for the entire crawl.
  *
  * This runs once per crawl and keeps Chromium alive for all snapshots to share.
- * Each snapshot creates its own tab via on_Snapshot__10_chrome_tab.daemon.bg.js.
+ * Each snapshot creates its own tab via on_Snapshot__01_chrome_tab.daemon.bg.js.
  *
  * Extension caches are loaded after startup through CDP so Chrome assigns and
  * publishes the real runtime extension IDs in browser.json.

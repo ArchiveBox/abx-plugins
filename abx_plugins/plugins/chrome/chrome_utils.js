@@ -640,17 +640,17 @@ async function killZombieChrome(snapDir = null, options = {}) {
           });
           continue;
         }
-        if (command.includes("on_Snapshot__09_chrome_launch.daemon.bg.js")) {
+        if (command.includes("on_Snapshot__00_chrome_launch.daemon.bg.js")) {
           hookMatches.push({
             pid,
-            hookName: "on_Snapshot__09_chrome_launch.daemon.bg",
+            hookName: "on_Snapshot__00_chrome_launch.daemon.bg",
           });
           continue;
         }
-        if (command.includes("on_Snapshot__10_chrome_tab.daemon.bg.js")) {
+        if (command.includes("on_Snapshot__01_chrome_tab.daemon.bg.js")) {
           hookMatches.push({
             pid,
-            hookName: "on_Snapshot__10_chrome_tab.daemon.bg",
+            hookName: "on_Snapshot__01_chrome_tab.daemon.bg",
           });
         }
       }

@@ -3460,7 +3460,7 @@ def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_u
             screencast_hook = (
                 CHROME_UTILS.parent.parent
                 / "chrome_screencast"
-                / "on_Snapshot__12_chrome_screencast.daemon.bg.js"
+                / "on_Snapshot__02_chrome_screencast.daemon.bg.js"
             )
             screencast_process = subprocess.Popen(
                 [str(screencast_hook), f"--url={chrome_test_url}"],

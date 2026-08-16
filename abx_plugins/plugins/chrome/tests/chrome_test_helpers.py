@@ -81,10 +81,10 @@ PLUGINS_ROOT = CHROME_PLUGIN_DIR.parent
 CHROME_LAUNCH_HOOK = CHROME_PLUGIN_DIR / "on_CrawlSetup__90_chrome_launch.daemon.bg.js"
 CHROME_CRAWL_WAIT_HOOK = CHROME_PLUGIN_DIR / "on_CrawlSetup__91_chrome_wait.js"
 CHROME_SNAPSHOT_LAUNCH_HOOK = (
-    CHROME_PLUGIN_DIR / "on_Snapshot__09_chrome_launch.daemon.bg.js"
+    CHROME_PLUGIN_DIR / "on_Snapshot__00_chrome_launch.daemon.bg.js"
 )
-CHROME_TAB_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__10_chrome_tab.daemon.bg.js"
-CHROME_WAIT_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__11_chrome_wait.js"
+CHROME_TAB_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__01_chrome_tab.daemon.bg.js"
+CHROME_WAIT_HOOK = CHROME_PLUGIN_DIR / "on_Snapshot__01_chrome_wait.js"
 _CHROME_NAVIGATE_HOOK = next(
     CHROME_PLUGIN_DIR.glob("on_Snapshot__*_chrome_navigate.*"),
     None,
