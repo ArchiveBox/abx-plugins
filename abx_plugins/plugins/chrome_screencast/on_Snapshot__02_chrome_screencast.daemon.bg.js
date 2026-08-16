@@ -262,10 +262,9 @@ async function startScreencast() {
     }
   }
 
-  await captureFrame();
-  captureTimer = setTimeout(captureNextFrame, minFrameMs);
   console.log("chrome screencast attached");
   console.error(`screencast frames: ${LIVE_DIR}`);
+  captureTimer = setTimeout(captureNextFrame, 0);
 }
 
 async function publishCrawlScreencastReady() {

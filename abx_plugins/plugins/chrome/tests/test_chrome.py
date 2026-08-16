@@ -3470,11 +3470,13 @@ def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_u
                 text=True,
                 env=env | {"CHROME_SCREENCAST_KEEP": "1"},
             )
+            screencast_start = time.monotonic()
             assert screencast_process.stdout is not None
             assert (
                 screencast_process.stdout.readline().strip()
                 == "chrome screencast attached"
             )
+            assert time.monotonic() - screencast_start < 10
             assert screencast_process.stderr is not None
             frame_deadline = time.monotonic() + 10
             while time.monotonic() < frame_deadline and not latest_frame.is_file():
