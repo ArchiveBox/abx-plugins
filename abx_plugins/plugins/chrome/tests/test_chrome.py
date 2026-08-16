@@ -3488,7 +3488,8 @@ def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_u
             assert latest_frame.is_file(), (
                 "snapshot screencast did not capture its target"
             )
-            assert latest_frame.read_bytes().startswith(b"\xff\xd8\xff")
+            initial_frame = latest_frame.read_bytes()
+            assert initial_frame.startswith(b"\xff\xd8\xff")
             initial_frame_mtime = latest_frame.stat().st_mtime_ns
 
             navigate_result = subprocess.run(
@@ -3516,6 +3517,9 @@ def test_published_target_is_resolvable_from_fresh_cdp_connections(chrome_test_u
                 time.sleep(0.1)
             assert latest_frame.stat().st_mtime_ns > initial_frame_mtime, (
                 "screencast stopped updating after target navigation"
+            )
+            assert latest_frame.read_bytes() != initial_frame, (
+                "screencast rewrote the initial frame without publishing the navigated page"
             )
 
             script = f"""

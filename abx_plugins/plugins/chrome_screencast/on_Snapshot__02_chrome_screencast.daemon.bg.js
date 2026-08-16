@@ -78,47 +78,14 @@ if (CRAWL_DIR_VALUE) {
 }
 
 let browser = null;
+let cdpSession = null;
 let shuttingDown = false;
 let frameCount = 0;
 let nextFrameNumber = 1;
-let captureTimer = null;
 let keepFramesOnExit = 0;
 
 function emitResult(status, output) {
   emitArchiveResultRecord(status, output);
-}
-
-async function captureVisibleViewportJpeg(
-  page,
-  quality,
-  screenshotScale
-) {
-  const cdpSession = await page.target().createCDPSession();
-  let result;
-  try {
-    const metrics = await cdpSession.send("Page.getLayoutMetrics");
-    const viewport = metrics.visualViewport || metrics.layoutViewport || {};
-    const width = Math.max(1, Math.floor(viewport.clientWidth || 1440));
-    const height = Math.max(1, Math.floor(viewport.clientHeight || 900));
-    const x = Math.max(0, Math.floor(viewport.pageX || 0));
-    const y = Math.max(0, Math.floor(viewport.pageY || 0));
-    // Capture the current rendered viewport without resizing/emulating device
-    // metrics. CDP's clip.scale downscales the captured bitmap without changing
-    // the page viewport, avoiding both page reflow and JS-side image transforms.
-    result = await cdpSession.send("Page.captureScreenshot", {
-      format: "jpeg",
-      quality,
-      optimizeForSpeed: true,
-      fromSurface: true,
-      captureBeyondViewport: false,
-      clip: { x, y, width, height, scale: screenshotScale },
-    });
-  } finally {
-    try {
-      await cdpSession.detach();
-    } catch (error) {}
-  }
-  return Buffer.from(result.data, "base64");
 }
 
 function writeFrameAtomic(filePath, data) {
@@ -227,6 +194,7 @@ async function startScreencast() {
     ? Math.max(0.1, Math.min(1, rawScale))
     : 0.5;
   const minFrameMs = Math.floor(1000 / fps);
+  let lastFrameAt = 0;
 
   const writeFrame = (jpeg) => {
     const framePath = path.join(
@@ -240,31 +208,56 @@ async function startScreencast() {
     cleanupOldFrames(LIVE_FRAME_BUFFER);
   };
 
-  async function captureFrame() {
-    if (shuttingDown) return;
-    try {
-      const jpeg = await captureVisibleViewportJpeg(
-        page,
-        quality,
-        screenshotScale
-      );
-      writeFrame(jpeg);
-    } catch (error) {
-      if (error.message === "No HTTP(S) Chrome page target found") return;
-      console.error(`WARN: failed to write screencast frame: ${error.message}`);
-    }
-  }
+  await page.bringToFront();
+  cdpSession = await page.target().createCDPSession();
+  await cdpSession.send("Page.enable");
+  const metrics = await cdpSession.send("Page.getLayoutMetrics");
+  const viewport = metrics.visualViewport || metrics.layoutViewport || {};
+  const width = Math.max(1, Math.floor(viewport.clientWidth || 1440));
+  const height = Math.max(1, Math.floor(viewport.clientHeight || 900));
 
-  async function captureNextFrame() {
-    await captureFrame();
-    if (!shuttingDown) {
-      captureTimer = setTimeout(captureNextFrame, minFrameMs);
+  cdpSession.on("Page.screencastFrame", (frame) => {
+    try {
+      const now = Date.now();
+      if (!shuttingDown && now - lastFrameAt >= minFrameMs) {
+        writeFrame(Buffer.from(frame.data, "base64"));
+        lastFrameAt = now;
+      }
+    } catch (error) {
+      console.error(`WARN: failed to write screencast frame: ${error.message}`);
+    } finally {
+      if (cdpSession) {
+        void cdpSession
+          .send("Page.screencastFrameAck", { sessionId: frame.sessionId })
+          .catch(() => {});
+      }
     }
-  }
+  });
+  await cdpSession.send("Page.startScreencast", {
+    format: "jpeg",
+    quality,
+    maxWidth: Math.max(1, Math.floor(width * screenshotScale)),
+    maxHeight: Math.max(1, Math.floor(height * screenshotScale)),
+    everyNthFrame: 1,
+  });
+  const initialFrame = await cdpSession.send("Page.captureScreenshot", {
+    format: "jpeg",
+    quality,
+    optimizeForSpeed: true,
+    fromSurface: true,
+    captureBeyondViewport: false,
+    clip: {
+      x: Math.max(0, Math.floor(viewport.pageX || 0)),
+      y: Math.max(0, Math.floor(viewport.pageY || 0)),
+      width,
+      height,
+      scale: screenshotScale,
+    },
+  });
+  writeFrame(Buffer.from(initialFrame.data, "base64"));
 
   console.log("chrome screencast attached");
   console.error(`screencast frames: ${LIVE_DIR}`);
-  captureTimer = setTimeout(captureNextFrame, 0);
 }
 
 async function publishCrawlScreencastReady() {
@@ -289,9 +282,15 @@ async function publishCrawlScreencastReady() {
 async function stopScreencast(status = "succeeded", output = "") {
   if (shuttingDown) return;
   shuttingDown = true;
-  if (captureTimer) {
-    clearTimeout(captureTimer);
-    captureTimer = null;
+  if (cdpSession) {
+    try {
+      await cdpSession.send("Page.stopScreencast");
+    } catch (error) {}
+    cdpSession.removeAllListeners("Page.screencastFrame");
+    try {
+      await cdpSession.detach();
+    } catch (error) {}
+    cdpSession = null;
   }
   if (browser) {
     try {
