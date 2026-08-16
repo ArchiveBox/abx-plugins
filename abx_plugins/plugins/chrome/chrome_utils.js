@@ -2758,7 +2758,11 @@ function resolvePuppeteerModule() {
   ];
   for (const moduleName of ["puppeteer-core", "puppeteer"]) {
     try {
-      return require(require.resolve(moduleName, { paths: searchPaths }));
+      const packageEntry = require.resolve(moduleName, { paths: searchPaths });
+      const packageRequire = Module.createRequire(packageEntry);
+      return packageRequire(
+        "puppeteer-core/lib/puppeteer/puppeteer-core-browser.js"
+      );
     } catch (e) {}
   }
   throw new Error(
@@ -3285,7 +3289,6 @@ async function openTabInChromeSession(options = {}) {
     semaphore_timeout: Math.max(Math.ceil(timeoutMs / 1000), 1),
     semaphore_lax: false,
   })(async function openSharedChromeTab() {
-    const deadline = Date.now() + Math.max(timeoutMs, 0);
     return await withConnectedBrowser(
       {
         puppeteer: puppeteerModule,
@@ -3295,7 +3298,7 @@ async function openTabInChromeSession(options = {}) {
       async (browser) => {
         const remainingMs = Math.max(
           1000,
-          Math.min(5000, deadline - Date.now())
+          Math.min(5000, timeoutMs)
         );
         let targetId = null;
         try {
@@ -3318,25 +3321,6 @@ async function openTabInChromeSession(options = {}) {
           if (!targetId) {
             throw new Error("Failed to resolve target ID for new tab");
           }
-          await withConnectedBrowser(
-            {
-              puppeteer: puppeteerModule,
-              cdpUrl,
-              connectOptions: { defaultViewport: null },
-            },
-            async (verificationBrowser) => {
-              const verificationPage = await resolvePageByTargetId(
-                verificationBrowser,
-                targetId,
-                Math.max(1000, deadline - Date.now())
-              );
-              if (!verificationPage) {
-                throw new Error(
-                  `New tab target ${targetId} was not visible from a fresh Chrome session`
-                );
-              }
-            }
-          );
           return { targetId };
         } catch (error) {
           if (targetId) {
