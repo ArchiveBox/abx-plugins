@@ -63,7 +63,7 @@ OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 EXECUTOR_PROCESS_ARTIFACT_RE = re.compile(
-    rf"^{re.escape(Path(__file__).name)}\.[0-9a-f]{{32}}\."
+    rf"^(?:{re.escape(Path(__file__).stem)}|{re.escape(Path(__file__).name)})\.[0-9a-f]{{32}}\."
     r"(?:stdout\.log|stderr\.log|pid|sh)$",
 )
 

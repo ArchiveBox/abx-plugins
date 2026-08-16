@@ -355,7 +355,11 @@ def test_handles_404_gracefully(httpserver):
         assert "ERROR: wget failed (exit=8)" in result.stderr
 
 
-def test_connection_refused_ignores_executor_process_artifacts(tmp_path):
+@pytest.mark.parametrize("artifact_hook_name", [WGET_HOOK.stem, WGET_HOOK.name])
+def test_connection_refused_ignores_executor_process_artifacts(
+    tmp_path,
+    artifact_hook_name,
+):
     """A failed download must not report abx-dl's process files as output."""
     loaded = install_required_binary_from_config(PLUGIN_DIR, "wget")
     assert loaded.loaded_abspath is not None, "wget should resolve through abxpkg"
@@ -363,7 +367,7 @@ def test_connection_refused_ignores_executor_process_artifacts(tmp_path):
     output_dir = tmp_path / "wget"
     output_dir.mkdir()
     process_id = "0123456789abcdef0123456789abcdef"
-    artifact_stem = f"{WGET_HOOK.name}.{process_id}"
+    artifact_stem = f"{artifact_hook_name}.{process_id}"
     stdout_path = output_dir / f"{artifact_stem}.stdout.log"
     stderr_path = output_dir / f"{artifact_stem}.stderr.log"
     pid_path = output_dir / f"{artifact_stem}.pid"
