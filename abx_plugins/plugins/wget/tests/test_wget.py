@@ -363,7 +363,7 @@ def test_connection_refused_ignores_executor_process_artifacts(tmp_path):
     output_dir = tmp_path / "wget"
     output_dir.mkdir()
     process_id = "0123456789abcdef0123456789abcdef"
-    artifact_stem = f"{WGET_HOOK.stem}.{process_id}"
+    artifact_stem = f"{WGET_HOOK.name}.{process_id}"
     stdout_path = output_dir / f"{artifact_stem}.stdout.log"
     stderr_path = output_dir / f"{artifact_stem}.stderr.log"
     pid_path = output_dir / f"{artifact_stem}.pid"
