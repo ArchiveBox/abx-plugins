@@ -83,9 +83,19 @@ let shuttingDown = false;
 let frameCount = 0;
 let nextFrameNumber = 1;
 let keepFramesOnExit = 0;
+let pendingFrame = null;
+let pendingFrameTimer = null;
 
 function emitResult(status, output) {
   emitArchiveResultRecord(status, output);
+}
+
+function clearPendingFrame() {
+  pendingFrame = null;
+  if (pendingFrameTimer) {
+    clearTimeout(pendingFrameTimer);
+    pendingFrameTimer = null;
+  }
 }
 
 function writeFrameAtomic(filePath, data) {
@@ -207,6 +217,10 @@ async function startScreencast() {
     writeFrameAtomic(LATEST_FRAME, jpeg);
     cleanupOldFrames(LIVE_FRAME_BUFFER);
   };
+  const writeNativeFrame = (jpeg) => {
+    writeFrame(jpeg);
+    lastFrameAt = Date.now();
+  };
 
   await page.bringToFront();
   cdpSession = await page.target().createCDPSession();
@@ -220,8 +234,19 @@ async function startScreencast() {
     try {
       const now = Date.now();
       if (!shuttingDown && now - lastFrameAt >= minFrameMs) {
-        writeFrame(Buffer.from(frame.data, "base64"));
-        lastFrameAt = now;
+        clearPendingFrame();
+        writeNativeFrame(Buffer.from(frame.data, "base64"));
+      } else if (!shuttingDown) {
+        pendingFrame = Buffer.from(frame.data, "base64");
+        if (!pendingFrameTimer) {
+          pendingFrameTimer = setTimeout(() => {
+            pendingFrameTimer = null;
+            if (!shuttingDown && pendingFrame) {
+              writeNativeFrame(pendingFrame);
+            }
+            pendingFrame = null;
+          }, Math.max(0, minFrameMs - (now - lastFrameAt)));
+        }
       }
     } catch (error) {
       console.error(`WARN: failed to write screencast frame: ${error.message}`);
@@ -254,7 +279,7 @@ async function startScreencast() {
       scale: screenshotScale,
     },
   });
-  writeFrame(Buffer.from(initialFrame.data, "base64"));
+  writeNativeFrame(Buffer.from(initialFrame.data, "base64"));
 
   console.log("chrome screencast attached");
   console.error(`screencast frames: ${LIVE_DIR}`);
@@ -282,6 +307,7 @@ async function publishCrawlScreencastReady() {
 async function stopScreencast(status = "succeeded", output = "") {
   if (shuttingDown) return;
   shuttingDown = true;
+  clearPendingFrame();
   if (cdpSession) {
     try {
       await cdpSession.send("Page.stopScreencast");
