@@ -6,7 +6,7 @@
 #
 # Archive a URL using wget.
 #
-# Usage: on_Snapshot__06_wget.finite.bg.py --url=<url>
+# Usage: on_Snapshot__35_wget.finite.bg.py --url=<url>
 # Output: Downloads files to $PWD
 #
 # Environment variables:

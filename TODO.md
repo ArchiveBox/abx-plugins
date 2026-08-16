@@ -408,13 +408,13 @@ The first snapshot-scoped Chrome event guaranteed in both modes is:
 
 1. `Snapshot`
 2. root non-Chrome downloaders stay on `Snapshot`, e.g.:
-   - `abx_plugins/plugins/ytdlp/on_Snapshot__02_ytdlp.finite.bg.py`
-   - `abx_plugins/plugins/gallerydl/on_Snapshot__03_gallerydl.finite.bg.py`
-   - `abx_plugins/plugins/forumdl/on_Snapshot__04_forumdl.finite.bg.py`
-   - `abx_plugins/plugins/git/on_Snapshot__05_git.finite.bg.py`
-   - `abx_plugins/plugins/wget/on_Snapshot__06_wget.finite.bg.py`
-   - `abx_plugins/plugins/archivedotorg/on_Snapshot__08_archivedotorg.finite.bg.py`
-   - `abx_plugins/plugins/favicon/on_Snapshot__11_favicon.finite.bg.py`
+   - `abx_plugins/plugins/ytdlp/on_Snapshot__31_ytdlp.finite.bg.py`
+   - `abx_plugins/plugins/gallerydl/on_Snapshot__32_gallerydl.finite.bg.py`
+   - `abx_plugins/plugins/forumdl/on_Snapshot__33_forumdl.finite.bg.py`
+   - `abx_plugins/plugins/git/on_Snapshot__34_git.finite.bg.py`
+   - `abx_plugins/plugins/wget/on_Snapshot__35_wget.finite.bg.py`
+   - `abx_plugins/plugins/archivedotorg/on_Snapshot__36_archivedotorg.finite.bg.py`
+   - `abx_plugins/plugins/favicon/on_Snapshot__37_favicon.finite.bg.py`
    - `abx_plugins/plugins/papersdl/on_Snapshot__66_papersdl.finite.bg.py`
 3. Chrome branch:
    - crawl isolation: `chrome_tab` subscribes directly to `Snapshot`
@@ -443,10 +443,9 @@ The first snapshot-scoped Chrome event guaranteed in both modes is:
 
 ### 1. Delete pure barrier hooks
 
-Delete entirely:
+Delete the remaining barrier hook:
 
 - `abx_plugins/plugins/chrome/on_CrawlSetup__91_chrome_wait.js`
-- `abx_plugins/plugins/chrome/on_Snapshot__01_chrome_wait.js`
 
 ### 2. Chrome provider hooks
 
@@ -707,7 +706,7 @@ Document:
 3. Pass full reduced context via env vars and current event payload via CLI args.
 4. Add generic event emit helpers in JS and Python.
 5. Expand fallback `ArchiveResult` synthesis so `on_AfterSnapshot__...` hooks behave like `on_Snapshot__...` hooks.
-6. Delete `chrome_wait` barrier hooks.
+6. Delete the remaining crawl `chrome_wait` barrier hook.
 7. Move Chrome launch/tab onto real event emission.
 8. Define the bg pre-navigation settle semantics needed before moving `chrome_navigate` to `AfterSnapshotChromeTabReady`.
 9. Move post-navigation extractors to `SnapshotChromeTabNavigated`.

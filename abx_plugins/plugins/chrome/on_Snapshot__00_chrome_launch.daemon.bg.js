@@ -40,6 +40,17 @@ const {
   emitArchiveResultRecord,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
+
+const hookConfig = loadConfig();
+const CHROME_ISOLATION =
+  String(hookConfig.CHROME_ISOLATION || "crawl").toLowerCase() === "snapshot"
+    ? "snapshot"
+    : "crawl";
+if (CHROME_ISOLATION === "crawl") {
+  emitArchiveResultRecord("skipped", "CHROME_ISOLATION=crawl");
+  process.exit(0);
+}
+
 const {
   acquireSessionLock,
   ensureChromeSession,
@@ -50,16 +61,11 @@ const {
 } = require("./chrome_utils.js");
 
 const PLUGIN_DIR = path.basename(__dirname);
-const hookConfig = loadConfig();
 const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || ".").trim());
 const chromeSessionOptions = getChromeSessionOptionsFromConfig(hookConfig);
 const CHROME_CDP_URL = chromeSessionOptions.CHROME_CDP_URL;
 const CHROME_IS_LOCAL = chromeSessionOptions.CHROME_IS_LOCAL;
 const CHROME_KEEPALIVE = hookConfig.CHROME_KEEPALIVE === true;
-const CHROME_ISOLATION =
-  String(hookConfig.CHROME_ISOLATION || "crawl").toLowerCase() === "snapshot"
-    ? "snapshot"
-    : "crawl";
 const OUTPUT_DIR = path.join(SNAP_DIR, "chrome");
 if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -150,17 +156,9 @@ async function main() {
     releaseLock = await acquireSessionLock(
       path.join(OUTPUT_DIR, ".launch.lock")
     );
-    const isolation = CHROME_ISOLATION;
     const keepAlive = CHROME_KEEPALIVE;
     const cdpUrlOverride = CHROME_CDP_URL;
     chromeProcessIsLocal = CHROME_IS_LOCAL;
-
-    if (isolation === "crawl") {
-      releaseLock();
-      releaseLock = null;
-      emitArchiveResultRecord("skipped", "CHROME_ISOLATION=crawl");
-      process.exit(0);
-    }
 
     puppeteer = resolvePuppeteerModule();
     const chromeBinaryPath = cdpUrlOverride ? null : findChromium();

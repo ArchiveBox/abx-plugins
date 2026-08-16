@@ -13,7 +13,7 @@
  * downstream snapshot hooks do not all need to reimplement their own manual
  * ordering and blocking checks before connecting to the published page target.
  *
- * Usage: on_Snapshot__01_chrome_wait.js --url=<url>
+ * Usage: chrome_wait.js --url=<url>
  */
 
 const fs = require("fs");
@@ -51,7 +51,7 @@ async function main() {
   const url = args.url;
 
   if (!url) {
-    console.error("Usage: on_Snapshot__01_chrome_wait.js --url=<url>");
+    console.error("Usage: chrome_wait.js --url=<url>");
     process.exit(1);
   }
 
@@ -108,3 +108,4 @@ main().catch((e) => {
   console.error(`Fatal error: ${e.message}`);
   process.exit(1);
 });
+

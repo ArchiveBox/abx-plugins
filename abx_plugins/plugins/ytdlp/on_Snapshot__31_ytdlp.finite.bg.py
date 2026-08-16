@@ -6,7 +6,7 @@
 """
 Download video/audio from a URL using yt-dlp.
 
-Usage: on_Snapshot__02_ytdlp.finite.bg.py --url=<url>
+Usage: on_Snapshot__31_ytdlp.finite.bg.py --url=<url>
 Output: Downloads video/audio files to SNAP_DIR/ytdlp/
 
 Environment variables:

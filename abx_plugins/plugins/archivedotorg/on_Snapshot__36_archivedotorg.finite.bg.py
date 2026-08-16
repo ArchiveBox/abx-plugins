@@ -7,7 +7,7 @@
 # Submit a URL to archive.org for archiving and save the resulting archive.org link.
 #
 # Usage:
-#     ./on_Snapshot__08_archivedotorg.finite.bg.py --url=<url> > events.jsonl
+#     ./on_Snapshot__36_archivedotorg.finite.bg.py --url=<url> > events.jsonl
 
 import signal
 import sys

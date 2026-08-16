@@ -8,7 +8,7 @@
 # Supports multiple favicon sources including HTML link tags and a configurable fallback provider.
 #
 # Usage:
-#     ./on_Snapshot__11_favicon.finite.bg.py --url=<url>
+#     ./on_Snapshot__37_favicon.finite.bg.py --url=<url>
 
 import signal
 import sys

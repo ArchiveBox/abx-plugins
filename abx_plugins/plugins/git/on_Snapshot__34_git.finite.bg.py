@@ -8,7 +8,7 @@
 # Supports configurable git arguments and timeout via environment variables.
 #
 # Usage:
-#     ./on_Snapshot__05_git.finite.bg.py --url=<url> > events.jsonl
+#     ./on_Snapshot__34_git.finite.bg.py --url=<url> > events.jsonl
 
 import signal
 import sys

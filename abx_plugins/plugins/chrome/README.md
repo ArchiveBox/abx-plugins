@@ -169,9 +169,8 @@ Chromium and extension dependencies are resolved before crawl setup from
 
 | Hook                                         | Priority | Purpose                                                                                                    |
 | -------------------------------------------- | -------: | ---------------------------------------------------------------------------------------------------------- |
-| `on_Snapshot__00_chrome_launch.daemon.bg.js` |        0 | Launch/adopt snapshot-scoped browser when `CHROME_ISOLATION=snapshot`. No-op readiness check when `crawl`. |
-| `on_Snapshot__01_chrome_tab.daemon.bg.js`    |        1 | Create or adopt the snapshot page target.                                                                  |
-| `on_Snapshot__01_chrome_wait.js`             |        1 | Verify snapshot `cdp_url.txt` + `target_id.txt` point at a live target.                                    |
+| `on_Snapshot__00_chrome_launch.daemon.bg.js` |        0 | Launch/adopt snapshot-scoped browser when `CHROME_ISOLATION=snapshot`. Skip immediately when `crawl`.     |
+| `on_Snapshot__01_chrome_tab.daemon.bg.js`    |        1 | Create, verify, and publish the snapshot page target.                                                       |
 | `on_Snapshot__30_chrome_navigate.js`         |       30 | Navigate the snapshot page and publish navigation markers.                                                 |
 
 Chrome target setup runs before background extractors so live screencast frames

@@ -8,7 +8,7 @@
 # cookies, and timeout configurations via environment variables.
 #
 # Usage:
-#     ./on_Snapshot__03_gallerydl.finite.bg.py --url=<url> > events.jsonl
+#     ./on_Snapshot__32_gallerydl.finite.bg.py --url=<url> > events.jsonl
 
 import signal
 import sys

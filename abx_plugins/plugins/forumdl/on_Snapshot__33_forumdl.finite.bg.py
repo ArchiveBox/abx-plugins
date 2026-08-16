@@ -8,7 +8,7 @@
 # Outputs forum data to $PWD/ and emits ArchiveResult events to stdout.
 #
 # Usage:
-#     ./on_Snapshot__04_forumdl.finite.bg.py --url=<url>
+#     ./on_Snapshot__33_forumdl.finite.bg.py --url=<url>
 
 import signal
 import sys

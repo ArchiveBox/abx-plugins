@@ -1300,1283 +1300,6 @@ abx-dl 'https://example.com'</code></pre>
               </div>
             </details>
             <details
-              id="ytdlp"
-              class="plugin-card plugin-card--snapshot"
-              data-search="ytdlp snapshot yt-dlp download video and audio media with metadata, subtitles, thumbnails, and description sidecars. python snapshot embed fullscreen {ytdlp_binary} {node_binary} {ffmpeg_binary} env,uv,brew,apt env,node,brew,apt env,brew,apt    {&#34;uv&#34;: {&#34;install_args&#34;: [&#34;yt-dlp[default]&#34;], &#34;postinstall_scripts&#34;: true}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} audio video image application/x-subrip text/vtt application/json text/plain on_snapshot__02_ytdlp.finite.bg.py ytdlp_enabled enable video/audio downloading with yt-dlp ytdlp_binary path to yt-dlp binary node_binary path to node.js binary for yt-dlp js runtime ffmpeg_binary path to ffmpeg binary for yt-dlp media remuxing and downloads ytdlp_timeout timeout for yt-dlp downloads in seconds ytdlp_cookies_file path to cookies file ytdlp_max_size maximum file size for yt-dlp downloads ytdlp_check_ssl_validity whether to verify ssl certificates ytdlp_args default yt-dlp arguments ytdlp_args_extra extra arguments to append to yt-dlp command"
-              data-hero-plugin="ytdlp"
-              data-hero-abx-command="uvx abx-dl --plugins ytdlp 'https://example.com'"
-              data-hero-archivebox-command="YTDLP_ENABLED=true archivebox add &#39;https://example.com&#39;"
-            >
-              <summary>
-                <div class="plugin-card__frame">
-                  <div class="plugin-main">
-                    <div class="plugin-title-row">
-                      <h2>yt-dlp</h2>
-                    </div>
-                    <div class="plugin-slug"><code>ytdlp</code></div>
-                    <p class="plugin-summary-description">Download video and audio media with metadata, subtitles, thumbnails, and description sidecars.</p>
-                    <div class="plugin-subline">
-                      <span class="plugin-order">#02</span>
-                      <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
-                        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
-                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
-                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
-                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
-                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
-                        </svg>
-                      </span>
-
-                      <span class="chip">Snapshot</span>
-                      <span class="chip">Embed</span>
-                      <span class="chip">Fullscreen</span>
-                    </div>
-                    <div class="plugin-summary-facts">
-                      <div>
-                        <span class="chip chip--binary-summary">yt-dlp <small>(env,uv,brew,apt)</small></span>
-                        <span class="chip chip--binary-summary">node <small>(env,node,brew,apt)</small></span>
-<span class="chip">+1 more</span>                      </div>
-                      <div>
-                        <span class="chip chip--mime chip--mime-media">audio</span>
-                        <span class="chip chip--mime chip--mime-media">video</span>
-                        <span class="chip chip--mime chip--mime-image">image</span>
-                        <span class="chip chip--mime chip--mime-media">application/x-subrip</span>
-<span class="chip">+3 more</span>                      </div>
-                    </div>
-                  </div>
-                </div>
-              </summary>
-
-              <div class="plugin-body">
-                <p class="plugin-modal-description">Download video and audio media with metadata, subtitles, thumbnails, and description sidecars.</p>
-
-                <div class="actions">
-                  <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/ytdlp" target="_blank" rel="noreferrer">Source on GitHub</a>
-                </div>
-
-                <h3 class="section-title">Dependencies &amp; Outputs</h3>
-                <div class="plugin-info-grid">
-                  <article class="plugin-info-card">
-                    <span>Required Binaries</span>
-                    <div class="pill-list">
-                      <span class="chip chip--binary" title="yt-dlp
-providers: env,uv,brew,apt">
-                        <code>yt-dlp</code>
-                        <small>providers=env,uv,brew,apt</small>
-                      </span>
-                      <span class="chip chip--binary" title="node
-providers: env,node,brew,apt">
-                        <code>node</code>
-                        <small>providers=env,node,brew,apt</small>
-                      </span>
-                      <span class="chip chip--binary" title="ffmpeg
-providers: env,brew,apt">
-                        <code>ffmpeg</code>
-                        <small>providers=env,brew,apt</small>
-                      </span>
-                    </div>
-                  </article>
-                  <article class="plugin-info-card">
-                    <span>Output Mimetypes</span>
-                    <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-media">audio</span>
-                      <span class="chip chip--mime chip--mime-media">video</span>
-                      <span class="chip chip--mime chip--mime-image">image</span>
-                      <span class="chip chip--mime chip--mime-media">application/x-subrip</span>
-                      <span class="chip chip--mime chip--mime-media">text/vtt</span>
-                      <span class="chip chip--mime chip--mime-data">application/json</span>
-                      <span class="chip chip--mime chip--mime-text">text/plain</span>
-                    </div>
-                  </article>
-                </div>
-
-                <h3 class="section-title">Run It</h3>
-                <div class="run-tabs" data-run-tabs>
-                  <div class="run-tabs-bar">
-                    <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
-                    <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
-                  </div>
-                  <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl --plugins=ytdlp &#39;https://example.com&#39;</code></pre>
-                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>YTDLP_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
-                </div>
-                <p class="note">Runtime plugins execute while archiving a URL.</p>
-
-                <h3 class="section-title">Hook Scripts</h3>
-                <div class="hook-list">
-                  <article class="hook-card">
-                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/ytdlp/on_Snapshot__02_ytdlp.finite.bg.py" target="_blank" rel="noreferrer">on_Snapshot__02_ytdlp.finite.bg.py</a></span>
-                    <div class="hook-card-chips">
-                      <span class="plugin-language plugin-language--python" title="Python">
-                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
-                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
-                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
-                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
-                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
-                        </svg>
-                      </span>
-                      <span class="chip">order 02</span>
-                      <span class="chip chip--bg-finite">background (finite)</span>
-                      <span class="hook-card-phase">Snapshot</span>
-                    </div>
-                  </article>
-                </div>
-
-                <h3 class="section-title">Env Var Config Options</h3>
-                <div class="config-table-wrap">
-                  <table class="ab-table config-table">
-                    <colgroup>
-                      <col class="col-key">
-                      <col class="col-default">
-                      <col class="col-type">
-                      <col class="col-aliases">
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th>Key</th>
-                        <th>Default</th>
-                        <th>Type</th>
-                        <th>Aliases / Fallback</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td><code>YTDLP_ENABLED</code><span class="config-key-desc">Enable video/audio downloading with yt-dlp</span></td>
-                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
-                        <td>
-                          <code>boolean</code>
-                        </td>
-                        <td>
-<small>MEDIA_ENABLED, SAVE_MEDIA, USE_MEDIA, USE_YTDLP, FETCH_MEDIA, SAVE_YTDLP</small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>YTDLP_BINARY</code><span class="config-key-desc">Path to yt-dlp binary</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;yt-dlp&quot;</span></td>
-                        <td>
-                          <code>string</code>
-                        </td>
-                        <td>
-<small>YOUTUBEDL_BINARY, YOUTUBE_DL_BINARY</small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>NODE_BINARY</code><span class="config-key-desc">Path to Node.js binary for yt-dlp JS runtime</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;node&quot;</span></td>
-                        <td>
-                          <code>string</code>
-                        </td>
-                        <td>
-<span class="config-table-muted">—</span>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>FFMPEG_BINARY</code><span class="config-key-desc">Path to ffmpeg binary for yt-dlp media remuxing and downloads</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;ffmpeg&quot;</span></td>
-                        <td>
-                          <code>string</code>
-                        </td>
-                        <td>
-<span class="config-table-muted">—</span>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>YTDLP_TIMEOUT</code><span class="config-key-desc">Timeout for yt-dlp downloads in seconds</span></td>
-                        <td class="cfg-default"><span class="cfg-number">120</span></td>
-                        <td>
-                          <code>integer</code>
-<br><small>min 10</small>                        </td>
-                        <td>
-<small>MEDIA_TIMEOUT</small><br><small>fallback: <code>TIMEOUT</code></small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>YTDLP_COOKIES_FILE</code><span class="config-key-desc">Path to cookies file</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
-                        <td>
-                          <code>string</code>
-                        </td>
-                        <td>
-<small>fallback: <code>COOKIES_FILE</code></small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>YTDLP_MAX_SIZE</code><span class="config-key-desc">Maximum file size for yt-dlp downloads</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;750m&quot;</span></td>
-                        <td>
-                          <code>string</code>
-<br><small>pattern <code>^\d+[kmgKMG]?$</code></small>                        </td>
-                        <td>
-<small>MEDIA_MAX_SIZE</small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>YTDLP_CHECK_SSL_VALIDITY</code><span class="config-key-desc">Whether to verify SSL certificates</span></td>
-                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
-                        <td>
-                          <code>boolean</code>
-                        </td>
-                        <td>
-<small>fallback: <code>CHECK_SSL_VALIDITY</code></small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>YTDLP_ARGS</code><span class="config-key-desc">Default yt-dlp arguments</span></td>
-                        <td class="cfg-default"><span class="cfg-bracket">[</span><div class="cfg-array"><div class="cfg-array-item"><span class="cfg-string">&quot;--socket-timeout=5&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--retries=0&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--fragment-retries=0&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--extractor-retries=0&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--file-access-retries=0&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--restrict-filenames&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--trim-filenames=128&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-description&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-info-json&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-thumbnail&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-sub&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-auto-subs&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--convert-subs=srt&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--yes-playlist&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--continue&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--no-abort-on-error&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--ignore-errors&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--geo-bypass&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--add-metadata&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--no-progress&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--remote-components=ejs:github&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;-o&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;%(title)s.%(ext)s&quot;</span></div></div><span class="cfg-bracket">]</span></td>
-                        <td>
-                          <code>array</code>
-                        </td>
-                        <td>
-<small>YTDLP_DEFAULT_ARGS</small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>YTDLP_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to yt-dlp command</span></td>
-                        <td class="cfg-default"><span class="cfg-bracket">[]</span></td>
-                        <td>
-                          <code>array</code>
-                        </td>
-                        <td>
-<small>YTDLP_EXTRA_ARGS</small>                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </details>
-            <details
-              id="gallerydl"
-              class="plugin-card plugin-card--snapshot"
-              data-search="gallerydl snapshot gallery-dl download image and media galleries along with metadata sidecars from supported sites. python snapshot embed fullscreen {gallerydl_binary} env,uv,brew,apt  {&#34;uv&#34;: {&#34;postinstall_scripts&#34;: true}} image video application/json text/plain application/zip on_snapshot__03_gallerydl.finite.bg.py gallerydl_enabled enable gallery downloading with gallery-dl gallerydl_binary path to gallery-dl binary gallerydl_timeout timeout for gallery downloads in seconds gallerydl_cookies_file path to cookies file gallerydl_check_ssl_validity whether to verify ssl certificates gallerydl_args default gallery-dl arguments gallerydl_args_extra extra arguments to append to gallery-dl command"
-              data-hero-plugin="gallerydl"
-              data-hero-abx-command="uvx abx-dl --plugins gallerydl 'https://example.com'"
-              data-hero-archivebox-command="GALLERYDL_ENABLED=true archivebox add &#39;https://example.com&#39;"
-            >
-              <summary>
-                <div class="plugin-card__frame">
-                  <div class="plugin-main">
-                    <div class="plugin-title-row">
-                      <h2>gallery-dl</h2>
-                    </div>
-                    <div class="plugin-slug"><code>gallerydl</code></div>
-                    <p class="plugin-summary-description">Download image and media galleries along with metadata sidecars from supported sites.</p>
-                    <div class="plugin-subline">
-                      <span class="plugin-order">#03</span>
-                      <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
-                        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
-                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
-                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
-                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
-                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
-                        </svg>
-                      </span>
-
-                      <span class="chip">Snapshot</span>
-                      <span class="chip">Embed</span>
-                      <span class="chip">Fullscreen</span>
-                    </div>
-                    <div class="plugin-summary-facts">
-                      <div>
-                        <span class="chip chip--binary-summary">gallery-dl <small>(env,uv,brew,apt)</small></span>
-                      </div>
-                      <div>
-                        <span class="chip chip--mime chip--mime-image">image</span>
-                        <span class="chip chip--mime chip--mime-media">video</span>
-                        <span class="chip chip--mime chip--mime-data">application/json</span>
-                        <span class="chip chip--mime chip--mime-text">text/plain</span>
-<span class="chip">+1 more</span>                      </div>
-                    </div>
-                  </div>
-                </div>
-              </summary>
-
-              <div class="plugin-body">
-                <p class="plugin-modal-description">Download image and media galleries along with metadata sidecars from supported sites.</p>
-
-                <div class="actions">
-                  <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/gallerydl" target="_blank" rel="noreferrer">Source on GitHub</a>
-                </div>
-
-                <h3 class="section-title">Dependencies &amp; Outputs</h3>
-                <div class="plugin-info-grid">
-                  <article class="plugin-info-card">
-                    <span>Required Binaries</span>
-                    <div class="pill-list">
-                      <span class="chip chip--binary" title="gallery-dl
-providers: env,uv,brew,apt">
-                        <code>gallery-dl</code>
-                        <small>providers=env,uv,brew,apt</small>
-                      </span>
-                    </div>
-                  </article>
-                  <article class="plugin-info-card">
-                    <span>Output Mimetypes</span>
-                    <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-image">image</span>
-                      <span class="chip chip--mime chip--mime-media">video</span>
-                      <span class="chip chip--mime chip--mime-data">application/json</span>
-                      <span class="chip chip--mime chip--mime-text">text/plain</span>
-                      <span class="chip chip--mime chip--mime-archive">application/zip</span>
-                    </div>
-                  </article>
-                </div>
-
-                <h3 class="section-title">Run It</h3>
-                <div class="run-tabs" data-run-tabs>
-                  <div class="run-tabs-bar">
-                    <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
-                    <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
-                  </div>
-                  <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl --plugins=gallerydl &#39;https://example.com&#39;</code></pre>
-                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>GALLERYDL_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
-                </div>
-                <p class="note">Runtime plugins execute while archiving a URL.</p>
-
-                <h3 class="section-title">Hook Scripts</h3>
-                <div class="hook-list">
-                  <article class="hook-card">
-                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/gallerydl/on_Snapshot__03_gallerydl.finite.bg.py" target="_blank" rel="noreferrer">on_Snapshot__03_gallerydl.finite.bg.py</a></span>
-                    <div class="hook-card-chips">
-                      <span class="plugin-language plugin-language--python" title="Python">
-                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
-                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
-                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
-                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
-                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
-                        </svg>
-                      </span>
-                      <span class="chip">order 03</span>
-                      <span class="chip chip--bg-finite">background (finite)</span>
-                      <span class="hook-card-phase">Snapshot</span>
-                    </div>
-                  </article>
-                </div>
-
-                <h3 class="section-title">Env Var Config Options</h3>
-                <div class="config-table-wrap">
-                  <table class="ab-table config-table">
-                    <colgroup>
-                      <col class="col-key">
-                      <col class="col-default">
-                      <col class="col-type">
-                      <col class="col-aliases">
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th>Key</th>
-                        <th>Default</th>
-                        <th>Type</th>
-                        <th>Aliases / Fallback</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td><code>GALLERYDL_ENABLED</code><span class="config-key-desc">Enable gallery downloading with gallery-dl</span></td>
-                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
-                        <td>
-                          <code>boolean</code>
-                        </td>
-                        <td>
-<small>SAVE_GALLERYDL, USE_GALLERYDL</small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>GALLERYDL_BINARY</code><span class="config-key-desc">Path to gallery-dl binary</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;gallery-dl&quot;</span></td>
-                        <td>
-                          <code>string</code>
-                        </td>
-                        <td>
-<span class="config-table-muted">—</span>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>GALLERYDL_TIMEOUT</code><span class="config-key-desc">Timeout for gallery downloads in seconds</span></td>
-                        <td class="cfg-default"><span class="cfg-number">120</span></td>
-                        <td>
-                          <code>integer</code>
-<br><small>min 10</small>                        </td>
-                        <td>
-<small>fallback: <code>TIMEOUT</code></small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>GALLERYDL_COOKIES_FILE</code><span class="config-key-desc">Path to cookies file</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
-                        <td>
-                          <code>string</code>
-                        </td>
-                        <td>
-<small>fallback: <code>COOKIES_FILE</code></small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>GALLERYDL_CHECK_SSL_VALIDITY</code><span class="config-key-desc">Whether to verify SSL certificates</span></td>
-                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
-                        <td>
-                          <code>boolean</code>
-                        </td>
-                        <td>
-<small>fallback: <code>CHECK_SSL_VALIDITY</code></small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>GALLERYDL_ARGS</code><span class="config-key-desc">Default gallery-dl arguments</span></td>
-                        <td class="cfg-default"><span class="cfg-bracket">[</span><div class="cfg-array"><div class="cfg-array-item"><span class="cfg-string">&quot;--http-timeout=5&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--retries=0&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-metadata&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-info-json&quot;</span></div></div><span class="cfg-bracket">]</span></td>
-                        <td>
-                          <code>array</code>
-                        </td>
-                        <td>
-<small>GALLERYDL_DEFAULT_ARGS</small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>GALLERYDL_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to gallery-dl command</span></td>
-                        <td class="cfg-default"><span class="cfg-bracket">[]</span></td>
-                        <td>
-                          <code>array</code>
-                        </td>
-                        <td>
-<small>GALLERYDL_EXTRA_ARGS</small>                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </details>
-            <details
-              id="forumdl"
-              class="plugin-card plugin-card--snapshot"
-              data-search="forumdl snapshot forum-dl download forum threads and exports in jsonl, warc, and mailbox-style archive formats. python snapshot embed fullscreen {forumdl_binary} env,uv  {&#34;uv&#34;: {&#34;install_args&#34;: [&#34;--no-deps&#34;, &#34;forum-dl&#34;, &#34;chardet==5.2.0&#34;, &#34;pydantic==2.12.3&#34;, &#34;pydantic-core==2.41.4&#34;, &#34;typing-extensions&gt;=4.14.1&#34;, &#34;annotated-types&gt;=0.6.0&#34;, &#34;typing-inspection&gt;=0.4.2&#34;, &#34;beautifulsoup4&#34;, &#34;soupsieve&#34;, &#34;lxml&#34;, &#34;requests&#34;, &#34;urllib3&#34;, &#34;certifi&#34;, &#34;idna&#34;, &#34;charset-normalizer&#34;, &#34;tenacity&#34;, &#34;python-dateutil&#34;, &#34;six&#34;, &#34;html2text&#34;, &#34;warcio&#34;], &#34;postinstall_scripts&#34;: true}} application/x-ndjson application/warc message/rfc822 on_snapshot__04_forumdl.finite.bg.py forumdl_enabled enable forum downloading with forum-dl forumdl_binary path to forum-dl binary forumdl_timeout timeout for forum downloads in seconds forumdl_output_format output format for forum downloads forumdl_args default forum-dl arguments. keep autodetection deterministic by disabling forum-dl&#39;s retry loop unless explicitly overridden. forumdl_args_extra extra arguments to append to forum-dl command"
-              data-hero-plugin="forumdl"
-              data-hero-abx-command="uvx abx-dl --plugins forumdl 'https://example.com'"
-              data-hero-archivebox-command="FORUMDL_ENABLED=true archivebox add &#39;https://example.com&#39;"
-            >
-              <summary>
-                <div class="plugin-card__frame">
-                  <div class="plugin-main">
-                    <div class="plugin-title-row">
-                      <h2>forum-dl</h2>
-                    </div>
-                    <div class="plugin-slug"><code>forumdl</code></div>
-                    <p class="plugin-summary-description">Download forum threads and exports in JSONL, WARC, and mailbox-style archive formats.</p>
-                    <div class="plugin-subline">
-                      <span class="plugin-order">#04</span>
-                      <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
-                        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
-                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
-                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
-                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
-                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
-                        </svg>
-                      </span>
-
-                      <span class="chip">Snapshot</span>
-                      <span class="chip">Embed</span>
-                      <span class="chip">Fullscreen</span>
-                    </div>
-                    <div class="plugin-summary-facts">
-                      <div>
-                        <span class="chip chip--binary-summary">forum-dl <small>(env,uv)</small></span>
-                      </div>
-                      <div>
-                        <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
-                        <span class="chip chip--mime chip--mime-archive">application/warc</span>
-                        <span class="chip chip--mime chip--mime-archive">message/rfc822</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </summary>
-
-              <div class="plugin-body">
-                <p class="plugin-modal-description">Download forum threads and exports in JSONL, WARC, and mailbox-style archive formats.</p>
-
-                <div class="actions">
-                  <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/forumdl" target="_blank" rel="noreferrer">Source on GitHub</a>
-                </div>
-
-                <h3 class="section-title">Dependencies &amp; Outputs</h3>
-                <div class="plugin-info-grid">
-                  <article class="plugin-info-card">
-                    <span>Required Binaries</span>
-                    <div class="pill-list">
-                      <span class="chip chip--binary" title="forum-dl
-providers: env,uv">
-                        <code>forum-dl</code>
-                        <small>providers=env,uv</small>
-                      </span>
-                    </div>
-                  </article>
-                  <article class="plugin-info-card">
-                    <span>Output Mimetypes</span>
-                    <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
-                      <span class="chip chip--mime chip--mime-archive">application/warc</span>
-                      <span class="chip chip--mime chip--mime-archive">message/rfc822</span>
-                    </div>
-                  </article>
-                </div>
-
-                <h3 class="section-title">Run It</h3>
-                <div class="run-tabs" data-run-tabs>
-                  <div class="run-tabs-bar">
-                    <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
-                    <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
-                  </div>
-                  <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl --plugins=forumdl &#39;https://example.com&#39;</code></pre>
-                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>FORUMDL_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
-                </div>
-                <p class="note">Runtime plugins execute while archiving a URL.</p>
-
-                <h3 class="section-title">Hook Scripts</h3>
-                <div class="hook-list">
-                  <article class="hook-card">
-                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/forumdl/on_Snapshot__04_forumdl.finite.bg.py" target="_blank" rel="noreferrer">on_Snapshot__04_forumdl.finite.bg.py</a></span>
-                    <div class="hook-card-chips">
-                      <span class="plugin-language plugin-language--python" title="Python">
-                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
-                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
-                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
-                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
-                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
-                        </svg>
-                      </span>
-                      <span class="chip">order 04</span>
-                      <span class="chip chip--bg-finite">background (finite)</span>
-                      <span class="hook-card-phase">Snapshot</span>
-                    </div>
-                  </article>
-                </div>
-
-                <h3 class="section-title">Env Var Config Options</h3>
-                <div class="config-table-wrap">
-                  <table class="ab-table config-table">
-                    <colgroup>
-                      <col class="col-key">
-                      <col class="col-default">
-                      <col class="col-type">
-                      <col class="col-aliases">
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th>Key</th>
-                        <th>Default</th>
-                        <th>Type</th>
-                        <th>Aliases / Fallback</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td><code>FORUMDL_ENABLED</code><span class="config-key-desc">Enable forum downloading with forum-dl</span></td>
-                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
-                        <td>
-                          <code>boolean</code>
-                        </td>
-                        <td>
-<small>SAVE_FORUMDL, USE_FORUMDL</small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>FORUMDL_BINARY</code><span class="config-key-desc">Path to forum-dl binary</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;forum-dl&quot;</span></td>
-                        <td>
-                          <code>string</code>
-                        </td>
-                        <td>
-<span class="config-table-muted">—</span>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>FORUMDL_TIMEOUT</code><span class="config-key-desc">Timeout for forum downloads in seconds</span></td>
-                        <td class="cfg-default"><span class="cfg-number">3600</span></td>
-                        <td>
-                          <code>integer</code>
-<br><small>min 10</small>                        </td>
-                        <td>
-<small>fallback: <code>TIMEOUT</code></small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>FORUMDL_OUTPUT_FORMAT</code><span class="config-key-desc">Output format for forum downloads</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;jsonl&quot;</span></td>
-                        <td>
-                          <code>string</code>
-<br><small>jsonl | warc | mbox | maildir | mh | mmdf | babyl</small>                        </td>
-                        <td>
-<span class="config-table-muted">—</span>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>FORUMDL_ARGS</code><span class="config-key-desc">Default forum-dl arguments. Keep autodetection deterministic by disabling forum-dl&#39;s retry loop unless explicitly overridden.</span></td>
-                        <td class="cfg-default"><span class="cfg-bracket">[</span><div class="cfg-array"><div class="cfg-array-item"><span class="cfg-string">&quot;--timeout=5&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--retries=0&quot;</span></div></div><span class="cfg-bracket">]</span></td>
-                        <td>
-                          <code>array</code>
-                        </td>
-                        <td>
-<small>FORUMDL_DEFAULT_ARGS</small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>FORUMDL_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to forum-dl command</span></td>
-                        <td class="cfg-default"><span class="cfg-bracket">[]</span></td>
-                        <td>
-                          <code>array</code>
-                        </td>
-                        <td>
-<small>FORUMDL_EXTRA_ARGS</small>                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </details>
-            <details
-              id="git"
-              class="plugin-card plugin-card--snapshot"
-              data-search="git snapshot git clone git repositories from supported repository urls into the snapshot output directory. python snapshot embed {git_binary} env,brew,apt  text application image audio video font on_snapshot__05_git.finite.bg.py git_enabled enable git repository cloning git_binary path to git binary git_timeout timeout for git operations in seconds git_domains comma-separated list of domains to treat as git repositories git_args default git arguments git_args_extra extra arguments to append to git command"
-              data-hero-plugin="git"
-              data-hero-abx-command="uvx abx-dl --plugins git 'https://example.com'"
-              data-hero-archivebox-command="GIT_ENABLED=true archivebox add &#39;https://example.com&#39;"
-            >
-              <summary>
-                <div class="plugin-card__frame">
-                  <div class="plugin-main">
-                    <div class="plugin-title-row">
-                      <h2>Git</h2>
-                    </div>
-                    <div class="plugin-slug"><code>git</code></div>
-                    <p class="plugin-summary-description">Clone git repositories from supported repository URLs into the snapshot output directory.</p>
-                    <div class="plugin-subline">
-                      <span class="plugin-order">#05</span>
-                      <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
-                        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
-                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
-                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
-                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
-                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
-                        </svg>
-                      </span>
-
-                      <span class="chip">Snapshot</span>
-                      <span class="chip">Embed</span>
-                    </div>
-                    <div class="plugin-summary-facts">
-                      <div>
-                        <span class="chip chip--binary-summary">git <small>(env,brew,apt)</small></span>
-                      </div>
-                      <div>
-                        <span class="chip chip--mime chip--mime-text">text</span>
-                        <span class="chip chip--mime chip--mime-binary">application</span>
-                        <span class="chip chip--mime chip--mime-image">image</span>
-                        <span class="chip chip--mime chip--mime-media">audio</span>
-<span class="chip">+2 more</span>                      </div>
-                    </div>
-                  </div>
-                </div>
-              </summary>
-
-              <div class="plugin-body">
-                <p class="plugin-modal-description">Clone git repositories from supported repository URLs into the snapshot output directory.</p>
-
-                <div class="actions">
-                  <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/git" target="_blank" rel="noreferrer">Source on GitHub</a>
-                </div>
-
-                <h3 class="section-title">Dependencies &amp; Outputs</h3>
-                <div class="plugin-info-grid">
-                  <article class="plugin-info-card">
-                    <span>Required Binaries</span>
-                    <div class="pill-list">
-                      <span class="chip chip--binary" title="git
-providers: env,brew,apt">
-                        <code>git</code>
-                        <small>providers=env,brew,apt</small>
-                      </span>
-                    </div>
-                  </article>
-                  <article class="plugin-info-card">
-                    <span>Output Mimetypes</span>
-                    <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-text">text</span>
-                      <span class="chip chip--mime chip--mime-binary">application</span>
-                      <span class="chip chip--mime chip--mime-image">image</span>
-                      <span class="chip chip--mime chip--mime-media">audio</span>
-                      <span class="chip chip--mime chip--mime-media">video</span>
-                      <span class="chip chip--mime chip--mime-code">font</span>
-                    </div>
-                  </article>
-                </div>
-
-                <h3 class="section-title">Run It</h3>
-                <div class="run-tabs" data-run-tabs>
-                  <div class="run-tabs-bar">
-                    <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
-                    <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
-                  </div>
-                  <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl --plugins=git &#39;https://example.com&#39;</code></pre>
-                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>GIT_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
-                </div>
-                <p class="note">Runtime plugins execute while archiving a URL.</p>
-
-                <h3 class="section-title">Hook Scripts</h3>
-                <div class="hook-list">
-                  <article class="hook-card">
-                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/git/on_Snapshot__05_git.finite.bg.py" target="_blank" rel="noreferrer">on_Snapshot__05_git.finite.bg.py</a></span>
-                    <div class="hook-card-chips">
-                      <span class="plugin-language plugin-language--python" title="Python">
-                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
-                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
-                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
-                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
-                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
-                        </svg>
-                      </span>
-                      <span class="chip">order 05</span>
-                      <span class="chip chip--bg-finite">background (finite)</span>
-                      <span class="hook-card-phase">Snapshot</span>
-                    </div>
-                  </article>
-                </div>
-
-                <h3 class="section-title">Env Var Config Options</h3>
-                <div class="config-table-wrap">
-                  <table class="ab-table config-table">
-                    <colgroup>
-                      <col class="col-key">
-                      <col class="col-default">
-                      <col class="col-type">
-                      <col class="col-aliases">
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th>Key</th>
-                        <th>Default</th>
-                        <th>Type</th>
-                        <th>Aliases / Fallback</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td><code>GIT_ENABLED</code><span class="config-key-desc">Enable git repository cloning</span></td>
-                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
-                        <td>
-                          <code>boolean</code>
-                        </td>
-                        <td>
-<small>SAVE_GIT, USE_GIT</small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>GIT_BINARY</code><span class="config-key-desc">Path to git binary</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;git&quot;</span></td>
-                        <td>
-                          <code>string</code>
-                        </td>
-                        <td>
-<span class="config-table-muted">—</span>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>GIT_TIMEOUT</code><span class="config-key-desc">Timeout for git operations in seconds</span></td>
-                        <td class="cfg-default"><span class="cfg-number">120</span></td>
-                        <td>
-                          <code>integer</code>
-<br><small>min 10</small>                        </td>
-                        <td>
-<small>fallback: <code>TIMEOUT</code></small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>GIT_DOMAINS</code><span class="config-key-desc">Comma-separated list of domains to treat as git repositories</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;github.com,gitlab.com,bitbucket.org,gist.github.com,codeberg.org,gitea.com,git.sr.ht&quot;</span></td>
-                        <td>
-                          <code>string</code>
-                        </td>
-                        <td>
-<span class="config-table-muted">—</span>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>GIT_ARGS</code><span class="config-key-desc">Default git arguments</span></td>
-                        <td class="cfg-default"><span class="cfg-bracket">[</span><div class="cfg-array"><div class="cfg-array-item"><span class="cfg-string">&quot;clone&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--depth=1&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--recursive&quot;</span></div></div><span class="cfg-bracket">]</span></td>
-                        <td>
-                          <code>array</code>
-                        </td>
-                        <td>
-<small>GIT_DEFAULT_ARGS</small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>GIT_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to git command</span></td>
-                        <td class="cfg-default"><span class="cfg-bracket">[]</span></td>
-                        <td>
-                          <code>array</code>
-                        </td>
-                        <td>
-<small>GIT_EXTRA_ARGS</small>                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </details>
-            <details
-              id="wget"
-              class="plugin-card plugin-card--snapshot"
-              data-search="wget snapshot wget archive pages and their requisites with wget, optionally writing warc captures. python snapshot embed {wget_binary} env,brew,apt  text/html application/warc application/gzip image text/css application/javascript font audio video on_snapshot__06_wget.finite.bg.py wget_enabled enable wget archiving wget_warc_enabled save warc archive file wget_binary path to wget binary wget_timeout timeout for wget in seconds wget_user_agent user agent string for wget wget_cookies_file path to cookies file wget_check_ssl_validity whether to verify ssl certificates wget_args default wget arguments wget_args_extra extra arguments to append to wget command"
-              data-hero-plugin="wget"
-              data-hero-abx-command="uvx abx-dl --plugins wget 'https://example.com'"
-              data-hero-archivebox-command="WGET_ENABLED=true archivebox add &#39;https://example.com&#39;"
-            >
-              <summary>
-                <div class="plugin-card__frame">
-                  <div class="plugin-main">
-                    <div class="plugin-title-row">
-                      <h2>wget</h2>
-                    </div>
-                    <div class="plugin-slug"><code>wget</code></div>
-                    <p class="plugin-summary-description">Archive pages and their requisites with wget, optionally writing WARC captures.</p>
-                    <div class="plugin-subline">
-                      <span class="plugin-order">#06</span>
-                      <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
-                        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
-                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
-                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
-                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
-                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
-                        </svg>
-                      </span>
-
-                      <span class="chip">Snapshot</span>
-                      <span class="chip">Embed</span>
-                    </div>
-                    <div class="plugin-summary-facts">
-                      <div>
-                        <span class="chip chip--binary-summary">wget <small>(env,brew,apt)</small></span>
-                      </div>
-                      <div>
-                        <span class="chip chip--mime chip--mime-html">text/html</span>
-                        <span class="chip chip--mime chip--mime-archive">application/warc</span>
-                        <span class="chip chip--mime chip--mime-archive">application/gzip</span>
-                        <span class="chip chip--mime chip--mime-image">image</span>
-<span class="chip">+5 more</span>                      </div>
-                    </div>
-                  </div>
-                </div>
-              </summary>
-
-              <div class="plugin-body">
-                <p class="plugin-modal-description">Archive pages and their requisites with wget, optionally writing WARC captures.</p>
-
-                <div class="actions">
-                  <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/wget" target="_blank" rel="noreferrer">Source on GitHub</a>
-                </div>
-
-                <h3 class="section-title">Dependencies &amp; Outputs</h3>
-                <div class="plugin-info-grid">
-                  <article class="plugin-info-card">
-                    <span>Required Binaries</span>
-                    <div class="pill-list">
-                      <span class="chip chip--binary" title="wget
-providers: env,brew,apt">
-                        <code>wget</code>
-                        <small>providers=env,brew,apt</small>
-                      </span>
-                    </div>
-                  </article>
-                  <article class="plugin-info-card">
-                    <span>Output Mimetypes</span>
-                    <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-html">text/html</span>
-                      <span class="chip chip--mime chip--mime-archive">application/warc</span>
-                      <span class="chip chip--mime chip--mime-archive">application/gzip</span>
-                      <span class="chip chip--mime chip--mime-image">image</span>
-                      <span class="chip chip--mime chip--mime-code">text/css</span>
-                      <span class="chip chip--mime chip--mime-code">application/javascript</span>
-                      <span class="chip chip--mime chip--mime-code">font</span>
-                      <span class="chip chip--mime chip--mime-media">audio</span>
-                      <span class="chip chip--mime chip--mime-media">video</span>
-                    </div>
-                  </article>
-                </div>
-
-                <h3 class="section-title">Run It</h3>
-                <div class="run-tabs" data-run-tabs>
-                  <div class="run-tabs-bar">
-                    <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
-                    <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
-                  </div>
-                  <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl --plugins=wget &#39;https://example.com&#39;</code></pre>
-                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>WGET_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
-                </div>
-                <p class="note">Runtime plugins execute while archiving a URL.</p>
-
-                <h3 class="section-title">Hook Scripts</h3>
-                <div class="hook-list">
-                  <article class="hook-card">
-                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/wget/on_Snapshot__06_wget.finite.bg.py" target="_blank" rel="noreferrer">on_Snapshot__06_wget.finite.bg.py</a></span>
-                    <div class="hook-card-chips">
-                      <span class="plugin-language plugin-language--python" title="Python">
-                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
-                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
-                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
-                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
-                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
-                        </svg>
-                      </span>
-                      <span class="chip">order 06</span>
-                      <span class="chip chip--bg-finite">background (finite)</span>
-                      <span class="hook-card-phase">Snapshot</span>
-                    </div>
-                  </article>
-                </div>
-
-                <h3 class="section-title">Env Var Config Options</h3>
-                <div class="config-table-wrap">
-                  <table class="ab-table config-table">
-                    <colgroup>
-                      <col class="col-key">
-                      <col class="col-default">
-                      <col class="col-type">
-                      <col class="col-aliases">
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th>Key</th>
-                        <th>Default</th>
-                        <th>Type</th>
-                        <th>Aliases / Fallback</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td><code>WGET_ENABLED</code><span class="config-key-desc">Enable wget archiving</span></td>
-                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
-                        <td>
-                          <code>boolean</code>
-                        </td>
-                        <td>
-<small>SAVE_WGET, USE_WGET</small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>WGET_WARC_ENABLED</code><span class="config-key-desc">Save WARC archive file</span></td>
-                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
-                        <td>
-                          <code>boolean</code>
-                        </td>
-                        <td>
-<small>SAVE_WARC, WGET_SAVE_WARC</small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>WGET_BINARY</code><span class="config-key-desc">Path to wget binary</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;wget&quot;</span></td>
-                        <td>
-                          <code>string</code>
-                        </td>
-                        <td>
-<span class="config-table-muted">—</span>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>WGET_TIMEOUT</code><span class="config-key-desc">Timeout for wget in seconds</span></td>
-                        <td class="cfg-default"><span class="cfg-number">60</span></td>
-                        <td>
-                          <code>integer</code>
-<br><small>min 5</small>                        </td>
-                        <td>
-<small>fallback: <code>TIMEOUT</code></small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>WGET_USER_AGENT</code><span class="config-key-desc">User agent string for wget</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
-                        <td>
-                          <code>string</code>
-                        </td>
-                        <td>
-<small>fallback: <code>USER_AGENT</code></small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>WGET_COOKIES_FILE</code><span class="config-key-desc">Path to cookies file</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
-                        <td>
-                          <code>string</code>
-                        </td>
-                        <td>
-<small>fallback: <code>COOKIES_FILE</code></small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>WGET_CHECK_SSL_VALIDITY</code><span class="config-key-desc">Whether to verify SSL certificates</span></td>
-                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
-                        <td>
-                          <code>boolean</code>
-                        </td>
-                        <td>
-<small>fallback: <code>CHECK_SSL_VALIDITY</code></small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>WGET_ARGS</code><span class="config-key-desc">Default wget arguments</span></td>
-                        <td class="cfg-default"><span class="cfg-bracket">[</span><div class="cfg-array"><div class="cfg-array-item"><span class="cfg-string">&quot;--no-verbose&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--adjust-extension&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--convert-links&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--force-directories&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--backup-converted&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--span-hosts&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--no-parent&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--page-requisites&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--restrict-file-names=windows&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--tries=2&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;-e&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;robots=off&quot;</span></div></div><span class="cfg-bracket">]</span></td>
-                        <td>
-                          <code>array</code>
-                        </td>
-                        <td>
-<small>WGET_DEFAULT_ARGS</small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>WGET_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to wget command</span></td>
-                        <td class="cfg-default"><span class="cfg-bracket">[]</span></td>
-                        <td>
-                          <code>array</code>
-                        </td>
-                        <td>
-<small>WGET_EXTRA_ARGS</small>                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </details>
-            <details
-              id="archivedotorg"
-              class="plugin-card plugin-card--snapshot"
-              data-search="archivedotorg snapshot archive.org submit urls to the internet archive wayback machine and save the resulting archive link. python snapshot embed text/plain on_snapshot__08_archivedotorg.finite.bg.py archivedotorg_enabled submit urls to archive.org wayback machine archivedotorg_timeout timeout for archive.org submission in seconds"
-              data-hero-plugin="archivedotorg"
-              data-hero-abx-command="uvx abx-dl --plugins archivedotorg 'https://example.com'"
-              data-hero-archivebox-command="ARCHIVEDOTORG_ENABLED=true archivebox add &#39;https://example.com&#39;"
-            >
-              <summary>
-                <div class="plugin-card__frame">
-                  <div class="plugin-main">
-                    <div class="plugin-title-row">
-                      <h2>Archive.org</h2>
-                    </div>
-                    <div class="plugin-slug"><code>archivedotorg</code></div>
-                    <p class="plugin-summary-description">Submit URLs to the Internet Archive Wayback Machine and save the resulting archive link.</p>
-                    <div class="plugin-subline">
-                      <span class="plugin-order">#08</span>
-                      <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
-                        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
-                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
-                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
-                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
-                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
-                        </svg>
-                      </span>
-
-                      <span class="chip">Snapshot</span>
-                      <span class="chip">Embed</span>
-                    </div>
-                    <div class="plugin-summary-facts">
-                      <div>
-                        <span class="chip chip--mime chip--mime-text">text/plain</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </summary>
-
-              <div class="plugin-body">
-                <p class="plugin-modal-description">Submit URLs to the Internet Archive Wayback Machine and save the resulting archive link.</p>
-
-                <div class="actions">
-                  <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/archivedotorg" target="_blank" rel="noreferrer">Source on GitHub</a>
-                </div>
-
-                <h3 class="section-title">Dependencies &amp; Outputs</h3>
-                <div class="plugin-info-grid">
-                  <article class="plugin-info-card">
-                    <span>Output Mimetypes</span>
-                    <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-text">text/plain</span>
-                    </div>
-                  </article>
-                </div>
-
-                <h3 class="section-title">Run It</h3>
-                <div class="run-tabs" data-run-tabs>
-                  <div class="run-tabs-bar">
-                    <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
-                    <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
-                  </div>
-                  <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl --plugins=archivedotorg &#39;https://example.com&#39;</code></pre>
-                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>ARCHIVEDOTORG_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
-                </div>
-                <p class="note">Runtime plugins execute while archiving a URL.</p>
-
-                <h3 class="section-title">Hook Scripts</h3>
-                <div class="hook-list">
-                  <article class="hook-card">
-                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/archivedotorg/on_Snapshot__08_archivedotorg.finite.bg.py" target="_blank" rel="noreferrer">on_Snapshot__08_archivedotorg.finite.bg.py</a></span>
-                    <div class="hook-card-chips">
-                      <span class="plugin-language plugin-language--python" title="Python">
-                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
-                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
-                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
-                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
-                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
-                        </svg>
-                      </span>
-                      <span class="chip">order 08</span>
-                      <span class="chip chip--bg-finite">background (finite)</span>
-                      <span class="hook-card-phase">Snapshot</span>
-                    </div>
-                  </article>
-                </div>
-
-                <h3 class="section-title">Env Var Config Options</h3>
-                <div class="config-table-wrap">
-                  <table class="ab-table config-table">
-                    <colgroup>
-                      <col class="col-key">
-                      <col class="col-default">
-                      <col class="col-type">
-                      <col class="col-aliases">
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th>Key</th>
-                        <th>Default</th>
-                        <th>Type</th>
-                        <th>Aliases / Fallback</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td><code>ARCHIVEDOTORG_ENABLED</code><span class="config-key-desc">Submit URLs to archive.org Wayback Machine</span></td>
-                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
-                        <td>
-                          <code>boolean</code>
-                        </td>
-                        <td>
-<small>SAVE_ARCHIVEDOTORG, USE_ARCHIVEDOTORG, SUBMIT_ARCHIVEDOTORG</small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>ARCHIVEDOTORG_TIMEOUT</code><span class="config-key-desc">Timeout for archive.org submission in seconds</span></td>
-                        <td class="cfg-default"><span class="cfg-number">60</span></td>
-                        <td>
-                          <code>integer</code>
-<br><small>min 10</small>                        </td>
-                        <td>
-<small>fallback: <code>TIMEOUT</code></small>                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </details>
-            <details
-              id="favicon"
-              class="plugin-card plugin-card--snapshot"
-              data-search="favicon snapshot favicon fetch and save the site favicon or touch icon. python snapshot embed image image/x-icon on_snapshot__11_favicon.finite.bg.py favicon_enabled enable favicon downloading favicon_timeout timeout for favicon fetch in seconds favicon_provider fallback favicon provider when not found via chrome tab. {} will be replaced with the domain."
-              data-hero-plugin="favicon"
-              data-hero-abx-command="uvx abx-dl --plugins favicon 'https://example.com'"
-              data-hero-archivebox-command="FAVICON_ENABLED=true archivebox add &#39;https://example.com&#39;"
-            >
-              <summary>
-                <div class="plugin-card__frame">
-                  <div class="plugin-main">
-                    <div class="plugin-title-row">
-                      <h2>Favicon</h2>
-                    </div>
-                    <div class="plugin-slug"><code>favicon</code></div>
-                    <p class="plugin-summary-description">Fetch and save the site favicon or touch icon.</p>
-                    <div class="plugin-subline">
-                      <span class="plugin-order">#11</span>
-                      <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
-                        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
-                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
-                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
-                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
-                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
-                        </svg>
-                      </span>
-
-                      <span class="chip">Snapshot</span>
-                      <span class="chip">Embed</span>
-                    </div>
-                    <div class="plugin-summary-facts">
-                      <div>
-                        <span class="chip chip--mime chip--mime-image">image</span>
-                        <span class="chip chip--mime chip--mime-image">image/x-icon</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </summary>
-
-              <div class="plugin-body">
-                <p class="plugin-modal-description">Fetch and save the site favicon or touch icon.</p>
-
-                <div class="actions">
-                  <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/favicon" target="_blank" rel="noreferrer">Source on GitHub</a>
-                </div>
-
-                <h3 class="section-title">Dependencies &amp; Outputs</h3>
-                <div class="plugin-info-grid">
-                  <article class="plugin-info-card">
-                    <span>Output Mimetypes</span>
-                    <div class="pill-list">
-                      <span class="chip chip--mime chip--mime-image">image</span>
-                      <span class="chip chip--mime chip--mime-image">image/x-icon</span>
-                    </div>
-                  </article>
-                </div>
-
-                <h3 class="section-title">Run It</h3>
-                <div class="run-tabs" data-run-tabs>
-                  <div class="run-tabs-bar">
-                    <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
-                    <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
-                  </div>
-                  <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl --plugins=favicon &#39;https://example.com&#39;</code></pre>
-                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>FAVICON_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
-                </div>
-                <p class="note">Runtime plugins execute while archiving a URL.</p>
-
-                <h3 class="section-title">Hook Scripts</h3>
-                <div class="hook-list">
-                  <article class="hook-card">
-                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/favicon/on_Snapshot__11_favicon.finite.bg.py" target="_blank" rel="noreferrer">on_Snapshot__11_favicon.finite.bg.py</a></span>
-                    <div class="hook-card-chips">
-                      <span class="plugin-language plugin-language--python" title="Python">
-                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
-                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
-                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
-                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
-                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
-                        </svg>
-                      </span>
-                      <span class="chip">order 11</span>
-                      <span class="chip chip--bg-finite">background (finite)</span>
-                      <span class="hook-card-phase">Snapshot</span>
-                    </div>
-                  </article>
-                </div>
-
-                <h3 class="section-title">Env Var Config Options</h3>
-                <div class="config-table-wrap">
-                  <table class="ab-table config-table">
-                    <colgroup>
-                      <col class="col-key">
-                      <col class="col-default">
-                      <col class="col-type">
-                      <col class="col-aliases">
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th>Key</th>
-                        <th>Default</th>
-                        <th>Type</th>
-                        <th>Aliases / Fallback</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td><code>FAVICON_ENABLED</code><span class="config-key-desc">Enable favicon downloading</span></td>
-                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
-                        <td>
-                          <code>boolean</code>
-                        </td>
-                        <td>
-<small>SAVE_FAVICON, USE_FAVICON</small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>FAVICON_TIMEOUT</code><span class="config-key-desc">Timeout for favicon fetch in seconds</span></td>
-                        <td class="cfg-default"><span class="cfg-number">30</span></td>
-                        <td>
-                          <code>integer</code>
-<br><small>min 5</small>                        </td>
-                        <td>
-<small>fallback: <code>TIMEOUT</code></small>                        </td>
-                      </tr>
-                      <tr>
-                        <td><code>FAVICON_PROVIDER</code><span class="config-key-desc">Fallback favicon provider when not found via chrome tab. {} will be replaced with the domain.</span></td>
-                        <td class="cfg-default"><span class="cfg-string">&quot;https://www.google.com/s2/favicons?domain={}&amp;format=ico&quot;</span></td>
-                        <td>
-                          <code>string</code>
-                        </td>
-                        <td>
-<span class="config-table-muted">—</span>                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </details>
-            <details
               id="ublock"
               class="plugin-card plugin-card--snapshot"
               data-search="ublock snapshot ublock origin lite install the ublock origin lite extension to block ads, trackers, and other page clutter during archiving. snapshot chrome ublock env,chromewebstore  {&#34;chromewebstore&#34;: {&#34;install_args&#34;: [&#34;ddkjiahejlhfcafbddmgiahcphecmpfh&#34;, &#34;--name=ublock&#34;]}} on_crawlsetup__80_ublock_prepare.py on_snapshot__12_ublock.daemon.bg.js ublock_enabled enable ublock origin lite browser extension for ad blocking"
@@ -4100,7 +2823,7 @@ providers: env,chromewebstore">
             <details
               id="chrome"
               class="plugin-card plugin-card--snapshot"
-              data-search="chrome snapshot chrome needed by many other plugins to save high-fidelity archives within a real browser (does not save anything itself). javascript snapshot {node_binary} abxbus browsers {chrome_binary} env,node,brew,apt pnpm pnpm env,playwright,puppeteer 22.12.0 2.5.45  149.0.0 {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;pnpm&#34;: {&#34;abspath&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/abxbus/node_modules/abxbus/dist/cjs/index.js&#34;, &#34;install_args&#34;: [&#34;abxbus@2.5.45&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/abxbus&#34;, &#34;min_release_age&#34;: 0, &#34;postinstall_scripts&#34;: true, &#34;version&#34;: &#34;2.5.45&#34;}} {&#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;@puppeteer/browsers@3.0.4&#34;, &#34;puppeteer@25.1.0&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/chrome&#34;, &#34;version&#34;: &#34;3.0.4&#34;}} {&#34;playwright&#34;: {&#34;install_args&#34;: [&#34;--with-deps&#34;, &#34;chromium&#34;, &#34;--no-shell&#34;]}} text/plain application/json on_crawlsetup__89_chrome_kill_zombies.js on_crawlsetup__90_chrome_launch.daemon.bg.js on_crawlsetup__91_chrome_wait.js on_snapshot__00_chrome_launch.daemon.bg.js on_snapshot__01_chrome_tab.daemon.bg.js on_snapshot__01_chrome_wait.js on_snapshot__30_chrome_navigate.js chrome_enabled enable chrome browser integration for archiving chrome_binary path to a chromium-family browser binary chromewebstore_extensions_dir abxpkg-managed chrome web store extension download/cache directory. this is intentionally not derived from personas_dir/active_persona like runtime chrome profile paths; chrome reads unpacked extension artifacts from here while running with persona-derived user data dirs. node_binary path to node.js binary chrome_timeout timeout for chrome operations in seconds chrome_headless run chrome in headless mode personas_dir shared chrome/browser personas root active_persona active browser persona name chrome_sandbox enable chrome sandbox (disable in docker with --no-sandbox) chrome_resolution browser viewport resolution (width,height) chrome_user_agent user agent string for chrome chrome_cdp_url connect to an already-running browser over cdp instead of launching a new local chrome process chrome_is_local whether the managed browser process is local and should have a live chrome.pid marker chrome_keepalive keep the browser alive after the owning crawl/snapshot hook exits instead of closing it during cleanup chrome_isolation whether chrome runs as one shared browser per crawl or a separate browser per snapshot chrome_args default chrome command-line arguments (static flags only, dynamic args like --user-data-dir are added at runtime) chrome_args_extra extra arguments to append to chrome command (for user customization) chrome_pageload_timeout timeout for page navigation/load in seconds chrome_wait_for page load completion condition (domcontentloaded, load, networkidle0, networkidle2) chrome_delay_after_load extra delay in seconds after page load completes before archiving (useful for js-heavy spas) chrome_check_ssl_validity whether to verify ssl certificates (disable for self-signed certs)"
+              data-search="chrome snapshot chrome needed by many other plugins to save high-fidelity archives within a real browser (does not save anything itself). javascript snapshot {node_binary} abxbus browsers {chrome_binary} env,node,brew,apt pnpm pnpm env,playwright,puppeteer 22.12.0 2.5.45  149.0.0 {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} {&#34;pnpm&#34;: {&#34;abspath&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/abxbus/node_modules/abxbus/dist/cjs/index.js&#34;, &#34;install_args&#34;: [&#34;abxbus@2.5.45&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/abxbus&#34;, &#34;min_release_age&#34;: 0, &#34;postinstall_scripts&#34;: true, &#34;version&#34;: &#34;2.5.45&#34;}} {&#34;pnpm&#34;: {&#34;install_args&#34;: [&#34;@puppeteer/browsers@3.0.4&#34;, &#34;puppeteer@25.1.0&#34;], &#34;install_root&#34;: &#34;{abxpkg_lib_dir}/pnpm/packages/chrome&#34;, &#34;version&#34;: &#34;3.0.4&#34;}} {&#34;playwright&#34;: {&#34;install_args&#34;: [&#34;--with-deps&#34;, &#34;chromium&#34;, &#34;--no-shell&#34;]}} text/plain application/json on_crawlsetup__89_chrome_kill_zombies.js on_crawlsetup__90_chrome_launch.daemon.bg.js on_crawlsetup__91_chrome_wait.js on_snapshot__00_chrome_launch.daemon.bg.js on_snapshot__01_chrome_tab.daemon.bg.js on_snapshot__30_chrome_navigate.js chrome_enabled enable chrome browser integration for archiving chrome_binary path to a chromium-family browser binary chromewebstore_extensions_dir abxpkg-managed chrome web store extension download/cache directory. this is intentionally not derived from personas_dir/active_persona like runtime chrome profile paths; chrome reads unpacked extension artifacts from here while running with persona-derived user data dirs. node_binary path to node.js binary chrome_timeout timeout for chrome operations in seconds chrome_headless run chrome in headless mode personas_dir shared chrome/browser personas root active_persona active browser persona name chrome_sandbox enable chrome sandbox (disable in docker with --no-sandbox) chrome_resolution browser viewport resolution (width,height) chrome_user_agent user agent string for chrome chrome_cdp_url connect to an already-running browser over cdp instead of launching a new local chrome process chrome_is_local whether the managed browser process is local and should have a live chrome.pid marker chrome_keepalive keep the browser alive after the owning crawl/snapshot hook exits instead of closing it during cleanup chrome_isolation whether chrome runs as one shared browser per crawl or a separate browser per snapshot chrome_args default chrome command-line arguments (static flags only, dynamic args like --user-data-dir are added at runtime) chrome_args_extra extra arguments to append to chrome command (for user customization) chrome_pageload_timeout timeout for page navigation/load in seconds chrome_wait_for page load completion condition (domcontentloaded, load, networkidle0, networkidle2) chrome_delay_after_load extra delay in seconds after page load completes before archiving (useful for js-heavy spas) chrome_check_ssl_validity whether to verify ssl certificates (disable for self-signed certs)"
               data-hero-plugin="chrome"
               data-hero-abx-command="uvx abx-dl --plugins chrome 'https://example.com'"
               data-hero-archivebox-command="CHROME_ENABLED=true archivebox add &#39;https://example.com&#39;"
@@ -4267,20 +2990,6 @@ min_version: 149.0.0">
                       </span>
                       <span class="chip">order 01</span>
                       <span class="chip chip--bg-daemon">background (daemon)</span>
-                      <span class="hook-card-phase">Snapshot</span>
-                    </div>
-                  </article>
-                  <article class="hook-card">
-                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/chrome/on_Snapshot__01_chrome_wait.js" target="_blank" rel="noreferrer">on_Snapshot__01_chrome_wait.js</a></span>
-                    <div class="hook-card-chips">
-                      <span class="plugin-language plugin-language--javascript" title="JavaScript">
-                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                          <rect x="4.5" y="4.5" width="15" height="15" rx="2.5" fill="currentColor" opacity="0.2"></rect>
-                          <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
-                        </svg>
-                      </span>
-                      <span class="chip">order 01</span>
-                      <span class="chip chip--fg">foreground</span>
                       <span class="hook-card-phase">Snapshot</span>
                     </div>
                   </article>
@@ -4506,6 +3215,1283 @@ min_version: 149.0.0">
                         </td>
                         <td>
 <small>fallback: <code>CHECK_SSL_VALIDITY</code></small>                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
+            <details
+              id="ytdlp"
+              class="plugin-card plugin-card--snapshot"
+              data-search="ytdlp snapshot yt-dlp download video and audio media with metadata, subtitles, thumbnails, and description sidecars. python snapshot embed fullscreen {ytdlp_binary} {node_binary} {ffmpeg_binary} env,uv,brew,apt env,node,brew,apt env,brew,apt    {&#34;uv&#34;: {&#34;install_args&#34;: [&#34;yt-dlp[default]&#34;], &#34;postinstall_scripts&#34;: true}} {&#34;apt&#34;: {&#34;install_args&#34;: [&#34;nodejs&#34;]}} audio video image application/x-subrip text/vtt application/json text/plain on_snapshot__31_ytdlp.finite.bg.py ytdlp_enabled enable video/audio downloading with yt-dlp ytdlp_binary path to yt-dlp binary node_binary path to node.js binary for yt-dlp js runtime ffmpeg_binary path to ffmpeg binary for yt-dlp media remuxing and downloads ytdlp_timeout timeout for yt-dlp downloads in seconds ytdlp_cookies_file path to cookies file ytdlp_max_size maximum file size for yt-dlp downloads ytdlp_check_ssl_validity whether to verify ssl certificates ytdlp_args default yt-dlp arguments ytdlp_args_extra extra arguments to append to yt-dlp command"
+              data-hero-plugin="ytdlp"
+              data-hero-abx-command="uvx abx-dl --plugins ytdlp 'https://example.com'"
+              data-hero-archivebox-command="YTDLP_ENABLED=true archivebox add &#39;https://example.com&#39;"
+            >
+              <summary>
+                <div class="plugin-card__frame">
+                  <div class="plugin-main">
+                    <div class="plugin-title-row">
+                      <h2>yt-dlp</h2>
+                    </div>
+                    <div class="plugin-slug"><code>ytdlp</code></div>
+                    <p class="plugin-summary-description">Download video and audio media with metadata, subtitles, thumbnails, and description sidecars.</p>
+                    <div class="plugin-subline">
+                      <span class="plugin-order">#31</span>
+                      <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
+                        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                        </svg>
+                      </span>
+
+                      <span class="chip">Snapshot</span>
+                      <span class="chip">Embed</span>
+                      <span class="chip">Fullscreen</span>
+                    </div>
+                    <div class="plugin-summary-facts">
+                      <div>
+                        <span class="chip chip--binary-summary">yt-dlp <small>(env,uv,brew,apt)</small></span>
+                        <span class="chip chip--binary-summary">node <small>(env,node,brew,apt)</small></span>
+<span class="chip">+1 more</span>                      </div>
+                      <div>
+                        <span class="chip chip--mime chip--mime-media">audio</span>
+                        <span class="chip chip--mime chip--mime-media">video</span>
+                        <span class="chip chip--mime chip--mime-image">image</span>
+                        <span class="chip chip--mime chip--mime-media">application/x-subrip</span>
+<span class="chip">+3 more</span>                      </div>
+                    </div>
+                  </div>
+                </div>
+              </summary>
+
+              <div class="plugin-body">
+                <p class="plugin-modal-description">Download video and audio media with metadata, subtitles, thumbnails, and description sidecars.</p>
+
+                <div class="actions">
+                  <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/ytdlp" target="_blank" rel="noreferrer">Source on GitHub</a>
+                </div>
+
+                <h3 class="section-title">Dependencies &amp; Outputs</h3>
+                <div class="plugin-info-grid">
+                  <article class="plugin-info-card">
+                    <span>Required Binaries</span>
+                    <div class="pill-list">
+                      <span class="chip chip--binary" title="yt-dlp
+providers: env,uv,brew,apt">
+                        <code>yt-dlp</code>
+                        <small>providers=env,uv,brew,apt</small>
+                      </span>
+                      <span class="chip chip--binary" title="node
+providers: env,node,brew,apt">
+                        <code>node</code>
+                        <small>providers=env,node,brew,apt</small>
+                      </span>
+                      <span class="chip chip--binary" title="ffmpeg
+providers: env,brew,apt">
+                        <code>ffmpeg</code>
+                        <small>providers=env,brew,apt</small>
+                      </span>
+                    </div>
+                  </article>
+                  <article class="plugin-info-card">
+                    <span>Output Mimetypes</span>
+                    <div class="pill-list">
+                      <span class="chip chip--mime chip--mime-media">audio</span>
+                      <span class="chip chip--mime chip--mime-media">video</span>
+                      <span class="chip chip--mime chip--mime-image">image</span>
+                      <span class="chip chip--mime chip--mime-media">application/x-subrip</span>
+                      <span class="chip chip--mime chip--mime-media">text/vtt</span>
+                      <span class="chip chip--mime chip--mime-data">application/json</span>
+                      <span class="chip chip--mime chip--mime-text">text/plain</span>
+                    </div>
+                  </article>
+                </div>
+
+                <h3 class="section-title">Run It</h3>
+                <div class="run-tabs" data-run-tabs>
+                  <div class="run-tabs-bar">
+                    <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                    <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
+                  </div>
+                  <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl --plugins=ytdlp &#39;https://example.com&#39;</code></pre>
+                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>YTDLP_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+                </div>
+                <p class="note">Runtime plugins execute while archiving a URL.</p>
+
+                <h3 class="section-title">Hook Scripts</h3>
+                <div class="hook-list">
+                  <article class="hook-card">
+                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/ytdlp/on_Snapshot__31_ytdlp.finite.bg.py" target="_blank" rel="noreferrer">on_Snapshot__31_ytdlp.finite.bg.py</a></span>
+                    <div class="hook-card-chips">
+                      <span class="plugin-language plugin-language--python" title="Python">
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                        </svg>
+                      </span>
+                      <span class="chip">order 31</span>
+                      <span class="chip chip--bg-finite">background (finite)</span>
+                      <span class="hook-card-phase">Snapshot</span>
+                    </div>
+                  </article>
+                </div>
+
+                <h3 class="section-title">Env Var Config Options</h3>
+                <div class="config-table-wrap">
+                  <table class="ab-table config-table">
+                    <colgroup>
+                      <col class="col-key">
+                      <col class="col-default">
+                      <col class="col-type">
+                      <col class="col-aliases">
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th>Key</th>
+                        <th>Default</th>
+                        <th>Type</th>
+                        <th>Aliases / Fallback</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><code>YTDLP_ENABLED</code><span class="config-key-desc">Enable video/audio downloading with yt-dlp</span></td>
+                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
+                        <td>
+                          <code>boolean</code>
+                        </td>
+                        <td>
+<small>MEDIA_ENABLED, SAVE_MEDIA, USE_MEDIA, USE_YTDLP, FETCH_MEDIA, SAVE_YTDLP</small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>YTDLP_BINARY</code><span class="config-key-desc">Path to yt-dlp binary</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;yt-dlp&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<small>YOUTUBEDL_BINARY, YOUTUBE_DL_BINARY</small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>NODE_BINARY</code><span class="config-key-desc">Path to Node.js binary for yt-dlp JS runtime</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;node&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>FFMPEG_BINARY</code><span class="config-key-desc">Path to ffmpeg binary for yt-dlp media remuxing and downloads</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;ffmpeg&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>YTDLP_TIMEOUT</code><span class="config-key-desc">Timeout for yt-dlp downloads in seconds</span></td>
+                        <td class="cfg-default"><span class="cfg-number">120</span></td>
+                        <td>
+                          <code>integer</code>
+<br><small>min 10</small>                        </td>
+                        <td>
+<small>MEDIA_TIMEOUT</small><br><small>fallback: <code>TIMEOUT</code></small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>YTDLP_COOKIES_FILE</code><span class="config-key-desc">Path to cookies file</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<small>fallback: <code>COOKIES_FILE</code></small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>YTDLP_MAX_SIZE</code><span class="config-key-desc">Maximum file size for yt-dlp downloads</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;750m&quot;</span></td>
+                        <td>
+                          <code>string</code>
+<br><small>pattern <code>^\d+[kmgKMG]?$</code></small>                        </td>
+                        <td>
+<small>MEDIA_MAX_SIZE</small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>YTDLP_CHECK_SSL_VALIDITY</code><span class="config-key-desc">Whether to verify SSL certificates</span></td>
+                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
+                        <td>
+                          <code>boolean</code>
+                        </td>
+                        <td>
+<small>fallback: <code>CHECK_SSL_VALIDITY</code></small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>YTDLP_ARGS</code><span class="config-key-desc">Default yt-dlp arguments</span></td>
+                        <td class="cfg-default"><span class="cfg-bracket">[</span><div class="cfg-array"><div class="cfg-array-item"><span class="cfg-string">&quot;--socket-timeout=5&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--retries=0&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--fragment-retries=0&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--extractor-retries=0&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--file-access-retries=0&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--restrict-filenames&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--trim-filenames=128&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-description&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-info-json&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-thumbnail&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-sub&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-auto-subs&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--convert-subs=srt&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--yes-playlist&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--continue&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--no-abort-on-error&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--ignore-errors&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--geo-bypass&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--add-metadata&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--no-progress&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--remote-components=ejs:github&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;-o&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;%(title)s.%(ext)s&quot;</span></div></div><span class="cfg-bracket">]</span></td>
+                        <td>
+                          <code>array</code>
+                        </td>
+                        <td>
+<small>YTDLP_DEFAULT_ARGS</small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>YTDLP_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to yt-dlp command</span></td>
+                        <td class="cfg-default"><span class="cfg-bracket">[]</span></td>
+                        <td>
+                          <code>array</code>
+                        </td>
+                        <td>
+<small>YTDLP_EXTRA_ARGS</small>                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
+            <details
+              id="gallerydl"
+              class="plugin-card plugin-card--snapshot"
+              data-search="gallerydl snapshot gallery-dl download image and media galleries along with metadata sidecars from supported sites. python snapshot embed fullscreen {gallerydl_binary} env,uv,brew,apt  {&#34;uv&#34;: {&#34;postinstall_scripts&#34;: true}} image video application/json text/plain application/zip on_snapshot__32_gallerydl.finite.bg.py gallerydl_enabled enable gallery downloading with gallery-dl gallerydl_binary path to gallery-dl binary gallerydl_timeout timeout for gallery downloads in seconds gallerydl_cookies_file path to cookies file gallerydl_check_ssl_validity whether to verify ssl certificates gallerydl_args default gallery-dl arguments gallerydl_args_extra extra arguments to append to gallery-dl command"
+              data-hero-plugin="gallerydl"
+              data-hero-abx-command="uvx abx-dl --plugins gallerydl 'https://example.com'"
+              data-hero-archivebox-command="GALLERYDL_ENABLED=true archivebox add &#39;https://example.com&#39;"
+            >
+              <summary>
+                <div class="plugin-card__frame">
+                  <div class="plugin-main">
+                    <div class="plugin-title-row">
+                      <h2>gallery-dl</h2>
+                    </div>
+                    <div class="plugin-slug"><code>gallerydl</code></div>
+                    <p class="plugin-summary-description">Download image and media galleries along with metadata sidecars from supported sites.</p>
+                    <div class="plugin-subline">
+                      <span class="plugin-order">#32</span>
+                      <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
+                        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                        </svg>
+                      </span>
+
+                      <span class="chip">Snapshot</span>
+                      <span class="chip">Embed</span>
+                      <span class="chip">Fullscreen</span>
+                    </div>
+                    <div class="plugin-summary-facts">
+                      <div>
+                        <span class="chip chip--binary-summary">gallery-dl <small>(env,uv,brew,apt)</small></span>
+                      </div>
+                      <div>
+                        <span class="chip chip--mime chip--mime-image">image</span>
+                        <span class="chip chip--mime chip--mime-media">video</span>
+                        <span class="chip chip--mime chip--mime-data">application/json</span>
+                        <span class="chip chip--mime chip--mime-text">text/plain</span>
+<span class="chip">+1 more</span>                      </div>
+                    </div>
+                  </div>
+                </div>
+              </summary>
+
+              <div class="plugin-body">
+                <p class="plugin-modal-description">Download image and media galleries along with metadata sidecars from supported sites.</p>
+
+                <div class="actions">
+                  <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/gallerydl" target="_blank" rel="noreferrer">Source on GitHub</a>
+                </div>
+
+                <h3 class="section-title">Dependencies &amp; Outputs</h3>
+                <div class="plugin-info-grid">
+                  <article class="plugin-info-card">
+                    <span>Required Binaries</span>
+                    <div class="pill-list">
+                      <span class="chip chip--binary" title="gallery-dl
+providers: env,uv,brew,apt">
+                        <code>gallery-dl</code>
+                        <small>providers=env,uv,brew,apt</small>
+                      </span>
+                    </div>
+                  </article>
+                  <article class="plugin-info-card">
+                    <span>Output Mimetypes</span>
+                    <div class="pill-list">
+                      <span class="chip chip--mime chip--mime-image">image</span>
+                      <span class="chip chip--mime chip--mime-media">video</span>
+                      <span class="chip chip--mime chip--mime-data">application/json</span>
+                      <span class="chip chip--mime chip--mime-text">text/plain</span>
+                      <span class="chip chip--mime chip--mime-archive">application/zip</span>
+                    </div>
+                  </article>
+                </div>
+
+                <h3 class="section-title">Run It</h3>
+                <div class="run-tabs" data-run-tabs>
+                  <div class="run-tabs-bar">
+                    <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                    <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
+                  </div>
+                  <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl --plugins=gallerydl &#39;https://example.com&#39;</code></pre>
+                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>GALLERYDL_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+                </div>
+                <p class="note">Runtime plugins execute while archiving a URL.</p>
+
+                <h3 class="section-title">Hook Scripts</h3>
+                <div class="hook-list">
+                  <article class="hook-card">
+                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/gallerydl/on_Snapshot__32_gallerydl.finite.bg.py" target="_blank" rel="noreferrer">on_Snapshot__32_gallerydl.finite.bg.py</a></span>
+                    <div class="hook-card-chips">
+                      <span class="plugin-language plugin-language--python" title="Python">
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                        </svg>
+                      </span>
+                      <span class="chip">order 32</span>
+                      <span class="chip chip--bg-finite">background (finite)</span>
+                      <span class="hook-card-phase">Snapshot</span>
+                    </div>
+                  </article>
+                </div>
+
+                <h3 class="section-title">Env Var Config Options</h3>
+                <div class="config-table-wrap">
+                  <table class="ab-table config-table">
+                    <colgroup>
+                      <col class="col-key">
+                      <col class="col-default">
+                      <col class="col-type">
+                      <col class="col-aliases">
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th>Key</th>
+                        <th>Default</th>
+                        <th>Type</th>
+                        <th>Aliases / Fallback</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><code>GALLERYDL_ENABLED</code><span class="config-key-desc">Enable gallery downloading with gallery-dl</span></td>
+                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
+                        <td>
+                          <code>boolean</code>
+                        </td>
+                        <td>
+<small>SAVE_GALLERYDL, USE_GALLERYDL</small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>GALLERYDL_BINARY</code><span class="config-key-desc">Path to gallery-dl binary</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;gallery-dl&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>GALLERYDL_TIMEOUT</code><span class="config-key-desc">Timeout for gallery downloads in seconds</span></td>
+                        <td class="cfg-default"><span class="cfg-number">120</span></td>
+                        <td>
+                          <code>integer</code>
+<br><small>min 10</small>                        </td>
+                        <td>
+<small>fallback: <code>TIMEOUT</code></small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>GALLERYDL_COOKIES_FILE</code><span class="config-key-desc">Path to cookies file</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<small>fallback: <code>COOKIES_FILE</code></small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>GALLERYDL_CHECK_SSL_VALIDITY</code><span class="config-key-desc">Whether to verify SSL certificates</span></td>
+                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
+                        <td>
+                          <code>boolean</code>
+                        </td>
+                        <td>
+<small>fallback: <code>CHECK_SSL_VALIDITY</code></small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>GALLERYDL_ARGS</code><span class="config-key-desc">Default gallery-dl arguments</span></td>
+                        <td class="cfg-default"><span class="cfg-bracket">[</span><div class="cfg-array"><div class="cfg-array-item"><span class="cfg-string">&quot;--http-timeout=5&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--retries=0&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-metadata&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--write-info-json&quot;</span></div></div><span class="cfg-bracket">]</span></td>
+                        <td>
+                          <code>array</code>
+                        </td>
+                        <td>
+<small>GALLERYDL_DEFAULT_ARGS</small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>GALLERYDL_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to gallery-dl command</span></td>
+                        <td class="cfg-default"><span class="cfg-bracket">[]</span></td>
+                        <td>
+                          <code>array</code>
+                        </td>
+                        <td>
+<small>GALLERYDL_EXTRA_ARGS</small>                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
+            <details
+              id="forumdl"
+              class="plugin-card plugin-card--snapshot"
+              data-search="forumdl snapshot forum-dl download forum threads and exports in jsonl, warc, and mailbox-style archive formats. python snapshot embed fullscreen {forumdl_binary} env,uv  {&#34;uv&#34;: {&#34;install_args&#34;: [&#34;--no-deps&#34;, &#34;forum-dl&#34;, &#34;chardet==5.2.0&#34;, &#34;pydantic==2.12.3&#34;, &#34;pydantic-core==2.41.4&#34;, &#34;typing-extensions&gt;=4.14.1&#34;, &#34;annotated-types&gt;=0.6.0&#34;, &#34;typing-inspection&gt;=0.4.2&#34;, &#34;beautifulsoup4&#34;, &#34;soupsieve&#34;, &#34;lxml&#34;, &#34;requests&#34;, &#34;urllib3&#34;, &#34;certifi&#34;, &#34;idna&#34;, &#34;charset-normalizer&#34;, &#34;tenacity&#34;, &#34;python-dateutil&#34;, &#34;six&#34;, &#34;html2text&#34;, &#34;warcio&#34;], &#34;postinstall_scripts&#34;: true}} application/x-ndjson application/warc message/rfc822 on_snapshot__33_forumdl.finite.bg.py forumdl_enabled enable forum downloading with forum-dl forumdl_binary path to forum-dl binary forumdl_timeout timeout for forum downloads in seconds forumdl_output_format output format for forum downloads forumdl_args default forum-dl arguments. keep autodetection deterministic by disabling forum-dl&#39;s retry loop unless explicitly overridden. forumdl_args_extra extra arguments to append to forum-dl command"
+              data-hero-plugin="forumdl"
+              data-hero-abx-command="uvx abx-dl --plugins forumdl 'https://example.com'"
+              data-hero-archivebox-command="FORUMDL_ENABLED=true archivebox add &#39;https://example.com&#39;"
+            >
+              <summary>
+                <div class="plugin-card__frame">
+                  <div class="plugin-main">
+                    <div class="plugin-title-row">
+                      <h2>forum-dl</h2>
+                    </div>
+                    <div class="plugin-slug"><code>forumdl</code></div>
+                    <p class="plugin-summary-description">Download forum threads and exports in JSONL, WARC, and mailbox-style archive formats.</p>
+                    <div class="plugin-subline">
+                      <span class="plugin-order">#33</span>
+                      <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
+                        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                        </svg>
+                      </span>
+
+                      <span class="chip">Snapshot</span>
+                      <span class="chip">Embed</span>
+                      <span class="chip">Fullscreen</span>
+                    </div>
+                    <div class="plugin-summary-facts">
+                      <div>
+                        <span class="chip chip--binary-summary">forum-dl <small>(env,uv)</small></span>
+                      </div>
+                      <div>
+                        <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
+                        <span class="chip chip--mime chip--mime-archive">application/warc</span>
+                        <span class="chip chip--mime chip--mime-archive">message/rfc822</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </summary>
+
+              <div class="plugin-body">
+                <p class="plugin-modal-description">Download forum threads and exports in JSONL, WARC, and mailbox-style archive formats.</p>
+
+                <div class="actions">
+                  <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/forumdl" target="_blank" rel="noreferrer">Source on GitHub</a>
+                </div>
+
+                <h3 class="section-title">Dependencies &amp; Outputs</h3>
+                <div class="plugin-info-grid">
+                  <article class="plugin-info-card">
+                    <span>Required Binaries</span>
+                    <div class="pill-list">
+                      <span class="chip chip--binary" title="forum-dl
+providers: env,uv">
+                        <code>forum-dl</code>
+                        <small>providers=env,uv</small>
+                      </span>
+                    </div>
+                  </article>
+                  <article class="plugin-info-card">
+                    <span>Output Mimetypes</span>
+                    <div class="pill-list">
+                      <span class="chip chip--mime chip--mime-data">application/x-ndjson</span>
+                      <span class="chip chip--mime chip--mime-archive">application/warc</span>
+                      <span class="chip chip--mime chip--mime-archive">message/rfc822</span>
+                    </div>
+                  </article>
+                </div>
+
+                <h3 class="section-title">Run It</h3>
+                <div class="run-tabs" data-run-tabs>
+                  <div class="run-tabs-bar">
+                    <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                    <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
+                  </div>
+                  <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl --plugins=forumdl &#39;https://example.com&#39;</code></pre>
+                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>FORUMDL_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+                </div>
+                <p class="note">Runtime plugins execute while archiving a URL.</p>
+
+                <h3 class="section-title">Hook Scripts</h3>
+                <div class="hook-list">
+                  <article class="hook-card">
+                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/forumdl/on_Snapshot__33_forumdl.finite.bg.py" target="_blank" rel="noreferrer">on_Snapshot__33_forumdl.finite.bg.py</a></span>
+                    <div class="hook-card-chips">
+                      <span class="plugin-language plugin-language--python" title="Python">
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                        </svg>
+                      </span>
+                      <span class="chip">order 33</span>
+                      <span class="chip chip--bg-finite">background (finite)</span>
+                      <span class="hook-card-phase">Snapshot</span>
+                    </div>
+                  </article>
+                </div>
+
+                <h3 class="section-title">Env Var Config Options</h3>
+                <div class="config-table-wrap">
+                  <table class="ab-table config-table">
+                    <colgroup>
+                      <col class="col-key">
+                      <col class="col-default">
+                      <col class="col-type">
+                      <col class="col-aliases">
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th>Key</th>
+                        <th>Default</th>
+                        <th>Type</th>
+                        <th>Aliases / Fallback</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><code>FORUMDL_ENABLED</code><span class="config-key-desc">Enable forum downloading with forum-dl</span></td>
+                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
+                        <td>
+                          <code>boolean</code>
+                        </td>
+                        <td>
+<small>SAVE_FORUMDL, USE_FORUMDL</small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>FORUMDL_BINARY</code><span class="config-key-desc">Path to forum-dl binary</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;forum-dl&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>FORUMDL_TIMEOUT</code><span class="config-key-desc">Timeout for forum downloads in seconds</span></td>
+                        <td class="cfg-default"><span class="cfg-number">3600</span></td>
+                        <td>
+                          <code>integer</code>
+<br><small>min 10</small>                        </td>
+                        <td>
+<small>fallback: <code>TIMEOUT</code></small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>FORUMDL_OUTPUT_FORMAT</code><span class="config-key-desc">Output format for forum downloads</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;jsonl&quot;</span></td>
+                        <td>
+                          <code>string</code>
+<br><small>jsonl | warc | mbox | maildir | mh | mmdf | babyl</small>                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>FORUMDL_ARGS</code><span class="config-key-desc">Default forum-dl arguments. Keep autodetection deterministic by disabling forum-dl&#39;s retry loop unless explicitly overridden.</span></td>
+                        <td class="cfg-default"><span class="cfg-bracket">[</span><div class="cfg-array"><div class="cfg-array-item"><span class="cfg-string">&quot;--timeout=5&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--retries=0&quot;</span></div></div><span class="cfg-bracket">]</span></td>
+                        <td>
+                          <code>array</code>
+                        </td>
+                        <td>
+<small>FORUMDL_DEFAULT_ARGS</small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>FORUMDL_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to forum-dl command</span></td>
+                        <td class="cfg-default"><span class="cfg-bracket">[]</span></td>
+                        <td>
+                          <code>array</code>
+                        </td>
+                        <td>
+<small>FORUMDL_EXTRA_ARGS</small>                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
+            <details
+              id="git"
+              class="plugin-card plugin-card--snapshot"
+              data-search="git snapshot git clone git repositories from supported repository urls into the snapshot output directory. python snapshot embed {git_binary} env,brew,apt  text application image audio video font on_snapshot__34_git.finite.bg.py git_enabled enable git repository cloning git_binary path to git binary git_timeout timeout for git operations in seconds git_domains comma-separated list of domains to treat as git repositories git_args default git arguments git_args_extra extra arguments to append to git command"
+              data-hero-plugin="git"
+              data-hero-abx-command="uvx abx-dl --plugins git 'https://example.com'"
+              data-hero-archivebox-command="GIT_ENABLED=true archivebox add &#39;https://example.com&#39;"
+            >
+              <summary>
+                <div class="plugin-card__frame">
+                  <div class="plugin-main">
+                    <div class="plugin-title-row">
+                      <h2>Git</h2>
+                    </div>
+                    <div class="plugin-slug"><code>git</code></div>
+                    <p class="plugin-summary-description">Clone git repositories from supported repository URLs into the snapshot output directory.</p>
+                    <div class="plugin-subline">
+                      <span class="plugin-order">#34</span>
+                      <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
+                        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                        </svg>
+                      </span>
+
+                      <span class="chip">Snapshot</span>
+                      <span class="chip">Embed</span>
+                    </div>
+                    <div class="plugin-summary-facts">
+                      <div>
+                        <span class="chip chip--binary-summary">git <small>(env,brew,apt)</small></span>
+                      </div>
+                      <div>
+                        <span class="chip chip--mime chip--mime-text">text</span>
+                        <span class="chip chip--mime chip--mime-binary">application</span>
+                        <span class="chip chip--mime chip--mime-image">image</span>
+                        <span class="chip chip--mime chip--mime-media">audio</span>
+<span class="chip">+2 more</span>                      </div>
+                    </div>
+                  </div>
+                </div>
+              </summary>
+
+              <div class="plugin-body">
+                <p class="plugin-modal-description">Clone git repositories from supported repository URLs into the snapshot output directory.</p>
+
+                <div class="actions">
+                  <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/git" target="_blank" rel="noreferrer">Source on GitHub</a>
+                </div>
+
+                <h3 class="section-title">Dependencies &amp; Outputs</h3>
+                <div class="plugin-info-grid">
+                  <article class="plugin-info-card">
+                    <span>Required Binaries</span>
+                    <div class="pill-list">
+                      <span class="chip chip--binary" title="git
+providers: env,brew,apt">
+                        <code>git</code>
+                        <small>providers=env,brew,apt</small>
+                      </span>
+                    </div>
+                  </article>
+                  <article class="plugin-info-card">
+                    <span>Output Mimetypes</span>
+                    <div class="pill-list">
+                      <span class="chip chip--mime chip--mime-text">text</span>
+                      <span class="chip chip--mime chip--mime-binary">application</span>
+                      <span class="chip chip--mime chip--mime-image">image</span>
+                      <span class="chip chip--mime chip--mime-media">audio</span>
+                      <span class="chip chip--mime chip--mime-media">video</span>
+                      <span class="chip chip--mime chip--mime-code">font</span>
+                    </div>
+                  </article>
+                </div>
+
+                <h3 class="section-title">Run It</h3>
+                <div class="run-tabs" data-run-tabs>
+                  <div class="run-tabs-bar">
+                    <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                    <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
+                  </div>
+                  <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl --plugins=git &#39;https://example.com&#39;</code></pre>
+                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>GIT_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+                </div>
+                <p class="note">Runtime plugins execute while archiving a URL.</p>
+
+                <h3 class="section-title">Hook Scripts</h3>
+                <div class="hook-list">
+                  <article class="hook-card">
+                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/git/on_Snapshot__34_git.finite.bg.py" target="_blank" rel="noreferrer">on_Snapshot__34_git.finite.bg.py</a></span>
+                    <div class="hook-card-chips">
+                      <span class="plugin-language plugin-language--python" title="Python">
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                        </svg>
+                      </span>
+                      <span class="chip">order 34</span>
+                      <span class="chip chip--bg-finite">background (finite)</span>
+                      <span class="hook-card-phase">Snapshot</span>
+                    </div>
+                  </article>
+                </div>
+
+                <h3 class="section-title">Env Var Config Options</h3>
+                <div class="config-table-wrap">
+                  <table class="ab-table config-table">
+                    <colgroup>
+                      <col class="col-key">
+                      <col class="col-default">
+                      <col class="col-type">
+                      <col class="col-aliases">
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th>Key</th>
+                        <th>Default</th>
+                        <th>Type</th>
+                        <th>Aliases / Fallback</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><code>GIT_ENABLED</code><span class="config-key-desc">Enable git repository cloning</span></td>
+                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
+                        <td>
+                          <code>boolean</code>
+                        </td>
+                        <td>
+<small>SAVE_GIT, USE_GIT</small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>GIT_BINARY</code><span class="config-key-desc">Path to git binary</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;git&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>GIT_TIMEOUT</code><span class="config-key-desc">Timeout for git operations in seconds</span></td>
+                        <td class="cfg-default"><span class="cfg-number">120</span></td>
+                        <td>
+                          <code>integer</code>
+<br><small>min 10</small>                        </td>
+                        <td>
+<small>fallback: <code>TIMEOUT</code></small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>GIT_DOMAINS</code><span class="config-key-desc">Comma-separated list of domains to treat as git repositories</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;github.com,gitlab.com,bitbucket.org,gist.github.com,codeberg.org,gitea.com,git.sr.ht&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>GIT_ARGS</code><span class="config-key-desc">Default git arguments</span></td>
+                        <td class="cfg-default"><span class="cfg-bracket">[</span><div class="cfg-array"><div class="cfg-array-item"><span class="cfg-string">&quot;clone&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--depth=1&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--recursive&quot;</span></div></div><span class="cfg-bracket">]</span></td>
+                        <td>
+                          <code>array</code>
+                        </td>
+                        <td>
+<small>GIT_DEFAULT_ARGS</small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>GIT_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to git command</span></td>
+                        <td class="cfg-default"><span class="cfg-bracket">[]</span></td>
+                        <td>
+                          <code>array</code>
+                        </td>
+                        <td>
+<small>GIT_EXTRA_ARGS</small>                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
+            <details
+              id="wget"
+              class="plugin-card plugin-card--snapshot"
+              data-search="wget snapshot wget archive pages and their requisites with wget, optionally writing warc captures. python snapshot embed {wget_binary} env,brew,apt  text/html application/warc application/gzip image text/css application/javascript font audio video on_snapshot__35_wget.finite.bg.py wget_enabled enable wget archiving wget_warc_enabled save warc archive file wget_binary path to wget binary wget_timeout timeout for wget in seconds wget_user_agent user agent string for wget wget_cookies_file path to cookies file wget_check_ssl_validity whether to verify ssl certificates wget_args default wget arguments wget_args_extra extra arguments to append to wget command"
+              data-hero-plugin="wget"
+              data-hero-abx-command="uvx abx-dl --plugins wget 'https://example.com'"
+              data-hero-archivebox-command="WGET_ENABLED=true archivebox add &#39;https://example.com&#39;"
+            >
+              <summary>
+                <div class="plugin-card__frame">
+                  <div class="plugin-main">
+                    <div class="plugin-title-row">
+                      <h2>wget</h2>
+                    </div>
+                    <div class="plugin-slug"><code>wget</code></div>
+                    <p class="plugin-summary-description">Archive pages and their requisites with wget, optionally writing WARC captures.</p>
+                    <div class="plugin-subline">
+                      <span class="plugin-order">#35</span>
+                      <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
+                        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                        </svg>
+                      </span>
+
+                      <span class="chip">Snapshot</span>
+                      <span class="chip">Embed</span>
+                    </div>
+                    <div class="plugin-summary-facts">
+                      <div>
+                        <span class="chip chip--binary-summary">wget <small>(env,brew,apt)</small></span>
+                      </div>
+                      <div>
+                        <span class="chip chip--mime chip--mime-html">text/html</span>
+                        <span class="chip chip--mime chip--mime-archive">application/warc</span>
+                        <span class="chip chip--mime chip--mime-archive">application/gzip</span>
+                        <span class="chip chip--mime chip--mime-image">image</span>
+<span class="chip">+5 more</span>                      </div>
+                    </div>
+                  </div>
+                </div>
+              </summary>
+
+              <div class="plugin-body">
+                <p class="plugin-modal-description">Archive pages and their requisites with wget, optionally writing WARC captures.</p>
+
+                <div class="actions">
+                  <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/wget" target="_blank" rel="noreferrer">Source on GitHub</a>
+                </div>
+
+                <h3 class="section-title">Dependencies &amp; Outputs</h3>
+                <div class="plugin-info-grid">
+                  <article class="plugin-info-card">
+                    <span>Required Binaries</span>
+                    <div class="pill-list">
+                      <span class="chip chip--binary" title="wget
+providers: env,brew,apt">
+                        <code>wget</code>
+                        <small>providers=env,brew,apt</small>
+                      </span>
+                    </div>
+                  </article>
+                  <article class="plugin-info-card">
+                    <span>Output Mimetypes</span>
+                    <div class="pill-list">
+                      <span class="chip chip--mime chip--mime-html">text/html</span>
+                      <span class="chip chip--mime chip--mime-archive">application/warc</span>
+                      <span class="chip chip--mime chip--mime-archive">application/gzip</span>
+                      <span class="chip chip--mime chip--mime-image">image</span>
+                      <span class="chip chip--mime chip--mime-code">text/css</span>
+                      <span class="chip chip--mime chip--mime-code">application/javascript</span>
+                      <span class="chip chip--mime chip--mime-code">font</span>
+                      <span class="chip chip--mime chip--mime-media">audio</span>
+                      <span class="chip chip--mime chip--mime-media">video</span>
+                    </div>
+                  </article>
+                </div>
+
+                <h3 class="section-title">Run It</h3>
+                <div class="run-tabs" data-run-tabs>
+                  <div class="run-tabs-bar">
+                    <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                    <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
+                  </div>
+                  <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl --plugins=wget &#39;https://example.com&#39;</code></pre>
+                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>WGET_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+                </div>
+                <p class="note">Runtime plugins execute while archiving a URL.</p>
+
+                <h3 class="section-title">Hook Scripts</h3>
+                <div class="hook-list">
+                  <article class="hook-card">
+                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/wget/on_Snapshot__35_wget.finite.bg.py" target="_blank" rel="noreferrer">on_Snapshot__35_wget.finite.bg.py</a></span>
+                    <div class="hook-card-chips">
+                      <span class="plugin-language plugin-language--python" title="Python">
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                        </svg>
+                      </span>
+                      <span class="chip">order 35</span>
+                      <span class="chip chip--bg-finite">background (finite)</span>
+                      <span class="hook-card-phase">Snapshot</span>
+                    </div>
+                  </article>
+                </div>
+
+                <h3 class="section-title">Env Var Config Options</h3>
+                <div class="config-table-wrap">
+                  <table class="ab-table config-table">
+                    <colgroup>
+                      <col class="col-key">
+                      <col class="col-default">
+                      <col class="col-type">
+                      <col class="col-aliases">
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th>Key</th>
+                        <th>Default</th>
+                        <th>Type</th>
+                        <th>Aliases / Fallback</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><code>WGET_ENABLED</code><span class="config-key-desc">Enable wget archiving</span></td>
+                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
+                        <td>
+                          <code>boolean</code>
+                        </td>
+                        <td>
+<small>SAVE_WGET, USE_WGET</small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>WGET_WARC_ENABLED</code><span class="config-key-desc">Save WARC archive file</span></td>
+                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
+                        <td>
+                          <code>boolean</code>
+                        </td>
+                        <td>
+<small>SAVE_WARC, WGET_SAVE_WARC</small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>WGET_BINARY</code><span class="config-key-desc">Path to wget binary</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;wget&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>WGET_TIMEOUT</code><span class="config-key-desc">Timeout for wget in seconds</span></td>
+                        <td class="cfg-default"><span class="cfg-number">60</span></td>
+                        <td>
+                          <code>integer</code>
+<br><small>min 5</small>                        </td>
+                        <td>
+<small>fallback: <code>TIMEOUT</code></small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>WGET_USER_AGENT</code><span class="config-key-desc">User agent string for wget</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<small>fallback: <code>USER_AGENT</code></small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>WGET_COOKIES_FILE</code><span class="config-key-desc">Path to cookies file</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<small>fallback: <code>COOKIES_FILE</code></small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>WGET_CHECK_SSL_VALIDITY</code><span class="config-key-desc">Whether to verify SSL certificates</span></td>
+                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
+                        <td>
+                          <code>boolean</code>
+                        </td>
+                        <td>
+<small>fallback: <code>CHECK_SSL_VALIDITY</code></small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>WGET_ARGS</code><span class="config-key-desc">Default wget arguments</span></td>
+                        <td class="cfg-default"><span class="cfg-bracket">[</span><div class="cfg-array"><div class="cfg-array-item"><span class="cfg-string">&quot;--no-verbose&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--adjust-extension&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--convert-links&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--force-directories&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--backup-converted&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--span-hosts&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--no-parent&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--page-requisites&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--restrict-file-names=windows&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;--tries=2&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;-e&quot;</span></div><div class="cfg-array-item"><span class="cfg-string">&quot;robots=off&quot;</span></div></div><span class="cfg-bracket">]</span></td>
+                        <td>
+                          <code>array</code>
+                        </td>
+                        <td>
+<small>WGET_DEFAULT_ARGS</small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>WGET_ARGS_EXTRA</code><span class="config-key-desc">Extra arguments to append to wget command</span></td>
+                        <td class="cfg-default"><span class="cfg-bracket">[]</span></td>
+                        <td>
+                          <code>array</code>
+                        </td>
+                        <td>
+<small>WGET_EXTRA_ARGS</small>                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
+            <details
+              id="archivedotorg"
+              class="plugin-card plugin-card--snapshot"
+              data-search="archivedotorg snapshot archive.org submit urls to the internet archive wayback machine and save the resulting archive link. python snapshot embed text/plain on_snapshot__36_archivedotorg.finite.bg.py archivedotorg_enabled submit urls to archive.org wayback machine archivedotorg_timeout timeout for archive.org submission in seconds"
+              data-hero-plugin="archivedotorg"
+              data-hero-abx-command="uvx abx-dl --plugins archivedotorg 'https://example.com'"
+              data-hero-archivebox-command="ARCHIVEDOTORG_ENABLED=true archivebox add &#39;https://example.com&#39;"
+            >
+              <summary>
+                <div class="plugin-card__frame">
+                  <div class="plugin-main">
+                    <div class="plugin-title-row">
+                      <h2>Archive.org</h2>
+                    </div>
+                    <div class="plugin-slug"><code>archivedotorg</code></div>
+                    <p class="plugin-summary-description">Submit URLs to the Internet Archive Wayback Machine and save the resulting archive link.</p>
+                    <div class="plugin-subline">
+                      <span class="plugin-order">#36</span>
+                      <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
+                        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                        </svg>
+                      </span>
+
+                      <span class="chip">Snapshot</span>
+                      <span class="chip">Embed</span>
+                    </div>
+                    <div class="plugin-summary-facts">
+                      <div>
+                        <span class="chip chip--mime chip--mime-text">text/plain</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </summary>
+
+              <div class="plugin-body">
+                <p class="plugin-modal-description">Submit URLs to the Internet Archive Wayback Machine and save the resulting archive link.</p>
+
+                <div class="actions">
+                  <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/archivedotorg" target="_blank" rel="noreferrer">Source on GitHub</a>
+                </div>
+
+                <h3 class="section-title">Dependencies &amp; Outputs</h3>
+                <div class="plugin-info-grid">
+                  <article class="plugin-info-card">
+                    <span>Output Mimetypes</span>
+                    <div class="pill-list">
+                      <span class="chip chip--mime chip--mime-text">text/plain</span>
+                    </div>
+                  </article>
+                </div>
+
+                <h3 class="section-title">Run It</h3>
+                <div class="run-tabs" data-run-tabs>
+                  <div class="run-tabs-bar">
+                    <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                    <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
+                  </div>
+                  <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl --plugins=archivedotorg &#39;https://example.com&#39;</code></pre>
+                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>ARCHIVEDOTORG_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+                </div>
+                <p class="note">Runtime plugins execute while archiving a URL.</p>
+
+                <h3 class="section-title">Hook Scripts</h3>
+                <div class="hook-list">
+                  <article class="hook-card">
+                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/archivedotorg/on_Snapshot__36_archivedotorg.finite.bg.py" target="_blank" rel="noreferrer">on_Snapshot__36_archivedotorg.finite.bg.py</a></span>
+                    <div class="hook-card-chips">
+                      <span class="plugin-language plugin-language--python" title="Python">
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                        </svg>
+                      </span>
+                      <span class="chip">order 36</span>
+                      <span class="chip chip--bg-finite">background (finite)</span>
+                      <span class="hook-card-phase">Snapshot</span>
+                    </div>
+                  </article>
+                </div>
+
+                <h3 class="section-title">Env Var Config Options</h3>
+                <div class="config-table-wrap">
+                  <table class="ab-table config-table">
+                    <colgroup>
+                      <col class="col-key">
+                      <col class="col-default">
+                      <col class="col-type">
+                      <col class="col-aliases">
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th>Key</th>
+                        <th>Default</th>
+                        <th>Type</th>
+                        <th>Aliases / Fallback</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><code>ARCHIVEDOTORG_ENABLED</code><span class="config-key-desc">Submit URLs to archive.org Wayback Machine</span></td>
+                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
+                        <td>
+                          <code>boolean</code>
+                        </td>
+                        <td>
+<small>SAVE_ARCHIVEDOTORG, USE_ARCHIVEDOTORG, SUBMIT_ARCHIVEDOTORG</small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>ARCHIVEDOTORG_TIMEOUT</code><span class="config-key-desc">Timeout for archive.org submission in seconds</span></td>
+                        <td class="cfg-default"><span class="cfg-number">60</span></td>
+                        <td>
+                          <code>integer</code>
+<br><small>min 10</small>                        </td>
+                        <td>
+<small>fallback: <code>TIMEOUT</code></small>                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
+            <details
+              id="favicon"
+              class="plugin-card plugin-card--snapshot"
+              data-search="favicon snapshot favicon fetch and save the site favicon or touch icon. python snapshot embed image image/x-icon on_snapshot__37_favicon.finite.bg.py favicon_enabled enable favicon downloading favicon_timeout timeout for favicon fetch in seconds favicon_provider fallback favicon provider when not found via chrome tab. {} will be replaced with the domain."
+              data-hero-plugin="favicon"
+              data-hero-abx-command="uvx abx-dl --plugins favicon 'https://example.com'"
+              data-hero-archivebox-command="FAVICON_ENABLED=true archivebox add &#39;https://example.com&#39;"
+            >
+              <summary>
+                <div class="plugin-card__frame">
+                  <div class="plugin-main">
+                    <div class="plugin-title-row">
+                      <h2>Favicon</h2>
+                    </div>
+                    <div class="plugin-slug"><code>favicon</code></div>
+                    <p class="plugin-summary-description">Fetch and save the site favicon or touch icon.</p>
+                    <div class="plugin-subline">
+                      <span class="plugin-order">#37</span>
+                      <span class="plugin-language plugin-language--python" title="Predominantly Python hooks" aria-label="Predominantly Python hooks">
+                        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                        </svg>
+                      </span>
+
+                      <span class="chip">Snapshot</span>
+                      <span class="chip">Embed</span>
+                    </div>
+                    <div class="plugin-summary-facts">
+                      <div>
+                        <span class="chip chip--mime chip--mime-image">image</span>
+                        <span class="chip chip--mime chip--mime-image">image/x-icon</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </summary>
+
+              <div class="plugin-body">
+                <p class="plugin-modal-description">Fetch and save the site favicon or touch icon.</p>
+
+                <div class="actions">
+                  <a class="ab-btn ab-btn--sm" href="https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/favicon" target="_blank" rel="noreferrer">Source on GitHub</a>
+                </div>
+
+                <h3 class="section-title">Dependencies &amp; Outputs</h3>
+                <div class="plugin-info-grid">
+                  <article class="plugin-info-card">
+                    <span>Output Mimetypes</span>
+                    <div class="pill-list">
+                      <span class="chip chip--mime chip--mime-image">image</span>
+                      <span class="chip chip--mime chip--mime-image">image/x-icon</span>
+                    </div>
+                  </article>
+                </div>
+
+                <h3 class="section-title">Run It</h3>
+                <div class="run-tabs" data-run-tabs>
+                  <div class="run-tabs-bar">
+                    <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                    <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
+                  </div>
+                  <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>abx-dl --plugins=favicon &#39;https://example.com&#39;</code></pre>
+                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>FAVICON_ENABLED=true archivebox add &#39;https://example.com&#39;</code></pre>
+                </div>
+                <p class="note">Runtime plugins execute while archiving a URL.</p>
+
+                <h3 class="section-title">Hook Scripts</h3>
+                <div class="hook-list">
+                  <article class="hook-card">
+                    <span class="hook-card-file"><a href="https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/favicon/on_Snapshot__37_favicon.finite.bg.py" target="_blank" rel="noreferrer">on_Snapshot__37_favicon.finite.bg.py</a></span>
+                    <div class="hook-card-chips">
+                      <span class="plugin-language plugin-language--python" title="Python">
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                        </svg>
+                      </span>
+                      <span class="chip">order 37</span>
+                      <span class="chip chip--bg-finite">background (finite)</span>
+                      <span class="hook-card-phase">Snapshot</span>
+                    </div>
+                  </article>
+                </div>
+
+                <h3 class="section-title">Env Var Config Options</h3>
+                <div class="config-table-wrap">
+                  <table class="ab-table config-table">
+                    <colgroup>
+                      <col class="col-key">
+                      <col class="col-default">
+                      <col class="col-type">
+                      <col class="col-aliases">
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th>Key</th>
+                        <th>Default</th>
+                        <th>Type</th>
+                        <th>Aliases / Fallback</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><code>FAVICON_ENABLED</code><span class="config-key-desc">Enable favicon downloading</span></td>
+                        <td class="cfg-default"><span class="cfg-bool-true">true</span></td>
+                        <td>
+                          <code>boolean</code>
+                        </td>
+                        <td>
+<small>SAVE_FAVICON, USE_FAVICON</small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>FAVICON_TIMEOUT</code><span class="config-key-desc">Timeout for favicon fetch in seconds</span></td>
+                        <td class="cfg-default"><span class="cfg-number">30</span></td>
+                        <td>
+                          <code>integer</code>
+<br><small>min 5</small>                        </td>
+                        <td>
+<small>fallback: <code>TIMEOUT</code></small>                        </td>
+                      </tr>
+                      <tr>
+                        <td><code>FAVICON_PROVIDER</code><span class="config-key-desc">Fallback favicon provider when not found via chrome tab. {} will be replaced with the domain.</span></td>
+                        <td class="cfg-default"><span class="cfg-string">&quot;https://www.google.com/s2/favicons?domain={}&amp;format=ico&quot;</span></td>
+                        <td>
+                          <code>string</code>
+                        </td>
+                        <td>
+<span class="config-table-muted">—</span>                        </td>
                       </tr>
                     </tbody>
                   </table>
@@ -10230,7 +10216,7 @@ providers: env,brew,apt">
 
           <div class="footer-meta">
             <span>Generated from <a href="https://github.com/ArchiveBox/abx-plugins" target="_blank" rel="noreferrer">ArchiveBox/abx-plugins</a> at ref <code>main</code>.</span>
-            <span>Updated 2026-08-16 02:37 UTC</span>
+            <span>Updated 2026-08-16 04:20 UTC</span>
           </div>
         </div>
       </footer>
