@@ -244,6 +244,7 @@ async function main() {
         timeoutMs: Math.min(overallTimeoutMs, Math.max(10000, budgetMs * 5)),
       }
     );
+    await page.bringToFront();
     if (handshake.status?.failureMsg) {
       throw new Error(
         `AWP recorder attach failed: ${handshake.status.failureMsg}`
