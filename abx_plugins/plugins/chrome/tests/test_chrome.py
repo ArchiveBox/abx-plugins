@@ -65,6 +65,17 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 TEST_EXTENSION_NAME = "ublock"
 TEST_EXTENSION_WEBSTORE_ID = "ddkjiahejlhfcafbddmgiahcphecmpfh"
+ARCHIVEWEBPAGE_PLUGIN_DIR = CHROME_UTILS.parent.parent / "archivewebpage"
+ARCHIVEWEBPAGE_START_HOOK = (
+    ARCHIVEWEBPAGE_PLUGIN_DIR / "on_Snapshot__16_archivewebpage_start.js"
+)
+CHROME_EXTENSION_PLUGIN_NAMES = (
+    "archivewebpage",
+    "istilldontcareaboutcookies",
+    "singlefile",
+    "twocaptcha",
+    "ublock",
+)
 
 
 @dataclass
@@ -1331,7 +1342,7 @@ def test_snapshot_isolation_launches_and_cleans_up_local_browser(chrome_test_url
 
 
 def test_concurrent_snapshot_isolation_loads_shared_extension_cache(chrome_test_url):
-    """Concurrent snapshot browsers must load one shared abxpkg extension cache."""
+    """Concurrent snapshot browsers must load and use one shared extension cache."""
     with tempfile.TemporaryDirectory() as tmpdir:
         crawl_dir = Path(tmpdir) / "crawl"
         crawl_dir.mkdir()
@@ -1342,6 +1353,13 @@ def test_concurrent_snapshot_isolation_loads_shared_extension_cache(chrome_test_
         }
         extensions_dir = Path(get_extensions_dir(env=base_env))
         cached_ext = _install_test_extension(extensions_dir, base_env)
+        for plugin_name in CHROME_EXTENSION_PLUGIN_NAMES:
+            loaded = install_required_binary_from_config(
+                CHROME_UTILS.parent.parent / plugin_name,
+                plugin_name,
+                env=base_env,
+            )
+            assert loaded.loaded_abspath is not None
 
         sessions: list[_ConcurrentChromeSession] = []
         for index in range(3):
@@ -1376,12 +1394,36 @@ def test_concurrent_snapshot_isolation_loads_shared_extension_cache(chrome_test_
             )
             launch_process._stdout_handle = stdout_handle
             launch_process._stderr_handle = stderr_handle
+            tab_stdout_handle = (chrome_dir / "chrome_tab.stdout.log").open(
+                "w+",
+                encoding="utf-8",
+            )
+            tab_stderr_handle = (chrome_dir / "chrome_tab.stderr.log").open(
+                "w+",
+                encoding="utf-8",
+            )
+            tab_process = LoggedPopen(
+                [
+                    str(CHROME_TAB_HOOK),
+                    f"--url={chrome_test_url}",
+                    f"--snapshot-id={snapshot_id}",
+                    "--crawl-id=test-concurrent-snapshot-isolation",
+                ],
+                cwd=str(chrome_dir),
+                stdout=tab_stdout_handle,
+                stderr=tab_stderr_handle,
+                text=True,
+                env=env,
+            )
+            tab_process._stdout_handle = tab_stdout_handle
+            tab_process._stderr_handle = tab_stderr_handle
             sessions.append(
                 _ConcurrentChromeSession(
                     snapshot_id=snapshot_id,
                     chrome_dir=chrome_dir,
                     env=env,
                     launch_process=launch_process,
+                    tab_process=tab_process,
                 ),
             )
 
@@ -1392,8 +1434,12 @@ def test_concurrent_snapshot_isolation_loads_shared_extension_cache(chrome_test_
                     env=session.env,
                     timeout_seconds=60,
                     require_browser_ready=True,
+                    require_target_id=True,
+                    require_connectable=True,
                 )
                 assert session.launch_process.poll() is None
+                assert session.tab_process is not None
+                assert session.tab_process.poll() is None
                 browser_metadata = json.loads(
                     (session.chrome_dir / "browser.json").read_text(),
                 )
@@ -1415,15 +1461,8 @@ def test_concurrent_snapshot_isolation_loads_shared_extension_cache(chrome_test_
                     (session.chrome_dir / "chrome.pid").read_text().strip(),
                 )
 
+            archivewebpage_processes = []
             for session in sessions:
-                session.tab_process = launch_snapshot_tab(
-                    snapshot_chrome_dir=session.chrome_dir,
-                    tab_env=session.env,
-                    test_url=chrome_test_url,
-                    snapshot_id=session.snapshot_id,
-                    crawl_id="test-concurrent-snapshot-isolation",
-                    require_pid=True,
-                )
                 wait_result = subprocess.run(
                     [
                         str(CHROME_WAIT_HOOK),
@@ -1440,6 +1479,35 @@ def test_concurrent_snapshot_isolation_loads_shared_extension_cache(chrome_test_
                     f"snapshot wait failed for {session.snapshot_id}:\n"
                     f"Stdout: {wait_result.stdout}\nStderr: {wait_result.stderr}"
                 )
+                archivewebpage_dir = session.chrome_dir.parent / "archivewebpage"
+                archivewebpage_dir.mkdir()
+                archivewebpage_processes.append(
+                    (
+                        session,
+                        archivewebpage_dir,
+                        subprocess.Popen(
+                            [
+                                str(ARCHIVEWEBPAGE_START_HOOK),
+                                f"--url={chrome_test_url}",
+                                f"--snapshot-id={session.snapshot_id}",
+                                "--crawl-id=test-concurrent-snapshot-isolation",
+                            ],
+                            cwd=str(archivewebpage_dir),
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            text=True,
+                            env=session.env,
+                        ),
+                    ),
+                )
+
+            for session, archivewebpage_dir, process in archivewebpage_processes:
+                stdout, stderr = process.communicate(timeout=60)
+                assert process.returncode == 0, (
+                    f"ArchiveWeb.page start failed for {session.snapshot_id}:\n"
+                    f"Stdout: {stdout}\nStderr: {stderr}"
+                )
+                assert (archivewebpage_dir / "recording.json").is_file()
         finally:
             for session in sessions:
                 tab_process = session.tab_process

@@ -962,7 +962,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
  * @param {boolean} [options.CHROME_SANDBOX=true] - Enable Chrome sandbox
  * @param {boolean} [options.CHROME_CHECK_SSL_VALIDITY=true] - Check SSL certificates
  * @param {boolean} [options.enableExtensionDebugging=false] - Enable CDP extension loading/debugging
- * @param {Array<string>} [options.extensionPaths=[]] - Unpacked extension paths to load at browser startup
+ * @param {Array<string>} [options.extensionPaths=[]] - Unpacked extension paths to load after launch via CDP Extensions.loadUnpacked
  * @param {Array<string>} [options.CHROME_ARGS=[]] - Hydrated base Chrome args from plugin config
  * @param {Array<string>} [options.CHROME_ARGS_EXTRA=[]] - Hydrated extra Chrome args from plugin config
  * @param {number} [options.timeoutMs] - Hydrated Chrome operation timeout in milliseconds
@@ -1102,13 +1102,8 @@ async function launchChromium(options = {}) {
     Array.isArray(extensionPaths) &&
     extensionPaths.filter(Boolean).length > 0
   ) {
-    const unpackedPaths = extensionPaths.filter(Boolean);
-    chromiumArgs.push(`--load-extension=${unpackedPaths.join(",")}`);
-    chromiumArgs.push(
-      "--disable-features=DisableLoadExtensionCommandLineSwitch,ExtensionManifestV2Unsupported,ExtensionManifestV2Disabled"
-    );
     console.error(
-      `[*] Loading ${unpackedPaths.length} Chrome extension(s) at browser startup`
+      "[*] Loading Chrome extensions after launch with CDP Extensions.loadUnpacked"
     );
   }
   chromiumArgs.push("about:blank");
@@ -3581,6 +3576,7 @@ function loadInstalledExtensionsFromCache(extensionsDir = getExtensionsDir()) {
       const extData = JSON.parse(fs.readFileSync(extPath, "utf-8"));
       if (!extData.unpacked_path || !fs.existsSync(extData.unpacked_path))
         continue;
+      delete extData.id;
       delete extData.target;
       delete extData.target_type;
       delete extData.target_url;
@@ -3970,12 +3966,8 @@ async function ensureChromeSession(options = {}) {
     }
     if (installedExtensions.length > 0) {
       console.error(
-        `[*] Loading ${installedExtensions.length} extension(s) with Chrome`
+        `[*] Loading ${installedExtensions.length} extension(s) after Chrome launch with CDP Extensions.loadUnpacked`
       );
-      for (const extension of installedExtensions) {
-        const manifest = loadExtensionManifest(extension.unpacked_path);
-        extension.manifest_version = manifest?.manifest_version || null;
-      }
     }
 
     const result = await launchChromium({
@@ -4055,7 +4047,7 @@ async function ensureChromeSession(options = {}) {
         createPageIfMissing: true,
       });
 
-      if (installedExtensions.length > 0 && !launchedNewBrowser) {
+      if (installedExtensions.length > 0) {
         // Keep this existing browser connection after Extensions.loadUnpacked.
         // A fresh Puppeteer connect enumerates extension targets and can lose a
         // race against short-lived MV3/archiveweb.page targets that close after
