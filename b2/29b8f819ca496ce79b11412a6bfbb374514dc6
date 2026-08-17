@@ -1,0 +1,22 @@
+abx_plugins/plugins/twocaptcha/on_CrawlSetup__95_twocaptcha_config.js
+  h_923c208e183a7b 1
+abx_plugins/plugins/twocaptcha/on_Snapshot__14_twocaptcha.daemon.bg.js
+  h_923c208e183a7b 1
+pyproject.toml
+  h_923c208e183a7b 3
+tests/test_plugin_executables_have_shebang.py
+  h_923c208e183a7b 11-14,51-52
+uv.lock
+  h_923c208e183a7b 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "b229b8f819ca496ce79b11412a6bfbb374514dc6",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
