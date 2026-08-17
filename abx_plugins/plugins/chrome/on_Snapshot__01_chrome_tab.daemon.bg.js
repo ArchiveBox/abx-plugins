@@ -472,6 +472,10 @@ async function main() {
       const crawlChromeDir = path.join(CRAWL_DIR, "chrome");
       const crawlSession = await waitForChromeSessionState(crawlChromeDir, {
         timeoutMs: timeoutSeconds * 1000,
+        requireBrowserReady: true,
+        requireConnectable: true,
+        probeTimeoutMs: 1000,
+        puppeteer,
       });
       if (!crawlSession?.cdpUrl) {
         throw new Error(
@@ -524,6 +528,12 @@ async function main() {
       }
       fs.writeFileSync(path.join(OUTPUT_DIR, "target_id.txt"), targetId);
       fs.writeFileSync(path.join(OUTPUT_DIR, "url.txt"), url);
+      if (crawlSession.browser) {
+        writeFileAtomic(
+          path.join(OUTPUT_DIR, "browser.json"),
+          JSON.stringify(crawlSession.browser, null, 2)
+        );
+      }
 
       status = "succeeded";
       output = `target=${targetId} port=${getPortFromCdpUrl(
@@ -533,19 +543,6 @@ async function main() {
       console.log(`[+] Chrome tab ready`);
       console.error(`[+] CDP URL: ${crawlSession.cdpUrl}`);
       console.error(`[+] Page target ID: ${targetId}`);
-
-      const readyCrawlSession = crawlSession.browser?.ready
-        ? crawlSession
-        : await waitForChromeSessionState(crawlChromeDir, {
-            timeoutMs: timeoutSeconds * 1000,
-            requireBrowserReady: true,
-          });
-      if (readyCrawlSession?.browser) {
-        writeFileAtomic(
-          path.join(OUTPUT_DIR, "browser.json"),
-          JSON.stringify(readyCrawlSession.browser, null, 2)
-        );
-      }
       releaseLock();
       releaseLock = null;
       publishSuccess(output, version || "");

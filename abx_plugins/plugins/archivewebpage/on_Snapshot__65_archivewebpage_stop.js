@@ -65,23 +65,6 @@ function readRecordingState() {
   return state;
 }
 
-async function waitForRecordingState(timeoutMs) {
-  const deadline = Date.now() + timeoutMs;
-  let lastError = null;
-  while (Date.now() < deadline) {
-    try {
-      return readRecordingState();
-    } catch (error) {
-      lastError = error;
-      if (error?.code !== "ENOENT" && !(error instanceof SyntaxError)) {
-        throw error;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
-  }
-  throw lastError || new Error("ArchiveWeb.page recording state was not created");
-}
-
 async function stopExactRecording(helperPage, state, timeoutMs) {
   return await helperPage.evaluate(
     async ({ tabId, expectedCollId, timeoutMs }) => {
@@ -242,7 +225,7 @@ async function main() {
 
   let browser = null;
   try {
-    const state = await waitForRecordingState(timeoutMs);
+    const state = readRecordingState();
     const chromeSessionDir = pickChromeSessionDir(chromeDirCandidates);
     if (!chromeSessionDir) {
       throw new Error("Chrome target_id.txt is missing for this snapshot");
