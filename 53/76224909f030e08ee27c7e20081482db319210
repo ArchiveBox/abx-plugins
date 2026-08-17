@@ -1,0 +1,18 @@
+abx_plugins/plugins/archivedotorg/on_Snapshot__36_archivedotorg.finite.bg.py
+  h_923c208e183a7b 150-152
+pyproject.toml
+  h_923c208e183a7b 3
+uv.lock
+  h_923c208e183a7b 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "5376224909f030e08ee27c7e20081482db319210",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
