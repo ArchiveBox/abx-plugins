@@ -146,10 +146,10 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
                 return save_submit_url_for_manual_retry("No archive URL returned")
 
     except HTTPError as e:
-        if e.code == 429:
-            return save_submit_url_for_manual_retry("Rate limited by archive.org")
         if e.code >= 400:
-            return False, None, f"HTTP {e.code}"
+            return save_submit_url_for_manual_retry(
+                f"Archive.org returned HTTP {e.code}",
+            )
         return False, None, f"HTTPError: {e}"
     except TimeoutError:
         return save_submit_url_for_manual_retry(
