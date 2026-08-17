@@ -265,21 +265,6 @@ async function startScreencast() {
     maxHeight: Math.max(1, Math.floor(height * screenshotScale)),
     everyNthFrame: 1,
   });
-  const initialFrame = await cdpSession.send("Page.captureScreenshot", {
-    format: "jpeg",
-    quality,
-    optimizeForSpeed: true,
-    fromSurface: true,
-    captureBeyondViewport: false,
-    clip: {
-      x: Math.max(0, Math.floor(viewport.pageX || 0)),
-      y: Math.max(0, Math.floor(viewport.pageY || 0)),
-      width,
-      height,
-      scale: screenshotScale,
-    },
-  });
-  writeNativeFrame(Buffer.from(initialFrame.data, "base64"));
 
   console.log("chrome screencast attached");
   console.error(`screencast frames: ${LIVE_DIR}`);
