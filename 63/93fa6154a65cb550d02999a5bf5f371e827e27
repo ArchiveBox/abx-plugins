@@ -1,0 +1,16 @@
+abx_plugins/plugins/chrome/chrome_utils.js
+  h_923c208e183a7b 965,1106,3579,3969,4050
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  h_923c208e183a7b 68-78,1345,1356-1362,1397-1419,1426,1437-1438,1441-1442,1464,1482-1510
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "6393fa6154a65cb550d02999a5bf5f371e827e27",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
