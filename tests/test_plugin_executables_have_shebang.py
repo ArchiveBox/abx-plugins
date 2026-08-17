@@ -8,6 +8,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PLUGINS_ROOT = REPO_ROOT / "abx_plugins" / "plugins"
 SCRIPT_SUFFIXES = {".py", ".js", ".sh"}
+NODE_ONLY_JS_HOOKS = {
+    "twocaptcha/on_CrawlSetup__95_twocaptcha_config.js",
+    "twocaptcha/on_Snapshot__14_twocaptcha.daemon.bg.js",
+}
 
 
 def _iter_plugin_scripts() -> list[Path]:
@@ -44,6 +48,8 @@ def _expected_deps_from(script_path: Path) -> str:
 
 
 def _expected_abxpkg_header(script_path: Path, binary_name: str) -> str:
+    if script_path.relative_to(PLUGINS_ROOT).as_posix() in NODE_ONLY_JS_HOOKS:
+        return "#!/usr/bin/env -S abxpkg run --script --binproviders=env,pnpm,apt,brew node"
     return (
         "#!/usr/bin/env -S abxpkg run --script "
         f"--deps-from={_expected_deps_from(script_path)} {binary_name}"
