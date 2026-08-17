@@ -1,0 +1,18 @@
+abx_plugins/plugins/chrome/chrome_utils.js
+  h_923c208e183a7b 3300,3302,3310,3342-3343,3345-3346,3348-3350
+pyproject.toml
+  h_923c208e183a7b 3
+uv.lock
+  h_923c208e183a7b 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "ab14e5e2d34c8e80d75c151764bc9bc59eea94f6",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

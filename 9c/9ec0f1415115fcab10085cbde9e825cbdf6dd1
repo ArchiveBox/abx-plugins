@@ -1,0 +1,14 @@
+abx_plugins/plugins/singlefile/singlefile_extension_save.js
+  h_923c208e183a7b 210
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "9c9ec0f1415115fcab10085cbde9e825cbdf6dd1",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

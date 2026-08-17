@@ -1,0 +1,34 @@
+TODO.md
+  h_923c208e183a7b 449,459,467
+abx_plugins/plugins/chrome/README.md
+  h_923c208e183a7b 89,100-101,172-174,177-179
+abx_plugins/plugins/chrome/chrome_utils.js
+  h_923c208e183a7b 643,646,650,653
+abx_plugins/plugins/chrome/on_CrawlSetup__90_chrome_launch.daemon.bg.js
+  h_923c208e183a7b 8
+abx_plugins/plugins/chrome/on_Snapshot__01_chrome_tab.daemon.bg.js
+  h_923c208e183a7b 10,310
+abx_plugins/plugins/chrome/on_Snapshot__01_chrome_wait.js
+  h_923c208e183a7b 16,54
+abx_plugins/plugins/chrome/tests/chrome_test_helpers.py
+  h_923c208e183a7b 84,86-87
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  h_923c208e183a7b 3463
+abx_plugins/plugins/chrome_screencast/on_CrawlSetup__90_chrome_screencast.daemon.bg.js
+  h_923c208e183a7b 5
+abx_plugins/plugins/chrome_screencast/on_Snapshot__02_chrome_screencast.daemon.bg.js
+  h_923c208e183a7b 320
+docs/index.html
+  h_923c208e183a7b 1132-1301,4103,4130,4161,4164,4168,4170,4246,4254,4260,4268,4274,4282,4485,6348,10233
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "eb5aafd1d886d2d9a528f125f86d19a7f0d51f46",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
