@@ -1,0 +1,51 @@
+abx_plugins/plugins/claudecode/config.json
+  s_69ddf154c10e6f::t_72231e7c24f197 11
+abx_plugins/plugins/search_backend_sonic/config.json
+  s_69ddf154c10e6f::t_72231e7c24f197 11
+abx_plugins/plugins/ytdlp/config.json
+  s_69ddf154c10e6f::t_72231e7c24f197 11,24,36
+abx_plugins/plugins/opendataloader/tests/test_opendataloader.py
+  s_69ddf154c10e6f::t_72231e7c24f197 232
+abx_plugins/plugins/liteparse/config.json
+  s_69ddf154c10e6f::t_72231e7c24f197 24,42
+tests/test_plugin_config_metadata.py
+  s_69ddf154c10e6f::t_a6b0e6826db272 285-288
+abx_plugins/plugins/git/config.json
+  s_69ddf154c10e6f::t_72231e7c24f197 11
+abx_plugins/plugins/search_backend_ripgrep/tests/test_ripgrep_detection.py
+  s_69ddf154c10e6f::t_72231e7c24f197 25,38
+abx_plugins/plugins/search_backend_sonic/tests/test_sonic_start.py
+  s_69ddf154c10e6f::t_72231e7c24f197 87
+pyproject.toml
+  s_69ddf154c10e6f::t_af0a5e4d31c285 3
+abx_plugins/plugins/search_backend_ripgrep/config.json
+  s_69ddf154c10e6f::t_72231e7c24f197 11
+abx_plugins/plugins/wget/tests/test_wget.py
+  s_69ddf154c10e6f::t_72231e7c24f197 54
+abx_plugins/plugins/chrome/config.json
+  s_69ddf154c10e6f::t_72231e7c24f197 11
+abx_plugins/plugins/opencode/config.json
+  s_69ddf154c10e6f::t_72231e7c24f197 11,23,40
+abx_plugins/plugins/gallerydl/config.json
+  s_69ddf154c10e6f::t_72231e7c24f197 11
+abx_plugins/plugins/wget/config.json
+  s_69ddf154c10e6f::t_72231e7c24f197 11
+abx_plugins/plugins/opendataloader/config.json
+  s_69ddf154c10e6f::t_72231e7c24f197 24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "b10be524e706ec79e94d05841b108c49899998b4",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
