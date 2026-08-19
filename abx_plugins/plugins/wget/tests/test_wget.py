@@ -51,7 +51,7 @@ def test_wget_declares_only_env_apt_brew_providers():
     assert binary_record is not None, (
         f"Expected wget required_binaries entry: {required_binaries}"
     )
-    assert binary_record["binproviders"] == "env,brew,apt"
+    assert binary_record["binproviders"] == "env,apt,brew"
 
 
 def test_verify_deps_with_abxpkg():

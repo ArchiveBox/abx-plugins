@@ -229,7 +229,7 @@ def test_install_hook_requests_java_dependency():
     java_record = get_hydrated_required_binary(PLUGIN_DIR, "java")
     assert java_record["min_version"] == "11.0.0"
     assert java_record["overrides"]["brew"]["install_args"] == ["openjdk"]
-    assert java_record["binproviders"] == "env,brew,apt"
+    assert java_record["binproviders"] == "env,apt,brew"
 
 
 def test_opendataloader_env_executes_exact_abxpkg_selected_java():

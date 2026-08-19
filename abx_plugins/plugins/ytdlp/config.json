@@ -8,7 +8,7 @@
   "required_binaries": [
     {
       "name": "{YTDLP_BINARY}",
-      "binproviders": "env,uv,brew,apt",
+      "binproviders": "env,uv,apt,brew",
       "min_version": null,
       "overrides": {
         "uv": {
@@ -21,7 +21,7 @@
     },
     {
       "name": "{NODE_BINARY}",
-      "binproviders": "env,node,brew,apt",
+      "binproviders": "env,node,apt,brew",
       "min_version": null,
       "overrides": {
         "apt": {
@@ -33,7 +33,7 @@
     },
     {
       "name": "{FFMPEG_BINARY}",
-      "binproviders": "env,brew,apt",
+      "binproviders": "env,apt,brew",
       "min_version": null
     }
   ],

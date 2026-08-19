@@ -8,7 +8,7 @@
   "required_binaries": [
     {
       "name": "{NODE_BINARY}",
-      "binproviders": "env,node,brew,apt",
+      "binproviders": "env,node,apt,brew",
       "min_version": "22.12.0",
       "overrides": {
         "apt": {

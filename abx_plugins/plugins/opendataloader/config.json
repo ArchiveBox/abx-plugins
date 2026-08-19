@@ -21,7 +21,7 @@
     },
     {
       "name": "{OPENDATALOADER_JAVA_BINARY}",
-      "binproviders": "env,brew,apt",
+      "binproviders": "env,apt,brew",
       "min_version": "11.0.0",
       "overrides": {
         "brew": {

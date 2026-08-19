@@ -8,7 +8,7 @@
   "required_binaries": [
     {
       "name": "{NODE_BINARY}",
-      "binproviders": "env,node,brew,apt",
+      "binproviders": "env,node,apt,brew",
       "min_version": null,
       "overrides": {
         "apt": {
@@ -20,7 +20,7 @@
     },
     {
       "name": "{NPM_BINARY}",
-      "binproviders": "env,node,brew,apt",
+      "binproviders": "env,node,apt,brew",
       "min_version": null,
       "overrides": {
         "apt": {
@@ -37,7 +37,7 @@
     },
     {
       "name": "{GIT_BINARY}",
-      "binproviders": "env,brew,apt",
+      "binproviders": "env,apt,brew",
       "min_version": null
     },
     {

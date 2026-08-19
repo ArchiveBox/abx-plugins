@@ -270,7 +270,6 @@ def test_required_binary_configs_prefer_compatible_host_binaries() -> None:
                 apt_index = providers.index("apt")
                 for preferred_provider in (
                     "node",
-                    "brew",
                     "nix",
                     "uv",
                     "pnpm",
@@ -283,6 +282,10 @@ def test_required_binary_configs_prefer_compatible_host_binaries() -> None:
                         failures.append(
                             f"{plugin_dir.name}: required_binaries[{index}] must try {preferred_provider} before apt",
                         )
+                if "brew" in providers and providers.index("brew") < apt_index:
+                    failures.append(
+                        f"{plugin_dir.name}: required_binaries[{index}] must try native apt before brew",
+                    )
 
     assert not failures, (
         "Plugin host binary preference validation failed:\n"

@@ -22,7 +22,7 @@ def test_ripgrep_required_binaries_emit_rg_default():
     )
     assert binary.get("type", "BinaryRequest") == "BinaryRequest"
     assert binary["name"] == "rg"
-    assert binary["binproviders"] == "env,brew,apt"
+    assert binary["binproviders"] == "env,apt,brew"
 
 
 def test_ripgrep_required_binaries_allow_absolute_path():
@@ -35,7 +35,7 @@ def test_ripgrep_required_binaries_allow_absolute_path():
         if record.get("name") == "/custom/bin/rg"
     )
     assert binary["name"] == "/custom/bin/rg"
-    assert binary["binproviders"] == "env,brew,apt"
+    assert binary["binproviders"] == "env,apt,brew"
 
 
 if __name__ == "__main__":

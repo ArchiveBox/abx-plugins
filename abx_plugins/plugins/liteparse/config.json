@@ -21,7 +21,7 @@
     },
     {
       "name": "{LITEPARSE_TESSERACT_BINARY}",
-      "binproviders": "env,brew,apt",
+      "binproviders": "env,apt,brew",
       "min_version": "5.0.0",
       "overrides": {
         "brew": {
@@ -39,7 +39,7 @@
     },
     {
       "name": "{LITEPARSE_IMAGEMAGICK_BINARY}",
-      "binproviders": "env,brew,apt",
+      "binproviders": "env,apt,brew",
       "min_version": "6.0.0",
       "overrides": {
         "brew": {
