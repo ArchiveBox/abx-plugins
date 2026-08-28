@@ -45,6 +45,9 @@ def create_example_html(tmpdir: Path) -> Path:
 <!DOCTYPE html>
 <html>
 <head>
+    <title>Example Article</title>
+    <meta property="og:title" content="Example Article">
+    <meta name="author" content="Example Author">
     <!-- DOM capture scripts can push the source charset beyond the sniffer window. -->
     <script>{"x" * 2048}</script>
     <meta charset="utf-8">
@@ -52,6 +55,7 @@ def create_example_html(tmpdir: Path) -> Path:
 </head>
 <body>
     <article>
+        <h1>Example Article</h1>
         <div class="content">
             <p>This domain is for use in illustrative examples in documents. You may use this
             domain in literature without prior coordination or asking for permission.</p>
@@ -70,7 +74,11 @@ def create_example_html(tmpdir: Path) -> Path:
 
             <p>Encoding check: café in Montréal…</p>
 
-            <img src="/assets/example.svg" alt="Example illustration">
+            <picture>
+                <source srcset="/assets/example.webp 1x, /assets/example-2.webp 2x">
+                <img src="/assets/example.svg" srcset="/assets/example-2.svg 2x" alt="Example illustration">
+            </picture>
+            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="Inline image">
 
             <p><a href="https://www.iana.org/domains/example">More information about example domains...</a></p>
         </div>
@@ -119,9 +127,10 @@ def test_hook_script_exists():
 
 
 def test_declares_capture_dependencies():
-    """Readability retries must restore their HTML and image sources."""
+    """Readability restores HTML sources and waits for an enabled wget fallback."""
     config = json.loads((PLUGIN_DIR / "config.json").read_text())
     assert {"dom", "responses"} <= set(config["required_plugins"])
+    assert config["wait_for_plugins"] == ["wget"]
 
 
 def test_verify_deps_with_abxpkg():
@@ -148,6 +157,11 @@ def test_extracts_article_after_installation():
         )
         archived_image.parent.mkdir(parents=True)
         archived_image.write_text('<svg xmlns="http://www.w3.org/2000/svg"></svg>')
+        wget_image = snap_dir / "wget" / "example.com" / "assets" / "example.svg"
+        wget_image.parent.mkdir(parents=True)
+        wget_image.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg"><text>wget</text></svg>',
+        )
         stale_image = snap_dir / "readability" / "images" / "stale.example" / "old.png"
         stale_image.parent.mkdir(parents=True)
         stale_image.symlink_to("missing.png")
@@ -201,9 +215,14 @@ def test_extracts_article_after_installation():
             or "literature" in html_content.lower()
         ), "Missing example.com description in HTML"
         assert html_content.startswith("<!doctype html>")
-        assert "Reader view" not in html_content
+        assert "reader view" not in html_content.lower()
+        assert "reader mode" not in html_content.lower()
+        assert "<header" not in html_content.lower()
+        assert "<body><main><article>" in html_content
         assert "max-width: 48rem" in html_content
         assert 'src="./images/example.com/assets/example.svg"' in html_content
+        assert "srcset=" not in html_content
+        assert "data:image" not in html_content
         readability_image = (
             snap_dir
             / "readability"
@@ -228,6 +247,81 @@ def test_extracts_article_after_installation():
         # Verify JSON metadata
         json_data = json.loads(json_file.read_text())
         assert isinstance(json_data, dict), "article.json should be a dict"
+
+
+def test_falls_back_to_wget_images():
+    """Readability should use wget requisites when response capture is unavailable."""
+    binary_path = require_readability_binary()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        snap_dir = tmpdir / "snap"
+        snap_dir.mkdir(parents=True)
+        create_example_html(snap_dir)
+        archived_image = snap_dir / "wget" / "example.com" / "assets" / "example.svg"
+        archived_image.parent.mkdir(parents=True)
+        archived_image.write_text('<svg xmlns="http://www.w3.org/2000/svg"></svg>')
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(snap_dir)
+        env["READABILITY_BINARY"] = binary_path
+
+        result = subprocess.run(
+            [str(READABILITY_HOOK), "--url", TEST_URL],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
+        )
+
+        assert result.returncode == 0, result.stderr
+        html_content = (snap_dir / "readability" / "content.html").read_text()
+        readability_image = (
+            snap_dir
+            / "readability"
+            / "images"
+            / "example.com"
+            / "assets"
+            / "example.svg"
+        )
+        assert 'src="./images/example.com/assets/example.svg"' in html_content
+        assert "srcset=" not in html_content
+        assert "data:image" not in html_content
+        assert readability_image.is_symlink()
+        assert readability_image.resolve() == archived_image.resolve()
+        assert "../wget" not in html_content
+
+
+def test_omits_unarchived_images():
+    """Readability should stay self-contained when responses and wget are absent."""
+    binary_path = require_readability_binary()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        snap_dir = tmpdir / "snap"
+        snap_dir.mkdir(parents=True)
+        create_example_html(snap_dir)
+        env = os.environ.copy()
+        env["SNAP_DIR"] = str(snap_dir)
+        env["READABILITY_BINARY"] = binary_path
+
+        result = subprocess.run(
+            [str(READABILITY_HOOK), "--url", TEST_URL],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
+        )
+
+        assert result.returncode == 0, result.stderr
+        html_content = (snap_dir / "readability" / "content.html").read_text()
+        assert "<img" not in html_content.lower()
+        assert "<source" not in html_content.lower()
+        assert "<picture" not in html_content.lower()
+        assert "example.svg" not in html_content
+        assert "data:image" not in html_content
+        assert not (snap_dir / "readability" / "images").exists()
 
 
 def test_fails_gracefully_without_html_source():

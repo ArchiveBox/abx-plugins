@@ -63,14 +63,19 @@ def link_archived_images(content: str, url: str, output_dir: Path) -> str:
         shutil.rmtree(images_dir)
 
     def replace(match: re.Match) -> str:
-        parsed = urlparse(urljoin(url, html.unescape(match.group(2))))
+        tag = match.group(0)
+        src_match = re.search(r'\bsrc\s*=\s*(["\'])([^"\']+)\1', tag, flags=re.I)
+        if not src_match:
+            return ""
+        source = html.unescape(src_match.group(2))
+        parsed = urlparse(urljoin(url, source))
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-            return match.group(0)
+            return ""
         path_parts = tuple(
             part for part in PurePosixPath(unquote(parsed.path)).parts if part != "/"
         )
         if not path_parts or any(part in {".", ".."} for part in path_parts):
-            return match.group(0)
+            return ""
         for root in ("responses/image", "responses", "wget"):
             candidate = SNAP_DIR / root / parsed.hostname / Path(*path_parts)
             if candidate.is_file():
@@ -78,23 +83,28 @@ def link_archived_images(content: str, url: str, output_dir: Path) -> str:
                 try:
                     link.parent.mkdir(parents=True, exist_ok=True)
                     if link.exists() and not link.is_symlink():
-                        return match.group(0)
+                        return ""
                     if link.is_symlink() and link.resolve() != candidate.resolve():
                         link.unlink()
                     if not link.exists():
                         link.symlink_to(os.path.relpath(candidate, link.parent))
                 except OSError:
-                    return match.group(0)
+                    return ""
                 archived = f"./{link.relative_to(output_dir).as_posix()}"
-                return f"{match.group(1)}{archived}{match.group(3)}"
-        return match.group(0)
+                tag = f"{tag[: src_match.start(2)]}{archived}{tag[src_match.end(2) :]}"
+                return re.sub(r'\s+srcset\s*=\s*(["\']).*?\1', "", tag, flags=re.I)
+        return ""
 
-    return re.sub(
-        r'(<(?:img|source)\b[^>]*?\bsrc\s*=\s*["\'])([^"\']+)(["\'])',
+    content = re.sub(
+        r"<img\b[^>]*>",
         replace,
         content,
         flags=re.I,
     )
+    content = re.sub(r"<source\b[^>]*>", "", content, flags=re.I)
+    for tag in ("picture", "a", "figure", "p"):
+        content = re.sub(rf"<{tag}\b[^>]*>\s*</{tag}>", "", content, flags=re.I)
+    return content
 
 
 def render_readability_document(
@@ -104,12 +114,6 @@ def render_readability_document(
     output_dir: Path,
 ) -> str:
     title = html.escape(str(metadata.get("title") or ""))
-    byline = html.escape(str(metadata.get("byline") or ""))
-    header = ""
-    if title or byline:
-        heading = f"<h1>{title}</h1>" if title else ""
-        attribution = f'<p class="byline">{byline}</p>' if byline else ""
-        header = f"<header>{heading}{attribution}</header>"
     content = link_archived_images(content, url, output_dir)
     return f'''<!doctype html>
 <html lang="{html.escape(str(metadata.get("lang") or "en"), quote=True)}"><head>
@@ -117,14 +121,12 @@ def render_readability_document(
 <title>{title}</title><style>
 * {{ box-sizing: border-box }} html {{ background: #f3f4f6 }} body {{ margin: 0; color: #1f2937 }}
 main {{ max-width: 48rem; min-height: 100vh; margin: 0 auto; padding: 3rem 2rem 6rem; background: #fff }}
-header {{ margin-bottom: 2rem; border-bottom: 1px solid #e5e7eb }} h1 {{ margin: 0 0 .5rem; font: 700 2.35rem/1.15 system-ui, sans-serif }}
-.byline {{ margin: 0 0 1.5rem; color: #6b7280; font: .95rem/1.5 system-ui, sans-serif }}
 article {{ font: 1.15rem/1.72 Georgia, 'Times New Roman', serif }} article > :first-child {{ margin-top: 0 }}
 h2, h3, h4 {{ margin: 2em 0 .65em; line-height: 1.25 }} p, ul, ol, blockquote {{ margin: 0 0 1.25em }}
 a {{ color: #0369a1 }} img, svg, video {{ display: block; max-width: 100%; height: auto; margin: 1.5rem auto }}
 blockquote {{ padding-left: 1.25rem; border-left: 4px solid #cbd5e1; color: #475569 }} pre, table {{ max-width: 100%; overflow: auto }}
 @media (max-width: 40rem) {{ main {{ padding: 2rem 1.15rem 4rem }} h1 {{ font-size: 1.9rem }} article {{ font-size: 1.05rem }} }}
-</style></head><body><main>{header}<article>{content}</article></main></body></html>'''
+</style></head><body><main><article>{content}</article></main></body></html>'''
 
 
 def extract_readability(url: str, binary: str) -> tuple[str, str]:
