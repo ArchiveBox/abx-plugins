@@ -67,18 +67,23 @@ async function runStartHandshake(
   try {
     const result = await helperPage.evaluate(
       async ({ tabId, url, autorun, collectionTitle, timeoutMs }) => {
+        let handshakeStage = "connect";
         function withTimeout(promise, ms, message) {
           return Promise.race([
             promise,
             new Promise((_, reject) =>
-              setTimeout(() => reject(new Error(message)), ms)
+              setTimeout(
+                () => reject(new Error(`${message} (${handshakeStage})`)),
+                ms
+              )
             ),
           ]);
         }
 
         return await withTimeout(
           (async () => {
-            const port = chrome.runtime.connect({ name: "popup-port" });
+            const port = document.querySelector("wr-popup-viewer")?.port;
+            if (!port) throw new Error("AWP popup port is not ready");
             const recvQueue = [];
             port.onMessage.addListener((msg) => recvQueue.push(msg));
 
@@ -106,12 +111,14 @@ async function runStartHandshake(
             }
 
             port.postMessage({ type: "startUpdates", tabId });
+            handshakeStage = "collections";
             await waitFor((m) => m && m.type === "collections", "collections");
 
             // Always create a fresh collection per snapshot so the resulting
             // WACZ contains only requests from this archive run and not every
             // page AWP ever recorded in this Chrome profile.
             port.postMessage({ type: "newColl", title: collectionTitle });
+            handshakeStage = "new collection";
             const created = await waitFor(
               (m) => m && m.type === "collections" && m.collId,
               "new collection"
@@ -128,6 +135,7 @@ async function runStartHandshake(
               autorun: !!autorun,
             });
 
+            handshakeStage = "recording status";
             const status = await waitFor(
               (message) =>
                 message?.type === "status" &&
@@ -135,10 +143,6 @@ async function runStartHandshake(
               "recording status",
               timeoutMs
             );
-
-            try {
-              port.disconnect();
-            } catch (error) {}
 
             return { collId, status };
           })(),

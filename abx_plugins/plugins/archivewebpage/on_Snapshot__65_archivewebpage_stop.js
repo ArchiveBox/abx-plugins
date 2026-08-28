@@ -68,7 +68,8 @@ function readRecordingState() {
 async function stopExactRecording(helperPage, state, timeoutMs) {
   return await helperPage.evaluate(
     async ({ tabId, expectedCollId, timeoutMs }) => {
-      const port = chrome.runtime.connect({ name: "popup-port" });
+      const port = document.querySelector("wr-popup-viewer")?.port;
+      if (!port) throw new Error("AWP popup port is not ready");
       const queuedMessages = [];
       const queueMessage = (message) => queuedMessages.push(message);
       port.onMessage.addListener(queueMessage);
@@ -125,7 +126,6 @@ async function stopExactRecording(helperPage, state, timeoutMs) {
         return finalStatus;
       } finally {
         port.onMessage.removeListener(queueMessage);
-        port.disconnect();
       }
     },
     {

@@ -116,7 +116,8 @@ async function openAwpHelperTab(browser, extensionId, timeoutMs = 5000) {
       location.href === expectedUrl &&
       document.readyState !== "loading" &&
       typeof chrome !== "undefined" &&
-      Boolean(chrome.runtime?.connect),
+      Boolean(chrome.runtime?.connect) &&
+      Boolean(document.querySelector("wr-popup-viewer")?.port),
     { timeout: Math.max(250, timeoutMs) },
     helperUrl
   );
