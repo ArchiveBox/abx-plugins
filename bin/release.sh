@@ -378,7 +378,6 @@ main() {
     create_release_tag "${version}" "${release_sha}"
     if [[ "${pypi_state}" != "complete" ]]; then
         publish_to_pypi "${artifact_dir}" "${pypi_missing[@]}"
-        sleep 60
     fi
     create_release "${slug}" "${version}" "${release_sha}"
     "${GH_BINARY}" release upload "${TAG_PREFIX}${version}" --repo "${slug}" \
