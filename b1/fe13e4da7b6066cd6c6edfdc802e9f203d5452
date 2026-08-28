@@ -1,0 +1,26 @@
+abx_plugins/plugins/archivewebpage/on_Snapshot__16_archivewebpage_start.js
+  s_5e83b7ac3f0fa4::t_13ac2173ff92eb 70,75-78,114,121,138
+  s_5e83b7ac3f0fa4::t_caeac2f6fb14d0 85-86
+abx_plugins/plugins/archivewebpage/awp_internal.js
+  s_5e83b7ac3f0fa4::t_caeac2f6fb14d0 119-120
+abx_plugins/plugins/archivewebpage/on_Snapshot__65_archivewebpage_stop.js
+  s_5e83b7ac3f0fa4::t_caeac2f6fb14d0 71-72
+pyproject.toml
+  s_5e83b7ac3f0fa4::t_b04362384610b2 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "b1fe13e4da7b6066cd6c6edfdc802e9f203d5452",
+  "prompts": {},
+  "sessions": {
+    "s_5e83b7ac3f0fa4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a03e91-07ec-7cd0-b057-6702ac3133b9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
