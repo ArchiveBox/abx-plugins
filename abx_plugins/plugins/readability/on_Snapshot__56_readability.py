@@ -25,7 +25,7 @@ import json
 import os
 import re
 import subprocess
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from abx_plugins.plugins.base.utils import (
     load_config,
@@ -54,17 +54,32 @@ TEXT_FILE = "content.txt"
 METADATA_FILE = "article.json"
 
 
-def rewrite_archived_images(content: str, url: str, output_dir: Path) -> str:
+def link_archived_images(content: str, url: str, output_dir: Path) -> str:
     def replace(match: re.Match) -> str:
         parsed = urlparse(urljoin(url, html.unescape(match.group(2))))
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:
             return match.group(0)
-        path = unquote(parsed.path).lstrip("/")
+        path_parts = tuple(
+            part for part in PurePosixPath(unquote(parsed.path)).parts if part != "/"
+        )
+        if not path_parts or any(part in {".", ".."} for part in path_parts):
+            return match.group(0)
         for root in ("responses/image", "responses", "wget"):
-            candidate = SNAP_DIR / root / parsed.hostname / path
+            candidate = SNAP_DIR / root / parsed.hostname / Path(*path_parts)
             if candidate.is_file():
-                archived = os.path.relpath(candidate, output_dir).replace(os.sep, "/")
-                return f"{match.group(1)}{html.escape(archived, quote=True)}{match.group(3)}"
+                link = output_dir / "images" / parsed.hostname / Path(*path_parts)
+                try:
+                    link.parent.mkdir(parents=True, exist_ok=True)
+                    if link.exists() and not link.is_symlink():
+                        return match.group(0)
+                    if link.is_symlink() and link.resolve() != candidate.resolve():
+                        link.unlink()
+                    if not link.exists():
+                        link.symlink_to(os.path.relpath(candidate, link.parent))
+                except OSError:
+                    return match.group(0)
+                archived = f"./{link.relative_to(output_dir).as_posix()}"
+                return f"{match.group(1)}{archived}{match.group(3)}"
         return match.group(0)
 
     return re.sub(
@@ -83,7 +98,7 @@ def render_readability_document(
 ) -> str:
     title = html.escape(str(metadata.get("title") or "Reader view"))
     byline = html.escape(str(metadata.get("byline") or ""))
-    content = rewrite_archived_images(content, url, output_dir)
+    content = link_archived_images(content, url, output_dir)
     return f'''<!doctype html>
 <html lang="{html.escape(str(metadata.get("lang") or "en"), quote=True)}"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">

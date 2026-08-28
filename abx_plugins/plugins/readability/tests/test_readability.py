@@ -191,7 +191,18 @@ def test_extracts_article_after_installation():
         ), "Missing example.com description in HTML"
         assert html_content.startswith("<!doctype html>")
         assert "max-width: 48rem" in html_content
-        assert "../responses/image/example.com/assets/example.svg" in html_content
+        assert 'src="./images/example.com/assets/example.svg"' in html_content
+        readability_image = (
+            snap_dir
+            / "readability"
+            / "images"
+            / "example.com"
+            / "assets"
+            / "example.svg"
+        )
+        assert readability_image.is_symlink()
+        assert readability_image.resolve() == archived_image.resolve()
+        assert "../responses" not in html_content
 
         # Verify text content contains REAL example.com text
         txt_content = txt_file.read_text()
