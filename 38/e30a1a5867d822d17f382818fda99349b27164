@@ -1,0 +1,30 @@
+abx_plugins/plugins/readability/tests/test_readability.py
+  s_5e83b7ac3f0fa4::t_39fa42107a06fb 58
+  s_5e83b7ac3f0fa4::t_362a3c66ebea3b 130,133
+  s_5e83b7ac3f0fa4::t_72c4d84bb7863e 48,218-221,252-278,287,290-320,322,324
+  s_5e83b7ac3f0fa4::t_a4a49d4e566139 77-80,160-161,224,288,321
+  s_5e83b7ac3f0fa4::t_713331dfb30424 49-50
+  s_5e83b7ac3f0fa4::t_e0f758b4fc77a8 81,162-164,225,279-286,289,323
+  s_5e83b7ac3f0fa4::t_3d2ef11330f630 325-326
+abx_plugins/plugins/readability/on_Snapshot__56_readability.py
+  s_5e83b7ac3f0fa4::t_bc8baa3a7ba291 66-71,73,78,86,92,95-96,98-99,104,129
+  s_5e83b7ac3f0fa4::t_e0f758b4fc77a8 94,105-107
+abx_plugins/plugins/readability/config.json
+  s_5e83b7ac3f0fa4::t_cbb02923ad5c55 11-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "38e30a1a5867d822d17f382818fda99349b27164",
+  "prompts": {},
+  "sessions": {
+    "s_5e83b7ac3f0fa4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a03e91-07ec-7cd0-b057-6702ac3133b9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
