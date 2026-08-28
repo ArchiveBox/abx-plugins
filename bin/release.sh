@@ -259,7 +259,7 @@ require_clean_exact_checkout() {
     "${GIT_BINARY}" fetch --quiet --no-tags origin "+refs/heads/${branch}:refs/remotes/origin/${branch}"
     local branch_head
     branch_head="$("${GIT_BINARY}" rev-parse "refs/remotes/origin/${branch}")"
-    [[ "${sha}" == "${branch_head}" ]] || { echo "${sha} is not the current origin/${branch} HEAD (${branch_head})" >&2; return 1; }
+    [[ "${sha}" == "${branch_head}" ]] || { echo "Skipping obsolete release ${sha}: current origin/${branch} is ${branch_head}" >&2; exit 0; }
 }
 
 publish_to_pypi() (
