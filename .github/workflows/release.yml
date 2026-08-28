@@ -2,7 +2,7 @@ name: Release State
 
 on:
   workflow_run:
-    workflows: [Parallel Tests]
+    workflows: [Release candidate]
     types: [completed]
     branches: [main]
 
@@ -13,11 +13,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release-state:
+  candidate:
     if: >-
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main' &&
       github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    outputs:
+      ready: ${{ steps.owner.outputs.ready }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - id: owner
+        shell: bash
+        run: |
+          VERSION="$(sed -nE 's/^version = "([^"]+)".*/\1/p' pyproject.toml | head -n 1)"
+          TARGET="$(git ls-remote origin "refs/tags/release-candidate/$VERSION" | awk '{print $1}')"
+          [[ "$TARGET" == "${{ github.event.workflow_run.head_sha }}" ]] && echo 'ready=true' >> "$GITHUB_OUTPUT" || echo 'ready=false' >> "$GITHUB_OUTPUT"
+
+  release-state:
+    needs: candidate
+    if: needs.candidate.outputs.ready == 'true'
     runs-on: ubuntu-24.04
     environment: pypi
     permissions:
@@ -68,7 +86,7 @@ jobs:
           artifact_dir="$RUNNER_TEMP/release-dist"
           "${GH_BINARY}" run view "$run_id" --repo "$GITHUB_REPOSITORY" \
             --json workflowName,conclusion,headSha,event \
-            --jq 'if .workflowName == "Parallel Tests" and .conclusion == "success" and .headSha == env.RELEASE_SHA and (.event == "push" or .event == "workflow_dispatch") then true else error("test run does not prove the requested release SHA") end'
+            --jq 'if .workflowName == "Release candidate" and .conclusion == "success" and .headSha == env.RELEASE_SHA and .event == "push" then true else error("release candidate run does not prove the requested release SHA") end'
           "${GH_BINARY}" run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "python-distributions-$RELEASE_SHA" --dir "$artifact_dir"
           shopt -s nullglob
           wheels=("$artifact_dir"/abx_plugins-*.whl)

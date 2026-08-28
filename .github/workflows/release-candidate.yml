@@ -1,0 +1,71 @@
+name: Release candidate
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: release-candidate-main
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      action: ${{ steps.version.outputs.action }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_GH_TOKEN }}
+
+      - id: version
+        uses: ArchiveBox/monorepo/.github/actions/prepare-release-version@fcd68592e9300adacfc3fe1f12b86982413bd215
+        with:
+          package: abx-plugins
+          branch: main
+          tag-prefix: v
+          version-scheme: patch
+
+  artifacts:
+    name: Build and smoke-test release artifacts
+    needs: prepare
+    if: needs.prepare.outputs.action == 'ready' || needs.prepare.outputs.action == 'reserved'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: "0.11.3"
+          enable-cache: false
+
+      - name: Build and smoke-test the wheel
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          uv build --no-cache --no-sources --out-dir dist --clear
+          wheel=(dist/abx_plugins-*.whl)
+          smoke_env="$(mktemp -d)/.venv"
+          uv venv --python 3.13 "$smoke_env"
+          uv pip install --no-cache --python "$smoke_env" "${wheel[0]}"
+          VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project python -c 'import abx_plugins; from abx_plugins.plugins import title'
+          DIST_DIR=dist uv run --no-cache --no-project python - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+          root = Path(os.environ["DIST_DIR"])
+          paths = sorted((*root.glob("*.whl"), *root.glob("*.tar.gz")))
+          (root / "SHA256SUMS").write_text("".join(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n" for path in paths))
+          PY
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: python-distributions-${{ github.sha }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
