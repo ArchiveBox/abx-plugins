@@ -11,21 +11,9 @@ TAG_PREFIX="v"
 PYPI_PACKAGE="abx-plugins"
 
 pypi_release_json() {
-    "${CURL_BINARY}" -fsSL --retry 30 --retry-all-errors --retry-delay 2 --retry-max-time 60 \
+    "${CURL_BINARY}" -fsSL \
         -H 'Cache-Control: no-cache, no-store, max-age=0' -H 'Pragma: no-cache' \
         "https://pypi.org/pypi/${PYPI_PACKAGE}/$1/json?cache_bust=$(date +%s)-${RANDOM}"
-}
-
-pypi_wait_for_release() {
-    local version="$1"
-    pypi_release_json "${version}" >/dev/null
-    for _ in {1..30}; do
-        "${CURL_BINARY}" -fsSL -H 'Cache-Control: no-cache, no-store, max-age=0' -H 'Pragma: no-cache' \
-            "https://pypi.org/simple/${PYPI_PACKAGE}/?cache_bust=$(date +%s)-${RANDOM}" | \
-            grep -Fq ">abx_plugins-${version}-py3-none-any.whl<" && return
-        sleep 2
-    done
-    return 1
 }
 VERIFY_DIR_TO_CLEAN=""
 
@@ -124,7 +112,7 @@ PY
 
 pypi_artifact_status() {
     local version="$1" build_dir="$2" pypi_urls
-    pypi_urls="$("${CURL_BINARY}" -fsSL "https://pypi.org/pypi/${PYPI_PACKAGE}/json" | "${JQ_BINARY}" -c --arg version "${version}" ".releases[\$version] // []")" || return 1
+    pypi_urls="$(pypi_release_json "${version}" | "${JQ_BINARY}" -c '.urls')" || pypi_urls='[]'
     PYPI_URLS="${pypi_urls}" BUILD_DIR="${build_dir}" EXPECTED_VERSION="${version}" "${UV_BINARY}" run --no-cache --no-project python - <<'PY'
 import hashlib
 import json
@@ -290,22 +278,11 @@ publish_to_pypi() (
         artifacts+=("${build_dir}/${filename}")
     done
     "${UV_BINARY}" publish --no-cache --trusted-publishing always "${artifacts[@]}"
-    pypi_wait_for_release "${version}"
 )
 
 verify_published_wheel_installs() {
     local version="$1" wheel_url
-    wheel_url="$("${UV_BINARY}" run --no-cache --no-project python - "${version}" <<'PY'
-import json
-import sys
-import urllib.request
-
-version = sys.argv[1]
-with urllib.request.urlopen(f"https://pypi.org/pypi/abx-plugins/{version}/json", timeout=20) as response:
-    data = json.load(response)
-print(next(url["url"] for url in data["urls"] if url["filename"].endswith(".whl")))
-PY
-)"
+    wheel_url="$(pypi_release_json "${version}" | "${JQ_BINARY}" -er '.urls[] | select(.filename | endswith(".whl")) | .url')"
     "${UV_BINARY}" run --no-cache --isolated --no-project --with "${wheel_url}" python - <<'PY'
 from abx_plugins import get_plugins_dir
 
