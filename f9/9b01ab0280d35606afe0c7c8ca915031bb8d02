@@ -1,0 +1,23 @@
+.github/workflows/test-parallel.yml
+  s_3155555fdbdae3::t_a13c7966c0d8f1 22,69,224
+.github/workflows/release-candidate.yml
+  s_3155555fdbdae3::t_baa20c748ef1c1 16-17,39,59
+.github/workflows/pages.yml
+  s_3155555fdbdae3::t_a13c7966c0d8f1 20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "f99b01ab0280d35606afe0c7c8ca915031bb8d02",
+  "prompts": {},
+  "sessions": {
+    "s_3155555fdbdae3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0467b-ccd7-7a30-a1bb-9d99d3bf7584",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
