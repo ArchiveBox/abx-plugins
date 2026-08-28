@@ -4,8 +4,6 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [main]
-  push:
-    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.event_name == 'workflow_dispatch' && github.run_id || github.ref }}
@@ -19,7 +17,6 @@ env:
 
 jobs:
   prek:
-    if: github.event_name != 'push' || github.event.head_commit.author.email != 'release-bot@archivebox.io'
     name: Pre-commit checks
     runs-on: ubuntu-24.04
 
@@ -66,7 +63,6 @@ jobs:
           uv run --no-cache --no-sync --no-sources prek --no-progress --log-file "$RUNNER_TEMP/prek.log" run --all-files
 
   build-package:
-    if: github.event_name != 'push' || github.event.head_commit.author.email != 'release-bot@archivebox.io'
     name: Build package artifacts
     runs-on: ubuntu-24.04
     steps:
@@ -221,7 +217,6 @@ jobs:
           PY
 
   discover-tests:
-    if: github.event_name != 'push' || github.event.head_commit.author.email != 'release-bot@archivebox.io'
     name: Discover test files
     runs-on: ubuntu-24.04
     outputs:
