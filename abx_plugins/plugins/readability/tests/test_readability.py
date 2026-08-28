@@ -118,6 +118,12 @@ def test_hook_script_exists():
     assert READABILITY_HOOK.exists(), f"Hook script not found: {READABILITY_HOOK}"
 
 
+def test_declares_responses_dependency():
+    """Readability retries must also restore the captured image sources."""
+    config = json.loads((PLUGIN_DIR / "config.json").read_text())
+    assert "responses" in config["required_plugins"]
+
+
 def test_verify_deps_with_abxpkg():
     """Verify readability-extractor resolves through the real dependency preflight."""
     binary_path = require_readability_binary()
@@ -142,6 +148,9 @@ def test_extracts_article_after_installation():
         )
         archived_image.parent.mkdir(parents=True)
         archived_image.write_text('<svg xmlns="http://www.w3.org/2000/svg"></svg>')
+        stale_image = snap_dir / "readability" / "images" / "stale.example" / "old.png"
+        stale_image.parent.mkdir(parents=True)
+        stale_image.symlink_to("missing.png")
 
         # Run readability extraction (should find the binary)
         env = os.environ.copy()
@@ -205,6 +214,7 @@ def test_extracts_article_after_installation():
         )
         assert readability_image.is_symlink()
         assert readability_image.resolve() == archived_image.resolve()
+        assert not stale_image.is_symlink()
         assert "../responses" not in html_content
 
         # Verify text content contains REAL example.com text

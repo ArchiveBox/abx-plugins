@@ -24,6 +24,7 @@ import html
 import json
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path, PurePosixPath
 
@@ -55,6 +56,12 @@ METADATA_FILE = "article.json"
 
 
 def link_archived_images(content: str, url: str, output_dir: Path) -> str:
+    images_dir = output_dir / "images"
+    if images_dir.is_symlink() or images_dir.is_file():
+        images_dir.unlink()
+    elif images_dir.is_dir():
+        shutil.rmtree(images_dir)
+
     def replace(match: re.Match) -> str:
         parsed = urlparse(urljoin(url, html.unescape(match.group(2))))
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:

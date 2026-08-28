@@ -4,7 +4,9 @@
   "description": "Extract article HTML, text, and metadata using Mozilla Readability.",
   "type": "object",
   "additionalProperties": false,
-  "required_plugins": [],
+  "required_plugins": [
+    "responses"
+  ],
   "required_binaries": [
     {
       "name": "{READABILITY_BINARY}",
