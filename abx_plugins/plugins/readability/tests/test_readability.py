@@ -70,6 +70,8 @@ def create_example_html(tmpdir: Path) -> Path:
             IANA website. They maintain several example domains including example.com, example.net,
             and example.org, all specifically reserved for this purpose.</p>
 
+            <img src="/assets/example.svg" alt="Example illustration">
+
             <p><a href="https://www.iana.org/domains/example">More information about example domains...</a></p>
         </div>
     </article>
@@ -134,6 +136,11 @@ def test_extracts_article_after_installation():
 
         # Create example.com HTML for readability to process
         create_example_html(snap_dir)
+        archived_image = (
+            snap_dir / "responses" / "image" / "example.com" / "assets" / "example.svg"
+        )
+        archived_image.parent.mkdir(parents=True)
+        archived_image.write_text('<svg xmlns="http://www.w3.org/2000/svg"></svg>')
 
         # Run readability extraction (should find the binary)
         env = os.environ.copy()
@@ -182,6 +189,9 @@ def test_extracts_article_after_installation():
             or "use in" in html_content.lower()
             or "literature" in html_content.lower()
         ), "Missing example.com description in HTML"
+        assert html_content.startswith("<!doctype html>")
+        assert "max-width: 48rem" in html_content
+        assert "../responses/image/example.com/assets/example.svg" in html_content
 
         # Verify text content contains REAL example.com text
         txt_content = txt_file.read_text()

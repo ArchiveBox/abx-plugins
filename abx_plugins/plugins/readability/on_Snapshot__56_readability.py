@@ -20,8 +20,10 @@ Note: Requires readability-extractor from https://github.com/ArchiveBox/readabil
 """
 
 import sys
+import html
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -32,7 +34,7 @@ from abx_plugins.plugins.base.utils import (
     find_article_html_source,
 )
 
-from urllib.parse import urlparse
+from urllib.parse import unquote, urljoin, urlparse
 
 import rich_click as click
 
@@ -50,6 +52,52 @@ os.chdir(OUTPUT_DIR)
 OUTPUT_FILE = "content.html"
 TEXT_FILE = "content.txt"
 METADATA_FILE = "article.json"
+
+
+def rewrite_archived_images(content: str, url: str, output_dir: Path) -> str:
+    def replace(match: re.Match) -> str:
+        parsed = urlparse(urljoin(url, html.unescape(match.group(2))))
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            return match.group(0)
+        path = unquote(parsed.path).lstrip("/")
+        for root in ("responses/image", "responses", "wget"):
+            candidate = SNAP_DIR / root / parsed.hostname / path
+            if candidate.is_file():
+                archived = os.path.relpath(candidate, output_dir).replace(os.sep, "/")
+                return f"{match.group(1)}{html.escape(archived, quote=True)}{match.group(3)}"
+        return match.group(0)
+
+    return re.sub(
+        r'(<(?:img|source)\b[^>]*?\bsrc\s*=\s*["\'])([^"\']+)(["\'])',
+        replace,
+        content,
+        flags=re.I,
+    )
+
+
+def render_readability_document(
+    content: str,
+    metadata: dict,
+    url: str,
+    output_dir: Path,
+) -> str:
+    title = html.escape(str(metadata.get("title") or "Reader view"))
+    byline = html.escape(str(metadata.get("byline") or ""))
+    content = rewrite_archived_images(content, url, output_dir)
+    return f'''<!doctype html>
+<html lang="{html.escape(str(metadata.get("lang") or "en"), quote=True)}"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title}</title><style>
+* {{ box-sizing: border-box }} html {{ background: #f3f4f6 }} body {{ margin: 0; color: #1f2937 }}
+main {{ max-width: 48rem; min-height: 100vh; margin: 0 auto; padding: 3rem 2rem 6rem; background: #fff }}
+header {{ margin-bottom: 2rem; border-bottom: 1px solid #e5e7eb }} h1 {{ margin: 0 0 .5rem; font: 700 2.35rem/1.15 system-ui, sans-serif }}
+.byline {{ margin: 0 0 1.5rem; color: #6b7280; font: .95rem/1.5 system-ui, sans-serif }}
+article {{ font: 1.15rem/1.72 Georgia, 'Times New Roman', serif }} article > :first-child {{ margin-top: 0 }}
+h2, h3, h4 {{ margin: 2em 0 .65em; line-height: 1.25 }} p, ul, ol, blockquote {{ margin: 0 0 1.25em }}
+a {{ color: #0369a1 }} img, svg, video {{ display: block; max-width: 100%; height: auto; margin: 1.5rem auto }}
+blockquote {{ padding-left: 1.25rem; border-left: 4px solid #cbd5e1; color: #475569 }} pre, table {{ max-width: 100%; overflow: auto }}
+@media (max-width: 40rem) {{ main {{ padding: 2rem 1.15rem 4rem }} h1 {{ font-size: 1.9rem }} article {{ font-size: 1.05rem }} }}
+</style></head><body><main><header><h1>{title}</h1>{f'<p class="byline">{byline}</p>' if byline else ""}</header><article>{content}</article></main></body></html>'''
 
 
 def extract_readability(url: str, binary: str) -> tuple[str, str]:
@@ -105,32 +153,15 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
         if not text_content and not html_content:
             return "noresults", "No content extracted"
 
+        html_content = render_readability_document(
+            html_content,
+            result_json,
+            url,
+            output_dir,
+        )
         write_text_atomic(output_dir / OUTPUT_FILE, html_content)
         write_text_atomic(output_dir / TEXT_FILE, text_content)
         write_text_atomic(output_dir / METADATA_FILE, json.dumps(result_json, indent=2))
-
-        # Link images/ to responses capture (if available)
-        try:
-            hostname = urlparse(url).hostname or ""
-            if hostname:
-                responses_images = (
-                    output_dir / ".." / "responses" / "image" / hostname / "images"
-                ).resolve()
-                link_path = output_dir / "images"
-                if responses_images.exists() and responses_images.is_dir():
-                    if link_path.exists() or link_path.is_symlink():
-                        if link_path.is_symlink() or link_path.is_file():
-                            link_path.unlink()
-                        else:
-                            responses_images = None
-                    if responses_images:
-                        rel_target = os.path.relpath(
-                            str(responses_images),
-                            str(output_dir),
-                        )
-                        link_path.symlink_to(rel_target)
-        except Exception:
-            pass
 
         return "succeeded", f"{PLUGIN_DIR}/{OUTPUT_FILE}"
 
