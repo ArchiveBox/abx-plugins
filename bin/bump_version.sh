@@ -10,6 +10,7 @@ fi
 
 uv run --no-cache --no-project python - "$1" <<'PY'
 from pathlib import Path
+import json
 import re
 import sys
 
@@ -31,6 +32,19 @@ updated, count = re.subn(r'^version = "[^"]+"$', f'version = "{version}"', text,
 if count != 1:
     raise SystemExit('Failed to update version in pyproject.toml')
 path.write_text(updated)
+
+abxbus_version = next(
+    dependency.removeprefix('abxbus==')
+    for dependency in re.findall(r'^\s+"([^"]+)",?$', updated, re.MULTILINE)
+    if dependency.startswith('abxbus==')
+)
+config_path = Path('abx_plugins/plugins/chrome/config.json')
+config = json.loads(config_path.read_text())
+record = next(item for item in config['required_binaries'] if item['name'] == 'abxbus')
+record['min_version'] = abxbus_version
+record['overrides']['pnpm']['install_args'] = [f'abxbus@{abxbus_version}']
+record['overrides']['pnpm']['version'] = abxbus_version
+config_path.write_text(json.dumps(config, indent=2) + '\n')
 
 lock_path = Path('uv.lock')
 lock, count = re.subn(

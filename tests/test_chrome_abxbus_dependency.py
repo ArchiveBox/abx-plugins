@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import tomllib
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import load_required_binary
@@ -71,7 +72,7 @@ def test_chrome_config_installs_abxbus_js_module(tmp_path: Path) -> None:
     assert loaded.loaded_binprovider.name == "pnpm"
     package_root = Path(loaded.loaded_abspath).parents[2]
     package = json.loads((package_root / "package.json").read_text(encoding="utf-8"))
-    assert package["version"] == "2.5.45"
+    assert package["version"] == record["overrides"]["pnpm"]["version"]
     legacy_semaphore_dirname = "_".join(("browser", "use", "semaphores"))
     assert not any(
         legacy_semaphore_dirname in path.read_text(encoding="utf-8")
@@ -131,12 +132,22 @@ def test_chrome_config_keeps_min_release_age_zero_packages_in_separate_pnpm_root
 def test_chrome_js_modules_stay_package_scoped() -> None:
     config = json.loads(CHROME_CONFIG.read_text(encoding="utf-8"))
     records = {item["name"]: item for item in config["required_binaries"]}
+    dependencies = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())["project"][
+        "dependencies"
+    ]
+    abxbus_version = next(
+        dependency.removeprefix("abxbus==")
+        for dependency in dependencies
+        if dependency.startswith("abxbus==")
+    )
 
     assert records["abxbus"]["binproviders"] == "pnpm"
     assert "env" not in records["abxbus"]["overrides"]
-    assert records["abxbus"]["min_version"] == "2.5.45"
-    assert records["abxbus"]["overrides"]["pnpm"]["install_args"] == ["abxbus@2.5.45"]
-    assert records["abxbus"]["overrides"]["pnpm"]["version"] == "2.5.45"
+    assert records["abxbus"]["min_version"] == abxbus_version
+    assert records["abxbus"]["overrides"]["pnpm"]["install_args"] == [
+        f"abxbus@{abxbus_version}",
+    ]
+    assert records["abxbus"]["overrides"]["pnpm"]["version"] == abxbus_version
     assert records["browsers"]["binproviders"] == "pnpm"
     assert "env" not in records["browsers"]["overrides"]
     assert records["browsers"]["overrides"]["pnpm"]["version"] == "3.0.4"
