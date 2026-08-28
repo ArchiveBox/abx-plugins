@@ -1,0 +1,24 @@
+abx_plugins/plugins/readability/tests/test_readability.py
+  s_5e83b7ac3f0fa4::t_6aebdf886f09a9 195-200
+  s_5e83b7ac3f0fa4::t_39bcf6649b569b 194
+  s_5e83b7ac3f0fa4::t_3bd1d965b319ee 201-205
+abx_plugins/plugins/readability/on_Snapshot__56_readability.py
+  s_5e83b7ac3f0fa4::t_bb0e42f58cc872 28,57,62-66,68,70-72,75-82,101
+  s_5e83b7ac3f0fa4::t_9855977603bfd1 73-74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "fab06ac0f359838ababe1f4f902c93eca7a2289b",
+  "prompts": {},
+  "sessions": {
+    "s_5e83b7ac3f0fa4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a03e91-07ec-7cd0-b057-6702ac3133b9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
