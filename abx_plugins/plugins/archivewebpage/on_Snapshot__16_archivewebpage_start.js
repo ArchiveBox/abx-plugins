@@ -220,15 +220,11 @@ async function main() {
       throw new Error("Chrome target_id.txt did not resolve to a page");
     }
 
-    const tabResolutionTimeoutMs = Math.min(
-      overallTimeoutMs,
-      Math.max(10000, budgetMs * 5)
-    );
     const chromeTabId = await getChromeTabIdForPage(
       browser,
       page,
       extensionId,
-      tabResolutionTimeoutMs
+      overallTimeoutMs
     );
     if (!chromeTabId) {
       throw new Error("Could not resolve chrome.tabs id for snapshot tab");
@@ -245,7 +241,7 @@ async function main() {
           "ARCHIVEWEBPAGE_COLLECTION_TITLE",
           "abx-dl"
         )} - ${url}`,
-        timeoutMs: Math.min(overallTimeoutMs, Math.max(10000, budgetMs * 5)),
+        timeoutMs: overallTimeoutMs,
       }
     );
     await page.bringToFront();
