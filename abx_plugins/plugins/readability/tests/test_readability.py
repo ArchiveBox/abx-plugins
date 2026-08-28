@@ -41,10 +41,12 @@ def create_example_html(tmpdir: Path) -> Path:
     singlefile_dir.mkdir()
 
     html_file = singlefile_dir / "singlefile.html"
-    html_file.write_text("""
+    html_file.write_text(f"""
 <!DOCTYPE html>
 <html>
 <head>
+    <!-- DOM capture scripts can push the source charset beyond the sniffer window. -->
+    <script>{"x" * 2048}</script>
     <meta charset="utf-8">
     <title>Example Domain</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -70,6 +72,8 @@ def create_example_html(tmpdir: Path) -> Path:
             IANA website. They maintain several example domains including example.com, example.net,
             and example.org, all specifically reserved for this purpose.</p>
 
+            <p>Encoding check: café in Montréal…</p>
+
             <img src="/assets/example.svg" alt="Example illustration">
 
             <p><a href="https://www.iana.org/domains/example">More information about example domains...</a></p>
@@ -78,6 +82,7 @@ def create_example_html(tmpdir: Path) -> Path:
 </body>
 </html>
     """)
+    assert html_file.read_bytes().index(b'<meta charset="utf-8">') > 1024
 
     return html_file
 
@@ -184,6 +189,7 @@ def test_extracts_article_after_installation():
         assert "example domain" in html_content.lower(), (
             "Missing 'Example Domain' in HTML"
         )
+        assert "café in Montréal…" in html_content
         assert (
             "illustrative examples" in html_content.lower()
             or "use in" in html_content.lower()
@@ -210,6 +216,7 @@ def test_extracts_article_after_installation():
             f"Text content too short: {len(txt_content)} bytes"
         )
         assert "example" in txt_content.lower(), "Missing 'example' in text"
+        assert "café in Montréal…" in txt_content
 
         # Verify JSON metadata
         json_data = json.loads(json_file.read_text())
