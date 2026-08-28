@@ -118,10 +118,10 @@ def test_hook_script_exists():
     assert READABILITY_HOOK.exists(), f"Hook script not found: {READABILITY_HOOK}"
 
 
-def test_declares_responses_dependency():
-    """Readability retries must also restore the captured image sources."""
+def test_declares_capture_dependencies():
+    """Readability retries must restore their HTML and image sources."""
     config = json.loads((PLUGIN_DIR / "config.json").read_text())
-    assert "responses" in config["required_plugins"]
+    assert {"dom", "responses"} <= set(config["required_plugins"])
 
 
 def test_verify_deps_with_abxpkg():
