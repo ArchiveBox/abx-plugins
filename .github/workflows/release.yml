@@ -162,10 +162,12 @@ jobs:
     needs: release-state
     if: needs.release-state.outputs.cascade_ready == 'true'
     permissions:
+      actions: read
       contents: read
     uses: ArchiveBox/monorepo/.github/workflows/cascade-release.yml@main
     with:
       upstream_package: abx-plugins
       upstream_version: ${{ needs.release-state.outputs.version }}
+      upstream_artifact_name: python-distributions-${{ github.event.workflow_run.head_sha }}
     secrets:
       release_token: ${{ secrets.RELEASE_GH_TOKEN }}
