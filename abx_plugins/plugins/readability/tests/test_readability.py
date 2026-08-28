@@ -48,14 +48,10 @@ def create_example_html(tmpdir: Path) -> Path:
     <!-- DOM capture scripts can push the source charset beyond the sniffer window. -->
     <script>{"x" * 2048}</script>
     <meta charset="utf-8">
-    <title>Example Domain</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body>
     <article>
-        <header>
-            <h1>Example Domain</h1>
-        </header>
         <div class="content">
             <p>This domain is for use in illustrative examples in documents. You may use this
             domain in literature without prior coordination or asking for permission.</p>
@@ -196,6 +192,7 @@ def test_extracts_article_after_installation():
             or "literature" in html_content.lower()
         ), "Missing example.com description in HTML"
         assert html_content.startswith("<!doctype html>")
+        assert "Reader view" not in html_content
         assert "max-width: 48rem" in html_content
         assert 'src="./images/example.com/assets/example.svg"' in html_content
         readability_image = (

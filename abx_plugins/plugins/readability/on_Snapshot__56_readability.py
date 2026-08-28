@@ -96,8 +96,13 @@ def render_readability_document(
     url: str,
     output_dir: Path,
 ) -> str:
-    title = html.escape(str(metadata.get("title") or "Reader view"))
+    title = html.escape(str(metadata.get("title") or ""))
     byline = html.escape(str(metadata.get("byline") or ""))
+    header = ""
+    if title or byline:
+        heading = f"<h1>{title}</h1>" if title else ""
+        attribution = f'<p class="byline">{byline}</p>' if byline else ""
+        header = f"<header>{heading}{attribution}</header>"
     content = link_archived_images(content, url, output_dir)
     return f'''<!doctype html>
 <html lang="{html.escape(str(metadata.get("lang") or "en"), quote=True)}"><head>
@@ -112,7 +117,7 @@ h2, h3, h4 {{ margin: 2em 0 .65em; line-height: 1.25 }} p, ul, ol, blockquote {{
 a {{ color: #0369a1 }} img, svg, video {{ display: block; max-width: 100%; height: auto; margin: 1.5rem auto }}
 blockquote {{ padding-left: 1.25rem; border-left: 4px solid #cbd5e1; color: #475569 }} pre, table {{ max-width: 100%; overflow: auto }}
 @media (max-width: 40rem) {{ main {{ padding: 2rem 1.15rem 4rem }} h1 {{ font-size: 1.9rem }} article {{ font-size: 1.05rem }} }}
-</style></head><body><main><header><h1>{title}</h1>{f'<p class="byline">{byline}</p>' if byline else ""}</header><article>{content}</article></main></body></html>'''
+</style></head><body><main>{header}<article>{content}</article></main></body></html>'''
 
 
 def extract_readability(url: str, binary: str) -> tuple[str, str]:
