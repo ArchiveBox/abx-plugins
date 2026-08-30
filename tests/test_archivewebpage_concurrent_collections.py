@@ -1,0 +1,303 @@
+import json
+import shutil
+import signal
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from abx_plugins.plugins.base.testing import install_required_binary_from_config
+from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    CHROME_UTILS,
+    launch_chromium_session,
+    launch_snapshot_tab,
+    setup_test_env,
+    wait_for_chrome_session_state,
+)
+
+
+pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
+
+ARCHIVEWEBPAGE_PLUGIN_DIR = CHROME_UTILS.parent.parent / "archivewebpage"
+ARCHIVEWEBPAGE_START_HOOK = (
+    ARCHIVEWEBPAGE_PLUGIN_DIR / "on_Snapshot__16_archivewebpage_start.js"
+)
+AWP_INTERNAL = ARCHIVEWEBPAGE_PLUGIN_DIR / "awp_internal.js"
+
+
+def _run_start_hook(
+    snapshot_dir: Path,
+    env: dict[str, str],
+    url: str,
+) -> subprocess.CompletedProcess[str]:
+    output_dir = snapshot_dir / "archivewebpage"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return subprocess.run(
+        [
+            str(ARCHIVEWEBPAGE_START_HOOK),
+            f"--url={url}",
+            f"--snapshot-id={snapshot_dir.name}",
+            "--crawl-id=test-archivewebpage-concurrent-collections",
+        ],
+        cwd=output_dir,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=env,
+    )
+
+
+def _open_child_target(snapshot_chrome_dir: Path, env: dict[str, str]) -> str:
+    script = r"""
+const chromeUtils = require(process.argv[1]);
+const chromeSessionDir = process.argv[2];
+
+(async () => {
+  const puppeteer = chromeUtils.resolvePuppeteerModule();
+  const { browser, page } = await chromeUtils.connectToPage({
+    chromeSessionDir,
+    timeoutMs: 10000,
+    requireTargetId: true,
+    puppeteer,
+  });
+  try {
+    const existingTargetIds = new Set(
+      browser.targets().map((target) => chromeUtils.getTargetIdFromTarget(target))
+    );
+    const childTargetPromise = browser.waitForTarget(
+      (target) =>
+        target.type() === "page" &&
+        !existingTargetIds.has(chromeUtils.getTargetIdFromTarget(target)),
+      { timeout: 10000 }
+    );
+    const pageSession = await page.target().createCDPSession();
+    try {
+      await pageSession.send("Runtime.evaluate", {
+        expression: "window.open('about:blank', '_blank')",
+        userGesture: true,
+      });
+    } finally {
+      await pageSession.detach();
+    }
+    const childTarget = await childTargetPromise;
+    const targetId = chromeUtils.getTargetIdFromTarget(childTarget);
+    if (!targetId) throw new Error("Child tab has no CDP target id");
+    process.stdout.write(targetId);
+  } finally {
+    await browser.disconnect();
+  }
+})().catch((error) => {
+  console.error(error && (error.stack || error.message || String(error)));
+  process.exit(1);
+});
+"""
+    result = subprocess.run(
+        [
+            env["NODE_BINARY"],
+            "-e",
+            script,
+            str(CHROME_UTILS),
+            str(snapshot_chrome_dir),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip(), result
+    return result.stdout.strip()
+
+
+def _read_awp_status(snapshot_chrome_dir: Path, env: dict[str, str]) -> dict:
+    script = r"""
+const chromeUtils = require(process.argv[1]);
+const awpInternal = require(process.argv[2]);
+const chromeSessionDir = process.argv[3];
+
+(async () => {
+  const puppeteer = chromeUtils.resolvePuppeteerModule();
+  const { browser, page } = await chromeUtils.connectToPage({
+    chromeSessionDir,
+    timeoutMs: 10000,
+    requireTargetId: true,
+    puppeteer,
+  });
+  try {
+    const { id: extensionId } = awpInternal.resolveAwpExtension(chromeSessionDir);
+    if (!extensionId) throw new Error("ArchiveWeb.page extension is not loaded");
+    const tabId = await awpInternal.getChromeTabIdForPage(
+      browser,
+      page,
+      extensionId,
+      10000
+    );
+    const helperPage = await awpInternal.openAwpHelperTab(browser, extensionId, 10000);
+    try {
+      const status = await helperPage.evaluate(async (targetTabId) => {
+        const port = document.querySelector("wr-popup-viewer")?.port;
+        if (!port) throw new Error("AWP popup port is not ready");
+        return await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            port.onMessage.removeListener(onMessage);
+            reject(new Error("Timed out waiting for AWP recording status"));
+          }, 10000);
+          const onMessage = (message) => {
+            if (message?.type !== "status" || message.recording !== true) return;
+            clearTimeout(timeout);
+            port.onMessage.removeListener(onMessage);
+            resolve(message);
+          };
+          port.onMessage.addListener(onMessage);
+          port.postMessage({ type: "startUpdates", tabId: targetTabId });
+        });
+      }, tabId);
+      process.stdout.write(JSON.stringify(status));
+    } finally {
+      await helperPage.close({ runBeforeUnload: false }).catch(() => {});
+    }
+  } finally {
+    await browser.disconnect();
+  }
+})().catch((error) => {
+  console.error(error && (error.stack || error.message || String(error)));
+  process.exit(1);
+});
+"""
+    result = subprocess.run(
+        [
+            env["NODE_BINARY"],
+            "-e",
+            script,
+            str(CHROME_UTILS),
+            str(AWP_INTERNAL),
+            str(snapshot_chrome_dir),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout)
+
+
+def _publish_child_snapshot_session(
+    crawl_chrome_dir: Path,
+    child_chrome_dir: Path,
+    child_target_id: str,
+    env: dict[str, str],
+) -> None:
+    child_chrome_dir.mkdir(parents=True)
+    for file_name in ("browser.json", "cdp_url.txt", "chrome.pid"):
+        shutil.copy2(crawl_chrome_dir / file_name, child_chrome_dir / file_name)
+    (child_chrome_dir / "target_id.txt").write_text(f"{child_target_id}\n")
+    (child_chrome_dir / "url.txt").write_text("about:blank\n")
+    wait_for_chrome_session_state(
+        child_chrome_dir,
+        env=env,
+        require_target_id=True,
+        require_browser_ready=True,
+        require_connectable=True,
+    )
+
+
+def test_start_reassigns_inherited_tab_recorder_to_its_requested_collection(
+    tmp_path,
+    chrome_test_url,
+):
+    env = setup_test_env(tmp_path)
+    env.update(
+        {
+            "CHROME_HEADLESS": "true",
+            "CHROME_ISOLATION": "crawl",
+            "CHROME_KEEPALIVE": "false",
+        },
+    )
+    extensions_dir = Path(env["CHROMEWEBSTORE_EXTENSIONS_DIR"])
+    installed = install_required_binary_from_config(
+        ARCHIVEWEBPAGE_PLUGIN_DIR,
+        "archivewebpage",
+        env=env,
+    )
+    assert installed.loaded_abspath is not None
+    assert extensions_dir.joinpath("archivewebpage.extension.json").is_file()
+
+    crawl_dir = Path(env["CRAWL_DIR"])
+    crawl_chrome_dir = crawl_dir / "chrome"
+    launch_process = None
+    first_tab_process = None
+    try:
+        launch_process, _cdp_url = launch_chromium_session(
+            env,
+            crawl_chrome_dir,
+            "test-archivewebpage-concurrent-collections",
+        )
+
+        first_snapshot_dir = tmp_path / "snapshots" / "first"
+        first_chrome_dir = first_snapshot_dir / "chrome"
+        first_chrome_dir.mkdir(parents=True)
+        first_env = env | {"SNAP_DIR": str(first_snapshot_dir)}
+        first_tab_process = launch_snapshot_tab(
+            snapshot_chrome_dir=first_chrome_dir,
+            tab_env=first_env,
+            test_url=chrome_test_url,
+            snapshot_id="first",
+            crawl_id="test-archivewebpage-concurrent-collections",
+        )
+        first_start = _run_start_hook(first_snapshot_dir, first_env, chrome_test_url)
+        assert first_start.returncode == 0, (
+            f"First AWP start failed:\nstdout={first_start.stdout}\nstderr={first_start.stderr}"
+        )
+        first_state = json.loads(
+            (first_snapshot_dir / "archivewebpage" / "recording.json").read_text(),
+        )
+        first_status = _read_awp_status(first_chrome_dir, first_env)
+        assert first_status["collId"] == first_state["collId"]
+
+        child_target_id = _open_child_target(first_chrome_dir, first_env)
+        second_snapshot_dir = tmp_path / "snapshots" / "second"
+        second_chrome_dir = second_snapshot_dir / "chrome"
+        second_env = env | {"SNAP_DIR": str(second_snapshot_dir)}
+        _publish_child_snapshot_session(
+            crawl_chrome_dir,
+            second_chrome_dir,
+            child_target_id,
+            second_env,
+        )
+
+        inherited_status = _read_awp_status(second_chrome_dir, second_env)
+        assert inherited_status["collId"] == first_state["collId"]
+
+        second_start = _run_start_hook(second_snapshot_dir, second_env, chrome_test_url)
+        assert second_start.returncode == 0, (
+            f"Second AWP start failed:\nstdout={second_start.stdout}\nstderr={second_start.stderr}"
+        )
+        second_state = json.loads(
+            (second_snapshot_dir / "archivewebpage" / "recording.json").read_text(),
+        )
+        assert second_state["collId"] != first_state["collId"]
+
+        second_status = _read_awp_status(second_chrome_dir, second_env)
+        assert second_status["collId"] == second_state["collId"], (
+            "The ArchiveWeb.page start hook reported success without moving the "
+            "child tab from its inherited collection to the newly requested collection"
+        )
+        first_status_after_reassignment = _read_awp_status(first_chrome_dir, first_env)
+        assert first_status_after_reassignment["recording"] is True
+        assert first_status_after_reassignment["collId"] == first_state["collId"]
+    finally:
+        if first_tab_process is not None:
+            first_tab_process.send_signal(signal.SIGTERM)
+            first_tab_process.wait(timeout=20)
+            for attr in ("_stdout_handle", "_stderr_handle"):
+                handle = getattr(first_tab_process, attr, None)
+                if handle:
+                    handle.close()
+        if launch_process is not None:
+            launch_process.send_signal(signal.SIGTERM)
+            launch_process.wait(timeout=20)
+            for attr in ("_stdout_handle", "_stderr_handle"):
+                handle = getattr(launch_process, attr, None)
+                if handle:
+                    handle.close()

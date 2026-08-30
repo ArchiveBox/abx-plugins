@@ -85,29 +85,51 @@ async function runStartHandshake(
             const port = document.querySelector("wr-popup-viewer")?.port;
             if (!port) throw new Error("AWP popup port is not ready");
             const recvQueue = [];
-            port.onMessage.addListener((msg) => recvQueue.push(msg));
+            const waiters = [];
+            port.onMessage.addListener((message) => {
+              const waiterIndex = waiters.findIndex(({ predicate }) =>
+                predicate(message)
+              );
+              if (waiterIndex === -1) {
+                recvQueue.push(message);
+                return;
+              }
+              const [waiter] = waiters.splice(waiterIndex, 1);
+              clearTimeout(waiter.timeout);
+              waiter.resolve(message);
+            });
 
             function waitFor(predicate, label, ms = 2500) {
               return new Promise((resolve, reject) => {
-                while (recvQueue.length) {
-                  const msg = recvQueue.shift();
-                  if (predicate(msg)) {
-                    resolve(msg);
-                    return;
-                  }
+                const queuedIndex = recvQueue.findIndex(predicate);
+                if (queuedIndex !== -1) {
+                  resolve(recvQueue.splice(queuedIndex, 1)[0]);
+                  return;
                 }
-                const onMsg = (msg) => {
-                  if (predicate(msg)) {
-                    port.onMessage.removeListener(onMsg);
-                    resolve(msg);
-                  }
-                };
-                port.onMessage.addListener(onMsg);
-                setTimeout(() => {
-                  port.onMessage.removeListener(onMsg);
+                const waiter = { predicate, resolve, timeout: null };
+                waiter.timeout = setTimeout(() => {
+                  const waiterIndex = waiters.indexOf(waiter);
+                  if (waiterIndex !== -1) waiters.splice(waiterIndex, 1);
                   reject(new Error(`timed out waiting for ${label}`));
                 }, ms);
+                waiters.push(waiter);
               });
+            }
+
+            async function startRecording(collId) {
+              port.postMessage({
+                type: "startRecording",
+                collId,
+                url,
+                autorun: !!autorun,
+              });
+              return await waitFor(
+                (message) =>
+                  message?.type === "status" &&
+                  (message.recording === true || Boolean(message.failureMsg)),
+                "recording status",
+                timeoutMs
+              );
             }
 
             port.postMessage({ type: "startUpdates", tabId });
@@ -128,21 +150,36 @@ async function runStartHandshake(
               throw new Error("AWP did not return a collection id");
             }
 
-            port.postMessage({
-              type: "startRecording",
-              collId,
-              url,
-              autorun: !!autorun,
-            });
-
             handshakeStage = "recording status";
-            const status = await waitFor(
-              (message) =>
-                message?.type === "status" &&
-                (message.recording === true || Boolean(message.failureMsg)),
-              "recording status",
-              timeoutMs
-            );
+            let status = await startRecording(collId);
+
+            // AWP intentionally lets child tabs inherit their opener's active
+            // recorder. Starting an already-recording tab does not change its
+            // collection, so detach only this tab before assigning the fresh
+            // snapshot collection. Other tab recorders stay active.
+            if (
+              status.recording === true &&
+              status.collId &&
+              status.collId !== collId
+            ) {
+              handshakeStage = "inherited recorder stop";
+              port.postMessage({ type: "stopRecording" });
+              await waitFor(
+                (message) =>
+                  message?.type === "status" &&
+                  message.recording === false,
+                "inherited recorder stop",
+                timeoutMs
+              );
+              handshakeStage = "recording restart";
+              status = await startRecording(collId);
+            }
+
+            if (status.recording === true && status.collId !== collId) {
+              throw new Error(
+                `AWP recorder collection mismatch: expected ${collId}, got ${status.collId || "none"}`
+              );
+            }
 
             return { collId, status };
           })(),
@@ -252,6 +289,11 @@ async function main() {
     }
     if (handshake.status?.recording !== true) {
       throw new Error("AWP recorder did not confirm recording=true");
+    }
+    if (handshake.status?.collId !== handshake.collId) {
+      throw new Error(
+        `AWP recorder collection mismatch: expected ${handshake.collId}, got ${handshake.status?.collId || "none"}`
+      );
     }
 
     writeFileAtomic(
