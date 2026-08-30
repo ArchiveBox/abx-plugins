@@ -23,6 +23,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 const {
   ensureNodeModuleResolution,
@@ -116,6 +117,26 @@ async function runStartHandshake(
               });
             }
 
+            function resolveCreatedCollectionId(
+              message,
+              collectionTitle,
+              existingCollectionIds = new Set()
+            ) {
+              if (
+                message?.type !== "collections" ||
+                !Array.isArray(message.collections)
+              ) {
+                return null;
+              }
+              const created = message.collections.find(
+                (collection) =>
+                  collection?.title === collectionTitle &&
+                  collection.id &&
+                  !existingCollectionIds.has(collection.id)
+              );
+              return created?.id || null;
+            }
+
             async function startRecording(collId, requireExactCollection = false) {
               port.postMessage({
                 type: "startRecording",
@@ -136,18 +157,40 @@ async function runStartHandshake(
 
             port.postMessage({ type: "startUpdates", tabId });
             handshakeStage = "collections";
-            await waitFor((m) => m && m.type === "collections", "collections");
+            const collectionsBefore = await waitFor(
+              (message) => message?.type === "collections",
+              "collections"
+            );
+            const existingCollectionIds = new Set(
+              (collectionsBefore.collections || []).map(
+                (collection) => collection.id
+              )
+            );
 
             // Always create a fresh collection per snapshot so the resulting
-            // WACZ contains only requests from this archive run and not every
-            // page AWP ever recorded in this Chrome profile.
+            // WACZ contains only this snapshot's requests. The popup UI also
+            // sends startUpdates on this port, so another collections message
+            // may already be queued here. Correlate newColl by its unique title
+            // and by an id absent from the pre-request collection set; collId
+            // alone is global/default state and does not identify this reply.
             port.postMessage({ type: "newColl", title: collectionTitle });
             handshakeStage = "new collection";
             const created = await waitFor(
-              (m) => m && m.type === "collections" && m.collId,
+              (message) =>
+                Boolean(
+                  resolveCreatedCollectionId(
+                    message,
+                    collectionTitle,
+                    existingCollectionIds
+                  )
+                ),
               "new collection"
             );
-            const collId = created.collId;
+            const collId = resolveCreatedCollectionId(
+              created,
+              collectionTitle,
+              existingCollectionIds
+            );
             if (!collId) {
               throw new Error("AWP did not return a collection id");
             }
@@ -279,7 +322,9 @@ async function main() {
         collectionTitle: `${getEnv(
           "ARCHIVEWEBPAGE_COLLECTION_TITLE",
           "abx-dl"
-        )} - ${url}`,
+        )} - ${url} [${
+          args.snapshotId || path.basename(path.dirname(outputDir))
+        }/${crypto.randomUUID()}]`,
         timeoutMs: overallTimeoutMs,
       }
     );

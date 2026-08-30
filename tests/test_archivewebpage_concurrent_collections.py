@@ -2,6 +2,7 @@ import json
 import shutil
 import signal
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TypedDict
 
@@ -198,6 +199,150 @@ const chromeSessionDir = process.argv[3];
     )
 
 
+def _select_new_collection_after_queued_updates(
+    snapshot_chrome_dir: Path,
+    env: dict[str, str],
+    collection_title: str,
+) -> tuple[str, str]:
+    script = r"""
+const chromeUtils = require(process.argv[1]);
+const awpInternal = require(process.argv[2]);
+const chromeSessionDir = process.argv[3];
+const collectionTitle = process.argv[4];
+
+(async () => {
+  const puppeteer = chromeUtils.resolvePuppeteerModule();
+  const { browser, page } = await chromeUtils.connectToPage({
+    chromeSessionDir,
+    timeoutMs: 10000,
+    requireTargetId: true,
+    puppeteer,
+  });
+  try {
+    const { id: extensionId } = awpInternal.resolveAwpExtension(chromeSessionDir);
+    if (!extensionId) throw new Error("ArchiveWeb.page extension is not loaded");
+    const tabId = await awpInternal.getChromeTabIdForPage(
+      browser,
+      page,
+      extensionId,
+      10000
+    );
+    const helperPage = await awpInternal.openAwpHelperTab(browser, extensionId, 10000);
+    try {
+      const messages = await helperPage.evaluate(
+        async ({ targetTabId, collectionTitle }) => {
+          const port = document.querySelector("wr-popup-viewer")?.port;
+          if (!port) throw new Error("AWP popup port is not ready");
+          const queue = [];
+          const waiters = [];
+          let collectionsSeen = 0;
+          let markSecondCollectionsQueued;
+          const secondCollectionsQueued = new Promise((resolve) => {
+            markSecondCollectionsQueued = resolve;
+          });
+          port.onMessage.addListener((message) => {
+            if (message?.type === "collections") {
+              collectionsSeen += 1;
+              if (collectionsSeen === 2) markSecondCollectionsQueued();
+            }
+            const waiterIndex = waiters.findIndex(({ predicate }) =>
+              predicate(message)
+            );
+            if (waiterIndex === -1) {
+              queue.push(message);
+              return;
+            }
+            const [waiter] = waiters.splice(waiterIndex, 1);
+            clearTimeout(waiter.timeout);
+            waiter.resolve(message);
+          });
+          function waitFor(predicate) {
+            return new Promise((resolve, reject) => {
+              const queuedIndex = queue.findIndex(predicate);
+              if (queuedIndex !== -1) {
+                resolve(queue.splice(queuedIndex, 1)[0]);
+                return;
+              }
+              const waiter = { predicate, resolve, timeout: null };
+              waiter.timeout = setTimeout(
+                () => reject(new Error("Timed out waiting for AWP message")),
+                10000
+              );
+              waiters.push(waiter);
+            });
+          }
+
+          // These are two genuine AWP responses on the same popup port, not
+          // synthesized messages. Consuming only the first leaves exactly the
+          // stale collections reply that the loaded popup UI can leave ahead
+          // of the hook's newColl response during a busy crawl.
+          port.postMessage({ type: "startUpdates", tabId: targetTabId });
+          port.postMessage({ type: "startUpdates", tabId: targetTabId });
+          await waitFor((message) => message?.type === "collections");
+          await secondCollectionsQueued;
+
+          port.postMessage({ type: "newColl", title: collectionTitle });
+          const created = await waitFor(
+            (message) =>
+              message?.type === "collections" &&
+              message.collections?.some(
+                (item) => item.title === collectionTitle
+              )
+          );
+          return [
+            ...queue.filter((message) => message?.type === "collections"),
+            created,
+          ];
+        },
+        { targetTabId: tabId, collectionTitle }
+      );
+      const selected = messages.find((message) =>
+        Boolean(
+          awpInternal.resolveCreatedCollectionId(message, collectionTitle)
+        )
+      );
+      const selectedId = awpInternal.resolveCreatedCollectionId(
+        selected,
+        collectionTitle
+      );
+      const created = messages.find((message) =>
+        message.collections?.some((item) => item.title === collectionTitle)
+      );
+      const matchingId = created.collections.find(
+        (item) => item.title === collectionTitle
+      ).id;
+      process.stdout.write(JSON.stringify({ selectedId, matchingId }));
+    } finally {
+      await helperPage.close({ runBeforeUnload: false }).catch(() => {});
+    }
+  } finally {
+    await browser.disconnect();
+  }
+})().catch((error) => {
+  console.error(error && (error.stack || error.message || String(error)));
+  process.exit(1);
+});
+"""
+    result = subprocess.run(
+        [
+            env["NODE_BINARY"],
+            "-e",
+            script,
+            str(CHROME_UTILS),
+            str(AWP_INTERNAL),
+            str(snapshot_chrome_dir),
+            collection_title,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    selected = json.loads(result.stdout)
+    return selected["selectedId"], selected["matchingId"]
+
+
 def _publish_child_snapshot_session(
     crawl_chrome_dir: Path,
     child_chrome_dir: Path,
@@ -271,34 +416,72 @@ def test_start_reassigns_inherited_tab_recorder_to_its_requested_collection(
         first_status = _read_awp_status(first_chrome_dir, first_env)
         assert first_status["collId"] == first_state["collId"]
 
-        child_target_id = _open_child_target(first_chrome_dir, first_env)
-        second_snapshot_dir = tmp_path / "snapshots" / "second"
-        second_chrome_dir = second_snapshot_dir / "chrome"
-        second_env = env | {"SNAP_DIR": str(second_snapshot_dir)}
-        _publish_child_snapshot_session(
-            crawl_chrome_dir,
-            second_chrome_dir,
-            child_target_id,
-            second_env,
+        selected_id, matching_id = _select_new_collection_after_queued_updates(
+            first_chrome_dir,
+            first_env,
+            "queued-collections-regression",
+        )
+        assert selected_id == matching_id, (
+            "The newColl response selector consumed an older queued collections "
+            "message instead of the collection with the requested title"
         )
 
-        inherited_status = _read_awp_status(second_chrome_dir, second_env)
-        assert inherited_status["collId"] == first_state["collId"]
+        # Exercise the user-facing inherited-tab path with the same four-way
+        # snapshot concurrency as ArchiveBox. The lower-stack assertion above
+        # covers queued newColl correlation; these hooks prove each real child
+        # recorder still moves off its opener's collection independently.
+        child_runs: list[tuple[Path, Path, dict[str, str], str]] = []
+        for index in range(4):
+            child_target_id = _open_child_target(first_chrome_dir, first_env)
+            child_snapshot_dir = tmp_path / "snapshots" / f"child-{index}"
+            child_chrome_dir = child_snapshot_dir / "chrome"
+            child_env = env | {"SNAP_DIR": str(child_snapshot_dir)}
+            child_url = f"{chrome_test_url}#child-{index}"
+            _publish_child_snapshot_session(
+                crawl_chrome_dir,
+                child_chrome_dir,
+                child_target_id,
+                child_env,
+            )
+            if index == 0:
+                inherited_status = _read_awp_status(child_chrome_dir, child_env)
+                assert inherited_status["collId"] == first_state["collId"]
+            child_runs.append(
+                (child_snapshot_dir, child_chrome_dir, child_env, child_url),
+            )
 
-        second_start = _run_start_hook(second_snapshot_dir, second_env, chrome_test_url)
-        assert second_start.returncode == 0, (
-            f"Second AWP start failed:\nstdout={second_start.stdout}\nstderr={second_start.stderr}"
-        )
-        second_state = json.loads(
-            (second_snapshot_dir / "archivewebpage" / "recording.json").read_text(),
-        )
-        assert second_state["collId"] != first_state["collId"]
+        with ThreadPoolExecutor(max_workers=len(child_runs)) as executor:
+            child_starts = list(
+                executor.map(
+                    lambda run: _run_start_hook(run[0], run[2], run[3]),
+                    child_runs,
+                ),
+            )
+        for child_start in child_starts:
+            assert child_start.returncode == 0, (
+                "Concurrent child AWP start failed:\n"
+                f"stdout={child_start.stdout}\nstderr={child_start.stderr}"
+            )
 
-        second_status = _read_awp_status(second_chrome_dir, second_env)
-        assert second_status["collId"] == second_state["collId"], (
-            "The ArchiveWeb.page start hook reported success without moving the "
-            "child tab from its inherited collection to the newly requested collection"
+        child_states = [
+            json.loads(
+                (snapshot_dir / "archivewebpage" / "recording.json").read_text(),
+            )
+            for snapshot_dir, _chrome_dir, _child_env, _url in child_runs
+        ]
+        child_collection_ids = {state["collId"] for state in child_states}
+        assert first_state["collId"] not in child_collection_ids
+        assert len(child_collection_ids) == len(child_runs), (
+            "Concurrent ArchiveWeb.page newColl requests reused a collection id"
         )
+
+        for child_run, child_state in zip(child_runs, child_states, strict=True):
+            _snapshot_dir, child_chrome_dir, child_env, _url = child_run
+            child_status = _read_awp_status(child_chrome_dir, child_env)
+            assert child_status["collId"] == child_state["collId"], (
+                "The ArchiveWeb.page start hook reported success without moving the "
+                "child tab from its inherited collection to the newly requested collection"
+            )
         first_status_after_reassignment = _read_awp_status(first_chrome_dir, first_env)
         assert first_status_after_reassignment["recording"] is True
         assert first_status_after_reassignment["collId"] == first_state["collId"]
