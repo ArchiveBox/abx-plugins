@@ -32,6 +32,12 @@ class AwpStatus(TypedDict):
     type: str
     recording: bool
     collId: str
+    collectionTitle: str
+
+
+class CollectionSelection(TypedDict):
+    selectedId: str
+    matchingId: str
 
 
 def _run_start_hook(
@@ -45,7 +51,11 @@ def _run_start_hook(
         [
             str(ARCHIVEWEBPAGE_START_HOOK),
             f"--url={url}",
-            f"--snapshot-id={snapshot_dir.name}",
+            # Keep the model identity deliberately different from the output
+            # directory name. parseArgs normalizes --snapshot-id to
+            # args.snapshot_id; if the hook accidentally reads snapshotId, its
+            # directory fallback masks the bug unless these values differ.
+            f"--snapshot-id=model-{snapshot_dir.name}",
             "--crawl-id=test-archivewebpage-concurrent-collections",
         ],
         cwd=output_dir,
@@ -147,15 +157,25 @@ const chromeSessionDir = process.argv[3];
         const port = document.querySelector("wr-popup-viewer")?.port;
         if (!port) throw new Error("AWP popup port is not ready");
         return await new Promise((resolve, reject) => {
+          let recordingStatus = null;
+          let collections = [];
           const timeout = setTimeout(() => {
             port.onMessage.removeListener(onMessage);
             reject(new Error("Timed out waiting for AWP recording status"));
           }, 10000);
           const onMessage = (message) => {
-            if (message?.type !== "status" || message.recording !== true) return;
+            if (message?.type === "collections" && Array.isArray(message.collections)) {
+              collections = message.collections;
+            } else if (message?.type === "status" && message.recording === true) {
+              recordingStatus = message;
+            }
+            const collection = recordingStatus
+              ? collections.find((item) => item.id === recordingStatus.collId)
+              : null;
+            if (!recordingStatus || !collection) return;
             clearTimeout(timeout);
             port.onMessage.removeListener(onMessage);
-            resolve(message);
+            resolve({ ...recordingStatus, collectionTitle: collection.title });
           };
           port.onMessage.addListener(onMessage);
           port.postMessage({ type: "startUpdates", tabId: targetTabId });
@@ -192,10 +212,12 @@ const chromeSessionDir = process.argv[3];
     assert status["type"] == "status"
     assert isinstance(status["recording"], bool)
     assert isinstance(status["collId"], str)
+    assert isinstance(status["collectionTitle"], str)
     return AwpStatus(
         type=status["type"],
         recording=status["recording"],
         collId=status["collId"],
+        collectionTitle=status["collectionTitle"],
     )
 
 
@@ -340,7 +362,14 @@ const collectionTitle = process.argv[4];
     )
     assert result.returncode == 0, result.stderr
     selected = json.loads(result.stdout)
-    return selected["selectedId"], selected["matchingId"]
+    assert isinstance(selected, dict)
+    assert isinstance(selected.get("selectedId"), str)
+    assert isinstance(selected.get("matchingId"), str)
+    typed_selection = CollectionSelection(
+        selectedId=selected["selectedId"],
+        matchingId=selected["matchingId"],
+    )
+    return typed_selection["selectedId"], typed_selection["matchingId"]
 
 
 def _publish_child_snapshot_session(
@@ -415,6 +444,12 @@ def test_start_reassigns_inherited_tab_recorder_to_its_requested_collection(
         )
         first_status = _read_awp_status(first_chrome_dir, first_env)
         assert first_status["collId"] == first_state["collId"]
+        assert (
+            f"[model-{first_snapshot_dir.name}/" in first_status["collectionTitle"]
+        ), (
+            "The collection title lost the --snapshot-id model identity and silently "
+            "fell back to the output directory name"
+        )
 
         selected_id, matching_id = _select_new_collection_after_queued_updates(
             first_chrome_dir,

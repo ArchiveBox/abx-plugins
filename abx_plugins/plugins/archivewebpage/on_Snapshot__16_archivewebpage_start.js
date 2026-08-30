@@ -45,6 +45,7 @@ const {
   openAwpHelperTab,
   resolveChromeDirs,
   pickChromeSessionDir,
+  resolveCreatedCollectionId,
 } = require("./awp_internal.js");
 
 const hookConfig = loadConfig();
@@ -66,6 +67,14 @@ async function runStartHandshake(
   const { autorun, collectionTitle, timeoutMs } = options;
   const helperPage = await openAwpHelperTab(browser, extensionId, timeoutMs);
   try {
+    // Puppeteer cannot serialize a Node closure into evaluate(). Expose the
+    // shared selector as a page binding so production and the real-browser
+    // regression execute exactly the same implementation.
+    await helperPage.exposeFunction(
+      "__abxResolveCreatedCollectionId",
+      (message, title, existingCollectionIds) =>
+        resolveCreatedCollectionId(message, title, existingCollectionIds)
+    );
     const result = await helperPage.evaluate(
       async ({ tabId, url, autorun, collectionTitle, timeoutMs }) => {
         let handshakeStage = "connect";
@@ -117,26 +126,6 @@ async function runStartHandshake(
               });
             }
 
-            function resolveCreatedCollectionId(
-              message,
-              collectionTitle,
-              existingCollectionIds = new Set()
-            ) {
-              if (
-                message?.type !== "collections" ||
-                !Array.isArray(message.collections)
-              ) {
-                return null;
-              }
-              const created = message.collections.find(
-                (collection) =>
-                  collection?.title === collectionTitle &&
-                  collection.id &&
-                  !existingCollectionIds.has(collection.id)
-              );
-              return created?.id || null;
-            }
-
             async function startRecording(collId, requireExactCollection = false) {
               port.postMessage({
                 type: "startRecording",
@@ -175,22 +164,18 @@ async function runStartHandshake(
             // alone is global/default state and does not identify this reply.
             port.postMessage({ type: "newColl", title: collectionTitle });
             handshakeStage = "new collection";
-            const created = await waitFor(
-              (message) =>
-                Boolean(
-                  resolveCreatedCollectionId(
-                    message,
-                    collectionTitle,
-                    existingCollectionIds
-                  )
-                ),
-              "new collection"
-            );
-            const collId = resolveCreatedCollectionId(
-              created,
-              collectionTitle,
-              existingCollectionIds
-            );
+            let collId = null;
+            while (!collId) {
+              const collectionsMessage = await waitFor(
+                (message) => message?.type === "collections",
+                "new collection"
+              );
+              collId = await globalThis.__abxResolveCreatedCollectionId(
+                collectionsMessage,
+                collectionTitle,
+                [...existingCollectionIds]
+              );
+            }
             if (!collId) {
               throw new Error("AWP did not return a collection id");
             }
@@ -323,7 +308,7 @@ async function main() {
           "ARCHIVEWEBPAGE_COLLECTION_TITLE",
           "abx-dl"
         )} - ${url} [${
-          args.snapshotId || path.basename(path.dirname(outputDir))
+          args.snapshot_id || path.basename(path.dirname(outputDir))
         }/${crypto.randomUUID()}]`,
         timeoutMs: overallTimeoutMs,
       }
