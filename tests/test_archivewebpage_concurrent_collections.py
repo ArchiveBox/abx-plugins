@@ -3,12 +3,14 @@ import shutil
 import signal
 import subprocess
 from pathlib import Path
+from typing import TypedDict
 
 import pytest
 
 from abx_plugins.plugins.base.testing import install_required_binary_from_config
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
     CHROME_UTILS,
+    kill_chromium_session,
     launch_chromium_session,
     launch_snapshot_tab,
     setup_test_env,
@@ -23,6 +25,12 @@ ARCHIVEWEBPAGE_START_HOOK = (
     ARCHIVEWEBPAGE_PLUGIN_DIR / "on_Snapshot__16_archivewebpage_start.js"
 )
 AWP_INTERNAL = ARCHIVEWEBPAGE_PLUGIN_DIR / "awp_internal.js"
+
+
+class AwpStatus(TypedDict):
+    type: str
+    recording: bool
+    collId: str
 
 
 def _run_start_hook(
@@ -109,7 +117,7 @@ const chromeSessionDir = process.argv[2];
     return result.stdout.strip()
 
 
-def _read_awp_status(snapshot_chrome_dir: Path, env: dict[str, str]) -> dict:
+def _read_awp_status(snapshot_chrome_dir: Path, env: dict[str, str]) -> AwpStatus:
     script = r"""
 const chromeUtils = require(process.argv[1]);
 const awpInternal = require(process.argv[2]);
@@ -179,7 +187,15 @@ const chromeSessionDir = process.argv[3];
         env=env,
     )
     assert result.returncode == 0, result.stderr
-    return json.loads(result.stdout)
+    status = json.loads(result.stdout)
+    assert status["type"] == "status"
+    assert isinstance(status["recording"], bool)
+    assert isinstance(status["collId"], str)
+    return AwpStatus(
+        type=status["type"],
+        recording=status["recording"],
+        collId=status["collId"],
+    )
 
 
 def _publish_child_snapshot_session(
@@ -288,16 +304,16 @@ def test_start_reassigns_inherited_tab_recorder_to_its_requested_collection(
         assert first_status_after_reassignment["collId"] == first_state["collId"]
     finally:
         if first_tab_process is not None:
-            first_tab_process.send_signal(signal.SIGTERM)
-            first_tab_process.wait(timeout=20)
+            if first_tab_process.poll() is None:
+                first_tab_process.send_signal(signal.SIGTERM)
+            try:
+                first_tab_process.wait(timeout=20)
+            except subprocess.TimeoutExpired:
+                first_tab_process.kill()
+                first_tab_process.wait(timeout=5)
             for attr in ("_stdout_handle", "_stderr_handle"):
                 handle = getattr(first_tab_process, attr, None)
                 if handle:
                     handle.close()
         if launch_process is not None:
-            launch_process.send_signal(signal.SIGTERM)
-            launch_process.wait(timeout=20)
-            for attr in ("_stdout_handle", "_stderr_handle"):
-                handle = getattr(launch_process, attr, None)
-                if handle:
-                    handle.close()
+            kill_chromium_session(launch_process, crawl_chrome_dir)

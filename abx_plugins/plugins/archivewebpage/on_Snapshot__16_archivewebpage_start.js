@@ -116,7 +116,7 @@ async function runStartHandshake(
               });
             }
 
-            async function startRecording(collId) {
+            async function startRecording(collId, requireExactCollection = false) {
               port.postMessage({
                 type: "startRecording",
                 collId,
@@ -126,7 +126,9 @@ async function runStartHandshake(
               return await waitFor(
                 (message) =>
                   message?.type === "status" &&
-                  (message.recording === true || Boolean(message.failureMsg)),
+                  (Boolean(message.failureMsg) ||
+                    (message.recording === true &&
+                      (!requireExactCollection || message.collId === collId))),
                 "recording status",
                 timeoutMs
               );
@@ -172,7 +174,7 @@ async function runStartHandshake(
                 timeoutMs
               );
               handshakeStage = "recording restart";
-              status = await startRecording(collId);
+              status = await startRecording(collId, true);
             }
 
             if (status.recording === true && status.collId !== collId) {
