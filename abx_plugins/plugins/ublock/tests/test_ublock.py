@@ -19,11 +19,13 @@ from abx_plugins.plugins.base.testing import (
     parse_jsonl_records,
 )
 from abx_plugins.plugins.chrome.tests.chrome_test_helpers import (
+    CHROME_SNAPSHOT_LAUNCH_HOOK,
     chrome_extension_install_env,
     chrome_session,
     setup_test_env,
     launch_chromium_session,
     kill_chromium_session,
+    wait_for_chrome_session_state,
     wait_for_extensions_metadata,
 )
 
@@ -31,6 +33,7 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 
 
 PLUGIN_DIR = Path(__file__).parent.parent
+SNAPSHOT_CONFIG_HOOK = PLUGIN_DIR / "on_Snapshot__11_ublock_config.js"
 SNAPSHOT_HOOK = PLUGIN_DIR / "on_Snapshot__12_ublock.daemon.bg.js"
 NAVIGATE_HOOK = PLUGIN_DIR.parent / "chrome" / "on_Snapshot__30_chrome_navigate.js"
 BASE_UTILS_JS = PLUGIN_DIR.parent / "base" / "utils.js"
@@ -165,6 +168,99 @@ def test_no_configuration_required():
 
         loaded = install_ublock_extension(env)
         assert loaded.loaded_abspath is not None
+
+
+def test_snapshot_owned_browser_disables_only_top_level_strict_blocking(tmp_path):
+    """Snapshot isolation must configure the browser that actually owns uBlock.
+
+    WHY: crawl setup has no browser to configure under CHROME_ISOLATION=snapshot.
+    The snapshot priority-11 hook must update uBlock's live worker before AWP's
+    priority-16 recording starts, without disabling normal filtering.
+    """
+    env = setup_test_env(tmp_path)
+    env.update(
+        {
+            "CHROME_HEADLESS": "true",
+            "CHROME_ISOLATION": "snapshot",
+        },
+    )
+    install_ublock_extension(env)
+    snapshot_dir = Path(env["SNAP_DIR"])
+    snapshot_chrome_dir = snapshot_dir / "chrome"
+    snapshot_chrome_dir.mkdir(parents=True)
+
+    launch_process = subprocess.Popen(
+        [
+            str(CHROME_SNAPSHOT_LAUNCH_HOOK),
+            "--url=https://example.com/",
+            "--snapshot-id=ublock-snapshot-owner",
+            "--crawl-id=ublock-snapshot-owner",
+        ],
+        cwd=snapshot_chrome_dir,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+    )
+    try:
+        wait_for_chrome_session_state(
+            snapshot_chrome_dir,
+            env=env,
+            require_browser_ready=True,
+        )
+        config = subprocess.run(
+            [str(SNAPSHOT_CONFIG_HOOK), "--url=https://example.com/"],
+            cwd=snapshot_dir,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+        )
+        assert config.returncode == 0, config.stderr
+
+        metadata = json.loads((snapshot_chrome_dir / "browser.json").read_text())
+        extension_id = next(
+            item["id"] for item in metadata["extensions"] if item["name"] == "ublock"
+        )
+        verify_script = f"""
+const chromeUtils = require({json.dumps(str(CHROME_UTILS_JS))});
+(async () => {{
+  const puppeteer = chromeUtils.resolvePuppeteerModule();
+  const browser = await chromeUtils.connectToBrowserEndpoint(
+    puppeteer,
+    {json.dumps((snapshot_chrome_dir / "cdp_url.txt").read_text().strip())}
+  );
+  try {{
+    const page = await browser.newPage();
+    await page.goto('chrome-extension://{extension_id}/dashboard.html');
+    const state = await page.evaluate(async () => {{
+      const {{ rulesetConfig }} = await chrome.storage.local.get('rulesetConfig');
+      return rulesetConfig;
+    }});
+    process.stdout.write(JSON.stringify(state));
+  }} finally {{
+    await browser.disconnect();
+  }}
+}})().catch((error) => {{
+  console.error(error.stack || error.message);
+  process.exit(1);
+}});
+"""
+        verified = subprocess.run(
+            [env["NODE_BINARY"], "-e", verify_script],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
+        )
+        assert verified.returncode == 0, verified.stderr
+        ruleset_config = json.loads(verified.stdout)
+        assert ruleset_config["strictBlockMode"] is False
+        assert ruleset_config["enabledRulesets"], ruleset_config
+    finally:
+        if launch_process.poll() is None:
+            launch_process.send_signal(signal.SIGTERM)
+        launch_process.wait(timeout=20)
 
 
 def test_large_extension_size():
