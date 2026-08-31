@@ -173,6 +173,31 @@ function pickChromeSessionDir(candidates) {
   return null;
 }
 
+/**
+ * Return the collection id from the message AWP sends after newColl.
+ *
+ * Keep this small selector shared with the real-browser regression test: the
+ * popup port can already contain other collections messages by the time the
+ * newColl response arrives.
+ */
+function resolveCreatedCollectionId(
+  message,
+  collectionTitle,
+  existingCollectionIds = []
+) {
+  if (message?.type !== "collections" || !Array.isArray(message.collections)) {
+    return null;
+  }
+  const existingIds = new Set(existingCollectionIds);
+  const created = message.collections.find(
+    (collection) =>
+      collection?.title === collectionTitle &&
+      collection.id &&
+      !existingIds.has(collection.id)
+  );
+  return created?.id || null;
+}
+
 module.exports = {
   EXTENSION_NAME,
   resolveAwpExtension,
@@ -180,4 +205,5 @@ module.exports = {
   openAwpHelperTab,
   resolveChromeDirs,
   pickChromeSessionDir,
+  resolveCreatedCollectionId,
 };

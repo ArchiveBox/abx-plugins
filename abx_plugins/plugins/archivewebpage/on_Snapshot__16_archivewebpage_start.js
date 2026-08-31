@@ -23,6 +23,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 const {
   ensureNodeModuleResolution,
@@ -44,6 +45,7 @@ const {
   openAwpHelperTab,
   resolveChromeDirs,
   pickChromeSessionDir,
+  resolveCreatedCollectionId,
 } = require("./awp_internal.js");
 
 const hookConfig = loadConfig();
@@ -65,6 +67,14 @@ async function runStartHandshake(
   const { autorun, collectionTitle, timeoutMs } = options;
   const helperPage = await openAwpHelperTab(browser, extensionId, timeoutMs);
   try {
+    // Puppeteer cannot serialize a Node closure into evaluate(). Expose the
+    // shared selector as a page binding so production and the real-browser
+    // regression execute exactly the same implementation.
+    await helperPage.exposeFunction(
+      "__abxResolveCreatedCollectionId",
+      (message, title, existingCollectionIds) =>
+        resolveCreatedCollectionId(message, title, existingCollectionIds)
+    );
     const result = await helperPage.evaluate(
       async ({ tabId, url, autorun, collectionTitle, timeoutMs }) => {
         let handshakeStage = "connect";
@@ -85,64 +95,121 @@ async function runStartHandshake(
             const port = document.querySelector("wr-popup-viewer")?.port;
             if (!port) throw new Error("AWP popup port is not ready");
             const recvQueue = [];
-            port.onMessage.addListener((msg) => recvQueue.push(msg));
+            const waiters = [];
+            port.onMessage.addListener((message) => {
+              const waiterIndex = waiters.findIndex(({ predicate }) =>
+                predicate(message)
+              );
+              if (waiterIndex === -1) {
+                recvQueue.push(message);
+                return;
+              }
+              const [waiter] = waiters.splice(waiterIndex, 1);
+              clearTimeout(waiter.timeout);
+              waiter.resolve(message);
+            });
 
             function waitFor(predicate, label, ms = 2500) {
               return new Promise((resolve, reject) => {
-                while (recvQueue.length) {
-                  const msg = recvQueue.shift();
-                  if (predicate(msg)) {
-                    resolve(msg);
-                    return;
-                  }
+                const queuedIndex = recvQueue.findIndex(predicate);
+                if (queuedIndex !== -1) {
+                  resolve(recvQueue.splice(queuedIndex, 1)[0]);
+                  return;
                 }
-                const onMsg = (msg) => {
-                  if (predicate(msg)) {
-                    port.onMessage.removeListener(onMsg);
-                    resolve(msg);
-                  }
-                };
-                port.onMessage.addListener(onMsg);
-                setTimeout(() => {
-                  port.onMessage.removeListener(onMsg);
+                const waiter = { predicate, resolve, timeout: null };
+                waiter.timeout = setTimeout(() => {
+                  const waiterIndex = waiters.indexOf(waiter);
+                  if (waiterIndex !== -1) waiters.splice(waiterIndex, 1);
                   reject(new Error(`timed out waiting for ${label}`));
                 }, ms);
+                waiters.push(waiter);
               });
+            }
+
+            async function startRecording(collId, requireExactCollection = false) {
+              port.postMessage({
+                type: "startRecording",
+                collId,
+                url,
+                autorun: !!autorun,
+              });
+              return await waitFor(
+                (message) =>
+                  message?.type === "status" &&
+                  (Boolean(message.failureMsg) ||
+                    (message.recording === true &&
+                      (!requireExactCollection || message.collId === collId))),
+                "recording status",
+                timeoutMs
+              );
             }
 
             port.postMessage({ type: "startUpdates", tabId });
             handshakeStage = "collections";
-            await waitFor((m) => m && m.type === "collections", "collections");
+            const collectionsBefore = await waitFor(
+              (message) => message?.type === "collections",
+              "collections"
+            );
+            const existingCollectionIds = new Set(
+              (collectionsBefore.collections || []).map(
+                (collection) => collection.id
+              )
+            );
 
             // Always create a fresh collection per snapshot so the resulting
-            // WACZ contains only requests from this archive run and not every
-            // page AWP ever recorded in this Chrome profile.
+            // WACZ contains only this snapshot's requests. The popup UI also
+            // sends startUpdates on this port, so another collections message
+            // may already be queued here. Correlate newColl by its unique title
+            // and by an id absent from the pre-request collection set; collId
+            // alone is global/default state and does not identify this reply.
             port.postMessage({ type: "newColl", title: collectionTitle });
             handshakeStage = "new collection";
-            const created = await waitFor(
-              (m) => m && m.type === "collections" && m.collId,
-              "new collection"
-            );
-            const collId = created.collId;
+            let collId = null;
+            while (!collId) {
+              const collectionsMessage = await waitFor(
+                (message) => message?.type === "collections",
+                "new collection"
+              );
+              collId = await globalThis.__abxResolveCreatedCollectionId(
+                collectionsMessage,
+                collectionTitle,
+                [...existingCollectionIds]
+              );
+            }
             if (!collId) {
               throw new Error("AWP did not return a collection id");
             }
 
-            port.postMessage({
-              type: "startRecording",
-              collId,
-              url,
-              autorun: !!autorun,
-            });
-
             handshakeStage = "recording status";
-            const status = await waitFor(
-              (message) =>
-                message?.type === "status" &&
-                (message.recording === true || Boolean(message.failureMsg)),
-              "recording status",
-              timeoutMs
-            );
+            let status = await startRecording(collId);
+
+            // AWP intentionally lets child tabs inherit their opener's active
+            // recorder. Starting an already-recording tab does not change its
+            // collection, so detach only this tab before assigning the fresh
+            // snapshot collection. Other tab recorders stay active.
+            if (
+              status.recording === true &&
+              status.collId &&
+              status.collId !== collId
+            ) {
+              handshakeStage = "inherited recorder stop";
+              port.postMessage({ type: "stopRecording" });
+              await waitFor(
+                (message) =>
+                  message?.type === "status" &&
+                  message.recording === false,
+                "inherited recorder stop",
+                timeoutMs
+              );
+              handshakeStage = "recording restart";
+              status = await startRecording(collId, true);
+            }
+
+            if (status.recording === true && status.collId !== collId) {
+              throw new Error(
+                `AWP recorder collection mismatch: expected ${collId}, got ${status.collId || "none"}`
+              );
+            }
 
             return { collId, status };
           })(),
@@ -240,7 +307,9 @@ async function main() {
         collectionTitle: `${getEnv(
           "ARCHIVEWEBPAGE_COLLECTION_TITLE",
           "abx-dl"
-        )} - ${url}`,
+        )} - ${url} [${
+          args.snapshot_id || path.basename(path.dirname(outputDir))
+        }/${crypto.randomUUID()}]`,
         timeoutMs: overallTimeoutMs,
       }
     );
@@ -252,6 +321,11 @@ async function main() {
     }
     if (handshake.status?.recording !== true) {
       throw new Error("AWP recorder did not confirm recording=true");
+    }
+    if (handshake.status?.collId !== handshake.collId) {
+      throw new Error(
+        `AWP recorder collection mismatch: expected ${handshake.collId}, got ${handshake.status?.collId || "none"}`
+      );
     }
 
     writeFileAtomic(
