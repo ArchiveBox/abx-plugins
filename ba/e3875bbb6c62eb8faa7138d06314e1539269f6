@@ -1,0 +1,54 @@
+abx_plugins/plugins/ublock/ublock_internal.js
+  s_1f1593d0227984::t_3c34f288f992da 1-60
+abx_plugins/plugins/chrome/chrome_utils.js
+  s_1f1593d0227984::t_2eddb80b48bf82 3145,3194-3195
+  s_1f1593d0227984::t_46e437369dfa40 2844,2851,2869-2872,3099,3101-3103,3106-3107,3111,3113,3117-3118,3122
+  s_1f1593d0227984::t_df61b853cf5087 3777,4192,4239-4240
+  s_1f1593d0227984::t_e9022e8d225a72 1920-1942,2001-2005,2033-2040
+  s_1f1593d0227984::t_ff1d3d7eb13bdc 3311-3316,3328-3330,3366-3369,3373-3375
+abx_plugins/plugins/ublock/tests/test_ublock.py
+  s_1f1593d0227984::t_3a36159de11ef6 22,28,36,173-265
+tests/test_archivewebpage_concurrent_collections.py
+  s_1f1593d0227984::t_a55225f14199ca 33-35,107-112,114-120,162-166,631,635,655-656
+  s_1f1593d0227984::t_cecbf3a71a0ac6 113
+  s_1f1593d0227984::t_88dd3418cd0b56 536-537,539-543,545-551,555-609,614-616,619-630,632-634,636-654,657-665
+  s_1f1593d0227984::t_b40f9b09c1ddfd 6,29-31,77-106,121-135,139-161,167-207
+  s_1f1593d0227984::t_226b20fb5e7042 538,552-554
+  s_1f1593d0227984::t_7f55852dd11e7b 32,136-138,544,610-613,617-618
+  s_ac1c5884810750::t_2dcc1941ea5637 208-209
+abx_plugins/plugins/ublock/on_CrawlSetup__95_ublock_config.js
+  s_1f1593d0227984::t_a55225f14199ca 1-19,21-35,38-39,45-51
+  s_1f1593d0227984::t_3c34f288f992da 20,36-37,40-44
+abx_plugins/plugins/archivewebpage/on_Snapshot__65_archivewebpage_stop.js
+  s_1f1593d0227984::t_91f5be218fd7af 53-98,205-206,211,216-220,232,234,239-243,249,252-254
+abx_plugins/plugins/ublock/on_Snapshot__11_ublock_config.js
+  s_1f1593d0227984::t_3c34f288f992da 1-36
+abx_plugins/plugins/archivewebpage/awp_internal.js
+  s_1f1593d0227984::t_944c13c7cc0de5 87-92
+abx_plugins/plugins/chrome/tests/test_chrome_test_helpers.py
+  s_1f1593d0227984::t_602ffdbf955d43 493
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "bae3875bbb6c62eb8faa7138d06314e1539269f6",
+  "prompts": {},
+  "sessions": {
+    "s_1f1593d0227984": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04f5c-f290-7ff3-a8d7-6c618f2d86ea",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_ac1c5884810750": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05568-44f6-7352-ae9e-160e694f37af",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
