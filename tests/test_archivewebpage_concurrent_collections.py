@@ -142,23 +142,20 @@ def test_wacz_publication_observer_owns_real_fs_events_and_errors(tmp_path) -> N
     failures through its promise rather than an unhandled EventEmitter error.
     """
     env = setup_test_env(tmp_path)
-    snapshot_dir = tmp_path / "publication-observer-snapshot"
-    output_dir = snapshot_dir / "archivewebpage"
-    output_dir.mkdir(parents=True)
     watch_dir = tmp_path / "chrome-downloads"
     script = r"""
 const fs = require("fs");
 const path = require("path");
-const stopHook = require(process.argv[1]);
+const awpInternal = require(process.argv[1]);
 const watchDir = process.argv[2];
 
 (async () => {
-  if (typeof stopHook.observePublishedFile !== "function") {
-    throw new Error("stop hook does not export observePublishedFile");
+  if (typeof awpInternal.observePublishedFile !== "function") {
+    throw new Error("awp_internal does not export observePublishedFile");
   }
   fs.mkdirSync(watchDir, { recursive: true });
   const expectedPath = path.join(watchDir, "expected.wacz");
-  const publication = stopHook.observePublishedFile(expectedPath, 5000);
+  const publication = awpInternal.observePublishedFile(expectedPath, 5000);
   let settled = false;
   publication.promise.finally(() => { settled = true; });
 
@@ -172,7 +169,7 @@ const watchDir = process.argv[2];
     throw new Error(`observer returned wrong WACZ size: ${stat.size}`);
   }
 
-  const failed = stopHook.observePublishedFile(
+  const failed = awpInternal.observePublishedFile(
     path.join(watchDir, "missing-directory", "never.wacz"),
     5000
   );
@@ -197,10 +194,10 @@ const watchDir = process.argv[2];
             env["NODE_BINARY"],
             "-e",
             script,
-            str(ARCHIVEWEBPAGE_STOP_HOOK),
+            str(AWP_INTERNAL),
             str(watch_dir),
         ],
-        cwd=output_dir,
+        cwd=tmp_path,
         capture_output=True,
         text=True,
         timeout=30,
