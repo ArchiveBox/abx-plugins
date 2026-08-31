@@ -84,18 +84,12 @@ async function getChromeTabIdForPage(browser, page, extensionId, timeoutMs) {
  */
 async function openAwpHelperTab(browser, extensionId, timeoutMs = 5000) {
   const helperUrl = `chrome-extension://${extensionId}/popup.html`;
-  const browserSession = await browser.target().createCDPSession();
-  let targetId = null;
-  try {
-    const result = await browserSession.send("Target.createTarget", {
-      url: helperUrl,
-    });
-    targetId = result.targetId;
-  } finally {
-    try {
-      await browserSession.detach();
-    } catch (error) {}
-  }
+  const result = await chromeUtils.sendBrowserCommand(
+    browser,
+    "Target.createTarget",
+    { url: helperUrl }
+  );
+  const targetId = result.targetId;
   if (!targetId) {
     throw new Error("Target.createTarget did not return a targetId");
   }

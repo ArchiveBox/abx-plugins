@@ -1917,6 +1917,29 @@ async function loadExtensionFromTarget(extensions, target, options = {}) {
   return new_extension;
 }
 
+/**
+ * Return Puppeteer's root browser CDP connection.
+ *
+ * Browser-domain commands already belong on this connection. Attaching a
+ * child session through browser.target() first creates an unnecessary
+ * Target.attachToTarget race against Puppeteer's transient synthetic browser
+ * target when several snapshot processes share one Chrome instance.
+ */
+function getBrowserConnection(browser) {
+  const connection =
+    typeof browser?.connection === "function"
+      ? browser.connection()
+      : browser?._connection || null;
+  if (!connection || typeof connection.send !== "function") {
+    throw new Error("Puppeteer browser root CDP connection is unavailable");
+  }
+  return connection;
+}
+
+async function sendBrowserCommand(browser, method, params = {}) {
+  return await getBrowserConnection(browser).send(method, params);
+}
+
 async function loadUnpackedExtensionsIntoBrowser(
   browser,
   extensions,
@@ -1930,22 +1953,6 @@ async function loadUnpackedExtensionsIntoBrowser(
   console.error(
     `[⚙️] Loading ${validExtensions.length} unpacked chrome extensions into browser...`
   );
-  const browserConnection =
-    typeof browser.connection === "function"
-      ? browser.connection()
-      : browser._connection || null;
-  let cdpSession = null;
-
-  async function sendBrowserCommand(method, params) {
-    if (browserConnection && typeof browserConnection.send === "function") {
-      return await browserConnection.send(method, params);
-    }
-    if (!cdpSession) {
-      cdpSession = await browser.target().createCDPSession();
-    }
-    return await cdpSession.send(method, params);
-  }
-
   const runtimeUser =
     typeof process.getuid === "function" ? process.getuid() : "user";
   const lockRoot = path.join(os.tmpdir(), `abx-chrome-${runtimeUser}`);
@@ -1991,9 +1998,11 @@ async function loadUnpackedExtensionsIntoBrowser(
         recursive: true,
         force: true,
       });
-      const { id } = await sendBrowserCommand("Extensions.loadUnpacked", {
-        path: extension.unpacked_path,
-      });
+      const { id } = await sendBrowserCommand(
+        browser,
+        "Extensions.loadUnpacked",
+        { path: extension.unpacked_path }
+      );
       if (!id) {
         throw new Error(
           `Extensions.loadUnpacked did not return an id for ${extension.unpacked_path}`
@@ -2021,22 +2030,14 @@ async function loadUnpackedExtensionsIntoBrowser(
     // Hooks resolve their own short-lived MV3 worker target when they use it.
   }
 
-  try {
-    const extensionLoadResults = await Promise.allSettled(
-      validExtensions.map(loadExtension)
-    );
-    const failedExtensionLoad = extensionLoadResults.find(
-      (result) => result.status === "rejected"
-    );
-    if (failedExtensionLoad) {
-      throw failedExtensionLoad.reason;
-    }
-  } finally {
-    if (cdpSession) {
-      try {
-        await cdpSession.detach();
-      } catch (error) {}
-    }
+  const extensionLoadResults = await Promise.allSettled(
+    validExtensions.map(loadExtension)
+  );
+  const failedExtensionLoad = extensionLoadResults.find(
+    (result) => result.status === "rejected"
+  );
+  if (failedExtensionLoad) {
+    throw failedExtensionLoad.reason;
   }
 
   return extensions;
@@ -2840,15 +2841,14 @@ async function setBrowserDownloadBehavior(options = {}) {
   }
 
   await fs.promises.mkdir(downloadPath, { recursive: true });
-  const sessionTarget = page ? page.target() : browser.target();
-  const session = await sessionTarget.createCDPSession();
+  const pageSession = page ? await page.target().createCDPSession() : null;
 
   // Keep the CDP session alive for the lifetime of the caller's browser/page
   // connection. Extension-driven downloads regress if we detach immediately
   // after configuring download behavior.
   if (page) {
     try {
-      await session.send("Page.setDownloadBehavior", {
+      await pageSession.send("Page.setDownloadBehavior", {
         behavior: "allow",
         downloadPath,
       });
@@ -2866,7 +2866,10 @@ async function setBrowserDownloadBehavior(options = {}) {
   }
 
   try {
-    await session.send("Browser.setDownloadBehavior", {
+    if (!browser) {
+      throw new Error("browser connection is unavailable");
+    }
+    await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
       behavior: "allow",
       downloadPath,
     });
@@ -3093,30 +3096,30 @@ async function closeExistingTabs(browser) {
 
 async function resolvePageByTargetId(browser, targetId, timeoutMs = 0) {
   const deadline = Date.now() + Math.max(timeoutMs, 0);
-  let discoverySession = null;
+  let browserConnection = null;
 
-  async function ensureDiscoverySession() {
-    if (discoverySession) {
-      return discoverySession;
+  async function ensureBrowserDiscovery() {
+    if (browserConnection) {
+      return browserConnection;
     }
     try {
-      discoverySession = await browser.target().createCDPSession();
-      await discoverySession.send("Target.setDiscoverTargets", {
+      browserConnection = getBrowserConnection(browser);
+      await browserConnection.send("Target.setDiscoverTargets", {
         discover: true,
       });
     } catch (error) {
-      discoverySession = null;
+      browserConnection = null;
     }
-    return discoverySession;
+    return browserConnection;
   }
 
   async function targetIsKnownToCdp() {
-    const session = await ensureDiscoverySession();
-    if (!session) {
+    const connection = await ensureBrowserDiscovery();
+    if (!connection) {
       return false;
     }
     try {
-      const { targetInfos = [] } = await session.send("Target.getTargets");
+      const { targetInfos = [] } = await connection.send("Target.getTargets");
       return targetInfos.some(
         (targetInfo) =>
           targetInfo?.targetId === targetId &&
@@ -3139,7 +3142,7 @@ async function resolvePageByTargetId(browser, targetId, timeoutMs = 0) {
   }
 
   try {
-    await ensureDiscoverySession();
+    await ensureBrowserDiscovery();
 
     while (true) {
       const targets = browser.targets();
@@ -3188,11 +3191,8 @@ async function resolvePageByTargetId(browser, targetId, timeoutMs = 0) {
       await sleep(100);
     }
   } finally {
-    if (discoverySession) {
-      try {
-        await discoverySession.detach();
-      } catch (error) {}
-    }
+    // The root connection is owned by `browser` and disconnected by its caller.
+    browserConnection = null;
   }
 }
 
@@ -3308,16 +3308,12 @@ async function openTabInChromeSession(options = {}) {
         try {
           targetId = await withTimeout(
             async () => {
-              const browserSession = await browser.target().createCDPSession();
-              try {
-                const created = await browserSession.send("Target.createTarget", {
-                  url: "about:blank",
-                  background: true,
-                });
-                return created.targetId;
-              } finally {
-                await browserSession.detach().catch(() => {});
-              }
+              const created = await sendBrowserCommand(
+                browser,
+                "Target.createTarget",
+                { url: "about:blank", background: true }
+              );
+              return created.targetId;
             },
             remainingMs,
             `Timed out creating new page after ${remainingMs}ms`
@@ -3328,14 +3324,11 @@ async function openTabInChromeSession(options = {}) {
           return { targetId };
         } catch (error) {
           if (targetId) {
-            let cleanupSession = null;
             try {
-              cleanupSession = await browser.target().createCDPSession();
-              await cleanupSession.send("Target.closeTarget", { targetId });
+              await sendBrowserCommand(browser, "Target.closeTarget", {
+                targetId,
+              });
             } catch (closeError) {}
-            if (cleanupSession) {
-              await cleanupSession.detach().catch(() => {});
-            }
           }
           throw error;
         }
@@ -3370,12 +3363,16 @@ async function closeTabInChromeSession(options = {}) {
       connectOptions: { defaultViewport: null },
     },
     async (browser) => {
-      const session = await browser.target().createCDPSession();
-      const { targetInfos } = await session.send("Target.getTargets");
+      const { targetInfos } = await sendBrowserCommand(
+        browser,
+        "Target.getTargets"
+      );
       if (!targetInfos.some((target) => target.targetId === targetId)) {
         return false;
       }
-      const result = await session.send("Target.closeTarget", { targetId });
+      const result = await sendBrowserCommand(browser, "Target.closeTarget", {
+        targetId,
+      });
       return result.success;
     }
   );
@@ -3777,8 +3774,7 @@ async function closeBrowserInChromeSession(options = {}) {
             defaultViewport: null,
             protocolTimeout: Math.max(1, remainingCdpMs()),
           });
-          const session = await browser.target().createCDPSession();
-          await session.send("Browser.close");
+          await sendBrowserCommand(browser, "Browser.close");
         },
         Math.max(1, remainingCdpMs()),
         `Timed out closing browser at ${cdpUrl}`
@@ -4193,8 +4189,7 @@ async function getCookiesViaCdp(port, options = {}) {
       browserWSEndpoint,
     },
     async (browser) => {
-      const session = await browser.target().createCDPSession();
-      const result = await session.send("Storage.getCookies");
+      const result = await sendBrowserCommand(browser, "Storage.getCookies");
       return result?.cookies || [];
     }
   );
@@ -4241,6 +4236,8 @@ module.exports = {
   resolvePuppeteerModule,
   connectToBrowserEndpoint,
   withConnectedBrowser,
+  getBrowserConnection,
+  sendBrowserCommand,
   closeExistingTabs,
   getExtensionPaths,
   waitForExtensionTarget,
