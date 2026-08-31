@@ -2866,9 +2866,6 @@ async function setBrowserDownloadBehavior(options = {}) {
   }
 
   try {
-    if (!browser) {
-      throw new Error("browser connection is unavailable");
-    }
     await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
       behavior: "allow",
       downloadPath,

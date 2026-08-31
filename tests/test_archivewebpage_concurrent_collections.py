@@ -132,6 +132,23 @@ def _stop_tab_process(tab_process: subprocess.Popen[str]) -> None:
             handle.close()
 
 
+def test_wacz_publication_observer_owns_all_fs_watch_outcomes() -> None:
+    """Keep rare watcher outcomes inside the hook's normal failure boundary.
+
+    WHY: ``fs.watch`` documents that ``filename`` can be absent, and its
+    ``FSWatcher`` can emit ``error`` after construction.  These branches are
+    supplied by the operating-system watcher backend and cannot be induced
+    portably without faking that backend.  Assert the production wiring
+    directly: filename-less notifications must stat the one exact expected
+    WACZ, while watcher errors must reject the owned publication promise
+    instead of becoming an uncaught process exception.
+    """
+    source = ARCHIVEWEBPAGE_STOP_HOOK.read_text()
+
+    assert "if (filename && filename.toString() !== expectedName) return;" in source
+    assert 'watcher.on("error", (error) => finish(reject, error));' in source
+
+
 @pytest.fixture
 def archivewebpage_crawl(
     tmp_path,
@@ -793,16 +810,6 @@ def test_start_reassigns_inherited_tab_recorder_to_its_requested_collection(
         assert first_status_after_reassignment["collId"] == first_state["collId"]
     finally:
         if first_tab_process is not None:
-            if first_tab_process.poll() is None:
-                first_tab_process.send_signal(signal.SIGTERM)
-            try:
-                first_tab_process.wait(timeout=20)
-            except subprocess.TimeoutExpired:
-                first_tab_process.kill()
-                first_tab_process.wait(timeout=5)
-            for attr in ("_stdout_handle", "_stderr_handle"):
-                handle = getattr(first_tab_process, attr, None)
-                if handle:
-                    handle.close()
+            _stop_tab_process(first_tab_process)
         if launch_process is not None:
             kill_chromium_session(launch_process, crawl_chrome_dir)

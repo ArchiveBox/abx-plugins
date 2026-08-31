@@ -71,7 +71,7 @@ function observePublishedFile(filePath, timeoutMs) {
       callback(value);
     };
     watcher = fs.watch(directory, async (_eventType, filename) => {
-      if (filename?.toString() !== expectedName) return;
+      if (filename && filename.toString() !== expectedName) return;
       try {
         const stat = await fs.promises.stat(filePath);
         if (stat.size > 0) finish(resolve, stat);
@@ -81,6 +81,7 @@ function observePublishedFile(filePath, timeoutMs) {
         if (error?.code !== "ENOENT") finish(reject, error);
       }
     });
+    watcher.on("error", (error) => finish(reject, error));
     timer = setTimeout(
       () =>
         finish(
