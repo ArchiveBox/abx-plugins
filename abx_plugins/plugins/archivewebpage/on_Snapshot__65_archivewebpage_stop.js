@@ -53,15 +53,14 @@ async function moveAcrossMounts(src, dest) {
 function observePublishedFile(filePath, timeoutMs) {
   const directory = path.dirname(filePath);
   const expectedName = path.basename(filePath);
+  const abortController = new AbortController();
   let settled = false;
-  let watcher = null;
   let timer = null;
 
   const close = () => {
     if (timer) clearTimeout(timer);
     timer = null;
-    if (watcher) watcher.close();
-    watcher = null;
+    if (!abortController.signal.aborted) abortController.abort();
   };
   const promise = new Promise((resolve, reject) => {
     const finish = (callback, value) => {
@@ -70,18 +69,7 @@ function observePublishedFile(filePath, timeoutMs) {
       close();
       callback(value);
     };
-    watcher = fs.watch(directory, async (_eventType, filename) => {
-      if (filename && filename.toString() !== expectedName) return;
-      try {
-        const stat = await fs.promises.stat(filePath);
-        if (stat.size > 0) finish(resolve, stat);
-      } catch (error) {
-        // Chrome can announce the temporary-file rename before its final name
-        // is visible. A later filesystem event is the publication boundary.
-        if (error?.code !== "ENOENT") finish(reject, error);
-      }
-    });
-    watcher.on("error", (error) => finish(reject, error));
+
     timer = setTimeout(
       () =>
         finish(
@@ -92,6 +80,36 @@ function observePublishedFile(filePath, timeoutMs) {
         ),
       timeoutMs
     );
+
+    (async () => {
+      try {
+        const watcher = fs.promises.watch(directory, {
+          signal: abortController.signal,
+        });
+        for await (const _event of watcher) {
+          try {
+            // fs.watch filenames are optional. Every notification is only a
+            // prompt to check the one exact path owned by this download.
+            const stat = await fs.promises.stat(filePath);
+            if (stat.size > 0) {
+              finish(resolve, stat);
+              return;
+            }
+          } catch (error) {
+            // Chrome can announce the temporary-file rename before its final
+            // name is visible. A later event is the publication boundary.
+            if (error?.code !== "ENOENT") {
+              finish(reject, error);
+              return;
+            }
+          }
+        }
+      } catch (error) {
+        // Abort is our normal close path. Construction and later watcher
+        // backend failures reject the same promise awaited by the stop hook.
+        if (!abortController.signal.aborted) finish(reject, error);
+      }
+    })();
   });
 
   return { promise, close };
@@ -342,7 +360,11 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(`Fatal error: ${error.message || error}`);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(`Fatal error: ${error.message || error}`);
+    process.exit(1);
+  });
+}
+
+module.exports = { observePublishedFile };

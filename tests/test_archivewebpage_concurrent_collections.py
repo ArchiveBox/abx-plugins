@@ -132,21 +132,83 @@ def _stop_tab_process(tab_process: subprocess.Popen[str]) -> None:
             handle.close()
 
 
-def test_wacz_publication_observer_owns_all_fs_watch_outcomes() -> None:
-    """Keep rare watcher outcomes inside the hook's normal failure boundary.
+def test_wacz_publication_observer_owns_real_fs_events_and_errors(tmp_path) -> None:
+    """Observe the exact published file and keep watcher errors awaitable.
 
-    WHY: ``fs.watch`` documents that ``filename`` can be absent, and its
-    ``FSWatcher`` can emit ``error`` after construction.  These branches are
-    supplied by the operating-system watcher backend and cannot be induced
-    portably without faking that backend.  Assert the production wiring
-    directly: filename-less notifications must stat the one exact expected
-    WACZ, while watcher errors must reject the owned publication promise
-    instead of becoming an uncaught process exception.
+    WHY: Chrome's completed event can precede the final rename, ``fs.watch``
+    filenames are optional, and a watcher backend can fail after startup. The
+    observer must therefore stat only the exact expected path on every real
+    filesystem event, ignore unrelated publications, and expose filesystem
+    failures through its promise rather than an unhandled EventEmitter error.
     """
-    source = ARCHIVEWEBPAGE_STOP_HOOK.read_text()
+    env = setup_test_env(tmp_path)
+    snapshot_dir = tmp_path / "publication-observer-snapshot"
+    output_dir = snapshot_dir / "archivewebpage"
+    output_dir.mkdir(parents=True)
+    watch_dir = tmp_path / "chrome-downloads"
+    script = r"""
+const fs = require("fs");
+const path = require("path");
+const stopHook = require(process.argv[1]);
+const watchDir = process.argv[2];
 
-    assert "if (filename && filename.toString() !== expectedName) return;" in source
-    assert 'watcher.on("error", (error) => finish(reject, error));' in source
+(async () => {
+  if (typeof stopHook.observePublishedFile !== "function") {
+    throw new Error("stop hook does not export observePublishedFile");
+  }
+  fs.mkdirSync(watchDir, { recursive: true });
+  const expectedPath = path.join(watchDir, "expected.wacz");
+  const publication = stopHook.observePublishedFile(expectedPath, 5000);
+  let settled = false;
+  publication.promise.finally(() => { settled = true; });
+
+  fs.writeFileSync(path.join(watchDir, "unrelated.wacz"), "wrong artifact");
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  if (settled) throw new Error("unrelated file settled exact WACZ observer");
+
+  fs.writeFileSync(expectedPath, "real archivewebpage output");
+  const stat = await publication.promise;
+  if (stat.size !== Buffer.byteLength("real archivewebpage output")) {
+    throw new Error(`observer returned wrong WACZ size: ${stat.size}`);
+  }
+
+  const failed = stopHook.observePublishedFile(
+    path.join(watchDir, "missing-directory", "never.wacz"),
+    5000
+  );
+  try {
+    await failed.promise;
+    throw new Error("missing watch directory unexpectedly succeeded");
+  } catch (error) {
+    if (!error || !["ENOENT", "ERR_FS_WATCHER_INIT_FAILED"].includes(error.code)) {
+      throw error;
+    }
+  } finally {
+    failed.close();
+  }
+  process.stdout.write("observer behavior verified");
+})().catch((error) => {
+  console.error(error && (error.stack || error.message || String(error)));
+  process.exit(1);
+});
+"""
+    result = subprocess.run(
+        [
+            env["NODE_BINARY"],
+            "-e",
+            script,
+            str(ARCHIVEWEBPAGE_STOP_HOOK),
+            str(watch_dir),
+        ],
+        cwd=output_dir,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "observer behavior verified"
 
 
 @pytest.fixture
