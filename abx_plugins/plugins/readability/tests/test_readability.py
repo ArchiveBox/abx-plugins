@@ -243,7 +243,8 @@ def test_extracts_article_after_installation():
         assert "reader mode" not in html_content.lower()
         assert "<header" not in html_content.lower()
         assert "<body><main><article>" in html_content
-        assert "max-width: 48rem" in html_content
+        assert "main { width: 100%; min-height: 100vh" in html_content
+        assert "article { width: min(100%, 72rem); margin: 0 auto" in html_content
         assert 'src="./images/example.com/assets/example.svg"' in html_content
         assert "srcset=" not in html_content
         assert "data:image" not in html_content

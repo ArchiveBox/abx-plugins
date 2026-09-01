@@ -119,13 +119,16 @@ def render_readability_document(
 <html lang="{html.escape(str(metadata.get("lang") or "en"), quote=True)}"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title}</title><style>
-* {{ box-sizing: border-box }} html {{ background: #f3f4f6 }} body {{ margin: 0; color: #1f2937 }}
-main {{ max-width: 48rem; min-height: 100vh; margin: 0 auto; padding: 3rem 2rem 6rem; background: #fff }}
-article {{ font: 1.15rem/1.72 Georgia, 'Times New Roman', serif }} article > :first-child {{ margin-top: 0 }}
+* {{ box-sizing: border-box }}
+html {{ min-height: 100%; background: #fff }}
+body {{ min-height: 100vh; margin: 0; color: #1f2937; background: #fff }}
+main {{ width: 100%; min-height: 100vh; margin: 0; padding: clamp(1.5rem, 4vw, 4rem) clamp(1rem, 5vw, 4.5rem) 6rem; background: #fff }}
+article {{ width: min(100%, 72rem); margin: 0 auto; font: 1.15rem/1.72 Georgia, 'Times New Roman', serif }}
+article > :first-child {{ margin-top: 0 }}
 h2, h3, h4 {{ margin: 2em 0 .65em; line-height: 1.25 }} p, ul, ol, blockquote {{ margin: 0 0 1.25em }}
 a {{ color: #0369a1 }} img, svg, video {{ display: block; max-width: 100%; height: auto; margin: 1.5rem auto }}
 blockquote {{ padding-left: 1.25rem; border-left: 4px solid #cbd5e1; color: #475569 }} pre, table {{ max-width: 100%; overflow: auto }}
-@media (max-width: 40rem) {{ main {{ padding: 2rem 1.15rem 4rem }} h1 {{ font-size: 1.9rem }} article {{ font-size: 1.05rem }} }}
+@media (max-width: 40rem) {{ main {{ padding: 1.5rem 1rem 4rem }} h1 {{ font-size: 1.9rem }} article {{ font-size: 1.05rem }} }}
 </style></head><body><main><article>{content}</article></main></body></html>'''
 
 
