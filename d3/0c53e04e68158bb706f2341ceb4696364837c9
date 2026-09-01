@@ -1,0 +1,30 @@
+abx_plugins/plugins/hashes/on_Snapshot__93_hashes.py
+  s_124c50aed20910::t_47de7f1f00a2b3 135,143
+  s_124c50aed20910::t_8363c0f8bf84ca 149-150
+  s_124c50aed20910::t_034fe4be7d538c 130-131,147,159,162
+  s_124c50aed20910::t_fac5c9785ca60b 134
+  s_124c50aed20910::t_d20b995017c9af 16,132-133,136-142,145-146,148,151-158,160,164,166-171,177-178,225
+  s_124c50aed20910::t_c99d833f57498b 144,161,172-176
+  s_124c50aed20910::t_6541b0a0a401c4 163,165
+abx_plugins/plugins/hashes/tests/test_hashes.py
+  s_124c50aed20910::t_c99d833f57498b 9,137-139,141-143,145-158,160-163,165-167,170-171
+  s_124c50aed20910::t_304084806c259c 96-126
+  s_124c50aed20910::t_7cf1a3b56906bc 127-136,140,144,168-169,172
+  s_124c50aed20910::t_a4fbdb28733cf1 159,164,173
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "d30c53e04e68158bb706f2341ceb4696364837c9",
+  "prompts": {},
+  "sessions": {
+    "s_124c50aed20910": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05593-d469-7392-99b6-0638962990a8",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
