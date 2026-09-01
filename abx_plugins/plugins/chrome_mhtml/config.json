@@ -29,5 +29,7 @@
       "x-fallback": "TIMEOUT",
       "description": "Timeout for browser-generated MHTML capture in seconds"
     }
-  }
+  },
+  "category": "main",
+  "display_order": 70
 }

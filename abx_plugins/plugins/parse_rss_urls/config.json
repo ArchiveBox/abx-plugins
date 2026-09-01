@@ -35,5 +35,7 @@
       "description": "Enable RSS/Atom feed URL parsing"
     }
   },
-  "x-accepts-internal-input": true
+  "x-accepts-internal-input": true,
+  "category": "postprocessing",
+  "display_order": 50
 }

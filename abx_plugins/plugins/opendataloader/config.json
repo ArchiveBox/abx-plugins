@@ -103,5 +103,7 @@
       ],
       "description": "Extra arguments to append to opendataloader-pdf command"
     }
-  }
+  },
+  "category": "text",
+  "display_order": 80
 }

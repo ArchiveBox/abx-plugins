@@ -45,5 +45,7 @@
       "x-fallback": "RESOLUTION",
       "description": "Screenshot resolution (width,height)"
     }
-  }
+  },
+  "category": "main",
+  "display_order": 20
 }

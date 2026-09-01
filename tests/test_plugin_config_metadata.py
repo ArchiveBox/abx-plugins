@@ -115,6 +115,36 @@ def test_every_plugin_has_config_json_with_required_metadata() -> None:
     )
 
 
+def test_plugin_presentation_metadata_is_generic_and_well_formed() -> None:
+    failures: list[str] = []
+    visible_orders: set[tuple[str, int]] = set()
+    for plugin_dir in _iter_plugin_dirs():
+        config = json.loads((plugin_dir / "config.json").read_text(encoding="utf-8"))
+        category = config.get("category", "")
+        display_order = config.get("display_order", 1000)
+        hidden = config.get("hidden", False)
+        auto_run = config.get("x-auto-run", True)
+        if not isinstance(category, str):
+            failures.append(f"{plugin_dir.name}: category must be a string")
+        if not isinstance(display_order, int) or isinstance(display_order, bool):
+            failures.append(f"{plugin_dir.name}: display_order must be an integer")
+        if not isinstance(hidden, bool):
+            failures.append(f"{plugin_dir.name}: hidden must be a boolean")
+        if not isinstance(auto_run, bool):
+            failures.append(f"{plugin_dir.name}: x-auto-run must be a boolean")
+        if not hidden and isinstance(category, str) and isinstance(display_order, int):
+            key = (category, display_order)
+            if key in visible_orders:
+                failures.append(
+                    f"{plugin_dir.name}: duplicate visible category/display_order {key!r}",
+                )
+            visible_orders.add(key)
+
+    assert not failures, (
+        "Plugin presentation metadata validation failed:\n" + "\n".join(failures)
+    )
+
+
 def test_required_binary_configs_follow_provider_policy() -> None:
     failures: list[str] = []
 

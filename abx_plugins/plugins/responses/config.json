@@ -34,5 +34,7 @@
       "x-fallback": "TIMEOUT",
       "description": "Timeout for response capture in seconds"
     }
-  }
+  },
+  "category": "media",
+  "display_order": 20
 }

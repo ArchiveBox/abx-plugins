@@ -64,5 +64,7 @@
       "default": "abx-dl",
       "description": "Collection title to use when AWP has no default collection yet"
     }
-  }
+  },
+  "category": "main",
+  "display_order": 80
 }

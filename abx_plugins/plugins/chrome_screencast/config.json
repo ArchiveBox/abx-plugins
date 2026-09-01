@@ -44,5 +44,7 @@
       "maximum": 1,
       "description": "CDP screenshot clip scale for live preview frames"
     }
-  }
+  },
+  "category": "media",
+  "display_order": 30
 }

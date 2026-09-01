@@ -26,5 +26,7 @@
       "x-fallback": "TIMEOUT",
       "description": "Timeout for HTML to text conversion in seconds"
     }
-  }
+  },
+  "category": "text",
+  "display_order": 20
 }

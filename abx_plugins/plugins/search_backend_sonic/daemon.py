@@ -122,7 +122,7 @@ def load_sonic_config(environ: Mapping[str, str] | None = None) -> Any:
             values[key] = prop.get("default") if isinstance(prop, Mapping) else ""
         else:
             values[key] = _coerce_env_value(raw_value, prop)
-    for key in ("ABX_RUNTIME", "CRAWL_DIR", "DATA_DIR", "EXTRA_CONTEXT", "SNAP_DIR"):
+    for key in ("CRAWL_DIR", "DATA_DIR", "EXTRA_CONTEXT", "SNAP_DIR"):
         values[key] = env.get(key, "")
     return SimpleNamespace(**values)
 

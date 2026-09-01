@@ -114,7 +114,6 @@
       "description": "Seconds to wait for OpenCode startup and proxied requests"
     }
   },
-  "x-runtimes": [
-    "archivebox"
-  ]
+  "x-auto-run": false,
+  "hidden": true
 }

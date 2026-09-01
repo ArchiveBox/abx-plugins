@@ -41,7 +41,6 @@ def test_load_sqlite_config_resolves_runtime_values_and_aliases(tmp_path: Path):
         },
     )
 
-    assert config.ABX_RUNTIME == "archivebox"
     assert config.DATA_DIR == str(tmp_path)
     assert config.SNAP_DIR == str(tmp_path / "snapshot")
     assert config.SEARCH_BACKEND_SQLITE_ENABLED is False

@@ -19,5 +19,7 @@
       "description": "Enable HTML URL parsing"
     }
   },
-  "x-accepts-internal-input": true
+  "x-accepts-internal-input": true,
+  "category": "postprocessing",
+  "display_order": 20
 }

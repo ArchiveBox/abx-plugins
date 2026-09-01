@@ -156,5 +156,7 @@
       ],
       "description": "Extra arguments to append to yt-dlp command"
     }
-  }
+  },
+  "category": "media",
+  "display_order": 40
 }

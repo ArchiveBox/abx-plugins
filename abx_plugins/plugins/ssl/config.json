@@ -7,5 +7,6 @@
   "required_plugins": [],
   "required_binaries": [],
   "output_mimetypes": [],
-  "properties": {}
+  "properties": {},
+  "hidden": true
 }

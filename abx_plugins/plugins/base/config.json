@@ -106,5 +106,6 @@
       "description": "Optional V8 coverage output directory for Node.js hooks",
       "x-scope": "crawl_execution"
     }
-  }
+  },
+  "hidden": true
 }

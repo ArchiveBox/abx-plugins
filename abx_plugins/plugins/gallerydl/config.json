@@ -85,5 +85,7 @@
       ],
       "description": "Extra arguments to append to gallery-dl command"
     }
-  }
+  },
+  "category": "media",
+  "display_order": 50
 }

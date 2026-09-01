@@ -28,5 +28,7 @@
       "x-fallback": "TIMEOUT",
       "description": "Timeout for DNS recording in seconds"
     }
-  }
+  },
+  "category": "metadata",
+  "display_order": 80
 }

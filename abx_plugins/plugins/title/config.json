@@ -28,5 +28,7 @@
       "x-fallback": "TIMEOUT",
       "description": "Timeout for title extraction in seconds"
     }
-  }
+  },
+  "category": "metadata",
+  "display_order": 10
 }

@@ -68,5 +68,6 @@
       ],
       "description": "Extra arguments to append to ripgrep command"
     }
-  }
+  },
+  "hidden": true
 }

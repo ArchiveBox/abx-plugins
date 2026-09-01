@@ -243,11 +243,7 @@ def main() -> None:
     try:
         config = load_sonic_config()
 
-        if config.ABX_RUNTIME != "archivebox":
-            print("Skipping Sonic indexing (ABX_RUNTIME!=archivebox)", file=sys.stderr)
-            status = "skipped"
-            output_str = f"ABX_RUNTIME={config.ABX_RUNTIME}"
-        elif not is_sonic_backend_enabled(config):
+        if not is_sonic_backend_enabled(config):
             print(
                 "Skipping indexing (SEARCH_BACKEND_SONIC_ENABLED=False)",
                 file=sys.stderr,

@@ -28,5 +28,7 @@
       "x-fallback": "TIMEOUT",
       "description": "Timeout for console log capture in seconds"
     }
-  }
+  },
+  "category": "metadata",
+  "display_order": 60
 }

@@ -69,5 +69,7 @@
       ],
       "description": "Extra arguments to append to Defuddle command"
     }
-  }
+  },
+  "category": "text",
+  "display_order": 30
 }
