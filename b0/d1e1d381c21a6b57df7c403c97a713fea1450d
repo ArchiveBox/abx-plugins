@@ -1,0 +1,142 @@
+abx_plugins/plugins/liteparse/config.json
+  s_750dfb69a92570::t_925d0d91f0dac3 195-197
+abx_plugins/plugins/opencode/config.json
+  s_750dfb69a92570::t_5d164445053871 117-118
+abx_plugins/plugins/search_backend_sonic/daemon.py
+  s_750dfb69a92570::t_516438fcff6198 125
+abx_plugins/plugins/search_backend_sqlite/config.json
+  s_750dfb69a92570::t_5d164445053871 45-46
+README.md
+  s_750dfb69a92570::t_2710a4f79b500a 28
+abx_plugins/plugins/search_backend_sonic/config.json
+  s_750dfb69a92570::t_5d164445053871 121-122
+abx_plugins/plugins/search_backend_sqlite/search.py
+  s_750dfb69a92570::t_516438fcff6198 56
+tests/test_plugin_config_metadata.py
+  s_750dfb69a92570::t_2082206914ad29 118-125,127-132,135-137,141-142,146-147
+  s_750dfb69a92570::t_2710a4f79b500a 126,133-134,138-140,143-145
+abx_plugins/plugins/search_backend_sqlite/on_Snapshot__90_index_sqlite.py
+  s_750dfb69a92570::t_5d164445053871 241
+abx_plugins/plugins/search_backend_sonic/on_Snapshot__91_index_sonic.py
+  s_750dfb69a92570::t_5d164445053871 246
+abx_plugins/plugins/accessibility/config.json
+  s_750dfb69a92570::t_32bb31142db5be 31-33
+abx_plugins/plugins/archivedotorg/config.json
+  s_750dfb69a92570::t_86dbf677473f8f 30-32
+abx_plugins/plugins/archivewebpage/config.json
+  s_750dfb69a92570::t_159308dd28d665 67-69
+abx_plugins/plugins/base/config.json
+  s_750dfb69a92570::t_ef359cb4357de0 109-110
+abx_plugins/plugins/chrome/config.json
+  s_750dfb69a92570::t_d9aea8c9e33eaf 276-278
+abx_plugins/plugins/chrome_mhtml/config.json
+  s_750dfb69a92570::t_6af2015f77c5c4 32-34
+abx_plugins/plugins/chrome_screencast/config.json
+  s_750dfb69a92570::t_1c2b8f342a0033 47-49
+abx_plugins/plugins/claudechrome/config.json
+  s_750dfb69a92570::t_560fb7c93daaeb 68-70
+abx_plugins/plugins/claudecode/config.json
+  s_750dfb69a92570::t_7229ff1707a1d7 88-90
+abx_plugins/plugins/claudecodecleanup/config.json
+  s_750dfb69a92570::t_0ac0d0a451b219 51-53
+abx_plugins/plugins/claudecodeextract/config.json
+  s_750dfb69a92570::t_89cadbe4125dd7 51-53
+abx_plugins/plugins/consolelog/config.json
+  s_750dfb69a92570::t_e09e43864dd188 31-33
+abx_plugins/plugins/defuddle/config.json
+  s_750dfb69a92570::t_83a25645c96953 72-74
+abx_plugins/plugins/dns/config.json
+  s_750dfb69a92570::t_443f79979cdb53 31-33
+abx_plugins/plugins/dom/config.json
+  s_750dfb69a92570::t_0f4f75023769ac 31-33
+abx_plugins/plugins/favicon/config.json
+  s_750dfb69a92570::t_8b17b21be016f7 35-37
+abx_plugins/plugins/forumdl/config.json
+  s_750dfb69a92570::t_3bfeb41b914b05 109-111
+abx_plugins/plugins/gallerydl/config.json
+  s_750dfb69a92570::t_59786c01c3e240 88-90
+abx_plugins/plugins/git/config.json
+  s_750dfb69a92570::t_9dcd38366ed04e 76-78
+abx_plugins/plugins/hashes/config.json
+  s_750dfb69a92570::t_e8f08a6fc3fe04 29-31
+abx_plugins/plugins/headers/config.json
+  s_750dfb69a92570::t_cd49eef82fed5a 31-33
+abx_plugins/plugins/htmltotext/config.json
+  s_750dfb69a92570::t_30432160739b18 29-31
+abx_plugins/plugins/infiniscroll/config.json
+  s_750dfb69a92570::t_11625805184514 58-60
+abx_plugins/plugins/istilldontcareaboutcookies/config.json
+  s_750dfb69a92570::t_01705b47545e61 35-37
+abx_plugins/plugins/media/config.json
+  s_750dfb69a92570::t_d5f9764784e506 10-11
+abx_plugins/plugins/mercury/config.json
+  s_750dfb69a92570::t_2cc9ea8264064c 77-79
+abx_plugins/plugins/modalcloser/config.json
+  s_750dfb69a92570::t_3aec40f161ee1d 34-36
+abx_plugins/plugins/opendataloader/config.json
+  s_750dfb69a92570::t_67ad9fcddcb611 106-108
+abx_plugins/plugins/papersdl/config.json
+  s_750dfb69a92570::t_dff88850d153e3 110-112
+abx_plugins/plugins/parse_dom_outlinks/config.json
+  s_750dfb69a92570::t_9b3c31d422ef99 31-33
+abx_plugins/plugins/parse_html_urls/config.json
+  s_750dfb69a92570::t_d40ad523e61342 22-24
+abx_plugins/plugins/parse_jsonl_urls/config.json
+  s_750dfb69a92570::t_2a2cde61ed2a3b 22-24
+abx_plugins/plugins/parse_netscape_urls/config.json
+  s_750dfb69a92570::t_a2511aedf7a7f7 22-24
+abx_plugins/plugins/parse_rss_urls/config.json
+  s_750dfb69a92570::t_3f453244f9d0c4 38-40
+abx_plugins/plugins/parse_txt_urls/config.json
+  s_750dfb69a92570::t_ab74310d094d70 22-24
+abx_plugins/plugins/pdf/config.json
+  s_750dfb69a92570::t_53084ed9f09e53 38-40
+abx_plugins/plugins/readability/config.json
+  s_750dfb69a92570::t_d9e4e115eb4412 78-80
+abx_plugins/plugins/redirects/config.json
+  s_750dfb69a92570::t_fb9aa029ae65c3 31-33
+abx_plugins/plugins/responses/config.json
+  s_750dfb69a92570::t_dad9e980f17a1b 37-39
+abx_plugins/plugins/screenshot/config.json
+  s_750dfb69a92570::t_36f56ba8d8575f 48-50
+abx_plugins/plugins/search_backend_ripgrep/config.json
+  s_750dfb69a92570::t_ddc56cec1a375f 71-72
+abx_plugins/plugins/seo/config.json
+  s_750dfb69a92570::t_bb0f498e06b96f 31-33
+abx_plugins/plugins/singlefile/config.json
+  s_750dfb69a92570::t_c168abb929ac54 45-47
+abx_plugins/plugins/ssl/config.json
+  s_750dfb69a92570::t_fa64c42f76ebdd 10-11
+abx_plugins/plugins/sslcerts/config.json
+  s_750dfb69a92570::t_4083ceefdd03c7 31-33
+abx_plugins/plugins/staticfile/config.json
+  s_750dfb69a92570::t_aef7cda3449589 42-44
+abx_plugins/plugins/title/config.json
+  s_750dfb69a92570::t_4b0bf0b34d9be1 31-33
+abx_plugins/plugins/trafilatura/config.json
+  s_750dfb69a92570::t_a1dc14ed03f0e3 61-63
+abx_plugins/plugins/twocaptcha/config.json
+  s_750dfb69a92570::t_4ed4e044aecc13 82-84
+abx_plugins/plugins/ublock/config.json
+  s_750dfb69a92570::t_847e2b58116588 35-37
+abx_plugins/plugins/wget/config.json
+  s_750dfb69a92570::t_22492ffbd3d158 110-112
+abx_plugins/plugins/ytdlp/config.json
+  s_750dfb69a92570::t_5b1d353e3a6a86 159-161
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "b0d1e1d381c21a6b57df7c403c97a713fea1450d",
+  "prompts": {},
+  "sessions": {
+    "s_750dfb69a92570": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b67-229b-7b73-884d-437256ffa903",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
