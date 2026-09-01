@@ -249,6 +249,10 @@ def test_extracts_article_after_installation():
             "article table { width: 100% !important; max-width: 100% !important"
             in html_content
         )
+        assert (
+            'article :is(div, section, article, main, figure, p, td, th)[style*="width"]'
+            in html_content
+        )
         assert 'src="./images/example.com/assets/example.svg"' in html_content
         assert "srcset=" not in html_content
         assert "data:image" not in html_content

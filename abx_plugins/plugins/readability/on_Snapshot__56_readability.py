@@ -130,7 +130,10 @@ a {{ color: #0369a1 }} img, svg, video {{ display: block; max-width: 100%; heigh
 article > *, article section, article div, article figure {{ max-width: 100% !important }}
 article table {{ width: 100% !important; max-width: 100% !important; border-collapse: collapse }}
 article td, article th {{ max-width: 100%; vertical-align: top }}
-article [width] {{ max-width: 100% !important }}
+article table[width], article table[style*="width"] {{ width: 100% !important }}
+article :is(tbody, thead, tfoot, tr)[width], article :is(tbody, thead, tfoot, tr)[style*="width"] {{ width: 100% !important }}
+article :is(div, section, article, main, figure, p, td, th)[width],
+article :is(div, section, article, main, figure, p, td, th)[style*="width"] {{ width: auto !important; max-width: 100% !important }}
 blockquote {{ padding-left: 1.25rem; border-left: 4px solid #cbd5e1; color: #475569 }} pre, table {{ max-width: 100%; overflow: auto }}
 @media (max-width: 40rem) {{ main {{ padding: 1.5rem 1rem 4rem }} h1 {{ font-size: 1.9rem }} article {{ font-size: 1.05rem }} }}
 </style></head><body><main><article>{content}</article></main></body></html>'''
