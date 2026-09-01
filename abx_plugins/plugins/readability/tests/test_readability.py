@@ -35,6 +35,21 @@ TEST_URL = "https://example.com"
 _readability_binary_path = None
 
 
+@pytest.fixture(scope="module", autouse=True)
+def readability_collection_cache(tmp_path_factory):
+    """Keep dependency preflight and hook launches in one real collection cache."""
+    previous_lib_dir = os.environ.get("ABXPKG_LIB_DIR")
+    lib_dir = tmp_path_factory.mktemp("readability_collection_lib")
+    os.environ["ABXPKG_LIB_DIR"] = str(lib_dir)
+    try:
+        yield lib_dir
+    finally:
+        if previous_lib_dir is None:
+            os.environ.pop("ABXPKG_LIB_DIR", None)
+        else:
+            os.environ["ABXPKG_LIB_DIR"] = previous_lib_dir
+
+
 def create_example_html(tmpdir: Path) -> Path:
     """Create sample HTML that looks like example.com with enough content for Readability."""
     singlefile_dir = tmpdir / "singlefile"
@@ -101,6 +116,9 @@ def require_readability_binary() -> str:
     assert Path(binary_path).is_file(), (
         f"readability-extractor binary path invalid: {binary_path}"
     )
+    assert Path(binary_path).is_relative_to(Path(os.environ["ABXPKG_LIB_DIR"])), (
+        "readability-extractor must be projected into the active collection cache"
+    )
     return binary_path
 
 
@@ -142,7 +160,13 @@ def test_verify_deps_with_abxpkg():
 
 
 def test_extracts_article_after_installation():
-    """Test full workflow: extract article using readability-extractor from real HTML."""
+    """Test full workflow: extract article using readability-extractor from real HTML.
+
+    WHY: the dependency preflight and hook must use the same collection cache.
+    Pointing READABILITY_BINARY at the previous test's cache makes every hook
+    invocation rebuild a fresh projection and turns a warm launch into slow,
+    silent package-manager work on constrained CI runners.
+    """
     binary_path = require_readability_binary()
 
     with tempfile.TemporaryDirectory() as tmpdir:

@@ -6,6 +6,7 @@
 const path = require("path");
 const {
   PROCESS_EXIT_SKIPPED,
+  emitArchiveResultRecord,
   ensureNodeModuleResolution,
   getEnv,
   getEnvBool,
@@ -17,7 +18,8 @@ async function main() {
     process.exit(PROCESS_EXIT_SKIPPED);
   }
   if (getEnv("CHROME_ISOLATION", "crawl").toLowerCase() !== "snapshot") {
-    process.exit(PROCESS_EXIT_SKIPPED);
+    emitArchiveResultRecord("skipped", "CHROME_ISOLATION=crawl");
+    process.exit(0);
   }
 
   ensureNodeModuleResolution(module);

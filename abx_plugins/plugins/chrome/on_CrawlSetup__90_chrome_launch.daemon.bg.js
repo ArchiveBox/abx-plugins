@@ -100,19 +100,22 @@ let launchInProgress = true;
 let cleanupRequestedDuringLaunch = false;
 let launchPublished = false;
 
-function publishLaunch(pid) {
+function recordLaunch(pid) {
   chromePid = pid;
+}
+
+function recordCdpSession(session, shouldClose) {
+  chromePid = session.pid;
+  chromeCdpUrl = session.cdpUrl;
+  shouldCloseOnCleanup = shouldClose;
+}
+
+function publishReadiness(session, shouldClose) {
+  recordCdpSession(session, shouldClose);
   if (!launchPublished) {
     launchPublished = true;
     console.log(`[+] ${CHROME_BINARY} session started`);
   }
-}
-
-function publishReadiness(session, shouldClose) {
-  chromePid = session.pid;
-  chromeCdpUrl = session.cdpUrl;
-  shouldCloseOnCleanup = shouldClose;
-  publishLaunch(session.pid);
 }
 
 // Cleanup handler for SIGTERM
@@ -225,9 +228,12 @@ async function main() {
       ...chromeSessionOptions,
       CHROME_IS_LOCAL: chromeProcessIsLocal,
       CHROME_CDP_URL: cdpUrlOverride,
-      onSpawn: (spawnedSession) => publishLaunch(spawnedSession.pid),
+      // These callbacks expose private state for cancellation cleanup only.
+      // stdout is the daemon protocol's public readiness boundary and must not
+      // be emitted until ensureChromeSession finishes extension/cookie setup.
+      onSpawn: (spawnedSession) => recordLaunch(spawnedSession.pid),
       onCdpReady: (readySession) =>
-        publishReadiness(readySession, !keepAlive),
+        recordCdpSession(readySession, !keepAlive),
     });
     launchInProgress = false;
 

@@ -263,6 +263,41 @@ const chromeUtils = require({json.dumps(str(CHROME_UTILS_JS))});
         launch_process.wait(timeout=20)
 
 
+def test_snapshot_config_reports_crawl_owned_noop(tmp_path):
+    """The complementary snapshot hook must describe why it did no work.
+
+    WHY: uBlock's browser-global setting is configured once by CrawlSetup in
+    crawl isolation. The Snapshot hook still participates in the manifest, so
+    an untyped exit-42 skip is indistinguishable from an accidentally skipped
+    critical setup hook to crawl validators and users inspecting results.
+    """
+    env = os.environ.copy()
+    env.update(
+        {
+            "CHROME_ISOLATION": "crawl",
+            "SNAP_DIR": str(tmp_path),
+            "UBLOCK_ENABLED": "true",
+        },
+    )
+
+    result = subprocess.run(
+        [str(SNAPSHOT_CONFIG_HOOK), "--url=https://example.com/"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    records = parse_jsonl_records(result.stdout)
+    archive_result = next(
+        record for record in records if record.get("type") == "ArchiveResult"
+    )
+    assert archive_result["status"] == "skipped", archive_result
+    assert archive_result["output_str"] == "CHROME_ISOLATION=crawl", archive_result
+
+
 def test_large_extension_size():
     """Test that uBlock Origin Lite is downloaded successfully."""
     with tempfile.TemporaryDirectory() as tmpdir:

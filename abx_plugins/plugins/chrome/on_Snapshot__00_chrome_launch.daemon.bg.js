@@ -83,19 +83,22 @@ let activeChromeDir = OUTPUT_DIR;
 let launchPublished = false;
 let puppeteer = null;
 
-function publishLaunch(pid) {
+function recordLaunch(pid) {
   chromePid = pid;
+}
+
+function recordCdpSession(session, shouldClose) {
+  chromePid = session.pid;
+  chromeCdpUrl = session.cdpUrl;
+  shouldCloseOnCleanup = shouldClose;
+}
+
+function publishReadiness(session, shouldClose) {
+  recordCdpSession(session, shouldClose);
   if (!launchPublished) {
     launchPublished = true;
     console.log("chrome session started");
   }
-}
-
-function publishReadiness(session, shouldClose) {
-  chromePid = session.pid;
-  chromeCdpUrl = session.cdpUrl;
-  shouldCloseOnCleanup = shouldClose;
-  publishLaunch(session.pid);
 }
 
 async function cleanup() {
@@ -172,9 +175,11 @@ async function main() {
       ...chromeSessionOptions,
       CHROME_IS_LOCAL: chromeProcessIsLocal,
       CHROME_CDP_URL: cdpUrlOverride,
-      onSpawn: (spawnedSession) => publishLaunch(spawnedSession.pid),
+      // Keep launch state available for cancellation without telling the
+      // executor that this daemon is ready before all browser setup completes.
+      onSpawn: (spawnedSession) => recordLaunch(spawnedSession.pid),
       onCdpReady: (readySession) =>
-        publishReadiness(readySession, !keepAlive),
+        recordCdpSession(readySession, !keepAlive),
     });
     launchInProgress = false;
 

@@ -3894,7 +3894,14 @@ def test_chrome_cleanup_during_launch_uses_persisted_session_state(
     isolation,
     launch_hook,
 ):
-    """SIGTERM after chrome.pid publication must stop the in-progress browser."""
+    """SIGTERM after chrome.pid publication must stop the in-progress browser.
+
+    WHY: daemon stdout is the executor's readiness boundary. Publishing it at
+    process spawn lets the executor start consumers or request cleanup while
+    extension loading is still using CDP, which closes their targets mid-setup.
+    An interrupted launch may persist enough private state to clean itself up,
+    but it must never advertise that incomplete session as ready.
+    """
     with tempfile.TemporaryDirectory() as tmpdir:
         crawl_dir = Path(tmpdir) / "crawl"
         snapshot_dir = Path(tmpdir) / "snapshot"
@@ -3968,10 +3975,8 @@ def test_chrome_cleanup_during_launch_uses_persisted_session_state(
                 f"early cleanup failed:\nstdout:\n{stdout}\nstderr:\n{stderr}"
             )
             assert "Cleaning up in-progress local Chrome from persisted state" in stderr
-            if isolation == "crawl":
-                assert "[+] chromium session started" in stdout
-            else:
-                assert "chrome session started" in stdout
+            assert "session started" not in stdout
+            if isolation == "snapshot":
                 assert '"status":"succeeded"' not in stdout
             assert not is_pid_alive(chrome_pid)
             _assert_snapshot_browser_state_cleared(chrome_dir)
