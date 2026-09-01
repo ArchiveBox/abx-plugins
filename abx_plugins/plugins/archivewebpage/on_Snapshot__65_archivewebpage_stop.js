@@ -27,6 +27,7 @@ const {
   openAwpHelperTab,
   resolveChromeDirs,
   pickChromeSessionDir,
+  observePublishedFile,
 } = require("./awp_internal.js");
 
 const hookConfig = loadConfig();
@@ -156,19 +157,22 @@ async function downloadExactWacz(
     requestedFilename.replace(/\.wacz$/i, "")
   )}`;
   const downloadedPath = path.join(downloadDir, requestedFilename);
-  const session = await browser.target().createCDPSession();
+  const browserConnection = chromeUtils.getBrowserConnection(browser);
+  let publishedFile = null;
   let targetId = null;
   let downloadSession = null;
 
   try {
-    await session.send("Browser.setDownloadBehavior", {
+    await chromeUtils.sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
       behavior: "allow",
       downloadPath: downloadDir,
       eventsEnabled: true,
     });
-    const created = await session.send("Target.createTarget", {
-      url: "about:blank",
-    });
+    const created = await chromeUtils.sendBrowserCommand(
+      browser,
+      "Target.createTarget",
+      { url: "about:blank" }
+    );
     targetId = created.targetId;
     const matchesTarget = (target) =>
       chromeUtils.getTargetIdFromTarget(target) === targetId;
@@ -180,27 +184,30 @@ async function downloadExactWacz(
       throw new Error(`WACZ download target ${targetId} has no page`);
     }
     downloadSession = await target.createCDPSession();
+    publishedFile = observePublishedFile(downloadedPath, timeoutMs);
     const downloadCompleted = chromeUtils.waitForBrowserDownload(
-      session,
+      browserConnection,
       requestedFilename,
       timeoutMs
     );
     await downloadSession.send("Page.navigate", { url: dlUrl });
-    await downloadCompleted;
-    const stat = await fs.promises.stat(downloadedPath);
-    if (stat.size <= 0) {
-      throw new Error("WACZ download is empty");
-    }
+    // Chrome's CDP contract explicitly does not guarantee that the final path
+    // exists when Browser.downloadProgress reports "completed". Require both
+    // browser completion and the exact filesystem publication event before we
+    // take ownership of the WACZ.
+    await Promise.all([downloadCompleted, publishedFile.promise]);
     if (path.resolve(downloadedPath) !== path.resolve(destPath)) {
       await moveAcrossMounts(downloadedPath, destPath);
     }
     return (await fs.promises.stat(destPath)).size;
   } finally {
+    publishedFile?.close();
     await downloadSession?.detach().catch(() => {});
     if (targetId) {
-      await session.send("Target.closeTarget", { targetId }).catch(() => {});
+      await chromeUtils
+        .sendBrowserCommand(browser, "Target.closeTarget", { targetId })
+        .catch(() => {});
     }
-    await session.detach().catch(() => {});
   }
 }
 

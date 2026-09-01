@@ -3,6 +3,7 @@ import shutil
 import signal
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Iterator
 from pathlib import Path
 from typing import TypedDict
 
@@ -24,6 +25,13 @@ pytestmark = pytest.mark.usefixtures("ensure_chrome_test_prereqs")
 ARCHIVEWEBPAGE_PLUGIN_DIR = CHROME_UTILS.parent.parent / "archivewebpage"
 ARCHIVEWEBPAGE_START_HOOK = (
     ARCHIVEWEBPAGE_PLUGIN_DIR / "on_Snapshot__16_archivewebpage_start.js"
+)
+ARCHIVEWEBPAGE_STOP_HOOK = (
+    ARCHIVEWEBPAGE_PLUGIN_DIR / "on_Snapshot__65_archivewebpage_stop.js"
+)
+CHROME_NAVIGATE_HOOK = CHROME_UTILS.parent / "on_Snapshot__30_chrome_navigate.js"
+UBLOCK_CONFIG_HOOK = (
+    CHROME_UTILS.parent.parent / "ublock" / "on_CrawlSetup__95_ublock_config.js"
 )
 AWP_INTERNAL = ARCHIVEWEBPAGE_PLUGIN_DIR / "awp_internal.js"
 
@@ -64,6 +72,215 @@ def _run_start_hook(
         timeout=60,
         env=env,
     )
+
+
+def _run_navigate_hook(
+    snapshot_dir: Path,
+    env: dict[str, str],
+    url: str,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [str(CHROME_NAVIGATE_HOOK), f"--url={url}"],
+        cwd=snapshot_dir / "chrome",
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=env,
+    )
+
+
+def _run_stop_hook(
+    snapshot_dir: Path,
+    env: dict[str, str],
+    url: str,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [str(ARCHIVEWEBPAGE_STOP_HOOK), f"--url={url}"],
+        cwd=snapshot_dir / "archivewebpage",
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=env,
+    )
+
+
+def _run_ublock_config_hook(
+    crawl_chrome_dir: Path,
+    env: dict[str, str],
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [str(UBLOCK_CONFIG_HOOK), "--url=https://example.com/"],
+        cwd=crawl_chrome_dir.parent,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=env,
+    )
+
+
+def _stop_tab_process(tab_process: subprocess.Popen[str]) -> None:
+    if tab_process.poll() is None:
+        tab_process.send_signal(signal.SIGTERM)
+    try:
+        tab_process.wait(timeout=20)
+    except subprocess.TimeoutExpired:
+        tab_process.kill()
+        tab_process.wait(timeout=5)
+    for attr in ("_stdout_handle", "_stderr_handle"):
+        handle = getattr(tab_process, attr, None)
+        if handle:
+            handle.close()
+
+
+def test_wacz_publication_observer_owns_real_fs_events_and_errors(tmp_path) -> None:
+    """Observe the exact published file and keep watcher errors awaitable.
+
+    WHY: Chrome's completed event can precede the final rename, ``fs.watch``
+    filenames are optional, and a watcher backend can fail after startup. The
+    observer must therefore stat only the exact expected path on every real
+    filesystem event, ignore unrelated publications, and expose filesystem
+    failures through its promise rather than an unhandled EventEmitter error.
+    """
+    env = setup_test_env(tmp_path)
+    watch_dir = tmp_path / "chrome-downloads"
+    script = r"""
+const fs = require("fs");
+const path = require("path");
+const awpInternal = require(process.argv[1]);
+const watchDir = process.argv[2];
+
+(async () => {
+  if (typeof awpInternal.observePublishedFile !== "function") {
+    throw new Error("awp_internal does not export observePublishedFile");
+  }
+  fs.mkdirSync(watchDir, { recursive: true });
+  const expectedPath = path.join(watchDir, "expected.wacz");
+  const publication = awpInternal.observePublishedFile(expectedPath, 5000);
+  let settled = false;
+  publication.promise.finally(() => { settled = true; });
+
+  fs.writeFileSync(path.join(watchDir, "unrelated.wacz"), "wrong artifact");
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  if (settled) throw new Error("unrelated file settled exact WACZ observer");
+
+  fs.writeFileSync(expectedPath, "real archivewebpage output");
+  const stat = await publication.promise;
+  if (stat.size !== Buffer.byteLength("real archivewebpage output")) {
+    throw new Error(`observer returned wrong WACZ size: ${stat.size}`);
+  }
+
+  const failed = awpInternal.observePublishedFile(
+    path.join(watchDir, "missing-directory", "never.wacz"),
+    5000
+  );
+  try {
+    await failed.promise;
+    throw new Error("missing watch directory unexpectedly succeeded");
+  } catch (error) {
+    if (!error || !["ENOENT", "ERR_FS_WATCHER_INIT_FAILED"].includes(error.code)) {
+      throw error;
+    }
+  } finally {
+    failed.close();
+  }
+  process.stdout.write("observer behavior verified");
+})().catch((error) => {
+  console.error(error && (error.stack || error.message || String(error)));
+  process.exit(1);
+});
+"""
+    result = subprocess.run(
+        [
+            env["NODE_BINARY"],
+            "-e",
+            script,
+            str(AWP_INTERNAL),
+            str(watch_dir),
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "observer behavior verified"
+
+
+@pytest.fixture
+def archivewebpage_crawl(
+    tmp_path,
+) -> Iterator[tuple[dict[str, str], Path, list[subprocess.Popen[str]]]]:
+    """Run the real shared-browser topology used by an ArchiveBox crawl."""
+    env = setup_test_env(tmp_path)
+    env.update(
+        {
+            "CHROME_HEADLESS": "true",
+            "CHROME_ISOLATION": "crawl",
+            "CHROME_KEEPALIVE": "false",
+        },
+    )
+    for plugin_name in ("archivewebpage", "ublock"):
+        plugin_dir = CHROME_UTILS.parent.parent / plugin_name
+        installed = install_required_binary_from_config(
+            plugin_dir,
+            plugin_name,
+            env=env,
+        )
+        assert installed.loaded_abspath is not None
+
+    crawl_chrome_dir = Path(env["CRAWL_DIR"]) / "chrome"
+    launch_process, _cdp_url = launch_chromium_session(
+        env,
+        crawl_chrome_dir,
+        "test-archivewebpage-lifecycle",
+    )
+    ublock_config = _run_ublock_config_hook(crawl_chrome_dir, env)
+    assert ublock_config.returncode == 0, (
+        "uBlock crawl configuration failed:\n"
+        f"stdout={ublock_config.stdout}\nstderr={ublock_config.stderr}"
+    )
+    tab_processes: list[subprocess.Popen[str]] = []
+    try:
+        yield env, crawl_chrome_dir, tab_processes
+    finally:
+        for tab_process in tab_processes:
+            _stop_tab_process(tab_process)
+        kill_chromium_session(launch_process, crawl_chrome_dir)
+
+
+def _start_snapshot_recording(
+    root: Path,
+    base_env: dict[str, str],
+    tab_processes: list[subprocess.Popen[str]],
+    *,
+    snapshot_id: str,
+    url: str,
+) -> tuple[Path, dict[str, str]]:
+    snapshot_dir = root / snapshot_id
+    chrome_dir = snapshot_dir / "chrome"
+    chrome_dir.mkdir(parents=True)
+    env = base_env | {"SNAP_DIR": str(snapshot_dir)}
+    tab_processes.append(
+        launch_snapshot_tab(
+            snapshot_chrome_dir=chrome_dir,
+            tab_env=env,
+            test_url=url,
+            snapshot_id=snapshot_id,
+            crawl_id="test-archivewebpage-lifecycle",
+        ),
+    )
+    start = _run_start_hook(snapshot_dir, env, url)
+    assert start.returncode == 0, (
+        f"AWP start failed for {url}:\nstdout={start.stdout}\nstderr={start.stderr}"
+    )
+    navigate = _run_navigate_hook(snapshot_dir, env, url)
+    assert navigate.returncode == 0, (
+        f"Chrome navigation failed for {url}:\n"
+        f"stdout={navigate.stdout}\nstderr={navigate.stderr}"
+    )
+    return snapshot_dir, env
 
 
 def _open_child_target(snapshot_chrome_dir: Path, env: dict[str, str]) -> str:
@@ -392,6 +609,136 @@ def _publish_child_snapshot_session(
     )
 
 
+def test_cowpig_recording_survives_overlapping_snapshot_lifecycles(
+    archivewebpage_crawl,
+    chrome_test_url,
+    tmp_path,
+):
+    """AWP must retain the exact Cowpig target until its stop hook completes.
+
+    WHY: the real depth=1 crawl lost this target while its tab-owner daemon was
+    still alive, then stop failed in Target.attachToTarget. Three sibling
+    snapshots were recording in the same crawl browser at that moment, so this
+    regression preserves that overlap and exercises the actual AWP/Chrome
+    hooks instead of manufacturing a closed target or protocol exception.
+    """
+    env, _crawl_chrome_dir, tab_processes = archivewebpage_crawl
+    cases = (
+        ("cowpig", "https://cowpig.github.io/about/"),
+        ("sibling-one", f"{chrome_test_url}#sibling-one"),
+        ("sibling-two", f"{chrome_test_url}#sibling-two"),
+        ("sibling-three", f"{chrome_test_url}#sibling-three"),
+    )
+    snapshots_root = tmp_path / "overlapping-snapshots"
+    with ThreadPoolExecutor(max_workers=len(cases)) as executor:
+        runs = list(
+            executor.map(
+                lambda case: _start_snapshot_recording(
+                    snapshots_root,
+                    env,
+                    tab_processes,
+                    snapshot_id=case[0],
+                    url=case[1],
+                ),
+                cases,
+            ),
+        )
+
+    cowpig_dir, cowpig_env = runs[0]
+    stop = _run_stop_hook(cowpig_dir, cowpig_env, cases[0][1])
+    assert stop.returncode == 0, (
+        "Cowpig AWP stop lost a live lifecycle-owned target:\n"
+        f"stdout={stop.stdout}\nstderr={stop.stderr}"
+    )
+    assert (cowpig_dir / "archivewebpage" / "archivewebpage.wacz").stat().st_size > 0
+
+
+def test_concurrent_stops_each_publish_their_exact_wacz(
+    archivewebpage_crawl,
+    tmp_path,
+):
+    """Two simultaneous AWP exports must not lose either completed download.
+
+    WHY: the real nicksweeting.com and nicksweeting.com/ snapshots reached the
+    stop hook 46ms apart. Chrome reported the second unique download complete,
+    but its expected file did not exist in the shared persona download dir.
+    These are the same two URLs, one browser, two tabs, two collections, and
+    concurrent real stop/export hooks that produced the ENOENT.
+    """
+    env, _crawl_chrome_dir, tab_processes = archivewebpage_crawl
+    cases = (
+        ("nicksweeting-no-slash", "https://nicksweeting.com"),
+        ("nicksweeting-slash", "https://nicksweeting.com/"),
+    )
+    snapshots_root = tmp_path / "concurrent-export-snapshots"
+    with ThreadPoolExecutor(max_workers=len(cases)) as executor:
+        runs = list(
+            executor.map(
+                lambda case: _start_snapshot_recording(
+                    snapshots_root,
+                    env,
+                    tab_processes,
+                    snapshot_id=case[0],
+                    url=case[1],
+                ),
+                cases,
+            ),
+        )
+        stop_inputs = (
+            (snapshot_dir, snapshot_env, case[1])
+            for case, (snapshot_dir, snapshot_env) in zip(cases, runs, strict=True)
+        )
+        stops = list(
+            executor.map(
+                lambda stop_input: _run_stop_hook(*stop_input),
+                stop_inputs,
+            ),
+        )
+
+    for case, run, stop in zip(cases, runs, stops, strict=True):
+        assert stop.returncode == 0, (
+            f"Concurrent AWP stop failed for {case[1]}:\n"
+            f"stdout={stop.stdout}\nstderr={stop.stderr}"
+        )
+        output = run[0] / "archivewebpage" / "archivewebpage.wacz"
+        assert output.stat().st_size > 0
+
+
+def test_ublock_never_replaces_the_recorded_page_with_strictblock(
+    archivewebpage_crawl,
+    tmp_path,
+):
+    """uBlock must not replace AWP's recorded top-level document.
+
+    WHY: the real Cloudflare beacon snapshot began recording successfully, but
+    uBlock replaced its top-level navigation with strictblock.html. AWP then
+    reported recording=false for the same tab and exact collection, and the
+    stop hook failed without exporting the already captured collection.
+    """
+    env, _crawl_chrome_dir, tab_processes = archivewebpage_crawl
+    url = (
+        "https://static.cloudflareinsights.com/beacon.min.js/"
+        "v3d52b47920f24c319d37e2661827c42b1787588026925"
+    )
+    snapshot_dir, snapshot_env = _start_snapshot_recording(
+        tmp_path / "strictblock-snapshots",
+        env,
+        tab_processes,
+        snapshot_id="cloudflare-beacon",
+        url=url,
+    )
+    navigation = json.loads((snapshot_dir / "chrome" / "navigation.json").read_text())
+    assert not navigation["finalUrl"].startswith("chrome-extension://"), navigation
+    assert "/strictblock.html#" not in navigation["finalUrl"], navigation
+
+    stop = _run_stop_hook(snapshot_dir, snapshot_env, url)
+    assert stop.returncode == 0, (
+        "AWP discarded the exact collection after uBlock strict-blocked navigation:\n"
+        f"stdout={stop.stdout}\nstderr={stop.stderr}"
+    )
+    assert (snapshot_dir / "archivewebpage" / "archivewebpage.wacz").stat().st_size > 0
+
+
 def test_start_reassigns_inherited_tab_recorder_to_its_requested_collection(
     tmp_path,
     chrome_test_url,
@@ -522,16 +869,6 @@ def test_start_reassigns_inherited_tab_recorder_to_its_requested_collection(
         assert first_status_after_reassignment["collId"] == first_state["collId"]
     finally:
         if first_tab_process is not None:
-            if first_tab_process.poll() is None:
-                first_tab_process.send_signal(signal.SIGTERM)
-            try:
-                first_tab_process.wait(timeout=20)
-            except subprocess.TimeoutExpired:
-                first_tab_process.kill()
-                first_tab_process.wait(timeout=5)
-            for attr in ("_stdout_handle", "_stderr_handle"):
-                handle = getattr(first_tab_process, attr, None)
-                if handle:
-                    handle.close()
+            _stop_tab_process(first_tab_process)
         if launch_process is not None:
             kill_chromium_session(launch_process, crawl_chrome_dir)
