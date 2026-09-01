@@ -28,5 +28,7 @@
       "x-fallback": "TIMEOUT",
       "description": "Timeout for DOM outlinks parsing in seconds"
     }
-  }
+  },
+  "category": "postprocessing",
+  "display_order": 10
 }

@@ -118,7 +118,6 @@
       "description": "Sonic bucket name"
     }
   },
-  "x-runtimes": [
-    "archivebox"
-  ]
+  "x-auto-run": false,
+  "hidden": true
 }

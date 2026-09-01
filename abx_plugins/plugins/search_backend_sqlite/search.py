@@ -53,11 +53,7 @@ def load_sqlite_config(environ: Mapping[str, str] | None = None) -> Any:
             values[key] = prop.get("default") if isinstance(prop, Mapping) else ""
         else:
             values[key] = _coerce_env_value(raw_value, prop)
-    values.update(
-        ABX_RUNTIME=env.get("ABX_RUNTIME", "abx-dl"),
-        DATA_DIR=env.get("DATA_DIR", ""),
-        SNAP_DIR=env.get("SNAP_DIR", ""),
-    )
+    values.update(DATA_DIR=env.get("DATA_DIR", ""), SNAP_DIR=env.get("SNAP_DIR", ""))
     return SimpleNamespace(**values)
 
 

@@ -31,5 +31,7 @@
       "minimum": 100,
       "description": "How often to check for CSS modals (ms)"
     }
-  }
+  },
+  "category": "page_setup",
+  "display_order": 30
 }

@@ -32,5 +32,7 @@
       ],
       "description": "Enable uBlock Origin Lite browser extension for ad blocking"
     }
-  }
+  },
+  "category": "page_setup",
+  "display_order": 40
 }

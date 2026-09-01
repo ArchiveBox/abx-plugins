@@ -58,5 +58,7 @@
       "default": "txt,markdown,html",
       "description": "Comma-separated trafilatura output formats to write (txt, markdown, html, csv, json, xml, xmltei)"
     }
-  }
+  },
+  "category": "text",
+  "display_order": 60
 }

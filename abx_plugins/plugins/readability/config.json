@@ -75,5 +75,7 @@
       ],
       "description": "Extra arguments to append to Readability command"
     }
-  }
+  },
+  "category": "text",
+  "display_order": 10
 }

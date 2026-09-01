@@ -273,5 +273,7 @@
       "x-fallback": "CHECK_SSL_VALIDITY",
       "description": "Whether to verify SSL certificates (disable for self-signed certs)"
     }
-  }
+  },
+  "category": "page_setup",
+  "display_order": 10
 }

@@ -192,5 +192,7 @@
       ],
       "description": "Extra arguments to append to LiteParse command"
     }
-  }
+  },
+  "category": "text",
+  "display_order": 70
 }

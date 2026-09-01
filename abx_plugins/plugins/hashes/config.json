@@ -26,5 +26,7 @@
       "x-fallback": "TIMEOUT",
       "description": "Timeout for merkle tree generation in seconds"
     }
-  }
+  },
+  "category": "metadata",
+  "display_order": 100
 }

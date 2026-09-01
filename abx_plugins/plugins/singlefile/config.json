@@ -42,5 +42,7 @@
       "x-fallback": "TIMEOUT",
       "description": "Timeout for SingleFile in seconds"
     }
-  }
+  },
+  "category": "main",
+  "display_order": 40
 }

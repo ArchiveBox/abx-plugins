@@ -35,5 +35,7 @@
       "x-fallback": "RESOLUTION",
       "description": "PDF page resolution (width,height)"
     }
-  }
+  },
+  "category": "main",
+  "display_order": 30
 }

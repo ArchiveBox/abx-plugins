@@ -107,5 +107,7 @@
       ],
       "description": "Extra arguments to append to papers-dl command"
     }
-  }
+  },
+  "category": "text",
+  "display_order": 90
 }

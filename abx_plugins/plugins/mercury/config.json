@@ -74,5 +74,7 @@
       ],
       "description": "Extra arguments to append to Mercury parser command"
     }
-  }
+  },
+  "category": "text",
+  "display_order": 50
 }

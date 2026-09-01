@@ -73,5 +73,7 @@
       ],
       "description": "Extra arguments to append to git command"
     }
-  }
+  },
+  "category": "media",
+  "display_order": 60
 }

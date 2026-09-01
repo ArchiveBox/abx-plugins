@@ -32,5 +32,7 @@
       "default": "https://www.google.com/s2/favicons?domain={}&format=ico",
       "description": "Fallback favicon provider when not found via chrome tab. {} will be replaced with the domain."
     }
-  }
+  },
+  "category": "metadata",
+  "display_order": 20
 }

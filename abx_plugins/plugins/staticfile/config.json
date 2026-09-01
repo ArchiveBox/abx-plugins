@@ -39,5 +39,7 @@
       "x-fallback": "TIMEOUT",
       "description": "Timeout for static file detection in seconds"
     }
-  }
+  },
+  "category": "media",
+  "display_order": 10
 }

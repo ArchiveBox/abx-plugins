@@ -42,7 +42,6 @@
       "description": "FTS5 tokenizer configuration"
     }
   },
-  "x-runtimes": [
-    "archivebox"
-  ]
+  "x-auto-run": false,
+  "hidden": true
 }

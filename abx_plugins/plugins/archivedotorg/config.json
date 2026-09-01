@@ -27,5 +27,7 @@
       "x-fallback": "TIMEOUT",
       "description": "Timeout for archive.org submission in seconds"
     }
-  }
+  },
+  "category": "main",
+  "display_order": 60
 }

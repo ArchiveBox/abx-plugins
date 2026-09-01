@@ -106,5 +106,7 @@
       ],
       "description": "Extra arguments to append to forum-dl command"
     }
-  }
+  },
+  "category": "text",
+  "display_order": 40
 }

@@ -85,5 +85,7 @@
       "minimum": 1,
       "description": "Maximum number of agentic turns per invocation"
     }
-  }
+  },
+  "category": "postprocessing",
+  "display_order": 70
 }
