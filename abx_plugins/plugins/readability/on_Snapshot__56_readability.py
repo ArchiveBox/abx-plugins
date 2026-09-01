@@ -127,6 +127,10 @@ article {{ width: min(100%, 72rem); margin: 0 auto; font: 1.15rem/1.72 Georgia, 
 article > :first-child {{ margin-top: 0 }}
 h2, h3, h4 {{ margin: 2em 0 .65em; line-height: 1.25 }} p, ul, ol, blockquote {{ margin: 0 0 1.25em }}
 a {{ color: #0369a1 }} img, svg, video {{ display: block; max-width: 100%; height: auto; margin: 1.5rem auto }}
+article > *, article section, article div, article figure {{ max-width: 100% !important }}
+article table {{ width: 100% !important; max-width: 100% !important; border-collapse: collapse }}
+article td, article th {{ max-width: 100%; vertical-align: top }}
+article [width] {{ max-width: 100% !important }}
 blockquote {{ padding-left: 1.25rem; border-left: 4px solid #cbd5e1; color: #475569 }} pre, table {{ max-width: 100%; overflow: auto }}
 @media (max-width: 40rem) {{ main {{ padding: 1.5rem 1rem 4rem }} h1 {{ font-size: 1.9rem }} article {{ font-size: 1.05rem }} }}
 </style></head><body><main><article>{content}</article></main></body></html>'''
