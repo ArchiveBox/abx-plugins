@@ -4096,7 +4096,7 @@ def test_kill_zombie_chrome_respects_live_crawl_hook_without_heartbeat():
                 env=get_test_env(),
             )
             assert returncode == 0, stderr
-            assert stdout.strip() == "0", stdout
+            assert stdout.strip() == "0", f"{stdout}\n{stderr}"
             os.kill(chrome_pid, 0)
         finally:
             _cleanup_launch_process(chrome_launch_process, chrome_dir)
