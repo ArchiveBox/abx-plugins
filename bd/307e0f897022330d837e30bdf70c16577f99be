@@ -1,0 +1,31 @@
+abx_plugins/plugins/ublock/tests/test_ublock.py
+  s_1f1593d0227984::t_7891242e0aecb3 266-300
+abx_plugins/plugins/chrome/tests/test_chrome.py
+  s_1f1593d0227984::t_7891242e0aecb3 3897-3904,3978-3979
+abx_plugins/plugins/chrome/on_Snapshot__00_chrome_launch.daemon.bg.js
+  s_1f1593d0227984::t_af0233f16a9508 86,90,94-101,178-180,182
+abx_plugins/plugins/readability/tests/test_readability.py
+  s_1f1593d0227984::t_169cb42ab58848 163-169
+  s_1f1593d0227984::t_562f8a81144dc5 38-52
+  s_1f1593d0227984::t_c77f228dc5e3a7 119-121
+abx_plugins/plugins/ublock/on_Snapshot__11_ublock_config.js
+  s_1f1593d0227984::t_af0233f16a9508 9,21-22
+abx_plugins/plugins/chrome/on_CrawlSetup__90_chrome_launch.daemon.bg.js
+  s_1f1593d0227984::t_af0233f16a9508 103,107,111-118,231-234,236
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "bd307e0f897022330d837e30bdf70c16577f99be",
+  "prompts": {},
+  "sessions": {
+    "s_1f1593d0227984": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04f5c-f290-7ff3-a8d7-6c618f2d86ea",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
