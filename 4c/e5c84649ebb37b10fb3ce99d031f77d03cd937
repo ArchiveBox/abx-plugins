@@ -1,0 +1,23 @@
+abx_plugins/plugins/readability/on_Snapshot__56_readability.py
+  s_b74dd57520e450::t_c2e119eca32369 133-136
+abx_plugins/plugins/readability/tests/test_readability.py
+  s_b74dd57520e450::t_b4d1a31e20d9cb 252-255
+pyproject.toml
+  s_b74dd57520e450::t_d57d33a7e48319 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "4ce5c84649ebb37b10fb3ce99d031f77d03cd937",
+  "prompts": {},
+  "sessions": {
+    "s_b74dd57520e450": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f8189-7eb5-7382-94e6-83f4f43cd7c3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
