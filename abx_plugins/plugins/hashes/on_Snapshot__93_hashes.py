@@ -13,6 +13,7 @@ import sys
 import os
 import json
 import hashlib
+import stat
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Any
@@ -126,6 +127,55 @@ def create_hashes(snapshot_dir: Path) -> dict[str, Any]:
     }
 
 
+def hardlink_duplicates(snapshot_dir: Path, files: list[dict[str, Any]]) -> None:
+    """Share proven-identical bytes without changing ArchiveBox's public paths."""
+    originals: dict[tuple[str, int], Path] = {}
+    for index, item in enumerate(files):
+        key = (str(item["hash"]), int(item["size"]))
+        # Empty files reclaim nothing; a zero digest means hashing failed, not equality.
+        if key[1] <= 0 or key[0] == "0" * 64:
+            continue
+        path = snapshot_dir / item["path"]
+        source = originals.setdefault(key, path)
+        if source == path:
+            continue
+        temp_path = path.parent / f".abx-hardlink-{os.getpid()}-{index}"
+        # Never clean up a pre-existing path if link creation fails with EEXIST.
+        temp_created = False
+        try:
+            source_stat, path_stat = source.stat(), path.stat()
+            # Hardlinks share inode metadata, so differing metadata must remain separate.
+            if (
+                os.path.samestat(source_stat, path_stat)
+                or source_stat.st_dev != path_stat.st_dev
+                or not stat.S_ISREG(source_stat.st_mode)
+                or not stat.S_ISREG(path_stat.st_mode)
+                or source_stat.st_size != key[1]
+                or path_stat.st_size != key[1]
+                or (source_stat.st_mode, source_stat.st_uid, source_stat.st_gid)
+                != (path_stat.st_mode, path_stat.st_uid, path_stat.st_gid)
+            ):
+                continue
+            # A sibling link plus atomic replace keeps the public path present on every failure.
+            os.link(source, temp_path)
+            temp_created = True
+            # Late writers can stale the manifest; never merge a file that changed meanwhile.
+            if source.stat().st_mtime_ns != source_stat.st_mtime_ns:
+                continue
+            if path.stat().st_mtime_ns != path_stat.st_mtime_ns:
+                continue
+            os.replace(temp_path, path)
+        except OSError:
+            # TODO: Decide whether to try a symlink before giving up when hardlinks are unavailable.
+            pass
+        finally:
+            if temp_created:
+                try:
+                    temp_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+
+
 def format_output_str(total_size: int, root_hash: str | None) -> str:
     total_size_mb = total_size / 1_000_000
     short_hash = (root_hash or "")[:12]
@@ -172,6 +222,7 @@ def main(url: str):
 
         # Generate Merkle tree
         merkle_data = create_hashes(snapshot_dir)
+        hardlink_duplicates(snapshot_dir, merkle_data["files"])
 
         # Write output
         with open(output_path, "w", encoding="utf-8") as f:

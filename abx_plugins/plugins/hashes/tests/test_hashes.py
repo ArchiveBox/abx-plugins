@@ -6,6 +6,7 @@ Tests the real merkle tree generation with actual files.
 
 import json
 import os
+import runpy
 import subprocess
 import tempfile
 from pathlib import Path
@@ -91,6 +92,84 @@ class TestHashesPlugin:
             # Should succeed (exit 0) but skip
             assert result.returncode == 0
             assert "skipped" in result.stdout
+
+    def test_hashes_hardlinks_exact_duplicate_files(self, tmp_path: Path):
+        """Exact duplicate outputs should keep both paths while sharing one inode."""
+        snap_dir = tmp_path / "snap"
+        output_dir = snap_dir / "hashes"
+        first = snap_dir / "responses" / "image.png"
+        duplicate = snap_dir / "wget" / "image.png"
+        for path in (output_dir, first.parent, duplicate.parent):
+            path.mkdir(parents=True)
+        first.write_bytes(b"same archived image" * 1024)
+        duplicate.write_bytes(first.read_bytes())
+
+        result = subprocess.run(
+            [str(HASHES_HOOK), "--url=https://example.com"],
+            capture_output=True,
+            text=True,
+            cwd=output_dir,
+            env={**os.environ, "HASHES_ENABLED": "true", "SNAP_DIR": str(snap_dir)},
+            timeout=30,
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert first.read_bytes() == duplicate.read_bytes()
+        assert first.stat().st_ino == duplicate.stat().st_ino
+        assert {
+            row["path"]
+            for row in json.loads((output_dir / "hashes.json").read_text())["files"]
+        } >= {
+            "responses/image.png",
+            "wget/image.png",
+        }
+
+    def test_hardlink_failure_keeps_both_files(self, tmp_path: Path):
+        """A filesystem refusing hardlinks must leave both original paths intact."""
+        snap_dir = tmp_path / "snap"
+        output_dir = snap_dir / "hashes"
+        first = snap_dir / "responses" / "image.png"
+        duplicate = snap_dir / "readonly" / "image.png"
+        for path in (output_dir, first.parent, duplicate.parent):
+            path.mkdir(parents=True)
+        first.write_bytes(b"same archived image")
+        duplicate.write_bytes(first.read_bytes())
+        old_cwd = Path.cwd()
+        old_snap_dir = os.environ.get("SNAP_DIR")
+        os.environ["SNAP_DIR"] = str(snap_dir)
+        try:
+            hardlink_duplicates = runpy.run_path(
+                str(HASHES_HOOK),
+                run_name="hashes_hook_test",
+            )["hardlink_duplicates"]
+        finally:
+            os.chdir(old_cwd)
+            if old_snap_dir is None:
+                os.environ.pop("SNAP_DIR")
+            else:
+                os.environ["SNAP_DIR"] = old_snap_dir
+
+        blocker = duplicate.parent / f".abx-hardlink-{os.getpid()}-1"
+        blocker.mkdir()
+        hardlink_duplicates(
+            snap_dir,
+            [
+                {
+                    "path": str(first.relative_to(snap_dir)),
+                    "hash": "a" * 64,
+                    "size": first.stat().st_size,
+                },
+                {
+                    "path": str(duplicate.relative_to(snap_dir)),
+                    "hash": "a" * 64,
+                    "size": duplicate.stat().st_size,
+                },
+            ],
+        )
+
+        assert first.read_bytes() == duplicate.read_bytes() == b"same archived image"
+        assert first.stat().st_ino != duplicate.stat().st_ino
+        assert blocker.is_dir()
 
     def test_hashes_merges_extra_context_into_archive_result(self):
         """Hashes hook should merge orchestrator-provided extra context into JSONL output."""
