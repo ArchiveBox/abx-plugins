@@ -4055,8 +4055,8 @@ def test_zombie_prevention_hook_killed():
             os.kill(chrome_pid, 0)
 
 
-def test_kill_zombie_chrome_respects_live_crawl_heartbeat():
-    """Zombie cleanup must not kill Chrome while the owning crawl heartbeat is live."""
+def test_kill_zombie_chrome_respects_live_crawl_hook_without_heartbeat():
+    """A live hook is the passive signal that its Chrome session is still owned."""
     with tempfile.TemporaryDirectory() as tmpdir:
         root_dir = Path(tmpdir)
         crawl_dir = root_dir / "crawl"
@@ -4070,7 +4070,7 @@ def test_kill_zombie_chrome_respects_live_crawl_heartbeat():
             CHROME_HEADLESS="true",
         )
         chrome_launch_process = subprocess.Popen(
-            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-live-heartbeat"],
+            [str(CHROME_LAUNCH_HOOK), "--crawl-id=test-live-hook"],
             cwd=str(chrome_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -4089,20 +4089,6 @@ def test_kill_zombie_chrome_respects_live_crawl_heartbeat():
             assert (chrome_dir / "chrome.pid").exists(), "Chrome PID file should exist"
             chrome_pid = int((chrome_dir / "chrome.pid").read_text().strip())
             os.kill(chrome_pid, 0)
-
-            (crawl_dir / ".heartbeat.json").write_text(
-                json.dumps(
-                    {
-                        "runtime": "abx-dl",
-                        "crawl_id": "test-live-heartbeat",
-                        "owner_pid": os.getpid(),
-                        "last_alive_at": time.time(),
-                        "kill_after_seconds": 180,
-                    },
-                    separators=(",", ":"),
-                    sort_keys=True,
-                ),
-            )
 
             returncode, stdout, stderr = _call_chrome_utils(
                 "killZombieChrome",
