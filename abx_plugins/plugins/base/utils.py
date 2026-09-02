@@ -32,7 +32,6 @@ from typing import Any, TextIO, cast
 BASE_CONFIG_PATH = Path(__file__).with_name("config.json")
 PLUGINS_DIR = BASE_CONFIG_PATH.parent.parent
 PROCESS_EXIT_SKIPPED = 10
-INTERNAL_INPUT_URL = "archivebox://internal"
 
 
 def normalize_config_value(value: Any) -> Any:
@@ -152,13 +151,6 @@ def _maybe_skip_unsupported_snapshot_url(schema: Mapping[str, Any]) -> None:
         return
     if url.startswith(("http://", "https://", "file://")):
         return
-    # ArchiveBox represents pasted/stdin import content as one synthetic
-    # snapshot URL. Only plugins that explicitly declare they consume that
-    # internal input should run; every other snapshot hook should cheaply
-    # no-result before starting browsers/downloaders or touching the network.
-    if url == INTERNAL_INPUT_URL and bool(schema.get("x-accepts-internal-input")):
-        return
-
     record = {
         "type": "ArchiveResult",
         "status": "noresults",
