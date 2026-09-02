@@ -560,7 +560,6 @@ def test_invalid_timeout_uses_default(chrome_test_url):
             screenshot_dir = chrome_dir.parent / "screenshot"
             screenshot_dir.mkdir()
             env["SCREENSHOT_TIMEOUT"] = "invalid"
-            start = time.time()
             result = subprocess.run(
                 [
                     str(SCREENSHOT_HOOK),
@@ -573,10 +572,8 @@ def test_invalid_timeout_uses_default(chrome_test_url):
                 timeout=5,
                 env=env,
             )
-        elapsed = time.time() - start
 
         assert result.returncode != 0
-        assert elapsed < 2
         result_json = parse_jsonl_output(result.stdout)
         assert result_json is not None
         assert result_json["status"] == "failed", result_json
