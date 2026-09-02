@@ -130,8 +130,8 @@ def real_html_snapshot(ensure_chrome_test_prereqs):
 
 
 @pytest.fixture
-def real_competing_html_snapshot(real_html_snapshot):
-    """Produce real SingleFile and DOM outputs from distinct live pages."""
+def real_competing_html_snapshot(real_html_snapshot, httpserver):
+    """Produce real SingleFile and DOM outputs from distinct local pages."""
     from abx_plugins.plugins.base.testing import parse_jsonl_output
     from abx_plugins.plugins.chrome.tests.chrome_test_helpers import chrome_session
     from abx_plugins.plugins.singlefile.tests.test_singlefile import (
@@ -140,13 +140,24 @@ def real_competing_html_snapshot(real_html_snapshot):
     )
 
     def run(root: Path, snapshot_id: str) -> Path:
+        httpserver.expect_request("/singlefile-source").respond_with_data(
+            "<html><head><title>ArchiveBox</title></head><body><article>ArchiveBox single-file source</article></body></html>",
+            content_type="text/html; charset=utf-8",
+        )
+        httpserver.expect_request("/dom-source").respond_with_data(
+            "<html><head><title>Example Domain</title></head><body><article>Example Domain DOM source</article></body></html>",
+            content_type="text/html; charset=utf-8",
+        )
+        httpserver.expect_request("/favicon.ico").respond_with_data("", status=404)
+        singlefile_url = httpserver.url_for("/singlefile-source")
+        dom_url = httpserver.url_for("/dom-source")
         singlefile_root = root / "singlefile-capture"
         install_state = ensure_singlefile_extension_installed(root)
         with chrome_session(
             tmpdir=singlefile_root,
             crawl_id=f"singlefile-{snapshot_id}",
             snapshot_id=snapshot_id,
-            test_url="https://archivebox.io",
+            test_url=singlefile_url,
             timeout=30,
             env_overrides={
                 "ABXPKG_LIB_DIR": str(install_state["abxpkg_lib_dir"]),
@@ -163,7 +174,7 @@ def real_competing_html_snapshot(real_html_snapshot):
             output_dir.mkdir()
             env["SINGLEFILE_ENABLED"] = "true"
             result = subprocess.run(
-                [str(SNAPSHOT_HOOK), "--url=https://archivebox.io"],
+                [str(SNAPSHOT_HOOK), f"--url={singlefile_url}"],
                 cwd=output_dir,
                 env=env,
                 capture_output=True,
@@ -176,7 +187,7 @@ def real_competing_html_snapshot(real_html_snapshot):
 
         dom_snapshot = real_html_snapshot(
             root / "dom-capture",
-            "https://example.com",
+            dom_url,
             f"dom-{snapshot_id}",
         )
         shutil.move(dom_snapshot / "dom", snapshot_dir / "dom")
