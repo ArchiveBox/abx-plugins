@@ -23,6 +23,7 @@ from pathlib import Path
 from collections.abc import Iterable, Mapping
 
 from abx_plugins.plugins.base.utils import load_config
+from abx_plugins.plugins.base.search_command import run_search_command
 
 
 LEGACY_TIMESTAMP_RE = re.compile(r"^\d{10}(?:\.\d+)?$")
@@ -202,3 +203,7 @@ def search(
 def flush(snapshot_ids: Iterable[str]) -> None:
     """No-op for ripgrep - it searches files directly."""
     pass
+
+
+if __name__ == "__main__":
+    raise SystemExit(run_search_command(search, flush))

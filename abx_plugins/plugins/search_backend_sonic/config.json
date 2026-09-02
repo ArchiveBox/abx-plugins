@@ -118,6 +118,10 @@
       "description": "Sonic bucket name"
     }
   },
+  "commands": {
+    "search": ["search.py", "search"],
+    "flush": ["search.py", "flush"]
+  },
   "x-auto-run": false,
   "hidden": true
 }

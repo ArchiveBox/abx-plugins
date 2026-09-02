@@ -11,6 +11,7 @@ Tests cover:
 
 import os
 import sqlite3
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -26,6 +27,7 @@ from abx_plugins.plugins.search_backend_sqlite.search import (
 
 SQLITEFTS_DB = "search.sqlite3"
 FTS_TOKENIZERS = "porter unicode61 remove_diacritics 2"
+SEARCH_SCRIPT = Path(__file__).resolve().parents[1] / "search.py"
 
 
 def test_load_sqlite_config_resolves_runtime_values_and_aliases(tmp_path: Path):
@@ -131,6 +133,36 @@ class TestSqliteSearchBackend:
         results = search("example")
         assert len(results) == 1
         assert results[0] == "snap-001"
+
+    def test_standalone_command_searches_and_flushes(self):
+        self._index_snapshot(
+            "snap-command",
+            "https://example.com/command",
+            "Standalone command",
+            "search command contract",
+        )
+        env = {**os.environ, "DATA_DIR": self.temp_dir}
+
+        search_result = subprocess.run(
+            [str(SEARCH_SCRIPT), "search", "--query=contract"],
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=30,
+            check=True,
+        )
+        assert search_result.stdout.splitlines() == ["snap-command"]
+
+        subprocess.run(
+            [str(SEARCH_SCRIPT), "flush"],
+            input="snap-command\n",
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=30,
+            check=True,
+        )
+        assert search("contract") == []
 
     def test_search_multiple_results(self):
         """search should find all matching snapshots."""

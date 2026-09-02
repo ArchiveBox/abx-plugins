@@ -76,6 +76,7 @@ CHROME_EXTENSION_PLUGIN_NAMES = (
     "twocaptcha",
     "ublock",
 )
+DAEMON_LIFECYCLE = CHROME_UTILS.parent.parent / "base" / "daemon_lifecycle.js"
 
 
 @dataclass
@@ -86,6 +87,33 @@ class _ConcurrentChromeSession:
     launch_process: subprocess.Popen[str]
     tab_process: subprocess.Popen[str] | None = None
     chrome_pid: int | None = None
+
+
+def test_daemon_lifecycle_replays_signal_received_during_startup():
+    script = (
+        f"const install = require({json.dumps(str(DAEMON_LIFECYCLE))}).captureShutdownSignals();\n"
+        "process.stdout.write('READY\\n');\n"
+        "setTimeout(() => install((signal) => {\n"
+        "  process.stdout.write(`HANDLED:${signal}\\n`);\n"
+        "  process.exit(0);\n"
+        "}), 250);\n"
+        "setTimeout(() => process.exit(2), 5000);\n"
+    )
+    env = {**os.environ, **get_test_env()}
+    process = subprocess.Popen(
+        [env["NODE_BINARY"], "-e", script],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+    )
+    assert process.stdout is not None
+    assert process.stdout.readline().strip() == "READY"
+    process.send_signal(signal.SIGTERM)
+    stdout, stderr = process.communicate(timeout=10)
+
+    assert process.returncode == 0, stderr
+    assert "HANDLED:SIGTERM" in stdout
 
 
 def test_acquire_session_lock_creates_missing_parent_dir(tmp_path):

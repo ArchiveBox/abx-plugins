@@ -42,6 +42,10 @@
       "description": "FTS5 tokenizer configuration"
     }
   },
+  "commands": {
+    "search": ["search.py", "search"],
+    "flush": ["search.py", "flush"]
+  },
   "x-auto-run": false,
   "hidden": true
 }

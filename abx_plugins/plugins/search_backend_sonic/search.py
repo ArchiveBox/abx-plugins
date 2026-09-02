@@ -1,6 +1,7 @@
 #!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries python3
 # /// script
 # requires-python = ">=3.12"
+# dependencies = [{name = "sonic", binproviders = ["uv"], install_args = ["sonic-client>=1.0.0"], postinstall_scripts = false}]
 # ///
 #
 # Sonic search backend - search and flush operations.
@@ -11,22 +12,30 @@ from importlib import import_module
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
+from collections.abc import Mapping
 
+from abx_plugins.plugins.base.search_command import run_search_command
 from abx_plugins.plugins.base.utils import load_config
 
 
 CONFIG_PATH = Path(__file__).with_name("config.json")
 
 
-def search(query: str) -> list[str]:
+def search(
+    query: str,
+    search_mode: str = "contents",
+    *,
+    environ: Mapping[str, str] | None = None,
+) -> list[str]:
     """Search for snapshots in Sonic."""
+    del search_mode
     try:
         sonic = import_module("sonic")
     except ModuleNotFoundError:
         raise RuntimeError("sonic-client not installed. Run: pip install sonic-client")
     search_client_cls: Any = sonic.SearchClient
 
-    config = load_config(CONFIG_PATH)
+    config = load_config(CONFIG_PATH, environ=environ)
 
     with search_client_cls(
         config.SEARCH_BACKEND_SONIC_HOST_NAME,
@@ -42,7 +51,11 @@ def search(query: str) -> list[str]:
         return results
 
 
-def flush(snapshot_ids: Iterable[str]) -> None:
+def flush(
+    snapshot_ids: Iterable[str],
+    *,
+    environ: Mapping[str, str] | None = None,
+) -> None:
     """Remove snapshots from Sonic index."""
     try:
         sonic = import_module("sonic")
@@ -50,7 +63,7 @@ def flush(snapshot_ids: Iterable[str]) -> None:
         raise RuntimeError("sonic-client not installed. Run: pip install sonic-client")
     ingest_client_cls: Any = sonic.IngestClient
 
-    config = load_config(CONFIG_PATH)
+    config = load_config(CONFIG_PATH, environ=environ)
 
     with ingest_client_cls(
         config.SEARCH_BACKEND_SONIC_HOST_NAME,
@@ -66,3 +79,7 @@ def flush(snapshot_ids: Iterable[str]) -> None:
                 )
             except Exception:
                 pass
+
+
+if __name__ == "__main__":
+    raise SystemExit(run_search_command(search, flush))
