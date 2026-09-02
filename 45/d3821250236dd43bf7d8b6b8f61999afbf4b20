@@ -1,0 +1,21 @@
+tests/test_plugin_executables_have_shebang.py
+  s_750dfb69a92570::t_ed722d58e9ed4e 102-109
+abx_plugins/plugins/search_backend_sonic/search.py
+  s_750dfb69a92570::t_6579aa0e9ed3dc 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "45d3821250236dd43bf7d8b6b8f61999afbf4b20",
+  "prompts": {},
+  "sessions": {
+    "s_750dfb69a92570": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b67-229b-7b73-884d-437256ffa903",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
