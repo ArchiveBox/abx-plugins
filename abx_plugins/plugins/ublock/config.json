@@ -16,7 +16,9 @@
         "chromewebstore": {
           "install_args": [
             "ddkjiahejlhfcafbddmgiahcphecmpfh",
-            "--name=ublock"
+            "--name=ublock",
+            "--url=https://github.com/uBlockOrigin/uBOL-home/releases/download/2026.901.1442/uBOLite_2026.901.1442.chromium.zip",
+            "--sha256=71a8c65573489e0702f6398d3d744fcbe2bbc48336a75781c90bec50acb00b7e"
           ]
         }
       }

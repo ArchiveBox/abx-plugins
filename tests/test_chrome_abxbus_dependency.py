@@ -14,6 +14,7 @@ CHROME_CONFIG = REPO_ROOT / "abx_plugins" / "plugins" / "chrome" / "config.json"
 ARCHIVEWEBPAGE_CONFIG = (
     REPO_ROOT / "abx_plugins" / "plugins" / "archivewebpage" / "config.json"
 )
+UBLOCK_CONFIG = REPO_ROOT / "abx_plugins" / "plugins" / "ublock" / "config.json"
 
 
 def _resolve_node_binary(config: dict, lib_dir: Path, env: dict[str, str]) -> str:
@@ -173,6 +174,17 @@ def test_archivewebpage_config_depends_on_chrome_for_puppeteer_js_module() -> No
     config = json.loads(ARCHIVEWEBPAGE_CONFIG.read_text(encoding="utf-8"))
     assert "chrome" in config["required_plugins"]
     assert not any(item["name"] == "browsers" for item in config["required_binaries"])
+
+
+def test_chrome_extension_configs_pin_release_archives() -> None:
+    for config_path in (ARCHIVEWEBPAGE_CONFIG, UBLOCK_CONFIG):
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        record = config["required_binaries"][0]
+        install_args = record["overrides"]["chromewebstore"]["install_args"]
+
+        assert any(arg.startswith("--url=https://github.com/") for arg in install_args)
+        sha256_arg = next(arg for arg in install_args if arg.startswith("--sha256="))
+        assert len(sha256_arg.removeprefix("--sha256=")) == 64
 
 
 def _assert_config_installs_puppeteer(config_path: Path, tmp_path: Path) -> None:
