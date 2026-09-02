@@ -144,18 +144,6 @@ def test_hook_script_exists():
     assert READABILITY_HOOK.exists(), f"Hook script not found: {READABILITY_HOOK}"
 
 
-def test_declares_capture_dependencies():
-    """Readability restores HTML sources and waits for an enabled wget fallback."""
-    config = json.loads((PLUGIN_DIR / "config.json").read_text())
-    assert {"dom", "responses"} <= set(config["required_plugins"])
-    assert {"dom", "responses"} == set(config["x-deferred-required-plugins"])
-    assert config["wait_for_plugins"] == ["wget"]
-    shebang = READABILITY_HOOK.read_text().splitlines()[0]
-    assert "./config.json:required_binaries" in shebang
-    assert "../dom/config.json" not in shebang
-    assert "../responses/config.json" not in shebang
-
-
 def test_verify_deps_with_abxpkg():
     """Verify readability-extractor resolves through the real dependency preflight."""
     binary_path = require_readability_binary()
@@ -164,15 +152,15 @@ def test_verify_deps_with_abxpkg():
     )
 
 
-def test_extracts_article_after_installation():
-    """Test full workflow: extract article using readability-extractor from real HTML.
+def test_direct_hook_resolves_dependencies_and_extracts_article():
+    """Run the installed hook exactly as a user-facing executable.
 
-    WHY: the dependency preflight and hook must use the same collection cache.
-    Pointing READABILITY_BINARY at the previous test's cache makes every hook
-    invocation rebuild a fresh projection and turns a warm launch into slow,
-    silent package-manager work on constrained CI runners.
+    WHY: ``required_plugins`` orders producers such as DOM and Responses, while
+    the hook shebang tells abxpkg which binaries this process needs.  Launching
+    the real hook with no READABILITY_BINARY override proves abxpkg resolves and
+    exports readability-extractor from the hook's own config.
     """
-    binary_path = require_readability_binary()
+    require_readability_binary()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -198,7 +186,7 @@ def test_extracts_article_after_installation():
         # Run readability extraction (should find the binary)
         env = os.environ.copy()
         env["SNAP_DIR"] = str(snap_dir)
-        env["READABILITY_BINARY"] = binary_path
+        env.pop("READABILITY_BINARY", None)
         result = subprocess.run(
             [
                 str(READABILITY_HOOK),

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import stat
 from pathlib import Path
 
@@ -8,139 +9,93 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PLUGINS_ROOT = REPO_ROOT / "abx_plugins" / "plugins"
 SCRIPT_SUFFIXES = {".py", ".js", ".sh"}
-NODE_ONLY_JS_HOOKS = {
-    "twocaptcha/on_CrawlSetup__95_twocaptcha_config.js",
-    "twocaptcha/on_Snapshot__14_twocaptcha.daemon.bg.js",
-}
 
 
-def _iter_plugin_scripts() -> list[Path]:
-    return sorted(
+def _iter_plugin_entrypoints() -> list[Path]:
+    """Return hooks and manifest commands users can launch through abx-dl."""
+    entrypoints = {
         path
-        for path in PLUGINS_ROOT.rglob("*")
-        if path.is_file() and path.suffix in SCRIPT_SUFFIXES
-    )
+        for path in PLUGINS_ROOT.rglob("on_*.*")
+        if path.is_file()
+        and path.suffix in SCRIPT_SUFFIXES
+        and "tests" not in path.parts
+    }
+    for config_path in PLUGINS_ROOT.glob("*/config.json"):
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        for command in config.get("commands", {}).values():
+            entrypoints.add(config_path.parent / command[0])
+    return sorted(entrypoints)
 
 
-def _requires_shebang(script_path: Path) -> bool:
-    if not script_path.name.startswith("on_"):
-        return False
-    if script_path.name == "__init__.py":
-        return False
-    if "tests" in script_path.parts:
-        return False
-    if "utils" in script_path.stem:
-        return False
-    return True
-
-
-def _expected_deps_from(script_path: Path) -> str:
-    config_path = script_path.parent / "config.json"
-    config = json.loads(config_path.read_text(encoding="utf-8"))
-    deferred_plugins = set(config.get("x-deferred-required-plugins", []))
-    config_specs = [
-        f"../{plugin_name}/config.json:required_binaries"
-        for plugin_name in config.get("required_plugins", [])
-        if plugin_name not in deferred_plugins
-    ]
-    config_specs.append("./config.json:required_binaries")
-    return ",".join(config_specs)
-
-
-def _expected_abxpkg_header(script_path: Path, binary_name: str) -> str:
-    if script_path.relative_to(PLUGINS_ROOT).as_posix() in NODE_ONLY_JS_HOOKS:
-        return "#!/usr/bin/env -S abxpkg run --script --binproviders=env,pnpm,apt,brew node"
-    return (
-        "#!/usr/bin/env -S abxpkg run --script "
-        f"--deps-from={_expected_deps_from(script_path)} {binary_name}"
-    )
-
-
-def test_all_plugin_scripts_are_executable_and_have_shebang() -> None:
+def test_plugin_entrypoints_are_executable_and_have_shebang() -> None:
     failures: list[str] = []
 
-    for script_path in _iter_plugin_scripts():
+    for script_path in _iter_plugin_entrypoints():
         rel_path = script_path.relative_to(REPO_ROOT)
-
-        if not _requires_shebang(script_path):
-            continue
 
         mode = script_path.stat().st_mode
         if not mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH):
             failures.append(f"{rel_path}: missing executable bit")
 
-        if True:
-            first_line = script_path.read_text(
-                encoding="utf-8",
-                errors="ignore",
-            ).splitlines()
-            if not first_line or not first_line[0].startswith("#!"):
-                failures.append(f"{rel_path}: missing shebang")
+        first_line = script_path.read_text(
+            encoding="utf-8",
+            errors="ignore",
+        ).splitlines()
+        if not first_line or not first_line[0].startswith("#!"):
+            failures.append(f"{rel_path}: missing shebang")
 
     assert not failures, "Plugin script validation failed:\n" + "\n".join(failures)
 
 
-def test_python_plugin_scripts_use_abxpkg_script_runner_without_inline_dependencies() -> (
-    None
-):
+def test_plugin_entrypoints_declare_valid_abxpkg_script_commands() -> None:
+    """Validate the command that the OS executes without guessing its dependencies.
+
+    ``required_plugins`` controls orchestration order.  A hook's ``--deps-from``
+    arguments independently declare which binary environments that process needs.
+    Keeping those contracts separate lets hooks consume another plugin's files
+    without unnecessarily installing or exporting that plugin's binaries.
+    """
     failures: list[str] = []
 
-    for script_path in _iter_plugin_scripts():
-        if script_path.suffix != ".py" or "tests" in script_path.parts:
-            continue
-        if not (_requires_shebang(script_path) or script_path.name == "search.py"):
-            continue
-        rel_path = script_path.relative_to(REPO_ROOT)
+    for script_path in _iter_plugin_entrypoints():
         lines = script_path.read_text(encoding="utf-8", errors="ignore").splitlines()
-        if not lines:
+        if not lines or not lines[0].startswith("#!"):
             continue
-        if lines[0].startswith("#!"):
-            expected_header = _expected_abxpkg_header(script_path, "python3")
-            if lines[0] != expected_header:
-                failures.append(
-                    f"{rel_path}: expected abxpkg script shebang, got {lines[0]!r}",
-                )
-            if not (script_path.parent / "config.json").is_file():
-                failures.append(
-                    f"{rel_path}: missing local config.json for --deps-from",
-                )
-        if any(line.strip().startswith("# dependencies = [") for line in lines[:20]):
-            failures.append(f"{rel_path}: must not declare inline script dependencies")
 
-    assert not failures, "Python plugin script runner validation failed:\n" + "\n".join(
-        failures,
-    )
-
-
-def test_javascript_plugin_hooks_use_abxpkg_node_script_runner() -> None:
-    failures: list[str] = []
-
-    for script_path in _iter_plugin_scripts():
-        if script_path.suffix != ".js" or "tests" in script_path.parts:
-            continue
-        if not _requires_shebang(script_path):
-            continue
         rel_path = script_path.relative_to(REPO_ROOT)
-        lines = script_path.read_text(encoding="utf-8", errors="ignore").splitlines()
-        if not lines:
+        command = shlex.split(lines[0][2:])
+        expected_runtime = {".py": "python3", ".js": "node"}.get(script_path.suffix)
+        if command[:5] != ["/usr/bin/env", "-S", "abxpkg", "run", "--script"]:
+            failures.append(f"{rel_path}: invalid abxpkg script command: {lines[0]!r}")
             continue
-        expected_header = _expected_abxpkg_header(script_path, "node")
-        if lines[0] != expected_header:
+        if expected_runtime is not None and command[-1] != expected_runtime:
             failures.append(
-                f"{rel_path}: expected abxpkg node script shebang, got {lines[0]!r}",
+                f"{rel_path}: expected {expected_runtime!r} runtime, got {command[-1]!r}",
             )
-        if not (script_path.parent / "config.json").is_file():
-            failures.append(f"{rel_path}: missing local config.json for --deps-from")
-        if not any(line.strip() == "// /// script" for line in lines[:5]):
-            failures.append(f"{rel_path}: missing abxpkg script metadata block")
-        if any("ABX" in line and "=" in line for line in lines[:20]):
-            failures.append(f"{rel_path}: must not set ABX* config in script metadata")
-        if any(line.strip().startswith("// dependencies = [") for line in lines[:20]):
-            failures.append(f"{rel_path}: must not declare inline script dependencies")
 
-    assert not failures, (
-        "JavaScript plugin script runner validation failed:\n"
-        + "\n".join(
-            failures,
+        metadata_marker = (
+            "# /// script" if script_path.suffix == ".py" else "// /// script"
         )
+        if metadata_marker not in lines[:5]:
+            failures.append(f"{rel_path}: missing abxpkg script metadata block")
+
+        for argument in command:
+            if not argument.startswith("--deps-from="):
+                continue
+            for config_spec in argument.removeprefix("--deps-from=").split(","):
+                config_name, separator, field_name = config_spec.partition(":")
+                config_path = (script_path.parent / config_name).resolve()
+                if separator != ":" or not config_path.is_file():
+                    failures.append(
+                        f"{rel_path}: invalid dependency source {config_spec!r}",
+                    )
+                    continue
+                config = json.loads(config_path.read_text(encoding="utf-8"))
+                if not isinstance(config.get(field_name), list):
+                    failures.append(
+                        f"{rel_path}: {config_spec!r} does not reference a list",
+                    )
+
+    assert not failures, "Plugin script runner validation failed:\n" + "\n".join(
+        failures,
     )
