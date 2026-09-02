@@ -8,6 +8,10 @@
     "dom",
     "responses"
   ],
+  "x-deferred-required-plugins": [
+    "dom",
+    "responses"
+  ],
   "wait_for_plugins": [
     "wget"
   ],

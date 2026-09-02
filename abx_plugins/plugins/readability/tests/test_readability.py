@@ -148,6 +148,7 @@ def test_declares_capture_dependencies():
     """Readability restores HTML sources and waits for an enabled wget fallback."""
     config = json.loads((PLUGIN_DIR / "config.json").read_text())
     assert {"dom", "responses"} <= set(config["required_plugins"])
+    assert {"dom", "responses"} == set(config["x-deferred-required-plugins"])
     assert config["wait_for_plugins"] == ["wget"]
     shebang = READABILITY_HOOK.read_text().splitlines()[0]
     assert "./config.json:required_binaries" in shebang
