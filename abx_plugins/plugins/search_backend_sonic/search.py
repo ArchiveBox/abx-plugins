@@ -1,7 +1,6 @@
 #!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries python3
 # /// script
 # requires-python = ">=3.12"
-# dependencies = [{name = "sonic", binproviders = ["uv"], install_args = ["sonic-client>=1.0.0"], postinstall_scripts = false}]
 # ///
 #
 # Sonic search backend - search and flush operations.
