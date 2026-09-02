@@ -1,4 +1,4 @@
-#!/usr/bin/env -S abxpkg run --script --deps-from=../dom/config.json:required_binaries,../responses/config.json:required_binaries,./config.json:required_binaries python3
+#!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries python3
 # /// script
 # requires-python = ">=3.12"
 # ///

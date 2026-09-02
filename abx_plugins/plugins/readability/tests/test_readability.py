@@ -149,6 +149,10 @@ def test_declares_capture_dependencies():
     config = json.loads((PLUGIN_DIR / "config.json").read_text())
     assert {"dom", "responses"} <= set(config["required_plugins"])
     assert config["wait_for_plugins"] == ["wget"]
+    shebang = READABILITY_HOOK.read_text().splitlines()[0]
+    assert "./config.json:required_binaries" in shebang
+    assert "../dom/config.json" not in shebang
+    assert "../responses/config.json" not in shebang
 
 
 def test_verify_deps_with_abxpkg():
