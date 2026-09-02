@@ -99,3 +99,11 @@ def test_plugin_entrypoints_declare_valid_abxpkg_script_commands() -> None:
     assert not failures, "Plugin script runner validation failed:\n" + "\n".join(
         failures,
     )
+
+
+def test_sonic_client_commands_do_not_resolve_the_server_binary() -> None:
+    """Client RPCs must not install the separately managed Sonic daemon."""
+    search_script = PLUGINS_ROOT / "search_backend_sonic" / "search.py"
+    command = shlex.split(search_script.read_text(encoding="utf-8").splitlines()[0][2:])
+
+    assert not any(argument.startswith("--deps-from=") for argument in command)
