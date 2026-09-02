@@ -112,5 +112,5 @@ def test_sonic_required_binary_avoids_build_chain_on_linux_x86_64() -> None:
     assert sonic_binary["overrides"]["cargo"]["install_args"] == [
         "sonic-server",
         "--version",
-        "1.7.4",
+        "1.4.9",
     ]
