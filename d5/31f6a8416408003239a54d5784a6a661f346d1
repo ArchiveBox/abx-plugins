@@ -2,6 +2,7 @@ abx_plugins/plugins/readability/tests/test_readability.py
   s_750dfb69a92570::t_83486d01c1131e 151
 abx_plugins/plugins/readability/config.json
   s_750dfb69a92570::t_83486d01c1131e 11-14
+  s_cec16ad9ba0455::t_7800037c7e5058 11-14
 ---
 {
   "schema_version": "authorship/3.0.0",
@@ -13,6 +14,14 @@ abx_plugins/plugins/readability/config.json
       "agent_id": {
         "tool": "codex",
         "id": "01a05b67-229b-7b73-884d-437256ffa903",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_cec16ad9ba0455": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b1d-30f5-7a51-87b6-8499bac7baa6",
         "model": "gpt-5.6-sol"
       },
       "human_author": "Nick Sweeting <git@sweeting.me>"
