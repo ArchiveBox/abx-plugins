@@ -1,0 +1,24 @@
+abx_plugins/plugins/ublock/config.json
+  s_750dfb69a92570::t_fa486684b4373a 19-21
+abx_plugins/plugins/archivewebpage/config.json
+  s_750dfb69a92570::t_fa486684b4373a 19-21
+tests/test_chrome_abxbus_dependency.py
+  s_750dfb69a92570::t_113acb74bd816e 17,179-187
+  s_750dfb69a92570::t_3edc53f8431ca8 188-189
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "65142a3b3849f593ce8f7308d1018c49bbda97c5",
+  "prompts": {},
+  "sessions": {
+    "s_750dfb69a92570": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b67-229b-7b73-884d-437256ffa903",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
