@@ -1,0 +1,24 @@
+abx_plugins/plugins/readability/tests/test_readability.py
+  s_cec16ad9ba0455::t_a7252f49174ea0 155-156,158-161,163,189
+tests/test_plugin_executables_have_shebang.py
+  s_cec16ad9ba0455::t_adc815c9704aca 14-16,18,22-27,33,60
+  s_cec16ad9ba0455::t_ecf38eda57ec2b 19-21,30,76-77,89-91,99-100
+  s_cec16ad9ba0455::t_a7252f49174ea0 4,40-45,50-57,62,66-69,71,73,75,79-88,92-97
+  s_cec16ad9ba0455::t_a875902d2a1894 28-29,98
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "05981614dfc7d364946a86aea3aaf586e9069f88",
+  "prompts": {},
+  "sessions": {
+    "s_cec16ad9ba0455": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b1d-30f5-7a51-87b6-8499bac7baa6",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
