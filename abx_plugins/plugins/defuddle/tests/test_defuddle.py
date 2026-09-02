@@ -164,8 +164,8 @@ def test_prefers_dom_output_over_singlefile_when_both_exist(
     html_output = (output_dir / "content.html").read_text().lower()
     text_output = (output_dir / "content.txt").read_text().lower()
     metadata = json.loads((output_dir / "article.json").read_text())
-    assert "documentation examples without needing permission" in html_output
-    assert "documentation examples without needing permission" in text_output
+    assert "example domain dom source" in html_output
+    assert "example domain dom source" in text_output
     assert "archivebox" not in html_output
     assert "archivebox" not in text_output
     assert metadata.get("title") == "Example Domain"
