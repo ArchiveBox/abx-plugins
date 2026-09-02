@@ -15,7 +15,6 @@ const path = require("path");
 
 const BASE_CONFIG_PATH = path.join(__dirname, "config.json");
 const PROCESS_EXIT_SKIPPED = 10;
-const INTERNAL_INPUT_URL = "archivebox://internal";
 const configCache = new Map();
 
 function writeFdFully(fd, text) {
@@ -186,11 +185,7 @@ function maybeSkipUnsupportedSnapshotUrl(schema) {
   const scriptName = path.basename(process.argv[1] || process.argv[0] || "");
   const url = argvUrl();
   if (!scriptName.startsWith("on_Snapshot__") || !url) return;
-  if (url.startsWith("http://") || url.startsWith("https://")) return;
-  // ArchiveBox uses one synthetic snapshot URL for pasted/stdin import text.
-  // Only plugins that explicitly opt in should consume that source; everything
-  // else should no-result before starting browsers/downloaders or networking.
-  if (url === INTERNAL_INPUT_URL && schema["x-accepts-internal-input"]) return;
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("file://")) return;
   writeFdFully(
     1,
     `${JSON.stringify({
@@ -674,7 +669,6 @@ function iterStaticfileTextInputs(snapDir = null) {
 
 module.exports = {
   PROCESS_EXIT_SKIPPED,
-  INTERNAL_INPUT_URL,
   getConfig,
   loadConfig,
   getEnv,
