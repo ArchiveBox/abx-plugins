@@ -114,3 +114,17 @@ def test_sonic_required_binary_avoids_build_chain_on_linux_x86_64() -> None:
         "--version",
         "1.4.9",
     ]
+
+
+def test_sonic_required_binary_accepts_projected_managed_path(tmp_path: Path) -> None:
+    from abx_plugins.plugins.base.utils import get_hydrated_required_binary
+
+    projected_binary = tmp_path / "lib" / "bash" / "bin" / "sonic"
+    record = get_hydrated_required_binary(
+        str(projected_binary),
+        PLUGIN_DIR / "config.json",
+        global_config={"SONIC_BINARY": str(projected_binary)},
+        environ={"SONIC_BINARY": "sonic"},
+    )
+
+    assert record["name"] == str(projected_binary)
