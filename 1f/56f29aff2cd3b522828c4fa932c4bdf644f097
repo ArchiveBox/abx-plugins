@@ -1,0 +1,22 @@
+abx_plugins/plugins/search_backend_sonic/tests/test_sonic_start.py
+  s_80d4bd2d930f75::t_c7e8468e0426b8 117-130
+abx_plugins/plugins/base/utils.py
+  s_80d4bd2d930f75::t_c7e8468e0426b8 840-843,852-854,858-863
+  s_80d4bd2d930f75::t_bf0aaa98c56af6 864-870
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "1f56f29aff2cd3b522828c4fa932c4bdf644f097",
+  "prompts": {},
+  "sessions": {
+    "s_80d4bd2d930f75": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05e81-8ef7-7ee1-b52f-f712a0d60079",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
