@@ -837,6 +837,10 @@ def _find_hydrated_required_binary(
     hydrated_records = [
         (record, hydrate_required_binary(record, payload)) for record in records
     ]
+    requested_path = Path(name).expanduser()
+    requested_is_path = requested_path.is_absolute() or requested_path.parent != Path(
+        ".",
+    )
 
     # Prefer the effective runtime name so callers can select an explicitly
     # configured path without it being mistaken for another declaration.
@@ -845,17 +849,25 @@ def _find_hydrated_required_binary(
             return hydrated_record
 
     # A required binary whose name comes from a config property still has a
-    # stable declaration identity: that property's schema default.  Environment
-    # hydration may replace the runtime name with an absolute path, but callers
-    # must continue to be able to select the declaration by its configured
-    # command name (for example ``lit`` or ``wget``).
+    # stable declaration identity: that property's schema default. A projected
+    # managed path has the same identity as its basename even if stale process
+    # environment hydration still contains the original command name.
     for record, hydrated_record in hydrated_records:
         key = _placeholder_config_key(record.get("name"))
         property_schema = properties.get(key) if key is not None else None
-        if (
-            isinstance(property_schema, Mapping)
-            and property_schema.get("default") == name
-        ):
+        default_name = (
+            property_schema.get("default")
+            if isinstance(property_schema, Mapping)
+            else None
+        )
+        matches_projected_path = (
+            requested_is_path
+            and isinstance(default_name, str)
+            and Path(default_name).name == requested_path.name
+        )
+        if default_name == name or matches_projected_path:
+            if matches_projected_path:
+                hydrated_record["name"] = name
             return hydrated_record
 
     raise KeyError(f"{resolved_path} required_binaries is missing {name!r}")
