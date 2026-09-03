@@ -109,9 +109,9 @@
     },
     "OPENCODE_TIMEOUT": {
       "type": "integer",
-      "default": 30,
+      "default": 120,
       "minimum": 1,
-      "description": "Seconds to wait for OpenCode startup and proxied requests"
+      "description": "Seconds to wait for OpenCode startup and proxied requests, including cold provider catalog loading"
     }
   },
   "x-auto-run": false,
