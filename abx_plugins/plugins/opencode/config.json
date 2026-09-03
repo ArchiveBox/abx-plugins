@@ -100,7 +100,7 @@
     "OPENCODE_WORKDIR": {
       "type": "string",
       "default": "",
-      "description": "Working directory for OpenCode. Defaults to the ArchiveBox data directory"
+      "description": "Working directory for OpenCode. Defaults to DATA_DIR/opencode/workdir so project scans do not walk archived snapshots"
     },
     "OPENCODE_STATE_DIR": {
       "type": "string",
