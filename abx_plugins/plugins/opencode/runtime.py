@@ -12,7 +12,7 @@ import threading
 import time
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urlsplit
 
 import httpx
 import requests
@@ -422,8 +422,7 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
 
 
 def _proxy_url(settings: dict, path: str | None) -> str:
-    rel = "/" if not path else f"/{path}"
-    return urljoin(settings["origin"], rel)
+    return settings["origin"] + "/" + (path or "").lstrip("/")
 
 
 def _rewrite_text(body: bytes, settings: dict) -> bytes:
@@ -527,6 +526,61 @@ async def _event_chunks(settings, path, method, params, headers):
     except Exception:
         _LOGGER.exception("OpenCode event stream failed")
         yield b'event: error\ndata: {"error":"OpenCode unavailable"}\n\n'
+
+
+async def websocket_proxy(settings, path, query, protocols, receive, send):
+    """Forward an authenticated WebSocket; the host consumes the connect event."""
+    from websockets.asyncio.client import connect
+
+    tasks = []
+    try:
+        ok, error = await asyncio.to_thread(_ensure_opencode, settings)
+        if not ok:
+            raise RuntimeError(error)
+        url = _proxy_url(settings, path).replace("http", "ws", 1)
+        if query:
+            url += "?" + query.decode("ascii")
+        async with connect(
+            url,
+            subprotocols=protocols or None,
+            proxy=None,
+            open_timeout=settings["timeout"],
+        ) as upstream:
+            await send(
+                {"type": "websocket.accept", "subprotocol": upstream.subprotocol},
+            )
+
+            async def from_browser():
+                while True:
+                    event = await receive()
+                    if event["type"] == "websocket.disconnect":
+                        return
+                    if event["type"] == "websocket.receive":
+                        payload = event.get("bytes")
+                        await upstream.send(
+                            payload if payload is not None else event["text"],
+                        )
+
+            async def from_upstream():
+                async for payload in upstream:
+                    kind = "bytes" if isinstance(payload, bytes) else "text"
+                    await send({"type": "websocket.send", kind: payload})
+                await send({"type": "websocket.close", "code": 1000})
+
+            tasks = [
+                asyncio.create_task(from_browser()),
+                asyncio.create_task(from_upstream()),
+            ]
+            done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                task.result()
+    except Exception:
+        _LOGGER.exception("OpenCode WebSocket failed")
+        await send({"type": "websocket.close", "code": 1011})
+    finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
