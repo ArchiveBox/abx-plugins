@@ -11,6 +11,9 @@ runtime imports neither ArchiveBox nor Django. A failed import, startup, request
 or template returns an AI-only unavailable response; failed streams report an
 error event and close. Ordinary pages do not import the runtime.
 
+The wrapper preserves existing browser-side servers and projects. Unavailable
+or full browser storage cannot suppress the access warning or block dismissal.
+
 OpenCode works directly in the collection directory without initializing Git.
 Checkpointing defaults to disabled. State and credentials stay under
 `DATA_DIR/opencode`; existing user configuration is preserved.

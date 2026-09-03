@@ -117,6 +117,7 @@ def _config_value(config: dict, key: str, default):
 
 
 def _origin_allowed(method: str, expected_host: str, headers) -> bool:
+    """Called by the host's authenticated adapter before invoking proxy()."""
     if method in {"GET", "HEAD", "OPTIONS", "TRACE"}:
         return True
 
@@ -531,6 +532,7 @@ async def _event_chunks(settings, path, method, params, headers):
 
 
 def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
+    """Forward a request after the host authenticates it and checks its origin."""
     forwarded = {
         key: headers[key]
         for key in ("Accept", "Accept-Language", "Content-Type", "Range", "User-Agent")

@@ -126,6 +126,20 @@
                 (() => {
                     const workdir = "{{ workdir|escapejs }}";
                     const recentSessionId = "{{ recent_session_id|escapejs }}";
+                    const storage = {
+                        get(key) {
+                            try { return localStorage.getItem(key); } catch { return null; }
+                        },
+                        set(key, value) {
+                            try { localStorage.setItem(key, value); } catch { /* Persistence is optional. */ }
+                        },
+                    };
+                    const readJSON = (key) => {
+                        try {
+                            const value = JSON.parse(storage.get(key) || "{}");
+                            return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+                        } catch { return {}; }
+                    };
                     const merge = (left, right) => {
                         if (!left || typeof left !== "object" || Array.isArray(left)) return right;
                         const out = {...left};
@@ -135,13 +149,8 @@
                         return out;
                     };
                     const seed = (key, value) => {
-                        try {
-                            localStorage.setItem(key, JSON.stringify(merge(JSON.parse(localStorage.getItem(key) || "{}"), value)));
-                        } catch {
-                            localStorage.setItem(key, JSON.stringify(value));
-                        }
+                        storage.set(key, JSON.stringify(merge(readJSON(key), value)));
                     };
-                    const setJSON = (key, value) => localStorage.setItem(key, JSON.stringify(value));
                     const page = {
                         activeProject: workdir,
                         activeWorkspace: workdir,
@@ -156,22 +165,38 @@
                         sidebar: {opened: true, width: 280},
                         fileTree: {opened: true, width: 280, tab: "all"},
                     });
-                    const serverKey = `${location.origin}/admin/agent/opencode`;
-                    setJSON("opencode.global.dat:server", {
-                        list: [],
+                    const serverKey = `${location.origin}{{ proxy_prefix|escapejs }}`;
+                    const server = readJSON("opencode.global.dat:server");
+                    const projects = Array.isArray(server.projects?.[serverKey]) ? server.projects[serverKey] : [];
+                    if (!projects.some(project => project.worktree === workdir)) {
+                        projects.push({worktree: workdir, expanded: true});
+                    }
+                    seed("opencode.global.dat:server", {
+                        list: server.list || [],
                         projects: {
-                            [serverKey]: [{worktree: workdir, expanded: true}],
+                            [serverKey]: projects,
                         },
                         lastProject: {
                             [serverKey]: workdir,
                         },
                     });
-                    localStorage.setItem("opencode.settings.dat:defaultServerUrl", serverKey);
+                    storage.set("opencode.settings.dat:defaultServerUrl", serverKey);
+                    document.addEventListener("DOMContentLoaded", () => {
+                        const key = "archivebox.opencode.agentWelcomeDismissed.v1";
+                        const welcome = document.getElementById("opencode-agent-welcome");
+                        const dismiss = document.getElementById("opencode-agent-welcome-dismiss");
+                        if (!welcome || !dismiss) return;
+                        welcome.hidden = storage.get(key) === "1";
+                        dismiss.addEventListener("click", () => {
+                            storage.set(key, "1");
+                            welcome.hidden = true;
+                        });
+                    });
                 })();
             </script>
             <div class="opencode-agent-shell">
                 <iframe src="{{ proxy_url }}" title="OpenCode Agent" class="opencode-agent-frame"></iframe>
-                <div class="opencode-agent-welcome" id="opencode-agent-welcome" hidden>
+                <div class="opencode-agent-welcome" id="opencode-agent-welcome">
                     <div class="opencode-agent-welcome-panel" role="dialog" aria-modal="true" aria-labelledby="opencode-agent-welcome-title">
                         <h1 id="opencode-agent-welcome-title">ArchiveBox AI Agent</h1>
                         <p>This agent can work directly with your ArchiveBox collection. It can inspect the crawl database, create and monitor crawls, run maintenance operations, answer research questions, query archived data, and help with complex collection workflows.</p>
@@ -191,21 +216,6 @@
                     </div>
                 </div>
             </div>
-            <script>
-                (() => {
-                    const key = "archivebox.opencode.agentWelcomeDismissed.v1";
-                    const welcome = document.getElementById("opencode-agent-welcome");
-                    const dismiss = document.getElementById("opencode-agent-welcome-dismiss");
-                    if (!welcome || !dismiss) return;
-                    if (localStorage.getItem(key) !== "1") {
-                        welcome.hidden = false;
-                    }
-                    dismiss.addEventListener("click", () => {
-                        localStorage.setItem(key, "1");
-                        welcome.hidden = true;
-                    });
-                })();
-            </script>
         {% endif %}
     </div>
 {% endblock %}
