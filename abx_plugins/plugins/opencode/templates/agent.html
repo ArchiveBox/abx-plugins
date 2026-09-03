@@ -181,17 +181,6 @@
                         },
                     });
                     storage.set("opencode.settings.dat:defaultServerUrl", serverKey);
-                    document.addEventListener("DOMContentLoaded", () => {
-                        const key = "archivebox.opencode.agentWelcomeDismissed.v1";
-                        const welcome = document.getElementById("opencode-agent-welcome");
-                        const dismiss = document.getElementById("opencode-agent-welcome-dismiss");
-                        if (!welcome || !dismiss) return;
-                        welcome.hidden = storage.get(key) === "1";
-                        dismiss.addEventListener("click", () => {
-                            storage.set(key, "1");
-                            welcome.hidden = true;
-                        });
-                    });
                 })();
             </script>
             <div class="opencode-agent-shell">
@@ -216,6 +205,18 @@
                     </div>
                 </div>
             </div>
+            <script>
+                (() => {
+                    const key = "archivebox.opencode.agentWelcomeDismissed.v1";
+                    const welcome = document.getElementById("opencode-agent-welcome");
+                    const dismiss = document.getElementById("opencode-agent-welcome-dismiss");
+                    try { welcome.hidden = localStorage.getItem(key) === "1"; } catch { /* Keep the warning visible. */ }
+                    dismiss.addEventListener("click", () => {
+                        welcome.hidden = true;
+                        try { localStorage.setItem(key, "1"); } catch { /* Persistence is optional. */ }
+                    });
+                })();
+            </script>
         {% endif %}
     </div>
 {% endblock %}
