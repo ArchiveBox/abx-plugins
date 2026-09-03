@@ -1,0 +1,27 @@
+pyproject.toml
+  s_78c4ddd440f0ae::t_1faf7191b519b6 30
+abx_plugins/plugins/opencode/runtime.py
+  s_78c4ddd440f0ae::t_1faf7191b519b6 15,425,531-576
+  s_78c4ddd440f0ae::t_a7477a20e5fd48 577-585
+abx_plugins/plugins/opencode/README.md
+  s_78c4ddd440f0ae::t_4dc709a437ee34 4,10-12,16-19
+  s_78c4ddd440f0ae::t_8c7f16d1be7246 20
+uv.lock
+  s_78c4ddd440f0ae::t_77388e84b6056f 6,12,30,62,871-959
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "fdd325061c4de127ebfafe64efd56d993d0cd076",
+  "prompts": {},
+  "sessions": {
+    "s_78c4ddd440f0ae": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a069a3-73b6-7f41-bc37-9daf8e671928",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
