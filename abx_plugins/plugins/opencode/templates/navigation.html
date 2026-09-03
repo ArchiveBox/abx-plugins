@@ -1,0 +1,4 @@
+{% if user.is_authenticated and user.is_superuser and request.archivebox_config.OPENCODE_ENABLED %}
+    <a href="/admin/agent" class="navbar-item navbar-ai">💬 AI</a>
+    <span class="navbar-separator" aria-hidden="true">|</span>
+{% endif %}

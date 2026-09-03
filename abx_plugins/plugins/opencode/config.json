@@ -73,7 +73,7 @@
     "GIT_BINARY": {
       "type": "string",
       "default": "git",
-      "description": "Path to Git binary used by OpenCode project initialization"
+      "description": "Path to Git binary used by OpenCode to inspect existing projects; ArchiveBox never initializes a repository"
     },
     "OPENCODE_ENABLED": {
       "type": "boolean",
@@ -100,7 +100,7 @@
     "OPENCODE_WORKDIR": {
       "type": "string",
       "default": "",
-      "description": "Working directory for OpenCode. Defaults to DATA_DIR/opencode/workdir so project scans do not walk archived snapshots"
+      "description": "Working directory for OpenCode. Defaults to DATA_DIR; no Git repository is created and checkpointing is disabled by default"
     },
     "OPENCODE_STATE_DIR": {
       "type": "string",
