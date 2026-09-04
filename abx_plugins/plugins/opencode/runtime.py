@@ -586,9 +586,11 @@ async def websocket_proxy(settings, path, query, protocols, receive, send):
 def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
     """Forward a request after the host authenticates it and checks its origin."""
     forwarded = {
-        key: headers[key]
-        for key in ("Accept", "Accept-Language", "Content-Type", "Range", "User-Agent")
-        if headers.get(key)
+        key: value
+        for key, value in headers.items()
+        if key.lower()
+        in {"accept", "accept-language", "content-type", "range", "user-agent"}
+        or key.lower().startswith("x-opencode-")
     }
     if method == "GET" and path.endswith("/event"):
         return (
