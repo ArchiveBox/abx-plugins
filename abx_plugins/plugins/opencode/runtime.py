@@ -12,7 +12,7 @@ import threading
 import time
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urlsplit
 
 import httpx
 import requests
@@ -23,7 +23,6 @@ _PROCESS_LOCK = threading.Lock()
 _SESSION_LOCK = threading.Lock()
 _LOGGER = logging.getLogger(__name__)
 _PROXY_PREFIX = "/admin/agent/opencode"
-_PROXY_PREFIX_REGEX = _PROXY_PREFIX.replace("/", r"\/")
 _PROXY_PREFIX_NO_SLASH_REGEX = _PROXY_PREFIX.lstrip("/").replace("/", r"\/")
 _CONFIG_PATH = Path(__file__).with_name("config.json")
 _DEFAULT_MODEL = "opencode/big-pickle"
@@ -423,33 +422,31 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
 
 
 def _proxy_url(settings: dict, path: str | None) -> str:
-    rel = "/" if not path else f"/{path}"
-    return urljoin(settings["origin"], rel)
+    return settings["origin"] + "/" + (path or "").lstrip("/")
 
 
 def _rewrite_text(body: bytes, settings: dict) -> bytes:
     text = body.decode("utf-8", errors="replace")
     text = text.replace(settings["origin"], _PROXY_PREFIX)
-    text = text.replace("location.origin", f'location.origin+"{_PROXY_PREFIX}"')
+    # Configure the native router, not browser history or pathname. Minifier
+    # identifiers change between builds; the public router prop does not.
+    text = re.sub(
+        r"(get component\(\)\{return [$\w]+\.router\?\?[$\w]+\},)",
+        rf'\1base:"{_PROXY_PREFIX}",',
+        text,
+    )
+    # Only the web entrypoint's default server needs the mount prefix. Changing
+    # location.origin globally breaks the router's same-origin link interception.
     text = text.replace(
-        "k(k5,{get component(){return t.router??Az},",
-        f'k(k5,{{base:"{_PROXY_PREFIX}",get component(){{return t.router??Az}},',
+        '?"http://localhost:4096":location.origin',
+        f'?"http://localhost:4096":location.origin+"{_PROXY_PREFIX}"',
     )
     text = text.replace('"/assets/', f'"{_PROXY_PREFIX}/assets/')
     text = text.replace("'/assets/", f"'{_PROXY_PREFIX}/assets/")
-    proxy_path = rf'(\1.replace(/^{_PROXY_PREFIX_REGEX}(?=\/|$)/,"")||"/")'
-    text = re.sub(r"\b(window\.location\.pathname)\b", proxy_path, text)
-    text = re.sub(r"(?<![.\w])(location\.pathname)\b", proxy_path, text)
-    text = text.replace(
-        'window.history.replaceState(nz(o),"",r):window.history.pushState(o,"",r)',
-        (
-            f'window.history.replaceState(nz(o),"",r.startsWith("{_PROXY_PREFIX}")?r:r.startsWith("/")?"{_PROXY_PREFIX}"+r:r):'
-            f'window.history.pushState(o,"",r.startsWith("{_PROXY_PREFIX}")?r:r.startsWith("/")?"{_PROXY_PREFIX}"+r:r)'
-        ),
-    )
-    text = text.replace(
-        'const BL="modulepreload",UL=function(t){return"/"+t}',
-        f'const BL="modulepreload",UL=function(t){{return"{_PROXY_PREFIX}/"+t}}',
+    text = re.sub(
+        r'("modulepreload",[$\w]+=function\(([$\w]+)\)\{return")/("\+\2\})',
+        rf"\1{_PROXY_PREFIX}/\3",
+        text,
     )
     text = re.sub(
         rf"""(?P<prefix>\b(?:href|src|action)=["'])/(?!{_PROXY_PREFIX_NO_SLASH_REGEX}(?:/|$))""",
@@ -529,6 +526,61 @@ async def _event_chunks(settings, path, method, params, headers):
     except Exception:
         _LOGGER.exception("OpenCode event stream failed")
         yield b'event: error\ndata: {"error":"OpenCode unavailable"}\n\n'
+
+
+async def websocket_proxy(settings, path, query, protocols, receive, send):
+    """Forward an authenticated WebSocket; the host consumes the connect event."""
+    from websockets.asyncio.client import connect
+
+    tasks = []
+    try:
+        ok, error = await asyncio.to_thread(_ensure_opencode, settings)
+        if not ok:
+            raise RuntimeError(error)
+        url = _proxy_url(settings, path).replace("http", "ws", 1)
+        if query:
+            url += "?" + query.decode("ascii")
+        async with connect(
+            url,
+            subprotocols=protocols or None,
+            proxy=None,
+            open_timeout=settings["timeout"],
+        ) as upstream:
+            await send(
+                {"type": "websocket.accept", "subprotocol": upstream.subprotocol},
+            )
+
+            async def from_browser():
+                while True:
+                    event = await receive()
+                    if event["type"] == "websocket.disconnect":
+                        return
+                    if event["type"] == "websocket.receive":
+                        payload = event.get("bytes")
+                        await upstream.send(
+                            payload if payload is not None else event["text"],
+                        )
+
+            async def from_upstream():
+                async for payload in upstream:
+                    kind = "bytes" if isinstance(payload, bytes) else "text"
+                    await send({"type": "websocket.send", kind: payload})
+                await send({"type": "websocket.close", "code": 1000})
+
+            tasks = [
+                asyncio.create_task(from_browser()),
+                asyncio.create_task(from_upstream()),
+            ]
+            done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                task.result()
+    except Exception:
+        _LOGGER.exception("OpenCode WebSocket failed")
+        await send({"type": "websocket.close", "code": 1011})
+    finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
