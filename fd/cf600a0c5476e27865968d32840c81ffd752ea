@@ -1,0 +1,20 @@
+abx_plugins/plugins/opencode/runtime.py
+  s_78c4ddd440f0ae::t_bb6d08495a655e 590
+  s_78c4ddd440f0ae::t_605e88b827096c 589,591-593
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "fdcf600a0c5476e27865968d32840c81ffd752ea",
+  "prompts": {},
+  "sessions": {
+    "s_78c4ddd440f0ae": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a069a3-73b6-7f41-bc37-9daf8e671928",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
