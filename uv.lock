@@ -3,13 +3,13 @@ revision = 3
 requires-python = ">=3.12, <3.15"
 
 [options]
-exclude-newer = "2026-08-29T23:52:20.361877Z"
+exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
 abx-plugins = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
-abxbus = { timestamp = "2026-09-03T23:52:19.362655Z", span = "PT1S" }
+abxbus = { timestamp = "0001-01-01T00:00:00Z", span = "PT1S" }
 
 [[package]]
 name = "abx-plugins"
@@ -48,6 +48,7 @@ dev = [
     { name = "requests" },
     { name = "ruff" },
     { name = "ty" },
+    { name = "websockets" },
 ]
 
 [package.metadata]
@@ -81,6 +82,7 @@ dev = [
     { name = "requests", specifier = ">=2.28.0" },
     { name = "ruff", specifier = ">=0.15.2" },
     { name = "ty", specifier = ">=0.0.18" },
+    { name = "websockets", specifier = ">=15" },
 ]
 
 [[package]]
