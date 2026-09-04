@@ -521,7 +521,7 @@ async def _event_chunks(settings, path, method, params, headers):
                 headers=headers,
             ) as upstream:
                 upstream.raise_for_status()
-                async for chunk in upstream.aiter_raw(chunk_size=512):
+                async for chunk in upstream.aiter_raw():
                     yield chunk
     except Exception:
         _LOGGER.exception("OpenCode event stream failed")
