@@ -1,0 +1,120 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "wgetlua",
+  "description": "Archive pages with wget-at (Archive Team wget-lua) for better WARC compliance, ready to feed into archive.org.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [],
+  "required_binaries": [
+    {
+      "name": "{WGETLUA_BINARY}",
+      "binproviders": "env,brew,custom",
+      "min_version": null,
+      "overrides": {
+        "brew": {
+          "install_args": [
+            "wget-at"
+          ]
+        },
+        "custom": {
+          "install": "apt-get update -qq && apt-get install -y -qq autoconf automake autoconf-archive autopoint libtool pkg-config gperf flex gettext libgnutls28-dev liblua5.1-0-dev zlib1g-dev libpsl-dev libpcre2-dev libbrotli-dev >/dev/null 2>&1; TMPDIR=$(mktemp -d) && git clone --depth=1 https://github.com/ArchiveTeam/wget-lua.git $TMPDIR/wget-lua && cd $TMPDIR/wget-lua && ./bootstrap >/dev/null 2>&1 && ./configure --with-ssl=gnutls >/dev/null 2>&1 && make -j$(nproc) >/dev/null 2>&1 && cp src/wget /usr/local/bin/wget-at && rm -rf $TMPDIR"
+        }
+      }
+    }
+  ],
+  "output_mimetypes": [
+    "text/html",
+    "application/warc",
+    "application/gzip",
+    "image/",
+    "text/css",
+    "application/javascript",
+    "font/",
+    "audio/",
+    "video/"
+  ],
+  "properties": {
+    "WGETLUA_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": [
+        "SAVE_WGETLUA",
+        "USE_WGETLUA"
+      ],
+      "description": "Enable wget-at (Archive Team wget-lua) archiving"
+    },
+    "WGETLUA_WARC_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": [
+        "WGETLUA_SAVE_WARC"
+      ],
+      "description": "Save WARC archive file (default behavior for wget-at)"
+    },
+    "WGETLUA_BINARY": {
+      "type": "string",
+      "default": "wget-at",
+      "description": "Path to wget-at binary"
+    },
+    "WGETLUA_TIMEOUT": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout for wget-at in seconds"
+    },
+    "WGETLUA_USER_AGENT": {
+      "type": "string",
+      "default": "",
+      "x-fallback": "USER_AGENT",
+      "description": "User agent string for wget-at"
+    },
+    "WGETLUA_COOKIES_FILE": {
+      "type": "string",
+      "default": "",
+      "x-fallback": "COOKIES_FILE",
+      "description": "Path to cookies file"
+    },
+    "WGETLUA_CHECK_SSL_VALIDITY": {
+      "type": "boolean",
+      "default": true,
+      "x-fallback": "CHECK_SSL_VALIDITY",
+      "description": "Whether to verify SSL certificates"
+    },
+    "WGETLUA_ARGS": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [
+        "--no-verbose",
+        "--adjust-extension",
+        "--convert-links",
+        "--force-directories",
+        "--backup-converted",
+        "--span-hosts",
+        "--no-parent",
+        "--page-requisites",
+        "--restrict-file-names=windows",
+        "--tries=2",
+        "-e",
+        "robots=off"
+      ],
+      "x-aliases": [
+        "WGETLUA_DEFAULT_ARGS"
+      ],
+      "description": "Default wget-at arguments"
+    },
+    "WGETLUA_ARGS_EXTRA": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "x-aliases": [
+        "WGETLUA_EXTRA_ARGS"
+      ],
+      "description": "Extra arguments to append to wget-at command"
+    }
+  }
+}
