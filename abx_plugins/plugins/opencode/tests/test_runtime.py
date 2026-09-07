@@ -99,7 +99,7 @@ def test_opencode_rewrites_vite_preload_assets():
     body = b'const BL="modulepreload",UL=function(t){return"/"+t};const icon="/assets/sprite.svg#anthropic"'
     rewritten = runtime._rewrite_text(
         body,
-        {"origin": "http://127.0.0.1:4096"},
+        "http://127.0.0.1:4096",
     ).decode()
 
     assert 'return"/"+t' not in rewritten

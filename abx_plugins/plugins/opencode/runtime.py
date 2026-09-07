@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import atexit
 import base64
+import hashlib
 import logging
 import os
 import re
@@ -10,6 +11,7 @@ import signal
 import subprocess
 import threading
 import time
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -425,9 +427,10 @@ def _proxy_url(settings: dict, path: str | None) -> str:
     return settings["origin"] + "/" + (path or "").lstrip("/")
 
 
-def _rewrite_text(body: bytes, settings: dict) -> bytes:
+@lru_cache(maxsize=8)
+def _rewrite_text(body: bytes, origin: str) -> bytes:
     text = body.decode("utf-8", errors="replace")
-    text = text.replace(settings["origin"], _PROXY_PREFIX)
+    text = text.replace(origin, _PROXY_PREFIX)
     # Configure the native router, not browser history or pathname. Minifier
     # identifiers change between builds; the public router prop does not.
     text = re.sub(
@@ -474,6 +477,8 @@ def _response_headers(upstream: requests.Response, settings: dict) -> dict[str, 
             "content-length",
             "content-encoding",
             "x-frame-options",
+            "etag",
+            "cache-control",
         }:
             continue
         if lower == "location":
@@ -623,6 +628,15 @@ def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
             upstream.headers.get("Content-Type", "").startswith(prefix)
             for prefix in _TEXT_CONTENT_TYPES
         ):
-            content = _rewrite_text(content, settings)
+            rewrite = _rewrite_text if path.startswith("assets/") else _rewrite_text.__wrapped__
+            content = rewrite(content, settings["origin"])
         response_headers["Cache-Control"] = "no-store"
+        if method == "GET" and path.startswith("assets/") and upstream.status_code == 200:
+            # Hashed build assets contain no session data. Cache only privately;
+            # API responses and the HTML entrypoint must always remain fresh.
+            response_headers["Cache-Control"] = "private, max-age=3600"
+            response_headers["ETag"] = etag = f'"{hashlib.sha256(content).hexdigest()}"'
+            validators = {tag.strip().removeprefix("W/") for tag in headers.get("If-None-Match", "").split(",")}
+            if etag in validators or "*" in validators:
+                return 304, response_headers, b""
         return upstream.status_code, response_headers, content
