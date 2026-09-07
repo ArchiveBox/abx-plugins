@@ -635,9 +635,9 @@ def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
             if asset
             else None
         )
-        cached = _ASSETS.get(key)
+        cached = _ASSETS.get(key) if key is not None else None
         if cached is not None:
-            content, etag = cached
+            content = cached[0]
         else:
             if any(
                 upstream.headers.get("Content-Type", "").startswith(prefix)
@@ -645,21 +645,21 @@ def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
             ):
                 content = _rewrite_text(content, settings["origin"])
             if key is not None:
-                etag = f'"{hashlib.sha256(content).hexdigest()}"'
+                cached = content, f'"{hashlib.sha256(content).hexdigest()}"'
                 # Keep only outputs, not a second copy of each multi-MB input.
                 if len(_ASSETS) >= 8:
-                    _ASSETS.pop(next(iter(_ASSETS), None), None)
-                _ASSETS[key] = content, etag
+                    _ASSETS.pop(next(iter(_ASSETS), key), None)
+                _ASSETS[key] = cached
         response_headers["Cache-Control"] = "no-store"
-        if asset:
+        if cached is not None:
             # Hashed build assets contain no session data. Cache only privately;
             # API responses and the HTML entrypoint must always remain fresh.
             response_headers["Cache-Control"] = "private, max-age=3600"
-            response_headers["ETag"] = etag
+            response_headers["ETag"] = cached[1]
             validators = {
                 tag.strip().removeprefix("W/")
                 for tag in headers.get("If-None-Match", "").split(",")
             }
-            if etag in validators or "*" in validators:
+            if cached[1] in validators or "*" in validators:
                 return 304, response_headers, b""
         return upstream.status_code, response_headers, content
