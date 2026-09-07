@@ -27,12 +27,10 @@ _LOGGER = logging.getLogger(__name__)
 _PROXY_PREFIX = "/admin/agent/opencode"
 _PROXY_PREFIX_NO_SLASH_REGEX = _PROXY_PREFIX.lstrip("/").replace("/", r"\/")
 _CONFIG_PATH = Path(__file__).with_name("config.json")
-_DEFAULT_MODEL = "opencode/big-pickle"
-_DEFAULT_CONFIG = f'''{{
+_DEFAULT_CONFIG = '''{
   "$schema": "https://opencode.ai/config.json",
-  "model": "{_DEFAULT_MODEL}",
   "snapshot": false
-}}
+}
 '''
 
 _TEXT_CONTENT_TYPES = (

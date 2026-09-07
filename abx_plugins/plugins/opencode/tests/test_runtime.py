@@ -51,7 +51,7 @@ def test_opencode_state_dir_is_separate_from_workdir(tmp_path):
     opencode_config = json.loads(
         (state_dir / "config" / "opencode" / "opencode.jsonc").read_text(),
     )
-    assert opencode_config["model"] == "opencode/big-pickle"
+    assert "model" not in opencode_config
     assert opencode_config["snapshot"] is False
 
 
