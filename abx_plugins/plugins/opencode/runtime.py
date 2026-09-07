@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import atexit
 import base64
+import hashlib
 import logging
 import os
 import re
@@ -21,16 +22,15 @@ _PROCESS: subprocess.Popen | None = None
 _PROCESS_READY: subprocess.Popen | None = None
 _PROCESS_LOCK = threading.Lock()
 _SESSION_LOCK = threading.Lock()
+_ASSETS: dict[tuple[str, str, bytes], tuple[bytes, str]] = {}
 _LOGGER = logging.getLogger(__name__)
 _PROXY_PREFIX = "/admin/agent/opencode"
 _PROXY_PREFIX_NO_SLASH_REGEX = _PROXY_PREFIX.lstrip("/").replace("/", r"\/")
 _CONFIG_PATH = Path(__file__).with_name("config.json")
-_DEFAULT_MODEL = "opencode/big-pickle"
-_DEFAULT_CONFIG = f'''{{
+_DEFAULT_CONFIG = '''{
   "$schema": "https://opencode.ai/config.json",
-  "model": "{_DEFAULT_MODEL}",
   "snapshot": false
-}}
+}
 '''
 
 _TEXT_CONTENT_TYPES = (
@@ -425,9 +425,9 @@ def _proxy_url(settings: dict, path: str | None) -> str:
     return settings["origin"] + "/" + (path or "").lstrip("/")
 
 
-def _rewrite_text(body: bytes, settings: dict) -> bytes:
+def _rewrite_text(body: bytes, origin: str) -> bytes:
     text = body.decode("utf-8", errors="replace")
-    text = text.replace(settings["origin"], _PROXY_PREFIX)
+    text = text.replace(origin, _PROXY_PREFIX)
     # Configure the native router, not browser history or pathname. Minifier
     # identifiers change between builds; the public router prop does not.
     text = re.sub(
@@ -474,6 +474,8 @@ def _response_headers(upstream: requests.Response, settings: dict) -> dict[str, 
             "content-length",
             "content-encoding",
             "x-frame-options",
+            "etag",
+            "cache-control",
         }:
             continue
         if lower == "location":
@@ -619,10 +621,27 @@ def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
     ) as upstream:
         content = upstream.content
         response_headers = _response_headers(upstream, settings)
-        if any(
-            upstream.headers.get("Content-Type", "").startswith(prefix)
-            for prefix in _TEXT_CONTENT_TYPES
-        ):
-            content = _rewrite_text(content, settings)
+        asset = method == "GET" and path.startswith("assets/") and upstream.status_code == 200
+        key = (settings["origin"], upstream.headers.get("Content-Type", ""), hashlib.sha256(content).digest()) if asset else None
+        cached = _ASSETS.get(key)
+        if cached is not None:
+            content, etag = cached
+        else:
+            if any(upstream.headers.get("Content-Type", "").startswith(prefix) for prefix in _TEXT_CONTENT_TYPES):
+                content = _rewrite_text(content, settings["origin"])
+            if key is not None:
+                etag = f'"{hashlib.sha256(content).hexdigest()}"'
+                # Keep only outputs, not a second copy of each multi-MB input.
+                if len(_ASSETS) >= 8:
+                    _ASSETS.pop(next(iter(_ASSETS), None), None)
+                _ASSETS[key] = content, etag
         response_headers["Cache-Control"] = "no-store"
+        if asset:
+            # Hashed build assets contain no session data. Cache only privately;
+            # API responses and the HTML entrypoint must always remain fresh.
+            response_headers["Cache-Control"] = "private, max-age=3600"
+            response_headers["ETag"] = etag
+            validators = {tag.strip().removeprefix("W/") for tag in headers.get("If-None-Match", "").split(",")}
+            if etag in validators or "*" in validators:
+                return 304, response_headers, b""
         return upstream.status_code, response_headers, content

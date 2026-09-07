@@ -51,7 +51,7 @@ def test_opencode_state_dir_is_separate_from_workdir(tmp_path):
     opencode_config = json.loads(
         (state_dir / "config" / "opencode" / "opencode.jsonc").read_text(),
     )
-    assert opencode_config["model"] == "opencode/big-pickle"
+    assert "model" not in opencode_config
     assert opencode_config["snapshot"] is False
 
 
@@ -99,7 +99,7 @@ def test_opencode_rewrites_vite_preload_assets():
     body = b'const BL="modulepreload",UL=function(t){return"/"+t};const icon="/assets/sprite.svg#anthropic"'
     rewritten = runtime._rewrite_text(
         body,
-        {"origin": "http://127.0.0.1:4096"},
+        "http://127.0.0.1:4096",
     ).decode()
 
     assert 'return"/"+t' not in rewritten
