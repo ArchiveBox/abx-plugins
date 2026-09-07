@@ -25,8 +25,9 @@ _SESSION_LOCK = threading.Lock()
 _ASSETS: dict[tuple[str, str, bytes], tuple[bytes, str]] = {}
 _LOGGER = logging.getLogger(__name__)
 _PROXY_PREFIX = "/admin/agent/opencode"
-_PROXY_PREFIX_NO_SLASH_REGEX = _PROXY_PREFIX.lstrip("/").replace("/", r"\/")
 _CONFIG_PATH = Path(__file__).with_name("config.json")
+# Collections can be huge: never create checkpoint repos. Let OpenCode choose
+# an available model instead of pinning a provider model that can be retired.
 _DEFAULT_CONFIG = """{
   "$schema": "https://opencode.ai/config.json",
   "snapshot": false
@@ -448,18 +449,11 @@ def _rewrite_text(body: bytes, origin: str) -> bytes:
         rf"\1{_PROXY_PREFIX}/\3",
         text,
     )
+    # One pass for root-relative HTML, JS, and CSS references. Already-mounted
+    # URLs must stay untouched because earlier rewrites can produce them.
     text = re.sub(
-        rf"""(?P<prefix>\b(?:href|src|action)=["'])/(?!{_PROXY_PREFIX_NO_SLASH_REGEX}(?:/|$))""",
-        rf"\g<prefix>{_PROXY_PREFIX}/",
-        text,
-    )
-    text = re.sub(
-        rf"""(?P<prefix>\b(?:fetch|EventSource)\(["'])/(?!{_PROXY_PREFIX_NO_SLASH_REGEX}(?:/|$))""",
-        rf"\g<prefix>{_PROXY_PREFIX}/",
-        text,
-    )
-    text = re.sub(
-        rf"""(?P<prefix>\burl\(["']?)/(?!{_PROXY_PREFIX_NO_SLASH_REGEX}(?:/|$))""",
+        r"""(?P<prefix>\b(?:(?:href|src|action)=["']|(?:fetch|EventSource)\(["']|url\(["']?))/"""
+        rf"(?!{_PROXY_PREFIX.lstrip('/')}(?:/|$))",
         rf"\g<prefix>{_PROXY_PREFIX}/",
         text,
     )
@@ -621,15 +615,17 @@ def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
     ) as upstream:
         content = upstream.content
         response_headers = _response_headers(upstream, settings)
+        content_type = upstream.headers.get("Content-Type", "")
         asset = (
             method == "GET"
             and path.startswith("assets/")
             and upstream.status_code == 200
         )
+        # Content identity handles new builds without a TTL or restart hook.
         key = (
             (
                 settings["origin"],
-                upstream.headers.get("Content-Type", ""),
+                content_type,
                 hashlib.sha256(content).digest(),
             )
             if asset
@@ -639,12 +635,10 @@ def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
         if cached is not None:
             content = cached[0]
         else:
-            if any(
-                upstream.headers.get("Content-Type", "").startswith(prefix)
-                for prefix in _TEXT_CONTENT_TYPES
-            ):
+            if content_type.startswith(_TEXT_CONTENT_TYPES):
                 content = _rewrite_text(content, settings["origin"])
             if key is not None:
+                # Upstream's ETag describes different bytes after rewriting.
                 cached = content, f'"{hashlib.sha256(content).hexdigest()}"'
                 # Keep only outputs, not a second copy of each multi-MB input.
                 if len(_ASSETS) >= 8:

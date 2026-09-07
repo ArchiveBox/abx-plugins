@@ -93,6 +93,30 @@ def test_opencode_defaults_to_the_archivebox_collection():
     assert settings["timeout"] == 120
 
 
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        'href="',
+        "src='",
+        'action="',
+        'fetch("',
+        "EventSource('",
+        'url("',
+        "url('",
+        "url(",
+    ],
+)
+def test_opencode_root_references_are_mounted_once(prefix):
+    from abx_plugins.plugins.opencode import runtime
+
+    mounted = f"{prefix}/admin/agent/opencode/file".encode()
+    assert (
+        runtime._rewrite_text(f"{prefix}/file".encode(), "http://127.0.0.1:4096")
+        == mounted
+    )
+    assert runtime._rewrite_text(mounted, "http://127.0.0.1:4096") == mounted
+
+
 def test_opencode_rewrites_vite_preload_assets():
     from abx_plugins.plugins.opencode import runtime
 
