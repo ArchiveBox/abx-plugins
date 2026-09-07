@@ -27,11 +27,11 @@ _LOGGER = logging.getLogger(__name__)
 _PROXY_PREFIX = "/admin/agent/opencode"
 _PROXY_PREFIX_NO_SLASH_REGEX = _PROXY_PREFIX.lstrip("/").replace("/", r"\/")
 _CONFIG_PATH = Path(__file__).with_name("config.json")
-_DEFAULT_CONFIG = '''{
+_DEFAULT_CONFIG = """{
   "$schema": "https://opencode.ai/config.json",
   "snapshot": false
 }
-'''
+"""
 
 _TEXT_CONTENT_TYPES = (
     "text/",
@@ -621,13 +621,28 @@ def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
     ) as upstream:
         content = upstream.content
         response_headers = _response_headers(upstream, settings)
-        asset = method == "GET" and path.startswith("assets/") and upstream.status_code == 200
-        key = (settings["origin"], upstream.headers.get("Content-Type", ""), hashlib.sha256(content).digest()) if asset else None
+        asset = (
+            method == "GET"
+            and path.startswith("assets/")
+            and upstream.status_code == 200
+        )
+        key = (
+            (
+                settings["origin"],
+                upstream.headers.get("Content-Type", ""),
+                hashlib.sha256(content).digest(),
+            )
+            if asset
+            else None
+        )
         cached = _ASSETS.get(key)
         if cached is not None:
             content, etag = cached
         else:
-            if any(upstream.headers.get("Content-Type", "").startswith(prefix) for prefix in _TEXT_CONTENT_TYPES):
+            if any(
+                upstream.headers.get("Content-Type", "").startswith(prefix)
+                for prefix in _TEXT_CONTENT_TYPES
+            ):
                 content = _rewrite_text(content, settings["origin"])
             if key is not None:
                 etag = f'"{hashlib.sha256(content).hexdigest()}"'
@@ -641,7 +656,10 @@ def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
             # API responses and the HTML entrypoint must always remain fresh.
             response_headers["Cache-Control"] = "private, max-age=3600"
             response_headers["ETag"] = etag
-            validators = {tag.strip().removeprefix("W/") for tag in headers.get("If-None-Match", "").split(",")}
+            validators = {
+                tag.strip().removeprefix("W/")
+                for tag in headers.get("If-None-Match", "").split(",")
+            }
             if etag in validators or "*" in validators:
                 return 304, response_headers, b""
         return upstream.status_code, response_headers, content
