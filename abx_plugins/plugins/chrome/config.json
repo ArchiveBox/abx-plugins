@@ -74,6 +74,18 @@
     "application/json"
   ],
   "properties": {
+    "AUTH_STORAGE_FILE": {
+      "type": "string",
+      "default": "",
+      "x-scope": "crawl_execution",
+      "description": "Path to a persona auth.json cookie export; preserves full browser cookie attributes and takes precedence over COOKIES_FILE"
+    },
+    "COOKIES_FILE": {
+      "type": "string",
+      "default": "",
+      "x-scope": "crawl_execution",
+      "description": "Path to a Netscape cookies.txt file to import before navigation"
+    },
     "CHROME_ENABLED": {
       "type": "boolean",
       "default": true,
@@ -219,7 +231,6 @@
         "--disable-backgrounding-occluded-windows",
         "--disable-ipc-flooding-protection",
         "--disable-extensions-http-throttling",
-        "--disable-field-trial-config",
         "--disable-back-forward-cache",
         "--autoplay-policy=no-user-gesture-required",
         "--disable-gesture-requirement-for-media-playback",

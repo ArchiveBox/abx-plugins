@@ -146,6 +146,7 @@ function getChromeSessionOptionsFromConfig(hookConfig = {}) {
     CHROME_ARGS_EXTRA: Array.isArray(hookConfig.CHROME_ARGS_EXTRA)
       ? hookConfig.CHROME_ARGS_EXTRA
       : [],
+    cookiesFile: hookConfig.AUTH_STORAGE_FILE || hookConfig.COOKIES_FILE || "",
     timeoutMs: (Number(hookConfig.CHROME_TIMEOUT) || 60) * 1000,
   };
 }
@@ -3487,19 +3488,20 @@ async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
   if (!cookiesFile) return;
 
   if (!fs.existsSync(cookiesFile)) {
-    console.error(`[!] Cookies file not found: ${cookiesFile}`);
-    return;
+    throw new Error(`Cookies file not found: ${cookiesFile}`);
   }
 
   let contents = "";
   try {
     contents = fs.readFileSync(cookiesFile, "utf-8");
   } catch (e) {
-    console.error(`[!] Failed to read COOKIES_FILE: ${e.message}`);
-    return;
+    throw new Error(`Failed to read cookies: ${e.message}`);
   }
 
-  const { cookies, skipped } = parseCookiesTxt(contents);
+  const { cookies, skipped } = cookiesFile.endsWith(".json")
+    ? { cookies: JSON.parse(contents).cookies, skipped: 0 }
+    : parseCookiesTxt(contents);
+  if (!Array.isArray(cookies)) throw new Error("Cookie export must contain a cookies array");
   if (cookies.length === 0) {
     console.error("[!] No cookies found to import");
     return;
@@ -3529,11 +3531,8 @@ async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
       await client.send("Network.setCookies", { cookies: chunk });
       imported += chunk.length;
     } catch (e) {
-      console.error(
-        `[!] Failed to import cookies ${i + 1}-${i + chunk.length}: ${
-          e.message
-        }`
-      );
+      await page.close();
+      throw new Error(`Failed to import cookies ${i + 1}-${i + chunk.length}: ${e.message}`);
     }
   }
 
