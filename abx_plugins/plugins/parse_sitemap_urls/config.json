@@ -1,0 +1,211 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Parse Sitemap URLs",
+  "description": "Discover URLs from sitemap.xml (urlset and sitemapindex documents, gzipped sitemaps, robots.txt Sitemap: directives, and sitemap image/video/news extensions) and emit one Snapshot record per discovered URL so the host can crawl an entire site from a single seed URL.",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": [],
+  "required_binaries": [],
+  "output_mimetypes": [
+    "application/x-ndjson"
+  ],
+  "properties": {
+    "PARSE_SITEMAP_URLS_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": [
+        "USE_PARSE_SITEMAP_URLS",
+        "SAVE_SITEMAP_URLS"
+      ],
+      "description": "Enable sitemap.xml URL discovery"
+    },
+    "PARSE_SITEMAP_URLS_MAX_URLS": {
+      "type": "integer",
+      "default": 5000,
+      "minimum": 1,
+      "description": "Maximum number of URLs to emit from a single sitemap invocation"
+    },
+    "PARSE_SITEMAP_URLS_MAX_SITEMAP_DEPTH": {
+      "type": "integer",
+      "default": 5,
+      "minimum": 0,
+      "description": "Maximum recursion depth when following nested sitemap index files. 0 walks only the seed; 1 walks seed plus one level of children."
+    },
+    "PARSE_SITEMAP_URLS_MAX_SITEMAPS": {
+      "type": "integer",
+      "default": 100,
+      "minimum": 0,
+      "description": "Maximum number of sitemap documents to fetch across the entire walk (defense against an adversarial sitemap-index pointing at thousands of empty children). 0 disables the cap."
+    },
+    "PARSE_SITEMAP_URLS_TIMEOUT": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 1,
+      "x-fallback": "TIMEOUT",
+      "description": "Network timeout in seconds when fetching sitemap or robots.txt"
+    },
+    "PARSE_SITEMAP_URLS_USER_AGENT": {
+      "type": "string",
+      "default": "",
+      "x-fallback": "USER_AGENT",
+      "description": "User agent string for HTTP requests"
+    },
+    "PARSE_SITEMAP_URLS_INCLUDE_REGEX": {
+      "type": "string",
+      "default": "",
+      "description": "Only URLs matching this regex are emitted (empty = no filter). The first PARSE_SITEMAP_URLS_REGEX_INPUT_CAP characters of each URL are scanned to bound catastrophic regex risk."
+    },
+    "PARSE_SITEMAP_URLS_EXCLUDE_REGEX": {
+      "type": "string",
+      "default": "",
+      "description": "URLs matching this regex are skipped (empty = no filter). Same scan-length cap as INCLUDE_REGEX."
+    },
+    "PARSE_SITEMAP_URLS_REGEX_INPUT_CAP": {
+      "type": "integer",
+      "default": 8192,
+      "minimum": 128,
+      "description": "Maximum number of URL characters scanned by INCLUDE_REGEX / EXCLUDE_REGEX. Bounds catastrophic-backtracking risk."
+    },
+    "PARSE_SITEMAP_URLS_SAME_HOST_ONLY": {
+      "type": "boolean",
+      "default": false,
+      "description": "Skip URLs whose host differs from the seed URL's host"
+    },
+    "PARSE_SITEMAP_URLS_DISCOVER_FROM_ROBOTS": {
+      "type": "boolean",
+      "default": true,
+      "description": "When the seed URL is a site root, parse robots.txt for Sitemap: directives"
+    },
+    "PARSE_SITEMAP_URLS_FALLBACK_PATHS": {
+      "type": "array",
+      "default": [
+        "/sitemap.xml",
+        "/sitemap_index.xml",
+        "/sitemap-index.xml",
+        "/wp-sitemap.xml",
+        "/sitemap.xml.gz"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "description": "Fallback sitemap paths to probe when no robots.txt sitemap was found"
+    },
+    "PARSE_SITEMAP_URLS_HTTP_RETRIES": {
+      "type": "integer",
+      "default": 2,
+      "minimum": 0,
+      "description": "Number of times to retry transient HTTP failures (408, 429, 5xx, or network errors)"
+    },
+    "PARSE_SITEMAP_URLS_HTTP_BACKOFF_SECONDS": {
+      "type": "number",
+      "default": 1.0,
+      "minimum": 0,
+      "description": "Base delay for exponential backoff between retries"
+    },
+    "PARSE_SITEMAP_URLS_HTTP_MAX_REDIRECTS": {
+      "type": "integer",
+      "default": 5,
+      "minimum": 0,
+      "description": "Maximum HTTP redirects to follow per sitemap fetch (custom handler enforces this; rejects redirects to non-http(s) schemes and to private hosts unless ALLOW_PRIVATE_HOSTS is set)"
+    },
+    "PARSE_SITEMAP_URLS_MAX_RESPONSE_BYTES": {
+      "type": "integer",
+      "default": 52428800,
+      "minimum": 1024,
+      "description": "Maximum on-the-wire response size, in bytes (default 50 MiB)"
+    },
+    "PARSE_SITEMAP_URLS_MAX_DECOMPRESSED_BYTES": {
+      "type": "integer",
+      "default": 209715200,
+      "minimum": 1024,
+      "description": "Maximum size after gzip decompression, in bytes (default 200 MiB)"
+    },
+    "PARSE_SITEMAP_URLS_GZIP_MAX_RATIO": {
+      "type": "integer",
+      "default": 100,
+      "minimum": 0,
+      "description": "Maximum decompressed/compressed ratio. Sitemaps with a larger ratio are rejected as bombs. 0 disables the check."
+    },
+    "PARSE_SITEMAP_URLS_ALLOW_PRIVATE_HOSTS": {
+      "type": "boolean",
+      "default": false,
+      "description": "Allow fetches / redirects to private, loopback, link-local, or multicast addresses. Off by default to prevent SSRF via crafted sitemaps."
+    },
+    "PARSE_SITEMAP_URLS_ALLOW_FILE_URLS": {
+      "type": "boolean",
+      "default": false,
+      "description": "Allow file:// URLs in fetched sitemaps when the seed is not file://. Off by default; the seed is automatically permitted to be file:// for local testing."
+    },
+    "PARSE_SITEMAP_URLS_VERIFY_TLS": {
+      "type": "boolean",
+      "default": true,
+      "x-fallback": "CHECK_SSL_VALIDITY",
+      "description": "Verify TLS certificates on HTTPS sitemap fetches"
+    },
+    "PARSE_SITEMAP_URLS_ACCEPT_LANGUAGE": {
+      "type": "string",
+      "default": "",
+      "description": "Optional Accept-Language header value (empty = omit header)"
+    },
+    "PARSE_SITEMAP_URLS_EMIT_IMAGE_URLS": {
+      "type": "boolean",
+      "default": false,
+      "description": "Also emit URLs from <image:loc> elements (Sitemap image extension). Media URLs are filtered through the same scheme / host / regex pipeline as page URLs."
+    },
+    "PARSE_SITEMAP_URLS_EMIT_VIDEO_URLS": {
+      "type": "boolean",
+      "default": false,
+      "description": "Also emit URLs from <video:content_loc> and <video:player_loc> (Sitemap video extension). Subject to the same URL policy as page URLs."
+    },
+    "PARSE_SITEMAP_URLS_EMIT_NEWS_TAG": {
+      "type": "boolean",
+      "default": false,
+      "description": "Emit Tag records for values found in <news:publication><news:name> (Sitemap news extension)."
+    },
+    "PARSE_SITEMAP_URLS_PRIORITY_MIN": {
+      "type": "number",
+      "default": 0.0,
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Skip URLs whose <priority> is below this threshold. Entries without a <priority> tag pass through by default; set PARSE_SITEMAP_URLS_REQUIRE_PRIORITY=true to drop them instead. 0.0 disables the filter."
+    },
+    "PARSE_SITEMAP_URLS_REQUIRE_PRIORITY": {
+      "type": "boolean",
+      "default": false,
+      "description": "When PRIORITY_MIN > 0, also drop URLs that have no <priority> tag. Off by default — most real sitemaps omit <priority>."
+    },
+    "PARSE_SITEMAP_URLS_CHANGEFREQ_ALLOWED": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string",
+        "enum": [
+          "always",
+          "hourly",
+          "daily",
+          "weekly",
+          "monthly",
+          "yearly",
+          "never"
+        ]
+      },
+      "description": "If non-empty, only emit URLs whose <changefreq> appears in this list"
+    },
+    "PARSE_SITEMAP_URLS_SORT_BY": {
+      "type": "string",
+      "default": "url",
+      "enum": [
+        "url",
+        "lastmod",
+        "priority",
+        "order"
+      ],
+      "description": "Output ordering: url (alpha), lastmod (newest first), priority (highest first), or order (preserve sitemap order)"
+    },
+    "PARSE_SITEMAP_URLS_VERBOSE": {
+      "type": "boolean",
+      "default": false,
+      "description": "Emit per-sitemap diagnostic lines to stderr"
+    }
+  }
+}
