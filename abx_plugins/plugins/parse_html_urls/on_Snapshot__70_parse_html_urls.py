@@ -27,7 +27,6 @@ from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
-    get_extra_context,
     iter_staticfile_text_inputs,
     load_config,
     read_file_url_text,
@@ -373,9 +372,6 @@ def main(
     depth: int = 0,
 ):
     """Parse HTML and extract href URLs."""
-    extra_context = get_extra_context()
-    if "snapshot_depth" in extra_context:
-        depth = int(extra_context["snapshot_depth"])
     urls_found = set()
     source_paths = tuple(iter_html_source_paths())
     root_url = resolve_root_url(url)

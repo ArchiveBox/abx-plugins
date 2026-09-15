@@ -300,7 +300,7 @@ def run_hook(
     Args:
         hook_script: Path to the hook script
         url: URL to process
-        snapshot_id: Snapshot ID (optional, use None to rely on EXTRA_CONTEXT)
+        snapshot_id: Explicit snapshot ID input (omit only if the hook does not need it)
         cwd: Working directory (default: current dir)
         env: Environment dict (default: os.environ copy)
         timeout: Timeout in seconds

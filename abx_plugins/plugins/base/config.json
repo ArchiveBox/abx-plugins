@@ -62,7 +62,7 @@
     "EXTRA_CONTEXT": {
       "type": "string",
       "default": "",
-      "description": "JSON object merged into emitted JSONL event records",
+      "description": "Opaque correlation fields reflected unchanged into emitted JSONL records. Hooks must never inspect this object or use it as input; use CLI args or files for required data.",
       "x-scope": "crawl_execution"
     },
     "TIMEOUT": {

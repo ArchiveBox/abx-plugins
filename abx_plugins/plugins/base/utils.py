@@ -1109,7 +1109,8 @@ def _parse_extra_context(raw: str, source: str) -> dict[str, Any]:
     return parsed
 
 
-def get_extra_context() -> dict[str, Any]:
+def _get_extra_context() -> dict[str, Any]:
+    """Opaque output-record reflection only; hooks must not inspect this data."""
     context: dict[str, Any] = {}
 
     env_raw = (os.environ.get("EXTRA_CONTEXT") or "").strip()
@@ -1137,7 +1138,7 @@ def get_extra_context() -> dict[str, Any]:
 
 
 def merge_EXTRA_CONTEXT(record: dict[str, Any]) -> dict[str, Any]:
-    extra_context = get_extra_context()
+    extra_context = _get_extra_context()
     if not extra_context:
         return record
     return {**extra_context, **record}

@@ -40,6 +40,14 @@ Hooks run with:
 
 ### Key environment variables
 
+`EXTRA_CONTEXT` is an opaque JSON object used only by shared output emitters to
+reflect correlation fields unchanged into JSONL records. Hooks must never read,
+branch on, or extract values from it, including IDs. Required inputs belong in
+explicit CLI arguments (e.g. `--snapshot-id`, `--depth`, `--url`) or filesystem
+data. Unbounded archived content such as titles and tags belongs in files, not
+environment variables or shell commands. Sonic reads snapshot metadata from
+`SNAP_DIR/index.jsonl`; archived title text is available in `title/title.txt`.
+
 - `SNAP_DIR` - base snapshot directory (default: `.`)
 - `CRAWL_DIR` - base crawl directory (default: `.`)
 - `ABXPKG_LIB_DIR` - binaries/tools root (default: `~/.config/abx/lib`)
@@ -164,7 +172,7 @@ from abx_plugins.plugins.base.testing import (
 ```
 
 - `parse_jsonl_output(stdout)` — extract first matching JSONL record from hook stdout
-- `run_hook(hook_script, url, snapshot_id=None)` — run a hook subprocess with standard args, optionally relying on `EXTRA_CONTEXT` for snapshot metadata
+- `run_hook(hook_script, url, snapshot_id=None)` — run a hook subprocess with explicit URL and optional snapshot ID arguments
 - `get_hook_script(plugin_dir, pattern)` — find hook script by glob pattern
 
 > **Note:** Use `sys.path.append()` (not `insert(0, ...)`) because the `ssl/` plugin directory would shadow Python's stdlib `ssl` module.

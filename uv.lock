@@ -47,6 +47,7 @@ dev = [
     { name = "pytest-timeout" },
     { name = "requests" },
     { name = "ruff" },
+    { name = "sonic-client" },
     { name = "ty" },
     { name = "websockets" },
 ]
@@ -81,6 +82,7 @@ dev = [
     { name = "pytest-timeout", specifier = ">=2.3.1" },
     { name = "requests", specifier = ">=2.28.0" },
     { name = "ruff", specifier = ">=0.15.2" },
+    { name = "sonic-client", specifier = ">=1.0.0" },
     { name = "ty", specifier = ">=0.0.18" },
     { name = "websockets", specifier = ">=15" },
 ]
@@ -770,6 +772,15 @@ name = "sgmllib3k"
 version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/9e/bd/3704a8c3e0942d711c1299ebf7b9091930adae6675d7c8f476a7ce48653c/sgmllib3k-1.0.0.tar.gz", hash = "sha256:7868fb1c8bfa764c1ac563d3cf369c381d1325d36124933a726f29fcdaa812e9", size = 5750, upload-time = "2010-08-24T14:33:52.445Z" }
+
+[[package]]
+name = "sonic-client"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/29/47/5c356456e5dc3ba3f52d88a6b4d0661bdbe44a6a2340b3ca04005504c8ab/sonic-client-1.0.0.tar.gz", hash = "sha256:fe324c7354670488ed84847f6a6727d3cb5fb3675cb9b61396dcf5720e5aca66", size = 8645, upload-time = "2023-06-01T13:41:16.354Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9d/12/e98f8533a5c5b28271be79b38e0648a69e4068907568a435276532bb2871/sonic_client-1.0.0-py3-none-any.whl", hash = "sha256:291bf292861e97a2dd765ff0c8754ea9631383680d31a63ec3da6f5aa5f4beda", size = 8440, upload-time = "2023-06-01T13:41:14.504Z" },
+]
 
 [[package]]
 name = "termcolor"

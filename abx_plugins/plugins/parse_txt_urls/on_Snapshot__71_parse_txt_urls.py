@@ -25,7 +25,6 @@ from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
-    get_extra_context,
     iter_staticfile_text_inputs,
     load_config,
     read_file_url_text,
@@ -200,9 +199,6 @@ def main(
 ):
     """Parse plain text and extract URLs."""
     urls_file = get_output_file()
-    extra_context = get_extra_context()
-    if "snapshot_depth" in extra_context:
-        depth = int(extra_context["snapshot_depth"])
     urls_found = set()
     source_paths = iter_staticfile_text_inputs()
     print(f"parsing {len(source_paths) if source_paths else 1} files for urls...")

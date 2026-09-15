@@ -22,11 +22,11 @@ import argparse
 import os
 import re
 import sqlite3
+import hashlib
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
-    get_extra_context,
 )
 from abx_plugins.plugins.search_backend_sqlite.search import load_sqlite_config
 
@@ -169,6 +169,11 @@ def sync_source_symlinks(contents: list[tuple[str, str, Path]]) -> list[Path]:
     links: list[Path] = []
     for source_id, _content, source_path in contents:
         link_name = source_id.replace("/", "__")
+        # Flattening valid nested paths can exceed a filesystem's 255-byte
+        # filename limit. Keep ordinary names stable and hash only long ones.
+        if len(os.fsencode(link_name)) > 255:
+            source_hash = hashlib.sha256(os.fsencode(source_id)).hexdigest()
+            link_name = f"source-{source_hash}{source_path.suffix}"
         link_path = OUTPUT_DIR / link_name
         if link_path.exists() or link_path.is_symlink():
             link_path.unlink()
@@ -218,17 +223,15 @@ def index_in_sqlite(snapshot_id: str, url: str, title: str, texts: list[str]) ->
         conn.close()
 
 
-def get_snapshot_id_from_context() -> str:
-    extra_context = get_extra_context()
-    return str(
-        extra_context.get("snapshot_id") or extra_context.get("id") or "",
-    ).strip()
-
-
 def main() -> None:
     """Index snapshot content in SQLite FTS5."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", required=True, help="URL that was archived")
+    parser.add_argument(
+        "--snapshot-id",
+        default="",
+        help="Snapshot identifier to index",
+    )
     args, _unknown_args = parser.parse_known_args()
     url = args.url
 
@@ -247,9 +250,9 @@ def main() -> None:
             output_str = "SEARCH_BACKEND_SQLITE_ENABLED=False"
         else:
             print("SQLite indexing started", flush=True)
-            snapshot_id = get_snapshot_id_from_context()
+            snapshot_id = args.snapshot_id
             if not snapshot_id:
-                raise RuntimeError("missing snapshot_id in extra context")
+                raise RuntimeError("missing --snapshot-id")
 
             contents = find_indexable_content()
 

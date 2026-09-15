@@ -675,7 +675,6 @@ module.exports = {
   getEnvBool,
   getEnvInt,
   getEnvArray,
-  getExtraContext,
   getSnapDir,
   getCrawlDir,
   getLibDir,

@@ -530,8 +530,8 @@ class TestClaudeCodeCleanupPlugin:
             assert result is not None, f"Expected JSONL output, got: {stdout}"
             assert result["status"] == "skipped"
 
-    def test_hook_reads_snapshot_id_from_extra_context_when_cli_flag_missing(self):
-        """Hook should not require --snapshot-id when EXTRA_CONTEXT provides it."""
+    def test_disabled_hook_only_reflects_extra_context_without_snapshot_id_input(self):
+        """A disabled hook needs no ID input and still reflects correlation fields."""
         with tempfile.TemporaryDirectory() as tmpdir:
             snap_dir = Path(tmpdir) / "snap"
             snap_dir.mkdir()
@@ -557,6 +557,7 @@ class TestClaudeCodeCleanupPlugin:
             result = parse_jsonl_output(stdout)
             assert result is not None, f"Expected JSONL output, got: {stdout}"
             assert result["status"] == "skipped"
+            assert result["snapshot_id"] == "ctx-snapshot"
 
     def test_hook_fails_without_api_key(self):
         """Hook should fail when no Claude Code credential is set."""

@@ -26,7 +26,6 @@ const {
   ensureNodeModuleResolution,
   getEnvBool,
   getEnvInt,
-  getExtraContext,
   loadConfig,
   parseArgs,
   emitArchiveResultRecord,
@@ -228,8 +227,7 @@ async function extractOutlinks(url, depth, timeoutMs) {
 async function main() {
   const args = parseArgs();
   const url = args.url;
-  const extraContext = getExtraContext();
-  const depthValue = args.depth ?? extraContext.snapshot_depth ?? 0;
+  const depthValue = args.depth ?? 0;
   const depth = parseInt(String(depthValue), 10) || 0;
 
   if (!url) {

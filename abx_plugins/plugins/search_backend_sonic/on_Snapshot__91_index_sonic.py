@@ -19,6 +19,7 @@ Environment variables:
 """
 
 import sys
+import json
 import argparse
 import os
 import re
@@ -28,7 +29,6 @@ from typing import Any
 
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
-    get_extra_context,
 )
 from abx_plugins.plugins.search_backend_sonic.daemon import (
     is_sonic_backend_enabled,
@@ -163,17 +163,26 @@ def _metadata_values(raw_value: Any, *, split_tags: bool = False) -> list[str]:
 
 def build_metadata_content(
     url: str,
-    extra_context: dict[str, Any] | None = None,
+    snapshot_id: str,
 ) -> str:
-    """Build always-indexed Snapshot metadata text for Sonic."""
-    context = extra_context or get_extra_context()
+    """Read archived metadata from the snapshot manifest, never process config."""
+    metadata = {}
+    index_path = SNAP_DIR / "index.jsonl"
+    if index_path.is_file():
+        with index_path.open(encoding="utf-8") as index:
+            for line in index:
+                if not line.strip():
+                    continue
+                record = json.loads(line)
+                if (
+                    record.get("type") == "Snapshot"
+                    and str(record.get("id")) == snapshot_id
+                ):
+                    metadata.update(record)
     values = [
-        *_metadata_values(context.get("snapshot_url") or context.get("url") or url),
-        *_metadata_values(context.get("snapshot_title") or context.get("title")),
-        *_metadata_values(
-            context.get("snapshot_tags") or context.get("tags"),
-            split_tags=True,
-        ),
+        *_metadata_values(url),
+        *_metadata_values(metadata.get("title")),
+        *_metadata_values(metadata.get("tags"), split_tags=True),
     ]
     return "\n".join(dict.fromkeys(values))
 
@@ -213,17 +222,15 @@ def index_in_sonic(snapshot_id: str, texts: list[str], config: Any) -> None:
             )
 
 
-def get_snapshot_id_from_context() -> str:
-    extra_context = get_extra_context()
-    return str(
-        extra_context.get("snapshot_id") or extra_context.get("id") or "",
-    ).strip()
-
-
 def main() -> None:
     """Index snapshot content in Sonic."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", required=True, help="URL that was archived")
+    parser.add_argument(
+        "--snapshot-id",
+        default="",
+        help="Snapshot identifier to index",
+    )
     args, _unknown_args = parser.parse_known_args()
 
     status = "failed"
@@ -243,12 +250,12 @@ def main() -> None:
             output_str = "SEARCH_BACKEND_SONIC_ENABLED=False"
         else:
             print("Sonic indexing started", flush=True)
-            snapshot_id = get_snapshot_id_from_context()
+            snapshot_id = args.snapshot_id
             if not snapshot_id:
-                raise RuntimeError("missing snapshot_id in extra context")
+                raise RuntimeError("missing --snapshot-id")
 
             contents = []
-            metadata_content = build_metadata_content(args.url)
+            metadata_content = build_metadata_content(args.url, snapshot_id)
             if metadata_content:
                 contents.append(("metadata", metadata_content))
             contents.extend(find_indexable_content())

@@ -33,7 +33,6 @@ import rich_click as click
 # Add parent directory to path for imports
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
-    get_extra_context,
     load_config,
 )
 from abx_plugins.plugins.claudecode.claudecode_utils import (
@@ -94,14 +93,12 @@ DELETION_PLAN_SCHEMA: dict[str, object] = {
 @click.option(
     "--snapshot-id",
     default="",
-    help="Snapshot UUID override from EXTRA_CONTEXT (rarely needed)",
+    help="Snapshot UUID for the cleanup/extraction task",
 )
 def main(url: str, snapshot_id: str):
     """Clean up redundant snapshot outputs using Claude Code AI agent."""
 
     try:
-        snapshot_id = snapshot_id or str(get_extra_context().get("snapshot_id") or "")
-
         # Check if enabled
         if not CONFIG.CLAUDECODECLEANUP_ENABLED:
             print(
