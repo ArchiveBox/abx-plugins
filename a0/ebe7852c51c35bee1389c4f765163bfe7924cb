@@ -1,0 +1,38 @@
+experiments/tlsnotary/benchmark.cjs
+  s_52f2bda5505456::t_4e1311635d340e 50,90
+  s_52f2bda5505456::t_e89a030f8663ba 8,54-89
+  s_52f2bda5505456::t_300e9c46ba059e 5-7
+  s_52f2bda5505456::t_eb0df26a9f70ed 9-11,47-49
+  s_52f2bda5505456::t_90147fc7a70692 51-53
+  s_52f2bda5505456::t_5c5e367844882a 91-93
+experiments/tlsnotary/verifier-config.yaml
+  s_52f2bda5505456::t_494132924399dc 1-2
+experiments/tlsnotary/compose.yaml
+  s_52f2bda5505456::t_494132924399dc 1-18
+experiments/tlsnotary/evidence/cabbage-events.log
+  s_ffefb637465167::t_ef5493673607e4 1-65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a0ebe7852c51c35bee1389c4f765163bfe7924cb",
+  "prompts": {},
+  "sessions": {
+    "s_52f2bda5505456": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a091f5-a5f0-70d3-a06d-259a10de24c2",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_ffefb637465167": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07a32-a857-7453-a522-512c1140b8a1",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
