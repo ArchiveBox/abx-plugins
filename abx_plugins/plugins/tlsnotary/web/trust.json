@@ -1,0 +1,6 @@
+{
+  "name": "ArchiveBox public TLSNotary",
+  "public_key": "03a3aa6f5cd35f0950bf73594744d9086612bcb04119e5834c0dd6f44265d1c04d",
+  "protocol": "tlsn 0.1.0-alpha.15",
+  "source_revision": "47aee45b53e06648c1b2ad3689b367b8c923fdec"
+}

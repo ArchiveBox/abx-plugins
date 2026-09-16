@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 process.env.PERSONAS_DIR = path.resolve(process.env.RESULT_DIR || path.join(__dirname, 'results'), 'personas');
 process.env.ACTIVE_PERSONA = `tlsnotary-benchmark-${Date.now()}`;
-const chrome = require('../../abx_plugins/plugins/chrome/chrome_utils.js');
+const chrome = require('../../chrome/chrome_utils.js');
 const puppeteer = require(process.env.PUPPETEER_PATH || path.join(process.env.NODE_MODULES_DIR, 'puppeteer'));
 const output = path.resolve(process.env.RESULT_DIR || path.join(__dirname, 'results'));
 fs.mkdirSync(output, {recursive: true});

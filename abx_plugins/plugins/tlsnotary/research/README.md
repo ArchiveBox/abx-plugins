@@ -1,3 +1,7 @@
+> Historical extension experiment: the REVEAL benchmark uses public test content
+> and discloses it to the demo verifier. It is not the private capture implementation.
+> See the parent README for the commitment-only prototype and current limitations.
+
 # TLSNotary feasibility experiment — 2026-09-16
 
 TLSNotary can be loaded using the existing ArchiveBox extension infrastructure.
@@ -178,7 +182,7 @@ TLSN_EXTENSION_PATH=/tmp/abx-tlsn-extension/packages/extension/build \
 TLSN_VERIFIER_URL=http://127.0.0.1:17148 \
 RESULT_DIR=/tmp/tlsnotary-benchmark \
 INCLUDE_LARGE=1 MODES=Mpc,Proxy \
-node experiments/tlsnotary/benchmark.cjs
+node abx_plugins/plugins/tlsnotary/research/benchmark.cjs
 ```
 
 `CHROME_BINARY` overrides the Canary default. `MODES`, `TRIALS`, `IDLE_ONLY` and
