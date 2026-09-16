@@ -1,0 +1,49 @@
+abx_plugins/plugins/tlsnotary/tests/test_verification.py
+  s_044c52c0270663::t_b49ddfe0478fa7 1-94
+abx_plugins/plugins/tlsnotary/.gitignore
+  s_044c52c0270663::t_edef5194e10392 1-5
+abx_plugins/plugins/tlsnotary/research/README.md
+  s_044c52c0270663::t_6c17955678bc60 1-4,185
+abx_plugins/plugins/tlsnotary/runtime/src/lib.rs
+  s_044c52c0270663::t_6cba9c272d9030 1-199
+abx_plugins/plugins/tlsnotary/README.md
+  s_044c52c0270663::t_6173dedf0fcd96 1-127
+abx_plugins/plugins/tlsnotary/on_CrawlSetup__80_tlsnotary_prepare.py
+  s_044c52c0270663::t_c3778eb40a4ee3 1-37
+abx_plugins/plugins/tlsnotary/web/style.css
+  s_ffefb637465167::t_791640faa7e3ce 1
+abx_plugins/plugins/tlsnotary/tests/test_artifacts_cli.py
+  s_044c52c0270663::t_5474a3ffdf814d 1-69
+abx_plugins/plugins/tlsnotary/research/benchmark.cjs
+  s_044c52c0270663::t_935888ae18bd51 10
+abx_plugins/plugins/tlsnotary/on_Snapshot__95_tlsnotary.py
+  s_044c52c0270663::t_308a84055a21b1 1-90
+abx_plugins/plugins/tlsnotary/web/worker.js
+  s_ffefb637465167::t_77e47f5d6fa992 1-7
+abx_plugins/plugins/tlsnotary/server/cloudflared.yaml
+  s_044c52c0270663::t_a224a0e968ccd5 1-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "290524978b7e934ae356e4cecc561896cf01b5ba",
+  "prompts": {},
+  "sessions": {
+    "s_044c52c0270663": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0aad5-4c89-7f13-80b0-e718bbd3b43f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_ffefb637465167": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07a32-a857-7453-a522-512c1140b8a1",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
