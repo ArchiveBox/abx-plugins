@@ -184,6 +184,41 @@ def test_singlefile_cli_archives_example_com(tmp_path):
         singlefile_output_dir = snapshot_chrome_dir.parent / "singlefile"
         singlefile_output_dir.mkdir(parents=True, exist_ok=True)
 
+        # A reload would lose runtime state, including authenticated/interactive
+        # page content. Observe the real document across the actual capture hook.
+        document_probe = f"""
+const chromeUtils = require({json.dumps(str(CHROME_UTILS))});
+(async () => {{
+    const {{ browser, page }} = await chromeUtils.connectToPage({{
+        chromeSessionDir: {json.dumps(str(snapshot_chrome_dir))},
+        requireTargetId: true,
+        waitForNavigationComplete: true,
+    }});
+    try {{
+        const state = await page.evaluate((initialize) => {{
+            if (initialize) {{
+                const marker = document.createElement('p');
+                marker.id = 'archivebox-singlefile-live-state';
+                marker.textContent = 'ArchiveBox preserves the already loaded document';
+                document.body.append(marker);
+            }}
+            return {{ timeOrigin: performance.timeOrigin,
+                marker: document.getElementById('archivebox-singlefile-live-state')?.textContent }};
+        }}, process.argv[1] === 'initialize');
+        process.stdout.write(JSON.stringify(state));
+    }} finally {{ await browser.disconnect(); }}
+}})().catch(error => {{ console.error(error); process.exit(1); }});
+"""
+        before = subprocess.run(
+            [env["NODE_BINARY"], "-e", document_probe, "initialize"],
+            cwd=singlefile_output_dir,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30,
+        )
+        assert before.returncode == 0, before.stderr
+
         result = subprocess.run(
             [
                 str(SNAPSHOT_HOOK),
@@ -194,6 +229,19 @@ def test_singlefile_cli_archives_example_com(tmp_path):
             text=True,
             env=env,
             timeout=120,
+        )
+
+        after = subprocess.run(
+            [env["NODE_BINARY"], "-e", document_probe, "observe"],
+            cwd=singlefile_output_dir,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30,
+        )
+        assert after.returncode == 0, after.stderr
+        assert json.loads(after.stdout) == json.loads(before.stdout), (
+            "SingleFile reloaded the snapshot tab"
         )
 
     assert result.returncode == 0, f"Hook execution failed: {result.stderr}"
@@ -209,6 +257,11 @@ def test_singlefile_cli_archives_example_com(tmp_path):
         "Output should contain HTML doctype or html tag"
     )
     assert "Example Domain" in html_content, "Output should contain example.com content"
+    # The observer is a separate, initially active extension tab. A toolbar
+    # action must still save the original snapshot, never the observer page.
+    assert "url: https://example.com/" in html_content
+    assert "Autosave offscreen document" not in html_content
+    assert "ArchiveBox preserves the already loaded document" in html_content
 
 
 def test_singlefile_with_chrome_session(tmp_path):

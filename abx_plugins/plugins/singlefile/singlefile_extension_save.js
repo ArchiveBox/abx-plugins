@@ -6,7 +6,7 @@
  *
  * Chrome publishes the snapshot CDP target in target_id.txt. This helper maps
  * that exact target to one chrome.tabs id inside SingleFile's service worker,
- * dispatches the extension action to that tab, and moves its uniquely named
+ * dispatches the extension action to that tab, and moves its correlated
  * download from the browser-owned download directory into this snapshot.
  */
 
@@ -144,7 +144,6 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
 
   const outputPath =
     options.outputPath || path.join(SNAPSHOT_OUTPUT_DIR, "singlefile.html");
-  const requestedFilename = `archivebox-singlefile-${process.pid}-${Date.now()}.html`;
   await fs.promises.mkdir(CHROME_DOWNLOADS_DIR, { recursive: true });
 
   const timeoutMs = options.timeoutMs || getSinglefileDownloadWaitTimeoutMs();
@@ -157,11 +156,19 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     await helperPage.goto(
       `chrome-extension://${extension.id}${SERVICE_WORKER_WAKE_PATH}`
     );
+    // Use Chrome's actual toolbar action. Importing SingleFile's source modules
+    // bypasses its bundled entrypoint and breaks bare imports in current releases.
+    // Register download listeners first; a small page can finish immediately.
+    const installed = (await page.browser().extensions()).get(extension.id);
+    if (!installed) throw new Error("SingleFile is no longer installed in this browser");
+    await helperPage.exposeFunction("archiveboxStartCapture", async () => {
+      // Chrome actions target the selected tab. Select the exact saved CDP page;
+      // opening the observer page above otherwise leaves that helper selected.
+      await page.bringToFront();
+      await page.triggerExtensionAction(installed);
+    });
     downloadedPath = await helperPage.evaluate(
-      async ({ exactTab, expectedFilename, timeoutMs }) => {
-        const business = await import(
-          chrome.runtime.getURL("src/core/bg/business.js")
-        );
+      async ({ exactTab, timeoutMs }) => {
         return await new Promise((resolve, reject) => {
           let downloadUrl = null;
           const cleanup = () => {
@@ -207,7 +214,12 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
           };
           const timer = setTimeout(() => {
             cleanup();
-            business.cancel(exactTab.id);
+            // Cancel only this tab's capture through the running extension,
+            // without importing another copy of its background modules.
+            chrome.runtime.sendMessage({ method: "downloads.getInfo" })
+              .then(tasks => Promise.all(tasks.filter(task => task.tabId === exactTab.id)
+                .map(task => chrome.runtime.sendMessage({ method: "downloads.cancel", taskId: task.id }))))
+              .catch(error => console.error("SingleFile cancellation failed:", error));
             reject(
               new Error(
                 `SingleFile download for tab ${exactTab.id} did not complete within ${timeoutMs}ms`
@@ -216,15 +228,13 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
           }, timeoutMs);
           chrome.downloads.onChanged.addListener(onChanged);
           chrome.runtime.onMessage.addListener(onMessage);
-          business.saveTabs([exactTab], {
-            filenameTemplate: expectedFilename,
-          }).catch((error) => {
+          window.archiveboxStartCapture().catch((error) => {
             cleanup();
             reject(error);
           });
         });
       },
-      { exactTab: tab, expectedFilename: requestedFilename, timeoutMs }
+      { exactTab: tab, timeoutMs }
     );
   } finally {
     await helperPage.close({ runBeforeUnload: false }).catch(() => {});
