@@ -1829,6 +1829,37 @@ abx-dl 'https://example.com'</code></pre>
         });
       };
 
+      // Resolve descriptive names against the current gallery: numeric prefixes can change.
+      let screenshotGallery;
+      const loadScreenshots = async (container) => {
+        const images = container.querySelectorAll("[data-screenshot-src]");
+        if (!images.length) return;
+        const galleryUrl = "https://archivebox.io/screenshots/";
+        const imageName = (url) => new URL(url, galleryUrl).pathname.split("/").pop().replace(/^\d+-/, "");
+        try {
+          screenshotGallery ??= fetch(galleryUrl).then((response) => {
+            if (!response.ok) throw new Error("Screenshot gallery unavailable");
+            return response.text();
+          }).then((html) => {
+            const gallery = new DOMParser().parseFromString(html, "text/html");
+            return new Map(Array.from(gallery.querySelectorAll("img[src]"), (img) => {
+              const url = new URL(img.getAttribute("src"), galleryUrl);
+              return [imageName(url), url.href];
+            }));
+          });
+          const screenshots = await screenshotGallery;
+          images.forEach((img) => {
+            const url = screenshots.get(imageName(img.dataset.screenshotSrc));
+            if (!url) { img.closest("a").remove(); return; }
+            img.addEventListener("error", () => img.closest("a").remove());
+            img.closest("a").href = url;
+            img.src = url;
+          });
+        } catch {
+          images.forEach((img) => img.closest("a").remove());
+        }
+      };
+
       const openModal = (card) => {
         const body = card.querySelector(".plugin-body");
         const title = card.querySelector("h2");
@@ -1840,10 +1871,7 @@ abx-dl 'https://example.com'</code></pre>
 
         modalTitle.textContent = title ? title.textContent : card.id;
         modalBody.innerHTML = body.innerHTML;
-        modalBody.querySelectorAll("[data-screenshot-src]").forEach((img) => {
-          img.src = img.dataset.screenshotSrc;
-          img.addEventListener("error", () => img.closest("a").remove());
-        });
+        loadScreenshots(modalBody);
         modalBody.querySelectorAll("[data-run-tabs]").forEach(initRunTabs);
         highlightAllShell(modalBody);
         modalEl.showModal();

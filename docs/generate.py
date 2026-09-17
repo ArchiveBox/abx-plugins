@@ -29,7 +29,7 @@ LANGUAGE_NAMES = {
 }
 HOOK_PHASES = ("Crawl", "Snapshot")
 
-# Stable filenames hotlink the latest published images; no cross-repo build dependency.
+# Descriptive filenames are resolved in the live gallery, ignoring numeric prefixes.
 # Each plugin can have multiple feature views, each with all three breakpoints.
 PLUGIN_SCREENSHOTS = {
     "singlefile": [("46-snapshot-view-singlefile", "Snapshot view")],
