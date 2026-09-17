@@ -1,6 +1,9 @@
 > Historical extension experiment: the REVEAL benchmark uses public test content
 > and discloses it to the demo verifier. It is not the private capture implementation.
-> See the parent README for the commitment-only prototype and current limitations.
+> The [current source audit](EXTENSION_API_AUDIT.md) supersedes the design proposals
+> below, including the proposal to duplicate the transcript in a proof artifact.
+> The official HASH example and verifier webhook attestation pattern are the
+> integration baseline. The native prototype is not the final implementation.
 
 # TLSNotary feasibility experiment — 2026-09-16
 

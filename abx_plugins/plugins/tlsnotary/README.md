@@ -1,7 +1,20 @@
-# TLSNotary (experimental, disabled by default)
+# TLSNotary (draft, disabled by default)
 
-**Status: experimental, disabled by default.** Captures and offline verification work
-through abx-dl. Public capacity is limited to two simultaneous 48 KiB captures.
+**The requested browser-extension plugin is not finished.** This branch still
+contains an earlier native prototype. Its tests and captures do not establish
+authenticated Chrome-profile capture, compact artifacts without duplicated
+response bytes, or end-to-end acceptance of the extension integration.
+
+The official extension is the integration baseline. It already supports browser
+authentication, private hash commitments, and an application attestation pattern
+through verifier webhooks. The remaining public-API export boundary is documented
+in [the source audit](research/EXTENSION_API_AUDIT.md), including a successful
+installation of the unmodified release through `chromewebstore`.
+
+## Earlier native prototype (superseded implementation)
+
+The native prototype's recorded captures and offline verification ran through
+abx-dl. Its public capacity was limited to two simultaneous 48 KiB captures.
 Large responses are explicitly labelled prefixes; no complete-page claim is made
 for a partial capture. The static verifier is https://tlsnotary.zervice.io/.
 The intended alias is tlsnotary.archivebox.io (CNAME to tlsnotary.zervice.io); that
@@ -48,7 +61,7 @@ build `runtime/Cargo.toml` yourself and set `TLSNOTARY_BINARY` to the executable
 ```bash
 TLSNOTARY_ENABLED=true TLSNOTARY_NOTARY_URL=wss://your-notary.example/notarize \
   TLSNOTARY_TRUSTED_KEY=YOUR_INDEPENDENTLY_TRUSTED_PUBLIC_KEY \
-  uv run abx-dl --plugins=tlsnotary \
+  uv run abx-dl dl --plugins=tlsnotary \
   --dir=./capture 'https://news.ycombinator.com/'
 ```
 
