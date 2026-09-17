@@ -1,0 +1,18 @@
+abx_plugins/plugins/pdf/templates/full.html
+  h_923c208e183a7b 1-4,6
+abx_plugins/plugins/singlefile/singlefile_extension_save.js
+  h_923c208e183a7b 9,159-169,171,217-222,231,237
+abx_plugins/plugins/singlefile/tests/test_singlefile.py
+  h_923c208e183a7b 187-221,234-246,260-264
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "74a5340e62f01f95b153d8e11d392f68584c8a7a",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
