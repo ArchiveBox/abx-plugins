@@ -112,7 +112,7 @@ important: a compromised website could replace its verifier code or trust anchor
 
 ## Service deployment
 
-Build the native binary for the server architecture, copy it beside `server/compose.yaml`
+Build the native binary for the server architecture, copy it beside `server/docker-compose.yml`
 as `abx-tlsnotary`, and copy built `web/` beside it. On Linux use a native release build;
 on macOS the tested cross-build uses `cargo-zigbuild` targeting
 `x86_64-unknown-linux-gnu.2.28`. The runtime image contains no compiler.
@@ -123,7 +123,19 @@ Use `abx-tlsnotary public-key state/signing.key` to publish the compressed publi
 and configure clients' trust anchors explicitly. Preserve/back up the key securely;
 rotation changes which captures a single pinned-key verifier accepts.
 
-`docker compose up -d --build` starts the notary and static web reverse proxy, bound only
+After preparing the binary, built web files and signing key above, run from the plugin directory:
+
+```bash
+cd server
+docker compose up -d --build
+docker compose logs -f notary web
+```
+
+Open http://localhost:7049 for the verification UI. The same endpoint exposes
+`ws://localhost:7049/notarize` for prover connections. Compose automatically discovers
+`docker-compose.yml`; no `-f` argument is needed.
+
+This starts the notary and static web reverse proxy, bound only
 to loopback ports 7048 and 7049. The nginx configuration serves the local verification UI and proxies `/notarize`. Admission is
 limited to two concurrent sessions, with immediate 503 overload responses and a 180s
 whole-session timeout. MPC response/request budgets are checked before acceptance.
