@@ -1,0 +1,40 @@
+abx_plugins/plugins/tlsnotary/on_CrawlSetup__80_tlsnotary_prepare.py
+  h_923c208e183a7b 28-40
+abx_plugins/plugins/tlsnotary/on_Snapshot__95_tlsnotary.js
+  h_923c208e183a7b 115-116
+abx_plugins/plugins/tlsnotary/server/Dockerfile
+  h_923c208e183a7b 7
+abx_plugins/plugins/tlsnotary/server/README.md
+  h_923c208e183a7b 10-11
+abx_plugins/plugins/tlsnotary/server/server.mjs
+  h_923c208e183a7b 160-180,218-223
+abx_plugins/plugins/tlsnotary/server/web/app.mjs
+  h_923c208e183a7b 6-8,12-16,19,43,49-50,55,58-66,68-72,76,78,87-88,91-92
+abx_plugins/plugins/tlsnotary/server/web/index.html
+  h_923c208e183a7b 2
+abx_plugins/plugins/tlsnotary/server/web/verify.mjs
+  h_923c208e183a7b 125,127,154-170,201
+abx_plugins/plugins/tlsnotary/templates/full.html
+  h_923c208e183a7b 2
+abx_plugins/plugins/tlsnotary/templates/icon.html
+  h_923c208e183a7b 1
+abx_plugins/plugins/tlsnotary/tests/RESULTS.md
+  h_923c208e183a7b 44,47-48,93-95,98,130-145
+abx_plugins/plugins/tlsnotary/tests/check_admission.mjs
+  h_923c208e183a7b 1-2,7,9-31,33-41,43-51,53-132,134-135
+abx_plugins/plugins/tlsnotary/tests/check_capture.mjs
+  h_923c208e183a7b 1,7,14-66,68-93
+abx_plugins/plugins/tlsnotary/tests/check_parallel.mjs
+  h_923c208e183a7b 1,17-25,27-30,32-73,75-140,142-160
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ea8e84e7c8dd78c8a99d82067b2b9629382c58a9",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
