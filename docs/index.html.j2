@@ -532,19 +532,19 @@
       }
 
       .plugin-body > * + * {
-        margin-top: var(--ab-s-5);
+        margin-top: 12px;
       }
 
       .plugin-screenshots {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 12px;
       }
 
       .plugin-screenshots img {
         display: block;
         width: 100%;
-        height: 180px;
+        height: 120px;
         object-fit: contain;
         object-position: top;
       }
@@ -839,9 +839,7 @@
       }
 
       .plugin-modal-header-left {
-        display: flex;
-        align-items: center;
-        gap: 0;
+        flex: 1;
         min-width: 0;
       }
 
@@ -864,9 +862,33 @@
         background: var(--ab-bg-sunken);
       }
 
-      .plugin-modal .plugin-body {
-        max-height: calc(100dvh - 120px);
-        overflow-y: auto;
+      .plugin-modal[open] { display: flex; flex-direction: column; }
+      .plugin-modal-header { flex-shrink: 0; padding: 12px 16px; gap: 12px; }
+      .plugin-modal-header h2 { font-size: 24px; }
+      .plugin-modal-description { font-size: 13px; color: var(--ab-fg-muted); }
+      .plugin-modal-close { flex-shrink: 0; }
+      .plugin-modal .plugin-body { min-height: 0; overflow-y: auto; padding: 12px 16px; }
+      .plugin-modal .plugin-info-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+      .plugin-modal .plugin-info-card { padding: 10px; min-width: 0; }
+      .plugin-modal .plugin-info-card > span { margin-bottom: 6px; }
+      .plugin-modal .pill-list { gap: 4px; }
+      .plugin-modal .chip { max-width: 100%; flex-wrap: wrap; overflow-wrap: anywhere; }
+      .plugin-modal .chip--binary { gap: 2px 6px; }
+      .plugin-modal .chip--binary small { flex-basis: 100%; min-width: 0; }
+      .plugin-modal .pill-list + span { margin-top: 10px; }
+      .plugin-modal .hook-list { gap: 8px; }
+      .plugin-modal .hook-card { padding: 0; border: 0; }
+      .plugin-modal .hook-card-file { margin-bottom: 4px; overflow-wrap: anywhere; }
+      .plugin-modal .hook-card-chips { gap: 4px; }
+      .plugin-modal .empty-state { padding: 0; font-size: 13px; }
+      .plugin-modal .run-tab-panel { padding: 10px 12px; }
+      .plugin-modal .section-title { font-size: 18px; }
+      .plugin-modal .config-table th, .plugin-modal .config-table td { padding: 8px; }
+      @media (max-width: 640px) {
+        .plugin-modal .plugin-info-grid { grid-template-columns: 1fr; }
+        .plugin-modal-header { flex-wrap: wrap; }
+        .plugin-modal-header-left { flex-basis: calc(100% - 130px); }
+        .plugin-screenshots img { height: 85px; }
       }
 
       .ab-terminal code,
@@ -1216,43 +1238,41 @@ abx-dl 'https://example.com'</code></pre>
               </summary>
 
               <div class="plugin-body">
-                {% if plugin.description %}
-                <p class="plugin-modal-description">{{ plugin.description }}</p>
-                {% endif %}
-
-                <div class="actions">
-                  <a class="ab-btn ab-btn--sm" href="{{ plugin.source_url }}" target="_blank" rel="noreferrer">Source on GitHub</a>
+                <p class="plugin-modal-description" hidden>{{ plugin.description }}</p>
+                <a class="plugin-source" href="{{ plugin.source_url }}" hidden>GitHub</a>
+                <div class="run-tabs" data-run-tabs>
+                  <div class="run-tabs-bar">
+                    <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
+                    <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
+                  </div>
+                  <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>{{ plugin.commands.abx_dl }}</code></pre>
+                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>{{ plugin.commands.archivebox }}</code></pre>
                 </div>
+                {% if plugin.commands.note %}<p class="note">{{ plugin.commands.note }}</p>{% endif %}
 
                 {% if plugin.screenshots %}
-                <h3 class="section-title">Screenshots</h3>
                 <div class="plugin-screenshots">
                   {% for filename, feature in plugin.screenshots %}
                   {% for breakpoint in ["desktop", "tablet", "mobile"] %}
                   <a href="https://archivebox.io/screenshots/{{ filename }}-{{ breakpoint }}.png" target="_blank" rel="noreferrer">
                     <img data-screenshot-src="https://archivebox.io/screenshots/{{ filename }}-{{ breakpoint }}.png" alt="{{ plugin.display_title }} — {{ feature }} ({{ breakpoint }})" loading="lazy" decoding="async">
-                    <span>{{ feature }} · {{ breakpoint | capitalize }}</span>
                   </a>
                   {% endfor %}
                   {% endfor %}
                 </div>
                 {% endif %}
 
-                {% if plugin.required_plugins or plugin.required_binaries or plugin.output_mimetypes %}
-                <h3 class="section-title">Dependencies &amp; Outputs</h3>
                 <div class="plugin-info-grid">
-                  {% if plugin.required_plugins %}
                   <article class="plugin-info-card">
+                  {% if plugin.required_plugins %}
                     <span>Required Plugins</span>
                     <div class="pill-list">
                       {% for item in plugin.required_plugins %}
                       <a href="#{{ item }}" class="chip chip--link">{{ item }}</a>
                       {% endfor %}
                     </div>
-                  </article>
                   {% endif %}
                   {% if plugin.required_binaries %}
-                  <article class="plugin-info-card">
                     <span>Required Binaries</span>
                     <div class="pill-list">
                       {% for item in plugin.required_binaries %}
@@ -1265,77 +1285,67 @@ abx-dl 'https://example.com'</code></pre>
                       </span>
                       {% endfor %}
                     </div>
-                  </article>
                   {% endif %}
-                  {% if plugin.output_mimetypes %}
+                    {% if not plugin.required_plugins and not plugin.required_binaries %}<span>Dependencies</span><p class="note">None</p>{% endif %}
+                  </article>
+                  <article class="plugin-info-card">
+                    <span>Hook Scripts</span>
+                    {% if plugin.hooks %}
+                    <div class="hook-list">
+                      {% for hook in plugin.hooks %}
+                      <article class="hook-card">
+                        <span class="hook-card-file"><a href="{{ hook.source_url }}" target="_blank" rel="noreferrer">{{ hook.filename }}</a></span>
+                        <div class="hook-card-chips">
+                          {% if hook.language_code == "py" %}
+                          <span class="plugin-language plugin-language--python" title="Python">
+                            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+                              <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
+                              <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
+                              <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
+                              <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
+                            </svg>
+                          </span>
+                          {% elif hook.language_code == "js" %}
+                          <span class="plugin-language plugin-language--javascript" title="JavaScript">
+                            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                              <rect x="4.5" y="4.5" width="15" height="15" rx="2.5" fill="currentColor" opacity="0.2"></rect>
+                              <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
+                            </svg>
+                          </span>
+                          {% endif %}
+                          {% if hook.order is not none %}
+                          <span class="chip">order {{ "%02d"|format(hook.order) }}</span>
+                          {% endif %}
+                          {% if hook.is_background %}
+                          <span class="chip {{ 'chip--bg-daemon' if hook.is_daemon else 'chip--bg-finite' }}">background ({{ "daemon" if hook.is_daemon else "finite" }})</span>
+                          {% else %}
+                          <span class="chip chip--fg">foreground</span>
+                          {% endif %}
+                          <span class="hook-card-phase">{{ hook.phase }}</span>
+                        </div>
+                      </article>
+                      {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-state">No hook scripts.</div>
+                    {% endif %}
+
+                  </article>
                   <article class="plugin-info-card">
                     <span>Output Mimetypes</span>
                     <div class="pill-list">
                       {% for item in plugin.output_mimetypes %}
                       <span class="chip chip--mime chip--mime-{{ item.css_class }}">{{ item.label }}</span>
+                      {% else %}
+                      <span class="note">None</span>
                       {% endfor %}
                     </div>
                   </article>
-                  {% endif %}
                 </div>
-                {% endif %}
 
-                <h3 class="section-title">Run It</h3>
-                <div class="run-tabs" data-run-tabs>
-                  <div class="run-tabs-bar">
-                    <button type="button" class="run-tab active" data-run-tab="abx-dl">Run with <code>abx-dl</code></button>
-                    <button type="button" class="run-tab" data-run-tab="archivebox">Run with <code>archivebox</code></button>
-                  </div>
-                  <pre class="run-tab-panel active" data-run-panel="abx-dl"><code data-highlight-shell>{{ plugin.commands.abx_dl }}</code></pre>
-                  <pre class="run-tab-panel" data-run-panel="archivebox"><code data-highlight-shell>{{ plugin.commands.archivebox }}</code></pre>
-                </div>
-                <p class="note">{{ plugin.commands.note }}</p>
-
-                <h3 class="section-title">Hook Scripts</h3>
-                {% if plugin.hooks %}
-                <div class="hook-list">
-                  {% for hook in plugin.hooks %}
-                  <article class="hook-card">
-                    <span class="hook-card-file"><a href="{{ hook.source_url }}" target="_blank" rel="noreferrer">{{ hook.filename }}</a></span>
-                    <div class="hook-card-chips">
-                      {% if hook.language_code == "py" %}
-                      <span class="plugin-language plugin-language--python" title="Python">
-                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
-                          <path d="M12 3c-4.4 0-4.1 1.9-4.1 1.9v2h4.2v.6H6.2S3 7.1 3 12c0 4.9 2.8 4.7 2.8 4.7h1.7v-2.4s-.1-2.8 2.7-2.8h4.6s2.6 0 2.6-2.6V4.6S17.8 3 12 3Z" fill="currentColor" opacity="0.92"></path>
-                          <path d="M12 21c4.4 0 4.1-1.9 4.1-1.9v-2h-4.2v-.6h5.9S21 16.9 21 12c0-4.9-2.8-4.7-2.8-4.7h-1.7v2.4s.1 2.8-2.7 2.8h-4.6S6.6 12.5 6.6 15v4.4S6.2 21 12 21Z" fill="currentColor" opacity="0.6"></path>
-                          <circle cx="9.3" cy="5.6" r="1" fill="#fff"></circle>
-                          <circle cx="14.7" cy="18.4" r="1" fill="#fff"></circle>
-                        </svg>
-                      </span>
-                      {% elif hook.language_code == "js" %}
-                      <span class="plugin-language plugin-language--javascript" title="JavaScript">
-                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                          <rect x="4.5" y="4.5" width="15" height="15" rx="2.5" fill="currentColor" opacity="0.2"></rect>
-                          <path d="M10.3 8.1v6.4c0 2-1 3.4-3.1 3.4-1.7 0-2.7-.9-3.2-2l1.7-1c.3.6.6 1.1 1.4 1.1.7 0 1.1-.3 1.1-1.5V8.1h2.1Zm7.1 1.7c-.4-.7-1-.9-1.7-.9-.7 0-1.4.3-1.4 1 0 .7.5 1 1.8 1.4 1.8.6 3 1.3 3 3.3 0 2.1-1.7 3.3-3.9 3.3-2 0-3.2-.8-4-2.1l1.7-1.2c.5.8 1.1 1.4 2.2 1.4.9 0 1.6-.4 1.6-1.1 0-.8-.6-1-2-1.5-1.7-.6-2.8-1.3-2.8-3.2 0-1.9 1.6-3.1 3.7-3.1 1.4 0 2.5.4 3.3 1.6l-1.5 1.1Z" fill="currentColor"></path>
-                        </svg>
-                      </span>
-                      {% endif %}
-                      {% if hook.order is not none %}
-                      <span class="chip">order {{ "%02d"|format(hook.order) }}</span>
-                      {% endif %}
-                      {% if hook.is_background %}
-                      <span class="chip {{ 'chip--bg-daemon' if hook.is_daemon else 'chip--bg-finite' }}">background ({{ "daemon" if hook.is_daemon else "finite" }})</span>
-                      {% else %}
-                      <span class="chip chip--fg">foreground</span>
-                      {% endif %}
-                      <span class="hook-card-phase">{{ hook.phase }}</span>
-                    </div>
-                  </article>
-                  {% endfor %}
-                </div>
-                {% else %}
-                <div class="empty-state">No hook scripts are defined in this plugin directory.</div>
-                {% endif %}
-
-                <h3 class="section-title">Env Var Config Options</h3>
                 {% if plugin.has_config %}
                 <div class="config-table-wrap">
-                  <table class="ab-table config-table">
+                  <table class="ab-table config-table" aria-label="Environment variable configuration options">
                     <colgroup>
                       <col class="col-key">
                       <col class="col-default">
@@ -1589,7 +1599,9 @@ abx-dl 'https://example.com'</code></pre>
       <div class="plugin-modal-header">
         <div class="plugin-modal-header-left">
           <h2 id="plugin-modal-title"></h2>
+          <p class="plugin-modal-description" id="plugin-modal-description"></p>
         </div>
+        <a class="ab-btn ab-btn--sm" id="plugin-modal-source" target="_blank" rel="noreferrer">GitHub</a>
         <button type="button" class="plugin-modal-close" id="plugin-modal-close" aria-label="Close">&times;</button>
       </div>
       <div class="plugin-body" id="plugin-modal-body"></div>
@@ -1844,7 +1856,11 @@ abx-dl 'https://example.com'</code></pre>
             const gallery = new DOMParser().parseFromString(html, "text/html");
             return new Map(Array.from(gallery.querySelectorAll("img[src]"), (img) => {
               const url = new URL(img.getAttribute("src"), galleryUrl);
-              return [imageName(url), url.href];
+              const section = img.closest("article");
+              const heading = section?.querySelector("h2");
+              const anchor = section?.id || heading?.id;
+              const link = anchor ? `${galleryUrl}#${anchor}` : `${galleryUrl}#:~:text=${encodeURIComponent(heading?.textContent || img.alt)}`;
+              return [imageName(url), {src: url.href, link}];
             }));
           });
           const screenshots = await screenshotGallery;
@@ -1852,8 +1868,8 @@ abx-dl 'https://example.com'</code></pre>
             const url = screenshots.get(imageName(img.dataset.screenshotSrc));
             if (!url) { img.closest("a").remove(); return; }
             img.addEventListener("error", () => img.closest("a").remove());
-            img.closest("a").href = url;
-            img.src = url;
+            img.closest("a").href = url.link;
+            img.src = url.src;
           });
         } catch {
           images.forEach((img) => img.closest("a").remove());
@@ -1870,7 +1886,11 @@ abx-dl 'https://example.com'</code></pre>
         card.classList.add("modal-active");
 
         modalTitle.textContent = title ? title.textContent : card.id;
+        document.getElementById("plugin-modal-description").textContent = body.querySelector(".plugin-modal-description").textContent;
+        document.getElementById("plugin-modal-source").href = body.querySelector(".plugin-source").href;
         modalBody.innerHTML = body.innerHTML;
+        modalBody.querySelector(".plugin-modal-description").remove();
+        modalBody.querySelector(".plugin-source").remove();
         loadScreenshots(modalBody);
         modalBody.querySelectorAll("[data-run-tabs]").forEach(initRunTabs);
         highlightAllShell(modalBody);
