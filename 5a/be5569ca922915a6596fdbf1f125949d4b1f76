@@ -1,0 +1,18 @@
+docs/generate.py
+  h_923c208e183a7b 32
+docs/index.html
+  h_923c208e183a7b 10915-10945,10957
+docs/index.html.j2
+  h_923c208e183a7b 1832-1862,1874
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5abe5569ca922915a6596fdbf1f125949d4b1f76",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
