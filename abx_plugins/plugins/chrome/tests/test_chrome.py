@@ -371,6 +371,32 @@ def _install_test_extension(extensions_dir: Path, env: dict[str, str]) -> dict:
     return cache_data
 
 
+def test_cached_extension_respects_plugin_selection_and_enabled_config(tmp_path):
+    env = _isolated_test_env(str(tmp_path))
+    extensions_dir = Path(get_extensions_dir(env=env))
+    cached = _install_test_extension(extensions_dir, env)
+    script = "const u=require(process.argv[1]); console.log(JSON.stringify(u.loadInstalledExtensionsFromCache(process.argv[2]).installedExtensions.map(e=>e.name)));"
+
+    def loaded_names(overrides):
+        result = subprocess.run(
+            [env["NODE_BINARY"], "-e", script, str(CHROME_UTILS), str(extensions_dir)],
+            env=env | overrides,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        assert result.returncode == 0, result.stderr
+        return json.loads(result.stdout)
+
+    assert cached["name"] == "ublock"
+    assert loaded_names({"PLUGINS": "title,screenshot"}) == []
+    assert loaded_names({"PLUGINS": "title,ublock", "UBLOCK_ENABLED": "true"}) == [
+        "ublock",
+    ]
+    assert loaded_names({"PLUGINS": "title,ublock", "UBLOCK_ENABLED": "false"}) == []
+    assert loaded_names({"PLUGINS": "", "UBLOCK_ENABLED": "true"}) == ["ublock"]
+
+
 def _probe_current_snapshot_page(chrome_session_dir: Path, env: dict) -> dict:
     base_utils = CHROME_UTILS.parent.parent / "base" / "utils.js"
     script = """
