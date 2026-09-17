@@ -1,0 +1,26 @@
+abx_plugins/plugins/tlsnotary/on_CrawlSetup__80_tlsnotary_prepare.py
+  h_923c208e183a7b 7-8,38-45
+abx_plugins/plugins/tlsnotary/server/web/app.mjs
+  h_923c208e183a7b 66
+abx_plugins/plugins/tlsnotary/server/web/verify.mjs
+  h_923c208e183a7b 155-157,163
+abx_plugins/plugins/tlsnotary/tests/RESULTS.md
+  h_923c208e183a7b 93-94,98-99,147-151
+abx_plugins/plugins/tlsnotary/tests/check_admission.mjs
+  h_923c208e183a7b 22,43-122,125,133-150,153,156,158-159,161,165
+abx_plugins/plugins/tlsnotary/tests/check_capture.mjs
+  h_923c208e183a7b 87-91
+abx_plugins/plugins/tlsnotary/tests/check_parallel.mjs
+  h_923c208e183a7b 2,15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "87ba2ba47a51014596fbae9404dffe3069a7fd69",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
