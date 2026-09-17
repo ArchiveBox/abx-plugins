@@ -1,11 +1,8 @@
 import test from "node:test";
-// Two real Docker captures plus a third public admission request. Node 22+.
+// Two real Docker captures against a dedicated idle service. Node 22+.
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import http from "node:http";
-import https from "node:https";
-import { randomBytes } from "node:crypto";
 import assert from "node:assert/strict";
 import { verifyReceipt, TRUSTED_PUBLIC_KEY } from "../server/web/verify.mjs";
 
@@ -15,7 +12,7 @@ assert(
   "Usage: node check_parallel.mjs SERVICE_URL IMAGE NEW_OUTPUT_DIR"
 );
 await test(
-  "two real captures overlap and reject a third admission",
+  "two real captures overlap and verify independently",
   { timeout: 240000 },
   async () => {
     const base = new URL(process.env.TLSNOTARY_TEST_CONTROL_URL || service);
@@ -38,7 +35,6 @@ await test(
         ).json()
       ).active;
     assert.equal(await health(), 0, "Run against an idle, dedicated service");
-    const completed = [];
     const jobs = urls.map((url, i) => {
       const dir = path.join(root, String(i));
       fs.mkdirSync(dir);
@@ -67,7 +63,6 @@ await test(
       return new Promise((resolve, reject) => {
         child.on("error", reject);
         child.on("exit", (code) => {
-          completed.push(i);
           resolve(code);
         });
       });
@@ -86,40 +81,6 @@ await test(
         if (maxActive < 2)
           await new Promise((resolve) => setTimeout(resolve, 100));
       }
-      assert.equal(completed.length, 0, "Both captures must still be running");
-      assert.equal(await health(), 2, "Both sessions must still be admitted");
-      const status = await new Promise((resolve, reject) => {
-        const request = (base.protocol === "https:" ? https : http).request(
-          new URL("/session", base),
-          {
-            headers: {
-              Connection: "Upgrade",
-              Upgrade: "websocket",
-              "Sec-WebSocket-Version": "13",
-              "Sec-WebSocket-Key": randomBytes(16).toString("base64"),
-            },
-          },
-          (response) => {
-            response.resume();
-            resolve(response.statusCode);
-          }
-        );
-        request.setTimeout(5000, () =>
-          request.destroy(Error("Admission deadline exceeded"))
-        );
-        request.on("upgrade", (_, socket) => {
-          socket.destroy();
-          resolve(101);
-        });
-        request.on("error", reject);
-        request.end();
-      });
-      assert.equal(status, 503);
-      assert.equal(
-        await health(),
-        2,
-        "Admission probe must overlap both sessions"
-      );
       const exits = await Promise.all(jobs);
       assert.deepEqual(exits, [0, 0]);
       for (let i = 0; i < urls.length; i++) {
@@ -135,7 +96,6 @@ await test(
       console.log(
         JSON.stringify({
           maxActive,
-          thirdSessionStatus: status,
           exits,
           output: root,
         })

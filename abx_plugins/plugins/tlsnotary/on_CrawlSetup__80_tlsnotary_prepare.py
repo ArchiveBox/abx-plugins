@@ -4,6 +4,8 @@
 # ///
 """Prepare a crawl-local copy of the pinned extension with local proof export."""
 
+import errno
+import time
 import hashlib
 import tempfile
 import json
@@ -33,7 +35,14 @@ if config.TLSNOTARY_ENABLED:
                 lock.write(b"\0")
                 lock.flush()
             lock.seek(0)
-            msvcrt.locking(lock.fileno(), msvcrt.LK_LOCK, 1)
+            while True:
+                try:
+                    msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError as error:
+                    if error.errno not in (errno.EACCES, errno.EDEADLK):
+                        raise
+                    time.sleep(1)
         else:
             import fcntl
 

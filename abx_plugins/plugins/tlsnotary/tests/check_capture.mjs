@@ -84,6 +84,11 @@ await test("real HTTP capture accepts coding case and legal trailers", () => {
     "latin1"
   );
   assert.deepEqual(parseResponse(withTrailer).body, parsed.body);
+  const obsText = Buffer.from(
+    text.slice(0, -2) + "X-Archive-Test: byte-\xe9\r\n\r\n",
+    "latin1"
+  );
+  assert.deepEqual(parseResponse(obsText).body, parsed.body);
   const forbidden = Buffer.from(
     text.slice(0, -2) + "Content-Length: 0\r\n\r\n",
     "latin1"

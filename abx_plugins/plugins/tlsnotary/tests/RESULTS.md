@@ -90,12 +90,13 @@ Cabbage through Cloudflare. Both exited 0 and produced verifiable receipts; an
 actual third WebSocket upgrade received HTTP 503. The same test passed locally.
 
 ```bash
-# Use a dedicated idle server for reproducible admission assertions.
+# Use a dedicated idle server. This local command requires Docker Desktop.
+# On Linux, use a dedicated reachable HTTPS service URL instead.
 TLSNOTARY_TEST_CONTROL_URL=http://127.0.0.1:7047 \
 node abx_plugins/plugins/tlsnotary/tests/check_parallel.mjs http://host.docker.internal:7047 \
   archivebox/abx-dl:tlsnotary-test ./new-parallel-evidence
-# Run on an idle service; registers and closes a real upstream session.
-node abx_plugins/plugins/tlsnotary/tests/check_admission.mjs https://tlsnotary.zervice.io
+# Run on the same idle service; holds real upstream sessions for admission.
+node abx_plugins/plugins/tlsnotary/tests/check_admission.mjs http://127.0.0.1:7047
 ```
 
 The closed-session test first failed with HTTP 101 against the old gateway, then
@@ -143,3 +144,8 @@ a result for a newer selection. HTTP parsing checks use the real Hacker News
 fixture with coding-case and trailer variations; forbidden framing trailers and
 truncated trailers fail. Windows locking has a native msvcrt path but has not been
 runtime-tested on Windows.
+
+Admission checks hold two real registered control sessions until the third request
+returns 503; the separate parallel-capture check observes overlap and verifies both
+receipts. Separating these avoids racing a live capture finishing during the
+admission probe.

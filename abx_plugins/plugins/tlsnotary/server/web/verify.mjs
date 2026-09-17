@@ -152,13 +152,15 @@ export function parseResponse(bytes) {
       at = end + 2;
       if (size === 0) {
         // Trailer fields are authenticated bytes, but never alter framing.
-        const trailers = new TextDecoder().decode(body.slice(at));
+        const trailers = Array.from(body.slice(at), (byte) =>
+          String.fromCharCode(byte)
+        ).join("");
         requireValue(trailers.endsWith("\r\n"), "Incomplete response trailers");
         const fields = trailers.slice(0, -2).split("\r\n");
         requireValue(fields.pop() === "", "Incomplete response trailers");
         for (const field of fields) {
           requireValue(
-            /^[!#$%&'*+.^_`|~0-9a-z-]+:[\t\x20-\x7e]*$/i.test(field),
+            /^[!#$%&'*+.^_`|~0-9a-z-]+:[\t\x20-\x7e\x80-\xff]*$/i.test(field),
             "Invalid response trailer"
           );
           requireValue(

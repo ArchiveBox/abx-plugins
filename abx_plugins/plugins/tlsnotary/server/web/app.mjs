@@ -63,7 +63,7 @@ async function files(list) {
     );
   } catch (error) {
     if (current !== generation) return;
-    reset("Verification failed: " + error.message);
+    reset("Could not read capture files: " + error.message);
     status.className = "failed";
   }
 }
