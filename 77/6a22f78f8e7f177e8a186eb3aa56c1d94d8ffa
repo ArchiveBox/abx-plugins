@@ -1,0 +1,14 @@
+abx_plugins/plugins/tlsnotary/tests/RESULTS.md
+  h_923c208e183a7b 54-56,63-66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "776a22f78f8e7f177e8a186eb3aa56c1d94d8ffa",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
