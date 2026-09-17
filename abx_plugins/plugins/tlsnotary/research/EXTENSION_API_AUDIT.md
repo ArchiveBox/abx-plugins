@@ -3,7 +3,8 @@
 This audit supersedes claims that TLSNotary lacks portable attestations or that a
 new native prover is required. The official extension is the integration baseline.
 The existing native prototype is not acceptance evidence for authenticated browser
-capture. No custom extension/protocol patch is assumed by this audit.
+capture. The implementation now applies a narrow local-export and window-placement patch
+to the pinned extension bundle; its cryptographic protocol and WASM are unchanged.
 
 ## Sources and versions
 
@@ -30,8 +31,7 @@ uv run --project abx-dl abxpkg install tlsnotary \
 ```
 
 This verifies extension packaging only, not an end-to-end archiving flow. The
-tested provider is the dependency installed in the abx-dl environment. The local
-abxpkg checkout did not support the release URL/hash install arguments.
+tested provider is the dependency installed in the abx-dl environment. The current abxpkg provider supports the pinned release URL and hash arguments.
 
 ## Existing functionality to reuse
 
@@ -71,7 +71,7 @@ verifier: it uses disclosed fields and hashes the redacted transcript. Merely
 copying that transcript hash would not authenticate hidden response content.
 ArchiveBox does not need blockchain transactions to use the webhook pattern.
 
-## Exact unresolved export boundary
+## Export boundary and implemented integration
 
 In release `0.1.0.1501`, `packages/extension/src/offscreen/SessionManager.ts`
 obtains `openings` from `proveManager.reveal()`, logs them at debug level, then
@@ -90,8 +90,8 @@ export the openings or a signed receipt. This is a specific public-API boundary,
 not a claim that TLSNotary's protocol cannot authenticate origin or that its
 extension is broken. Debug-log scraping is not a supported export mechanism.
 
-Before changing upstream code, establish whether another supported export path
-provides these values. Signing can use the existing verifier webhook integration;
+The plugin returns these existing values to the local caller before cleanup.
+Signing uses the existing verifier webhook integration;
 the signer must only accept actual verified commitments from its trusted verifier,
 not arbitrary client-submitted hashes. The offline trust anchor must be obtained
 independently of the artifact being checked.
@@ -121,3 +121,14 @@ must likewise stay out of session metadata and REVEAL handlers.
 - Record latency, resource use and receipt size from that actual extension flow.
 
 The prior native benchmarks do not satisfy these extension acceptance checks.
+
+## Measured implementation constraints
+
+The stock verifier requires a nonempty redacted transcript. We reveal only the
+fixed HTTP/1.1 protocol marker and whitespace; the gateway rejects other
+disclosures. The full response uses ALL/SHA256. The local opening is 16 bytes.
+
+Uncompressed Hacker News exceeded the upstream MPC mux stream limit while hashing.
+Requesting normal gzip encoding reduced its authenticated HTTP response to about
+6 KB and completed successfully. No mux limit or cryptographic implementation was
+modified. Larger pages can still fail; see [acceptance results](../tests/RESULTS.md).

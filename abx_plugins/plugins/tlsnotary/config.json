@@ -1,11 +1,27 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "TLSNotary",
-  "description": "EXPERIMENTAL, opt-in. Opt-in private TLS notarization of the top-level HTTPS response, capped at 48 KiB by default; larger responses are explicitly labelled partial. Adds MPC computation and substantial network traffic, slowing archiving. A public notary corroborates encrypted traffic and signs commitments without receiving URL paths, query strings, cookies, or page content. Timing, traffic sizes and your IP remain visible; destination metadata may be observable. The saved artifact contains the URL and content: share it deliberately. No images, scripts, video streams or other subresources are notarized.",
+  "description": "Opt-in private TLSNotary browser-extension capture. Adds MPC computation, bandwidth and seconds or minutes to archiving. The public verifier sees destination hostname, sizes and timing, plus a fixed HTTP protocol marker, but receives no URL path/query, cookies or page content. A compact signed receipt authenticates the separately replayed main response saved by this plugin; other archive outputs are not automatically certified.",
   "type": "object",
   "additionalProperties": false,
-  "required_plugins": [],
-  "required_binaries": [],
+  "required_plugins": ["chrome"],
+  "required_binaries": [
+    {
+      "name": "tlsnotary",
+      "binproviders": "env,chromewebstore",
+      "min_version": null,
+      "overrides": {
+        "chromewebstore": {
+          "install_args": [
+            "gcfkkledipjbgdbimfpijgbkhajiaaph",
+            "--name=tlsnotary",
+            "--url=https://github.com/tlsnotary/tlsn-extension/releases/download/0.1.0.1501/extension-0.1.0.1501.zip",
+            "--sha256=1c312ad4305653b8d9351cf3eac46de4222a43be513260bf53053cfa1de45155"
+          ]
+        }
+      }
+    }
+  ],
   "output_mimetypes": [
     "application/vnd.archivebox.tlsnotary",
     "text/html",
@@ -17,47 +33,39 @@
     "TLSNOTARY_ENABLED": {
       "type": "boolean",
       "default": false,
-      "description": "Enable private MPC attestation; adds seconds or minutes, substantial bandwidth and several GB of client RAM per top-level HTTPS response."
+      "description": "Enable private extension proofs; significantly increases archiving time and bandwidth."
     },
-    "TLSNOTARY_NOTARY_URL": {
+    "TLSNOTARY_VERIFIER_URL": {
       "type": "string",
-      "default": "wss://tlsnotary.zervice.io/notarize",
-      "description": "Public bounded-capture endpoint. Self-hosters must run the matching plugin runtime; loopback WS is permitted for development."
+      "default": "https://tlsnotary.archivebox.io",
+      "description": "Verifier and signed-receipt service. HTTP is permitted only for local development."
     },
     "TLSNOTARY_TRUSTED_KEY": {
       "type": "string",
       "default": "",
-      "description": "Trusted secp256k1 public key in hex. Empty uses the bundled ArchiveBox key. Never trust a key merely because an artifact contains it."
-    },
-    "TLSNOTARY_BINARY": {
-      "type": "string",
-      "default": "",
-      "description": "Path to the plugin's abx-tlsnotary native binary; empty builds the bundled pinned Rust source in ABXPKG_LIB_DIR."
-    },
-    "TLSNOTARY_CARGO_BINARY": {
-      "type": "string",
-      "default": "cargo",
-      "description": "Cargo executable for source installation; requires Rust 1.95 or newer."
-    },
-    "TLSNOTARY_MAX_RECV_BYTES": {
-      "type": "integer",
-      "default": 49152,
-      "minimum": 16384,
-      "maximum": 524288,
-      "description": "MPC response budget including headers. Public ArchiveBox service permits 48 KiB per session; larger values require a separately provisioned notary."
+      "description": "Independently trusted Ed25519 public key (base64 SPKI); empty uses the bundled service key."
     },
     "TLSNOTARY_TIMEOUT": {
       "type": "integer",
       "default": 180,
-      "minimum": 1,
-      "description": "Maximum seconds per top-level notarization; no automatic retries."
+      "minimum": 5,
+      "maximum": 180,
+      "description": "Hard per-capture deadline in seconds; no retries or effect on other plugins."
     },
-    "TLSNOTARY_PREFIX_BYTES": {
+    "TLSNOTARY_MAX_RECV_BYTES": {
       "type": "integer",
-      "default": 49152,
-      "minimum": 0,
-      "maximum": 524288,
-      "description": "Bounded capture (48 KiB by default): 0 requires the complete response; otherwise use at least 32768 and at most TLSNOTARY_MAX_RECV_BYTES. Requests gzip encoding and stops at a complete TLS record boundary. The proof and verifier explicitly label incomplete responses. A byte prefix does not certify a video duration."
+      "default": 131072,
+      "minimum": 1024,
+      "maximum": 262144,
+      "description": "Maximum complete HTTP response bytes. Oversized pages fail explicitly; assets and video streams are excluded."
+    },
+    "TLSNOTARY_MAX_SENT_BYTES": {
+      "type": "integer",
+      "default": 4096,
+      "minimum": 512,
+      "maximum": 16384,
+      "description": "Maximum authenticated request bytes including Chrome cookies/headers."
     }
-  }
+  },
+  "x-install-in-docker": true
 }

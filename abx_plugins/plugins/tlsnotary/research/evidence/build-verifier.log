@@ -1,8 +1,0 @@
-   Compiling mpz-ole-core v0.1.0-alpha.6 (https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619)
-   Compiling mpz-ole v0.1.0-alpha.6 (https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619)
-   Compiling mpz-share-conversion-core v0.1.0-alpha.6 (https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619)
-   Compiling mpz-share-conversion v0.1.0-alpha.6 (https://github.com/privacy-ethereum/mpz?rev=v0.1.0-alpha.6#6ebfe619)
-   Compiling tlsn-key-exchange v0.1.0-alpha.15 (https://github.com/tlsnotary/tlsn.git?tag=v0.1.0-alpha.15#47aee45b)
-   Compiling tlsn-mpc-tls v0.1.0-alpha.15 (https://github.com/tlsnotary/tlsn.git?tag=v0.1.0-alpha.15#47aee45b)
-   Compiling tlsn-verifier-server v0.1.0 (/private/tmp/abx-tlsn-extension/servers/verifier)
-    Finished `release` profile [optimized] target(s) in 1m 15s

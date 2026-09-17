@@ -1,52 +1,48 @@
 services:
-  notary:
-    image: archivebox/tlsnotary:local
-    build:
-      context: .
-      dockerfile: Dockerfile.runtime
-    command: ["serve", "--bind", "0.0.0.0:7048", "--key-file", "/state/signing.key", "--concurrency", "2", "--max-recv", "49152", "--timeout", "180"]
-    volumes:
-      - ./state:/state:ro
-    ports:
-      - "127.0.0.1:7048:7048"
-    environment:
-      RAYON_NUM_THREADS: "2"
-      TOKIO_WORKER_THREADS: "2"
+  verifier:
+    platform: linux/amd64
+    image: ghcr.io/tlsnotary/tlsn-extension/demo-verifier-server@sha256:1240f4d63f2f92026be89cf208b6761ba6873959bb8d14a3e3f2fc26baf8483c
+    environment: { PORT: "7047" }
+    volumes: ["./verifier-config.yaml:/app/config.yaml:ro"]
+    networks: [private]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
     read_only: true
-    mem_limit: 4g
-    memswap_limit: 4g
+    mem_limit: 6g
     cpus: 2
+    pids_limit: 128
+    restart: unless-stopped
+    logging: { driver: none }
+  gateway:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    ports: ["127.0.0.1:7047:7047"]
+    volumes: ["${TLSNOTARY_STATE_DIR:-./state}:/state:ro"]
+    networks: [private, public]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    mem_limit: 256m
+    cpus: 1
     pids_limit: 64
     restart: unless-stopped
-    logging:
-      driver: json-file
-      options: {max-size: "5m", max-file: "2"}
-  web:
-    image: nginx:1.28-alpine
-    ports:
-      - "127.0.0.1:7049:8080"
-    volumes:
-      - ./web:/usr/share/nginx/html:ro
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-    tmpfs: [/var/cache/nginx, /var/run, /tmp]
-    read_only: true
-    mem_limit: 64m
-    restart: unless-stopped
-    depends_on: [notary]
-    logging:
-      driver: json-file
-      options: {max-size: "5m", max-file: "2"}
+    logging: { driver: json-file, options: { max-size: 5m, max-file: "2" } }
   cloudflared:
     image: cloudflare/cloudflared@sha256:12ff5c6992a9863db4da270746af7c244bcaee49353039af8104268a18d6c4f0
     profiles: [public]
-    command: ["tunnel", "--config", "/etc/cloudflared/config.yaml", "--no-autoupdate", "run"]
+    command:
+      [tunnel, --config, /etc/cloudflared/config.yaml, --no-autoupdate, run]
     volumes:
-      - ./cloudflared.yaml:/etc/cloudflared/config.yaml:ro
-      - ./cloudflared/credentials.json:/etc/cloudflared/credentials.json:ro
+      [
+        "./cloudflared.yaml:/etc/cloudflared/config.yaml:ro",
+        "./cloudflared/credentials.json:/etc/cloudflared/credentials.json:ro",
+      ]
+    networks: [public]
     read_only: true
     mem_limit: 128m
     restart: unless-stopped
-    depends_on: [web]
-    logging:
-      driver: json-file
-      options: {max-size: "5m", max-file: "2"}
+    depends_on: [gateway]
+networks:
+  private: { internal: true }
+  public: {}

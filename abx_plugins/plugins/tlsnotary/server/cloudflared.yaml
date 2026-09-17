@@ -3,7 +3,9 @@ credentials-file: /etc/cloudflared/credentials.json
 protocol: http2
 ingress:
   - hostname: tlsnotary.zervice.io
-    service: http://web:8080
+    service: http://gateway:7047
   - hostname: tlsnotary.archivebox.io
-    service: http://web:8080
+    service: http://gateway:7047
+  - hostname: verify.archivebox.io
+    service: http://gateway:7047
   - service: http_status:404

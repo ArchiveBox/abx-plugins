@@ -1,5 +1,0 @@
-# The deploy script cross-builds this binary from runtime/Cargo.lock before upload.
-FROM debian:bookworm-slim
-COPY abx-tlsnotary /usr/local/bin/abx-tlsnotary
-USER 65534:65534
-ENTRYPOINT ["/usr/local/bin/abx-tlsnotary"]
