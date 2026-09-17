@@ -156,28 +156,28 @@ app.on("upgrade", async (req, socket, head) => {
     const u = new URL(req.url, "http://localhost");
     if (u.pathname === "/session") {
       if (sessions.size >= maxSessions) return reject(socket, 503);
-      const placeholder = Symbol();
-      const session = {
-        sockets: new Set(),
-        id: null,
-        receiptId: null,
-        closed: false,
-        close() {
-          if (this.closed) return;
-          this.closed = true;
-          for (const s of this.sockets) s.terminate?.();
-          clearTimeout(this.timer);
-          clearTimeout(this.registrationTimer);
-          sessions.delete(placeholder);
-          if (this.id) setTimeout(() => byId.delete(this.id), 10000).unref();
-        },
-      };
-      sessions.set(placeholder, session);
-      session.timer = setTimeout(() => {
-        console.error("session deadline");
-        session.close();
-      }, lifetime);
       wsServer.handleUpgrade(req, socket, head, (client) => {
+        const placeholder = Symbol();
+        const session = {
+          sockets: new Set(),
+          id: null,
+          receiptId: null,
+          closed: false,
+          close() {
+            if (this.closed) return;
+            this.closed = true;
+            for (const s of this.sockets) s.terminate?.();
+            clearTimeout(this.timer);
+            clearTimeout(this.registrationTimer);
+            sessions.delete(placeholder);
+            if (this.id) setTimeout(() => byId.delete(this.id), 10000).unref();
+          },
+        };
+        sessions.set(placeholder, session);
+        session.timer = setTimeout(() => {
+          console.error("session deadline");
+          session.close();
+        }, lifetime);
         session.sockets.add(client);
         client.on("error", () => session.close());
         client.on("close", (code) => {
@@ -215,7 +215,12 @@ app.on("upgrade", async (req, socket, head) => {
             )
               throw Error();
             // Forward only the opaque receipt ID and mode, never client metadata.
-            registration.sessionData = { receiptId: d.receiptId, mode: "Mpc" };
+            registration = {
+              type: "register",
+              maxRecvData: registration.maxRecvData,
+              maxSentData: registration.maxSentData,
+              sessionData: { receiptId: d.receiptId, mode: "Mpc" },
+            };
           } catch {
             console.error("registration rejected");
             return session.close();

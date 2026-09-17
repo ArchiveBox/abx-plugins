@@ -122,9 +122,9 @@ export function parseResponse(bytes) {
     );
     headers.set(k, line.slice(i + 1).trim());
   }
+  const encoding = headers.get("content-encoding")?.toLowerCase();
   requireValue(
-    !headers.has("content-encoding") ||
-      ["identity", "gzip"].includes(headers.get("content-encoding")),
+    !encoding || ["identity", "gzip"].includes(encoding),
     "Unexpected compressed response"
   );
   let body = bytes.slice(split + 4);
@@ -151,10 +151,23 @@ export function parseResponse(bytes) {
       const size = Number.parseInt(sizeText, 16);
       at = end + 2;
       if (size === 0) {
-        requireValue(
-          at + 2 === body.length && body[at] === 13 && body[at + 1] === 10,
-          "Unsupported trailers or incomplete response"
-        );
+        // Trailer fields are authenticated bytes, but never alter framing.
+        const trailers = new TextDecoder().decode(body.slice(at));
+        requireValue(trailers.endsWith("\r\n"), "Incomplete response trailers");
+        const fields = trailers.slice(0, -2).split("\r\n");
+        requireValue(fields.pop() === "", "Incomplete response trailers");
+        for (const field of fields) {
+          requireValue(
+            /^[!#$%&'*+.^_`|~0-9a-z-]+:[\t\x20-\x7e]*$/i.test(field),
+            "Invalid response trailer"
+          );
+          requireValue(
+            !/^(content-length|transfer-encoding|content-encoding):/i.test(
+              field
+            ),
+            "Framing field in response trailer"
+          );
+        }
         break;
       }
       requireValue(
@@ -185,6 +198,6 @@ export function parseResponse(bytes) {
   return {
     status: Number(status[1]),
     body,
-    encoding: headers.get("content-encoding"),
+    encoding,
   };
 }

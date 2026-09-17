@@ -90,23 +90,11 @@ pre {
     margin-bottom: 10px;
   }
 }
-.compact main {
-  padding: 14px;
-}
 .compact h1,
 .compact .drop,
 .compact .note,
 .compact details {
   display: none;
-}
-.compact #status {
-  font-size: 13px;
-  padding: 9px;
-}
-.compact dl {
-  font-size: 12px;
-  grid-template-columns: 110px 1fr;
-  gap: 6px;
 }
 .compact dd:last-child,
 .compact dt:nth-last-child(2) {

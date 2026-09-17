@@ -4,7 +4,6 @@
 # ///
 """Prepare a crawl-local copy of the pinned extension with local proof export."""
 
-import fcntl
 import hashlib
 import tempfile
 import json
@@ -26,8 +25,19 @@ if config.TLSNOTARY_ENABLED:
         raise RuntimeError("TLSNotary export patch requires release 0.1.0.1501")
     destination = Path(config.PERSONAS_DIR) / ".tlsnotary" / "0.1.0.1501-export2"
     destination.parent.mkdir(parents=True, exist_ok=True)
-    with (destination.parent / "prepare.lock").open("w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+    with (destination.parent / "prepare.lock").open("a+b") as lock:
+        if os.name == "nt":
+            import msvcrt
+
+            if lock.seek(0, 2) == 0:
+                lock.write(b"\0")
+                lock.flush()
+            lock.seek(0)
+            msvcrt.locking(lock.fileno(), msvcrt.LK_LOCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(lock, fcntl.LOCK_EX)
         with tempfile.TemporaryDirectory(
             prefix=".prepare-",
             dir=destination.parent,
