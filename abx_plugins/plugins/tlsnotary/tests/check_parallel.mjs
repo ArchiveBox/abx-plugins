@@ -6,7 +6,7 @@ import http from "node:http";
 import https from "node:https";
 import { randomBytes } from "node:crypto";
 import assert from "node:assert/strict";
-import { verifyReceipt, TRUSTED_PUBLIC_KEY } from "../web/verify.mjs";
+import { verifyReceipt, TRUSTED_PUBLIC_KEY } from "../server/web/verify.mjs";
 
 const [service, image, output] = process.argv.slice(2);
 assert(

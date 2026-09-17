@@ -212,7 +212,7 @@ async function capture() {
   if (!receipt) throw new Error("Verifier did not issue a signed receipt");
   receipt.blinder = Buffer.from(opening.blinder).toString("base64");
   const { verifyReceipt, TRUSTED_PUBLIC_KEY } = await import(
-    "./web/verify.mjs"
+    "./server/web/verify.mjs"
   );
   const trustedKey = config.TLSNOTARY_TRUSTED_KEY || TRUSTED_PUBLIC_KEY;
   const verified = await verifyReceipt(receipt, response, trustedKey);
@@ -222,7 +222,7 @@ async function capture() {
   // bytes occur once, in response.http, never in receipt.json or metadata.json.
   if (stopped) throw new Error("Capture cancelled");
   const stage = fs.mkdtempSync(path.join(output, ".capture-"));
-  fs.cpSync(path.join(__dirname, "web"), stage, { recursive: true });
+  fs.cpSync(path.join(__dirname, "server/web"), stage, { recursive: true });
   fs.writeFileSync(path.join(stage, "response.http"), response);
   fs.writeFileSync(path.join(stage, "receipt.json"), JSON.stringify(receipt));
   const verifierCode = fs.readFileSync(path.join(stage, "verify.mjs"), "utf8");

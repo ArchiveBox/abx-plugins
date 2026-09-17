@@ -15,9 +15,9 @@ services:
     logging: { driver: none }
   gateway:
     build:
-      context: ..
-      dockerfile: server/Dockerfile
-    ports: ["127.0.0.1:7047:7047"]
+      context: .
+      dockerfile: Dockerfile
+    ports: ["127.0.0.1:${TLSNOTARY_PORT:-7047}:7047"]
     volumes: ["${TLSNOTARY_STATE_DIR:-./state}:/state:ro"]
     networks: [private, public]
     cap_drop: [ALL]

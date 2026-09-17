@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
-import { verifyReceipt } from "../web/verify.mjs";
+import { verifyReceipt } from "../server/web/verify.mjs";
 const dir = process.argv[2],
   trustedKey = process.argv[3];
 assert(

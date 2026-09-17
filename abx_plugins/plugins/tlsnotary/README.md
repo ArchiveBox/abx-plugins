@@ -15,10 +15,19 @@ byte budget fail explicitly. There is no prefix or video-duration claim.
 ## Install and capture
 
 ```bash
-uv run abx-dl install tlsnotary
-TLSNOTARY_ENABLED=true uv run abx-dl dl --plugins=title,screenshot,tlsnotary \
-  --dir=./capture 'https://news.ycombinator.com/'
+set -euo pipefail
+capture_dir="$(mktemp -d)"
+uv run --no-sync --exclude-newer-package abx-dl=2100-01-01 --with-editable . --with abx-dl==1.12.276 abx-dl install tlsnotary
+TLSNOTARY_ENABLED=true uv run --no-sync --exclude-newer-package abx-dl=2100-01-01 --with-editable . --with abx-dl==1.12.276 abx-dl dl \
+  --plugins=title,screenshot,tlsnotary --dir="$capture_dir" 'https://news.ycombinator.com/'
+node abx_plugins/plugins/tlsnotary/tests/check_capture.mjs \
+  "$capture_dir/tlsnotary/current" MCowBQYDK2VwAyEA0H35h4fS0zKwPykdHg5ST/w/Byeek4VGQBSsmKBsr+E=
 ```
+
+Run these source-checkout examples from the abx-plugins repository root. The
+temporary directory printed by abx-dl contains the capture; choose a persistent
+`--dir` for your archive. With an installed abx-dl environment, the equivalent
+capture command is `TLSNOTARY_ENABLED=true abx-dl dl --plugins=title,screenshot,tlsnotary URL`.
 
 `config.json` declares Chrome and the SHA-256-pinned official extension ZIP.
 The setup hook copies the extension into the persona's plugin cache and applies
@@ -55,14 +64,29 @@ nor an independent timestamp. Local archives can still contain sensitive data.
 
 ## Run the verifier
 
+The self-contained [server directory](server/README.md) includes Compose, example
+environment/tunnel configuration, and complete deployment instructions.
+
 ```bash
-mkdir -p /secure/tlsnotary-state
-openssl genpkey -algorithm ED25519 -out /secure/tlsnotary-state/signing.pem
-chmod 600 /secure/tlsnotary-state/signing.pem
-cd server
-TLSNOTARY_STATE_DIR=/secure/tlsnotary-state docker compose up -d --build
-curl http://127.0.0.1:7047/key
+set -euo pipefail
+export TLSNOTARY_STATE_DIR="$(mktemp -d)"
+export TLSNOTARY_PORT="${TLSNOTARY_PORT:-7047}"
+openssl genpkey -algorithm ED25519 -out "$TLSNOTARY_STATE_DIR/signing.pem"
+chmod 600 "$TLSNOTARY_STATE_DIR/signing.pem"
+cd abx_plugins/plugins/tlsnotary/server
+docker compose -p tlsnotary-example up -d --build
+deadline=$((SECONDS + 30))
+until curl -fsS "http://127.0.0.1:$TLSNOTARY_PORT/health"; do
+  (( SECONDS < deadline )) || exit 1
+  sleep 0.2
+done
+curl -fsS "http://127.0.0.1:$TLSNOTARY_PORT/key"
 ```
+
+Choose a durable `TLSNOTARY_STATE_DIR` for deployment; the example creates a new
+key in a temporary directory. Save that path before leaving the shell. The service
+continues running until `docker compose -p tlsnotary-example down` is called from
+the server directory with the same environment.
 
 Use that independently obtained `publicKey` as `TLSNOTARY_TRUSTED_KEY`; point
 `TLSNOTARY_VERIFIER_URL` at the HTTPS service. Loopback HTTP is allowed for local
@@ -89,17 +113,22 @@ screenshot outputs still succeeded. Large-response hashing remains constrained b
 the pinned upstream extension. This plugin does not certify video prefixes.
 
 The working public endpoint and verification UI are https://tlsnotary.zervice.io/.
-The prepared ingress also supports `tlsnotary.archivebox.io` and
-`verify.archivebox.io`, but their Cloudflare DNS aliases still need to point at
-`tlsnotary.zervice.io` before those names can be used.
+The `tlsnotary.archivebox.io` and `verify.archivebox.io` aliases still need
+Cloudflare DNS changes before they can be added to the ingress and used.
 
 For an offline check with Node 22+, obtain this plugin and its public key from an
 independently trusted source, then run (no network access is used):
 
 ```bash
-node tests/check_capture.mjs /path/to/snapshot/tlsnotary/current INDEPENDENTLY_TRUSTED_BASE64_SPKI_KEY
+set -euo pipefail
+node abx_plugins/plugins/tlsnotary/tests/check_capture.mjs \
+  abx_plugins/plugins/tlsnotary/tests/fixtures/hacker-news \
+  MCowBQYDK2VwAyEA0H35h4fS0zKwPykdHg5ST/w/Byeek4VGQBSsmKBsr+E=
 ```
 
+Replace the real public Hacker News fixture path with your snapshot's
+`tlsnotary/current` directory. Replace the key for a different trusted server.
+
 This checks the real signature and response and also asserts that five altered
-versions are rejected. The public key is pinned in `web/verify.mjs`; do not trust
+versions are rejected. The public key is pinned in `server/web/verify.mjs`; do not trust
 code or keys supplied only by the archive you are investigating.
